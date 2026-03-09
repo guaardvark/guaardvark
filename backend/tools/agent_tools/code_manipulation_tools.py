@@ -36,6 +36,34 @@ EDIT_CODE_FORBIDDEN_SEGMENTS = (
 )
 
 
+def _is_protected_file(filepath: str) -> tuple[bool, str | None]:
+    """Check if file is protected from autonomous modification."""
+    from backend.config import PROTECTED_FILES
+    normalized = filepath.replace("\\", "/")
+    for protected in PROTECTED_FILES:
+        if normalized.endswith(protected) or protected in normalized:
+            return True, (
+                f"BLOCKED: '{protected}' is protected by the kill switch architecture "
+                f"and cannot be modified by autonomous processes. "
+                f"Request a human to make this change."
+            )
+    return False, None
+
+
+def _is_codebase_locked() -> bool:
+    """Check if codebase is locked by user or Uncle Claude directive."""
+    import os
+    lock_file = os.path.join(os.environ.get("GUAARDVARK_ROOT", "."), "data", ".codebase_lock")
+    if os.path.exists(lock_file):
+        return True
+    try:
+        from backend.models import db, SystemSetting
+        setting = db.session.query(SystemSetting).filter_by(key="codebase_locked").first()
+        return setting and setting.value.lower() == "true"
+    except Exception:
+        return False
+
+
 def _is_edit_forbidden(filepath: str) -> tuple[bool, str | None]:
     """Return (True, reason) if filepath is in a forbidden location, else (False, None)."""
     if not filepath or not filepath.strip():
@@ -208,6 +236,23 @@ class EditCodeTool(BaseTool):
             return ToolResult(
                 success=False,
                 error="Missing required parameter: old_text"
+            )
+
+        # Kill switch: block all edits when codebase is locked
+        if _is_codebase_locked():
+            return ToolResult(
+                success=False,
+                error="BLOCKED: Codebase is locked. A user must unlock it before autonomous edits can proceed.",
+                metadata={"blocked_by": "kill_switch"}
+            )
+
+        # Kill switch: block edits to protected files
+        is_protected, protection_msg = _is_protected_file(filepath)
+        if is_protected:
+            return ToolResult(
+                success=False,
+                error=protection_msg,
+                metadata={"blocked_by": "protected_files"}
             )
 
         # Safety: block edits to restricted directories and sensitive files
