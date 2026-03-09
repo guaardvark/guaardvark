@@ -100,6 +100,7 @@ When generating content, use the appropriate tool based on the request scale and
             "codegen",
             "analyze_code",
             "generate_file",
+            "execute_python",
         ],
         system_prompt="""You are an advanced Code Assistant agent with Claude Code-like capabilities for autonomous code manipulation.
 

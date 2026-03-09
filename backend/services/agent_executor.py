@@ -336,9 +336,39 @@ class AgentExecutor:
             from backend.services.tool_execution_guard import ToolExecutionGuard
             self._guard = ToolExecutionGuard(max_failures_per_tool=2)
 
+            # Inject cross-session memory if available
+            memory_context = ""
+            try:
+                from backend.utils.memory_manager import MemoryManager
+                memory_mgr = MemoryManager()
+                smart_context = memory_mgr.get_smart_context(
+                    session_id=process_id or "self_improvement",
+                    messages=[{"role": "user", "content": user_query}],
+                    max_messages=5,
+                )
+                if smart_context:
+                    memory_items = [m.get("content", "")[:200] for m in smart_context if m.get("importance", 0) > 0.5]
+                    if memory_items:
+                        memory_context = "\n\nPrevious relevant learnings:\n" + "\n".join(f"- {item}" for item in memory_items)
+            except Exception as e:
+                logger.debug(f"Memory context not available: {e}")
+
+            if memory_context:
+                session_context = (session_context or "") + memory_context
+
             # Build system prompt with available tools
             tool_schemas = self.tool_registry.get_tool_schemas(format='json_prompt')
             system_prompt = self._build_system_prompt(tool_schemas, session_context)
+
+            # Apply honesty steering to prevent hallucinated fixes
+            try:
+                from backend.services.honesty_steering import HonestySteering
+                steering = HonestySteering()
+                honesty_prefix = steering.get_steering_prompt(intent="general", intensity="standard")
+                if honesty_prefix:
+                    system_prompt = honesty_prefix + "\n\n" + system_prompt
+            except Exception as e:
+                logger.debug(f"Honesty steering not available: {e}")
 
             # LLM Debug: log system prompt and user message
             log_system_prompt("agent_executor", system_prompt)

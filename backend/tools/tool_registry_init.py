@@ -474,6 +474,26 @@ def register_image_tools() -> List[str]:
     return registered
 
 
+def register_test_execution_tools() -> List[str]:
+    """Register sandboxed test execution for code_assistant agent."""
+    global _tool_categories
+    registered = []
+    category = "test_execution"
+    try:
+        from backend.tools.agent_tools.code_execution_tools import ExecutePythonTool
+        tool = ExecutePythonTool()
+        tool._sandboxed = True  # Flag for sandbox enforcement
+        register_tool(tool)
+        registered.append("execute_python")
+        _tool_categories["execute_python"] = category
+        logger.info("Registered sandboxed: ExecutePythonTool")
+    except ImportError as e:
+        logger.warning(f"Could not import code execution tools: {e}")
+    except Exception as e:
+        logger.error(f"Failed to register test execution tools: {e}")
+    return registered
+
+
 def initialize_all_tools() -> ToolRegistry:
     """
     Initialize and register all available tools.
@@ -504,6 +524,7 @@ def initialize_all_tools() -> ToolRegistry:
     _registered_tools.extend(register_rag_tools())
     _registered_tools.extend(register_media_tools())
     _registered_tools.extend(register_image_tools())
+    _registered_tools.extend(register_test_execution_tools())
 
     # Get the registry for status reporting
     registry = get_tool_registry()
