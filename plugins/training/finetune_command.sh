@@ -1,0 +1,1 @@
+python3 training/scripts/finetune_model.py train --base unsloth/Meta-Llama-3.1-8B-Instruct --data training/processed/training_corpus_20260115_234651.filtered.jsonl --name guaardvark-llama3.1-8b --steps 500 --batch 1 --seq 2048 --grad-acc 4

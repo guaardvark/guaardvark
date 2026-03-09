@@ -1,0 +1,3 @@
+[    1172ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5175/vite.svg:0
+[    1377ms] [ERROR] Failed to load resource: the server responded with a status of 404 (NOT FOUND) @ http://localhost:5175/api/files/thumbnail?path=Images%2F0023%2Fprompt_1.png:0
+[    1378ms] [ERROR] Failed to load resource: the server responded with a status of 404 (NOT FOUND) @ http://localhost:5175/api/files/thumbnail?path=Images%2F0023%2Fprompt_2.png:0

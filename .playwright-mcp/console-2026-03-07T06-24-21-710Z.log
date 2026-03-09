@@ -1,0 +1,127 @@
+[     319ms] [WARNING] DUPLICATE PREVENTION: Reusing existing process: Km8i-bwtlmU8_T1NpPAty @ http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:85
+[   28140ms] [WARNING] Message queue vyimWNELV4qncuQ5c_DRQ not found, creating new queue @ http://localhost:5175/src/utils/resource_manager.js:350
+[  549209ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  550100ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1128
+[  550210ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  551211ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  551862ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=y69ojqbe:0
+[  552212ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  553213ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  554071ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=y6bdwije:0
+[  554214ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  555215ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  555341ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/api/scheduler/queue/summary:0
+[  555341ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: TypeError: Failed to fetch
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:64:30
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:83:52 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74
+[  556216ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  557217ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  558219ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  559073ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=y6f8tfq8:0
+[  559221ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  560222ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  561223ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  562224ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  563225ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  564074ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=y6j3rq5i:0
+[  564227ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  565228ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  566229ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  567230ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  568231ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  569233ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  570234ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  570341ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/api/scheduler/queue/summary:0
+[  570341ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: TypeError: Failed to fetch
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:64:30
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:83:52 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74
+[  571235ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  572237ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  573238ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  574239ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  575240ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  576241ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  577242ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  578244ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  579245ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  580246ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  581247ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  582248ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  583249ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  584250ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  585252ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  585341ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/api/scheduler/queue/summary:0
+[  585342ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: TypeError: Failed to fetch
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:64:30
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:83:52 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74
+[  586253ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  587254ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  588256ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  589257ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  590258ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  591259ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  592260ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  593262ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  594263ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  595264ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  596265ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  598345ms] [WARNING] DUPLICATE PREVENTION: Reusing existing process: BDd-ySmzO9fB28_4mcyr6 @ http://localhost:5175/src/pages/ChatPage.jsx:85
+[  598394ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/uploads/system/profile-defaul-logo.png:0
+[  598402ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/enhanced-chat/session_1772864680767/history?limit=100:0
+[  598402ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/scheduler/queue/summary:0
+[  598402ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: Error: HTTP 500
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:66:15 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74
+[  598403ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=y79kio2d:0
+[  598403ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/voice/status:0
+[  598403ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/model/status:0
+[  598403ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/settings/branding:0
+[  598403ms] [WARNING] useAppStore: failed to fetch branding Error: Failed to fetch branding: 500
+    at fetchSystemInfo (http://localhost:5175/src/stores/useAppStore.js:59:15) @ http://localhost:5175/src/stores/useAppStore.js:71
+[  598403ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/enhanced-chat/session_1772864680767/history?limit=100:0
+[  598403ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/scheduler/queue/summary:0
+[  598403ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: Error: HTTP 500
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:66:15 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74
+[  598404ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=y79kn91o:0
+[  598430ms] [ERROR] apiClient: handleResponse throwing error for http://localhost:5175/api/enhanced-chat/session_1772864680767/history?limit=100: HTTP error 500 - Internal Server Error {message: HTTP error 500 - Internal Server Error} @ http://localhost:5175/src/api/apiClient.js:57
+[  598430ms] [ERROR] chatService: Error fetching chat history for session_1772864680767: HTTP error 500 - Internal Server Error @ http://localhost:5175/src/api/chatService.js:605
+[  598430ms] [ERROR] ChatPage: Failed to load chat history: Error: HTTP error 500 - Internal Server Error
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:55:19)
+    at async getChatHistory (http://localhost:5175/src/api/chatService.js:582:17)
+    at async loadHistory (http://localhost:5175/src/pages/ChatPage.jsx:386:25) @ http://localhost:5175/src/pages/ChatPage.jsx:443
+[  598431ms] [ERROR] apiClient: handleResponse throwing error for http://localhost:5175/api/voice/status: HTTP error 500 - Internal Server Error {message: HTTP error 500 - Internal Server Error} @ http://localhost:5175/src/api/apiClient.js:57
+[  598431ms] [ERROR] Failed to get voice status: Error: HTTP error 500 - Internal Server Error
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:55:19)
+    at async VoiceService.getStatus (http://localhost:5175/src/api/voiceService.js:37:14)
+    at async initializeVoice (http://localhost:5175/src/contexts/VoiceContext.jsx:267:24) @ http://localhost:5175/src/api/voiceService.js:38
+[  598431ms] [ERROR] VoiceContext: Failed to initialize voice features: Error: HTTP error 500 - Internal Server Error
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:55:19)
+    at async VoiceService.getStatus (http://localhost:5175/src/api/voiceService.js:37:14)
+    at async initializeVoice (http://localhost:5175/src/contexts/VoiceContext.jsx:267:24) @ http://localhost:5175/src/contexts/VoiceContext.jsx:291
+[  598431ms] [ERROR] apiClient: handleResponse throwing error for http://localhost:5175/api/model/status: HTTP error 500 - Internal Server Error {message: HTTP error 500 - Internal Server Error} @ http://localhost:5175/src/api/apiClient.js:57
+[  598431ms] [ERROR] modelService: Error fetching model status: HTTP error 500 - Internal Server Error @ http://localhost:5175/src/api/modelService.js:81
+[  598431ms] [ERROR] StatusContext: Failed to fetch model status: Error: HTTP error 500 - Internal Server Error
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:55:19)
+    at async getModelStatus (http://localhost:5175/src/api/modelService.js:77:18)
+    at async http://localhost:5175/src/contexts/StatusContext.jsx:72:22
+    at async Promise.all (index 1)
+    at async initializeStatus (http://localhost:5175/src/contexts/StatusContext.jsx:88:7) @ http://localhost:5175/src/contexts/StatusContext.jsx:76
+[  598431ms] [ERROR] apiClient: handleResponse throwing error for http://localhost:5175/api/enhanced-chat/session_1772864680767/history?limit=100: HTTP error 500 - Internal Server Error {message: HTTP error 500 - Internal Server Error} @ http://localhost:5175/src/api/apiClient.js:57
+[  598431ms] [ERROR] chatService: Error fetching chat history for session_1772864680767: HTTP error 500 - Internal Server Error @ http://localhost:5175/src/api/chatService.js:605
+[  598431ms] [ERROR] ChatPage: Failed to load chat history: Error: HTTP error 500 - Internal Server Error
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:55:19)
+    at async getChatHistory (http://localhost:5175/src/api/chatService.js:582:17)
+    at async loadHistory (http://localhost:5175/src/pages/ChatPage.jsx:386:25) @ http://localhost:5175/src/pages/ChatPage.jsx:443
+[  598445ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/model/list:0
+[  598445ms] [WARNING] Failed to fetch available models: Error: HTTP 500: Internal Server Error
+    at getAvailableModels (http://localhost:5175/src/utils/modelUtils.js:25:13)
+    at async updateVisionModelsCache (http://localhost:5175/src/utils/modelUtils.js:67:24)
+    at async initializeModelCache (http://localhost:5175/src/utils/modelUtils.js:169:5)
+    at async initModelCache (http://localhost:5175/src/App.jsx:180:9) @ http://localhost:5175/src/utils/modelUtils.js:29
+[  598446ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/model/list:0
+[  598446ms] [WARNING] Failed to fetch available models: Error: HTTP 500: Internal Server Error
+    at getAvailableModels (http://localhost:5175/src/utils/modelUtils.js:25:13)
+    at async updateVisionModelsCache (http://localhost:5175/src/utils/modelUtils.js:67:24)
+    at async initializeModelCache (http://localhost:5175/src/utils/modelUtils.js:169:5)
+    at async initModelCache (http://localhost:5175/src/App.jsx:180:9) @ http://localhost:5175/src/utils/modelUtils.js:29
+[  599921ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=y7argnnr:0
+[  602274ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=y7cku3dp:0

@@ -1,0 +1,115 @@
+{
+  "layout": [
+    {
+      "w": 35,
+      "h": 49,
+      "x": 0,
+      "y": 0,
+      "i": "project",
+      "minW": 10,
+      "moved": false,
+      "static": false,
+      "isDraggable": true,
+      "isResizable": true
+    },
+    {
+      "w": 35,
+      "h": 49,
+      "x": 35,
+      "y": 0,
+      "i": "website",
+      "minW": 10,
+      "moved": false,
+      "static": false,
+      "isDraggable": true,
+      "isResizable": true
+    },
+    {
+      "w": 35,
+      "h": 49,
+      "x": 70,
+      "y": 0,
+      "i": "tasks",
+      "minW": 10,
+      "moved": false,
+      "static": false,
+      "isDraggable": true,
+      "isResizable": true
+    },
+    {
+      "w": 35,
+      "h": 49,
+      "x": 105,
+      "y": 0,
+      "i": "chat",
+      "minW": 10,
+      "moved": false,
+      "static": false,
+      "isDraggable": true,
+      "isResizable": true
+    },
+    {
+      "w": 35,
+      "h": 49,
+      "x": 140,
+      "y": 0,
+      "i": "clients",
+      "minW": 10,
+      "moved": false,
+      "static": false,
+      "isDraggable": true,
+      "isResizable": true
+    },
+    {
+      "w": 35,
+      "h": 49,
+      "x": 0,
+      "y": 49,
+      "i": "csvgen",
+      "minW": 10,
+      "moved": false,
+      "static": false,
+      "isDraggable": true,
+      "isResizable": true
+    },
+    {
+      "w": 35,
+      "h": 49,
+      "x": 35,
+      "y": 49,
+      "i": "codegen",
+      "minW": 10,
+      "moved": false,
+      "static": false,
+      "isDraggable": true,
+      "isResizable": true
+    },
+    {
+      "w": 35,
+      "h": 49,
+      "x": 70,
+      "y": 49,
+      "i": "imggen",
+      "minW": 10,
+      "moved": false,
+      "static": false,
+      "isDraggable": true,
+      "isResizable": true
+    },
+    {
+      "w": 70,
+      "h": 73.5,
+      "x": 105,
+      "y": 49,
+      "i": "files",
+      "minW": 10,
+      "moved": false,
+      "static": false,
+      "isDraggable": true,
+      "isResizable": true
+    }
+  ],
+  "cardColors": {},
+  "minimizedCards": {},
+  "lastSaved": "2026-03-09T02:19:33.913Z"
+}

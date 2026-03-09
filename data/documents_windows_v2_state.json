@@ -1,0 +1,110 @@
+{
+  "windows": [
+    {
+      "id": "window-4",
+      "folderId": 5,
+      "folder": {
+        "created_at": "2026-03-06T00:32:49.150982",
+        "document_count": 0,
+        "id": 5,
+        "is_repository": false,
+        "name": "226",
+        "parent_id": null,
+        "path": "226",
+        "subfolder_count": 0,
+        "updated_at": "2026-03-06T00:32:49.150987"
+      },
+      "state": "folded"
+    },
+    {
+      "id": "window-5",
+      "folderId": 8,
+      "folder": {
+        "created_at": "2026-03-06T21:39:29.766465",
+        "document_count": 1,
+        "id": 8,
+        "is_repository": false,
+        "name": "code",
+        "parent_id": null,
+        "path": "code",
+        "subfolder_count": 0,
+        "updated_at": "2026-03-06T21:39:29.766468"
+      },
+      "state": "folded"
+    },
+    {
+      "id": "window-6",
+      "folderId": 9,
+      "folder": {
+        "created_at": "2026-03-07T19:12:45.306134",
+        "document_count": 0,
+        "id": 9,
+        "is_repository": false,
+        "name": "gdfgdd",
+        "parent_id": null,
+        "path": "gdfgdd",
+        "subfolder_count": 0,
+        "updated_at": "2026-03-07T19:12:45.306137"
+      },
+      "state": "folded"
+    },
+    {
+      "id": "window-7",
+      "folderId": 1,
+      "folder": {
+        "created_at": "2026-03-01T16:52:40.117033",
+        "document_count": 1,
+        "id": 1,
+        "is_repository": false,
+        "name": "Images",
+        "parent_id": null,
+        "path": "/Images",
+        "subfolder_count": 4,
+        "updated_at": "2026-03-01T16:52:40.117036"
+      },
+      "state": "folded"
+    }
+  ],
+  "windowLayout": [
+    {
+      "i": "window-4",
+      "x": 0,
+      "y": 0,
+      "w": 30,
+      "h": 40,
+      "minW": 15,
+      "minH": 20
+    }
+  ],
+  "windowColors": {
+    "window-2": "#388e3c",
+    "window-3": "#f57c00"
+  },
+  "windowZIndex": {
+    "window-1": 131,
+    "window-2": 161,
+    "window-3": 165,
+    "window-4": 164,
+    "window-5": 162
+  },
+  "maxZIndex": 165,
+  "iconPositions": {
+    "file-4": {
+      "x": 620,
+      "y": 120
+    },
+    "folder-1": {
+      "x": 740,
+      "y": 320
+    },
+    "folder-2": {
+      "x": 380,
+      "y": 220
+    },
+    "folder-5": {
+      "x": 20,
+      "y": 220
+    }
+  },
+  "lastSaved": "2026-03-08T00:12:58.681Z"
+}

@@ -1,0 +1,149 @@
+// Complete folder window component
+// Combines FolderWindowWrapper (chrome) and FolderContents (file list)
+
+import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
+import { ToggleButtonGroup, ToggleButton, Tooltip, IconButton, Box } from '@mui/material';
+import { ViewList as ViewListIcon, ViewModule as ViewModuleIcon } from '@mui/icons-material';
+import FolderWindowWrapper from './FolderWindowWrapper';
+import FolderContents from './FolderContents';
+import BreadcrumbNav from '../filesystem/BreadcrumbNav';
+
+const FolderWindow = React.forwardRef(({
+  id,
+  folder,
+  isMinimized,
+  onToggleMinimize,
+  onClose,
+  viewMode = 'list',
+  onViewModeChange,
+  selectedItems,
+  onSelectionChange,
+  onItemsMove,
+  onContextMenu,
+  onDragStart,
+  onDrop,
+  onFolderOpen,
+  onFocusContext,
+  refreshKey = 0,
+  ...gridLayoutProps
+}, ref) => {
+  // Track current path within this folder window for subfolder navigation
+  const [currentPath, setCurrentPath] = useState(folder.path);
+
+  // Reset currentPath when folder changes (e.g., when window is reused for different folder)
+  useEffect(() => {
+    setCurrentPath(folder.path);
+  }, [folder.id, folder.path]);
+
+  const handleViewModeToggle = (event, newViewMode) => {
+    if (newViewMode !== null && onViewModeChange) {
+      onViewModeChange(newViewMode);
+    }
+  };
+
+  // Handle navigation within folder window (for subfolder double-clicks and breadcrumb clicks)
+  const handleNavigateToPath = (newPath) => {
+    setCurrentPath(newPath);
+  };
+
+  const titleBarActions = (
+    <ToggleButtonGroup
+      value={viewMode}
+      exclusive
+      onChange={handleViewModeToggle}
+      size="small"
+      sx={{ mr: 0.5 }}
+    >
+      <ToggleButton value="list" size="small" sx={{ minWidth: 'auto', px: 0.5 }}>
+        <Tooltip title="List View">
+          <ViewListIcon sx={{ fontSize: '14px' }} />
+        </Tooltip>
+      </ToggleButton>
+      <ToggleButton value="grid" size="small" sx={{ minWidth: 'auto', px: 0.5 }}>
+        <Tooltip title="Grid View">
+          <ViewModuleIcon sx={{ fontSize: '14px' }} />
+        </Tooltip>
+      </ToggleButton>
+    </ToggleButtonGroup>
+  );
+
+  return (
+    <FolderWindowWrapper
+      ref={ref}
+      title={folder.name}
+      isMinimized={isMinimized}
+      onToggleMinimize={onToggleMinimize}
+      onClose={onClose}
+      onDrop={onDrop}
+      onDragOver={(e) => e.preventDefault()}
+      titleBarActions={titleBarActions}
+      isRepository={folder.is_repository}
+      {...gridLayoutProps}
+    >
+      {/* Breadcrumb navigation for folder hierarchy */}
+      {!isMinimized && (
+        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <BreadcrumbNav
+            currentPath={currentPath}
+            onNavigate={handleNavigateToPath}
+          />
+        </Box>
+      )}
+
+      <Box
+        data-folder-path={currentPath}
+        onMouseDown={() => onFocusContext && onFocusContext({ type: 'folder', path: currentPath, folderId: folder.id })}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        onDrop={onDrop}
+        sx={{ height: '100%', width: '100%', overflow: 'auto' }}
+      >
+        <FolderContents
+          folder={folder}
+          currentPath={currentPath}
+          onNavigateToPath={handleNavigateToPath}
+          viewMode={viewMode}
+          selectedItems={selectedItems}
+          onSelectionChange={onSelectionChange}
+          onItemsMove={onItemsMove}
+          onContextMenu={onContextMenu}
+          onDragStart={onDragStart}
+          onDrop={onDrop}
+          onFolderOpen={onFolderOpen}
+          onFocusContext={onFocusContext}
+          refreshKey={refreshKey}
+        />
+      </Box>
+    </FolderWindowWrapper>
+  );
+});
+
+FolderWindow.displayName = 'FolderWindow';
+
+FolderWindow.propTypes = {
+  id: PropTypes.string.isRequired,
+  folder: PropTypes.shape({
+    name: PropTypes.string.isRequired,
+    path: PropTypes.string.isRequired,
+    is_repository: PropTypes.bool,
+  }).isRequired,
+  isMinimized: PropTypes.bool,
+  onToggleMinimize: PropTypes.func,
+  onClose: PropTypes.func.isRequired,
+  viewMode: PropTypes.oneOf(['list', 'grid']),
+  onViewModeChange: PropTypes.func,
+  selectedItems: PropTypes.instanceOf(Set),
+  onSelectionChange: PropTypes.func,
+  onItemsMove: PropTypes.func,
+  onContextMenu: PropTypes.func,
+  onDragStart: PropTypes.func,
+  onDrop: PropTypes.func,
+  onFolderOpen: PropTypes.func,
+  onFocusContext: PropTypes.func,
+  refreshKey: PropTypes.number,
+};
+
+export default FolderWindow;

@@ -1,0 +1,17 @@
+{
+  "openTabs": [
+    {
+      "content": "isSMTP(); // Set up SMTP\n$mail->Host = 'smtp.example.com'; // SMTP host\n$mail->Port = 587; // SMTP port\n$mail->SMTPAuth = true; // Enable SMTP authentication\n$mail->Username = 'your_email@example.com'; // Your email address\n$mail->Password = 'your_password'; // Your email password\n\n$mail->setFrom('your_email@example.com', 'Your Name'); // Set the from email address\n$mail->addReplyTo('your_email@example.com', 'Your Name'); // Set the reply-to email address\n\n$mail->Subject = 'Test Email'; // Set the subject of the email\n$mail->Body = 'This is a test email sent using PHPMailer.';\n\n$mail->addAttachment('path_to_your_file.pdf', 'application/pdf'); // Add an attachment\n\nif (!$mail->Send()) {\n    echo 'Message could not be sent.';\n    echo 'Mailer Error: ' . $mail->ErrorInfo;\n} else {\n    echo 'Message has been sent.';\n}",
+      "filePath": "untitled_1772851129388.php",
+      "id": "pxjvlich9",
+      "isModified": false,
+      "isNew": false,
+      "language": "php"
+    }
+  ],
+  "activeTabIndex": 0,
+  "chatMessages": [],
+  "fileTree": [],
+  "searchResults": [],
+  "lastSaved": "2026-03-07T19:12:35.362541"
+}

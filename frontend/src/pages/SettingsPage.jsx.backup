@@ -1,0 +1,2854 @@
+// frontend/src/pages/SettingsPage.jsx
+
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import {
+  Typography,
+  Box,
+  Select,
+  MenuItem,
+  Button,
+  FormControl,
+  InputLabel,
+  CircularProgress,
+  Paper,
+  Grid,
+  Tooltip,
+  Switch,
+  FormControlLabel,
+  Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Input,
+  TextField,
+  Stack, // Added Stack for layout improvements
+  Avatar,
+  Slider,
+} from "@mui/material";
+import MuiAlert from "@mui/material/Alert";
+
+// MUI Icons
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import SyncProblemIcon from "@mui/icons-material/SyncProblem";
+import StorageIcon from "@mui/icons-material/Storage";
+import DnsIcon from "@mui/icons-material/Dns";
+import SpeedIcon from "@mui/icons-material/Speed";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import FileUploadIcon from "@mui/icons-material/FileUpload";
+import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import BackupIcon from "@mui/icons-material/Backup";
+import RestoreIcon from "@mui/icons-material/Restore";
+import AccountBoxIcon from "@mui/icons-material/AccountBox";
+import WarningIcon from "@mui/icons-material/Warning";
+import SecurityIcon from "@mui/icons-material/Security";
+import FolderIcon from "@mui/icons-material/Folder";
+import ChatIcon from "@mui/icons-material/Chat";
+import ApiIcon from "@mui/icons-material/Api";
+import SystemIcon from "@mui/icons-material/Computer";
+import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+import BuildIcon from "@mui/icons-material/Build";
+import SmartToyIcon from "@mui/icons-material/SmartToy";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import ExpandLessIcon from "@mui/icons-material/ExpandLess";
+import { Accordion, AccordionSummary, AccordionDetails, Chip, LinearProgress } from "@mui/material";
+
+import CreateBackupModal from "../components/modals/CreateBackupModal";
+import RestoreBackupModal from "../components/modals/RestoreBackupModal";
+import ManageBackupsModal from "../components/modals/ManageBackupsModal";
+import PurgeIndexModal from "../components/modals/PurgeIndexModal";
+import ThemeSelectorModal from "../components/modals/ThemeSelectorModal";
+import KillSwitchModal from "../components/modals/KillSwitchModal";
+import RAGDebugSection from "../components/settings/RAGDebugSection";
+import InterconnectorSettings from "../components/settings/InterconnectorSettings";
+import PaletteIcon from "@mui/icons-material/Palette";
+import SchoolIcon from "@mui/icons-material/School";
+import TaskAltIcon from "@mui/icons-material/TaskAlt";
+import { useNavigate } from "react-router-dom";
+import { themes } from "../theme";
+import {
+  getBranding,
+  updateBranding,
+  getRagDebug,
+  setRagDebug as setRagDebugAPI,
+  getRagFeatures,
+  updateRagFeatures,
+  clearBehaviorLog,
+} from "../api/settingsService";
+import { useAppStore } from "../stores/useAppStore";
+import { useStatus } from "../contexts/StatusContext";
+import { useSnackbar } from "../components/common/SnackbarProvider";
+import { useVoiceContext, useVoice } from "../contexts/VoiceContext";
+import * as apiService from "../api";
+import voiceService from "../api/voiceService";
+import { updateAgentSettings } from "../api/agentsService";
+
+// localStorage keys for persisting settings
+const WEB_SEARCH_ENABLED_KEY = "llamaX1_webSearchEnabled";
+const ADV_DEBUG_ENABLED_KEY = "llamaX1_advDebugEnabled";
+const BEHAVIOR_LEARNING_ENABLED_KEY = "llamaX1_behaviorLearningEnabled";
+// Used by ChatPage to enable backend agent routing integration
+const AGENT_ROUTING_ENABLED_KEY = "use_agent_routing";
+
+// Voice settings localStorage keys
+const VOICE_SETTINGS_KEY = "llamaX1_voiceSettings";
+
+const Alert = React.forwardRef(function Alert(props, ref) {
+  return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
+});
+
+const SettingsPage = () => {
+  const [availableModels, setAvailableModels] = useState([]);
+  const [selectedModel, setSelectedModel] = useState("");
+  const [embeddingModel, setEmbeddingModel] = useState("");
+  const [isLoadingEmbeddingModel, setIsLoadingEmbeddingModel] = useState(true);
+
+  // Reset selectedModel if it's not in available options
+  useEffect(() => {
+    if (selectedModel && availableModels.length > 0) {
+      const isModelAvailable = availableModels.some(model => model.name === selectedModel);
+      if (!isModelAvailable) {
+        console.warn(`Model "${selectedModel}" is not available, resetting selection`);
+        setSelectedModel("");
+      }
+    }
+  }, [availableModels, selectedModel]);
+  const [isLoading, setIsLoading] = useState(false); // General loading for initial data or major actions
+  const [isTestingLLM, setIsTestingLLM] = useState(false); // Local state for Test LLM button
+  const { showMessage, closeSnackbar } = useSnackbar();
+  const navigate = useNavigate();
+  const [ragDebug, setRagDebug] = useState(false);
+  const [enhancedContext, setEnhancedContext] = useState(false);
+  const [advancedRag, setAdvancedRag] = useState(false);
+  const [advancedDebug, setAdvancedDebug] = useState(getInitialAdvancedDebug);
+  const [behaviorLearningEnabled, setBehaviorLearningEnabled] = useState(
+    getInitialBehaviorLearning,
+  );
+  const [appVersion, setAppVersion] = useState("");
+
+  function getInitialWebSearch() {
+    if (typeof window === "undefined") return false;
+    try {
+      const saved = localStorage.getItem(WEB_SEARCH_ENABLED_KEY);
+      return saved === "true";
+    } catch {
+      return false;
+    }
+  }
+
+  function getInitialAdvancedDebug() {
+    if (typeof window === "undefined") return false;
+    try {
+      const saved = localStorage.getItem(ADV_DEBUG_ENABLED_KEY);
+      return saved === "true";
+    } catch {
+      return false;
+    }
+  }
+  function getInitialBehaviorLearning() {
+    if (typeof window === "undefined") return false;
+    try {
+      const saved = localStorage.getItem(BEHAVIOR_LEARNING_ENABLED_KEY);
+      return saved === "true";
+    } catch {
+      return false;
+    }
+  }
+  function getInitialAgentRouting() {
+    if (typeof window === "undefined") return false;
+    try {
+      const saved = localStorage.getItem(AGENT_ROUTING_ENABLED_KEY);
+      return saved === "true";
+    } catch {
+      return false;
+    }
+  }
+  const [webSearchEnabled, setWebSearchEnabled] = useState(getInitialWebSearch);
+  const [agentRoutingEnabled, setAgentRoutingEnabled] = useState(getInitialAgentRouting);
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResults, setTestResults] = useState(null);
+  const [isRunningTests, setIsRunningTests] = useState(false);
+  const [testMode, setTestMode] = useState("basic");
+  const [expandedCategories, setExpandedCategories] = useState({});
+  const [testSuiteResults, setTestSuiteResults] = useState(null);
+
+  // State for Import/Export
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [selectedFileForImport, setSelectedFileForImport] = useState(null);
+  const [selectedFileNameForImport, setSelectedFileNameForImport] =
+    useState("");
+  const fileImportInputRef = useRef(null);
+
+  // Backup/Restore modal state
+  const [createBackupOpen, setCreateBackupOpen] = useState(false);
+  const [restoreBackupOpen, setRestoreBackupOpen] = useState(false);
+  const [manageBackupsOpen, setManageBackupsOpen] = useState(false);
+  const [isProcessingBackup, setIsProcessingBackup] = useState(false);
+  const [backupList, setBackupList] = useState([]);
+
+  const [isPurging, setIsPurging] = useState(false);
+  const [purgeModalOpen, setPurgeModalOpen] = useState(false);
+
+  const [themeModalOpen, setThemeModalOpen] = useState(false);
+  const [killSwitchOpen, setKillSwitchOpen] = useState(false);
+  const [rebootDialogOpen, setRebootDialogOpen] = useState(false);
+  const [rebootInProgress, setRebootInProgress] = useState(false);
+
+  const setSystemInfo = useAppStore((state) => state.setSystemInfo);
+  const persistedSystemLogo = useAppStore((state) => state.systemLogo);
+  const persistedSystemName = useAppStore((state) => state.systemName);
+
+  const [brandingName, setBrandingName] = useState(persistedSystemName || "");
+  const [brandingFile, setBrandingFile] = useState(null);
+  const [systemLogo, setSystemLogo] = useState(persistedSystemLogo || null);
+  
+  // Keep local branding state in sync with the latest persisted values
+  useEffect(() => {
+    if (!brandingFile && persistedSystemLogo && systemLogo !== persistedSystemLogo) {
+      setSystemLogo(persistedSystemLogo);
+    }
+  }, [brandingFile, persistedSystemLogo, systemLogo]);
+
+  useEffect(() => {
+    if (!brandingName && persistedSystemName) {
+      setBrandingName(persistedSystemName);
+    }
+  }, [brandingName, persistedSystemName]);
+  
+  // Voice settings
+  const [voiceSettings, setVoiceSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem(VOICE_SETTINGS_KEY);
+      return saved ? JSON.parse(saved) : {
+        voice: 'ryan',
+        recordingQuality: 'medium',
+        recordingVolume: 1.0,
+        autoGainControl: true,
+        noiseSuppression: true,
+        echoCancellation: true,
+        playbackVolume: 1.0,
+        playbackSpeed: 1.0,
+        maxRecordingDuration: 60,
+        ttsEnabled: false,
+        micEnabled: true,
+        // Continuous listening mode settings
+        silenceThreshold: 0.05,
+        silenceTimeout: 2000,
+        maxSegmentDuration: 30000
+      };
+    } catch (error) {
+      console.warn('Failed to load voice settings from localStorage:', error);
+      return {
+        voice: 'ryan',
+        recordingQuality: 'medium',
+        recordingVolume: 1.0,
+        autoGainControl: true,
+        noiseSuppression: true,
+        echoCancellation: true,
+        playbackVolume: 1.0,
+        playbackSpeed: 1.0,
+        maxRecordingDuration: 60,
+        ttsEnabled: false,
+        micEnabled: true,
+        // Continuous listening mode settings
+        silenceThreshold: 0.05,
+        silenceTimeout: 2000,
+        maxSegmentDuration: 30000
+      };
+    }
+  });
+  
+  const [availableVoices, setAvailableVoices] = useState([]);
+  const [voiceStatus, setVoiceStatus] = useState(null);
+  const [voiceError, setVoiceError] = useState(null);
+  const [isVoiceLoading, setIsVoiceLoading] = useState(false);
+  const [isVoiceTestPlaying, setIsVoiceTestPlaying] = useState(false);
+  
+  // Get VoiceContext to sync voice changes
+  const voiceContext = useVoice();
+  const setSelectedVoice = voiceContext?.setSelectedVoice || (() => {});
+
+  // Load voice configuration
+  useEffect(() => {
+    loadVoiceConfiguration();
+  }, []);
+
+  const loadVoiceConfiguration = async () => {
+    setIsVoiceLoading(true);
+    setVoiceError(null);
+    
+    try {
+      const [status, voices] = await Promise.all([
+        voiceService.getStatus(),
+        voiceService.getVoices().catch(() => ({ voices: [] }))
+      ]);
+
+      setVoiceStatus(status);
+      setAvailableVoices(voices.voices || voices.available_voices || []);
+      
+      // Set default voice if not already set or if saved voice is not available
+      if (voices.voices && voices.voices.length > 0) {
+        const savedVoice = voiceSettings.voice;
+        const isVoiceAvailable = voices.voices.some(v => v.id === savedVoice);
+        
+        if (!savedVoice || !isVoiceAvailable) {
+          const defaultVoice = voices.default_voice || voices.voices[0].id;
+          setVoiceSettings(prev => ({
+            ...prev,
+            voice: defaultVoice
+          }));
+        }
+      } else {
+        // If no voices are available, reset to empty string to avoid MUI warnings
+        setVoiceSettings(prev => ({
+          ...prev,
+          voice: ''
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to load voice configuration:', error);
+      setVoiceError('Failed to load voice configuration');
+      // Reset voice to empty string on error to avoid MUI warnings
+      setVoiceSettings(prev => ({
+        ...prev,
+        voice: ''
+      }));
+    } finally {
+      setIsVoiceLoading(false);
+    }
+  };
+
+  const testVoice = async (voiceId) => {
+    setIsVoiceTestPlaying(true);
+    try {
+      // Check if voice is available first
+      const voice = availableVoices.find(v => v.id === voiceId);
+      if (voice && voice.available === false) {
+        showMessage(`Voice model "${voice.name}" is not installed. Please install it first.`, "warning");
+        setIsVoiceTestPlaying(false);
+        return;
+      }
+      
+      const response = await voiceService.textToSpeech(
+        "Hello! This is a test of the text-to-speech feature.",
+        voiceId
+      );
+      
+      if (response.audio_url) {
+        const audio = new Audio(response.audio_url);
+        audio.play();
+        audio.onended = () => setIsVoiceTestPlaying(false);
+      } else if (response.error) {
+        showMessage(`Voice test failed: ${response.error}`, "error");
+        setIsVoiceTestPlaying(false);
+      }
+    } catch (error) {
+      console.error('Voice test failed:', error);
+      const errorMessage = error.message || "Voice test failed";
+      if (errorMessage.includes("not found") || errorMessage.includes("not installed")) {
+        showMessage("Voice model is not installed. Please install voice models first.", "warning");
+      } else {
+        showMessage(`Voice test failed: ${errorMessage}`, "error");
+      }
+      setIsVoiceTestPlaying(false);
+    }
+  };
+
+  const handleVoiceSettingChange = (setting, value) => {
+    setVoiceSettings(prev => ({
+      ...prev,
+      [setting]: value
+    }));
+    
+    // Update VoiceContext immediately when voice changes
+    if (setting === 'voice' && value) {
+      setSelectedVoice(value);
+      const voiceName = availableVoices.find(v => v.id === value)?.name || value;
+      showMessage(`Voice changed to ${voiceName}`, "success");
+    } else if (setting === 'ttsEnabled') {
+      showMessage(`Text-to-Speech ${value ? 'enabled' : 'disabled'}`, "success");
+    } else if (setting === 'micEnabled') {
+      showMessage(`Microphone ${value ? 'enabled' : 'disabled'}`, "success");
+    }
+  };
+
+  const fetchBranding = useCallback(async () => {
+    try {
+      const response = await getBranding();
+      console.log("Fetched branding response:", response);
+      if (response && response.data) {
+        const data = response.data;
+        setBrandingName((prev) => data.system_name ?? prev ?? persistedSystemName ?? "");
+        setSystemLogo((prevLogo) => data.logo_path ?? prevLogo ?? persistedSystemLogo ?? null);
+        console.log("Updated branding state - name:", data.system_name ?? persistedSystemName, "logo:", data.logo_path ?? persistedSystemLogo);
+        return data;
+      }
+    } catch (err) {
+      console.warn("Failed to fetch branding", err);
+    }
+    return null;
+  }, [persistedSystemLogo, persistedSystemName]);
+
+  useEffect(() => {
+    fetchBranding();
+  }, [fetchBranding]);
+
+  const themeName = useAppStore((state) => state.themeName);
+
+  const { activeModel, isLoadingModel, modelError, refreshActiveModel } =
+    useStatus();
+
+  const fetchAvailableModels = useCallback(async () => {
+    // Avoid clearing import/export notifications when refreshing the list
+    try {
+      const modelsResult = await apiService.getAvailableModels();
+      if (modelsResult?.error)
+        throw new Error(`Available models fetch failed: ${modelsResult.error}`);
+      let modelsList = Array.isArray(modelsResult)
+        ? modelsResult.filter((m) => m && m.name)
+        : Array.isArray(modelsResult?.models)
+          ? modelsResult.models.filter((m) => m && m.name)
+          : [];
+      // Ensure the currently active model appears in the dropdown
+      if (
+        activeModel &&
+        activeModel !== "Error" &&
+        activeModel !== "N/A" &&
+        !modelsList.some((m) => m.name === activeModel)
+      ) {
+        modelsList = [{ name: activeModel }, ...modelsList];
+      }
+      setAvailableModels(modelsList);
+    } catch (err) {
+      console.error("SettingsPage: Failed to load available models:", err);
+      showMessage(`Failed to load available models: ${err.message}`, "error");
+      setAvailableModels([]);
+    }
+  }, [activeModel, showMessage]);
+
+  useEffect(() => {
+    fetchAvailableModels();
+  }, [fetchAvailableModels]);
+
+  // Fetch embedding model info
+  useEffect(() => {
+    const fetchEmbeddingModel = async () => {
+      setIsLoadingEmbeddingModel(true);
+      try {
+        const response = await fetch("/api/meta/index-info");
+        if (response.ok) {
+          const data = await response.json();
+          setEmbeddingModel(data.embedding_model || "Not Set");
+        } else {
+          setEmbeddingModel("Not Available");
+        }
+      } catch (error) {
+        console.error("Failed to fetch embedding model:", error);
+        setEmbeddingModel("Not Available");
+      } finally {
+        setIsLoadingEmbeddingModel(false);
+      }
+    };
+    fetchEmbeddingModel();
+  }, []);
+
+  useEffect(() => {
+    const fetchVersion = async () => {
+      try {
+        const result = await apiService.getVersion();
+        if (result?.version) setAppVersion(result.version);
+      } catch (err) {
+        console.warn("Failed to fetch app version:", err);
+      }
+    };
+    fetchVersion();
+  }, []);
+
+  // Listen for chat history cleared events
+  useEffect(() => {
+    const handleChatHistoryCleared = (event) => {
+      console.log("SettingsPage: Chat history cleared event received", event.detail);
+      // The chat components will handle their own state clearing via the event
+    };
+
+    window.addEventListener('chatHistoryCleared', handleChatHistoryCleared);
+    
+    return () => {
+      window.removeEventListener('chatHistoryCleared', handleChatHistoryCleared);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const saved = localStorage.getItem(WEB_SEARCH_ENABLED_KEY);
+      if (saved !== null) setWebSearchEnabled(saved === "true");
+    } catch (e) {
+      console.warn("Failed to load web search setting:", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    const fetchWebAccess = async () => {
+      try {
+        const result = await apiService.getWebAccess();
+        if (result && typeof result.allow_web_search === "boolean") {
+          setWebSearchEnabled(result.allow_web_search);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch web access setting from server:", err);
+      }
+    };
+    fetchWebAccess();
+  }, []);
+
+  useEffect(() => {
+    const fetchAdvDebug = async () => {
+      try {
+        const result = await apiService.getAdvancedDebug();
+        if (result && typeof result.advanced_debug === "boolean") {
+          setAdvancedDebug(result.advanced_debug);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch advanced debug setting:", err);
+      }
+    };
+    fetchAdvDebug();
+  }, []);
+
+  useEffect(() => {
+    const fetchBehaviorLearning = async () => {
+      try {
+        const result = await apiService.getBehaviorLearning();
+        if (result && typeof result.behavior_learning_enabled === "boolean") {
+          setBehaviorLearningEnabled(result.behavior_learning_enabled);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch behavior learning setting:", err);
+      }
+    };
+    fetchBehaviorLearning();
+  }, []);
+
+  useEffect(() => {
+    const fetchRagFeatures = async () => {
+      try {
+        // Load comprehensive RAG features
+        const result = await getRagFeatures();
+        if (result && !result.error) {
+          // Extract data from the response wrapper
+          const data = result.data || result;
+          if (typeof data.enhanced_context === "boolean") {
+            setEnhancedContext(data.enhanced_context);
+          }
+          if (typeof data.advanced_rag === "boolean") {
+            setAdvancedRag(data.advanced_rag);
+          }
+          if (typeof data.rag_debug === "boolean") {
+            setRagDebug(data.rag_debug);
+          }
+        } else {
+          // Fallback to individual RAG debug call if new API fails
+          const ragResult = await getRagDebug();
+          if (ragResult && typeof ragResult.rag_debug_enabled === "boolean") {
+            setRagDebug(ragResult.rag_debug_enabled);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to fetch RAG features:", err);
+        // Fallback to individual call
+        try {
+          const ragResult = await getRagDebug();
+          if (ragResult && typeof ragResult.rag_debug_enabled === "boolean") {
+            setRagDebug(ragResult.rag_debug_enabled);
+          }
+        } catch (fallbackErr) {
+          console.warn("Failed to fetch RAG debug setting:", fallbackErr);
+        }
+      }
+    };
+    fetchRagFeatures();
+  }, []);
+
+  // Persist web search toggle whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(WEB_SEARCH_ENABLED_KEY, String(webSearchEnabled));
+    } catch (e) {
+      console.warn("Failed to persist web search setting:", e);
+    }
+  }, [webSearchEnabled]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(ADV_DEBUG_ENABLED_KEY, String(advancedDebug));
+    } catch (e) {
+      console.warn("Failed to persist advanced debug setting:", e);
+    }
+  }, [advancedDebug]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        BEHAVIOR_LEARNING_ENABLED_KEY,
+        String(behaviorLearningEnabled),
+      );
+    } catch (e) {
+      console.warn("Failed to persist behavior learning setting:", e);
+    }
+  }, [behaviorLearningEnabled]);
+
+  // Auto-save voice settings whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem(VOICE_SETTINGS_KEY, JSON.stringify(voiceSettings));
+    } catch (e) {
+      console.warn("Failed to persist voice settings:", e);
+    }
+  }, [voiceSettings]);
+
+  useEffect(() => {
+    if (
+      !isLoadingModel &&
+      activeModel &&
+      activeModel !== "Error" &&
+      activeModel !== "N/A" &&
+      availableModels.length > 0
+    ) {
+      const modelExists = availableModels.some(
+        (model) => model.name === activeModel,
+      );
+      if (modelExists) setSelectedModel(activeModel);
+      else setSelectedModel(activeModel);
+    } else if (
+      !isLoadingModel &&
+      (!activeModel || activeModel === "Error" || activeModel === "N/A")
+    ) {
+      setSelectedModel("");
+    }
+  }, [activeModel, isLoadingModel, availableModels]);
+
+  const handleActionClick = async (
+    actionFunction,
+    actionArgs = [],
+    confirmMessage,
+    loadingMessage,
+    successMessage,
+    failureMessagePrefix,
+  ) => {
+    if (confirmMessage && !window.confirm(confirmMessage)) return;
+
+    setIsLoading(true); // Use general isLoading for these actions as well
+    showMessage(loadingMessage || "Processing...", "info");
+    try {
+      const result = await actionFunction(...actionArgs);
+      if (result?.error && !result.warning && result.error !== "User aborted") {
+        // Prevent error on user abort for import
+        throw new Error(result.error.message || result.error);
+      }
+      const message =
+        result?.warning ||
+        result?.message ||
+        successMessage ||
+        "Action completed successfully.";
+      const severity = result?.warning ? "warning" : "success";
+
+      showMessage(message, severity);
+
+      if (actionFunction === apiService.setModel) {
+        refreshActiveModel();
+      }
+    } catch (err) {
+      if (err.message !== "User aborted") {
+        // Don't show error if user cancelled file dialog
+        showMessage(`${failureMessagePrefix}: ${err.message}`, "error");
+      }
+    } finally {
+      if (actionFunction !== apiService.triggerReboot) {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  const handleSetModelClick = () => {
+    /* ... (unchanged from v3.4) ... */
+    if (!selectedModel) {
+      showMessage("Please select a model first.", "warning");
+      return;
+    }
+    handleActionClick(
+      apiService.setModel,
+      [selectedModel],
+      null,
+      "Setting active model...",
+      `Model set to ${selectedModel}.`,
+      "Failed to set model",
+    ).finally(() => {
+      refreshActiveModel();
+    });
+  };
+  const handleRebootClick = () => {
+    setRebootDialogOpen(true);
+  };
+  const handleConfirmReboot = async () => {
+    setRebootInProgress(true);
+    setIsLoading(true);
+    try {
+      const result = await apiService.triggerReboot();
+      const message =
+        result?.warning ||
+        result?.message ||
+        "Reboot initiated. The service will restart shortly.";
+      showMessage(message, result?.warning ? "warning" : "info");
+      setRebootDialogOpen(false);
+      // Attempt auto-refresh after backend restart
+      setTimeout(() => window.location.reload(), 4000);
+    } catch (err) {
+      showMessage(`Failed to trigger reboot: ${err.message}`, "error");
+      setIsLoading(false);
+    } finally {
+      setRebootInProgress(false);
+    }
+  };
+  const handleCancelReboot = () => {
+    if (!rebootInProgress) {
+      setRebootDialogOpen(false);
+    }
+  };
+  const handleClearChatHistoryClick = () => {
+    /* ... (unchanged from v3.4) ... */
+    handleActionClick(
+      apiService.clearChatHistory,
+      ["all"],
+      "Clear ALL chat history? This cannot be undone.",
+      "Clearing chat history...",
+      "Chat history cleared successfully.",
+      "Failed to clear chat history",
+    );
+  };
+  const handleResetIndexClick = () => {
+    /* ... (unchanged from v3.4) ... */
+    handleActionClick(
+      apiService.resetIndexStorage,
+      [],
+      "Reset the LlamaIndex vector store? ALL indexed document knowledge will be lost and require re-indexing.",
+      "Resetting index storage...",
+      "Index storage cleared. Please re-index documents.",
+      "Failed to reset index storage",
+    );
+  };
+
+  const handleOpenPurgeModal = () => {
+    setPurgeModalOpen(true);
+  };
+
+  const handleClosePurgeModal = () => {
+    if (!isPurging) setPurgeModalOpen(false);
+  };
+
+  const handleConfirmPurge = async (options) => {
+    setIsPurging(true);
+    await handleActionClick(
+      apiService.purgeIndex,
+      [options],
+      null,
+      "Purging index...",
+      "Index purge completed.",
+      "Failed to purge index",
+    );
+    setIsPurging(false);
+    setPurgeModalOpen(false);
+  };
+  const handlePurgeBehaviorLearningClick = () => {
+    handleActionClick(
+      apiService.purgeBehaviorLearning,
+      [],
+      "Purge all learned behaviors? This cannot be undone.",
+      "Purging learned behaviors...",
+      "Learned behaviors purged.",
+      "Failed to purge learned behaviors",
+    );
+  };
+
+  const handleClearBehaviorLogClick = () => {
+    handleActionClick(
+      clearBehaviorLog,
+      [],
+      "Clear the user behavior log file? This cannot be undone.",
+      "Clearing behavior log...",
+      "Behavior log cleared successfully",
+      "Failed to clear behavior log",
+    );
+  };
+
+  // Support both Chip clicks (no checked field) and Switch/Checkbox events
+  const deriveToggleValue = (eventOrValue, currentValue) => {
+    if (typeof eventOrValue === "boolean") return eventOrValue;
+    if (
+      eventOrValue &&
+      typeof eventOrValue === "object" &&
+      typeof eventOrValue.target?.checked === "boolean"
+    ) {
+      return eventOrValue.target.checked;
+    }
+    return !currentValue;
+  };
+  const handleClearPycacheFoldersClick = () => {
+    /* ... (unchanged from v3.4) ... */
+    handleActionClick(
+      apiService.clearPycache,
+      [],
+      "Clear Python bytecode cache (__pycache__)? This can help apply code changes but does not affect data or memory.",
+      "Clearing Python cache folders...",
+      "Python cache folders cleared successfully.",
+      "Failed to clear Python cache folders",
+    );
+  };
+  const handleRagDebugChange = async (event) => {
+    const isEnabled = deriveToggleValue(event, ragDebug);
+    
+    try {
+      // Update backend first
+      const result = await setRagDebugAPI(isEnabled);
+      
+      if (result.error) {
+        throw new Error(result.error);
+      }
+      
+      // Update local state only if backend update succeeds
+      setRagDebug(isEnabled);
+      
+      console.log("RAG Debug Mode Toggled:", isEnabled);
+      showMessage(
+        `RAG Debug mode ${isEnabled ? "enabled" : "disabled"}.`,
+        "success",
+      );
+    } catch (err) {
+      console.error("Failed to update RAG debug setting:", err);
+      showMessage(
+        `Failed to ${isEnabled ? "enable" : "disable"} RAG Debug mode: ${err.message}`,
+        "error",
+      );
+      // Don't update local state if backend update failed
+    }
+  };
+  
+  const handleEnhancedContextChange = async (event) => {
+    const isEnabled = deriveToggleValue(event, enhancedContext);
+    
+    try {
+      const result = await updateRagFeatures({ enhanced_context: isEnabled });
+      
+      if (result.error) {
+        throw new Error(result.error);
+      }
+      
+      setEnhancedContext(isEnabled);
+      
+      showMessage(
+        `Enhanced Context ${isEnabled ? "enabled" : "disabled"}. Advanced memory features are now ${isEnabled ? "active" : "inactive"}.`,
+        "success",
+      );
+    } catch (err) {
+      console.error("Failed to update Enhanced Context setting:", err);
+      showMessage(
+        `Failed to ${isEnabled ? "enable" : "disable"} Enhanced Context: ${err.message}`,
+        "error",
+      );
+    }
+  };
+
+  const handleAdvancedRagChange = async (event) => {
+    const isEnabled = deriveToggleValue(event, advancedRag);
+    
+    try {
+      const result = await updateRagFeatures({ advanced_rag: isEnabled });
+      
+      if (result.error) {
+        throw new Error(result.error);
+      }
+      
+      setAdvancedRag(isEnabled);
+      
+      showMessage(
+        `Advanced RAG ${isEnabled ? "enabled" : "disabled"}. Enhanced retrieval and chunking are now ${isEnabled ? "active" : "inactive"}.`,
+        "success",
+      );
+    } catch (err) {
+      console.error("Failed to update Advanced RAG setting:", err);
+      showMessage(
+        `Failed to ${isEnabled ? "enable" : "disable"} Advanced RAG: ${err.message}`,
+        "error",
+      );
+    }
+  };
+  
+  const handleWebSearchToggle = (nextValue) => {
+    const isEnabled = typeof nextValue === "boolean"
+      ? nextValue
+      : !webSearchEnabled;
+
+    setWebSearchEnabled(isEnabled);
+    try {
+      localStorage.setItem(WEB_SEARCH_ENABLED_KEY, String(isEnabled));
+      apiService
+        .setWebAccess(isEnabled)
+        .catch((err) =>
+          console.warn("Failed to update web access setting:", err),
+        );
+    } catch (e) {
+      console.warn("Failed to persist web search setting:", e);
+    }
+    console.log("Web Search Toggled (local state):", isEnabled);
+    showMessage(
+      `Web Search ${isEnabled ? "enabled" : "disabled"} (UI only).`,
+      "info",
+    );
+  };
+
+  const handleAdvancedDebugToggle = (event) => {
+    const isEnabled = deriveToggleValue(event, advancedDebug);
+    setAdvancedDebug(isEnabled);
+    try {
+      localStorage.setItem(ADV_DEBUG_ENABLED_KEY, String(isEnabled));
+      apiService
+        .setAdvancedDebug(isEnabled)
+        .catch((err) =>
+          console.warn("Failed to update advanced debug setting:", err),
+        );
+    } catch (e) {
+      console.warn("Failed to persist advanced debug setting:", e);
+    }
+    console.log("Advanced Debug Toggled (local state):", isEnabled);
+    showMessage(
+      `Advanced debugging ${isEnabled ? "enabled" : "disabled"}.`,
+      "info",
+    );
+  };
+  const handleBehaviorLearningToggle = (event) => {
+    const isEnabled = deriveToggleValue(event, behaviorLearningEnabled);
+    setBehaviorLearningEnabled(isEnabled);
+    try {
+      localStorage.setItem(BEHAVIOR_LEARNING_ENABLED_KEY, String(isEnabled));
+      apiService
+        .setBehaviorLearning(isEnabled)
+        .catch((err) =>
+          console.warn("Failed to update behavior learning setting:", err),
+        );
+    } catch (e) {
+      console.warn("Failed to persist behavior learning setting:", e);
+    }
+    showMessage(
+      `Behavior learning ${isEnabled ? "enabled" : "disabled"}.`,
+      "info",
+    );
+  };
+
+  // Helper function to get category icon
+  const getCategoryIcon = (categoryKey) => {
+    const iconMap = {
+      core_system: <SystemIcon />,
+      api_health: <ApiIcon />,
+      file_processing: <FolderIcon />,
+      chat_system: <ChatIcon />,
+      security: <SecurityIcon />,
+      performance: <TrendingUpIcon />
+    };
+    return iconMap[categoryKey] || <HelpOutlineIcon />;
+  };
+
+  // Helper function to get status color and icon
+  const getStatusDisplay = (status) => {
+    const statusMap = {
+      PASS: { color: "success", icon: <CheckCircleOutlineIcon />, label: "Pass" },
+      FAIL: { color: "error", icon: <ErrorOutlineIcon />, label: "Failed" },
+      WARNING: { color: "warning", icon: <WarningIcon />, label: "Warning" },
+      ERROR: { color: "error", icon: <SyncProblemIcon />, label: "Error" },
+      CRITICAL: { color: "error", icon: <ErrorOutlineIcon />, label: "Critical" },
+      PARTIAL: { color: "warning", icon: <InfoOutlinedIcon />, label: "Partial" },
+      SKIP: { color: "default", icon: <HelpOutlineIcon />, label: "Skipped" }
+    };
+    return statusMap[status] || { color: "default", icon: <HelpOutlineIcon />, label: status };
+  };
+
+  // Enhanced test runner with mode selection
+  const handleRunSystemCheck = async (mode = "basic") => {
+    // BUG FIX #1: Validate mode parameter
+    const validModes = ["basic", "quick", "comprehensive"];
+    const validatedMode = validModes.includes(mode) ? mode : "basic";
+
+    setIsTesting(true);
+    setTestResults(null);
+    setTestMode(validatedMode);
+    setExpandedCategories({}); // BUG FIX #7: Reset expanded categories
+
+    const modeLabels = {
+      basic: "basic system checks",
+      quick: "quick validation",
+      comprehensive: "comprehensive testing"
+    };
+    showMessage(`Running ${modeLabels[validatedMode] || "system checks"}...`, "info");
+    
+    try {
+      // Call enhanced API with mode parameter
+      const response = await apiService.runSelfTest({ 
+        mode: mode,
+        include_legacy: true 
+      });
+      
+      if (response?.error && typeof response.error === "string")
+        throw new Error(response.error);
+      if (response?.results && typeof response.results === "object") {
+        setTestResults(response.results);
+        
+        // Enhanced success message with status
+        const overallStatus = response.results.overall_status || "UNKNOWN";
+        const statusDisplay = getStatusDisplay(overallStatus);
+        let msg = `System Check Complete - ${statusDisplay.label}`;
+        
+        if (response.results.categories) {
+          const categoryCount = Object.keys(response.results.categories).length;
+          msg += ` (${categoryCount} categories tested)`;
+        }
+        
+        const severity = overallStatus === "PASS" ? "success" : 
+                        overallStatus === "WARNING" ? "warning" : "error";
+        showMessage(msg, severity);
+      } else {
+        throw new Error("System check did not return valid results.");
+      }
+    } catch (error) {
+      showMessage(
+        `System Check Error: ${error.message || "Could not run system checks."}`,
+        "error",
+      );
+      setTestResults({
+        error: `Failed to run system checks: ${error.message}`,
+      });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const handleRunAllTests = async () => {
+    setIsRunningTests(true);
+    setTestSuiteResults(null);
+    showMessage("Running full test suite...", "info");
+    try {
+      const response = await apiService.runAllTests();
+      if (response?.results) {
+        setTestSuiteResults(response.results);
+        const sev = response.results.returncode === 0 ? "success" : "error";
+        showMessage("Test suite finished.", sev);
+      } else {
+        throw new Error("Invalid response");
+      }
+    } catch (err) {
+      showMessage(`Test suite error: ${err.message}`, "error");
+      setTestSuiteResults({ error: err.message });
+    } finally {
+      setIsRunningTests(false);
+    }
+  };
+  const renderStatusIcon = (value, detailsForKey = "") => {
+    /* ... (unchanged from v3.4) ... */
+    const details = String(detailsForKey).toLowerCase();
+
+    if (typeof value === "boolean") {
+      return value ? (
+        <CheckCircleOutlineIcon
+          sx={{ color: "success.main", verticalAlign: "middle" }}
+        />
+      ) : (
+        <ErrorOutlineIcon
+          sx={{ color: "error.main", verticalAlign: "middle" }}
+        />
+      );
+    }
+    if (typeof value === "string") {
+      const lowerValue = value.toLowerCase();
+      if (
+        [
+          "ok",
+          "good",
+          "healthy",
+          "accessible",
+          "loadable",
+          "active",
+          "true",
+          "responsive",
+          "idle / queue empty",
+          "no recent indexing errors found in db",
+          "no error/critical messages in last ~200 lines",
+        ].some((s) => lowerValue.includes(s))
+      ) {
+        return (
+          <CheckCircleOutlineIcon
+            sx={{ color: "success.main", verticalAlign: "middle" }}
+          />
+        );
+      }
+      if (
+        [
+          "error",
+          "failed",
+          "unhealthy",
+          "inaccessible",
+          "critical",
+          "false",
+          "db error",
+        ].some((s) => lowerValue.includes(s)) ||
+        lowerValue.startsWith("error:") ||
+        lowerValue.includes("error(s). examples:")
+      ) {
+        return (
+          <ErrorOutlineIcon
+            sx={{ color: "error.main", verticalAlign: "middle" }}
+          />
+        );
+      }
+      if (
+        [
+          "warning",
+          "degraded",
+          "not configured",
+          "configured but not responsive/empty response",
+          "items pending/indexing",
+        ].some((s) => lowerValue.includes(s))
+      ) {
+        return (
+          <SyncProblemIcon
+            sx={{ color: "warning.main", verticalAlign: "middle" }}
+          />
+        );
+      }
+      if (lowerValue.includes("unknown") || lowerValue.includes("n/a")) {
+        return (
+          <HelpOutlineIcon
+            sx={{ color: "text.secondary", verticalAlign: "middle" }}
+          />
+        );
+      }
+    }
+    if (details) {
+      if (
+        ["ok", "found", "connected", "accessible", "responsive", "idle"].some(
+          (s) => details.includes(s),
+        )
+      ) {
+        return (
+          <CheckCircleOutlineIcon
+            sx={{ color: "success.main", verticalAlign: "middle" }}
+          />
+        );
+      }
+      if (
+        [
+          "failed",
+          "error",
+          "inaccessible",
+          "not found/empty",
+          "not found or not active for the current model",
+        ].some((s) => details.includes(s))
+      ) {
+        return (
+          <ErrorOutlineIcon
+            sx={{ color: "error.main", verticalAlign: "middle" }}
+          />
+        );
+      }
+      if (
+        details.includes("pending/indexing") ||
+        details.includes("not configured")
+      ) {
+        return (
+          <SyncProblemIcon
+            sx={{ color: "warning.main", verticalAlign: "middle" }}
+          />
+        );
+      }
+    }
+    return (
+      <InfoOutlinedIcon
+        sx={{ color: "text.secondary", verticalAlign: "middle" }}
+      />
+    );
+  };
+  const systemCheckItems = [
+    /* ... (unchanged from v3.4) ... */
+    {
+      key: "ollama_reachable",
+      label: "Ollama Service Reachable",
+      icon: <DnsIcon />,
+      format: (v) => (v ? "OK" : "Failed"),
+    },
+    {
+      key: "active_model_name",
+      label: "Active LLM Name",
+      icon: <DnsIcon />,
+      format: (v) => v || "N/A",
+    },
+    {
+      key: "active_model_status",
+      label: "Active LLM Status",
+      icon: <DnsIcon />,
+      format: (v) => v || "Unknown",
+    },
+    {
+      key: "active_model_health",
+      label: "Ollama Model Loaded",
+      icon: <DnsIcon />,
+      format: (v) => v || "Unknown",
+    },
+    {
+      key: "llm_basic_response",
+      label: "LLM Basic Response Test",
+      icon: <DnsIcon />,
+      format: (v) => (v ? "OK" : "Failed/Empty"),
+    },
+    {
+      key: "model_count",
+      label: "Discovered Ollama Models",
+      format: (v) => `${v ?? "N/A"} models found`,
+    },
+    {
+      key: "db_connection",
+      label: "Database Connection",
+      icon: <StorageIcon />,
+      format: (v) => (v ? "OK" : "Failed"),
+    },
+    {
+      key: "document_count_db",
+      label: "Document Count (DB)",
+      format: (v) => `${v ?? "N/A"} documents in DB`,
+    },
+    {
+      key: "storage_dir_accessible",
+      label: "Storage Directory",
+      icon: <StorageIcon />,
+      format: (v, r) =>
+        `${r.storage_dir_path || "N/A"} (${v ? "Accessible" : "Inaccessible"})`,
+    },
+    {
+      key: "upload_dir_accessible",
+      label: "Upload Directory",
+      icon: <StorageIcon />,
+      format: (v, r) =>
+        `${r.upload_dir_path || "N/A"} (${v ? "Accessible" : "Inaccessible"})`,
+    },
+    {
+      key: "output_dir_accessible",
+      label: "Output Directory",
+      icon: <StorageIcon />,
+      format: (v, r) =>
+        `${r.output_dir_path || "N/A"} (${v ? "Accessible" : "Inaccessible"})`,
+    },
+    {
+      key: "index_storage_exists",
+      label: "Index Storage Exists",
+      icon: <SpeedIcon />,
+      format: (v) => (v ? "OK" : "Not Found/Empty"),
+    },
+    {
+      key: "qa_prompt_loadable",
+      label: "QA Default Prompt",
+      format: (v) => (v ? "Loadable" : "Not Found/Error"),
+    },
+    {
+      key: "indexing_queue_status",
+      label: "Indexing Queue",
+      icon: <SpeedIcon />,
+      format: (v) => v || "N/A",
+    },
+    {
+      key: "recent_indexing_errors",
+      label: "Recent Indexing Errors",
+      icon: <ErrorOutlineIcon />,
+      format: (v) => v || "N/A",
+    },
+    {
+      key: "backend_log_errors",
+      label: "Backend Log Criticals",
+      icon: <ErrorOutlineIcon />,
+      format: (v) => v || "N/A",
+    },
+    {
+      key: "gpu_tools_available",
+      label: "GPU Monitor Available",
+      icon: <SpeedIcon />,
+      format: (v) => (v ? "Available" : "Unavailable"),
+    },
+    {
+      key: "last_metrics_fetch_status",
+      label: "Last Metrics Fetch",
+      icon: <SpeedIcon />,
+      format: (v) => v || "N/A",
+    },
+  ];
+
+  // --- NEW HANDLERS FOR IMPORT/EXPORT ---
+  const handleExportRulesClick = async () => {
+    setIsExporting(true);
+    showMessage("Exporting rules...", "info");
+    try {
+      const result = await apiService.exportRules();
+      if (result?.error) throw new Error(result.error);
+      if (!result?.rules || !Array.isArray(result.rules))
+        throw new Error("Invalid export format received from server.");
+
+      const jsonString = JSON.stringify(result, null, 2); // result already contains {"rules": []}
+      const blob = new Blob([jsonString], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const date = new Date().toISOString().slice(0, 19).replace(/:/g, "-");
+      a.download = `llamaX1_rules_export_${date}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showMessage(
+        `Successfully exported ${result.rules.length} rules.`,
+        "success",
+      );
+    } catch (err) {
+      console.error("Error exporting rules:", err);
+      showMessage(`Export failed: ${err.message}`, "error");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleFileSelectForImport = (event) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFileForImport(file);
+      setSelectedFileNameForImport(file.name);
+      closeSnackbar();
+    } else {
+      setSelectedFileForImport(null);
+      setSelectedFileNameForImport("");
+    }
+  };
+
+  const triggerFileImportInput = () => {
+    fileImportInputRef.current?.click();
+  };
+
+  const handleImportRulesClick = async () => {
+    if (!selectedFileForImport) {
+      showMessage("Please select a JSON file to import.", "warning");
+      return;
+    }
+    setIsImporting(true);
+    showMessage(`Importing rules from ${selectedFileNameForImport}...`, "info");
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const fileContent = e.target.result;
+        const jsonData = JSON.parse(fileContent);
+        if (!jsonData || !Array.isArray(jsonData.rules)) {
+          throw new Error(
+            "Invalid JSON format. Expected an object with a 'rules' array.",
+          );
+        }
+
+        const result = await apiService.importRules({ rules: jsonData.rules }); // Send {rules: [...]}
+
+        if (result?.error && !result.created && !result.updated) {
+          // If only error field
+          throw new Error(
+            result.error.message || result.error.details || result.error,
+          );
+        }
+
+        let importSummary = result.message || "Import process completed.";
+        if (result.created) importSummary += ` Created: ${result.created}.`;
+        if (result.updated) importSummary += ` Updated: ${result.updated}.`;
+        if (result.skipped)
+          importSummary += ` Skipped/Errors: ${result.skipped}.`;
+        if (result.errors && result.errors.length > 0) {
+          console.error("Import errors:", result.errors);
+          importSummary += ` Details: ${result.errors.join("; ")}`;
+          showMessage(importSummary, "warning");
+        } else {
+          showMessage(importSummary, "success");
+        }
+        // Potentially refresh rules on other pages if needed, e.g. by a global state update
+        // For now, RulesPage will refetch on its own mount/focus.
+      } catch (err) {
+        console.error("Error importing rules:", err);
+        showMessage(`Import failed: ${err.message}`, "error");
+      } finally {
+        setIsImporting(false);
+        setSelectedFileForImport(null);
+        setSelectedFileNameForImport("");
+        if (fileImportInputRef.current) fileImportInputRef.current.value = ""; // Reset file input
+      }
+    };
+    reader.onerror = (err) => {
+      console.error("Error reading file for import:", err);
+      showMessage(
+        `Error reading file: ${err.message || "Unknown file read error."}`,
+        "error",
+      );
+      setIsImporting(false);
+    };
+    reader.readAsText(selectedFileForImport);
+  };
+
+  const openCreateBackup = () => setCreateBackupOpen(true);
+  const openRestoreBackup = () => setRestoreBackupOpen(true);
+  const openManageBackups = async () => {
+    try {
+      const res = await apiService.listServerBackups();
+      setBackupList(res.backups || []);
+    } catch (e) {
+      console.error(e);
+      setBackupList([]);
+    }
+    setManageBackupsOpen(true);
+  };
+  const closeManageBackups = () => setManageBackupsOpen(false);
+
+  const handleCreateBackupConfirm = async ({ type, components, name }) => {
+    setIsProcessingBackup(true);
+    try {
+      const res = await apiService.createServerBackup(type, components, name);
+      showMessage(`Backup created: ${res.file}`, "success");
+    } catch (e) {
+      showMessage(e.message, "error");
+    }
+    setIsProcessingBackup(false);
+    setCreateBackupOpen(false);
+  };
+
+  const handleRestoreConfirm = async (file) => {
+    setIsProcessingBackup(true);
+    try {
+      await apiService.restoreServerBackup(file);
+      showMessage("Restore complete", "success");
+    } catch (e) {
+      showMessage(e.message, "error");
+    }
+    setIsProcessingBackup(false);
+    setRestoreBackupOpen(false);
+  };
+  // --- END NEW HANDLERS ---
+
+  // Component to render categorized test results
+  const renderCategorizedResults = (results) => {
+    if (!results.categories) return null;
+
+    return (
+      <Box mt={2}>
+        {/* Overall Status Banner */}
+        {results.overall_status && (
+          <Box mb={2}>
+            <Chip
+              icon={getStatusDisplay(results.overall_status).icon}
+              label={`Overall Status: ${getStatusDisplay(results.overall_status).label}`}
+              color={getStatusDisplay(results.overall_status).color}
+              variant="outlined"
+              size="medium"
+              sx={{ mb: 1, mr: 1 }}
+            />
+            {results.execution_time && (
+              <Chip
+                icon={<SpeedIcon />}
+                label={`${results.execution_time.toFixed(2)}s`}
+                variant="outlined"
+                size="small"
+              />
+            )}
+          </Box>
+        )}
+
+        {/* Test Categories */}
+        {Object.entries(results.categories).map(([categoryKey, categoryData]) => {
+          const isExpanded = expandedCategories[categoryKey] || false;
+          const statusDisplay = getStatusDisplay(categoryData.status);
+          
+          return (
+            <Accordion 
+              key={categoryKey}
+              expanded={isExpanded}
+              onChange={() => setExpandedCategories(prev => ({
+                ...prev,
+                [categoryKey]: !prev[categoryKey]
+              }))}
+              sx={{ mb: 1 }}
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon />}
+                sx={{ 
+                  backgroundColor: theme => 
+                    statusDisplay.color === 'success' ? theme.palette.success.light :
+                    statusDisplay.color === 'error' ? theme.palette.error.light :
+                    statusDisplay.color === 'warning' ? theme.palette.warning.light :
+                    'transparent',
+                  '&.Mui-expanded': { minHeight: 48 }
+                }}
+              >
+                <Box display="flex" alignItems="center" gap={1} width="100%">
+                  {getCategoryIcon(categoryKey)}
+                  <Typography variant="h6" sx={{ flexGrow: 1 }}>
+                    {categoryData.name || categoryKey}
+                  </Typography>
+                  <Chip
+                    icon={statusDisplay.icon}
+                    label={statusDisplay.label}
+                    color={statusDisplay.color}
+                    size="small"
+                    variant="filled"
+                  />
+                  <Typography variant="body2" color="text.secondary">
+                    {categoryData.duration?.toFixed(2)}s
+                  </Typography>
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  {categoryData.summary}
+                </Typography>
+                
+                {/* Individual Test Results */}
+                {categoryData.tests && categoryData.tests.length > 0 && (
+                  <TableContainer component={Paper} variant="outlined" sx={{ mt: 1 }}>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Status</TableCell>
+                          <TableCell>Test</TableCell>
+                          <TableCell>Duration</TableCell>
+                          <TableCell>Details</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {categoryData.tests.map((test, index) => {
+                          const testStatus = getStatusDisplay(test.status);
+                          return (
+                            <TableRow key={index}>
+                              <TableCell>
+                                <Chip
+                                  icon={testStatus.icon}
+                                  label={testStatus.label}
+                                  color={testStatus.color}
+                                  size="small"
+                                  variant="outlined"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                                  {test.name.replace(/^.*\//, '')}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="body2">
+                                  {test.duration?.toFixed(2)}s
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="body2" color="text.secondary">
+                                  {test.details || '-'}
+                                  {test.error_message && (
+                                    <Typography variant="caption" color="error" display="block">
+                                      {test.error_message}
+                                    </Typography>
+                                  )}
+                                </Typography>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
+              </AccordionDetails>
+            </Accordion>
+          );
+        })}
+      </Box>
+    );
+  };
+
+  return (
+    <Box p={{ xs: 2, md: 4 }} maxWidth="xl" mx="auto">
+      <Typography variant="h5" gutterBottom>
+        System Settings
+      </Typography>
+
+      <Grid container spacing={{ xs: 2, sm: 3, md: 4 }}>
+        <Grid item xs={12} md={6} lg={6}>
+          <Stack spacing={3}>
+            {/* LLM Configuration Paper */}
+            <Paper elevation={3} sx={{ p: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                LLM Configuration
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 2 }}>
+                Currently Active:{" "}
+                <strong>
+                  {isLoadingModel
+                    ? "Loading..."
+                    : modelError
+                      ? `Error: ${modelError}`
+                      : activeModel || "Not Set"}
+                </strong>
+              </Typography>
+              {/* Embedding Model Chip */}
+              <Box sx={{ mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
+                <Chip
+                  label={
+                    isLoadingEmbeddingModel
+                      ? "Loading embedding model..."
+                      : !embeddingModel || embeddingModel.toLowerCase() === "unknown" || embeddingModel === "Not Available" || embeddingModel === "Not Set"
+                        ? "Embedding: Unknown"
+                        : `Embedding: ${embeddingModel}`
+                  }
+                  color={
+                    !embeddingModel || embeddingModel.toLowerCase() === "unknown" || embeddingModel === "Not Available" || embeddingModel === "Not Set"
+                      ? "warning"
+                      : "secondary"
+                  }
+                  variant="outlined"
+                  size="small"
+                  sx={{
+                    fontWeight: 500,
+                    fontSize: "0.875rem",
+                  }}
+                />
+                <Tooltip title="Refresh embedding model info">
+                  <span>
+                    <Button
+                      size="small"
+                      onClick={async () => {
+                        setIsLoadingEmbeddingModel(true);
+                        try {
+                          const response = await fetch("/api/meta/index-info");
+                          if (response.ok) {
+                            const data = await response.json();
+                            setEmbeddingModel(data.embedding_model || "Not Set");
+                          } else {
+                            setEmbeddingModel("Not Available");
+                          }
+                        } catch (error) {
+                          console.error("Failed to fetch embedding model:", error);
+                          setEmbeddingModel("Not Available");
+                        } finally {
+                          setIsLoadingEmbeddingModel(false);
+                        }
+                      }}
+                      disabled={isLoadingEmbeddingModel}
+                      sx={{ minWidth: "auto", p: 0.5 }}
+                    >
+                      <SyncProblemIcon fontSize="small" />
+                    </Button>
+                  </span>
+                </Tooltip>
+              </Box>
+              <Grid container spacing={2} alignItems="center">
+                <Grid item xs={12} sm={8} md={7}>
+                  <FormControl fullWidth disabled={isLoading || isLoadingModel}>
+                    <InputLabel id="model-select-label">
+                      Select Model
+                    </InputLabel>
+                    <Select
+                      labelId="model-select-label"
+                      value={selectedModel}
+                      label="Select Model"
+                      onChange={(e) => setSelectedModel(e.target.value)}
+                      error={Boolean(selectedModel && !availableModels.some(model => model.name === selectedModel))}
+                    >
+                      <MenuItem value="" disabled>
+                        <em>
+                          {isLoadingModel
+                            ? "Loading..."
+                            : availableModels.length === 0
+                              ? "No models found"
+                              : "Select a model..."}
+                        </em>
+                      </MenuItem>
+                      {availableModels.map((model) => (
+                        <MenuItem key={model.name} value={model.name}>
+                          {model.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={4} md={5}>
+                  <Tooltip title="Apply the selected model as the active one">
+                    <span>
+                      <Button
+                        variant="contained"
+                        onClick={handleSetModelClick}
+                        disabled={
+                          isLoading ||
+                          isLoadingModel ||
+                          !selectedModel ||
+                          selectedModel === activeModel
+                        }
+                        sx={{ width: { xs: "100%", sm: "auto" } }}
+                      >
+                        {isLoading && selectedModel ? (
+                          <CircularProgress size={24} color="inherit" />
+                        ) : (
+                          "Set Active Model"
+                        )}
+                      </Button>
+                    </span>
+                  </Tooltip>
+                  <Button
+                    sx={{ ml: 1 }}
+                    onClick={fetchAvailableModels}
+                    disabled={isLoadingModel || isLoading}
+                  >
+                    Refresh Models
+                  </Button>
+                  <Chip
+                    label={isTestingLLM ? "Testing..." : "Test Model"}
+                    onClick={async () => {
+                      setIsTestingLLM(true);
+                      try {
+                        const r = await apiService.testLLM();
+                        showMessage(
+                          `LLM responded in ${r.duration_sec}s`,
+                          "info",
+                        );
+                      } catch (e) {
+                        showMessage(`Test failed: ${e.message}`, "error");
+                      } finally {
+                        setIsTestingLLM(false);
+                      }
+                    }}
+                    disabled={isLoadingModel || isLoading || isTestingLLM}
+                    color={isTestingLLM ? "default" : "primary"}
+                    variant={isTestingLLM ? "filled" : "outlined"}
+                    sx={{ ml: 1 }}
+                  />
+                </Grid>
+              </Grid>
+            </Paper>
+
+            {/* Backup / Restore Data */}
+            <Paper elevation={3} sx={{ p: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Backup / Restore
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={4}>
+                <Button
+                  variant="outlined"
+                  startIcon={<BackupIcon />}
+                  onClick={openCreateBackup}
+                  disabled={isProcessingBackup || isLoading}
+                    fullWidth
+                >
+                  Backup Data
+                </Button>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                <Button
+                  variant="contained"
+                  startIcon={<RestoreIcon />}
+                  onClick={openRestoreBackup}
+                  disabled={isProcessingBackup || isLoading}
+                    fullWidth
+                >
+                  Restore Data
+                </Button>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <Button 
+                    variant="outlined" 
+                    onClick={openManageBackups}
+                    fullWidth
+                  >
+                  Manage Backups
+                </Button>
+                </Grid>
+              </Grid>
+            </Paper>
+
+            {/* Web Access Control */}
+            <Paper elevation={3} sx={{ p: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Web Access
+              </Typography>
+              <Chip
+                label="Allow LLM Web Search"
+                onClick={() => handleWebSearchToggle()}
+                color={webSearchEnabled ? "primary" : "default"}
+                variant={webSearchEnabled ? "filled" : "outlined"}
+                sx={{ mb: 1 }}
+              />
+              <Typography
+                variant="caption"
+                display="block"
+                sx={{ color: "text.secondary" }}
+              >
+                {webSearchEnabled
+                  ? "Enabled: the active LLM may search the internet or analyze websites."
+                  : "Disabled: all internet access for LLMs is blocked."}
+              </Typography>
+            </Paper>
+
+            {/* Theme Selection */}
+            <Paper elevation={3} sx={{ p: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Appearance
+              </Typography>
+              <Chip
+                label="Theme"
+                onClick={() => setThemeModalOpen(true)}
+                color="primary"
+                variant="outlined"
+                icon={<PaletteIcon />}
+              />
+              <Typography
+                variant="caption"
+                display="block"
+                sx={{ color: "text.secondary" }}
+              >
+                Current: {themeName}
+              </Typography>
+              {/* Removed color chart previews */}
+            </Paper>
+
+            {/* Branding */}
+            <Paper elevation={3} sx={{ p: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Branding
+              </Typography>
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    label="System Name"
+                    value={brandingName}
+                    onChange={(e) => setBrandingName(e.target.value)}
+                    size="small"
+                    fullWidth
+                    placeholder="Enter system name..."
+                    helperText="This name will appear as the title on the Dashboard and in the browser tab"
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Logo Upload
+                  </Typography>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 2,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setBrandingFile(e.target.files[0])}
+                      style={{ display: "none" }}
+                      id="logo-upload"
+                    />
+                    <label htmlFor="logo-upload">
+                      <Button variant="outlined" component="span">
+                        Choose Logo
+                      </Button>
+                    </label>
+                    {brandingFile && (
+                      <Typography variant="caption" color="text.secondary">
+                        Selected: {brandingFile.name}
+                      </Typography>
+                    )}
+                  </Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+                    This logo will appear in the sidebar and as the chat avatar
+                  </Typography>
+                </Grid>
+                
+                {/* Current Branding Preview */}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Current Branding Preview
+                  </Typography>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 2,
+                      p: 2,
+                      border: 1,
+                      borderColor: "divider",
+                      borderRadius: 1,
+                      bgcolor: "background.paper",
+                    }}
+                  >
+                    {/* Logo Preview */}
+                    <Avatar
+                      src={
+                        brandingFile
+                          ? URL.createObjectURL(brandingFile)
+                          : systemLogo
+                            ? `/api/uploads/${systemLogo}`
+                            : persistedSystemLogo
+                              ? `/api/uploads/${persistedSystemLogo}`
+                              : undefined
+                      }
+                      sx={{ 
+                        width: 48, 
+                        height: 48,
+                        border: 2,
+                        borderColor: "divider"
+                      }}
+                    >
+                      {!brandingFile && !systemLogo && <AccountBoxIcon />}
+                    </Avatar>
+                    
+                    {/* System Name Preview */}
+                    <Box>
+                      <Typography variant="h6" color="text.primary">
+                        {brandingName || "System Name"}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Dashboard Title & Browser Tab
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Grid>
+                
+                <Grid item xs={12}>
+                  <Button
+                    variant="contained"
+                    onClick={async () => {
+                      try {
+                        const trimmedName = brandingName.trim();
+                        const fd = new FormData();
+                        if (trimmedName) fd.append("system_name", trimmedName);
+                        if (brandingFile) fd.append("logo", brandingFile);
+                        const result = await updateBranding(fd);
+                        console.log("Branding update result:", result);
+                        
+                        // Clear the file input after successful save
+                        setBrandingFile(null);
+                        // Reset the file input element
+                        const fileInput = document.getElementById('logo-upload');
+                        if (fileInput) {
+                          fileInput.value = '';
+                        }
+                        
+                        // Fetch updated branding data
+                        const refreshed = await fetchBranding();
+                        
+                        // Update app store with new branding
+                        const latestName = refreshed?.system_name ?? trimmedName ?? persistedSystemName ?? "";
+                        const latestLogo = refreshed?.logo_path ?? result?.data?.logo_path ?? systemLogo ?? persistedSystemLogo ?? null;
+                        setSystemInfo(latestName, latestLogo);
+                        showMessage("Branding updated successfully", "success");
+                      } catch (err) {
+                        console.error("Branding update error:", err);
+                        showMessage(
+                          "Failed to update branding: " + err.message,
+                          "error",
+                        );
+                      }
+                    }}
+                    disabled={!brandingName.trim() && !brandingFile}
+                  >
+                    Save Branding
+                  </Button>
+                </Grid>
+              </Grid>
+            </Paper>
+
+            {/* Additional Tools Navigation */}
+            <Paper elevation={3} sx={{ p: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Tools
+              </Typography>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={agentRoutingEnabled}
+                      onChange={async (e) => {
+                        const isEnabled = e.target.checked;
+                        setAgentRoutingEnabled(isEnabled);
+                        try {
+                          localStorage.setItem(AGENT_ROUTING_ENABLED_KEY, String(isEnabled));
+                        } catch (storageErr) {
+                          console.warn("Failed to persist agent routing setting:", storageErr);
+                        }
+                        showMessage(`Agent routing ${isEnabled ? "enabled" : "disabled"}`, "success");
+                        // Best-effort: also notify backend settings (non-persistent server-side)
+                        try {
+                          await updateAgentSettings({ agent_routing_enabled: isEnabled });
+                        } catch (err) {
+                          console.warn("Failed to update backend agent settings:", err);
+                        }
+                      }}
+                    />
+                  }
+                  label="Agent routing"
+                />
+              </Box>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: "block" }}>
+                Reload the app (or at least the Chat page) after changing this setting.
+              </Typography>
+              <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+                <Chip
+                  label="Training"
+                  onClick={() => navigate("/training")}
+                  color="primary"
+                  variant="outlined"
+                  icon={<SchoolIcon />}
+                />
+                <Chip
+                  label="Tasks"
+                  onClick={() => navigate("/tasks")}
+                  color="primary"
+                  variant="outlined"
+                  icon={<TaskAltIcon />}
+                />
+                <Chip
+                  label="Agent Tools"
+                  onClick={() => navigate("/tools")}
+                  color="primary"
+                  variant="outlined"
+                  icon={<BuildIcon />}
+                />
+                <Chip
+                  label="Agents"
+                  onClick={() => navigate("/agents")}
+                  color="primary"
+                  variant="outlined"
+                  icon={<SmartToyIcon />}
+                />
+              </Box>
+            </Paper>
+
+            {/* Debugging & Data Management Paper */}
+            <Paper elevation={3} sx={{ p: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Debugging & Data Management
+              </Typography>
+              
+              {/* Low-Risk Operations */}
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+                Development & Maintenance
+              </Typography>
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} sm={6} md={4}>
+                <Tooltip title="Clear Python __pycache__ folders on the backend. Useful for development.">
+                  <span>
+                    <Chip
+                      label="Clear Pycache Folders"
+                      onClick={handleClearPycacheFoldersClick}
+                      disabled={isLoading}
+                      color="primary"
+                      variant="outlined"
+                    />
+                  </span>
+                </Tooltip>
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                <Tooltip title="Clear the user behavior log file.">
+                  <span>
+                    <Chip
+                      label="Clear Behavior Log"
+                      onClick={handleClearBehaviorLogClick}
+                      disabled={isLoading}
+                      color="primary"
+                      variant="outlined"
+                    />
+                  </span>
+                </Tooltip>
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                <Tooltip title="Selectively purge items from the index">
+                  <span>
+                    <Chip
+                      label="Purge Index"
+                      onClick={handleOpenPurgeModal}
+                      disabled={isLoading}
+                      color="primary"
+                      variant="outlined"
+                    />
+                  </span>
+                </Tooltip>
+                </Grid>
+              </Grid>
+              
+              {/* High-Risk Operations */}
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2, fontWeight: 'bold' }}>
+                High-Risk Operations (Data Loss)
+              </Typography>
+              <Grid container spacing={2} sx={{ mb: 2 }}>
+                <Grid item xs={12} sm={6} md={4}>
+                <Tooltip title="Delete all messages from chat history database tables. This action cannot be undone.">
+                  <span>
+                    <Chip
+                      label="Clear Chat History"
+                      onClick={handleClearChatHistoryClick}
+                      disabled={isLoading}
+                      color="error"
+                      variant="outlined"
+                      icon={<WarningIcon />}
+                    />
+                  </span>
+                </Tooltip>
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                <Tooltip title="Remove all learned behavioral rules. This action cannot be undone.">
+                  <span>
+                    <Chip
+                      label="Purge Learned Behaviors"
+                      onClick={handlePurgeBehaviorLearningClick}
+                      disabled={isLoading}
+                      color="error"
+                      variant="outlined"
+                      icon={<WarningIcon />}
+                    />
+                  </span>
+                </Tooltip>
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                <Tooltip title="Delete the LlamaIndex storage directory. All indexed knowledge will be lost and require re-indexing!">
+                  <span>
+                    <Chip
+                      label="Reset Index Storage"
+                      onClick={handleResetIndexClick}
+                      disabled={isLoading}
+                      color="error"
+                      variant="outlined"
+                      icon={<WarningIcon />}
+                    />
+                  </span>
+                </Tooltip>
+                </Grid>
+              </Grid>
+              <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 2 }}>
+                <Chip
+                  label="Show RAG Debug Info in Responses"
+                  onClick={handleRagDebugChange}
+                  color={ragDebug ? "primary" : "default"}
+                  variant={ragDebug ? "filled" : "outlined"}
+                />
+                <Chip
+                  label="Enhanced Context Management (Advanced Memory)"
+                  onClick={handleEnhancedContextChange}
+                  color={enhancedContext ? "primary" : "default"}
+                  variant={enhancedContext ? "filled" : "outlined"}
+                />
+                <Chip
+                  label="Advanced RAG Features (Enhanced Retrieval & Chunking)"
+                  onClick={handleAdvancedRagChange}
+                  color={advancedRag ? "primary" : "default"}
+                  variant={advancedRag ? "filled" : "outlined"}
+                />
+                <Chip
+                  label="Enable Behavior Learning"
+                  onClick={handleBehaviorLearningToggle}
+                  color={behaviorLearningEnabled ? "primary" : "default"}
+                  variant={behaviorLearningEnabled ? "filled" : "outlined"}
+                />
+                <Chip
+                  label="Enable Advanced Debug Logging"
+                  onClick={handleAdvancedDebugToggle}
+                  color={advancedDebug ? "primary" : "default"}
+                  variant={advancedDebug ? "filled" : "outlined"}
+                />
+              </Box>
+              <Typography
+                variant="caption"
+                display="block"
+                sx={{ color: "text.secondary" }}
+              >
+                Settings are persisted across sessions
+              </Typography>
+            </Paper>
+
+            {/* RAG Performance & Debug Section */}
+            <RAGDebugSection ragDebugEnabled={ragDebug} />
+
+            {/* System Health & Actions Paper */}
+            <Paper elevation={3} sx={{ p: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                System Health & Actions
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6} md={3}>
+                <Tooltip title="Run basic health and configuration checks">
+                  <span>
+                    <Chip
+                      label={isTesting && testMode === "basic" ? "Testing..." : "Basic Check"}
+                      onClick={() => handleRunSystemCheck("basic")}
+                      disabled={isLoading || isTesting}
+                      color={isTesting && testMode === "basic" ? "default" : "primary"}
+                      variant={isTesting && testMode === "basic" ? "filled" : "outlined"}
+                    />
+                  </span>
+                </Tooltip>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                <Tooltip title="Run quick validation (core system + API health)">
+                  <span>
+                    <Chip
+                      label={isTesting && testMode === "quick" ? "Testing..." : "Quick Test"}
+                      onClick={() => handleRunSystemCheck("quick")}
+                      disabled={isLoading || isTesting}
+                      color={isTesting && testMode === "quick" ? "default" : "primary"}
+                      variant={isTesting && testMode === "quick" ? "filled" : "outlined"}
+                    />
+                  </span>
+                </Tooltip>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                <Tooltip title="Run comprehensive testing (all 6 categories)">
+                  <span>
+                    <Chip
+                      label={isTesting && testMode === "comprehensive" ? "Testing..." : "Full Test"}
+                      onClick={() => handleRunSystemCheck("comprehensive")}
+                      disabled={isLoading || isTesting}
+                      color={isTesting && testMode === "comprehensive" ? "default" : "primary"}
+                      variant={isTesting && testMode === "comprehensive" ? "filled" : "outlined"}
+                    />
+                  </span>
+                </Tooltip>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                <Tooltip title="Test progress tracking system and ProgressFooterBar">
+                  <span>
+                    <Chip
+                      label="Progress Test"
+                      onClick={() => window.location.href = '/progress-test'}
+                      disabled={isLoading}
+                      color="secondary"
+                      variant="outlined"
+                    />
+                  </span>
+                </Tooltip>
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                <Tooltip title="Restart backend services via start.sh">
+                  <span>
+                    <Chip
+                      label="Reboot System"
+                      onClick={handleRebootClick}
+                      disabled={isLoading}
+                      color="error"
+                      variant="outlined"
+                    />
+                  </span>
+                </Tooltip>
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                <Tooltip title="Emergency kill switch to stop all LLM processes">
+                  <span>
+                    <Chip
+                      label="Emergency Kill Switch"
+                      onClick={() => setKillSwitchOpen(true)}
+                      disabled={isLoading}
+                      color="error"
+                      variant="outlined"
+                      icon={<WarningIcon />}
+                    />
+                  </span>
+                </Tooltip>
+                </Grid>
+              </Grid>
+
+              {testResults && (
+                <Box
+                  mt={3}
+                  p={2}
+                  border={1}
+                  borderColor="divider"
+                  borderRadius={1}
+                >
+                  <Typography variant="subtitle1" gutterBottom>
+                    System Check Results
+                  </Typography>
+                  
+                  {testResults.error && typeof testResults.error === "string" ? (
+                    <MuiAlert severity="error">{testResults.error}</MuiAlert>
+                  ) : (
+                    <>
+                      {/* Enhanced Test Results - Categorized Display */}
+                      {testResults.categories && renderCategorizedResults(testResults)}
+                      
+                      {/* Legacy Diagnostics Display - Backward Compatibility */}
+                      {(testResults.legacy_diagnostics || (!testResults.categories && testResults)) && (
+                        <Box mt={testResults.categories ? 3 : 0}>
+                          {testResults.categories && (
+                            <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                              Legacy Diagnostics
+                            </Typography>
+                          )}
+                          <TableContainer
+                            component={Paper}
+                            elevation={0}
+                            variant="outlined"
+                          >
+                            <Table
+                              size="small"
+                              aria-label="legacy diagnostics table"
+                            >
+                              <TableHead>
+                                <TableRow>
+                                  <TableCell sx={{ width: "5%" }}>Icon</TableCell>
+                                  <TableCell sx={{ width: "30%" }}>
+                                    Component
+                                  </TableCell>
+                                  <TableCell sx={{ width: "65%" }}>
+                                    Details & Status
+                                  </TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {systemCheckItems.map((item) => {
+                                  // Use legacy_diagnostics if available, otherwise fall back to testResults
+                                  const dataSource = testResults.legacy_diagnostics || testResults;
+                                  const value = dataSource[item.key];
+                                  const details =
+                                    value !== undefined
+                                      ? item.format(value, dataSource)
+                                      : "N/A (Not Reported)";
+                                  return (
+                                    <TableRow
+                                      key={item.key}
+                                      sx={{
+                                        "&:last-child td, &:last-child th": {
+                                          border: 0,
+                                        },
+                                      }}
+                                    >
+                                      <TableCell sx={{ p: 0.5, textAlign: "center" }}>
+                                        {item.icon
+                                          ? React.cloneElement(item.icon, {
+                                              fontSize: "small",
+                                            })
+                                          : renderStatusIcon(value, details)}
+                                      </TableCell>
+                                      <TableCell
+                                        component="th"
+                                        scope="row"
+                                        sx={{ p: 0.5, fontWeight: "medium" }}
+                                      >
+                                        {item.label}
+                                      </TableCell>
+                                      <TableCell sx={{ p: 0.5 }}>
+                                        <Box display="flex" alignItems="center">
+                                          <Box mr={0.5}>
+                                            {renderStatusIcon(value, details)}
+                                          </Box>
+                                          <Typography
+                                            variant="body2"
+                                            component="span"
+                                          >
+                                            {details}
+                                          </Typography>
+                                        </Box>
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                })}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+                        </Box>
+                      )}
+                    </>
+                  )}
+                </Box>
+              )}
+            </Paper>
+
+            <Paper elevation={3} sx={{ p: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Automated Tests
+              </Typography>
+              <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+                <Tooltip title="Run unit, integration and end-to-end tests">
+                  <span>
+                    <Button
+                      variant="contained"
+                      onClick={handleRunAllTests}
+                      disabled={isRunningTests || isLoading}
+                    >
+                      {isRunningTests ? (
+                        <CircularProgress size={24} color="inherit" />
+                      ) : (
+                        "Run Test Suite"
+                      )}
+                    </Button>
+                  </span>
+                </Tooltip>
+                <Tooltip title="The mysterious Snibbly Nips button - nobody knows what it does!">
+                  <span>
+                    <Button
+                      variant="outlined"
+                      color="secondary"
+                      onClick={() => showMessage("Snibbly Nips activated! 🦙✨", "success")}
+                      disabled={isLoading}
+                    >
+                      Snibbly Nips
+                    </Button>
+                  </span>
+                </Tooltip>
+              </Box>
+              {testSuiteResults && (
+                <Box
+                  mt={2}
+                  p={2}
+                  border={1}
+                  borderColor="divider"
+                  borderRadius={1}
+                >
+                  <Typography variant="subtitle1" gutterBottom>
+                    Test Suite Output:
+                  </Typography>
+                  <pre
+                    style={{ whiteSpace: "pre-wrap", fontFamily: "monospace" }}
+                  >
+                    {testSuiteResults.stdout}
+                  </pre>
+                  {testSuiteResults.stderr && (
+                    <pre
+                      style={{
+                        whiteSpace: "pre-wrap",
+                        fontFamily: "monospace",
+                        color: "red",
+                      }}
+                    >
+                      {testSuiteResults.stderr}
+                    </pre>
+                  )}
+                </Box>
+              )}
+            </Paper>
+          </Stack>
+        </Grid>
+        <Grid item xs={12} md={6} lg={6}>
+          <Stack spacing={3}>
+            {/* --- NEW Rules Import/Export Paper --- */}
+            <Paper elevation={3} sx={{ p: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Rules Import/Export
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<FileDownloadIcon />}
+                    onClick={handleExportRulesClick}
+                    disabled={isExporting || isLoading}
+                    fullWidth
+                  >
+                    {isExporting ? (
+                      <CircularProgress size={24} />
+                    ) : (
+                      "Export All Rules"
+                    )}
+                  </Button>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Import Rules
+                  </Typography>
+                  <Grid container spacing={2} alignItems="center">
+                    <Grid item xs={12} sm={6}>
+                    <input
+                      accept=".json"
+                      style={{ display: "none" }}
+                      id="import-rules-file"
+                      type="file"
+                      ref={fileImportInputRef}
+                      onChange={handleFileSelectForImport}
+                    />
+                    <label
+                      htmlFor="import-rules-file"
+                      style={{ width: "100%" }}
+                    >
+                      <Button
+                        variant="outlined"
+                          component="span"
+                        startIcon={<FileUploadIcon />}
+                        disabled={isImporting || isLoading}
+                        fullWidth
+                      >
+                        Choose File
+                      </Button>
+                    </label>
+                  </Grid>
+                    <Grid item xs={12} sm={6}>
+                    <Button
+                      variant="contained"
+                      onClick={handleImportRulesClick}
+                      disabled={
+                        !selectedFileForImport || isImporting || isLoading
+                      }
+                      fullWidth
+                    >
+                      {isImporting ? (
+                        <CircularProgress size={24} color="inherit" />
+                      ) : (
+                        "Import Rules"
+                      )}
+                    </Button>
+                    </Grid>
+                  </Grid>
+                  {selectedFileNameForImport && (
+                    <Grid item xs={12}>
+                      <Typography
+                        variant="caption"
+                        display="block"
+                        sx={{ textAlign: "center", mt: 1 }}
+                      >
+                        Selected: {selectedFileNameForImport}
+                      </Typography>
+                    </Grid>
+                  )}
+                </Grid>
+              </Grid>
+            </Paper>
+
+            {/* Network Interconnector Settings */}
+            <Paper elevation={3} sx={{ p: { xs: 2, sm: 2.5, md: 3 } }}>
+              <InterconnectorSettings />
+            </Paper>
+
+            {/* Voice Settings Paper */}
+            <Paper elevation={3} sx={{ p: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Voice
+              </Typography>
+
+              {isVoiceLoading && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                  <CircularProgress />
+                </Box>
+              )}
+
+              {voiceError && (
+                <MuiAlert severity="error" sx={{ mb: 2 }}>
+                  {voiceError}
+                </MuiAlert>
+              )}
+
+              {!isVoiceLoading && !voiceError && (
+                <>
+                  {/* Main Controls */}
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 3 }}>
+                    <Chip
+                      label="Text-to-Speech"
+                      color={voiceSettings.ttsEnabled ? 'primary' : 'default'}
+                      onClick={() => handleVoiceSettingChange('ttsEnabled', !voiceSettings.ttsEnabled)}
+                      variant={voiceSettings.ttsEnabled ? 'filled' : 'outlined'}
+                      size="small"
+                      sx={{
+                        '& .MuiChip-label': {
+                          color: voiceSettings.ttsEnabled ? 'inherit' : 'text.secondary'
+                        }
+                      }}
+                    />
+                    <Chip
+                      label="Microphone"
+                      color={voiceSettings.micEnabled ? 'primary' : 'default'}
+                      onClick={() => handleVoiceSettingChange('micEnabled', !voiceSettings.micEnabled)}
+                      variant={voiceSettings.micEnabled ? 'filled' : 'outlined'}
+                      size="small"
+                      sx={{
+                        '& .MuiChip-label': {
+                          color: voiceSettings.micEnabled ? 'inherit' : 'text.secondary'
+                        }
+                      }}
+                    />
+                  </Box>
+
+                  {/* Voice, Quality, and Audio in Grid */}
+                  <Grid container spacing={1.5} sx={{ mb: 3 }}>
+                    {/* Voice Selection */}
+                    <Grid item xs={12}>
+                      <Typography variant="body2" color="text.primary" sx={{ mb: 0.5, fontSize: '0.75rem' }}>Voice</Typography>
+                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                        {availableVoices.map((voice) => {
+                          const isAvailable = voice.available !== false;
+                          const isSelected = voiceSettings.voice === voice.id;
+                          return (
+                            <Chip
+                              key={voice.id}
+                              label={voice.name + (isAvailable ? '' : ' (not installed)')}
+                              size="small"
+                              color={isSelected ? 'primary' : 'default'}
+                              onClick={() => isAvailable && handleVoiceSettingChange('voice', voice.id)}
+                              variant={isSelected ? 'filled' : 'outlined'}
+                              disabled={!voiceSettings.ttsEnabled || !isAvailable}
+                              sx={{
+                                '& .MuiChip-label': {
+                                  color: isSelected ? 'inherit' : (isAvailable ? 'text.secondary' : 'text.disabled')
+                                },
+                                opacity: isAvailable ? 1 : 0.5
+                              }}
+                            />
+                          );
+                        })}
+                        <Chip
+                          label={isVoiceTestPlaying ? "..." : "Test"}
+                          onClick={() => testVoice(voiceSettings.voice)}
+                          disabled={!voiceSettings.ttsEnabled || isVoiceTestPlaying}
+                          size="small"
+                          color={isVoiceTestPlaying ? "default" : "primary"}
+                          variant={isVoiceTestPlaying ? "filled" : "outlined"}
+                          sx={{ ml: 0.5 }}
+                        />
+                      </Box>
+                    </Grid>
+
+                    {/* Quality and Audio in same row */}
+                    <Grid item xs={6}>
+                      <Typography variant="body2" color="text.primary" sx={{ mb: 0.5, fontSize: '0.75rem' }}>Quality</Typography>
+                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                        <Chip
+                          label="Low"
+                          size="small"
+                          color={voiceSettings.recordingQuality === 'low' ? 'primary' : 'default'}
+                          onClick={() => handleVoiceSettingChange('recordingQuality', 'low')}
+                          variant={voiceSettings.recordingQuality === 'low' ? 'filled' : 'outlined'}
+                          sx={{
+                            '& .MuiChip-label': {
+                              color: voiceSettings.recordingQuality === 'low' ? 'inherit' : 'text.secondary'
+                            }
+                          }}
+                        />
+                        <Chip
+                          label="Med"
+                          size="small"
+                          color={voiceSettings.recordingQuality === 'medium' ? 'primary' : 'default'}
+                          onClick={() => handleVoiceSettingChange('recordingQuality', 'medium')}
+                          variant={voiceSettings.recordingQuality === 'medium' ? 'filled' : 'outlined'}
+                          sx={{
+                            '& .MuiChip-label': {
+                              color: voiceSettings.recordingQuality === 'medium' ? 'inherit' : 'text.secondary'
+                            }
+                          }}
+                        />
+                        <Chip
+                          label="High"
+                          size="small"
+                          color={voiceSettings.recordingQuality === 'high' ? 'primary' : 'default'}
+                          onClick={() => handleVoiceSettingChange('recordingQuality', 'high')}
+                          variant={voiceSettings.recordingQuality === 'high' ? 'filled' : 'outlined'}
+                          sx={{
+                            '& .MuiChip-label': {
+                              color: voiceSettings.recordingQuality === 'high' ? 'inherit' : 'text.secondary'
+                            }
+                          }}
+                        />
+                      </Box>
+                    </Grid>
+
+                    <Grid item xs={6}>
+                      <Typography variant="body2" color="text.primary" sx={{ mb: 0.5, fontSize: '0.75rem' }}>Audio</Typography>
+                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                        <Chip
+                          label="Gain"
+                          size="small"
+                          color={voiceSettings.autoGainControl ? 'primary' : 'default'}
+                          onClick={() => handleVoiceSettingChange('autoGainControl', !voiceSettings.autoGainControl)}
+                          variant={voiceSettings.autoGainControl ? 'filled' : 'outlined'}
+                          sx={{
+                            '& .MuiChip-label': {
+                              color: voiceSettings.autoGainControl ? 'inherit' : 'text.secondary'
+                            }
+                          }}
+                        />
+                        <Chip
+                          label="Noise"
+                          size="small"
+                          color={voiceSettings.noiseSuppression ? 'primary' : 'default'}
+                          onClick={() => handleVoiceSettingChange('noiseSuppression', !voiceSettings.noiseSuppression)}
+                          variant={voiceSettings.noiseSuppression ? 'filled' : 'outlined'}
+                          sx={{
+                            '& .MuiChip-label': {
+                              color: voiceSettings.noiseSuppression ? 'inherit' : 'text.secondary'
+                            }
+                          }}
+                        />
+                        <Chip
+                          label="Echo"
+                          size="small"
+                          color={voiceSettings.echoCancellation ? 'primary' : 'default'}
+                          onClick={() => handleVoiceSettingChange('echoCancellation', !voiceSettings.echoCancellation)}
+                          variant={voiceSettings.echoCancellation ? 'filled' : 'outlined'}
+                          sx={{
+                            '& .MuiChip-label': {
+                              color: voiceSettings.echoCancellation ? 'inherit' : 'text.secondary'
+                            }
+                          }}
+                        />
+                      </Box>
+                    </Grid>
+                  </Grid>
+
+                  {/* Continuous Listening Settings */}
+                  <Typography variant="subtitle2" sx={{ mb: 1, fontSize: '0.85rem' }}>
+                    Listening
+                  </Typography>
+
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', mb: 0.5 }}>
+                        Threshold: {(voiceSettings.silenceThreshold || 0.05).toFixed(2)}
+                      </Typography>
+                      <Slider
+                        value={voiceSettings.silenceThreshold || 0.05}
+                        onChange={(e, value) => handleVoiceSettingChange('silenceThreshold', value)}
+                        min={0.01}
+                        max={0.2}
+                        step={0.01}
+                        valueLabelDisplay="auto"
+                        valueLabelFormat={(value) => value.toFixed(2)}
+                        size="small"
+                      />
+                    </Grid>
+
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', mb: 0.5 }}>
+                        Timeout: {((voiceSettings.silenceTimeout || 2000) / 1000).toFixed(1)}s
+                      </Typography>
+                      <Slider
+                        value={voiceSettings.silenceTimeout || 2000}
+                        onChange={(e, value) => handleVoiceSettingChange('silenceTimeout', value)}
+                        min={1000}
+                        max={5000}
+                        step={500}
+                        valueLabelDisplay="auto"
+                        valueLabelFormat={(value) => `${(value / 1000).toFixed(1)}s`}
+                        size="small"
+                      />
+                    </Grid>
+
+                    <Grid item xs={12}>
+                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', mb: 0.5 }}>
+                        Segment: {((voiceSettings.maxSegmentDuration || 30000) / 1000).toFixed(0)}s
+                      </Typography>
+                      <Slider
+                        value={voiceSettings.maxSegmentDuration || 30000}
+                        onChange={(e, value) => handleVoiceSettingChange('maxSegmentDuration', value)}
+                        min={10000}
+                        max={60000}
+                        step={5000}
+                        valueLabelDisplay="auto"
+                        valueLabelFormat={(value) => `${(value / 1000).toFixed(0)}s`}
+                        size="small"
+                        marks={[
+                          { value: 10000, label: '10s' },
+                          { value: 30000, label: '30s' },
+                          { value: 60000, label: '60s' }
+                        ]}
+                      />
+                    </Grid>
+                  </Grid>
+                </>
+              )}
+            </Paper>
+          </Stack>
+        </Grid>
+      </Grid>
+      <CreateBackupModal
+        open={createBackupOpen}
+        onClose={() => setCreateBackupOpen(false)}
+        onCreate={handleCreateBackupConfirm}
+        isProcessing={isProcessingBackup}
+      />
+      <RestoreBackupModal
+        open={restoreBackupOpen}
+        onClose={() => setRestoreBackupOpen(false)}
+        onRestore={handleRestoreConfirm}
+        isProcessing={isProcessingBackup}
+      />
+      <ManageBackupsModal
+        open={manageBackupsOpen}
+        onClose={closeManageBackups}
+        onRestore={async (name) => {
+          await handleRestoreConfirm(name);
+        }}
+        onDelete={async (name) => {
+          await apiService.deleteServerBackup(name);
+          openManageBackups();
+        }}
+        onRefresh={openManageBackups}
+        backups={backupList}
+      />
+      <ThemeSelectorModal
+        open={themeModalOpen}
+        onClose={() => setThemeModalOpen(false)}
+      />
+      <Dialog
+        open={rebootDialogOpen}
+        onClose={handleCancelReboot}
+        aria-labelledby="reboot-dialog-title"
+      >
+        <DialogTitle id="reboot-dialog-title">Confirm System Reboot</DialogTitle>
+        <DialogContent dividers>
+          <DialogContentText component="div">
+            <Typography variant="body2" gutterBottom>
+              This will run <code>start.sh</code> to restart backend services. The UI will briefly disconnect.
+            </Typography>
+            <Typography variant="body2">
+              Save any unsaved work. After confirming, the page will reload automatically once the service is back.
+            </Typography>
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelReboot} disabled={rebootInProgress}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmReboot}
+            color="error"
+            variant="contained"
+            disabled={rebootInProgress}
+          >
+            {rebootInProgress ? "Rebooting..." : "Reboot Now"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      {purgeModalOpen && (
+        <PurgeIndexModal
+          open={purgeModalOpen}
+          onClose={handleClosePurgeModal}
+          onConfirm={handleConfirmPurge}
+          isProcessing={isPurging}
+        />
+      )}
+      <KillSwitchModal
+        open={killSwitchOpen}
+        onClose={() => setKillSwitchOpen(false)}
+      />
+      {appVersion && (
+        <Box mt={4} textAlign="center">
+          <Typography variant="body2" color="text.secondary">
+            Version: {appVersion}
+          </Typography>
+        </Box>
+      )}
+    </Box>
+  );
+};
+
+export default SettingsPage;

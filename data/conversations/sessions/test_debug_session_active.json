@@ -1,0 +1,19 @@
+{
+  "session_id": "test_debug_session",
+  "start_time": "2026-03-07T18:08:17.048790",
+  "entries": [
+    {
+      "timestamp": "2026-03-07T18:08:17.048795",
+      "user_message": "hello",
+      "assistant_response": "Nice to meet you! What's on your mind today?",
+      "conversation_type": "general",
+      "token_count": 12,
+      "processing_time": 1.278023,
+      "context_used": [],
+      "metadata": {}
+    }
+  ],
+  "total_tokens": 12,
+  "total_processing_time": 1.278023,
+  "last_saved": "2026-03-07T18:08:17.048821"
+}

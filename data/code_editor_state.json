@@ -1,0 +1,68 @@
+{
+  "layout": [
+    {
+      "i": "filetree",
+      "x": 0,
+      "y": 0,
+      "w": 35,
+      "h": 37,
+      "minW": 10,
+      "minH": 5,
+      "isDraggable": true,
+      "isResizable": true
+    },
+    {
+      "i": "search",
+      "x": 0,
+      "y": 37,
+      "w": 35,
+      "h": 37,
+      "minW": 10,
+      "minH": 5,
+      "isDraggable": true,
+      "isResizable": true
+    },
+    {
+      "i": "editor",
+      "x": 44,
+      "y": 8,
+      "w": 73,
+      "h": 55,
+      "minW": 10,
+      "minH": 5,
+      "isDraggable": true,
+      "isResizable": true
+    },
+    {
+      "i": "chat",
+      "x": 140,
+      "y": 0,
+      "w": 35,
+      "h": 37,
+      "minW": 10,
+      "minH": 10,
+      "isDraggable": true,
+      "isResizable": true
+    },
+    {
+      "i": "output",
+      "x": 140,
+      "y": 37,
+      "w": 35,
+      "h": 37,
+      "minW": 10,
+      "minH": 5,
+      "isDraggable": true,
+      "isResizable": true
+    }
+  ],
+  "cardColors": {},
+  "minimizedCards": {
+    "editor": false,
+    "filetree": false,
+    "output": false,
+    "search": false
+  },
+  "originalDimensions": {},
+  "lastSaved": "2026-03-08T00:12:32.289Z"
+}

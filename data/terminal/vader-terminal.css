@@ -1,0 +1,61 @@
+/* Vader Theme for ttyd Web Terminal */
+/* Matches Guaardvark Vader CLI palette */
+
+body {
+  margin: 0;
+  padding: 0;
+  background: #000000;
+  overflow: hidden;
+}
+
+#terminal-container,
+.terminal {
+  background: #000000 !important;
+  padding: 4px;
+}
+
+/* xterm.js viewport */
+.xterm-viewport {
+  background: #000000 !important;
+  scrollbar-color: #d32f2f #1a1a1a;
+}
+
+.xterm-viewport::-webkit-scrollbar {
+  width: 8px;
+}
+
+.xterm-viewport::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+.xterm-viewport::-webkit-scrollbar-thumb {
+  background: #d32f2f;
+  border-radius: 4px;
+}
+
+.xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background: #f44336;
+}
+
+/* Cursor styling */
+.xterm-cursor-layer .xterm-cursor-block {
+  background-color: #d32f2f !important;
+}
+
+/* Selection */
+.xterm .xterm-selection div {
+  background-color: rgba(211, 47, 47, 0.3) !important;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .terminal {
+    font-size: 14px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .terminal {
+    font-size: 13px !important;
+  }
+}

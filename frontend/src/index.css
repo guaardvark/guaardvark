@@ -1,0 +1,165 @@
+/* frontend/src/index.css */
+/* Version 2.0: CSS custom properties for theme-aligned colors */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg-default: #121212;
+  --bg-paper: #1e1e1e;
+  --text-primary: #e0e0e0;
+  --text-secondary: #a0a0a0;
+  --divider: rgba(255, 255, 255, 0.08);
+  --scrollbar-track: #1e1e1e;
+  --scrollbar-thumb: #444;
+  --scrollbar-thumb-hover: #555;
+  --scrollbar-thumb-active: #666;
+}
+
+body {
+  margin: 0;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+    "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-default);
+  color: var(--text-primary);
+}
+
+code {
+  font-family:
+    source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+}
+
+/* --- Custom Scrollbar Styles (Dark Mode Friendly) --- */
+/* Works on WebKit-based browsers (Chrome, Safari, Edge, Opera) */
+
+/* For the scrollbar track (the background) */
+::-webkit-scrollbar {
+  width: 8px; /* Width of vertical scrollbar */
+  height: 8px; /* Height of horizontal scrollbar */
+}
+
+/* For the scrollbar track's background */
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 4px;
+}
+
+/* For the draggable scrolling handle (thumb) */
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+  border: 1px solid var(--scrollbar-track);
+}
+
+/* For the draggable scrolling handle on hover */
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* For the draggable scrolling handle when active (being dragged) */
+::-webkit-scrollbar-thumb:active {
+  background: var(--scrollbar-thumb-active);
+}
+
+/* Optional: For the corner where vertical and horizontal scrollbars meet */
+::-webkit-scrollbar-corner {
+  background: var(--bg-default);
+}
+
+/* --- End Custom Scrollbar Styles --- */
+
+/* --- Styles for react-resizable handles --- */
+/* Make handles invisible but easier to grab with a larger edge */
+.react-resizable-handle {
+  position: absolute;
+  background: transparent; /* Make transparent */
+  opacity: 0; /* Fully transparent but still interactive */
+  box-sizing: border-box;
+  z-index: 1000 !important; /* Ensure handles are clickable and above all content */
+  background-image: none; /* Remove any default background images */
+  pointer-events: auto !important; /* Ensure handles are interactive */
+}
+
+/* Edge handles - enlarged activation zones */
+.react-resizable-handle-s {
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 16px;
+  cursor: s-resize;
+  margin-left: 0;
+}
+.react-resizable-handle-e {
+  right: 0;
+  top: 0;
+  height: 100%;
+  width: 16px;
+  cursor: e-resize;
+  margin-top: 0;
+}
+.react-resizable-handle-w {
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 16px;
+  cursor: w-resize;
+  margin-top: 0;
+}
+.react-resizable-handle-n {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 16px;
+  cursor: n-resize;
+  margin-left: 0;
+}
+
+/* Corner handles - small activation zones */
+.react-resizable-handle-sw {
+  bottom: 0;
+  left: 0;
+  cursor: sw-resize;
+  width: 32px;
+  height: 32px;
+}
+.react-resizable-handle-nw {
+  top: 0;
+  left: 0;
+  cursor: nw-resize;
+  width: 32px;
+  height: 32px;
+}
+.react-resizable-handle-ne {
+  top: 0;
+  right: 0;
+  cursor: ne-resize;
+  width: 32px;
+  height: 32px;
+}
+.react-resizable-handle-se {
+  bottom: 0;
+  right: 0;
+  cursor: se-resize;
+  width: 32px;
+  height: 32px;
+}
+/* --- End Resize Handle Styles --- */
+
+/* Ensure react-grid-item doesn't clip resize handles */
+.react-grid-item {
+  overflow: visible !important;
+}
+
+/* Ensure resize handles are above card content */
+.react-grid-item .react-resizable-handle {
+  z-index: 1000 !important;
+  pointer-events: auto !important;
+}
+
+/* Ensure Paper component doesn't block resize handles */
+.react-grid-item .MuiPaper-root {
+  position: relative;
+  z-index: 1;
+}

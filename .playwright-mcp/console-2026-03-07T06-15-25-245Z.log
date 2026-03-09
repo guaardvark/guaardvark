@@ -1,0 +1,39 @@
+[      66ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/src/components/chat/ChatInput.jsx?t=1772863178409:0
+[     103ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5175/vite.svg:0
+[   21974ms] [ERROR] Access to fetch at 'http://localhost:5002/api/model/' (redirected from 'http://localhost:5175/api/model') from origin 'http://localhost:5175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:5175/:0
+[   21975ms] [ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:5002/api/model/:0
+[   21975ms] [ERROR] modelService: Error fetching current model: Failed to fetch @ http://localhost:5175/src/api/modelService.js:49
+[   21975ms] [ERROR] StatusContext: Failed to fetch model: TypeError: Failed to fetch
+    at getCurrentModel (http://localhost:5175/src/api/modelService.js:28:28)
+    at http://localhost:5175/src/contexts/StatusContext.jsx:42:29
+    at initializeStatus (http://localhost:5175/src/contexts/StatusContext.jsx:88:26)
+    at http://localhost:5175/src/contexts/StatusContext.jsx:90:5
+    at commitHookEffectListMount (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:16944:34)
+    at commitPassiveMountOnFiber (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:18192:19)
+    at commitPassiveMountEffects_complete (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:18165:17)
+    at commitPassiveMountEffects_begin (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:18155:15)
+    at commitPassiveMountEffects (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:18145:11)
+    at flushPassiveEffectsImpl (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:19526:11) @ http://localhost:5175/src/contexts/StatusContext.jsx:55
+[   21975ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xjev30xn&sid=uE2KOzRtcDgkBxCVAAAN:0
+[   21984ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=uE2KOzRtcDgkBxCVAAAN' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   22081ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=uE2KOzRtcDgkBxCVAAAN' failed: Error during WebSocket handshake: Unexpected response code: 400 @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1128
+[   22081ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xjevv2jw&sid=uE2KOzRtcDgkBxCVAAAN:0
+[   22083ms] [ERROR] Failed to load resource: the server responded with a status of 404 (NOT FOUND) @ http://localhost:5175/api/state/folders:0
+[   22120ms] [ERROR] Access to fetch at 'http://localhost:5002/api/websites/' (redirected from 'http://localhost:5175/api/websites') from origin 'http://localhost:5175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:5175/:0
+[   22120ms] [ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:5002/api/websites/:0
+[   22120ms] [ERROR] websiteService: Error getting websites: Failed to fetch @ http://localhost:5175/src/api/websiteService.js:15
+[   22120ms] [ERROR] WebsiteDataCard fetch error: Error: Failed to fetch
+    at http://localhost:5175/src/components/dashboard/WebsiteDataCard.jsx:64:19 @ http://localhost:5175/src/components/dashboard/WebsiteDataCard.jsx:67
+[   22120ms] [ERROR] Failed to load resource: the server responded with a status of 404 (NOT FOUND) @ http://localhost:5175/api/state/folders:0
+[   22121ms] [ERROR] Access to fetch at 'http://localhost:5002/api/websites/' (redirected from 'http://localhost:5175/api/websites') from origin 'http://localhost:5175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:5175/:0
+[   22121ms] [ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:5002/api/websites/:0
+[   22121ms] [ERROR] websiteService: Error getting websites: Failed to fetch @ http://localhost:5175/src/api/websiteService.js:15
+[   22121ms] [ERROR] WebsiteDataCard fetch error: Error: Failed to fetch
+    at http://localhost:5175/src/components/dashboard/WebsiteDataCard.jsx:64:19 @ http://localhost:5175/src/components/dashboard/WebsiteDataCard.jsx:67
+[   23387ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xjfyut3p&sid=FDzPoRgKSRu-e8CrAAAO:0
+[   23387ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=FDzPoRgKSRu-e8CrAAAO' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   23388ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xjfyvwnf&sid=FDzPoRgKSRu-e8CrAAAO:0
+[   24062ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xjghli9v&sid=bLefe6VnjI8aC6NyAAAP:0
+[   24063ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=bLefe6VnjI8aC6NyAAAP' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   24063ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=bLefe6VnjI8aC6NyAAAP' failed: Error during WebSocket handshake: Unexpected response code: 400 @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1128
+[   24064ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xjghnhla&sid=bLefe6VnjI8aC6NyAAAP:0

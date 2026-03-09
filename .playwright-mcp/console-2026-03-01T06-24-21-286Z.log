@@ -1,0 +1,9 @@
+[     499ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=a622341a:1104
+[  104120ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/api/interconnector/nodes:0
+[  104121ms] [ERROR] apiClient: handleResponse throwing error for http://localhost:5175/api/interconnector/nodes: [object Object] {message: Interconnector is not enabled, error: Object, status_code: 400, success: false, timestamp: 2026-03-01T01:26:05.393267} @ http://localhost:5175/src/api/apiClient.js:57
+[  104121ms] [ERROR] interconnectorService: Error fetching nodes: [object Object] @ http://localhost:5175/src/api/interconnectorService.js:178
+[  104121ms] [WARNING] [INTERCONNECTOR] No nodes in response: {error: [object Object], nodes: Array(0)} @ http://localhost:5175/src/components/settings/InterconnectorSettings.jsx?t=1772346241378:378
+[  121624ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/api/interconnector/nodes:0
+[  121625ms] [ERROR] apiClient: handleResponse throwing error for http://localhost:5175/api/interconnector/nodes: [object Object] {message: Interconnector is not enabled, error: Object, status_code: 400, success: false, timestamp: 2026-03-01T01:26:22.893609} @ http://localhost:5175/src/api/apiClient.js:57
+[  121625ms] [ERROR] interconnectorService: Error fetching nodes: [object Object] @ http://localhost:5175/src/api/interconnectorService.js:178
+[  121625ms] [WARNING] [INTERCONNECTOR] No nodes in response: {error: [object Object], nodes: Array(0)} @ http://localhost:5175/src/components/settings/InterconnectorSettings.jsx?t=1772346241378:378

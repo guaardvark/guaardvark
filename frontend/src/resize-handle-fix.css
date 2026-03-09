@@ -1,0 +1,78 @@
+/* Fix for React Grid Layout resize handles - ensure all handles work properly */
+/* Enable all resize handles with proper z-index and pointer events */
+.react-resizable-handle-s,
+.react-resizable-handle-e,
+.react-resizable-handle-w,
+.react-resizable-handle-n,
+.react-resizable-handle-sw,
+.react-resizable-handle-se,
+.react-resizable-handle-nw,
+.react-resizable-handle-ne {
+  z-index: 1000 !important;
+  pointer-events: auto !important;
+  display: block !important;
+}
+
+/* Fix for better handle visibility and interaction - increased sizes for easier grabbing */
+
+/* Corner handles - larger for easier access */
+.react-resizable-handle-se {
+  bottom: 0 !important;
+  right: 0 !important;
+  width: 40px !important;
+  height: 40px !important;
+}
+
+.react-resizable-handle-sw {
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 40px !important;
+  height: 40px !important;
+}
+
+.react-resizable-handle-ne {
+  top: 0 !important;
+  right: 0 !important;
+  width: 40px !important;
+  height: 40px !important;
+}
+
+.react-resizable-handle-nw {
+  top: 0 !important;
+  left: 0 !important;
+  width: 40px !important;
+  height: 40px !important;
+}
+
+/* Edge handles - wider/taller for easier grabbing */
+.react-resizable-handle-s {
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 20px !important;
+  transform: none !important;
+}
+
+.react-resizable-handle-n {
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 20px !important;
+  transform: none !important;
+}
+
+.react-resizable-handle-e {
+  right: 0 !important;
+  top: 0 !important;
+  width: 20px !important;
+  height: 100% !important;
+  transform: none !important;
+}
+
+.react-resizable-handle-w {
+  left: 0 !important;
+  top: 0 !important;
+  width: 20px !important;
+  height: 100% !important;
+  transform: none !important;
+}

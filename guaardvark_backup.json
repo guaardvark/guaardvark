@@ -1,0 +1,13 @@
+{
+  "version": "5.0",
+  "backup_type": "code_only",
+  "timestamp": 1771880052843419050,
+  "description": "Code and configuration backup excluding all data",
+  "backup_date": "2026-02-23T18:39:13.154592",
+  "system_info": {
+    "python_version": "3.12.3 (main, Jan 22 2026, 20:57:42) [GCC 13.3.0]",
+    "platform": "posix",
+    "project_root": "/home/llamax1/LLAMAX6"
+  },
+  "note": "This backup contains source code and configuration files only. No database, uploads, or user data is included."
+}

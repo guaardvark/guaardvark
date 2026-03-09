@@ -1,0 +1,6 @@
+[     569ms] [ERROR] Failed to load resource: the server responded with a status of 404 (NOT FOUND) @ http://localhost:5175/api/files/thumbnail?path=Images%2F0023%2Fprompt_2.png:0
+[     569ms] [ERROR] Failed to load resource: the server responded with a status of 404 (NOT FOUND) @ http://localhost:5175/api/files/thumbnail?path=Images%2F0023%2Fprompt_1.png:0
+[     569ms] [ERROR] Failed to load resource: the server responded with a status of 404 (NOT FOUND) @ http://localhost:5175/api/files/thumbnail?path=Images%2F0023%2Fprompt_3.png:0
+[   23731ms] [ERROR] Failed to load resource: the server responded with a status of 404 (NOT FOUND) @ http://localhost:5175/api/files/thumbnail?path=Images%2F0023%2Fprompt_1.png:0
+[   23732ms] [ERROR] Failed to load resource: the server responded with a status of 404 (NOT FOUND) @ http://localhost:5175/api/files/thumbnail?path=Images%2F0023%2Fprompt_2.png:0
+[   23732ms] [ERROR] Failed to load resource: the server responded with a status of 404 (NOT FOUND) @ http://localhost:5175/api/files/thumbnail?path=Images%2F0023%2Fprompt_3.png:0

@@ -1,0 +1,2 @@
+[     965ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5175/vite.svg:0
+[  117983ms] [WARNING] DUPLICATE PREVENTION: Reusing existing process: OM2E1mnkO9HghIj9Hv3M9 @ http://localhost:5175/src/pages/ChatPage.jsx:83

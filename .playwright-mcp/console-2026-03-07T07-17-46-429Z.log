@@ -1,0 +1,124 @@
+[     328ms] [WARNING] STRICT MODE PROTECTION: Reusing recent process: MQ2WEvFoGDef3oJxfOe_W (age: 8s) @ http://localhost:5175/src/pages/ChatPage.jsx:93
+[     328ms] [WARNING] STRICT MODE PROTECTION: Reusing recent process: MQ2WEvFoGDef3oJxfOe_W (age: 8s) @ http://localhost:5175/src/pages/ChatPage.jsx:93
+[     365ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/uploads/system/profile-defaul-logo.png:0
+[     371ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/enhanced-chat/session_1772867720614/history?limit=100:0
+[     371ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/scheduler/queue/summary:0
+[     371ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: Error: HTTP 500
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:66:15 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74
+[     372ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/voice/status:0
+[     372ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zr4woqrw:0
+[     372ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/model/status:0
+[     372ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/settings/branding:0
+[     372ms] [WARNING] useAppStore: failed to fetch branding Error: Failed to fetch branding: 500
+    at fetchSystemInfo (http://localhost:5175/src/stores/useAppStore.js:59:15) @ http://localhost:5175/src/stores/useAppStore.js:71
+[     372ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/enhanced-chat/session_1772867720614/history?limit=100:0
+[     372ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/scheduler/queue/summary:0
+[     372ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: Error: HTTP 500
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:66:15 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74
+[     372ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zr4wqgpz:0
+[     394ms] [ERROR] apiClient: handleResponse throwing error for http://localhost:5175/api/enhanced-chat/session_1772867720614/history?limit=100: HTTP error 500 - Internal Server Error {message: HTTP error 500 - Internal Server Error} @ http://localhost:5175/src/api/apiClient.js:57
+[     394ms] [ERROR] chatService: Error fetching chat history for session_1772867720614: HTTP error 500 - Internal Server Error @ http://localhost:5175/src/api/chatService.js:605
+[     394ms] [ERROR] ChatPage: Failed to load chat history: Error: HTTP error 500 - Internal Server Error
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:55:19)
+    at async getChatHistory (http://localhost:5175/src/api/chatService.js:582:17)
+    at async loadHistory (http://localhost:5175/src/pages/ChatPage.jsx:386:25) @ http://localhost:5175/src/pages/ChatPage.jsx:443
+[     395ms] [ERROR] apiClient: handleResponse throwing error for http://localhost:5175/api/voice/status: HTTP error 500 - Internal Server Error {message: HTTP error 500 - Internal Server Error} @ http://localhost:5175/src/api/apiClient.js:57
+[     395ms] [ERROR] Failed to get voice status: Error: HTTP error 500 - Internal Server Error
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:55:19)
+    at async VoiceService.getStatus (http://localhost:5175/src/api/voiceService.js:37:14)
+    at async initializeVoice (http://localhost:5175/src/contexts/VoiceContext.jsx:267:24) @ http://localhost:5175/src/api/voiceService.js:38
+[     395ms] [ERROR] VoiceContext: Failed to initialize voice features: Error: HTTP error 500 - Internal Server Error
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:55:19)
+    at async VoiceService.getStatus (http://localhost:5175/src/api/voiceService.js:37:14)
+    at async initializeVoice (http://localhost:5175/src/contexts/VoiceContext.jsx:267:24) @ http://localhost:5175/src/contexts/VoiceContext.jsx:291
+[     395ms] [ERROR] apiClient: handleResponse throwing error for http://localhost:5175/api/model/status: HTTP error 500 - Internal Server Error {message: HTTP error 500 - Internal Server Error} @ http://localhost:5175/src/api/apiClient.js:57
+[     395ms] [ERROR] modelService: Error fetching model status: HTTP error 500 - Internal Server Error @ http://localhost:5175/src/api/modelService.js:81
+[     395ms] [ERROR] StatusContext: Failed to fetch model status: Error: HTTP error 500 - Internal Server Error
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:55:19)
+    at async getModelStatus (http://localhost:5175/src/api/modelService.js:77:18)
+    at async http://localhost:5175/src/contexts/StatusContext.jsx:72:22
+    at async Promise.all (index 1)
+    at async initializeStatus (http://localhost:5175/src/contexts/StatusContext.jsx:88:7) @ http://localhost:5175/src/contexts/StatusContext.jsx:76
+[     395ms] [ERROR] apiClient: handleResponse throwing error for http://localhost:5175/api/enhanced-chat/session_1772867720614/history?limit=100: HTTP error 500 - Internal Server Error {message: HTTP error 500 - Internal Server Error} @ http://localhost:5175/src/api/apiClient.js:57
+[     395ms] [ERROR] chatService: Error fetching chat history for session_1772867720614: HTTP error 500 - Internal Server Error @ http://localhost:5175/src/api/chatService.js:605
+[     395ms] [ERROR] ChatPage: Failed to load chat history: Error: HTTP error 500 - Internal Server Error
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:55:19)
+    at async getChatHistory (http://localhost:5175/src/api/chatService.js:582:17)
+    at async loadHistory (http://localhost:5175/src/pages/ChatPage.jsx:386:25) @ http://localhost:5175/src/pages/ChatPage.jsx:443
+[     396ms] [ERROR] Access to fetch at 'http://localhost:5002/api/model/' (redirected from 'http://localhost:5175/api/model') from origin 'http://localhost:5175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:5175/chat:0
+[     396ms] [ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:5002/api/model/:0
+[     396ms] [ERROR] modelService: Error fetching current model: Failed to fetch @ http://localhost:5175/src/api/modelService.js:49
+[     396ms] [ERROR] StatusContext: Failed to fetch model: TypeError: Failed to fetch
+    at getCurrentModel (http://localhost:5175/src/api/modelService.js:28:28)
+    at http://localhost:5175/src/contexts/StatusContext.jsx:42:29
+    at initializeStatus (http://localhost:5175/src/contexts/StatusContext.jsx:88:26)
+    at http://localhost:5175/src/contexts/StatusContext.jsx:90:5
+    at commitHookEffectListMount (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:16944:34)
+    at commitPassiveMountOnFiber (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:18192:19)
+    at commitPassiveMountEffects_complete (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:18165:17)
+    at commitPassiveMountEffects_begin (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:18155:15)
+    at commitPassiveMountEffects (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:18145:11)
+    at flushPassiveEffectsImpl (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:19526:11) @ http://localhost:5175/src/contexts/StatusContext.jsx:55
+[     412ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/model/list:0
+[     412ms] [WARNING] Failed to fetch available models: Error: HTTP 500: Internal Server Error
+    at getAvailableModels (http://localhost:5175/src/utils/modelUtils.js:25:13)
+    at async updateVisionModelsCache (http://localhost:5175/src/utils/modelUtils.js:67:24)
+    at async initializeModelCache (http://localhost:5175/src/utils/modelUtils.js:169:5)
+    at async initModelCache (http://localhost:5175/src/App.jsx:180:9) @ http://localhost:5175/src/utils/modelUtils.js:29
+[     412ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/model/list:0
+[     412ms] [WARNING] Failed to fetch available models: Error: HTTP 500: Internal Server Error
+    at getAvailableModels (http://localhost:5175/src/utils/modelUtils.js:25:13)
+    at async updateVisionModelsCache (http://localhost:5175/src/utils/modelUtils.js:67:24)
+    at async initializeModelCache (http://localhost:5175/src/utils/modelUtils.js:169:5)
+    at async initModelCache (http://localhost:5175/src/App.jsx:180:9) @ http://localhost:5175/src/utils/modelUtils.js:29
+[    1667ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zr5x91ep:0
+[    3803ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zr7kln38:0
+[    8805ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zrbfknrx:0
+[   13808ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zrfai61x:0
+[   15352ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/scheduler/queue/summary:0
+[   15352ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: Error: HTTP 500
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:66:15 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74
+[   18811ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zrj5hsf1:0
+[   30352ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/scheduler/queue/summary:0
+[   30352ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: Error: HTTP 500
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:66:15 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74
+[   34744ms] [ERROR] WebSocket connection to 'ws://localhost:5175/?token=Cg29kbZZopc8' failed:  @ http://localhost:5175/@vite/client:268
+[   35747ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[   36748ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[   37750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[   38751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[   39752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[   41681ms] [WARNING] DUPLICATE PREVENTION: Reusing existing process: Xh6GIV0z3lX4yyFyU-gHm @ http://localhost:5175/src/pages/ChatPage.jsx:85
+[   41747ms] [ERROR] Access to fetch at 'http://localhost:5002/api/model/' (redirected from 'http://localhost:5175/api/model') from origin 'http://localhost:5175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:5175/chat:0
+[   41748ms] [ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:5002/api/model/:0
+[   41748ms] [ERROR] modelService: Error fetching current model: Failed to fetch @ http://localhost:5175/src/api/modelService.js:49
+[   41748ms] [ERROR] StatusContext: Failed to fetch model: TypeError: Failed to fetch
+    at getCurrentModel (http://localhost:5175/src/api/modelService.js:28:28)
+    at http://localhost:5175/src/contexts/StatusContext.jsx:42:29
+    at initializeStatus (http://localhost:5175/src/contexts/StatusContext.jsx:88:26)
+    at http://localhost:5175/src/contexts/StatusContext.jsx:90:5
+    at commitHookEffectListMount (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:16944:34)
+    at commitPassiveMountOnFiber (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:18192:19)
+    at commitPassiveMountEffects_complete (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:18165:17)
+    at commitPassiveMountEffects_begin (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:18155:15)
+    at commitPassiveMountEffects (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:18145:11)
+    at flushPassiveEffectsImpl (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:19526:11) @ http://localhost:5175/src/contexts/StatusContext.jsx:55
+[   41761ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zs0ul2f8&sid=QYwBTJBsFXkIieZiAAAC:0
+[   41784ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=QYwBTJBsFXkIieZiAAAC' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   41794ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zs0vn8rl&sid=QYwBTJBsFXkIieZiAAAC:0
+[   42484ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zs1f3d8g&sid=xBlx9ZMYjqmS3CK9AAAD:0
+[   42485ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=xBlx9ZMYjqmS3CK9AAAD' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   42485ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=xBlx9ZMYjqmS3CK9AAAD' failed: Error during WebSocket handshake: Unexpected response code: 400 @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1128
+[   42486ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zs1f5t54&sid=xBlx9ZMYjqmS3CK9AAAD:0
+[   43877ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zs2hskb7&sid=sl9cXxZxG0PY9UdLAAAE:0
+[   43878ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=sl9cXxZxG0PY9UdLAAAE' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   43879ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zs2huk1h&sid=sl9cXxZxG0PY9UdLAAAE:0
+[   44558ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zs30p0a9&sid=qENAGezKKPBXAdjxAAAF:0
+[   44558ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=qENAGezKKPBXAdjxAAAF' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   44558ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=qENAGezKKPBXAdjxAAAF' failed: Error during WebSocket handshake: Unexpected response code: 400 @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1128
+[   44559ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zs30r88y&sid=qENAGezKKPBXAdjxAAAF:0
+[   46054ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=hHeQutIagbMzpY-yAAAG' failed: Error during WebSocket handshake: Unexpected response code: 400 @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1128
+[   46054ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zs46894i&sid=hHeQutIagbMzpY-yAAAG:0
+[   46056ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zs46bcey&sid=hHeQutIagbMzpY-yAAAG:0
+[   47442ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zs58s6nw&sid=vkAmIfMz86s1NZ_DAAAH:0
+[   47442ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=vkAmIfMz86s1NZ_DAAAH' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
