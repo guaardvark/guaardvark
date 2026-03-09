@@ -64,6 +64,42 @@ def _is_codebase_locked() -> bool:
         return False
 
 
+def _handle_uncle_directive(directive: str, reason: str):
+    """Execute Uncle Claude's kill switch directive."""
+    logger.critical(f"Uncle Claude directive: {directive} — {reason}")
+    from backend.models import db, SystemSetting
+
+    if directive in ("halt_self_improvement", "lock_codebase", "halt_family"):
+        setting = db.session.query(SystemSetting).filter_by(key="self_improvement_enabled").first()
+        if setting:
+            setting.value = "false"
+        else:
+            db.session.add(SystemSetting(key="self_improvement_enabled", value="false"))
+
+    if directive in ("lock_codebase", "halt_family"):
+        setting = db.session.query(SystemSetting).filter_by(key="codebase_locked").first()
+        if setting:
+            setting.value = "true"
+        else:
+            db.session.add(SystemSetting(key="codebase_locked", value="true"))
+        import os
+        from datetime import datetime
+        lock_file = os.path.join(os.environ.get("GUAARDVARK_ROOT", "."), "data", ".codebase_lock")
+        os.makedirs(os.path.dirname(lock_file), exist_ok=True)
+        with open(lock_file, "w") as f:
+            f.write(f"UNCLE_DIRECTIVE={directive}\nREASON={reason}\nTIMESTAMP={datetime.now().isoformat()}\n")
+
+    db.session.commit()
+
+    if directive == "halt_family":
+        try:
+            from backend.services.interconnector_sync_service import InterconnectorSyncService
+            sync_service = InterconnectorSyncService()
+            sync_service.broadcast_directive("halt_family", reason)
+        except Exception as e:
+            logger.error(f"Failed to broadcast halt_family directive: {e}")
+
+
 def _is_edit_forbidden(filepath: str) -> tuple[bool, str | None]:
     """Return (True, reason) if filepath is in a forbidden location, else (False, None)."""
     if not filepath or not filepath.strip():
@@ -263,6 +299,32 @@ class EditCodeTool(BaseTool):
                 error=f"ERROR: {reason}",
                 metadata={"filepath": filepath}
             )
+
+        # Guardian review (Uncle Claude) — only during self-improvement
+        if kwargs.get("_self_improvement_context"):
+            try:
+                from backend.services.claude_advisor_service import get_claude_advisor
+                advisor = get_claude_advisor()
+                if advisor.is_available():
+                    import os
+                    review = advisor.review_change(
+                        file_path=filepath,
+                        current_content=open(filepath).read()[:3000] if os.path.exists(filepath) else "",
+                        proposed_diff=f"- {old_text[:500]}\n+ {new_text[:500]}",
+                        reasoning=kwargs.get("_reasoning", "Autonomous code change"),
+                    )
+                    if not review.get("approved", True):
+                        directive = review.get("directive", "reject")
+                        if directive in ("halt_self_improvement", "lock_codebase", "halt_family"):
+                            _handle_uncle_directive(directive, review.get("reason", ""))
+                        return ToolResult(
+                            success=False,
+                            error=f"Uncle Claude rejected this change: {review.get('reason', 'No reason given')}. "
+                                  f"Suggestions: {', '.join(review.get('suggestions', []))}",
+                            metadata={"guardian_review": review}
+                        )
+            except Exception as e:
+                logger.warning(f"Guardian review failed, proceeding with caution: {e}")
 
         try:
             result = edit_code(filepath, old_text, new_text)
