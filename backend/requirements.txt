@@ -8,6 +8,7 @@ Flask-SQLAlchemy==3.1.1
 Flask-SocketIO==5.3.6
 flask-cors==4.0.0
 alembic==1.13.1
+anthropic>=0.40.0
 python-dotenv==1.0.1
 
 # Background Tasks & Caching

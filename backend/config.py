@@ -91,6 +91,37 @@ MCP_ENABLED = os.environ.get("GUAARDVARK_MCP_ENABLED", "true").lower() == "true"
 MCP_TIMEOUT = int(os.environ.get("GUAARDVARK_MCP_TIMEOUT", "30"))
 MCP_SERVERS_CONFIG = os.environ.get("GUAARDVARK_MCP_SERVERS", "{}")
 
+# Uncle Claude configuration
+CLAUDE_API_ENABLED = os.environ.get("GUAARDVARK_CLAUDE_API_ENABLED", "true").lower() == "true"
+CLAUDE_DEFAULT_MODEL = os.environ.get("GUAARDVARK_CLAUDE_MODEL", "claude-sonnet-4-20250514")
+CLAUDE_MAX_OUTPUT_TOKENS = int(os.environ.get("GUAARDVARK_CLAUDE_MAX_TOKENS", "4096"))
+CLAUDE_MONTHLY_TOKEN_BUDGET = int(os.environ.get("GUAARDVARK_CLAUDE_TOKEN_BUDGET", "1000000"))
+CLAUDE_ESCALATION_MODE = os.environ.get("GUAARDVARK_CLAUDE_ESCALATION_MODE", "manual")  # manual, smart, always
+
+# Self-improvement configuration
+SELF_IMPROVEMENT_ENABLED = os.environ.get("GUAARDVARK_SELF_IMPROVEMENT", "false").lower() == "true"
+SELF_IMPROVEMENT_INTERVAL_HOURS = int(os.environ.get("GUAARDVARK_SELF_IMPROVEMENT_INTERVAL", "6"))
+SELF_HEALING_ERROR_THRESHOLD = int(os.environ.get("GUAARDVARK_SELF_HEALING_THRESHOLD", "3"))
+SELF_HEALING_WINDOW_MINUTES = int(os.environ.get("GUAARDVARK_SELF_HEALING_WINDOW", "60"))
+
+# KV Cache optimization
+COMPACTION_THRESHOLD = float(os.environ.get("GUAARDVARK_COMPACTION_THRESHOLD", "0.7"))
+CHUNK_SIMILARITY_THRESHOLD = float(os.environ.get("GUAARDVARK_CHUNK_SIMILARITY_THRESHOLD", "0.85"))
+
+# Protected files (cannot be modified by self-improvement)
+PROTECTED_FILES = [
+    "backend/services/claude_advisor_service.py",
+    "backend/services/self_improvement_service.py",
+    "backend/services/tool_execution_guard.py",
+    "backend/tools/agent_tools/code_manipulation_tools.py",
+    "backend/app.py",
+    "backend/config.py",
+    "backend/models.py",
+    "killswitch.sh",
+    "stop.sh",
+    "start.sh",
+]
+
 UPLOAD_FOLDER = UPLOAD_DIR
 CLIENT_LOGO_FOLDER = str(Path(UPLOAD_DIR) / "logos")
 SYSTEM_DIR = str(Path(STORAGE_DIR) / "system")

@@ -1265,6 +1265,11 @@ class InterconnectorNode(db.Model):
     sync_entities = db.Column(db.Text(), nullable=True)  # JSON array
     registered_at = db.Column(db.DateTime(), default=lambda: datetime.now())
     last_sync_time = db.Column(db.DateTime(), nullable=True)
+    model_name = db.Column(db.String(100))
+    vram_total = db.Column(db.Integer)  # MB
+    vram_free = db.Column(db.Integer)  # MB
+    specialties = db.Column(db.Text(), default="[]")  # JSON array
+    current_load = db.Column(db.Float, default=0.0)  # 0.0-1.0
 
     def __repr__(self):
         return f"<InterconnectorNode {self.node_id}: {self.node_name}>"
@@ -1283,6 +1288,11 @@ class InterconnectorNode(db.Model):
             "sync_entities": json.loads(self.sync_entities) if self.sync_entities else [],
             "registered_at": self.registered_at.isoformat() if self.registered_at else None,
             "last_sync_time": self.last_sync_time.isoformat() if self.last_sync_time else None,
+            "model_name": self.model_name,
+            "vram_total": self.vram_total,
+            "vram_free": self.vram_free,
+            "specialties": json.loads(self.specialties) if self.specialties else [],
+            "current_load": self.current_load,
         }
 
 
@@ -1536,6 +1546,75 @@ class InterconnectorPendingApproval(db.Model):
             "approved_files": json.loads(self.approved_files) if self.approved_files else [],
             "approved_entities": json.loads(self.approved_entities) if self.approved_entities else {},
             "auto_applied": self.auto_applied,
+        }
+
+
+# --- Uncle Claude Family Architecture Models ---
+class InterconnectorLearning(db.Model):
+    __tablename__ = "interconnector_learnings"
+
+    id = db.Column(db.Integer, primary_key=True)
+    source_node_id = db.Column(db.String(36), nullable=False)
+    timestamp = db.Column(db.DateTime(), default=lambda: datetime.now(), nullable=False)
+    learning_type = db.Column(db.String(50), nullable=False)  # bug_fix, optimization, pattern, model_insight, security
+    description = db.Column(db.Text(), nullable=False)
+    code_diff = db.Column(db.Text())
+    confidence = db.Column(db.Float, default=0.5)
+    model_used = db.Column(db.String(100))
+    applied_by = db.Column(db.Text(), default="[]")  # JSON array of node_ids
+    uncle_reviewed = db.Column(db.Boolean(), default=False)
+    uncle_feedback = db.Column(db.Text())
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "source_node_id": self.source_node_id,
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "learning_type": self.learning_type,
+            "description": self.description,
+            "code_diff": self.code_diff,
+            "confidence": self.confidence,
+            "model_used": self.model_used,
+            "applied_by": json.loads(self.applied_by) if self.applied_by else [],
+            "uncle_reviewed": self.uncle_reviewed,
+            "uncle_feedback": self.uncle_feedback,
+        }
+
+
+class SelfImprovementRun(db.Model):
+    __tablename__ = "self_improvement_runs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    timestamp = db.Column(db.DateTime(), default=lambda: datetime.now(), nullable=False)
+    node_id = db.Column(db.String(36))
+    trigger = db.Column(db.String(50), nullable=False)  # scheduled, reactive, directed, family_learning
+    status = db.Column(db.String(50), default="running")  # running, success, failed, blocked_by_guardian
+    test_results_before = db.Column(db.Text())  # JSON
+    test_results_after = db.Column(db.Text())  # JSON
+    changes_made = db.Column(db.Text(), default="[]")  # JSON array of {file, diff}
+    uncle_reviewed = db.Column(db.Boolean(), default=False)
+    uncle_feedback = db.Column(db.Text())
+    learning_id = db.Column(db.Integer, db.ForeignKey("interconnector_learnings.id", name="fk_sir_learning_id", ondelete="SET NULL"), nullable=True)
+    error_message = db.Column(db.Text())
+    duration_seconds = db.Column(db.Float)
+
+    learning = db.relationship("InterconnectorLearning", backref="improvement_runs", lazy="select")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "node_id": self.node_id,
+            "trigger": self.trigger,
+            "status": self.status,
+            "test_results_before": json.loads(self.test_results_before) if self.test_results_before else None,
+            "test_results_after": json.loads(self.test_results_after) if self.test_results_after else None,
+            "changes_made": json.loads(self.changes_made) if self.changes_made else [],
+            "uncle_reviewed": self.uncle_reviewed,
+            "uncle_feedback": self.uncle_feedback,
+            "learning_id": self.learning_id,
+            "error_message": self.error_message,
+            "duration_seconds": self.duration_seconds,
         }
 
 
