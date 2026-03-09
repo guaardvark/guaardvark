@@ -40,6 +40,7 @@ import CSVGenerationCard from "../components/dashboard/CSVGenerationCard";
 import CodeGenerationCard from "../components/dashboard/CodeGenerationCard";
 import ImageGenerationCard from "../components/dashboard/ImageGenerationCard";
 import FileManagerCard from "../components/dashboard/FileManagerCard";
+import FamilySelfImprovementCard from "../components/dashboard/FamilySelfImprovementCard";
 import { useLayout } from "../contexts/LayoutContext";
 
 const cardComponents = {
@@ -52,6 +53,7 @@ const cardComponents = {
   codegen: CodeGenerationCard,
   imggen: ImageGenerationCard,
   files: FileManagerCard,
+  family: FamilySelfImprovementCard,
 };
 
 const DashboardPage = () => {
@@ -107,6 +109,7 @@ const DashboardPage = () => {
       { i: "codegen", x: cardGridW, y: cardGridH, w: cardGridW, h: cardGridH },
       { i: "imggen", x: cardGridW * 2, y: cardGridH, w: cardGridW, h: cardGridH },
       { i: "files", x: cardGridW * 3, y: cardGridH, w: cardGridW * 2, h: cardGridH * 1.5 }, // FileManager needs more space
+      { i: "family", x: 0, y: cardGridH * 2, w: cardGridW * 2, h: cardGridH },
     ];
     items.forEach((it) => {
       it.minW = cardMinGridW;

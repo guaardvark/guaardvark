@@ -73,6 +73,7 @@ import RestoreBackupModal from "../components/modals/RestoreBackupModal";
 import ManageBackupsModal from "../components/modals/ManageBackupsModal";
 import PurgeIndexModal from "../components/modals/PurgeIndexModal";
 import ThemeSelectorModal from "../components/modals/ThemeSelectorModal";
+import UncleClaudeSection from "../components/settings/UncleClaudeSection";
 import KillSwitchModal from "../components/modals/KillSwitchModal";
 import RebootProgressModal from "../components/modals/RebootProgressModal";
 import RAGDebugSection from "../components/settings/RAGDebugSection";
@@ -2418,6 +2419,7 @@ const SettingsPage = () => {
                   Open
                 </Button>
               </SettingsRow>
+              <UncleClaudeSection />
             </SettingsSection>
           )}
 
