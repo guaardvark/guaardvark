@@ -1,0 +1,92 @@
+# backend/requirements.txt
+# Consolidated requirements for LlamaX1 System
+# Core Flask/Backend Dependencies
+Flask==3.0.0
+Flask-Executor==1.0.0
+Flask-Migrate==4.0.7
+Flask-SQLAlchemy==3.1.1
+Flask-SocketIO==5.3.6
+flask-cors==4.0.0
+alembic==1.13.1
+python-dotenv==1.0.1
+
+# Background Tasks & Caching
+celery==5.4.0
+redis==5.0.4
+eventlet==0.35.1
+
+# Data Processing & Analysis
+numpy<2.0,>=1.26.4  # Pin to <2.0 for PyTorch compatibility
+pandas==2.2.2
+pydantic==2.11.7
+psutil==5.9.8
+
+# Web Scraping & File Processing
+beautifulsoup4==4.12.3
+lxml==6.0.2
+pypdf==5.1.0
+requests==2.32.4
+duckduckgo-search>=7.5.0
+
+# Database & Utilities
+psycopg2-binary==2.9.9
+python-slugify==8.0.4
+loguru==0.7.2
+
+# LLM/AI Dependencies
+llama-index-core>=0.13.0,<0.15.0  # Compatible with llama-index-embeddings-ollama
+llama-index-llms-ollama>=0.7.0  # Updated for llama-index-core 0.14.x
+llama-index-embeddings-ollama>=0.8.0
+llama-index-readers-file>=0.5.0  # Updated for llama-index-core 0.14.x
+# PyTorch is installed by scripts/install_pytorch.sh (smart installer) - do not pin versions here
+# torch, torchvision, torchaudio versions are auto-detected based on GPU hardware
+
+# Image Generation Dependencies
+diffusers==0.31.0
+transformers==4.48.0
+accelerate==1.2.1
+safetensors>=0.4.0
+Pillow==10.2.0
+
+# Face Restoration & Enhancement
+gfpgan==1.3.5  # Downgraded from 1.3.8 for torchvision compatibility
+realesrgan==0.3.0
+facexlib==0.3.0
+basicsr>=1.4.2  # Required by GFPGAN and RealESRGAN
+lmdb>=1.0.0  # Required by GFPGAN
+scipy>=1.10.0  # Required by GFPGAN
+tqdm>=4.65.0  # Required by GFPGAN and RealESRGAN
+PyYAML>=6.0  # Required by GFPGAN (note: package name is PyYAML, not pyyaml)
+tb-nightly  # Required by GFPGAN (optional for runtime, but recommended)
+
+# Anatomy & Pose Control
+controlnet-aux==0.0.9
+mediapipe==0.10.14
+
+# Video Processing Dependencies
+opencv-python==4.8.1.78
+imageio==2.34.0
+imageio-ffmpeg==0.5.1
+
+# Voice Processing Dependencies
+piper-tts==1.3.0
+onnxruntime==1.22.1
+
+# Testing Dependencies
+pytest==8.4.1
+pytest-timeout==2.3.1
+pytest-playwright==0.7.0
+playwright==1.52.0
+
+# Desktop Automation Dependencies
+pyautogui>=0.9.54      # GUI automation (mouse, keyboard)
+pynput>=1.7.6          # Keyboard/mouse monitoring
+watchdog>=3.0.0        # File system monitoring
+pyperclip>=1.8.2       # Cross-platform clipboard
+plyer>=2.1.0           # Native notifications
+
+# Development Tools (Optional - uncomment if needed)
+# black==25.1.0
+# isort==6.0.1
+# mypy==1.16.1
+# ruff==0.11.13

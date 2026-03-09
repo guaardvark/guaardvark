@@ -1,0 +1,93 @@
+[     379ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1104
+[ 2265384ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/scheduler/queue/summary:0
+[ 2265384ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: Error: HTTP 500
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:66:15 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74
+[ 2265996ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Connection closed before receiving a handshake response @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1128
+[ 2266320ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=82j34i1e:0
+[ 2267223ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/rag-debug/system-health:0
+[ 2267224ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/rag-debug/performance?hours=24:0
+[ 2267224ms] [ERROR] apiClient: handleResponse throwing error for http://localhost:5175/api/rag-debug/system-health: HTTP error 500 - Internal Server Error {message: HTTP error 500 - Internal Server Error} @ http://localhost:5175/src/api/apiClient.js:56
+[ 2267224ms] [ERROR] ragDebugService: Error fetching system health: Error: HTTP error 500 - Internal Server Error
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:54:19)
+    at async getSystemHealth (http://localhost:5175/src/api/ragDebugService.js:15:12)
+    at async Promise.all (index 0)
+    at async http://localhost:5175/src/components/settings/RAGDebugSection.jsx:66:49 @ http://localhost:5175/src/api/ragDebugService.js:16
+[ 2267224ms] [ERROR] Failed to fetch RAG debug data: Error: HTTP error 500 - Internal Server Error
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:54:19)
+    at async getSystemHealth (http://localhost:5175/src/api/ragDebugService.js:15:12)
+    at async Promise.all (index 0)
+    at async http://localhost:5175/src/components/settings/RAGDebugSection.jsx:66:49 @ http://localhost:5175/src/components/settings/RAGDebugSection.jsx:75
+[ 2267224ms] [ERROR] apiClient: handleResponse throwing error for http://localhost:5175/api/rag-debug/performance?hours=24: HTTP error 500 - Internal Server Error {message: HTTP error 500 - Internal Server Error} @ http://localhost:5175/src/api/apiClient.js:56
+[ 2267224ms] [ERROR] ragDebugService: Error fetching performance metrics: Error: HTTP error 500 - Internal Server Error
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:54:19)
+    at async getPerformanceMetrics (http://localhost:5175/src/api/ragDebugService.js:31:12)
+    at async Promise.all (index 1) @ http://localhost:5175/src/api/ragDebugService.js:32
+[ 2268318ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Connection closed before receiving a handshake response @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1128
+[ 2269306ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=82le2oyk:0
+[ 2272984ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Connection closed before receiving a handshake response @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1128
+[ 2273705ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=82os8oom:0
+[ 2275180ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2276181ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2277182ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2277778ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1128
+[ 2278183ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2278707ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=82sn7n7w:0
+[ 2279185ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2280186ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2280383ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/api/scheduler/queue/summary:0
+[ 2280383ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: TypeError: Failed to fetch
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:64:30
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:83:52 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74
+[ 2281187ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2282188ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2282780ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1128
+[ 2283189ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2283708ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=82wi4of1:0
+[ 2284190ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2285191ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2286192ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2287193ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2288195ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2289196ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2290197ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2291198ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2292199ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2293200ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2294201ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2295202ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2295383ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/api/scheduler/queue/summary:0
+[ 2295383ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: TypeError: Failed to fetch
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:64:30
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:83:52 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74
+[ 2296203ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2297205ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2297223ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/api/rag-debug/system-health:0
+[ 2297223ms] [ERROR] ragDebugService: Error fetching system health: TypeError: Failed to fetch
+    at getSystemHealth (http://localhost:5175/src/api/ragDebugService.js:11:28)
+    at http://localhost:5175/src/components/settings/RAGDebugSection.jsx:68:11 @ http://localhost:5175/src/api/ragDebugService.js:16
+[ 2297223ms] [ERROR] Failed to fetch RAG debug data: TypeError: Failed to fetch
+    at getSystemHealth (http://localhost:5175/src/api/ragDebugService.js:11:28)
+    at http://localhost:5175/src/components/settings/RAGDebugSection.jsx:68:11 @ http://localhost:5175/src/components/settings/RAGDebugSection.jsx:75
+[ 2297224ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/api/rag-debug/performance?hours=24:0
+[ 2297224ms] [ERROR] ragDebugService: Error fetching performance metrics: TypeError: Failed to fetch
+    at getPerformanceMetrics (http://localhost:5175/src/api/ragDebugService.js:27:28)
+    at http://localhost:5175/src/components/settings/RAGDebugSection.jsx:69:11 @ http://localhost:5175/src/api/ragDebugService.js:32
+[ 2298206ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2299207ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2300208ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2301209ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2302210ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2303211ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2304212ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2305213ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2306214ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2307215ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2308216ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2309217ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2310219ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2310383ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/api/scheduler/queue/summary:0
+[ 2310383ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: TypeError: Failed to fetch
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:64:30
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:83:52 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74
+[ 2311220ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 2313373ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1104

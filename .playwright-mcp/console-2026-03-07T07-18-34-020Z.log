@@ -1,0 +1,90 @@
+[   19128ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: TypeError: Failed to fetch
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:64:30
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:83:52 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74
+[   19396ms] [WARNING] STRICT MODE PROTECTION: Reusing recent process: Xh6GIV0z3lX4yyFyU-gHm (age: 25s) @ http://localhost:5175/src/pages/ChatPage.jsx:93
+[   19397ms] [WARNING] STRICT MODE PROTECTION: Reusing recent process: Xh6GIV0z3lX4yyFyU-gHm (age: 25s) @ http://localhost:5175/src/pages/ChatPage.jsx:93
+[   19466ms] [ERROR] Access to fetch at 'http://localhost:5002/api/model/' (redirected from 'http://localhost:5175/api/model') from origin 'http://localhost:5175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:5175/chat:0
+[   19466ms] [ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:5002/api/model/:0
+[   19466ms] [ERROR] modelService: Error fetching current model: Failed to fetch @ http://localhost:5175/src/api/modelService.js:49
+[   19466ms] [ERROR] StatusContext: Failed to fetch model: TypeError: Failed to fetch
+    at getCurrentModel (http://localhost:5175/src/api/modelService.js:28:28)
+    at http://localhost:5175/src/contexts/StatusContext.jsx:42:29
+    at initializeStatus (http://localhost:5175/src/contexts/StatusContext.jsx:88:26)
+    at http://localhost:5175/src/contexts/StatusContext.jsx:90:5
+    at commitHookEffectListMount (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:16944:34)
+    at commitPassiveMountOnFiber (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:18192:19)
+    at commitPassiveMountEffects_complete (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:18165:17)
+    at commitPassiveMountEffects_begin (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:18155:15)
+    at commitPassiveMountEffects (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:18145:11)
+    at flushPassiveEffectsImpl (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:19526:11) @ http://localhost:5175/src/contexts/StatusContext.jsx:55
+[   19475ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zskdidfg&sid=ClbnqEcB2XlZcw4EAAAK:0
+[   19502ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=ClbnqEcB2XlZcw4EAAAK' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   19513ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=ClbnqEcB2XlZcw4EAAAK' failed: Error during WebSocket handshake: Unexpected response code: 400 @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1128
+[   19515ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zskep6dl&sid=ClbnqEcB2XlZcw4EAAAK:0
+[   20877ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zslgv525&sid=l68hbMABgWYa2ZDUAAAL:0
+[   20878ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=l68hbMABgWYa2ZDUAAAL' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   20878ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=l68hbMABgWYa2ZDUAAAL' failed: Error during WebSocket handshake: Unexpected response code: 400 @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1128
+[   20879ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zslgx2io&sid=l68hbMABgWYa2ZDUAAAL:0
+[   21976ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zsmbdgat&sid=O7RpOwHHzXAC5vegAAAM:0
+[   21977ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=O7RpOwHHzXAC5vegAAAM' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   21977ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=O7RpOwHHzXAC5vegAAAM' failed: Error during WebSocket handshake: Unexpected response code: 400 @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1128
+[   21978ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zsmbgyg0&sid=O7RpOwHHzXAC5vegAAAM:0
+[   23444ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zsng6yy5&sid=BsPpAk3e7KyfQNMNAAAN:0
+[   23445ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=BsPpAk3e7KyfQNMNAAAN' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   23447ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zsng834b&sid=BsPpAk3e7KyfQNMNAAAN:0
+[   24925ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zsolbn33&sid=iT9Gk3_hZ2TRCRvDAAAO:0
+[   24926ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=iT9Gk3_hZ2TRCRvDAAAO' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   24927ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zsold8si&sid=iT9Gk3_hZ2TRCRvDAAAO:0
+[   25683ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zsp6d2hf&sid=Zrez9fCWgnboh8NGAAAP:0
+[   25683ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=Zrez9fCWgnboh8NGAAAP' failed: Error during WebSocket handshake: Unexpected response code: 400 @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1128
+[   44437ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zsp6f0ak&sid=Zrez9fCWgnboh8NGAAAP:0
+[   44442ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=OQ_V3JivczQ-ZmHlAAAQ' failed: Error during WebSocket handshake: Unexpected response code: 400 @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1128
+[   44446ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zt3nedu2&sid=OQ_V3JivczQ-ZmHlAAAQ:0
+[   45878ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zt3nlixv&sid=OQ_V3JivczQ-ZmHlAAAQ:0
+[   45880ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=fRCx_wvRihBdlPW3AAAR' failed: Error during WebSocket handshake: Unexpected response code: 400 @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1128
+[   45881ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zt4re7zd&sid=fRCx_wvRihBdlPW3AAAR:0
+[   46976ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zt4rh6x0&sid=fRCx_wvRihBdlPW3AAAR:0
+[   46979ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zt5lx2j3&sid=s_hduS0B5mzlmbg0AAAS:0
+[   46980ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=s_hduS0B5mzlmbg0AAAS' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   48444ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zt5lzxrx&sid=s_hduS0B5mzlmbg0AAAS:0
+[   48447ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zt6qpaky&sid=YLlXNAaS1Vu6afgiAAAT:0
+[   48448ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=YLlXNAaS1Vu6afgiAAAT' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   49925ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zt6qrhrx&sid=YLlXNAaS1Vu6afgiAAAT:0
+[   49935ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zt7w1sp8&sid=uLApv-RSvOQ7MvCLAAAU:0
+[   49936ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=uLApv-RSvOQ7MvCLAAAU' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   50683ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zt7w3om7&sid=uLApv-RSvOQ7MvCLAAAU:0
+[   51292ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zt8xpqjm&sid=yC1WyjsIOuhGs5ouAAAV:0
+[   51292ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=yC1WyjsIOuhGs5ouAAAV' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   68685ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zt8xrc1c&sid=yC1WyjsIOuhGs5ouAAAV:0
+[   68685ms] [ERROR] Failed to load resource: net::ERR_EMPTY_RESPONSE @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zt3ne62e&sid=OQ_V3JivczQ-ZmHlAAAQ:0
+[   68685ms] [ERROR] Failed to load resource: net::ERR_EMPTY_RESPONSE @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zt4rffay&sid=fRCx_wvRihBdlPW3AAAR:0
+[   68685ms] [ERROR] Failed to load resource: net::ERR_EMPTY_RESPONSE @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zt5lx1uf&sid=s_hduS0B5mzlmbg0AAAS:0
+[   68685ms] [ERROR] Failed to load resource: net::ERR_EMPTY_RESPONSE @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zt6qqhva&sid=YLlXNAaS1Vu6afgiAAAT:0
+[   68685ms] [ERROR] Failed to load resource: net::ERR_EMPTY_RESPONSE @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zt7w1n7b&sid=uLApv-RSvOQ7MvCLAAAU:0
+[   68685ms] [ERROR] Failed to load resource: net::ERR_EMPTY_RESPONSE @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zt8xqeoq&sid=yC1WyjsIOuhGs5ouAAAV:0
+[   68685ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zta073ek:0
+[   68685ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/api/scheduler/queue/summary:0
+[   68685ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: TypeError: Failed to fetch
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:64:30
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:83:52 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74
+[   68685ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[   69687ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[   70051ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=ztnet7m6:0
+[   70688ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[   71689ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[   72690ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[   73146ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=ztpsteau:0
+[   73691ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[   74692ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[   75693ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[   76695ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[   77696ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[   78148ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zttnqgcw:0
+[   78697ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[   79419ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/api/scheduler/queue/summary:0
+[   79419ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: TypeError: Failed to fetch
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:64:30
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:83:52 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74
+[   79699ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[   80700ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[   81701ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0

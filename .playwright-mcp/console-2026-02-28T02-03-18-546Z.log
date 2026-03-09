@@ -1,0 +1,15 @@
+[     631ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5175/vite.svg:0
+[     636ms] [ERROR] Failed to load resource: the server responded with a status of 500 (INTERNAL SERVER ERROR) @ http://localhost:5175/api/enhanced-chat/session_1772084001309/history?limit=50:0
+[     636ms] [ERROR] Failed to load resource: the server responded with a status of 500 (INTERNAL SERVER ERROR) @ http://localhost:5175/api/enhanced-chat/session_1772084001309/history?limit=50:0
+[     656ms] [ERROR] apiClient: handleResponse throwing error for http://localhost:5175/api/enhanced-chat/session_1772084001309/history?limit=50: Failed to fetch chat history {message: (sqlite3.OperationalError) no such column: llm_ses… on this error at: https://sqlalche.me/e/20/e3q8), error: Failed to fetch chat history} @ http://localhost:5175/src/api/apiClient.js:56
+[     656ms] [ERROR] chatService: Error fetching chat history for session_1772084001309: Failed to fetch chat history @ http://localhost:5175/src/api/chatService.js:605
+[     656ms] [ERROR] SemanticSearchCard: Failed to load chat history: Error: Failed to fetch chat history
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:54:19)
+    at async getChatHistory (http://localhost:5175/src/api/chatService.js:582:17)
+    at async http://localhost:5175/src/components/dashboard/SemanticSearchCard.jsx:125:27 @ http://localhost:5175/src/components/dashboard/SemanticSearchCard.jsx:131
+[     656ms] [ERROR] apiClient: handleResponse throwing error for http://localhost:5175/api/enhanced-chat/session_1772084001309/history?limit=50: Failed to fetch chat history {message: (sqlite3.OperationalError) no such column: llm_ses… on this error at: https://sqlalche.me/e/20/e3q8), error: Failed to fetch chat history} @ http://localhost:5175/src/api/apiClient.js:56
+[     656ms] [ERROR] chatService: Error fetching chat history for session_1772084001309: Failed to fetch chat history @ http://localhost:5175/src/api/chatService.js:605
+[     656ms] [ERROR] SemanticSearchCard: Failed to load chat history: Error: Failed to fetch chat history
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:54:19)
+    at async getChatHistory (http://localhost:5175/src/api/chatService.js:582:17)
+    at async http://localhost:5175/src/components/dashboard/SemanticSearchCard.jsx:125:27 @ http://localhost:5175/src/components/dashboard/SemanticSearchCard.jsx:131

@@ -1,0 +1,38 @@
+[      16ms] [ERROR] UnifiedProgressContext: Failed to fetch active jobs: TypeError: Failed to fetch
+    at http://localhost:5175/src/contexts/UnifiedProgressContext.jsx:140:30
+    at http://localhost:5175/src/contexts/UnifiedProgressContext.jsx:415:32 @ http://localhost:5175/src/contexts/UnifiedProgressContext.jsx:168
+[     724ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1104
+[  151386ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/meta/active_jobs:0
+[  151386ms] [ERROR] UnifiedProgressContext: Failed to fetch active jobs: Error: HTTP 500: Internal Server Error
+    at http://localhost:5175/src/contexts/UnifiedProgressContext.jsx:142:15
+    at async http://localhost:5175/src/contexts/UnifiedProgressContext.jsx:415:26 @ http://localhost:5175/src/contexts/UnifiedProgressContext.jsx:168
+[  151951ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Connection closed before receiving a handshake response @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1128
+[  152738ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Connection closed before receiving a handshake response @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1128
+[  154937ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=6nxa8esn:0
+[  155735ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Connection closed before receiving a handshake response @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1128
+[  159940ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=6o157x8v:0
+[  160136ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Connection closed before receiving a handshake response @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1128
+[  161436ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  162437ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  163438ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  164440ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  164941ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=6o506y23:0
+[  165137ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1128
+[  165441ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  165728ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/api/scheduler/queue/summary:0
+[  165728ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: TypeError: Failed to fetch
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:64:30
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:83:52 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74
+[  166442ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  167443ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  168444ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  169445ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  169942ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=6o8v35df:0
+[  170138ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1128
+[  170447ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  171448ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  172449ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  173450ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  174451ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  175452ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  177533ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1104

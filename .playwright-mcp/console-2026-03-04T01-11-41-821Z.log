@@ -1,0 +1,241 @@
+[     803ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5175/vite.svg:0
+[    5092ms] [WARNING] DUPLICATE PREVENTION: Reusing existing process: fegcmeahS_Pd__fpbGDAi @ http://localhost:5175/src/pages/ChatPage.jsx:85
+[  302118ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=3742e112:1104
+[  344859ms] [WARNING] DUPLICATE PREVENTION: Reusing existing process: AapB4hLgUiwEGs9BDPqej @ http://localhost:5175/src/pages/ChatPage.jsx:85
+[  344907ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Invalid frame header @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=3742e112:1128
+[  409682ms] [WARNING] Message queue FARr1VMVuPFqDqqw5Irzt not found, creating new queue @ http://localhost:5175/src/utils/resource_manager.js:350
+[  419007ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/api/voice/stream:0
+[  419007ms] [ERROR] apiClient: handleResponse throwing error for http://localhost:5175/api/voice/stream: Audio conversion failed: Audio conversion failed: ffmpeg version 6.1.1-3ubuntu5+esm7 Copyright (c) 2000-2023 the FFmpeg developers
+  built with gcc 13 (Ubuntu 13.3.0-6ubuntu2~24.04)
+  configuration: --prefix=/usr --extra-version=3ubuntu5+esm7 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared
+  WARNING: library configuration mismatch
+  avcodec     configuration: --prefix=/usr --extra-version=3ubuntu5+esm7 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared --enable-version3 --disable-doc --disable-programs --disable-static --enable-libaribb24 --enable-libopencore_amrnb --enable-libopencore_amrwb --enable-libtesseract --enable-libvo_amrwbenc --enable-libsmbclient
+  libavutil      58. 29.100 / 58. 29.100
+  libavcodec     60. 31.102 / 60. 31.102
+  libavformat    60. 16.100 / 60. 16.100
+  libavdevice    60.  3.100 / 60.  3.100
+  libavfilter     9. 12.100 /  9. 12.100
+  libswscale      7.  5.100 /  7.  5.100
+  libswresample   4. 12.100 /  4. 12.100
+  libpostproc    57.  3.100 / 57.  3.100
+[matroska,webm @ 0x5c5dbf8e1ec0] Format matroska,webm detected only with low score of 1, misdetection possible!
+[matroska,webm @ 0x5c5dbf8e1ec0] EBML header parsing failed
+[in#0 @ 0x5c5dbf8e1dc0] Error opening input: Invalid data found when processing input
+Error opening input file /tmp/tmpkoe70_04.webm.
+Error opening input files: Invalid data found when processing input
+ {message: HTTP error 400 - BAD REQUEST, error: Audio conversion failed: Audio conversion failed: … files: Invalid data found when processing input
+} @ http://localhost:5175/src/api/apiClient.js:57
+[  419007ms] [ERROR] Failed to stream voice chat: Error: Audio conversion failed: Audio conversion failed: ffmpeg version 6.1.1-3ubuntu5+esm7 Copyright (c) 2000-2023 the FFmpeg developers
+  built with gcc 13 (Ubuntu 13.3.0-6ubuntu2~24.04)
+  configuration: --prefix=/usr --extra-version=3ubuntu5+esm7 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared
+  WARNING: library configuration mismatch
+  avcodec     configuration: --prefix=/usr --extra-version=3ubuntu5+esm7 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared --enable-version3 --disable-doc --disable-programs --disable-static --enable-libaribb24 --enable-libopencore_amrnb --enable-libopencore_amrwb --enable-libtesseract --enable-libvo_amrwbenc --enable-libsmbclient
+  libavutil      58. 29.100 / 58. 29.100
+  libavcodec     60. 31.102 / 60. 31.102
+  libavformat    60. 16.100 / 60. 16.100
+  libavdevice    60.  3.100 / 60.  3.100
+  libavfilter     9. 12.100 /  9. 12.100
+  libswscale      7.  5.100 /  7.  5.100
+  libswresample   4. 12.100 /  4. 12.100
+  libpostproc    57.  3.100 / 57.  3.100
+[matroska,webm @ 0x5c5dbf8e1ec0] Format matroska,webm detected only with low score of 1, misdetection possible!
+[matroska,webm @ 0x5c5dbf8e1ec0] EBML header parsing failed
+[in#0 @ 0x5c5dbf8e1dc0] Error opening input: Invalid data found when processing input
+Error opening input file /tmp/tmpkoe70_04.webm.
+Error opening input files: Invalid data found when processing input
+
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:55:19)
+    at async VoiceService.streamVoiceChat (http://localhost:5175/src/api/voiceService.js:134:14)
+    at async Object.<anonymous> (http://localhost:5175/src/components/voice/ContinuousVoiceChat.jsx:586:22)
+    at async http://localhost:5175/src/components/voice/ContinuousVoiceChat.jsx:660:7 @ http://localhost:5175/src/api/voiceService.js:135
+[  419007ms] [ERROR] ContinuousVoiceChat: Error processing segment: Error: Audio conversion failed: Audio conversion failed: ffmpeg version 6.1.1-3ubuntu5+esm7 Copyright (c) 2000-2023 the FFmpeg developers
+  built with gcc 13 (Ubuntu 13.3.0-6ubuntu2~24.04)
+  configuration: --prefix=/usr --extra-version=3ubuntu5+esm7 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared
+  WARNING: library configuration mismatch
+  avcodec     configuration: --prefix=/usr --extra-version=3ubuntu5+esm7 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared --enable-version3 --disable-doc --disable-programs --disable-static --enable-libaribb24 --enable-libopencore_amrnb --enable-libopencore_amrwb --enable-libtesseract --enable-libvo_amrwbenc --enable-libsmbclient
+  libavutil      58. 29.100 / 58. 29.100
+  libavcodec     60. 31.102 / 60. 31.102
+  libavformat    60. 16.100 / 60. 16.100
+  libavdevice    60.  3.100 / 60.  3.100
+  libavfilter     9. 12.100 /  9. 12.100
+  libswscale      7.  5.100 /  7.  5.100
+  libswresample   4. 12.100 /  4. 12.100
+  libpostproc    57.  3.100 / 57.  3.100
+[matroska,webm @ 0x5c5dbf8e1ec0] Format matroska,webm detected only with low score of 1, misdetection possible!
+[matroska,webm @ 0x5c5dbf8e1ec0] EBML header parsing failed
+[in#0 @ 0x5c5dbf8e1dc0] Error opening input: Invalid data found when processing input
+Error opening input file /tmp/tmpkoe70_04.webm.
+Error opening input files: Invalid data found when processing input
+
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:55:19)
+    at async VoiceService.streamVoiceChat (http://localhost:5175/src/api/voiceService.js:134:14)
+    at async Object.<anonymous> (http://localhost:5175/src/components/voice/ContinuousVoiceChat.jsx:586:22)
+    at async http://localhost:5175/src/components/voice/ContinuousVoiceChat.jsx:660:7 @ http://localhost:5175/src/components/voice/ContinuousVoiceChat.jsx:627
+[  419007ms] [WARNING] ContinuousVoiceChat: Audio conversion error, likely corrupted audio @ http://localhost:5175/src/components/voice/ContinuousVoiceChat.jsx:630
+[  425651ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/api/voice/stream:0
+[  425652ms] [ERROR] apiClient: handleResponse throwing error for http://localhost:5175/api/voice/stream: Audio conversion failed: Audio conversion failed: ffmpeg version 6.1.1-3ubuntu5+esm7 Copyright (c) 2000-2023 the FFmpeg developers
+  built with gcc 13 (Ubuntu 13.3.0-6ubuntu2~24.04)
+  configuration: --prefix=/usr --extra-version=3ubuntu5+esm7 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared
+  WARNING: library configuration mismatch
+  avcodec     configuration: --prefix=/usr --extra-version=3ubuntu5+esm7 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared --enable-version3 --disable-doc --disable-programs --disable-static --enable-libaribb24 --enable-libopencore_amrnb --enable-libopencore_amrwb --enable-libtesseract --enable-libvo_amrwbenc --enable-libsmbclient
+  libavutil      58. 29.100 / 58. 29.100
+  libavcodec     60. 31.102 / 60. 31.102
+  libavformat    60. 16.100 / 60. 16.100
+  libavdevice    60.  3.100 / 60.  3.100
+  libavfilter     9. 12.100 /  9. 12.100
+  libswscale      7.  5.100 /  7.  5.100
+  libswresample   4. 12.100 /  4. 12.100
+  libpostproc    57.  3.100 / 57.  3.100
+[matroska,webm @ 0x61b7a49efec0] Format matroska,webm detected only with low score of 1, misdetection possible!
+[matroska,webm @ 0x61b7a49efec0] EBML header parsing failed
+[in#0 @ 0x61b7a49efdc0] Error opening input: Invalid data found when processing input
+Error opening input file /tmp/tmpcvdiqoh6.webm.
+Error opening input files: Invalid data found when processing input
+ {message: HTTP error 400 - BAD REQUEST, error: Audio conversion failed: Audio conversion failed: … files: Invalid data found when processing input
+} @ http://localhost:5175/src/api/apiClient.js:57
+[  425652ms] [ERROR] Failed to stream voice chat: Error: Audio conversion failed: Audio conversion failed: ffmpeg version 6.1.1-3ubuntu5+esm7 Copyright (c) 2000-2023 the FFmpeg developers
+  built with gcc 13 (Ubuntu 13.3.0-6ubuntu2~24.04)
+  configuration: --prefix=/usr --extra-version=3ubuntu5+esm7 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared
+  WARNING: library configuration mismatch
+  avcodec     configuration: --prefix=/usr --extra-version=3ubuntu5+esm7 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared --enable-version3 --disable-doc --disable-programs --disable-static --enable-libaribb24 --enable-libopencore_amrnb --enable-libopencore_amrwb --enable-libtesseract --enable-libvo_amrwbenc --enable-libsmbclient
+  libavutil      58. 29.100 / 58. 29.100
+  libavcodec     60. 31.102 / 60. 31.102
+  libavformat    60. 16.100 / 60. 16.100
+  libavdevice    60.  3.100 / 60.  3.100
+  libavfilter     9. 12.100 /  9. 12.100
+  libswscale      7.  5.100 /  7.  5.100
+  libswresample   4. 12.100 /  4. 12.100
+  libpostproc    57.  3.100 / 57.  3.100
+[matroska,webm @ 0x61b7a49efec0] Format matroska,webm detected only with low score of 1, misdetection possible!
+[matroska,webm @ 0x61b7a49efec0] EBML header parsing failed
+[in#0 @ 0x61b7a49efdc0] Error opening input: Invalid data found when processing input
+Error opening input file /tmp/tmpcvdiqoh6.webm.
+Error opening input files: Invalid data found when processing input
+
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:55:19)
+    at async VoiceService.streamVoiceChat (http://localhost:5175/src/api/voiceService.js:134:14)
+    at async Object.<anonymous> (http://localhost:5175/src/components/voice/ContinuousVoiceChat.jsx:586:22)
+    at async http://localhost:5175/src/components/voice/ContinuousVoiceChat.jsx:660:7 @ http://localhost:5175/src/api/voiceService.js:135
+[  425652ms] [ERROR] ContinuousVoiceChat: Error processing segment: Error: Audio conversion failed: Audio conversion failed: ffmpeg version 6.1.1-3ubuntu5+esm7 Copyright (c) 2000-2023 the FFmpeg developers
+  built with gcc 13 (Ubuntu 13.3.0-6ubuntu2~24.04)
+  configuration: --prefix=/usr --extra-version=3ubuntu5+esm7 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared
+  WARNING: library configuration mismatch
+  avcodec     configuration: --prefix=/usr --extra-version=3ubuntu5+esm7 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared --enable-version3 --disable-doc --disable-programs --disable-static --enable-libaribb24 --enable-libopencore_amrnb --enable-libopencore_amrwb --enable-libtesseract --enable-libvo_amrwbenc --enable-libsmbclient
+  libavutil      58. 29.100 / 58. 29.100
+  libavcodec     60. 31.102 / 60. 31.102
+  libavformat    60. 16.100 / 60. 16.100
+  libavdevice    60.  3.100 / 60.  3.100
+  libavfilter     9. 12.100 /  9. 12.100
+  libswscale      7.  5.100 /  7.  5.100
+  libswresample   4. 12.100 /  4. 12.100
+  libpostproc    57.  3.100 / 57.  3.100
+[matroska,webm @ 0x61b7a49efec0] Format matroska,webm detected only with low score of 1, misdetection possible!
+[matroska,webm @ 0x61b7a49efec0] EBML header parsing failed
+[in#0 @ 0x61b7a49efdc0] Error opening input: Invalid data found when processing input
+Error opening input file /tmp/tmpcvdiqoh6.webm.
+Error opening input files: Invalid data found when processing input
+
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:55:19)
+    at async VoiceService.streamVoiceChat (http://localhost:5175/src/api/voiceService.js:134:14)
+    at async Object.<anonymous> (http://localhost:5175/src/components/voice/ContinuousVoiceChat.jsx:586:22)
+    at async http://localhost:5175/src/components/voice/ContinuousVoiceChat.jsx:660:7 @ http://localhost:5175/src/components/voice/ContinuousVoiceChat.jsx:627
+[  425652ms] [WARNING] ContinuousVoiceChat: Audio conversion error, likely corrupted audio @ http://localhost:5175/src/components/voice/ContinuousVoiceChat.jsx:630
+[  445349ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/api/voice/stream:0
+[  445349ms] [ERROR] apiClient: handleResponse throwing error for http://localhost:5175/api/voice/stream: Audio conversion failed: Audio conversion failed: ffmpeg version 6.1.1-3ubuntu5+esm7 Copyright (c) 2000-2023 the FFmpeg developers
+  built with gcc 13 (Ubuntu 13.3.0-6ubuntu2~24.04)
+  configuration: --prefix=/usr --extra-version=3ubuntu5+esm7 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared
+  WARNING: library configuration mismatch
+  avcodec     configuration: --prefix=/usr --extra-version=3ubuntu5+esm7 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared --enable-version3 --disable-doc --disable-programs --disable-static --enable-libaribb24 --enable-libopencore_amrnb --enable-libopencore_amrwb --enable-libtesseract --enable-libvo_amrwbenc --enable-libsmbclient
+  libavutil      58. 29.100 / 58. 29.100
+  libavcodec     60. 31.102 / 60. 31.102
+  libavformat    60. 16.100 / 60. 16.100
+  libavdevice    60.  3.100 / 60.  3.100
+  libavfilter     9. 12.100 /  9. 12.100
+  libswscale      7.  5.100 /  7.  5.100
+  libswresample   4. 12.100 /  4. 12.100
+  libpostproc    57.  3.100 / 57.  3.100
+[matroska,webm @ 0x61904ef98ec0] Format matroska,webm detected only with low score of 1, misdetection possible!
+[matroska,webm @ 0x61904ef98ec0] EBML header parsing failed
+[in#0 @ 0x61904ef98dc0] Error opening input: Invalid data found when processing input
+Error opening input file /tmp/tmp5uirc7fk.webm.
+Error opening input files: Invalid data found when processing input
+ {message: HTTP error 400 - BAD REQUEST, error: Audio conversion failed: Audio conversion failed: … files: Invalid data found when processing input
+} @ http://localhost:5175/src/api/apiClient.js:57
+[  445350ms] [ERROR] Failed to stream voice chat: Error: Audio conversion failed: Audio conversion failed: ffmpeg version 6.1.1-3ubuntu5+esm7 Copyright (c) 2000-2023 the FFmpeg developers
+  built with gcc 13 (Ubuntu 13.3.0-6ubuntu2~24.04)
+  configuration: --prefix=/usr --extra-version=3ubuntu5+esm7 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared
+  WARNING: library configuration mismatch
+  avcodec     configuration: --prefix=/usr --extra-version=3ubuntu5+esm7 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared --enable-version3 --disable-doc --disable-programs --disable-static --enable-libaribb24 --enable-libopencore_amrnb --enable-libopencore_amrwb --enable-libtesseract --enable-libvo_amrwbenc --enable-libsmbclient
+  libavutil      58. 29.100 / 58. 29.100
+  libavcodec     60. 31.102 / 60. 31.102
+  libavformat    60. 16.100 / 60. 16.100
+  libavdevice    60.  3.100 / 60.  3.100
+  libavfilter     9. 12.100 /  9. 12.100
+  libswscale      7.  5.100 /  7.  5.100
+  libswresample   4. 12.100 /  4. 12.100
+  libpostproc    57.  3.100 / 57.  3.100
+[matroska,webm @ 0x61904ef98ec0] Format matroska,webm detected only with low score of 1, misdetection possible!
+[matroska,webm @ 0x61904ef98ec0] EBML header parsing failed
+[in#0 @ 0x61904ef98dc0] Error opening input: Invalid data found when processing input
+Error opening input file /tmp/tmp5uirc7fk.webm.
+Error opening input files: Invalid data found when processing input
+
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:55:19)
+    at async VoiceService.streamVoiceChat (http://localhost:5175/src/api/voiceService.js:134:14)
+    at async Object.<anonymous> (http://localhost:5175/src/components/voice/ContinuousVoiceChat.jsx:586:22)
+    at async http://localhost:5175/src/components/voice/ContinuousVoiceChat.jsx:660:7 @ http://localhost:5175/src/api/voiceService.js:135
+[  445350ms] [ERROR] ContinuousVoiceChat: Error processing segment: Error: Audio conversion failed: Audio conversion failed: ffmpeg version 6.1.1-3ubuntu5+esm7 Copyright (c) 2000-2023 the FFmpeg developers
+  built with gcc 13 (Ubuntu 13.3.0-6ubuntu2~24.04)
+  configuration: --prefix=/usr --extra-version=3ubuntu5+esm7 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared
+  WARNING: library configuration mismatch
+  avcodec     configuration: --prefix=/usr --extra-version=3ubuntu5+esm7 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared --enable-version3 --disable-doc --disable-programs --disable-static --enable-libaribb24 --enable-libopencore_amrnb --enable-libopencore_amrwb --enable-libtesseract --enable-libvo_amrwbenc --enable-libsmbclient
+  libavutil      58. 29.100 / 58. 29.100
+  libavcodec     60. 31.102 / 60. 31.102
+  libavformat    60. 16.100 / 60. 16.100
+  libavdevice    60.  3.100 / 60.  3.100
+  libavfilter     9. 12.100 /  9. 12.100
+  libswscale      7.  5.100 /  7.  5.100
+  libswresample   4. 12.100 /  4. 12.100
+  libpostproc    57.  3.100 / 57.  3.100
+[matroska,webm @ 0x61904ef98ec0] Format matroska,webm detected only with low score of 1, misdetection possible!
+[matroska,webm @ 0x61904ef98ec0] EBML header parsing failed
+[in#0 @ 0x61904ef98dc0] Error opening input: Invalid data found when processing input
+Error opening input file /tmp/tmp5uirc7fk.webm.
+Error opening input files: Invalid data found when processing input
+
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:55:19)
+    at async VoiceService.streamVoiceChat (http://localhost:5175/src/api/voiceService.js:134:14)
+    at async Object.<anonymous> (http://localhost:5175/src/components/voice/ContinuousVoiceChat.jsx:586:22)
+    at async http://localhost:5175/src/components/voice/ContinuousVoiceChat.jsx:660:7 @ http://localhost:5175/src/components/voice/ContinuousVoiceChat.jsx:627
+[  445351ms] [WARNING] ContinuousVoiceChat: Audio conversion error, likely corrupted audio @ http://localhost:5175/src/components/voice/ContinuousVoiceChat.jsx:630
+[ 2015004ms] [WARNING] DUPLICATE PREVENTION: Reusing existing process: NbIxqoj_LoTwr-epIyu2w @ http://localhost:5175/src/pages/ChatPage.jsx:85
+[ 2060745ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=3742e112:1104
+[ 2098865ms] [WARNING] DUPLICATE PREVENTION: Reusing existing process: JEbn9NFnRxe3rtgsvYJbo @ http://localhost:5175/src/pages/ChatPage.jsx:85
+[ 2098913ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Invalid frame header @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=3742e112:1128
+[ 2122279ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=3742e112:1104
+[ 2134103ms] [WARNING] DUPLICATE PREVENTION: Reusing existing process: xQlu0X_hFl9p8oTfZoxiz @ http://localhost:5175/src/pages/ChatPage.jsx:85
+[ 2134146ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Invalid frame header @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=3742e112:1128
+[ 2141226ms] [ERROR] MUI: You are providing a disabled `button` child to the Tooltip component.
+A disabled element does not fire events.
+Tooltip needs to listen to the child element's events to display the title.
+
+Add a simple wrapper element, such as a `span`. @ http://localhost:5175/node_modules/.vite/deps/chunk-BV57UDQK.js?v=3742e112:2970
+[ 2143012ms] [WARNING] Message queue YF71BdS2MpXsHU_WTAJv- not found, creating new queue @ http://localhost:5175/src/utils/resource_manager.js:350
+[ 2156935ms] [ERROR] MUI: You are providing a disabled `button` child to the Tooltip component.
+A disabled element does not fire events.
+Tooltip needs to listen to the child element's events to display the title.
+
+Add a simple wrapper element, such as a `span`. @ http://localhost:5175/node_modules/.vite/deps/chunk-BV57UDQK.js?v=3742e112:2970
+[ 2201493ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=3742e112:1104
+[ 2203654ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=3742e112:1104
+[ 2211044ms] [WARNING] DUPLICATE PREVENTION: Reusing existing process: hWR1cPfYQINWrDJkVZlph @ http://localhost:5175/src/pages/ChatPage.jsx:85
+[ 2211086ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Invalid frame header @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=3742e112:1128
+[ 2218875ms] [ERROR] MUI: You are providing a disabled `button` child to the Tooltip component.
+A disabled element does not fire events.
+Tooltip needs to listen to the child element's events to display the title.
+
+Add a simple wrapper element, such as a `span`. @ http://localhost:5175/node_modules/.vite/deps/chunk-BV57UDQK.js?v=3742e112:2970
+[ 2228212ms] [WARNING] Message queue VP_s7algGj9s-PpW9ue1b not found, creating new queue @ http://localhost:5175/src/utils/resource_manager.js:350
+[ 2248712ms] [WARNING] DUPLICATE PREVENTION: Reusing existing process: UBp_p_kCiLeT5yHuCDEED @ http://localhost:5175/src/pages/ChatPage.jsx:85
+[ 2268837ms] [WARNING] Message queue WvqimkZsW_I1kEe0NOV4C not found, creating new queue @ http://localhost:5175/src/utils/resource_manager.js:350
+[ 4149724ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=3742e112:1104

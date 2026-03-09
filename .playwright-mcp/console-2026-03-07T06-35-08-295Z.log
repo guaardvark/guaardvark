@@ -1,0 +1,31 @@
+[     285ms] [WARNING] DUPLICATE PREVENTION: Reusing existing process: pKa2mBded6Xe1WyggyiOn @ http://localhost:5175/src/pages/ChatPage.jsx:85
+[   19164ms] [WARNING] Message queue 8UNH8xiGqXGKwqUtFp6EF not found, creating new queue @ http://localhost:5175/src/utils/resource_manager.js:350
+[  357378ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Connection closed before receiving a handshake response @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1128
+[  359971ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=yg0iwipd:0
+[  360308ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/scheduler/queue/summary:0
+[  360309ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: Error: HTTP 500
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:66:15 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74
+[  363841ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=yg3idt2f:0
+[  365732ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  366733ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  367734ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  368735ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  368842ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=yg7dcigk:0
+[  369737ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  370738ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  371739ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  372740ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  373741ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  373843ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=ygb88jj4:0
+[  374742ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  375308ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/api/scheduler/queue/summary:0
+[  375308ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: TypeError: Failed to fetch
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:64:30
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:83:52 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74
+[  375744ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  376745ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  377746ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  378747ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  379749ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  380750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  382807ms] [WARNING] DUPLICATE PREVENTION: Reusing existing process: Z-3_eR-AcjBvdYsTTxW43 @ http://localhost:5175/src/pages/ChatPage.jsx:85

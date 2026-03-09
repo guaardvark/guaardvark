@@ -1,0 +1,56 @@
+# backend/requirements-base.txt
+# Base requirements WITHOUT PyTorch (installed separately based on GPU)
+
+# Core Flask/Backend Dependencies
+Flask==3.0.0
+Flask-Executor==1.0.0
+Flask-Migrate==4.0.7
+Flask-SQLAlchemy==3.1.1
+Flask-SocketIO==5.3.6
+flask-cors==4.0.0
+alembic==1.13.1
+python-dotenv==1.0.1
+
+# Background Tasks & Caching
+celery==5.4.0
+redis==5.0.4
+eventlet==0.35.1
+
+# Data Processing & Analysis
+numpy<2.0,>=1.26.4  # Pin to <2.0 for PyTorch compatibility
+pandas==2.2.2
+pydantic==2.11.7
+psutil==5.9.8
+
+# Web Scraping & File Processing
+beautifulsoup4==4.12.3
+lxml==5.2.1
+pypdf==5.1.0
+requests==2.32.4
+
+# Database & Utilities
+psycopg2-binary==2.9.9
+python-slugify==8.0.4
+loguru==0.7.2
+
+# LLM/AI Dependencies (without torch)
+llama-index-core>=0.13.0,<0.15.0
+llama-index-llms-ollama>=0.7.0
+llama-index-embeddings-ollama>=0.8.0
+llama-index-readers-file>=0.5.0
+
+# Image Generation Dependencies (without torch)
+diffusers==0.31.0
+transformers==4.48.0
+accelerate==1.2.1
+safetensors>=0.4.0
+Pillow==10.2.0
+
+# Voice Processing Dependencies
+piper-tts==1.3.0
+onnxruntime==1.22.1
+
+# Testing Dependencies
+pytest==8.4.1
+pytest-playwright==0.7.0
+playwright==1.52.0

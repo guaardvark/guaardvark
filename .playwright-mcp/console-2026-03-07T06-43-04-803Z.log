@@ -1,0 +1,32 @@
+[     493ms] [WARNING] DUPLICATE PREVENTION: Reusing existing process: Ba7kvkFPSPsWu3lu4f9s5 @ http://localhost:5175/src/pages/ChatPage.jsx:85
+[  580121ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Connection closed before receiving a handshake response @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1128
+[  582036ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=yuzjof1l:0
+[  585462ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=yv26uzqi:0
+[  585518ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/scheduler/queue/summary:0
+[  585518ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: Error: HTTP 500
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:66:15 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74
+[  588080ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  589081ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  590082ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  590463ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=yv61tv1l:0
+[  591084ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  592085ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  593086ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  594087ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  595089ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  595464ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=yv9wqoqz:0
+[  596090ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  597091ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  598092ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  599093ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  600094ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  600518ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/api/scheduler/queue/summary:0
+[  600518ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: TypeError: Failed to fetch
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:64:30
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:83:52 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74
+[  602204ms] [WARNING] DUPLICATE PREVENTION: Reusing existing process: 4SnnUDY2Vgvp5_JOjEOXI @ http://localhost:5175/src/pages/ChatPage.jsx:85
+[ 1769014ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Connection closed before receiving a handshake response @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1128
+[ 1771169ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=zkh34jzh:0
+[ 1772232ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/scheduler/queue/summary:0
+[ 1772232ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: Error: HTTP 500
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:66:15 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74

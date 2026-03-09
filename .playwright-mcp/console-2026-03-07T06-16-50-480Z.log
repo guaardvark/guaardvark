@@ -1,0 +1,312 @@
+[   14248ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: TypeError: Failed to fetch
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:64:30
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:83:52 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74
+[   14249ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: TypeError: Failed to fetch
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:64:30
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:83:52 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74
+[   14551ms] [WARNING] DUPLICATE PREVENTION: Reusing existing process: DIm6UwhBEdprtitPqkupb @ http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:85
+[   14623ms] [ERROR] Access to fetch at 'http://localhost:5002/api/model/' (redirected from 'http://localhost:5175/api/model') from origin 'http://localhost:5175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:5175/chat:0
+[   14623ms] [ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:5002/api/model/:0
+[   14623ms] [ERROR] modelService: Error fetching current model: Failed to fetch @ http://localhost:5175/src/api/modelService.js:49
+[   14623ms] [ERROR] StatusContext: Failed to fetch model: TypeError: Failed to fetch
+    at getCurrentModel (http://localhost:5175/src/api/modelService.js:28:28)
+    at http://localhost:5175/src/contexts/StatusContext.jsx:42:29
+    at initializeStatus (http://localhost:5175/src/contexts/StatusContext.jsx:88:26)
+    at http://localhost:5175/src/contexts/StatusContext.jsx:90:5
+    at commitHookEffectListMount (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:16944:34)
+    at commitPassiveMountOnFiber (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:18192:19)
+    at commitPassiveMountEffects_complete (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:18165:17)
+    at commitPassiveMountEffects_begin (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:18155:15)
+    at commitPassiveMountEffects (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:18145:11)
+    at flushPassiveEffectsImpl (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=cd440200:19526:11) @ http://localhost:5175/src/contexts/StatusContext.jsx:55
+[   14625ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xl2yffp8&sid=aRjCeLB5ayIPtMqEAAA3:0
+[   14641ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=aRjCeLB5ayIPtMqEAAA3' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   14650ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xl2zkyr9&sid=aRjCeLB5ayIPtMqEAAA3:0
+[   15325ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xl3iic34&sid=ffWlbBxgPld8eXh3AAA4:0
+[   15325ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=ffWlbBxgPld8eXh3AAA4' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   15325ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=ffWlbBxgPld8eXh3AAA4' failed: Error during WebSocket handshake: Unexpected response code: 400 @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1128
+[   15326ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xl3ikc85&sid=ffWlbBxgPld8eXh3AAA4:0
+[   16484ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xl4ep0on&sid=7cJK1pOyhXcdR4j3AAA5:0
+[   16485ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=7cJK1pOyhXcdR4j3AAA5' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   16486ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xl4es10y&sid=7cJK1pOyhXcdR4j3AAA5:0
+[   17849ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xl5gm4zj&sid=OZGtgCLF-3SQJLG_AAA6:0
+[   17849ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=OZGtgCLF-3SQJLG_AAA6' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   17850ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xl5go836&sid=OZGtgCLF-3SQJLG_AAA6:0
+[   18839ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xl685vs1&sid=zB1eRZMuv45lddgxAAA7:0
+[   18839ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=zB1eRZMuv45lddgxAAA7' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   18840ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xl686o8p&sid=zB1eRZMuv45lddgxAAA7:0
+[   20220ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xl7ai9ef&sid=zXfEnQ1DRv8OX5z1AAA8:0
+[   20221ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=zXfEnQ1DRv8OX5z1AAA8' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   32438ms] [WARNING] Message queue nMDDrq2K1uxhqSpzuD1PX not found, creating new queue @ http://localhost:5175/src/utils/resource_manager.js:350
+[   39581ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xl7akufi&sid=zXfEnQ1DRv8OX5z1AAA8:0
+[   39590ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=9-r4daAA_Sy5CUW9AABD' failed: Error during WebSocket handshake: Unexpected response code: 400 @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1128
+[   39597ms] [WARNING] CHAT_PATH: Falling back to ENHANCED chat (NO tools) {useUnifiedChat: true, hasService: false, connectionState: disconnected, sessionId: session_1772259334579} @ http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1176
+[   39612ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xlm8ekvf&sid=9-r4daAA_Sy5CUW9AABD:0
+[   40325ms] [ERROR] Failed to load resource: the server responded with a status of 500 (INTERNAL SERVER ERROR) @ http://localhost:5175/api/enhanced-chat:0
+[   40325ms] [ERROR] apiClient: handleResponse throwing error for http://localhost:5175/api/enhanced-chat: Internal Server Error {message: An unexpected error occurred. Check server logs., error: Internal Server Error} @ http://localhost:5175/src/api/apiClient.js:57
+[   40325ms] [WARNING] CHAT_DEBUG: Enhanced Chat API failed, will try fallback: Error: Internal Server Error
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:55:19)
+    at async EnhancedChatService.sendEnhancedMessage (http://localhost:5175/src/api/chatService.js:202:22)
+    at async sendChatMessage (http://localhost:5175/src/api/chatService.js:500:18)
+    at async managedApiCall.timeout (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1211:24)
+    at async FrontendResourceManager.managedApiRequest (http://localhost:5175/src/utils/resource_manager.js:292:22)
+    at async Object.current (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1196:22)
+    at async Object.processor (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:771:13)
+    at async FrontendResourceManager.processMessageQueue (http://localhost:5175/src/utils/resource_manager.js:436:11)
+    at async http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:769:29 @ http://localhost:5175/src/api/chatService.js:230
+[   40326ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xlm982c9&sid=9-r4daAA_Sy5CUW9AABD:0
+[   40328ms] [ERROR] Failed to load resource: the server responded with a status of 503 (SERVICE UNAVAILABLE) @ http://localhost:5175/api/simple-chat:0
+[   40328ms] [ERROR] CHAT_DEBUG: Basic chat API error: 503 SERVICE UNAVAILABLE @ http://localhost:5175/src/api/chatService.js:420
+[   40328ms] [ERROR] CHAT_DEBUG: Error in sendEnhancedMessage: Error: Chat API error: 503
+    at EnhancedChatService._fallbackToBasicChat (http://localhost:5175/src/api/chatService.js:422:13)
+    at async EnhancedChatService.sendEnhancedMessage (http://localhost:5175/src/api/chatService.js:237:18)
+    at async sendChatMessage (http://localhost:5175/src/api/chatService.js:500:18)
+    at async managedApiCall.timeout (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1211:24)
+    at async FrontendResourceManager.managedApiRequest (http://localhost:5175/src/utils/resource_manager.js:292:22)
+    at async Object.current (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1196:22)
+    at async Object.processor (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:771:13)
+    at async FrontendResourceManager.processMessageQueue (http://localhost:5175/src/utils/resource_manager.js:436:11)
+    at async http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:769:29 @ http://localhost:5175/src/api/chatService.js:261
+[   40328ms] [WARNING] API request failed, retrying (1 attempts left): Error: Chat API error: 503
+    at EnhancedChatService._fallbackToBasicChat (http://localhost:5175/src/api/chatService.js:422:13)
+    at async EnhancedChatService.sendEnhancedMessage (http://localhost:5175/src/api/chatService.js:237:18)
+    at async sendChatMessage (http://localhost:5175/src/api/chatService.js:500:18)
+    at async managedApiCall.timeout (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1211:24)
+    at async FrontendResourceManager.managedApiRequest (http://localhost:5175/src/utils/resource_manager.js:292:22)
+    at async Object.current (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1196:22)
+    at async Object.processor (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:771:13)
+    at async FrontendResourceManager.processMessageQueue (http://localhost:5175/src/utils/resource_manager.js:436:11)
+    at async http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:769:29 @ http://localhost:5175/src/utils/resource_manager.js:305
+[   41009ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xlnbz78n&sid=43T18JEffnlZ1gRgAABE:0
+[   41010ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=43T18JEffnlZ1gRgAABE' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   41483ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xlnc1bmr&sid=43T18JEffnlZ1gRgAABE:0
+[   41484ms] [ERROR] Failed to load resource: the server responded with a status of 500 (INTERNAL SERVER ERROR) @ http://localhost:5175/api/enhanced-chat:0
+[   41485ms] [ERROR] apiClient: handleResponse throwing error for http://localhost:5175/api/enhanced-chat: Internal Server Error {message: An unexpected error occurred. Check server logs., error: Internal Server Error} @ http://localhost:5175/src/api/apiClient.js:57
+[   41485ms] [WARNING] CHAT_DEBUG: Enhanced Chat API failed, will try fallback: Error: Internal Server Error
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:55:19)
+    at async EnhancedChatService.sendEnhancedMessage (http://localhost:5175/src/api/chatService.js:202:22)
+    at async sendChatMessage (http://localhost:5175/src/api/chatService.js:500:18)
+    at async managedApiCall.timeout (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1211:24)
+    at async FrontendResourceManager.managedApiRequest (http://localhost:5175/src/utils/resource_manager.js:292:22)
+    at async Object.current (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1196:22)
+    at async Object.processor (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:771:13)
+    at async FrontendResourceManager.processMessageQueue (http://localhost:5175/src/utils/resource_manager.js:436:11)
+    at async http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:769:29 @ http://localhost:5175/src/api/chatService.js:230
+[   41487ms] [ERROR] Failed to load resource: the server responded with a status of 503 (SERVICE UNAVAILABLE) @ http://localhost:5175/api/simple-chat:0
+[   41487ms] [ERROR] CHAT_DEBUG: Basic chat API error: 503 SERVICE UNAVAILABLE @ http://localhost:5175/src/api/chatService.js:420
+[   41487ms] [ERROR] CHAT_DEBUG: Error in sendEnhancedMessage: Error: Chat API error: 503
+    at EnhancedChatService._fallbackToBasicChat (http://localhost:5175/src/api/chatService.js:422:13)
+    at async EnhancedChatService.sendEnhancedMessage (http://localhost:5175/src/api/chatService.js:237:18)
+    at async sendChatMessage (http://localhost:5175/src/api/chatService.js:500:18)
+    at async managedApiCall.timeout (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1211:24)
+    at async FrontendResourceManager.managedApiRequest (http://localhost:5175/src/utils/resource_manager.js:292:22)
+    at async Object.current (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1196:22)
+    at async Object.processor (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:771:13)
+    at async FrontendResourceManager.processMessageQueue (http://localhost:5175/src/utils/resource_manager.js:436:11)
+    at async http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:769:29 @ http://localhost:5175/src/api/chatService.js:261
+[   41487ms] [WARNING] CLAUDE_FIX: API call attempt 1 failed: Error: Chat API error: 503
+    at EnhancedChatService._fallbackToBasicChat (http://localhost:5175/src/api/chatService.js:422:13)
+    at async EnhancedChatService.sendEnhancedMessage (http://localhost:5175/src/api/chatService.js:237:18)
+    at async sendChatMessage (http://localhost:5175/src/api/chatService.js:500:18)
+    at async managedApiCall.timeout (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1211:24)
+    at async FrontendResourceManager.managedApiRequest (http://localhost:5175/src/utils/resource_manager.js:292:22)
+    at async Object.current (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1196:22)
+    at async Object.processor (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:771:13)
+    at async FrontendResourceManager.processMessageQueue (http://localhost:5175/src/utils/resource_manager.js:436:11)
+    at async http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:769:29 @ http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1228
+[   41792ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xlnxqmw0&sid=It2_WL4QjGNWkbdzAABF:0
+[   41792ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=It2_WL4QjGNWkbdzAABF' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   42849ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xlnxrge1&sid=It2_WL4QjGNWkbdzAABF:0
+[   42850ms] [ERROR] Failed to load resource: the server responded with a status of 500 (INTERNAL SERVER ERROR) @ http://localhost:5175/api/enhanced-chat:0
+[   42851ms] [ERROR] apiClient: handleResponse throwing error for http://localhost:5175/api/enhanced-chat: Internal Server Error {message: An unexpected error occurred. Check server logs., error: Internal Server Error} @ http://localhost:5175/src/api/apiClient.js:57
+[   42851ms] [WARNING] CHAT_DEBUG: Enhanced Chat API failed, will try fallback: Error: Internal Server Error
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:55:19)
+    at async EnhancedChatService.sendEnhancedMessage (http://localhost:5175/src/api/chatService.js:202:22)
+    at async sendChatMessage (http://localhost:5175/src/api/chatService.js:500:18)
+    at async managedApiCall.timeout (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1211:24)
+    at async FrontendResourceManager.managedApiRequest (http://localhost:5175/src/utils/resource_manager.js:292:22)
+    at async Object.current (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1196:22)
+    at async Object.processor (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:771:13)
+    at async FrontendResourceManager.processMessageQueue (http://localhost:5175/src/utils/resource_manager.js:436:11)
+    at async http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:769:29 @ http://localhost:5175/src/api/chatService.js:230
+[   42853ms] [ERROR] Failed to load resource: the server responded with a status of 503 (SERVICE UNAVAILABLE) @ http://localhost:5175/api/simple-chat:0
+[   42853ms] [ERROR] CHAT_DEBUG: Basic chat API error: 503 SERVICE UNAVAILABLE @ http://localhost:5175/src/api/chatService.js:420
+[   42853ms] [ERROR] CHAT_DEBUG: Error in sendEnhancedMessage: Error: Chat API error: 503
+    at EnhancedChatService._fallbackToBasicChat (http://localhost:5175/src/api/chatService.js:422:13)
+    at async EnhancedChatService.sendEnhancedMessage (http://localhost:5175/src/api/chatService.js:237:18)
+    at async sendChatMessage (http://localhost:5175/src/api/chatService.js:500:18)
+    at async managedApiCall.timeout (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1211:24)
+    at async FrontendResourceManager.managedApiRequest (http://localhost:5175/src/utils/resource_manager.js:292:22)
+    at async Object.current (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1196:22)
+    at async Object.processor (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:771:13)
+    at async FrontendResourceManager.processMessageQueue (http://localhost:5175/src/utils/resource_manager.js:436:11)
+    at async http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:769:29 @ http://localhost:5175/src/api/chatService.js:261
+[   42853ms] [WARNING] API request failed, retrying (1 attempts left): Error: Chat API error: 503
+    at EnhancedChatService._fallbackToBasicChat (http://localhost:5175/src/api/chatService.js:422:13)
+    at async EnhancedChatService.sendEnhancedMessage (http://localhost:5175/src/api/chatService.js:237:18)
+    at async sendChatMessage (http://localhost:5175/src/api/chatService.js:500:18)
+    at async managedApiCall.timeout (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1211:24)
+    at async FrontendResourceManager.managedApiRequest (http://localhost:5175/src/utils/resource_manager.js:292:22)
+    at async Object.current (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1196:22)
+    at async Object.processor (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:771:13)
+    at async FrontendResourceManager.processMessageQueue (http://localhost:5175/src/utils/resource_manager.js:436:11)
+    at async http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:769:29 @ http://localhost:5175/src/utils/resource_manager.js:305
+[   43088ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xloxqyp1&sid=OhSNjrq26t2cZG8NAABG:0
+[   43089ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=OhSNjrq26t2cZG8NAABG' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   43839ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xloxs2u1&sid=OhSNjrq26t2cZG8NAABG:0
+[   43856ms] [ERROR] Failed to load resource: the server responded with a status of 500 (INTERNAL SERVER ERROR) @ http://localhost:5175/api/enhanced-chat:0
+[   43856ms] [ERROR] apiClient: handleResponse throwing error for http://localhost:5175/api/enhanced-chat: Internal Server Error {message: An unexpected error occurred. Check server logs., error: Internal Server Error} @ http://localhost:5175/src/api/apiClient.js:57
+[   43856ms] [WARNING] CHAT_DEBUG: Enhanced Chat API failed, will try fallback: Error: Internal Server Error
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:55:19)
+    at async EnhancedChatService.sendEnhancedMessage (http://localhost:5175/src/api/chatService.js:202:22)
+    at async sendChatMessage (http://localhost:5175/src/api/chatService.js:500:18)
+    at async managedApiCall.timeout (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1211:24)
+    at async FrontendResourceManager.managedApiRequest (http://localhost:5175/src/utils/resource_manager.js:292:22)
+    at async Object.current (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1196:22)
+    at async Object.processor (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:771:13)
+    at async FrontendResourceManager.processMessageQueue (http://localhost:5175/src/utils/resource_manager.js:436:11)
+    at async http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:769:29 @ http://localhost:5175/src/api/chatService.js:230
+[   43858ms] [ERROR] Failed to load resource: the server responded with a status of 503 (SERVICE UNAVAILABLE) @ http://localhost:5175/api/simple-chat:0
+[   43858ms] [ERROR] CHAT_DEBUG: Basic chat API error: 503 SERVICE UNAVAILABLE @ http://localhost:5175/src/api/chatService.js:420
+[   43858ms] [ERROR] CHAT_DEBUG: Error in sendEnhancedMessage: Error: Chat API error: 503
+    at EnhancedChatService._fallbackToBasicChat (http://localhost:5175/src/api/chatService.js:422:13)
+    at async EnhancedChatService.sendEnhancedMessage (http://localhost:5175/src/api/chatService.js:237:18)
+    at async sendChatMessage (http://localhost:5175/src/api/chatService.js:500:18)
+    at async managedApiCall.timeout (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1211:24)
+    at async FrontendResourceManager.managedApiRequest (http://localhost:5175/src/utils/resource_manager.js:292:22)
+    at async Object.current (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1196:22)
+    at async Object.processor (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:771:13)
+    at async FrontendResourceManager.processMessageQueue (http://localhost:5175/src/utils/resource_manager.js:436:11)
+    at async http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:769:29 @ http://localhost:5175/src/api/chatService.js:261
+[   43858ms] [WARNING] CLAUDE_FIX: API call attempt 2 failed: Error: Chat API error: 503
+    at EnhancedChatService._fallbackToBasicChat (http://localhost:5175/src/api/chatService.js:422:13)
+    at async EnhancedChatService.sendEnhancedMessage (http://localhost:5175/src/api/chatService.js:237:18)
+    at async sendChatMessage (http://localhost:5175/src/api/chatService.js:500:18)
+    at async managedApiCall.timeout (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1211:24)
+    at async FrontendResourceManager.managedApiRequest (http://localhost:5175/src/utils/resource_manager.js:292:22)
+    at async Object.current (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1196:22)
+    at async Object.processor (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:771:13)
+    at async FrontendResourceManager.processMessageQueue (http://localhost:5175/src/utils/resource_manager.js:436:11)
+    at async http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:769:29 @ http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1228
+[   44390ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xlpxvuak&sid=CENKimJIA4SXrOduAABH:0
+[   44390ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=CENKimJIA4SXrOduAABH' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   45220ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xlpxxclo&sid=CENKimJIA4SXrOduAABH:0
+[   45569ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xlquma8y&sid=wmGnNYxHyR15juFHAABI:0
+[   45569ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=wmGnNYxHyR15juFHAABI' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   64585ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xlquoum8&sid=wmGnNYxHyR15juFHAABI:0
+[   64586ms] [ERROR] Failed to load resource: the server responded with a status of 500 (INTERNAL SERVER ERROR) @ http://localhost:5175/api/enhanced-chat:0
+[   64587ms] [ERROR] apiClient: handleResponse throwing error for http://localhost:5175/api/enhanced-chat: Internal Server Error {message: An unexpected error occurred. Check server logs., error: Internal Server Error} @ http://localhost:5175/src/api/apiClient.js:57
+[   64587ms] [WARNING] CHAT_DEBUG: Enhanced Chat API failed, will try fallback: Error: Internal Server Error
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:55:19)
+    at async EnhancedChatService.sendEnhancedMessage (http://localhost:5175/src/api/chatService.js:202:22)
+    at async sendChatMessage (http://localhost:5175/src/api/chatService.js:500:18)
+    at async managedApiCall.timeout (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1211:24)
+    at async FrontendResourceManager.managedApiRequest (http://localhost:5175/src/utils/resource_manager.js:292:22)
+    at async Object.current (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1196:22)
+    at async Object.processor (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:771:13)
+    at async FrontendResourceManager.processMessageQueue (http://localhost:5175/src/utils/resource_manager.js:436:11)
+    at async http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:769:29 @ http://localhost:5175/src/api/chatService.js:230
+[   64595ms] [ERROR] Failed to load resource: the server responded with a status of 503 (SERVICE UNAVAILABLE) @ http://localhost:5175/api/simple-chat:0
+[   64595ms] [ERROR] CHAT_DEBUG: Basic chat API error: 503 SERVICE UNAVAILABLE @ http://localhost:5175/src/api/chatService.js:420
+[   64595ms] [ERROR] CHAT_DEBUG: Error in sendEnhancedMessage: Error: Chat API error: 503
+    at EnhancedChatService._fallbackToBasicChat (http://localhost:5175/src/api/chatService.js:422:13)
+    at async EnhancedChatService.sendEnhancedMessage (http://localhost:5175/src/api/chatService.js:237:18)
+    at async sendChatMessage (http://localhost:5175/src/api/chatService.js:500:18)
+    at async managedApiCall.timeout (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1211:24)
+    at async FrontendResourceManager.managedApiRequest (http://localhost:5175/src/utils/resource_manager.js:292:22)
+    at async Object.current (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1196:22)
+    at async Object.processor (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:771:13)
+    at async FrontendResourceManager.processMessageQueue (http://localhost:5175/src/utils/resource_manager.js:436:11)
+    at async http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:769:29 @ http://localhost:5175/src/api/chatService.js:261
+[   64595ms] [WARNING] API request failed, retrying (1 attempts left): Error: Chat API error: 503
+    at EnhancedChatService._fallbackToBasicChat (http://localhost:5175/src/api/chatService.js:422:13)
+    at async EnhancedChatService.sendEnhancedMessage (http://localhost:5175/src/api/chatService.js:237:18)
+    at async sendChatMessage (http://localhost:5175/src/api/chatService.js:500:18)
+    at async managedApiCall.timeout (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1211:24)
+    at async FrontendResourceManager.managedApiRequest (http://localhost:5175/src/utils/resource_manager.js:292:22)
+    at async Object.current (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1196:22)
+    at async Object.processor (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:771:13)
+    at async FrontendResourceManager.processMessageQueue (http://localhost:5175/src/utils/resource_manager.js:436:11)
+    at async http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:769:29 @ http://localhost:5175/src/utils/resource_manager.js:305
+[   64595ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xm5izqrr&sid=InkrnUE1y6ST7dHlAABP:0
+[   64596ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=InkrnUE1y6ST7dHlAABP' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   66009ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xm5j7ti2&sid=InkrnUE1y6ST7dHlAABP:0
+[   66012ms] [ERROR] Failed to load resource: the server responded with a status of 500 (INTERNAL SERVER ERROR) @ http://localhost:5175/api/enhanced-chat:0
+[   66013ms] [ERROR] apiClient: handleResponse throwing error for http://localhost:5175/api/enhanced-chat: Internal Server Error {message: An unexpected error occurred. Check server logs., error: Internal Server Error} @ http://localhost:5175/src/api/apiClient.js:57
+[   66013ms] [WARNING] CHAT_DEBUG: Enhanced Chat API failed, will try fallback: Error: Internal Server Error
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:55:19)
+    at async EnhancedChatService.sendEnhancedMessage (http://localhost:5175/src/api/chatService.js:202:22)
+    at async sendChatMessage (http://localhost:5175/src/api/chatService.js:500:18)
+    at async managedApiCall.timeout (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1211:24)
+    at async FrontendResourceManager.managedApiRequest (http://localhost:5175/src/utils/resource_manager.js:292:22)
+    at async Object.current (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1196:22)
+    at async Object.processor (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:771:13)
+    at async FrontendResourceManager.processMessageQueue (http://localhost:5175/src/utils/resource_manager.js:436:11)
+    at async http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:769:29 @ http://localhost:5175/src/api/chatService.js:230
+[   66013ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xm6mjg5m&sid=ZRifmJS90eqdGiHwAABQ:0
+[   66014ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=ZRifmJS90eqdGiHwAABQ' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   66793ms] [ERROR] Failed to load resource: the server responded with a status of 503 (SERVICE UNAVAILABLE) @ http://localhost:5175/api/simple-chat:0
+[   66793ms] [ERROR] CHAT_DEBUG: Basic chat API error: 503 SERVICE UNAVAILABLE @ http://localhost:5175/src/api/chatService.js:420
+[   66793ms] [ERROR] CHAT_DEBUG: Error in sendEnhancedMessage: Error: Chat API error: 503
+    at EnhancedChatService._fallbackToBasicChat (http://localhost:5175/src/api/chatService.js:422:13)
+    at async EnhancedChatService.sendEnhancedMessage (http://localhost:5175/src/api/chatService.js:237:18)
+    at async sendChatMessage (http://localhost:5175/src/api/chatService.js:500:18)
+    at async managedApiCall.timeout (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1211:24)
+    at async FrontendResourceManager.managedApiRequest (http://localhost:5175/src/utils/resource_manager.js:292:22)
+    at async Object.current (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1196:22)
+    at async Object.processor (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:771:13)
+    at async FrontendResourceManager.processMessageQueue (http://localhost:5175/src/utils/resource_manager.js:436:11)
+    at async http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:769:29 @ http://localhost:5175/src/api/chatService.js:261
+[   66793ms] [WARNING] CLAUDE_FIX: API call attempt 3 failed: Error: Chat API error: 503
+    at EnhancedChatService._fallbackToBasicChat (http://localhost:5175/src/api/chatService.js:422:13)
+    at async EnhancedChatService.sendEnhancedMessage (http://localhost:5175/src/api/chatService.js:237:18)
+    at async sendChatMessage (http://localhost:5175/src/api/chatService.js:500:18)
+    at async managedApiCall.timeout (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1211:24)
+    at async FrontendResourceManager.managedApiRequest (http://localhost:5175/src/utils/resource_manager.js:292:22)
+    at async Object.current (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1196:22)
+    at async Object.processor (http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:771:13)
+    at async FrontendResourceManager.processMessageQueue (http://localhost:5175/src/utils/resource_manager.js:436:11)
+    at async http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:769:29 @ http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:1228
+[   66809ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xm6mlzd7&sid=ZRifmJS90eqdGiHwAABQ:0
+[   66810ms] [ERROR] Failed to load resource: the server responded with a status of 500 (INTERNAL SERVER ERROR) @ http://localhost:5175/api/voice/text-to-speech:0
+[   66812ms] [ERROR] apiClient: handleResponse throwing error for http://localhost:5175/api/voice/text-to-speech: Text-to-speech failed: /usr/bin/python: No module named piper
+ {message: HTTP error 500 - INTERNAL SERVER ERROR, error: Text-to-speech failed: /usr/bin/python: No module named piper
+} @ http://localhost:5175/src/api/apiClient.js:57
+[   66812ms] [ERROR] Failed to convert text to speech: Error: Text-to-speech failed: /usr/bin/python: No module named piper
+
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:55:19)
+    at async VoiceService.textToSpeech (http://localhost:5175/src/api/voiceService.js:157:14)
+    at async http://localhost:5175/src/contexts/VoiceContext.jsx:128:22 @ http://localhost:5175/src/api/voiceService.js:158
+[   66812ms] [ERROR] TTS failed: Error: Text-to-speech failed: /usr/bin/python: No module named piper
+
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:55:19)
+    at async VoiceService.textToSpeech (http://localhost:5175/src/api/voiceService.js:157:14)
+    at async http://localhost:5175/src/contexts/VoiceContext.jsx:128:22 @ http://localhost:5175/src/contexts/VoiceContext.jsx:133
+[   66812ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xm78pmov&sid=6NLPEkfenWjJofGPAABR:0
+[   66814ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=6NLPEkfenWjJofGPAABR' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   68088ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xm78tj75&sid=6NLPEkfenWjJofGPAABR:0
+[   68091ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xm889md1&sid=fOyEZDTrqT8XEDwKAABS:0
+[   68092ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=fOyEZDTrqT8XEDwKAABS' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   69390ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xm88bhjz&sid=fOyEZDTrqT8XEDwKAABS:0
+[   69462ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xm9acu42&sid=wZkFPzZaldbwVzFyAABT:0
+[   69462ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=wZkFPzZaldbwVzFyAABT' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   70569ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xm9adyzk&sid=wZkFPzZaldbwVzFyAABT:0
+[   70572ms] [ERROR] Failed to load resource: the server responded with a status of 400 (BAD REQUEST) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xma56dai&sid=drhuLrlokMmS_FGtAABU:0
+[   70572ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=drhuLrlokMmS_FGtAABU' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1104
+[   76624ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xm9acpi9&sid=wZkFPzZaldbwVzFyAABT:0
+[   76625ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xm6mjprr&sid=ZRifmJS90eqdGiHwAABQ:0
+[   76626ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xm5j05p7&sid=InkrnUE1y6ST7dHlAABP:0
+[   76626ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xm88a7f8&sid=fOyEZDTrqT8XEDwKAABS:0
+[   76627ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xm78p74e&sid=6NLPEkfenWjJofGPAABR:0
+[   76627ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xma560qo&sid=drhuLrlokMmS_FGtAABU:0
+[   76628ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xma58k6x&sid=drhuLrlokMmS_FGtAABU:0
+[   76628ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xmarfsgx:0
+[   76628ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/scheduler/queue/summary:0
+[   76629ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: Error: HTTP 500
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:66:15 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74
+[   79607ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xmh456op:0
+[   83199ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xmjvwi7b:0
+[   88202ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xmnqvsql:0
+[   89576ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/scheduler/queue/summary:0
+[   89576ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: Error: HTTP 500
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:66:15 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74

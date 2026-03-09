@@ -1,0 +1,51 @@
+[     278ms] [WARNING] STRICT MODE PROTECTION: Reusing recent process: IIBJbZCxrmSbpT9EgSbNV (age: 4s) @ http://localhost:5175/src/pages/ChatPage.jsx:91
+[     278ms] [WARNING] STRICT MODE PROTECTION: Reusing recent process: IIBJbZCxrmSbpT9EgSbNV (age: 4s) @ http://localhost:5175/src/pages/ChatPage.jsx:91
+[     321ms] [ERROR] Failed to load resource: the server responded with a status of 500 (INTERNAL SERVER ERROR) @ http://localhost:5175/api/enhanced-chat/session_1772244258907/history?limit=100:0
+[     323ms] [ERROR] Failed to load resource: the server responded with a status of 500 (INTERNAL SERVER ERROR) @ http://localhost:5175/api/enhanced-chat/session_1772244258907/history?limit=100:0
+[     362ms] [ERROR] apiClient: handleResponse throwing error for http://localhost:5175/api/enhanced-chat/session_1772244258907/history?limit=100: Failed to fetch chat history {message: (sqlite3.OperationalError) no such column: llm_ses… on this error at: https://sqlalche.me/e/20/e3q8), error: Failed to fetch chat history} @ http://localhost:5175/src/api/apiClient.js:56
+[     362ms] [ERROR] chatService: Error fetching chat history for session_1772244258907: Failed to fetch chat history @ http://localhost:5175/src/api/chatService.js:605
+[     362ms] [ERROR] ChatPage: Failed to load chat history: Error: Failed to fetch chat history
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:54:19)
+    at async getChatHistory (http://localhost:5175/src/api/chatService.js:582:17)
+    at async loadHistory (http://localhost:5175/src/pages/ChatPage.jsx:399:25) @ http://localhost:5175/src/pages/ChatPage.jsx:456
+[     368ms] [ERROR] apiClient: handleResponse throwing error for http://localhost:5175/api/enhanced-chat/session_1772244258907/history?limit=100: Failed to fetch chat history {message: (sqlite3.OperationalError) no such column: llm_ses… on this error at: https://sqlalche.me/e/20/e3q8), error: Failed to fetch chat history} @ http://localhost:5175/src/api/apiClient.js:56
+[     368ms] [ERROR] chatService: Error fetching chat history for session_1772244258907: Failed to fetch chat history @ http://localhost:5175/src/api/chatService.js:605
+[     368ms] [ERROR] ChatPage: Failed to load chat history: Error: Failed to fetch chat history
+    at handleResponse (http://localhost:5175/src/api/apiClient.js:54:19)
+    at async getChatHistory (http://localhost:5175/src/api/chatService.js:582:17)
+    at async loadHistory (http://localhost:5175/src/pages/ChatPage.jsx:399:25) @ http://localhost:5175/src/pages/ChatPage.jsx:456
+[  311209ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Connection closed before receiving a handshake response @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=a622341a:1128
+[  313344ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=onuw07dn:0
+[  315302ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/scheduler/queue/summary:0
+[  315303ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: Error: HTTP 500
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:66:15 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74
+[  316002ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=onwxvxas:0
+[  319286ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  320287ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  321003ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=oo0stwav:0
+[  321288ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  322290ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  323291ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  324292ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  325293ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  326005ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=oo4nqmhs:0
+[  326294ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  327295ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  328296ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  329297ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  330298ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  330302ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/api/scheduler/queue/summary:0
+[  330302ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: TypeError: Failed to fetch
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:64:30
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:83:52 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx:74
+[  331299ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  332301ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  333302ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  334303ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  335304ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  336305ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  337306ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  338307ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  339308ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  340309ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[  342216ms] [WARNING] DUPLICATE PREVENTION: Reusing existing process: EDzic5PcGhIUk1RN7v-1M @ http://localhost:5175/src/pages/ChatPage.jsx:83

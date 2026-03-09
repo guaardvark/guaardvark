@@ -1,0 +1,84 @@
+"""
+Flask GraphQL API endpoint using Ariadne
+Backend API for entity-aware file manager with GraphQL support
+"""
+import logging
+from flask import Blueprint, request, jsonify
+from ariadne import graphql_sync
+from backend.graphql.schema import schema
+
+logger = logging.getLogger(__name__)
+
+# Create blueprint - will be auto-discovered by blueprint discovery system
+graphql_bp = Blueprint('graphql_api', __name__, url_prefix='/api')
+
+# Simple GraphQL Playground HTML (custom implementation)
+GRAPHQL_PLAYGROUND_HTML = """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>GraphQL Playground</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; }
+        #playground { height: 100vh; }
+    </style>
+</head>
+<body>
+    <div id="playground">
+        <h1 style="text-align: center; padding: 20px;">GraphQL API Endpoint</h1>
+        <p style="text-align: center;">Send POST requests to <code>/api/graphql</code></p>
+        <p style="text-align: center;">Use GraphQL introspection to explore the schema</p>
+    </div>
+</body>
+</html>
+"""
+
+
+@graphql_bp.route('/graphql', methods=['GET'])
+def graphql_playground():
+    """GraphQL Playground interface for testing"""
+    logger.info("GraphQL Playground accessed")
+    return GRAPHQL_PLAYGROUND_HTML, 200
+
+
+@graphql_bp.route('/graphql', methods=['POST'])
+def graphql_server():
+    """
+    GraphQL server endpoint
+    Handles GraphQL queries and mutations
+    """
+    try:
+        # Get request data
+        data = request.get_json()
+
+        logger.debug(f"GraphQL request received: {data.get('operationName', 'unnamed')}")
+
+        # Execute GraphQL query
+        success, result = graphql_sync(
+            schema,
+            data,
+            context_value={'request': request},
+            debug=True
+        )
+
+        # Log errors if any
+        if not success and result.get('errors'):
+            for error in result['errors']:
+                logger.error(f"GraphQL error: {error.get('message', str(error))}")
+
+        # Return result
+        status_code = 200 if success else 400
+        return jsonify(result), status_code
+
+    except Exception as e:
+        logger.exception(f"GraphQL server error: {e}")
+        return jsonify({
+            'errors': [{
+                'message': f'Internal server error: {str(e)}'
+            }]
+        }), 500
+
+
+# Export blueprint for auto-discovery
+__all__ = ['graphql_bp']

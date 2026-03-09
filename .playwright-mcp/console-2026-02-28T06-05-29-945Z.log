@@ -1,0 +1,3 @@
+[     426ms] [WARNING] DUPLICATE PREVENTION: Reusing existing process: WARY5m7MloUbrgUNaOj96 @ http://localhost:5175/src/pages/ChatPage.jsx:83
+[     553ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5175/vite.svg:0
+[   10107ms] [WARNING] Message queue ODopFUPsGQizumyAX2ObL not found, creating new queue @ http://localhost:5175/src/utils/resource_manager.js:350

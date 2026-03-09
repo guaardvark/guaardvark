@@ -1,0 +1,757 @@
+[ 3595663ms] [ERROR] The above error occurred in the <div> component:
+
+    at div
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at main
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at div
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at AppLayout (http://localhost:5175/src/App.jsx?t=1772144005151:90:22)
+    at RenderedRoute (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4154:5)
+    at Routes (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4625:5)
+    at ErrorProvider (http://localhost:5175/src/components/common/ErrorProvider.jsx:29:33)
+    at SnackbarProvider (http://localhost:5175/src/components/common/SnackbarProvider.jsx:21:36)
+    at VoiceProvider (http://localhost:5175/src/contexts/VoiceContext.jsx:33:33)
+    at LayoutProvider (http://localhost:5175/src/contexts/LayoutContext.jsx:60:34)
+    at UnifiedProgressProvider (http://localhost:5175/src/contexts/UnifiedProgressContext.jsx?t=1772091995378:91:43)
+    at Router (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4568:15)
+    at BrowserRouter (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:5317:5)
+    at StatusProvider (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772091896315:28:34)
+    at DefaultPropsProvider (http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:9373:3)
+    at RtlProvider (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1180:5)
+    at ThemeProvider (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1128:5)
+    at ThemeProvider2 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1272:5)
+    at ThemeProvider (http://localhost:5175/node_modules/.vite/deps/chunk-RHXIQJG6.js?v=0d0b9a89:313:12)
+    at AppContainer (http://localhost:5175/src/App.jsx?t=1772144005151:169:21)
+    at ErrorBoundary (http://localhost:5175/src/components/common/ErrorBoundary.jsx:17:5)
+    at App
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary. @ http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14059
+[ 3595664ms] [ERROR] Error Boundary caught an error: Error: A component suspended while responding to synchronous input. This will cause the UI to be replaced with a loading indicator. To fix, updates that suspend should be wrapped with startTransition.
+    at throwException (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14241:43)
+    at handleError (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19070:15)
+    at renderRootSync (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19155:15)
+    at recoverFromConcurrentError (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:18772:28)
+    at performSyncWorkOnRoot (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:18915:28)
+    at flushSyncCallbacks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:9143:30)
+    at flushSync (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:18995:15)
+    at Object.scheduleRefresh (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:20040:13)
+    at http://localhost:5175/@react-refresh:228:17
+    at Set.forEach (<anonymous>) {componentStack: 
+    at div
+    at http://localhost:5175/node_modu…ponents/common/ErrorBoundary.jsx:17:5)
+    at App} @ http://localhost:5175/src/components/common/ErrorBoundary.jsx:23
+[ 3595677ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket&sid=zN7EyKV9AVpgi-FhAABL' failed: Invalid frame header @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1128
+[ 3600559ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/src/App.jsx?t=1772144010110:0
+[ 3600560ms] [ERROR] [hmr] Failed to reload /src/App.jsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5175/@vite/client:297
+[ 3604348ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1104
+[ 5507778ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/src/pages/ChatPage.jsx?t=1772145917330:0
+[ 5507780ms] [ERROR] [hmr] Failed to reload /src/pages/ChatPage.jsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5175/@vite/client:297
+[ 5530961ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/src/pages/ChatPage.jsx?t=1772145940510:0
+[ 5530961ms] [ERROR] [hmr] Failed to reload /src/pages/ChatPage.jsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5175/@vite/client:297
+[ 5552728ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/src/pages/ChatPage.jsx?t=1772145962286:0
+[ 5552731ms] [ERROR] [hmr] Failed to reload /src/pages/ChatPage.jsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5175/@vite/client:297
+[ 5559487ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/src/pages/ChatPage.jsx?t=1772145969042:0
+[ 5559487ms] [ERROR] [hmr] Failed to reload /src/pages/ChatPage.jsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5175/@vite/client:297
+[ 5567290ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/src/pages/ChatPage.jsx?t=1772145976847:0
+[ 5567291ms] [ERROR] [hmr] Failed to reload /src/pages/ChatPage.jsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5175/@vite/client:297
+[ 5574275ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/src/pages/ChatPage.jsx?t=1772145983831:0
+[ 5574275ms] [ERROR] [hmr] Failed to reload /src/pages/ChatPage.jsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5175/@vite/client:297
+[ 5581655ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/src/pages/ChatPage.jsx?t=1772145991214:0
+[ 5581657ms] [ERROR] [hmr] Failed to reload /src/pages/ChatPage.jsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5175/@vite/client:297
+[ 5599929ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/src/pages/ChatPage.jsx?t=1772146009484:0
+[ 5599929ms] [ERROR] [hmr] Failed to reload /src/pages/ChatPage.jsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5175/@vite/client:297
+[ 5629011ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/src/pages/ChatPage.jsx?t=1772146038562:0
+[ 5629011ms] [ERROR] [hmr] Failed to reload /src/pages/ChatPage.jsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5175/@vite/client:297
+[ 8060841ms] Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772091896315:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772091966719:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3682:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3707:24)
+    at invokeGuardedCallback (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3741:39)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19801:15)
+[ 8060856ms] Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772091896315:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772091966719:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3682:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3707:24)
+    at invokeGuardedCallback (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3741:39)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19801:15)
+[ 8060860ms] [ERROR] The above error occurred in the <DocumentsPage> component:
+
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772091966719:50:28)
+    at div
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at main
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at div
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at AppLayout (http://localhost:5175/src/App.jsx?t=1772144013855:90:22)
+    at RenderedRoute (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4154:5)
+    at Routes (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4625:5)
+    at Suspense
+    at ErrorProvider (http://localhost:5175/src/components/common/ErrorProvider.jsx:29:33)
+    at SnackbarProvider (http://localhost:5175/src/components/common/SnackbarProvider.jsx:21:36)
+    at VoiceProvider (http://localhost:5175/src/contexts/VoiceContext.jsx:33:33)
+    at LayoutProvider (http://localhost:5175/src/contexts/LayoutContext.jsx:60:34)
+    at UnifiedProgressProvider (http://localhost:5175/src/contexts/UnifiedProgressContext.jsx?t=1772091995378:91:43)
+    at Router (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4568:15)
+    at BrowserRouter (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:5317:5)
+    at StatusProvider (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148469854:28:34)
+    at DefaultPropsProvider (http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:9373:3)
+    at RtlProvider (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1180:5)
+    at ThemeProvider (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1128:5)
+    at ThemeProvider2 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1272:5)
+    at ThemeProvider (http://localhost:5175/node_modules/.vite/deps/chunk-RHXIQJG6.js?v=0d0b9a89:313:12)
+    at AppContainer (http://localhost:5175/src/App.jsx?t=1772144013855:169:21)
+    at ErrorBoundary (http://localhost:5175/src/components/common/ErrorBoundary.jsx:17:5)
+    at App
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary. @ http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14059
+[ 8060860ms] [ERROR] Error Boundary caught an error: Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772091896315:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772091966719:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19789:22)
+    at performUnitOfWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19234:20)
+    at workLoopSync (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19173:13)
+    at renderRootSync (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19152:15) {componentStack: 
+    at DocumentsPage (http://localhost:5175/src/p…ponents/common/ErrorBoundary.jsx:17:5)
+    at App} @ http://localhost:5175/src/components/common/ErrorBoundary.jsx:23
+[ 8060943ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Invalid frame header @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1128
+[ 8061054ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1104
+[ 8065149ms] Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148469854:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148469854:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3682:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3707:24)
+    at invokeGuardedCallback (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3741:39)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19801:15)
+[ 8065162ms] Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148469854:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148469854:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3682:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3707:24)
+    at invokeGuardedCallback (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3741:39)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19801:15)
+[ 8065166ms] [ERROR] The above error occurred in the <DocumentsPage> component:
+
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148469854:50:28)
+    at div
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at main
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at div
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at AppLayout (http://localhost:5175/src/App.jsx?t=1772148469854:90:22)
+    at RenderedRoute (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4154:5)
+    at Routes (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4625:5)
+    at Suspense
+    at ErrorProvider (http://localhost:5175/src/components/common/ErrorProvider.jsx:29:33)
+    at SnackbarProvider (http://localhost:5175/src/components/common/SnackbarProvider.jsx:21:36)
+    at VoiceProvider (http://localhost:5175/src/contexts/VoiceContext.jsx:33:33)
+    at LayoutProvider (http://localhost:5175/src/contexts/LayoutContext.jsx:60:34)
+    at UnifiedProgressProvider (http://localhost:5175/src/contexts/UnifiedProgressContext.jsx?t=1772091995378:91:43)
+    at Router (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4568:15)
+    at BrowserRouter (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:5317:5)
+    at StatusProvider (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148474290:28:34)
+    at DefaultPropsProvider (http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:9373:3)
+    at RtlProvider (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1180:5)
+    at ThemeProvider (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1128:5)
+    at ThemeProvider2 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1272:5)
+    at ThemeProvider (http://localhost:5175/node_modules/.vite/deps/chunk-RHXIQJG6.js?v=0d0b9a89:313:12)
+    at AppContainer (http://localhost:5175/src/App.jsx?t=1772148469854:169:21)
+    at ErrorBoundary (http://localhost:5175/src/components/common/ErrorBoundary.jsx:17:5)
+    at App
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary. @ http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14059
+[ 8065166ms] [ERROR] Error Boundary caught an error: Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148469854:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148469854:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19789:22)
+    at performUnitOfWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19234:20)
+    at workLoopSync (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19173:13)
+    at renderRootSync (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19152:15) {componentStack: 
+    at DocumentsPage (http://localhost:5175/src/p…ponents/common/ErrorBoundary.jsx:17:5)
+    at App} @ http://localhost:5175/src/components/common/ErrorBoundary.jsx:23
+[ 8065218ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Invalid frame header @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1128
+[ 8065327ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1104
+[ 8070132ms] Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148474290:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148474290:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3682:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3707:24)
+    at invokeGuardedCallback (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3741:39)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19801:15)
+[ 8070145ms] Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148474290:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148474290:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3682:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3707:24)
+    at invokeGuardedCallback (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3741:39)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19801:15)
+[ 8070149ms] [ERROR] The above error occurred in the <DocumentsPage> component:
+
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148474290:50:28)
+    at div
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at main
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at div
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at AppLayout (http://localhost:5175/src/App.jsx?t=1772148474290:90:22)
+    at RenderedRoute (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4154:5)
+    at Routes (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4625:5)
+    at Suspense
+    at ErrorProvider (http://localhost:5175/src/components/common/ErrorProvider.jsx:29:33)
+    at SnackbarProvider (http://localhost:5175/src/components/common/SnackbarProvider.jsx:21:36)
+    at VoiceProvider (http://localhost:5175/src/contexts/VoiceContext.jsx:33:33)
+    at LayoutProvider (http://localhost:5175/src/contexts/LayoutContext.jsx:60:34)
+    at UnifiedProgressProvider (http://localhost:5175/src/contexts/UnifiedProgressContext.jsx?t=1772091995378:91:43)
+    at Router (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4568:15)
+    at BrowserRouter (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:5317:5)
+    at StatusProvider (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148479301:28:34)
+    at DefaultPropsProvider (http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:9373:3)
+    at RtlProvider (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1180:5)
+    at ThemeProvider (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1128:5)
+    at ThemeProvider2 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1272:5)
+    at ThemeProvider (http://localhost:5175/node_modules/.vite/deps/chunk-RHXIQJG6.js?v=0d0b9a89:313:12)
+    at AppContainer (http://localhost:5175/src/App.jsx?t=1772148474290:169:21)
+    at ErrorBoundary (http://localhost:5175/src/components/common/ErrorBoundary.jsx:17:5)
+    at App
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary. @ http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14059
+[ 8070149ms] [ERROR] Error Boundary caught an error: Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148474290:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148474290:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19789:22)
+    at performUnitOfWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19234:20)
+    at workLoopSync (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19173:13)
+    at renderRootSync (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19152:15) {componentStack: 
+    at DocumentsPage (http://localhost:5175/src/p…ponents/common/ErrorBoundary.jsx:17:5)
+    at App} @ http://localhost:5175/src/components/common/ErrorBoundary.jsx:23
+[ 8070200ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Invalid frame header @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1128
+[ 8070309ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1104
+[ 8104327ms] Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148479301:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148479301:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3682:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3707:24)
+    at invokeGuardedCallback (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3741:39)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19801:15)
+[ 8104342ms] Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148479301:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148479301:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3682:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3707:24)
+    at invokeGuardedCallback (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3741:39)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19801:15)
+[ 8104346ms] [ERROR] The above error occurred in the <DocumentsPage> component:
+
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148479301:50:28)
+    at div
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at main
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at div
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at AppLayout (http://localhost:5175/src/App.jsx?t=1772148479301:90:22)
+    at RenderedRoute (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4154:5)
+    at Routes (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4625:5)
+    at Suspense
+    at ErrorProvider (http://localhost:5175/src/components/common/ErrorProvider.jsx:29:33)
+    at SnackbarProvider (http://localhost:5175/src/components/common/SnackbarProvider.jsx:21:36)
+    at VoiceProvider (http://localhost:5175/src/contexts/VoiceContext.jsx:33:33)
+    at LayoutProvider (http://localhost:5175/src/contexts/LayoutContext.jsx:60:34)
+    at UnifiedProgressProvider (http://localhost:5175/src/contexts/UnifiedProgressContext.jsx?t=1772091995378:91:43)
+    at Router (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4568:15)
+    at BrowserRouter (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:5317:5)
+    at StatusProvider (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148513401:28:34)
+    at DefaultPropsProvider (http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:9373:3)
+    at RtlProvider (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1180:5)
+    at ThemeProvider (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1128:5)
+    at ThemeProvider2 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1272:5)
+    at ThemeProvider (http://localhost:5175/node_modules/.vite/deps/chunk-RHXIQJG6.js?v=0d0b9a89:313:12)
+    at AppContainer (http://localhost:5175/src/App.jsx?t=1772148479301:169:21)
+    at ErrorBoundary (http://localhost:5175/src/components/common/ErrorBoundary.jsx:17:5)
+    at App
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary. @ http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14059
+[ 8104346ms] [ERROR] Error Boundary caught an error: Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148479301:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148479301:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19789:22)
+    at performUnitOfWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19234:20)
+    at workLoopSync (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19173:13)
+    at renderRootSync (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19152:15) {componentStack: 
+    at DocumentsPage (http://localhost:5175/src/p…ponents/common/ErrorBoundary.jsx:17:5)
+    at App} @ http://localhost:5175/src/components/common/ErrorBoundary.jsx:23
+[ 8104409ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Invalid frame header @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1128
+[ 8104515ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1104
+[ 8108675ms] Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148513401:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148513401:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3682:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3707:24)
+    at invokeGuardedCallback (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3741:39)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19801:15)
+[ 8108690ms] Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148513401:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148513401:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3682:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3707:24)
+    at invokeGuardedCallback (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3741:39)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19801:15)
+[ 8108693ms] [ERROR] The above error occurred in the <DocumentsPage> component:
+
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148513401:50:28)
+    at div
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at main
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at div
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at AppLayout (http://localhost:5175/src/App.jsx?t=1772148513401:90:22)
+    at RenderedRoute (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4154:5)
+    at Routes (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4625:5)
+    at Suspense
+    at ErrorProvider (http://localhost:5175/src/components/common/ErrorProvider.jsx:29:33)
+    at SnackbarProvider (http://localhost:5175/src/components/common/SnackbarProvider.jsx:21:36)
+    at VoiceProvider (http://localhost:5175/src/contexts/VoiceContext.jsx:33:33)
+    at LayoutProvider (http://localhost:5175/src/contexts/LayoutContext.jsx:60:34)
+    at UnifiedProgressProvider (http://localhost:5175/src/contexts/UnifiedProgressContext.jsx?t=1772091995378:91:43)
+    at Router (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4568:15)
+    at BrowserRouter (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:5317:5)
+    at StatusProvider (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148517823:28:34)
+    at DefaultPropsProvider (http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:9373:3)
+    at RtlProvider (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1180:5)
+    at ThemeProvider (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1128:5)
+    at ThemeProvider2 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1272:5)
+    at ThemeProvider (http://localhost:5175/node_modules/.vite/deps/chunk-RHXIQJG6.js?v=0d0b9a89:313:12)
+    at AppContainer (http://localhost:5175/src/App.jsx?t=1772148513401:169:21)
+    at ErrorBoundary (http://localhost:5175/src/components/common/ErrorBoundary.jsx:17:5)
+    at App
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary. @ http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14059
+[ 8108694ms] [ERROR] Error Boundary caught an error: Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148513401:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148513401:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19789:22)
+    at performUnitOfWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19234:20)
+    at workLoopSync (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19173:13)
+    at renderRootSync (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19152:15) {componentStack: 
+    at DocumentsPage (http://localhost:5175/src/p…ponents/common/ErrorBoundary.jsx:17:5)
+    at App} @ http://localhost:5175/src/components/common/ErrorBoundary.jsx:23
+[ 8108714ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Invalid frame header @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1128
+[ 8108853ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1104
+[ 8132730ms] Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148517823:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148517823:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3682:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3707:24)
+    at invokeGuardedCallback (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3741:39)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19801:15)
+[ 8132745ms] Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148517823:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148517823:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3682:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3707:24)
+    at invokeGuardedCallback (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3741:39)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19801:15)
+[ 8132749ms] [ERROR] The above error occurred in the <DocumentsPage> component:
+
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148517823:50:28)
+    at div
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at main
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at div
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at AppLayout (http://localhost:5175/src/App.jsx?t=1772148517823:90:22)
+    at RenderedRoute (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4154:5)
+    at Routes (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4625:5)
+    at Suspense
+    at ErrorProvider (http://localhost:5175/src/components/common/ErrorProvider.jsx:29:33)
+    at SnackbarProvider (http://localhost:5175/src/components/common/SnackbarProvider.jsx:21:36)
+    at VoiceProvider (http://localhost:5175/src/contexts/VoiceContext.jsx:33:33)
+    at LayoutProvider (http://localhost:5175/src/contexts/LayoutContext.jsx:60:34)
+    at UnifiedProgressProvider (http://localhost:5175/src/contexts/UnifiedProgressContext.jsx?t=1772091995378:91:43)
+    at Router (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4568:15)
+    at BrowserRouter (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:5317:5)
+    at StatusProvider (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148541861:28:34)
+    at DefaultPropsProvider (http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:9373:3)
+    at RtlProvider (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1180:5)
+    at ThemeProvider (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1128:5)
+    at ThemeProvider2 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1272:5)
+    at ThemeProvider (http://localhost:5175/node_modules/.vite/deps/chunk-RHXIQJG6.js?v=0d0b9a89:313:12)
+    at AppContainer (http://localhost:5175/src/App.jsx?t=1772148517823:169:21)
+    at ErrorBoundary (http://localhost:5175/src/components/common/ErrorBoundary.jsx:17:5)
+    at App
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary. @ http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14059
+[ 8132749ms] [ERROR] Error Boundary caught an error: Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148517823:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148517823:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19789:22)
+    at performUnitOfWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19234:20)
+    at workLoopSync (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19173:13)
+    at renderRootSync (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19152:15) {componentStack: 
+    at DocumentsPage (http://localhost:5175/src/p…ponents/common/ErrorBoundary.jsx:17:5)
+    at App} @ http://localhost:5175/src/components/common/ErrorBoundary.jsx:23
+[ 8132799ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Invalid frame header @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1128
+[ 8132921ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1104
+[ 8137280ms] Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148541861:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148541861:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3682:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3707:24)
+    at invokeGuardedCallback (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3741:39)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19801:15)
+[ 8137294ms] Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148541861:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148541861:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3682:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3707:24)
+    at invokeGuardedCallback (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3741:39)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19801:15)
+[ 8137297ms] [ERROR] The above error occurred in the <DocumentsPage> component:
+
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148541861:50:28)
+    at div
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at main
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at div
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at AppLayout (http://localhost:5175/src/App.jsx?t=1772148541861:90:22)
+    at RenderedRoute (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4154:5)
+    at Routes (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4625:5)
+    at Suspense
+    at ErrorProvider (http://localhost:5175/src/components/common/ErrorProvider.jsx:29:33)
+    at SnackbarProvider (http://localhost:5175/src/components/common/SnackbarProvider.jsx:21:36)
+    at VoiceProvider (http://localhost:5175/src/contexts/VoiceContext.jsx:33:33)
+    at LayoutProvider (http://localhost:5175/src/contexts/LayoutContext.jsx:60:34)
+    at UnifiedProgressProvider (http://localhost:5175/src/contexts/UnifiedProgressContext.jsx?t=1772091995378:91:43)
+    at Router (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4568:15)
+    at BrowserRouter (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:5317:5)
+    at StatusProvider (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148546405:28:34)
+    at DefaultPropsProvider (http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:9373:3)
+    at RtlProvider (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1180:5)
+    at ThemeProvider (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1128:5)
+    at ThemeProvider2 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1272:5)
+    at ThemeProvider (http://localhost:5175/node_modules/.vite/deps/chunk-RHXIQJG6.js?v=0d0b9a89:313:12)
+    at AppContainer (http://localhost:5175/src/App.jsx?t=1772148541861:169:21)
+    at ErrorBoundary (http://localhost:5175/src/components/common/ErrorBoundary.jsx:17:5)
+    at App
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary. @ http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14059
+[ 8137298ms] [ERROR] Error Boundary caught an error: Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148541861:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148541861:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19789:22)
+    at performUnitOfWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19234:20)
+    at workLoopSync (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19173:13)
+    at renderRootSync (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19152:15) {componentStack: 
+    at DocumentsPage (http://localhost:5175/src/p…ponents/common/ErrorBoundary.jsx:17:5)
+    at App} @ http://localhost:5175/src/components/common/ErrorBoundary.jsx:23
+[ 8137368ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Invalid frame header @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1128
+[ 8137473ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1104
+[ 8152920ms] Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148546405:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148546405:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3682:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3707:24)
+    at invokeGuardedCallback (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3741:39)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19801:15)
+[ 8152937ms] Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148546405:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148546405:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3682:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3707:24)
+    at invokeGuardedCallback (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3741:39)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19801:15)
+[ 8152940ms] [ERROR] The above error occurred in the <DocumentsPage> component:
+
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148546405:50:28)
+    at div
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at main
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at div
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at AppLayout (http://localhost:5175/src/App.jsx?t=1772148546405:90:22)
+    at RenderedRoute (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4154:5)
+    at Routes (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4625:5)
+    at Suspense
+    at ErrorProvider (http://localhost:5175/src/components/common/ErrorProvider.jsx:29:33)
+    at SnackbarProvider (http://localhost:5175/src/components/common/SnackbarProvider.jsx:21:36)
+    at VoiceProvider (http://localhost:5175/src/contexts/VoiceContext.jsx:33:33)
+    at LayoutProvider (http://localhost:5175/src/contexts/LayoutContext.jsx:60:34)
+    at UnifiedProgressProvider (http://localhost:5175/src/contexts/UnifiedProgressContext.jsx?t=1772091995378:91:43)
+    at Router (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4568:15)
+    at BrowserRouter (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:5317:5)
+    at StatusProvider (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148562009:28:34)
+    at DefaultPropsProvider (http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:9373:3)
+    at RtlProvider (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1180:5)
+    at ThemeProvider (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1128:5)
+    at ThemeProvider2 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1272:5)
+    at ThemeProvider (http://localhost:5175/node_modules/.vite/deps/chunk-RHXIQJG6.js?v=0d0b9a89:313:12)
+    at AppContainer (http://localhost:5175/src/App.jsx?t=1772148546405:169:21)
+    at ErrorBoundary (http://localhost:5175/src/components/common/ErrorBoundary.jsx:17:5)
+    at App
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary. @ http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14059
+[ 8152940ms] [ERROR] Error Boundary caught an error: Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148546405:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148546405:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19789:22)
+    at performUnitOfWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19234:20)
+    at workLoopSync (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19173:13)
+    at renderRootSync (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19152:15) {componentStack: 
+    at DocumentsPage (http://localhost:5175/src/p…ponents/common/ErrorBoundary.jsx:17:5)
+    at App} @ http://localhost:5175/src/components/common/ErrorBoundary.jsx:23
+[ 8152995ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Invalid frame header @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1128
+[ 8153110ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1104
+[ 8159213ms] Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148562009:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148562009:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3682:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3707:24)
+    at invokeGuardedCallback (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3741:39)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19801:15)
+[ 8159228ms] Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148562009:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148562009:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3682:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3707:24)
+    at invokeGuardedCallback (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:3741:39)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19801:15)
+[ 8159232ms] [ERROR] The above error occurred in the <DocumentsPage> component:
+
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148562009:50:28)
+    at div
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at main
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at div
+    at http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:3702:49
+    at Box3 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:762:19)
+    at AppLayout (http://localhost:5175/src/App.jsx?t=1772148562009:90:22)
+    at RenderedRoute (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4154:5)
+    at Routes (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4625:5)
+    at Suspense
+    at ErrorProvider (http://localhost:5175/src/components/common/ErrorProvider.jsx:29:33)
+    at SnackbarProvider (http://localhost:5175/src/components/common/SnackbarProvider.jsx:21:36)
+    at VoiceProvider (http://localhost:5175/src/contexts/VoiceContext.jsx:33:33)
+    at LayoutProvider (http://localhost:5175/src/contexts/LayoutContext.jsx:60:34)
+    at UnifiedProgressProvider (http://localhost:5175/src/contexts/UnifiedProgressContext.jsx?t=1772091995378:91:43)
+    at Router (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:4568:15)
+    at BrowserRouter (http://localhost:5175/node_modules/.vite/deps/react-router-dom.js?v=0d0b9a89:5317:5)
+    at StatusProvider (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148568322:28:34)
+    at DefaultPropsProvider (http://localhost:5175/node_modules/.vite/deps/chunk-DDWCRPED.js?v=0d0b9a89:9373:3)
+    at RtlProvider (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1180:5)
+    at ThemeProvider (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1128:5)
+    at ThemeProvider2 (http://localhost:5175/node_modules/.vite/deps/chunk-2IQD2QLW.js?v=0d0b9a89:1272:5)
+    at ThemeProvider (http://localhost:5175/node_modules/.vite/deps/chunk-RHXIQJG6.js?v=0d0b9a89:313:12)
+    at AppContainer (http://localhost:5175/src/App.jsx?t=1772148562009:169:21)
+    at ErrorBoundary (http://localhost:5175/src/components/common/ErrorBoundary.jsx:17:5)
+    at App
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary. @ http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14059
+[ 8159233ms] [ERROR] Error Boundary caught an error: Error: useStatus must be used within a StatusProvider
+    at useStatus (http://localhost:5175/src/contexts/StatusContext.jsx?t=1772148562009:113:11)
+    at DocumentsPage (http://localhost:5175/src/pages/DocumentsPage.jsx?t=1772148562009:53:55)
+    at renderWithHooks (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:11576:26)
+    at updateFunctionComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14610:28)
+    at mountLazyComponent (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:14861:23)
+    at beginWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:15946:22)
+    at beginWork$1 (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19789:22)
+    at performUnitOfWork (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19234:20)
+    at workLoopSync (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19173:13)
+    at renderRootSync (http://localhost:5175/node_modules/.vite/deps/chunk-NHL3PYFL.js?v=0d0b9a89:19152:15) {componentStack: 
+    at DocumentsPage (http://localhost:5175/src/p…ponents/common/ErrorBoundary.jsx:17:5)
+    at App} @ http://localhost:5175/src/components/common/ErrorBoundary.jsx:23
+[ 8159298ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Invalid frame header @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1128
+[ 8159422ms] [WARNING] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: WebSocket is closed before the connection is established. @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1104
+[ 8931425ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Connection closed before receiving a handshake response @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=0d0b9a89:1128
+[ 8933767ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=3yoo3yi0:0
+[ 8936092ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=3yqgoa5j:0
+[ 8939470ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/api/scheduler/queue/summary:0
+[ 8939470ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: Error: HTTP 500
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx?t=1772091995378:66:15 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx?t=1772091995378:74
+[ 8939697ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8940698ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8941093ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=3yubm6kt:0
+[ 8941699ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8942700ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8943701ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8944702ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8945703ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8946094ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=3yy6j9nl:0
+[ 8946704ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8947705ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8948706ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8949707ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8950708ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8951709ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8952710ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8953711ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8954469ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/api/scheduler/queue/summary:0
+[ 8954469ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: TypeError: Failed to fetch
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx?t=1772091995378:64:30
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx?t=1772091995378:83:52 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx?t=1772091995378:74
+[ 8954712ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8955713ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8956714ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8957715ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8958716ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8959717ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8960718ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8961720ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8962721ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8963722ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8964723ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8965724ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8966725ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8967726ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8968728ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8969469ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/api/scheduler/queue/summary:0
+[ 8969469ms] [ERROR] TaskQueueIndicator: Failed to fetch queue summary: TypeError: Failed to fetch
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx?t=1772091995378:64:30
+    at http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx?t=1772091995378:83:52 @ http://localhost:5175/src/components/layout/TaskQueueIndicator.jsx?t=1772091995378:74
+[ 8969728ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8970730ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8971731ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
+[ 8972731ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5175/:0
