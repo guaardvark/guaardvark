@@ -149,6 +149,49 @@ const EnhancedChatInterface = ({
     async (inputText, file) => {
       if (!inputText.trim() && !file) return;
 
+      // Slash command handling for Uncle Claude integration
+      if (inputText.startsWith("/claude ")) {
+        const claudeMessage = inputText.slice(8);
+        setIsLoading(true);
+        setMessages((prev) => [...prev, { id: `user_${Date.now()}`, role: "user", content: inputText, timestamp: new Date().toISOString() }]);
+        try {
+          const { claudeAdvisorService } = await import("../../api/claudeAdvisorService");
+          const res = await claudeAdvisorService.escalate(claudeMessage, messages.filter(m => m.role).slice(-10));
+          setMessages((prev) => [...prev, { id: `claude_${Date.now()}`, role: "assistant", content: res?.data?.response || "Uncle Claude unavailable", timestamp: new Date().toISOString(), source: "uncle_claude" }]);
+        } catch (err) {
+          setMessages((prev) => [...prev, { id: `err_${Date.now()}`, role: "assistant", content: `Uncle Claude error: ${err.message}`, timestamp: new Date().toISOString() }]);
+        } finally { setIsLoading(false); }
+        return;
+      }
+      if (inputText.startsWith("/ask-family ")) {
+        const familyMessage = inputText.slice(12);
+        setIsLoading(true);
+        setMessages((prev) => [...prev, { id: `user_${Date.now()}`, role: "user", content: inputText, timestamp: new Date().toISOString() }]);
+        try {
+          const { BASE_URL, handleResponse } = await import("../../api/apiClient");
+          const res = await fetch(`${BASE_URL}/interconnector/ask-family`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: familyMessage }) });
+          const data = await handleResponse(res);
+          const reply = data?.data?.handled_by ? `[${data.data.handled_by}]: ${JSON.stringify(data.data.response)}` : (data?.data?.message || "No family member available");
+          setMessages((prev) => [...prev, { id: `family_${Date.now()}`, role: "assistant", content: reply, timestamp: new Date().toISOString(), source: "family" }]);
+        } catch (err) {
+          setMessages((prev) => [...prev, { id: `err_${Date.now()}`, role: "assistant", content: `Family query error: ${err.message}`, timestamp: new Date().toISOString() }]);
+        } finally { setIsLoading(false); }
+        return;
+      }
+      if (inputText.startsWith("/improve ")) {
+        const improvementDesc = inputText.slice(9);
+        setIsLoading(true);
+        setMessages((prev) => [...prev, { id: `user_${Date.now()}`, role: "user", content: inputText, timestamp: new Date().toISOString() }]);
+        try {
+          const { selfImprovementService } = await import("../../api/selfImprovementService");
+          const res = await selfImprovementService.submitTask(improvementDesc);
+          setMessages((prev) => [...prev, { id: `imp_${Date.now()}`, role: "assistant", content: `Self-improvement task submitted: ${JSON.stringify(res?.data)}`, timestamp: new Date().toISOString(), source: "self_improvement" }]);
+        } catch (err) {
+          setMessages((prev) => [...prev, { id: `err_${Date.now()}`, role: "assistant", content: `Improvement error: ${err.message}`, timestamp: new Date().toISOString() }]);
+        } finally { setIsLoading(false); }
+        return;
+      }
+
       setIsLoading(true);
       setError(null);
 
@@ -445,6 +488,8 @@ const EnhancedChatInterface = ({
             content: msg.webSearchUsed
               ? `${msg.content}\n\n*Used web search for real-time information*`
               : msg.content,
+            // Claude badge for Uncle Claude responses
+            badge: msg.source === "uncle_claude" ? "Claude" : msg.source === "family" ? "Family" : msg.source === "self_improvement" ? "Self-Improvement" : undefined,
           }))}
         />
       </Box>

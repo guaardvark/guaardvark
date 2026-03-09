@@ -315,6 +315,20 @@ export const UnifiedProgressProvider = ({ children }) => {
           console.error("UnifiedProgressContext: SocketIO error:", error);
           setConnectionState('error');
         });
+
+        // Uncle Claude and Self-Improvement events
+        socket.on("self_improvement:started", (data) => {
+          console.log("Self-improvement run started:", data);
+        });
+        socket.on("self_improvement:completed", (data) => {
+          console.log("Self-improvement run completed:", data);
+        });
+        socket.on("uncle:directive", (data) => {
+          console.warn("Uncle Claude directive received:", data.directive, data.reason);
+        });
+        socket.on("family:learning", (data) => {
+          console.log("Family learning received:", data);
+        });
       } catch (error) {
         console.error(
           "UnifiedProgressContext: Failed to initialize socket:",
