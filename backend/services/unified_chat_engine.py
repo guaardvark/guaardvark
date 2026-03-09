@@ -380,19 +380,25 @@ class UnifiedChatEngine:
             f"rag={'yes' if rag_context else 'no'} msg={message[:60]!r}"
         )
 
-        # 4. Build Ollama messages array (proper chat format)
+        # 4. Compact history if approaching context window limit
+        history = self._compact_history(history, context_window=8192)
+
+        # 5. Build Ollama messages array — static content first for prefix cache
         ollama_messages = [{"role": "system", "content": system_prompt}]
 
-        # Add conversation history (already limited by _load_history)
+        # History messages
         for msg in history:
             role = "user" if msg["role"] == "user" else "assistant"
             ollama_messages.append({"role": role, "content": msg["content"][:500]})
 
-        # Add RAG context + current message as user message
-        user_content = ""
+        # Dynamic context as user message (RAG + web results)
+        user_content = message
+        context_parts = []
         if rag_context:
-            user_content += f"Relevant knowledge base context:\n{rag_context}\n\n"
-        user_content += message
+            context_parts.append(f"Relevant context from knowledge base:\n{rag_context}")
+        if context_parts:
+            user_content = "\n\n".join(context_parts) + f"\n\nUser message: {message}"
+
         user_msg = {"role": "user", "content": user_content}
         if self._image_data:
             user_msg["images"] = [self._image_data]  # Ollama accepts base64 strings
@@ -1132,6 +1138,45 @@ class UnifiedChatEngine:
                     raise
             logger.error(f"Ollama streaming failed: {e}", exc_info=True)
             raise
+
+    def _compact_history(self, messages: List[Dict], context_window: int) -> List[Dict]:
+        """Compact old messages when approaching context window limit."""
+        total_chars = sum(len(m.get("content", "")) for m in messages)
+        estimated_tokens = total_chars // 4
+
+        from backend.config import COMPACTION_THRESHOLD
+        if estimated_tokens < context_window * COMPACTION_THRESHOLD:
+            return messages  # No compaction needed
+
+        if len(messages) <= 6:
+            return messages  # Too few to compact
+
+        # Keep last 5 messages, compact the rest
+        recent = messages[-5:]
+        old = messages[:-5]
+
+        old_text = "\n".join(
+            f"{m.get('role', 'user')}: {m.get('content', '')[:300]}" for m in old
+        )
+
+        try:
+            import ollama as ollama_client
+            summary_response = ollama_client.chat(
+                model=getattr(self.llm, "model", "llama3.1:latest"),
+                messages=[{
+                    "role": "user",
+                    "content": f"Summarize the key facts, decisions, and context from this conversation in 200 words:\n\n{old_text}"
+                }],
+                options={"num_predict": 256, "temperature": 0.3},
+            )
+            summary = summary_response["message"]["content"]
+            compacted = [{"role": "system", "content": f"Conversation summary: {summary}"}]
+            compacted.extend(recent)
+            logger.info(f"Compacted {len(old)} messages into summary ({len(summary)} chars)")
+            return compacted
+        except Exception as e:
+            logger.warning(f"Conversation compaction failed: {e}")
+            return messages
 
     def _load_history(self, session_id: str, limit: int = 20) -> List[Dict[str, str]]:
         """Load conversation history from DB (thread-safe with app context)."""

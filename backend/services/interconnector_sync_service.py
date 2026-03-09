@@ -26,9 +26,62 @@ class InterconnectorSyncService:
             "projects": self._serialize_project,
             "rules": self._serialize_rule,
             "websites": self._serialize_website,
+            "learnings": self._serialize_learning,
             # "tasks": self._serialize_task,  # Optional - may be node-specific
             # "documents": self._serialize_document,  # Large - may need special handling
         }
+
+    def _serialize_learning(self, learning):
+        from backend.models import InterconnectorLearning
+        return {
+            "id": learning.id,
+            "source_node_id": learning.source_node_id,
+            "timestamp": learning.timestamp.isoformat() if learning.timestamp else None,
+            "learning_type": learning.learning_type,
+            "description": learning.description,
+            "code_diff": learning.code_diff,
+            "confidence": learning.confidence,
+            "model_used": learning.model_used,
+            "uncle_reviewed": learning.uncle_reviewed,
+            "uncle_feedback": learning.uncle_feedback,
+            "_sync_metadata": {"entity_type": "learnings", "sync_id": f"learning_{learning.id}"},
+        }
+
+    def broadcast_directive(self, directive: str, reason: str):
+        """Broadcast an Uncle Claude directive to all connected nodes."""
+        from backend.models import db, InterconnectorNode, InterconnectorBroadcast, InterconnectorBroadcastTarget
+        import requests
+
+        nodes = db.session.query(InterconnectorNode).filter(InterconnectorNode.status == "active").all()
+        broadcast = InterconnectorBroadcast(
+            broadcast_type="uncle_directive",
+            payload=json.dumps({"directive": directive, "reason": reason}),
+            initiated_by=os.environ.get("GUAARDVARK_NODE_ID", "local"),
+        )
+        db.session.add(broadcast)
+        db.session.flush()
+
+        for node in nodes:
+            target = InterconnectorBroadcastTarget(
+                broadcast_id=broadcast.id,
+                target_node_id=node.node_id,
+                status="pending",
+            )
+            db.session.add(target)
+
+            api_url = f"http://{node.host}:{node.port}"
+            try:
+                resp = requests.post(
+                    f"{api_url}/api/interconnector/receive-directive",
+                    json={"directive": directive, "reason": reason},
+                    timeout=10,
+                )
+                target.status = "delivered" if resp.ok else "failed"
+            except Exception as e:
+                target.status = "failed"
+                logger.error(f"Failed to deliver directive to {node.node_id}: {e}")
+
+        db.session.commit()
 
     def serialize_entity(self, entity_type: str, entity: Any) -> Optional[Dict]:
         """Serialize an entity to a dictionary for transfer."""

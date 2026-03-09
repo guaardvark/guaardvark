@@ -388,6 +388,51 @@ def _initialize_index(storage_path: str):
             storage_context = None
 
 
+def deduplicate_chunks(chunks: list, similarity_threshold: float = 0.85) -> list:
+    """Remove near-duplicate retrieved chunks based on embedding similarity."""
+    if len(chunks) <= 1:
+        return chunks
+
+    try:
+        import ollama as ollama_client
+        from backend.config import CHUNK_SIMILARITY_THRESHOLD
+        threshold = similarity_threshold or CHUNK_SIMILARITY_THRESHOLD
+
+        texts = [c.get("text", "") if isinstance(c, dict) else getattr(c, "text", str(c)) for c in chunks]
+        embeddings = []
+        for text in texts:
+            resp = ollama_client.embeddings(model="nomic-embed-text", prompt=text[:500])
+            embeddings.append(resp["embedding"])
+
+        import numpy as np
+        emb_array = np.array(embeddings)
+        norms = np.linalg.norm(emb_array, axis=1, keepdims=True)
+        norms[norms == 0] = 1
+        normalized = emb_array / norms
+        sim_matrix = normalized @ normalized.T
+
+        keep = set(range(len(chunks)))
+        for i in range(len(chunks)):
+            if i not in keep:
+                continue
+            for j in range(i + 1, len(chunks)):
+                if j not in keep:
+                    continue
+                if sim_matrix[i][j] > threshold:
+                    score_i = chunks[i].get("score", 0) if isinstance(chunks[i], dict) else getattr(chunks[i], "score", 0)
+                    score_j = chunks[j].get("score", 0) if isinstance(chunks[j], dict) else getattr(chunks[j], "score", 0)
+                    keep.discard(j if score_i >= score_j else i)
+
+        deduped = [chunks[i] for i in sorted(keep)]
+        if len(deduped) < len(chunks):
+            logger.info(f"Deduplicated {len(chunks)} chunks to {len(deduped)}")
+        return deduped
+
+    except Exception as e:
+        logger.warning(f"Chunk deduplication failed: {e}")
+        return chunks
+
+
 def search_with_llamaindex(query: str, max_chunks: int = 5, project_id: Optional[int] = None) -> List[Dict[str, Any]]:
     global index
 
@@ -450,6 +495,9 @@ def search_with_llamaindex(query: str, max_chunks: int = 5, project_id: Optional
             results.append(result)
             
         logger.info(f"search_with_llamaindex: Retrieved {len(results)} results for query: {query[:50]}... (project_id={project_id})")
+
+        # Deduplicate near-identical chunks
+        results = deduplicate_chunks(results)
 
         # Fallback: if project-scoped search returned 0 results, retry with global scope
         if not results and project_id is not None:

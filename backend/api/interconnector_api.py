@@ -3269,3 +3269,96 @@ def apply_updates():
         logger.error(f"Error applying updates: {e}", exc_info=True)
         return error_response(f"Update failed: {str(e)}", 500)
 
+
+@interconnector_bp.route("/receive-directive", methods=["POST"])
+def receive_directive():
+    """Receive an Uncle Claude directive from another node."""
+    data = request.get_json()
+    if not data or "directive" not in data:
+        return error_response("directive is required", 400)
+
+    directive = data["directive"]
+    reason = data.get("reason", "No reason provided")
+
+    logger.critical(f"Received Uncle Claude directive from family: {directive} — {reason}")
+
+    from backend.tools.agent_tools.code_manipulation_tools import _handle_uncle_directive
+    _handle_uncle_directive(directive, reason)
+
+    try:
+        from backend.socketio_instance import socketio
+        socketio.emit("uncle:directive", {
+            "directive": directive,
+            "reason": reason,
+            "source": "family_broadcast",
+        })
+    except Exception as e:
+        logger.error(f"Failed to emit directive to frontend: {e}")
+
+    return success_response(data={"received": True, "directive": directive})
+
+
+@interconnector_bp.route("/route-inference", methods=["POST"])
+def route_inference():
+    """Route an inference request to the best-suited node."""
+    from backend.models import db, InterconnectorNode
+    data = request.get_json()
+    if not data or "message" not in data:
+        return error_response("message is required", 400)
+
+    nodes = db.session.query(InterconnectorNode).filter(InterconnectorNode.status == "active").all()
+    node_capabilities = []
+    for node in nodes:
+        node_capabilities.append({
+            "node_id": node.node_id,
+            "model_name": node.model_name,
+            "vram_free": node.vram_free or 0,
+            "current_load": node.current_load or 0.0,
+            "specialties": json.loads(node.specialties) if node.specialties else [],
+            "api_url": f"http://{node.host}:{node.port}",
+        })
+
+    # Simple routing: pick node with lowest load that has VRAM
+    best = sorted(node_capabilities, key=lambda n: n["current_load"])
+    best = [n for n in best if n["vram_free"] and n["vram_free"] > 0] or best
+
+    return success_response(data={
+        "recommended_node": best[0] if best else None,
+        "all_nodes": node_capabilities,
+    })
+
+
+@interconnector_bp.route("/ask-family", methods=["POST"])
+def ask_family():
+    """Ask the family if any node can handle a request before escalating to Claude."""
+    from backend.models import db, InterconnectorNode
+    import requests as req
+
+    data = request.get_json()
+    if not data or "message" not in data:
+        return error_response("message is required", 400)
+
+    nodes = db.session.query(InterconnectorNode).filter(InterconnectorNode.status == "active").all()
+    for node in nodes:
+        try:
+            api_url = f"http://{node.host}:{node.port}"
+            resp = req.post(
+                f"{api_url}/api/chat/unified",
+                json={"message": data["message"], "session_id": data.get("session_id", "family_query")},
+                timeout=30,
+            )
+            if resp.ok:
+                return success_response(data={
+                    "handled_by": node.node_id,
+                    "model": node.model_name,
+                    "response": resp.json(),
+                })
+        except Exception as e:
+            logger.debug(f"Node {node.node_id} couldn't handle request: {e}")
+            continue
+
+    return success_response(data={
+        "handled_by": None,
+        "message": "No family member could handle this request. Escalate to Uncle Claude.",
+    })
+
