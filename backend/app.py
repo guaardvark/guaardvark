@@ -589,6 +589,18 @@ def _initialize_app_components(app):
     from backend.utils.auth_guard import check_endpoint_auth
     app.before_request(check_endpoint_auth)
 
+    @app.before_request
+    def track_user_activity():
+        """Update activity timestamp for autoresearch idle detection."""
+        from flask import request as req
+        if req.path.startswith('/api/autoresearch') or req.path.startswith('/api/health'):
+            return
+        try:
+            from backend.services.rag_autoresearch_service import get_autoresearch_service
+            get_autoresearch_service().record_activity()
+        except Exception:
+            pass
+
     @app.after_request
     def set_security_headers_flask(response):
         response.headers["X-Content-Type-Options"] = "nosniff"
@@ -952,6 +964,15 @@ try:
         app.logger.warning(
             "Skipping registration of generation_bp and cache_bp due to earlier import failure."
         )
+    # RAG Autoresearch blueprint
+    try:
+        from backend.api.rag_autoresearch_api import autoresearch_bp
+        if autoresearch_bp.name not in app.blueprints:
+            app.register_blueprint(autoresearch_bp)
+            app.logger.debug("Registered autoresearch_bp")
+    except Exception as e_ar:
+        app.logger.warning(f"Could not register autoresearch_bp: {e_ar}")
+
     app.logger.info("Blueprint registration process completed.")
 except Exception as e_bp_reg_block:
     app.logger.error(
