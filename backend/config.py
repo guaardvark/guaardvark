@@ -108,6 +108,38 @@ SELF_HEALING_WINDOW_MINUTES = int(os.environ.get("GUAARDVARK_SELF_HEALING_WINDOW
 COMPACTION_THRESHOLD = float(os.environ.get("GUAARDVARK_COMPACTION_THRESHOLD", "0.7"))
 CHUNK_SIMILARITY_THRESHOLD = float(os.environ.get("GUAARDVARK_CHUNK_SIMILARITY_THRESHOLD", "0.85"))
 
+# RAG Autoresearch configuration
+AUTORESEARCH_ENABLED = os.environ.get("GUAARDVARK_AUTORESEARCH_ENABLED", "true").lower() == "true"
+AUTORESEARCH_IDLE_MINUTES = int(os.environ.get("GUAARDVARK_AUTORESEARCH_IDLE_MINUTES", "10"))
+AUTORESEARCH_MAX_EXPERIMENT_DURATION = 300  # 5 minutes, matching Karpathy's time budget
+AUTORESEARCH_MAX_LLM_CALLS_PER_EXPERIMENT = 200
+AUTORESEARCH_PHASE_PLATEAU_THRESHOLD = 10  # consecutive discards before phase advance
+AUTORESEARCH_MIN_CORPUS_SIZE = 10  # minimum indexed documents to enable
+AUTORESEARCH_SHADOW_CORPUS_SIZE = 100  # documents in shadow eval corpus
+AUTORESEARCH_EVAL_PAIR_TARGET = 100  # target eval pairs per generation
+AUTORESEARCH_STALENESS_SAMPLE_RATE = 0.1  # fraction of pairs to spot-check
+AUTORESEARCH_STALENESS_THRESHOLD = 0.2  # fraction of stale pairs triggering regen
+
+# Default RAG experiment parameters
+AUTORESEARCH_DEFAULT_PARAMS = {
+    # Phase 1 — query-time
+    "top_k": 5,
+    "dedup_threshold": 0.85,
+    "context_window_chunks": 3,
+    "reranking_enabled": False,
+    "query_expansion": False,
+    "hybrid_search_alpha": 0.0,
+    # Phase 2 — index-time
+    "chunk_size": 1000,
+    "chunk_overlap": 200,
+    "use_semantic_splitting": False,
+    "use_hierarchical_splitting": False,
+    "extract_entities": False,
+    "preserve_structure": False,
+}
+
+PROTECTED_RAG_PARAMS = []  # params autoresearch cannot touch (user-configurable)
+
 # Protected files (cannot be modified by self-improvement)
 PROTECTED_FILES = [
     "backend/services/claude_advisor_service.py",
