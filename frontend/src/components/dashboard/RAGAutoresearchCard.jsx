@@ -8,12 +8,7 @@ import {
   Pause as PauseIcon,
   Science as ScienceIcon,
 } from '@mui/icons-material';
-import {
-  getAutoresearchStatus,
-  startAutoresearch,
-  stopAutoresearch,
-  getAutoresearchHistory,
-} from '../../api/ragAutoresearchService';
+import { ragAutoresearchService } from '../../api/ragAutoresearchService';
 
 const RAGAutoresearchCard = () => {
   const [status, setStatus] = useState(null);
@@ -22,15 +17,15 @@ const RAGAutoresearchCard = () => {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await getAutoresearchStatus();
-      setStatus(res.data);
+      const data = await ragAutoresearchService.getStatus();
+      setStatus(data);
     } catch (e) { /* backend may not have endpoint yet */ }
   }, []);
 
   const fetchHistory = useCallback(async () => {
     try {
-      const res = await getAutoresearchHistory(1, 5);
-      setHistory(res.data.experiments || []);
+      const data = await ragAutoresearchService.getHistory(1, 5);
+      setHistory(data.experiments || []);
     } catch (e) { /* ignore */ }
   }, []);
 
@@ -47,13 +42,13 @@ const RAGAutoresearchCard = () => {
   const handleStart = async () => {
     setLoading(true);
     try {
-      await startAutoresearch();
+      await ragAutoresearchService.start();
       await fetchStatus();
     } finally { setLoading(false); }
   };
 
   const handleStop = async () => {
-    await stopAutoresearch();
+    await ragAutoresearchService.stop();
     await fetchStatus();
   };
 
