@@ -111,11 +111,7 @@ import { useVoiceContext, useVoice } from "../contexts/VoiceContext";
 import * as apiService from "../api";
 import voiceService from "../api/voiceService";
 import { updateAgentSettings } from "../api/agentsService";
-import {
-  getAutoresearchSettings,
-  updateAutoresearchSettings,
-  resetAutoresearchConfig,
-} from "../api/ragAutoresearchService";
+import { ragAutoresearchService } from "../api/ragAutoresearchService";
 
 // localStorage keys for persisting settings
 const WEB_SEARCH_ENABLED_KEY = "llamaX1_webSearchEnabled";
@@ -376,7 +372,7 @@ const SettingsPage = () => {
 
   // Load autoresearch settings
   useEffect(() => {
-    getAutoresearchSettings().then(res => setAutoresearchSettings(res.data)).catch(() => {});
+    ragAutoresearchService.getSettings().then(data => setAutoresearchSettings(data)).catch(() => {});
   }, []);
 
   const loadVoiceConfiguration = async () => {
@@ -762,7 +758,7 @@ const SettingsPage = () => {
     const updated = { ...autoresearchSettings, [key]: String(value) };
     setAutoresearchSettings(updated);
     try {
-      await updateAutoresearchSettings({ [key]: String(value) });
+      await ragAutoresearchService.updateSettings({ [key]: String(value) });
     } catch (e) {
       console.error('Failed to update autoresearch setting:', e);
     }
@@ -2403,9 +2399,9 @@ const SettingsPage = () => {
                     size="small"
                     onClick={async () => {
                       try {
-                        await resetAutoresearchConfig();
-                        const res = await getAutoresearchSettings();
-                        setAutoresearchSettings(res.data);
+                        await ragAutoresearchService.resetConfig();
+                        const data = await ragAutoresearchService.getSettings();
+                        setAutoresearchSettings(data);
                         showMessage("Autoresearch config reset to defaults", "success");
                       } catch (e) {
                         showMessage("Failed to reset autoresearch config", "error");
