@@ -41,6 +41,7 @@ import CodeGenerationCard from "../components/dashboard/CodeGenerationCard";
 import ImageGenerationCard from "../components/dashboard/ImageGenerationCard";
 import FileManagerCard from "../components/dashboard/FileManagerCard";
 import FamilySelfImprovementCard from "../components/dashboard/FamilySelfImprovementCard";
+import RAGAutoresearchCard from "../components/dashboard/RAGAutoresearchCard";
 import { useLayout } from "../contexts/LayoutContext";
 
 const cardComponents = {
@@ -54,6 +55,7 @@ const cardComponents = {
   imggen: ImageGenerationCard,
   files: FileManagerCard,
   family: FamilySelfImprovementCard,
+  autoresearch: RAGAutoresearchCard,
 };
 
 const DashboardPage = () => {

@@ -1,0 +1,147 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Box, Typography, Button, Chip, LinearProgress, Tooltip, IconButton,
+  Table, TableBody, TableRow, TableCell,
+} from '@mui/material';
+import {
+  PlayArrow as PlayIcon,
+  Pause as PauseIcon,
+  Science as ScienceIcon,
+} from '@mui/icons-material';
+import {
+  getAutoresearchStatus,
+  startAutoresearch,
+  stopAutoresearch,
+  getAutoresearchHistory,
+} from '../../api/ragAutoresearchService';
+
+const RAGAutoresearchCard = () => {
+  const [status, setStatus] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      const res = await getAutoresearchStatus();
+      setStatus(res.data);
+    } catch (e) { /* backend may not have endpoint yet */ }
+  }, []);
+
+  const fetchHistory = useCallback(async () => {
+    try {
+      const res = await getAutoresearchHistory(1, 5);
+      setHistory(res.data.experiments || []);
+    } catch (e) { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    fetchStatus();
+    fetchHistory();
+    const interval = setInterval(() => {
+      fetchStatus();
+      if (status?.running) fetchHistory();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [status?.running]);
+
+  const handleStart = async () => {
+    setLoading(true);
+    try {
+      await startAutoresearch();
+      await fetchStatus();
+    } finally { setLoading(false); }
+  };
+
+  const handleStop = async () => {
+    await stopAutoresearch();
+    await fetchStatus();
+  };
+
+  if (!status) {
+    return (
+      <Box sx={{ p: 1, textAlign: 'center' }}>
+        <Typography variant="body2" color="text.secondary">Loading...</Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ p: 1, height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* Status row */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <ScienceIcon sx={{ fontSize: 16, color: status.running ? 'success.main' : 'text.secondary' }} />
+          <Chip
+            label={status.running ? 'Running' : status.paused ? 'Paused' : 'Idle'}
+            size="small"
+            color={status.running ? 'success' : 'default'}
+            sx={{ height: 20, fontSize: '0.7rem' }}
+          />
+          <Typography variant="caption" color="text.secondary">
+            Phase {status.phase}
+          </Typography>
+        </Box>
+        {status.running ? (
+          <Tooltip title="Pause optimization">
+            <IconButton size="small" onClick={handleStop}><PauseIcon sx={{ fontSize: 16 }} /></IconButton>
+          </Tooltip>
+        ) : (
+          <Tooltip title="Start optimization">
+            <IconButton size="small" onClick={handleStart} disabled={loading}>
+              <PlayIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          </Tooltip>
+        )}
+      </Box>
+
+      {status.running && <LinearProgress sx={{ mb: 1, borderRadius: 1 }} />}
+
+      {/* Score */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+        <Typography variant="caption">
+          Score: <strong>{status.baseline_score?.toFixed(3) || '—'}</strong>
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {status.total_experiments} runs / {status.total_improvements} improvements
+        </Typography>
+      </Box>
+
+      {/* Recent experiments */}
+      {history.length > 0 && (
+        <Box sx={{ flex: 1, overflow: 'auto' }}>
+          <Table size="small" sx={{ '& td': { py: 0.25, px: 0.5, fontSize: '0.7rem' } }}>
+            <TableBody>
+              {history.map((exp) => (
+                <TableRow key={exp.id}>
+                  <TableCell>{exp.parameter_changed}</TableCell>
+                  <TableCell>{exp.new_value}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={exp.status}
+                      size="small"
+                      color={exp.status === 'keep' ? 'success' : exp.status === 'crash' ? 'error' : 'default'}
+                      sx={{ height: 16, fontSize: '0.6rem' }}
+                    />
+                  </TableCell>
+                  <TableCell align="right">
+                    {exp.delta > 0 ? `+${exp.delta.toFixed(3)}` : exp.delta?.toFixed(3)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Box>
+      )}
+
+      {history.length === 0 && !status.running && (
+        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Typography variant="caption" color="text.secondary">
+            No experiments yet. Click play to start.
+          </Typography>
+        </Box>
+      )}
+    </Box>
+  );
+};
+
+export default RAGAutoresearchCard;
