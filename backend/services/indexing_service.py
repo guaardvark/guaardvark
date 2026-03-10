@@ -9,6 +9,7 @@ from typing import List, Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
 
+from backend.utils.experiment_context import get_experiment_config
 import backend.utils.llama_index_local_config
 
 if os.environ.get('CELERY_WORKER_MODE', 'false').lower() == 'true':
@@ -398,6 +399,10 @@ def deduplicate_chunks(chunks: list, similarity_threshold: float = 0.85) -> list
         from backend.config import CHUNK_SIMILARITY_THRESHOLD
         threshold = similarity_threshold or CHUNK_SIMILARITY_THRESHOLD
 
+        exp_config = get_experiment_config()
+        if exp_config and "dedup_threshold" in exp_config:
+            threshold = exp_config["dedup_threshold"]
+
         texts = [c.get("text", "") if isinstance(c, dict) else getattr(c, "text", str(c)) for c in chunks]
         embeddings = []
         for text in texts:
@@ -454,6 +459,14 @@ def search_with_llamaindex(query: str, max_chunks: int = 5, project_id: Optional
 
         max_chunks = max(1, min(max_chunks, 50))
 
+        # Apply experiment config overrides (autoresearch)
+        exp_config = get_experiment_config()
+        if exp_config:
+            effective_top_k = exp_config.get("top_k", max_chunks)
+            max_chunks = exp_config.get("context_window_chunks", max_chunks)
+        else:
+            effective_top_k = max_chunks
+
         if project_id is not None:
             try:
                 from llama_index.core.vector_stores.types import MetadataFilters, MetadataFilter, FilterOperator
@@ -462,12 +475,12 @@ def search_with_llamaindex(query: str, max_chunks: int = 5, project_id: Optional
                         MetadataFilter(key="project_id", value=str(project_id), operator=FilterOperator.EQ)
                     ]
                 )
-                base_retriever = local_index.as_retriever(similarity_top_k=max_chunks, filters=metadata_filters)
+                base_retriever = local_index.as_retriever(similarity_top_k=effective_top_k, filters=metadata_filters)
             except Exception:
                 logger.debug("search_with_llamaindex: MetadataFilters not available, falling back to unfiltered")
-                base_retriever = local_index.as_retriever(similarity_top_k=max_chunks)
+                base_retriever = local_index.as_retriever(similarity_top_k=effective_top_k)
         else:
-            base_retriever = local_index.as_retriever(similarity_top_k=max_chunks)
+            base_retriever = local_index.as_retriever(similarity_top_k=effective_top_k)
         from llama_index.core.schema import QueryBundle
 
         if isinstance(query, str):
