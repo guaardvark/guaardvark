@@ -211,6 +211,17 @@ def create_celery_app():
     except ImportError as e:
         logger.warning(f"Could not import task scheduler Beat tasks: {e}")
 
+    try:
+        from backend.tasks.rag_autoresearch_tasks import (
+            create_autoresearch_tasks,
+            schedule_autoresearch_tasks,
+        )
+        create_autoresearch_tasks(celery_app)
+        schedule_autoresearch_tasks(celery_app)
+        logger.info("RAG Autoresearch Celery tasks registered successfully")
+    except ImportError as e:
+        logger.warning(f"Could not import autoresearch tasks: {e}")
+
     logger.info("Celery app configured with enhanced performance settings and Beat schedule")
     return celery_app
 
