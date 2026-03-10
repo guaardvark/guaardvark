@@ -65,6 +65,7 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ImageIcon from "@mui/icons-material/Image";
 import MusicNoteIcon from "@mui/icons-material/MusicNote";
+import ScienceIcon from "@mui/icons-material/Science";
 import { Accordion, AccordionSummary, AccordionDetails, Chip, LinearProgress } from "@mui/material";
 
 import { io } from "socket.io-client";
@@ -110,6 +111,11 @@ import { useVoiceContext, useVoice } from "../contexts/VoiceContext";
 import * as apiService from "../api";
 import voiceService from "../api/voiceService";
 import { updateAgentSettings } from "../api/agentsService";
+import {
+  getAutoresearchSettings,
+  updateAutoresearchSettings,
+  resetAutoresearchConfig,
+} from "../api/ragAutoresearchService";
 
 // localStorage keys for persisting settings
 const WEB_SEARCH_ENABLED_KEY = "llamaX1_webSearchEnabled";
@@ -275,6 +281,9 @@ const SettingsPage = () => {
   const [selectedEmbeddingModel, setSelectedEmbeddingModel] = useState("");
   const [isSwitchingEmbedding, setIsSwitchingEmbedding] = useState(false);
 
+  // RAG Autoresearch settings state
+  const [autoresearchSettings, setAutoresearchSettings] = useState({});
+
   const setSystemInfo = useAppStore((state) => state.setSystemInfo);
   const persistedSystemLogo = useAppStore((state) => state.systemLogo);
   const persistedSystemName = useAppStore((state) => state.systemName);
@@ -363,6 +372,11 @@ const SettingsPage = () => {
   // Load voice configuration
   useEffect(() => {
     loadVoiceConfiguration();
+  }, []);
+
+  // Load autoresearch settings
+  useEffect(() => {
+    getAutoresearchSettings().then(res => setAutoresearchSettings(res.data)).catch(() => {});
   }, []);
 
   const loadVoiceConfiguration = async () => {
@@ -743,6 +757,16 @@ const SettingsPage = () => {
       fetchResources();
     }
   }, [modelSwitchStatus, fetchResources]);
+
+  const handleAutoresearchSettingChange = async (key, value) => {
+    const updated = { ...autoresearchSettings, [key]: String(value) };
+    setAutoresearchSettings(updated);
+    try {
+      await updateAutoresearchSettings({ [key]: String(value) });
+    } catch (e) {
+      console.error('Failed to update autoresearch setting:', e);
+    }
+  };
 
   useEffect(() => {
     const fetchVersion = async () => {
@@ -2327,6 +2351,69 @@ const SettingsPage = () => {
                       <Chip label={`Active: ${embeddingModel}`} size="small" color="secondary" variant="outlined" />
                     )}
                   </Box>
+                </Box>
+              </SettingsRow>
+              {/* RAG Autoresearch */}
+              <SettingsRow label="RAG Autoresearch" icon={<ScienceIcon sx={{ fontSize: 18 }} />} stacked>
+                <Box sx={{ width: "100%", maxWidth: 400 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: "block" }}>
+                    Autonomous RAG optimization — experiments run while the system is idle
+                  </Typography>
+
+                  <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+                    <Typography variant="body2">Auto-optimize when idle</Typography>
+                    <Switch
+                      size="small"
+                      checked={autoresearchSettings.rag_autoresearch_auto_enabled === "true"}
+                      onChange={(e) => handleAutoresearchSettingChange("rag_autoresearch_auto_enabled", e.target.checked)}
+                    />
+                  </Box>
+
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" gutterBottom>
+                      Idle threshold: {autoresearchSettings.rag_autoresearch_idle_minutes || 10} minutes
+                    </Typography>
+                    <Slider
+                      value={parseInt(autoresearchSettings.rag_autoresearch_idle_minutes || "10")}
+                      min={5}
+                      max={120}
+                      step={5}
+                      marks={[{ value: 5, label: "5m" }, { value: 60, label: "60m" }, { value: 120, label: "120m" }]}
+                      onChange={(e, val) => handleAutoresearchSettingChange("rag_autoresearch_idle_minutes", val)}
+                      sx={{ width: "100%" }}
+                    />
+                  </Box>
+
+                  <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+                    <Typography variant="body2">Max experiment phase</Typography>
+                    <Select
+                      value={autoresearchSettings.rag_autoresearch_phase_limit || "2"}
+                      size="small"
+                      onChange={(e) => handleAutoresearchSettingChange("rag_autoresearch_phase_limit", e.target.value)}
+                      sx={{ minWidth: 160 }}
+                    >
+                      <MenuItem value="1">Phase 1 (Query)</MenuItem>
+                      <MenuItem value="2">Phase 2 (Index)</MenuItem>
+                      <MenuItem value="3">Phase 3 (Model)</MenuItem>
+                    </Select>
+                  </Box>
+
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={async () => {
+                      try {
+                        await resetAutoresearchConfig();
+                        const res = await getAutoresearchSettings();
+                        setAutoresearchSettings(res.data);
+                        showMessage("Autoresearch config reset to defaults", "success");
+                      } catch (e) {
+                        showMessage("Failed to reset autoresearch config", "error");
+                      }
+                    }}
+                  >
+                    Reset to Defaults
+                  </Button>
                 </Box>
               </SettingsRow>
               <SettingsRow label="Voice Chat" icon={<ChatIcon sx={{ fontSize: 18 }} />}>
