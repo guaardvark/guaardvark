@@ -4,6 +4,7 @@
 
 import json
 import logging
+import uuid
 from datetime import datetime
 
 from flask_sqlalchemy import SQLAlchemy
@@ -1974,6 +1975,96 @@ class WordPressPage(db.Model):
                 "analytics_synced_at": self.analytics_synced_at.isoformat() if self.analytics_synced_at else None,
                 "pagespeed_synced_at": self.pagespeed_synced_at.isoformat() if self.pagespeed_synced_at else None
             }
+        }
+
+
+# ---------------------------------------------------------------------------
+# RAG Autoresearch Models
+# ---------------------------------------------------------------------------
+
+class ExperimentRun(db.Model):
+    """Tracks individual autoresearch experiment results."""
+    __tablename__ = "experiment_runs"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    run_tag = db.Column(db.String(100), nullable=True, index=True)
+    phase = db.Column(db.Integer, nullable=False, default=1)
+    parameter_changed = db.Column(db.String(200), nullable=False)
+    old_value = db.Column(db.String(500), nullable=True)
+    new_value = db.Column(db.String(500), nullable=False)
+    hypothesis = db.Column(db.Text, nullable=True)
+    composite_score = db.Column(db.Float, nullable=False)
+    baseline_score = db.Column(db.Float, nullable=True)
+    delta = db.Column(db.Float, nullable=True)
+    status = db.Column(db.String(20), nullable=False, default="discard")  # keep, discard, crash
+    eval_details = db.Column(db.JSON, nullable=True)
+    duration_seconds = db.Column(db.Float, nullable=True)
+    node_id = db.Column(db.String(36), nullable=True)  # nullable for standalone instances
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id, "run_tag": self.run_tag, "phase": self.phase,
+            "parameter_changed": self.parameter_changed,
+            "old_value": self.old_value, "new_value": self.new_value,
+            "hypothesis": self.hypothesis,
+            "composite_score": self.composite_score,
+            "baseline_score": self.baseline_score, "delta": self.delta,
+            "status": self.status, "eval_details": self.eval_details,
+            "duration_seconds": self.duration_seconds,
+            "node_id": self.node_id,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class EvalPair(db.Model):
+    """Auto-generated Q&A pairs for RAG evaluation."""
+    __tablename__ = "eval_pairs"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    eval_generation_id = db.Column(db.String(50), nullable=True, index=True)
+    question = db.Column(db.Text, nullable=False)
+    expected_answer = db.Column(db.Text, nullable=False)
+    source_doc_id = db.Column(db.Integer, db.ForeignKey("documents.id"), nullable=True)
+    source_chunk_hash = db.Column(db.String(64), nullable=True)
+    corpus_type = db.Column(db.String(20), nullable=True)  # code, knowledge, client
+    quality_score = db.Column(db.Float, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    source_document = db.relationship("Document", backref="eval_pairs", lazy=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id, "eval_generation_id": self.eval_generation_id,
+            "question": self.question, "expected_answer": self.expected_answer,
+            "source_doc_id": self.source_doc_id,
+            "source_chunk_hash": self.source_chunk_hash,
+            "corpus_type": self.corpus_type,
+            "quality_score": self.quality_score,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class ResearchConfig(db.Model):
+    """Snapshot of RAG configuration with its eval score."""
+    __tablename__ = "research_configs"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    params = db.Column(db.JSON, nullable=False)
+    composite_score = db.Column(db.Float, nullable=True)
+    is_active = db.Column(db.Boolean, default=False, index=True)
+    promoted_at = db.Column(db.DateTime, nullable=True)
+    source = db.Column(db.String(30), nullable=True)  # local, family_broadcast, uncle_directive
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id, "params": self.params,
+            "composite_score": self.composite_score,
+            "is_active": self.is_active,
+            "promoted_at": self.promoted_at.isoformat() if self.promoted_at else None,
+            "source": self.source,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
 
