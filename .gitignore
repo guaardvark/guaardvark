@@ -51,3 +51,4 @@ Thumbs.db
 htmlcov/
 .coverage
 coverage.xml
+.worktrees/
