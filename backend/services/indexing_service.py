@@ -589,6 +589,14 @@ def add_text_to_index(text: str, metadata: Dict[str, Any], project_id: Optional[
                 storage_context.persist(persist_dir=persist_dir)
 
         logger.info(f"add_text_to_index: Successfully added text with {len(nodes)} nodes")
+
+        # Notify autoresearch that corpus has changed
+        try:
+            from backend.celery_app import celery_app as _celery
+            _celery.send_task("autoresearch.on_index_complete")
+        except Exception:
+            pass  # autoresearch is optional
+
         return True
 
     except Exception as e:
@@ -1155,6 +1163,14 @@ def add_file_to_index(file_path: str, db_document: DBDocument, progress_callback
         gc.collect()
 
         logger.info(f"Successfully indexed {db_document.filename}")
+
+        # Notify autoresearch that corpus has changed
+        try:
+            from backend.celery_app import celery_app as _celery
+            _celery.send_task("autoresearch.on_index_complete")
+        except Exception:
+            pass  # autoresearch is optional
+
         return True
 
     except Exception as e:
