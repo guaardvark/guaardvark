@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
-  Box, Typography, CircularProgress, useTheme,
+  Box, Typography, CircularProgress, useTheme, TableSortLabel,
 } from '@mui/material';
 import { Folder as FolderIcon, BrokenImage as BrokenImageIcon } from '@mui/icons-material';
 import axios from 'axios';
@@ -31,6 +31,8 @@ const ImageThumbnailGrid = ({
   const [items, setItems] = useState({ folders: [], files: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [sortBy, setSortBy] = useState('name');
+  const [sortDir, setSortDir] = useState('asc');
   const containerRef = useRef(null);
   const lastClickedIndex = useRef(null);
 
@@ -57,11 +59,30 @@ const ImageThumbnailGrid = ({
 
   useEffect(() => { fetchContents(); }, [fetchContents, refreshKey]);
 
-  // All items combined for selection indexing
+  // Sort helper
+  const sortItems = useCallback((arr) => {
+    const sorted = [...arr];
+    sorted.sort((a, b) => {
+      let cmp = 0;
+      const nameA = (a.name || a.filename || '').toLowerCase();
+      const nameB = (b.name || b.filename || '').toLowerCase();
+      if (sortBy === 'name') {
+        cmp = nameA.localeCompare(nameB);
+      } else if (sortBy === 'date') {
+        cmp = (a.updated_at || a.uploaded_at || '').localeCompare(b.updated_at || b.uploaded_at || '');
+      } else if (sortBy === 'size') {
+        cmp = (a.file_size || a.size || 0) - (b.file_size || b.size || 0);
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    return sorted;
+  }, [sortBy, sortDir]);
+
+  // All items combined for selection indexing (folders first, then files, both sorted)
   const allItems = useMemo(() => [
-    ...items.folders.map(f => ({ ...f, itemType: 'folder', key: `folder-${f.id}` })),
-    ...items.files.map(f => ({ ...f, itemType: 'file', key: `file-${f.id}` })),
-  ], [items]);
+    ...sortItems(items.folders).map(f => ({ ...f, itemType: 'folder', key: `folder-${f.id}` })),
+    ...sortItems(items.files).map(f => ({ ...f, itemType: 'file', key: `file-${f.id}` })),
+  ], [items, sortItems]);
 
   // Only file items (for lightbox navigation)
   const fileItems = useMemo(() => allItems.filter(i => i.itemType === 'file'), [allItems]);
@@ -173,6 +194,37 @@ const ImageThumbnailGrid = ({
         onDragOver={handleDragOver}
         sx={{ overflow: 'auto', height: '100%', minHeight: 200 }}
       >
+        {/* Sort header row */}
+        <Box sx={{
+          display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.25,
+          borderBottom: 1, borderColor: 'divider', position: 'sticky', top: 0,
+          backgroundColor: theme.palette.background.paper, zIndex: 1,
+        }}>
+          <Box sx={{ width: 28, flexShrink: 0 }} />
+          <TableSortLabel
+            active={sortBy === 'name'}
+            direction={sortBy === 'name' ? sortDir : 'asc'}
+            onClick={() => { setSortDir(sortBy === 'name' && sortDir === 'asc' ? 'desc' : 'asc'); setSortBy('name'); }}
+            sx={{ flex: 1 }}
+          >
+            <Typography variant="caption" color="text.secondary">Name</Typography>
+          </TableSortLabel>
+          <TableSortLabel
+            active={sortBy === 'date'}
+            direction={sortBy === 'date' ? sortDir : 'asc'}
+            onClick={() => { setSortDir(sortBy === 'date' && sortDir === 'asc' ? 'desc' : 'asc'); setSortBy('date'); }}
+          >
+            <Typography variant="caption" color="text.secondary">Date</Typography>
+          </TableSortLabel>
+          <TableSortLabel
+            active={sortBy === 'size'}
+            direction={sortBy === 'size' ? sortDir : 'asc'}
+            onClick={() => { setSortDir(sortBy === 'size' && sortDir === 'asc' ? 'desc' : 'asc'); setSortBy('size'); }}
+            sx={{ minWidth: 60 }}
+          >
+            <Typography variant="caption" color="text.secondary">Size</Typography>
+          </TableSortLabel>
+        </Box>
         {allItems.length === 0 && (
           <Box data-background="true" sx={{ width: '100%', textAlign: 'center', py: 4 }}>
             <Typography color="text.secondary" data-background="true">Empty folder</Typography>
@@ -212,9 +264,18 @@ const ImageThumbnailGrid = ({
               <Typography variant="body2" noWrap sx={{ flex: 1 }}>
                 {isFolder ? item.name : item.filename}
               </Typography>
-              {!isFolder && item.size && (
-                <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
-                  {formatBytes(item.size)}
+              <Typography variant="caption" color="text.secondary" sx={{ minWidth: 70, textAlign: 'right', flexShrink: 0 }}>
+                {isFolder
+                  ? formatDate(item.updated_at)
+                  : formatDate(item.uploaded_at)}
+              </Typography>
+              {!isFolder && (item.size || item.file_size) ? (
+                <Typography variant="caption" color="text.secondary" sx={{ minWidth: 60, textAlign: 'right', flexShrink: 0 }}>
+                  {formatBytes(item.size || item.file_size)}
+                </Typography>
+              ) : (
+                <Typography variant="caption" color="text.secondary" sx={{ minWidth: 60, textAlign: 'right', flexShrink: 0 }}>
+                  {isFolder ? `${(item.document_count || 0) + (item.subfolder_count || 0)} items` : ''}
                 </Typography>
               )}
             </Box>
@@ -348,6 +409,16 @@ function formatBytes(bytes) {
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch {
+    return '';
+  }
 }
 
 export default ImageThumbnailGrid;

@@ -29,9 +29,11 @@ import { useTheme } from "@mui/material/styles";
 import AddIcon from "@mui/icons-material/Add";
 import CloseIcon from "@mui/icons-material/Close";
 import FileCopyIcon from "@mui/icons-material/FileCopy";
+import GavelOutlined from "@mui/icons-material/GavelOutlined";
 
 import * as apiService from "../api";
 import PageLayout from "../components/layout/PageLayout";
+import EmptyState from "../components/common/EmptyState";
 import RuleActionModal from "../components/modals/RuleActionModal";
 import LinkingModal from "../components/modals/LinkingModal";
 import { useStatus } from "../contexts/StatusContext";
@@ -477,9 +479,13 @@ const RulesPage = () => {
                     <TableCell
                       colSpan={headCells.length}
                       align="center"
-                      sx={{ py: 3 }}
+                      sx={{ py: 0 }}
                     >
-                      No rules found.
+                      <EmptyState
+                        icon={<GavelOutlined />}
+                        title="No rules found"
+                        description="Create a rule to define system prompts and commands"
+                      />
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -534,7 +540,8 @@ const RulesPage = () => {
                                 sx={{
                                   backgroundColor: 'primary.main',
                                   color: 'common.white',
-                                  padding: '2px 6px',
+                                  px: 0.75,
+                                  py: 0.25,
                                   borderRadius: '3px',
                                   fontWeight: 'medium',
                                   fontSize: '11px',
@@ -553,7 +560,8 @@ const RulesPage = () => {
                                 sx={{
                                   backgroundColor: 'error.main',
                                   color: 'common.white',
-                                  padding: '2px 6px',
+                                  px: 0.75,
+                                  py: 0.25,
                                   borderRadius: '3px',
                                   fontWeight: 'medium',
                                   fontSize: '11px',
@@ -570,7 +578,8 @@ const RulesPage = () => {
                                 sx={{
                                   backgroundColor: 'warning.main',
                                   color: 'common.white',
-                                  padding: '2px 6px',
+                                  px: 0.75,
+                                  py: 0.25,
                                   borderRadius: '3px',
                                   fontWeight: 'medium',
                                   fontSize: '11px',

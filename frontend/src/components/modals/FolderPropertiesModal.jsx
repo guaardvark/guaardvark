@@ -55,17 +55,29 @@ const FolderPropertiesModal = ({
     notes: '',
   });
 
-  // Load entity lists
+  // Load entity lists and pre-populate form from existing folder data
   useEffect(() => {
     if (open) {
       loadEntities();
       setIsRepository(folderData?.is_repository || false);
+      // Pre-populate from saved folder properties
+      const existingTags = folderData?.tags || '';
+      // Handle tags stored as JSON array string or plain string
+      let tagsStr = '';
+      if (existingTags) {
+        try {
+          const parsed = JSON.parse(existingTags);
+          tagsStr = Array.isArray(parsed) ? parsed.join(', ') : existingTags;
+        } catch {
+          tagsStr = existingTags;
+        }
+      }
       setFormData({
-        client_id: null,
-        project_id: null,
-        website_id: null,
-        tags: '',
-        notes: '',
+        client_id: folderData?.client_id || null,
+        project_id: folderData?.project_id || null,
+        website_id: folderData?.website_id || null,
+        tags: tagsStr,
+        notes: folderData?.notes || '',
       });
     }
   }, [open, folderData]);

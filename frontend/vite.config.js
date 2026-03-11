@@ -20,6 +20,14 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
+    include: [
+      '@emotion/react',
+      '@emotion/styled',
+      '@mui/material',
+      '@mui/material/Tooltip',
+      '@mui/material/Popper',
+      '@popperjs/core',
+    ],
     esbuildOptions: {
       define: {
         global: "globalThis",
@@ -64,8 +72,6 @@ export default defineConfig({
     allowedHosts: [
       'localhost',
       '127.0.0.1',
-      'llamax1.local',
-      '192.168.1.111',
       '.local',
     ],
     proxy: {

@@ -23,7 +23,7 @@ import re
 logger = logging.getLogger(__name__)
 
 # Define the project root - 2 levels up from backend/tools
-PROJECT_ROOT = Path(__file__).resolve().parents[2]  # /home/llamax1/LLAMAX5.2
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def read_code(filepath: str) -> str:
@@ -275,7 +275,7 @@ The file has been updated. You can verify by reading it with read_code().
         return error_msg
 
 
-def list_files(directory: str = "frontend/src/pages", max_depth: int = 2) -> str:
+def list_files(directory: str = "frontend/src/pages", max_depth: int = 5) -> str:
     """
     List files and directories to help understand project structure.
 

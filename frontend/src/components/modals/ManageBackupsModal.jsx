@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -17,6 +17,33 @@ import {
 import RestoreIcon from "@mui/icons-material/Restore";
 import DeleteIcon from "@mui/icons-material/Delete";
 import DownloadIcon from "@mui/icons-material/Download";
+import RefreshIcon from "@mui/icons-material/Refresh";
+
+const TYPE_CONFIG = {
+  full: { label: "Full", color: "success" },
+  data: { label: "Data", color: "primary" },
+  code: { label: "Code", color: "warning" },
+  auto: { label: "Auto", color: "default" },
+};
+
+function formatBytes(bytes) {
+  if (!bytes || bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+}
+
+function formatDate(timestamp) {
+  if (!timestamp) return "Unknown";
+  try {
+    const d = new Date(timestamp * 1000);
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) +
+      " at " + d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return "Unknown";
+  }
+}
 
 const ManageBackupsModal = ({
   open,
@@ -27,68 +54,37 @@ const ManageBackupsModal = ({
   onRefresh,
   backups = [],
 }) => {
-  const [backupInfo, setBackupInfo] = useState({});
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
-  useEffect(() => {
-    // Extract basic info from backup filenames
-    const info = {};
-    backups.forEach(backup => {
-      const name = backup;
-      const isSystemBackup = name.includes('system_backup');
-      const isTimestampBackup = name.includes('backup_') && name.includes('_');
-      
-      if (isSystemBackup) {
-        // Extract date from system backup format
-        const dateMatch = name.match(/(\d{8})_(\d{6})/);
-        if (dateMatch) {
-          const dateStr = dateMatch[1];
-          const timeStr = dateMatch[2];
-          const date = new Date(
-            parseInt(dateStr.substring(0, 4)),
-            parseInt(dateStr.substring(4, 6)) - 1,
-            parseInt(dateStr.substring(6, 8)),
-            parseInt(timeStr.substring(0, 2)),
-            parseInt(timeStr.substring(2, 4)),
-            parseInt(timeStr.substring(4, 6))
-          );
-          info[name] = {
-            type: 'System Backup',
-            date: date.toLocaleDateString(),
-            time: date.toLocaleTimeString(),
-            description: 'Complete system backup including all data and files'
-          };
-        }
-      } else if (isTimestampBackup) {
-        // Extract timestamp from backup format
-        const timestampMatch = name.match(/backup_(\d+)/);
-        if (timestampMatch) {
-          const timestamp = parseInt(timestampMatch[1]) / 1000000; // Convert nanoseconds to seconds
-          const date = new Date(timestamp * 1000);
-          info[name] = {
-            type: 'Data Backup',
-            date: date.toLocaleDateString(),
-            time: date.toLocaleTimeString(),
-            description: 'Application data backup'
-          };
-        }
-      } else {
-        info[name] = {
-          type: 'Unknown',
-          date: 'Unknown',
-          time: '',
-          description: 'Backup file'
-        };
-      }
-    });
-    setBackupInfo(info);
-  }, [backups]);
+  // Support both old (string[]) and new (object[]) API formats
+  const normalizedBackups = backups.map((b) =>
+    typeof b === "string" ? { name: b, size: 0, type: "data", modified: 0 } : b
+  );
+
+  const handleDelete = (name) => {
+    if (confirmDelete === name) {
+      onDelete?.(name);
+      setConfirmDelete(null);
+    } else {
+      setConfirmDelete(name);
+      // Auto-reset confirm after 3s
+      setTimeout(() => setConfirmDelete((prev) => (prev === name ? null : prev)), 3000);
+    }
+  };
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
-      <DialogTitle>Manage Backups</DialogTitle>
+      <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        Manage Backups
+        <Tooltip title="Refresh list">
+          <IconButton onClick={onRefresh} size="small">
+            <RefreshIcon />
+          </IconButton>
+        </Tooltip>
+      </DialogTitle>
       <DialogContent dividers>
-        {backups.length === 0 ? (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
+        {normalizedBackups.length === 0 ? (
+          <Box sx={{ textAlign: "center", py: 4 }}>
             <Typography variant="body1" color="text.secondary">
               No backups found
             </Typography>
@@ -97,44 +93,40 @@ const ManageBackupsModal = ({
             </Typography>
           </Box>
         ) : (
-          <List>
-            {backups.map((name) => {
-              const info = backupInfo[name] || {};
+          <List disablePadding>
+            {normalizedBackups.map((backup) => {
+              const cfg = TYPE_CONFIG[backup.type] || TYPE_CONFIG.data;
+              const isConfirming = confirmDelete === backup.name;
               return (
                 <ListItem
-                  key={name}
+                  key={backup.name}
                   sx={{
                     border: 1,
-                    borderColor: 'divider',
+                    borderColor: "divider",
                     borderRadius: 1,
                     mb: 1,
-                    flexDirection: { xs: 'column', sm: 'row' },
-                    alignItems: { xs: 'flex-start', sm: 'center' }
+                    pr: 16,
                   }}
                   secondaryAction={
-                    <Box sx={{ display: 'flex', gap: 1, mt: { xs: 1, sm: 0 } }}>
+                    <Box sx={{ display: "flex", gap: 0.5 }}>
                       <Tooltip title="Download">
-                        <IconButton
-                          onClick={() => onDownload && onDownload(name)}
-                          color="secondary"
-                        >
-                          <DownloadIcon />
+                        <IconButton onClick={() => onDownload?.(backup.name)} size="small">
+                          <DownloadIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Restore">
-                        <IconButton
-                          onClick={() => onRestore && onRestore(name)}
-                          color="primary"
-                        >
-                          <RestoreIcon />
+                      <Tooltip title="Restore from this backup">
+                        <IconButton onClick={() => onRestore?.(backup.name)} color="primary" size="small">
+                          <RestoreIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Delete">
+                      <Tooltip title={isConfirming ? "Click again to confirm" : "Delete"}>
                         <IconButton
-                          onClick={() => onDelete && onDelete(name)}
-                          color="error"
+                          onClick={() => handleDelete(backup.name)}
+                          color={isConfirming ? "error" : "default"}
+                          size="small"
+                          sx={isConfirming ? { animation: "pulse 0.5s" } : {}}
                         >
-                          <DeleteIcon />
+                          <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
                     </Box>
@@ -142,27 +134,19 @@ const ManageBackupsModal = ({
                 >
                   <ListItemText
                     primary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="subtitle1" component="span">
-                          {name}
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+                        <Typography variant="body2" component="span" sx={{ fontWeight: 500, wordBreak: "break-all" }}>
+                          {backup.name}
                         </Typography>
-                        <Chip 
-                          label={info.type} 
-                          size="small" 
-                          color={info.type === 'System Backup' ? 'primary' : 'default'}
-                        />
+                        <Chip label={cfg.label} size="small" color={cfg.color} variant="outlined" />
+                        {backup.size > 0 && (
+                          <Typography variant="caption" color="text.secondary">
+                            {formatBytes(backup.size)}
+                          </Typography>
+                        )}
                       </Box>
                     }
-                    secondary={
-                      <Box sx={{ mt: 1 }}>
-                        <Typography variant="body2" color="text.secondary" component="span" sx={{ display: 'block' }}>
-                          <strong>Date:</strong> {info.date} {info.time && `at ${info.time}`}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" component="span" sx={{ display: 'block' }}>
-                          {info.description}
-                        </Typography>
-                      </Box>
-                    }
+                    secondary={backup.modified ? formatDate(backup.modified) : undefined}
                   />
                 </ListItem>
               );
@@ -171,7 +155,6 @@ const ManageBackupsModal = ({
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onRefresh}>Refresh</Button>
         <Button onClick={onClose}>Close</Button>
       </DialogActions>
     </Dialog>

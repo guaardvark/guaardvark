@@ -26,6 +26,7 @@ const FolderWindow = React.forwardRef(({
   onFolderOpen,
   onFocusContext,
   refreshKey = 0,
+  folderColors = {},
   ...gridLayoutProps
 }, ref) => {
   // Track current path within this folder window for subfolder navigation
@@ -115,6 +116,7 @@ const FolderWindow = React.forwardRef(({
           onFolderOpen={onFolderOpen}
           onFocusContext={onFocusContext}
           refreshKey={refreshKey}
+          folderColors={folderColors}
         />
       </Box>
     </FolderWindowWrapper>

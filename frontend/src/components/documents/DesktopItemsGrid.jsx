@@ -351,7 +351,7 @@ const DesktopItemsGrid = ({
             }}
           >
             <CardContent sx={{ textAlign: 'center', position: 'relative', width: '100%', p: 0.5, '&:last-child': { pb: 0.5 } }}>
-              {getFileIcon(file.filename, isSelected, theme)}
+              {getFileIcon(file.filename, isSelected, theme, 48, null, file.path)}
               <Typography variant="caption" noWrap sx={{ mt: 0.5, px: 0.5, fontSize: '0.75rem' }}>
                 {file.filename}
               </Typography>

@@ -53,6 +53,12 @@ import { LayoutProvider, useLayout } from "./contexts/LayoutContext";
 import { UnifiedProgressProvider } from './contexts/UnifiedProgressContext';
 import { VoiceProvider } from "./contexts/VoiceContext";
 import FloatingChatProvider from "./components/chat/FloatingChatProvider";
+import useUncleNotifications from "./hooks/useUncleNotifications";
+
+function UncleNotificationListener() {
+  useUncleNotifications();
+  return null;
+}
 
 const AppLayout = ({ children }) => {
   const { showFooter } = useLayout();
@@ -98,7 +104,7 @@ const AppLayout = ({ children }) => {
 
 const AppContainer = () => {
   const themeName = useAppStore((state) => state.themeName);
-  const theme = themes[themeName]?.theme || themes["default"].theme;
+  const theme = themes[themeName]?.theme || themes["guaardvark"].theme;
   const fetchSystemInfo = useAppStore((state) => state.fetchSystemInfo);
   const systemName = useAppStore((state) => state.systemName);
 
@@ -135,6 +141,7 @@ const AppContainer = () => {
             <LayoutProvider>
               <VoiceProvider>
                 <SnackbarProvider>
+                  <UncleNotificationListener />
                   <ErrorProvider>
                     <Suspense fallback={<Box sx={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", height: "100vh", gap: 2 }}><GuaardvarkLogo size={64} animate /><CircularProgress size={24} /></Box>}>
                     <Routes>

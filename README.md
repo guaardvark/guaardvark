@@ -1,8 +1,8 @@
 # Guaardvark
 
-**Version 2.4.1** · [guaardvark.com](https://guaardvark.com)
+**Version 2.5.0** · [guaardvark.com](https://guaardvark.com)
 
-A self-hosted AI platform that runs entirely on your hardware. Chat with your documents using RAG, generate images and video, manage files with a desktop-style UI, automate code with an agent assistant, and talk to your AI with voice — all through one unified interface backed by local LLMs via Ollama.
+A self-hosted AI platform that runs entirely on your hardware. Chat with your documents using RAG, generate images and video, manage files with a desktop-style UI, run autonomous code agents, self-improve with automated testing, sync across machines, and talk to your AI with voice — all through one unified interface backed by local LLMs via Ollama.
 
 > **No cloud dependencies. No API keys required. Your data stays on your machine.**
 
@@ -20,20 +20,76 @@ A self-hosted AI platform that runs entirely on your hardware. Chat with your do
 
 ---
 
+## Highlights
+
+- **Fully local** — All AI processing runs on your hardware via Ollama. No cloud, no API keys, no data leaving your machine.
+- **One-command launch** — `./start.sh` handles everything: database, dependencies, builds, services. First run takes a few minutes; after that, it's instant.
+- **Self-improving** — Guaardvark runs its own test suite, identifies failures, and dispatches an AI agent to fix them autonomously.
+- **Multi-machine sync** — The Interconnector links multiple Guaardvark instances into a family that shares learnings, syncs code, and coordinates models.
+- **Desktop-style file manager** — Drag-and-drop files, folder windows, right-click menus, properties panels — feels like a native OS, runs in the browser.
+- **Swap models at runtime** — Switch LLMs and embedding models on the fly through the UI. GPU memory is managed automatically.
+
+---
+
 ## Features
 
-- **Chat with RAG** — Conversational AI grounded in your documents via hybrid BM25 + vector retrieval, with per-project context isolation
-- **Multi-modal generation** — Batch image generation (Stable Diffusion via Diffusers), video generation (CogVideoX), bulk CSV/XML content pipelines
-- **Agent code assistant** — ReACT-loop agent that reads, writes, executes, and verifies code autonomously with tool use
+### AI & Chat
+- **Conversational AI with RAG** — Chat grounded in your documents via hybrid BM25 + vector retrieval with per-project context isolation
+- **Runtime model switching** — Change LLMs and embedding models through the UI without restarting. Old model unloaded before new one loads (no OOM crashes)
+- **Streaming responses** — Real-time token streaming via Socket.IO with conversational fast-path (~700ms for simple messages)
+- **KV cache optimization** — System prompt locked in Ollama KV cache between turns for faster follow-up responses
 - **Voice interface** — Speech-to-text (Whisper.cpp) + text-to-speech (Piper TTS) with real-time streaming
-- **File & document management** — Desktop-metaphor UI with draggable icons, folder windows, right-click context menus, thumbnail grids, and lightbox preview
-- **Image library** — Organize AI-generated images into folders, browse with thumbnails, full-size lightbox with keyboard navigation
+- **Session isolation** — Per-project chat sessions with persistent history
+
+### RAG & Indexing
+- **Hybrid retrieval** — BM25 keyword + vector semantic search combined for best-of-both retrieval
+- **Multiple embedding models** — Switch between lightweight (300M) and high-quality (4B+) embedding models via UI
+- **Smart chunking** — Content-aware strategies: code files get AST-informed chunking, prose gets semantic splitting
+- **Entity extraction** — Automatic entity and relationship indexing for structured knowledge
+- **RAG Autoresearch** — Autonomous RAG optimization loop: evaluates retrieval quality with LLM-as-judge scoring, runs experiments to improve parameters, keeps improvements and reverts regressions
+
+### Self-Improvement
+- **Automated self-check** — Runs test suite, parses failures, dispatches AI agent to read code and fix bugs
+- **Three modes** — Scheduled (periodic), Reactive (error-triggered), Directed (user-submitted tasks)
+- **Live progress** — Real-time Socket.IO progress events with stage tracking (testing, analyzing, fixing, complete)
+- **Codebase protection** — Lock switch prevents self-improvement from modifying code during development
+- **Cross-machine learning** — Fixes are broadcast to other Guaardvark instances via the Interconnector
+
+### Generation
+- **Batch image generation** — Stable Diffusion via Diffusers with queue management and automatic file system registration
+- **Video generation** — CogVideoX via ComfyUI integration
+- **Bulk content pipelines** — CSV/XML generation for content at scale
 - **WordPress integration** — Pull content from WordPress sites, generate at scale, sync back
-- **Automation tools** — Browser automation (Playwright), desktop automation (pyautogui), MCP server integration
-- **CLI** — Full platform access via the `llx` terminal tool with interactive REPL
-- **Plugin system** — Drop-in extensions without modifying core code
-- **Themes** — Four built-in dark themes (Default, Musk, Hacker, Vader) with accent-colored UI
-- **Offline-capable** — All AI processing runs locally via Ollama; no cloud services required
+
+### Agent & Code Tools
+- **ReACT agent loop** — Reads, writes, executes, and verifies code autonomously with iterative refinement
+- **Tool execution guard** — Circuit breaker (2 failures blocks tool), duplicate call detection, fallback suggestions
+- **Code editor** — Monaco Editor integration with syntax highlighting, multi-file editing
+- **Browser automation** — Playwright-powered: navigate, click, fill forms, screenshot, extract content
+- **Desktop automation** — pyautogui for mouse, keyboard, screen capture (opt-in, disabled by default)
+- **MCP integration** — Connect to any MCP-compatible tool server
+
+### File & Document Management
+- **Desktop-metaphor UI** — Draggable folder icons, resizable windows, snap-to-grid, right-click context menus
+- **Folder properties** — Link folders to clients, projects, and websites with cascading properties to all children
+- **Code repository detection** — Mark folders as code repos with automatic language/framework detection
+- **Drag-and-drop upload** — Drop files or entire folder trees; nested folder structures are preserved
+- **Image library** — Thumbnail grids, lightbox preview with keyboard navigation, batch operations
+
+### Multi-Machine (Interconnector)
+- **Family sync** — Connect multiple Guaardvark instances running on different machines
+- **Code sync** — Push/pull codebase changes between instances
+- **Learning broadcast** — Self-improvement fixes propagate to all family members
+- **Node management** — Master/client architecture with approval workflows
+
+### System
+- **Dashboard** — Live status cards for model health, self-improvement, RAG autoresearch, GPU resources
+- **GPU resource monitoring** — Real-time VRAM usage bar with loaded model indicators
+- **Celery task system** — Background processing for long-running operations with live progress tracking
+- **Plugin system** — Drop-in extensions loaded at startup from `plugins/`
+- **Four built-in themes** — Default, Musk, Hacker, Vader (all dark) with accent-colored UI
+- **Profile customization** — Per-instance nickname and avatar image
+- **CLI (`llx`)** — Full platform access via terminal with interactive REPL
 
 ---
 
@@ -42,11 +98,19 @@ A self-hosted AI platform that runs entirely on your hardware. Chat with your do
 ```bash
 git clone https://github.com/guaardvark/guaardvark.git
 cd guaardvark
-cp .env.example .env       # Edit with your settings
 ./start.sh
 ```
 
-The startup script handles everything on first run: Python venv, Node dependencies, Whisper.cpp build, database migrations, frontend build, and service startup.
+That's it. The startup script handles everything on first run:
+- Installs Python venv and Node dependencies
+- Provisions PostgreSQL (creates database, user, credentials)
+- Installs and starts Redis
+- Builds Whisper.cpp for voice processing
+- Runs database migrations
+- Builds the frontend
+- Starts all services
+
+First run requires your system password once (to set up PostgreSQL). After that, launches are instant with no password needed.
 
 **Access:**
 | Service | URL |
@@ -74,18 +138,24 @@ The startup script handles everything on first run: Python venv, Node dependenci
 |-----------|---------|-------|
 | Python | 3.12+ | Backend runtime |
 | Node.js | 20+ | Frontend build |
-| Redis | 5.0+ | Task queue broker |
-| FFmpeg | any | Voice processing |
-| Ollama | latest | Local LLM inference (optional) |
-| CUDA GPU | — | Accelerates image/video generation (optional) |
+| PostgreSQL | 14+ | Auto-installed by `start.sh` |
+| Redis | 5.0+ | Auto-installed by `start.sh` |
+| FFmpeg | any | Auto-installed for voice processing |
+| Ollama | latest | Local LLM inference |
+| CUDA GPU | — | Optional; accelerates generation and embeddings |
+
+**Recommended hardware:**
+- 16GB+ RAM
+- NVIDIA GPU with 8GB+ VRAM (for image generation and larger models)
+- SSD for vector store performance
 
 ---
 
 ## Technology Stack
 
-**Backend:** Flask 3.0 · SQLAlchemy + SQLite · Celery + Redis · LlamaIndex + Ollama · PyTorch · Diffusers · Whisper.cpp · Piper TTS · Ariadne (GraphQL)
+**Backend:** Flask 3.0 · SQLAlchemy + PostgreSQL · Celery + Redis · LlamaIndex + Ollama · PyTorch · Diffusers · Whisper.cpp · Piper TTS · Ariadne (GraphQL)
 
-**Frontend:** React 18 · Vite · Material-UI v5 · Zustand · Apollo Client · Monaco Editor · Socket.io
+**Frontend:** React 18 · Vite · Material-UI v5 · Zustand · Apollo Client · Monaco Editor · Socket.IO
 
 **CLI:** Typer · Rich · httpx · python-socketio
 
@@ -95,30 +165,32 @@ The startup script handles everything on first run: Python venv, Node dependenci
 
 ```
 Browser UI / llx CLI
-        │ HTTP + WebSocket
-        ▼
+        | HTTP + WebSocket
+        v
 Flask Application (port 5000)
-  ├── 68 REST API blueprints
-  ├── GraphQL (Ariadne)
-  └── Socket.IO (real-time streaming)
-        │
+  |-- 68 REST API blueprints
+  |-- GraphQL (Ariadne)
+  \-- Socket.IO (real-time streaming)
+        |
   Service Layer (48 modules)
-  ├── Agent Executor (ReACT loop)
-  ├── RAG Pipeline (LlamaIndex)
-  ├── Generation Services
-  └── System Services
-        │
-  ┌─────┼────────────────┐
-  ▼     ▼                ▼
-SQLite  Celery + Redis   Ollama / GPU
+  |-- Agent Executor (ReACT loop)
+  |-- RAG Pipeline (LlamaIndex)
+  |-- Self-Improvement Engine
+  |-- Generation Services
+  \-- Interconnector Sync
+        |
+  +-----+----------------+
+  v     v                v
+PostgreSQL  Celery+Redis  Ollama/GPU
 ```
 
 **Key flows:**
 
-- **Chat + RAG:** Message → intent routing → hybrid retrieval (BM25 + vector) → Ollama completion → Socket.IO stream
-- **Agent task:** Message → ReACT loop → tool calls (read/edit/execute code) → iterative refinement → verification
-- **Image generation:** Prompt → Celery job → Diffusers GPU pipeline → auto-register to file system → `data/outputs/`
-- **File indexing:** Upload → parse → chunk → embed → LlamaIndex vector store (per-project isolation)
+- **Chat + RAG:** Message -> intent routing -> hybrid retrieval (BM25 + vector) -> Ollama completion -> Socket.IO stream
+- **Agent task:** Message -> ReACT loop -> tool calls (read/edit/execute code) -> iterative refinement -> verification
+- **Self-check:** Trigger -> pytest run -> parse failures -> agent fix attempts -> broadcast learnings
+- **Image generation:** Prompt -> Celery job -> Diffusers GPU pipeline -> auto-register to file system
+- **File indexing:** Upload -> parse -> chunk (content-aware) -> embed -> LlamaIndex vector store
 
 ---
 
@@ -126,30 +198,30 @@ SQLite  Celery + Redis   Ollama / GPU
 
 ```
 guaardvark/
-├── backend/
-│   ├── api/            # 68 Flask blueprint modules
-│   ├── services/       # 48 business logic modules
-│   ├── tools/          # Agent-callable tools (code, browser, voice, web)
-│   ├── utils/          # 76 helpers (RAG, context, progress, CSV)
-│   ├── tasks/          # Celery background tasks
-│   ├── migrations/     # Alembic database migrations
-│   ├── tests/          # 60 tests (unit / integration / system)
-│   ├── app.py          # Flask application factory
-│   ├── models.py       # SQLAlchemy ORM models
-│   └── config.py       # Configuration + path resolution
-├── frontend/
-│   ├── src/
-│   │   ├── pages/      # 28 page components
-│   │   ├── components/ # 129 UI components
-│   │   ├── stores/     # Zustand state management
-│   │   ├── hooks/      # Custom React hooks
-│   │   └── api/        # 39 API service modules
-│   └── dist/           # Production build
-├── cli/                # llx CLI tool
-├── plugins/            # Plugin extensions
-├── scripts/            # Utilities and system manager
-├── data/               # Runtime data (gitignored)
-└── start.sh / stop.sh  # Service management
+|-- backend/
+|   |-- api/            # 68 Flask blueprint modules
+|   |-- services/       # 48 business logic modules
+|   |-- tools/          # Agent-callable tools (code, browser, voice, web)
+|   |-- utils/          # 76 helpers (RAG, context, progress, CSV)
+|   |-- tasks/          # Celery background tasks
+|   |-- migrations/     # Alembic database migrations
+|   |-- tests/          # 60 tests (unit / integration / system)
+|   |-- app.py          # Flask application factory
+|   |-- models.py       # SQLAlchemy ORM models
+|   \-- config.py       # Configuration + path resolution
+|-- frontend/
+|   |-- src/
+|   |   |-- pages/      # 31 page components
+|   |   |-- components/ # 129 UI components
+|   |   |-- stores/     # Zustand state management
+|   |   |-- hooks/      # Custom React hooks
+|   |   \-- api/        # 39 API service modules
+|   \-- dist/           # Production build
+|-- cli/                # llx CLI tool
+|-- plugins/            # Plugin extensions
+|-- scripts/            # Utilities and system manager
+|-- data/               # Runtime data (gitignored)
+\-- start.sh / stop.sh  # Service management
 ```
 
 ---
@@ -186,12 +258,13 @@ All paths resolve relative to `GUAARDVARK_ROOT`. Key environment variables (`.en
 GUAARDVARK_ROOT=/path/to/guaardvark   # Project root (auto-detected)
 FLASK_PORT=5000
 VITE_PORT=5173
+DATABASE_URL=postgresql://...          # Auto-generated by start.sh
 REDIS_URL=redis://localhost:6379/0
 GUAARDVARK_ENHANCED_MODE=true          # Enhanced context features
 GUAARDVARK_RAG_DEBUG=false             # RAG debug endpoints
 GUAARDVARK_SKIP_MIGRATIONS=0
 GUAARDVARK_BROWSER_AUTOMATION=true
-GUAARDVARK_DESKTOP_AUTOMATION=false    # Disabled by default
+GUAARDVARK_DESKTOP_AUTOMATION=false    # Disabled by default (security)
 GUAARDVARK_MCP_ENABLED=true            # MCP tool server integration
 ```
 
@@ -232,54 +305,16 @@ Test layers:
 
 ---
 
-## Automation Tools
-
-| Tool | Backend | Description |
-|------|---------|-------------|
-| Browser | Playwright | Navigate, click, fill forms, screenshot, extract content |
-| Desktop | pyautogui | Mouse, keyboard, screen capture, window management |
-| MCP | Protocol | Connect to any MCP-compatible tool server |
-
-Enable via environment variables:
-```bash
-GUAARDVARK_BROWSER_AUTOMATION=true
-GUAARDVARK_DESKTOP_AUTOMATION=true   # Off by default (security)
-GUAARDVARK_MCP_ENABLED=true
-```
-
----
-
-## Plugins
-
-Place plugins in `plugins/<name>/` with a `plugin.json` manifest. Loaded automatically at startup.
-
-Current plugins:
-- **gpu_embedding** — GPU-accelerated text embeddings for faster indexing
-
----
-
 ## Logs
 
 | File | Contents |
 |------|---------|
 | `logs/backend.log` | Flask application |
-| `logs/celery.log` | Celery task workers |
+| `logs/celery_main.log` | Main Celery worker |
+| `logs/celery_training.log` | Training/GPU worker |
 | `logs/frontend.log` | Vite dev server |
 | `logs/setup.log` | Dependency installation |
 | `logs/test_results/` | Test execution output |
-
----
-
-## Customization
-
-### Profile & Nickname
-
-Guaardvark can be personalized per installation via **Settings > Profile**:
-
-- **Profile Image**: A 300x300 square image used in the sidebar and as the AI avatar. Click the image to change it. Default: `data/uploads/system/profile-default.png`
-- **Nickname**: Displayed in the sidebar and browser tab. The brand name is always "Guaardvark" — the nickname is how users customize their instance.
-
-The default profile image (`profile-default.png`) is included in backups and new installations automatically.
 
 ---
 

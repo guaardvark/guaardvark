@@ -1,37 +1,68 @@
 // frontend/src/components/images/ImageLightbox.jsx
-// Full-screen image lightbox with keyboard navigation (Escape, ArrowLeft, ArrowRight)
+// Full-screen image lightbox with keyboard navigation and edit mode.
 
-import React, { useEffect, useCallback } from 'react';
-import { Box, IconButton, Typography } from '@mui/material';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Box, IconButton, Typography, Tooltip } from '@mui/material';
 import {
   Close as CloseIcon,
   ArrowBack as PrevIcon,
   ArrowForward as NextIcon,
   Download as DownloadIcon,
+  Edit as EditIcon,
 } from '@mui/icons-material';
+import ImageEditor from './ImageEditor';
 
 const ImageLightbox = ({
   imageUrl,
   imageName = '',
+  documentId,
   onClose,
   onPrev,
   onNext,
   onDownload,
+  onImageEdited,
   hasPrev = false,
   hasNext = false,
 }) => {
+  const [editMode, setEditMode] = useState(false);
+
   const handleKeyDown = useCallback((e) => {
+    if (editMode) return; // Editor handles its own keys
     if (e.key === 'Escape') onClose?.();
     else if (e.key === 'ArrowLeft' && hasPrev) onPrev?.();
     else if (e.key === 'ArrowRight' && hasNext) onNext?.();
-  }, [onClose, onPrev, onNext, hasPrev, hasNext]);
+    else if (e.key === 'e') setEditMode(true);
+  }, [onClose, onPrev, onNext, hasPrev, hasNext, editMode]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
+  // Reset edit mode on image change
+  useEffect(() => {
+    setEditMode(false);
+  }, [imageUrl]);
+
+  const handleSaved = useCallback((savedData) => {
+    setEditMode(false);
+    onImageEdited?.(savedData);
+  }, [onImageEdited]);
+
   if (!imageUrl) return null;
+
+  // Editor overlay
+  if (editMode) {
+    return (
+      <ImageEditor
+        imageUrl={imageUrl}
+        imageName={imageName}
+        documentId={documentId}
+        onClose={() => setEditMode(false)}
+        onSaved={handleSaved}
+      />
+    );
+  }
 
   return (
     <Box
@@ -61,6 +92,13 @@ const ImageLightbox = ({
           {imageName}
         </Typography>
         <Box>
+          {documentId && (
+            <Tooltip title="Edit image (E)">
+              <IconButton onClick={() => setEditMode(true)} sx={{ color: 'white' }} size="small">
+                <EditIcon />
+              </IconButton>
+            </Tooltip>
+          )}
           {onDownload && (
             <IconButton onClick={onDownload} sx={{ color: 'white' }} size="small">
               <DownloadIcon />

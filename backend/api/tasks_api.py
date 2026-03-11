@@ -382,8 +382,8 @@ def create_task():
 
                         logger.info(f"Auto-started task {new_task.id} via Celery with job_id {job_id}, celery_id={celery_result.id}")
 
-                    except ImportError as import_error:
-                        logger.warning(f"Celery task executor not available, falling back to thread: {import_error}")
+                    except Exception as import_error:
+                        logger.warning(f"Celery task executor not available or not registered, falling back to thread: {import_error}")
                         # Fallback to thread-based execution if Celery not available
                         from backend.services.task_scheduler import _execute_task
                         import threading
@@ -748,8 +748,8 @@ def start_task(task_id):
                 200,
             )
 
-        except ImportError as import_error:
-            logger.warning(f"Celery not available, falling back to thread: {import_error}")
+        except Exception as import_error:
+            logger.warning(f"Celery not available or not registered, falling back to thread: {import_error}")
             # Fallback to thread-based execution
             from backend.services.task_scheduler import _execute_task
             import threading
@@ -1041,12 +1041,12 @@ def duplicate_task(task_id):
         logger.info(f"Task {task_id} duplicated as task {new_task.id}")
 
         return success_response(
-            "Task duplicated successfully",
             {
                 "original_task_id": task_id,
                 "new_task_id": new_task.id,
                 "new_task_name": new_task.name
-            }
+            },
+            "Task duplicated successfully"
         )
 
     except SQLAlchemyError as e:

@@ -8,7 +8,6 @@ import {
   Typography,
   Button,
   Paper,
-  CircularProgress,
   IconButton,
   Chip,
   Alert,
@@ -19,14 +18,17 @@ import {
 import {
   Refresh as RefreshIcon,
   ClearAll as ClearAllIcon,
+  LibraryBooksOutlined,
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
 
 import PageLayout from '../components/layout/PageLayout';
+import EmptyState from '../components/common/EmptyState';
 import { getOutputs, retryFailedRows, deleteOutput } from '../api/outputService';
 import OutputCard from '../components/cards/OutputCard';
 import OutputModal from '../components/modals/OutputModal';
+import { ContextualLoader } from '../components/common/LoadingStates';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
@@ -295,19 +297,15 @@ const ContentLibraryPage = () => {
         {/* Content Outputs */}
         {isLoading ? (
               <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", py: 6 }}>
-                <CircularProgress size={40} />
-                <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-                  Loading outputs...
-                </Typography>
+                <ContextualLoader loading message="Loading outputs..." showProgress={false} inline />
               </Box>
             ) : outputs.length === 0 ? (
               <Paper sx={{ p: 4, textAlign: "center", borderRadius: 3 }}>
-                <Typography variant="h6" color="text.secondary" gutterBottom sx={{ fontWeight: "medium" }}>
-                  No outputs found
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Generate some content using the bulk generation feature to see outputs here
-                </Typography>
+                <EmptyState
+                  icon={<LibraryBooksOutlined />}
+                  title="No outputs found"
+                  description="Generate some content using the bulk generation feature to see outputs here"
+                />
               </Paper>
             ) : (
               <>

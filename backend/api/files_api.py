@@ -146,6 +146,19 @@ def _batch_document_counts(folder_ids):
     return {fid: cnt for fid, cnt in rows}
 
 
+def _batch_indexed_document_counts(folder_ids):
+    """Get count of INDEXED documents per folder in a single query"""
+    if not folder_ids:
+        return {}
+    rows = db.session.query(
+        DBDocument.folder_id, sa_func.count(DBDocument.id)
+    ).filter(
+        DBDocument.folder_id.in_(folder_ids),
+        DBDocument.index_status == 'INDEXED'
+    ).group_by(DBDocument.folder_id).all()
+    return {fid: cnt for fid, cnt in rows}
+
+
 # Sort column mapping for server-side sorting
 _FOLDER_SORT_COLS = {
     "name": Folder.name,
@@ -247,9 +260,11 @@ def browse_folder():
             folder_ids = [f.id for f in folders]
             sub_counts = _batch_subfolder_counts(folder_ids)
             doc_counts = _batch_document_counts(folder_ids)
+            indexed_doc_counts = _batch_indexed_document_counts(folder_ids)
             for fd, f in zip(folder_dicts, folders):
                 fd["subfolder_count"] = sub_counts.get(f.id, 0)
                 fd["document_count"] = doc_counts.get(f.id, 0)
+                fd["indexed_document_count"] = indexed_doc_counts.get(f.id, 0)
         else:
             folder_dicts = [f.to_dict() for f in folders]
             doc_dicts = [d.to_dict() for d in documents]
@@ -545,10 +560,15 @@ def link_folder_to_entities(folder_id):
             'folders_processed': 0,
         }
         
+        # Save properties on the folder itself
+        for key, value in properties.items():
+            if hasattr(folder, key):
+                setattr(folder, key, value)
+
         cascade = data.get("cascade", True)  # Default to True for folder properties
         if cascade:
             _cascade_properties_to_folder(folder, properties, stats)
-        
+
         # Update folder's updated_at timestamp
         folder.updated_at = datetime.datetime.now()
         
@@ -1077,6 +1097,209 @@ def get_thumbnail():
 
     # Fallback: serve the original image
     return send_file(str(doc_physical))
+
+
+# ============================================================================
+# IMAGE EDITING
+# ============================================================================
+
+@files_bp.route("/image/edit", methods=["POST"])
+def edit_image():
+    """POST /api/files/image/edit - Apply edits to an image and save.
+
+    JSON body:
+      document_id:  int (required) - document to edit
+      operations:   list of operations to apply in order, each is a dict:
+        {"type": "rotate", "angle": 90}          - rotate CW by angle degrees
+        {"type": "crop", "x": 0, "y": 0, "width": 100, "height": 100, "unit": "px"|"%"}
+        {"type": "resize", "width": 800, "height": 600}  - resize (aspect preserved if one is 0)
+        {"type": "flip", "direction": "horizontal"|"vertical"}
+      save_mode:    "overwrite" | "copy" (default "copy")
+      format:       "png" | "jpeg" | "webp" | null (keep original)
+      quality:      int 1-100 (for jpeg/webp, default 90)
+    """
+    try:
+        from PIL import Image as PILImage, ImageOps
+
+        data = request.get_json()
+        if not data:
+            return error_response("JSON body required", 400, "NO_DATA")
+
+        doc_id = data.get("document_id")
+        if not doc_id:
+            return error_response("document_id required", 400, "NO_DOC_ID")
+
+        document = db.session.get(DBDocument, doc_id)
+        if not document:
+            return error_response("Document not found", 404, "DOCUMENT_NOT_FOUND")
+
+        physical_path = get_physical_path(document.path)
+        if not physical_path.exists():
+            return error_response("File not found on disk", 404, "FILE_NOT_FOUND")
+
+        operations = data.get("operations", [])
+        save_mode = data.get("save_mode", "copy")
+        out_format = data.get("format")  # None = keep original
+        quality = min(max(data.get("quality", 90), 1), 100)
+
+        # Open image
+        img = PILImage.open(str(physical_path))
+        img = ImageOps.exif_transpose(img)  # Fix orientation from EXIF
+
+        # Apply operations in order
+        for op in operations:
+            op_type = op.get("type")
+            if op_type == "rotate":
+                angle = op.get("angle", 0)
+                img = img.rotate(-angle, expand=True, resample=PILImage.BICUBIC)
+            elif op_type == "crop":
+                unit = op.get("unit", "px")
+                cx, cy = op.get("x", 0), op.get("y", 0)
+                cw, ch = op.get("width", img.width), op.get("height", img.height)
+                if unit == "%":
+                    cx = int(cx / 100 * img.width)
+                    cy = int(cy / 100 * img.height)
+                    cw = int(cw / 100 * img.width)
+                    ch = int(ch / 100 * img.height)
+                else:
+                    cx, cy, cw, ch = int(cx), int(cy), int(cw), int(ch)
+                # Clamp to image bounds
+                cx = max(0, min(cx, img.width - 1))
+                cy = max(0, min(cy, img.height - 1))
+                cw = max(1, min(cw, img.width - cx))
+                ch = max(1, min(ch, img.height - cy))
+                img = img.crop((cx, cy, cx + cw, cy + ch))
+            elif op_type == "resize":
+                rw = op.get("width", 0)
+                rh = op.get("height", 0)
+                if rw and rh:
+                    img = img.resize((int(rw), int(rh)), PILImage.LANCZOS)
+                elif rw:
+                    ratio = int(rw) / img.width
+                    img = img.resize((int(rw), int(img.height * ratio)), PILImage.LANCZOS)
+                elif rh:
+                    ratio = int(rh) / img.height
+                    img = img.resize((int(img.width * ratio), int(rh)), PILImage.LANCZOS)
+            elif op_type == "flip":
+                direction = op.get("direction", "horizontal")
+                if direction == "horizontal":
+                    img = img.transpose(PILImage.FLIP_LEFT_RIGHT)
+                else:
+                    img = img.transpose(PILImage.FLIP_TOP_BOTTOM)
+
+        # Determine output format
+        orig_ext = physical_path.suffix.lower().lstrip(".")
+        format_map = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png", "webp": "webp", "gif": "png"}
+        target_format = out_format or format_map.get(orig_ext, "png")
+        target_ext = {"jpeg": ".jpg", "png": ".png", "webp": ".webp"}.get(target_format, ".png")
+
+        # Convert RGBA to RGB for JPEG
+        if target_format == "jpeg" and img.mode in ("RGBA", "LA", "P"):
+            bg = PILImage.new("RGB", img.size, (255, 255, 255))
+            if img.mode == "P":
+                img = img.convert("RGBA")
+            bg.paste(img, mask=img.split()[-1] if img.mode == "RGBA" else None)
+            img = bg
+
+        # Determine save path
+        if save_mode == "overwrite":
+            out_path = physical_path.with_suffix(target_ext)
+            out_doc = document
+            if out_path != physical_path:
+                # Format changed — update document record
+                out_doc.filename = physical_path.stem + target_ext
+                out_doc.path = str(Path(document.path).with_suffix(target_ext))
+                # Remove old file after save
+                old_path = physical_path
+            else:
+                old_path = None
+        else:
+            # Save as copy with _edited suffix
+            stem = physical_path.stem
+            counter = 1
+            while True:
+                new_name = f"{stem}_edited{f'_{counter}' if counter > 1 else ''}{target_ext}"
+                out_path = physical_path.parent / new_name
+                if not out_path.exists():
+                    break
+                counter += 1
+
+            # Create new document record
+            new_doc_path = str(Path(document.path).parent / new_name)
+            out_doc = DBDocument(
+                filename=new_name,
+                path=new_doc_path,
+                folder_id=document.folder_id,
+                file_size=0,
+                file_type=f"image/{target_format}",
+                uploaded_at=datetime.datetime.utcnow(),
+            )
+            db.session.add(out_doc)
+
+        # Save
+        save_kwargs = {}
+        if target_format in ("jpeg", "webp"):
+            save_kwargs["quality"] = quality
+        if target_format == "png":
+            save_kwargs["optimize"] = True
+        img.save(str(out_path), format=target_format.upper(), **save_kwargs)
+
+        # Update file size
+        out_doc.file_size = out_path.stat().st_size
+
+        # Remove old file if format changed on overwrite
+        if save_mode == "overwrite" and old_path and old_path != out_path and old_path.exists():
+            old_path.unlink()
+
+        db.session.commit()
+
+        logger.info(f"Image edited: doc={doc_id}, mode={save_mode}, format={target_format}, path={out_path}")
+        return success_response({
+            "document_id": out_doc.id,
+            "filename": out_doc.filename,
+            "path": out_doc.path,
+            "file_size": out_doc.file_size,
+            "width": img.width,
+            "height": img.height,
+        }, "Image saved successfully")
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error editing image: {e}", exc_info=True)
+        return error_response(f"Failed to edit image: {str(e)}", 500, "EDIT_ERROR")
+
+
+@files_bp.route("/image/info/<int:doc_id>", methods=["GET"])
+def get_image_info(doc_id):
+    """GET /api/files/image/info/:id - Get image dimensions and metadata"""
+    try:
+        from PIL import Image as PILImage
+
+        document = db.session.get(DBDocument, doc_id)
+        if not document:
+            return error_response("Document not found", 404, "DOCUMENT_NOT_FOUND")
+
+        physical_path = get_physical_path(document.path)
+        if not physical_path.exists():
+            return error_response("File not found on disk", 404, "FILE_NOT_FOUND")
+
+        with PILImage.open(str(physical_path)) as img:
+            width, height = img.size
+            mode = img.mode
+            fmt = img.format or physical_path.suffix.lstrip(".")
+
+        return success_response({
+            "document_id": doc_id,
+            "filename": document.filename,
+            "width": width,
+            "height": height,
+            "mode": mode,
+            "format": fmt,
+            "file_size": document.file_size,
+        })
+    except Exception as e:
+        logger.error(f"Error getting image info: {e}", exc_info=True)
+        return error_response("Failed to get image info", 500, "INFO_ERROR")
 
 
 # ============================================================================

@@ -59,6 +59,7 @@ import {
 } from "../api/toolsService";
 import AlertSnackbar from "../components/common/AlertSnackbar";
 import { useStatus } from "../contexts/StatusContext";
+import { ContextualLoader } from "../components/common/LoadingStates";
 
 const ToolsPage = () => {
   const { activeModel, isLoadingModel, modelError } = useStatus();
@@ -615,7 +616,7 @@ const ToolsPage = () => {
           {/* Tools Display */}
           {loading ? (
             <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-              <CircularProgress />
+              <ContextualLoader loading message="Loading tools..." showProgress={false} inline />
             </Box>
           ) : viewMode === "card" ? (
             <Grid container spacing={3}>

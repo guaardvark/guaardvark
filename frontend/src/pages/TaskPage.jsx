@@ -10,7 +10,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   IconButton,
   Alert as MuiAlert,
   Paper,
@@ -32,6 +31,7 @@ import TableChartIcon from "@mui/icons-material/TableChart";
 import AnalyticsIcon from "@mui/icons-material/Analytics";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
 import ClearAllIcon from "@mui/icons-material/ClearAll";
+import AssignmentOutlined from "@mui/icons-material/AssignmentOutlined";
 import {
   cancelJob,
   createTask,
@@ -48,6 +48,8 @@ import { useUnifiedProgress } from "../contexts/UnifiedProgressContext";
 import TaskCard from "../components/cards/TaskCard";
 import TaskActionModal from "../components/modals/TaskActionModal";
 import PageLayout from "../components/layout/PageLayout";
+import EmptyState from "../components/common/EmptyState";
+import { ContextualLoader } from "../components/common/LoadingStates";
 
 // Removed TaskStatusChip - now handled in TaskCard component
 
@@ -315,9 +317,11 @@ const TaskPage = () => {
   };
 
   const handleTaskDuplicated = (result) => {
+    setShowTaskForm(false);
+    setEditingTask(null);
     setFeedback({
       open: true,
-      message: `Task duplicated successfully (ID: ${result.new_task_id})`,
+      message: `Task duplicated successfully (ID: ${result?.data?.new_task_id || result?.new_task_id})`,
       severity: "success",
     });
     fetchTasks();
@@ -599,19 +603,15 @@ const TaskPage = () => {
         {/* Tasks Display */}
         {isLoading ? (
           <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", py: 6 }}>
-            <CircularProgress size={40} />
-            <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-              Loading tasks...
-            </Typography>
+            <ContextualLoader loading message="Loading tasks..." showProgress={false} inline />
           </Box>
         ) : sortedTasks.length === 0 ? (
           <Paper sx={{ p: 4, textAlign: "center", borderRadius: 3 }}>
-            <Typography variant="h6" color="text.secondary" gutterBottom sx={{ fontWeight: "medium" }}>
-              No tasks found
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Use the quick actions above to create your first task
-            </Typography>
+            <EmptyState
+              icon={<AssignmentOutlined />}
+              title="No tasks found"
+              description="Use the quick actions above to create your first task"
+            />
           </Paper>
         ) : (
           <>

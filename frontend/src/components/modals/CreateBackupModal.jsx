@@ -14,7 +14,13 @@ import {
   Alert,
   TextField,
   Divider,
+  Card,
+  CardActionArea,
+  CardContent,
 } from "@mui/material";
+import StorageIcon from "@mui/icons-material/Storage";
+import CloudDoneIcon from "@mui/icons-material/CloudDone";
+import CodeIcon from "@mui/icons-material/Code";
 
 const DATA_COMPONENTS = [
   "clients",
@@ -27,9 +33,21 @@ const DATA_COMPONENTS = [
   "system_settings",
 ];
 
+const COMPONENT_LABELS = {
+  clients: "Clients",
+  documents: "Documents & Files",
+  projects: "Projects",
+  tasks: "Tasks",
+  websites: "Websites",
+  chats: "Chat History",
+  rules: "Rules & Prompts",
+  system_settings: "System Settings",
+};
+
 const CreateBackupModal = ({ open, onClose, onCreate, isProcessing }) => {
   const [selected, setSelected] = useState([]);
   const [backupName, setBackupName] = useState("");
+  const [selectedType, setSelectedType] = useState(null);
 
   const handleChange = (e) => {
     const { name, checked } = e.target;
@@ -38,102 +56,151 @@ const CreateBackupModal = ({ open, onClose, onCreate, isProcessing }) => {
     );
   };
 
-  const handleCreate = (type, components) => {
-    if (onCreate) onCreate({ type, components, name: backupName });
+  const handleCreate = () => {
+    if (!selectedType || !onCreate) return;
+    if (selectedType === "data") {
+      onCreate({ type: "data", components: selected.length > 0 ? selected : null, name: backupName });
+    } else {
+      onCreate({ type: selectedType, name: backupName });
+    }
   };
 
-  const handleSelectAll = () => setSelected(DATA_COMPONENTS);
+  const handleSelectAll = () => setSelected([...DATA_COMPONENTS]);
   const handleSelectNone = () => setSelected([]);
 
+  const handleClose = () => {
+    setSelectedType(null);
+    setSelected([]);
+    setBackupName("");
+    onClose();
+  };
+
+  const typeCards = [
+    {
+      key: "data",
+      icon: <StorageIcon sx={{ fontSize: 36 }} />,
+      title: "Data Backup",
+      subtitle: "Database, uploads, settings",
+      description: "Back up your application data with optional component selection. Typically 20-200 MB.",
+      color: "primary",
+    },
+    {
+      key: "full",
+      icon: <CloudDoneIcon sx={{ fontSize: 36 }} />,
+      title: "Full Backup",
+      subtitle: "Everything for deployment",
+      description: "Complete system: code, config, database, uploads, and all data. Deployable to a new machine.",
+      color: "success",
+    },
+    {
+      key: "code_release",
+      icon: <CodeIcon sx={{ fontSize: 36 }} />,
+      title: "Code Release",
+      subtitle: "Source code only, zero data",
+      description: "For distribution or fresh installs. Recipients run ./start.sh for a clean setup.",
+      color: "warning",
+    },
+  ];
+
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="md">
       <DialogTitle>Create Backup</DialogTitle>
       <DialogContent dividers>
-        <Box sx={{ mb: 3 }}>
+        <Box sx={{ mb: 2 }}>
           <TextField
             fullWidth
             label="Backup Name (Optional)"
             variant="outlined"
             value={backupName}
             onChange={(e) => setBackupName(e.target.value)}
-            helperText="Enter a name for the backup file (timestamp will be appended)"
+            helperText="Custom name for the backup file (timestamp appended automatically)"
             size="small"
           />
         </Box>
 
-        <Alert severity="info" sx={{ mb: 2 }}>
-          <Typography variant="body2">
-            <strong>Data Backup</strong> — Database, uploads, settings, and state files.
-            Select specific components below or use &quot;All Data&quot; for everything.
-          </Typography>
-        </Alert>
-
-        <Box sx={{ mb: 1 }}>
-          <Box sx={{ display: "flex", gap: 1, mb: 1 }}>
-            <Button size="small" onClick={handleSelectAll}>Select All</Button>
-            <Button size="small" onClick={handleSelectNone}>Select None</Button>
-          </Box>
-        </Box>
-        <FormGroup>
-          {DATA_COMPONENTS.map((c) => (
-            <FormControlLabel
-              key={c}
-              control={
-                <Checkbox
-                  name={c}
-                  checked={selected.includes(c)}
-                  onChange={handleChange}
-                />
-              }
-              label={c.charAt(0).toUpperCase() + c.slice(1).replace("_", " ")}
-            />
+        {/* Type selector cards */}
+        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+          Select backup type:
+        </Typography>
+        <Box sx={{ display: "flex", gap: 1.5, mb: 2, flexWrap: "wrap" }}>
+          {typeCards.map((card) => (
+            <Card
+              key={card.key}
+              variant="outlined"
+              sx={{
+                flex: "1 1 180px",
+                minWidth: 180,
+                border: 2,
+                borderColor: selectedType === card.key ? `${card.color}.main` : "divider",
+                bgcolor: selectedType === card.key ? `${card.color}.main` + "0A" : "transparent",
+                transition: "all 0.15s",
+              }}
+            >
+              <CardActionArea onClick={() => setSelectedType(card.key)} sx={{ height: "100%" }}>
+                <CardContent sx={{ textAlign: "center", py: 2, px: 1.5 }}>
+                  <Box sx={{ color: `${card.color}.main`, mb: 0.5 }}>{card.icon}</Box>
+                  <Typography variant="subtitle2">{card.title}</Typography>
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    {card.subtitle}
+                  </Typography>
+                </CardContent>
+              </CardActionArea>
+            </Card>
           ))}
-        </FormGroup>
+        </Box>
 
-        <Divider sx={{ my: 2 }} />
+        {selectedType && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            <Typography variant="body2">
+              {typeCards.find((c) => c.key === selectedType)?.description}
+            </Typography>
+          </Alert>
+        )}
 
-        <Alert severity="success" sx={{ mb: 2 }}>
-          <Typography variant="body2">
-            <strong>Full Backup</strong> — Everything needed to deploy on a new machine:
-            source code, configuration, database, uploads, and all data.
-          </Typography>
-        </Alert>
-
-        <Alert severity="warning">
-          <Typography variant="body2">
-            <strong>Code Release</strong> — Source code and configuration only, zero data.
-            For distributing to new machines or open-source releases. Recipients run ./start.sh
-            for a fresh, clean installation.
-          </Typography>
-        </Alert>
+        {/* Component selection (only for data backups) */}
+        {selectedType === "data" && (
+          <>
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              Select components (leave empty for all):
+            </Typography>
+            <Box sx={{ display: "flex", gap: 1, mb: 1 }}>
+              <Button size="small" onClick={handleSelectAll}>Select All</Button>
+              <Button size="small" onClick={handleSelectNone}>Select None</Button>
+            </Box>
+            <FormGroup row>
+              {DATA_COMPONENTS.map((c) => (
+                <FormControlLabel
+                  key={c}
+                  sx={{ width: "48%", minWidth: 170 }}
+                  control={
+                    <Checkbox
+                      name={c}
+                      size="small"
+                      checked={selected.includes(c)}
+                      onChange={handleChange}
+                    />
+                  }
+                  label={<Typography variant="body2">{COMPONENT_LABELS[c] || c}</Typography>}
+                />
+              ))}
+            </FormGroup>
+          </>
+        )}
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={onClose} disabled={isProcessing}>
+        <Button onClick={handleClose} disabled={isProcessing}>
           Cancel
         </Button>
         <Button
-          onClick={() => handleCreate("data", selected.length > 0 ? selected : null)}
-          disabled={isProcessing}
-          variant="outlined"
-        >
-          {isProcessing ? <CircularProgress size={24} /> : selected.length > 0 ? "Data (Selected)" : "All Data"}
-        </Button>
-        <Button
-          onClick={() => handleCreate("full")}
-          disabled={isProcessing}
+          onClick={handleCreate}
+          disabled={!selectedType || isProcessing}
           variant="contained"
-          color="success"
+          color={selectedType ? typeCards.find((c) => c.key === selectedType)?.color || "primary" : "primary"}
         >
-          Full Backup
-        </Button>
-        <Button
-          onClick={() => handleCreate("code_release")}
-          disabled={isProcessing}
-          variant="contained"
-          color="warning"
-        >
-          Code Release
+          {isProcessing ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
+          {isProcessing ? "Creating..." : selectedType ? `Create ${typeCards.find((c) => c.key === selectedType)?.title}` : "Select a Type"}
         </Button>
       </DialogActions>
     </Dialog>

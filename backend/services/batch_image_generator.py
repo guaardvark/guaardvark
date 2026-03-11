@@ -295,6 +295,8 @@ class BatchImageGenerator:
                         message=f"Generated image {completed}/{batch_status.total_images}: {prompt.prompt[:50]}...",
                         additional_data={
                             "batch_id": batch_id,
+                            "generated_count": completed,
+                            "target_count": batch_status.total_images,
                             "completed": completed,
                             "total": batch_status.total_images,
                             "current_prompt": prompt.prompt[:100]
@@ -369,8 +371,11 @@ class BatchImageGenerator:
             }
 
             metadata_file = output_dir / "batch_metadata.json"
-            with open(metadata_file, 'w') as f:
+            # Atomic write to prevent partial reads during incremental saves
+            tmp_file = metadata_file.with_suffix('.json.tmp')
+            with open(tmp_file, 'w') as f:
                 json.dump(metadata, f, indent=2, default=str)
+            tmp_file.replace(metadata_file)
 
             logger.info(f"Batch metadata saved to {metadata_file}")
 
@@ -406,9 +411,10 @@ class BatchImageGenerator:
                 batch_status.start_time = datetime.now()
 
                 if self.progress_system:
-                    self.progress_system.create_process(
+                    self._progress_process_id = self.progress_system.create_process(
                         process_type=ProcessType.IMAGE_GENERATION,
                         description=f"Batch generation of {len(request.prompts)} images",
+                        process_id=batch_id,
                         additional_data={
                             "batch_id": batch_id,
                             "total_images": len(request.prompts)
@@ -479,6 +485,13 @@ class BatchImageGenerator:
                                                 batch_status.error = result.error
 
                                         batch_status.results = results
+
+                                    # Save metadata incrementally so results survive batch removal
+                                    if request.save_metadata:
+                                        try:
+                                            self._save_batch_metadata(batch_status, output_dir)
+                                        except Exception:
+                                            pass  # Non-critical, best-effort
 
                                 except Exception as e:
                                     logger.error(f"Task failed: {e}")

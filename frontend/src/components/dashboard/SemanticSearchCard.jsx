@@ -17,9 +17,12 @@ import StopIcon from "@mui/icons-material/Stop";
 import ChatIcon from "@mui/icons-material/Chat";
 import DashboardCardWrapper from "./DashboardCardWrapper";
 import FileGenPopup from "../FileGenPopup";
-import { getChatHistory, sendChatMessage } from "../../api/chatService";
+import { getChatHistory } from "../../api/chatService";
 import { getRagDebug } from "../../api/settingsService";
 import { generateFileFromChat } from "../../api/filegenService";
+import UnifiedChatService from "../../api/unifiedChatService";
+import StreamingMessage from "../chat/StreamingMessage";
+import { useUnifiedProgress } from "../../contexts/UnifiedProgressContext";
 
 const SemanticSearchCard = React.forwardRef(
   (
@@ -40,7 +43,11 @@ const SemanticSearchCard = React.forwardRef(
     const [isLoading, setIsLoading] = useState(false);
     const [ragDebugEnabled, setRagDebugEnabled] = useState(false);
     const inputRef = useRef(null);
-    const abortControllerRef = useRef(null);
+
+    // Unified Chat Service (Socket.IO streaming)
+    const { socketRef, connectionState } = useUnifiedProgress();
+    const [unifiedChatService, setUnifiedChatService] = useState(null);
+    const [isStreamingMessage, setIsStreamingMessage] = useState(false);
 
     const [fileGenPopup, setFileGenPopup] = useState({
       open: false,
@@ -57,6 +64,22 @@ const SemanticSearchCard = React.forwardRef(
       localStorage.setItem("llamax_chat_session_id", newSessionId);
       return newSessionId;
     });
+
+    // Initialize UnifiedChatService when socket is connected
+    useEffect(() => {
+      if (connectionState !== 'connected' || !socketRef?.current) {
+        return;
+      }
+
+      const service = new UnifiedChatService(socketRef.current);
+      service.joinSession(sessionId);
+      setUnifiedChatService(service);
+
+      return () => {
+        service.cleanup();
+        setUnifiedChatService(null);
+      };
+    }, [connectionState, sessionId]);
 
     const detectCSVGeneration = useCallback((message) => {
       const csvKeywords = [
@@ -185,12 +208,12 @@ const SemanticSearchCard = React.forwardRef(
 
     const handleStop = useCallback(() => {
       console.log("DEBUG: Stop button clicked in SemanticSearchCard");
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-        abortControllerRef.current = null;
+      if (unifiedChatService) {
+        unifiedChatService.abort(sessionId);
       }
+      setIsStreamingMessage(false);
       setIsSending(false);
-    }, []);
+    }, [unifiedChatService, sessionId]);
 
     const handleFileGenConfirm = useCallback(async () => {
       if (!fileGenPopup.fileData || !fileGenPopup.originalMessage) return;
@@ -254,7 +277,7 @@ const SemanticSearchCard = React.forwardRef(
       const csvDetection = detectCSVGeneration(inputText);
       if (csvDetection.isCSVRequest) {
         console.log("DEBUG: CSV generation detected in SemanticSearchCard:", csvDetection);
-        
+
         setFileGenPopup({
           open: true,
           fileData: {
@@ -263,111 +286,43 @@ const SemanticSearchCard = React.forwardRef(
           },
           originalMessage: inputText,
         });
-        
+
         return;
       }
 
-      abortControllerRef.current = new AbortController();
+      if (!unifiedChatService) {
+        console.error("SemanticSearchCard: UnifiedChatService not available (socket not connected)");
+        setError("Chat service not connected. Please wait and try again.");
+        return;
+      }
 
       setIsSending(true);
+      setIsStreamingMessage(true);
       setError(null);
 
-      const assistantId = `asst_${Date.now()}`;
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: assistantId,
-          role: "assistant",
-          content: "",
-          timestamp: new Date().toISOString(),
-        },
-      ]);
-
       try {
-        const result = await sendChatMessage(
-          sessionId,
-          currentInput,
-          null,
-          (delta) => {
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantId ? { ...m, content: m.content + delta } : m,
-              ),
-            );
-          },
-          (ragDebug) => {
-            if (ragDebugEnabled) {
-              console.log("SemanticSearchCard RAG Debug:", ragDebug);
-            }
-          },
-          abortControllerRef.current?.signal
-        );
-
-        if (result && typeof result === "object") {
-          if (result.content && typeof result.content === "string") {
-            const filteredContent = filterDebugContent(result.content);
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantId ? { ...m, content: filteredContent } : m,
-              ),
-            );
-          }
-
-          if (result.warning) {
-            const warningText =
-              typeof result.warning === "string"
-                ? result.warning
-                : JSON.stringify(result.warning);
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: `warn_${Date.now()}`,
-                role: "system",
-                content: `Warning: ${warningText}`,
-                timestamp: new Date().toISOString(),
-              },
-            ]);
-          }
-        }
+        console.log("SemanticSearchCard: Sending via UnifiedChatService", { sessionId });
+        await unifiedChatService.sendMessage(sessionId, currentInput, {
+          use_rag: true,
+        });
       } catch (error) {
         console.error("SemanticSearchCard: Failed to send message:", error);
-        
-        if (error.message === "Request was stopped by user") {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId
-                ? { ...m, role: "system", content: "Request stopped by user" }
-                : m,
-            ),
-          );
-        } else {
-          let errorText = "Failed to send message";
-          
-          if (error.message) {
-            if (error.message.includes("Stream ended but received an unexpected final response")) {
-              errorText = "Chat service temporarily unavailable. Please try again.";
-            } else {
-              errorText = typeof error.message === "string"
-                ? error.message
-                : JSON.stringify(error.message);
-            }
-          }
-
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId
-                ? { ...m, role: "system", content: `Error: ${errorText}` }
-                : m,
-            ),
-          );
-          
-          setError(errorText);
-        }
-      } finally {
+        setIsStreamingMessage(false);
         setIsSending(false);
-        abortControllerRef.current = null;
+
+        const errorText = error.message || "Failed to send message";
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `error_${Date.now()}`,
+            role: "system",
+            content: `Error: ${errorText}`,
+            timestamp: new Date().toISOString(),
+          },
+        ]);
+        setError(errorText);
       }
-    }, [inputText, isSending, sessionId, ragDebugEnabled, filterDebugContent, detectCSVGeneration]);
+    }, [inputText, isSending, sessionId, unifiedChatService, detectCSVGeneration]);
 
     const handleKeyPress = (event) => {
       if (event.key === "Enter" && !event.shiftKey) {
@@ -501,8 +456,40 @@ const SemanticSearchCard = React.forwardRef(
               </List>
             )}
 
+            {/* Streaming message from UnifiedChatService */}
+            {isStreamingMessage && unifiedChatService && (
+              <Box sx={{ px: 0.5, py: 0.5 }} className="non-draggable">
+                <StreamingMessage
+                  chatService={unifiedChatService}
+                  sessionId={sessionId}
+                  onComplete={(result) => {
+                    setIsStreamingMessage(false);
+                    setIsSending(false);
+
+                    if (result.content) {
+                      const filteredContent = filterDebugContent(result.content);
+                      const completedMessage = {
+                        id: `asst_unified_${Date.now()}`,
+                        role: "assistant",
+                        content: filteredContent,
+                        timestamp: new Date().toISOString(),
+                      };
+                      setMessages((prev) => [...prev, completedMessage]);
+                    }
+
+                    // Create a fresh service instance for the next message
+                    if (socketRef?.current) {
+                      const newService = new UnifiedChatService(socketRef.current);
+                      newService.joinSession(sessionId);
+                      setUnifiedChatService(newService);
+                    }
+                  }}
+                />
+              </Box>
+            )}
+
             {}
-            {!isLoading && messages.length === 0 && (
+            {!isLoading && messages.length === 0 && !isStreamingMessage && (
               <Typography
                 variant="body2"
                 sx={{

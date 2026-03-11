@@ -27,6 +27,16 @@ export const MAX_FILE_SIZE_MB = 100; // Maximum file size in MB
 export const BYTES_PER_MB = 1024 * 1024;
 export const INVALID_FILENAME_CHARS = /[<>:"/\\|?*\x00-\x1f]/;
 
+// Image file extensions that should show thumbnails
+const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tiff'];
+
+// Check if a filename is an image
+export const isImageFile = (filename) => {
+  if (!filename) return false;
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  return IMAGE_EXTENSIONS.includes(ext);
+};
+
 // Helper component for index status indicator dot
 const IndexStatusIndicator = ({ indexStatus, theme }) => {
   if (!indexStatus) return null;
@@ -66,10 +76,93 @@ const IndexStatusIndicator = ({ indexStatus, theme }) => {
   );
 };
 
+// Helper component for folder index status indicator dot
+// Shows green if all docs indexed, yellow if partial, nothing if no docs or none indexed
+export const FolderIndexIndicator = ({ item, theme, size = 6 }) => {
+  const docCount = item.document_count || 0;
+  const indexedCount = item.indexed_document_count || 0;
+  if (docCount === 0 || indexedCount === 0) return null;
+
+  const isFullyIndexed = indexedCount >= docCount;
+  const dotColor = isFullyIndexed
+    ? (theme.palette.success.main || '#4CAF50')
+    : (theme.palette.warning.main || '#FF9800');
+  const tooltipText = isFullyIndexed
+    ? `Fully indexed (${indexedCount}/${docCount})`
+    : `Partially indexed (${indexedCount}/${docCount})`;
+
+  return (
+    <Box
+      sx={{
+        position: 'absolute',
+        bottom: 2,
+        right: 2,
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        backgroundColor: dotColor,
+        border: '1px solid',
+        borderColor: 'background.paper',
+        zIndex: 1,
+      }}
+      title={tooltipText}
+    />
+  );
+};
+
 // File extension to icon mapping (large icons for grid view)
-export const getFileIcon = (filename, isSelected, theme, size = 48, indexStatus = null) => {
+// filePath: optional document path — when provided for image files, renders a thumbnail instead of an icon
+export const getFileIcon = (filename, isSelected, theme, size = 48, indexStatus = null, filePath = null) => {
   const ext = filename ? filename.split('.').pop()?.toLowerCase() || '' : '';
-  
+
+  // If this is an image file and we have a path, render a thumbnail
+  if (filePath && isImageFile(filename)) {
+    const thumbnailUrl = `${API_BASE}/thumbnail?path=${encodeURIComponent(filePath)}`;
+    return (
+      <Box sx={{
+        position: 'relative',
+        display: 'inline-flex',
+        width: size + 16,
+        height: size + 16,
+        borderRadius: 1,
+        overflow: 'hidden',
+        backgroundColor: theme.palette.action.hover,
+        alignItems: 'center',
+        justifyContent: 'center',
+        border: isSelected ? `2px solid ${theme.palette.primary.main}` : `1px solid ${theme.palette.divider}`,
+        filter: isSelected ? `drop-shadow(0 0 6px ${theme.palette.primary.main}80)` : 'none',
+        transform: isSelected ? 'scale(1.05)' : 'scale(1)',
+        transition: 'all 0.15s ease-in-out',
+      }}>
+        <Box
+          component="img"
+          src={thumbnailUrl}
+          alt={filename}
+          loading="lazy"
+          sx={{
+            maxWidth: '100%',
+            maxHeight: '100%',
+            objectFit: 'cover',
+            width: '100%',
+            height: '100%',
+          }}
+          onError={(e) => {
+            // On error, hide the img and show the fallback icon sibling
+            e.target.style.display = 'none';
+            if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+          }}
+        />
+        <Box sx={{
+          display: 'none', alignItems: 'center', justifyContent: 'center',
+          width: '100%', height: '100%', position: 'absolute', top: 0, left: 0,
+        }}>
+          <ImageIcon size={size * 0.6} color={isSelected ? theme.palette.primary.main : '#4CAF50'} strokeWidth={1.5} />
+        </Box>
+        <IndexStatusIndicator indexStatus={indexStatus} theme={theme} />
+      </Box>
+    );
+  }
+
   // Get color for icon
   const getIconColor = (override) => {
     if (override) {
@@ -86,8 +179,8 @@ export const getFileIcon = (filename, isSelected, theme, size = 48, indexStatus 
     IconComponent = FileIcon;
     iconColorOverride = null;
   } else {
-    // Images
-    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tiff'].includes(ext)) {
+    // Images (no path provided — show icon)
+    if (IMAGE_EXTENSIONS.includes(ext)) {
       IconComponent = ImageIcon;
       iconColorOverride = isSelected ? 'primary.main' : '#4CAF50';
     }
@@ -137,8 +230,8 @@ export const getFileIcon = (filename, isSelected, theme, size = 48, indexStatus 
   const iconSize = size;
 
   return (
-    <Box sx={{ 
-      position: 'relative', 
+    <Box sx={{
+      position: 'relative',
       display: 'inline-flex',
       filter: isSelected ? `drop-shadow(0 0 6px ${theme.palette.primary.main}80)` : 'none',
       transform: isSelected ? 'scale(1.05)' : 'scale(1)',
@@ -151,14 +244,52 @@ export const getFileIcon = (filename, isSelected, theme, size = 48, indexStatus 
 };
 
 // Small file icon for list view
-export const getFileIconSmall = (filename, isSelected, theme, indexStatus = null) => {
+// filePath: optional document path — when provided for image files, renders a small thumbnail
+export const getFileIconSmall = (filename, isSelected, theme, indexStatus = null, filePath = null) => {
   if (!theme) {
     // Fallback if theme not provided
     return <FileIcon size={20} color="#666" strokeWidth={1.5} />;
   }
 
   const ext = filename ? filename.split('.').pop()?.toLowerCase() || '' : '';
-  
+
+  // If this is an image file and we have a path, render a small thumbnail
+  if (filePath && isImageFile(filename)) {
+    const thumbnailUrl = `${API_BASE}/thumbnail?path=${encodeURIComponent(filePath)}`;
+    return (
+      <Box sx={{
+        position: 'relative',
+        display: 'inline-flex',
+        width: 24,
+        height: 24,
+        borderRadius: 0.5,
+        overflow: 'hidden',
+        flexShrink: 0,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <Box
+          component="img"
+          src={thumbnailUrl}
+          alt={filename}
+          loading="lazy"
+          sx={{ width: 24, height: 24, objectFit: 'cover', borderRadius: 0.5 }}
+          onError={(e) => {
+            e.target.style.display = 'none';
+            if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+          }}
+        />
+        <Box sx={{
+          display: 'none', alignItems: 'center', justifyContent: 'center',
+          width: '100%', height: '100%', position: 'absolute', top: 0, left: 0,
+        }}>
+          <ImageIcon size={16} color={isSelected ? theme.palette.primary.main : '#4CAF50'} strokeWidth={1.5} />
+        </Box>
+        <IndexStatusIndicator indexStatus={indexStatus} theme={theme} />
+      </Box>
+    );
+  }
+
   // Get color for icon
   const getIconColor = (override) => {
     if (override) {
@@ -167,7 +298,7 @@ export const getFileIconSmall = (filename, isSelected, theme, indexStatus = null
     }
     return isSelected ? theme.palette.primary.main : theme.palette.action.active;
   };
-  
+
   let IconComponent = FileIcon;
   let iconColorOverride = null;
 
@@ -175,8 +306,8 @@ export const getFileIconSmall = (filename, isSelected, theme, indexStatus = null
     IconComponent = FileIcon;
     iconColorOverride = null;
   } else {
-    // Images
-    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tiff'].includes(ext)) {
+    // Images (no path provided — show icon)
+    if (IMAGE_EXTENSIONS.includes(ext)) {
       IconComponent = ImageIcon;
       iconColorOverride = isSelected ? 'primary.main' : '#4CAF50';
     }

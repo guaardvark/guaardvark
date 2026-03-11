@@ -15,8 +15,8 @@ const BreadcrumbNav = ({ currentPath, onNavigate }) => {
       // Navigate to root
       onNavigate("/");
     } else {
-      // Navigate to specific folder - path without leading slash (matches DB storage format)
-      const newPath = pathParts.slice(0, index + 1).join("/");
+      // Navigate to specific folder - add leading slash to match DB storage format
+      const newPath = "/" + pathParts.slice(0, index + 1).join("/");
       onNavigate(newPath);
     }
   };

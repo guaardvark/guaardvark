@@ -67,7 +67,7 @@ class ComfyUIVideoGenerator:
         self.cache_dir = Path(CACHE_DIR) / "generated_videos"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
-        self.comfy_output_dir = Path("/home/llamax1/LLAMAVID/ComfyUI/output")
+        self.comfy_output_dir = Path(os.environ.get('COMFYUI_OUTPUT_DIR', os.path.join(os.environ.get('GUAARDVARK_ROOT', '.'), 'data', 'outputs', 'video')))
 
         self.service_available = self._check_comfyui_connection()
 

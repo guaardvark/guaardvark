@@ -12,7 +12,6 @@ import {
   Box,
   Typography,
   Button,
-  CircularProgress,
   Alert as MuiAlert,
   Grid,
   Card,
@@ -36,14 +35,17 @@ import { useSearchParams } from "react-router-dom"; // For modal linking
 
 import * as apiService from "../api";
 import * as wordpressService from "../api/wordpressService";
+import { scrapeWebsite } from "../api/websiteService";
 import WebsiteActionModal from "../components/modals/WebsiteActionModal";
 import PageLayout from "../components/layout/PageLayout";
 import { useStatus } from "../contexts/StatusContext"; // For active model display
 import { useAppStore } from "../stores/useAppStore";
 import ProjectStateErrorBoundary from "../components/common/ProjectStateErrorBoundary";
+import { ContextualLoader } from "../components/common/LoadingStates";
 import { getLogoUrl } from "../config/logoConfig";
 import { useNavigate } from "react-router-dom";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
+import TravelExploreIcon from "@mui/icons-material/TravelExplore";
 
 const AlertSnackbar = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
@@ -300,6 +302,26 @@ const WebsitesPage = () => {
     }
   };
 
+  const [crawlingIds, setCrawlingIds] = useState(new Set());
+
+  const handleCrawlWebsite = async (websiteId, e) => {
+    if (e) e.stopPropagation();
+    setCrawlingIds(prev => new Set([...prev, websiteId]));
+    try {
+      await scrapeWebsite(websiteId);
+      setFeedback({ open: true, message: "Website crawled successfully", severity: "success" });
+      fetchWebsitesAndProjects(); // Refresh to update last_crawled
+    } catch (err) {
+      setFeedback({ open: true, message: `Crawl failed: ${err.message || "Unknown error"}`, severity: "error" });
+    } finally {
+      setCrawlingIds(prev => {
+        const next = new Set(prev);
+        next.delete(websiteId);
+        return next;
+      });
+    }
+  };
+
   const handleSortRequest = (property) => {
     const isAsc = orderBy === property && order === "asc";
     setOrder(isAsc ? "desc" : "asc");
@@ -317,9 +339,7 @@ const WebsitesPage = () => {
     { id: "status", label: "Status", sortable: true },
     { id: "document_count", label: "Docs", sortable: true, align: "right" },
     { id: "last_crawled", label: "Last Crawled", sortable: true },
-    { id: "wordpress", label: "WordPress", sortable: false },
-    // No 'Notes' column as model doesn't support it yet
-    // Actions column can be added if needed, or rely on row click
+    { id: "actions", label: "Actions", sortable: false },
   ];
 
   return (
@@ -363,9 +383,7 @@ const WebsitesPage = () => {
           </MuiAlert>
         )}
         {isLoading && (
-          <Box sx={{ display: "flex", justifyContent: "center", my: 2 }}>
-            <CircularProgress />
-          </Box>
+          <ContextualLoader loading message="Loading websites..." showProgress={false} inline />
         )}
 
         {!isLoading && sortedWebsites.length === 0 && !error && (
@@ -479,22 +497,32 @@ const WebsitesPage = () => {
                       </Grid>
                     </CardContent>
                   </CardActionArea>
-                  {getWpSiteForWebsite(site.id) && (
-                    <Box sx={{ p: 1.5, pt: 0 }}>
+                  <Box sx={{ p: 1.5, pt: 0, display: 'flex', gap: 1 }}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<TravelExploreIcon />}
+                      disabled={crawlingIds.has(site.id)}
+                      onClick={(e) => handleCrawlWebsite(site.id, e)}
+                      sx={{ flex: 1 }}
+                    >
+                      {crawlingIds.has(site.id) ? "Crawling..." : "Crawl"}
+                    </Button>
+                    {getWpSiteForWebsite(site.id) && (
                       <Button
                         size="small"
                         variant="outlined"
-                        fullWidth
                         startIcon={<AutoAwesomeIcon />}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleManageWpPages(site.id);
                         }}
+                        sx={{ flex: 1 }}
                       >
                         Manage Pages
                       </Button>
-                    </Box>
-                  )}
+                    )}
+                  </Box>
                 </Card>
               </Grid>
             ))}
@@ -586,19 +614,30 @@ const WebsitesPage = () => {
                       </TableCell>
                       <TableCell>{formatDate(site.last_crawled)}</TableCell>
                       <TableCell>
-                        {getWpSiteForWebsite(site.id) && (
+                        <Box sx={{ display: 'flex', gap: 0.5 }}>
                           <Button
                             size="small"
                             variant="outlined"
-                            startIcon={<AutoAwesomeIcon />}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleManageWpPages(site.id);
-                            }}
+                            startIcon={<TravelExploreIcon />}
+                            disabled={crawlingIds.has(site.id)}
+                            onClick={(e) => handleCrawlWebsite(site.id, e)}
                           >
-                            Pages
+                            {crawlingIds.has(site.id) ? "..." : "Crawl"}
                           </Button>
-                        )}
+                          {getWpSiteForWebsite(site.id) && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={<AutoAwesomeIcon />}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleManageWpPages(site.id);
+                              }}
+                            >
+                              Pages
+                            </Button>
+                          )}
+                        </Box>
                       </TableCell>
                     </TableRow>
                   ))}

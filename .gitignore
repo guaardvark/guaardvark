@@ -52,3 +52,27 @@ htmlcov/
 .coverage
 coverage.xml
 .worktrees/
+
+# Private/debug data — never commit
+.claude/
+.playwright-mcp/
+backend/debug_audio/
+data/docstore.json
+data/index_store.json
+data/default__vector_store.json
+data/graph_store.json
+data/code_editor_session.json
+data/code_editor_state.json
+data/dashboard_state.json
+data/documents_windows_v2_state.json
+data/images_windows_state.json
+data/conversations/sessions/
+scripts/repro_output*.txt
+guaardvark_backup.json
+SESSION_HANDOFF*.md
+docs/SESSION_HANDOFF.md
+docs/documents_page_snapshot.md
+docs/plans/
+docs/superpowers/
+plugins/Comprehensive Architectural.md
+CAPABILITIES.md

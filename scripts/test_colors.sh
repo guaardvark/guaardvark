@@ -22,7 +22,7 @@ vader_header
 vader_title "  Guaardvark Startup Script v5.1 - Smart Install Mode"
 vader_header
 vader_step 1 "Checking environment dependencies..."
-vader_info "Creating Python venv at /home/llamax1/..."
+vader_info "Creating Python venv at \$GUAARDVARK_ROOT/backend/venv..."
 vader_success "Backend is healthy"
 vader_warn "Frontend build is stale (src newer than dist)"
 vader_error "Migration failed."

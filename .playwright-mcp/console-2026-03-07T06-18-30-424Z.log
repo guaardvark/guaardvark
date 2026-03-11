@@ -1,4 +1,0 @@
-[     299ms] [WARNING] DUPLICATE PREVENTION: Reusing existing process: -SCK-4MIHWp190iSA10Ec @ http://localhost:5175/src/pages/ChatPage.jsx?t=1772863209380:85
-[   16344ms] [WARNING] Message queue enoGa09-37_oUztYTZ0JP not found, creating new queue @ http://localhost:5175/src/utils/resource_manager.js:350
-[  200716ms] [ERROR] WebSocket connection to 'ws://localhost:5175/socket.io/?EIO=4&transport=websocket' failed: Connection closed before receiving a handshake response @ http://localhost:5175/node_modules/.vite/deps/socket__io-client.js?v=cd440200:1128
-[  202476ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/socket.io/?EIO=4&transport=polling&t=xr91eaf3:0

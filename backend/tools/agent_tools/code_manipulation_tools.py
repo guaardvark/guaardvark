@@ -386,14 +386,14 @@ class ListCodeFilesTool(BaseTool):
             name="max_depth",
             type="int",
             required=False,
-            default=2,
-            description="Maximum directory depth to show (default: 2)"
+            default=5,
+            description="Maximum directory depth to show (default: 5)"
         )
     }
 
     def execute(self, **kwargs) -> ToolResult:
         directory = kwargs.get("directory", "frontend/src")
-        max_depth = kwargs.get("max_depth", 2)
+        max_depth = kwargs.get("max_depth", 5)
 
         # Ensure max_depth is an integer
         if isinstance(max_depth, str):

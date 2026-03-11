@@ -64,6 +64,21 @@ class SelfImprovementService:
         self._current_run = None
         logger.info("SelfImprovementService initialized")
 
+    def _emit_progress(self, stage: str, detail: str = "", progress: float = 0.0, **extra):
+        """Emit a self-improvement progress event via SocketIO."""
+        try:
+            from backend.socketio_instance import socketio
+            socketio.emit("self_improvement_progress", {
+                "stage": stage,
+                "detail": detail,
+                "progress": progress,
+                "running": self._running,
+                "timestamp": time.time(),
+                **extra,
+            })
+        except Exception:
+            pass  # Socket may not be available in test mode
+
     def _is_safe_to_run(self) -> bool:
         if _is_codebase_locked():
             logger.warning("Self-improvement blocked: codebase is locked")
@@ -82,6 +97,7 @@ class SelfImprovementService:
 
     def _parse_test_failures(self, pytest_output: str) -> List[Dict[str, str]]:
         failures = []
+        # Pattern with error message: FAILED path::test - error
         pattern = r"FAILED\s+(\S+?)::(\S+)\s*-\s*(.*)"
         for match in re.finditer(pattern, pytest_output):
             file_path, test_name, error = match.groups()
@@ -90,6 +106,16 @@ class SelfImprovementService:
                 "test_name": test_name.strip(),
                 "error": error.strip(),
             })
+        # Fallback: FAILED path::test (no dash-separated error)
+        if not failures:
+            pattern2 = r"FAILED\s+(\S+?)::(\S+)"
+            for match in re.finditer(pattern2, pytest_output):
+                file_path, test_name = match.groups()
+                failures.append({
+                    "file": file_path.strip(),
+                    "test_name": test_name.strip(),
+                    "error": "Test failed (see output for details)",
+                })
         return failures
 
     def run_self_check(self) -> Dict[str, Any]:
@@ -100,6 +126,7 @@ class SelfImprovementService:
         self._running = True
         start_time = time.time()
         run_record = None
+        self._emit_progress("starting", "Initializing self-check", 0.0)
 
         try:
             from backend.models import db, SelfImprovementRun
@@ -111,6 +138,7 @@ class SelfImprovementService:
             db.session.add(run_record)
             db.session.commit()
 
+            self._emit_progress("testing", "Running test suite", 0.1)
             root = os.environ.get("GUAARDVARK_ROOT", ".")
             result = subprocess.run(
                 ["python3", "-m", "pytest", "backend/tests/test_self_improvement.py",
@@ -128,16 +156,27 @@ class SelfImprovementService:
                 "return_code": result.returncode,
             })
 
-            if not failures:
+            self._emit_progress("analyzed", f"Found {len(failures)} failure(s)", 0.3,
+                                failures_found=len(failures), return_code=result.returncode)
+
+            if not failures and result.returncode == 0:
                 run_record.status = "success"
                 run_record.duration_seconds = time.time() - start_time
                 db.session.commit()
+                self._emit_progress("complete", "All tests passing", 1.0, status="success")
                 return {"success": True, "message": "All tests passing", "failures": 0}
 
+            # Return code nonzero but parser found nothing — record as unparsed failure
+            if not failures and result.returncode != 0:
+                failures = [{"file": "unknown", "test_name": "unparsed_failure", "error": test_output[-500:]}]
+
             changes = []
-            for failure in failures:
+            for i, failure in enumerate(failures):
                 if not self._is_safe_to_run():
                     break
+                progress = 0.3 + (0.6 * (i / max(len(failures), 1)))
+                self._emit_progress("fixing", f"Fixing {failure['test_name']} ({i+1}/{len(failures)})",
+                                    progress, current_fix=i+1, total_fixes=len(failures))
                 change = self._attempt_fix(failure)
                 if change:
                     changes.append(change)
@@ -150,6 +189,10 @@ class SelfImprovementService:
             if changes:
                 self._broadcast_learnings(changes, run_record)
 
+            self._emit_progress("complete", f"{len(changes)} fix(es) applied", 1.0,
+                                status=run_record.status, fixes_applied=len(changes),
+                                failures_found=len(failures))
+
             return {
                 "success": True,
                 "failures_found": len(failures),
@@ -159,6 +202,7 @@ class SelfImprovementService:
 
         except Exception as e:
             logger.error(f"Self-check failed: {e}", exc_info=True)
+            self._emit_progress("error", str(e)[:200], 0.0, status="failed")
             if run_record:
                 run_record.status = "failed"
                 run_record.error_message = str(e)

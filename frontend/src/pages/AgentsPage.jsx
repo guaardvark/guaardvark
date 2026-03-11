@@ -38,8 +38,11 @@ import {
   Error as ErrorIcon,
 } from "@mui/icons-material";
 import AlertSnackbar from "../components/common/AlertSnackbar";
+import EmptyState from "../components/common/EmptyState";
+import SmartToyOutlined from "@mui/icons-material/SmartToyOutlined";
 import { getAgents, toggleAgent, updateAgent, executeAgent } from "../api/agentsService";
 import { useStatus } from "../contexts/StatusContext";
+import { ContextualLoader } from "../components/common/LoadingStates";
 
 const AgentsPage = () => {
   const { activeModel, isLoadingModel, modelError } = useStatus();
@@ -281,8 +284,14 @@ const AgentsPage = () => {
 
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-          <CircularProgress />
+          <ContextualLoader loading message="Loading agents..." showProgress={false} inline />
         </Box>
+      ) : agents.length === 0 ? (
+        <EmptyState
+          icon={<SmartToyOutlined />}
+          title="No agents found"
+          description="Agents will appear here once configured"
+        />
       ) : (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
           {Object.entries(groupedAgents).map(([agentType, list]) => (

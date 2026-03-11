@@ -1,7 +1,7 @@
 
 from datetime import datetime
 
-OUTPUT_DIR = os.environ.get('GUAARDVARK_OUTPUT_DIR', '/home/llamax1/LLAMAX6/data/outputs')
+OUTPUT_DIR = os.environ.get('GUAARDVARK_OUTPUT_DIR', os.path.join(os.environ.get('GUAARDVARK_ROOT', '.'), 'data', 'outputs'))
 PROGRESS_DIR = Path(OUTPUT_DIR) / ".progress_jobs"
 PROGRESS_DIR.mkdir(parents=True, exist_ok=True)
 

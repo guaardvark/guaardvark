@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage, subscribeWithSelector, devtools } from "zustand/middleware";
 
 const createUISlice = (set, get) => ({
-  themeName: "default",
+  themeName: "guaardvark",
   setThemeName: (name) => set({ themeName: name }),
   
   dashboardLayout: [],
@@ -54,7 +54,10 @@ const createDataSlice = (set, get) => ({
       setIsLoading(true);
       clearError();
       
-      const res = await fetch("/api/settings/branding");
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10000);
+      const res = await fetch("/api/settings/branding", { signal: controller.signal });
+      clearTimeout(timer);
       if (!res.ok) {
         throw new Error(`Failed to fetch branding: ${res.status}`);
       }

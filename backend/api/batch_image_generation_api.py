@@ -1012,8 +1012,15 @@ def get_batch_image(batch_id: str, image_name: str):
                 image_path = Path(status.output_dir) / "images" / decoded_image_name
 
         if not image_path.exists():
+            # If thumbnail was requested but not found, fall back to serving the full image
+            if request.args.get('thumbnail') == 'true':
+                fallback_path = Path(status.output_dir) / "images" / safe_image_name
+                if not fallback_path.exists() and safe_image_name != decoded_image_name:
+                    fallback_path = Path(status.output_dir) / "images" / decoded_image_name
+                if fallback_path.exists():
+                    logger.info(f"Thumbnail not found, serving full image as fallback: {fallback_path}")
+                    return send_file(str(fallback_path))
             logger.warning(f"Image not found: {image_path} (requested: {image_name}, decoded: {decoded_image_name}, safe: {safe_image_name})")
-            # List available files for debugging
             images_dir = Path(status.output_dir) / ("thumbnails" if request.args.get('thumbnail') == 'true' else "images")
             if images_dir.exists():
                 available_files = [f.name for f in images_dir.iterdir() if f.is_file()]

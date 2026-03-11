@@ -16,9 +16,11 @@ import {
   Tooltip,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
+import { useNavigate } from "react-router-dom";
 
 const DashboardCardWrapper = React.forwardRef(
   ({ title, children, cardColor, onCardColorChange, isMinimized, onToggleMinimize, titleBarActions, ...props }, ref) => {
+    const routerNavigate = useNavigate();
     const [clickTimeout, setClickTimeout] = useState(null);
     const [lastClickTime, setLastClickTime] = useState(0);
     const [clickCount, setClickCount] = useState(0);
@@ -150,7 +152,7 @@ const DashboardCardWrapper = React.forwardRef(
       if (window.location.pathname !== '/code-editor') {
         const route = getCardRoute(cardId);
         if (route && route !== "/") {
-          window.location.href = route;
+          routerNavigate(route);
         }
       }
     }, [cardId]);

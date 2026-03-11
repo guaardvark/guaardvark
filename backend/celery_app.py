@@ -212,6 +212,17 @@ def create_celery_app():
         logger.warning(f"Could not import task scheduler Beat tasks: {e}")
 
     try:
+        from backend.tasks.self_improvement_tasks import (
+            create_self_improvement_tasks,
+            schedule_self_improvement_tasks,
+        )
+        create_self_improvement_tasks(celery_app)
+        schedule_self_improvement_tasks(celery_app)
+        logger.info("Self-improvement Celery Beat tasks registered successfully")
+    except ImportError as e:
+        logger.warning(f"Could not import self-improvement tasks: {e}")
+
+    try:
         from backend.tasks.rag_autoresearch_tasks import (
             create_autoresearch_tasks,
             schedule_autoresearch_tasks,

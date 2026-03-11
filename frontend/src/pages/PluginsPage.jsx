@@ -46,6 +46,7 @@ import {
 } from '@mui/icons-material';
 import { useSnackbar } from '../components/common/SnackbarProvider';
 import PageLayout from '../components/layout/PageLayout';
+import { ContextualLoader } from '../components/common/LoadingStates';
 import {
   listPlugins,
   getPluginHealth,
@@ -436,7 +437,7 @@ const PluginsPage = () => {
       
       {loading && plugins.length === 0 ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
+          <ContextualLoader loading message="Loading plugins..." showProgress={false} inline />
         </Box>
       ) : plugins.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: 'center' }}>

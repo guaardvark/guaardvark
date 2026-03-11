@@ -181,6 +181,33 @@ def get_system_status():
     return jsonify(status), 200
 
 
+@diagnostics_bp.route("/llm-ready", methods=["GET"])
+def llm_ready_endpoint():
+    """Check if Ollama is reachable and has a model available."""
+    model = None
+    ready = False
+    try:
+        # First check if the app's LLM object is configured
+        llm = current_app.config.get("LLAMA_INDEX_LLM")
+        if llm:
+            model = getattr(llm, "model", None)
+
+        # Always verify Ollama is actually reachable
+        resp = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=3)
+        if resp.ok:
+            models = resp.json().get("models", [])
+            if models:
+                ready = True
+                # If app LLM model not set, report first available
+                if not model:
+                    model = models[0].get("name")
+            # Update the app flag so other code stays consistent
+            current_app.config["LLM_READY"] = ready
+    except Exception:
+        ready = False
+    return jsonify({"ready": ready, "model": model}), 200
+
+
 @diagnostics_bp.route("/test-llm", methods=["GET"])
 def test_llm_endpoint():
     logger.info("API: Received GET /api/meta/test-llm request")

@@ -9,7 +9,6 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Typography,
   Button,
-  CircularProgress,
   Alert as MuiAlert,
   Snackbar,
   Grid,
@@ -40,6 +39,7 @@ import LinkingModal from "../components/modals/LinkingModal";
 import PageLayout from "../components/layout/PageLayout";
 import { useStatus } from "../contexts/StatusContext";
 import { getLogoUrl } from "../config/logoConfig";
+import { ContextualLoader } from "../components/common/LoadingStates";
 
 const logger = {
   info: (message, ...args) =>
@@ -427,7 +427,7 @@ const ClientPage = () => {
           </MuiAlert>
         )}
         {isLoading && (
-          <CircularProgress sx={{ display: "block", margin: "auto", my: 2 }} />
+          <ContextualLoader loading message="Loading clients..." showProgress={false} inline />
         )}
 
         {!isLoading && sortedClients.length === 0 && !error && (

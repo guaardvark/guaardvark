@@ -17,7 +17,7 @@ except ImportError:
 class TranscriptParser:
 
     def __init__(self, output_dir: str = None):
-        self.output_dir = Path(output_dir or "/home/llamax1/LLAMAX5.2/training/processed")
+        self.output_dir = Path(output_dir or os.path.join(os.environ.get('GUAARDVARK_ROOT', '.'), 'training', 'processed'))
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.stats = {"total_files": 0, "total_pairs": 0, "errors": 0}
 

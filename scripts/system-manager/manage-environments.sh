@@ -25,9 +25,9 @@ find_llm_directories() {
 
     # Explicit paths for known environments (highest priority)
     local explicit_paths=(
-        "/home/llamax1/dev/LLM010.4"
-        "/home/llamax1/dev/LLM020.1"
-        "/home/llamax1/LLM_PRO"
+        # Add your environment paths here, e.g.:
+        # "/path/to/instance1"
+        # "/path/to/instance2"
     )
 
     local found_dirs=()
@@ -143,9 +143,7 @@ list_environments() {
         echo -e "${YELLOW}No LLM environments found.${NC}"
         echo ""
         echo "Search locations:"
-        echo "  - /home/llamax1/dev/LLM010.4"
-        echo "  - /home/llamax1/dev/LLM020.1"
-        echo "  - /home/llamax1/LLM_PRO"
+        echo "  - (configure explicit_paths in find_llm_directories)"
         echo "  - $HOME/LLM*"
         echo "  - $HOME/*/LLM*"
         echo "  - $HOME/projects/LLM*"

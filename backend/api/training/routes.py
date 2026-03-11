@@ -1,6 +1,7 @@
 
 import json
 import logging
+import os
 import uuid
 from datetime import datetime
 from typing import Dict, Any, Optional
@@ -14,7 +15,7 @@ from backend.utils.response_utils import success_response, error_response
 from backend.utils.db_utils import ensure_db_session_cleanup
 from pathlib import Path
 
-TRAINING_DIR = Path("/home/llamax1/LLAMAX5.2/training")
+TRAINING_DIR = Path(os.environ.get('GUAARDVARK_ROOT', '.')) / "training"
 
 training_bp = Blueprint("training", __name__, url_prefix="/api/training")
 logger = logging.getLogger(__name__)

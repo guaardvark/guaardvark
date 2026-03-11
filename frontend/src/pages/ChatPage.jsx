@@ -1,5 +1,5 @@
 
-import { Box, Paper, Typography, Tooltip, IconButton } from "@mui/material";
+import { Alert, Box, Paper, Typography, Tooltip, IconButton } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import HistoryIcon from "@mui/icons-material/History";
 import PreviousChatsModal from "../components/chat/PreviousChatsModal";
@@ -298,6 +298,24 @@ const ChatPage = () => {
   }, []);
 
   const { activeModel, isLoadingModel, modelError } = useStatus();
+
+  // Cold start: poll model readiness so first message isn't slow
+  const [llmReady, setLlmReady] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const r = await fetch("/api/meta/llm-ready");
+        if (r.ok) {
+          const d = await r.json();
+          if (d.ready) { setLlmReady(true); return; }
+        }
+      } catch { /* backend not up yet */ }
+      if (!cancelled) setTimeout(check, 2000);
+    };
+    check();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     resourceManager.activate();
@@ -1707,7 +1725,12 @@ const ChatPage = () => {
         </Box>
       </Box>
 
-      {error && <div style={{ color: 'red', padding: '10px' }}>{error}</div>}
+      {!llmReady && (
+        <Alert severity="info" sx={{ mx: 2, mb: 1 }}>
+          Model is loading into GPU memory... Chat will be ready in a moment.
+        </Alert>
+      )}
+      {error && <Alert severity="error" sx={{ mx: 2, mb: 1 }}>{error}</Alert>}
 
       {}
 

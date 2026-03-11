@@ -89,7 +89,7 @@ import { SOCKET_URL } from "../api/apiClient";
 import PaletteIcon from "@mui/icons-material/Palette";
 import SchoolIcon from "@mui/icons-material/School";
 import TaskAltIcon from "@mui/icons-material/TaskAlt";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { themes } from "../theme";
 import {
   getBranding,
@@ -256,7 +256,24 @@ const SettingsPage = () => {
   const [agentsModalOpen, setAgentsModalOpen] = useState(false);
   const [interconnectorModalOpen, setInterconnectorModalOpen] = useState(false);
   const [interconnectorEnabled, setInterconnectorEnabled] = useState(false);
-  const [activeSection, setActiveSection] = useState("system");
+  const [interconnectorPendingCount, setInterconnectorPendingCount] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const validSections = ["system", "ai", "data", "network", "maintenance"];
+  const [activeSection, _setActiveSection] = useState(() => {
+    const s = searchParams.get("section");
+    return validSections.includes(s) ? s : "system";
+  });
+  const setActiveSection = useCallback((section) => {
+    _setActiveSection(section);
+    setSearchParams({ section }, { replace: false });
+  }, [setSearchParams]);
+  // Sync section when browser back/forward changes the URL
+  useEffect(() => {
+    const s = searchParams.get("section");
+    if (s && validSections.includes(s) && s !== activeSection) {
+      _setActiveSection(s);
+    }
+  }, [searchParams]);
   const [voiceChatEnabled, setVoiceChatEnabled] = useState(() => {
     try {
       return localStorage.getItem(VOICE_CHAT_ENABLED_KEY) !== "false";
@@ -580,10 +597,16 @@ const SettingsPage = () => {
 
   useEffect(() => {
     interconnectorApi.getInterconnectorConfig().then((res) => {
-      if (res?.data?.config?.is_enabled || res?.config?.is_enabled) {
+      const enabled = res?.data?.config?.is_enabled || res?.config?.is_enabled;
+      if (enabled) {
         setInterconnectorEnabled(true);
+        // Check for pending approvals
+        interconnectorApi.getPendingApprovals?.().then((approvals) => {
+          setInterconnectorPendingCount(Array.isArray(approvals) ? approvals.length : 0);
+        }).catch(() => {});
       } else if (!res?.error) {
         setInterconnectorEnabled(false);
+        setInterconnectorPendingCount(0);
       }
     }).catch(() => {});
   }, [interconnectorModalOpen]);
@@ -1806,64 +1829,47 @@ const SettingsPage = () => {
     setIsImporting(true);
     showMessage(`Importing rules from ${selectedFileNameForImport}...`, "info");
 
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const fileContent = e.target.result;
-        const jsonData = JSON.parse(fileContent);
-        if (!jsonData || !Array.isArray(jsonData.rules)) {
-          throw new Error(
-            "Invalid JSON format. Expected an object with a 'rules' array.",
-          );
-        }
-
-        const result = await apiService.importRules({ rules: jsonData.rules }); // Send {rules: [...]}
-
-        if (result?.error && !result.created && !result.updated) {
-          // If only error field
-          throw new Error(
-            result.error.message || result.error.details || result.error,
-          );
-        }
-
-        let importSummary = result.message || "Import process completed.";
-        if (result.created) importSummary += ` Created: ${result.created}.`;
-        if (result.updated) importSummary += ` Updated: ${result.updated}.`;
-        if (result.skipped)
-          importSummary += ` Skipped/Errors: ${result.skipped}.`;
-        if (result.errors && result.errors.length > 0) {
-          console.error("Import errors:", result.errors);
-          importSummary += ` Details: ${result.errors.join("; ")}`;
-          showMessage(importSummary, "warning");
-        } else {
-          showMessage(importSummary, "success");
-        }
-        // Potentially refresh rules on other pages if needed, e.g. by a global state update
-        // For now, RulesPage will refetch on its own mount/focus.
-      } catch (err) {
-        console.error("Error importing rules:", err);
-        showMessage(`Import failed: ${err.message}`, "error");
-      } finally {
-        setIsImporting(false);
-        setSelectedFileForImport(null);
-        setSelectedFileNameForImport("");
-        if (fileImportInputRef.current) fileImportInputRef.current.value = ""; // Reset file input
+    try {
+      const fileContent = await selectedFileForImport.text();
+      const jsonData = JSON.parse(fileContent);
+      if (!jsonData || !Array.isArray(jsonData.rules)) {
+        throw new Error(
+          "Invalid JSON format. Expected an object with a 'rules' array.",
+        );
       }
-    };
-    reader.onerror = (err) => {
-      console.error("Error reading file for import:", err);
-      showMessage(
-        `Error reading file: ${err.message || "Unknown file read error."}`,
-        "error",
-      );
+
+      const result = await apiService.importRules({ rules: jsonData.rules });
+
+      if (result?.error && !result.created && !result.updated) {
+        throw new Error(
+          result.error.message || result.error.details || result.error,
+        );
+      }
+
+      let importSummary = result.message || "Import process completed.";
+      if (result.created) importSummary += ` Created: ${result.created}.`;
+      if (result.updated) importSummary += ` Updated: ${result.updated}.`;
+      if (result.skipped)
+        importSummary += ` Skipped/Errors: ${result.skipped}.`;
+      if (result.errors && result.errors.length > 0) {
+        console.error("Import errors:", result.errors);
+        importSummary += ` Details: ${result.errors.join("; ")}`;
+        showMessage(importSummary, "warning");
+      } else {
+        showMessage(importSummary, "success");
+      }
+    } catch (err) {
+      console.error("Error importing rules:", err);
+      showMessage(`Import failed: ${err.message}`, "error");
+    } finally {
       setIsImporting(false);
-    };
-    reader.readAsText(selectedFileForImport);
+      setSelectedFileForImport(null);
+      setSelectedFileNameForImport("");
+      if (fileImportInputRef.current) fileImportInputRef.current.value = "";
+    }
   };
 
-  const openCreateBackup = () => setCreateBackupOpen(true);
-  const openRestoreBackup = () => setRestoreBackupOpen(true);
-  const openManageBackups = async () => {
+  const fetchBackupList = async () => {
     try {
       const res = await apiService.listServerBackups();
       setBackupList(res.backups || []);
@@ -1871,6 +1877,14 @@ const SettingsPage = () => {
       console.error(e);
       setBackupList([]);
     }
+  };
+  const openCreateBackup = () => setCreateBackupOpen(true);
+  const openRestoreBackup = async () => {
+    await fetchBackupList();
+    setRestoreBackupOpen(true);
+  };
+  const openManageBackups = async () => {
+    await fetchBackupList();
     setManageBackupsOpen(true);
   };
   const closeManageBackups = () => setManageBackupsOpen(false);
@@ -2089,6 +2103,15 @@ const SettingsPage = () => {
 
         {/* Content */}
         <Box sx={{ flex: 1, overflow: "auto", px: 3, py: 2, maxWidth: 720 }}>
+          {interconnectorPendingCount > 0 && (
+            <MuiAlert
+              severity="info"
+              sx={{ mb: 2, cursor: "pointer" }}
+              onClick={() => setInterconnectorModalOpen(true)}
+            >
+              {interconnectorPendingCount} Interconnector update{interconnectorPendingCount !== 1 ? "s" : ""} available — click to review
+            </MuiAlert>
+          )}
           {activeSection === "system" && (
             <SettingsSection title="SYSTEM">
               <SettingsRow label="Profile" icon={<AccountBoxIcon sx={{ fontSize: 18 }} />}>
@@ -2257,33 +2280,45 @@ const SettingsPage = () => {
                     </Select>
                   </FormControl>
                   <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-                    <Button
-                      variant="contained"
-                      size="small"
-                      onClick={handleSetModelClick}
-                      disabled={isLoading || isLoadingModel || modelSwitchStatus === "loading" || !selectedModel || selectedModel === activeModel}
-                    >
-                      {modelSwitchStatus === "loading" ? <><CircularProgress size={16} sx={{ mr: 0.5 }} /> Switching...</> : "Set Active"}
-                    </Button>
-                    <Button variant="outlined" size="small" onClick={fetchAvailableModels} disabled={isLoadingModel || isLoading}>Refresh</Button>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      onClick={async () => {
-                        setIsTestingLLM(true);
-                        try {
-                          const r = await apiService.testLLM();
-                          showMessage(`LLM responded in ${r.duration_sec}s`, "info");
-                        } catch (e) {
-                          showMessage(`Test failed: ${e.message}`, "error");
-                        } finally {
-                          setIsTestingLLM(false);
-                        }
-                      }}
-                      disabled={isLoadingModel || isLoading || isTestingLLM}
-                    >
-                      {isTestingLLM ? "Testing..." : "Test"}
-                    </Button>
+                    <Tooltip title={modelSwitchStatus === "loading" ? "Model switch in progress..." : isLoadingModel ? "Model is loading..." : isLoading ? "Loading..." : !selectedModel ? "Select a model first" : selectedModel === activeModel ? "This model is already active" : ""}>
+                      <span>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          onClick={handleSetModelClick}
+                          disabled={isLoading || isLoadingModel || modelSwitchStatus === "loading" || !selectedModel || selectedModel === activeModel}
+                        >
+                          {modelSwitchStatus === "loading" ? <><CircularProgress size={16} sx={{ mr: 0.5 }} /> Switching...</> : "Set Active"}
+                        </Button>
+                      </span>
+                    </Tooltip>
+                    <Tooltip title={isLoadingModel ? "Model is loading..." : isLoading ? "Loading..." : ""}>
+                      <span>
+                        <Button variant="outlined" size="small" onClick={fetchAvailableModels} disabled={isLoadingModel || isLoading}>Refresh</Button>
+                      </span>
+                    </Tooltip>
+                    <Tooltip title={isTestingLLM ? "Test in progress..." : isLoadingModel ? "Model is loading..." : isLoading ? "Loading..." : ""}>
+                      <span>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={async () => {
+                            setIsTestingLLM(true);
+                            try {
+                              const r = await apiService.testLLM();
+                              showMessage(`LLM responded in ${r.duration_sec}s`, "info");
+                            } catch (e) {
+                              showMessage(`Test failed: ${e.message}`, "error");
+                            } finally {
+                              setIsTestingLLM(false);
+                            }
+                          }}
+                          disabled={isLoadingModel || isLoading || isTestingLLM}
+                        >
+                          {isTestingLLM ? "Testing..." : "Test"}
+                        </Button>
+                      </span>
+                    </Tooltip>
                   </Box>
                   {modelSwitchStatus === "loading" && (
                     <Box>
@@ -2313,35 +2348,43 @@ const SettingsPage = () => {
                     </Select>
                   </FormControl>
                   <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-                    <Button
-                      variant="contained"
-                      size="small"
-                      disabled={isSwitchingEmbedding || !selectedEmbeddingModel || selectedEmbeddingModel === embeddingModel}
-                      onClick={async () => {
-                        setIsSwitchingEmbedding(true);
-                        try {
-                          const r = await fetch("/api/model/embedding/set", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ model: selectedEmbeddingModel }),
-                          });
-                          const d = await r.json();
-                          if (d.success) {
-                            setEmbeddingModel(selectedEmbeddingModel);
-                            showMessage(`Embedding switched to ${selectedEmbeddingModel} (${d.data.dimensions}d)`, "success");
-                            fetchResources();
-                          } else {
-                            showMessage(d.error || "Failed to switch embedding", "error");
-                          }
-                        } catch (e) {
-                          showMessage(`Failed: ${e.message}`, "error");
-                        } finally {
-                          setIsSwitchingEmbedding(false);
-                        }
-                      }}
-                    >
-                      {isSwitchingEmbedding ? <><CircularProgress size={16} sx={{ mr: 0.5 }} /> Switching...</> : "Set Active"}
-                    </Button>
+                    <Tooltip title={isSwitchingEmbedding ? "Embedding model switch in progress..." : !selectedEmbeddingModel ? "Select an embedding model first" : selectedEmbeddingModel === embeddingModel ? "This embedding model is already active" : ""}>
+                      <span>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          disabled={isSwitchingEmbedding || !selectedEmbeddingModel || selectedEmbeddingModel === embeddingModel}
+                          onClick={async () => {
+                            if (!window.confirm(
+                              "Switching embedding models will clear your vector index because the new model produces different-sized vectors.\n\n" +
+                              "You will need to re-index your documents after switching.\n\nContinue?"
+                            )) return;
+                            setIsSwitchingEmbedding(true);
+                            try {
+                              const r = await fetch("/api/model/embedding/set", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ model: selectedEmbeddingModel }),
+                              });
+                              const d = await r.json();
+                              if (d.success) {
+                                setEmbeddingModel(selectedEmbeddingModel);
+                                showMessage(`Embedding switched to ${selectedEmbeddingModel} (${d.data.dimensions}d). Vector index cleared — please re-index your documents.`, "success");
+                                fetchResources();
+                              } else {
+                                showMessage(d.error || "Failed to switch embedding", "error");
+                              }
+                            } catch (e) {
+                              showMessage(`Failed: ${e.message}`, "error");
+                            } finally {
+                              setIsSwitchingEmbedding(false);
+                            }
+                          }}
+                        >
+                          {isSwitchingEmbedding ? <><CircularProgress size={16} sx={{ mr: 0.5 }} /> Switching...</> : "Set Active"}
+                        </Button>
+                      </span>
+                    </Tooltip>
                     <Button variant="outlined" size="small" onClick={fetchEmbeddingModels}>Refresh</Button>
                     {embeddingModel && embeddingModel !== "Not Available" && embeddingModel !== "Not Set" && (
                       <Chip label={`Active: ${embeddingModel}`} size="small" color="secondary" variant="outlined" />
@@ -2454,49 +2497,7 @@ const SettingsPage = () => {
               <SettingsRow label="RAG Performance" stacked>
                 <RAGDebugSection ragDebugEnabled={ragDebug} />
               </SettingsRow>
-              <SettingsRow label="Agent Configuration">
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, alignItems: "flex-end" }}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        size="small"
-                        checked={agentRoutingEnabled}
-                        onChange={async (e) => {
-                          const isEnabled = e.target.checked;
-                          setAgentRoutingEnabled(isEnabled);
-                          try {
-                            localStorage.setItem(AGENT_ROUTING_ENABLED_KEY, String(isEnabled));
-                            await updateAgentSettings({ agent_routing_enabled: isEnabled });
-                          } catch (err) {
-                            console.warn("Failed to update agent settings:", err);
-                          }
-                          showMessage(`Agent routing ${isEnabled ? "enabled" : "disabled"}`, "info");
-                        }}
-                      />
-                    }
-                    label={<Typography variant="body2">Agent Routing</Typography>}
-                  />
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        size="small"
-                        checked={unifiedChatEnabled}
-                        onChange={(e) => {
-                          const isEnabled = e.target.checked;
-                          setUnifiedChatEnabled(isEnabled);
-                          try {
-                            localStorage.setItem(UNIFIED_CHAT_ENABLED_KEY, String(isEnabled));
-                          } catch (err) {
-                            console.warn("Failed to persist unified chat setting:", err);
-                          }
-                          showMessage(`Unified agentic chat ${isEnabled ? "enabled" : "disabled"}`, "info");
-                        }}
-                      />
-                    }
-                    label={<Typography variant="body2">Unified Agentic Chat</Typography>}
-                  />
-                </Box>
-              </SettingsRow>
+              {/* Agent Routing and Unified Agentic Chat toggles removed — always enabled */}
               <SettingsRow label="Agents">
                 <Button variant="outlined" size="small" onClick={() => setAgentsModalOpen(true)}>
                   Open
@@ -2510,8 +2511,16 @@ const SettingsPage = () => {
             <SettingsSection title="DATA">
               <SettingsRow label="System Backup / Restore">
                 <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-                  <Button variant="outlined" size="small" onClick={openCreateBackup} disabled={isProcessingBackup || isLoading}>Create</Button>
-                  <Button variant="contained" size="small" onClick={openRestoreBackup} disabled={isProcessingBackup || isLoading}>Restore</Button>
+                  <Tooltip title={isProcessingBackup ? "Backup operation in progress..." : isLoading ? "Loading..." : ""}>
+                    <span>
+                      <Button variant="outlined" size="small" onClick={openCreateBackup} disabled={isProcessingBackup || isLoading}>Create</Button>
+                    </span>
+                  </Tooltip>
+                  <Tooltip title={isProcessingBackup ? "Backup operation in progress..." : isLoading ? "Loading..." : ""}>
+                    <span>
+                      <Button variant="contained" size="small" onClick={openRestoreBackup} disabled={isProcessingBackup || isLoading}>Restore</Button>
+                    </span>
+                  </Tooltip>
                   <Button variant="outlined" size="small" onClick={openManageBackups}>Manage</Button>
                 </Box>
               </SettingsRow>
@@ -2524,15 +2533,13 @@ const SettingsPage = () => {
                   <label htmlFor="import-rules-file">
                     <Button variant="outlined" size="small" component="span" disabled={isImporting || isLoading}>Choose File</Button>
                   </label>
-                  <Button variant="contained" size="small" onClick={handleImportRulesClick} disabled={!selectedFileForImport || isImporting || isLoading}>
-                    {isImporting ? <CircularProgress size={16} color="inherit" /> : "Import"}
-                  </Button>
-                </Box>
-              </SettingsRow>
-              <SettingsRow label="System Config Backup / Restore">
-                <Box sx={{ display: "flex", gap: 1 }}>
-                  <Button variant="outlined" size="small" onClick={openCreateBackup} disabled={isProcessingBackup || isLoading}>Backup Config</Button>
-                  <Button variant="outlined" size="small" onClick={openRestoreBackup} disabled={isProcessingBackup || isLoading}>Restore Config</Button>
+                  <Tooltip title={isImporting ? "Import in progress..." : !selectedFileForImport ? "Choose a file first" : isLoading ? "Loading..." : ""}>
+                    <span>
+                      <Button variant="contained" size="small" onClick={handleImportRulesClick} disabled={!selectedFileForImport || isImporting || isLoading}>
+                        {isImporting ? <CircularProgress size={16} color="inherit" /> : "Import"}
+                      </Button>
+                    </span>
+                  </Tooltip>
                 </Box>
               </SettingsRow>
               <SettingsRow label="Chat History">
@@ -2561,11 +2568,20 @@ const SettingsPage = () => {
               </SettingsRow>
               <SettingsRow label="Interconnector">
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Chip
-                    label={interconnectorEnabled ? "Enabled" : "Disabled"}
+                  <Switch
                     size="small"
-                    color={interconnectorEnabled ? "primary" : "default"}
-                    variant={interconnectorEnabled ? "filled" : "outlined"}
+                    checked={interconnectorEnabled}
+                    onChange={async (e) => {
+                      const newEnabled = e.target.checked;
+                      try {
+                        const currentConfig = await interconnectorApi.getInterconnectorConfig();
+                        const cfg = currentConfig?.data?.config || currentConfig?.config || {};
+                        await interconnectorApi.updateInterconnectorConfig({ ...cfg, is_enabled: newEnabled });
+                        setInterconnectorEnabled(newEnabled);
+                      } catch (err) {
+                        console.error("Failed to toggle Interconnector:", err);
+                      }
+                    }}
                   />
                   <Typography
                     component="button"
@@ -2661,8 +2677,16 @@ const SettingsPage = () => {
               <Box sx={{ borderTop: 1, borderColor: "divider", mt: 2, pt: 2 }}>
                 <Typography variant="overline" sx={{ fontSize: "0.75rem", color: "error.main" }}>System Control</Typography>
                 <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
-                  <Button variant="outlined" size="small" color="error" onClick={handleRebootClick} disabled={isLoading}>Reboot</Button>
-                  <Button variant="outlined" size="small" color="error" onClick={() => setKillSwitchOpen(true)} disabled={isLoading}>Kill Switch</Button>
+                  <Tooltip title={isLoading ? "Please wait for current operation to finish" : ""}>
+                    <span>
+                      <Button variant="outlined" size="small" color="error" onClick={handleRebootClick} disabled={isLoading}>Reboot</Button>
+                    </span>
+                  </Tooltip>
+                  <Tooltip title={isLoading ? "Please wait for current operation to finish" : ""}>
+                    <span>
+                      <Button variant="outlined" size="small" color="error" onClick={() => setKillSwitchOpen(true)} disabled={isLoading}>Kill Switch</Button>
+                    </span>
+                  </Tooltip>
                 </Box>
               </Box>
             </SettingsSection>
@@ -2682,6 +2706,7 @@ const SettingsPage = () => {
         onClose={() => setRestoreBackupOpen(false)}
         onRestore={handleRestoreConfirm}
         isProcessing={isProcessingBackup}
+        backups={backupList}
       />
       <ManageBackupsModal
         open={manageBackupsOpen}
@@ -2700,7 +2725,7 @@ const SettingsPage = () => {
             console.error("Download failed:", e);
           }
         }}
-        onRefresh={openManageBackups}
+        onRefresh={fetchBackupList}
         backups={backupList}
       />
       <ThemeSelectorModal

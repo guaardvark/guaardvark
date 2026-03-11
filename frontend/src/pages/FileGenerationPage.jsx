@@ -857,7 +857,7 @@ Contact us today for more information.`;
                     {...params}
                     label="Client Website"
                     variant="outlined"
-                    helperText="Select from existing websites (auto-fills client and filename)"
+                    helperText="Optional — auto-fills client and filename"
                     InputProps={{
                       ...params.InputProps,
                       endAdornment: (
@@ -1023,13 +1023,13 @@ Contact us today for more information.`;
                 onChange={(e) => setBatchItems(e.target.value)}
                 style={{
                   width: "100%",
-                  padding: "8px",
                   borderColor: theme.palette.divider,
                   borderRadius: theme.shape.borderRadius,
                   fontFamily: theme.typography.fontFamily,
                   fontSize: "1rem",
                   backgroundColor: theme.palette.background.paper,
                   color: theme.palette.text.primary,
+                  padding: theme.spacing(1),
                 }}
                 disabled={isGeneratingBatch}
               />
@@ -1074,7 +1074,7 @@ Contact us today for more information.`;
                   onChange={(e) => setInsertContent(e.target.value)}
                   style={{
                     width: "100%",
-                    padding: "12px",
+                    padding: theme.spacing(1.5),
                     borderColor: theme.palette.divider,
                     borderRadius: theme.shape.borderRadius,
                     fontFamily: theme.typography.fontFamily,
