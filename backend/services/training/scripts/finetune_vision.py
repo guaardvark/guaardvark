@@ -7,7 +7,7 @@ from pathlib import Path
 from datetime import datetime
 import torch
 
-TRAINING_DIR = Path("/home/llamax1/LLAMAX5.2/training")
+TRAINING_DIR = Path(os.environ.get('GUAARDVARK_ROOT', '.')) / "training"
 DATASETS_DIR = TRAINING_DIR / "datasets"
 MODELS_DIR = TRAINING_DIR / "models"
 

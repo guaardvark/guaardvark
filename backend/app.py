@@ -517,29 +517,34 @@ def _initialize_app_components(app):
 
         # Redis pub/sub relay: Celery workers publish progress to Redis,
         # this thread subscribes and re-emits via SocketIO
-        def relay_redis_progress():
-            try:
-                r = redis.Redis(host='localhost', port=6379, db=0)
-                pubsub = r.pubsub()
-                pubsub.subscribe('guaardvark:progress')
-                app.logger.info("Redis progress relay subscribed to guaardvark:progress")
-                for msg in pubsub.listen():
-                    if msg['type'] == 'message':
-                        try:
-                            event_data = json.loads(msg['data'])
-                            process_id = event_data.get('job_id', '')
-                            if process_id:
-                                socketio.emit('job_progress', event_data, to=process_id, namespace='/')
-                            socketio.emit('job_progress', event_data, to='global_progress', namespace='/')
-                            app.logger.info(f"↪ Relayed Redis progress: {process_id} at {event_data.get('progress')}%")
-                        except (json.JSONDecodeError, KeyError) as e:
-                            app.logger.warning(f"Bad progress message from Redis: {e}")
-            except Exception as e:
-                app.logger.error(f"Redis progress relay error: {e}")
+        # Guard: only start one relay thread per process
+        if not getattr(app, '_redis_relay_started', False):
+            app._redis_relay_started = True
 
-        relay_thread = threading.Thread(target=relay_redis_progress, daemon=True)
-        relay_thread.start()
-        app.logger.info("Started Redis progress relay thread")
+            def relay_redis_progress():
+                try:
+                    r = redis.Redis(host='localhost', port=6379, db=0)
+                    pubsub = r.pubsub()
+                    pubsub.subscribe('guaardvark:progress')
+                    app.logger.info("Redis progress relay subscribed to guaardvark:progress")
+                    for msg in pubsub.listen():
+                        if msg['type'] == 'message':
+                            try:
+                                event_data = json.loads(msg['data'])
+                                process_id = event_data.get('job_id', '')
+                                if process_id:
+                                    socketio.emit('job_progress', event_data, to=process_id, namespace='/')
+                                socketio.emit('job_progress', event_data, to='global_progress', namespace='/')
+                            except (json.JSONDecodeError, KeyError) as e:
+                                app.logger.warning(f"Bad progress message from Redis: {e}")
+                except Exception as e:
+                    app.logger.error(f"Redis progress relay error: {e}")
+
+            relay_thread = threading.Thread(target=relay_redis_progress, daemon=True)
+            relay_thread.start()
+            app.logger.info("Started Redis progress relay thread")
+        else:
+            app.logger.info("Redis progress relay thread already running, skipping")
 
     except Exception as e:
         app.logger.error(f"Failed to initialize Unified Progress System: {e}")
@@ -844,8 +849,10 @@ def initialize_llm_and_index_async():
             except Exception as e:
                 app.logger.error(f"[LLM-Init] Model warmup FAILED: {e} — first chat will be slow", exc_info=True)
 
+            app.config["LLM_READY"] = True
             app.logger.warning("[LLM-Init] LLM and index initialization completed successfully")
     except Exception as e:
+        app.config["LLM_READY"] = True  # Mark ready even on failure so chat isn't blocked forever
         app.logger.error(f"[LLM-Init] FAILED to initialize LLM and index: {e}", exc_info=True)
 
 import threading

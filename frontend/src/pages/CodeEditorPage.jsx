@@ -3,7 +3,6 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import {
   Box,
   Alert as MuiAlert,
-  CircularProgress,
   Paper,
   Typography,
   Tooltip,
@@ -54,6 +53,7 @@ import ChatAssistantCard from "../components/codeeditor/ChatAssistantCard";
 import SearchCard from "../components/codeeditor/SearchCard";
 import OutputCard from "../components/codeeditor/OutputCard";
 import WordPressPagesCard from "../components/codeeditor/WordPressPagesCard";
+import { ContextualLoader } from "../components/common/LoadingStates";
 
 const FixedGridLayout = WidthProvider(ReactGridLayout);
 
@@ -314,7 +314,7 @@ const CodeEditorPage = () => {
         case 'build':
           startProcess(processId, 'Project Build', 'Building project...');
           
-          const buildPath = projectId ? `/home/llamax1/dev/guaardvark` : '/tmp';
+          const buildPath = projectId ? `${import.meta.env.VITE_API_URL || ''}/api/projects/${projectId}/build` : '/tmp';
           const buildResult = await codeExecutionService.buildProject(buildPath);
           
           if (buildResult.success) {
@@ -958,7 +958,7 @@ const CodeEditorPage = () => {
             justifyContent: "center",
           }}
         >
-          <CircularProgress />
+          <ContextualLoader loading message="Loading code editor..." showProgress={false} inline />
         </Box>
       </PageLayout>
     );

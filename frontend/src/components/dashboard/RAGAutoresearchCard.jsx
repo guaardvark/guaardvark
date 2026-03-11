@@ -34,10 +34,10 @@ const RAGAutoresearchCard = () => {
     fetchHistory();
     const interval = setInterval(() => {
       fetchStatus();
-      if (status?.running) fetchHistory();
-    }, 5000);
+      fetchHistory();
+    }, 30000);
     return () => clearInterval(interval);
-  }, [status?.running]);
+  }, [fetchStatus, fetchHistory]);
 
   const handleStart = async () => {
     setLoading(true);
@@ -55,7 +55,7 @@ const RAGAutoresearchCard = () => {
   if (!status) {
     return (
       <Box sx={{ p: 1, textAlign: 'center' }}>
-        <Typography variant="body2" color="text.secondary">Loading...</Typography>
+        <Typography variant="caption" color="text.secondary">Autoresearch unavailable</Typography>
       </Box>
     );
   }

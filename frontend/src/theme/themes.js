@@ -448,7 +448,7 @@ export const themes = {
     theme: guaardvarkTheme,
   },
   default: {
-    label: "Default",
+    label: "Dark Gray",
     description: "Clean dark theme with teal accents",
     previewGradient: "linear-gradient(135deg, #008080, #006666)",
     theme: defaultTheme,

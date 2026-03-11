@@ -1,5 +1,8 @@
 #!/bin/bash
 # start_postgres.sh - auto-provision a local PostgreSQL database for development
+#
+# First run:  Installs PG, creates user/db, enables auto-start (needs sudo once)
+# After that: Detects PG is running and connection works — no sudo needed
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="$SCRIPT_DIR/.env"
@@ -26,10 +29,69 @@ PG_DB="guaardvark"
 PG_HOST="localhost"
 PG_PORT="5432"
 
+# ─── Fast path: If PG is running and connection works, exit immediately ───────
+# This is the common case after first-time setup — no sudo needed.
+
+pg_is_running() {
+  if command_exists systemctl; then
+    systemctl is-active --quiet postgresql
+  elif command_exists pg_isready; then
+    pg_isready -h "$PG_HOST" -p "$PG_PORT" >/dev/null 2>&1
+  else
+    return 1
+  fi
+}
+
+if pg_is_running && [ -f "$ENV_FILE" ]; then
+  EXISTING_URL=$(grep -E '^DATABASE_URL=' "$ENV_FILE" | tail -1 | sed 's/^DATABASE_URL=//')
+  if [ -n "$EXISTING_URL" ]; then
+    EXISTING_PASS=$(echo "$EXISTING_URL" | sed -n 's|.*://[^:]*:\([^@]*\)@.*|\1|p')
+    if [ -n "$EXISTING_PASS" ] && PGPASSWORD="$EXISTING_PASS" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$PG_DB" -c "SELECT 1;" >/dev/null 2>&1; then
+      vader_success "PostgreSQL ready (connection verified)."
+      exit 0
+    fi
+  fi
+fi
+
+# ─── If we reach here, first-time setup or recovery is needed ─────────────────
+# This requires sudo. Explain clearly why.
+
+echo ""
+echo -e "  ${VADER_WHITE}${VADER_BOLD}PostgreSQL Setup${VADER_RESET}"
+echo -e "  ${VADER_GRAY}─────────────────────────────────────────${VADER_RESET}"
+
+NEEDS_SUDO=false
+REASON=""
+
+if ! command_exists psql; then
+  NEEDS_SUDO=true
+  REASON="install PostgreSQL"
+elif ! pg_is_running; then
+  NEEDS_SUDO=true
+  REASON="start the PostgreSQL service"
+else
+  # PG is running but connection failed — need to provision user/db
+  NEEDS_SUDO=true
+  REASON="create the database user and database"
+fi
+
+if [ "$NEEDS_SUDO" = true ]; then
+  echo -e "  ${VADER_WHITE_DIM}Guaardvark needs your password (one time only) to ${REASON}.${VADER_RESET}"
+  echo -e "  ${VADER_GRAY}After this, future launches won't require a password.${VADER_RESET}"
+  echo ""
+
+  # Validate sudo access upfront so we get a clean prompt
+  if ! sudo -v 2>/dev/null; then
+    vader_error "sudo authentication failed. Cannot proceed with PostgreSQL setup."
+    vader_warn "Run with: sudo -v && ./start.sh"
+    exit 1
+  fi
+fi
+
 # ─── Step 1: Ensure psql is installed ─────────────────────────────────────────
 
 if ! command_exists psql; then
-  vader_info "psql not found. Installing PostgreSQL..."
+  vader_info "Installing PostgreSQL..."
   sudo apt-get update -qq >/dev/null 2>&1
   if sudo apt-get install -y postgresql postgresql-contrib >/dev/null 2>&1; then
     vader_success "PostgreSQL installed."
@@ -39,14 +101,13 @@ if ! command_exists psql; then
   fi
 fi
 
-# ─── Step 2: Ensure PostgreSQL service is running ─────────────────────────────
+# ─── Step 2: Ensure PostgreSQL service is running + enabled on boot ───────────
 
-vader_info "Ensuring PostgreSQL service is running..."
 if command_exists systemctl; then
   if ! systemctl is-active --quiet postgresql; then
     if sudo systemctl start postgresql >/dev/null 2>&1; then
       sleep 2
-      vader_success "PostgreSQL service started via systemctl."
+      vader_success "PostgreSQL service started."
     else
       vader_error "Failed to start PostgreSQL service."
       exit 1
@@ -54,8 +115,14 @@ if command_exists systemctl; then
   else
     vader_success "PostgreSQL service already running."
   fi
+
+  # Enable auto-start on boot so we never need sudo for this again
+  if ! systemctl is-enabled --quiet postgresql 2>/dev/null; then
+    if sudo systemctl enable postgresql >/dev/null 2>&1; then
+      vader_success "PostgreSQL enabled to start on boot (no sudo needed next time)."
+    fi
+  fi
 else
-  # Fallback: try pg_isready
   if ! pg_isready -h "$PG_HOST" -p "$PG_PORT" >/dev/null 2>&1; then
     vader_error "PostgreSQL is not running and systemctl is not available. Start PostgreSQL manually."
     exit 1
@@ -64,13 +131,11 @@ else
   fi
 fi
 
-# ─── Step 3: Check if DATABASE_URL already exists and works ───────────────────
+# ─── Step 3: Check if existing connection works (may have been fixed by starting PG)
 
 if [ -f "$ENV_FILE" ]; then
   EXISTING_URL=$(grep -E '^DATABASE_URL=' "$ENV_FILE" | tail -1 | sed 's/^DATABASE_URL=//')
   if [ -n "$EXISTING_URL" ]; then
-    vader_info "Found existing DATABASE_URL in .env, testing connection..."
-    # Extract password from URL for verification
     EXISTING_PASS=$(echo "$EXISTING_URL" | sed -n 's|.*://[^:]*:\([^@]*\)@.*|\1|p')
     if [ -n "$EXISTING_PASS" ] && PGPASSWORD="$EXISTING_PASS" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$PG_DB" -c "SELECT 1;" >/dev/null 2>&1; then
       vader_success "PostgreSQL connection verified (existing DATABASE_URL works)."
@@ -112,7 +177,6 @@ vader_info "Creating database '${PG_DB}' if it does not exist..."
 DB_EXISTS=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='${PG_DB}';" 2>/dev/null)
 
 if [ "$DB_EXISTS" = "1" ]; then
-  # Database exists — ensure ownership
   sudo -u postgres psql -c "ALTER DATABASE ${PG_DB} OWNER TO ${PG_USER};" >/dev/null 2>&1
   vader_success "Database '${PG_DB}' already exists (ownership verified)."
 else
@@ -130,7 +194,6 @@ DATABASE_URL="postgresql://${PG_USER}:${PG_PASS}@${PG_HOST}:${PG_PORT}/${PG_DB}"
 
 vader_info "Writing DATABASE_URL to .env..."
 if [ -f "$ENV_FILE" ]; then
-  # Remove any existing DATABASE_URL lines
   grep -v '^DATABASE_URL=' "$ENV_FILE" > "${ENV_FILE}.tmp" && mv "${ENV_FILE}.tmp" "$ENV_FILE"
 fi
 

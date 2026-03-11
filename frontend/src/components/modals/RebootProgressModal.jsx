@@ -148,8 +148,8 @@ const RebootProgressModal = ({ open, onClose }) => {
     } catch (err) {
       if (err.name === 'AbortError') return;
 
-      // Network error = Flask died (expected during reboot)
-      if (err.message?.includes('fetch') || err.message?.includes('network') || err.message?.includes('Network')) {
+      // Network error or stream error = Flask died (expected during reboot)
+      if (err.message?.includes('fetch') || err.message?.includes('network') || err.message?.includes('Network') || err.message?.includes('input stream') || err.message?.includes('stream')) {
         addLine('status', 'Server connection lost — services stopping...');
         startLogServerPolling();
         return;

@@ -559,7 +559,7 @@ def generate_bulk_csv():
         output_filename = data.get("output_filename")
         client = data.get("client", "Professional Services")
         project = data.get("project", "Content Generation")
-        website = data.get("website", "website.com")
+        website = data.get("website") or "website.com"
         # FIX BUG #10: Validate and handle None values for optional parameters
         competitor_url = data.get("competitor_url") or ""  # Competitor website for analysis
         client_notes = data.get("client_notes") or ""  # Client business description
@@ -1874,7 +1874,7 @@ def generate_bulk_xml():
         output_filename = data.get("output_filename")
         client = data.get("client", "Professional Services")
         project = data.get("project", "Content Generation")
-        website = data.get("website", "website.com")
+        website = data.get("website") or "website.com"
         # FIX BUG #10: Validate and handle None values for notes parameters
         client_notes = data.get("client_notes") or ""
         project_notes = data.get("project_notes") or ""

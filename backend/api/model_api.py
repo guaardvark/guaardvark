@@ -560,10 +560,10 @@ def list_embedding_models():
     except Exception:
         pass
 
-    return success_response("Embedding models retrieved", {
+    return success_response({
         "models": embedding_models,
         "active": active_embed,
-    })
+    }, "Embedding models retrieved")
 
 
 @model_bp.route("/embedding/set", methods=["POST"])
@@ -623,6 +623,29 @@ def set_embedding_model():
             LISettings.embed_model = current_app.config["LLAMA_INDEX_EMBED_MODEL"]
         except Exception:
             pass
+
+        # Clear vector store to prevent mixed-dimension corruption
+        try:
+            import os
+            storage_dir = current_app.config.get("STORAGE_DIR",
+                os.path.join(os.environ.get("GUAARDVARK_ROOT", ""), "data"))
+            cleared_files = []
+            for fname in ("default__vector_store.json", "vector_store.json"):
+                fpath = os.path.join(storage_dir, fname)
+                if os.path.exists(fpath):
+                    os.remove(fpath)
+                    cleared_files.append(fname)
+            if cleared_files:
+                logger.info(f"Cleared vector store files after embedding switch: {cleared_files}")
+                # Reset in-memory index so it rebuilds fresh on next use
+                try:
+                    import backend.services.indexing_service as idx_svc
+                    idx_svc.index = None
+                    idx_svc.storage_context = None
+                except Exception:
+                    pass
+        except Exception as vs_err:
+            logger.warning(f"Failed to clear vector store: {vs_err}")
 
         # Persist choice to database
         try:

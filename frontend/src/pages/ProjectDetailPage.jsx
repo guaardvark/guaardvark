@@ -56,6 +56,7 @@ import { useSnackbar } from "../components/common/SnackbarProvider";
 import { useStatus } from "../contexts/StatusContext"; // For active model display
 import { formatTimestamp } from "../utils/fileTypeUtils";
 import PageLayout from "../components/layout/PageLayout";
+import { ContextualLoader } from "../components/common/LoadingStates";
 
 const AlertSnackbar = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
@@ -645,8 +646,7 @@ const ProjectDetailPage = () => {
   if (isLoadingProject && !project) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", p: 5 }}>
-        <CircularProgress />
-        <Typography sx={{ ml: 2 }}>Loading project details...</Typography>
+        <ContextualLoader loading message="Loading project details..." showProgress={false} inline />
       </Box>
     );
   }

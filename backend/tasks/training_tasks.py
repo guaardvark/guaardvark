@@ -24,10 +24,10 @@ except ImportError as e:
 
 logger = logging.getLogger(__name__)
 
-TRAINING_DIR = Path("/home/llamax1/LLAMAX5.2/training")
+TRAINING_DIR = Path(os.environ.get('GUAARDVARK_ROOT', '.')) / "training"
 PROCESSED_DIR = TRAINING_DIR / "processed"
 MODELS_DIR = TRAINING_DIR / "models"
-MODELFILES_DIR = Path("/home/llamax1/LLAMAX5.2/data/modelfiles")
+MODELFILES_DIR = Path(os.environ.get('GUAARDVARK_ROOT', '.')) / "data" / "modelfiles"
 
 MODEL_TEMPLATES = {
     'llama-3': 'llama-3.1-instruct.modelfile',
@@ -322,7 +322,7 @@ def finetune_model_task(self, job_id: str, config: dict, resume: bool = False):
         
         _emit_progress(job_id, 5, f"Loading model {base_model}...", "processing")
         
-        sys.path.insert(0, str(Path("/home/llamax1/LLAMAX5.2/backend/services/training/scripts")))
+        sys.path.insert(0, str(Path(os.environ.get('GUAARDVARK_ROOT', '.')) / "backend" / "services" / "training" / "scripts"))
         
         if images_path:
              _emit_progress(job_id, 8, f"Detected vision task. Using Qwen-VL trainer with images from {images_path}", "processing")
@@ -425,7 +425,7 @@ def export_gguf_task(self, job_id: str, model_dir: str, quantization: str = 'q4_
         
         _emit_progress(job_id, 10, "Loading model for export...", "processing")
         
-        sys.path.insert(0, str(Path("/home/llamax1/LLAMAX5.2/backend/services/training/scripts")))
+        sys.path.insert(0, str(Path(os.environ.get('GUAARDVARK_ROOT', '.')) / "backend" / "services" / "training" / "scripts"))
         from finetune_model import export_to_gguf
         
         _emit_progress(job_id, 20, f"Exporting to GGUF ({quantization})...", "processing")

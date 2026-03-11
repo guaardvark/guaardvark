@@ -10,7 +10,6 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import {
   Box,
   Alert as MuiAlert,
-  CircularProgress,
   Paper,
   Typography,
   Tooltip,
@@ -43,6 +42,7 @@ import FileManagerCard from "../components/dashboard/FileManagerCard";
 import FamilySelfImprovementCard from "../components/dashboard/FamilySelfImprovementCard";
 import RAGAutoresearchCard from "../components/dashboard/RAGAutoresearchCard";
 import { useLayout } from "../contexts/LayoutContext";
+import { ContextualLoader } from "../components/common/LoadingStates";
 
 const cardComponents = {
   project: ProjectManagerCard,
@@ -392,10 +392,7 @@ const DashboardPage = () => {
             flex: 1,
           }}
         >
-          <CircularProgress />{" "}
-          <Typography component="span" sx={{ ml: 5 }}>
-            Loading Dashboard...
-          </Typography>
+          <ContextualLoader loading message="Loading dashboard..." showProgress={false} inline />
         </Box>
       </PageLayout>
     );

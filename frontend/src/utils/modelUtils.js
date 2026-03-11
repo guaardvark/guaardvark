@@ -20,7 +20,10 @@ let visionModelsCache = {
  */
 async function getAvailableModels() {
   try {
-    const response = await fetch('/api/model/list');
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    const response = await fetch('/api/model/list', { signal: controller.signal });
+    clearTimeout(timer);
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }

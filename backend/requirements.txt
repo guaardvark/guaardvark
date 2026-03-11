@@ -27,7 +27,7 @@ beautifulsoup4==4.12.3
 lxml==6.0.2
 pypdf==5.1.0
 requests==2.32.4
-duckduckgo-search>=7.5.0
+duckduckgo-search==8.1.1
 
 # Database & Utilities
 psycopg2-binary==2.9.9

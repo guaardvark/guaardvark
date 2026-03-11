@@ -119,10 +119,8 @@ class BulkCSVGeneratorTool(BaseTool):
             job_id = f"bulk_{uuid.uuid4().hex[:8]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
             # Determine output path
-            output_dir = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-                "outputs", "csv"
-            )
+            from backend.config import OUTPUT_DIR
+            output_dir = os.path.join(OUTPUT_DIR, "csv")
             os.makedirs(output_dir, exist_ok=True)
             output_path = os.path.join(output_dir, filename)
 
@@ -354,10 +352,8 @@ Generate the file content now:"""
 
             output_path = None
             if save_to_disk:
-                output_dir = os.path.join(
-                    os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-                    "outputs", "files"
-                )
+                from backend.config import OUTPUT_DIR
+                output_dir = os.path.join(OUTPUT_DIR, "files")
                 os.makedirs(output_dir, exist_ok=True)
                 output_path = os.path.join(output_dir, filename)
 
@@ -487,10 +483,8 @@ Generate the CSV content now:"""
                 csv_content = '\n'.join(lines)
 
             # Save to disk
-            output_dir = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-                "outputs", "csv"
-            )
+            from backend.config import OUTPUT_DIR
+            output_dir = os.path.join(OUTPUT_DIR, "csv")
             os.makedirs(output_dir, exist_ok=True)
             output_path = os.path.join(output_dir, filename)
 

@@ -229,7 +229,7 @@ def _get_outputs_root() -> Path:
         project_root = get_file_sync_service().get_project_root()
     except Exception:
         project_root = Path.cwd()
-    return project_root / "outputs"
+    return project_root / "data" / "outputs"
 
 
 def _load_profile(profile_name: Optional[str] = None, profile_id: Optional[int] = None) -> Optional[InterconnectorSyncProfile]:
@@ -744,29 +744,46 @@ def register_node():
             logger.info(f"[SYNC] Using client-provided IP: {provided_ip}")
             client_ip = provided_ip
         
-        # Try to extract port from Host header or use default
-        host_header = request.headers.get('Host', '')
-        port = 5000  # Default
+        # Determine port: prefer client-provided, fallback to default FLASK_PORT.
+        # NOTE: Do NOT extract from Host header — it reflects the *master's* address
+        # as seen by the client, not the client's own listening port.
+        default_port = int(os.environ.get('FLASK_PORT', 5000))
         if provided_port:
-            port = provided_port
+            port = int(provided_port)
             logger.info(f"[SYNC] Using client-provided port: {port}")
-        elif ':' in host_header:
-            try:
-                port = int(host_header.split(':')[1])
-                logger.info(f"[SYNC] Extracted port from Host header: {port}")
-            except ValueError:
-                logger.warning(f"[SYNC] Could not parse port from Host header: {host_header}")
         else:
-            logger.info(f"[SYNC] Using default port: {port}")
+            port = default_port
+            logger.info(f"[SYNC] Using default port: {port} (client should send client_port for accuracy)")
 
-        # Generate node ID (use provided or generate new)
-        node_id = data.get("node_id") or str(uuid.uuid4())
+        # Generate node ID — always generate fresh for new registrations to
+        # prevent collisions when Full Backups are restored to multiple machines.
+        # Only reuse a provided node_id if it already exists AND the IP matches.
+        provided_id = data.get("node_id")
+        node_id = None
+
+        if provided_id:
+            existing_node = db.session.get(InterconnectorNode, provided_id)
+            if existing_node and existing_node.host == client_ip:
+                # Same machine re-registering (e.g., after reboot) — safe to reuse
+                node_id = provided_id
+                logger.info(f"[SYNC] Reusing node_id {node_id} (IP matches: {client_ip})")
+            elif existing_node:
+                # COLLISION: Different machine using same node_id (backup restore scenario)
+                logger.warning(f"[SYNC] Node ID collision detected: {provided_id} registered to "
+                             f"{existing_node.host} but request from {client_ip}. "
+                             f"Generating fresh ID to prevent cross-machine interference.")
+                node_id = str(uuid.uuid4())
+            else:
+                node_id = provided_id
+
+        if not node_id:
+            node_id = str(uuid.uuid4())
         logger.info(f"[SYNC] Using node_id: {node_id}")
 
         # Check if node already exists
         existing_node = db.session.get(InterconnectorNode, node_id)
         if existing_node:
-            # Update existing node
+            # Update existing node (same IP verified above)
             logger.info(f"[SYNC] Updating existing node: {node_id}")
             existing_node.node_name = node_name
             existing_node.host = client_ip
@@ -3273,6 +3290,15 @@ def apply_updates():
 @interconnector_bp.route("/receive-directive", methods=["POST"])
 def receive_directive():
     """Receive an Uncle Claude directive from another node."""
+    # Validate API key to prevent unauthorized directive injection
+    config = _get_config()
+    if config.get("is_enabled"):
+        api_key = request.headers.get("X-API-Key")
+        is_valid, error_msg = _check_api_key(config, api_key)
+        if not is_valid:
+            logger.warning(f"[SYNC] Rejected directive from {request.remote_addr}: {error_msg}")
+            return error_response("Unauthorized: invalid or missing API key", 401)
+
     data = request.get_json()
     if not data or "directive" not in data:
         return error_response("directive is required", 400)
@@ -3280,7 +3306,7 @@ def receive_directive():
     directive = data["directive"]
     reason = data.get("reason", "No reason provided")
 
-    logger.critical(f"Received Uncle Claude directive from family: {directive} — {reason}")
+    logger.critical(f"Received Uncle Claude directive from {request.remote_addr}: {directive} — {reason}")
 
     from backend.tools.agent_tools.code_manipulation_tools import _handle_uncle_directive
     _handle_uncle_directive(directive, reason)

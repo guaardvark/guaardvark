@@ -9,9 +9,8 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { Box, Typography, Card, CardActionArea, CardContent, IconButton, Tooltip, Stack, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, useTheme, CircularProgress } from "@mui/material";
 import { GuaardvarkLogo } from "../components/branding";
-import { Folder, Code } from "lucide-react";
-import { Apps as AppsIcon, GridView as GridViewIcon } from "@mui/icons-material";
-import { getFileIcon, getItemKey } from "../components/documents/fileUtils.jsx";
+import { Apps as AppsIcon, GridView as GridViewIcon, FolderOutlined, Code, UploadFile as UploadFileIcon } from "@mui/icons-material";
+import { getFileIcon, getItemKey, FolderIndexIndicator } from "../components/documents/fileUtils.jsx";
 import ReactGridLayoutLib, { WidthProvider } from 'react-grid-layout';
 import FolderWindow from "../components/documents/FolderWindow";
 import DocumentsContextMenu from "../components/documents/DocumentsContextMenu";
@@ -541,6 +540,17 @@ const DocumentsPage = () => {
     setWindowColors(newWindowColors);
     saveWindowState(windows, windowLayout, newWindowColors, windowZIndex, maxZIndex);
   }, [windows, windowLayout, windowColors, windowZIndex, maxZIndex, saveWindowState]);
+
+  // Build folder-ID-to-color map for propagating colors into nested FolderContents
+  const folderIdToColor = useMemo(() => {
+    const map = {};
+    windows.forEach(w => {
+      if (windowColors[w.id]) {
+        map[w.folderId] = windowColors[w.id];
+      }
+    });
+    return map;
+  }, [windows, windowColors]);
 
   // Handle window layout change (drag/resize)
   // Guard: RGL may report layouts missing items or with extra items during transitions.
@@ -1752,6 +1762,11 @@ const DocumentsPage = () => {
       variant="grid"
       actions={
         <>
+          <Tooltip title="Upload Files">
+            <IconButton onClick={handleUpload} size="small">
+              <UploadFileIcon />
+            </IconButton>
+          </Tooltip>
           <Tooltip title="Arrange Icons">
             <IconButton onClick={handleArrangeIcons} size="small">
               <GridViewIcon />
@@ -1941,16 +1956,16 @@ const DocumentsPage = () => {
                     sx={{ p: 2, textAlign: 'center' }}
                   >
                     <CardContent sx={{ p: 0 }}>
-                      <Folder
-                        size={48}
-                        color={windowColors[window.id] || theme.palette.primary.main}
-                        strokeWidth={1.5}
-                        style={{ marginBottom: 4 }}
-                      />
+                      <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+                        <FolderOutlined
+                          sx={{ fontSize: 48, color: windowColors[window.id] || theme.palette.primary.main, mb: '4px' }}
+                        />
+                        <FolderIndexIndicator item={window.folder} theme={theme} />
+                      </Box>
                       {window.folder.is_repository && (
                         <Box sx={{ position: 'absolute', top: 8, right: 8 }}>
                           <Tooltip title="Code Repository">
-                            <Code size={16} color={theme.palette.primary.main} />
+                            <Code sx={{ fontSize: 16, color: theme.palette.primary.main }} />
                           </Tooltip>
                         </Box>
                       )}
@@ -2073,7 +2088,7 @@ const DocumentsPage = () => {
                     sx={{ p: 2, textAlign: 'center' }}
                   >
                     <CardContent sx={{ p: 0 }}>
-                      {getFileIcon(file.filename, isSelected, theme, 48, file.index_status)}
+                      {getFileIcon(file.filename, isSelected, theme, 48, file.index_status, file.path)}
                       <Tooltip title={file.filename} enterDelay={600} placement="bottom">
                         <Typography variant="body2" noWrap sx={{ mt: 1 }}>
                           {file.filename}
@@ -2176,6 +2191,7 @@ const DocumentsPage = () => {
                       onContextMenu={handleContextMenu}
                       onFocusContext={setActiveContext}
                       refreshKey={folderRefreshKeys[window.folderId] || 0}
+                      folderColors={folderIdToColor}
                       {...layoutItem}
                     />
                   </div>

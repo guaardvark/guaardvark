@@ -73,7 +73,7 @@ const progressReducer = (state, action) => {
       for (const [jobId, process] of state.activeProcesses.entries()) {
         // Only remove processes that are marked as 'processing' but are missing from the server
         if (!validJobIds.has(jobId) && process.status === 'processing') {
-          console.log(`UnifiedProgressContext: Purging ghost job ${jobId}`);
+          // console.log(`UnifiedProgressContext: Purging ghost job ${jobId}`);
           newProcesses.delete(jobId);
           changed = true;
         }
@@ -184,8 +184,11 @@ export const UnifiedProgressProvider = ({ children }) => {
   // Fetch active jobs from backend to restore state
   const fetchActiveJobs = useCallback(async () => {
     try {
-      console.log('UnifiedProgressContext: Fetching active jobs from /api/meta/active_jobs');
-      const response = await fetch(`${API_BASE}/meta/active_jobs`);
+      // console.log('UnifiedProgressContext: Fetching active jobs from /api/meta/active_jobs');
+      const abortCtl = new AbortController();
+      const abortTimer = setTimeout(() => abortCtl.abort(), 10000);
+      const response = await fetch(`${API_BASE}/meta/active_jobs`, { signal: abortCtl.signal });
+      clearTimeout(abortTimer);
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -194,7 +197,7 @@ export const UnifiedProgressProvider = ({ children }) => {
       const data = await response.json();
       const activeJobs = data.active_jobs || [];
 
-      console.log(`UnifiedProgressContext: Loaded ${activeJobs.length} active jobs from server`);
+      // console.log(`UnifiedProgressContext: Loaded ${activeJobs.length} active jobs from server`);
 
       // Restore each job into state
       activeJobs.forEach(job => {
@@ -238,6 +241,8 @@ export const UnifiedProgressProvider = ({ children }) => {
           reconnection: true,
           reconnectionAttempts: 5,
           reconnectionDelay: 1000,
+          reconnectionDelayMax: 10000,
+          timeout: 10000,
           upgrade: true,
           rememberUpgrade: true,
         });
@@ -245,32 +250,32 @@ export const UnifiedProgressProvider = ({ children }) => {
         socketRef.current = socket;
 
         socket.on("connect", async () => {
-          console.log("UnifiedProgressContext: Connected to SocketIO");
+          // console.log("UnifiedProgressContext: Connected to SocketIO");
           setConnectionState('connected');
 
           // CRITICAL: Fetch and restore active processes from backend
           try {
             const jobCount = await fetchActiveJobs();
-            console.log(`UnifiedProgressContext: Restored ${jobCount} active jobs from server`);
+            // console.log(`UnifiedProgressContext: Restored ${jobCount} active jobs from server`);
           } catch (error) {
             console.error("UnifiedProgressContext: Failed to restore active jobs on connect:", error);
           }
 
           // Subscribe to global progress updates
           socket.emit("subscribe", { job_id: "global_progress" });
-          console.log("UnifiedProgressContext: Subscribed to global_progress room");
+          // console.log("UnifiedProgressContext: Subscribed to global_progress room");
         });
 
         socket.on("job_progress", (data) => {
           try {
             // Enhanced logging for debugging progress updates
-            console.log("UnifiedProgressContext: Received job_progress event:", {
-              job_id: data?.job_id,
-              status: data?.status,
-              progress: data?.progress,
-              process_type: data?.process_type,
-              message: data?.message?.substring(0, 50) + '...'
-            });
+            // console.log("UnifiedProgressContext: Received job_progress event:", {
+            //   job_id: data?.job_id,
+            //   status: data?.status,
+            //   progress: data?.progress,
+            //   process_type: data?.process_type,
+            //   message: data?.message?.substring(0, 50) + '...'
+            // });
 
             // Validate data structure
             if (!data || !data.job_id) {
@@ -285,7 +290,7 @@ export const UnifiedProgressProvider = ({ children }) => {
         });
 
         socket.on("disconnect", () => {
-          console.log("UnifiedProgressContext: Disconnected from SocketIO");
+          // console.log("UnifiedProgressContext: Disconnected from SocketIO");
           setConnectionState('disconnected');
 
           // BUG FIX: Removed manual reconnection - Socket.IO's native reconnection
@@ -295,17 +300,17 @@ export const UnifiedProgressProvider = ({ children }) => {
 
         // BUG FIX: Handle reconnection to re-subscribe and sync state
         socket.on("reconnect", async () => {
-          console.log("UnifiedProgressContext: Reconnected to SocketIO");
+          // console.log("UnifiedProgressContext: Reconnected to SocketIO");
           setConnectionState('connected');
 
           // Re-subscribe to global progress updates
           socket.emit("subscribe", { job_id: "global_progress" });
-          console.log("UnifiedProgressContext: Re-subscribed to global_progress room after reconnect");
+          // console.log("UnifiedProgressContext: Re-subscribed to global_progress room after reconnect");
 
           // Sync current jobs after reconnection
           try {
             const jobCount = await fetchActiveJobs();
-            console.log(`UnifiedProgressContext: Restored ${jobCount} jobs after reconnect`);
+            // console.log(`UnifiedProgressContext: Restored ${jobCount} jobs after reconnect`);
           } catch (error) {
             console.error("UnifiedProgressContext: Failed to restore jobs after reconnect:", error);
           }
@@ -318,16 +323,16 @@ export const UnifiedProgressProvider = ({ children }) => {
 
         // Uncle Claude and Self-Improvement events
         socket.on("self_improvement:started", (data) => {
-          console.log("Self-improvement run started:", data);
+          // console.log("Self-improvement run started:", data);
         });
         socket.on("self_improvement:completed", (data) => {
-          console.log("Self-improvement run completed:", data);
+          // console.log("Self-improvement run completed:", data);
         });
         socket.on("uncle:directive", (data) => {
-          console.warn("Uncle Claude directive received:", data.directive, data.reason);
+          // console.warn("Uncle Claude directive received:", data.directive, data.reason);
         });
         socket.on("family:learning", (data) => {
-          console.log("Family learning received:", data);
+          // console.log("Family learning received:", data);
         });
       } catch (error) {
         console.error(
@@ -377,16 +382,13 @@ export const UnifiedProgressProvider = ({ children }) => {
       const { job_id, progress, message, status, process_type, generated_count, target_count, ...remainingData } = data;
 
       // Enhanced logging for debugging progress updates
-      if (status === "start" || status === "complete" || status === "error" || progress % 25 === 0) {
-        console.log("UnifiedProgressContext: Progress update:", {
-          job_id,
-          status,
-          progress,
-          process_type,
-          message: message?.substring(0, 50) + '...',
-          activeProcesses: activeProcesses.size,
-        });
-      }
+      // if (status === "start" || status === "complete" || status === "error" || progress % 25 === 0) {
+      //   console.log("UnifiedProgressContext: Progress update:", {
+      //     job_id, status, progress, process_type,
+      //     message: message?.substring(0, 50) + '...',
+      //     activeProcesses: activeProcesses.size,
+      //   });
+      // }
 
       // Clear any existing timeout for this process
       if (processTimeoutRef.current.has(job_id)) {
@@ -438,7 +440,7 @@ export const UnifiedProgressProvider = ({ children }) => {
         // Clear any existing timeout to prevent race conditions
         const existingTimeout = processTimeoutRef.current.get(job_id);
         if (existingTimeout) {
-          console.log(`UnifiedProgressContext: Clearing existing timeout for ${job_id}`);
+          // console.log(`UnifiedProgressContext: Clearing existing timeout for ${job_id}`);
           clearTimeout(existingTimeout);
         }
 
@@ -446,20 +448,20 @@ export const UnifiedProgressProvider = ({ children }) => {
         // This prevents ProgressFooterBar from getting stuck because globalProgress.active
         // stays true while completed processes linger in activeProcesses
         const timeout = setTimeout(() => {
-          console.log(`UnifiedProgressContext: Removing completed process: ${job_id}`);
+          // console.log(`UnifiedProgressContext: Removing completed process: ${job_id}`);
           dispatch({ type: ACTIONS.REMOVE_PROCESS, payload: { job_id } });
           processTimeoutRef.current.delete(job_id);
         }, 500);
 
         processTimeoutRef.current.set(job_id, timeout);
 
-        console.log(`UnifiedProgressContext: Process ${job_id} marked as ${status}`);
+        // console.log(`UnifiedProgressContext: Process ${job_id} marked as ${status}`);
       } else {
         // Add or update active process
         dispatch({ type: ACTIONS.UPDATE_PROCESS, payload: processData });
         // Only log progress updates for significant milestones
         if (progress === 0 || progress === 100 || progress % 25 === 0) {
-          console.log(`UnifiedProgressContext: Process ${job_id} progress: ${progress}% (${status})`);
+          // console.log(`UnifiedProgressContext: Process ${job_id} progress: ${progress}% (${status})`);
         }
       }
 
@@ -569,7 +571,7 @@ export const UnifiedProgressProvider = ({ children }) => {
       });
 
       if (cleanedCount > 0) {
-        console.log(`🧹 Cleaned up ${cleanedCount} old progress processes`);
+        // console.log(`🧹 Cleaned up ${cleanedCount} old progress processes`);
         dispatch({ type: ACTIONS.CLEAR_OLD_PROCESSES });
       }
     }, 60000); // Check every 60 seconds
@@ -584,19 +586,19 @@ export const UnifiedProgressProvider = ({ children }) => {
   useEffect(() => {
     // Only run periodic sync if connected
     if (connectionState !== 'connected') {
-      console.log('UnifiedProgressContext: Skipping periodic sync - not connected');
+      // console.log('UnifiedProgressContext: Skipping periodic sync - not connected');
       return;
     }
 
-    console.log('UnifiedProgressContext: Starting periodic sync (30s interval)');
+    // console.log('UnifiedProgressContext: Starting periodic sync (30s interval)');
 
     const syncInterval = setInterval(async () => {
       try {
-        console.log('UnifiedProgressContext: Running periodic sync...');
+        // console.log('UnifiedProgressContext: Running periodic sync...');
         const jobCount = await fetchActiveJobs();
 
         if (jobCount > 0) {
-          console.log(`UnifiedProgressContext: Periodic sync restored/updated ${jobCount} jobs`);
+          // console.log(`UnifiedProgressContext: Periodic sync restored/updated ${jobCount} jobs`);
         }
       } catch (error) {
         console.error('UnifiedProgressContext: Periodic sync error:', error);
@@ -604,7 +606,7 @@ export const UnifiedProgressProvider = ({ children }) => {
     }, 30000); // 30 seconds
 
     const cleanup = () => {
-      console.log('UnifiedProgressContext: Stopping periodic sync');
+      // console.log('UnifiedProgressContext: Stopping periodic sync');
       clearInterval(syncInterval);
     };
     cleanupRef.current.add(cleanup);

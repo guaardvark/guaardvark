@@ -25,7 +25,6 @@ import {
   DialogActions,
   Button,
   TextField,
-  CircularProgress,
   Snackbar,
   Alert as MuiAlert,
   useTheme,
@@ -36,18 +35,20 @@ import {
   ViewList as ViewListIcon,
   BrokenImage as BrokenImageIcon,
   MovieCreation as VideoIcon,
+  FolderOutlined,
 } from '@mui/icons-material';
-import { Folder } from 'lucide-react';
 import { GuaardvarkLogo } from "../components/branding";
 import ReactGridLayoutLib, { WidthProvider } from 'react-grid-layout';
 import BatchImageGeneratorPage from './BatchImageGeneratorPage';
 import FolderWindowWrapper from '../components/documents/FolderWindowWrapper';
+import BreadcrumbNav from '../components/filesystem/BreadcrumbNav';
 import ImageThumbnailGrid from '../components/images/ImageThumbnailGrid';
 import ImagesContextMenu from '../components/images/ImagesContextMenu';
 import ImageLightbox from '../components/images/ImageLightbox';
 import PageLayout from '../components/layout/PageLayout';
 import { useLayout } from '../contexts/LayoutContext';
 import { useSnackbar } from '../components/common/SnackbarProvider';
+import { ContextualLoader } from '../components/common/LoadingStates';
 import { useStatus } from '../contexts/StatusContext';
 import axios from 'axios';
 import 'react-grid-layout/css/styles.css';
@@ -128,6 +129,9 @@ const ImagesPage = () => {
 
   // Per-window refresh
   const [folderRefreshKeys, setFolderRefreshKeys] = useState({});
+
+  // Per-window current path (for subfolder navigation within windows)
+  const [windowPaths, setWindowPaths] = useState({});
 
   // Desktop selection
   const [desktopSelectionBox, setDesktopSelectionBox] = useState(null);
@@ -1334,7 +1338,7 @@ const ImagesPage = () => {
     return (
       <PageLayout title="Images">
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
-          <CircularProgress />
+          <ContextualLoader loading message="Loading images..." showProgress={false} inline />
         </Box>
       </PageLayout>
     );
@@ -1460,10 +1464,8 @@ const ImagesPage = () => {
                           borderBottom: `1px solid ${theme.palette.divider}`,
                         }}
                       >
-                        <Folder
-                          size={22}
-                          color={windowColors[win.id] || theme.palette.primary.main}
-                          strokeWidth={1.5}
+                        <FolderOutlined
+                          sx={{ fontSize: 22, color: windowColors[win.id] || theme.palette.primary.main }}
                         />
                         <Typography variant="body2" noWrap sx={{ flex: 1 }}>
                           {win.folder.name}
@@ -1624,11 +1626,8 @@ const ImagesPage = () => {
                         sx={{ p: 2, textAlign: 'center' }}
                       >
                         <CardContent sx={{ p: 0 }}>
-                          <Folder
-                            size={48}
-                            color={windowColors[win.id] || theme.palette.primary.main}
-                            strokeWidth={1.5}
-                            style={{ marginBottom: 4 }}
+                          <FolderOutlined
+                            sx={{ fontSize: 48, color: windowColors[win.id] || theme.palette.primary.main, mb: '4px' }}
                           />
                           <Tooltip title={win.folder.name} enterDelay={600} placement="bottom">
                             <Typography variant="body2" noWrap>
@@ -1867,13 +1866,19 @@ const ImagesPage = () => {
                           onDragOver={(e) => e.preventDefault()}
                           {...layoutItem}
                         >
+                          {/* Breadcrumb navigation for subfolder hierarchy */}
+                          {win.state !== 'minimized' && (
+                            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                              <BreadcrumbNav
+                                currentPath={windowPaths[win.id] || win.folder.path}
+                                onNavigate={(path) => setWindowPaths(prev => ({ ...prev, [win.id]: path }))}
+                              />
+                            </Box>
+                          )}
                           <ImageThumbnailGrid
                             folder={win.folder}
-                            currentPath={win.folder.path}
-                            onNavigateToPath={(path) => {
-                              // Navigate to subfolder by opening it as a new window
-                              // or by changing the current window's path
-                            }}
+                            currentPath={windowPaths[win.id] || win.folder.path}
+                            onNavigateToPath={(path) => setWindowPaths(prev => ({ ...prev, [win.id]: path }))}
                             viewMode={desktopViewMode === 'list' ? 'list' : 'grid'}
                             selectedItems={selectedItems}
                             onSelectionChange={handleSelectionChange}
@@ -1949,10 +1954,15 @@ const ImagesPage = () => {
         <ImageLightbox
           imageUrl={lightbox.url}
           imageName={lightbox.name}
+          documentId={lightbox.fileList[lightbox.fileIndex]?.id}
           onClose={() => setLightbox(null)}
           onPrev={handleLightboxPrev}
           onNext={handleLightboxNext}
           onDownload={handleLightboxDownload}
+          onImageEdited={() => {
+            setLightbox(null);
+            refreshData();
+          }}
           hasPrev={lightbox.fileIndex > 0}
           hasNext={lightbox.fileIndex < lightbox.fileList.length - 1}
         />

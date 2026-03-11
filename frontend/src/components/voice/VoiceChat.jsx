@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import { 
-  Box, 
-  Paper, 
-  Typography, 
-  Button, 
-  IconButton, 
+import {
+  Box,
+  Paper,
+  Typography,
+  Button,
+  IconButton,
   Chip,
   Alert,
   CircularProgress,
   Divider
 } from '@mui/material';
-import { 
-  Mic as MicIcon, 
+import {
+  Mic as MicIcon,
   MicOff as MicOffIcon,
   Send as SendIcon,
   Cancel as CancelIcon,
@@ -21,6 +21,7 @@ import {
 } from '@mui/icons-material';
 import voiceService from '../../api/voiceService';
 import { BACKEND_URL } from '../../api/apiClient';
+import { useUnifiedProgress } from '../../contexts/UnifiedProgressContext';
 import AudioVisualizer from './AudioVisualizer';
 import VolumeMeter from './VolumeMeter';
 import VoiceSettingsModal from './VoiceSettingsModal';
@@ -70,6 +71,10 @@ const VoiceChat = ({
   const processingTimeoutRef = useRef(null);
   const volumeMonitoringRef = useRef(null);
   const durationTimerRef = useRef(null);
+  const streamedResponseRef = useRef('');
+
+  // Access shared SocketIO connection for streaming LLM responses
+  const { socketRef, connectionState } = useUnifiedProgress();
   const startTimeRef = useRef(null);
 
   useEffect(() => {
@@ -218,6 +223,27 @@ const VoiceChat = ({
     };
   }, [isRecording, recordingVolume, voiceSettings.autoSendEnabled, voiceSettings.autoSendDelay]);
 
+  // Clean markdown for TTS
+  const cleanTextForTTS = useCallback((text) => {
+    return text
+      .replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1')
+      .replace(/_{1,3}([^_]+)_{1,3}/g, '$1')
+      .replace(/#{1,6}\s*([^\n]+)/g, '$1')
+      .replace(/```[^`]*```/g, '')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/<[^>]*>/g, '')
+      .replace(/\s+/g, ' ')
+      .replace(/[•\-\*]\s*/g, '')
+      .replace(/\n\s*\n/g, '. ')
+      .replace(/\n/g, ', ')
+      .replace(/\s*\.\s*\.\s*\./g, '. ')
+      .replace(/[!]{2,}/g, '!')
+      .replace(/[?]{2,}/g, '?')
+      .trim()
+      .replace(/([^.!?])\s*$/, '$1.');
+  }, []);
+
   const handleVoiceStream = useCallback(async (audioBlob) => {
     try {
       setIsProcessing(true);
@@ -231,96 +257,142 @@ const VoiceChat = ({
         console.warn('VoiceChat: Very small audio file detected, may be silent');
       }
 
-      console.log('VoiceChat: Processing audio blob', {
-        size: audioBlob.size,
-        type: audioBlob.type,
-        duration: duration,
-        recordingVolume: recordingVolume || 0
-      });
-
       const maxVolume = recordingVolume || 0;
       if (maxVolume < 0.01) {
         console.warn('VoiceChat: No significant volume detected during recording');
       }
 
+      // Step 1: Send audio for transcription — backend returns immediately,
+      // then dispatches LLM response via SocketIO streaming
       const result = await voiceService.streamVoiceChat(audioBlob, sessionId);
-      
-      setProcessingStage('Processing response...');
-      
-      const newEntry = {
-        id: Date.now(),
-        timestamp: new Date().toISOString(),
-        userAudio: audioBlob,
-        transcription: result.transcribed_text,
-        llmResponse: result.llm_response,
-        audioUrl: result.audio_url ? `${BACKEND_URL}${result.audio_url}` : null,
-      };
 
-      setConversationHistory(prev => [...prev, newEntry]);
       setLastTranscription(result.transcribed_text);
-      setLastResponse(result.llm_response);
+      setLastResponse('');
+      streamedResponseRef.current = '';
 
-      let audioUrl = null;
-      
-      if (result.audio_url) {
-        audioUrl = `${BACKEND_URL}${result.audio_url}`;
-        console.log('VoiceChat: Using backend-provided audio URL:', audioUrl);
-      } else if (result.tts_handled_by === 'frontend' && result.llm_response) {
-        console.log('VoiceChat: Backend expects frontend TTS, generating audio...');
-        setProcessingStage('Generating speech...');
-        
-        try {
-          const cleanedResponse = result.llm_response
-            .replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1')
-            .replace(/_{1,3}([^_]+)_{1,3}/g, '$1')
-            .replace(/#{1,6}\s*([^\n]+)/g, '$1')
-            .replace(/```[^`]*```/g, '')
-            .replace(/`([^`]+)`/g, '$1')
-            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-            .replace(/<[^>]*>/g, '')
-            .replace(/\s+/g, ' ')
-            .replace(/[•\-\*]\s*/g, '')
-            .replace(/\n\s*\n/g, '. ')
-            .replace(/\n/g, ', ')
-            .replace(/\s*\.\s*\.\s*\./g, '. ')
-            .replace(/[!]{2,}/g, '!')
-            .replace(/[?]{2,}/g, '?')
-            .trim()
-            .replace(/([^.!?])\s*$/, '$1.');
-          
-          console.log('VoiceChat: Cleaning text for TTS - Original:', result.llm_response.substring(0, 100) + '...');
-          console.log('VoiceChat: Cleaned text:', cleanedResponse.substring(0, 100) + '...');
-          
-          const ttsResult = await voiceService.textToSpeech(cleanedResponse, voiceSettings.voice);
-          if (ttsResult.audio_url) {
-            audioUrl = `${BACKEND_URL}${ttsResult.audio_url}`;
-            console.log('VoiceChat: Frontend TTS generated audio URL:', audioUrl);
-          } else {
-            console.warn('VoiceChat: TTS API did not return audio URL');
+      // Step 2: If backend signals streaming, listen for SocketIO tokens
+      const socket = socketRef?.current;
+      if (result.streaming && socket?.connected) {
+        setProcessingStage('Generating response...');
+
+        // Join the session room so we receive events
+        socket.emit('chat:join', { session_id: sessionId });
+
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            cleanup();
+            reject(new Error('LLM response timed out after 180 seconds'));
+          }, 180000);
+
+          const onToken = (data) => {
+            if (data.session_id !== sessionId) return;
+            streamedResponseRef.current += (data.content || '');
+            setLastResponse(streamedResponseRef.current);
+          };
+
+          const onComplete = async (data) => {
+            if (data.session_id !== sessionId) return;
+            cleanup();
+
+            const fullResponse = data.response || streamedResponseRef.current;
+            setLastResponse(fullResponse);
+
+            // Update conversation history
+            setConversationHistory(prev => [...prev, {
+              id: Date.now(),
+              timestamp: new Date().toISOString(),
+              userAudio: audioBlob,
+              transcription: result.transcribed_text,
+              llmResponse: fullResponse,
+              audioUrl: null,
+            }]);
+
+            // TTS on complete response
+            let audioUrl = null;
+            if (fullResponse) {
+              setProcessingStage('Generating speech...');
+              try {
+                const cleaned = cleanTextForTTS(fullResponse);
+                const ttsResult = await voiceService.textToSpeech(cleaned, voiceSettings.voice);
+                if (ttsResult.audio_url) {
+                  audioUrl = `${BACKEND_URL}${ttsResult.audio_url}`;
+                }
+              } catch (ttsError) {
+                console.error('VoiceChat: TTS failed:', ttsError);
+              }
+            }
+
+            if (audioUrl) {
+              setCurrentAudioUrl(audioUrl);
+              await playResponseAudio(audioUrl);
+            }
+
+            onMessageReceived({
+              transcription: result.transcribed_text,
+              response: fullResponse,
+              audioUrl,
+            });
+
+            resolve();
+          };
+
+          const onError = (data) => {
+            if (data.session_id !== sessionId) return;
+            cleanup();
+            reject(new Error(data.error || 'LLM streaming error'));
+          };
+
+          const cleanup = () => {
+            clearTimeout(timeout);
+            socket.off('chat:token', onToken);
+            socket.off('chat:complete', onComplete);
+            socket.off('chat:error', onError);
+          };
+
+          socket.on('chat:token', onToken);
+          socket.on('chat:complete', onComplete);
+          socket.on('chat:error', onError);
+        });
+
+      } else {
+        // Fallback: no streaming — response came in HTTP (legacy path)
+        const llmResponse = result.llm_response || '';
+        setLastResponse(llmResponse);
+
+        setConversationHistory(prev => [...prev, {
+          id: Date.now(),
+          timestamp: new Date().toISOString(),
+          userAudio: audioBlob,
+          transcription: result.transcribed_text,
+          llmResponse,
+          audioUrl: null,
+        }]);
+
+        if (llmResponse) {
+          setProcessingStage('Generating speech...');
+          try {
+            const cleaned = cleanTextForTTS(llmResponse);
+            const ttsResult = await voiceService.textToSpeech(cleaned, voiceSettings.voice);
+            if (ttsResult.audio_url) {
+              const audioUrl = `${BACKEND_URL}${ttsResult.audio_url}`;
+              setCurrentAudioUrl(audioUrl);
+              await playResponseAudio(audioUrl);
+            }
+          } catch (ttsError) {
+            console.error('VoiceChat: TTS failed:', ttsError);
           }
-        } catch (ttsError) {
-          console.error('VoiceChat: Frontend TTS failed:', ttsError);
         }
-      } else {
-        console.warn('VoiceChat: No audio URL provided and no TTS handling specified');
-      }
 
-      if (audioUrl) {
-        setCurrentAudioUrl(audioUrl);
-        await playResponseAudio(audioUrl);
-      } else {
-        console.log('VoiceChat: No audio to play - response available as text only');
+        onMessageReceived({
+          transcription: result.transcribed_text,
+          response: llmResponse,
+          audioUrl: null,
+        });
       }
-
-      onMessageReceived({
-        transcription: result.transcribed_text,
-        response: result.llm_response,
-        audioUrl: audioUrl,
-      });
 
     } catch (error) {
       console.error('Voice stream error:', error);
-      
+
       if (error.message && error.message.includes('No speech detected')) {
         const enhancedError = new Error(
           'No speech detected in recording. Please try:\n' +
@@ -339,7 +411,7 @@ const VoiceChat = ({
       setIsProcessing(false);
       setProcessingStage('');
     }
-  }, [sessionId, onMessageReceived, onError, voiceSettings.voice]);
+  }, [sessionId, socketRef, onMessageReceived, onError, voiceSettings.voice, cleanTextForTTS]);
 
   const playResponseAudio = async (audioUrl) => {
     try {

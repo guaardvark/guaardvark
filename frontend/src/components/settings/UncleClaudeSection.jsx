@@ -4,15 +4,12 @@ import {
   Typography,
   Switch,
   Button,
-  Chip,
   LinearProgress,
   Select,
   MenuItem,
   FormControl,
-  InputLabel,
   Alert,
   CircularProgress,
-  Divider,
   Stack,
   Tooltip,
 } from "@mui/material";
@@ -22,10 +19,10 @@ import {
   Lock as LockIcon,
   LockOpen as LockOpenIcon,
   PlayArrow as PlayIcon,
-  CheckCircle as CheckIcon,
-  Error as ErrorIcon,
-  Warning as WarningIcon,
 } from "@mui/icons-material";
+import SettingsSection from "./SettingsSection";
+import SettingsRow from "./SettingsRow";
+import { StatusChip, UNCLE_GOLD } from "../../utils/familyColors";
 import { claudeAdvisorService } from "../../api/claudeAdvisorService";
 import { selfImprovementService } from "../../api/selfImprovementService";
 
@@ -38,12 +35,12 @@ export default function UncleClaudeSection() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const [claudeRes, siRes] = await Promise.all([
+      const [claudeRes, siRes] = await Promise.allSettled([
         claudeAdvisorService.getStatus(),
         selfImprovementService.getStatus(),
       ]);
-      setStatus(claudeRes?.data);
-      setSiStatus(siRes?.data);
+      if (claudeRes.status === "fulfilled") setStatus(claudeRes.value?.data);
+      if (siRes.status === "fulfilled") setSiStatus(siRes.value?.data);
     } catch (err) {
       console.error("Failed to fetch Uncle Claude status:", err);
     } finally {
@@ -79,8 +76,7 @@ export default function UncleClaudeSection() {
 
   const handleToggleSelfImprovement = async () => {
     try {
-      const newEnabled = !(siStatus?.enabled);
-      await selfImprovementService.toggle(newEnabled);
+      await selfImprovementService.toggle(!siStatus?.enabled);
       fetchStatus();
     } catch (err) {
       console.error("Failed to toggle self-improvement:", err);
@@ -89,8 +85,7 @@ export default function UncleClaudeSection() {
 
   const handleToggleCodebaseLock = async () => {
     try {
-      const newLocked = !(siStatus?.codebase_locked);
-      await selfImprovementService.lockCodebase(newLocked);
+      await selfImprovementService.lockCodebase(!siStatus?.codebase_locked);
       fetchStatus();
     } catch (err) {
       console.error("Failed to toggle codebase lock:", err);
@@ -119,132 +114,142 @@ export default function UncleClaudeSection() {
 
   return (
     <Box sx={{ mt: 3 }}>
-      <Divider sx={{ mb: 2 }} />
-      <Typography variant="h6" sx={{ mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
-        <PsychologyIcon /> Uncle Claude (Mentor API)
-      </Typography>
+      <SettingsSection title="UNCLE CLAUDE (MENTOR API)">
+        {/* Connection Status */}
+        <SettingsRow label="Connection" icon={<PsychologyIcon />}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <StatusChip
+              source="uncle_claude"
+              status={status?.available ? "connected" : "offline"}
+              label={status?.available ? "Connected" : "Offline"}
+            />
+            {status?.model && (
+              <Typography variant="caption" color="text.secondary">
+                {status.model}
+              </Typography>
+            )}
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={handleTestConnection}
+              disabled={testing}
+              startIcon={testing ? <CircularProgress size={14} /> : <PlayIcon />}
+              sx={{ ml: 1 }}
+            >
+              Test
+            </Button>
+          </Stack>
+        </SettingsRow>
 
-      {/* Connection Status */}
-      <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
-        <Chip
-          label={status?.available ? "Connected" : "Offline"}
-          color={status?.available ? "success" : "default"}
-          size="small"
-          icon={status?.available ? <CheckIcon /> : <ErrorIcon />}
-        />
-        {status?.model && (
-          <Typography variant="body2" color="text.secondary">
-            Model: {status.model}
-          </Typography>
+        {testResult && (
+          <Alert
+            severity={testResult.success ? "success" : "error"}
+            sx={{ my: 1 }}
+            onClose={() => setTestResult(null)}
+          >
+            {testResult.message}
+          </Alert>
         )}
-        <Button
-          size="small"
-          variant="outlined"
-          onClick={handleTestConnection}
-          disabled={testing}
-          startIcon={testing ? <CircularProgress size={16} /> : <PlayIcon />}
-        >
-          Test Connection
-        </Button>
-      </Stack>
 
-      {testResult && (
-        <Alert severity={testResult.success ? "success" : "error"} sx={{ mb: 2 }} onClose={() => setTestResult(null)}>
-          {testResult.message}
-        </Alert>
-      )}
+        {/* Token Budget */}
+        <SettingsRow label="Token Budget" stacked>
+          <Box>
+            <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
+              <Typography variant="caption">
+                {(usage.total_tokens || 0).toLocaleString()} / {(usage.monthly_budget || 0).toLocaleString()}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {budgetPercent}% used
+              </Typography>
+            </Stack>
+            <LinearProgress
+              variant="determinate"
+              value={Math.min(budgetPercent, 100)}
+              sx={{
+                height: 6,
+                borderRadius: 3,
+                bgcolor: "action.hover",
+                "& .MuiLinearProgress-bar": {
+                  bgcolor: budgetPercent > 80 ? "error.main" : budgetPercent > 50 ? "warning.main" : UNCLE_GOLD,
+                },
+              }}
+            />
+          </Box>
+        </SettingsRow>
 
-      {/* Token Budget */}
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="body2" gutterBottom>
-          Token Budget: {(usage.total_tokens || 0).toLocaleString()} / {(usage.monthly_budget || 0).toLocaleString()}
-        </Typography>
-        <LinearProgress
-          variant="determinate"
-          value={Math.min(budgetPercent, 100)}
-          color={budgetPercent > 80 ? "error" : budgetPercent > 50 ? "warning" : "primary"}
-          sx={{ height: 8, borderRadius: 4 }}
-        />
-        <Typography variant="caption" color="text.secondary">
-          {budgetPercent}% used this month
-        </Typography>
-      </Box>
+        {/* Escalation Mode */}
+        <SettingsRow label="Escalation Mode">
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <Select
+              value={status?.escalation_mode || "manual"}
+              onChange={handleEscalationModeChange}
+            >
+              <MenuItem value="manual">Manual (user triggers)</MenuItem>
+              <MenuItem value="smart">Smart (auto when local fails)</MenuItem>
+              <MenuItem value="always">Always (every query)</MenuItem>
+            </Select>
+          </FormControl>
+        </SettingsRow>
+      </SettingsSection>
 
-      {/* Escalation Mode */}
-      <FormControl size="small" sx={{ mb: 2, minWidth: 200 }}>
-        <InputLabel>Escalation Mode</InputLabel>
-        <Select
-          value={status?.escalation_mode || "manual"}
-          label="Escalation Mode"
-          onChange={handleEscalationModeChange}
-        >
-          <MenuItem value="manual">Manual (user triggers)</MenuItem>
-          <MenuItem value="smart">Smart (auto when local fails)</MenuItem>
-          <MenuItem value="always">Always (every query)</MenuItem>
-        </Select>
-      </FormControl>
-
-      <Divider sx={{ my: 2 }} />
-
-      {/* Self-Improvement Controls */}
-      <Typography variant="subtitle1" sx={{ mb: 1, display: "flex", alignItems: "center", gap: 1 }}>
-        <ShieldIcon /> Self-Improvement & Kill Switch
-      </Typography>
-
-      <Stack spacing={1.5}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between">
-          <Typography variant="body2">Self-Improvement</Typography>
+      <SettingsSection title="SELF-IMPROVEMENT & KILL SWITCH" sx={{ mt: 3 }}>
+        {/* Self-Improvement Toggle */}
+        <SettingsRow label="Self-Improvement" icon={<ShieldIcon />}>
           <Switch
             checked={siStatus?.enabled || false}
             onChange={handleToggleSelfImprovement}
             color="primary"
           />
-        </Stack>
+        </SettingsRow>
 
-        <Stack direction="row" alignItems="center" justifyContent="space-between">
-          <Stack direction="row" alignItems="center" spacing={1}>
-            {siStatus?.codebase_locked ? <LockIcon color="error" /> : <LockOpenIcon color="success" />}
-            <Typography variant="body2">
-              Codebase {siStatus?.codebase_locked ? "Locked" : "Unlocked"}
-            </Typography>
+        {/* Codebase Lock */}
+        <SettingsRow label="Codebase Protection">
+          <Stack direction="row" spacing={1} alignItems="center">
+            <StatusChip
+              source="nephew"
+              status={siStatus?.codebase_locked ? "locked" : "enabled"}
+              label={siStatus?.codebase_locked ? "Locked" : "Unlocked"}
+            />
+            <Tooltip title={siStatus?.codebase_locked ? "Unlock to allow autonomous edits" : "Lock to prevent autonomous edits"}>
+              <Button
+                size="small"
+                variant={siStatus?.codebase_locked ? "contained" : "outlined"}
+                color={siStatus?.codebase_locked ? "error" : "primary"}
+                onClick={handleToggleCodebaseLock}
+                startIcon={siStatus?.codebase_locked ? <LockOpenIcon /> : <LockIcon />}
+              >
+                {siStatus?.codebase_locked ? "Unlock" : "Lock"}
+              </Button>
+            </Tooltip>
           </Stack>
-          <Tooltip title={siStatus?.codebase_locked ? "Unlock codebase to allow autonomous edits" : "Lock codebase to prevent autonomous edits"}>
+        </SettingsRow>
+
+        {/* Trigger Self-Check */}
+        <SettingsRow
+          label={
+            siStatus?.last_run
+              ? `Last run: ${new Date(siStatus.last_run.timestamp).toLocaleString()} (${siStatus.last_run.status}) | Fixes: ${siStatus.total_fixes || 0}`
+              : "No runs yet"
+          }
+        >
+          {siStatus?.enabled && !siStatus?.codebase_locked && (
             <Button
               size="small"
-              variant={siStatus?.codebase_locked ? "contained" : "outlined"}
-              color={siStatus?.codebase_locked ? "error" : "primary"}
-              onClick={handleToggleCodebaseLock}
-              startIcon={siStatus?.codebase_locked ? <LockOpenIcon /> : <LockIcon />}
+              variant="outlined"
+              onClick={handleTriggerRun}
+              startIcon={<PlayIcon />}
             >
-              {siStatus?.codebase_locked ? "Unlock" : "Lock"}
+              Run Self-Check
             </Button>
-          </Tooltip>
-        </Stack>
+          )}
+        </SettingsRow>
+      </SettingsSection>
 
-        {siStatus?.enabled && !siStatus?.codebase_locked && (
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={handleTriggerRun}
-            startIcon={<PlayIcon />}
-          >
-            Trigger Self-Check Now
-          </Button>
-        )}
-
-        {siStatus?.last_run && (
-          <Typography variant="caption" color="text.secondary">
-            Last run: {new Date(siStatus.last_run.timestamp).toLocaleString()}
-            ({siStatus.last_run.status}) | Total fixes: {siStatus.total_fixes || 0}
-          </Typography>
-        )}
-
-        {siStatus?.codebase_locked && (
-          <Alert severity="warning" variant="outlined" sx={{ mt: 1 }}>
-            Codebase is locked. Autonomous edits are blocked. Use Settings or remove data/.codebase_lock to unlock.
-          </Alert>
-        )}
-      </Stack>
+      {siStatus?.codebase_locked && (
+        <Alert severity="warning" variant="outlined" sx={{ mt: 2 }}>
+          Codebase is locked. Autonomous edits are blocked.
+        </Alert>
+      )}
     </Box>
   );
 }

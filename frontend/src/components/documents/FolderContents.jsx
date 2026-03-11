@@ -23,7 +23,7 @@ import { Folder, Code } from 'lucide-react';
 import axios from 'axios';
 import { TableVirtuoso, VirtuosoGrid } from 'react-virtuoso';
 import { useSnackbar } from '../common/SnackbarProvider';
-import { API_BASE, getFileIcon, getFileIconSmall, formatBytes, formatDate, getItemKey } from './fileUtils.jsx';
+import { API_BASE, getFileIcon, getFileIconSmall, FolderIndexIndicator, formatBytes, formatDate, getItemKey } from './fileUtils.jsx';
 
 // Stable grid components (must be defined outside render to avoid Virtuoso remounts)
 const GridItemWrapper = React.forwardRef(({ children, ...props }, ref) => (
@@ -54,6 +54,7 @@ const FolderContents = ({
   onDrop,
   onFocusContext,
   refreshKey = 0, // Refresh trigger - incrementing this will refresh contents
+  folderColors = {}, // Folder ID → color map for nested color coding
 }) => {
   const theme = useTheme();
   const { showMessage } = useSnackbar();
@@ -637,13 +638,16 @@ const FolderContents = ({
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     {isFolder ? (
-                      <Folder
-                        size={20}
-                        color={isSelected ? theme.palette.primary.main : theme.palette.action.active}
-                        strokeWidth={1.5}
-                      />
+                      <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+                        <Folder
+                          size={20}
+                          color={isSelected ? theme.palette.primary.main : (folderColors[item.id] || theme.palette.action.active)}
+                          strokeWidth={1.5}
+                        />
+                        <FolderIndexIndicator item={item} theme={theme} size={5} />
+                      </Box>
                     ) : (
-                      getFileIconSmall(item.filename, isSelected, theme, item.index_status)
+                      getFileIconSmall(item.filename, isSelected, theme, item.index_status, item.path)
                     )}
                     <Typography variant="body2" noWrap sx={{ flex: 1 }}>
                       {isFolder ? item.name : item.filename}
@@ -792,11 +796,14 @@ const FolderContents = ({
                 <CardContent sx={{ textAlign: 'center', p: 1 }}>
                   {isFolder ? (
                     <>
-                      <Folder
-                        size={48}
-                        color={isSelected ? theme.palette.primary.main : theme.palette.action.active}
-                        strokeWidth={1.5}
-                      />
+                      <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+                        <Folder
+                          size={48}
+                          color={isSelected ? theme.palette.primary.main : (folderColors[item.id] || theme.palette.action.active)}
+                          strokeWidth={1.5}
+                        />
+                        <FolderIndexIndicator item={item} theme={theme} />
+                      </Box>
                       {item.is_repository && (
                         <Box sx={{ position: 'absolute', top: 8, right: 8 }}>
                           <Tooltip title="Code Repository">
@@ -825,7 +832,7 @@ const FolderContents = ({
                     </>
                   ) : (
                     <>
-                      {getFileIcon(item.filename, isSelected, theme, 48, item.index_status)}
+                      {getFileIcon(item.filename, isSelected, theme, 48, item.index_status, item.path)}
                       <Tooltip title={item.filename}>
                         <Typography
                           variant="body2"

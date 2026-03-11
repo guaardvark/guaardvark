@@ -1,4 +1,0 @@
-[     640ms] [ERROR] Failed to load resource: the server responded with a status of 404 (NOT FOUND) @ http://localhost:5175/api/state/folders:0
-[     641ms] [ERROR] Failed to load resource: the server responded with a status of 404 (NOT FOUND) @ http://localhost:5175/api/state/folders:0
-[    5792ms] [WARNING] DUPLICATE PREVENTION: Reusing existing process: Z1IBFcoacmKu0s9yyYLPg @ http://localhost:5175/src/pages/ChatPage.jsx?t=1772867383240:85
-[   29674ms] [WARNING] Message queue dIc1c34LDRQWQYDQHf3CG not found, creating new queue @ http://localhost:5175/src/utils/resource_manager.js:350

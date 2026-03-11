@@ -43,6 +43,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import CloseIcon from "@mui/icons-material/Close";
 import ViewModuleIcon from "@mui/icons-material/ViewModule";
 import ViewListIcon from "@mui/icons-material/ViewList";
+import FolderOutlined from "@mui/icons-material/FolderOutlined";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTheme } from "@mui/material/styles";
 
@@ -57,6 +58,8 @@ import {
 import { useStatus } from "../contexts/StatusContext";
 import { getLogoUrl } from "../config/logoConfig";
 import PageLayout from "../components/layout/PageLayout";
+import EmptyState from "../components/common/EmptyState";
+import { ContextualLoader } from "../components/common/LoadingStates";
 
 const AlertSnackbar = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
@@ -392,13 +395,15 @@ function ProjectsPage() {
           </MuiAlert>
         )}
         {isLoading && (
-          <CircularProgress sx={{ display: "block", margin: "auto", my: 2 }} />
+          <ContextualLoader loading message="Loading projects..." showProgress={false} inline />
         )}
 
         {!isLoading && sortedProjects.length === 0 && !error && (
-          <Typography sx={{ mt: 2, textAlign: "center", fontStyle: "italic" }}>
-            No projects found. Add one to get started!
-          </Typography>
+          <EmptyState
+            icon={<FolderOutlined />}
+            title="No projects found"
+            description="Add one to get started!"
+          />
         )}
 
         {!isLoading && sortedProjects.length > 0 && viewMode === "card" && (

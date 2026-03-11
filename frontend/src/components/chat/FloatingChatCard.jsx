@@ -23,7 +23,9 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import HearingIcon from "@mui/icons-material/Hearing";
 import Tooltip from "@mui/material/Tooltip";
 import { useFloatingChatStore } from "../../stores/useFloatingChatStore";
-import { sendChatMessage } from "../../api/chatService";
+import UnifiedChatService from "../../api/unifiedChatService";
+import StreamingMessage from "./StreamingMessage";
+import { useUnifiedProgress } from "../../contexts/UnifiedProgressContext";
 import VoiceChatButton from "../voice/VoiceChatButton";
 import ContinuousVoiceChat from "../voice/ContinuousVoiceChat";
 import { useAppStore } from "../../stores/useAppStore";
@@ -64,6 +66,27 @@ const FloatingChatCard = () => {
   const voiceSettings = useVoiceSettings();
   const wakeWordEnabled = voiceSettings.wakeWordEnabled || false;
 
+  // Unified Chat Service (Socket.IO streaming)
+  const { socketRef, connectionState } = useUnifiedProgress();
+  const [unifiedChatService, setUnifiedChatService] = useState(null);
+  const [isStreamingMessage, setIsStreamingMessage] = useState(false);
+
+  // Initialize UnifiedChatService when socket is connected
+  useEffect(() => {
+    if (connectionState !== 'connected' || !socketRef?.current) {
+      return;
+    }
+
+    const service = new UnifiedChatService(socketRef.current);
+    service.joinSession(sessionId);
+    setUnifiedChatService(service);
+
+    return () => {
+      service.cleanup();
+      setUnifiedChatService(null);
+    };
+  }, [connectionState, sessionId]);
+
   // Local state for drag/resize
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -74,7 +97,6 @@ const FloatingChatCard = () => {
   const lastClickRef = useRef(0);
   const cardRef = useRef(null);
   const messagesEndRef = useRef(null);
-  const abortControllerRef = useRef(null);
 
   // Initialize default position (bottom-right) on first render
   useEffect(() => {
@@ -104,7 +126,7 @@ const FloatingChatCard = () => {
     return prefix;
   }, [pageContext]);
 
-  // Send message handler (follows SemanticSearchCard pattern)
+  // Send message handler — uses UnifiedChatService (Socket.IO streaming)
   const handleSendMessage = useCallback(async (overrideText) => {
     const text = overrideText || inputText;
     if (!text.trim() || isSending) return;
@@ -116,66 +138,79 @@ const FloatingChatCard = () => {
       timestamp: new Date().toISOString(),
     };
     addMessage(userMessage);
-    const currentInput = text;
     if (!overrideText) setInputText("");
 
-    abortControllerRef.current = new AbortController();
     setIsSending(true);
     clearError();
 
-    const assistantId = `asst_${Date.now()}`;
-    addMessage({
-      id: assistantId,
-      role: "assistant",
-      content: "",
-      timestamp: new Date().toISOString(),
-    });
+    const contextPrefix = buildContextPrefix();
+    const messageToSend = contextPrefix + text;
 
-    try {
-      const contextPrefix = buildContextPrefix();
-      const messageToSend = contextPrefix + currentInput;
+    if (unifiedChatService) {
+      // Primary path: Socket.IO streaming via UnifiedChatService
+      setIsStreamingMessage(true);
 
-      const result = await sendChatMessage(
-        sessionId,
-        messageToSend,
-        null,
-        (delta) => {
-          updateMessage(assistantId, {
-            content:
-              (useFloatingChatStore.getState().messages.find((m) => m.id === assistantId)?.content || "") +
-              delta,
-          });
-        },
-        null,
-        abortControllerRef.current?.signal
-      );
-
-      if (result && typeof result === "object" && result.content) {
-        updateMessage(assistantId, { content: result.content });
-      }
-    } catch (err) {
-      if (err.name === "AbortError" || err.message === "Request was stopped by user") {
-        updateMessage(assistantId, { role: "system", content: "Stopped." });
-      } else {
-        const errorText = err.message?.includes("unexpected final response")
-          ? "Chat service temporarily unavailable."
-          : err.message || "Failed to send message";
-        updateMessage(assistantId, { role: "system", content: `Error: ${errorText}` });
+      try {
+        await unifiedChatService.sendMessage(sessionId, messageToSend, {
+          use_rag: true,
+        });
+      } catch (err) {
+        console.error("FloatingChat: Unified send failed:", err);
+        setIsStreamingMessage(false);
+        setIsSending(false);
+        const errorText = err.message || "Failed to send message";
+        addMessage({
+          id: `err_${Date.now()}`,
+          role: "system",
+          content: `Error: ${errorText}`,
+          timestamp: new Date().toISOString(),
+        });
         setError(errorText);
       }
-    } finally {
+    } else {
+      // Fallback: no socket connection — show error
       setIsSending(false);
-      abortControllerRef.current = null;
+      const errorText = "Chat service not connected. Please wait for connection.";
+      addMessage({
+        id: `err_${Date.now()}`,
+        role: "system",
+        content: errorText,
+        timestamp: new Date().toISOString(),
+      });
+      setError(errorText);
     }
-  }, [inputText, isSending, sessionId, buildContextPrefix, addMessage, updateMessage, setIsSending, clearError, setError]);
+  }, [inputText, isSending, sessionId, buildContextPrefix, addMessage, setIsSending, clearError, setError, unifiedChatService]);
+
+  // Handle streaming completion — add final message to store and recreate service
+  const handleStreamingComplete = useCallback((result) => {
+    setIsStreamingMessage(false);
+    setIsSending(false);
+
+    if (result.content) {
+      addMessage({
+        id: `asst_unified_${Date.now()}`,
+        role: "assistant",
+        content: result.content,
+        toolCalls: result.toolCalls || [],
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    // Recreate the service for the next message (clears old listeners)
+    if (socketRef?.current) {
+      const newService = new UnifiedChatService(socketRef.current);
+      newService.joinSession(sessionId);
+      setUnifiedChatService(newService);
+    }
+  }, [addMessage, setIsSending, sessionId, socketRef]);
 
   const handleStop = useCallback(() => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
+    if (unifiedChatService) {
+      unifiedChatService.abort(sessionId);
     }
+    setIsStreamingMessage(false);
     setIsSending(false);
-  }, [setIsSending]);
+  }, [unifiedChatService, sessionId, setIsSending]);
 
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -469,7 +504,7 @@ const FloatingChatCard = () => {
                           lineHeight: 1.5,
                         }}
                       >
-                        {msg.content || (isSending && msg.role === "assistant" ? "..." : "")}
+                        {msg.content || ""}
                       </Typography>
                     </Box>
                     <Typography
@@ -486,6 +521,18 @@ const FloatingChatCard = () => {
                   </ListItem>
                 ))}
               </List>
+
+              {/* Streaming response via Socket.IO */}
+              {isStreamingMessage && unifiedChatService && (
+                <Box sx={{ py: 0.5 }}>
+                  <StreamingMessage
+                    chatService={unifiedChatService}
+                    sessionId={sessionId}
+                    onComplete={handleStreamingComplete}
+                  />
+                </Box>
+              )}
+
               <div ref={messagesEndRef} />
             </Box>
 

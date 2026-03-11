@@ -385,7 +385,7 @@ class Task(db.Model):
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text, nullable=True)
     status = db.Column(db.String(50), default="pending", index=True)
-    priority = db.Column(db.Integer, default=5)
+    priority = db.Column(db.Integer, default=2)
 
     due_date = db.Column(db.DateTime, nullable=True)
     type = db.Column(db.String(100), nullable=True, index=True)
@@ -676,9 +676,18 @@ class Folder(db.Model):
     description = db.Column(db.Text, nullable=True)  # AI-generated architectural summary
     repo_metadata = db.Column(db.Text, nullable=True)  # JSON: languages, frameworks, key_components
 
+    # Entity links (same as Document model — allows folder-level property assignment)
+    client_id = db.Column(db.Integer, db.ForeignKey("clients.id", name="fk_folder_client_id"), nullable=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("projects.id", name="fk_folder_project_id"), nullable=True)
+    website_id = db.Column(db.Integer, db.ForeignKey("wordpress_sites.id", name="fk_folder_website_id"), nullable=True)
+    tags = db.Column(db.Text, nullable=True)  # Comma-separated tags
+    notes = db.Column(db.Text, nullable=True)
+
     # Relationships
     parent = db.relationship("Folder", remote_side=[id], backref=db.backref("subfolders", lazy="dynamic"))
     documents = db.relationship("Document", back_populates="folder", lazy="dynamic", cascade="all, delete-orphan")
+    client = db.relationship("Client", foreign_keys=[client_id])
+    project = db.relationship("Project", foreign_keys=[project_id])
 
     def to_dict(self):
         # Parse repo_metadata if present
@@ -697,10 +706,16 @@ class Folder(db.Model):
             "is_repository": self.is_repository,
             "description": self.description,
             "repo_metadata": metadata,
+            "client_id": self.client_id,
+            "project_id": self.project_id,
+            "website_id": self.website_id,
+            "tags": self.tags,
+            "notes": self.notes,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "subfolder_count": self.subfolders.count() if self.subfolders else 0,
             "document_count": self.documents.count() if self.documents else 0,
+            "indexed_document_count": sum(1 for d in self.documents if d.index_status == 'INDEXED') if self.documents else 0,
         }
 
     def to_dict_light(self):
@@ -711,10 +726,16 @@ class Folder(db.Model):
             "path": self.path,
             "parent_id": self.parent_id,
             "is_repository": self.is_repository,
+            "client_id": self.client_id,
+            "project_id": self.project_id,
+            "website_id": self.website_id,
+            "tags": self.tags,
+            "notes": self.notes,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "subfolder_count": 0,
             "document_count": 0,
+            "indexed_document_count": 0,
         }
 
     def __repr__(self):

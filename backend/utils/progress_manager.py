@@ -33,7 +33,8 @@ def _get_job_dir(progress_base_dir: str, job_id: str) -> str:
 
 def get_default_output_dir() -> str:
     """Get default output directory"""
-    return str(Path("outputs").resolve())
+    from backend.config import OUTPUT_DIR
+    return OUTPUT_DIR
 
 def start_job(
     output_dir_config: str,

@@ -47,6 +47,7 @@ import * as wordpressService from "../api/wordpressService";
 import { useSearchParams } from "react-router-dom";
 import PageLayout from "../components/layout/PageLayout";
 import DOMPurify from "dompurify";
+import { ContextualLoader } from "../components/common/LoadingStates";
 
 const AlertSnackbar = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
@@ -534,7 +535,7 @@ function WordPressPagesPage() {
 
       {isLoading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-          <CircularProgress />
+          <ContextualLoader loading message="Loading pages..." showProgress={false} inline />
         </Box>
       ) : (
         <TableContainer component={Paper}>

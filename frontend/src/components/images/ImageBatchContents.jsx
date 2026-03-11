@@ -31,11 +31,11 @@ import {
   Delete as DeleteIcon,
   DriveFileRenameOutline as RenameIcon,
   MoreVert as MoreVertIcon,
-  Close as CloseIcon,
   CheckBox as CheckBoxIcon,
   Download as DownloadIcon,
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
+import ImageLightbox from './ImageLightbox';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
@@ -97,39 +97,54 @@ const ImageBatchContents = ({ batch, onFeedback }) => {
     fetchImages();
   }, [fetchImages]);
 
-  // Lightbox
+  // Lightbox (unified with ImageLightbox component)
   const openLightbox = useCallback((image) => {
     if (!batch || !image?.imageFilename) return;
+    const idx = images.findIndex(img => img.id === image.id);
     setLightboxImage({
       url: `${API_BASE}/batch-image/image/${batch.batch_id}/${encodeFilename(image.imageFilename)}`,
-      prompt: image.prompt || '',
-      id: image.id,
+      name: image.prompt || image.imageFilename || '',
+      fileIndex: idx >= 0 ? idx : 0,
     });
-  }, [batch]);
+  }, [batch, images]);
 
   const closeLightbox = useCallback(() => setLightboxImage(null), []);
 
-  const navigateLightbox = useCallback((direction) => {
-    if (!lightboxImage || !images.length) return;
-    const idx = images.findIndex(img => img.id === lightboxImage.id);
-    if (idx === -1) return;
-    const newIdx = direction === 'next'
-      ? (idx + 1) % images.length
-      : (idx - 1 + images.length) % images.length;
-    openLightbox(images[newIdx]);
-  }, [lightboxImage, images, openLightbox]);
+  const handleLightboxPrev = useCallback(() => {
+    if (!lightboxImage || lightboxImage.fileIndex <= 0) return;
+    const newIdx = lightboxImage.fileIndex - 1;
+    const img = images[newIdx];
+    if (!img) return;
+    setLightboxImage({
+      url: `${API_BASE}/batch-image/image/${batch.batch_id}/${encodeFilename(img.imageFilename)}`,
+      name: img.prompt || img.imageFilename || '',
+      fileIndex: newIdx,
+    });
+  }, [lightboxImage, images, batch]);
 
-  // Keyboard nav for lightbox
-  useEffect(() => {
-    if (!lightboxImage) return;
-    const handler = (e) => {
-      if (e.key === 'Escape') closeLightbox();
-      else if (e.key === 'ArrowLeft') navigateLightbox('prev');
-      else if (e.key === 'ArrowRight') navigateLightbox('next');
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [lightboxImage, closeLightbox, navigateLightbox]);
+  const handleLightboxNext = useCallback(() => {
+    if (!lightboxImage || lightboxImage.fileIndex >= images.length - 1) return;
+    const newIdx = lightboxImage.fileIndex + 1;
+    const img = images[newIdx];
+    if (!img) return;
+    setLightboxImage({
+      url: `${API_BASE}/batch-image/image/${batch.batch_id}/${encodeFilename(img.imageFilename)}`,
+      name: img.prompt || img.imageFilename || '',
+      fileIndex: newIdx,
+    });
+  }, [lightboxImage, images, batch]);
+
+  const handleLightboxDownload = useCallback(() => {
+    if (!lightboxImage || !batch) return;
+    const img = images[lightboxImage.fileIndex];
+    if (!img) return;
+    const link = document.createElement('a');
+    link.href = `${API_BASE}/batch-image/image/${batch.batch_id}/${encodeFilename(img.imageFilename)}`;
+    link.download = img.imageFilename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }, [lightboxImage, images, batch]);
 
   // Selection
   const toggleSelectMode = () => {
@@ -421,57 +436,19 @@ const ImageBatchContents = ({ batch, onFeedback }) => {
         </DialogActions>
       </Dialog>
 
-      {/* Lightbox */}
-      <Dialog
-        open={!!lightboxImage}
-        onClose={closeLightbox}
-        maxWidth="lg"
-        fullWidth
-        PaperProps={{ sx: { bgcolor: 'rgba(0,0,0,0.9)', maxHeight: '95vh' } }}
-      >
-        <DialogTitle sx={{ color: 'white', pb: 1 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" sx={{ color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', mr: 2 }}>
-              {lightboxImage?.prompt || 'Image'}
-            </Typography>
-            <IconButton onClick={closeLightbox} size="small" sx={{ color: 'white' }}>
-              <CloseIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent sx={{ p: 0, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-          {lightboxImage && (
-            <>
-              <IconButton
-                onClick={() => navigateLightbox('prev')}
-                sx={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: 'white', bgcolor: 'rgba(0,0,0,0.5)', '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' }, zIndex: 2 }}
-              >
-                <Typography variant="h4">&#8249;</Typography>
-              </IconButton>
-              <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
-                <img
-                  src={lightboxImage.url}
-                  alt={lightboxImage.prompt || 'Image'}
-                  style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain' }}
-                />
-              </Box>
-              <IconButton
-                onClick={() => navigateLightbox('next')}
-                sx={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', color: 'white', bgcolor: 'rgba(0,0,0,0.5)', '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' }, zIndex: 2 }}
-              >
-                <Typography variant="h4">&#8250;</Typography>
-              </IconButton>
-            </>
-          )}
-        </DialogContent>
-        {lightboxImage && images.length > 1 && (
-          <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
-            <Typography variant="body2" sx={{ color: 'white' }}>
-              {images.findIndex(img => img.id === lightboxImage.id) + 1} of {images.length}
-            </Typography>
-          </DialogActions>
-        )}
-      </Dialog>
+      {/* Unified Lightbox */}
+      {lightboxImage && (
+        <ImageLightbox
+          imageUrl={lightboxImage.url}
+          imageName={lightboxImage.name}
+          onClose={closeLightbox}
+          onPrev={handleLightboxPrev}
+          onNext={handleLightboxNext}
+          onDownload={handleLightboxDownload}
+          hasPrev={lightboxImage.fileIndex > 0}
+          hasNext={lightboxImage.fileIndex < images.length - 1}
+        />
+      )}
     </Box>
   );
 };

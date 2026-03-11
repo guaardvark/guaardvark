@@ -1,5 +1,0 @@
-[       9ms] [ERROR] UnifiedProgressContext: Failed to fetch active jobs: TypeError: Failed to fetch
-    at http://localhost:5175/src/contexts/UnifiedProgressContext.jsx:140:30
-    at http://localhost:5175/src/contexts/UnifiedProgressContext.jsx:415:32 @ http://localhost:5175/src/contexts/UnifiedProgressContext.jsx:168
-[     273ms] [WARNING] DUPLICATE PREVENTION: Reusing existing process: 09LNege_xiKKK0dgXcBje @ http://localhost:5175/src/pages/ChatPage.jsx:83
-[   31419ms] [WARNING] Message queue PheME793Apw3M2x_kubsK not found, creating new queue @ http://localhost:5175/src/utils/resource_manager.js:350

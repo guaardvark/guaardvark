@@ -6,6 +6,7 @@ Handles serialization and synchronization of entities between nodes.
 
 import json
 import logging
+import os
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
 from backend.models import (
@@ -52,16 +53,35 @@ class InterconnectorSyncService:
         from backend.models import db, InterconnectorNode, InterconnectorBroadcast, InterconnectorBroadcastTarget
         import requests
 
+        local_node_id = os.environ.get("GUAARDVARK_NODE_ID", "local")
         nodes = db.session.query(InterconnectorNode).filter(InterconnectorNode.status == "active").all()
         broadcast = InterconnectorBroadcast(
             broadcast_type="uncle_directive",
             payload=json.dumps({"directive": directive, "reason": reason}),
-            initiated_by=os.environ.get("GUAARDVARK_NODE_ID", "local"),
+            initiated_by=local_node_id,
         )
         db.session.add(broadcast)
         db.session.flush()
 
+        # Get API key for authenticated inter-node communication
+        config = {}
+        try:
+            from backend.models import Setting
+            setting = db.session.get(Setting, "interconnector_config")
+            if setting:
+                config = json.loads(setting.value) if isinstance(setting.value, str) else setting.value
+        except Exception:
+            pass
+        api_key = config.get("api_key", "")
+        headers = {"Content-Type": "application/json"}
+        if api_key:
+            headers["X-API-Key"] = api_key
+
         for node in nodes:
+            # Skip self to prevent cascade loops
+            if node.node_id == local_node_id:
+                continue
+
             target = InterconnectorBroadcastTarget(
                 broadcast_id=broadcast.id,
                 target_node_id=node.node_id,
@@ -74,6 +94,7 @@ class InterconnectorSyncService:
                 resp = requests.post(
                     f"{api_url}/api/interconnector/receive-directive",
                     json={"directive": directive, "reason": reason},
+                    headers=headers,
                     timeout=10,
                 )
                 target.status = "delivered" if resp.ok else "failed"

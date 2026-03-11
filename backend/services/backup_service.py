@@ -38,7 +38,7 @@ GLOBAL_IGNORE_PATTERNS = [
     '.pytest_cache', '.coverage', '*.egg-info',
     '.claud', '.claude', 'claude.*', 'gemini.*', '*.code-workspace',
     '.cursorignore', '*__review__*', '*__tests__*', '*.zip',
-    'compare-folders-shit', '*.db', '*.sqlite', '*.sqlite3',
+    'compare-folders-tmp', '*.db', '*.sqlite', '*.sqlite3',
     'whisper.cpp', 'piper', 'piper-models', 'whisper-models'
 ]
 
@@ -50,7 +50,7 @@ DATA_IGNORE_PATTERNS = [
     '.pytest_cache', '.coverage', '*.egg-info',
     '.claud', '.claude', 'claude.*', 'gemini.*', '*.code-workspace',
     '.cursorignore', '*__review__*', '*__tests__*', '*.zip',
-    'compare-folders-shit',
+    'compare-folders-tmp',
 ]
 
 
@@ -593,7 +593,7 @@ def create_full_backup(name: str | None = None) -> str:
         data = {
             "version": "1.0",
             "backup_type": "full",
-            "timestamp": int(Path().stat().st_mtime_ns),
+            "timestamp": int(datetime.now().timestamp()),
             "description": "Complete system backup including all files needed to install and run on a new machine",
             "backup_date": datetime.now().isoformat(),
             "system_info": {
@@ -1026,7 +1026,7 @@ def create_code_release(name: str | None = None) -> str:
             metadata = {
                 "version": "1.0",
                 "backup_type": "code_release",
-                "timestamp": int(Path().stat().st_mtime_ns),
+                "timestamp": int(datetime.now().timestamp()),
                 "description": "Code and configuration backup excluding all data",
                 "backup_date": datetime.now().isoformat(),
                 "system_info": {
@@ -1034,7 +1034,11 @@ def create_code_release(name: str | None = None) -> str:
                     "platform": os.name,
                     "project_root": str(project_root)
                 },
-                "note": "This backup contains source code and configuration files only. No database, uploads, or user data is included."
+                "note": "This backup contains source code and configuration files only. No database, uploads, or user data is included.",
+                "symlinks": {
+                    "manager": "scripts/system-manager/system-manager"
+                },
+                "post_restore": "Run ./start.sh to install dependencies, provision databases, and start services."
             }
             
             # Write metadata JSON
@@ -1056,7 +1060,9 @@ def create_code_release(name: str | None = None) -> str:
                 "start_celery.sh",
                 "start_redis.sh",
                 "start_postgres.sh",
-                "manager",
+                # NOTE: "manager" is a symlink to scripts/system-manager/system-manager
+                # which is already included via "scripts/" below. start.sh recreates
+                # the symlink on fresh machines, so we don't need to copy it here.
                 "run_tests.py",
                 ".env.example",
                 ".env.automation.example",
@@ -1191,12 +1197,6 @@ def create_code_release(name: str | None = None) -> str:
                                     'piper-models',
                                     'whisper-models'
                                 )(dirname, names))
-                                
-                                # Exclude *.md from scripts directory as requested
-                                if 'scripts' in dirname or dirname.endswith('scripts'):
-                                    for name in names:
-                                        if name.endswith('.md'):
-                                            ignored.add(name)
                                 return ignored
                             
                             shutil.copytree(
@@ -1409,7 +1409,7 @@ For issues, check the logs in the `logs/` directory.
 def _safe_extract(zf: ZipFile, member: str, dest_root: Path) -> Path | None:
     dest = dest_root / member
     dest = dest.resolve()
-    if not str(dest).startswith(str(dest_root)):
+    if not str(dest).startswith(str(dest_root.resolve())):
         logger.warning("Skipping suspicious path %s", member)
         return None
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -1722,7 +1722,13 @@ def _restore_system_settings(data: list[dict]) -> int:
 
 
 def restore_backup(zip_file: str) -> Dict[str, int]:
-    """Restore a backup from ``zip_file``."""
+    """Restore a backup from ``zip_file``.
+
+    Extracts files and restores database records from the backup archive.
+    After restore completes, run ``./start.sh`` to install Python/Node
+    dependencies, provision databases, set up the CLI tool, and start
+    services. The restore itself does NOT install dependencies.
+    """
     app_created = False
     if not has_app_context():
         app = _create_app()
@@ -1769,6 +1775,24 @@ def restore_backup(zip_file: str) -> Dict[str, int]:
                         logger.info("Restored file: %s", dest_path)
                     except Exception as e:
                         logger.warning("Failed to restore file %s: %s", member, e)
+            # Recreate symlinks recorded in the manifest
+            symlinks = data.get("symlinks", {})
+            for link_name, link_target in symlinks.items():
+                link_path = project_root / link_name
+                target_path = project_root / link_target
+                if target_path.exists():
+                    try:
+                        if link_path.exists() or link_path.is_symlink():
+                            link_path.unlink()
+                        os.symlink(link_target, link_path)
+                        logger.info("Recreated symlink: %s -> %s", link_name, link_target)
+                        summary.setdefault("symlinks_restored", 0)
+                        summary["symlinks_restored"] += 1
+                    except Exception as e:
+                        logger.warning("Failed to create symlink %s -> %s: %s", link_name, link_target, e)
+                else:
+                    logger.warning("Symlink target not found: %s -> %s", link_name, link_target)
+
             # Restore PostgreSQL dump if present
             if data.get("pg_dump_included"):
                 pg_dump_file = project_root / "data" / "database" / "guaardvark.pgdump"
@@ -1806,11 +1830,42 @@ def restore_backup(zip_file: str) -> Dict[str, int]:
     return summary
 
 
-def list_backups() -> List[str]:
-    """Return list of backup filenames in BACKUP_DIR."""
+def list_backups() -> list:
+    """Return list of backup entries with metadata (name, size, type, date)."""
     if not os.path.isdir(config.BACKUP_DIR):
         return []
-    return sorted([f for f in os.listdir(config.BACKUP_DIR) if f.endswith(".zip")])
+    entries = []
+    for f in sorted(os.listdir(config.BACKUP_DIR)):
+        if not f.endswith(".zip"):
+            continue
+        path = os.path.join(config.BACKUP_DIR, f)
+        try:
+            stat = os.stat(path)
+            size = stat.st_size
+            mtime = stat.st_mtime
+        except OSError:
+            size = 0
+            mtime = 0
+
+        # Detect backup type from filename
+        if "full_backup" in f or "system_backup" in f:
+            btype = "full"
+        elif "code_release" in f:
+            btype = "code"
+        elif "auto_daily" in f:
+            btype = "auto"
+        else:
+            btype = "data"
+
+        entries.append({
+            "name": f,
+            "size": size,
+            "type": btype,
+            "modified": mtime,
+        })
+    # Sort newest first
+    entries.sort(key=lambda e: e["modified"], reverse=True)
+    return entries
 
 
 def delete_backup(filename: str) -> bool:

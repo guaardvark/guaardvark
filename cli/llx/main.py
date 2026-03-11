@@ -15,6 +15,9 @@ from llx.commands.jobs import jobs_app
 from llx.commands.settings import settings_app
 from llx.commands.index import index_app
 from llx.commands.backup import backup_app
+from llx.commands.family import family_app
+from llx.commands.logs import logs_app
+from llx.commands.rag import rag_app
 
 app = typer.Typer(
     name="guaardvark",
@@ -43,6 +46,9 @@ app.add_typer(jobs_app, name="jobs")
 app.add_typer(settings_app, name="settings")
 app.add_typer(index_app, name="index")
 app.add_typer(backup_app, name="backup")
+app.add_typer(family_app, name="family")
+app.add_typer(logs_app, name="logs")
+app.add_typer(rag_app, name="rag")
 
 
 def version_callback(value: bool):

@@ -82,6 +82,10 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 MANAGER_SCRIPT="$SCRIPT_DIR/scripts/system-manager/system-manager"
 if [ -f "$MANAGER_SCRIPT" ]; then
+    # Ensure ./manager symlink exists (may be missing after Code Release restore)
+    if [ ! -L "$SCRIPT_DIR/manager" ]; then
+        ln -sf "scripts/system-manager/system-manager" "$SCRIPT_DIR/manager"
+    fi
     if [ -f "$SCRIPT_DIR/backend/venv/bin/flask" ]; then
         if ! "$MANAGER_SCRIPT" check "$SCRIPT_DIR"; then
             vader_warn "Environment issues detected by System Manager."
@@ -118,6 +122,17 @@ if [ -f "$SCRIPT_DIR/.env" ]; then
   set +a
   export GUAARDVARK_ROOT="$SCRIPT_DIR"
 fi
+
+# Remove TMOUT auto-logout if present (causes terminal windows to close after idle)
+if [ -f /etc/profile.d/timeout.sh ]; then
+  if sudo -n rm -f /etc/profile.d/timeout.sh 2>/dev/null; then
+    vader_success "Removed /etc/profile.d/timeout.sh (prevents terminal auto-close)"
+  else
+    vader_warn "Cannot remove /etc/profile.d/timeout.sh (needs sudo). Run: sudo rm -f /etc/profile.d/timeout.sh"
+  fi
+fi
+# Unset TMOUT for this session in case it was already sourced
+unset TMOUT 2>/dev/null || true
 
 CURRENT_PWD="$(pwd)"
 if [ "$CURRENT_PWD" != "$GUAARDVARK_ROOT" ]; then
@@ -276,7 +291,14 @@ launch_browser_app() {
     vader_info "Launching Firefox in new window: $browser_cmd"
     
     if [[ "$browser_cmd" == "firefox" ]]; then
-        "$browser_cmd" --new-window "$url" >/dev/null 2>&1 &
+        # Use systemd-run to isolate browser in its own cgroup.
+        # Without this, Firefox inherits the terminal's cgroup, and if the
+        # cgroup is killed (OOM, resource limits), the terminal server dies too.
+        if command -v systemd-run >/dev/null 2>&1; then
+            systemd-run --user --scope -q "$browser_cmd" --new-window "$url" >/dev/null 2>&1 &
+        else
+            setsid "$browser_cmd" --new-window "$url" >/dev/null 2>&1 &
+        fi
     fi
     
     sleep 1
@@ -828,9 +850,9 @@ kill_process "$VITE_PORT" "Vite frontend" "$VITE_PROCESS_PATTERN" &
 wait
 
 if [ -f "$SCRIPT_DIR/pids/celery.pid" ]; then
-    local celery_pid=$(cat "$SCRIPT_DIR/pids/celery.pid" 2>/dev/null)
+    celery_pid=$(cat "$SCRIPT_DIR/pids/celery.pid" 2>/dev/null)
     if [ -n "$celery_pid" ] && kill -0 "$celery_pid" 2>/dev/null; then
-        local proc_cwd=$(readlink -f "/proc/$celery_pid/cwd" 2>/dev/null)
+        proc_cwd=$(readlink -f "/proc/$celery_pid/cwd" 2>/dev/null)
         if [ -n "$proc_cwd" ] && [[ "$proc_cwd" == "$SCRIPT_DIR"* ]]; then
             kill -15 "$celery_pid" 2>/dev/null
             sleep 2
@@ -944,11 +966,19 @@ EOF
     fi
 
     # Verify critical packages that pip dependency resolution may silently drop
-    CRITICAL_PACKAGES="duckduckgo-search flask celery redis llama-index-core"
-    for pkg in $CRITICAL_PACKAGES; do
+    # Use version pins to ensure correct versions (not just latest)
+    declare -A CRITICAL_PACKAGES=(
+        ["duckduckgo-search"]="duckduckgo-search==8.1.1"
+        ["flask"]="Flask==3.0.0"
+        ["celery"]="celery==5.4.0"
+        ["redis"]="redis==5.0.4"
+        ["llama-index-core"]="llama-index-core>=0.13.0,<0.15.0"
+        ["lxml"]="lxml==6.0.2"
+    )
+    for pkg in "${!CRITICAL_PACKAGES[@]}"; do
         if ! pip show "$pkg" >/dev/null 2>&1; then
             vader_warn "Critical package $pkg missing after requirements install — installing individually..."
-            pip install "$pkg" >> "$SETUP_LOG" 2>&1
+            pip install "${CRITICAL_PACKAGES[$pkg]}" >> "$SETUP_LOG" 2>&1
         fi
     done
 
@@ -1189,11 +1219,19 @@ if [ -f "$SENTINEL" ] && [ "$BACKEND_DIR/requirements.txt" -nt "$SENTINEL" ]; th
     touch "$SENTINEL"
 
     # Verify critical packages that pip dependency resolution may silently drop
-    CRITICAL_PACKAGES="duckduckgo-search flask celery redis llama-index-core"
-    for pkg in $CRITICAL_PACKAGES; do
+    # Use version pins to ensure correct versions (not just latest)
+    declare -A CRITICAL_PACKAGES_2=(
+        ["duckduckgo-search"]="duckduckgo-search==8.1.1"
+        ["flask"]="Flask==3.0.0"
+        ["celery"]="celery==5.4.0"
+        ["redis"]="redis==5.0.4"
+        ["llama-index-core"]="llama-index-core>=0.13.0,<0.15.0"
+        ["lxml"]="lxml==6.0.2"
+    )
+    for pkg in "${!CRITICAL_PACKAGES_2[@]}"; do
         if ! pip show "$pkg" >/dev/null 2>&1; then
             vader_warn "Critical package $pkg missing after requirements install — installing individually..."
-            pip install "$pkg" >> "$SETUP_LOG" 2>&1
+            pip install "${CRITICAL_PACKAGES_2[$pkg]}" >> "$SETUP_LOG" 2>&1
         fi
     done
 fi

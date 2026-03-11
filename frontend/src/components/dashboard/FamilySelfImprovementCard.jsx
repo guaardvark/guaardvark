@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Box,
-  Card,
-  CardContent,
   Typography,
   Chip,
   Stack,
@@ -15,166 +13,258 @@ import {
   ListItemText,
   ListItemIcon,
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import {
   Psychology as PsychologyIcon,
-  Shield as ShieldIcon,
-  Lock as LockIcon,
+  PlayArrow as PlayIcon,
   CheckCircle as CheckIcon,
   Error as ErrorIcon,
-  PlayArrow as PlayIcon,
-  AutoFixHigh as FixIcon,
   Schedule as ScheduleIcon,
 } from "@mui/icons-material";
+import DashboardCardWrapper from "./DashboardCardWrapper";
+import { StatusChip, UNCLE_GOLD, getFamilyColors } from "../../utils/familyColors";
 import { claudeAdvisorService } from "../../api/claudeAdvisorService";
 import { selfImprovementService } from "../../api/selfImprovementService";
+import io from "socket.io-client";
 
-export default function FamilySelfImprovementCard() {
-  const [claudeStatus, setClaudeStatus] = useState(null);
-  const [siStatus, setSiStatus] = useState(null);
-  const [runs, setRuns] = useState([]);
-  const [loading, setLoading] = useState(true);
+// Stage color mapping
+const STAGE_COLORS = {
+  starting: "info",
+  testing: "warning",
+  analyzed: "info",
+  fixing: "warning",
+  complete: "success",
+  error: "error",
+};
 
-  const fetchData = useCallback(async () => {
-    try {
-      const [cRes, sRes, rRes] = await Promise.all([
-        claudeAdvisorService.getStatus(),
-        selfImprovementService.getStatus(),
-        selfImprovementService.getRuns(5, 0),
-      ]);
-      setClaudeStatus(cRes?.data);
-      setSiStatus(sRes?.data);
-      setRuns(rRes?.data?.runs || []);
-    } catch (err) {
-      console.error("Failed to fetch family status:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+const FamilySelfImprovementCard = React.forwardRef(
+  (
+    {
+      style,
+      isMinimized,
+      onToggleMinimize,
+      cardColor,
+      onCardColorChange,
+      ...props
+    },
+    ref,
+  ) => {
+    const theme = useTheme();
+    const colors = getFamilyColors(theme);
+    const [claudeStatus, setClaudeStatus] = useState(null);
+    const [siStatus, setSiStatus] = useState(null);
+    const [runs, setRuns] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [progress, setProgress] = useState(null); // { stage, detail, progress, ... }
 
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
+    const fetchData = useCallback(async () => {
+      try {
+        const [cRes, sRes, rRes] = await Promise.allSettled([
+          claudeAdvisorService.getStatus(),
+          selfImprovementService.getStatus(),
+          selfImprovementService.getRuns(5, 0),
+        ]);
+        if (cRes.status === "fulfilled") setClaudeStatus(cRes.value?.data);
+        if (sRes.status === "fulfilled") setSiStatus(sRes.value?.data);
+        if (rRes.status === "fulfilled") setRuns(rRes.value?.data?.runs || []);
+      } catch (err) {
+        console.error("Failed to fetch family status:", err);
+      } finally {
+        setLoading(false);
+      }
+    }, []);
 
-  const handleTrigger = async () => {
-    try {
-      await selfImprovementService.triggerRun();
-      setTimeout(fetchData, 3000);
-    } catch (err) {
-      console.error("Trigger failed:", err);
-    }
-  };
+    useEffect(() => {
+      fetchData();
+      const interval = setInterval(fetchData, 30000);
+      return () => clearInterval(interval);
+    }, [fetchData]);
 
-  if (loading) {
+    // Listen for real-time progress events
+    useEffect(() => {
+      const socket = io({ path: "/socket.io", transports: ["websocket", "polling"] });
+      socket.on("self_improvement_progress", (data) => {
+        setProgress(data);
+        // When complete or error, refresh data after a short delay and clear progress
+        if (data.stage === "complete" || data.stage === "error") {
+          setTimeout(() => {
+            fetchData();
+            setProgress(null);
+          }, 3000);
+        }
+      });
+      return () => {
+        socket.off("self_improvement_progress");
+        socket.disconnect();
+      };
+    }, [fetchData]);
+
+    const handleTrigger = async () => {
+      try {
+        setProgress({ stage: "starting", detail: "Queuing...", progress: 0 });
+        await selfImprovementService.triggerRun();
+        setTimeout(fetchData, 3000);
+      } catch (err) {
+        console.error("Trigger failed:", err);
+        setProgress(null);
+      }
+    };
+
+    const usage = claudeStatus?.usage || {};
+    const isRunning = progress && progress.stage !== "complete" && progress.stage !== "error";
+
     return (
-      <Card sx={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <CircularProgress size={24} />
-      </Card>
-    );
-  }
+      <DashboardCardWrapper
+        ref={ref}
+        style={style}
+        isMinimized={isMinimized}
+        onToggleMinimize={onToggleMinimize}
+        cardColor={cardColor}
+        onCardColorChange={onCardColorChange}
+        title="Family & Self-Improvement"
+        titleBarActions={
+          <PsychologyIcon fontSize="small" sx={{ color: UNCLE_GOLD, opacity: 0.8 }} />
+        }
+        {...props}
+      >
+        {loading ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
+            <CircularProgress size={22} />
+          </Box>
+        ) : (
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1, pt: 0.5 }}>
+            {/* Status Chips */}
+            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+              <StatusChip
+                source="uncle_claude"
+                status={claudeStatus?.available ? "connected" : "offline"}
+                label={claudeStatus?.available ? "Uncle Online" : "Uncle Offline"}
+              />
+              <StatusChip
+                source="self_improvement"
+                status={siStatus?.enabled ? "enabled" : "disabled"}
+                label={siStatus?.enabled ? "SI: On" : "SI: Off"}
+              />
+              {siStatus?.codebase_locked && (
+                <StatusChip source="nephew" status="locked" label="Locked" />
+              )}
+            </Stack>
 
-  const usage = claudeStatus?.usage || {};
-
-  return (
-    <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <CardContent sx={{ flex: 1, overflow: "auto", p: 1.5 }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-          <Typography variant="subtitle2" sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-            <PsychologyIcon fontSize="small" /> Family & Self-Improvement
-          </Typography>
-          <Stack direction="row" spacing={0.5}>
-            <Chip
-              label={claudeStatus?.available ? "Uncle" : "Offline"}
-              color={claudeStatus?.available ? "success" : "default"}
-              size="small"
-              variant="outlined"
-            />
-            {siStatus?.codebase_locked && (
-              <Chip label="Locked" color="error" size="small" icon={<LockIcon />} />
+            {/* Self-Check Progress Bar */}
+            {progress && (
+              <Box sx={{ mt: 0.5 }}>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.5 }}>
+                  <Typography variant="caption" fontWeight="bold" color={`${STAGE_COLORS[progress.stage] || "info"}.main`}>
+                    {progress.stage === "starting" && "Starting..."}
+                    {progress.stage === "testing" && "Running Tests"}
+                    {progress.stage === "analyzed" && "Analyzing Results"}
+                    {progress.stage === "fixing" && "Applying Fixes"}
+                    {progress.stage === "complete" && "Complete"}
+                    {progress.stage === "error" && "Error"}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {Math.round((progress.progress || 0) * 100)}%
+                  </Typography>
+                </Box>
+                <LinearProgress
+                  variant={isRunning ? "determinate" : "determinate"}
+                  value={Math.round((progress.progress || 0) * 100)}
+                  color={STAGE_COLORS[progress.stage] || "info"}
+                  sx={{ height: 6, borderRadius: 3 }}
+                />
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.25, display: "block" }}>
+                  {progress.detail}
+                </Typography>
+              </Box>
             )}
-          </Stack>
-        </Stack>
 
-        {/* Stats Row */}
-        <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
-          <Chip
-            label={`SI: ${siStatus?.enabled ? "On" : "Off"}`}
-            color={siStatus?.enabled ? "primary" : "default"}
-            size="small"
-            variant="outlined"
-          />
-          <Chip
-            label={`Fixes: ${siStatus?.total_fixes || 0}`}
-            size="small"
-            variant="outlined"
-            icon={<FixIcon />}
-          />
-        </Stack>
+            {/* Token Budget Mini Bar */}
+            {claudeStatus?.available && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Tokens: {usage.budget_used_percent || 0}%
+                </Typography>
+                <LinearProgress
+                  variant="determinate"
+                  value={Math.min(usage.budget_used_percent || 0, 100)}
+                  sx={{
+                    height: 4,
+                    borderRadius: 2,
+                    bgcolor: "action.hover",
+                    "& .MuiLinearProgress-bar": { bgcolor: UNCLE_GOLD },
+                  }}
+                />
+              </Box>
+            )}
 
-        {/* Token Budget Mini Bar */}
-        {claudeStatus?.available && (
-          <Box sx={{ mb: 1 }}>
-            <Typography variant="caption" color="text.secondary">
-              Tokens: {(usage.budget_used_percent || 0)}%
+            {/* Fixes count */}
+            {(siStatus?.total_fixes || 0) > 0 && (
+              <Typography variant="caption" color="text.secondary">
+                Total fixes applied: {siStatus.total_fixes}
+              </Typography>
+            )}
+
+            <Divider />
+
+            {/* Recent Runs */}
+            <Typography variant="caption" fontWeight="bold">
+              Recent Activity
             </Typography>
-            <LinearProgress
-              variant="determinate"
-              value={Math.min(usage.budget_used_percent || 0, 100)}
-              sx={{ height: 4, borderRadius: 2 }}
-            />
+            {runs.length === 0 ? (
+              <Typography variant="caption" color="text.secondary">
+                No self-improvement runs yet
+              </Typography>
+            ) : (
+              <List dense disablePadding>
+                {runs.slice(0, 3).map((run) => (
+                  <ListItem key={run.id} disablePadding sx={{ py: 0.25 }}>
+                    <ListItemIcon sx={{ minWidth: 24 }}>
+                      {run.status === "success" ? (
+                        <CheckIcon fontSize="small" color="success" />
+                      ) : run.status === "failed" ? (
+                        <ErrorIcon fontSize="small" color="error" />
+                      ) : (
+                        <ScheduleIcon fontSize="small" color="warning" />
+                      )}
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={
+                        <Typography variant="caption">
+                          {run.trigger} — {run.status}
+                        </Typography>
+                      }
+                      secondary={
+                        <Typography variant="caption" color="text.secondary">
+                          {run.timestamp ? new Date(run.timestamp).toLocaleString() : ""}
+                        </Typography>
+                      }
+                    />
+                    {run.uncle_reviewed && (
+                      <Chip label="Reviewed" size="small" sx={{ bgcolor: UNCLE_GOLD, color: "#000", fontSize: "0.6rem", height: 18 }} />
+                    )}
+                  </ListItem>
+                ))}
+              </List>
+            )}
+
+            {/* Quick Actions */}
+            {siStatus?.enabled && !siStatus?.codebase_locked && !isRunning && (
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={handleTrigger}
+                startIcon={<PlayIcon />}
+                sx={{ alignSelf: "flex-start" }}
+              >
+                Run Check
+              </Button>
+            )}
           </Box>
         )}
+      </DashboardCardWrapper>
+    );
+  },
+);
 
-        <Divider sx={{ my: 1 }} />
-
-        {/* Recent Runs */}
-        <Typography variant="caption" fontWeight="bold">
-          Recent Activity
-        </Typography>
-        {runs.length === 0 ? (
-          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
-            No self-improvement runs yet
-          </Typography>
-        ) : (
-          <List dense disablePadding sx={{ mt: 0.5 }}>
-            {runs.slice(0, 3).map((run) => (
-              <ListItem key={run.id} disablePadding sx={{ py: 0.25 }}>
-                <ListItemIcon sx={{ minWidth: 24 }}>
-                  {run.status === "success" ? (
-                    <CheckIcon fontSize="small" color="success" />
-                  ) : run.status === "failed" ? (
-                    <ErrorIcon fontSize="small" color="error" />
-                  ) : (
-                    <ScheduleIcon fontSize="small" color="warning" />
-                  )}
-                </ListItemIcon>
-                <ListItemText
-                  primary={
-                    <Typography variant="caption">
-                      {run.trigger} - {run.status}
-                    </Typography>
-                  }
-                  secondary={
-                    <Typography variant="caption" color="text.secondary">
-                      {run.timestamp ? new Date(run.timestamp).toLocaleString() : ""}
-                    </Typography>
-                  }
-                />
-              </ListItem>
-            ))}
-          </List>
-        )}
-
-        {/* Quick Actions */}
-        <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-          {siStatus?.enabled && !siStatus?.codebase_locked && (
-            <Button size="small" variant="outlined" onClick={handleTrigger} startIcon={<PlayIcon />}>
-              Run Check
-            </Button>
-          )}
-        </Stack>
-      </CardContent>
-    </Card>
-  );
-}
+FamilySelfImprovementCard.displayName = "FamilySelfImprovementCard";
+export default FamilySelfImprovementCard;

@@ -1172,10 +1172,37 @@ Generate the CSV row now:"""
             if response_clean.endswith('```'):
                 response_clean = response_clean[:-3]
             response_clean = response_clean.strip()
-            
+
+            # Strip LLM preamble text before the actual CSV row
+            # LLMs often prepend "Here is the generated CSV row:" or similar
+            lines = response_clean.split('\n')
+            csv_lines = []
+            for line in lines:
+                stripped = line.strip()
+                # Skip empty lines and lines that look like prose (no quotes, no commas in CSV pattern)
+                if not stripped:
+                    continue
+                if stripped.startswith('"') or '","' in stripped:
+                    csv_lines.append(stripped)
+                # Also accept unquoted CSV with enough commas (at least 3 fields)
+                elif stripped.count(',') >= 2 and not stripped.endswith(':'):
+                    csv_lines.append(stripped)
+
+            if csv_lines:
+                response_clean = '\n'.join(csv_lines)
+                logger.info(f"Extracted {len(csv_lines)} CSV line(s) from response (stripped preamble)")
+
             # Parse CSV with flexible field handling
             reader = csv.reader(StringIO(response_clean))
             fields = next(reader)
+
+            # Fallback: if first row parsed as 1 field, it's probably leftover preamble — try next rows
+            if len(fields) <= 1:
+                for row in reader:
+                    if len(row) >= 2:
+                        logger.info(f"Skipped preamble row ('{fields[0][:50]}...'), using next row with {len(row)} fields")
+                        fields = row
+                        break
 
             # Log field count for debugging
             logger.info(f"Received {len(fields)} fields for task {task.topic[:50]}...")

@@ -343,14 +343,14 @@ def get_code_storage_bridge(db_path: str = None, storage_dir: str = None) -> Cod
     if not db_path:
         # db_path is kept for compatibility/logging; actual DB access uses DATABASE_URL
         db_path = os.path.join(
-            os.environ.get('GUAARDVARK_STORAGE_DIR', '/home/llamax1/dev/LLM009/data'),
+            os.environ.get('GUAARDVARK_STORAGE_DIR', os.path.join(os.environ.get('GUAARDVARK_ROOT', '.'), 'data')),
             'database',
             'system_analysis.db'
         )
 
     if not storage_dir:
         storage_dir = os.path.join(
-            os.environ.get('GUAARDVARK_STORAGE_DIR', '/home/llamax1/dev/LLM009/data'),
+            os.environ.get('GUAARDVARK_STORAGE_DIR', os.path.join(os.environ.get('GUAARDVARK_ROOT', '.'), 'data')),
             'indexes'
         )
 

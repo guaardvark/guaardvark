@@ -7,7 +7,6 @@ import {
   Box,
   Typography,
   Button,
-  CircularProgress,
   Alert as MuiAlert,
   Grid,
   Card,
@@ -38,6 +37,7 @@ import { getClients, getProjects } from "../api";
 import WordPressSiteModal from "../components/modals/WordPressSiteModal";
 import { useStatus } from "../contexts/StatusContext";
 import PageLayout from "../components/layout/PageLayout";
+import { ContextualLoader } from "../components/common/LoadingStates";
 
 const AlertSnackbar = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
@@ -264,7 +264,7 @@ function WordPressSitesPage() {
           height: "100vh",
         }}
       >
-        <CircularProgress />
+        <ContextualLoader loading message="Loading WordPress sites..." showProgress={false} inline />
       </Box>
     );
   }

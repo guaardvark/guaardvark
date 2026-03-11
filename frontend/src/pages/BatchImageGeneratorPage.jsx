@@ -273,6 +273,7 @@ const BatchImageGeneratorPage = () => {
   }, [activeBatch]);
 
   // Monitor progress system for batch updates
+  const completionHandledRef = useRef(null);
   useEffect(() => {
     const batchProcesses = Array.from(activeProcesses.values()).filter(
       process => (process.processType === 'image_generation' || process.process_type === 'image_generation') &&
@@ -285,15 +286,23 @@ const BatchImageGeneratorPage = () => {
       );
 
       if (batchProcess) {
-        // Update active batch with progress info
+        // Update active batch with progress info from SocketIO
         setActiveBatch(prev => prev ? {
           ...prev,
           completed_images: batchProcess.additional_data.completed || prev.completed_images,
           progress_percentage: batchProcess.progress || prev.progress_percentage
         } : null);
+
+        // On completion/error/cancel, do an immediate final poll to get all results
+        if (['complete', 'end', 'error', 'cancelled'].includes(batchProcess.status) &&
+            completionHandledRef.current !== activeBatch.batch_id) {
+          completionHandledRef.current = activeBatch.batch_id;
+          loadBatchById(activeBatch.batch_id);
+          loadBatchHistory();
+        }
       }
     }
-  }, [activeProcesses, activeBatch]);
+  }, [activeProcesses, activeBatch, loadBatchById]);
 
   const checkServiceStatus = useCallback(async () => {
     try {
@@ -1054,7 +1063,8 @@ const BatchImageGeneratorPage = () => {
                         textTransform: 'none',
                         fontSize: '0.75rem',
                         minWidth: 'auto',
-                        padding: '2px 8px'
+                        px: 1,
+                        py: 0.25
                       }}
                     >
                       Load Examples
@@ -1097,7 +1107,8 @@ const BatchImageGeneratorPage = () => {
                             textTransform: 'none',
                             fontSize: '0.75rem',
                             minWidth: 'auto',
-                            padding: '4px 12px'
+                            px: 1.5,
+                            py: 0.5
                           }}
                         >
                           Preview Prompts

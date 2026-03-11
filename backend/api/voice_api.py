@@ -1762,64 +1762,41 @@ def stream_voice_chat():
             
             logger.info(f"Voice API: Successfully transcribed stream audio to text: '{transcribed_text}'")
             
-            # Step 2: Send to chat API
+            # Step 2: Send to unified chat API (streams response via SocketIO)
             try:
-                import requests
-                from flask import url_for
-                
-                # Prepare chat request for enhanced chat API with voice mode
+                import requests as http_requests
+
+                flask_port = os.environ.get('FLASK_PORT', 5000)
+                chat_url = f"http://localhost:{flask_port}/api/chat/unified"
                 chat_data = {
                     "message": transcribed_text,
                     "session_id": session_id,
-                    "voice_mode": True  # Enable conversational personality for voice
+                    "options": {"voice_mode": True},
                 }
-                
-                # Call enhanced chat API endpoint (primary chat system)
-                flask_port = os.environ.get('FLASK_PORT', 5000)
-                chat_url = f"http://localhost:{flask_port}/api/enhanced-chat"
-                response = requests.post(
+
+                # Unified chat returns immediately; LLM response streams via SocketIO
+                response = http_requests.post(
                     chat_url,
                     json=chat_data,
-                    timeout=180,  # LLM can take 60-120s on cold start
+                    timeout=10,
                     headers={"Content-Type": "application/json"}
                 )
-                
+
                 if response.status_code != 200:
-                    logger.error(f"Enhanced chat API failed with status {response.status_code}: {response.text}")
+                    logger.error(f"Unified chat API failed with status {response.status_code}: {response.text}")
                     return jsonify({"error": "Chat API failed to respond"}), 500
-                
-                # Parse enhanced chat API response (JSON format)
-                try:
-                    response_data = response.json()
-                    
-                    # Extract response from enhanced chat API format
-                    if response_data.get("success") and response_data.get("data"):
-                        llm_response = response_data["data"].get("response", "")
-                    else:
-                        llm_response = ""
-                        logger.error(f"Enhanced chat API returned unsuccessful response: {response_data}")
-                        
-                except json.JSONDecodeError as e:
-                    logger.error(f"Failed to parse enhanced chat API response as JSON: {e}")
-                    return jsonify({"error": "Chat API returned invalid JSON"}), 500
-                
-                if not llm_response.strip():
-                    logger.error("No response content extracted from enhanced chat API")
-                    return jsonify({"error": "Chat API returned empty response"}), 500
-                
-                logger.info(f"Voice API: LLM response: '{llm_response[:100]}...'")
-                
-            except (requests.RequestException, json.JSONDecodeError, ValueError) as e:
+
+                logger.info(f"Voice API: Dispatched to unified chat, session={session_id}")
+
+            except Exception as e:
                 logger.error(f"Voice API: Chat API integration failed: {type(e).__name__}: {e}", exc_info=True)
                 return jsonify({"error": f"Chat integration failed: {str(e)}"}), 500
-            
-            # Step 3: Return transcription and LLM response (TTS handled by frontend)
-            logger.info("Voice API: Skipping backend TTS generation - frontend will handle TTS with selected voice")
-            
+
+            # Step 3: Return transcription immediately; LLM response streams via SocketIO
             return jsonify({
                 "transcribed_text": transcribed_text,
-                "llm_response": llm_response,
                 "session_id": session_id,
+                "streaming": True,
                 "tts_handled_by": "frontend"
             })
                 
@@ -2098,10 +2075,31 @@ def install_whisper():
                 missing_deps.append(dep)
 
         if missing_deps:
-            return jsonify({
-                "success": False,
-                "error": f"Missing build dependencies: {', '.join(missing_deps)}. Install them first (e.g., sudo apt install {' '.join(missing_deps)})"
-            }), 400
+            # Try to auto-install missing build dependencies
+            logger.info(f"Voice API: Auto-installing missing deps: {missing_deps}")
+            try:
+                install_result = subprocess.run(
+                    ["sudo", "apt-get", "install", "-y", "cmake", "build-essential"],
+                    capture_output=True, text=True, timeout=120
+                )
+                if install_result.returncode != 0:
+                    return jsonify({
+                        "success": False,
+                        "error": f"Missing build dependencies: {', '.join(missing_deps)}. Auto-install failed. Try: sudo apt install cmake build-essential"
+                    }), 400
+                # Re-check after install
+                still_missing = [dep for dep in ["git", "cmake", "make", "gcc"] if not shutil.which(dep)]
+                if still_missing:
+                    return jsonify({
+                        "success": False,
+                        "error": f"Still missing after install: {', '.join(still_missing)}. Try: sudo apt install {' '.join(still_missing)}"
+                    }), 400
+                logger.info("Voice API: Build dependencies installed successfully")
+            except Exception as e:
+                return jsonify({
+                    "success": False,
+                    "error": f"Missing build dependencies: {', '.join(missing_deps)}. Auto-install failed: {str(e)}. Try: sudo apt install cmake build-essential"
+                }), 400
 
         # Remove placeholder directory if it exists but has no source
         if os.path.isdir(whisper_dir):

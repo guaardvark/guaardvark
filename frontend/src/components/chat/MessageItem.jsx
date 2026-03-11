@@ -14,6 +14,7 @@ import { GuaardvarkLogo } from "../branding";
 import { useAppStore } from "../../stores/useAppStore";
 import { BASE_URL } from "../../api/apiClient";
 import AgentResultDisplay from "./AgentResultDisplay";
+import { StatusChip } from "../../utils/familyColors";
 import ToolCallCard from "./ToolCallCard";
 
 const UPLOAD_BASE_URL = BASE_URL + "/uploads";
@@ -311,6 +312,17 @@ const MessageItem = ({ message }) => {
             {typeof message.content === 'string' ? message.content : JSON.stringify(message.content, null, 2)}
           </ReactMarkdown>
         </Box>
+        {/* Source badge for Uncle Claude / Family / Self-Improvement responses */}
+        {message.badge && (
+          <Box sx={{ mt: 1, display: "flex", justifyContent: "flex-end" }}>
+            <StatusChip
+              source={message.source || "nephew"}
+              status="connected"
+              label={message.badge}
+              sx={{ height: 20, fontSize: "0.65rem" }}
+            />
+          </Box>
+        )}
       </Paper>
       {isUser && (
         <Avatar sx={{ bgcolor: "secondary.main", width: 32, height: 32 }}>
@@ -334,6 +346,8 @@ MessageItem.propTypes = {
     isUnifiedChat: PropTypes.bool,
     toolCalls: PropTypes.array,
     generatedImages: PropTypes.array,
+    badge: PropTypes.string,
+    source: PropTypes.string,
   }).isRequired,
 };
 

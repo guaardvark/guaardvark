@@ -157,7 +157,7 @@ pip install -r requirements.txt
 
 # Run Flask directly (for debugging)
 export FLASK_APP=backend.app
-export GUAARDVARK_ROOT=/home/llamax1/LLAMAX5.1
+export GUAARDVARK_ROOT=/path/to/guaardvark
 flask run --debug --host=0.0.0.0 --port=5000
 
 # Start Celery worker manually
