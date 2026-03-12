@@ -51,7 +51,6 @@ class InterconnectorFileSyncService:
             "frontend/src/",
             "frontend/package.json",
             "frontend/package-lock.json",
-            "frontend/vite.config.js",
             "scripts/",
             "start.sh",
             "stop.sh",
