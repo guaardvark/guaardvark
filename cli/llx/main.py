@@ -18,6 +18,10 @@ from llx.commands.backup import backup_app
 from llx.commands.family import family_app
 from llx.commands.logs import logs_app
 from llx.commands.rag import rag_app
+from llx.commands.clients import clients_app
+from llx.commands.websites import websites_app
+from llx.commands.tasks import tasks_app
+from llx.commands.images import images_app
 
 app = typer.Typer(
     name="guaardvark",
@@ -49,6 +53,10 @@ app.add_typer(backup_app, name="backup")
 app.add_typer(family_app, name="family")
 app.add_typer(logs_app, name="logs")
 app.add_typer(rag_app, name="rag")
+app.add_typer(clients_app, name="clients")
+app.add_typer(websites_app, name="websites")
+app.add_typer(tasks_app, name="tasks")
+app.add_typer(images_app, name="images")
 
 
 def version_callback(value: bool):
