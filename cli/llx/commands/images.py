@@ -64,7 +64,7 @@ def images_generate(
         if model:
             body["model"] = model
 
-        data = api_client.post("/api/batch-image-generation", json=body)
+        data = api_client.post("/api/batch-image/generate/prompts", json=body)
         result = data.get("data", data)
 
         if json_out or output.is_pipe():

@@ -26,6 +26,7 @@ def chat(
     list_sessions: bool = typer.Option(False, "--list", "-l", help="List recent chat sessions"),
     export: bool = typer.Option(False, "--export", "-e", help="Export conversation to markdown (requires --session or --resume)"),
     output_file: Path | None = typer.Option(None, "--output", "-o", help="Write export to file (default: stdout)"),
+    project: int = typer.Option(None, "--project", "-p", help="Scope RAG context to a project ID"),
     no_rag: bool = typer.Option(False, "--no-rag", help="Disable RAG context"),
     stream: bool = typer.Option(False, "--stream", help="Use Socket.IO streaming (experimental)"),
     server: str = typer.Option(None, "--server", "-s"),
@@ -83,31 +84,31 @@ def chat(
         raise typer.Exit(1)
 
     if stream:
-        _chat_streaming(session_id, full_message, no_rag, server, json_out)
+        _chat_streaming(session_id, full_message, no_rag, server, json_out, project_id=project)
     else:
-        _chat_sync(session_id, full_message, no_rag, server, json_out)
+        _chat_sync(session_id, full_message, no_rag, server, json_out, project_id=project)
 
 
-def _chat_sync(session_id: str, message: str, no_rag: bool, server: str | None, json_out: bool):
+def _chat_sync(session_id: str, message: str, no_rag: bool, server: str | None, json_out: bool, project_id: int | None = None):
     """Send chat via synchronous /api/enhanced-chat endpoint."""
     try:
         client = get_client(server)
         start_time = time.time()
 
+        body = {
+            "session_id": session_id,
+            "message": message,
+            "use_rag": not no_rag,
+        }
+        if project_id:
+            body["project_id"] = project_id
+
         # Show spinner in interactive mode
         if not json_out and not output.is_pipe():
             with Live(Spinner("dots", text="[llx.dim]Thinking...[/llx.dim]"), console=console, transient=True):
-                data = client.post("/api/enhanced-chat", json={
-                    "session_id": session_id,
-                    "message": message,
-                    "use_rag": not no_rag,
-                })
+                data = client.post("/api/enhanced-chat", json=body)
         else:
-            data = client.post("/api/enhanced-chat", json={
-                "session_id": session_id,
-                "message": message,
-                "use_rag": not no_rag,
-            })
+            data = client.post("/api/enhanced-chat", json=body)
 
         elapsed = time.time() - start_time
 
@@ -186,7 +187,7 @@ def _chat_export(session_id: str, server: str | None, output_file: Path | None, 
         raise typer.Exit(1)
 
 
-def _chat_streaming(session_id: str, message: str, no_rag: bool, server: str | None, json_out: bool):
+def _chat_streaming(session_id: str, message: str, no_rag: bool, server: str | None, json_out: bool, project_id: int | None = None):
     """Send chat via /api/chat/unified with Socket.IO streaming."""
     import signal
 
@@ -228,11 +229,14 @@ def _chat_streaming(session_id: str, message: str, no_rag: bool, server: str | N
         signal.signal(signal.SIGINT, sigint_handler)
 
         # Post the message to unified chat (streaming endpoint)
-        client.post("/api/chat/unified", json={
+        body = {
             "session_id": session_id,
             "message": message,
             "options": {"use_rag": not no_rag},
-        })
+        }
+        if project_id:
+            body["project_id"] = project_id
+        client.post("/api/chat/unified", json=body)
 
         # Stream output
         if json_out or output.is_pipe():
