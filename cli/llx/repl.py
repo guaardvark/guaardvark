@@ -46,6 +46,9 @@ def launch_repl():
     repl_commands = ['chat', 'c', 'search', 's', 'health', 'status',
                      'files', 'fl', 'projects', 'p', 'rules', 'r',
                      'models', 'm', 'theme', 't', 'dashboard', 'dash', 'd',
+                     'agents', 'generate', 'jobs', 'index', 'backup',
+                     'family', 'logs', 'rag', 'clients', 'websites',
+                     'tasks', 'images', 'settings',
                      'help', 'exit', 'quit']
     completer = WordCompleter(repl_commands, ignore_case=True)
     history_file = Path.home() / ".llx" / "history"
@@ -277,8 +280,15 @@ def _print_repl_help():
   [llx.accent]models[/llx.accent] / [llx.accent]m[/llx.accent]     Show active model
   [llx.accent]theme[/llx.accent] / [llx.accent]t[/llx.accent]      List or switch themes (e.g. theme hacker)
   [llx.accent]dashboard[/llx.accent] / [llx.accent]d[/llx.accent]   Live system dashboard
+  [llx.accent]clients[/llx.accent]           List clients
+  [llx.accent]websites[/llx.accent]          List websites
+  [llx.accent]tasks[/llx.accent]             List tasks
+  [llx.accent]images[/llx.accent]            List image batches
+  [llx.accent]jobs[/llx.accent]              List active jobs
+  [llx.accent]agents[/llx.accent]            List agents
+  [llx.accent]settings[/llx.accent]          Show settings
   [llx.accent]help[/llx.accent]              Show this help
   [llx.accent]exit[/llx.accent] / [llx.accent]quit[/llx.accent]       Exit REPL
 
-[llx.dim]Any other input is tried as a full llx command (e.g. 'files list', 'index status').[/llx.dim]
+[llx.dim]Any other input is tried as a full llx command (e.g. 'tasks create code_task "write a parser"').[/llx.dim]
 """)

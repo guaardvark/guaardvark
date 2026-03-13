@@ -66,7 +66,7 @@ def generate_image(
     output.set_json_mode(json_out)
     try:
         api_client = get_client(server)
-        data = api_client.post("/api/batch-image-generation", json={
+        data = api_client.post("/api/batch-image/generate/prompts", json={
             "prompts": [prompt],
             "batch_size": 1,
         })
