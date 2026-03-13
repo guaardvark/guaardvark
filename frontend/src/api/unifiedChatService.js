@@ -55,6 +55,13 @@ class UnifiedChatService {
    */
   _on(event, callback) {
     if (!this.socket) return;
+    // Remove any existing listener for this event from THIS service instance
+    // to prevent accumulation when service is reused or recreated on the same socket.
+    const existing = this._listeners.filter((l) => l.event === event);
+    for (const l of existing) {
+      this.socket.off(l.event, l.callback);
+    }
+    this._listeners = this._listeners.filter((l) => l.event !== event);
     this.socket.on(event, callback);
     this._listeners.push({ event, callback });
   }

@@ -58,6 +58,7 @@ import ApiIcon from "@mui/icons-material/Api";
 import SystemIcon from "@mui/icons-material/Computer";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import BuildIcon from "@mui/icons-material/Build";
+import DashboardIcon from "@mui/icons-material/Dashboard";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
 import ExtensionIcon from "@mui/icons-material/Extension";
 import CodeIcon from "@mui/icons-material/Code";
@@ -2105,11 +2106,12 @@ const SettingsPage = () => {
         <Box sx={{ flex: 1, overflow: "auto", px: 3, py: 2, maxWidth: 720 }}>
           {interconnectorPendingCount > 0 && (
             <MuiAlert
-              severity="info"
+              severity="warning"
+              icon={<WarningIcon fontSize="inherit" />}
               sx={{ mb: 2, cursor: "pointer" }}
               onClick={() => setInterconnectorModalOpen(true)}
             >
-              {interconnectorPendingCount} Interconnector update{interconnectorPendingCount !== 1 ? "s" : ""} available — click to review
+              Updates Available — {interconnectorPendingCount} Interconnector update{interconnectorPendingCount !== 1 ? "s" : ""} pending — click to review
             </MuiAlert>
           )}
           {activeSection === "system" && (
@@ -2221,6 +2223,16 @@ const SettingsPage = () => {
                     Save
                   </Button>
                 </Box>
+              </SettingsRow>
+              <SettingsRow label="System Dashboard" icon={<DashboardIcon sx={{ fontSize: 18 }} />}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<DashboardIcon />}
+                  onClick={() => navigate("/dev-tools")}
+                >
+                  Open Dashboard
+                </Button>
               </SettingsRow>
             </SettingsSection>
           )}

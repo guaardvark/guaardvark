@@ -695,12 +695,17 @@ def start_task(task_id):
         if not task:
             return jsonify({"error": "Task not found"}), 404
 
-        # Validate that task can be started
+        # Validate that task can be started — revoke old celery task if re-running
         if task.status in ["in-progress", "queued"]:
-            return (
-                jsonify({"error": f"Task is already {task.status}"}),
-                400,
-            )
+            # Revoke the previous celery task to prevent double-retry loops
+            if task.celery_task_id:
+                try:
+                    from backend.celery_app import celery
+                    celery.control.revoke(task.celery_task_id, terminate=True, signal='SIGTERM')
+                    logger.info(f"Revoked previous celery task {task.celery_task_id} for task {task_id}")
+                except Exception as revoke_err:
+                    logger.warning(f"Failed to revoke previous celery task: {revoke_err}")
+            # Allow re-start instead of blocking
 
         # Create job_id for the task
         from datetime import timezone
@@ -732,6 +737,10 @@ def start_task(task_id):
                 args=[task_id],
                 queue=queue
             )
+
+            # Store celery task ID so we can revoke it on re-start
+            task.celery_task_id = celery_result.id
+            db.session.commit()
 
             logger.info(f"Successfully queued task {task_id} with job_id {job_id}, celery_id={celery_result.id}")
 

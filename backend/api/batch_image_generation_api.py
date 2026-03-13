@@ -864,6 +864,39 @@ def list_batch_generations():
         batches = generator.list_all_batches()
 
         # Convert to serializable format with error handling
+        # Look up folder IDs and thumbnails for completed batches (batch query)
+        from backend.models import Folder, Document as DBDocument
+
+        completed_batch_ids = [b.batch_id for b in batches if b.status == "completed"]
+        folder_cache = {}
+        if completed_batch_ids:
+            # Folders are stored at /Images/<batch_id> (batch_name defaults to batch_id)
+            folder_paths = [f"/Images/{bid}" for bid in completed_batch_ids]
+            folders = Folder.query.filter(Folder.path.in_(folder_paths)).all()
+            path_to_folder = {f.path: f for f in folders}
+            for bid in completed_batch_ids:
+                folder = path_to_folder.get(f"/Images/{bid}")
+                if folder:
+                    folder_cache[bid] = folder
+
+        # Batch-fetch thumbnails for all matched folders (avoid N+1)
+        thumb_cache = {}
+        if folder_cache:
+            folder_ids = [f.id for f in folder_cache.values()]
+            # Get up to 4 most recent docs per folder using a window function
+            all_thumb_docs = (
+                DBDocument.query
+                .filter(DBDocument.folder_id.in_(folder_ids))
+                .order_by(DBDocument.folder_id, DBDocument.uploaded_at.desc())
+                .all()
+            )
+            for doc in all_thumb_docs:
+                fid = doc.folder_id
+                if fid not in thumb_cache:
+                    thumb_cache[fid] = []
+                if len(thumb_cache[fid]) < 4:
+                    thumb_cache[fid].append(doc)
+
         batch_list = []
         for batch in batches:
             try:
@@ -877,6 +910,16 @@ def list_batch_generations():
                     "end_time": batch.end_time.isoformat() if batch.end_time else None,
                     "progress_percentage": int((batch.completed_images / batch.total_images) * 100) if batch.total_images > 0 else 0
                 }
+
+                # Add folder_id and thumbnail URLs for completed batches
+                folder = folder_cache.get(batch.batch_id)
+                if folder:
+                    batch_data["folder_id"] = folder.id
+                    batch_data["thumbnail_urls"] = [
+                        f"/api/files/document/{doc.id}/download"
+                        for doc in thumb_cache.get(folder.id, [])
+                    ]
+
                 batch_list.append(batch_data)
             except Exception as batch_error:
                 logger.warning(f"Failed to serialize batch {getattr(batch, 'batch_id', 'unknown')}: {batch_error}")

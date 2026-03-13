@@ -21,7 +21,7 @@ const ROUTE_MAP = {
   "/file-generation":     { page: "File Generation", entityType: null },
   "/settings":            { page: "Settings", entityType: null },
   "/progress-test":       { page: "Progress Test", entityType: null },
-  "/dev-tools":           { page: "Dev Tools", entityType: null },
+  "/dev-tools":           { page: "System Dashboard", entityType: null },
   "/plugins":             { page: "Plugins", entityType: "plugin" },
   "/code-editor":         { page: "Code Editor", entityType: "code" },
   "/upload":              { page: "Upload", entityType: null },

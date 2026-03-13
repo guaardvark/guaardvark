@@ -7,7 +7,7 @@ import logging
 import uuid
 import subprocess
 import shutil
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Dict, Any, List, Set
 from enum import Enum
@@ -63,7 +63,7 @@ class ProgressEvent:
         self.message = message
         self.status = status
         self.process_type = process_type
-        self.timestamp = datetime.now()
+        self.timestamp = datetime.now(timezone.utc)
         self.additional_data = additional_data or {}
         
     def to_dict(self) -> Dict[str, Any]:
@@ -227,25 +227,19 @@ class UnifiedProgressSystem:
     def _get_socketio(self):
         """Get SocketIO instance with delayed import to avoid circular imports"""
         if self._socketio is not None:
-            logger.info(f"Progress system: Using cached SocketIO instance")
             return self._socketio
-            
+
         try:
             from flask import current_app  # pyre-ignore[21]
             if hasattr(current_app, 'extensions') and 'socketio' in current_app.extensions:
-                logger.info(f"Progress system: Got SocketIO from current_app.extensions")
                 return current_app.extensions['socketio']
             else:
-                # Fallback import - avoid importing full backend.app in Celery context
                 try:
                     from backend.app import socketio  # pyre-ignore[21]
-                    logger.info(f"Progress system: Got SocketIO from backend.app fallback")
                     return socketio
                 except ImportError:
-                    logger.warning("Progress system: SocketIO not available in Celery context")
                     return None
-        except Exception as e:
-            logger.error(f"Progress system: SocketIO not available: {e}")
+        except Exception:
             return None
     
     def create_process(
@@ -280,9 +274,17 @@ class UnifiedProgressSystem:
         )
         
         with self._lock:
+            # Cancel any pending cleanup timer from a previous run with the same ID
+            # This prevents a stale cleanup from nuking a freshly re-created process
+            cleanup_key = f"{safe_process_id}_cleanup"
+            if cleanup_key in self._timeout_timers:
+                self._timeout_timers[cleanup_key].cancel()
+                self._timeout_timers.pop(cleanup_key, None)
+                logger.info(f"Cancelled stale cleanup timer for re-created process: {safe_process_id}")
+
             self._active_processes[safe_process_id] = event
             self._process_history[safe_process_id] = [event]
-            
+
         # Emit the event through all channels
         self._emit_event(event)
         
@@ -435,7 +437,8 @@ class UnifiedProgressSystem:
         # BUG FIX: Reduced cleanup delay from 30s to 5s
         # The 30s delay caused periodic frontend syncs (every 30s) to pull stale
         # completed jobs back into activeProcesses, preventing ProgressFooterBar from hiding
-        cleanup_timer = threading.Timer(5.0, self._cleanup_process, args=[process_id])
+        # Updated to 60s to give frontend enough time to read final state before disk cleanup
+        cleanup_timer = threading.Timer(60.0, self._cleanup_process, args=[process_id])
         cleanup_timer.start()
         self._timeout_timers[f"{process_id}_cleanup"] = cleanup_timer
         
@@ -644,6 +647,11 @@ class UnifiedProgressSystem:
         """Clean up completed processes from memory and file system"""
         with self._lock:
             if process_id in self._active_processes:
+                current = self._active_processes[process_id]
+                # Guard: don't clean up if the process was re-created and is still active
+                if current.status not in (ProcessStatus.COMPLETE, ProcessStatus.ERROR, ProcessStatus.CANCELLED):
+                    logger.info(f"⏭️ Skipping cleanup for {process_id} — process is active (status={current.status.value})")
+                    return
                 self._active_processes.pop(process_id, None)
                 logger.info(f"🧹 Cleaned up process from memory: {process_id}")
         
@@ -658,17 +666,15 @@ class UnifiedProgressSystem:
             self._timeout_timers.pop(timer_key, None)
         
         # Also clean up file-based tracking
-        # DISABLED: Keep metadata files for debugging progress bar
-        # if self._file_based_enabled and self._output_dir:
-        #     try:
-        #         progress_dir = Path(self._output_dir) / ".progress_jobs"
-        #         job_dir = progress_dir / process_id
-        #         if job_dir.exists():
-        #             import shutil
-        #             shutil.rmtree(job_dir)
-        #             logger.info(f"🧹 Cleaned up process files: {process_id}")
-        #     except Exception as e:
-        #         logger.error(f"Failed to clean up process files for {process_id}: {e}")
+        if self._file_based_enabled and self._output_dir:
+            try:
+                progress_dir = Path(self._output_dir) / ".progress_jobs"
+                job_dir = progress_dir / process_id
+                if job_dir.exists():
+                    shutil.rmtree(job_dir)
+                    logger.info(f"🧹 Cleaned up process files: {process_id}")
+            except Exception as e:
+                logger.error(f"Failed to clean up process files for {process_id}: {e}")
     
     def get_active_processes(self) -> Dict[str, ProgressEvent]:
         """Get all active processes"""

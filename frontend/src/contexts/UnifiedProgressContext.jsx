@@ -69,11 +69,14 @@ const progressReducer = (state, action) => {
       const validJobIds = new Set(action.payload.validJobIds);
       const newProcesses = new Map(state.activeProcesses);
       let changed = false;
+      const now = Date.now();
 
       for (const [jobId, process] of state.activeProcesses.entries()) {
-        // Only remove processes that are marked as 'processing' but are missing from the server
-        if (!validJobIds.has(jobId) && process.status === 'processing') {
-          // console.log(`UnifiedProgressContext: Purging ghost job ${jobId}`);
+        // Only purge ghost jobs that are:
+        // 1. In 'processing' status but missing from the server
+        // 2. AND older than 60 seconds (gives new jobs time to appear in metadata files)
+        const age = now - (process.timestamp || 0);
+        if (!validJobIds.has(jobId) && process.status === 'processing' && age > 60000) {
           newProcesses.delete(jobId);
           changed = true;
         }
@@ -98,8 +101,12 @@ export const UnifiedProgressProvider = ({ children }) => {
   const reconnectTimeoutRef = useRef(null);
   const processTimeoutRef = useRef(new Map());
   const listenersRef = useRef(new Map());
+  const activeProcessesRef = useRef(activeProcesses);
   const [connectionState, setConnectionState] = useState('disconnected');
   const cleanupRef = useRef(new Set()); // Track all cleanup functions
+
+  // Keep ref in sync with activeProcesses for use in async callbacks
+  activeProcessesRef.current = activeProcesses;
 
   // Detect process type from message - enhanced for ALL services
   const detectProcessType = useCallback((message) => {
@@ -199,10 +206,17 @@ export const UnifiedProgressProvider = ({ children }) => {
 
       // console.log(`UnifiedProgressContext: Loaded ${activeJobs.length} active jobs from server`);
 
-      // Restore each job into state
+      // Restore jobs into state — but don't overwrite live SocketIO data
+      // File-based metadata can lag behind real-time SocketIO events
       activeJobs.forEach(job => {
         // Only restore if not complete
         if (job.status !== 'complete' && job.status !== 'error' && !job.is_complete) {
+          // Skip if we already have a more recent update from SocketIO
+          const existing = activeProcessesRef.current.get(job.job_id);
+          if (existing && existing.timestamp > (new Date(job.last_update || job.timestamp || 0).getTime())) {
+            return; // SocketIO data is newer, keep it
+          }
+
           const processData = {
             job_id: job.job_id,
             progress: job.progress || 0,
@@ -444,14 +458,12 @@ export const UnifiedProgressProvider = ({ children }) => {
           clearTimeout(existingTimeout);
         }
 
-        // BUG FIX: Reduced delay from 3000ms to 500ms
-        // This prevents ProgressFooterBar from getting stuck because globalProgress.active
-        // stays true while completed processes linger in activeProcesses
+        // Remove completed processes after 3 seconds — long enough for the footer bar
+        // to show completion state, short enough to not linger as ghost jobs
         const timeout = setTimeout(() => {
-          // console.log(`UnifiedProgressContext: Removing completed process: ${job_id}`);
           dispatch({ type: ACTIONS.REMOVE_PROCESS, payload: { job_id } });
           processTimeoutRef.current.delete(job_id);
-        }, 500);
+        }, 3000);
 
         processTimeoutRef.current.set(job_id, timeout);
 

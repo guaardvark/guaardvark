@@ -8,7 +8,7 @@ import { Box, Paper, Avatar, CardMedia, Chip, CircularProgress, Typography } fro
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { a11yDark } from "react-syntax-highlighter/dist/esm/styles/prism";
-import PersonIcon from "@mui/icons-material/Person";
+// No user avatar icon — user messages are clean right-aligned bubbles
 import ImageIcon from "@mui/icons-material/Image";
 import { GuaardvarkLogo } from "../branding";
 import { useAppStore } from "../../stores/useAppStore";
@@ -324,11 +324,7 @@ const MessageItem = ({ message }) => {
           </Box>
         )}
       </Paper>
-      {isUser && (
-        <Avatar sx={{ bgcolor: "secondary.main", width: 32, height: 32 }}>
-          <PersonIcon fontSize="small" />
-        </Avatar>
-      )}
+      {/* No avatar for user messages — clean right-aligned bubbles */}
     </Box>
   );
 };

@@ -23,6 +23,7 @@ CODE_EDITOR_STATE_FILE = os.path.join(STORAGE_DIR, "code_editor_state.json")
 CODE_EDITOR_SESSION_FILE = os.path.join(STORAGE_DIR, "code_editor_session.json")
 DOCUMENTS_WINDOWS_STATE_FILE = os.path.join(STORAGE_DIR, "documents_windows_v2_state.json")
 IMAGES_WINDOWS_STATE_FILE = os.path.join(STORAGE_DIR, "images_windows_state.json")
+STICKY_NOTES_STATE_FILE = os.path.join(STORAGE_DIR, "sticky_notes_state.json")
 LAYOUT_DIR = os.path.dirname(LAYOUT_FILE)
 
 
@@ -640,3 +641,55 @@ def save_code_editor_session():
             ),
             500,
         )
+
+
+@state_bp.route("/sticky-notes", methods=["GET"])
+def get_sticky_notes_state():
+    logger = current_app.logger if current_app else logging.getLogger(__name__)
+    logger.info("API: Received GET /api/state/sticky-notes request")
+    try:
+        if os.path.exists(STICKY_NOTES_STATE_FILE):
+            with open(STICKY_NOTES_STATE_FILE, "r", encoding="utf-8") as f:
+                state = json.load(f)
+            return jsonify(state), 200
+        else:
+            return jsonify({"error": "Sticky notes state not found."}), 404
+    except json.JSONDecodeError as e:
+        logger.error(
+            f"API Error (GET /sticky-notes): Error decoding JSON: {e}",
+            exc_info=True,
+        )
+        return jsonify({"error": "Failed to decode sticky notes state.", "details": str(e)}), 500
+    except Exception as e:
+        logger.error(
+            f"API Error (GET /sticky-notes): Error reading state file: {e}",
+            exc_info=True,
+        )
+        return jsonify({"error": "Failed to read sticky notes state.", "details": str(e)}), 500
+
+
+@state_bp.route("/sticky-notes", methods=["POST"])
+def save_sticky_notes_state():
+    logger = current_app.logger if current_app else logging.getLogger(__name__)
+    logger.info("API: Received POST /api/state/sticky-notes request")
+
+    if not request.is_json:
+        return jsonify({"error": "Request must be JSON"}), 400
+
+    try:
+        state_data = request.get_json()
+        if not isinstance(state_data, dict):
+            return jsonify({"error": "Invalid state format. Request body must be a JSON object."}), 400
+
+        os.makedirs(LAYOUT_DIR, exist_ok=True)
+
+        with open(STICKY_NOTES_STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(state_data, f, indent=2)
+
+        return jsonify({"message": "Sticky notes state saved."}), 200
+    except Exception as e:
+        logger.error(
+            f"API Error (POST /sticky-notes): Error saving state: {e}",
+            exc_info=True,
+        )
+        return jsonify({"error": "Failed to save sticky notes state.", "details": str(e)}), 500

@@ -192,8 +192,22 @@ def execute_generic_llm_task(task: Dict[str, Any], progress_callback) -> str:
         # Get model name - use task model or fall back to default
         model_name = task.get('model_name')
         if not model_name:
-            model_name = os.environ.get('DEFAULT_LLM_MODEL', 'llama3.2:latest')
-            logger.info(f"Using default model: {model_name}")
+            model_name = os.environ.get('DEFAULT_LLM_MODEL', '')
+        if not model_name:
+            # Query Ollama for available models
+            try:
+                import requests as _requests
+                ollama_base_url = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
+                resp = _requests.get(f"{ollama_base_url}/api/tags", timeout=5)
+                if resp.ok:
+                    models = resp.json().get('models', [])
+                    if models:
+                        model_name = models[0]['name']
+                        logger.info(f"Using first available Ollama model: {model_name}")
+            except Exception as e:
+                logger.warning(f"Could not query Ollama for models: {e}")
+        if not model_name:
+            raise ValueError("No LLM model available. Pull a model with 'ollama pull <model>' or set DEFAULT_LLM_MODEL env var.")
 
         prompt = task.get('prompt_text') or task.get('name') or ''
         if not prompt:
@@ -435,7 +449,8 @@ def execute_unified_task(self, task_id: int):
                 progress_system.create_process(
                     ProcessType.TASK_PROCESSING,
                     f"Executing task {task_id}",
-                    {"task_id": task_id, "celery_task_id": celery_task_id}
+                    {"task_id": task_id, "celery_task_id": celery_task_id},
+                    process_id=process_id
                 )
         except Exception as e:
             logger.warning(f"Could not initialize progress tracking: {e}")
@@ -539,7 +554,20 @@ def execute_unified_task(self, task_id: int):
         error_msg = f"Task execution failed: {str(e)}"
         logger.error(f"Task {task_id} failed: {e}", exc_info=True)
 
-        # Update task status to failed
+        # Check if we should retry BEFORE marking as failed
+        if self.request.retries < self.max_retries:
+            update_task_status(task_id, 'queued',
+                               retry_count=self.request.retries + 1,
+                               error_message=f"Attempt {self.request.retries + 1} failed: {error_msg}")
+            if progress_system and process_id:
+                try:
+                    progress_system.error_process(process_id, error_msg)
+                except Exception:
+                    pass
+            logger.info(f"Scheduling Celery retry {self.request.retries + 1}/{self.max_retries} for task {task_id}")
+            raise self.retry(exc=e, countdown=60 * (self.request.retries + 1))
+
+        # Final failure — no more retries
         update_task_status(task_id, 'failed', error_message=error_msg)
 
         # Update progress with error
@@ -548,10 +576,6 @@ def execute_unified_task(self, task_id: int):
                 progress_system.error_process(process_id, error_msg)
             except Exception:
                 pass
-
-        # Check if we should retry
-        if self.request.retries < self.max_retries:
-            raise self.retry(exc=e, countdown=60 * (self.request.retries + 1))
 
         return {'error': error_msg, 'task_id': task_id}
 

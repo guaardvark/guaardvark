@@ -1022,13 +1022,13 @@ const TaskActionModal = ({
               <TextField
                 fullWidth
                 margin="dense"
-                label="Description"
+                label={['code_generation', 'content_generation', 'data_analysis'].includes(formData.type) ? 'Prompt' : 'Description'}
                 name="description"
                 value={formData.description}
                 onChange={handleInputChange}
                 disabled={anyActionInProgress}
                 multiline
-                rows={3}
+                rows={['code_generation', 'content_generation', 'data_analysis'].includes(formData.type) ? 6 : 3}
               />
             </Grid>
 

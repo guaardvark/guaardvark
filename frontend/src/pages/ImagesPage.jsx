@@ -876,7 +876,7 @@ const ImagesPage = () => {
     const item = contextMenuItem;
     if (!item || (contextMenuType !== 'file' && contextMenuType !== 'image')) return;
 
-    const downloadUrl = `${API_BASE}/document/${item.id}/download`;
+    const downloadUrl = `${API_BASE}/document/${item.id}/download?v=${item.updated_at || Date.now()}`;
     const link = document.createElement('a');
     link.href = downloadUrl;
     link.download = item.filename || item.name;
@@ -893,7 +893,7 @@ const ImagesPage = () => {
     const item = contextMenuItem;
     if (!item) return;
 
-    const imageUrl = `${API_BASE}/document/${item.id}/download`;
+    const imageUrl = `${API_BASE}/document/${item.id}/download?v=${item.updated_at || Date.now()}`;
     setLightbox({
       url: imageUrl,
       name: item.filename || item.name,
@@ -902,8 +902,23 @@ const ImagesPage = () => {
     });
   }, [contextMenuItem]);
 
+  const handleEditImage = useCallback(() => {
+    setContextMenu(null);
+    const item = contextMenuItem;
+    if (!item) return;
+
+    const imageUrl = `${API_BASE}/document/${item.id}/download?v=${item.updated_at || Date.now()}`;
+    setLightbox({
+      url: imageUrl,
+      name: item.filename || item.name,
+      fileIndex: 0,
+      fileList: [item],
+      editMode: true,
+    });
+  }, [contextMenuItem]);
+
   const handleImageDoubleClick = useCallback((item, fileIndex, fileList) => {
-    const imageUrl = `${API_BASE}/document/${item.id}/download`;
+    const imageUrl = `${API_BASE}/document/${item.id}/download?v=${item.updated_at || Date.now()}`;
     setLightbox({
       url: imageUrl,
       name: item.filename || item.name,
@@ -913,7 +928,7 @@ const ImagesPage = () => {
   }, []);
 
   const handleDesktopImageDoubleClick = useCallback((file) => {
-    const imageUrl = `${API_BASE}/document/${file.id}/download`;
+    const imageUrl = `${API_BASE}/document/${file.id}/download?v=${file.updated_at || Date.now()}`;
     // Navigate through all root-level files in lightbox
     const fileIndex = rootFiles.findIndex(f => f.id === file.id);
     setLightbox({
@@ -930,7 +945,7 @@ const ImagesPage = () => {
     const file = lightbox.fileList[newIndex];
     setLightbox({
       ...lightbox,
-      url: `${API_BASE}/document/${file.id}/download`,
+      url: `${API_BASE}/document/${file.id}/download?v=${file.updated_at || Date.now()}`,
       name: file.filename || file.name,
       fileIndex: newIndex,
     });
@@ -942,7 +957,7 @@ const ImagesPage = () => {
     const file = lightbox.fileList[newIndex];
     setLightbox({
       ...lightbox,
-      url: `${API_BASE}/document/${file.id}/download`,
+      url: `${API_BASE}/document/${file.id}/download?v=${file.updated_at || Date.now()}`,
       name: file.filename || file.name,
       fileIndex: newIndex,
     });
@@ -953,7 +968,7 @@ const ImagesPage = () => {
     const file = lightbox.fileList[lightbox.fileIndex];
     if (!file) return;
     const link = document.createElement('a');
-    link.href = `${API_BASE}/document/${file.id}/download`;
+    link.href = `${API_BASE}/document/${file.id}/download?v=${file.updated_at || Date.now()}`;
     link.download = file.filename || file.name;
     document.body.appendChild(link);
     link.click();
@@ -1345,7 +1360,38 @@ const ImagesPage = () => {
   }
 
   return (
-    <PageLayout title="Images" variant="grid" noPadding>
+    <PageLayout
+      title="Images"
+      variant="grid"
+      noPadding
+      actions={activeTab === 0 ? (
+        <>
+          <Tooltip title={desktopViewMode === 'icons' ? 'List View' : 'Icon View'}>
+            <IconButton
+              size="small"
+              sx={{ opacity: 0.6 }}
+              onClick={() => setDesktopViewMode(prev => prev === 'icons' ? 'list' : 'icons')}
+            >
+              {desktopViewMode === 'icons' ? <ViewListIcon fontSize="small" /> : <GridViewIcon fontSize="small" />}
+            </IconButton>
+          </Tooltip>
+          {desktopViewMode === 'icons' && (
+            <Tooltip title="Arrange Icons">
+              <IconButton size="small" sx={{ opacity: 0.6 }} onClick={handleArrangeIcons}>
+                <GridViewIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+          {activeWindows.length > 0 && (
+            <Tooltip title="Arrange Windows">
+              <IconButton size="small" sx={{ opacity: 0.6 }} onClick={handleArrangeWindows}>
+                <AppsIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+        </>
+      ) : null}
+    >
       {/* Tab bar */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
         <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
@@ -1367,28 +1413,6 @@ const ImagesPage = () => {
               {rootFolders.length} folder{rootFolders.length !== 1 ? 's' : ''}, {rootFiles.length} image{rootFiles.length !== 1 ? 's' : ''}
             </Typography>
             <Box sx={{ flexGrow: 1 }} />
-            <Tooltip title={desktopViewMode === 'icons' ? 'List View' : 'Icon View'}>
-              <IconButton
-                size="small"
-                onClick={() => setDesktopViewMode(prev => prev === 'icons' ? 'list' : 'icons')}
-              >
-                {desktopViewMode === 'icons' ? <ViewListIcon fontSize="small" /> : <GridViewIcon fontSize="small" />}
-              </IconButton>
-            </Tooltip>
-            {desktopViewMode === 'icons' && (
-              <Tooltip title="Arrange Icons">
-                <IconButton size="small" onClick={handleArrangeIcons}>
-                  <GridViewIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
-            {activeWindows.length > 0 && (
-              <Tooltip title="Arrange Windows">
-                <IconButton size="small" onClick={handleArrangeWindows}>
-                  <AppsIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
           </Box>
 
           {/* Desktop area */}
@@ -1935,6 +1959,7 @@ const ImagesPage = () => {
         onRename={handleRename}
         onDownload={handleDownload}
         onViewFullSize={handleViewFullSize}
+        onEdit={handleEditImage}
         onColorChange={handleColorChange}
         onSelectAll={handleSelectAll}
         onSortBy={handleSortBy}
@@ -1955,6 +1980,7 @@ const ImagesPage = () => {
           imageUrl={lightbox.url}
           imageName={lightbox.name}
           documentId={lightbox.fileList[lightbox.fileIndex]?.id}
+          initialEditMode={lightbox.editMode || false}
           onClose={() => setLightbox(null)}
           onPrev={handleLightboxPrev}
           onNext={handleLightboxNext}

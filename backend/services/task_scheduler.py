@@ -3,6 +3,7 @@
 
 import datetime
 import logging
+import os
 import threading
 import time
 from typing import Optional
@@ -46,7 +47,8 @@ def _execute_task(app, task_id: int) -> None:
             unified_progress = get_unified_progress()
             process_id = unified_progress.create_process(
                 ProcessType.TASK_PROCESSING,
-                f"Processing task: {task.name}"
+                f"Processing task: {task.name}",
+                process_id=job_id
             )
         except Exception as e:
             logger.warning(f"Failed to create progress tracking for task {task_id}: {e}")
@@ -56,55 +58,39 @@ def _execute_task(app, task_id: int) -> None:
             # Get the model to use (task-specific or default)
             model_name = task.model_name
             if not model_name:
-                # Try to get default task model
+                # Try to get default task model from settings
                 try:
                     from backend.api.tasks_api import get_default_task_model
                     default_model = get_default_task_model()
                     if default_model:
                         model_name = default_model
-                    else:
-                        # Fallback to active model
-                        try:
-                            from backend.models import get_active_model_name
-                            model_name = get_active_model_name()
-                        except (ImportError, AttributeError):
-                            # Get available models from database instead of hardcoding
-                            try:
-                                from backend.models import Model
-                                available_models = db.session.query(Model).limit(1).first()
-                                if available_models:
-                                    model_name = available_models.name
-                                else:
-                                    model_name = "default"  # Let the LLM service handle this
-                                    logger.warning("No models found in database, using 'default'")
-                            except Exception:
-                                model_name = "default"  # Let the LLM service handle this
-                except (ImportError, AttributeError) as e:
-                    logger.warning(f"Could not get default task model (import error): {e}")
-                    # Get available models from database instead of hardcoding
-                    try:
-                        from backend.models import Model
-                        available_models = db.session.query(Model).limit(1).first()
-                        if available_models:
-                            model_name = available_models.name
-                        else:
-                            model_name = "default"  # Let the LLM service handle this
-                            logger.warning("No models found in database, using 'default'")
-                    except Exception:
-                        model_name = "default"  # Let the LLM service handle this
                 except Exception as e:
                     logger.warning(f"Could not get default task model: {e}")
-                    # Get available models from database instead of hardcoding
-                    try:
-                        from backend.models import Model
-                        available_models = db.session.query(Model).limit(1).first()
-                        if available_models:
-                            model_name = available_models.name
-                        else:
-                            model_name = "default"  # Let the LLM service handle this
-                            logger.warning("No models found in database, using 'default'")
-                    except Exception:
-                        model_name = "default"  # Let the LLM service handle this
+
+            if not model_name:
+                # Try the active model
+                try:
+                    from backend.models import get_active_model_name
+                    model_name = get_active_model_name()
+                except Exception:
+                    pass
+
+            if not model_name:
+                # Query Ollama directly for any available model
+                try:
+                    import requests as _requests
+                    ollama_base_url = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
+                    resp = _requests.get(f"{ollama_base_url}/api/tags", timeout=5)
+                    if resp.ok:
+                        models = resp.json().get('models', [])
+                        if models:
+                            model_name = models[0]['name']
+                            logger.info(f"Using first available Ollama model: {model_name}")
+                except Exception as e:
+                    logger.warning(f"Could not query Ollama for models: {e}")
+
+            if not model_name:
+                raise ValueError("No LLM model available. Pull a model with 'ollama pull <model>' or set DEFAULT_LLM_MODEL env var.")
 
             # Validate model name with single database query
             if model_name and model_name != "default":

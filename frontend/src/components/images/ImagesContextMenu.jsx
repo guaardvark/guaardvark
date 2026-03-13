@@ -16,6 +16,7 @@ import {
   Sort as SortIcon,
   ViewModule as ArrangeIcon,
   Fullscreen as ViewIcon,
+  Edit as EditIcon,
   Check as CheckIcon,
 } from '@mui/icons-material';
 
@@ -35,6 +36,7 @@ const ImagesContextMenu = ({
   onRename,
   onDownload,
   onViewFullSize,
+  onEdit,
   onColorChange,
   onSelectAll,
   onSortBy,
@@ -156,6 +158,10 @@ const ImagesContextMenu = ({
         <MenuItem key="view" onClick={() => { onViewFullSize?.(); onClose(); }}>
           <ListItemIcon><ViewIcon fontSize="small" /></ListItemIcon>
           <ListItemText>View Full Size</ListItemText>
+        </MenuItem>,
+        <MenuItem key="edit" onClick={() => { onEdit?.(); onClose(); }}>
+          <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>Edit</ListItemText>
         </MenuItem>,
         <Divider key="d0" />,
         <MenuItem key="cut" onClick={() => { onCut?.(); onClose(); }}>

@@ -126,8 +126,9 @@ def detect_stuck_jobs(jobs: List[Dict[str, Any]], active_celery_tasks: Dict[str,
         else:
             is_stale = True  # No timestamp = stale
 
-        # Mark as stuck if no Celery task OR stale
-        if not has_celery_task or is_stale:
+        # Mark as stuck only if BOTH conditions: no Celery task AND stale
+        # Non-Celery processes (background threads like CSV gen) are legitimate
+        if not has_celery_task and is_stale:
             stuck_reasons = []
             if not has_celery_task:
                 stuck_reasons.append("no active Celery task")

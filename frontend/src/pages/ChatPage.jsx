@@ -1320,16 +1320,24 @@ const ChatPage = () => {
         !voiceOptions.analysisResponse
       ) {
         console.log("IMAGE ANALYSIS: Routing through unified chat with base64 image");
-        // Add user message with image preview immediately
-        const userMessage = {
-          id: `user_${Date.now()}`,
-          role: "user",
-          content: inputText || `Describe this image: ${voiceOptions.imageFileName}`,
-          imageUrl: voiceOptions.imagePreview, // base64 data URL for immediate display
-          imageFileName: voiceOptions.imageFileName,
-          messageType: "image_upload",
-        };
-        setMessages((prev) => [...prev, userMessage]);
+        // Upgrade existing user message with image data instead of adding a duplicate
+        const imageContent = inputText || `Describe this image: ${voiceOptions.imageFileName}`;
+        if (userMessageTempId) {
+          setMessages((prev) => prev.map((m) =>
+            m.tempId === userMessageTempId
+              ? { ...m, content: imageContent, imageUrl: voiceOptions.imagePreview, imageFileName: voiceOptions.imageFileName, messageType: "image_upload" }
+              : m
+          ));
+        } else {
+          setMessages((prev) => [...prev, {
+            id: `user_${Date.now()}`,
+            role: "user",
+            content: imageContent,
+            imageUrl: voiceOptions.imagePreview,
+            imageFileName: voiceOptions.imageFileName,
+            messageType: "image_upload",
+          }]);
+        }
         // Don't return — fall through to unified chat flow which sends imageBase64
       }
 
@@ -1339,17 +1347,25 @@ const ChatPage = () => {
         voiceOptions.isImageAnalysis &&
         voiceOptions.analysisResponse
       ) {
-        const userMessage = {
-          id: `user_${Date.now()}`,
-          role: "user",
-          content: `[Image uploaded: ${voiceOptions.imageFileName}]${inputText ? ` ${inputText}` : ""
-            }`,
-          imageUrl: voiceOptions.imageUrl,
-          imageFileName:
-            voiceOptions.permanentFileName || voiceOptions.imageFileName,
-          messageType: "image_upload",
-        };
-        setMessages((prev) => [...prev, userMessage]);
+        // Upgrade existing user message with image data instead of adding a duplicate
+        const legacyContent = `[Image uploaded: ${voiceOptions.imageFileName}]${inputText ? ` ${inputText}` : ""}`;
+        const legacyFileName = voiceOptions.permanentFileName || voiceOptions.imageFileName;
+        if (userMessageTempId) {
+          setMessages((prev) => prev.map((m) =>
+            m.tempId === userMessageTempId
+              ? { ...m, content: legacyContent, imageUrl: voiceOptions.imageUrl, imageFileName: legacyFileName, messageType: "image_upload" }
+              : m
+          ));
+        } else {
+          setMessages((prev) => [...prev, {
+            id: `user_${Date.now()}`,
+            role: "user",
+            content: legacyContent,
+            imageUrl: voiceOptions.imageUrl,
+            imageFileName: legacyFileName,
+            messageType: "image_upload",
+          }]);
+        }
 
         const assistantMessage = {
           id: `asst_${Date.now()}`,
@@ -1627,7 +1643,7 @@ const ChatPage = () => {
     const successMessage = {
       id: `success_${Date.now()}`,
       role: "system",
-      content: `File uploaded successfully! Indexing has been started in the background. Check the DevTools page to monitor progress.`,
+      content: `File uploaded successfully! Indexing has been started in the background. Check the System Dashboard to monitor progress.`,
     };
     setMessages((prev) => [...prev, successMessage]);
 
@@ -1650,8 +1666,7 @@ const ChatPage = () => {
         isUserSpeaking={voiceState.isUserSpeaking}
         isAISpeaking={isAISpeaking}
         micAudioLevels={voiceState.audioLevels}
-        height={100}
-        opacity={0.3}
+        fullWindow
       />
       <Box
         sx={{
@@ -1678,6 +1693,7 @@ const ChatPage = () => {
                 sx={{
                   width: 40,
                   height: 40,
+                  color: "text.secondary",
                   transition: "all 0.2s ease-in-out",
                 }}
               >
@@ -1690,20 +1706,16 @@ const ChatPage = () => {
               <IconButton
                 onClick={handleNewChat}
                 sx={{
-                  backgroundColor: "primary.main",
-                  color: "white",
-                  width: 40,
-                  height: 40,
-                  "&:hover": {
-                    backgroundColor: "primary.dark",
-                  },
+                  width: 20,
+                  height: 20,
+                  color: "text.secondary",
                   "&:active": {
                     transform: "scale(0.95)",
                   },
                   transition: "all 0.2s ease-in-out",
                 }}
               >
-                <AddIcon />
+                <AddIcon sx={{ fontSize: 18 }} />
               </IconButton>
             </span>
           </Tooltip>
@@ -1783,6 +1795,12 @@ const ChatPage = () => {
                 setMessages((prev) => [...prev, completedMessage]);
               }
 
+              // Clean up old service listeners BEFORE creating new one.
+              // Without this, old listeners stay registered on the shared socket,
+              // causing duplicate responses on the next message.
+              if (unifiedChatService) {
+                unifiedChatService.cleanup();
+              }
               if (socketRef?.current) {
                 const newService = new UnifiedChatService(socketRef.current);
                 newService.joinSession(sessionId);

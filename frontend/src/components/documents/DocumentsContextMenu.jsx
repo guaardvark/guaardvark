@@ -19,6 +19,7 @@ const DocumentsContextMenu = ({
   onProperties,
   onRename,
   onDownload,
+  onEdit,
   onColorChange,
   onIndex,
   hasClipboard = false,
@@ -26,6 +27,7 @@ const DocumentsContextMenu = ({
   contextType = 'desktop', // 'desktop', 'folder', 'file'
   selectedItem = null,
   folderColor = null,
+  isImage = false,
 }) => {
   const theme = useTheme();
   const open = Boolean(anchorPosition);
@@ -167,6 +169,7 @@ const DocumentsContextMenu = ({
             <MenuItem onClick={onDownload}>Download</MenuItem>
           </>
         )}
+        {isImage && onEdit && <MenuItem onClick={onEdit}>Edit</MenuItem>}
         {onRename && <MenuItem onClick={onRename}>Rename</MenuItem>}
         {onProperties && <MenuItem onClick={onProperties}>Properties</MenuItem>}
         {onIndex && (

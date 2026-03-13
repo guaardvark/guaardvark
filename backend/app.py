@@ -635,25 +635,16 @@ def _initialize_app_components(app):
                request.path.startswith('/api/simple-csv/'):
                 app.logger.debug(f"Skipping session cleanup for CSV generation endpoint: {request.path}")
                 return response
-                
+
             if hasattr(db, 'session') and db.session:
                 try:
-                    if hasattr(db.session, 'in_transaction') and db.session.in_transaction():
-                        app.logger.debug("Transaction in progress - skipping global session cleanup")
-                        return response
-                        
-                    if hasattr(db.session, 'registry') and db.session.registry:
-                        db.session.remove()
-                        app.logger.debug("Database session cleaned up after request")
-                    else:
-                        app.logger.debug("Session registry not available - skipping cleanup")
-                        
+                    db.session.remove()
                 except Exception as session_check_error:
-                    app.logger.debug(f"Session state check failed, skipping cleanup: {session_check_error}")
-                    
+                    app.logger.debug(f"Session cleanup failed: {session_check_error}")
+
         except Exception as e:
             app.logger.debug(f"Failed to cleanup database session: {e}")
-        
+
         return response
 
     try:
