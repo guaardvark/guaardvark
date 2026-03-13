@@ -99,7 +99,7 @@ export const LayoutProvider = ({ children }) => {
 
 export const useLayout = () => {
   const ctx = useContext(LayoutContext);
-  if (ctx === undefined)
+  if (!ctx)
     throw new Error("useLayout must be used within LayoutProvider");
   return ctx;
 };

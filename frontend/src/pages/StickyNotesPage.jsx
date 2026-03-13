@@ -393,7 +393,6 @@ const StickyNotesPage = () => {
     cardGridH,
   } = gridSettings;
 
-  const systemName = useAppStore((state) => state.systemName);
   const [initialStateLoaded, setInitialStateLoaded] = useState(false);
   const [layoutError, setLayoutError] = useState(null);
   const [notes, setNotes] = useState({});
@@ -408,6 +407,18 @@ const StickyNotesPage = () => {
   const isTogglingRef = useRef(false);
   const noteRefs = useRef({});
   const saveTimeoutRef = useRef(null);
+
+  // Refs for latest state values — avoids stale closures in saveState/debouncedSave
+  const notesRef = useRef(notes);
+  const noteColorsRef = useRef(noteColors);
+  const minimizedCardsRef = useRef(minimizedCards);
+  const layoutModeRef = useRef(layoutMode);
+  const layoutRef = useRef(layout);
+  useEffect(() => { notesRef.current = notes; }, [notes]);
+  useEffect(() => { noteColorsRef.current = noteColors; }, [noteColors]);
+  useEffect(() => { minimizedCardsRef.current = minimizedCards; }, [minimizedCards]);
+  useEffect(() => { layoutModeRef.current = layoutMode; }, [layoutMode]);
+  useEffect(() => { layoutRef.current = layout; }, [layout]);
 
   // ── Grid width tracking ──────────────────────────────────────────────────
 
@@ -590,12 +601,12 @@ const StickyNotesPage = () => {
     ) => {
       try {
         const body = {
-          notes: newNotes || notes,
-          layout: normalLayoutRef.current || newLayout || layout,
-          noteColors: newNoteColors || noteColors,
-          minimizedCards: newMinimizedCards || minimizedCards,
+          notes: newNotes || notesRef.current,
+          layout: normalLayoutRef.current || newLayout || layoutRef.current,
+          noteColors: newNoteColors || noteColorsRef.current,
+          minimizedCards: newMinimizedCards || minimizedCardsRef.current,
           layoutMode:
-            newLayoutMode !== undefined ? newLayoutMode : layoutMode,
+            newLayoutMode !== undefined ? newLayoutMode : layoutModeRef.current,
           lastSaved: new Date().toISOString(),
         };
         const res = await fetch("/api/state/sticky-notes", {
@@ -610,7 +621,7 @@ const StickyNotesPage = () => {
         setLayoutError("Failed to save notes.");
       }
     },
-    [layout, notes, noteColors, minimizedCards, layoutMode],
+    [],
   );
 
   // Debounced save for content typing
@@ -775,8 +786,15 @@ const StickyNotesPage = () => {
   }, []);
 
   const handleInsertLink = useCallback(() => {
+    // Save selection before prompt steals focus
+    const sel = window.getSelection();
+    const range = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
     const url = window.prompt("Enter URL:");
-    if (url) document.execCommand("createLink", false, url);
+    if (url && range) {
+      sel.removeAllRanges();
+      sel.addRange(range);
+      document.execCommand("createLink", false, url);
+    }
   }, []);
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -904,7 +922,7 @@ const StickyNotesPage = () => {
             rowHeight={ROW_HEIGHT_PX}
             width={gridWidth}
             containerPadding={[CONTAINER_PADDING_PX, CONTAINER_PADDING_PX]}
-            margin={[CARD_MARGIN_PX / 20, CARD_MARGIN_PX / 20]}
+            margin={[CARD_MARGIN_PX, CARD_MARGIN_PX]}
             isDraggable={true}
             isResizable={!isCompact && !isCollapsed}
             compactType={

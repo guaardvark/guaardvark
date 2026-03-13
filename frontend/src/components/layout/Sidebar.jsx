@@ -40,6 +40,7 @@ import BuildIcon from "@mui/icons-material/Build";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import StickyNote2Icon from "@mui/icons-material/StickyNote2";
 
 import SystemMetricsModal from "../modals/SystemMetricsModal";
 
@@ -54,6 +55,7 @@ const navGroups = [
       { text: "Chat", icon: <ChatBubbleOutlineIcon />, path: "/chat" },
       { text: "Code Editor", icon: <CodeIcon />, path: "/code-editor" },
       { text: "Documents", icon: <ArticleIcon />, path: "/documents" },
+      { text: "Notes", icon: <StickyNote2Icon />, path: "/notes" },
     ],
   },
   {
