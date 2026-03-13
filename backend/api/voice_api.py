@@ -1762,37 +1762,7 @@ def stream_voice_chat():
             
             logger.info(f"Voice API: Successfully transcribed stream audio to text: '{transcribed_text}'")
             
-            # Step 2: Send to unified chat API (streams response via SocketIO)
-            try:
-                import requests as http_requests
-
-                flask_port = os.environ.get('FLASK_PORT', 5000)
-                chat_url = f"http://localhost:{flask_port}/api/chat/unified"
-                chat_data = {
-                    "message": transcribed_text,
-                    "session_id": session_id,
-                    "options": {"voice_mode": True},
-                }
-
-                # Unified chat returns immediately; LLM response streams via SocketIO
-                response = http_requests.post(
-                    chat_url,
-                    json=chat_data,
-                    timeout=10,
-                    headers={"Content-Type": "application/json"}
-                )
-
-                if response.status_code != 200:
-                    logger.error(f"Unified chat API failed with status {response.status_code}: {response.text}")
-                    return jsonify({"error": "Chat API failed to respond"}), 500
-
-                logger.info(f"Voice API: Dispatched to unified chat, session={session_id}")
-
-            except Exception as e:
-                logger.error(f"Voice API: Chat API integration failed: {type(e).__name__}: {e}", exc_info=True)
-                return jsonify({"error": f"Chat integration failed: {str(e)}"}), 500
-
-            # Step 3: Return transcription immediately; LLM response streams via SocketIO
+            # Step 2: Return transcription to frontend; frontend sends through normal chat pipeline
             return jsonify({
                 "transcribed_text": transcribed_text,
                 "session_id": session_id,

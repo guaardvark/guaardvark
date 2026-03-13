@@ -287,6 +287,9 @@ const ChatPage = () => {
 
   const { speak, ttsEnabled, isPlaying: isAISpeaking } = useVoice();
 
+  // Track whether current in-flight message was voice-initiated (for TTS on streaming complete)
+  const pendingVoiceMessageRef = useRef(false);
+
   const [voiceState, setVoiceState] = useState({
     isListening: false,
     isUserSpeaking: false,
@@ -1390,14 +1393,9 @@ const ChatPage = () => {
       }
 
       if (voiceOptions && voiceOptions.isVoiceMessage && !voiceOptions.aiResponse) {
-        console.warn(
-          "VOICE WARNING: Voice message detected but missing aiResponse - will process through normal chat flow"
-        );
-        console.warn("VOICE WARNING: Voice options:", {
-          isVoiceMessage: voiceOptions.isVoiceMessage,
-          hasAiResponse: !!voiceOptions.aiResponse,
-          userMessage: inputText.substring(0, 50) + "...",
-        });
+        // Voice transcription without pre-generated response — send through normal chat pipeline.
+        // Mark as voice-initiated so TTS fires when the streaming response completes.
+        pendingVoiceMessageRef.current = true;
       }
 
       if (useUnifiedChat && unifiedChatService) {
@@ -1793,7 +1791,18 @@ const ChatPage = () => {
                   generatedImages: result.generatedImages || [],
                 };
                 setMessages((prev) => [...prev, completedMessage]);
+
+                // TTS for voice-initiated messages
+                if (pendingVoiceMessageRef.current && ttsEnabled && result.content.trim()) {
+                  pendingVoiceMessageRef.current = false;
+                  try {
+                    speak(result.content);
+                  } catch (ttsError) {
+                    console.warn("Voice TTS playback failed:", ttsError);
+                  }
+                }
               }
+              pendingVoiceMessageRef.current = false;
 
               // Clean up old service listeners BEFORE creating new one.
               // Without this, old listeners stay registered on the shared socket,
