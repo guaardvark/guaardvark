@@ -1204,6 +1204,7 @@ Total URLs: ${analysis.totalUrls}`;
                 <IconButton
                   onClick={() => fileRef.current?.click()}
                   disabled={disabled}
+                  sx={{ color: "text.secondary" }}
                 >
                   <AttachFileIcon />
                 </IconButton>
@@ -1212,6 +1213,7 @@ Total URLs: ${analysis.totalUrls}`;
               <IconButton
                 onClick={() => fileRef.current?.click()}
                 disabled={disabled}
+                sx={{ color: "text.secondary" }}
               >
                 <AttachFileIcon />
               </IconButton>

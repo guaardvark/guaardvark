@@ -1,7 +1,7 @@
 // frontend/src/components/images/ImageLightbox.jsx
 // Full-screen image lightbox with keyboard navigation and edit mode.
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Box, IconButton, Typography, Tooltip } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -23,8 +23,9 @@ const ImageLightbox = ({
   onImageEdited,
   hasPrev = false,
   hasNext = false,
+  initialEditMode = false,
 }) => {
-  const [editMode, setEditMode] = useState(false);
+  const [editMode, setEditMode] = useState(initialEditMode);
 
   const handleKeyDown = useCallback((e) => {
     if (editMode) return; // Editor handles its own keys
@@ -39,9 +40,13 @@ const ImageLightbox = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
-  // Reset edit mode on image change
+  // Reset edit mode on image change (skip initial mount to preserve initialEditMode)
+  const prevImageUrlRef = useRef(imageUrl);
   useEffect(() => {
-    setEditMode(false);
+    if (prevImageUrlRef.current !== imageUrl) {
+      prevImageUrlRef.current = imageUrl;
+      setEditMode(false);
+    }
   }, [imageUrl]);
 
   const handleSaved = useCallback((savedData) => {

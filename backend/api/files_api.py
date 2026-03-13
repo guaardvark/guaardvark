@@ -283,6 +283,8 @@ def browse_folder():
         }
         if folder_id_val is not None:
             result["folder_id"] = folder_id_val
+            # Include current folder's full properties for inheritance checks
+            result["current_folder"] = folder.to_dict_light() if use_light else folder.to_dict()
 
         return success_response(result)
 
@@ -499,11 +501,16 @@ def _cascade_properties_to_folder(folder: Folder, properties: dict, stats: dict)
             doc.updated_at = datetime.datetime.now()
             db.session.add(doc)
             stats['files_updated'] += 1
-    
-    # Recursively process subfolders
+
+    # Recursively process subfolders — update subfolder properties too
     subfolders = folder.subfolders.all()
     for subfolder in subfolders:
         stats['folders_processed'] += 1
+        for key in ('client_id', 'project_id', 'website_id', 'tags', 'notes', 'is_repository'):
+            if key in properties and hasattr(subfolder, key):
+                setattr(subfolder, key, properties[key])
+        subfolder.updated_at = datetime.datetime.now()
+        db.session.add(subfolder)
         _cascade_properties_to_folder(subfolder, properties, stats)
 
 
@@ -553,7 +560,10 @@ def link_folder_to_entities(folder_id):
         
         if "notes" in data:
             properties['notes'] = data["notes"] if data["notes"] else None
-        
+
+        if "is_repository" in data:
+            properties['is_repository'] = bool(data["is_repository"])
+
         # Cascade properties to all children
         stats = {
             'files_updated': 0,
@@ -683,25 +693,29 @@ def delete_folder(folder_id):
 @files_bp.route("/folder/<int:folder_id>/toggle-repo", methods=["PUT", "POST"])
 @ensure_db_session_cleanup
 def toggle_repo_status(folder_id):
-    """PUT /api/files/folder/:id/toggle-repo - Toggle folder repository status"""
+    """PUT /api/files/folder/:id/toggle-repo - Toggle folder repository status with cascading"""
     logger.info(f"API: Toggle repository status for folder {folder_id}")
     try:
         folder = db.session.get(Folder, folder_id)
         if not folder:
             return error_response("Folder not found", 404, "FOLDER_NOT_FOUND")
-        
+
         data = request.get_json(silent=True)
         if data and "is_repository" in data:
             folder.is_repository = bool(data["is_repository"])
         else:
             # Toggle if not specified
             folder.is_repository = not folder.is_repository
-            
+
+        # Cascade is_repository to all child folders
+        stats = {'files_updated': 0, 'folders_processed': 0}
+        _cascade_properties_to_folder(folder, {'is_repository': folder.is_repository}, stats)
+
         db.session.commit()
-        
+
         status_msg = "marked as repository" if folder.is_repository else "unmarked as repository"
-        logger.info(f"Folder {folder_id} {status_msg}")
-        
+        logger.info(f"Folder {folder_id} {status_msg} (cascaded to {stats['folders_processed']} subfolders)")
+
         # Trigger analysis if marked as repository (non-blocking)
         if folder.is_repository:
             try:
@@ -709,8 +723,11 @@ def toggle_repo_status(folder_id):
                 analyze_repository_task.delay(folder_id)
             except Exception as task_err:
                 logger.warning(f"Could not dispatch repo analysis task: {task_err}")
-            
-        return success_response(folder.to_dict())
+
+        return success_response({
+            **folder.to_dict(),
+            "cascade_stats": stats
+        })
     except SQLAlchemyError as e:
         db.session.rollback()
         logger.error(f"Database error toggling repo status: {e}", exc_info=True)
@@ -1057,7 +1074,10 @@ def download_document(doc_id):
         physical_path = get_physical_path(document.path)
         if not physical_path.exists():
             return error_response("File not found on disk", 404, "FILE_NOT_FOUND")
-        return send_file(physical_path, as_attachment=True, download_name=document.filename)
+        response = send_file(physical_path, as_attachment=True, download_name=document.filename)
+        # Disable long-term caching so edited images are served fresh
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+        return response
     except Exception as e:
         logger.error(f"Error downloading document: {e}", exc_info=True)
         return error_response("Failed to download document", 500, "DOWNLOAD_ERROR")

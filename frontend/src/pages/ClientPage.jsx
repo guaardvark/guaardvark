@@ -7,6 +7,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
+  Box,
   Typography,
   Button,
   Alert as MuiAlert,
@@ -37,6 +38,7 @@ import * as apiService from "../api";
 import ClientActionModal from "../components/modals/ClientActionModal";
 import LinkingModal from "../components/modals/LinkingModal";
 import PageLayout from "../components/layout/PageLayout";
+import EntityContextMenu from "../components/common/EntityContextMenu";
 import { useStatus } from "../contexts/StatusContext";
 import { getLogoUrl } from "../config/logoConfig";
 import { ContextualLoader } from "../components/common/LoadingStates";
@@ -87,6 +89,17 @@ const ClientPage = () => {
   const [viewMode, setViewMode] = useState("card"); // 'card' or 'table'
   const [order, setOrder] = useState("asc");
   const [orderBy, setOrderBy] = useState("name");
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState(null);
+  const [contextItem, setContextItem] = useState(null);
+
+  const handleContextMenu = (e, client = null) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ top: e.clientY, left: e.clientX });
+    setContextItem(client);
+  };
 
   const fetchClients = useCallback(async () => {
     setIsLoading(true);
@@ -402,6 +415,10 @@ const ClientPage = () => {
       modelStatus
       activeModel={activeModel}
     >
+      <Box
+        onContextMenu={(e) => handleContextMenu(e, null)}
+        sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
+      >
         <Snackbar
           open={feedback.open}
           autoHideDuration={6000}
@@ -441,6 +458,7 @@ const ClientPage = () => {
             {sortedClients.map((client) => (
               <Grid item xs={12} sm={6} md={4} lg={3} key={client.id}>
                 <Card
+                  onContextMenu={(e) => handleContextMenu(e, client)}
                   sx={{
                     display: "flex",
                     flexDirection: "column",
@@ -569,6 +587,7 @@ const ClientPage = () => {
                       key={client.id}
                       hover
                       onClick={() => handleOpenActionModal(client)} // Row click opens edit modal
+                      onContextMenu={(e) => handleContextMenu(e, client)}
                       sx={{
                         "&:hover": {
                           backgroundColor: theme.palette.action.hover,
@@ -686,6 +705,21 @@ const ClientPage = () => {
           isSaving={isModalSaving}
         />
       )}
+
+      </Box>
+
+      <EntityContextMenu
+        anchorPosition={contextMenu}
+        onClose={() => { setContextMenu(null); setContextItem(null); }}
+        actions={contextItem ? [
+          { label: 'Edit', onClick: () => handleOpenActionModal(contextItem) },
+          { label: 'Delete', onClick: () => handleDeleteClient(contextItem.id, contextItem.name), color: 'error.main' },
+          { label: 'Files', onClick: () => navigate(`/documents?client_id=${contextItem.id}`), dividerBefore: true },
+          { label: 'Schedule Task', onClick: () => navigate(`/tasks?client_id=${contextItem.id}`) },
+        ] : [
+          { label: 'New Client', icon: <AddIcon fontSize="small" />, onClick: () => handleOpenActionModal(null) },
+        ]}
+      />
 
       {isLinkingModalOpen && selectedClientForModal && (
         <LinkingModal

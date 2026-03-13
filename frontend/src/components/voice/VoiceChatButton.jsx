@@ -608,9 +608,8 @@ const VoiceChatButton = ({
               : isRecording
                 ? '#ff1744'
                 : 'transparent',
-            color: isRecording || isProcessing ? '#fff' : '#2979ff',
-            border: isRecording || isProcessing ? '2px solid transparent' : '2px solid',
-            borderColor: isRecording || isProcessing ? 'transparent' : '#2979ff',
+            color: isRecording || isProcessing ? '#fff' : 'text.primary',
+            border: isRecording || isProcessing ? '2px solid transparent' : 'none',
             transition: 'all 0.2s ease',
             boxShadow: isProcessing
               ? '0 0 16px rgba(124,77,255,0.6), 0 0 4px rgba(124,77,255,0.3) inset'
@@ -626,9 +625,7 @@ const VoiceChatButton = ({
                 ? '#651fff'
                 : isRecording
                   ? '#d50000'
-                  : '#2979ff',
-              color: '#fff',
-              boxShadow: '0 0 18px rgba(41,121,255,0.6)',
+                  : 'action.hover',
             },
           }}
         >

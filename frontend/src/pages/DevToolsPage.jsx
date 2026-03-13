@@ -516,7 +516,7 @@ const DevToolsPage = () => {
 
   return (
     <PageLayout
-      title="Developer Dashboard"
+      title="System Dashboard"
       variant="standard"
       modelStatus
       activeModel={isLoadingModel ? "Loading..." : modelError ? "Error" : activeModel || "Default"}

@@ -56,7 +56,7 @@ import {
 } from '@mui/icons-material';
 
 import { useUnifiedProgress } from '../contexts/UnifiedProgressContext';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import PageLayout from '../components/layout/PageLayout';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
@@ -77,6 +77,7 @@ const sanitizeText = (text) => {
 
 const BatchImageGeneratorPage = () => {
   const theme = useTheme();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isXs = useMediaQuery(theme.breakpoints.down('sm'));
   const isSm = useMediaQuery(theme.breakpoints.between('sm', 'md'));
@@ -247,62 +248,6 @@ const BatchImageGeneratorPage = () => {
 
     return () => clearTimeout(timeoutId);
   }, [batchItems, autoEnhance, analyzeCurrentPrompt]);
-
-  // Load specific batch if batch_id is in URL params (from ContentLibraryPage)
-  useEffect(() => {
-    const batchId = searchParams.get('batch');
-    if (batchId) {
-      loadBatchById(batchId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
-
-  // Monitor active batch progress
-  useEffect(() => {
-    if (activeBatch && activeBatch.status === 'running') {
-      startPolling(activeBatch.batch_id);
-    } else {
-      stopPolling();
-    }
-
-    return () => {
-      // Cleanup function to prevent race conditions
-      stopPolling();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeBatch]);
-
-  // Monitor progress system for batch updates
-  const completionHandledRef = useRef(null);
-  useEffect(() => {
-    const batchProcesses = Array.from(activeProcesses.values()).filter(
-      process => (process.processType === 'image_generation' || process.process_type === 'image_generation') &&
-        process.additional_data?.batch_id
-    );
-
-    if (batchProcesses.length > 0 && activeBatch) {
-      const batchProcess = batchProcesses.find(
-        p => p.additional_data.batch_id === activeBatch.batch_id
-      );
-
-      if (batchProcess) {
-        // Update active batch with progress info from SocketIO
-        setActiveBatch(prev => prev ? {
-          ...prev,
-          completed_images: batchProcess.additional_data.completed || prev.completed_images,
-          progress_percentage: batchProcess.progress || prev.progress_percentage
-        } : null);
-
-        // On completion/error/cancel, do an immediate final poll to get all results
-        if (['complete', 'end', 'error', 'cancelled'].includes(batchProcess.status) &&
-            completionHandledRef.current !== activeBatch.batch_id) {
-          completionHandledRef.current = activeBatch.batch_id;
-          loadBatchById(activeBatch.batch_id);
-          loadBatchHistory();
-        }
-      }
-    }
-  }, [activeProcesses, activeBatch, loadBatchById]);
 
   const checkServiceStatus = useCallback(async () => {
     try {
@@ -521,6 +466,62 @@ const BatchImageGeneratorPage = () => {
       pollingRef.current = null;
     }
   }, []);
+
+  // Load specific batch if batch_id is in URL params (from ContentLibraryPage)
+  useEffect(() => {
+    const batchId = searchParams.get('batch');
+    if (batchId) {
+      loadBatchById(batchId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // Monitor active batch progress
+  useEffect(() => {
+    if (activeBatch && activeBatch.status === 'running') {
+      startPolling(activeBatch.batch_id);
+    } else {
+      stopPolling();
+    }
+
+    return () => {
+      // Cleanup function to prevent race conditions
+      stopPolling();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeBatch]);
+
+  // Monitor progress system for batch updates
+  const completionHandledRef = useRef(null);
+  useEffect(() => {
+    const batchProcesses = Array.from(activeProcesses.values()).filter(
+      process => (process.processType === 'image_generation' || process.process_type === 'image_generation') &&
+        process.additional_data?.batch_id
+    );
+
+    if (batchProcesses.length > 0 && activeBatch) {
+      const batchProcess = batchProcesses.find(
+        p => p.additional_data.batch_id === activeBatch.batch_id
+      );
+
+      if (batchProcess) {
+        // Update active batch with progress info from SocketIO
+        setActiveBatch(prev => prev ? {
+          ...prev,
+          completed_images: batchProcess.additional_data.completed || prev.completed_images,
+          progress_percentage: batchProcess.progress || prev.progress_percentage
+        } : null);
+
+        // On completion/error/cancel, do an immediate final poll to get all results
+        if (['complete', 'end', 'error', 'cancelled'].includes(batchProcess.status) &&
+            completionHandledRef.current !== activeBatch.batch_id) {
+          completionHandledRef.current = activeBatch.batch_id;
+          loadBatchById(activeBatch.batch_id);
+          loadBatchHistory();
+        }
+      }
+    }
+  }, [activeProcesses, activeBatch, loadBatchById]);
 
   const handleBatchItemsChange = (event) => {
     setBatchItems(event.target.value);
@@ -1635,12 +1636,45 @@ const BatchImageGeneratorPage = () => {
                         boxShadow: 1
                       }
                     }}>
+                      {/* Overlapping thumbnail covers */}
+                      {batch.thumbnail_urls?.length > 0 && (
+                        <Box sx={{ mb: 1.5, height: 48, position: 'relative', minWidth: Math.min(batch.thumbnail_urls.length, 4) * 32 + 16 }}>
+                          {batch.thumbnail_urls.slice(0, 4).map((url, idx) => (
+                            <Box
+                              key={idx}
+                              component="img"
+                              src={url}
+                              alt=""
+                              sx={{
+                                width: 48,
+                                height: 48,
+                                borderRadius: 1,
+                                objectFit: 'cover',
+                                border: '2px solid',
+                                borderColor: 'background.paper',
+                                position: 'absolute',
+                                left: idx * 32,
+                                zIndex: 4 - idx,
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                              }}
+                            />
+                          ))}
+                        </Box>
+                      )}
+
                       <Typography
                         variant="subtitle2"
                         sx={{
                           fontWeight: 600,
                           mb: 1,
-                          color: 'text.primary'
+                          color: batch.folder_id ? 'primary.main' : 'text.primary',
+                          cursor: batch.folder_id ? 'pointer' : 'default',
+                          '&:hover': batch.folder_id ? { textDecoration: 'underline' } : {},
+                        }}
+                        onClick={() => {
+                          if (batch.folder_id) {
+                            navigate('/images');
+                          }
                         }}
                       >
                         {batch.batch_id}
@@ -1653,18 +1687,32 @@ const BatchImageGeneratorPage = () => {
                       </Typography>
 
                       {batch.status === 'completed' && (
-                        <Button
-                          size="small"
-                          startIcon={<Download />}
-                          onClick={() => downloadResults(batch.batch_id)}
-                          sx={{
-                            mt: 1,
-                            textTransform: 'none',
-                            borderRadius: 1
-                          }}
-                        >
-                          Download
-                        </Button>
+                        <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                          {batch.folder_id && (
+                            <Button
+                              size="small"
+                              startIcon={<Visibility />}
+                              onClick={() => navigate('/images')}
+                              sx={{
+                                textTransform: 'none',
+                                borderRadius: 1
+                              }}
+                            >
+                              Gallery
+                            </Button>
+                          )}
+                          <Button
+                            size="small"
+                            startIcon={<Download />}
+                            onClick={() => downloadResults(batch.batch_id)}
+                            sx={{
+                              textTransform: 'none',
+                              borderRadius: 1
+                            }}
+                          >
+                            Download
+                          </Button>
+                        </Box>
                       )}
                     </Paper>
                   </Grid>

@@ -1,435 +1,270 @@
 // frontend/src/components/layout/ProgressFooterBar.jsx
-// Version 2.3: Enhanced with TaskQueueIndicator for unified scheduler
-// Uses unified progress system with simple, clean UI
+// Version 3.0: Fixed premature clearing, added grace period, improved all-process-type support
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Box, LinearProgress, Typography, Divider, useTheme } from '@mui/material';
 import { useUnifiedProgress } from '../../contexts/UnifiedProgressContext';
 import TaskQueueIndicator from './TaskQueueIndicator';
 import { useAppStore } from '../../stores/useAppStore';
 
+// Friendly labels for process types
+const PROCESS_TYPE_LABELS = {
+    indexing: 'Indexing',
+    image_generation: 'Image Gen',
+    csv_processing: 'CSV Gen',
+    file_generation: 'File Gen',
+    analysis: 'Analysis',
+    upload: 'Upload',
+    llm_processing: 'LLM',
+    web_scraping: 'Web Scrape',
+    backup: 'Backup',
+    training: 'Training',
+    task_processing: 'Task',
+    voice_processing: 'Voice',
+    document_processing: 'Documents',
+    wordpress_pull: 'WP Pull',
+    wordpress_push: 'WP Push',
+    wordpress_processing: 'WordPress',
+    processing: 'Processing',
+    unknown: 'Working',
+};
+
 const ProgressFooterBar = () => {
     const theme = useTheme();
     const { globalProgress, activeProcesses } = useUnifiedProgress();
-    
-    // Local state for UI
-    const [active, setActive] = useState(false);
+
+    // UI state
+    const [visible, setVisible] = useState(false);
     const [progress, setProgress] = useState(0);
-    const [maxProgress, setMaxProgress] = useState(0);
     const [statusText, setStatusText] = useState('Idle');
-    const [generatedCount, setGeneratedCount] = useState(null);
-    const [targetCount, setTargetCount] = useState(null);
-    const progressRef = useRef(0);
+    const [itemCount, setItemCount] = useState(null); // e.g., "3 of 10"
+
+    // Refs for tracking
     const lastProcessIdRef = useRef(null);
-    const timeoutRef = useRef(null);
-    const debounceTimeoutRef = useRef(null);
+    const hideTimerRef = useRef(null);
+    const lastActiveRef = useRef(false);
 
-    // BUG FIX: Use ref to track current globalProgress.active state
-    // This prevents stale closure issues in timeout callbacks
-    const globalProgressActiveRef = useRef(globalProgress.active);
-
-    // Conditional debugging - only in development
+    // Core effect: sync footer state from unified progress
     useEffect(() => {
-        if (process.env.NODE_ENV === 'development') {
-            console.log('ProgressFooterBar: State update:', {
-                globalProgressActive: globalProgress.active,
-                activeProcessesCount: activeProcesses.size
-            });
+        const hasActive = globalProgress.active && globalProgress.activeCount > 0;
+
+        // Cancel any pending hide timer when new activity arrives
+        if (hasActive && hideTimerRef.current) {
+            clearTimeout(hideTimerRef.current);
+            hideTimerRef.current = null;
+        }
+
+        if (hasActive) {
+            lastActiveRef.current = true;
+            setVisible(true);
+
+            // Get all non-terminal processes sorted by priority then recency
+            const processes = Array.from(activeProcesses.values()).filter(
+                p => p && p.status !== 'complete' && p.status !== 'end' && p.status !== 'error' && p.status !== 'cancelled'
+            );
+
+            if (processes.length === 0) return;
+
+            // Priority order for selecting which process to display
+            const priorityOrder = [
+                'indexing', 'image_generation', 'csv_processing', 'file_generation',
+                'analysis', 'upload', 'llm_processing', 'web_scraping', 'backup',
+                'training', 'task_processing', 'voice_processing', 'document_processing',
+                'wordpress_pull', 'wordpress_push', 'wordpress_processing', 'processing',
+            ];
+
+            let current = null;
+            for (const pt of priorityOrder) {
+                current = processes.find(p =>
+                    (p.processType === pt || p.process_type === pt)
+                );
+                if (current) break;
+            }
+
+            // Fallback: most recent process
+            if (!current) {
+                current = processes.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
+            }
+
+            if (!current) return;
+
+            // Track process switch
+            if (current.job_id !== lastProcessIdRef.current) {
+                lastProcessIdRef.current = current.job_id;
+            }
+
+            // Progress value
+            const pct = typeof current.progress === 'number' ? Math.max(0, Math.min(100, current.progress)) : 0;
+            setProgress(pct);
+
+            // Item counts from additional_data
+            const ad = current.additional_data || {};
+            if (ad.generated_count != null && ad.target_count != null) {
+                setItemCount({ current: ad.generated_count, total: ad.target_count });
+            } else {
+                setItemCount(null);
+            }
+
+            // Status text: use the process message, prefix with type label if not already present
+            const typeKey = current.processType || current.process_type || 'processing';
+            const label = PROCESS_TYPE_LABELS[typeKey] || typeKey;
+            const msg = current.message || 'Processing...';
+            // Only prefix if the message doesn't already mention the type
+            const msgLower = msg.toLowerCase();
+            const needsPrefix = !msgLower.includes(typeKey.replace('_', ' ')) &&
+                                !msgLower.includes(label.toLowerCase());
+            setStatusText(needsPrefix ? `${label}: ${msg}` : msg);
+
+        } else if (lastActiveRef.current) {
+            // Was active, now transitioning to idle
+            // Show completion state briefly, then hide with a grace period
+            lastActiveRef.current = false;
+
+            // Check if there are completed processes to show final state
+            const completedProcess = Array.from(activeProcesses.values()).find(
+                p => p && (p.status === 'complete' || p.status === 'end')
+            );
+
+            if (completedProcess) {
+                setProgress(100);
+                const typeKey = completedProcess.processType || completedProcess.process_type || 'processing';
+                const label = PROCESS_TYPE_LABELS[typeKey] || typeKey;
+                setStatusText(`${label}: Complete`);
+            }
+
+            // Grace period: keep the bar visible for 3 seconds after last activity
+            // This prevents flicker from brief state transitions
+            if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+            hideTimerRef.current = setTimeout(() => {
+                // Double-check: only hide if still no active progress
+                if (!globalProgress.active) {
+                    setVisible(false);
+                    setProgress(0);
+                    setStatusText('Idle');
+                    setItemCount(null);
+                    lastProcessIdRef.current = null;
+                }
+                hideTimerRef.current = null;
+            }, 3000);
+
+        } else if (!visible) {
+            // Fully idle state — nothing to do
         }
     }, [globalProgress, activeProcesses]);
 
-    // BUG FIX: Keep ref in sync with globalProgress.active
-    // This allows timeout callbacks to check the CURRENT state, not stale closure
-    useEffect(() => {
-        globalProgressActiveRef.current = globalProgress.active;
-    }, [globalProgress.active]);
-
-    // Effect to sync with unified progress system ONLY
-    useEffect(() => {
-        if (globalProgress.active) {
-            setActive(true);
-
-            // BUG FIX #2: Safely convert activeProcesses to array with null check
-            if (!activeProcesses || typeof activeProcesses.values !== 'function') {
-                console.error('ProgressFooterBar: activeProcesses is invalid');
-                setActive(false);
-                setStatusText('Idle');
-                setProgress(0);
-                setMaxProgress(0);
-                setGeneratedCount(null);
-                setTargetCount(null);
-                progressRef.current = 0;
-                lastProcessIdRef.current = null;
-                return;
-            }
-
-            const processes = Array.from(activeProcesses.values());
-            if (processes.length === 0) {
-                if (process.env.NODE_ENV === 'development') {
-                    console.log('ProgressFooterBar: No active processes, setting idle');
-                }
-                setActive(false);
-                setStatusText('Idle');
-                setProgress(0);
-                setMaxProgress(0);
-                setGeneratedCount(null);
-                setTargetCount(null);
-                progressRef.current = 0;
-                lastProcessIdRef.current = null;
-                return;
-            }
-            
-            // Find the most relevant process with priority order for ALL services
-            const priorityOrder = [
-                'indexing',      // Document indexing
-                'image_generation', // Image generation
-                'csv_processing', // CSV generation 
-                'file_generation', // File generation
-                'analysis',      // Analysis tasks (including CodeGen)
-                'upload',        // File uploads
-                'llm_processing', // LLM operations
-                'web_scraping',  // Web search operations
-                'backup',        // Backup operations
-                'training',      // AI model training
-                'task_processing', // General task processing
-                'voice_processing', // Voice operations
-                'processing',    // Generic processing
-            ];
-            
-            // BUG FIX #8: Find highest priority active process with safety checks
-            let currentProcess = null;
-            for (const processType of priorityOrder) {
-                currentProcess = processes.find(p => {
-                    if (!p || typeof p !== 'object') return false;
-                    return p.processType === processType ||
-                           p.process_type === processType ||
-                           (p.message && typeof p.message === 'string' &&
-                            p.message.toLowerCase().includes(processType.replace('_', ' ')));
-                });
-                if (currentProcess) break;
-            }
-
-            // If no priority match, use the most recent process
-            if (!currentProcess && processes.length > 0) {
-                currentProcess = processes
-                    .filter(p => p && typeof p === 'object')
-                    .sort((a, b) =>
-                        new Date(b.timestamp || 0) - new Date(a.timestamp || 0)
-                    )[0];
-            }
-            
-            if (currentProcess) {
-                const newProgress = currentProcess.progress || 0;
-                const message = currentProcess.message || 'Processing...';
-                const processId = currentProcess.job_id;
-
-                // Extract count data from additional_data if available
-                const additionalData = currentProcess.additional_data || {};
-                const currentGenerated = additionalData.generated_count;
-                const currentTarget = additionalData.target_count;
-
-                // Update count state
-                if (currentGenerated !== undefined && currentTarget !== undefined) {
-                    setGeneratedCount(currentGenerated);
-                    setTargetCount(currentTarget);
-                } else {
-                    // Clear counts if not available
-                    setGeneratedCount(null);
-                    setTargetCount(null);
-                }
-
-                // Check if this is a new process
-                const isNewProcess = processId !== lastProcessIdRef.current;
-                if (isNewProcess) {
-                    if (process.env.NODE_ENV === 'development') {
-                        console.log('ProgressFooterBar: New process detected:', {
-                            processId,
-                            processType: currentProcess.processType,
-                            status: currentProcess.status,
-                            progress: newProgress,
-                            message: message
-                        });
-                    }
-                    lastProcessIdRef.current = processId;
-                    progressRef.current = 0; // Reset for new process
-                }
-                
-                // Enhanced status text with process type information
-                const processType = currentProcess.processType || currentProcess.process_type || 'processing';
-                const processTypeUpper = (processType || 'processing').toString().toUpperCase();
-                const enhancedMessage = message.includes(processTypeUpper) ? 
-                    message : 
-                    `${processTypeUpper}: ${message}`;
-                setStatusText(enhancedMessage);
-                
-                // BUG FIX #5: Properly validate and bound progress values
-                const validatedProgress = typeof newProgress === 'number' && !isNaN(newProgress)
-                    ? Math.max(0, Math.min(100, newProgress))
-                    : 0;
-                
-                // Update progress - allow both increases and decreases for accurate tracking
-                // Only update if there's an actual change to prevent unnecessary renders
-                const progressChanged = validatedProgress !== progressRef.current;
-                const shouldUpdate = isNewProcess || progressChanged || currentProcess.status === 'start';
-
-                if (shouldUpdate) {
-                    const oldProgress = progressRef.current;
-                    progressRef.current = validatedProgress;
-
-                    // Debounce rapid progress updates to prevent flicker
-                    if (debounceTimeoutRef.current) {
-                        clearTimeout(debounceTimeoutRef.current);
-                    }
-
-                    // Immediate update for significant changes, debounce for small increments
-                    const significantChange = Math.abs(validatedProgress - progress) >= 5 || isNewProcess;
-                    if (significantChange) {
-                        setProgress(validatedProgress);
-                        setMaxProgress(Math.max(maxProgress, validatedProgress));
-                    } else {
-                        debounceTimeoutRef.current = setTimeout(() => {
-                            setProgress(validatedProgress);
-                            setMaxProgress(Math.max(maxProgress, validatedProgress));
-                        }, 100); // 100ms debounce for minor updates
-                    }
-
-                    if (process.env.NODE_ENV === 'development' && progressChanged) {
-                        console.log('ProgressFooterBar: Progress updated:', {
-                            processId,
-                            oldProgress,
-                            newProgress: validatedProgress,
-                            isNewProcess,
-                            debounced: !significantChange
-                        });
-                    }
-                }
-                
-                // Handle completion
-                if (currentProcess.status === 'complete' || currentProcess.status === 'end') {
-                    if (process.env.NODE_ENV === 'development') {
-                        console.log('ProgressFooterBar: Process completed:', processId);
-                    }
-                    progressRef.current = 100;
-                    setProgress(100);
-                    setMaxProgress(100);
-
-                    // BUG FIX #3 & #6: Clear existing timeout with null check and fix race condition
-                    if (timeoutRef.current !== null && timeoutRef.current !== undefined) {
-                        clearTimeout(timeoutRef.current);
-                        timeoutRef.current = null;
-                    }
-
-                    // Auto-hide after completion - capture current state to avoid race condition
-                    const capturedProcessId = processId;
-                    timeoutRef.current = setTimeout(() => {
-                        // BUG FIX: Use REF for current globalProgress.active value, not stale closure
-                        // This ensures we check the ACTUAL current state when timeout fires
-                        if (lastProcessIdRef.current === capturedProcessId && !globalProgressActiveRef.current) {
-                            if (process.env.NODE_ENV === 'development') {
-                                console.log('ProgressFooterBar: Auto-hiding after completion');
-                            }
-                            setActive(false);
-                            setStatusText('Idle');
-                            setProgress(0);
-                            setMaxProgress(0);
-                            setGeneratedCount(null);
-                            setTargetCount(null);
-                            progressRef.current = 0;
-                            lastProcessIdRef.current = null;
-                        }
-                        timeoutRef.current = null;
-                    }, 2000);
-                }
-                
-                // Handle errors
-                if (currentProcess.status === 'error') {
-                    if (process.env.NODE_ENV === 'development') {
-                        console.log('ProgressFooterBar: Process error:', processId);
-                    }
-                    setStatusText(message || 'Error occurred');
-
-                    // BUG FIX #3 & #7: Clear existing timeout with proper null check
-                    if (timeoutRef.current !== null && timeoutRef.current !== undefined) {
-                        clearTimeout(timeoutRef.current);
-                        timeoutRef.current = null;
-                    }
-
-                    // Capture state to avoid race condition
-                    const capturedProcessId = processId;
-                    timeoutRef.current = setTimeout(() => {
-                        // BUG FIX: Use REF for current globalProgress.active value, not stale closure
-                        if (lastProcessIdRef.current === capturedProcessId && !globalProgressActiveRef.current) {
-                            if (process.env.NODE_ENV === 'development') {
-                                console.log('ProgressFooterBar: Auto-hiding after error');
-                            }
-                            setActive(false);
-                            setStatusText('Idle');
-                            setProgress(0);
-                            setMaxProgress(0);
-                            setGeneratedCount(null);
-                            setTargetCount(null);
-                            progressRef.current = 0;
-                            lastProcessIdRef.current = null;
-                        }
-                        timeoutRef.current = null;
-                    }, 3000);
-                }
-            }
-        } else {
-            // No active processes
-            if (process.env.NODE_ENV === 'development') {
-                console.log('ProgressFooterBar: No global progress active, setting idle');
-            }
-            setActive(false);
-            setStatusText('Idle');
-            setProgress(0);
-            setMaxProgress(0);
-            setGeneratedCount(null);
-            setTargetCount(null);
-            progressRef.current = 0;
-            lastProcessIdRef.current = null;
-
-            // BUG FIX #7: Clear any existing timeout with proper null check
-            if (timeoutRef.current !== null && timeoutRef.current !== undefined) {
-                clearTimeout(timeoutRef.current);
-                timeoutRef.current = null;
-            }
-        }
-    }, [globalProgress.active, activeProcesses]);
-
-    // Cleanup timeouts on unmount
+    // Cleanup on unmount
     useEffect(() => {
         return () => {
-            // BUG FIX #3 & #8: Proper cleanup with null check for all timeouts
-            if (timeoutRef.current !== null && timeoutRef.current !== undefined) {
-                clearTimeout(timeoutRef.current);
-                timeoutRef.current = null;
-            }
-            if (debounceTimeoutRef.current !== null && debounceTimeoutRef.current !== undefined) {
-                clearTimeout(debounceTimeoutRef.current);
-                debounceTimeoutRef.current = null;
+            if (hideTimerRef.current) {
+                clearTimeout(hideTimerRef.current);
+                hideTimerRef.current = null;
             }
         };
     }, []);
 
-    // Dynamic sidebar width from Zustand store
+    // Dynamic sidebar width
     const sidebarExpanded = useAppStore((state) => state.sidebarExpanded);
     const drawerWidth = sidebarExpanded ? 240 : 64;
 
-    // BUG FIX #10: Error boundary for rendering
     try {
         return (
             <Box
-            sx={{
-                position: 'fixed',
-                bottom: 0,
-                left: drawerWidth, // Start after the sidebar
-                right: 0,
-                height: '24px', // Compact height like Cursor/VS Code
-                zIndex: 9999, // Very high z-index to ensure it's on top
-                backgroundColor: theme.palette.background.paper,
-                borderTop: `1px solid ${theme.palette.divider}`,
-                display: 'flex',
-                alignItems: 'center',
-                px: 2,
-                // Debug: Add a subtle shadow to make it more visible
-                boxShadow: '0 -2px 8px rgba(0,0,0,0.1)',
-                // BUG FIX #9: Better visibility control - always show footer but adjust opacity
-                opacity: active ? 1 : (process.env.NODE_ENV === 'development' ? 0.5 : 0.2),
-                pointerEvents: active || process.env.NODE_ENV === 'development' ? 'auto' : 'none',
-                transition: 'opacity 0.3s ease-in-out',
-                // Debug: Add subtle border in development
-                ...(process.env.NODE_ENV === 'development' && !active && {
-                    borderTop: '1px solid rgba(100, 100, 100, 0.3)', // Subtle debug border
-                }),
-            }}
-        >
-            {active ? (
-                // Show LinearProgress when active with percentage and count
-                <>
-                    <LinearProgress
-                        color="info"
-                        variant="determinate"
-                        value={progress}
+                sx={{
+                    position: 'fixed',
+                    bottom: 0,
+                    left: drawerWidth,
+                    right: 0,
+                    height: '24px',
+                    zIndex: 9999,
+                    backgroundColor: theme.palette.background.paper,
+                    borderTop: `1px solid ${theme.palette.divider}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    px: 2,
+                    boxShadow: '0 -2px 8px rgba(0,0,0,0.1)',
+                    opacity: visible ? 1 : 0.2,
+                    pointerEvents: visible ? 'auto' : 'none',
+                    transition: 'opacity 0.3s ease-in-out',
+                }}
+            >
+                {visible ? (
+                    <>
+                        <LinearProgress
+                            color="info"
+                            variant="determinate"
+                            value={progress}
+                            sx={{
+                                height: '4px',
+                                flexGrow: 1,
+                                mr: 2,
+                                borderRadius: '2px',
+                                backgroundColor: theme.palette.mode === 'dark' ? 'grey.800' : 'grey.300',
+                                '& .MuiLinearProgress-bar': { borderRadius: '2px' },
+                            }}
+                        />
+                        {itemCount ? (
+                            <Typography
+                                variant="caption"
+                                sx={{
+                                    color: 'info.main',
+                                    fontSize: '0.65rem',
+                                    fontWeight: 500,
+                                    mr: 1,
+                                    minWidth: '60px',
+                                    textAlign: 'right',
+                                }}
+                            >
+                                {itemCount.current} of {itemCount.total} ({Math.round(progress)}%)
+                            </Typography>
+                        ) : (
+                            <Typography
+                                variant="caption"
+                                sx={{
+                                    color: 'info.main',
+                                    fontSize: '0.65rem',
+                                    fontWeight: 500,
+                                    mr: 1,
+                                    minWidth: '30px',
+                                    textAlign: 'right',
+                                }}
+                            >
+                                {Math.round(progress)}%
+                            </Typography>
+                        )}
+                    </>
+                ) : (
+                    <Box
                         sx={{
                             height: '4px',
                             flexGrow: 1,
                             mr: 2,
-                            borderRadius: '2px',
                             backgroundColor: theme.palette.mode === 'dark' ? 'grey.800' : 'grey.300',
-                            '& .MuiLinearProgress-bar': {
-                                borderRadius: '2px',
-                            }
+                            borderRadius: '2px',
                         }}
                     />
-                    {/* Show count if available (e.g., "15/100") */}
-                    {generatedCount !== undefined && generatedCount !== null && targetCount !== undefined && targetCount !== null ? (
-                        <Typography
-                            variant="caption"
-                            sx={{
-                                color: 'info.main',
-                                fontSize: '0.65rem',
-                                fontWeight: 500,
-                                mr: 1,
-                                minWidth: '60px',
-                                textAlign: 'right'
-                            }}
-                        >
-                            Row {generatedCount} of {targetCount} ({Math.round(progress)}%)
-                        </Typography>
-                    ) : (
-                        <Typography
-                            variant="caption"
-                            sx={{
-                                color: 'info.main',
-                                fontSize: '0.65rem',
-                                fontWeight: 500,
-                                mr: 1,
-                                minWidth: '30px',
-                                textAlign: 'right'
-                            }}
-                        >
-                            {Math.round(progress)}%
-                        </Typography>
-                    )}
-                </>
-            ) : (
-                // Show subtle idle bar when not active
-                <Box 
+                )}
+                <Typography
+                    variant="caption"
                     sx={{
-                        height: '4px', 
-                        flexGrow: 1, 
-                        mr: 2, 
-                        backgroundColor: theme.palette.mode === 'dark' ? 'grey.800' : 'grey.300', 
-                        borderRadius: '2px' 
-                    }} 
-                />
-            )}
-            <Typography
-                variant="caption"
-                sx={{
-                    color: 'text.secondary',
-                    whiteSpace: 'nowrap',
-                    fontSize: '0.7rem', // Smaller font size
-                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', // Cleaner font
-                    fontWeight: 400,
-                    letterSpacing: '0.02em',
-                    flexGrow: 0,
-                    mr: 1
-                }}
-            >
-                {statusText}
-                {process.env.NODE_ENV === 'development' && ' - Ready'}
-            </Typography>
+                        color: 'text.secondary',
+                        whiteSpace: 'nowrap',
+                        fontSize: '0.7rem',
+                        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                        fontWeight: 400,
+                        letterSpacing: '0.02em',
+                        flexGrow: 0,
+                        mr: 1,
+                    }}
+                >
+                    {statusText}
+                </Typography>
 
-            {/* Task Queue Indicator - shows scheduled/queued tasks */}
-            <Divider orientation="vertical" flexItem sx={{ mx: 1, height: 16, alignSelf: 'center' }} />
-            <TaskQueueIndicator compact={true} />
-        </Box>
+                <Divider orientation="vertical" flexItem sx={{ mx: 1, height: 16, alignSelf: 'center' }} />
+                <TaskQueueIndicator compact={true} />
+            </Box>
         );
     } catch (error) {
         console.error('ProgressFooterBar rendering error:', error);
-        // Fallback UI
         return (
             <Box
                 sx={{

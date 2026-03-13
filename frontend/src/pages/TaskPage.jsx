@@ -10,9 +10,17 @@ import {
   Box,
   Button,
   Chip,
+  Divider,
+  FormControl,
   IconButton,
+  InputLabel,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem as MuiMenuItem,
   Alert as MuiAlert,
   Paper,
+  Select,
   Snackbar,
   Tooltip,
   Typography,
@@ -32,6 +40,7 @@ import AnalyticsIcon from "@mui/icons-material/Analytics";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
 import ClearAllIcon from "@mui/icons-material/ClearAll";
 import AssignmentOutlined from "@mui/icons-material/AssignmentOutlined";
+import DescriptionIcon from "@mui/icons-material/Description";
 import {
   cancelJob,
   createTask,
@@ -48,6 +57,7 @@ import { useUnifiedProgress } from "../contexts/UnifiedProgressContext";
 import TaskCard from "../components/cards/TaskCard";
 import TaskActionModal from "../components/modals/TaskActionModal";
 import PageLayout from "../components/layout/PageLayout";
+import EntityContextMenu from "../components/common/EntityContextMenu";
 import EmptyState from "../components/common/EmptyState";
 import { ContextualLoader } from "../components/common/LoadingStates";
 
@@ -80,7 +90,7 @@ const TaskPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { activeModel, isLoadingModel, modelError } = useStatus();
-  const { activeProcesses } = useUnifiedProgress();
+  useUnifiedProgress();
 
   // State management
   const [tasks, setTasks] = useState([]);
@@ -105,56 +115,23 @@ const TaskPage = () => {
   // Sorting state (simplified for card view)
   const [sortBy, setSortBy] = useState("created_at");
 
-  // Load data on component mount
-  useEffect(() => {
-    fetchTasks();
-    fetchProjects();
-    fetchAvailableModels();
-  }, []);
+  // New Job menu state
+  const [newTaskMenuAnchor, setNewTaskMenuAnchor] = useState(null);
 
-  // Real-time task status updates via UnifiedProgressContext
-  useEffect(() => {
-    if (tasks.length === 0) return;
+  // Filter state
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
 
-    const updateTaskFromProgress = (progressData) => {
-      setTasks(prev => prev.map(task => {
-        if (task.job_id === progressData.job_id) {
-          return {
-            ...task,
-            status: progressData.status === 'complete' ? 'completed' :
-                   progressData.status === 'error' ? 'failed' :
-                   progressData.status === 'start' ? 'in-progress' : task.status,
-            progress: progressData.progress || 0
-          };
-        }
-        return task;
-      }));
-    };
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState(null);
+  const [contextItem, setContextItem] = useState(null);
 
-    // Listen to progress updates for all tasks with job_ids
-    // BUG FIX #1: Safely check if activeProcesses and addProcessListener exist
-    const cleanup = [];
-    if (activeProcesses && typeof activeProcesses === 'object') {
-      tasks.forEach(task => {
-        if (task.job_id && typeof activeProcesses.has === 'function' && activeProcesses.has(task.job_id)) {
-          if (typeof activeProcesses.addProcessListener === 'function') {
-            const removeListener = activeProcesses.addProcessListener(task.job_id, updateTaskFromProgress);
-            if (removeListener && typeof removeListener === 'function') {
-              cleanup.push(removeListener);
-            }
-          }
-        }
-      });
-    }
-
-    return () => {
-      cleanup.forEach(fn => {
-        if (typeof fn === 'function') {
-          fn();
-        }
-      });
-    };
-  }, [tasks, activeProcesses]);
+  const handleContextMenu = (e, task = null) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ top: e.clientY, left: e.clientX });
+    setContextItem(task);
+  };
 
   // Fetch tasks
   const fetchTasks = useCallback(async () => {
@@ -207,6 +184,23 @@ const TaskPage = () => {
       console.error("Failed to fetch models:", err);
     }
   }, []);
+
+  // Load data on component mount
+  useEffect(() => {
+    fetchTasks();
+    fetchProjects();
+    fetchAvailableModels();
+  }, []);
+
+  // Auto-refresh when tasks are running
+  useEffect(() => {
+    const hasRunningTasks = tasks.some(t =>
+      ['queued', 'in-progress', 'running', 'processing'].includes(t.status?.toLowerCase())
+    );
+    if (!hasRunningTasks) return;
+    const interval = setInterval(() => { fetchTasks(); }, 10000);
+    return () => clearInterval(interval);
+  }, [tasks, fetchTasks]);
 
   // Removed sorting and progress handlers - now handled in TaskCard component
 
@@ -507,9 +501,25 @@ const TaskPage = () => {
     setFeedback((prev) => ({ ...prev, open: false }));
   };
 
-  // Sort tasks for card view
+  // Sort and filter tasks for card view
   const sortedTasks = useMemo(() => {
-    return [...tasks].sort((a, b) => {
+    let filtered = [...tasks];
+
+    // Status filter
+    if (statusFilter === 'active') {
+      filtered = filtered.filter(t => ['pending', 'queued', 'in-progress', 'running', 'processing'].includes(t.status?.toLowerCase()));
+    } else if (statusFilter === 'completed') {
+      filtered = filtered.filter(t => t.status?.toLowerCase() === 'completed');
+    } else if (statusFilter === 'failed') {
+      filtered = filtered.filter(t => ['failed', 'error', 'cancelled', 'canceled'].includes(t.status?.toLowerCase()));
+    }
+
+    // Type filter
+    if (typeFilter !== 'all') {
+      filtered = filtered.filter(t => t.type === typeFilter);
+    }
+
+    return filtered.sort((a, b) => {
       if (sortBy === "created_at") {
         return new Date(b.created_at) - new Date(a.created_at);
       }
@@ -538,20 +548,17 @@ const TaskPage = () => {
       }
       return 0;
     });
-  }, [tasks, sortBy]);
+  }, [tasks, sortBy, statusFilter, typeFilter]);
 
   return (
     <PageLayout
-      title="Tasks"
+      title="Job Scheduler"
       variant="standard"
       actions={
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Chip label={`${tasks.filter(t => t.status === "pending").length} Pending`} size="small" variant="outlined" />
           <Chip label={`${tasks.filter(t => t.status === "queued").length} Queued`} size="small" variant="outlined" color="info" />
           <Chip label={`${tasks.filter(t => t.status === "in-progress").length} Running`} size="small" variant="outlined" />
-          <Button variant="outlined" size="small" startIcon={<TableChartIcon />} onClick={() => handleQuickTaskAction("csv_generation")} disabled={isLoading || isSaving}>CSV Gen</Button>
-          <Button variant="outlined" size="small" startIcon={<CodeIcon />} onClick={() => handleQuickTaskAction("code_task")} disabled={isLoading || isSaving}>Code Gen</Button>
-          <Button variant="outlined" size="small" startIcon={<AnalyticsIcon />} onClick={() => handleQuickTaskAction("analysis_task")} disabled={isLoading || isSaving}>Analyze</Button>
           {queueOrder.length > 0 && (
             <Button variant="contained" size="small" startIcon={<PlayArrowIcon />} onClick={processQueue} disabled={isProcessingQueue || isLoading}>
               Run {queueOrder.length} Task{queueOrder.length !== 1 ? 's' : ''}
@@ -560,12 +567,51 @@ const TaskPage = () => {
           {tasks.length > 0 && (
             <Button variant="outlined" size="small" startIcon={<ClearAllIcon />} onClick={handleClearAllTasks} disabled={isLoading || isSaving}>Clear All</Button>
           )}
-          <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={handleOpenTaskForm} disabled={isLoading || isSaving}>New Task</Button>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={(e) => setNewTaskMenuAnchor(e.currentTarget)}
+            disabled={isLoading || isSaving}
+          >
+            New Job
+          </Button>
+          <Menu
+            anchorEl={newTaskMenuAnchor}
+            open={Boolean(newTaskMenuAnchor)}
+            onClose={() => setNewTaskMenuAnchor(null)}
+          >
+            <MuiMenuItem onClick={() => { setNewTaskMenuAnchor(null); handleQuickTaskAction("code_task"); }}>
+              <ListItemIcon><CodeIcon fontSize="small" /></ListItemIcon>
+              <ListItemText>Code Generation</ListItemText>
+            </MuiMenuItem>
+            <MuiMenuItem onClick={() => { setNewTaskMenuAnchor(null); handleQuickTaskAction("csv_generation"); }}>
+              <ListItemIcon><TableChartIcon fontSize="small" /></ListItemIcon>
+              <ListItemText>CSV / Bulk Content</ListItemText>
+            </MuiMenuItem>
+            <MuiMenuItem onClick={() => { setNewTaskMenuAnchor(null); handleQuickTaskAction("content_task"); }}>
+              <ListItemIcon><DescriptionIcon fontSize="small" /></ListItemIcon>
+              <ListItemText>Content Generation</ListItemText>
+            </MuiMenuItem>
+            <MuiMenuItem onClick={() => { setNewTaskMenuAnchor(null); handleQuickTaskAction("analysis_task"); }}>
+              <ListItemIcon><AnalyticsIcon fontSize="small" /></ListItemIcon>
+              <ListItemText>Data Analysis</ListItemText>
+            </MuiMenuItem>
+            <Divider />
+            <MuiMenuItem onClick={() => { setNewTaskMenuAnchor(null); handleOpenTaskForm(); }}>
+              <ListItemIcon><AddIcon fontSize="small" /></ListItemIcon>
+              <ListItemText>Custom Job</ListItemText>
+            </MuiMenuItem>
+          </Menu>
         </Box>
       }
       modelStatus
       activeModel={isLoadingModel ? "Loading..." : modelError ? "Error" : activeModel}
     >
+      <Box
+        onContextMenu={(e) => handleContextMenu(e, null)}
+        sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
+      >
         <Snackbar
           open={feedback.open}
           autoHideDuration={4000}
@@ -600,6 +646,31 @@ const TaskPage = () => {
           onTaskDuplicated={handleTaskDuplicated}
         />
 
+        {/* Filter bar */}
+        <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          {['all', 'active', 'completed', 'failed'].map(f => (
+            <Chip
+              key={f}
+              label={f.charAt(0).toUpperCase() + f.slice(1)}
+              size="small"
+              variant={statusFilter === f ? 'filled' : 'outlined'}
+              color={statusFilter === f ? 'primary' : 'default'}
+              onClick={() => setStatusFilter(f)}
+            />
+          ))}
+          <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <InputLabel>Type</InputLabel>
+            <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} label="Type">
+              <MuiMenuItem value="all">All Types</MuiMenuItem>
+              <MuiMenuItem value="code_generation">Code Gen</MuiMenuItem>
+              <MuiMenuItem value="file_generation">CSV / Bulk</MuiMenuItem>
+              <MuiMenuItem value="content_generation">Content</MuiMenuItem>
+              <MuiMenuItem value="data_analysis">Analysis</MuiMenuItem>
+            </Select>
+          </FormControl>
+        </Box>
+
         {/* Tasks Display */}
         {isLoading ? (
           <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", py: 6 }}>
@@ -630,20 +701,54 @@ const TaskPage = () => {
               }}
             >
               {sortedTasks.map((task) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  onEdit={handleEditTask}
-                  onDuplicate={handleDuplicateTask}
-                  onDelete={handleDeleteTask}
-                  onStartJob={handleStartSingleTask}
-                  availableProjects={availableProjects}
-                />
+                <div key={task.id} onContextMenu={(e) => handleContextMenu(e, task)}>
+                  <TaskCard
+                    task={task}
+                    onEdit={handleEditTask}
+                    onDuplicate={handleDuplicateTask}
+                    onDelete={handleDeleteTask}
+                    onStartJob={handleStartSingleTask}
+                    availableProjects={availableProjects}
+                  />
+                </div>
               ))}
             </Box>
 
           </>
         )}
+
+      </Box>
+
+        <EntityContextMenu
+          anchorPosition={contextMenu}
+          onClose={() => { setContextMenu(null); setContextItem(null); }}
+          actions={contextItem ? [
+            {
+              label: 'Start',
+              onClick: () => handleStartSingleTask(contextItem.id, contextItem),
+              disabled: ['in-progress', 'running', 'processing', 'completed', 'complete', 'queued'].includes(contextItem.status?.toLowerCase()),
+            },
+            {
+              label: 'Cancel',
+              onClick: () => {
+                if (contextItem.job_id) {
+                  cancelJob(contextItem.job_id);
+                  setTimeout(fetchTasks, 1000);
+                }
+              },
+              disabled: !['in-progress', 'running', 'processing', 'queued'].includes(contextItem.status?.toLowerCase()),
+            },
+            { label: 'Edit', onClick: () => handleEditTask(contextItem), dividerBefore: true },
+            { label: 'Duplicate', onClick: () => handleDuplicateTask(contextItem.id) },
+            { label: 'Delete', onClick: () => handleDeleteTask(contextItem.id, contextItem.name), dividerBefore: true, color: 'error.main' },
+          ] : [
+            { label: 'New Code Generation', icon: <CodeIcon fontSize="small" />, onClick: () => handleQuickTaskAction("code_task") },
+            { label: 'New CSV / Bulk Content', icon: <TableChartIcon fontSize="small" />, onClick: () => handleQuickTaskAction("csv_generation") },
+            { label: 'New Content Generation', icon: <DescriptionIcon fontSize="small" />, onClick: () => handleQuickTaskAction("content_task") },
+            { label: 'New Data Analysis', icon: <AnalyticsIcon fontSize="small" />, onClick: () => handleQuickTaskAction("analysis_task") },
+            { label: 'New Custom Job', icon: <AddIcon fontSize="small" />, onClick: () => handleOpenTaskForm(), dividerBefore: true },
+          ]}
+        />
     </PageLayout>
   );
 };

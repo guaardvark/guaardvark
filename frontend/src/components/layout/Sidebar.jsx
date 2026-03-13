@@ -63,7 +63,7 @@ const navGroups = [
       { text: "Projects", icon: <FolderIcon />, path: "/projects" },
       { text: "Websites", icon: <LanguageIcon />, path: "/websites" },
       { text: "Images", icon: <ImageIcon />, path: "/images" },
-      { text: "Tasks", icon: <TaskAltIcon />, path: "/tasks" },
+      { text: "Job Scheduler", icon: <TaskAltIcon />, path: "/tasks" },
     ],
   },
   {

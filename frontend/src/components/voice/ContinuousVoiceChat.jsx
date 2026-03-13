@@ -354,65 +354,18 @@ const ContinuousVoiceChat = React.forwardRef(({
   }, []);
 
   // --- Process text directly as chat (for wake word remainder) ---
+  // Routes through the same unified chat pipeline as active mode
+  // instead of calling the old /enhanced-chat REST endpoint.
   const processTextAsChat = useCallback(async (text) => {
     try {
-      setIsMicMuted(true);
-      setIsAISpeaking(true);
-
-      const response = await fetch(`${BASE_URL}/enhanced-chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: text,
-          session_id: sessionId,
-          voice_mode: true,
-        }),
-      });
-
-      const data = await response.json();
-      const llmResponse = data?.data?.response || '';
-
-      if (!llmResponse.trim()) {
-        setIsMicMuted(false);
-        setIsAISpeaking(false);
-        return;
-      }
-
-      // Generate and play TTS
-      let audioUrl = null;
-      try {
-        const ttsResult = await voiceService.textToSpeech(
-          cleanTextForTTS(llmResponse),
-          voiceNameRef.current
-        );
-        if (ttsResult.audio_url) {
-          audioUrl = `${BACKEND_URL}${ttsResult.audio_url}`;
-        }
-      } catch (ttsErr) {
-        console.warn('ContinuousVoiceChat: TTS failed for text chat:', ttsErr);
-      }
-
+      // Send through normal chat pipeline (response: null = use streaming)
       onMessageReceived({
         transcription: text,
-        response: llmResponse,
-        audioUrl,
+        response: null,
       });
 
       setSegmentCount(prev => prev + 1);
-
-      if (audioUrl) {
-        try {
-          await voiceService.playAudio(audioUrl, {
-            volume: playbackVolumeRef.current,
-            playbackRate: playbackSpeedRef.current,
-          });
-        } catch (playErr) {
-          console.warn('ContinuousVoiceChat: Audio playback failed:', playErr);
-        }
-      }
-
       setIsMicMuted(false);
-      setIsAISpeaking(false);
 
       if (wakeWordEnabled) {
         resetActiveListeningTimeout();
@@ -420,9 +373,8 @@ const ContinuousVoiceChat = React.forwardRef(({
     } catch (err) {
       console.error('ContinuousVoiceChat: processTextAsChat error:', err);
       setIsMicMuted(false);
-      setIsAISpeaking(false);
     }
-  }, [sessionId, onMessageReceived, wakeWordEnabled, resetActiveListeningTimeout]);
+  }, [onMessageReceived, wakeWordEnabled, resetActiveListeningTimeout]);
 
   // --- VAD Detection ---
   const detectVoiceActivity = useCallback((volume) => {
@@ -1310,9 +1262,8 @@ const ContinuousVoiceChat = React.forwardRef(({
               : isListening
                 ? (speechDetected ? '#ff1744' : '#2979ff')
                 : 'transparent',
-            color: isListening || isProcessingAudio ? '#fff' : '#2979ff',
-            border: isListening || isProcessingAudio ? '2px solid transparent' : '2px solid',
-            borderColor: isListening || isProcessingAudio ? 'transparent' : '#2979ff',
+            color: isListening || isProcessingAudio ? '#fff' : 'text.primary',
+            border: isListening || isProcessingAudio ? '2px solid transparent' : 'none',
             transition: 'all 0.2s ease',
             boxShadow: isProcessingAudio
               ? '0 0 16px rgba(124,77,255,0.6), 0 0 4px rgba(124,77,255,0.3) inset'
@@ -1330,9 +1281,7 @@ const ContinuousVoiceChat = React.forwardRef(({
                 ? '#651fff'
                 : isListening
                   ? (speechDetected ? '#d50000' : '#2962ff')
-                  : '#2979ff',
-              color: '#fff',
-              boxShadow: '0 0 18px rgba(41,121,255,0.6)',
+                  : 'action.hover',
             },
           }}
         >

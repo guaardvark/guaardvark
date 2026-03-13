@@ -10,7 +10,8 @@ import React, { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import { Box, Typography, Card, CardActionArea, CardContent, IconButton, Tooltip, Stack, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, useTheme, CircularProgress } from "@mui/material";
 import { GuaardvarkLogo } from "../components/branding";
 import { Apps as AppsIcon, GridView as GridViewIcon, FolderOutlined, Code, UploadFile as UploadFileIcon } from "@mui/icons-material";
-import { getFileIcon, getItemKey, FolderIndexIndicator } from "../components/documents/fileUtils.jsx";
+import { getFileIcon, getItemKey, FolderIndexIndicator, isImageFile } from "../components/documents/fileUtils.jsx";
+import ImageLightbox from "../components/images/ImageLightbox";
 import ReactGridLayoutLib, { WidthProvider } from 'react-grid-layout';
 import FolderWindow from "../components/documents/FolderWindow";
 import DocumentsContextMenu from "../components/documents/DocumentsContextMenu";
@@ -128,6 +129,7 @@ const DocumentsPage = () => {
   const [selectedForProperties, setSelectedForProperties] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(null); // { current: N, total: M } or null
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [lightbox, setLightbox] = useState(null); // { url, name, documentId, editMode }
   const [dragOverFolderId, setDragOverFolderId] = useState(null); // Folder ID being dragged over
   const fileInputRef = useRef(null);
   const dragDropHandledRef = useRef(false); // Track if drop was handled to prevent repositioning
@@ -1354,6 +1356,21 @@ const DocumentsPage = () => {
     showMessage?.(`Downloading ${item.filename || item.name}`, 'info');
   }, [contextMenuItem, contextMenuType, showMessage]);
 
+  const handleEditImage = useCallback(() => {
+    setContextMenu(null);
+    const item = contextMenuItem;
+    if (!item || contextMenuType !== 'file') return;
+    const filename = item.filename || item.name || '';
+    if (!isImageFile(filename)) return;
+    const imageUrl = `${API_BASE}/document/${item.id}/download?v=${item.updated_at || Date.now()}`;
+    setLightbox({
+      url: imageUrl,
+      name: filename,
+      documentId: item.id,
+      editMode: true,
+    });
+  }, [contextMenuItem, contextMenuType]);
+
   const handleProperties = useCallback(async () => {
     setContextMenu(null);
     const item = contextMenuItem;
@@ -1763,18 +1780,18 @@ const DocumentsPage = () => {
       actions={
         <>
           <Tooltip title="Upload Files">
-            <IconButton onClick={handleUpload} size="small">
-              <UploadFileIcon />
+            <IconButton onClick={handleUpload} size="small" sx={{ opacity: 0.6 }}>
+              <UploadFileIcon fontSize="small" />
             </IconButton>
           </Tooltip>
           <Tooltip title="Arrange Icons">
-            <IconButton onClick={handleArrangeIcons} size="small">
-              <GridViewIcon />
+            <IconButton onClick={handleArrangeIcons} size="small" sx={{ opacity: 0.6 }}>
+              <GridViewIcon fontSize="small" />
             </IconButton>
           </Tooltip>
           <Tooltip title="Arrange Windows">
-            <IconButton onClick={handleArrangeWindows} size="small">
-              <AppsIcon />
+            <IconButton onClick={handleArrangeWindows} size="small" sx={{ opacity: 0.6 }}>
+              <AppsIcon fontSize="small" />
             </IconButton>
           </Tooltip>
         </>
@@ -2129,12 +2146,47 @@ const DocumentsPage = () => {
               left: '0 !important',
               cursor: 'sw-resize',
             },
+            '& .react-resizable-handle-ne': {
+              width: '20px !important',
+              height: '20px !important',
+              top: '0 !important',
+              right: '0 !important',
+              cursor: 'ne-resize',
+            },
+            '& .react-resizable-handle-nw': {
+              width: '20px !important',
+              height: '20px !important',
+              top: '0 !important',
+              left: '0 !important',
+              cursor: 'nw-resize',
+            },
             '& .react-resizable-handle-s': {
               width: '100% !important',
               height: '12px !important',
               bottom: '0 !important',
               left: '0 !important',
               cursor: 's-resize',
+            },
+            '& .react-resizable-handle-n': {
+              width: '100% !important',
+              height: '6px !important',
+              top: '0 !important',
+              left: '0 !important',
+              cursor: 'n-resize',
+            },
+            '& .react-resizable-handle-e': {
+              width: '12px !important',
+              height: '100% !important',
+              top: '0 !important',
+              right: '0 !important',
+              cursor: 'e-resize',
+            },
+            '& .react-resizable-handle-w': {
+              width: '12px !important',
+              height: '100% !important',
+              top: '0 !important',
+              left: '0 !important',
+              cursor: 'w-resize',
             },
           }}>
             <WindowsGridLayout
@@ -2152,7 +2204,7 @@ const DocumentsPage = () => {
               draggableHandle=".folder-window-drag-handle"
               draggableCancel="button, input, textarea, select, option, .non-draggable"
               onLayoutChange={handleWindowLayoutChange}
-              resizeHandles={["se", "sw", "s"]}
+              resizeHandles={["se", "sw", "ne", "nw", "s", "n", "e", "w"]}
             >
               {activeWindows.map((window) => {
                 const layoutItem = windowLayout.find(l => l.i === window.id) || {
@@ -2219,8 +2271,10 @@ const DocumentsPage = () => {
         onProperties={handleProperties}
         onRename={handleRename}
         onDownload={handleDownload}
+        onEdit={handleEditImage}
         onColorChange={handleColorChange}
         onIndex={handleIndex}
+        isImage={contextMenuItem && contextMenuType === 'file' && isImageFile(contextMenuItem.filename || contextMenuItem.name || '')}
         hasClipboard={Boolean(clipboard)}
         hasSelection={selectedItems.size > 0}
         contextType={contextMenuType}
@@ -2361,6 +2415,21 @@ const DocumentsPage = () => {
           onSave={handleFilePropertiesSave}
           onDelete={handleFilePropertiesDelete}
           onReindex={handleFilePropertiesReindex}
+        />
+      )}
+
+      {/* Image Lightbox / Editor */}
+      {lightbox && (
+        <ImageLightbox
+          imageUrl={lightbox.url}
+          imageName={lightbox.name}
+          documentId={lightbox.documentId}
+          onClose={() => setLightbox(null)}
+          onImageEdited={() => {
+            setLightbox(null);
+            refreshData();
+          }}
+          initialEditMode={lightbox.editMode || false}
         />
       )}
 

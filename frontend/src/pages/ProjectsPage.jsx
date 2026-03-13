@@ -58,6 +58,7 @@ import {
 import { useStatus } from "../contexts/StatusContext";
 import { getLogoUrl } from "../config/logoConfig";
 import PageLayout from "../components/layout/PageLayout";
+import EntityContextMenu from "../components/common/EntityContextMenu";
 import EmptyState from "../components/common/EmptyState";
 import { ContextualLoader } from "../components/common/LoadingStates";
 
@@ -106,6 +107,17 @@ function ProjectsPage() {
   const [viewMode, setViewMode] = useState("card"); // 'card' or 'table'
   const [order, setOrder] = useState("asc");
   const [orderBy, setOrderBy] = useState("name");
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState(null);
+  const [contextItem, setContextItem] = useState(null);
+
+  const handleContextMenu = (e, project = null) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ top: e.clientY, left: e.clientX });
+    setContextItem(project);
+  };
 
   const fetchProjectsAndClients = useCallback(async () => {
     setIsLoading(true);
@@ -374,6 +386,10 @@ function ProjectsPage() {
       modelStatus
       activeModel={isLoadingModel ? "Loading..." : modelError ? "Error" : activeModel}
     >
+      <Box
+        onContextMenu={(e) => handleContextMenu(e, null)}
+        sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
+      >
         <Snackbar
           open={feedback.open}
           autoHideDuration={6000}
@@ -411,6 +427,7 @@ function ProjectsPage() {
             {sortedProjects.map((project) => (
               <Grid item xs={12} sm={6} md={4} lg={3} key={project.id}>
                 <Card
+                  onContextMenu={(e) => handleContextMenu(e, project)}
                   sx={{
                     display: "flex",
                     flexDirection: "column",
@@ -553,6 +570,7 @@ function ProjectsPage() {
                       key={project.id}
                       hover
                       onClick={() => navigate(`/projects/${project.id}`)}
+                      onContextMenu={(e) => handleContextMenu(e, project)}
                       sx={{
                         "&:hover": {
                           backgroundColor: theme.palette.action.hover,
@@ -635,6 +653,21 @@ function ProjectsPage() {
             )}
           </Paper>
         )}
+
+      </Box>
+
+      <EntityContextMenu
+        anchorPosition={contextMenu}
+        onClose={() => { setContextMenu(null); setContextItem(null); }}
+        actions={contextItem ? [
+          { label: 'Edit', onClick: () => handleOpenEditDialog(contextItem) },
+          { label: 'Delete', onClick: () => handleOpenDeleteDialog(contextItem), color: 'error.main' },
+          { label: 'Files', onClick: () => navigate(`/documents?project_id=${contextItem.id}`), dividerBefore: true },
+          { label: 'Schedule Task', onClick: () => navigate(`/tasks?project_id=${contextItem.id}`) },
+        ] : [
+          { label: 'New Project', icon: <AddIcon fontSize="small" />, onClick: () => handleOpenEditDialog(null) },
+        ]}
+      />
 
       {/* Edit/Add Dialog (Modal) */}
       <Dialog

@@ -32,7 +32,7 @@ const AgentsSettingsModal = ({ open, onClose }) => {
     { label: "Training", path: "/training", icon: <SchoolIcon /> },
     { label: "Tasks", path: "/tasks", icon: <TaskAltIcon /> },
     { label: "Plugins", path: "/plugins", icon: <BuildIcon /> },
-    { label: "DevTools", path: "/dev-tools", icon: <BugReportIcon /> },
+    { label: "System Dashboard", path: "/dev-tools", icon: <BugReportIcon /> },
   ];
 
   return (

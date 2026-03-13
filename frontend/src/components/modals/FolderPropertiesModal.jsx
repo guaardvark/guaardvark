@@ -46,6 +46,7 @@ const FolderPropertiesModal = ({
   const [websites, setWebsites] = useState([]);
   const [isRepository, setIsRepository] = useState(false);
   const [togglingRepo, setTogglingRepo] = useState(false);
+  const [parentProps, setParentProps] = useState(null); // Inherited properties from parent
 
   const [formData, setFormData] = useState({
     client_id: null,
@@ -79,8 +80,50 @@ const FolderPropertiesModal = ({
         tags: tagsStr,
         notes: folderData?.notes || '',
       });
+
+      // Load parent folder properties to detect inheritance
+      if (folderData?.parent_id) {
+        loadParentProperties();
+      } else {
+        setParentProps(null);
+      }
     }
   }, [open, folderData]);
+
+  // Normalize tags from DB format (JSON array string or plain string) to CSV
+  const normalizeTags = (raw) => {
+    if (!raw) return '';
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.join(', ') : raw;
+    } catch {
+      return raw;
+    }
+  };
+
+  const loadParentProperties = async () => {
+    try {
+      // Derive parent path from current folder path
+      const folderPath = folderData?.path || '';
+      const parentPath = folderPath.split('/').slice(0, -1).join('/') || '/';
+      const response = await axios.get(`${API_BASE}/browse?path=${encodeURIComponent(parentPath)}&fields=light`);
+      const parentFolder = response.data?.data?.current_folder;
+      if (parentFolder) {
+        setParentProps({
+          is_repository: parentFolder.is_repository || false,
+          client_id: parentFolder.client_id || null,
+          project_id: parentFolder.project_id || null,
+          website_id: parentFolder.website_id || null,
+          tags: normalizeTags(parentFolder.tags),
+          notes: parentFolder.notes || null,
+        });
+      } else {
+        setParentProps(null);
+      }
+    } catch {
+      setParentProps(null);
+    }
+  };
 
   const loadEntities = async () => {
     setLoading(true);
@@ -103,7 +146,7 @@ const FolderPropertiesModal = ({
 
   const handleSave = async () => {
     if (!folderData) return;
-    
+
     setSaving(true);
     try {
       const payload = {
@@ -112,6 +155,7 @@ const FolderPropertiesModal = ({
         website_id: formData.website_id,
         tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
         notes: formData.notes,
+        is_repository: isRepository,
         cascade: true, // Always cascade to children
       };
       await onSave(folderData.id, payload);
@@ -204,11 +248,18 @@ const FolderPropertiesModal = ({
                   <Switch
                     checked={isRepository}
                     onChange={handleToggleRepository}
-                    disabled={togglingRepo}
+                    disabled={togglingRepo || (parentProps?.is_repository && isRepository)}
                     size="small"
                   />
                 }
-                label="Code Repository"
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    Code Repository
+                    {parentProps?.is_repository && isRepository && (
+                      <Chip label="inherited" size="small" variant="outlined" color="info" sx={{ height: 20, fontSize: '0.7rem' }} />
+                    )}
+                  </Box>
+                }
               />
               {isRepository && folderData.repo_metadata && (
                 <Box sx={{ mt: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
@@ -230,8 +281,8 @@ const FolderPropertiesModal = ({
         <Divider sx={{ my: 2 }} />
 
         {/* Warning about cascading */}
-        <Alert 
-          severity="info" 
+        <Alert
+          severity="info"
           icon={<WarningIcon />}
           sx={{ mb: 2 }}
         >
@@ -239,6 +290,14 @@ const FolderPropertiesModal = ({
             <strong>Note:</strong> Properties set here will be applied to all files and subfolders within this folder, including nested subfolders.
           </Typography>
         </Alert>
+
+        {parentProps && (parentProps.client_id || parentProps.project_id || parentProps.website_id || parentProps.tags || parentProps.notes) && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            <Typography variant="body2">
+              Some properties are inherited from the parent folder. Fields marked <Chip label="inherited" size="small" variant="outlined" color="info" sx={{ height: 18, fontSize: '0.65rem', mx: 0.5 }} /> were set by the parent.
+            </Typography>
+          </Alert>
+        )}
 
         {/* Entity Links */}
         <Box sx={{ mb: 2 }}>
@@ -259,7 +318,11 @@ const FolderPropertiesModal = ({
                   value={clients.find(c => c.id === formData.client_id) || null}
                   onChange={(e, newValue) => setFormData({ ...formData, client_id: newValue?.id || null })}
                   renderInput={(params) => (
-                    <TextField {...params} label="Link to Client" size="small" />
+                    <TextField
+                      {...params}
+                      label={parentProps?.client_id && formData.client_id === parentProps.client_id ? 'Link to Client (inherited)' : 'Link to Client'}
+                      size="small"
+                    />
                   )}
                 />
               </Grid>
@@ -270,7 +333,11 @@ const FolderPropertiesModal = ({
                   value={projects.find(p => p.id === formData.project_id) || null}
                   onChange={(e, newValue) => setFormData({ ...formData, project_id: newValue?.id || null })}
                   renderInput={(params) => (
-                    <TextField {...params} label="Link to Project" size="small" />
+                    <TextField
+                      {...params}
+                      label={parentProps?.project_id && formData.project_id === parentProps.project_id ? 'Link to Project (inherited)' : 'Link to Project'}
+                      size="small"
+                    />
                   )}
                 />
               </Grid>
@@ -281,7 +348,11 @@ const FolderPropertiesModal = ({
                   value={websites.find(w => w.id === formData.website_id) || null}
                   onChange={(e, newValue) => setFormData({ ...formData, website_id: newValue?.id || null })}
                   renderInput={(params) => (
-                    <TextField {...params} label="Link to Website" size="small" />
+                    <TextField
+                      {...params}
+                      label={parentProps?.website_id && formData.website_id === parentProps.website_id ? 'Link to Website (inherited)' : 'Link to Website'}
+                      size="small"
+                    />
                   )}
                 />
               </Grid>
@@ -300,7 +371,7 @@ const FolderPropertiesModal = ({
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Tags (comma-separated)"
+                label={parentProps?.tags && formData.tags && parentProps.tags === formData.tags ? 'Tags (inherited)' : 'Tags (comma-separated)'}
                 size="small"
                 value={formData.tags}
                 onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
@@ -310,7 +381,7 @@ const FolderPropertiesModal = ({
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Notes"
+                label={parentProps?.notes && formData.notes && parentProps.notes === formData.notes ? 'Notes (inherited)' : 'Notes'}
                 size="small"
                 multiline
                 rows={3}

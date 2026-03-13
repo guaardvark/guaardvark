@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "baseline_score": 0.0,
+  "params": {
+    "top_k": 5,
+    "dedup_threshold": 0.85,
+    "context_window_chunks": 3,
+    "reranking_enabled": false,
+    "query_expansion": false,
+    "hybrid_search_alpha": 0.0,
+    "chunk_size": 1000,
+    "chunk_overlap": 200,
+    "use_semantic_splitting": false,
+    "use_hierarchical_splitting": false,
+    "extract_entities": false,
+    "preserve_structure": false
+  },
+  "phase": 1,
+  "phase_plateau_count": 25
+}
