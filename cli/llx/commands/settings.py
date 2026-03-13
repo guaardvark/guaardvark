@@ -19,11 +19,19 @@ def settings_list(
     output.set_json_mode(json_out)
     try:
         client = get_client(server)
+        KNOWN_KEYS = [
+            "web_access", "advanced_debug", "llm_debug",
+            "behavior_learning", "rag_debug", "music_directory",
+        ]
         settings = {}
-        for key in ["web_access", "advanced_debug"]:
+        for key in KNOWN_KEYS:
             try:
                 data = client.get(f"/api/settings/{key}")
-                settings[key] = data.get("data", data)
+                val = data.get("data", data)
+                # Unwrap nested dicts with single key
+                if isinstance(val, dict) and len(val) == 1:
+                    val = next(iter(val.values()))
+                settings[key] = val
             except LlxError:
                 settings[key] = "unavailable"
 
