@@ -1085,6 +1085,14 @@ if [ "$OLLAMA_AVAILABLE" -eq 1 ]; then
     if curl -sf --max-time 3 http://localhost:11434/ >/dev/null 2>&1; then
         vader_success "Ollama service is already active"
     else
+        # Kill any zombie process holding the port but not responding
+        OLLAMA_ZOMBIE_PID=$(lsof -ti :11434 2>/dev/null | head -1)
+        if [ -n "$OLLAMA_ZOMBIE_PID" ]; then
+            vader_info "Killing unresponsive process on port 11434 (PID: $OLLAMA_ZOMBIE_PID)..."
+            kill -9 "$OLLAMA_ZOMBIE_PID" 2>/dev/null
+            sleep 2
+        fi
+
         vader_info "Starting Ollama service..."
         OLLAMA_STARTED=0
 
