@@ -117,6 +117,7 @@ def generate_text_to_video_batch():
             "generate_frames_only": str(data.get("generate_frames_only", "false")).lower() == "true",
             "frames_per_batch": int(data.get("frames_per_batch", 1)),
             "combine_frames": str(data.get("combine_frames", "false")).lower() == "true",
+            "interpolation_multiplier": int(data.get("interpolation_multiplier", 2)),
             "metadata": data.get("metadata") or {},
         }
 
@@ -160,6 +161,7 @@ def generate_image_to_video_batch():
             "generate_frames_only": str(data.get("generate_frames_only", "false")).lower() == "true",
             "frames_per_batch": int(data.get("frames_per_batch", 1)),
             "combine_frames": str(data.get("combine_frames", "false")).lower() == "true",
+            "interpolation_multiplier": int(data.get("interpolation_multiplier", 2)),
             "metadata": data.get("metadata") or {},
         }
 
@@ -509,6 +511,17 @@ VIDEO_MODEL_REGISTRY = {
         "size_gb": 4.6,
         "vram_mb": 0,
         "type": "encoder",
+    },
+    "realesrgan-x2": {
+        "name": "Real-ESRGAN 2x Upscaler",
+        "description": "Upscales video frames 2x. Applied as post-processing after generation.",
+        "hf_repo": "ai-forever/Real-ESRGAN",
+        "hf_filename": "RealESRGAN_x2.pth",
+        "local_subdir": "upscale_models",
+        "check_files": ["RealESRGAN_x2.pth"],
+        "size_gb": 0.07,
+        "vram_mb": 0,
+        "type": "upscaler",
     },
 }
 
