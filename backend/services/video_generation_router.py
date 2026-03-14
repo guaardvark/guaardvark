@@ -44,6 +44,17 @@ class VideoGenerationRouter:
         self._pid_file = Path(GUAARDVARK_ROOT) / "pids" / "comfyui.pid"
         self._pid_file.parent.mkdir(parents=True, exist_ok=True)
 
+    @property
+    def service_available(self) -> bool:
+        """Check if any video generation backend is available."""
+        if self._check_comfyui():
+            return True
+        if self._backend_pref in ("offline", "auto"):
+            off = self._get_offline()
+            if off:
+                return True
+        return Path(COMFYUI_DIR).exists()
+
     def _get_comfyui(self, force_refresh=False):
         """Lazy-load ComfyUI generator."""
         if self._comfyui_gen is None or force_refresh:
