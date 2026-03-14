@@ -43,11 +43,19 @@ llama-index-embeddings-ollama>=0.8.0
 llama-index-readers-file>=0.5.0  # Updated for llama-index-core 0.14.x
 
 # Image Generation Dependencies (without torch)
-diffusers==0.31.0
-transformers==4.48.0
+diffusers>=0.37.0
+transformers>=4.50.3,<5.0  # ComfyUI needs >=4.50.3, diffusers incompatible with 5.x
 accelerate==1.2.1
 safetensors>=0.4.0
 Pillow==10.2.0
+
+# ComfyUI / Video Generation Dependencies
+torchsde>=0.2.6
+sentencepiece>=0.2.0
+kornia>=0.7.1
+spandrel>=0.4.0
+av>=14.2.0
+pydantic-settings>=2.0
 
 # Face Restoration & Enhancement
 gfpgan==1.3.5  # Downgraded from 1.3.8 for torchvision compatibility
