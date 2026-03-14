@@ -118,6 +118,8 @@ def generate_text_to_video_batch():
             "frames_per_batch": int(data.get("frames_per_batch", 1)),
             "combine_frames": str(data.get("combine_frames", "false")).lower() == "true",
             "interpolation_multiplier": int(data.get("interpolation_multiplier", 2)),
+            "prompt_style": data.get("prompt_style", "cinematic"),
+            "enhance_prompt": str(data.get("enhance_prompt", "true")).lower() != "false",
             "metadata": data.get("metadata") or {},
         }
 
@@ -162,6 +164,8 @@ def generate_image_to_video_batch():
             "frames_per_batch": int(data.get("frames_per_batch", 1)),
             "combine_frames": str(data.get("combine_frames", "false")).lower() == "true",
             "interpolation_multiplier": int(data.get("interpolation_multiplier", 2)),
+            "prompt_style": data.get("prompt_style", "cinematic"),
+            "enhance_prompt": str(data.get("enhance_prompt", "true")).lower() != "false",
             "metadata": data.get("metadata") or {},
         }
 

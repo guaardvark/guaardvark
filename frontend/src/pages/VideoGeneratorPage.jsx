@@ -58,6 +58,7 @@ import {
   Add as AddIcon,
   OpenInNew as OpenInNewIcon,
   HighQuality as HighQualityIcon,
+  AutoFixHigh as EnhanceIcon,
 } from "@mui/icons-material";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
@@ -234,6 +235,15 @@ const ASPECT_RATIO_PRESETS = {
   },
 };
 
+// Prompt enhancement style presets
+const PROMPT_STYLES = {
+  cinematic: { label: "Cinematic", description: "Film-quality lighting and motion" },
+  realistic: { label: "Realistic", description: "Photorealistic detail" },
+  artistic: { label: "Artistic", description: "Stylized and expressive" },
+  anime: { label: "Anime", description: "Japanese animation style" },
+  none: { label: "None", description: "No enhancement" },
+};
+
 // Video size presets (base width, height calculated from aspect ratio)
 const VIDEO_SIZE_PRESETS = {
   small: {
@@ -344,6 +354,8 @@ const VideoGeneratorPage = () => {
   const [aspectRatio, setAspectRatio] = useState("16:9");
   const [videoSize, setVideoSize] = useState("large");
   const [qualityTier, setQualityTier] = useState("standard");
+  const [promptStyle, setPromptStyle] = useState("cinematic");
+  const [enhancePrompt, setEnhancePrompt] = useState(true);
   const [lowVramMode, setLowVramMode] = useState(() => {
     const saved = localStorage.getItem('lowVramMode');
     // Default to TRUE for 16GB GPUs to prevent CUDA memory errors
@@ -512,8 +524,11 @@ const VideoGeneratorPage = () => {
       // Post-processing: interpolation and upscaling from quality tier
       interpolation_multiplier: tier.interpolation,
       upscale: tier.upscale,
+      // Prompt enhancement
+      prompt_style: promptStyle,
+      enhance_prompt: enhancePrompt,
     };
-  }, [qualityPreset, durationPreset, motionPreset, model, advancedParams, videoDimensions, lowVramMode, qualityTier]);
+  }, [qualityPreset, durationPreset, motionPreset, model, advancedParams, videoDimensions, lowVramMode, qualityTier, promptStyle, enhancePrompt]);
 
   const parsedPrompts = useMemo(() => {
     return promptsText
@@ -1424,6 +1439,48 @@ const VideoGeneratorPage = () => {
                     },
                   }}
                 />
+                <FormControl size="small" sx={{ width: { xs: '100%', sm: '280px' } }}>
+                  <InputLabel>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                      <EnhanceIcon fontSize="small" /> Prompt Style
+                    </Box>
+                  </InputLabel>
+                  <Select
+                    value={promptStyle}
+                    onChange={(e) => setPromptStyle(e.target.value)}
+                    label="Prompt Style"
+                  >
+                    {Object.entries(PROMPT_STYLES).map(([key, preset]) => (
+                      <MenuItem key={key} value={key}>
+                        <Box>
+                          <Typography variant="body2">{preset.label}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {preset.description}
+                          </Typography>
+                        </Box>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={enhancePrompt}
+                      onChange={(e) => setEnhancePrompt(e.target.checked)}
+                      color="primary"
+                      size="small"
+                    />
+                  }
+                  label={
+                    <Box>
+                      <Typography variant="body2">Enhance Prompt</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Add quality descriptors automatically
+                      </Typography>
+                    </Box>
+                  }
+                  sx={{ ml: 0 }}
+                />
               </Box>
               {/* Low VRAM Mode Active Warning */}
               {lowVramMode && (isCogVideoXModel(model) || isWanModel(model)) && (
@@ -1524,6 +1581,14 @@ const VideoGeneratorPage = () => {
                   variant="outlined"
                   color="secondary"
                   label="2x Upscale"
+                />
+              )}
+              {computedParams.enhance_prompt && computedParams.prompt_style !== "none" && (
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  color="warning"
+                  label={`${PROMPT_STYLES[computedParams.prompt_style]?.label || computedParams.prompt_style} style`}
                 />
               )}
             </Box>

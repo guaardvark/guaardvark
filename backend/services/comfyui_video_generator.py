@@ -42,6 +42,8 @@ class VideoGenerationRequest:
     output_dir: Optional[Path] = None
     metadata: Dict[str, str] = field(default_factory=dict)
     interpolation_multiplier: int = 2  # 1 = no interpolation, 2 = double fps, 4 = quad fps
+    prompt_style: str = "cinematic"   # Enhancement style: cinematic, realistic, artistic, anime, none
+    enhance_prompt: bool = True       # Whether to run prompt through the enhancer
 
 
 @dataclass
@@ -829,6 +831,17 @@ class ComfyUIVideoGenerator:
                 error="ComfyUI service not available. Please start ComfyUI at http://127.0.0.1:8188",
                 prompt_used=request.prompt,
             )
+
+        # ── Prompt enhancement ───────────────────────────────────────
+        if request.enhance_prompt and request.prompt:
+            try:
+                from backend.utils.prompt_enhancer import enhance_video_prompt, get_default_negative_prompt
+                request.prompt = enhance_video_prompt(request.prompt, style=request.prompt_style)
+                if not request.negative_prompt:
+                    request.negative_prompt = get_default_negative_prompt(style=request.prompt_style)
+                logger.info(f"Prompt enhanced (style={request.prompt_style}): {request.prompt[:120]}...")
+            except Exception as e:
+                logger.warning(f"Prompt enhancement failed, using original prompt: {e}")
 
         batch_dir = request.output_dir or (self.cache_dir / f"batch_{uuid.uuid4().hex}")
         batch_dir = Path(batch_dir)

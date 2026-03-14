@@ -71,6 +71,8 @@ class BatchVideoRequest:
     frames_per_batch: int = 1
     combine_frames: bool = False
     interpolation_multiplier: int = 2
+    prompt_style: str = "cinematic"
+    enhance_prompt: bool = True
     metadata: Dict = field(default_factory=dict)
 
 
@@ -188,6 +190,8 @@ class BatchVideoGenerator:
                         output_dir=batch_dir,
                         metadata=meta,
                         interpolation_multiplier=batch_request.interpolation_multiplier,
+                        prompt_style=batch_request.prompt_style,
+                        enhance_prompt=batch_request.enhance_prompt,
                     )
 
                     result: VideoGenerationResult = self.video_generator.generate_video(gen_request)
@@ -285,6 +289,8 @@ class BatchVideoGenerator:
             frames_per_batch=int(params.get("frames_per_batch", 1)),
             combine_frames=bool(params.get("combine_frames", False)),
             interpolation_multiplier=int(params.get("interpolation_multiplier", 2)),
+            prompt_style=params.get("prompt_style", "cinematic"),
+            enhance_prompt=bool(params.get("enhance_prompt", True)),
             metadata=params.get("metadata", {}),
         )
 
