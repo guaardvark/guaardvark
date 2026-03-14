@@ -471,6 +471,8 @@ class ComfyUIVideoGenerator:
                 "NSFW, nude"
             )
 
+        midpoint = num_inference_steps // 2
+
         workflow = {
             # ── Model Loading ──────────────────────────────────────────────
             # Node 1: Load HighNoise GGUF expert
@@ -555,7 +557,6 @@ class ComfyUIVideoGenerator:
             # ── Two-Pass Sampling (MoE) ────────────────────────────────────
             # Steps are SPLIT at midpoint: HighNoise does steps 0→mid,
             # LowNoise continues from mid→end. Total steps = num_inference_steps.
-            midpoint = num_inference_steps // 2
 
             # Node 10: Pass 1 — HighNoise expert (layout + motion, first half)
             "10": {
