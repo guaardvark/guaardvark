@@ -800,10 +800,11 @@ const VideoGeneratorPage = () => {
     setIsGenerating(true);
     try {
       const imagePaths = selectedImages.map(img => img.path);
+      const motionPrompt = promptsText.trim();
       const body =
         inputMode === "text"
           ? { prompts: parsedPrompts, ...computedParams }
-          : { image_paths: imagePaths, ...computedParams };
+          : { image_paths: imagePaths, prompt: motionPrompt || "", ...computedParams };
 
       const url =
         inputMode === "text"
@@ -1041,6 +1042,20 @@ const VideoGeneratorPage = () => {
             />
           ) : (
             <Box>
+              {/* Motion/Action Direction for I2V */}
+              <TextField
+                label="Describe the motion or action (optional)"
+                multiline
+                minRows={2}
+                maxRows={4}
+                value={promptsText}
+                onChange={(e) => setPromptsText(e.target.value)}
+                placeholder="Make this character jump around happily, waving its arms&#10;Slow camera zoom in with gentle head turn and blinking"
+                fullWidth
+                variant="outlined"
+                sx={{ mb: 2 }}
+              />
+
               {/* Image Upload Area */}
               <Box
                 onDragOver={handleDragOver}
