@@ -164,4 +164,14 @@ if [ -f "$RUNTIME_FILE" ]; then
     fi
 fi
 
+# ── Stop ComfyUI if running ──
+if [ -f "$SCRIPT_DIR/pids/comfyui.pid" ]; then
+    comfyui_pid=$(cat "$SCRIPT_DIR/pids/comfyui.pid" 2>/dev/null)
+    if [ -n "$comfyui_pid" ] && kill -0 "$comfyui_pid" 2>/dev/null; then
+        kill -15 "$comfyui_pid" 2>/dev/null
+        vader_success "Stopped ComfyUI (PID: $comfyui_pid)"
+    fi
+    rm -f "$SCRIPT_DIR/pids/comfyui.pid"
+fi
+
 vader_success "All Guaardvark services stopped"

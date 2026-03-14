@@ -135,3 +135,52 @@ def stop_ollama():
     except Exception as e:
         logger.error(f"Error stopping Ollama: {e}")
         return error_response(str(e), 500)
+
+
+# ── ComfyUI lifecycle endpoints ──────────────────────────────────────────
+
+@gpu_bp.route("/comfyui/status", methods=["GET"])
+def get_comfyui_status():
+    """Check if ComfyUI is running and available."""
+    try:
+        from backend.services.video_generation_router import get_video_router
+        router = get_video_router()
+        status = router.get_status()
+        return success_response(status)
+    except Exception as e:
+        logger.error(f"Error getting ComfyUI status: {e}")
+        return error_response(str(e), 500)
+
+
+@gpu_bp.route("/comfyui/start", methods=["POST"])
+def start_comfyui():
+    """Manually start ComfyUI server."""
+    try:
+        from backend.services.video_generation_router import get_video_router
+        router = get_video_router()
+        if router._check_comfyui():
+            return success_response({"message": "ComfyUI is already running"})
+        started = router._start_comfyui()
+        if started:
+            return success_response({"message": "ComfyUI started successfully"})
+        else:
+            return error_response("Failed to start ComfyUI", 500)
+    except Exception as e:
+        logger.error(f"Error starting ComfyUI: {e}")
+        return error_response(str(e), 500)
+
+
+@gpu_bp.route("/comfyui/stop", methods=["POST"])
+def stop_comfyui():
+    """Manually stop ComfyUI server."""
+    try:
+        from backend.services.video_generation_router import get_video_router
+        router = get_video_router()
+        stopped = router.stop_comfyui()
+        if stopped:
+            return success_response({"message": "ComfyUI stopped successfully"})
+        else:
+            return success_response({"message": "ComfyUI was not running"})
+    except Exception as e:
+        logger.error(f"Error stopping ComfyUI: {e}")
+        return error_response(str(e), 500)

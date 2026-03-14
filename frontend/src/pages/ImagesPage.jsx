@@ -1934,7 +1934,7 @@ const ImagesPage = () => {
             <Button
               variant="outlined"
               startIcon={<VideoIcon />}
-              onClick={() => window.open('/images/video', '_self')}
+              onClick={() => window.open('/video', '_self')}
             >
               Go to Video Generation
             </Button>
