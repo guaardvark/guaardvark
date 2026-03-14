@@ -41,6 +41,7 @@ class VideoGenerationRequest:
     combine_frames: bool = False
     output_dir: Optional[Path] = None
     metadata: Dict[str, str] = field(default_factory=dict)
+    interpolation_multiplier: int = 2  # 1 = no interpolation, 2 = double fps, 4 = quad fps
 
 
 @dataclass
@@ -226,6 +227,7 @@ class ComfyUIVideoGenerator:
         height: int = 480,
         seed: Optional[int] = None,
         fps: int = 8,
+        interpolation_multiplier: int = 2,
     ) -> dict:
         if seed is None:
             seed = int(time.time() * 1000) % (2**31)
@@ -325,6 +327,17 @@ class ComfyUIVideoGenerator:
                 }
             },
         }
+
+        # Add RIFE frame interpolation if multiplier > 1
+        if interpolation_multiplier > 1:
+            self._add_rife_interpolation(
+                workflow,
+                source_node_id="7",        # CogVideoDecode
+                video_combine_node_id="8",  # VHS_VideoCombine
+                base_fps=fps,
+                multiplier=interpolation_multiplier,
+            )
+
         return workflow
 
     def _create_cogvideox_i2v_workflow(
@@ -340,6 +353,7 @@ class ComfyUIVideoGenerator:
         height: int = 480,
         seed: Optional[int] = None,
         fps: int = 8,
+        interpolation_multiplier: int = 2,
     ) -> dict:
         if seed is None:
             seed = int(time.time() * 1000) % (2**31)
@@ -437,6 +451,17 @@ class ComfyUIVideoGenerator:
                 }
             },
         }
+
+        # Add RIFE frame interpolation if multiplier > 1
+        if interpolation_multiplier > 1:
+            self._add_rife_interpolation(
+                workflow,
+                source_node_id="7",        # CogVideoDecode
+                video_combine_node_id="8",  # VHS_VideoCombine
+                base_fps=fps,
+                multiplier=interpolation_multiplier,
+            )
+
         return workflow
 
     def _create_wan22_t2v_workflow(
@@ -451,6 +476,7 @@ class ComfyUIVideoGenerator:
         height: int = 640,
         seed: Optional[int] = None,
         fps: int = 16,
+        interpolation_multiplier: int = 2,
     ) -> dict:
         """Build a ComfyUI API-format workflow for Wan 2.2 MoE text-to-video.
 
@@ -630,6 +656,70 @@ class ComfyUIVideoGenerator:
                 }
             },
         }
+
+        # Add RIFE frame interpolation if multiplier > 1
+        if interpolation_multiplier > 1:
+            self._add_rife_interpolation(
+                workflow,
+                source_node_id="12",       # VAEDecode
+                video_combine_node_id="13", # VHS_VideoCombine
+                base_fps=fps,
+                multiplier=interpolation_multiplier,
+            )
+
+        return workflow
+
+    def _add_rife_interpolation(
+        self,
+        workflow: dict,
+        source_node_id: str,
+        video_combine_node_id: str,
+        base_fps: int,
+        multiplier: int = 2,
+    ) -> dict:
+        """Insert a RIFE VFI interpolation node between a frame source and VHS_VideoCombine.
+
+        Args:
+            workflow: The ComfyUI workflow dict (modified in-place).
+            source_node_id: Node ID that outputs IMAGE frames (e.g. VAEDecode).
+            video_combine_node_id: Node ID of VHS_VideoCombine to rewire.
+            base_fps: The original frame rate before interpolation.
+            multiplier: Frame multiplier (2 = double FPS, 4 = quad FPS).
+
+        Returns:
+            The modified workflow dict.
+        """
+        # Pick the next available node ID
+        existing_ids = [int(k) for k in workflow.keys() if k.isdigit()]
+        rife_node_id = str(max(existing_ids) + 1)
+
+        # Insert RIFE VFI node
+        workflow[rife_node_id] = {
+            "class_type": "RIFE VFI",
+            "inputs": {
+                "frames": [source_node_id, 0],
+                "ckpt_name": "rife49.pth",
+                "clear_cache_after_n_frames": 10,
+                "multiplier": multiplier,
+                "fast_mode": True,
+                "ensemble": True,
+                "scale_factor": 1.0,
+                "dtype": "float32",
+                "torch_compile": False,
+                "batch_size": 1,
+            }
+        }
+
+        # Rewire VHS_VideoCombine to take frames from RIFE instead of source
+        workflow[video_combine_node_id]["inputs"]["images"] = [rife_node_id, 0]
+        workflow[video_combine_node_id]["inputs"]["frame_rate"] = base_fps * multiplier
+
+        logger.info(
+            f"Added RIFE interpolation (x{multiplier}): "
+            f"node {source_node_id} -> RIFE({rife_node_id}) -> VHS_VideoCombine({video_combine_node_id}), "
+            f"FPS {base_fps} -> {base_fps * multiplier}"
+        )
+
         return workflow
 
     def _queue_prompt(self, workflow: dict) -> Optional[str]:
@@ -769,6 +859,8 @@ class ComfyUIVideoGenerator:
             model = request.model or "svd"
             seed = request.seed if request.seed is not None else int(time.time() * 1000) % (2**31)
 
+            interpolation = request.interpolation_multiplier
+
             # ── Route by model type ──────────────────────────────────
             if model in self.WAN22_MODELS or model in ("wan22", "wan2.2"):
                 # Text-to-video via Wan 2.2 GGUF
@@ -784,6 +876,7 @@ class ComfyUIVideoGenerator:
                     height=request.height,
                     seed=seed,
                     fps=request.fps,
+                    interpolation_multiplier=interpolation,
                 )
                 logger.info(f"Using Wan 2.2 text-to-video ({model_key}) via ComfyUI GGUF")
 
@@ -800,6 +893,7 @@ class ComfyUIVideoGenerator:
                     height=request.height,
                     seed=seed,
                     fps=request.fps,
+                    interpolation_multiplier=interpolation,
                 )
                 logger.info(f"Using CogVideoX text-to-video ({model}) via ComfyUI")
 
@@ -824,6 +918,7 @@ class ComfyUIVideoGenerator:
                     height=request.height,
                     seed=seed,
                     fps=request.fps,
+                    interpolation_multiplier=interpolation,
                 )
                 logger.info(f"Using CogVideoX image-to-video via ComfyUI")
 

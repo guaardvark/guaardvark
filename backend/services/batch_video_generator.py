@@ -70,6 +70,7 @@ class BatchVideoRequest:
     generate_frames_only: bool = False
     frames_per_batch: int = 1
     combine_frames: bool = False
+    interpolation_multiplier: int = 2
     metadata: Dict = field(default_factory=dict)
 
 
@@ -186,6 +187,7 @@ class BatchVideoGenerator:
                         combine_frames=batch_request.combine_frames,
                         output_dir=batch_dir,
                         metadata=meta,
+                        interpolation_multiplier=batch_request.interpolation_multiplier,
                     )
 
                     result: VideoGenerationResult = self.video_generator.generate_video(gen_request)
@@ -282,6 +284,7 @@ class BatchVideoGenerator:
             generate_frames_only=bool(params.get("generate_frames_only", False)),
             frames_per_batch=int(params.get("frames_per_batch", 1)),
             combine_frames=bool(params.get("combine_frames", False)),
+            interpolation_multiplier=int(params.get("interpolation_multiplier", 2)),
             metadata=params.get("metadata", {}),
         )
 
