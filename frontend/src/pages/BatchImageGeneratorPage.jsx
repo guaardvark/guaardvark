@@ -75,7 +75,7 @@ const sanitizeText = (text) => {
   });
 };
 
-const BatchImageGeneratorPage = () => {
+const BatchImageGeneratorPage = ({ embedded = false }) => {
   const theme = useTheme();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -861,7 +861,7 @@ const BatchImageGeneratorPage = () => {
   };
 
   return (
-    <PageLayout title="Image Generator" variant="standard">
+    <PageLayout title={embedded ? undefined : "Image Generator"} variant={embedded ? "fullscreen" : "standard"} noPadding={embedded}>
 
       {/* Error/Success Messages */}
       {error && (

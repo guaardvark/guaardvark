@@ -1939,7 +1939,7 @@ const ImagesPage = () => {
               Go to Video Generation
             </Button>
           </Box>
-          <BatchImageGeneratorPage />
+          <BatchImageGeneratorPage embedded />
         </Box>
       )}
 

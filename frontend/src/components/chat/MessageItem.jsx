@@ -2,7 +2,7 @@
 // Version 1.1: Renders a single message bubble with appropriate styling.
 // Added support for agent loop messages with step-by-step visualization.
 /* eslint-env browser */
-import React from "react";
+import React, { useState, useCallback } from "react";
 import PropTypes from "prop-types";
 import { Box, Paper, Avatar, CardMedia, Chip, CircularProgress, Typography } from "@mui/material";
 import ReactMarkdown from "react-markdown";
@@ -16,6 +16,7 @@ import { BASE_URL } from "../../api/apiClient";
 import AgentResultDisplay from "./AgentResultDisplay";
 import { StatusChip } from "../../utils/familyColors";
 import ToolCallCard from "./ToolCallCard";
+import ImageLightbox from "../images/ImageLightbox";
 
 const UPLOAD_BASE_URL = BASE_URL + "/uploads";
 
@@ -23,6 +24,22 @@ const MessageItem = ({ message }) => {
   const isUser = message.role === "user";
   const isAgentLoop = message.isAgentLoop;
   const logo = useAppStore((s) => s.systemLogo);
+  const [lightbox, setLightbox] = useState(null);
+
+  const openLightbox = useCallback((url, name, images, index) => {
+    setLightbox({ url, name, images: images || [{ url, name }], index: index || 0 });
+  }, []);
+
+  const handleLightboxDownload = useCallback(() => {
+    if (!lightbox) return;
+    const img = lightbox.images[lightbox.index];
+    const link = document.createElement("a");
+    link.href = img.url;
+    link.download = img.name || "image";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }, [lightbox]);
 
   // Construct the full logo URL if logo path exists
   const logoUrl = logo ? `${UPLOAD_BASE_URL}/${logo}` : undefined;
@@ -98,6 +115,7 @@ const MessageItem = ({ message }) => {
   }
 
   return (
+    <>
     <Box
       sx={{
         display: "flex",
@@ -190,7 +208,6 @@ const MessageItem = ({ message }) => {
                       cursor: "pointer",
                     }}
                     src={img.url}
-                    onClick={() => window.open(img.url, "_blank")}
                   />
                 ) : (
                   <CardMedia
@@ -208,7 +225,11 @@ const MessageItem = ({ message }) => {
                     }}
                     image={img.url}
                     alt={img.alt || "Generated image"}
-                    onClick={() => window.open(img.url, "_blank")}
+                    onClick={() => {
+                      const images = message.generatedImages.filter(i => i.type !== "video").map(i => ({ url: i.url, name: i.alt || i.caption || "Generated image" }));
+                      const idx = images.findIndex(i => i.url === img.url);
+                      openLightbox(img.url, img.alt || "Generated image", images, Math.max(0, idx));
+                    }}
                   />
                 )}
                 {img.caption && (
@@ -326,6 +347,19 @@ const MessageItem = ({ message }) => {
       </Paper>
       {/* No avatar for user messages — clean right-aligned bubbles */}
     </Box>
+    {lightbox && (
+      <ImageLightbox
+        imageUrl={lightbox.images[lightbox.index]?.url || lightbox.url}
+        imageName={lightbox.images[lightbox.index]?.name || lightbox.name}
+        onClose={() => setLightbox(null)}
+        onPrev={() => setLightbox(prev => ({ ...prev, index: Math.max(0, prev.index - 1) }))}
+        onNext={() => setLightbox(prev => ({ ...prev, index: Math.min(prev.images.length - 1, prev.index + 1) }))}
+        onDownload={handleLightboxDownload}
+        hasPrev={lightbox.index > 0}
+        hasNext={lightbox.index < lightbox.images.length - 1}
+      />
+    )}
+    </>
   );
 };
 

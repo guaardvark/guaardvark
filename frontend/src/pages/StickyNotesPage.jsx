@@ -1,7 +1,7 @@
 // frontend/src/pages/StickyNotesPage.jsx
-// Sticky notes board — identical grid mechanics to DashboardPage
-// Each grid item is an editable sticky note with basic formatting (B/I/U/Link)
-// Supports drag, resize, color change, minimize (double-click header), layout modes, z-index layering
+// Sticky notes board — Google Keep-like experience
+// Titles, right-click context menu, search, pin-to-top, auto-save with indicator
+// Drag, resize, color change, minimize (double-click header), layout modes, z-index layering
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
@@ -12,6 +12,19 @@ import {
   Tooltip,
   IconButton,
   useTheme,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+  InputBase,
+  TextField,
+  Fade,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
 } from "@mui/material";
 import ReactGridLayout from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
@@ -29,6 +42,14 @@ import {
   Close,
   Dashboard as DashboardIcon,
   StickyNote2,
+  PushPin,
+  PushPinOutlined,
+  ContentCopy,
+  Delete,
+  Edit as EditIcon,
+  Search as SearchIcon,
+  CloudDone,
+  CloudOff,
 } from "@mui/icons-material";
 
 import { useNavigate } from "react-router-dom";
@@ -49,26 +70,33 @@ const LAYOUT_MODE_ICONS = {
   collapsed: ViewList,
 };
 
-const PASTEL_COLORS = [
-  "#fff9c4", // yellow
-  "#f8bbd0", // pink
-  "#c8e6c9", // green
-  "#bbdefb", // blue
-  "#e1bee7", // purple
-  "#ffe0b2", // orange
-  "#b2dfdb", // teal
-  "#d7ccc8", // brown
+const NOTE_COLORS = [
+  "rgba(0, 128, 128, 0.15)",   // teal glass (primary)
+  "rgba(30, 30, 30, 0.95)",    // dark carbon
+  "rgba(138, 155, 174, 0.2)",  // steel glass
+  "rgba(0, 229, 255, 0.12)",   // neon cyan glass
+  "rgba(206, 147, 216, 0.15)", // magenta glass (secondary)
+  "rgba(255, 255, 255, 0.08)", // frosted glass
+  "rgba(0, 102, 102, 0.3)",    // deep teal
+  "rgba(40, 40, 40, 0.9)",     // charcoal
 ];
 
 // YIQ contrast helper (same formula as DashboardPage / DashboardCardWrapper)
 const getContrastColor = (bgColor) => {
   if (!bgColor) return "rgba(0, 0, 0, 0.87)";
+  // Handle rgba() strings
+  const rgbaMatch = bgColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (rgbaMatch) {
+    const r = parseInt(rgbaMatch[1], 10);
+    const g = parseInt(rgbaMatch[2], 10);
+    const b = parseInt(rgbaMatch[3], 10);
+    const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+    return yiq > 186 ? "rgba(0, 0, 0, 0.87)" : "rgba(255, 255, 255, 0.95)";
+  }
+  // Handle hex strings
   let hex = bgColor.replace("#", "");
   if (hex.length === 3)
-    hex = hex
-      .split("")
-      .map((h) => h + h)
-      .join("");
+    hex = hex.split("").map((h) => h + h).join("");
   const r = parseInt(hex.substring(0, 2), 16);
   const g = parseInt(hex.substring(2, 4), 16);
   const b = parseInt(hex.substring(4, 6), 16);
@@ -81,14 +109,16 @@ const getContrastColor = (bgColor) => {
 const StickyNote = React.memo(
   ({
     noteId,
+    title,
     content,
     color,
     textColor,
     isMinimized,
+    isPinned,
     onToggleMinimize,
     onColorChange,
     onContentChange,
-    onDelete,
+    onDeleteRequest,
     onFormat,
     onInsertLink,
     theme,
@@ -153,14 +183,13 @@ const StickyNote = React.memo(
       }
     }, [onContentChange]);
 
-    const dividerColor =
-      textColor === "rgba(0, 0, 0, 0.87)"
-        ? "rgba(0,0,0,0.1)"
-        : "rgba(255,255,255,0.15)";
+
+    const dividerColor = "rgba(255,255,255,0.08)";
+    const placeholderColor = "rgba(255,255,255,0.2)";
 
     return (
       <Paper
-        elevation={2}
+        elevation={3}
         className={`draggable-card ${isMinimized ? "minimized" : ""}`}
         sx={{
           display: "flex",
@@ -168,36 +197,59 @@ const StickyNote = React.memo(
           height: isMinimized ? "auto" : "100%",
           minHeight: isMinimized ? "50px" : "120px",
           overflow: "hidden",
-          borderRadius: "5px",
+          borderRadius: "8px",
           backgroundColor: color,
+          backdropFilter: "blur(12px)",
+          border: `1px solid rgba(255,255,255,0.06)`,
           color: textColor,
           transition: theme.transitions.create(["height", "min-height"], {
             duration: theme.transitions.duration.standard,
           }),
         }}
       >
-        {/* ── Header — drag handle ─────────────────────────────────── */}
+        {/* ── Header — drag handle + title (always visible) ──────── */}
         <Box
           className="note-header"
           onMouseDown={handleMouseDown}
           sx={{
             display: "flex",
-            justifyContent: "flex-end",
             alignItems: "center",
-            px: 0.75,
-            py: 0.25,
-            minHeight: "32px",
+            px: 1,
+            minHeight: "40px",
             cursor: "grab",
             userSelect: "none",
             "&:active": { cursor: "grabbing" },
             "&:hover": {
-              backgroundColor: "rgba(0,0,0,0.04)",
-              borderRadius: "4px 4px 0 0",
+              backgroundColor: "rgba(255,255,255,0.04)",
+              borderRadius: "8px 8px 0 0",
             },
           }}
         >
-          {/* Color picker dot */}
-          <Box sx={{ position: "relative", mr: 0.5 }}>
+          {/* Pin indicator */}
+          {isPinned && (
+            <PushPin sx={{ fontSize: 14, color: textColor, opacity: 0.5, mr: 0.5 }} />
+          )}
+
+          {/* Title — display only, rename via right-click menu */}
+          <Typography
+            sx={{
+              flex: 1,
+              fontWeight: 600,
+              fontSize: "0.77rem",
+              color: textColor,
+              overflow: "hidden",
+              whiteSpace: "nowrap",
+              textOverflow: "ellipsis",
+              pointerEvents: "none",
+              opacity: title ? 1 : 0.3,
+              fontStyle: title ? "normal" : "italic",
+            }}
+          >
+            {title || "Untitled"}
+          </Typography>
+
+          {/* Color picker dot — matches DashboardCardWrapper (8x8) */}
+          <Box sx={{ position: "relative", ml: 0.5 }}>
             <Tooltip title="Change color">
               <IconButton
                 onClick={() => colorInputRef.current?.click()}
@@ -231,7 +283,7 @@ const StickyNote = React.memo(
             <input
               ref={colorInputRef}
               type="color"
-              value={color}
+              value={color.startsWith("rgba") ? "#1e1e1e" : color}
               onChange={(e) => onColorChange(e.target.value)}
               style={{
                 position: "absolute",
@@ -243,25 +295,26 @@ const StickyNote = React.memo(
             />
           </Box>
 
-          {/* Delete button */}
+          {/* Delete button — matches FolderWindowWrapper (20x20, icon 16px) */}
           <Tooltip title="Delete note">
             <IconButton
               onClick={(e) => {
                 e.stopPropagation();
-                onDelete();
+                onDeleteRequest();
               }}
               className="non-draggable"
               size="small"
               sx={{
-                width: 16,
-                height: 16,
+                width: 20,
+                height: 20,
                 p: 0,
+                ml: 0.5,
                 color: textColor,
                 opacity: 0.4,
-                "&:hover": { opacity: 1, color: theme.palette.error.main },
+                "&:hover": { opacity: 1, backgroundColor: "rgba(255,0,0,0.1)" },
               }}
             >
-              <Close sx={{ fontSize: 12 }} />
+              <Close sx={{ fontSize: 16 }} />
             </IconButton>
           </Tooltip>
         </Box>
@@ -274,8 +327,9 @@ const StickyNote = React.memo(
               sx={{
                 display: "flex",
                 gap: 0.25,
-                px: 0.75,
-                pb: 0.5,
+                px: 1,
+                py: 0.25,
+                borderTop: `1px solid ${dividerColor}`,
                 borderBottom: `1px solid ${dividerColor}`,
               }}
             >
@@ -297,7 +351,7 @@ const StickyNote = React.memo(
                       height: 22,
                       p: 0,
                       color: textColor,
-                      opacity: 0.6,
+                      opacity: 0.5,
                       "&:hover": { opacity: 1 },
                     }}
                   >
@@ -318,7 +372,7 @@ const StickyNote = React.memo(
                     height: 22,
                     p: 0,
                     color: textColor,
-                    opacity: 0.6,
+                    opacity: 0.5,
                     "&:hover": { opacity: 1 },
                   }}
                 >
@@ -349,18 +403,12 @@ const StickyNote = React.memo(
                 cursor: "text",
                 minHeight: 60,
                 "& a": {
-                  color:
-                    textColor === "rgba(0, 0, 0, 0.87)"
-                      ? theme.palette.primary.dark
-                      : theme.palette.primary.light,
+                  color: theme.palette.primary.light,
                   textDecoration: "underline",
                 },
                 "&:empty::before": {
                   content: '"Type your note..."',
-                  color:
-                    textColor === "rgba(0, 0, 0, 0.87)"
-                      ? "rgba(0,0,0,0.3)"
-                      : "rgba(255,255,255,0.3)",
+                  color: placeholderColor,
                   fontStyle: "italic",
                 },
               }}
@@ -402,6 +450,13 @@ const StickyNotesPage = () => {
   const [cardZIndex, setCardZIndex] = useState({});
   const [maxZIndex, setMaxZIndex] = useState(0);
   const [layoutMode, setLayoutMode] = useState("normal");
+  const [pinnedNotes, setPinnedNotes] = useState({});
+  const [searchQuery, setSearchQuery] = useState("");
+  const [contextMenu, setContextMenu] = useState(null);
+  const [desktopMenu, setDesktopMenu] = useState(null);
+  const [saveIndicator, setSaveIndicator] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [renameTarget, setRenameTarget] = useState(null); // { noteId, title }
   const gridContainerRef = useRef(null);
   const [gridWidth, setGridWidth] = useState(dashboardWidth);
   const isTogglingRef = useRef(false);
@@ -412,13 +467,14 @@ const StickyNotesPage = () => {
   const notesRef = useRef(notes);
   const noteColorsRef = useRef(noteColors);
   const minimizedCardsRef = useRef(minimizedCards);
+  const pinnedNotesRef = useRef(pinnedNotes);
   const layoutModeRef = useRef(layoutMode);
-  const layoutRef = useRef(layout);
+  const layoutRef = useRef(null);
   useEffect(() => { notesRef.current = notes; }, [notes]);
   useEffect(() => { noteColorsRef.current = noteColors; }, [noteColors]);
   useEffect(() => { minimizedCardsRef.current = minimizedCards; }, [minimizedCards]);
+  useEffect(() => { pinnedNotesRef.current = pinnedNotes; }, [pinnedNotes]);
   useEffect(() => { layoutModeRef.current = layoutMode; }, [layoutMode]);
-  useEffect(() => { layoutRef.current = layout; }, [layout]);
 
   // ── Grid width tracking ──────────────────────────────────────────────────
 
@@ -441,21 +497,23 @@ const StickyNotesPage = () => {
 
   // ── Layout helpers ───────────────────────────────────────────────────────
 
+  // Default note size: square (width × width in grid units)
   const makeLayoutItem = useCallback(
     (noteId, index) => ({
       i: noteId,
       x: (index % 4) * cardGridW,
-      y: Math.floor(index / 4) * cardGridH,
+      y: Math.floor(index / 4) * cardGridW,
       w: cardGridW,
-      h: cardGridH,
+      h: cardGridW,
       minW: cardMinGridW,
       isDraggable: true,
       isResizable: true,
     }),
-    [cardGridW, cardGridH, cardMinGridW],
+    [cardGridW, cardMinGridW],
   );
 
   const [layout, setLayout] = useState([]);
+  useEffect(() => { layoutRef.current = layout; }, [layout]);
   const normalLayoutRef = useRef(null);
 
   // Compact layout (derived)
@@ -510,8 +568,8 @@ const StickyNotesPage = () => {
           if (res.status === 404) {
             // First visit — one default note
             const id = `note-${Date.now()}`;
-            const defaultNotes = { [id]: { content: "" } };
-            const defaultColors = { [id]: PASTEL_COLORS[0] };
+            const defaultNotes = { [id]: { content: "", title: "" } };
+            const defaultColors = { [id]: NOTE_COLORS[0] };
             const defaultLayout = [makeLayoutItem(id, 0)];
             setNotes(defaultNotes);
             setNoteColors(defaultColors);
@@ -528,7 +586,12 @@ const StickyNotesPage = () => {
             setLayoutMode(saved.layoutMode);
           }
           if (saved.notes && typeof saved.notes === "object") {
-            setNotes(saved.notes);
+            // Migrate: default missing title to ""
+            const migrated = {};
+            for (const [id, note] of Object.entries(saved.notes)) {
+              migrated[id] = { title: "", ...note };
+            }
+            setNotes(migrated);
           }
           if (saved.noteColors && typeof saved.noteColors === "object") {
             setNoteColors(saved.noteColors);
@@ -536,13 +599,15 @@ const StickyNotesPage = () => {
           if (saved.minimizedCards && typeof saved.minimizedCards === "object") {
             setMinimizedCards(saved.minimizedCards);
           }
+          if (saved.pinnedNotes && typeof saved.pinnedNotes === "object") {
+            setPinnedNotes(saved.pinnedNotes);
+          }
 
           const noteIds = Object.keys(saved.notes || {});
           if (Array.isArray(saved.layout) && saved.layout.length > 0) {
             const validLayout = saved.layout.filter((item) =>
               noteIds.includes(item.i),
             );
-            // Add missing notes to layout
             noteIds.forEach((id, idx) => {
               if (!validLayout.some((item) => item.i === id)) {
                 validLayout.push(makeLayoutItem(id, idx));
@@ -560,8 +625,8 @@ const StickyNotesPage = () => {
         console.error("StickyNotes: Error fetching state:", e);
         setLayoutError(`Failed to load notes: ${e.message}. Using defaults.`);
         const id = `note-${Date.now()}`;
-        setNotes({ [id]: { content: "" } });
-        setNoteColors({ [id]: PASTEL_COLORS[0] });
+        setNotes({ [id]: { content: "", title: "" } });
+        setNoteColors({ [id]: NOTE_COLORS[0] });
         const dl = [makeLayoutItem(id, 0)];
         normalLayoutRef.current = dl;
         setLayout(dl);
@@ -592,19 +657,15 @@ const StickyNotesPage = () => {
   // ── Persistence ──────────────────────────────────────────────────────────
 
   const saveState = useCallback(
-    async (
-      newLayout,
-      newNoteColors,
-      newMinimizedCards,
-      newLayoutMode,
-      newNotes,
-    ) => {
+    async (newLayout, newNoteColors, newMinimizedCards, newLayoutMode, newNotes, newPinnedNotes) => {
+      setSaveIndicator("saving");
       try {
         const body = {
           notes: newNotes || notesRef.current,
           layout: normalLayoutRef.current || newLayout || layoutRef.current,
           noteColors: newNoteColors || noteColorsRef.current,
           minimizedCards: newMinimizedCards || minimizedCardsRef.current,
+          pinnedNotes: newPinnedNotes || pinnedNotesRef.current,
           layoutMode:
             newLayoutMode !== undefined ? newLayoutMode : layoutModeRef.current,
           lastSaved: new Date().toISOString(),
@@ -616,15 +677,19 @@ const StickyNotesPage = () => {
         });
         if (!res.ok) throw new Error(`(${res.status})`);
         setLayoutError(null);
+        setSaveIndicator("saved");
+        setTimeout(() => setSaveIndicator(null), 2000);
       } catch (err) {
         console.error("Failed to save sticky notes state:", err);
         setLayoutError("Failed to save notes.");
+        setSaveIndicator("error");
+        setTimeout(() => setSaveIndicator(null), 3000);
       }
     },
     [],
   );
 
-  // Debounced save for content typing
+  // Debounced save for content/title typing
   const debouncedSave = useCallback(
     (newNotes) => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
@@ -640,6 +705,22 @@ const StickyNotesPage = () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     };
   }, []);
+
+  // ── Search filter ─────────────────────────────────────────────────────────
+
+  const filteredNoteIds = useMemo(() => {
+    if (!searchQuery.trim()) return null;
+    const q = searchQuery.toLowerCase();
+    return new Set(
+      Object.entries(notes)
+        .filter(([, note]) => {
+          const titleMatch = (note.title || "").toLowerCase().includes(q);
+          const contentMatch = (note.content || "").replace(/<[^>]*>/g, "").toLowerCase().includes(q);
+          return titleMatch || contentMatch;
+        })
+        .map(([id]) => id),
+    );
+  }, [notes, searchQuery]);
 
   // ── Event handlers ───────────────────────────────────────────────────────
 
@@ -696,15 +777,7 @@ const StickyNotesPage = () => {
         isTogglingRef.current = false;
       });
     },
-    [
-      minimizedCards,
-      layout,
-      noteColors,
-      saveState,
-      cardMinGridH,
-      originalDimensions,
-      layoutMode,
-    ],
+    [minimizedCards, layout, noteColors, saveState, cardMinGridH, originalDimensions, layoutMode],
   );
 
   const handleCardClick = useCallback(
@@ -713,11 +786,8 @@ const StickyNotesPage = () => {
       setMaxZIndex(z);
       setCardZIndex((prev) => ({ ...prev, [noteId]: z }));
       const el = document.querySelector(`[data-card-id="${noteId}"]`);
-      if (el) {
-        el.style.setProperty("z-index", z, "important");
-        const paper = el.querySelector(".MuiPaper-root");
-        if (paper) paper.style.setProperty("z-index", z, "important");
-      }
+      const gridItem = el?.closest(".react-grid-item") || el;
+      if (gridItem) gridItem.style.zIndex = z;
     },
     [maxZIndex],
   );
@@ -727,20 +797,15 @@ const StickyNotesPage = () => {
     const next = LAYOUT_MODES[(idx + 1) % LAYOUT_MODES.length];
     if (layoutMode === "normal") normalLayoutRef.current = layout;
     setLayoutMode(next);
-    saveState(
-      normalLayoutRef.current || layout,
-      noteColors,
-      minimizedCards,
-      next,
-    );
+    saveState(normalLayoutRef.current || layout, noteColors, minimizedCards, next);
   }, [layoutMode, layout, noteColors, minimizedCards, saveState]);
 
   // Add note
   const handleAddNote = useCallback(() => {
     const id = `note-${Date.now()}`;
-    const colorIdx = Object.keys(notes).length % PASTEL_COLORS.length;
-    const newNotes = { ...notes, [id]: { content: "" } };
-    const newColors = { ...noteColors, [id]: PASTEL_COLORS[colorIdx] };
+    const colorIdx = Object.keys(notes).length % NOTE_COLORS.length;
+    const newNotes = { ...notes, [id]: { content: "", title: "" } };
+    const newColors = { ...noteColors, [id]: NOTE_COLORS[colorIdx] };
     const item = makeLayoutItem(id, Object.keys(notes).length);
     const newLayout = [...(normalLayoutRef.current || layout), item];
     normalLayoutRef.current = newLayout;
@@ -757,6 +822,7 @@ const StickyNotesPage = () => {
       const { [noteId]: _, ...rest } = notes;
       const { [noteId]: __, ...restColors } = noteColors;
       const { [noteId]: ___, ...restMin } = minimizedCards;
+      const { [noteId]: ____, ...restPinned } = pinnedNotes;
       const newLayout = (normalLayoutRef.current || layout).filter(
         (i) => i.i !== noteId,
       );
@@ -764,20 +830,67 @@ const StickyNotesPage = () => {
       setNotes(rest);
       setNoteColors(restColors);
       setMinimizedCards(restMin);
+      setPinnedNotes(restPinned);
       setLayout(newLayout);
-      saveState(newLayout, restColors, restMin, undefined, rest);
+      saveState(newLayout, restColors, restMin, undefined, rest, restPinned);
     },
-    [notes, noteColors, minimizedCards, layout, saveState],
+    [notes, noteColors, minimizedCards, pinnedNotes, layout, saveState],
   );
 
-  // Content change (debounced save)
+  // Content change (debounced save) — use ref to avoid stale closure
   const handleNoteContentChange = useCallback(
     (noteId, content) => {
-      const newNotes = { ...notes, [noteId]: { content } };
+      const current = notesRef.current;
+      const newNotes = { ...current, [noteId]: { ...current[noteId], content } };
       setNotes(newNotes);
       debouncedSave(newNotes);
     },
-    [notes, debouncedSave],
+    [debouncedSave],
+  );
+
+  // Title change (debounced save) — use ref to avoid stale closure
+  const handleNoteTitleChange = useCallback(
+    (noteId, title) => {
+      const current = notesRef.current;
+      const newNotes = { ...current, [noteId]: { ...current[noteId], title } };
+      setNotes(newNotes);
+      debouncedSave(newNotes);
+    },
+    [debouncedSave],
+  );
+
+  // Duplicate note
+  const handleDuplicateNote = useCallback(
+    (noteId) => {
+      const source = notes[noteId];
+      if (!source) return;
+      const id = `note-${Date.now()}`;
+      const newNotes = { ...notes, [id]: { content: source.content, title: source.title || "" } };
+      const newColors = { ...noteColors, [id]: noteColors[noteId] || NOTE_COLORS[0] };
+      const item = makeLayoutItem(id, Object.keys(notes).length);
+      const newLayout = [...(normalLayoutRef.current || layout), item];
+      normalLayoutRef.current = newLayout;
+      setNotes(newNotes);
+      setNoteColors(newColors);
+      setLayout(newLayout);
+      saveState(newLayout, newColors, minimizedCards, undefined, newNotes);
+    },
+    [notes, noteColors, layout, minimizedCards, makeLayoutItem, saveState],
+  );
+
+  // Toggle pin
+  const handleTogglePin = useCallback(
+    (noteId) => {
+      const newPinned = { ...pinnedNotes };
+      if (newPinned[noteId]) {
+        delete newPinned[noteId];
+      } else {
+        newPinned[noteId] = true;
+      }
+      setPinnedNotes(newPinned);
+      saveState(null, null, null, undefined, undefined, newPinned);
+    },
+    [pinnedNotes, saveState],
   );
 
   // Format commands via execCommand
@@ -786,7 +899,6 @@ const StickyNotesPage = () => {
   }, []);
 
   const handleInsertLink = useCallback(() => {
-    // Save selection before prompt steals focus
     const sel = window.getSelection();
     const range = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
     const url = window.prompt("Enter URL:");
@@ -831,6 +943,26 @@ const StickyNotesPage = () => {
       variant="grid"
       actions={
         <>
+          {/* Search bar */}
+          <Box sx={{
+            display: "flex",
+            alignItems: "center",
+            backgroundColor: theme.palette.action.hover,
+            borderRadius: 1,
+            px: 1,
+            mr: 1,
+            maxWidth: 200,
+          }}>
+            <SearchIcon sx={{ fontSize: 18, opacity: 0.5, mr: 0.5 }} />
+            <InputBase
+              placeholder="Search notes..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              sx={{ fontSize: "0.8rem", py: 0.25 }}
+              size="small"
+            />
+          </Box>
+
           {/* Cards / Notes toggle */}
           <Tooltip title="Dashboard Cards">
             <IconButton
@@ -869,6 +1001,27 @@ const StickyNotesPage = () => {
               <LayoutModeIcon fontSize="small" />
             </IconButton>
           </Tooltip>
+
+          {/* Save indicator */}
+          {saveIndicator && (
+            <Fade in>
+              <Box sx={{ display: "flex", alignItems: "center", ml: 1, opacity: 0.6 }}>
+                {saveIndicator === "saving" && (
+                  <Typography variant="caption" sx={{ fontSize: "0.65rem", color: "text.secondary" }}>Saving...</Typography>
+                )}
+                {saveIndicator === "saved" && (
+                  <Tooltip title="All changes saved">
+                    <CloudDone sx={{ fontSize: 16, color: "success.main" }} />
+                  </Tooltip>
+                )}
+                {saveIndicator === "error" && (
+                  <Tooltip title="Failed to save">
+                    <CloudOff sx={{ fontSize: 16, color: "error.main" }} />
+                  </Tooltip>
+                )}
+              </Box>
+            </Fade>
+          )}
         </>
       }
     >
@@ -879,6 +1032,13 @@ const StickyNotesPage = () => {
           p: 0.5,
           display: "flex",
           flexDirection: "column",
+        }}
+        onContextMenu={(e) => {
+          // Only show desktop menu if click is on the background (not a note)
+          if (!e.target.closest('[data-card-id]')) {
+            e.preventDefault();
+            setDesktopMenu({ x: e.clientX, y: e.clientY });
+          }
         }}
       >
         {layoutError && (
@@ -899,54 +1059,59 @@ const StickyNotesPage = () => {
               transition: "transform 0.2s ease-out !important",
               "&.react-grid-placeholder": {
                 transition: "all 0.2s ease-out !important",
-                opacity: 0.3,
+                opacity: 0.15,
+                background: "transparent",
+                border: `1px dashed ${theme.palette.primary.main}`,
+                borderRadius: "4px",
               },
               "&.react-draggable-dragging": {
                 transition: "none !important",
-                zIndex: 1000,
+                outline: `2px solid ${theme.palette.primary.main}`,
+                borderRadius: "4px",
+                opacity: 0.9,
               },
-              "&[style*='z-index']": {
-                zIndex: "inherit !important",
-              },
-            },
-            "& .react-grid-item .MuiPaper-root": {
-              zIndex: "inherit !important",
             },
           }}
         >
-          <ReactGridLayout
-            className="layout"
-            layout={layout}
-            style={{ transition: "all 0.2s ease-out" }}
-            cols={COLS_COUNT}
-            rowHeight={ROW_HEIGHT_PX}
-            width={gridWidth}
-            containerPadding={[CONTAINER_PADDING_PX, CONTAINER_PADDING_PX]}
-            margin={[CARD_MARGIN_PX, CARD_MARGIN_PX]}
-            isDraggable={true}
-            isResizable={!isCompact && !isCollapsed}
-            compactType={
-              isCompact ? "horizontal" : isCollapsed ? "vertical" : null
-            }
-            preventCollision={false}
-            useCSSTransforms={false}
-            allowOverlap={!isCompact && !isCollapsed}
-            draggableHandle=".note-header"
-            draggableCancel="button, input, textarea, select, option, .non-draggable, .note-content"
-            onLayoutChange={onLayoutChange}
-            resizeHandles={
-              !isCompact && !isCollapsed
-                ? ["s", "w", "e", "n", "sw", "nw", "se", "ne"]
-                : []
-            }
-          >
-            {layout
-              .filter((item) => notes[item.i])
+          {(() => {
+            // Filter layout to match visible children — prevents RGL from dropping hidden note positions
+            const visibleLayout = layout.filter(
+              (item) => notes[item.i] && (filteredNoteIds === null || filteredNoteIds.has(item.i)),
+            );
+            const isSearching = filteredNoteIds !== null;
+            return (
+            <ReactGridLayout
+              className="layout"
+              layout={visibleLayout}
+              style={{ transition: "all 0.2s ease-out" }}
+              cols={COLS_COUNT}
+              rowHeight={ROW_HEIGHT_PX}
+              width={gridWidth}
+              containerPadding={[CONTAINER_PADDING_PX, CONTAINER_PADDING_PX]}
+              margin={[CARD_MARGIN_PX, CARD_MARGIN_PX]}
+              isDraggable={true}
+              isResizable={true}
+              compactType={null}
+              preventCollision={false}
+              useCSSTransforms={false}
+              allowOverlap={true}
+              draggableHandle=".note-header"
+              draggableCancel="button, input, textarea, select, option, .non-draggable, .note-content"
+              onDragStop={isSearching ? undefined : onLayoutChange}
+              onResizeStop={isSearching ? undefined : onLayoutChange}
+              resizeHandles={["s", "w", "e", "n", "sw", "nw", "se", "ne"]}
+            >
+            {visibleLayout
+              .sort((a, b) => {
+                const aPin = pinnedNotes[a.i] ? 1 : 0;
+                const bPin = pinnedNotes[b.i] ? 1 : 0;
+                return bPin - aPin;
+              })
               .map((layoutItem) => {
                 const noteId = layoutItem.i;
                 const note = notes[noteId];
                 const isMinimized = minimizedCards[noteId] || false;
-                const noteColor = noteColors[noteId] || PASTEL_COLORS[0];
+                const noteColor = noteColors[noteId] || NOTE_COLORS[0];
                 const textColor = getContrastColor(noteColor);
 
                 return (
@@ -954,24 +1119,15 @@ const StickyNotesPage = () => {
                     key={noteId}
                     data-card-id={noteId}
                     style={{
-                      zIndex: cardZIndex[noteId] || 0,
                       transition:
                         "transform 0.2s ease-out, box-shadow 0.2s ease-out",
-                      position: "relative",
+                      height: "100%",
                     }}
-                    onClick={(e) => {
+                    onMouseDown={() => handleCardClick(noteId)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
                       e.stopPropagation();
-                      if (isCollapsed) {
-                        setLayoutMode("normal");
-                        saveState(
-                          normalLayoutRef.current || layout,
-                          noteColors,
-                          minimizedCards,
-                          "normal",
-                        );
-                      } else {
-                        handleCardClick(noteId);
-                      }
+                      setContextMenu({ noteId, x: e.clientX, y: e.clientY });
                     }}
                   >
                     {isCollapsed ? (
@@ -985,14 +1141,23 @@ const StickyNotesPage = () => {
                           px: 2,
                           cursor: "grab",
                           userSelect: "none",
-                          borderRadius: 1,
+                          borderRadius: "8px",
                           backgroundColor: noteColor,
+                          backdropFilter: "blur(12px)",
+                          border: "1px solid rgba(255,255,255,0.06)",
                           transition:
                             "background-color 0.15s ease, box-shadow 0.15s ease",
-                          "&:hover": { boxShadow: theme.shadows[4] },
+                          "&:hover": { boxShadow: theme.shadows[4], backgroundColor: "rgba(255,255,255,0.04)" },
                           "&:active": { cursor: "grabbing" },
                         }}
+                        onClick={() => {
+                          setLayoutMode("normal");
+                          saveState(normalLayoutRef.current || layout, noteColors, minimizedCards, "normal");
+                        }}
                       >
+                        {pinnedNotes[noteId] && (
+                          <PushPin sx={{ fontSize: 12, color: textColor, opacity: 0.5, mr: 0.5 }} />
+                        )}
                         <Typography
                           variant="body2"
                           sx={{
@@ -1004,20 +1169,20 @@ const StickyNotesPage = () => {
                             pointerEvents: "none",
                           }}
                         >
-                          {note.content
-                            ? note.content
-                                .replace(/<[^>]*>/g, "")
-                                .substring(0, 40) || "Empty note"
-                            : "Empty note"}
+                          {note.title || (note.content
+                            ? note.content.replace(/<[^>]*>/g, "").substring(0, 40) || "Empty note"
+                            : "Empty note")}
                         </Typography>
                       </Paper>
                     ) : (
                       <StickyNote
                         noteId={noteId}
+                        title={note.title || ""}
                         content={note.content}
                         color={noteColor}
                         textColor={textColor}
                         isMinimized={isMinimized}
+                        isPinned={!!pinnedNotes[noteId]}
                         onToggleMinimize={() =>
                           handleToggleMinimize(noteId)
                         }
@@ -1027,7 +1192,7 @@ const StickyNotesPage = () => {
                         onContentChange={(content) =>
                           handleNoteContentChange(noteId, content)
                         }
-                        onDelete={() => handleDeleteNote(noteId)}
+                        onDeleteRequest={() => setDeleteConfirm(noteId)}
                         onFormat={handleFormat}
                         onInsertLink={handleInsertLink}
                         theme={theme}
@@ -1040,8 +1205,175 @@ const StickyNotesPage = () => {
                 );
               })}
           </ReactGridLayout>
+            );
+          })()}
         </Box>
       </Box>
+
+      {/* ── Right-click context menu ───────────────────────────────── */}
+      <Menu
+        open={Boolean(contextMenu)}
+        onClose={() => setContextMenu(null)}
+        anchorReference="anchorPosition"
+        anchorPosition={contextMenu ? { top: contextMenu.y, left: contextMenu.x } : undefined}
+        slotProps={{ paper: { sx: { minWidth: 180, borderRadius: "6px" } } }}
+      >
+        {/* Color swatches */}
+        <MenuItem disableRipple disableGutters sx={{ px: 1.5, py: 0.6 }}>
+          <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+            {NOTE_COLORS.map((c) => (
+              <Box
+                key={c}
+                onClick={() => {
+                  if (contextMenu) handleNoteColorChange(contextMenu.noteId, c);
+                  setContextMenu(null);
+                }}
+                sx={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: "50%",
+                  backgroundColor: c,
+                  cursor: "pointer",
+                  border: noteColors[contextMenu?.noteId] === c
+                    ? `2px solid ${theme.palette.primary.main}`
+                    : "1px solid rgba(255,255,255,0.15)",
+                  "&:hover": { transform: "scale(1.2)" },
+                  transition: "transform 0.1s ease",
+                }}
+              />
+            ))}
+          </Box>
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={() => {
+          if (contextMenu) handleDuplicateNote(contextMenu.noteId);
+          setContextMenu(null);
+        }}>
+          <ListItemIcon><ContentCopy fontSize="small" /></ListItemIcon>
+          <ListItemText>Duplicate</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => {
+          if (contextMenu) {
+            const note = notes[contextMenu.noteId];
+            setRenameTarget({ noteId: contextMenu.noteId, title: note?.title || "" });
+          }
+          setContextMenu(null);
+        }}>
+          <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>Rename</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => {
+          if (contextMenu) handleTogglePin(contextMenu.noteId);
+          setContextMenu(null);
+        }}>
+          <ListItemIcon>
+            {pinnedNotes[contextMenu?.noteId]
+              ? <PushPin fontSize="small" />
+              : <PushPinOutlined fontSize="small" />}
+          </ListItemIcon>
+          <ListItemText>{pinnedNotes[contextMenu?.noteId] ? "Unpin" : "Pin to Top"}</ListItemText>
+        </MenuItem>
+        <Divider />
+        <MenuItem
+          onClick={() => {
+            if (contextMenu) setDeleteConfirm(contextMenu.noteId);
+            setContextMenu(null);
+          }}
+          sx={{ color: "error.main" }}
+        >
+          <ListItemIcon><Delete fontSize="small" color="error" /></ListItemIcon>
+          <ListItemText>Delete</ListItemText>
+        </MenuItem>
+      </Menu>
+
+      {/* ── Delete confirmation dialog ─────────────────────────────── */}
+      <Dialog open={Boolean(deleteConfirm)} onClose={() => setDeleteConfirm(null)} maxWidth="xs">
+        <DialogTitle sx={{ fontSize: "0.9rem" }}>
+          Delete this note? This cannot be undone.
+        </DialogTitle>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirm(null)} size="small">Cancel</Button>
+          <Button
+            onClick={() => {
+              handleDeleteNote(deleteConfirm);
+              setDeleteConfirm(null);
+            }}
+            color="error"
+            variant="contained"
+            size="small"
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Desktop (background) right-click menu ──────────────────── */}
+      <Menu
+        open={Boolean(desktopMenu)}
+        onClose={() => setDesktopMenu(null)}
+        anchorReference="anchorPosition"
+        anchorPosition={desktopMenu ? { top: desktopMenu.y, left: desktopMenu.x } : undefined}
+        slotProps={{ paper: { sx: { minWidth: 160, borderRadius: "6px" } } }}
+      >
+        <MenuItem onClick={() => { handleAddNote(); setDesktopMenu(null); }}>
+          <ListItemIcon><Add fontSize="small" /></ListItemIcon>
+          <ListItemText>New Note</ListItemText>
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={() => { handleCycleLayoutMode(); setDesktopMenu(null); }}>
+          <ListItemIcon><LayoutModeIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>Cycle Layout</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => { navigate("/"); setDesktopMenu(null); }}>
+          <ListItemIcon><DashboardIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>Go to Dashboard</ListItemText>
+        </MenuItem>
+      </Menu>
+
+      {/* ── Rename dialog ──────────────────────────────────────────── */}
+      <Dialog
+        open={Boolean(renameTarget)}
+        onClose={() => setRenameTarget(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontSize: "0.9rem" }}>Rename Note</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            size="small"
+            value={renameTarget?.title || ""}
+            onChange={(e) => setRenameTarget(prev => prev ? { ...prev, title: e.target.value } : null)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (renameTarget) {
+                  handleNoteTitleChange(renameTarget.noteId, renameTarget.title);
+                  setRenameTarget(null);
+                }
+              }
+            }}
+            placeholder="Note title"
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRenameTarget(null)} size="small">Cancel</Button>
+          <Button
+            onClick={() => {
+              if (renameTarget) {
+                handleNoteTitleChange(renameTarget.noteId, renameTarget.title);
+                setRenameTarget(null);
+              }
+            }}
+            variant="contained"
+            size="small"
+          >
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
     </PageLayout>
   );
 };

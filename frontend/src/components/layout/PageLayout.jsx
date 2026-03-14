@@ -9,10 +9,14 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Chip,
+  IconButton,
   useTheme,
 } from "@mui/material";
 import ViewModuleIcon from "@mui/icons-material/ViewModule";
 import ViewListIcon from "@mui/icons-material/ViewList";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import { useNavigate } from "react-router-dom";
 import { spacing, typography as typoTokens } from "../../theme/tokens";
 
 /**
@@ -39,6 +43,7 @@ const PageLayout = ({
   children,
 }) => {
   const theme = useTheme();
+  const navigate = useNavigate();
   const showHeader = variant !== "fullscreen";
   const contentPadding = noPadding || variant === "grid" ? 0 : { xs: 1.5, sm: spacing.sectionGap };
 
@@ -71,16 +76,32 @@ const PageLayout = ({
               minHeight: spacing.headerHeight,
             }}
           >
-            <Typography
-              variant={typoTokens.pageTitle.variant}
-              sx={{
-                fontWeight: typoTokens.pageTitle.fontWeight,
-                fontSize: typoTokens.pageTitle.fontSize,
-                color: "text.primary",
-              }}
-            >
-              {title}
-            </Typography>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
+              <IconButton
+                size="small"
+                onClick={() => navigate(-1)}
+                sx={{ opacity: 0.5, "&:hover": { opacity: 1 } }}
+              >
+                <ChevronLeftIcon fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                onClick={() => navigate(1)}
+                sx={{ opacity: 0.5, "&:hover": { opacity: 1 }, mr: 1.5 }}
+              >
+                <ChevronRightIcon fontSize="small" />
+              </IconButton>
+              <Typography
+                variant={typoTokens.pageTitle.variant}
+                sx={{
+                  fontWeight: typoTokens.pageTitle.fontWeight,
+                  fontSize: typoTokens.pageTitle.fontSize,
+                  color: "text.primary",
+                }}
+              >
+                {title}
+              </Typography>
+            </Box>
 
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               {viewToggle && (

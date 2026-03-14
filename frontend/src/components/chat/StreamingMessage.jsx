@@ -20,6 +20,7 @@ import { a11yDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { useAppStore } from "../../stores/useAppStore";
 import { BASE_URL } from "../../api/apiClient";
 import ToolCallCard from "./ToolCallCard";
+import ImageLightbox from "../images/ImageLightbox";
 
 const UPLOAD_BASE_URL = BASE_URL + "/uploads";
 
@@ -31,6 +32,7 @@ const StreamingMessage = ({ chatService, sessionId, onComplete }) => {
   const [errorMsg, setErrorMsg] = useState("");
   const [tokenUsage, setTokenUsage] = useState(null); // {input_tokens, output_tokens} or null
   const [images, setImages] = useState([]); // [{url, alt, caption}]
+  const [lightbox, setLightbox] = useState(null);
   const mountedRef = useRef(true);
   const imagesRef = useRef([]); // Keep a ref for images to avoid stale closure in onComplete
   const logo = useAppStore((s) => s.systemLogo);
@@ -211,7 +213,19 @@ const StreamingMessage = ({ chatService, sessionId, onComplete }) => {
       ? "divider"
       : "warning.main";
 
+  const handleLightboxDownload = useCallback(() => {
+    if (!lightbox) return;
+    const img = lightbox.images[lightbox.index];
+    const link = document.createElement("a");
+    link.href = img.url;
+    link.download = img.name || "image";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }, [lightbox]);
+
   return (
+    <>
     <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
       <Avatar
         src={logoUrl}
@@ -303,9 +317,15 @@ const StreamingMessage = ({ chatService, sessionId, onComplete }) => {
                       border: "1px solid",
                       borderColor: "divider",
                       objectFit: "contain",
+                      cursor: "pointer",
                     }}
                     image={img.url}
                     alt={img.alt}
+                    onClick={() => {
+                      const imgList = images.filter(i => i.type !== "video").map(i => ({ url: i.url, name: i.alt || i.caption || "Image" }));
+                      const imgIdx = imgList.findIndex(i => i.url === img.url);
+                      setLightbox({ url: img.url, name: img.alt || "Image", images: imgList, index: Math.max(0, imgIdx) });
+                    }}
                   />
                 )}
                 {img.caption && (
@@ -392,6 +412,19 @@ const StreamingMessage = ({ chatService, sessionId, onComplete }) => {
         )}
       </Paper>
     </Box>
+    {lightbox && (
+      <ImageLightbox
+        imageUrl={lightbox.images[lightbox.index]?.url || lightbox.url}
+        imageName={lightbox.images[lightbox.index]?.name || lightbox.name}
+        onClose={() => setLightbox(null)}
+        onPrev={() => setLightbox(prev => ({ ...prev, index: Math.max(0, prev.index - 1) }))}
+        onNext={() => setLightbox(prev => ({ ...prev, index: Math.min(prev.images.length - 1, prev.index + 1) }))}
+        onDownload={handleLightboxDownload}
+        hasPrev={lightbox.index > 0}
+        hasNext={lightbox.index < lightbox.images.length - 1}
+      />
+    )}
+    </>
   );
 };
 
