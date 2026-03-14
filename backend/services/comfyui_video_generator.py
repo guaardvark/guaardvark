@@ -553,7 +553,11 @@ class ComfyUIVideoGenerator:
             },
 
             # ── Two-Pass Sampling (MoE) ────────────────────────────────────
-            # Node 10: Pass 1 — HighNoise expert (layout + motion)
+            # Steps are SPLIT at midpoint: HighNoise does steps 0→mid,
+            # LowNoise continues from mid→end. Total steps = num_inference_steps.
+            midpoint = num_inference_steps // 2
+
+            # Node 10: Pass 1 — HighNoise expert (layout + motion, first half)
             "10": {
                 "class_type": "KSamplerAdvanced",
                 "inputs": {
@@ -567,13 +571,13 @@ class ComfyUIVideoGenerator:
                     "steps": num_inference_steps,
                     "cfg": guidance_scale,
                     "sampler_name": "euler",
-                    "scheduler": "normal",
+                    "scheduler": "simple",
                     "start_at_step": 0,
-                    "end_at_step": num_inference_steps,
+                    "end_at_step": midpoint,
                     "return_with_leftover_noise": "enable",
                 }
             },
-            # Node 11: Pass 2 — LowNoise expert (detail refinement)
+            # Node 11: Pass 2 — LowNoise expert (detail refinement, second half)
             "11": {
                 "class_type": "KSamplerAdvanced",
                 "inputs": {
@@ -587,9 +591,9 @@ class ComfyUIVideoGenerator:
                     "steps": num_inference_steps,
                     "cfg": guidance_scale,
                     "sampler_name": "euler",
-                    "scheduler": "normal",
-                    "start_at_step": 0,
-                    "end_at_step": num_inference_steps,
+                    "scheduler": "simple",
+                    "start_at_step": midpoint,
+                    "end_at_step": 10000,
                     "return_with_leftover_noise": "disable",
                 }
             },
