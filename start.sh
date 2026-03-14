@@ -1082,36 +1082,37 @@ vader_separator
 
 vader_step 4 "Ensuring Ollama service is running..."
 if [ "$OLLAMA_AVAILABLE" -eq 1 ]; then
-    if command_exists "systemctl"; then
-        if check_service_status "$OLLAMA_SERVICE_NAME"; then
-            vader_success "Ollama service is already active"
-        else
-            vader_info "Starting Ollama service..."
+    if check_service_status "$OLLAMA_SERVICE_NAME" 2>/dev/null || curl -sf http://localhost:11434/ >/dev/null 2>&1; then
+        vader_success "Ollama service is already active"
+    else
+        vader_info "Starting Ollama service..."
+        OLLAMA_STARTED=0
+
+        # Try 1: systemctl (system-level via sudo, then user-level)
+        if command_exists "systemctl"; then
             if start_service "$OLLAMA_SERVICE_NAME"; then
                 sleep 3
-                if check_service_status "$OLLAMA_SERVICE_NAME"; then
-                    vader_success "Ollama service started"
-                else
-                    vader_error "Ollama service failed to start. Exiting."
-                    exit 1
+                if curl -sf http://localhost:11434/ >/dev/null 2>&1; then
+                    OLLAMA_STARTED=1
+                    vader_success "Ollama service started (systemctl)"
                 fi
-            else
-                vader_error "Could not start Ollama service. Exiting."
-                exit 1
             fi
         fi
-    else
-        if ! pgrep -x ollama > /dev/null; then
-            vader_info "Starting Ollama process..."
+
+        # Try 2: direct ollama serve (fallback when systemctl fails — e.g. no passwordless sudo)
+        if [ "$OLLAMA_STARTED" -eq 0 ]; then
+            vader_info "systemctl failed, starting Ollama directly..."
             nohup ollama serve > "$LOGS_DIR/ollama_serve.log" 2>&1 &
             sleep 3
-            if ! pgrep -x ollama > /dev/null; then
-                vader_error "Failed to start Ollama process. Check $LOGS_DIR/ollama_serve.log. Exiting."
-                exit 1
+            if curl -sf http://localhost:11434/ >/dev/null 2>&1; then
+                OLLAMA_STARTED=1
+                vader_success "Ollama process started (direct)"
             fi
-            vader_success "Ollama process started"
-        else
-            vader_success "Ollama process is running"
+        fi
+
+        if [ "$OLLAMA_STARTED" -eq 0 ]; then
+            vader_error "Failed to start Ollama. Check $LOGS_DIR/ollama_serve.log. Exiting."
+            exit 1
         fi
     fi
 else
