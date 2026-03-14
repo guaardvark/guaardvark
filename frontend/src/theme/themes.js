@@ -367,31 +367,125 @@ const guaardvarkTheme = createFullTheme({
         },
       },
     },
+    MuiDialog: {
+      styleOverrides: {
+        paper: {
+          backgroundColor: "rgba(8, 10, 14, 0.92)",
+          backdropFilter: "blur(20px)",
+          border: "1px solid rgba(138, 155, 174, 0.2)",
+          borderRadius: "12px",
+          backgroundImage: "none",
+        },
+      },
+    },
+    MuiDialogTitle: {
+      styleOverrides: {
+        root: {
+          fontFamily: '"Raleway", sans-serif',
+          fontWeight: 400,
+          letterSpacing: "1px",
+          color: "rgba(255, 255, 255, 0.8)",
+        },
+      },
+    },
+    MuiDialogContent: {
+      styleOverrides: {
+        root: {
+          color: "rgba(255, 255, 255, 0.65)",
+        },
+        dividers: {
+          borderColor: "rgba(138, 155, 174, 0.15)",
+        },
+      },
+    },
+    MuiDialogActions: {
+      styleOverrides: {
+        root: {
+          borderTop: "1px solid rgba(138, 155, 174, 0.1)",
+          padding: "12px 24px",
+        },
+      },
+    },
     MuiAlert: {
       styleOverrides: {
+        root: {
+          backgroundColor: "rgba(8, 10, 14, 0.85)",
+          backdropFilter: "blur(12px)",
+          border: "1px solid rgba(138, 155, 174, 0.25)",
+          borderRadius: "8px",
+          color: "rgba(255, 255, 255, 0.8)",
+          fontFamily: '"Lato", sans-serif',
+        },
+        outlined: {
+          backgroundColor: "rgba(8, 10, 14, 0.6)",
+          backdropFilter: "blur(8px)",
+        },
+        outlinedInfo: {
+          borderColor: "rgba(138, 155, 174, 0.3)",
+        },
+        outlinedSuccess: {
+          borderColor: "rgba(76, 175, 80, 0.4)",
+        },
+        outlinedWarning: {
+          borderColor: "rgba(255, 152, 0, 0.4)",
+        },
+        outlinedError: {
+          borderColor: "rgba(244, 67, 54, 0.4)",
+        },
+        filled: {
+          backgroundColor: "rgba(8, 10, 14, 0.85)",
+          backdropFilter: "blur(12px)",
+        },
         filledInfo: {
-          backgroundColor: "rgba(255, 255, 255, 0.03)",
-          color: "rgba(255, 255, 255, 0.7)",
+          backgroundColor: "rgba(8, 10, 14, 0.85)",
+          color: "rgba(255, 255, 255, 0.8)",
           border: "1px solid rgba(138, 155, 174, 0.3)",
           backdropFilter: "blur(12px)",
         },
         filledSuccess: {
-          backgroundColor: "rgba(255, 255, 255, 0.03)",
-          color: "rgba(255, 255, 255, 0.7)",
+          backgroundColor: "rgba(8, 10, 14, 0.85)",
+          color: "rgba(255, 255, 255, 0.8)",
           border: "1px solid rgba(76, 175, 80, 0.4)",
           backdropFilter: "blur(12px)",
         },
         filledWarning: {
-          backgroundColor: "rgba(255, 255, 255, 0.03)",
-          color: "rgba(255, 255, 255, 0.7)",
+          backgroundColor: "rgba(8, 10, 14, 0.85)",
+          color: "rgba(255, 255, 255, 0.8)",
           border: "1px solid rgba(255, 152, 0, 0.4)",
           backdropFilter: "blur(12px)",
         },
         filledError: {
-          backgroundColor: "rgba(255, 255, 255, 0.03)",
-          color: "rgba(255, 255, 255, 0.7)",
+          backgroundColor: "rgba(8, 10, 14, 0.85)",
+          color: "rgba(255, 255, 255, 0.8)",
           border: "1px solid rgba(244, 67, 54, 0.4)",
           backdropFilter: "blur(12px)",
+        },
+        standardInfo: {
+          backgroundColor: "rgba(8, 10, 14, 0.6)",
+          border: "1px solid rgba(138, 155, 174, 0.2)",
+        },
+        standardSuccess: {
+          backgroundColor: "rgba(8, 10, 14, 0.6)",
+          border: "1px solid rgba(76, 175, 80, 0.3)",
+        },
+        standardWarning: {
+          backgroundColor: "rgba(8, 10, 14, 0.6)",
+          border: "1px solid rgba(255, 152, 0, 0.3)",
+        },
+        standardError: {
+          backgroundColor: "rgba(8, 10, 14, 0.6)",
+          border: "1px solid rgba(244, 67, 54, 0.3)",
+        },
+      },
+    },
+    MuiSnackbarContent: {
+      styleOverrides: {
+        root: {
+          backgroundColor: "rgba(8, 10, 14, 0.9)",
+          backdropFilter: "blur(12px)",
+          border: "1px solid rgba(138, 155, 174, 0.2)",
+          borderRadius: "8px",
+          color: "rgba(255, 255, 255, 0.8)",
         },
       },
     },

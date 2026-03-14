@@ -45,8 +45,23 @@ export const ErrorProvider = ({ children }) => {
         <Alert
           onClose={handleClose}
           severity="error"
-          variant="filled"
-          sx={{ width: "100%", cursor: "pointer" }}
+          variant="outlined"
+          sx={{
+            width: "100%",
+            cursor: "pointer",
+            backgroundColor: "rgba(8, 10, 14, 0.85)",
+            backdropFilter: "blur(12px)",
+            border: "1px solid rgba(244, 67, 54, 0.4)",
+            borderRadius: "8px",
+            color: "rgba(255, 255, 255, 0.8)",
+            fontFamily: '"Lato", sans-serif',
+            '& .MuiAlert-icon': {
+              color: 'inherit',
+            },
+            '& .MuiAlert-action': {
+              color: 'rgba(255, 255, 255, 0.5)',
+            },
+          }}
           onClick={openDetails}
         >
           {error.message}
