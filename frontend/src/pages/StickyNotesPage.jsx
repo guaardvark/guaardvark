@@ -295,12 +295,12 @@ const StickyNote = React.memo(
             />
           </Box>
 
-          {/* Delete button — matches FolderWindowWrapper (20x20, icon 16px) */}
-          <Tooltip title="Delete note">
+          {/* Close button — minimizes the note (delete via right-click menu) */}
+          <Tooltip title="Close">
             <IconButton
               onClick={(e) => {
                 e.stopPropagation();
-                onDeleteRequest();
+                onToggleMinimize();
               }}
               className="non-draggable"
               size="small"
