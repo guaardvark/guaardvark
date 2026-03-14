@@ -26,6 +26,24 @@ from backend.services.gpu_resource_coordinator import get_gpu_coordinator
 
 logger = logging.getLogger(__name__)
 
+# Dedicated video generation log file
+_video_log_handler = None
+def _get_video_logger():
+    global _video_log_handler
+    if _video_log_handler is None:
+        try:
+            from backend.config import LOG_DIR
+            log_path = Path(LOG_DIR) / "video_generation.log"
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            _video_log_handler = logging.FileHandler(str(log_path))
+            _video_log_handler.setFormatter(logging.Formatter(
+                "%(asctime)s %(levelname)s %(message)s"
+            ))
+            logger.addHandler(_video_log_handler)
+        except Exception:
+            pass
+    return logger
+
 
 @dataclass
 class BatchVideoItem:
@@ -94,6 +112,7 @@ class BatchVideoGenerator:
 
         self.video_generator = get_video_generator()
         self.service_available = self.video_generator.service_available
+        _get_video_logger()  # Initialize dedicated log file
         logger.info(f"BatchVideoGenerator initialized - Service available: {self.service_available}")
 
     def _get_batch_dir(self, batch_id: str) -> Path:

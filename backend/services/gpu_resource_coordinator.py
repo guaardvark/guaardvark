@@ -363,14 +363,11 @@ class GPUResourceCoordinator:
                     "lock_info": current_lock.to_dict()
                 }
 
-            # Check if Ollama is running - fail if it is and require_ollama_stopped is True
-            ollama_is_running = self._is_ollama_running()
-            if require_ollama_stopped and ollama_is_running:
-                return {
-                    "success": False,
-                    "error": "Ollama is currently running. Please stop Ollama first before starting video generation.",
-                    "ollama_running": True
-                }
+            # Auto-stop Ollama if running — GPU is shared, can't run both
+            ollama_was_running = self._is_ollama_running()
+            if ollama_was_running:
+                logger.info("Ollama is running — auto-stopping for video generation...")
+                self._stop_ollama()
 
             # Acquire lock
             now = datetime.now()
@@ -383,7 +380,7 @@ class GPUResourceCoordinator:
                 lease_expires_at=expires.isoformat(),
                 metadata={
                     "batch_id": batch_id,
-                    "ollama_was_running": False  # We don't stop it anymore
+                    "ollama_was_running": ollama_was_running,
                 }
             )
 
