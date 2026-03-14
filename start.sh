@@ -1116,6 +1116,19 @@ else
 fi
 vader_separator
 
+# ── ComfyUI detection (on-demand start for video generation) ──
+COMFYUI_DIR="${GUAARDVARK_COMFYUI_DIR:-$HOME/LLAMAVID/ComfyUI}"
+if [ -d "$COMFYUI_DIR" ]; then
+    if curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:8188" 2>/dev/null | grep -q "200"; then
+        vader_success "ComfyUI detected and running (port 8188)"
+    else
+        vader_info "ComfyUI detected at $COMFYUI_DIR (on-demand start for video generation)"
+    fi
+else
+    vader_info "ComfyUI not installed — video generation via ComfyUI unavailable"
+fi
+vader_separator
+
 vader_step 5 "Ensuring Redis service is running..."
 "$(dirname "$0")/start_redis.sh" || { vader_error "Redis failed to start"; exit 1; }
 vader_separator

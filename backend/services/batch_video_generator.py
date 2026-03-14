@@ -17,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from backend.services.offline_video_generator import (
+from backend.services.video_generation_router import (
     VideoGenerationRequest,
     VideoGenerationResult,
     get_video_generator,

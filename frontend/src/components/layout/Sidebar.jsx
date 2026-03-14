@@ -41,6 +41,7 @@ import SmartToyIcon from "@mui/icons-material/SmartToy";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import StickyNote2Icon from "@mui/icons-material/StickyNote2";
+import MovieCreationIcon from "@mui/icons-material/MovieCreation";
 
 import SystemMetricsModal from "../modals/SystemMetricsModal";
 
@@ -65,6 +66,7 @@ const navGroups = [
       { text: "Projects", icon: <FolderIcon />, path: "/projects" },
       { text: "Websites", icon: <LanguageIcon />, path: "/websites" },
       { text: "Images", icon: <ImageIcon />, path: "/images" },
+      { text: "Video", icon: <MovieCreationIcon />, path: "/video" },
       { text: "Job Scheduler", icon: <TaskAltIcon />, path: "/tasks" },
     ],
   },

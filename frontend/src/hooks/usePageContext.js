@@ -12,7 +12,7 @@ const ROUTE_MAP = {
   "/clients":             { page: "Clients", entityType: "client" },
   "/websites":            { page: "Websites", entityType: "website" },
   "/images":              { page: "Images", entityType: "image" },
-  "/images/video":        { page: "Video Generator", entityType: "video" },
+  "/video":               { page: "Video Generator", entityType: "video" },
   "/batch-images":        { page: "Batch Images", entityType: "image" },
   "/rules":               { page: "Rules", entityType: "rule" },
   "/tools":               { page: "Tools", entityType: "tool" },

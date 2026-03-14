@@ -263,7 +263,7 @@ const AppContainer = () => {
                         }
                       />
                       <Route
-                        path="/images/video"
+                        path="/video"
                         element={
                           <AppLayout>
                             <ErrorBoundary>

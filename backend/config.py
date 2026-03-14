@@ -50,6 +50,14 @@ CACHE_DIR = _resolve_path("GUAARDVARK_CACHE_DIR", "data/cache")
 LOG_DIR = _resolve_path("GUAARDVARK_LOG_DIR", "logs")
 BACKUP_DIR = _resolve_path("GUAARDVARK_BACKUP_DIR", "backups")
 
+# Video Generation / ComfyUI configuration
+COMFYUI_URL = os.environ.get("GUAARDVARK_COMFYUI_URL", "http://127.0.0.1:8188")
+COMFYUI_DIR = os.environ.get("GUAARDVARK_COMFYUI_DIR", os.path.expanduser("~/LLAMAVID/ComfyUI"))
+COMFYUI_VENV = os.environ.get("GUAARDVARK_COMFYUI_VENV", os.path.join(COMFYUI_DIR, "venv"))
+COMFYUI_OUTPUT_DIR = os.environ.get("COMFYUI_OUTPUT_DIR", os.path.join(OUTPUT_DIR, "video"))
+VIDEO_GENERATION_BACKEND = os.environ.get("GUAARDVARK_VIDEO_BACKEND", "auto")  # "comfyui" | "offline" | "auto"
+COMFYUI_IDLE_TIMEOUT = int(os.environ.get("GUAARDVARK_COMFYUI_IDLE_TIMEOUT", "300"))
+
 _config_logger = logging.getLogger(__name__)
 _config_logger.info(f"Config initialized - GUAARDVARK_ROOT: {GUAARDVARK_ROOT}")
 _config_logger.info(f"Config initialized - STORAGE_DIR: {STORAGE_DIR}")

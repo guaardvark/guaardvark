@@ -16,7 +16,7 @@ import requests
 logger = logging.getLogger(__name__)
 
 try:
-    from backend.config import CACHE_DIR
+    from backend.config import CACHE_DIR, COMFYUI_URL, COMFYUI_OUTPUT_DIR
     config_available = True
 except ImportError:
     config_available = False
@@ -59,7 +59,7 @@ class ComfyUIVideoGenerator:
     def __init__(self):
         project_root = Path(__file__).parent.parent.parent
 
-        self.comfy_url = "http://127.0.0.1:8188"
+        self.comfy_url = COMFYUI_URL if config_available else os.environ.get("GUAARDVARK_COMFYUI_URL", "http://127.0.0.1:8188")
 
         self.templates_dir = project_root / "data" / "templates"
         self.templates_dir.mkdir(parents=True, exist_ok=True)
@@ -67,7 +67,7 @@ class ComfyUIVideoGenerator:
         self.cache_dir = Path(CACHE_DIR) / "generated_videos"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
-        self.comfy_output_dir = Path(os.environ.get('COMFYUI_OUTPUT_DIR', os.path.join(os.environ.get('GUAARDVARK_ROOT', '.'), 'data', 'outputs', 'video')))
+        self.comfy_output_dir = Path(COMFYUI_OUTPUT_DIR if config_available else os.environ.get('COMFYUI_OUTPUT_DIR', os.path.join(os.environ.get('GUAARDVARK_ROOT', '.'), 'data', 'outputs', 'video')))
 
         self.service_available = self._check_comfyui_connection()
 
@@ -193,6 +193,239 @@ class ComfyUIVideoGenerator:
             }
         }
 
+        return workflow
+
+    # ── CogVideoX model mapping ──────────────────────────────────────────────
+
+    COGVIDEOX_MODELS = {
+        "cogvideox-2b": "THUDM/CogVideoX-2b",
+        "cogvideox-5b": "THUDM/CogVideoX-5b",
+        "cogvideox-5b-i2v": "THUDM/CogVideoX-5b-I2V",
+    }
+
+    def _create_cogvideox_text2video_workflow(
+        self,
+        prompt: str,
+        negative_prompt: str = "",
+        model_name: str = "THUDM/CogVideoX-2b",
+        num_frames: int = 49,
+        num_inference_steps: int = 50,
+        guidance_scale: float = 6.0,
+        width: int = 720,
+        height: int = 480,
+        seed: Optional[int] = None,
+        fps: int = 8,
+    ) -> dict:
+        if seed is None:
+            seed = int(time.time() * 1000) % (2**31)
+
+        workflow = {
+            "1": {
+                "class_type": "CLIPLoader",
+                "inputs": {
+                    "clip_name": "t5/google_t5-v1_1-xxl_encoderonly-fp8_e4m3fn.safetensors",
+                    "type": "sd3",
+                }
+            },
+            "2": {
+                "class_type": "CogVideoTextEncode",
+                "inputs": {
+                    "clip": ["1", 0],
+                    "prompt": prompt,
+                    "strength": 1,
+                    "force_offload": False,
+                }
+            },
+            "3": {
+                "class_type": "CogVideoTextEncode",
+                "inputs": {
+                    "clip": ["2", 1],
+                    "prompt": negative_prompt,
+                    "strength": 1,
+                    "force_offload": True,
+                }
+            },
+            "4": {
+                "class_type": "DownloadAndLoadCogVideoModel",
+                "inputs": {
+                    "model": model_name,
+                    "precision": "bf16",
+                    "fp8_transformer": "disabled",
+                    "compile": False,
+                    "attention_mode": "sdpa",
+                    "device": "main_device",
+                }
+            },
+            "5": {
+                "class_type": "EmptyLatentImage",
+                "inputs": {
+                    "width": width,
+                    "height": height,
+                    "batch_size": 1,
+                }
+            },
+            "6": {
+                "class_type": "CogVideoSampler",
+                "inputs": {
+                    "model": ["4", 0],
+                    "positive": ["2", 0],
+                    "negative": ["3", 0],
+                    "samples": ["5", 0],
+                    "num_frames": num_frames,
+                    "steps": num_inference_steps,
+                    "cfg": guidance_scale,
+                    "seed": seed,
+                    "control_after_generate": "fixed",
+                    "scheduler": "CogVideoXDDIM",
+                    "denoise_strength": 1.0,
+                }
+            },
+            "7": {
+                "class_type": "CogVideoDecode",
+                "inputs": {
+                    "vae": ["4", 1],
+                    "samples": ["6", 0],
+                    "enable_vae_tiling": True,
+                    "tile_sample_min_height": 240,
+                    "tile_sample_min_width": 360,
+                    "tile_overlap_factor_height": 0.2,
+                    "tile_overlap_factor_width": 0.2,
+                    "auto_tile_size": True,
+                }
+            },
+            "8": {
+                "class_type": "VHS_VideoCombine",
+                "inputs": {
+                    "images": ["7", 0],
+                    "frame_rate": fps,
+                    "loop_count": 0,
+                    "filename_prefix": "cogvideo",
+                    "format": "video/h264-mp4",
+                    "pix_fmt": "yuv420p",
+                    "crf": 19,
+                    "save_metadata": True,
+                    "pingpong": False,
+                    "save_output": True,
+                    "videopreview": {
+                        "hidden": False,
+                        "paused": False,
+                        "params": {},
+                    },
+                }
+            },
+        }
+        return workflow
+
+    def _create_cogvideox_i2v_workflow(
+        self,
+        image_filename: str,
+        prompt: str,
+        negative_prompt: str = "",
+        model_name: str = "THUDM/CogVideoX-5b-I2V",
+        num_frames: int = 49,
+        num_inference_steps: int = 50,
+        guidance_scale: float = 6.0,
+        width: int = 720,
+        height: int = 480,
+        seed: Optional[int] = None,
+        fps: int = 8,
+    ) -> dict:
+        if seed is None:
+            seed = int(time.time() * 1000) % (2**31)
+
+        workflow = {
+            "1": {
+                "class_type": "CLIPLoader",
+                "inputs": {
+                    "clip_name": "t5/google_t5-v1_1-xxl_encoderonly-fp8_e4m3fn.safetensors",
+                    "type": "sd3",
+                }
+            },
+            "2": {
+                "class_type": "CogVideoTextEncode",
+                "inputs": {
+                    "clip": ["1", 0],
+                    "prompt": prompt,
+                    "strength": 1,
+                    "force_offload": False,
+                }
+            },
+            "3": {
+                "class_type": "CogVideoTextEncode",
+                "inputs": {
+                    "clip": ["2", 1],
+                    "prompt": negative_prompt,
+                    "strength": 1,
+                    "force_offload": True,
+                }
+            },
+            "4": {
+                "class_type": "DownloadAndLoadCogVideoModel",
+                "inputs": {
+                    "model": model_name,
+                    "precision": "bf16",
+                    "fp8_transformer": "disabled",
+                    "compile": False,
+                    "attention_mode": "sdpa",
+                    "device": "main_device",
+                }
+            },
+            "5": {
+                "class_type": "LoadImage",
+                "inputs": {
+                    "image": image_filename,
+                }
+            },
+            "6": {
+                "class_type": "CogVideoSampler",
+                "inputs": {
+                    "model": ["4", 0],
+                    "positive": ["2", 0],
+                    "negative": ["3", 0],
+                    "samples": ["5", 0],
+                    "num_frames": num_frames,
+                    "steps": num_inference_steps,
+                    "cfg": guidance_scale,
+                    "seed": seed,
+                    "control_after_generate": "fixed",
+                    "scheduler": "CogVideoXDDIM",
+                    "denoise_strength": 1.0,
+                }
+            },
+            "7": {
+                "class_type": "CogVideoDecode",
+                "inputs": {
+                    "vae": ["4", 1],
+                    "samples": ["6", 0],
+                    "enable_vae_tiling": True,
+                    "tile_sample_min_height": 240,
+                    "tile_sample_min_width": 360,
+                    "tile_overlap_factor_height": 0.2,
+                    "tile_overlap_factor_width": 0.2,
+                    "auto_tile_size": True,
+                }
+            },
+            "8": {
+                "class_type": "VHS_VideoCombine",
+                "inputs": {
+                    "images": ["7", 0],
+                    "frame_rate": fps,
+                    "loop_count": 0,
+                    "filename_prefix": "cogvideo_i2v",
+                    "format": "video/h264-mp4",
+                    "pix_fmt": "yuv420p",
+                    "crf": 19,
+                    "save_metadata": True,
+                    "pingpong": False,
+                    "save_output": True,
+                    "videopreview": {
+                        "hidden": False,
+                        "paused": False,
+                        "params": {},
+                    },
+                }
+            },
+        }
         return workflow
 
     def _queue_prompt(self, workflow: dict) -> Optional[str]:
@@ -329,29 +562,68 @@ class ComfyUIVideoGenerator:
 
         try:
             image_path = request.metadata.get("image_path") if request.metadata else None
-
-            if not image_path or not Path(image_path).exists():
-                result.error = "Image-to-video mode requires an input image. Text-to-video coming soon (requires image generator integration)."
-                return result
-
-            logger.info(f"Uploading image to ComfyUI: {image_path}")
-            uploaded_image = self._upload_image_to_comfyui(image_path)
-
-            if not uploaded_image:
-                result.error = "Failed to upload image to ComfyUI"
-                return result
-
+            model = request.model or "svd"
             seed = request.seed if request.seed is not None else int(time.time() * 1000) % (2**31)
-            motion_bucket_id = int(request.motion_strength * 127)
-            motion_bucket_id = max(1, min(255, motion_bucket_id))
 
-            workflow = self._create_svd_workflow(
-                image_filename=uploaded_image,
-                num_frames=request.duration_frames,
-                motion_bucket_id=motion_bucket_id,
-                fps=request.fps,
-                seed=seed,
-            )
+            # ── Route by model type ──────────────────────────────────
+            if model in ("cogvideox-2b", "cogvideox-5b"):
+                # Text-to-video via CogVideoX
+                hf_model = self.COGVIDEOX_MODELS.get(model, "THUDM/CogVideoX-2b")
+                workflow = self._create_cogvideox_text2video_workflow(
+                    prompt=request.prompt,
+                    model_name=hf_model,
+                    num_frames=request.duration_frames,
+                    num_inference_steps=request.num_inference_steps,
+                    guidance_scale=request.guidance_scale,
+                    width=request.width,
+                    height=request.height,
+                    seed=seed,
+                    fps=request.fps,
+                )
+                logger.info(f"Using CogVideoX text-to-video ({model}) via ComfyUI")
+
+            elif model == "cogvideox-5b-i2v":
+                # Image-to-video via CogVideoX
+                if not image_path or not Path(image_path).exists():
+                    result.error = "CogVideoX image-to-video requires an input image."
+                    return result
+                uploaded_image = self._upload_image_to_comfyui(image_path)
+                if not uploaded_image:
+                    result.error = "Failed to upload image to ComfyUI"
+                    return result
+                hf_model = self.COGVIDEOX_MODELS.get(model, "THUDM/CogVideoX-5b-I2V")
+                workflow = self._create_cogvideox_i2v_workflow(
+                    image_filename=uploaded_image,
+                    prompt=request.prompt,
+                    model_name=hf_model,
+                    num_frames=request.duration_frames,
+                    num_inference_steps=request.num_inference_steps,
+                    guidance_scale=request.guidance_scale,
+                    width=request.width,
+                    height=request.height,
+                    seed=seed,
+                    fps=request.fps,
+                )
+                logger.info(f"Using CogVideoX image-to-video via ComfyUI")
+
+            else:
+                # SVD image-to-video (legacy)
+                if not image_path or not Path(image_path).exists():
+                    result.error = "SVD requires an input image."
+                    return result
+                uploaded_image = self._upload_image_to_comfyui(image_path)
+                if not uploaded_image:
+                    result.error = "Failed to upload image to ComfyUI"
+                    return result
+                motion_bucket_id = max(1, min(255, int(request.motion_strength * 127)))
+                workflow = self._create_svd_workflow(
+                    image_filename=uploaded_image,
+                    num_frames=request.duration_frames,
+                    motion_bucket_id=motion_bucket_id,
+                    fps=request.fps,
+                    seed=seed,
+                )
+                logger.info(f"Using SVD image-to-video via ComfyUI")
 
             logger.info("Sending workflow to ComfyUI...")
             prompt_id = self._queue_prompt(workflow)
