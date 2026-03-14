@@ -24,7 +24,7 @@ except ImportError:
     COMFYUI_DIR = os.environ.get("GUAARDVARK_COMFYUI_DIR", os.path.join(os.environ.get("GUAARDVARK_ROOT", "."), "plugins", "comfyui", "ComfyUI"))
     COMFYUI_VENV = os.environ.get("GUAARDVARK_COMFYUI_VENV", os.path.join(os.environ.get("GUAARDVARK_ROOT", "."), "backend", "venv"))
     VIDEO_GENERATION_BACKEND = os.environ.get("GUAARDVARK_VIDEO_BACKEND", "auto")
-    COMFYUI_IDLE_TIMEOUT = int(os.environ.get("GUAARDVARK_COMFYUI_IDLE_TIMEOUT", "300"))
+    COMFYUI_IDLE_TIMEOUT = int(os.environ.get("GUAARDVARK_COMFYUI_IDLE_TIMEOUT", "1800"))
     LOG_DIR = "logs"
     GUAARDVARK_ROOT = os.environ.get("GUAARDVARK_ROOT", ".")
 
@@ -41,6 +41,8 @@ class VideoGenerationRouter:
         self._backend_pref = VIDEO_GENERATION_BACKEND  # "auto", "comfyui", "offline"
         self._comfyui_process = None
         self._idle_timer = None
+        self._active_generation_count = 0
+        self._gen_count_lock = threading.Lock()
         self._pid_file = Path(GUAARDVARK_ROOT) / "pids" / "comfyui.pid"
         self._pid_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -121,11 +123,12 @@ class VideoGenerationRouter:
 
     def generate_video(self, request: VideoGenerationRequest) -> VideoGenerationResult:
         """Route a generation request to the best available backend."""
+        with self._gen_count_lock:
+            self._active_generation_count += 1
+            self._cancel_idle_shutdown()
         try:
             generator = self.get_active_generator()
             result = generator.generate_video(request)
-            # Schedule idle shutdown after successful generation
-            self._schedule_idle_shutdown()
             return result
         except RuntimeError as e:
             return VideoGenerationResult(
@@ -133,19 +136,78 @@ class VideoGenerationRouter:
                 error=str(e),
                 prompt_used=request.prompt,
             )
+        finally:
+            with self._gen_count_lock:
+                self._active_generation_count = max(0, self._active_generation_count - 1)
+                if self._active_generation_count == 0:
+                    self._schedule_idle_shutdown()
+
+    @property
+    def is_generating(self) -> bool:
+        """Return True if any video generation is currently in progress."""
+        with self._gen_count_lock:
+            return self._active_generation_count > 0
 
     # ── ComfyUI lifecycle management ──────────────────────────────────────
 
     def _start_comfyui(self) -> bool:
-        """Start ComfyUI server as a subprocess."""
+        """Start ComfyUI server, preferring the plugin start script for consistency."""
+        # If already running (maybe started externally), just confirm
+        if self._check_comfyui():
+            logger.info("ComfyUI is already running")
+            return True
+
         comfyui_dir = Path(COMFYUI_DIR)
         if not comfyui_dir.exists():
             logger.error(f"ComfyUI not installed at {comfyui_dir}")
             return False
 
+        # Prefer the plugin start script — it handles duplicate detection,
+        # correct cwd, PID file writing, and log setup consistently.
+        plugin_start_script = Path(GUAARDVARK_ROOT) / "plugins" / "comfyui" / "scripts" / "start.sh"
+        if plugin_start_script.exists():
+            return self._start_comfyui_via_plugin(plugin_start_script)
+
+        # Fallback: direct subprocess launch (e.g. if plugin scripts are missing)
+        return self._start_comfyui_direct(comfyui_dir)
+
+    def _start_comfyui_via_plugin(self, start_script: Path) -> bool:
+        """Start ComfyUI using the plugin's start.sh script."""
+        logger.info(f"Starting ComfyUI via plugin script: {start_script}")
+        try:
+            result = subprocess.run(
+                ["bash", str(start_script)],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode != 0:
+                logger.error(f"Plugin start script failed (rc={result.returncode}): {result.stderr}")
+                return False
+            logger.info(f"Plugin start script output: {result.stdout.strip()}")
+
+            # Read PID from the file the script wrote
+            if self._pid_file.exists():
+                try:
+                    pid = int(self._pid_file.read_text().strip())
+                    # Wrap in a lightweight tracker so stop_comfyui can find it
+                    self._comfyui_process = None  # plugin manages the process
+                    logger.info(f"ComfyUI launched via plugin (PID: {pid})")
+                except ValueError:
+                    pass
+
+            # Wait up to 90 seconds for ComfyUI to become ready (models can be slow to load)
+            return self._wait_for_comfyui_ready(timeout_seconds=90)
+
+        except subprocess.TimeoutExpired:
+            logger.error("Plugin start script timed out")
+            return False
+        except Exception as e:
+            logger.error(f"Failed to start ComfyUI via plugin: {e}")
+            return False
+
+    def _start_comfyui_direct(self, comfyui_dir: Path) -> bool:
+        """Fallback: start ComfyUI directly as a subprocess."""
         venv_python = Path(COMFYUI_VENV) / "bin" / "python"
         if not venv_python.exists():
-            # Try system python
             venv_python = "python3"
 
         main_py = comfyui_dir / "main.py"
@@ -156,12 +218,13 @@ class VideoGenerationRouter:
         log_path = Path(LOG_DIR) / "comfyui.log"
         log_path.parent.mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"Starting ComfyUI at {comfyui_dir}...")
+        logger.info(f"Starting ComfyUI directly at {comfyui_dir}...")
         try:
+            log_file = open(str(log_path), "a")
             proc = subprocess.Popen(
                 [str(venv_python), str(main_py), "--listen", "--port", "8188"],
                 cwd=str(comfyui_dir),
-                stdout=open(str(log_path), "a"),
+                stdout=log_file,
                 stderr=subprocess.STDOUT,
                 start_new_session=True,
             )
@@ -171,8 +234,8 @@ class VideoGenerationRouter:
             self._pid_file.write_text(str(proc.pid))
             logger.info(f"ComfyUI started (PID: {proc.pid}), waiting for it to be ready...")
 
-            # Wait up to 60 seconds for ComfyUI to respond
-            for i in range(60):
+            # Wait up to 90 seconds for ComfyUI to respond
+            for i in range(90):
                 time.sleep(1)
                 if self._check_comfyui():
                     logger.info(f"ComfyUI ready after {i + 1}s")
@@ -183,12 +246,32 @@ class VideoGenerationRouter:
                     self._pid_file.unlink(missing_ok=True)
                     return False
 
-            logger.error("ComfyUI did not become ready within 60 seconds")
+            logger.error("ComfyUI did not become ready within 90 seconds")
             return False
 
         except Exception as e:
             logger.error(f"Failed to start ComfyUI: {e}")
             return False
+
+    def _wait_for_comfyui_ready(self, timeout_seconds: int = 90) -> bool:
+        """Poll ComfyUI health endpoint until it responds or timeout expires."""
+        for i in range(timeout_seconds):
+            time.sleep(1)
+            if self._check_comfyui():
+                logger.info(f"ComfyUI ready after {i + 1}s")
+                return True
+            # If launched via plugin, check if PID is still alive
+            if self._pid_file.exists():
+                try:
+                    pid = int(self._pid_file.read_text().strip())
+                    os.kill(pid, 0)  # signal 0 = just check existence
+                except (ProcessLookupError, ValueError):
+                    logger.error("ComfyUI process died during startup")
+                    return False
+                except PermissionError:
+                    pass  # process exists but we can't signal it, that's fine
+        logger.error(f"ComfyUI did not become ready within {timeout_seconds} seconds")
+        return False
 
     def stop_comfyui(self) -> bool:
         """Stop ComfyUI server."""
@@ -240,7 +323,11 @@ class VideoGenerationRouter:
             self._idle_timer = None
 
     def _idle_shutdown(self):
-        """Called by timer — stop ComfyUI if still idle."""
+        """Called by timer — stop ComfyUI if still idle and no active generations."""
+        if self.is_generating:
+            logger.info("ComfyUI idle timeout fired but generation is active, rescheduling...")
+            self._schedule_idle_shutdown()
+            return
         if self._check_comfyui():
             logger.info("ComfyUI idle timeout reached, stopping to free VRAM...")
             self.stop_comfyui()
@@ -255,6 +342,8 @@ class VideoGenerationRouter:
             "comfyui_dir": COMFYUI_DIR,
             "comfyui_installed": Path(COMFYUI_DIR).exists(),
             "idle_timeout": COMFYUI_IDLE_TIMEOUT,
+            "active_generations": self._active_generation_count,
+            "is_generating": self.is_generating,
         }
 
 

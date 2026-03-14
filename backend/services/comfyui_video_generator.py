@@ -855,6 +855,10 @@ class ComfyUIVideoGenerator:
             return False
 
     def generate_video(self, request: VideoGenerationRequest) -> VideoGenerationResult:
+        # Re-check live connection if the cached flag says unavailable.
+        # ComfyUI may have been started on-demand by the router since init.
+        if not self.service_available:
+            self.service_available = self._check_comfyui_connection()
         if not self.service_available:
             return VideoGenerationResult(
                 success=False,

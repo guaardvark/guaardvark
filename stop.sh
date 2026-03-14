@@ -60,55 +60,79 @@ vader_info "Checking for ComfyUI..."
 
 comfyui_stopped=false
 
-# 1. Use the plugin's own stop script if it exists
-COMFYUI_STOP_SCRIPT="$SCRIPT_DIR/plugins/comfyui/scripts/stop.sh"
-if [ -f "$COMFYUI_STOP_SCRIPT" ]; then
-    vader_info "Running ComfyUI plugin stop script..."
-    bash "$COMFYUI_STOP_SCRIPT" 2>/dev/null && comfyui_stopped=true
+# Check if a video generation is actively running before killing ComfyUI.
+# If the backend is reachable, query the video status endpoint.
+FLASK_PORT=${FLASK_PORT:-5000}
+if [ -f "$SCRIPT_DIR/.env" ]; then
+    _flask_port_env=$(grep -oP '^FLASK_PORT=\K.*' "$SCRIPT_DIR/.env" 2>/dev/null)
+    [ -n "$_flask_port_env" ] && FLASK_PORT="$_flask_port_env"
 fi
 
-# 2. Kill via PID file (in case the stop script didn't handle it)
-if [ -f "$PIDS_DIR/comfyui.pid" ]; then
-    comfyui_pid=$(cat "$PIDS_DIR/comfyui.pid" 2>/dev/null)
-    if [ -n "$comfyui_pid" ] && kill -0 "$comfyui_pid" 2>/dev/null; then
-        vader_info "Stopping ComfyUI (PID: $comfyui_pid)..."
-        kill -TERM "$comfyui_pid" 2>/dev/null
-        sleep 2
-        if kill -0 "$comfyui_pid" 2>/dev/null; then
-            vader_warn "ComfyUI still running, using SIGKILL..."
-            kill -KILL "$comfyui_pid" 2>/dev/null
-            sleep 1
-        fi
-        if ! kill -0 "$comfyui_pid" 2>/dev/null; then
-            vader_success "ComfyUI stopped (PID: $comfyui_pid)"
-            comfyui_stopped=true
-        else
-            vader_error "Failed to stop ComfyUI (PID: $comfyui_pid)"
+video_active=false
+if command -v curl >/dev/null 2>&1; then
+    video_status=$(curl -sf --max-time 3 "http://localhost:${FLASK_PORT}/api/gpu/comfyui/status" 2>/dev/null)
+    if [ -n "$video_status" ] && command -v python3 >/dev/null 2>&1; then
+        is_gen=$(python3 -c "import json,sys; d=json.loads(sys.stdin.read()); r=d.get('data',d); print(r.get('is_generating', False))" <<< "$video_status" 2>/dev/null)
+        if [ "$is_gen" = "True" ]; then
+            video_active=true
         fi
     fi
-    rm -f "$PIDS_DIR/comfyui.pid"
 fi
 
-# 3. Kill any remaining process on port 8188 (ComfyUI default)
-if command -v lsof >/dev/null 2>&1; then
-    port_8188_pids=$(lsof -i TCP:8188 -sTCP:LISTEN -t 2>/dev/null)
-    if [ -n "$port_8188_pids" ]; then
-        for pid in $port_8188_pids; do
-            vader_info "Killing orphaned ComfyUI process on port 8188 (PID: $pid)..."
-            kill -TERM "$pid" 2>/dev/null
-            sleep 1
-            if kill -0 "$pid" 2>/dev/null; then
-                kill -KILL "$pid" 2>/dev/null
-            fi
-            comfyui_stopped=true
-        done
-    fi
-fi
-
-if [ "$comfyui_stopped" = true ]; then
-    vader_success "ComfyUI shutdown complete."
+if [ "$video_active" = true ]; then
+    vader_warn "Video generation is actively running — deferring ComfyUI shutdown."
+    vader_warn "ComfyUI will be stopped after generation completes (idle timeout)."
 else
-    vader_info "ComfyUI was not running."
+    # 1. Use the plugin's own stop script if it exists
+    COMFYUI_STOP_SCRIPT="$SCRIPT_DIR/plugins/comfyui/scripts/stop.sh"
+    if [ -f "$COMFYUI_STOP_SCRIPT" ]; then
+        vader_info "Running ComfyUI plugin stop script..."
+        bash "$COMFYUI_STOP_SCRIPT" 2>/dev/null && comfyui_stopped=true
+    fi
+
+    # 2. Kill via PID file (in case the stop script didn't handle it)
+    if [ -f "$PIDS_DIR/comfyui.pid" ]; then
+        comfyui_pid=$(cat "$PIDS_DIR/comfyui.pid" 2>/dev/null)
+        if [ -n "$comfyui_pid" ] && kill -0 "$comfyui_pid" 2>/dev/null; then
+            vader_info "Stopping ComfyUI (PID: $comfyui_pid)..."
+            kill -TERM "$comfyui_pid" 2>/dev/null
+            sleep 2
+            if kill -0 "$comfyui_pid" 2>/dev/null; then
+                vader_warn "ComfyUI still running, using SIGKILL..."
+                kill -KILL "$comfyui_pid" 2>/dev/null
+                sleep 1
+            fi
+            if ! kill -0 "$comfyui_pid" 2>/dev/null; then
+                vader_success "ComfyUI stopped (PID: $comfyui_pid)"
+                comfyui_stopped=true
+            else
+                vader_error "Failed to stop ComfyUI (PID: $comfyui_pid)"
+            fi
+        fi
+        rm -f "$PIDS_DIR/comfyui.pid"
+    fi
+
+    # 3. Kill any remaining process on port 8188 (ComfyUI default)
+    if command -v lsof >/dev/null 2>&1; then
+        port_8188_pids=$(lsof -i TCP:8188 -sTCP:LISTEN -t 2>/dev/null)
+        if [ -n "$port_8188_pids" ]; then
+            for pid in $port_8188_pids; do
+                vader_info "Killing orphaned ComfyUI process on port 8188 (PID: $pid)..."
+                kill -TERM "$pid" 2>/dev/null
+                sleep 1
+                if kill -0 "$pid" 2>/dev/null; then
+                    kill -KILL "$pid" 2>/dev/null
+                fi
+                comfyui_stopped=true
+            done
+        fi
+    fi
+
+    if [ "$comfyui_stopped" = true ]; then
+        vader_success "ComfyUI shutdown complete."
+    else
+        vader_info "ComfyUI was not running."
+    fi
 fi
 
 # ── Stop Ollama (PID file → user processes → systemd → port cleanup) ──
