@@ -18,6 +18,19 @@ data/cache/
 data/database/
 data/models/
 data/context/
+data/docstore.json
+data/index_store.json
+data/default__vector_store.json
+data/graph_store.json
+data/code_editor_session.json
+data/code_editor_state.json
+data/dashboard_state.json
+data/documents_windows_v2_state.json
+data/images_windows_state.json
+data/conversations/sessions/
+data/active_model.json
+data/folder_state.json
+data/sticky_notes_state.json
 
 logs/
 backups/
@@ -32,6 +45,9 @@ frontend/.vite/
 *.db
 *.sqlite
 *.sqlite3
+:memory:
+:memory:-shm
+:memory:-wal
 
 backend/tools/voice/whisper.cpp/build/
 backend/tools/voice/whisper.cpp/models/
@@ -53,36 +69,21 @@ htmlcov/
 coverage.xml
 .worktrees/
 
-# Private/debug data — never commit
+# Private/debug — not part of system
 .claude/
 .playwright-mcp/
 backend/debug_audio/
-data/docstore.json
-data/index_store.json
-data/default__vector_store.json
-data/graph_store.json
-data/code_editor_session.json
-data/code_editor_state.json
-data/dashboard_state.json
-data/documents_windows_v2_state.json
-data/images_windows_state.json
-data/conversations/sessions/
 scripts/repro_output*.txt
 guaardvark_backup.json
+guaardvark.code-workspace
 SESSION_HANDOFF*.md
+GEMINI.md
+
+# Docs — keep README.md and research, ignore session handoffs
 docs/SESSION_HANDOFF.md
 docs/documents_page_snapshot.md
-docs/plans/
 docs/superpowers/
-docs/
+
+# Plugins — external installs, not tracked
 plugins/Comprehensive Architectural.md
 plugins/comfyui/ComfyUI/
-CAPABILITIES.md
-guaardvark.code-workspace
-:memory:
-:memory:-shm
-:memory:-wal
-guaardvark_backup.json
-GEMINI.md
-CLAUDE.md
-
