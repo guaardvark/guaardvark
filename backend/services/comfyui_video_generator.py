@@ -203,6 +203,16 @@ class ComfyUIVideoGenerator:
         "cogvideox-5b-i2v": "THUDM/CogVideoX-5b-I2V",
     }
 
+    # ── Wan 2.2 model mapping ────────────────────────────────────────────────
+
+    WAN22_MODELS = {
+        "wan22-14b": {
+            "unet": "Wan2.2-T2V-A14B-Q5_K_M.gguf",
+            "clip": "t5/google_t5-v1_1-xxl_encoderonly-fp8_e4m3fn.safetensors",
+            "vae": "wan_2.1_vae.safetensors",
+        },
+    }
+
     def _create_cogvideox_text2video_workflow(
         self,
         prompt: str,
@@ -428,6 +438,123 @@ class ComfyUIVideoGenerator:
         }
         return workflow
 
+    def _create_wan22_t2v_workflow(
+        self,
+        prompt: str,
+        negative_prompt: str = "",
+        model_key: str = "wan22-14b",
+        num_frames: int = 81,
+        num_inference_steps: int = 25,
+        guidance_scale: float = 5.0,
+        width: int = 832,
+        height: int = 480,
+        seed: Optional[int] = None,
+        fps: int = 16,
+    ) -> dict:
+        """Build a ComfyUI API-format workflow for Wan 2.2 text-to-video using GGUF model."""
+        if seed is None:
+            seed = int(time.time() * 1000) % (2**31)
+
+        model_files = self.WAN22_MODELS.get(model_key, self.WAN22_MODELS["wan22-14b"])
+
+        workflow = {
+            # Node 1: Load GGUF diffusion model via ComfyUI-GGUF custom node
+            "1": {
+                "class_type": "UnetLoaderGGUF",
+                "inputs": {
+                    "unet_name": model_files["unet"],
+                }
+            },
+            # Node 2: Load T5 text encoder with Wan clip type
+            "2": {
+                "class_type": "CLIPLoader",
+                "inputs": {
+                    "clip_name": model_files["clip"],
+                    "type": "wan",
+                }
+            },
+            # Node 3: Encode positive prompt
+            "3": {
+                "class_type": "CLIPTextEncode",
+                "inputs": {
+                    "clip": ["2", 0],
+                    "text": prompt,
+                }
+            },
+            # Node 4: Encode negative prompt (empty conditioning)
+            "4": {
+                "class_type": "CLIPTextEncode",
+                "inputs": {
+                    "clip": ["2", 0],
+                    "text": negative_prompt,
+                }
+            },
+            # Node 5: Create empty video latent (5D: batch, channels, frames, h, w)
+            # EmptyHunyuanLatentVideo works for Wan — same 16ch, 4x temporal, 8x spatial compression
+            "5": {
+                "class_type": "EmptyHunyuanLatentVideo",
+                "inputs": {
+                    "width": width,
+                    "height": height,
+                    "length": num_frames,
+                    "batch_size": 1,
+                }
+            },
+            # Node 6: KSampler — standard diffusion sampling
+            "6": {
+                "class_type": "KSampler",
+                "inputs": {
+                    "model": ["1", 0],
+                    "positive": ["3", 0],
+                    "negative": ["4", 0],
+                    "latent_image": ["5", 0],
+                    "seed": seed,
+                    "steps": num_inference_steps,
+                    "cfg": guidance_scale,
+                    "sampler_name": "euler",
+                    "scheduler": "normal",
+                    "denoise": 1.0,
+                }
+            },
+            # Node 7: Load Wan VAE
+            "7": {
+                "class_type": "VAELoader",
+                "inputs": {
+                    "vae_name": model_files["vae"],
+                }
+            },
+            # Node 8: Decode latent to frames
+            "8": {
+                "class_type": "VAEDecode",
+                "inputs": {
+                    "samples": ["6", 0],
+                    "vae": ["7", 0],
+                }
+            },
+            # Node 9: Combine frames into video
+            "9": {
+                "class_type": "VHS_VideoCombine",
+                "inputs": {
+                    "images": ["8", 0],
+                    "frame_rate": fps,
+                    "loop_count": 0,
+                    "filename_prefix": "wan22_t2v",
+                    "format": "video/h264-mp4",
+                    "pix_fmt": "yuv420p",
+                    "crf": 19,
+                    "save_metadata": True,
+                    "pingpong": False,
+                    "save_output": True,
+                    "videopreview": {
+                        "hidden": False,
+                        "paused": False,
+                        "params": {},
+                    },
+                }
+            },
+        }
+        return workflow
+
     def _queue_prompt(self, workflow: dict) -> Optional[str]:
         try:
             payload = {"prompt": workflow}
@@ -566,7 +693,24 @@ class ComfyUIVideoGenerator:
             seed = request.seed if request.seed is not None else int(time.time() * 1000) % (2**31)
 
             # ── Route by model type ──────────────────────────────────
-            if model in ("cogvideox-2b", "cogvideox-5b"):
+            if model in self.WAN22_MODELS or model in ("wan22", "wan2.2"):
+                # Text-to-video via Wan 2.2 GGUF
+                model_key = model if model in self.WAN22_MODELS else "wan22-14b"
+                workflow = self._create_wan22_t2v_workflow(
+                    prompt=request.prompt,
+                    negative_prompt=request.negative_prompt,
+                    model_key=model_key,
+                    num_frames=request.duration_frames,
+                    num_inference_steps=request.num_inference_steps,
+                    guidance_scale=request.guidance_scale,
+                    width=request.width,
+                    height=request.height,
+                    seed=seed,
+                    fps=request.fps,
+                )
+                logger.info(f"Using Wan 2.2 text-to-video ({model_key}) via ComfyUI GGUF")
+
+            elif model in ("cogvideox-2b", "cogvideox-5b"):
                 # Text-to-video via CogVideoX
                 hf_model = self.COGVIDEOX_MODELS.get(model, "THUDM/CogVideoX-2b")
                 workflow = self._create_cogvideox_text2video_workflow(

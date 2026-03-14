@@ -136,6 +136,28 @@ const COGVIDEOX_DURATION_PRESETS = {
   },
 };
 
+// Duration presets for Wan 2.2 models (81 frames max @ 16fps = ~5 seconds)
+const WAN_DURATION_PRESETS = {
+  short: {
+    label: "Short",
+    description: "~2 seconds",
+    duration_frames: 33,
+    fps: 16,
+  },
+  medium: {
+    label: "Medium",
+    description: "~3 seconds",
+    duration_frames: 49,
+    fps: 16,
+  },
+  long: {
+    label: "Long",
+    description: "~5 seconds",
+    duration_frames: 81,
+    fps: 16,
+  },
+};
+
 const MOTION_PRESETS = {
   subtle: {
     label: "🌊 Subtle",
@@ -208,7 +230,16 @@ const VIDEO_SIZE_PRESETS = {
 };
 
 const MODEL_OPTIONS = {
-  // CogVideoX models (recommended - better quality, longer videos)
+  // Wan 2.2 models (state-of-the-art, recommended)
+  "wan22-14b": {
+    label: "Wan 2.2 14B (GGUF Q5)",
+    description: "Best quality, 5s videos (~11GB VRAM)",
+    type: "wan",
+    maxFrames: 81,
+    resolution: [832, 480],
+    defaultSteps: 25,
+  },
+  // CogVideoX models
   "cogvideox-2b": {
     label: "CogVideoX 2B",
     description: "6s videos, fast (~12GB VRAM)",
@@ -253,8 +284,10 @@ const MODEL_OPTIONS = {
   },
 };
 
-// Helper to check if model is CogVideoX
+// Helper to check model type
 const isCogVideoXModel = (model) => MODEL_OPTIONS[model]?.type === "cogvideox";
+const isWanModel = (model) => MODEL_OPTIONS[model]?.type === "wan";
+const isSvdModel = (model) => MODEL_OPTIONS[model]?.type === "svd";
 
 // Lazy import for VideoModelsModal
 const VideoModelsModal = React.lazy(() => import("../components/modals/VideoModelsModal"));
@@ -311,7 +344,9 @@ const VideoGeneratorPage = () => {
 
   // Get duration presets based on selected model
   const durationPresets = useMemo(() => {
-    return isCogVideoXModel(model) ? COGVIDEOX_DURATION_PRESETS : SVD_DURATION_PRESETS;
+    if (isWanModel(model)) return WAN_DURATION_PRESETS;
+    if (isCogVideoXModel(model)) return COGVIDEOX_DURATION_PRESETS;
+    return SVD_DURATION_PRESETS;
   }, [model]);
 
   // Calculate video dimensions from aspect ratio and size
@@ -342,7 +377,7 @@ const VideoGeneratorPage = () => {
   // Compute final params from presets
   const computedParams = useMemo(() => {
     const quality = QUALITY_PRESETS[qualityPreset] || QUALITY_PRESETS.standard;
-    const currentDurationPresets = isCogVideoXModel(model) ? COGVIDEOX_DURATION_PRESETS : SVD_DURATION_PRESETS;
+    const currentDurationPresets = isWanModel(model) ? WAN_DURATION_PRESETS : isCogVideoXModel(model) ? COGVIDEOX_DURATION_PRESETS : SVD_DURATION_PRESETS;
     const baseDuration = currentDurationPresets[durationPreset] || currentDurationPresets.short;
     const motion = MOTION_PRESETS[motionPreset] || MOTION_PRESETS.normal;
     const modelConfig = MODEL_OPTIONS[model] || {};
@@ -401,6 +436,33 @@ const VideoGeneratorPage = () => {
       }
     }
 
+    // Low VRAM safe preset for Wan 2.2 on 16GB GPUs
+    // GGUF Q5 is already memory-efficient; moderate clamping
+    if (lowVramMode && isWanModel(model)) {
+      // Clamp frames to short duration to reduce memory
+      if (effectiveDurationFrames > 33) {
+        effectiveDurationFrames = 33;
+      }
+
+      // Reduce resolution — max 480px on longest side
+      const maxSafeSide = 480;
+      const longestSide = Math.max(width, height);
+      if (longestSide > maxSafeSide) {
+        const scale = maxSafeSide / longestSide;
+        width = Math.round((width * scale) / 8) * 8;
+        height = Math.round((height * scale) / 8) * 8;
+      }
+      if (width < 256) width = 256;
+      if (height < 256) height = 256;
+      width = Math.round(width / 8) * 8;
+      height = Math.round(height / 8) * 8;
+
+      // Moderate step reduction
+      if (effectiveSteps > 20) {
+        effectiveSteps = 20;
+      }
+    }
+
     // Build final params - don't spread quality since it has SVD-specific width/height
     // that shouldn't override our calculated videoDimensions for CogVideoX
     return {
@@ -417,7 +479,7 @@ const VideoGeneratorPage = () => {
       guidance_scale: advancedParams.guidance_scale,
       generate_frames_only: advancedParams.generate_frames_only,
       // For Low VRAM mode, use frames_per_batch=1 to minimize memory usage
-      frames_per_batch: lowVramMode && isCogVideoXModel(model) ? 1 : advancedParams.frames_per_batch,
+      frames_per_batch: lowVramMode && (isCogVideoXModel(model) || isWanModel(model)) ? 1 : advancedParams.frames_per_batch,
       combine_frames: advancedParams.combine_frames,
     };
   }, [qualityPreset, durationPreset, motionPreset, model, advancedParams, videoDimensions, lowVramMode]);
@@ -1240,7 +1302,7 @@ const VideoGeneratorPage = () => {
               </Grid>
 
               {/* Motion Preset - only for SVD models */}
-              {!isCogVideoXModel(model) && (
+              {isSvdModel(model) && (
                 <Grid item xs={12} sm={6} md={4}>
                   <FormControl fullWidth size="small">
                     <InputLabel>
@@ -1297,17 +1359,17 @@ const VideoGeneratorPage = () => {
                 />
               </Box>
               {/* Low VRAM Mode Active Warning */}
-              {lowVramMode && isCogVideoXModel(model) && (
-                <Alert 
-                  severity="info" 
-                  sx={{ 
+              {lowVramMode && (isCogVideoXModel(model) || isWanModel(model)) && (
+                <Alert
+                  severity="info"
+                  sx={{
                     mt: 1.5,
                     '& .MuiAlert-message': {
                       py: 0.5,
                     },
                   }}
                 >
-                  Low VRAM mode is active: Using CogVideoX 2B, max {computedParams.duration_frames} frames, max {computedParams.num_inference_steps} steps, and reduced resolution to minimize memory usage.
+                  Low VRAM mode is active: Max {computedParams.duration_frames} frames, max {computedParams.num_inference_steps} steps, and reduced resolution to minimize memory usage.
                 </Alert>
               )}
             </Box>
@@ -1327,7 +1389,14 @@ const VideoGeneratorPage = () => {
               borderRadius: 1,
               bgcolor: 'action.hover',
             }}>
-              {isCogVideoXModel(model) ? (
+              {isWanModel(model) ? (
+                <Chip
+                  size="small"
+                  color="secondary"
+                  label="Wan 2.2"
+                  sx={{ fontWeight: 600 }}
+                />
+              ) : isCogVideoXModel(model) ? (
                 <Chip
                   size="small"
                   color="primary"
@@ -1367,7 +1436,7 @@ const VideoGeneratorPage = () => {
                 variant="outlined"
                 label={`${computedParams.width}x${computedParams.height}`}
               />
-              {!isCogVideoXModel(model) && (
+              {isSvdModel(model) && (
                 <Chip
                   size="small"
                   variant="outlined"
