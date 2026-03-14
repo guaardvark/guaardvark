@@ -66,7 +66,7 @@ const navGroups = [
       { text: "Clients", icon: <AccountBoxIcon />, path: "/clients" },
       { text: "Projects", icon: <FolderIcon />, path: "/projects" },
       { text: "Websites", icon: <LanguageIcon />, path: "/websites" },
-      { text: "Images", icon: <ImageIcon />, path: "/images" },
+      { text: "Media", icon: <ImageIcon />, path: "/images" },
       { text: "Video", icon: <MovieCreationIcon />, path: "/video" },
       { text: "Job Scheduler", icon: <TaskAltIcon />, path: "/tasks" },
     ],
