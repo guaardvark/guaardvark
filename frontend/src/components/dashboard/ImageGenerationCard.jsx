@@ -131,7 +131,7 @@ const ImageGenerationCard = React.forwardRef(
             variant="contained"
             size="small"
             startIcon={<Add />}
-            onClick={() => navigate("/batch-image-generation")}
+            onClick={() => navigate("/images")}
             sx={{
               minWidth: "100px",
               textTransform: "none",
@@ -146,7 +146,7 @@ const ImageGenerationCard = React.forwardRef(
             variant="outlined"
             size="small"
             startIcon={<PlayArrow />}
-            onClick={() => navigate("/batch-image-generation?mode=batch")}
+            onClick={() => navigate("/images?mode=batch")}
             sx={{
               minWidth: "100px",
               textTransform: "none",
@@ -194,7 +194,7 @@ const ImageGenerationCard = React.forwardRef(
                     borderRadius: 1,
                   },
                 }}
-                onClick={() => navigate(`/batch-image-generation?id=${generation.id}`)}
+                onClick={() => navigate(`/images?id=${generation.id}`)}
                 className="non-draggable"
               >
                 <ListItemText
@@ -283,7 +283,7 @@ const ImageGenerationCard = React.forwardRef(
           <Box sx={{ textAlign: "center", mt: 1 }}>
             <Button
               component={RouterLink}
-              to="/batch-image-generation"
+              to="/images"
               variant="text"
               size="small"
               sx={{

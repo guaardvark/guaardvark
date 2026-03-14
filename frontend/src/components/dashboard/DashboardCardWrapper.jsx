@@ -192,7 +192,7 @@ const DashboardCardWrapper = React.forwardRef(
         clients: "/clients",
         csvgen: "/csv-generation",
         codegen: "/code-generation",
-        imggen: "/batch-image-generation",
+        imggen: "/images",
         files: "/documents",
         family: "/settings",
         autoresearch: "/settings",
