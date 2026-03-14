@@ -244,7 +244,18 @@ def get_video(batch_id: str, video_name: str):
         if not video_path.exists():
             return error_response("Video not found", 404)
 
-        mime_type = "video/mp4" if video_path.suffix.lower() == ".mp4" else "image/png"
+        ext = video_path.suffix.lower()
+        mime_map = {
+            ".mp4": "video/mp4",
+            ".webm": "video/webm",
+            ".avi": "video/x-msvideo",
+            ".mov": "video/quicktime",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".png": "image/png",
+            ".gif": "image/gif",
+        }
+        mime_type = mime_map.get(ext, "application/octet-stream")
         return send_file(str(video_path), mimetype=mime_type, as_attachment=False)
     except Exception as e:
         logger.error(f"Failed to serve video {video_name}: {e}")

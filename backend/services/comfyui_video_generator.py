@@ -1,6 +1,7 @@
 
 import logging
 import json
+import subprocess
 import time
 import os
 import shutil
@@ -824,6 +825,35 @@ class ComfyUIVideoGenerator:
             logger.error(f"Failed to download file {filename}: {e}")
             return []
 
+    def _extract_thumbnail(self, video_path: Path, thumbnail_path: Path) -> bool:
+        """Extract the first frame from a video as a JPEG thumbnail using ffmpeg."""
+        try:
+            result = subprocess.run(
+                [
+                    "ffmpeg", "-i", str(video_path),
+                    "-vf", "select=eq(n\\,0)",
+                    "-frames:v", "1",
+                    "-q:v", "2",
+                    "-y", str(thumbnail_path),
+                ],
+                capture_output=True,
+                timeout=30,
+            )
+            if thumbnail_path.exists() and thumbnail_path.stat().st_size > 0:
+                logger.info(f"Extracted thumbnail: {thumbnail_path}")
+                return True
+            logger.warning(f"ffmpeg ran but thumbnail not created (rc={result.returncode})")
+            return False
+        except FileNotFoundError:
+            logger.warning("ffmpeg not found on system, cannot extract thumbnail")
+            return False
+        except subprocess.TimeoutExpired:
+            logger.warning("ffmpeg thumbnail extraction timed out")
+            return False
+        except Exception as e:
+            logger.warning(f"Failed to extract thumbnail: {e}")
+            return False
+
     def generate_video(self, request: VideoGenerationRequest) -> VideoGenerationResult:
         if not self.service_available:
             return VideoGenerationResult(
@@ -980,6 +1010,14 @@ class ComfyUIVideoGenerator:
             result.video_path = str(Path(downloaded_files[0]).relative_to(batch_dir))
             result.frame_paths = [str(Path(f).relative_to(batch_dir)) for f in downloaded_files]
             result.success = True
+
+            # Extract thumbnail from the first video file
+            video_file = Path(downloaded_files[0])
+            if video_file.exists() and video_file.suffix.lower() in (".mp4", ".webm", ".avi", ".mov"):
+                thumb_filename = video_file.stem + "_thumb.jpg"
+                thumb_path = thumbs_dir / thumb_filename
+                if self._extract_thumbnail(video_file, thumb_path):
+                    result.thumbnail_path = str(thumb_path.relative_to(batch_dir))
 
             logger.info(f"Video generation successful: {result.video_path}")
             return result
