@@ -57,6 +57,7 @@ import {
   CheckCircle as CheckCircleIcon,
   Add as AddIcon,
   OpenInNew as OpenInNewIcon,
+  HighQuality as HighQualityIcon,
 } from "@mui/icons-material";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
@@ -179,6 +180,28 @@ const MOTION_PRESETS = {
     label: "🔥 Intense",
     description: "Maximum motion",
     motion_strength: 2.0,
+  },
+};
+
+// Post-processing quality tiers (interpolation + upscaling)
+const OUTPUT_QUALITY_TIERS = {
+  draft: {
+    label: "Draft",
+    description: "Raw output, fastest",
+    interpolation: 1,
+    upscale: false,
+  },
+  standard: {
+    label: "Standard",
+    description: "2x FPS interpolation",
+    interpolation: 2,
+    upscale: false,
+  },
+  cinema: {
+    label: "Cinema",
+    description: "2x FPS + 2x upscale",
+    interpolation: 2,
+    upscale: true,
   },
 };
 
@@ -320,6 +343,7 @@ const VideoGeneratorPage = () => {
   const [model, setModel] = useState("cogvideox-2b"); // Default to CogVideoX for better quality
   const [aspectRatio, setAspectRatio] = useState("16:9");
   const [videoSize, setVideoSize] = useState("large");
+  const [qualityTier, setQualityTier] = useState("standard");
   const [lowVramMode, setLowVramMode] = useState(() => {
     const saved = localStorage.getItem('lowVramMode');
     // Default to TRUE for 16GB GPUs to prevent CUDA memory errors
@@ -464,6 +488,9 @@ const VideoGeneratorPage = () => {
       }
     }
 
+    // Post-processing quality tier
+    const tier = OUTPUT_QUALITY_TIERS[qualityTier] || OUTPUT_QUALITY_TIERS.standard;
+
     // Build final params - don't spread quality since it has SVD-specific width/height
     // that shouldn't override our calculated videoDimensions for CogVideoX
     return {
@@ -482,8 +509,11 @@ const VideoGeneratorPage = () => {
       // For Low VRAM mode, use frames_per_batch=1 to minimize memory usage
       frames_per_batch: lowVramMode && (isCogVideoXModel(model) || isWanModel(model)) ? 1 : advancedParams.frames_per_batch,
       combine_frames: advancedParams.combine_frames,
+      // Post-processing: interpolation and upscaling from quality tier
+      interpolation_multiplier: tier.interpolation,
+      upscale: tier.upscale,
     };
-  }, [qualityPreset, durationPreset, motionPreset, model, advancedParams, videoDimensions, lowVramMode]);
+  }, [qualityPreset, durationPreset, motionPreset, model, advancedParams, videoDimensions, lowVramMode, qualityTier]);
 
   const parsedPrompts = useMemo(() => {
     return promptsText
@@ -1339,6 +1369,33 @@ const VideoGeneratorPage = () => {
                   </FormControl>
                 </Grid>
               )}
+
+              {/* Output Quality Tier (post-processing) */}
+              <Grid item xs={12} sm={6} md={4}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                      <HighQualityIcon fontSize="small" /> Output Quality
+                    </Box>
+                  </InputLabel>
+                  <Select
+                    value={qualityTier}
+                    onChange={(e) => setQualityTier(e.target.value)}
+                    label="Output Quality"
+                  >
+                    {Object.entries(OUTPUT_QUALITY_TIERS).map(([key, tier]) => (
+                      <MenuItem key={key} value={key}>
+                        <Box>
+                          <Typography variant="body2">{tier.label}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {tier.description}
+                          </Typography>
+                        </Box>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
             </Grid>
 
             {/* Advanced Parameters Row */}
@@ -1451,6 +1508,22 @@ const VideoGeneratorPage = () => {
                   size="small"
                   variant="outlined"
                   label={`Motion: ${computedParams.motion_strength}x`}
+                />
+              )}
+              {computedParams.interpolation_multiplier > 1 && (
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  color="info"
+                  label={`${computedParams.interpolation_multiplier}x FPS`}
+                />
+              )}
+              {computedParams.upscale && (
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  color="secondary"
+                  label="2x Upscale"
                 />
               )}
             </Box>
