@@ -1117,7 +1117,7 @@ fi
 vader_separator
 
 # ── ComfyUI detection (on-demand start for video generation) ──
-COMFYUI_DIR="${GUAARDVARK_COMFYUI_DIR:-$HOME/LLAMAVID/ComfyUI}"
+COMFYUI_DIR="${GUAARDVARK_COMFYUI_DIR:-$GUAARDVARK_ROOT/plugins/comfyui/ComfyUI}"
 if [ -d "$COMFYUI_DIR" ]; then
     if curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:8188" 2>/dev/null | grep -q "200"; then
         vader_success "ComfyUI detected and running (port 8188)"
