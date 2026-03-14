@@ -413,7 +413,10 @@ check_service_status() {
 
 start_service() {
     local service_name=$1
+    # Try user-level service first, then system-level (Ollama runs as system service)
     if systemctl --user start "$service_name" >> "$BACKEND_STARTUP_LOG_FILE" 2>&1; then
+        return 0;
+    elif sudo -n systemctl start "$service_name" >> "$BACKEND_STARTUP_LOG_FILE" 2>&1; then
         return 0;
     else
         return 1;

@@ -275,15 +275,6 @@ const VideoGeneratorPage = () => {
   const [loadingBatchImages, setLoadingBatchImages] = useState(false);
   const [gallerySelectedImages, setGallerySelectedImages] = useState(new Set());
 
-  // Ollama status and toggle - with localStorage persistence
-  const [ollamaRunning, setOllamaRunning] = useState(false);
-  const [videoGenerationEnabled, setVideoGenerationEnabled] = useState(() => {
-    const saved = localStorage.getItem('videoGenerationEnabled');
-    return saved !== null ? saved === 'true' : false;
-  });
-  const [checkingOllamaStatus, setCheckingOllamaStatus] = useState(false);
-  const [togglingOllama, setTogglingOllama] = useState(false);
-
   // Preset selections
   const [qualityPreset, setQualityPreset] = useState("standard");
   const [durationPreset, setDurationPreset] = useState("short");
@@ -313,7 +304,6 @@ const VideoGeneratorPage = () => {
   const [batchStatus, setBatchStatus] = useState(null);
   const [batches, setBatches] = useState([]);
   const pollingRef = useRef(null);
-  const ollamaStatusRef = useRef(null);
 
   // Get duration presets based on selected model
   const durationPresets = useMemo(() => {
@@ -467,142 +457,12 @@ const VideoGeneratorPage = () => {
     }, 2000);
   };
 
-  // Check Ollama status - only updates ollamaRunning, NOT videoGenerationEnabled
-  // videoGenerationEnabled is controlled by user interaction only
-  const checkOllamaStatus = useCallback(async (updateToggle = false) => {
-    setCheckingOllamaStatus(true);
-    try {
-      const res = await fetch(`${API_BASE}/gpu/status`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success) {
-          const isRunning = data.data.ollama_running || false;
-          const isAvailable = data.data.available || false;
-          setOllamaRunning(isRunning);
-          // Only update toggle state if explicitly requested (e.g., on initial load)
-          // Otherwise, respect user's manual toggle state
-          if (updateToggle) {
-            const shouldEnable = !isRunning && isAvailable;
-            setVideoGenerationEnabled(shouldEnable);
-            localStorage.setItem('videoGenerationEnabled', shouldEnable.toString());
-          }
-        }
-      }
-    } catch (e) {
-      console.error("Failed to check Ollama status:", e);
-    } finally {
-      setCheckingOllamaStatus(false);
-    }
-  }, []);
-
-  // Toggle Video Generation (which controls Ollama)
-  const handleOllamaToggle = useCallback(async (event) => {
-    const shouldEnableVideoGen = event.target.checked;
-    setTogglingOllama(true);
-    
-    // Immediately update local state and persist to localStorage
-    setVideoGenerationEnabled(shouldEnableVideoGen);
-    localStorage.setItem('videoGenerationEnabled', shouldEnableVideoGen.toString());
-    
-    try {
-      if (shouldEnableVideoGen) {
-        // User wants to enable video generation - stop Ollama first
-        // Check if video generation is currently active
-        const statusRes = await fetch(`${API_BASE}/gpu/status`);
-        if (statusRes.ok) {
-          const statusData = await statusRes.json();
-          if (statusData.success && !statusData.data.available) {
-            setError("Cannot enable video generation - another operation is currently using the GPU. Please wait for it to complete.");
-            setTogglingOllama(false);
-            // Reset toggle
-            setVideoGenerationEnabled(false);
-            localStorage.setItem('videoGenerationEnabled', 'false');
-            return;
-          }
-        }
-        
-        // Stop Ollama to enable video generation
-        const res = await fetch(`${API_BASE}/gpu/ollama/stop`, {
-          method: "POST",
-        });
-        
-        if (!res.ok) {
-          const errorData = await res.json().catch(() => ({}));
-          throw new Error(errorData.error || "Failed to stop Ollama");
-        }
-        
-        const data = await res.json();
-        if (!data.success) {
-          throw new Error(data.error || "Failed to stop Ollama");
-        }
-        
-        setSuccess("Ollama stopped successfully. Video generation is now enabled.");
-      } else {
-        // User wants to disable video generation - start Ollama
-        // Check if video generation is currently active
-        const statusRes = await fetch(`${API_BASE}/gpu/status`);
-        if (statusRes.ok) {
-          const statusData = await statusRes.json();
-          if (statusData.success && !statusData.data.available) {
-            setError("Cannot start Ollama - video generation is currently active. Please wait for it to complete.");
-            setTogglingOllama(false);
-            // Reset toggle
-            setVideoGenerationEnabled(true);
-            localStorage.setItem('videoGenerationEnabled', 'true');
-            return;
-          }
-        }
-        
-        // Start Ollama
-        const res = await fetch(`${API_BASE}/gpu/ollama/start`, {
-          method: "POST",
-        });
-        
-        if (!res.ok) {
-          const errorData = await res.json().catch(() => ({}));
-          throw new Error(errorData.error || "Failed to start Ollama");
-        }
-        
-        const data = await res.json();
-        if (!data.success) {
-          throw new Error(data.error || "Failed to start Ollama");
-        }
-        
-        setSuccess("Ollama started successfully. Video generation is now disabled.");
-      }
-      
-      // Refresh Ollama status after a short delay (but don't update toggle state)
-      setTimeout(() => {
-        checkOllamaStatus(false);
-      }, 1000);
-      
-    } catch (e) {
-      setError(`Failed to ${shouldEnableVideoGen ? 'stop' : 'start'} Ollama: ${e.message}`);
-      // Reset toggle on error
-      setVideoGenerationEnabled(!shouldEnableVideoGen);
-      localStorage.setItem('videoGenerationEnabled', (!shouldEnableVideoGen).toString());
-    } finally {
-      setTogglingOllama(false);
-    }
-  }, [checkOllamaStatus]);
-
   useEffect(() => {
     fetchBatches();
-    // On initial load, update toggle state based on server status
-    checkOllamaStatus(true);
-    
-    // Poll Ollama status every 5 seconds (but don't update toggle state)
-    ollamaStatusRef.current = setInterval(() => {
-      checkOllamaStatus(false);
-    }, 5000);
-
     return () => {
       stopPolling();
-      if (ollamaStatusRef.current) {
-        clearInterval(ollamaStatusRef.current);
-      }
     };
-  }, [checkOllamaStatus]);
+  }, []);
 
   const fetchBatches = async () => {
     try {
@@ -802,28 +662,17 @@ const VideoGeneratorPage = () => {
     setSuccess("");
     setBatchStatus(null);
 
-    // Check if video generation is enabled
-    if (!videoGenerationEnabled) {
-      setError("Video generation is disabled. Please turn off Ollama first using the toggle above.");
-      return;
-    }
-
-    // Double-check that Ollama is actually stopped before generation
+    // Pre-flight GPU check — backend will also enforce this
     try {
       const statusRes = await fetch(`${API_BASE}/gpu/status`);
       if (statusRes.ok) {
         const statusData = await statusRes.json();
-        if (statusData.success && statusData.data.ollama_running) {
-          setError("Ollama is still running. Please wait for it to stop, or manually stop it using the toggle above.");
-          return;
-        }
         if (statusData.success && !statusData.data.available) {
-          setError("GPU is currently in use by another operation. Please wait for it to complete.");
+          setError("GPU is currently in use. Stop Ollama or other GPU services from the Plugins page first.");
           return;
         }
       }
     } catch (e) {
-      console.warn("Failed to check GPU status before generation:", e);
       // Continue anyway, backend will handle the check
     }
 
@@ -959,9 +808,7 @@ const VideoGeneratorPage = () => {
     return batchStatus.results;
   }, [batchStatus]);
 
-  // Determine if controls should be disabled
-  // Controls are disabled when Ollama is running OR when video generation is not enabled
-  const controlsDisabled = ollamaRunning || !videoGenerationEnabled || isGenerating;
+  const controlsDisabled = isGenerating;
 
   return (
     <PageLayout title="Video Generation" variant="standard">
@@ -999,58 +846,15 @@ const VideoGeneratorPage = () => {
                 Generation Settings
               </Typography>
 
-              {/* Ollama Status & Low VRAM Mode */}
-              <Box sx={{ 
-                mb: 3, 
-                p: 2, 
-                bgcolor: ollamaRunning ? 'warning.50' : 'info.50', 
-                borderRadius: 2, 
-                border: '1px solid', 
-                borderColor: ollamaRunning ? 'warning.200' : 'info.200' 
+              {/* Low VRAM Mode */}
+              <Box sx={{
+                mb: 3,
+                p: 2,
+                bgcolor: 'info.50',
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'info.200'
               }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, color: ollamaRunning ? 'warning.main' : 'info.main' }}>
-                    Ollama Status
-                  </Typography>
-                  {checkingOllamaStatus && <CircularProgress size={16} />}
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <Chip 
-                    label={ollamaRunning ? "Running" : "Stopped"} 
-                    color={ollamaRunning ? "warning" : "default"}
-                    size="small"
-                  />
-                  <Typography variant="caption" color="text.secondary">
-                    {ollamaRunning 
-                      ? "Video generation disabled while Ollama is active" 
-                      : "Video generation available"}
-                  </Typography>
-                </Box>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={videoGenerationEnabled}
-                      disabled={checkingOllamaStatus || togglingOllama || isGenerating}
-                      onChange={handleOllamaToggle}
-                      color="primary"
-                    />
-                  }
-                  label={
-                    <Box>
-                      <Typography variant="body2">
-                        Enable Video Generation (stops Ollama)
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {togglingOllama 
-                          ? (videoGenerationEnabled ? "Starting Ollama..." : "Stopping Ollama...")
-                          : ollamaRunning 
-                            ? "Click to stop Ollama and enable video generation" 
-                            : "Click to start Ollama (will disable video generation)"}
-                      </Typography>
-                    </Box>
-                  }
-                />
-
                 {/* Low VRAM safe preset for CogVideoX */}
                 <FormControlLabel
                   control={
