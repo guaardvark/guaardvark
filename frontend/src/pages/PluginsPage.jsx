@@ -77,6 +77,9 @@ const PLUGIN_COLORS = {
   gpu_embedding: '#ff6d00',
 };
 
+// Plugins that require exclusive GPU access (only one can run at a time)
+const GPU_EXCLUSIVE_PLUGIN_IDS = new Set(['ollama', 'comfyui']);
+
 // ── VRAM Budget Bar ────────────────────────────────────────────────────
 const VramBudgetBar = ({ plugins }) => {
   const [gpuStats, setGpuStats] = useState(null);
@@ -504,6 +507,70 @@ const ConfigDialog = ({ open, plugin, onClose, onSave }) => {
   );
 };
 
+// ── GPU Conflict Dialog ────────────────────────────────────────────────
+const GpuConflictDialog = ({ open, onClose, onConfirm, requestedPlugin, conflictingPlugin, loading }) => {
+  if (!requestedPlugin || !conflictingPlugin) return null;
+
+  return (
+    <Dialog open={open} onClose={loading ? undefined : onClose} maxWidth="xs" fullWidth>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <GpuIcon color="warning" />
+        GPU Conflict
+      </DialogTitle>
+      <DialogContent>
+        <Typography variant="body1" sx={{ mb: 2 }}>
+          <strong>{requestedPlugin.name}</strong> requires GPU memory that is currently in use
+          by <strong>{conflictingPlugin.name}</strong>.
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          Only one GPU-intensive service can run at a time on this 16 GB card.
+        </Typography>
+        <Alert severity="info" variant="outlined" sx={{ mt: 1 }}>
+          {conflictingPlugin.name} will be stopped first, then {requestedPlugin.name} will start.
+        </Alert>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={loading}>Cancel</Button>
+        <Button
+          onClick={onConfirm}
+          variant="contained"
+          color="warning"
+          disabled={loading}
+          startIcon={loading ? <CircularProgress size={16} /> : null}
+        >
+          {loading ? 'Switching...' : `Stop ${conflictingPlugin.name} & Start ${requestedPlugin.name}`}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+// ── Restart Ollama Dialog ─────────────────────────────────────────────
+const RestartOllamaDialog = ({ open, onClose, onConfirm, loading }) => {
+  return (
+    <Dialog open={open} onClose={loading ? undefined : onClose} maxWidth="xs" fullWidth>
+      <DialogTitle>Restart Ollama?</DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" color="text.secondary">
+          ComfyUI has been stopped. Would you like to restart Ollama so that
+          chat, RAG, and other AI features are available again?
+        </Typography>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={loading}>No thanks</Button>
+        <Button
+          onClick={onConfirm}
+          variant="contained"
+          disabled={loading}
+          startIcon={loading ? <CircularProgress size={16} /> : <StartIcon />}
+        >
+          {loading ? 'Starting...' : 'Start Ollama'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
 // ── Page ───────────────────────────────────────────────────────────────
 const PluginsPage = () => {
   const [plugins, setPlugins] = useState([]);
@@ -511,6 +578,14 @@ const PluginsPage = () => {
   const [error, setError] = useState(null);
   const [configPlugin, setConfigPlugin] = useState(null);
   const { showMessage } = useSnackbar();
+
+  // GPU conflict dialog state
+  const [gpuConflict, setGpuConflict] = useState(null); // { requestedId, conflictingId }
+  const [gpuSwitchLoading, setGpuSwitchLoading] = useState(false);
+
+  // Restart Ollama dialog state (shown after stopping ComfyUI)
+  const [showRestartOllama, setShowRestartOllama] = useState(false);
+  const [restartOllamaLoading, setRestartOllamaLoading] = useState(false);
 
   const fetchPlugins = useCallback(async () => {
     try {
@@ -534,7 +609,24 @@ const PluginsPage = () => {
     return () => clearInterval(interval);
   }, [fetchPlugins]);
 
+  // Find running GPU-exclusive plugins that conflict with a given plugin
+  const findGpuConflict = useCallback((pluginId) => {
+    if (!GPU_EXCLUSIVE_PLUGIN_IDS.has(pluginId)) return null;
+    return plugins.find(
+      (p) => p.id !== pluginId && GPU_EXCLUSIVE_PLUGIN_IDS.has(p.id) && p.status === 'running'
+    );
+  }, [plugins]);
+
   const handlePluginAction = async (pluginId, action) => {
+    // Intercept start action for GPU plugins — check for conflicts
+    if (action === 'start' && GPU_EXCLUSIVE_PLUGIN_IDS.has(pluginId)) {
+      const conflict = findGpuConflict(pluginId);
+      if (conflict) {
+        setGpuConflict({ requestedId: pluginId, conflictingId: conflict.id });
+        return; // Don't start yet — wait for dialog confirmation
+      }
+    }
+
     try {
       let response;
       switch (action) {
@@ -546,12 +638,84 @@ const PluginsPage = () => {
       }
       if (response.success) {
         showMessage(response.message || `Plugin ${action} successful`, 'success');
-        fetchPlugins();
+        await fetchPlugins();
+
+        // After stopping ComfyUI, offer to restart Ollama (if Ollama is not running)
+        if (action === 'stop' && pluginId === 'comfyui') {
+          const ollamaPlugin = plugins.find((p) => p.id === 'ollama');
+          if (ollamaPlugin && ollamaPlugin.enabled && ollamaPlugin.status !== 'running') {
+            setShowRestartOllama(true);
+          }
+        }
       } else {
         showMessage(response.message || `Failed to ${action} plugin`, 'error');
       }
     } catch (err) {
       showMessage(err.message || `Failed to ${action} plugin`, 'error');
+    }
+  };
+
+  // Handle GPU conflict confirmation — stop conflicting plugin, then start requested
+  const handleGpuConflictConfirm = async () => {
+    if (!gpuConflict) return;
+    const { requestedId, conflictingId } = gpuConflict;
+    setGpuSwitchLoading(true);
+
+    try {
+      // Step 1: Stop the conflicting plugin
+      const stopResponse = await stopPlugin(conflictingId);
+      if (!stopResponse.success) {
+        showMessage(
+          `Failed to stop ${conflictingId}: ${stopResponse.message || 'Unknown error'}`,
+          'error'
+        );
+        return;
+      }
+      showMessage(`${conflictingId} stopped`, 'info');
+
+      // Brief pause to allow GPU memory to be released
+      await new Promise((r) => setTimeout(r, 2000));
+
+      // Step 2: Start the requested plugin
+      const startResponse = await startPlugin(requestedId);
+      if (startResponse.success) {
+        showMessage(startResponse.message || `${requestedId} started`, 'success');
+      } else {
+        showMessage(
+          `${conflictingId} was stopped but ${requestedId} failed to start: ${startResponse.message || 'Unknown error'}`,
+          'error'
+        );
+      }
+    } catch (err) {
+      showMessage(err.message || 'GPU switch failed', 'error');
+    } finally {
+      setGpuSwitchLoading(false);
+      setGpuConflict(null);
+      fetchPlugins();
+    }
+  };
+
+  // Handle Restart Ollama confirmation
+  const handleRestartOllama = async () => {
+    setRestartOllamaLoading(true);
+    try {
+      // Make sure Ollama is enabled first
+      const ollamaPlugin = plugins.find((p) => p.id === 'ollama');
+      if (ollamaPlugin && !ollamaPlugin.enabled) {
+        await enablePlugin('ollama');
+      }
+      const response = await startPlugin('ollama');
+      if (response.success) {
+        showMessage('Ollama started', 'success');
+      } else {
+        showMessage(response.message || 'Failed to start Ollama', 'error');
+      }
+    } catch (err) {
+      showMessage(err.message || 'Failed to start Ollama', 'error');
+    } finally {
+      setRestartOllamaLoading(false);
+      setShowRestartOllama(false);
+      fetchPlugins();
     }
   };
 
@@ -582,6 +746,14 @@ const PluginsPage = () => {
       showMessage(err.message || 'Failed to save configuration', 'error');
     }
   };
+
+  // Resolve plugin objects for the conflict dialog
+  const conflictRequestedPlugin = gpuConflict
+    ? plugins.find((p) => p.id === gpuConflict.requestedId)
+    : null;
+  const conflictConflictingPlugin = gpuConflict
+    ? plugins.find((p) => p.id === gpuConflict.conflictingId)
+    : null;
 
   return (
     <PageLayout
@@ -640,6 +812,24 @@ const PluginsPage = () => {
         plugin={configPlugin}
         onClose={() => setConfigPlugin(null)}
         onSave={handleConfigSave}
+      />
+
+      {/* GPU Conflict Confirmation Dialog */}
+      <GpuConflictDialog
+        open={gpuConflict !== null}
+        onClose={() => setGpuConflict(null)}
+        onConfirm={handleGpuConflictConfirm}
+        requestedPlugin={conflictRequestedPlugin}
+        conflictingPlugin={conflictConflictingPlugin}
+        loading={gpuSwitchLoading}
+      />
+
+      {/* Restart Ollama Dialog (after ComfyUI stopped) */}
+      <RestartOllamaDialog
+        open={showRestartOllama}
+        onClose={() => setShowRestartOllama(false)}
+        onConfirm={handleRestartOllama}
+        loading={restartOllamaLoading}
       />
     </PageLayout>
   );

@@ -230,23 +230,23 @@ class GPUResourceCoordinator:
         logger.info("Stopping Ollama service for video generation...")
 
         try:
-            # Try systemctl user service first
+            # Try passwordless sudo first (Ollama is a system service under /etc/systemd/system/)
+            result = subprocess.run(
+                ["sudo", "-n", "systemctl", "stop", self.OLLAMA_SERVICE_NAME],
+                capture_output=True, text=True, timeout=30
+            )
+            if result.returncode == 0:
+                logger.info("Ollama system service stopped via sudo -n")
+                time.sleep(2)  # Give time for GPU memory to be released
+                return True
+
+            # Try user-level service (unlikely but possible)
             result = subprocess.run(
                 ["systemctl", "--user", "stop", self.OLLAMA_SERVICE_NAME],
                 capture_output=True, text=True, timeout=30
             )
             if result.returncode == 0:
                 logger.info("Ollama user service stopped successfully")
-                time.sleep(2)  # Give time for GPU memory to be released
-                return True
-
-            # Try system service
-            result = subprocess.run(
-                ["systemctl", "stop", self.OLLAMA_SERVICE_NAME],
-                capture_output=True, text=True, timeout=30
-            )
-            if result.returncode == 0:
-                logger.info("Ollama system service stopped successfully")
                 time.sleep(2)
                 return True
 
@@ -277,23 +277,23 @@ class GPUResourceCoordinator:
         logger.info("Starting Ollama service...")
 
         try:
-            # Try systemctl user service first
+            # Try passwordless sudo first (Ollama is a system service under /etc/systemd/system/)
+            result = subprocess.run(
+                ["sudo", "-n", "systemctl", "start", self.OLLAMA_SERVICE_NAME],
+                capture_output=True, text=True, timeout=30
+            )
+            if result.returncode == 0:
+                logger.info("Ollama system service started via sudo -n")
+                time.sleep(3)  # Give time for Ollama to initialize
+                return True
+
+            # Try user-level service
             result = subprocess.run(
                 ["systemctl", "--user", "start", self.OLLAMA_SERVICE_NAME],
                 capture_output=True, text=True, timeout=30
             )
             if result.returncode == 0:
                 logger.info("Ollama user service started successfully")
-                time.sleep(3)  # Give time for Ollama to initialize
-                return True
-
-            # Try system service
-            result = subprocess.run(
-                ["systemctl", "start", self.OLLAMA_SERVICE_NAME],
-                capture_output=True, text=True, timeout=30
-            )
-            if result.returncode == 0:
-                logger.info("Ollama system service started successfully")
                 time.sleep(3)
                 return True
 
