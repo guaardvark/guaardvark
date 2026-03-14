@@ -463,6 +463,10 @@ const StickyNotesPage = () => {
   const noteRefs = useRef({});
   const saveTimeoutRef = useRef(null);
 
+  // Undo history (CTRL+Z)
+  const undoStackRef = useRef([]);
+  const MAX_UNDO = 30;
+
   // Refs for latest state values — avoids stale closures in saveState/debouncedSave
   const notesRef = useRef(notes);
   const noteColorsRef = useRef(noteColors);
@@ -470,11 +474,12 @@ const StickyNotesPage = () => {
   const pinnedNotesRef = useRef(pinnedNotes);
   const layoutModeRef = useRef(layoutMode);
   const layoutRef = useRef(null);
-  useEffect(() => { notesRef.current = notes; }, [notes]);
-  useEffect(() => { noteColorsRef.current = noteColors; }, [noteColors]);
-  useEffect(() => { minimizedCardsRef.current = minimizedCards; }, [minimizedCards]);
-  useEffect(() => { pinnedNotesRef.current = pinnedNotes; }, [pinnedNotes]);
-  useEffect(() => { layoutModeRef.current = layoutMode; }, [layoutMode]);
+  // Sync refs immediately (not via useEffect which is async)
+  notesRef.current = notes;
+  noteColorsRef.current = noteColors;
+  minimizedCardsRef.current = minimizedCards;
+  pinnedNotesRef.current = pinnedNotes;
+  layoutModeRef.current = layoutMode;
 
   // ── Grid width tracking ──────────────────────────────────────────────────
 
@@ -700,6 +705,40 @@ const StickyNotesPage = () => {
     [saveState],
   );
 
+  // Push state snapshot for undo
+  const pushUndo = useCallback(() => {
+    const snapshot = JSON.stringify({
+      notes: notesRef.current,
+      noteColors: noteColorsRef.current,
+      layout: layoutRef.current,
+    });
+    undoStackRef.current.push(snapshot);
+    if (undoStackRef.current.length > MAX_UNDO) undoStackRef.current.shift();
+  }, []);
+
+  // Undo last action
+  const handleUndo = useCallback(() => {
+    if (undoStackRef.current.length === 0) return;
+    const snapshot = JSON.parse(undoStackRef.current.pop());
+    if (snapshot.notes) setNotes(snapshot.notes);
+    if (snapshot.noteColors) setNoteColors(snapshot.noteColors);
+    if (snapshot.layout) setLayout(snapshot.layout);
+    saveState(snapshot.layout, snapshot.noteColors, null, undefined, snapshot.notes);
+  }, [saveState]);
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // CTRL+Z — Undo
+      if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleUndo]);
+
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
@@ -730,18 +769,31 @@ const StickyNotesPage = () => {
       const validLayout = newLayout.filter((item) => item !== undefined);
       if (layoutMode === "normal") normalLayoutRef.current = validLayout;
       setLayout(validLayout);
-      saveState(validLayout, noteColors, minimizedCards);
+      // Flush any pending debounced save to prevent content loss
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+      // Pass notes explicitly from ref to ensure latest content is saved
+      saveState(validLayout, noteColorsRef.current, minimizedCardsRef.current, undefined, notesRef.current);
     },
-    [noteColors, minimizedCards, saveState, layoutMode],
+    [saveState, layoutMode],
   );
 
   const handleNoteColorChange = useCallback(
     (noteId, color) => {
-      const c = { ...noteColors, [noteId]: color };
+      pushUndo();
+      const c = { ...noteColorsRef.current, [noteId]: color };
       setNoteColors(c);
-      saveState(layout, c, minimizedCards);
+      // Flush any pending debounced save to prevent content loss
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+      // Pass notes explicitly from ref to ensure latest content is saved
+      saveState(layoutRef.current, c, minimizedCardsRef.current, undefined, notesRef.current);
     },
-    [noteColors, layout, minimizedCards, saveState],
+    [saveState, pushUndo],
   );
 
   const handleToggleMinimize = useCallback(
@@ -840,23 +892,25 @@ const StickyNotesPage = () => {
   // Content change (debounced save) — use ref to avoid stale closure
   const handleNoteContentChange = useCallback(
     (noteId, content) => {
+      pushUndo();
       const current = notesRef.current;
       const newNotes = { ...current, [noteId]: { ...current[noteId], content } };
       setNotes(newNotes);
       debouncedSave(newNotes);
     },
-    [debouncedSave],
+    [debouncedSave, pushUndo],
   );
 
   // Title change (debounced save) — use ref to avoid stale closure
   const handleNoteTitleChange = useCallback(
     (noteId, title) => {
+      pushUndo();
       const current = notesRef.current;
       const newNotes = { ...current, [noteId]: { ...current[noteId], title } };
       setNotes(newNotes);
       debouncedSave(newNotes);
     },
-    [debouncedSave],
+    [debouncedSave, pushUndo],
   );
 
   // Duplicate note
