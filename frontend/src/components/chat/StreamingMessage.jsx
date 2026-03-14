@@ -174,6 +174,18 @@ const StreamingMessage = ({ chatService, sessionId, onComplete }) => {
     };
   }, [chatService]); // Only re-run when chatService instance changes
 
+  // Must be above any early returns to satisfy Rules of Hooks
+  const handleLightboxDownload = useCallback(() => {
+    if (!lightbox) return;
+    const img = lightbox.images[lightbox.index];
+    const link = document.createElement("a");
+    link.href = img.url;
+    link.download = img.name || "image";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }, [lightbox]);
+
   // Don't render if idle (no events yet)
   if (status === "idle") {
     return (
@@ -212,17 +224,6 @@ const StreamingMessage = ({ chatService, sessionId, onComplete }) => {
       : status === "complete"
       ? "divider"
       : "warning.main";
-
-  const handleLightboxDownload = useCallback(() => {
-    if (!lightbox) return;
-    const img = lightbox.images[lightbox.index];
-    const link = document.createElement("a");
-    link.href = img.url;
-    link.download = img.name || "image";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }, [lightbox]);
 
   return (
     <>
