@@ -32,7 +32,7 @@ try:
     config_available = True
 except ImportError:
     config_available = False
-    CACHE_DIR = "/tmp/llamax1_cache"
+    CACHE_DIR = "/tmp/guaardvark_cache"
 
 @dataclass
 class BatchPrompt:
