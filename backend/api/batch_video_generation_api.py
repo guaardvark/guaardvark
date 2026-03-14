@@ -480,8 +480,8 @@ VIDEO_MODEL_REGISTRY = {
     "wan-vae": {
         "name": "Wan 2.1/2.2 VAE",
         "description": "Required by all Wan video models. Shared between versions.",
-        "hf_repo": "Wan-AI/Wan2.1-T2V-14B",
-        "hf_filename": "Wan2.1_VAE.safetensors",
+        "hf_repo": "QuantStack/Wan2.2-T2V-A14B-GGUF",
+        "hf_filename": "VAE/Wan2.1_VAE.safetensors",
         "local_subdir": "vae",
         "check_files": ["wan_2.1_vae.safetensors"],
         "size_gb": 0.25,
