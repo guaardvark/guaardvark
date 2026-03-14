@@ -90,20 +90,29 @@ def _log_interconnector_alert(message: str, details: Optional[Dict[str, Any]] = 
     logger.warning(f"[INTERCONNECTOR ALERT] {message} | details={details or {}}")
 
 
+_config_cache = {"config": None, "expires": 0}
+
 def _get_config():
-    """Get interconnector configuration from database."""
+    """Get interconnector configuration from database (cached 10s to avoid pool exhaustion)."""
+    import time
+    now = time.time()
+    if _config_cache["config"] is not None and now < _config_cache["expires"]:
+        return _config_cache["config"].copy()
     try:
         setting = db.session.get(Setting, "interconnector_config")
         if setting and setting.value:
             config = json.loads(setting.value)
-            # Ensure all default keys exist
             for key, value in DEFAULT_CONFIG.items():
                 if key not in config:
                     config[key] = value
+            _config_cache["config"] = config
+            _config_cache["expires"] = now + 10
             return config
-        return DEFAULT_CONFIG.copy()
+        default = DEFAULT_CONFIG.copy()
+        _config_cache["config"] = default
+        _config_cache["expires"] = now + 10
+        return default
     except Exception as e:
-        # Suppress expected error during app initialization when context isn't available
         if "application context" not in str(e).lower():
             logger.error(f"Error reading interconnector config: {e}")
         return DEFAULT_CONFIG.copy()
@@ -111,6 +120,8 @@ def _get_config():
 
 def _save_config(config):
     """Save interconnector configuration to database."""
+    _config_cache["config"] = None  # Invalidate cache
+    _config_cache["expires"] = 0
     try:
         setting = db.session.get(Setting, "interconnector_config")
         if setting:
