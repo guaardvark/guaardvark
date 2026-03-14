@@ -126,6 +126,14 @@ export const getPluginLogs = async (pluginId, lines = 100) => {
 };
 
 /**
+ * Get live GPU stats (nvidia-smi)
+ */
+export const getLiveGpuStats = async () => {
+  const response = await fetch(`${BASE_URL}/stats/gpu`, { method: "GET" });
+  return handleResponse(response);
+};
+
+/**
  * Get status of all plugins
  */
 export const getAllPluginStatus = async () => {
@@ -146,5 +154,6 @@ export default {
   updatePluginConfig,
   refreshPlugins,
   getPluginLogs,
+  getLiveGpuStats,
   getAllPluginStatus,
 };

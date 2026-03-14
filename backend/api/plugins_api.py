@@ -286,3 +286,38 @@ def get_plugin_logs(plugin_id):
     except Exception as e:
         logger.error(f"Error reading plugin logs: {e}", exc_info=True)
         return error_response(str(e), 500, "PLUGIN_LOGS_ERROR")
+
+
+@plugins_bp.route("/stats/gpu", methods=["GET"])
+def get_live_gpu_stats():
+    """Get live GPU memory usage via nvidia-smi."""
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.used,memory.total,memory.free,utilization.gpu,temperature.gpu,name",
+             "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            parts = [p.strip() for p in result.stdout.strip().split(",")]
+            used_mb = int(parts[0])
+            total_mb = int(parts[1])
+            free_mb = int(parts[2])
+            util_pct = int(parts[3])
+            temp_c = int(parts[4])
+            gpu_name = parts[5]
+            return success_response(data={
+                "used_mb": used_mb,
+                "total_mb": total_mb,
+                "free_mb": free_mb,
+                "utilization_pct": util_pct,
+                "temperature_c": temp_c,
+                "gpu_name": gpu_name,
+            }, message="Live GPU stats")
+
+        return error_response("nvidia-smi failed", 500)
+    except FileNotFoundError:
+        return error_response("nvidia-smi not found", 404, "NO_GPU")
+    except Exception as e:
+        logger.error(f"Error getting live GPU stats: {e}", exc_info=True)
+        return error_response(str(e), 500, "GPU_STATS_ERROR")

@@ -80,6 +80,7 @@ import KillSwitchModal from "../components/modals/KillSwitchModal";
 import RebootProgressModal from "../components/modals/RebootProgressModal";
 import RAGDebugSection from "../components/settings/RAGDebugSection";
 import ImageModelsModal from "../components/modals/ImageModelsModal";
+import VideoModelsModal from "../components/modals/VideoModelsModal";
 import AgentsSettingsModal from "../components/modals/AgentsSettingsModal";
 import InterconnectorSettingsModal from "../components/modals/InterconnectorSettingsModal";
 import VoiceSettingsModal from "../components/modals/VoiceSettingsModal";
@@ -270,6 +271,7 @@ const SettingsPage = () => {
   const [rebootInProgress, setRebootInProgress] = useState(false);
   const [rebootProgressModalOpen, setRebootProgressModalOpen] = useState(false);
   const [imageModelsModalOpen, setImageModelsModalOpen] = useState(false);
+  const [videoModelsModalOpen, setVideoModelsModalOpen] = useState(false);
   const [imageGenStatus, setImageGenStatus] = useState(null);
 
   // Resource monitor and embedding model state
@@ -2441,7 +2443,10 @@ const SettingsPage = () => {
                     />
                   )}
                   <Button variant="outlined" size="small" onClick={() => setImageModelsModalOpen(true)}>
-                    Manage Models
+                    Image Models
+                  </Button>
+                  <Button variant="outlined" size="small" onClick={() => setVideoModelsModalOpen(true)}>
+                    Video Models
                   </Button>
                 </Box>
               </SettingsRow>
@@ -2765,6 +2770,11 @@ const SettingsPage = () => {
             .then(data => data.success && setImageGenStatus(data.data))
             .catch(console.error);
         }}
+        showMessage={showMessage}
+      />
+      <VideoModelsModal
+        open={videoModelsModalOpen}
+        onClose={() => setVideoModelsModalOpen(false)}
         showMessage={showMessage}
       />
     </PageLayout>

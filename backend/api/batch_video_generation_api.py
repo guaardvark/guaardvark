@@ -9,6 +9,8 @@ import json
 import logging
 import os
 import tempfile
+import threading
+import time
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -408,5 +410,263 @@ def combine_frames(batch_id: str):
         return success_response({"batch_id": batch_id, "item_id": item_id, "video_path": combined})
     except Exception as e:
         logger.error(f"Failed to combine frames: {e}")
+        return error_response(str(e), 500)
+
+
+# ── Video Model Management ──────────────────────────────────────────────
+
+# Model registry: maps model IDs to HuggingFace repos, local paths, and metadata
+def _get_comfyui_models_dir():
+    try:
+        from backend.config import COMFYUI_DIR
+    except ImportError:
+        COMFYUI_DIR = os.path.join(os.environ.get("GUAARDVARK_ROOT", "."), "plugins", "comfyui", "ComfyUI")
+    return Path(COMFYUI_DIR) / "models"
+
+
+VIDEO_MODEL_REGISTRY = {
+    "cogvideox-2b": {
+        "name": "CogVideoX 2B",
+        "description": "Text-to-video, 6s clips. Good quality, fits in 12GB VRAM.",
+        "hf_repo": "THUDM/CogVideoX-2b",
+        "local_subdir": "CogVideo/CogVideoX-2b",
+        "check_files": ["transformer/diffusion_pytorch_model.safetensors", "vae/diffusion_pytorch_model.safetensors"],
+        "size_gb": 13.0,
+        "vram_mb": 12000,
+        "type": "cogvideox",
+    },
+    "cogvideox-5b": {
+        "name": "CogVideoX 5B",
+        "description": "Text-to-video, 6s clips. Best quality, needs ~16GB VRAM.",
+        "hf_repo": "THUDM/CogVideoX-5b",
+        "local_subdir": "CogVideo/CogVideoX-5b",
+        "check_files": ["transformer/diffusion_pytorch_model-00001-of-00002.safetensors", "vae/diffusion_pytorch_model.safetensors"],
+        "size_gb": 11.3,
+        "vram_mb": 16000,
+        "type": "cogvideox",
+    },
+    "cogvideox-5b-i2v": {
+        "name": "CogVideoX 5B I2V (FP8)",
+        "description": "Image-to-video, 6s clips. FP8 quantized for 16GB GPUs.",
+        "hf_repo": "kijai/CogVideoX-5b-1.5-I2V_GGUF",
+        "hf_filename": "cogvideox1.5-5b-I2V-T2V-fp8_e4m3fn.safetensors",
+        "local_subdir": "checkpoints",
+        "check_files": ["cogvideox1.5-5b-I2V-T2V-fp8_e4m3fn.safetensors"],
+        "size_gb": 9.8,
+        "vram_mb": 14000,
+        "type": "cogvideox",
+    },
+    "svd-xt": {
+        "name": "SVD-XT (Legacy)",
+        "description": "Image-to-video, 3.5s clips, 512x512. Stable Video Diffusion.",
+        "hf_repo": "stabilityai/stable-video-diffusion-img2vid-xt",
+        "hf_filename": "svd_xt.safetensors",
+        "local_subdir": "checkpoints",
+        "check_files": ["svd_xt.safetensors"],
+        "size_gb": 9.0,
+        "vram_mb": 10000,
+        "type": "svd",
+    },
+    "t5-encoder": {
+        "name": "T5-XXL Text Encoder (FP8)",
+        "description": "Required by CogVideoX models for text encoding. Shared dependency.",
+        "hf_repo": "comfyanonymous/flux_text_encoders",
+        "hf_filename": "t5xxl_fp8_e4m3fn.safetensors",
+        "local_subdir": "clip/t5",
+        "check_files": ["t5xxl_fp8_e4m3fn.safetensors"],
+        "size_gb": 4.6,
+        "vram_mb": 0,
+        "type": "encoder",
+    },
+}
+
+# Download status tracking
+_video_model_download_lock = threading.Lock()
+_video_model_download_status = {
+    "is_downloading": False,
+    "current_model": None,
+    "progress": 0,
+    "status": "idle",
+    "error": None,
+    "speed_mbps": 0,
+    "downloaded_gb": 0,
+    "total_gb": 0,
+}
+
+
+def _check_model_downloaded(model_id: str) -> bool:
+    """Check if a video model's files exist and are non-empty."""
+    model_info = VIDEO_MODEL_REGISTRY.get(model_id)
+    if not model_info:
+        return False
+    models_dir = _get_comfyui_models_dir()
+    base = models_dir / model_info["local_subdir"]
+    for check_file in model_info["check_files"]:
+        fpath = base / check_file
+        if not fpath.exists() or fpath.stat().st_size == 0:
+            return False
+    return True
+
+
+@batch_video_bp.route("/models", methods=["GET"])
+def list_video_models():
+    """List all video models and their installation status."""
+    try:
+        models = []
+        for model_id, info in VIDEO_MODEL_REGISTRY.items():
+            models.append({
+                "id": model_id,
+                "name": info["name"],
+                "description": info["description"],
+                "type": info["type"],
+                "size_gb": info["size_gb"],
+                "vram_mb": info["vram_mb"],
+                "is_downloaded": _check_model_downloaded(model_id),
+            })
+        return success_response({"models": models})
+    except Exception as e:
+        logger.error(f"Error listing video models: {e}")
+        return error_response(str(e), 500)
+
+
+@batch_video_bp.route("/models/download", methods=["POST"])
+def download_video_model():
+    """Start downloading a video model from HuggingFace."""
+    global _video_model_download_status
+    try:
+        data = request.get_json()
+        if not data or "model_id" not in data:
+            return error_response("No model_id provided", 400)
+
+        model_id = data["model_id"]
+        if model_id not in VIDEO_MODEL_REGISTRY:
+            return error_response(f"Unknown model: {model_id}", 400)
+
+        if _check_model_downloaded(model_id):
+            return success_response({"message": f"{model_id} is already installed"})
+
+        with _video_model_download_lock:
+            if _video_model_download_status["is_downloading"]:
+                return error_response(
+                    f"Already downloading: {_video_model_download_status['current_model']}", 409
+                )
+            model_info = VIDEO_MODEL_REGISTRY[model_id]
+            _video_model_download_status = {
+                "is_downloading": True,
+                "current_model": model_id,
+                "progress": 0,
+                "status": "starting",
+                "error": None,
+                "speed_mbps": 0,
+                "downloaded_gb": 0,
+                "total_gb": model_info["size_gb"],
+            }
+
+        def _download_task(mid, minfo):
+            global _video_model_download_status
+            _start_time = time.time()
+            _last_bytes = [0]
+
+            try:
+                from huggingface_hub import hf_hub_download, snapshot_download
+
+                models_dir = _get_comfyui_models_dir()
+                local_dir = models_dir / minfo["local_subdir"]
+                local_dir.mkdir(parents=True, exist_ok=True)
+
+                with _video_model_download_lock:
+                    _video_model_download_status["status"] = "downloading"
+
+                if "hf_filename" in minfo:
+                    # Single file download
+                    total_size = minfo["size_gb"] * 1024 * 1024 * 1024
+
+                    def _progress_callback(current, total):
+                        elapsed = time.time() - _start_time
+                        speed = (current / (1024 * 1024)) / max(elapsed, 0.1)
+                        with _video_model_download_lock:
+                            _video_model_download_status.update({
+                                "progress": int((current / max(total, 1)) * 100),
+                                "speed_mbps": round(speed, 1),
+                                "downloaded_gb": round(current / (1024**3), 2),
+                                "total_gb": round(total / (1024**3), 2),
+                            })
+
+                    # Use hf_hub_download for single files
+                    from tqdm import tqdm
+                    import io
+
+                    hf_hub_download(
+                        repo_id=minfo["hf_repo"],
+                        filename=minfo["hf_filename"],
+                        local_dir=str(local_dir),
+                    )
+                    # Update progress to 100% after download
+                    with _video_model_download_lock:
+                        _video_model_download_status.update({
+                            "progress": 100,
+                            "downloaded_gb": minfo["size_gb"],
+                            "total_gb": minfo["size_gb"],
+                        })
+                else:
+                    # Full repo snapshot download
+                    snapshot_download(
+                        repo_id=minfo["hf_repo"],
+                        local_dir=str(local_dir),
+                    )
+                    with _video_model_download_lock:
+                        _video_model_download_status.update({
+                            "progress": 100,
+                            "downloaded_gb": minfo["size_gb"],
+                            "total_gb": minfo["size_gb"],
+                        })
+
+                # Rename file if check_files expects a different name
+                if "hf_filename" in minfo and minfo["check_files"][0] != minfo["hf_filename"]:
+                    src = local_dir / minfo["hf_filename"]
+                    dst = local_dir / minfo["check_files"][0]
+                    if src.exists() and not dst.exists():
+                        import shutil
+                        shutil.copy2(str(src), str(dst))
+
+                with _video_model_download_lock:
+                    _video_model_download_status["status"] = "completed"
+                logger.info(f"Video model downloaded: {mid}")
+
+            except Exception as e:
+                logger.error(f"Video model download failed: {e}", exc_info=True)
+                with _video_model_download_lock:
+                    _video_model_download_status.update({
+                        "status": "failed",
+                        "error": str(e),
+                        "progress": 0,
+                    })
+            finally:
+                with _video_model_download_lock:
+                    _video_model_download_status["is_downloading"] = False
+
+        thread = threading.Thread(
+            target=_download_task, args=(model_id, VIDEO_MODEL_REGISTRY[model_id])
+        )
+        thread.daemon = True
+        thread.start()
+
+        return success_response({
+            "message": f"Started downloading {model_id}",
+            "status": "downloading",
+        })
+    except Exception as e:
+        logger.error(f"Error starting video model download: {e}")
+        return error_response(str(e), 500)
+
+
+@batch_video_bp.route("/models/download-status", methods=["GET"])
+def get_video_model_download_status():
+    """Get current video model download progress."""
+    try:
+        with _video_model_download_lock:
+            return success_response(_video_model_download_status.copy())
+    except Exception as e:
+        logger.error(f"Error getting download status: {e}")
         return error_response(str(e), 500)
 

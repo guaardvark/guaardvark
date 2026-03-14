@@ -56,6 +56,7 @@ import {
   refreshPlugins,
   updatePluginConfig,
   getPluginLogs,
+  getLiveGpuStats,
 } from '../api/pluginsService';
 
 // ── Constants ──────────────────────────────────────────────────────────
@@ -78,78 +79,132 @@ const PLUGIN_COLORS = {
 
 // ── VRAM Budget Bar ────────────────────────────────────────────────────
 const VramBudgetBar = ({ plugins }) => {
+  const [gpuStats, setGpuStats] = useState(null);
+
+  useEffect(() => {
+    const fetchGpu = async () => {
+      try {
+        const res = await getLiveGpuStats();
+        if (res.success) setGpuStats(res.data);
+      } catch { /* ignore */ }
+    };
+    fetchGpu();
+    const interval = setInterval(fetchGpu, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const totalMb = gpuStats?.total_mb || TOTAL_VRAM_MB;
+  const usedMb = gpuStats?.used_mb || 0;
+  const freeMb = gpuStats?.free_mb || totalMb;
+  const usedPct = (usedMb / totalMb) * 100;
+
   const activePlugins = plugins.filter(
     (p) => p.status === 'running' && p.vram_estimate_mb > 0
   );
-  const usedMb = activePlugins.reduce((sum, p) => sum + p.vram_estimate_mb, 0);
 
   return (
     <Paper sx={{ p: 2, mb: 3 }}>
+      {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <GpuIcon fontSize="small" />
-          <Typography variant="subtitle2">GPU VRAM Budget</Typography>
+          <Typography variant="subtitle2">
+            GPU VRAM {gpuStats?.gpu_name ? `— ${gpuStats.gpu_name}` : ''}
+          </Typography>
         </Box>
-        <Typography variant="body2" color="text.secondary">
-          {(usedMb / 1024).toFixed(1)} / {(TOTAL_VRAM_MB / 1024).toFixed(0)} GB
-        </Typography>
+        <Stack direction="row" spacing={2} alignItems="center">
+          {gpuStats && (
+            <>
+              <Chip
+                size="small"
+                label={`${gpuStats.utilization_pct}% util`}
+                color={gpuStats.utilization_pct > 80 ? 'warning' : 'default'}
+                variant="outlined"
+              />
+              <Chip
+                size="small"
+                label={`${gpuStats.temperature_c}°C`}
+                color={gpuStats.temperature_c > 80 ? 'error' : 'default'}
+                variant="outlined"
+              />
+            </>
+          )}
+          <Typography variant="body2" color="text.secondary">
+            {(usedMb / 1024).toFixed(1)} / {(totalMb / 1024).toFixed(1)} GB
+          </Typography>
+        </Stack>
       </Box>
 
-      {/* Stacked bar */}
+      {/* Live usage bar */}
       <Box
         sx={{
           height: 24,
           borderRadius: 1,
           bgcolor: 'action.hover',
           overflow: 'hidden',
-          display: 'flex',
+          position: 'relative',
         }}
       >
-        {activePlugins.map((p) => {
-          const pct = (p.vram_estimate_mb / TOTAL_VRAM_MB) * 100;
-          return (
-            <Tooltip
-              key={p.id}
-              title={`${p.name}: ~${(p.vram_estimate_mb / 1024).toFixed(1)} GB`}
-            >
+        <Box
+          sx={{
+            width: `${usedPct}%`,
+            height: '100%',
+            bgcolor: usedPct > 90 ? 'error.main' : usedPct > 70 ? 'warning.main' : 'primary.main',
+            transition: 'width 0.5s ease',
+          }}
+        />
+        {/* Estimated segments overlay */}
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            height: '100%',
+            display: 'flex',
+            pointerEvents: 'none',
+          }}
+        >
+          {activePlugins.map((p) => {
+            const pct = (p.vram_estimate_mb / totalMb) * 100;
+            return (
               <Box
+                key={p.id}
                 sx={{
                   width: `${pct}%`,
                   height: '100%',
-                  bgcolor: PLUGIN_COLORS[p.id] || '#90a4ae',
-                  transition: 'width 0.3s ease',
-                  '&:hover': { opacity: 0.85 },
+                  borderRight: '2px solid rgba(255,255,255,0.4)',
                 }}
               />
-            </Tooltip>
-          );
-        })}
+            );
+          })}
+        </Box>
       </Box>
 
-      {/* Legend */}
-      {activePlugins.length > 0 && (
-        <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
-          {activePlugins.map((p) => (
-            <Box key={p.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Box
-                sx={{
-                  width: 10,
-                  height: 10,
-                  borderRadius: '50%',
-                  bgcolor: PLUGIN_COLORS[p.id] || '#90a4ae',
-                }}
-              />
-              <Typography variant="caption" color="text.secondary">
-                {p.name} (~{(p.vram_estimate_mb / 1024).toFixed(1)}GB)
-              </Typography>
-            </Box>
-          ))}
-        </Stack>
-      )}
+      {/* Legend + free VRAM */}
+      <Stack direction="row" spacing={2} sx={{ mt: 1 }} flexWrap="wrap" useFlexGap>
+        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+          {(freeMb / 1024).toFixed(1)} GB free
+        </Typography>
+        {activePlugins.map((p) => (
+          <Box key={p.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Box
+              sx={{
+                width: 10,
+                height: 10,
+                borderRadius: '50%',
+                bgcolor: PLUGIN_COLORS[p.id] || '#90a4ae',
+              }}
+            />
+            <Typography variant="caption" color="text.secondary">
+              {p.name} (~{(p.vram_estimate_mb / 1024).toFixed(1)}GB est.)
+            </Typography>
+          </Box>
+        ))}
+      </Stack>
 
-      {usedMb / TOTAL_VRAM_MB > 0.9 && (
+      {usedPct > 90 && (
         <Alert severity="warning" sx={{ mt: 1 }} variant="outlined">
-          VRAM usage is near capacity. Running all plugins simultaneously may cause out-of-memory errors.
+          VRAM usage is near capacity. Stop unused services from this page to free memory.
         </Alert>
       )}
     </Paper>

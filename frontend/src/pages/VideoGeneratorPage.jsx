@@ -66,29 +66,29 @@ const QUALITY_PRESETS = {
     label: "⚡ Fast",
     description: "Quick preview (10 steps)",
     num_inference_steps: 10,
-    width: 512,
-    height: 512,
+    width: 720,
+    height: 480,
   },
   standard: {
     label: "✨ Standard",
-    description: "Good balance (15 steps)",
-    num_inference_steps: 15,
-    width: 512,
-    height: 512,
+    description: "Good quality (30 steps)",
+    num_inference_steps: 30,
+    width: 720,
+    height: 480,
   },
   high: {
     label: "🎬 High Quality",
-    description: "Better details (25 steps)",
-    num_inference_steps: 25,
-    width: 512,
-    height: 512,
+    description: "Best details (40 steps)",
+    num_inference_steps: 40,
+    width: 720,
+    height: 480,
   },
   maximum: {
     label: "🏆 Maximum",
-    description: "Best quality (40 steps)",
-    num_inference_steps: 40,
-    width: 512,
-    height: 512,
+    description: "Maximum quality (50 steps)",
+    num_inference_steps: 50,
+    width: 720,
+    height: 480,
   },
 };
 
@@ -256,9 +256,13 @@ const MODEL_OPTIONS = {
 // Helper to check if model is CogVideoX
 const isCogVideoXModel = (model) => MODEL_OPTIONS[model]?.type === "cogvideox";
 
+// Lazy import for VideoModelsModal
+const VideoModelsModal = React.lazy(() => import("../components/modals/VideoModelsModal"));
+
 const VideoGeneratorPage = () => {
   const [inputMode, setInputMode] = useState("text");
   const [promptsText, setPromptsText] = useState("");
+  const [videoModelsModalOpen, setVideoModelsModalOpen] = useState(false);
 
   // Image selection state
   const [selectedImages, setSelectedImages] = useState([]); // Array of {id, path, thumbnailUrl, name}
@@ -1121,6 +1125,13 @@ const VideoGeneratorPage = () => {
                     ))}
                   </Select>
                 </FormControl>
+                <Button
+                  size="small"
+                  onClick={() => setVideoModelsModalOpen(true)}
+                  sx={{ mt: 0.5, textTransform: "none" }}
+                >
+                  Manage Models
+                </Button>
               </Grid>
 
               {/* Quality Preset */}
@@ -1815,6 +1826,18 @@ const VideoGeneratorPage = () => {
           )}
         </DialogActions>
       </Dialog>
+
+      {/* Video Models Modal */}
+      <React.Suspense fallback={null}>
+        <VideoModelsModal
+          open={videoModelsModalOpen}
+          onClose={() => setVideoModelsModalOpen(false)}
+          showMessage={(msg, severity) => {
+            if (severity === "error") setError(msg);
+            else setSuccess(msg);
+          }}
+        />
+      </React.Suspense>
     </PageLayout>
   );
 };
