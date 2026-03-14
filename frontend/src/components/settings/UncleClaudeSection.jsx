@@ -26,7 +26,7 @@ import { StatusChip, UNCLE_GOLD } from "../../utils/familyColors";
 import { claudeAdvisorService } from "../../api/claudeAdvisorService";
 import { selfImprovementService } from "../../api/selfImprovementService";
 
-export default function UncleClaudeSection() {
+export default function UncleClaudeSection({ compact = false }) {
   const [status, setStatus] = useState(null);
   const [siStatus, setSiStatus] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -112,9 +112,12 @@ export default function UncleClaudeSection() {
   const usage = status?.usage || {};
   const budgetPercent = usage.budget_used_percent || 0;
 
+  const Wrapper = compact ? Box : SettingsSection;
+  const wrapperProps = (title) => compact ? {} : { title };
+
   return (
-    <Box sx={{ mt: 3 }}>
-      <SettingsSection title="UNCLE CLAUDE (MENTOR API)">
+    <Box sx={compact ? {} : { mt: 3 }}>
+      <Wrapper {...wrapperProps("UNCLE CLAUDE (MENTOR API)")}>
         {/* Connection Status */}
         <SettingsRow label="Connection" icon={<PsychologyIcon />}>
           <Stack direction="row" spacing={1} alignItems="center">
@@ -190,9 +193,9 @@ export default function UncleClaudeSection() {
             </Select>
           </FormControl>
         </SettingsRow>
-      </SettingsSection>
+      </Wrapper>
 
-      <SettingsSection title="SELF-IMPROVEMENT & KILL SWITCH" sx={{ mt: 3 }}>
+      <Wrapper {...wrapperProps("SELF-IMPROVEMENT & KILL SWITCH")} sx={compact ? { mt: 2 } : { mt: 3 }}>
         {/* Self-Improvement Toggle */}
         <SettingsRow label="Self-Improvement" icon={<ShieldIcon />}>
           <Switch
@@ -243,7 +246,7 @@ export default function UncleClaudeSection() {
             </Button>
           )}
         </SettingsRow>
-      </SettingsSection>
+      </Wrapper>
 
       {siStatus?.codebase_locked && (
         <Alert severity="warning" variant="outlined" sx={{ mt: 2 }}>

@@ -2,9 +2,11 @@
 import { Alert, Box, Paper, Typography, Tooltip, IconButton } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import HistoryIcon from "@mui/icons-material/History";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import PreviousChatsModal from "../components/chat/PreviousChatsModal";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { getChatHistory, sendChatMessage } from "../api";
 import { generateFileFromChat } from "../api/filegenService";
 import FileGenPopup from "../components/FileGenPopup";
@@ -60,6 +62,7 @@ const USE_UNIFIED_CHAT = () => {
 
 const ChatPage = () => {
   const { projectId } = useParams();
+  const navHistory = useNavigate();
 
   const resourceManager = getResourceManager();
 
@@ -1676,7 +1679,13 @@ const ChatPage = () => {
           alignItems: "center",
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
+          <IconButton size="small" onClick={() => navHistory(-1)} sx={{ opacity: 0.5, "&:hover": { opacity: 1 } }}>
+            <ChevronLeftIcon fontSize="small" />
+          </IconButton>
+          <IconButton size="small" onClick={() => navHistory(1)} sx={{ opacity: 0.5, "&:hover": { opacity: 1 }, mr: 1.5 }}>
+            <ChevronRightIcon fontSize="small" />
+          </IconButton>
           <Typography variant="h5" component="h1">
             Chat
           </Typography>

@@ -144,11 +144,23 @@ const DashboardCardWrapper = React.forwardRef(
       };
     }, []);
 
-    // Handle single click on title to navigate (disabled for CodeEditorPage)
+    // Handle single click on title to navigate — only if mouse didn't move >5px (not a drag)
+    const dragDetectRef = useRef(false);
+    const mouseStartRef = useRef(null);
+    const handleTitleMouseDown = useCallback((e) => {
+      dragDetectRef.current = false;
+      mouseStartRef.current = { x: e.clientX, y: e.clientY };
+    }, []);
+    const handleTitleMouseMove = useCallback((e) => {
+      if (!mouseStartRef.current) return;
+      const dx = e.clientX - mouseStartRef.current.x;
+      const dy = e.clientY - mouseStartRef.current.y;
+      if (Math.sqrt(dx * dx + dy * dy) > 5) dragDetectRef.current = true;
+    }, []);
     const handleTitleClick = useCallback((e) => {
-      e.stopPropagation(); // Prevent triggering draggable area
-      // Don't navigate for CodeEditorPage - we want unified drag/double-click behavior
-      // Navigation only works for other dashboard pages
+      e.stopPropagation();
+      // Don't navigate if this was a drag, or on CodeEditorPage
+      if (dragDetectRef.current) return;
       if (window.location.pathname !== '/code-editor') {
         const route = getCardRoute(cardId);
         if (route && route !== "/") {
@@ -181,6 +193,9 @@ const DashboardCardWrapper = React.forwardRef(
         csvgen: "/csv-generation",
         codegen: "/code-generation",
         imggen: "/batch-image-generation",
+        files: "/documents",
+        family: "/settings",
+        autoresearch: "/settings",
       };
       return routeMap[cardId] || "/";
     };
@@ -270,19 +285,32 @@ const DashboardCardWrapper = React.forwardRef(
             onMouseDown={handleMouseDown}
             className="card-header-buttons" // Draggable handle for react-grid-layout
           >
-            {/* Title text - 10% larger than before */}
+            {/* Title text - clickable to navigate to linked page */}
             <Typography
               variant="h6"
               component="span"
+              onMouseDown={handleTitleMouseDown}
+              onMouseMove={handleTitleMouseMove}
+              onClick={handleTitleClick}
+              className="non-draggable"
               sx={{
                 whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
-                color: getOppositeColor, // Use opposite color for better contrast
-                userSelect: "none", // Prevent text selection
-                pointerEvents: "none", // Let parent handle all events
-                fontSize: "0.77rem", // 10% larger than 0.7rem
+                color: getOppositeColor,
+                userSelect: "none",
+                fontSize: "0.62rem",
                 fontWeight: "medium",
+                cursor: "pointer",
+                px: 0.4,
+                py: 0.15,
+                lineHeight: 1.2,
+                borderRadius: "3px",
+                border: "1px solid transparent",
+                transition: "border-color 0.15s ease",
+                "&:hover": {
+                  borderColor: `color-mix(in srgb, ${getOppositeColor} 75%, transparent)`,
+                },
               }}
             >
               {title}

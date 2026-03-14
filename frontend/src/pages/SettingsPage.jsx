@@ -83,14 +83,14 @@ import ImageModelsModal from "../components/modals/ImageModelsModal";
 import AgentsSettingsModal from "../components/modals/AgentsSettingsModal";
 import InterconnectorSettingsModal from "../components/modals/InterconnectorSettingsModal";
 import VoiceSettingsModal from "../components/modals/VoiceSettingsModal";
-import SettingsSection from "../components/settings/SettingsSection";
 import SettingsRow from "../components/settings/SettingsRow";
+import SettingsCardWrapper from "../components/settings/SettingsCardWrapper";
 
 import { SOCKET_URL } from "../api/apiClient";
 import PaletteIcon from "@mui/icons-material/Palette";
 import SchoolIcon from "@mui/icons-material/School";
 import TaskAltIcon from "@mui/icons-material/TaskAlt";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { themes } from "../theme";
 import {
   getBranding,
@@ -258,23 +258,6 @@ const SettingsPage = () => {
   const [interconnectorModalOpen, setInterconnectorModalOpen] = useState(false);
   const [interconnectorEnabled, setInterconnectorEnabled] = useState(false);
   const [interconnectorPendingCount, setInterconnectorPendingCount] = useState(0);
-  const [searchParams, setSearchParams] = useSearchParams();
-  const validSections = ["system", "ai", "data", "network", "maintenance"];
-  const [activeSection, _setActiveSection] = useState(() => {
-    const s = searchParams.get("section");
-    return validSections.includes(s) ? s : "system";
-  });
-  const setActiveSection = useCallback((section) => {
-    _setActiveSection(section);
-    setSearchParams({ section }, { replace: false });
-  }, [setSearchParams]);
-  // Sync section when browser back/forward changes the URL
-  useEffect(() => {
-    const s = searchParams.get("section");
-    if (s && validSections.includes(s) && s !== activeSection) {
-      _setActiveSection(s);
-    }
-  }, [searchParams]);
   const [voiceChatEnabled, setVoiceChatEnabled] = useState(() => {
     try {
       return localStorage.getItem(VOICE_CHAT_ENABLED_KEY) !== "false";
@@ -2052,14 +2035,6 @@ const SettingsPage = () => {
     );
   };
 
-  const SECTIONS = [
-    { id: "system", label: "SYSTEM" },
-    { id: "ai", label: "A.I." },
-    { id: "data", label: "DATA" },
-    { id: "network", label: "NETWORK" },
-    { id: "maintenance", label: "MAINTENANCE" },
-  ];
-
   return (
     <PageLayout
       title="Settings"
@@ -2070,53 +2045,20 @@ const SettingsPage = () => {
         ) : null
       }
     >
-      <Box sx={{ display: "flex", height: "100%", overflow: "hidden", pt: 2 }}>
-        {/* Left nav */}
-        <Box
-          sx={{
-            width: 160,
-            flexShrink: 0,
-            borderRight: 1,
-            borderColor: "divider",
-            py: 1,
-          }}
-        >
-          {SECTIONS.map(({ id, label }) => (
-            <Box
-              key={id}
-              onClick={() => setActiveSection(id)}
-              sx={{
-                px: 2,
-                py: 1,
-                cursor: "pointer",
-                borderRadius: 1,
-                mx: 0.5,
-                bgcolor: activeSection === id ? "action.selected" : "transparent",
-                "&:hover": { bgcolor: "action.hover" },
-              }}
-            >
-              <Typography variant="body2" fontWeight={activeSection === id ? 600 : 500}>
-                {label}
-              </Typography>
-            </Box>
-          ))}
-        </Box>
-
-        {/* Content */}
-        <Box sx={{ flex: 1, overflow: "auto", px: 3, py: 2, maxWidth: 720 }}>
-          {interconnectorPendingCount > 0 && (
-            <MuiAlert
-              severity="warning"
-              icon={<WarningIcon fontSize="inherit" />}
-              sx={{ mb: 2, cursor: "pointer" }}
-              onClick={() => setInterconnectorModalOpen(true)}
-            >
-              Updates Available — {interconnectorPendingCount} Interconnector update{interconnectorPendingCount !== 1 ? "s" : ""} pending — click to review
-            </MuiAlert>
-          )}
-          {activeSection === "system" && (
-            <SettingsSection title="SYSTEM">
-              <SettingsRow label="Profile" icon={<AccountBoxIcon sx={{ fontSize: 18 }} />}>
+      <Box sx={{ overflow: "auto", p: { xs: 1.5, sm: 2.5 }, pb: 4 }}>
+        {interconnectorPendingCount > 0 && (
+          <MuiAlert
+            severity="warning"
+            icon={<WarningIcon fontSize="inherit" />}
+            sx={{ mb: 2, cursor: "pointer" }}
+            onClick={() => setInterconnectorModalOpen(true)}
+          >
+            Updates Available — {interconnectorPendingCount} Interconnector update{interconnectorPendingCount !== 1 ? "s" : ""} pending — click to review
+          </MuiAlert>
+        )}
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: "20px", "& > *": { width: 840, flexShrink: 0 } }}>
+          <SettingsCardWrapper title="System">
+              <SettingsRow label="Profile">
                 <input
                   type="file"
                   accept="image/*"
@@ -2198,7 +2140,7 @@ const SettingsPage = () => {
                   </label>
                 </Box>
               </SettingsRow>
-              <SettingsRow label="Media Library Path" icon={<FolderIcon sx={{ fontSize: 18 }} />}>
+              <SettingsRow label="Media Library Path">
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <TextField
                     value={musicDirectory}
@@ -2224,24 +2166,20 @@ const SettingsPage = () => {
                   </Button>
                 </Box>
               </SettingsRow>
-              <SettingsRow label="System Dashboard" icon={<DashboardIcon sx={{ fontSize: 18 }} />}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<DashboardIcon />}
-                  onClick={() => navigate("/dev-tools")}
-                >
-                  Open Dashboard
-                </Button>
-              </SettingsRow>
-            </SettingsSection>
-          )}
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => navigate("/dev-tools")}
+                sx={{ mt: 1 }}
+              >
+                System Dashboard
+              </Button>
+          </SettingsCardWrapper>
 
-          {activeSection === "ai" && (
-            <SettingsSection title="A.I.">
+          <SettingsCardWrapper title="Models">
               {/* GPU Resources Bar */}
               {gpuResources?.gpu?.total_mb > 0 && (
-                <SettingsRow label="GPU Resources" icon={<SpeedIcon sx={{ fontSize: 18 }} />}>
+                <SettingsRow label="GPU Resources">
                   <Box sx={{ width: "100%", maxWidth: 320 }}>
                     <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
                       <Typography variant="caption" color="text.secondary">
@@ -2273,7 +2211,7 @@ const SettingsPage = () => {
                   </Box>
                 </SettingsRow>
               )}
-              <SettingsRow label="Chat Model" icon={<DnsIcon sx={{ fontSize: 18 }} />}>
+              <SettingsRow label="Chat Model">
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 1, width: "100%", maxWidth: 320 }}>
                   <FormControl fullWidth size="small" disabled={isLoading || isLoadingModel}>
                     <InputLabel>Select Model</InputLabel>
@@ -2341,7 +2279,7 @@ const SettingsPage = () => {
                 </Box>
               </SettingsRow>
               {/* Embedding Model Switcher */}
-              <SettingsRow label="Embedding Model" icon={<SyncProblemIcon sx={{ fontSize: 18 }} />}>
+              <SettingsRow label="Embedding Model">
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 1, width: "100%", maxWidth: 320 }}>
                   <FormControl fullWidth size="small" disabled={isSwitchingEmbedding}>
                     <InputLabel>Embedding Model</InputLabel>
@@ -2404,70 +2342,71 @@ const SettingsPage = () => {
                   </Box>
                 </Box>
               </SettingsRow>
-              {/* RAG Autoresearch */}
-              <SettingsRow label="RAG Autoresearch" icon={<ScienceIcon sx={{ fontSize: 18 }} />} stacked>
-                <Box sx={{ width: "100%", maxWidth: 400 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: "block" }}>
-                    Autonomous RAG optimization — experiments run while the system is idle
-                  </Typography>
+          </SettingsCardWrapper>
 
-                  <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
-                    <Typography variant="body2">Auto-optimize when idle</Typography>
-                    <Switch
-                      size="small"
-                      checked={autoresearchSettings.rag_autoresearch_auto_enabled === "true"}
-                      onChange={(e) => handleAutoresearchSettingChange("rag_autoresearch_auto_enabled", e.target.checked)}
-                    />
-                  </Box>
+          <SettingsCardWrapper title="RAG Autoresearch">
+                <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: "block" }}>
+                  Autonomous RAG optimization — experiments run while the system is idle
+                </Typography>
 
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" gutterBottom>
-                      Idle threshold: {autoresearchSettings.rag_autoresearch_idle_minutes || 10} minutes
-                    </Typography>
-                    <Slider
-                      value={parseInt(autoresearchSettings.rag_autoresearch_idle_minutes || "10")}
-                      min={5}
-                      max={120}
-                      step={5}
-                      marks={[{ value: 5, label: "5m" }, { value: 60, label: "60m" }, { value: 120, label: "120m" }]}
-                      onChange={(e, val) => handleAutoresearchSettingChange("rag_autoresearch_idle_minutes", val)}
-                      sx={{ width: "100%" }}
-                    />
-                  </Box>
-
-                  <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
-                    <Typography variant="body2">Max experiment phase</Typography>
-                    <Select
-                      value={autoresearchSettings.rag_autoresearch_phase_limit || "2"}
-                      size="small"
-                      onChange={(e) => handleAutoresearchSettingChange("rag_autoresearch_phase_limit", e.target.value)}
-                      sx={{ minWidth: 160 }}
-                    >
-                      <MenuItem value="1">Phase 1 (Query)</MenuItem>
-                      <MenuItem value="2">Phase 2 (Index)</MenuItem>
-                      <MenuItem value="3">Phase 3 (Model)</MenuItem>
-                    </Select>
-                  </Box>
-
-                  <Button
-                    variant="outlined"
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+                  <Typography variant="body2">Auto-optimize when idle</Typography>
+                  <Switch
                     size="small"
-                    onClick={async () => {
-                      try {
-                        await ragAutoresearchService.resetConfig();
-                        const data = await ragAutoresearchService.getSettings();
-                        setAutoresearchSettings(data);
-                        showMessage("Autoresearch config reset to defaults", "success");
-                      } catch (e) {
-                        showMessage("Failed to reset autoresearch config", "error");
-                      }
-                    }}
-                  >
-                    Reset to Defaults
-                  </Button>
+                    checked={autoresearchSettings.rag_autoresearch_auto_enabled === "true"}
+                    onChange={(e) => handleAutoresearchSettingChange("rag_autoresearch_auto_enabled", e.target.checked)}
+                  />
                 </Box>
-              </SettingsRow>
-              <SettingsRow label="Voice Chat" icon={<ChatIcon sx={{ fontSize: 18 }} />}>
+
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="body2" gutterBottom>
+                    Idle threshold: {autoresearchSettings.rag_autoresearch_idle_minutes || 10} minutes
+                  </Typography>
+                  <Slider
+                    value={parseInt(autoresearchSettings.rag_autoresearch_idle_minutes || "10")}
+                    min={5}
+                    max={120}
+                    step={5}
+                    marks={[{ value: 5, label: "5m" }, { value: 60, label: "60m" }, { value: 120, label: "120m" }]}
+                    onChange={(e, val) => handleAutoresearchSettingChange("rag_autoresearch_idle_minutes", val)}
+                    sx={{ width: "100%" }}
+                  />
+                </Box>
+
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+                  <Typography variant="body2">Max experiment phase</Typography>
+                  <Select
+                    value={autoresearchSettings.rag_autoresearch_phase_limit || "2"}
+                    size="small"
+                    onChange={(e) => handleAutoresearchSettingChange("rag_autoresearch_phase_limit", e.target.value)}
+                    sx={{ minWidth: 160 }}
+                  >
+                    <MenuItem value="1">Phase 1 (Query)</MenuItem>
+                    <MenuItem value="2">Phase 2 (Index)</MenuItem>
+                    <MenuItem value="3">Phase 3 (Model)</MenuItem>
+                  </Select>
+                </Box>
+
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={async () => {
+                    try {
+                      await ragAutoresearchService.resetConfig();
+                      const data = await ragAutoresearchService.getSettings();
+                      setAutoresearchSettings(data);
+                      showMessage("Autoresearch config reset to defaults", "success");
+                    } catch (e) {
+                      showMessage("Failed to reset autoresearch config", "error");
+                    }
+                  }}
+                >
+                  Reset to Defaults
+                </Button>
+          </SettingsCardWrapper>
+
+          <SettingsCardWrapper title="A.I. Features">
+              <SettingsRow label="Voice Chat">
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <Chip
                     label={voiceChatEnabled ? "On" : "Off"}
@@ -2489,7 +2428,7 @@ const SettingsPage = () => {
                   </Typography>
                 </Box>
               </SettingsRow>
-              <SettingsRow label="Image Generation" icon={<ImageIcon sx={{ fontSize: 18 }} />}>
+              <SettingsRow label="Image Generation">
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   {imageGenStatus === null ? (
                     <CircularProgress size={16} />
@@ -2506,21 +2445,23 @@ const SettingsPage = () => {
                   </Button>
                 </Box>
               </SettingsRow>
-              <SettingsRow label="RAG Performance" stacked>
-                <RAGDebugSection ragDebugEnabled={ragDebug} />
-              </SettingsRow>
               {/* Agent Routing and Unified Agentic Chat toggles removed — always enabled */}
               <SettingsRow label="Agents">
                 <Button variant="outlined" size="small" onClick={() => setAgentsModalOpen(true)}>
                   Open
                 </Button>
               </SettingsRow>
-              <UncleClaudeSection />
-            </SettingsSection>
-          )}
+          </SettingsCardWrapper>
 
-          {activeSection === "data" && (
-            <SettingsSection title="DATA">
+          <SettingsCardWrapper title="RAG Performance">
+              <RAGDebugSection ragDebugEnabled={ragDebug} />
+          </SettingsCardWrapper>
+
+          <SettingsCardWrapper title="Uncle Claude">
+              <UncleClaudeSection compact />
+          </SettingsCardWrapper>
+
+          <SettingsCardWrapper title="Data">
               <SettingsRow label="System Backup / Restore">
                 <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
                   <Tooltip title={isProcessingBackup ? "Backup operation in progress..." : isLoading ? "Loading..." : ""}>
@@ -2564,12 +2505,10 @@ const SettingsPage = () => {
                   <Button variant="outlined" size="small" onClick={() => handleActionClick(apiService.optimizeIndex, [], null, "Optimizing...", "Index optimized.", "Failed")} disabled={isLoading}>Optimize</Button>
                 </Box>
               </SettingsRow>
-            </SettingsSection>
-          )}
+          </SettingsCardWrapper>
 
-          {activeSection === "network" && (
-            <SettingsSection title="NETWORK">
-              <SettingsRow label="Web Access" icon={<ApiIcon sx={{ fontSize: 18 }} />}>
+          <SettingsCardWrapper title="Network">
+              <SettingsRow label="Web Access">
                 <Chip
                   label={webSearchEnabled ? "On" : "Off"}
                   onClick={() => handleWebSearchToggle()}
@@ -2605,11 +2544,9 @@ const SettingsPage = () => {
                   </Typography>
                 </Box>
               </SettingsRow>
-            </SettingsSection>
-          )}
+          </SettingsCardWrapper>
 
-          {activeSection === "maintenance" && (
-            <SettingsSection title="MAINTENANCE">
+          <SettingsCardWrapper title="Maintenance">
               <SettingsRow label="Clear Cache">
                 <Button variant="outlined" size="small" onClick={handleClearPycacheFoldersClick} disabled={isLoading}>Clear Cache</Button>
               </SettingsRow>
@@ -2701,8 +2638,7 @@ const SettingsPage = () => {
                   </Tooltip>
                 </Box>
               </Box>
-            </SettingsSection>
-          )}
+          </SettingsCardWrapper>
         </Box>
       </Box>
 

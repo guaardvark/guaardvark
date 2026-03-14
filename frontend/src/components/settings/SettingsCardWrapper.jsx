@@ -64,10 +64,8 @@ const SettingsCardWrapper = React.forwardRef(
         <Divider />
         <Box
           sx={{
-            flexGrow: 1,
-            overflowY: "auto",
             overflowX: "hidden",
-            p: 1.5,
+            p: "15px",
           }}
         >
           {children}

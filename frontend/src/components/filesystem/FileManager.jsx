@@ -334,9 +334,10 @@ const FileManager = () => {
             setFolderColors(state.folderColors);
           }
         } else {
+          // 404 = no saved state yet, fall back silently
           loadFromLocalStorage();
         }
-      } catch (err) {
+      } catch {
         loadFromLocalStorage();
       } finally {
         setFolderStateLoaded(true);

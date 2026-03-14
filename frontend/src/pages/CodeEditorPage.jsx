@@ -17,7 +17,7 @@ import {
   Chip,
 } from "@mui/material";
 import ReactGridLayout, { WidthProvider } from "react-grid-layout";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
@@ -36,6 +36,8 @@ import {
   BlockOutlined,
   CheckCircleOutlined,
   SmartToy,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
 } from "@mui/icons-material";
 
 import PageLayout from "../components/layout/PageLayout";
@@ -69,6 +71,7 @@ const cardComponents = {
 const CodeEditorPage = () => {
   const theme = useTheme();
   const { projectId } = useParams();
+  const codeNavHistory = useNavigate();
   const { gridSettings } = useLayout();
   const { activeModel, isLoadingModel, modelError } = useStatus();
   const systemName = useAppStore((state) => state.systemName);
@@ -994,10 +997,18 @@ const CodeEditorPage = () => {
             alignItems: "center",
           }}
         >
-          <Typography variant="h6" sx={{ fontSize: '0.9rem', fontWeight: 'medium', display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <CodeIcon sx={{ fontSize: '1.1rem' }} />
-            Code Editor {projectId && `- Project: ${projectId}`}
-          </Typography>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
+            <IconButton size="small" onClick={() => codeNavHistory(-1)} sx={{ opacity: 0.5, "&:hover": { opacity: 1 } }}>
+              <ChevronLeftIcon fontSize="small" />
+            </IconButton>
+            <IconButton size="small" onClick={() => codeNavHistory(1)} sx={{ opacity: 0.5, "&:hover": { opacity: 1 }, mr: 1.5 }}>
+              <ChevronRightIcon fontSize="small" />
+            </IconButton>
+            <Typography variant="h6" sx={{ fontSize: '0.9rem', fontWeight: 'medium', display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <CodeIcon sx={{ fontSize: '1.1rem' }} />
+              Code Editor {projectId && `- Project: ${projectId}`}
+            </Typography>
+          </Box>
 
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
             {}
