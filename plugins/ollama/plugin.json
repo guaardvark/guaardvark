@@ -1,0 +1,28 @@
+{
+  "id": "ollama",
+  "name": "Ollama",
+  "version": "0.17.5",
+  "description": "Local LLM inference server. Powers chat, RAG, agents, and text generation. Required for all AI features except image/video generation.",
+  "author": "Ollama",
+  "type": "service",
+  "category": "inference",
+  "port": 11434,
+  "vram_estimate_mb": 8000,
+  "dependencies": [],
+  "config": {
+    "enabled": true,
+    "service_url": "http://localhost:11434",
+    "timeout": 30,
+    "fallback_enabled": false
+  },
+  "requirements": {
+    "gpu": true,
+    "cuda": true
+  },
+  "endpoints": {
+    "health": "/",
+    "api_tags": "/api/tags",
+    "api_ps": "/api/ps",
+    "api_generate": "/api/generate"
+  }
+}

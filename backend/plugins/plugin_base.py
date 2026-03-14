@@ -63,6 +63,7 @@ class PluginMetadata:
     type: str = "service"
     category: str = "general"
     port: Optional[int] = None
+    vram_estimate_mb: int = 0
     dependencies: List[str] = field(default_factory=list)
     config: PluginConfig = field(default_factory=PluginConfig)
     requirements: Dict[str, bool] = field(default_factory=dict)
@@ -86,6 +87,7 @@ class PluginMetadata:
                 type=data.get('type', 'service'),
                 category=data.get('category', 'general'),
                 port=data.get('port'),
+                vram_estimate_mb=data.get('vram_estimate_mb', 0),
                 dependencies=data.get('dependencies', []),
                 config=config,
                 requirements=data.get('requirements', {}),
@@ -105,6 +107,7 @@ class PluginMetadata:
             'type': self.type,
             'category': self.category,
             'port': self.port,
+            'vram_estimate_mb': self.vram_estimate_mb,
             'dependencies': self.dependencies,
             'config': self.config.to_dict(),
             'requirements': self.requirements,

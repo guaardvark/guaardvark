@@ -1,0 +1,28 @@
+{
+  "id": "comfyui",
+  "name": "ComfyUI",
+  "version": "1.0.0",
+  "description": "GPU-accelerated image and video generation server. Supports CogVideoX text-to-video, image-to-video, and Stable Video Diffusion workflows.",
+  "author": "GUAARDVARK Team",
+  "type": "service",
+  "category": "generation",
+  "port": 8188,
+  "vram_estimate_mb": 6000,
+  "dependencies": [],
+  "config": {
+    "enabled": true,
+    "service_url": "http://127.0.0.1:8188",
+    "timeout": 60,
+    "fallback_enabled": false
+  },
+  "requirements": {
+    "gpu": true,
+    "cuda": true
+  },
+  "endpoints": {
+    "health": "/",
+    "prompt": "/prompt",
+    "history": "/history",
+    "queue": "/queue"
+  }
+}

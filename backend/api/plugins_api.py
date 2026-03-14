@@ -1,7 +1,10 @@
 # backend/api/plugins_api.py
 """Plugin management API endpoints."""
 
+import collections
 import logging
+from pathlib import Path
+
 from flask import Blueprint, request
 from backend.utils.response_utils import success_response, error_response
 from ..plugins import get_plugin_manager
@@ -247,3 +250,39 @@ def get_all_status():
     except Exception as e:
         logger.error(f"Error getting plugin status: {e}", exc_info=True)
         return error_response(str(e), 500, "STATUS_ERROR")
+
+
+@plugins_bp.route("/<plugin_id>/logs", methods=["GET"])
+def get_plugin_logs(plugin_id):
+    """Get recent log output for a plugin."""
+    try:
+        lines = int(request.args.get('lines', 100))
+        lines = min(lines, 500)
+
+        log_file_map = {
+            'comfyui': 'comfyui.log',
+            'ollama': 'ollama.log',
+            'gpu_embedding': 'gpu_embedding_service.log',
+        }
+
+        log_name = log_file_map.get(plugin_id)
+        if not log_name:
+            return success_response(data={"logs": "", "lines": 0}, message="No log file configured")
+
+        from backend.config import LOG_DIR
+        log_path = Path(LOG_DIR) / log_name
+
+        if not log_path.exists():
+            return success_response(data={"logs": "", "lines": 0}, message="Log file not found")
+
+        with open(log_path, 'r', errors='replace') as f:
+            tail = collections.deque(f, maxlen=lines)
+
+        log_text = ''.join(tail)
+        return success_response(
+            data={"logs": log_text, "lines": len(tail)},
+            message="Logs retrieved"
+        )
+    except Exception as e:
+        logger.error(f"Error reading plugin logs: {e}", exc_info=True)
+        return error_response(str(e), 500, "PLUGIN_LOGS_ERROR")

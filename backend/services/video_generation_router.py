@@ -21,8 +21,8 @@ try:
     )
 except ImportError:
     COMFYUI_URL = os.environ.get("GUAARDVARK_COMFYUI_URL", "http://127.0.0.1:8188")
-    COMFYUI_DIR = os.environ.get("GUAARDVARK_COMFYUI_DIR", os.path.expanduser("~/LLAMAVID/ComfyUI"))
-    COMFYUI_VENV = os.environ.get("GUAARDVARK_COMFYUI_VENV", os.path.join(COMFYUI_DIR, "venv"))
+    COMFYUI_DIR = os.environ.get("GUAARDVARK_COMFYUI_DIR", os.path.join(os.environ.get("GUAARDVARK_ROOT", "."), "plugins", "comfyui", "ComfyUI"))
+    COMFYUI_VENV = os.environ.get("GUAARDVARK_COMFYUI_VENV", os.path.join(os.environ.get("GUAARDVARK_ROOT", "."), "backend", "venv"))
     VIDEO_GENERATION_BACKEND = os.environ.get("GUAARDVARK_VIDEO_BACKEND", "auto")
     COMFYUI_IDLE_TIMEOUT = int(os.environ.get("GUAARDVARK_COMFYUI_IDLE_TIMEOUT", "300"))
     LOG_DIR = "logs"

@@ -42,6 +42,7 @@ import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import StickyNote2Icon from "@mui/icons-material/StickyNote2";
 import MovieCreationIcon from "@mui/icons-material/MovieCreation";
+import ExtensionIcon from "@mui/icons-material/Extension";
 
 import SystemMetricsModal from "../modals/SystemMetricsModal";
 
@@ -78,6 +79,7 @@ const navGroups = [
       { text: "Agents", icon: <SmartToyIcon />, path: "/agents" },
       { text: "FileGen", icon: <PetsIcon />, path: "/file-generation" },
       { text: "Content Library", icon: <LibraryBooksIcon />, path: "/content-library" },
+      { text: "Plugins", icon: <ExtensionIcon />, path: "/plugins" },
       { text: "Settings", icon: <SettingsIcon />, path: "/settings" },
     ],
   },

@@ -116,6 +116,16 @@ export const refreshPlugins = async () => {
 };
 
 /**
+ * Get plugin logs
+ */
+export const getPluginLogs = async (pluginId, lines = 100) => {
+  const response = await fetch(`${BASE_URL}/${pluginId}/logs?lines=${lines}`, {
+    method: "GET",
+  });
+  return handleResponse(response);
+};
+
+/**
  * Get status of all plugins
  */
 export const getAllPluginStatus = async () => {
@@ -135,5 +145,6 @@ export default {
   getPluginConfig,
   updatePluginConfig,
   refreshPlugins,
+  getPluginLogs,
   getAllPluginStatus,
 };
