@@ -207,8 +207,9 @@ class ComfyUIVideoGenerator:
 
     WAN22_MODELS = {
         "wan22-14b": {
-            "unet": "Wan2.2-T2V-A14B-Q5_K_M.gguf",
-            "clip": "t5/google_t5-v1_1-xxl_encoderonly-fp8_e4m3fn.safetensors",
+            "unet_high": "Wan2.2-T2V-A14B-HighNoise-Q5_K_M.gguf",
+            "unet_low": "Wan2.2-T2V-A14B-LowNoise-Q5_K_M.gguf",
+            "clip": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
             "vae": "wan_2.1_vae.safetensors",
         },
     }
@@ -444,54 +445,86 @@ class ComfyUIVideoGenerator:
         negative_prompt: str = "",
         model_key: str = "wan22-14b",
         num_frames: int = 81,
-        num_inference_steps: int = 25,
-        guidance_scale: float = 5.0,
-        width: int = 832,
-        height: int = 480,
+        num_inference_steps: int = 20,
+        guidance_scale: float = 3.5,
+        width: int = 640,
+        height: int = 640,
         seed: Optional[int] = None,
         fps: int = 16,
     ) -> dict:
-        """Build a ComfyUI API-format workflow for Wan 2.2 text-to-video using GGUF model."""
+        """Build a ComfyUI API-format workflow for Wan 2.2 MoE text-to-video.
+
+        Uses two-pass architecture: HighNoise expert for layout/motion,
+        LowNoise expert for detail refinement. GGUF models loaded via
+        ComfyUI-GGUF custom node (UnetLoaderGGUF).
+        """
         if seed is None:
             seed = int(time.time() * 1000) % (2**31)
 
         model_files = self.WAN22_MODELS.get(model_key, self.WAN22_MODELS["wan22-14b"])
 
+        # Default negative prompt for anatomy quality
+        if not negative_prompt:
+            negative_prompt = (
+                "blurry, low quality, extra fingers, extra limbs, deformed hands, "
+                "deformed face, disfigured, static, overexposed, worst quality, "
+                "NSFW, nude"
+            )
+
         workflow = {
-            # Node 1: Load GGUF diffusion model via ComfyUI-GGUF custom node
+            # ── Model Loading ──────────────────────────────────────────────
+            # Node 1: Load HighNoise GGUF expert
             "1": {
                 "class_type": "UnetLoaderGGUF",
                 "inputs": {
-                    "unet_name": model_files["unet"],
+                    "unet_name": model_files["unet_high"],
                 }
             },
-            # Node 2: Load T5 text encoder with Wan clip type
+            # Node 2: Load LowNoise GGUF expert
             "2": {
+                "class_type": "UnetLoaderGGUF",
+                "inputs": {
+                    "unet_name": model_files["unet_low"],
+                }
+            },
+            # Node 3: Load UMT5 text encoder (Wan clip type)
+            "3": {
                 "class_type": "CLIPLoader",
                 "inputs": {
                     "clip_name": model_files["clip"],
                     "type": "wan",
+                    "device": "default",
                 }
             },
-            # Node 3: Encode positive prompt
-            "3": {
+            # Node 4: Load Wan VAE
+            "4": {
+                "class_type": "VAELoader",
+                "inputs": {
+                    "vae_name": model_files["vae"],
+                }
+            },
+
+            # ── Text Encoding ──────────────────────────────────────────────
+            # Node 5: Positive prompt
+            "5": {
                 "class_type": "CLIPTextEncode",
                 "inputs": {
-                    "clip": ["2", 0],
+                    "clip": ["3", 0],
                     "text": prompt,
                 }
             },
-            # Node 4: Encode negative prompt (empty conditioning)
-            "4": {
+            # Node 6: Negative prompt
+            "6": {
                 "class_type": "CLIPTextEncode",
                 "inputs": {
-                    "clip": ["2", 0],
+                    "clip": ["3", 0],
                     "text": negative_prompt,
                 }
             },
-            # Node 5: Create empty video latent (5D: batch, channels, frames, h, w)
-            # EmptyHunyuanLatentVideo works for Wan — same 16ch, 4x temporal, 8x spatial compression
-            "5": {
+
+            # ── Latent ─────────────────────────────────────────────────────
+            # Node 7: Empty video latent
+            "7": {
                 "class_type": "EmptyHunyuanLatentVideo",
                 "inputs": {
                     "width": width,
@@ -500,42 +533,81 @@ class ComfyUIVideoGenerator:
                     "batch_size": 1,
                 }
             },
-            # Node 6: KSampler — standard diffusion sampling
-            "6": {
-                "class_type": "KSampler",
+
+            # ── Noise Scheduling ───────────────────────────────────────────
+            # Node 8: ModelSamplingSD3 for HighNoise expert (shift=8.0)
+            "8": {
+                "class_type": "ModelSamplingSD3",
                 "inputs": {
                     "model": ["1", 0],
-                    "positive": ["3", 0],
-                    "negative": ["4", 0],
-                    "latent_image": ["5", 0],
-                    "seed": seed,
+                    "shift": 8.0,
+                }
+            },
+            # Node 9: ModelSamplingSD3 for LowNoise expert (shift=8.0)
+            "9": {
+                "class_type": "ModelSamplingSD3",
+                "inputs": {
+                    "model": ["2", 0],
+                    "shift": 8.0,
+                }
+            },
+
+            # ── Two-Pass Sampling (MoE) ────────────────────────────────────
+            # Node 10: Pass 1 — HighNoise expert (layout + motion)
+            "10": {
+                "class_type": "KSamplerAdvanced",
+                "inputs": {
+                    "model": ["8", 0],
+                    "positive": ["5", 0],
+                    "negative": ["6", 0],
+                    "latent_image": ["7", 0],
+                    "add_noise": "enable",
+                    "noise_seed": seed,
+                    "control_after_generate": "randomize",
                     "steps": num_inference_steps,
                     "cfg": guidance_scale,
                     "sampler_name": "euler",
                     "scheduler": "normal",
-                    "denoise": 1.0,
+                    "start_at_step": 0,
+                    "end_at_step": num_inference_steps,
+                    "return_with_leftover_noise": "enable",
                 }
             },
-            # Node 7: Load Wan VAE
-            "7": {
-                "class_type": "VAELoader",
+            # Node 11: Pass 2 — LowNoise expert (detail refinement)
+            "11": {
+                "class_type": "KSamplerAdvanced",
                 "inputs": {
-                    "vae_name": model_files["vae"],
+                    "model": ["9", 0],
+                    "positive": ["5", 0],
+                    "negative": ["6", 0],
+                    "latent_image": ["10", 0],
+                    "add_noise": "disable",
+                    "noise_seed": 0,
+                    "control_after_generate": "fixed",
+                    "steps": num_inference_steps,
+                    "cfg": guidance_scale,
+                    "sampler_name": "euler",
+                    "scheduler": "normal",
+                    "start_at_step": 0,
+                    "end_at_step": num_inference_steps,
+                    "return_with_leftover_noise": "disable",
                 }
             },
-            # Node 8: Decode latent to frames
-            "8": {
+
+            # ── Decode + Output ────────────────────────────────────────────
+            # Node 12: VAE Decode
+            "12": {
                 "class_type": "VAEDecode",
                 "inputs": {
-                    "samples": ["6", 0],
-                    "vae": ["7", 0],
+                    "samples": ["11", 0],
+                    "vae": ["4", 0],
                 }
             },
-            # Node 9: Combine frames into video
-            "9": {
+            # Node 13: Create video from frames
+            "13": {
                 "class_type": "VHS_VideoCombine",
                 "inputs": {
-                    "images": ["8", 0],
+                    "images": ["12", 0],
                     "frame_rate": fps,
                     "loop_count": 0,
                     "filename_prefix": "wan22_t2v",
