@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # LLAMAX System Manager - Central Management for LLAMAX Environments
-# Location: ~/LLAMAX6/scripts/system-manager/system-manager
+# Location: scripts/system-manager/system-manager
 
 # Colors
 RED='\033[0;31m'

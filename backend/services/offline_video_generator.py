@@ -61,7 +61,7 @@ try:
     config_available = True
 except ImportError:
     config_available = False
-    CACHE_DIR = "/tmp/llamax1_cache"
+    CACHE_DIR = "/tmp/guaardvark_cache"
 
 try:
     from backend.services.gpu_resource_coordinator import get_gpu_coordinator
