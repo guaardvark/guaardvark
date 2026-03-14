@@ -55,8 +55,95 @@ kill_and_cleanup() {
     fi
 }
 
+# ── Stop ComfyUI first (free GPU memory before other shutdowns) ──
+vader_info "Checking for ComfyUI..."
+
+comfyui_stopped=false
+
+# 1. Use the plugin's own stop script if it exists
+COMFYUI_STOP_SCRIPT="$SCRIPT_DIR/plugins/comfyui/scripts/stop.sh"
+if [ -f "$COMFYUI_STOP_SCRIPT" ]; then
+    vader_info "Running ComfyUI plugin stop script..."
+    bash "$COMFYUI_STOP_SCRIPT" 2>/dev/null && comfyui_stopped=true
+fi
+
+# 2. Kill via PID file (in case the stop script didn't handle it)
+if [ -f "$PIDS_DIR/comfyui.pid" ]; then
+    comfyui_pid=$(cat "$PIDS_DIR/comfyui.pid" 2>/dev/null)
+    if [ -n "$comfyui_pid" ] && kill -0 "$comfyui_pid" 2>/dev/null; then
+        vader_info "Stopping ComfyUI (PID: $comfyui_pid)..."
+        kill -TERM "$comfyui_pid" 2>/dev/null
+        sleep 2
+        if kill -0 "$comfyui_pid" 2>/dev/null; then
+            vader_warn "ComfyUI still running, using SIGKILL..."
+            kill -KILL "$comfyui_pid" 2>/dev/null
+            sleep 1
+        fi
+        if ! kill -0 "$comfyui_pid" 2>/dev/null; then
+            vader_success "ComfyUI stopped (PID: $comfyui_pid)"
+            comfyui_stopped=true
+        else
+            vader_error "Failed to stop ComfyUI (PID: $comfyui_pid)"
+        fi
+    fi
+    rm -f "$PIDS_DIR/comfyui.pid"
+fi
+
+# 3. Kill any remaining process on port 8188 (ComfyUI default)
+if command -v lsof >/dev/null 2>&1; then
+    port_8188_pids=$(lsof -i TCP:8188 -sTCP:LISTEN -t 2>/dev/null)
+    if [ -n "$port_8188_pids" ]; then
+        for pid in $port_8188_pids; do
+            vader_info "Killing orphaned ComfyUI process on port 8188 (PID: $pid)..."
+            kill -TERM "$pid" 2>/dev/null
+            sleep 1
+            if kill -0 "$pid" 2>/dev/null; then
+                kill -KILL "$pid" 2>/dev/null
+            fi
+            comfyui_stopped=true
+        done
+    fi
+fi
+
+if [ "$comfyui_stopped" = true ]; then
+    vader_success "ComfyUI shutdown complete."
+else
+    vader_info "ComfyUI was not running."
+fi
+
+# ── Stop orphaned ollama serve processes (not the systemd service) ──
+vader_info "Checking for orphaned ollama serve processes..."
+ollama_serve_pids=$(pgrep -f "ollama serve" 2>/dev/null)
+if [ -n "$ollama_serve_pids" ]; then
+    ollama_killed=0
+    for pid in $ollama_serve_pids; do
+        # Skip if owned by systemd (PPID 1 with systemd unit)
+        ppid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+        unit=$(ps -o unit= -p "$pid" 2>/dev/null | tr -d ' ' 2>/dev/null || true)
+        if [ "$unit" = "ollama.service" ] || [ "$unit" = "ollama" ]; then
+            vader_info "Skipping systemd-managed ollama (PID: $pid)"
+            continue
+        fi
+        vader_info "Killing orphaned ollama serve (PID: $pid, PPID: $ppid)..."
+        kill -TERM "$pid" 2>/dev/null
+        sleep 1
+        if kill -0 "$pid" 2>/dev/null; then
+            kill -KILL "$pid" 2>/dev/null
+        fi
+        ollama_killed=$((ollama_killed + 1))
+    done
+    if [ "$ollama_killed" -gt 0 ]; then
+        vader_success "Stopped $ollama_killed orphaned ollama serve process(es)."
+    else
+        vader_info "No orphaned ollama serve processes found."
+    fi
+else
+    vader_info "No orphaned ollama serve processes found."
+fi
+
+# ── Stop Guaardvark services ──
 kill_and_cleanup "backend"
-kill_and_cleanup "frontend" 
+kill_and_cleanup "frontend"
 kill_and_cleanup "celery"
 
 vader_info "Cleaning up any remaining processes from this environment..."
@@ -162,16 +249,6 @@ if [ -f "$RUNTIME_FILE" ]; then
     else
         rm -f "$RUNTIME_FILE"
     fi
-fi
-
-# ── Stop ComfyUI if running ──
-if [ -f "$SCRIPT_DIR/pids/comfyui.pid" ]; then
-    comfyui_pid=$(cat "$SCRIPT_DIR/pids/comfyui.pid" 2>/dev/null)
-    if [ -n "$comfyui_pid" ] && kill -0 "$comfyui_pid" 2>/dev/null; then
-        kill -15 "$comfyui_pid" 2>/dev/null
-        vader_success "Stopped ComfyUI (PID: $comfyui_pid)"
-    fi
-    rm -f "$SCRIPT_DIR/pids/comfyui.pid"
 fi
 
 vader_success "All Guaardvark services stopped"
