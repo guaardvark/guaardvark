@@ -56,6 +56,7 @@ import {
   Close as CloseIcon,
   CheckCircle as CheckCircleIcon,
   Add as AddIcon,
+  OpenInNew as OpenInNewIcon,
 } from "@mui/icons-material";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
@@ -1195,6 +1196,15 @@ const VideoGeneratorPage = () => {
                   sx={{ mt: 1, textTransform: "none" }}
                 >
                   Manage Video Models
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<OpenInNewIcon />}
+                  onClick={() => window.open('http://localhost:8188', '_blank')}
+                  sx={{ mt: 1, ml: 1, textTransform: "none" }}
+                >
+                  Advanced Editor
                 </Button>
               </Grid>
 
