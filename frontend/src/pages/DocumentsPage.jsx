@@ -2098,8 +2098,15 @@ const DocumentsPage = () => {
                     }}
                     onDoubleClick={(e) => {
                       e.stopPropagation();
-                      // Open file (could trigger download or open in viewer)
-                      window.open(`${API_BASE}/document/${file.id}/download`, '_blank');
+                      const filename = file.filename || file.name || '';
+                      if (isImageFile(filename)) {
+                        // Open image in viewer/editor
+                        const imageUrl = `${API_BASE}/document/${file.id}/download?v=${file.updated_at || Date.now()}`;
+                        setLightbox({ url: imageUrl, name: filename, documentId: file.id, editMode: false });
+                      } else {
+                        // Download non-image files
+                        window.open(`${API_BASE}/document/${file.id}/download`, '_blank');
+                      }
                     }}
                     onContextMenu={(e) => handleContextMenu(e, file, 'file')}
                     sx={{ p: 2, textAlign: 'center' }}

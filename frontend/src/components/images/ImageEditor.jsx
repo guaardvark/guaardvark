@@ -383,6 +383,8 @@ const ImageEditor = ({
                 setZoom(1);
                 setPan({ x: 0, y: 0 });
                 setRotation(0);
+                // Set initial crop selection (centered 80%)
+                setCrop({ unit: '%', x: 10, y: 10, width: 80, height: 80 });
               }
             }}
             sx={{ color: cropMode ? '#4CAF50' : 'white' }}
