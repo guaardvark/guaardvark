@@ -1671,7 +1671,19 @@ def upload_images():
             shutil.rmtree(batch_dir)
             return error_response("No valid image files uploaded", 400)
 
-        # Create metadata
+        # Create metadata — use "results" key so the status endpoint can find them
+        results = [
+            {
+                "prompt_id": f["filename"],
+                "success": True,
+                "image_path": f["image_path"],
+                "thumbnail_path": f.get("thumbnail_path"),
+                "generation_time": 0.0,
+                "error": None,
+                "metadata": {},
+            }
+            for f in uploaded_files
+        ]
         metadata = {
             "batch_id": batch_id,
             "display_name": f"Uploaded Images - {datetime.now().strftime('%Y-%m-%d %H:%M')}",
@@ -1682,7 +1694,7 @@ def upload_images():
             "start_time": datetime.now().isoformat(),
             "end_time": datetime.now().isoformat(),
             "type": "upload",
-            "uploaded_files": uploaded_files
+            "results": results,
         }
 
         metadata_file = batch_dir / "batch_metadata.json"
