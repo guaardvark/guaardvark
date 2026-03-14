@@ -1,6 +1,6 @@
 # Guaardvark
 
-**Version 2.5.0** · [guaardvark.com](https://guaardvark.com)
+**Version 2.5.1** · [guaardvark.com](https://guaardvark.com)
 
 A self-hosted AI platform that runs entirely on your hardware. Chat with your documents using RAG, generate images and video, manage files with a desktop-style UI, run autonomous code agents, self-improve with automated testing, sync across machines, and talk to your AI with voice — all through one unified interface backed by local LLMs via Ollama.
 
@@ -55,9 +55,20 @@ A self-hosted AI platform that runs entirely on your hardware. Chat with your do
 - **Codebase protection** — Lock switch prevents self-improvement from modifying code during development
 - **Cross-machine learning** — Fixes are broadcast to other Guaardvark instances via the Interconnector
 
-### Generation
-- **Batch image generation** — Stable Diffusion via Diffusers with queue management and automatic file system registration
-- **Video generation** — CogVideoX via ComfyUI integration
+### Video Generation
+- **State-of-the-art models** — Wan2.2 14B MoE (two-pass HighNoise/LowNoise), CogVideoX 2B/5B, Stable Video Diffusion — all running locally via ComfyUI
+- **Text-to-Video and Image-to-Video** — generate video from text prompts or animate still images with motion direction control
+- **Quality tiers** — Draft (raw output), Standard (2x FPS interpolation via RIFE 4.9), Cinema (2x FPS + 2x Real-ESRGAN upscaling)
+- **Prompt enhancement** — five styles (Cinematic, Realistic, Artistic, Anime, None) automatically enrich prompts for better output
+- **Advanced Editor** — one-click launch to ComfyUI's node editor, themed to match the Guaardvark UI, for full workflow customization
+- **Model management** — download Wan2.2 GGUF checkpoints, CogVideoX weights, RIFE, and Real-ESRGAN models from HuggingFace with real-time progress bars
+
+### Image Generation
+- **Stable Diffusion** via Diffusers library — runs directly on your GPU with batch queue management
+- **Auto-registration** — generated images are automatically added to the Documents/Files system under `/Images/`
+- **Image library** — dedicated page with thumbnail grid, lightbox preview, keyboard navigation, batch operations
+
+### Content Pipelines
 - **Bulk content pipelines** — CSV/XML generation for content at scale
 - **WordPress integration** — Pull content from WordPress sites, generate at scale, sync back
 
@@ -82,11 +93,15 @@ A self-hosted AI platform that runs entirely on your hardware. Chat with your do
 - **Learning broadcast** — Self-improvement fixes propagate to all family members
 - **Node management** — Master/client architecture with approval workflows
 
+### Plugin System & GPU Management
+- **Plugin-managed GPU services** — Ollama, ComfyUI, and GPU Embedding run as managed plugins with start/stop controls, health checks, and per-plugin log viewers
+- **VRAM budget bar** — live nvidia-smi monitoring shows real-time VRAM usage, GPU utilization %, temperature, and per-plugin estimated allocation
+- **GPU conflict detection** — exclusive-access plugins (Ollama vs ComfyUI) are auto-switched to prevent VRAM collisions
+- **Model download management** — VideoModelsModal, ImageModelsModal, and VoiceModelsModal let you download models from HuggingFace with real-time progress tracking, accessible from Settings
+
 ### System
 - **Dashboard** — Live status cards for model health, self-improvement, RAG autoresearch, GPU resources
-- **GPU resource monitoring** — Real-time VRAM usage bar with loaded model indicators
 - **Celery task system** — Background processing for long-running operations with live progress tracking
-- **Plugin system** — Drop-in extensions loaded at startup from `plugins/`
 - **Four built-in themes** — Default, Musk, Hacker, Vader (all dark) with accent-colored UI
 - **Profile customization** — Per-instance nickname and avatar image
 - **CLI (`llx`)** — Full platform access via terminal with interactive REPL
@@ -143,17 +158,18 @@ First run requires your system password once (to set up PostgreSQL). After that,
 | FFmpeg | any | Auto-installed for voice processing |
 | Ollama | latest | Local LLM inference |
 | CUDA GPU | — | Optional; accelerates generation and embeddings |
+| ComfyUI | latest | Auto-managed plugin for video/image generation |
 
 **Recommended hardware:**
 - 16GB+ RAM
-- NVIDIA GPU with 8GB+ VRAM (for image generation and larger models)
+- NVIDIA GPU with 16GB VRAM (recommended for Wan2.2 video generation; 8GB minimum for image generation and smaller models)
 - SSD for vector store performance
 
 ---
 
 ## Technology Stack
 
-**Backend:** Flask 3.0 · SQLAlchemy + PostgreSQL · Celery + Redis · LlamaIndex + Ollama · PyTorch · Diffusers · Whisper.cpp · Piper TTS · Ariadne (GraphQL)
+**Backend:** Flask 3.0 · SQLAlchemy + PostgreSQL · Celery + Redis · LlamaIndex + Ollama · PyTorch · Diffusers · ComfyUI (Wan2.2, CogVideoX, RIFE, Real-ESRGAN) · Whisper.cpp · Piper TTS · Ariadne (GraphQL)
 
 **Frontend:** React 18 · Vite · Material-UI v5 · Zustand · Apollo Client · Monaco Editor · Socket.IO
 
@@ -190,6 +206,7 @@ PostgreSQL  Celery+Redis  Ollama/GPU
 - **Agent task:** Message -> ReACT loop -> tool calls (read/edit/execute code) -> iterative refinement -> verification
 - **Self-check:** Trigger -> pytest run -> parse failures -> agent fix attempts -> broadcast learnings
 - **Image generation:** Prompt -> Celery job -> Diffusers GPU pipeline -> auto-register to file system
+- **Video generation:** Prompt -> enhance (style suffix) -> ComfyUI workflow (Wan2.2/CogVideoX) -> RIFE interpolation -> Real-ESRGAN upscale -> output
 - **File indexing:** Upload -> parse -> chunk (content-aware) -> embed -> LlamaIndex vector store
 
 ---
@@ -218,7 +235,7 @@ guaardvark/
 |   |   \-- api/        # 39 API service modules
 |   \-- dist/           # Production build
 |-- cli/                # llx CLI tool
-|-- plugins/            # Plugin extensions
+|-- plugins/            # GPU service plugins (ollama, comfyui, gpu_embedding)
 |-- scripts/            # Utilities and system manager
 |-- data/               # Runtime data (gitignored)
 \-- start.sh / stop.sh  # Service management
