@@ -9,6 +9,7 @@ environments.
 
 import json
 import logging
+import subprocess
 import threading
 import uuid
 import shutil
@@ -117,6 +118,30 @@ class BatchVideoGenerator:
         self.service_available = self.video_generator.service_available
         _get_video_logger()  # Initialize dedicated log file
         logger.info(f"BatchVideoGenerator initialized - Service available: {self.service_available}")
+
+    @staticmethod
+    def _extract_thumbnail(video_path: Path, thumbnail_path: Path) -> bool:
+        """Extract the first frame from a video as a JPEG thumbnail using ffmpeg."""
+        try:
+            thumbnail_path.parent.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                [
+                    "ffmpeg", "-i", str(video_path),
+                    "-vf", "select=eq(n\\,0)",
+                    "-frames:v", "1",
+                    "-q:v", "2",
+                    "-y", str(thumbnail_path),
+                ],
+                capture_output=True,
+                timeout=30,
+            )
+            if thumbnail_path.exists() and thumbnail_path.stat().st_size > 0:
+                logger.info(f"Extracted thumbnail: {thumbnail_path}")
+                return True
+            return False
+        except Exception as e:
+            logger.warning(f"Failed to extract thumbnail: {e}")
+            return False
 
     def _get_batch_dir(self, batch_id: str) -> Path:
         return self.base_output_dir / batch_id
@@ -328,6 +353,30 @@ class BatchVideoGenerator:
                     BatchVideoResult(**res)
                     for res in data.get("results", [])
                 ]
+                # Retroactively extract thumbnails for results that have videos but no thumbnail
+                metadata_changed = False
+                for res in results:
+                    if res.video_path and not res.thumbnail_path:
+                        video_file = batch_dir / res.video_path
+                        if video_file.exists() and video_file.suffix.lower() in (".mp4", ".webm", ".avi", ".mov"):
+                            thumb_filename = video_file.stem + "_thumb.jpg"
+                            # Place thumbnail in a thumbnails subdir next to the video
+                            thumbs_dir = video_file.parent.parent / "thumbnails"
+                            thumb_path = thumbs_dir / thumb_filename
+                            if self._extract_thumbnail(video_file, thumb_path):
+                                res.thumbnail_path = str(thumb_path.relative_to(batch_dir))
+                                metadata_changed = True
+                if metadata_changed:
+                    # Persist the updated thumbnail paths back to metadata
+                    try:
+                        for i, res in enumerate(results):
+                            if res.thumbnail_path and i < len(data.get("results", [])):
+                                data["results"][i]["thumbnail_path"] = res.thumbnail_path
+                        with open(metadata_file, "w") as f:
+                            json.dump(data, f, indent=2)
+                    except Exception:
+                        pass  # Best effort
+
                 start_time = datetime.fromisoformat(data["start_time"]) if data.get("start_time") else None
                 end_time = datetime.fromisoformat(data["end_time"]) if data.get("end_time") else None
                 return BatchVideoStatus(
