@@ -111,34 +111,79 @@ else
     vader_info "ComfyUI was not running."
 fi
 
-# ── Stop orphaned ollama serve processes (not the systemd service) ──
-vader_info "Checking for orphaned ollama serve processes..."
+# ── Stop Ollama (PID file → user processes → systemd → port cleanup) ──
+vader_info "Stopping Ollama..."
+ollama_killed=0
+
+# 1. Kill by PID file first
+OLLAMA_PID_FILE="$PIDS_DIR/ollama.pid"
+if [ -f "$OLLAMA_PID_FILE" ]; then
+    OLLAMA_PID=$(cat "$OLLAMA_PID_FILE" 2>/dev/null)
+    if [ -n "$OLLAMA_PID" ] && kill -0 "$OLLAMA_PID" 2>/dev/null; then
+        vader_info "Stopping Ollama via PID file (PID: $OLLAMA_PID)..."
+        kill -TERM "$OLLAMA_PID" 2>/dev/null
+        sleep 2
+        if kill -0 "$OLLAMA_PID" 2>/dev/null; then
+            kill -KILL "$OLLAMA_PID" 2>/dev/null
+            sleep 1
+        fi
+        if ! kill -0 "$OLLAMA_PID" 2>/dev/null; then
+            ollama_killed=$((ollama_killed + 1))
+        fi
+    fi
+    rm -f "$OLLAMA_PID_FILE"
+fi
+
+# 2. Kill any 'ollama serve' process owned by the current user (NOT the systemd 'ollama' user)
+CURRENT_USER=$(whoami)
 ollama_serve_pids=$(pgrep -f "ollama serve" 2>/dev/null)
 if [ -n "$ollama_serve_pids" ]; then
-    ollama_killed=0
     for pid in $ollama_serve_pids; do
-        # Skip if owned by systemd (PPID 1 with systemd unit)
-        ppid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
-        unit=$(ps -o unit= -p "$pid" 2>/dev/null | tr -d ' ' 2>/dev/null || true)
-        if [ "$unit" = "ollama.service" ] || [ "$unit" = "ollama" ]; then
-            vader_info "Skipping systemd-managed ollama (PID: $pid)"
-            continue
+        # Check process owner — only kill our own user's processes
+        proc_owner=$(ps -o user= -p "$pid" 2>/dev/null | tr -d ' ')
+        if [ "$proc_owner" = "$CURRENT_USER" ]; then
+            vader_info "Killing user-owned ollama serve (PID: $pid, owner: $proc_owner)..."
+            kill -TERM "$pid" 2>/dev/null
+            sleep 1
+            if kill -0 "$pid" 2>/dev/null; then
+                kill -KILL "$pid" 2>/dev/null
+            fi
+            ollama_killed=$((ollama_killed + 1))
         fi
-        vader_info "Killing orphaned ollama serve (PID: $pid, PPID: $ppid)..."
-        kill -TERM "$pid" 2>/dev/null
-        sleep 1
-        if kill -0 "$pid" 2>/dev/null; then
-            kill -KILL "$pid" 2>/dev/null
-        fi
-        ollama_killed=$((ollama_killed + 1))
     done
-    if [ "$ollama_killed" -gt 0 ]; then
-        vader_success "Stopped $ollama_killed orphaned ollama serve process(es)."
-    else
-        vader_info "No orphaned ollama serve processes found."
+fi
+
+# 3. Try stopping the systemd service (passwordless if sudoers rule exists)
+if command -v systemctl >/dev/null 2>&1; then
+    if sudo -n systemctl stop ollama 2>/dev/null; then
+        vader_info "Stopped Ollama systemd service"
+        ollama_killed=$((ollama_killed + 1))
     fi
+fi
+
+# 4. Final check — if port 11434 is still occupied, kill whatever is holding it
+if command -v lsof >/dev/null 2>&1; then
+    port_11434_pids=$(lsof -i TCP:11434 -sTCP:LISTEN -t 2>/dev/null)
+    if [ -n "$port_11434_pids" ]; then
+        for pid in $port_11434_pids; do
+            # Only kill if it doesn't respond to health check (zombie)
+            if ! curl -sf --max-time 2 http://localhost:11434/ >/dev/null 2>&1; then
+                vader_info "Killing unresponsive process on port 11434 (PID: $pid)..."
+                kill -TERM "$pid" 2>/dev/null
+                sleep 1
+                if kill -0 "$pid" 2>/dev/null; then
+                    kill -KILL "$pid" 2>/dev/null
+                fi
+                ollama_killed=$((ollama_killed + 1))
+            fi
+        done
+    fi
+fi
+
+if [ "$ollama_killed" -gt 0 ]; then
+    vader_success "Ollama stopped ($ollama_killed action(s) taken)."
 else
-    vader_info "No orphaned ollama serve processes found."
+    vader_info "Ollama was not running (or managed externally)."
 fi
 
 # ── Stop Guaardvark services ──

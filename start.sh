@@ -1081,11 +1081,39 @@ fi
 vader_separator
 
 vader_step 4 "Ensuring Ollama service is running..."
+
+# Set up passwordless Ollama control (one-time, during first-run setup)
+# This runs alongside the first-run setup phase so sudo is already expected
+OLLAMA_SUDOERS="/etc/sudoers.d/ollama-guaardvark"
+if [ "$OLLAMA_AVAILABLE" -eq 1 ] && [ ! -f "$OLLAMA_SUDOERS" ]; then
+    OLLAMA_BIN=$(command -v ollama 2>/dev/null)
+    SYSTEMCTL_BIN=$(command -v systemctl 2>/dev/null)
+    if [ -n "$SYSTEMCTL_BIN" ] && [ -f "/etc/systemd/system/ollama.service" ]; then
+        vader_info "Setting up passwordless Ollama control (one-time)..."
+        CURRENT_USER=$(whoami)
+        SUDOERS_LINE="$CURRENT_USER ALL=(ALL) NOPASSWD: $SYSTEMCTL_BIN start ollama, $SYSTEMCTL_BIN stop ollama, $SYSTEMCTL_BIN restart ollama, $SYSTEMCTL_BIN status ollama, $SYSTEMCTL_BIN is-active ollama"
+        echo "$SUDOERS_LINE" | sudo tee "$OLLAMA_SUDOERS" > /dev/null 2>&1
+        if [ -f "$OLLAMA_SUDOERS" ]; then
+            sudo chmod 440 "$OLLAMA_SUDOERS" 2>/dev/null
+            # Validate the sudoers file syntax
+            if sudo visudo -c -f "$OLLAMA_SUDOERS" >/dev/null 2>&1; then
+                vader_success "Ollama passwordless control configured"
+            else
+                vader_warn "Sudoers syntax invalid, removing..."
+                sudo rm -f "$OLLAMA_SUDOERS" 2>/dev/null
+            fi
+        else
+            vader_info "Could not set up passwordless Ollama (non-critical, will use direct process)"
+        fi
+    fi
+fi
+
 if [ "$OLLAMA_AVAILABLE" -eq 1 ]; then
+    # Step 1: Check if already running
     if curl -sf --max-time 3 http://localhost:11434/ >/dev/null 2>&1; then
         vader_success "Ollama service is already active"
     else
-        # Kill any zombie process holding the port but not responding
+        # Step 2: Kill any zombie process holding the port but not responding
         OLLAMA_ZOMBIE_PID=$(lsof -ti :11434 2>/dev/null | head -1)
         if [ -n "$OLLAMA_ZOMBIE_PID" ]; then
             vader_info "Killing unresponsive process on port 11434 (PID: $OLLAMA_ZOMBIE_PID)..."
@@ -1096,37 +1124,41 @@ if [ "$OLLAMA_AVAILABLE" -eq 1 ]; then
         vader_info "Starting Ollama service..."
         OLLAMA_STARTED=0
 
-        # Try 1: systemctl (system-level via sudo, then user-level)
-        if command_exists "systemctl"; then
-            if start_service "$OLLAMA_SERVICE_NAME"; then
-                for _i in {1..5}; do
-                    sleep 2
-                    if curl -sf --max-time 3 http://localhost:11434/ >/dev/null 2>&1; then
-                        OLLAMA_STARTED=1
-                        vader_success "Ollama service started (systemctl)"
-                        break
-                    fi
-                done
-            fi
-        fi
-
-        # Try 2: direct ollama serve (fallback when systemctl fails — e.g. no passwordless sudo)
-        if [ "$OLLAMA_STARTED" -eq 0 ]; then
-            vader_info "systemctl failed, starting Ollama directly..."
-            nohup ollama serve > "$LOGS_DIR/ollama_serve.log" 2>&1 &
+        # Step 3: Try sudo systemctl start ollama (works if sudoers rule exists)
+        if command_exists "systemctl" && sudo -n systemctl start ollama >> "$BACKEND_STARTUP_LOG_FILE" 2>&1; then
             for _i in {1..5}; do
                 sleep 2
                 if curl -sf --max-time 3 http://localhost:11434/ >/dev/null 2>&1; then
                     OLLAMA_STARTED=1
-                    vader_success "Ollama process started (direct)"
+                    vader_success "Ollama service started (systemctl)"
                     break
                 fi
             done
         fi
 
+        # Step 4: Fallback — run ollama serve as user process with PID tracking
+        if [ "$OLLAMA_STARTED" -eq 0 ]; then
+            vader_info "systemctl failed, starting Ollama directly..."
+            nohup ollama serve > "$LOGS_DIR/ollama_serve.log" 2>&1 &
+            OLLAMA_PID=$!
+            mkdir -p "$SCRIPT_DIR/pids"
+            echo "$OLLAMA_PID" > "$SCRIPT_DIR/pids/ollama.pid"
+            for _i in {1..8}; do
+                sleep 2
+                if curl -sf --max-time 3 http://localhost:11434/ >/dev/null 2>&1; then
+                    OLLAMA_STARTED=1
+                    vader_success "Ollama process started (direct, PID: $OLLAMA_PID)"
+                    break
+                fi
+            done
+        fi
+
+        # Step 5: Non-fatal failure
         if [ "$OLLAMA_STARTED" -eq 0 ]; then
             vader_warn "Ollama failed to start (non-critical). Chat/RAG features will be unavailable."
             vader_info "Check $LOGS_DIR/ollama_serve.log or start manually: ollama serve"
+            # Clean up PID file if the process didn't respond
+            rm -f "$SCRIPT_DIR/pids/ollama.pid" 2>/dev/null
         fi
     fi
 else
