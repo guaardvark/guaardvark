@@ -2274,6 +2274,14 @@ const DocumentsPage = () => {
         onEdit={handleEditImage}
         onColorChange={handleColorChange}
         onIndex={handleIndex}
+        onOpenWindow={contextMenuItem && contextMenuType === 'folder' ? () => {
+          const win = windows.find(w => w.folderId === contextMenuItem.id);
+          if (win) {
+            handleFolderExpand(win.id);
+          }
+          setContextMenu(null);
+          setContextMenuItem(null);
+        } : undefined}
         isImage={contextMenuItem && contextMenuType === 'file' && isImageFile(contextMenuItem.filename || contextMenuItem.name || '')}
         hasClipboard={Boolean(clipboard)}
         hasSelection={selectedItems.size > 0}

@@ -22,6 +22,7 @@ const DocumentsContextMenu = ({
   onEdit,
   onColorChange,
   onIndex,
+  onOpenWindow,
   hasClipboard = false,
   hasSelection = false,
   contextType = 'desktop', // 'desktop', 'folder', 'file'
@@ -97,6 +98,8 @@ const DocumentsContextMenu = ({
         }
         sx={menuStyles}
       >
+        {onOpenWindow && <MenuItem onClick={onOpenWindow}>Open in Window</MenuItem>}
+        {onOpenWindow && <Divider />}
         {onCut && <MenuItem onClick={onCut}>Cut</MenuItem>}
         {onCopy && <MenuItem onClick={onCopy}>Copy</MenuItem>}
         <MenuItem onClick={onPaste} disabled={!hasClipboard}>Paste</MenuItem>
