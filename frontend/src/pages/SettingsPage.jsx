@@ -81,6 +81,7 @@ import RebootProgressModal from "../components/modals/RebootProgressModal";
 import RAGDebugSection from "../components/settings/RAGDebugSection";
 import ImageModelsModal from "../components/modals/ImageModelsModal";
 import VideoModelsModal from "../components/modals/VideoModelsModal";
+import VoiceModelsModal from "../components/modals/VoiceModelsModal";
 import AgentsSettingsModal from "../components/modals/AgentsSettingsModal";
 import InterconnectorSettingsModal from "../components/modals/InterconnectorSettingsModal";
 import VoiceSettingsModal from "../components/modals/VoiceSettingsModal";
@@ -272,6 +273,7 @@ const SettingsPage = () => {
   const [rebootProgressModalOpen, setRebootProgressModalOpen] = useState(false);
   const [imageModelsModalOpen, setImageModelsModalOpen] = useState(false);
   const [videoModelsModalOpen, setVideoModelsModalOpen] = useState(false);
+  const [voiceModelsModalOpen, setVoiceModelsModalOpen] = useState(false);
   const [imageGenStatus, setImageGenStatus] = useState(null);
 
   // Resource monitor and embedding model state
@@ -2448,6 +2450,9 @@ const SettingsPage = () => {
                   <Button variant="outlined" size="small" onClick={() => setVideoModelsModalOpen(true)}>
                     Video Models
                   </Button>
+                  <Button variant="outlined" size="small" onClick={() => setVoiceModelsModalOpen(true)}>
+                    Voice Models
+                  </Button>
                 </Box>
               </SettingsRow>
               {/* Agent Routing and Unified Agentic Chat toggles removed — always enabled */}
@@ -2775,6 +2780,11 @@ const SettingsPage = () => {
       <VideoModelsModal
         open={videoModelsModalOpen}
         onClose={() => setVideoModelsModalOpen(false)}
+        showMessage={showMessage}
+      />
+      <VoiceModelsModal
+        open={voiceModelsModalOpen}
+        onClose={() => setVoiceModelsModalOpen(false)}
         showMessage={showMessage}
       />
     </PageLayout>

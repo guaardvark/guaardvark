@@ -16,6 +16,7 @@ from typing import Dict, Any, List, Optional, Tuple
 from flask import Blueprint, current_app, jsonify, request, send_file, Response, stream_with_context
 from werkzeug.utils import secure_filename
 from datetime import datetime
+import time
 import threading
 
 logger = logging.getLogger(__name__)
@@ -70,9 +71,28 @@ model_download_status = {
     "current_model": None,
     "progress": 0,
     "status": "idle",
-    "error": None
+    "error": None,
+    "speed_mbps": 0,
+    "downloaded_gb": 0,
+    "total_gb": 0,
 }
 model_download_lock = threading.Lock()
+
+# Approximate model sizes in GB (HuggingFace repo total)
+IMAGE_MODEL_SIZES = {
+    "runwayml/stable-diffusion-v1-5": 4.3,
+    "stabilityai/stable-diffusion-2-1": 5.2,
+    "stabilityai/stable-diffusion-xl-base-1.0": 6.9,
+    "dreamlike-art/dreamlike-photoreal-2.0": 2.1,
+    "XpucT/Deliberate": 2.1,
+    "SG161222/Realistic_Vision_V5.1_noVAE": 2.1,
+    "emilianJR/epiCRealism": 2.1,
+    "stabilityai/sd-turbo": 3.4,
+    "stabilityai/sdxl-turbo": 6.9,
+    "prompthero/openjourney": 2.1,
+    "wavymulder/Analog-Diffusion": 2.1,
+    "Linaqruf/anything-v3.0": 2.1,
+}
 
 def _validate_csv_upload(file):
     """Validate uploaded CSV file."""
@@ -260,7 +280,8 @@ def list_models():
                 "id": model_id,
                 "path": model_path,
                 "is_downloaded": is_downloaded,
-                "name": model_id.replace('-', ' ').title()
+                "name": model_id.replace('-', ' ').title(),
+                "size_gb": IMAGE_MODEL_SIZES.get(model_path, 2.5),
             })
             
         return success_response({
@@ -275,9 +296,9 @@ def list_models():
 
 @batch_image_bp.route("/models/download", methods=["POST"])
 def download_model():
-    """Start downloading a specific model."""
+    """Start downloading a specific model with real-time file size progress monitoring."""
     global model_download_status
-    
+
     try:
         if not service_available:
             return error_response("Batch image generation service not available", 503)
@@ -288,51 +309,111 @@ def download_model():
 
         model_path = data['model_path']
         generator = get_batch_image_generator()
-        
+
         if not generator.image_generator:
             return error_response("Image generator not initialized", 503)
+
+        estimated_size_gb = IMAGE_MODEL_SIZES.get(model_path, 2.5)
 
         with model_download_lock:
             if model_download_status["is_downloading"]:
                 return error_response(f"Already downloading model: {model_download_status['current_model']}", 409)
-            
+
             model_download_status = {
                 "is_downloading": True,
                 "current_model": model_path,
                 "progress": 0,
                 "status": "starting",
-                "error": None
+                "error": None,
+                "speed_mbps": 0,
+                "downloaded_gb": 0,
+                "total_gb": estimated_size_gb,
             }
 
-        def download_task(model_path):
+        def download_task(model_path, total_gb):
+            _start_time = time.time()
+            total_bytes = int(total_gb * 1024**3)
+
             try:
                 with model_download_lock:
                     model_download_status["status"] = "downloading"
-                    model_download_status["progress"] = 10
-                
-                # The actual download via diffusers might take a while
-                success = generator.image_generator._download_model(model_path)
-                
+
+                # Monitor download progress by watching file sizes on disk
+                stop_monitor = threading.Event()
+
+                def _monitor_progress():
+                    while not stop_monitor.is_set():
+                        try:
+                            downloaded = 0
+                            # Check HF cache for .incomplete files (active downloads)
+                            cache_dir = Path.home() / ".cache" / "huggingface" / "hub"
+                            if cache_dir.exists():
+                                for f in cache_dir.rglob("*.incomplete"):
+                                    try:
+                                        downloaded += f.stat().st_size
+                                    except OSError:
+                                        pass
+                            # Check target model directory for completed files
+                            target_dir = generator.image_generator._get_model_path(model_path)
+                            if target_dir.exists():
+                                for f in target_dir.rglob("*"):
+                                    if f.is_file():
+                                        try:
+                                            downloaded += f.stat().st_size
+                                        except OSError:
+                                            pass
+
+                            elapsed = time.time() - _start_time
+                            speed = (downloaded / (1024 * 1024)) / max(elapsed, 0.1)
+                            pct = min(int((downloaded / max(total_bytes, 1)) * 100), 99)
+
+                            with model_download_lock:
+                                model_download_status.update({
+                                    "progress": pct,
+                                    "speed_mbps": round(speed, 1),
+                                    "downloaded_gb": round(downloaded / 1024**3, 2),
+                                })
+                        except Exception:
+                            pass
+                        stop_monitor.wait(1.0)
+
+                monitor_thread = threading.Thread(target=_monitor_progress, daemon=True)
+                monitor_thread.start()
+
+                try:
+                    success = generator.image_generator._download_model(model_path)
+                finally:
+                    stop_monitor.set()
+                    monitor_thread.join(timeout=2)
+
                 with model_download_lock:
                     if success:
-                        model_download_status["status"] = "completed"
-                        model_download_status["progress"] = 100
+                        model_download_status.update({
+                            "status": "completed",
+                            "progress": 100,
+                            "downloaded_gb": total_gb,
+                            "total_gb": total_gb,
+                        })
                     else:
-                        model_download_status["status"] = "failed"
-                        model_download_status["error"] = "Failed to download model"
-                        model_download_status["progress"] = 0
+                        model_download_status.update({
+                            "status": "failed",
+                            "error": "Failed to download model",
+                            "progress": 0,
+                        })
             except Exception as e:
                 logger.error(f"Error in model download thread: {e}")
                 with model_download_lock:
-                    model_download_status["status"] = "failed"
-                    model_download_status["error"] = str(e)
-                    model_download_status["progress"] = 0
+                    model_download_status.update({
+                        "status": "failed",
+                        "error": str(e),
+                        "progress": 0,
+                    })
             finally:
                 with model_download_lock:
                     model_download_status["is_downloading"] = False
 
         # Start download in background
-        thread = threading.Thread(target=download_task, args=(model_path,))
+        thread = threading.Thread(target=download_task, args=(model_path, estimated_size_gb))
         thread.daemon = True
         thread.start()
 

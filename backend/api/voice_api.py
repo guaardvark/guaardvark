@@ -24,6 +24,44 @@ voice_bp = Blueprint("voice_api", __name__, url_prefix="/api/voice")
 
 logger = logging.getLogger(__name__)
 
+# ── Voice Model Download Progress Tracking ───────────────────────────────
+_voice_download_lock = threading.Lock()
+_voice_download_status = {
+    "is_downloading": False,
+    "current_model": None,
+    "model_type": None,   # "piper" or "whisper"
+    "progress": 0,
+    "status": "idle",
+    "error": None,
+    "speed_mbps": 0,
+    "downloaded_mb": 0,
+    "total_mb": 0,
+}
+
+# Known Whisper model sizes in MB (ggml format)
+WHISPER_MODEL_SIZES_MB = {
+    "tiny": 75,
+    "tiny.en": 75,
+    "base": 142,
+    "base.en": 142,
+    "small": 466,
+    "small.en": 466,
+    "medium": 1500,
+    "medium.en": 1500,
+    "large": 2900,
+}
+
+# Piper TTS model sizes in MB (approximate)
+PIPER_MODEL_SIZES_MB = {
+    "kristin": 63,
+    "ryan": 85,
+    "amy": 63,
+    "joe": 63,
+    "lessac": 85,
+    "libritts": 85,
+    "ljspeech": 85,
+}
+
 def _test_ffmpeg_audio_encoding(ffmpeg_path: str) -> bool:
     """Test if an FFmpeg binary can actually encode audio (not just report version flags)."""
     try:
@@ -2003,6 +2041,294 @@ def get_voice_models_status():
             "success": False,
             "error": str(e)
         }), 500
+
+
+@voice_bp.route("/models/download-status", methods=["GET"])
+def get_voice_download_status():
+    """Get current voice model download progress."""
+    try:
+        with _voice_download_lock:
+            return success_response(_voice_download_status.copy())
+    except Exception as e:
+        logger.error(f"Error getting voice download status: {e}")
+        return error_response(str(e), 500)
+
+
+@voice_bp.route("/models/download", methods=["POST"])
+def download_voice_model():
+    """Start downloading a voice model (Piper TTS or Whisper STT) with progress monitoring."""
+    global _voice_download_status
+    try:
+        data = request.get_json() or {}
+        model_type = data.get("model_type")  # "piper" or "whisper"
+        model_id = data.get("model_id")
+
+        if not model_type or not model_id:
+            return error_response("model_type and model_id are required", 400)
+
+        if model_type == "piper" and model_id not in PIPER_VOICES:
+            return error_response(f"Unknown Piper voice: {model_id}", 400)
+        if model_type == "whisper" and model_id not in WHISPER_MODELS:
+            return error_response(f"Unknown Whisper model: {model_id}", 400)
+
+        with _voice_download_lock:
+            if _voice_download_status["is_downloading"]:
+                return error_response(
+                    f"Already downloading: {_voice_download_status['current_model']}", 409
+                )
+
+            if model_type == "piper":
+                total_mb = PIPER_MODEL_SIZES_MB.get(model_id, 70)
+                display_name = PIPER_VOICES.get(model_id, {}).get("name", model_id)
+            else:
+                total_mb = WHISPER_MODEL_SIZES_MB.get(model_id, 100)
+                display_name = WHISPER_MODELS.get(model_id, {}).get("name", model_id)
+
+            _voice_download_status = {
+                "is_downloading": True,
+                "current_model": model_id,
+                "model_type": model_type,
+                "progress": 0,
+                "status": "starting",
+                "error": None,
+                "speed_mbps": 0,
+                "downloaded_mb": 0,
+                "total_mb": total_mb,
+            }
+
+        def _download_task():
+            global _voice_download_status
+            _start_time = time.time()
+            backend_path = get_backend_path()
+            total_bytes = int(total_mb * 1024 * 1024)
+
+            try:
+                with _voice_download_lock:
+                    _voice_download_status["status"] = "downloading"
+
+                stop_monitor = threading.Event()
+
+                if model_type == "piper":
+                    voice_config = PIPER_VOICES[model_id]
+                    model_rel_path = voice_config["model"]
+                    target_path = os.path.join(backend_path, model_rel_path)
+                    target_dir = os.path.dirname(target_path)
+                    os.makedirs(target_dir, exist_ok=True)
+                    monitor_paths = [target_path, target_path + ".json"]
+                else:
+                    model_config = WHISPER_MODELS[model_id]
+                    target_path = os.path.join(backend_path, model_config["path"])
+                    target_dir = os.path.dirname(target_path)
+                    monitor_paths = [target_path]
+
+                def _monitor_progress():
+                    while not stop_monitor.is_set():
+                        try:
+                            downloaded = 0
+                            for fpath in monitor_paths:
+                                if os.path.exists(fpath):
+                                    try:
+                                        downloaded += os.path.getsize(fpath)
+                                    except OSError:
+                                        pass
+                            # Also check for partial download files (.tmp, .incomplete)
+                            if os.path.isdir(target_dir):
+                                for fname in os.listdir(target_dir):
+                                    full = os.path.join(target_dir, fname)
+                                    if fname.endswith(('.tmp', '.incomplete', '.part')):
+                                        try:
+                                            downloaded += os.path.getsize(full)
+                                        except OSError:
+                                            pass
+
+                            elapsed = time.time() - _start_time
+                            speed = (downloaded / (1024 * 1024)) / max(elapsed, 0.1)
+                            pct = min(int((downloaded / max(total_bytes, 1)) * 100), 99)
+
+                            with _voice_download_lock:
+                                _voice_download_status.update({
+                                    "progress": pct,
+                                    "speed_mbps": round(speed, 1),
+                                    "downloaded_mb": round(downloaded / (1024 * 1024), 1),
+                                })
+                        except Exception:
+                            pass
+                        stop_monitor.wait(1.0)
+
+                monitor_thread = threading.Thread(target=_monitor_progress, daemon=True)
+                monitor_thread.start()
+
+                try:
+                    if model_type == "piper":
+                        _do_piper_download(backend_path, model_id, PIPER_VOICES[model_id])
+                    else:
+                        _do_whisper_download(backend_path, model_id, WHISPER_MODELS[model_id])
+                finally:
+                    stop_monitor.set()
+                    monitor_thread.join(timeout=2)
+
+                with _voice_download_lock:
+                    _voice_download_status.update({
+                        "status": "completed",
+                        "progress": 100,
+                        "downloaded_mb": total_mb,
+                        "total_mb": total_mb,
+                    })
+                logger.info(f"Voice model downloaded: {model_type}/{model_id}")
+
+            except Exception as e:
+                logger.error(f"Voice model download failed: {e}", exc_info=True)
+                with _voice_download_lock:
+                    _voice_download_status.update({
+                        "status": "failed",
+                        "error": str(e),
+                        "progress": 0,
+                    })
+            finally:
+                with _voice_download_lock:
+                    _voice_download_status["is_downloading"] = False
+
+        thread = threading.Thread(target=_download_task, daemon=True)
+        thread.start()
+
+        return success_response({
+            "message": f"Started downloading {display_name}",
+            "status": "downloading",
+        })
+
+    except Exception as e:
+        logger.error(f"Error starting voice model download: {e}")
+        return error_response(str(e), 500)
+
+
+def _do_piper_download(backend_path, voice_id, voice_config):
+    """Download a Piper TTS voice model (called from background thread)."""
+    model_rel_path = voice_config["model"]
+    piper_models_dir = os.path.join(backend_path, "tools/voice/piper-models")
+    os.makedirs(piper_models_dir, exist_ok=True)
+
+    model_path = os.path.join(backend_path, model_rel_path)
+    config_path = model_path + ".json"
+
+    if os.path.exists(model_path) and os.path.exists(config_path):
+        return  # Already installed
+
+    model_filename = os.path.basename(model_rel_path)
+    voice_name_full = model_filename.replace(".onnx", "")
+
+    # Try piper's download_voices first
+    try:
+        from piper.download_voices import download_voice
+        from pathlib import Path
+        download_voice(voice_name_full, Path(piper_models_dir))
+        if os.path.exists(model_path) and os.path.exists(config_path):
+            return
+    except ImportError:
+        pass
+
+    # Fallback: Manual download from HuggingFace
+    import re as _re
+    from urllib.request import urlopen
+    import shutil as _shutil
+
+    pattern = _re.compile(r"^(?P<lang_family>[^_]+)_(?P<lang_region>[^-]+)-(?P<voice_name>[^-]+)-(?P<voice_quality>.+)$")
+    match = pattern.match(voice_name_full)
+    if not match:
+        raise ValueError(f"Could not parse voice name: {voice_name_full}")
+
+    lang_family = match.group("lang_family")
+    lang_code = f"{lang_family}_{match.group('lang_region')}"
+    voice_name = match.group("voice_name")
+    voice_quality = match.group("voice_quality")
+
+    url_format = "https://huggingface.co/rhasspy/piper-voices/resolve/main/{lang_family}/{lang_code}/{voice_name}/{voice_quality}/{lang_code}-{voice_name}-{voice_quality}{extension}?download=true"
+    format_args = {
+        "lang_family": lang_family, "lang_code": lang_code,
+        "voice_name": voice_name, "voice_quality": voice_quality,
+    }
+
+    model_url = url_format.format(extension=".onnx", **format_args)
+    with urlopen(model_url) as response:
+        with open(model_path, "wb") as f:
+            _shutil.copyfileobj(response, f)
+
+    config_url = url_format.format(extension=".onnx.json", **format_args)
+    with urlopen(config_url) as response:
+        with open(config_path, "wb") as f:
+            _shutil.copyfileobj(response, f)
+
+    if not os.path.exists(model_path):
+        raise RuntimeError(f"Download completed but model file not found: {model_path}")
+
+
+def _do_whisper_download(backend_path, model_id, model_config):
+    """Download a Whisper STT model (called from background thread)."""
+    model_path = os.path.join(backend_path, model_config["path"])
+
+    if os.path.exists(model_path):
+        return  # Already exists
+
+    model_name = os.path.basename(model_config["path"]).replace("ggml-", "").replace(".bin", "")
+    download_script = os.path.join(backend_path, "tools/voice/whisper.cpp/models/download-ggml-model.sh")
+
+    if not os.path.exists(download_script):
+        raise FileNotFoundError(f"Download script not found: {download_script}")
+
+    result = subprocess.run(
+        ["bash", download_script, model_name],
+        capture_output=True, text=True, timeout=600, cwd=backend_path
+    )
+
+    if result.returncode != 0 or not os.path.exists(model_path):
+        raise RuntimeError(f"Failed to download Whisper model {model_name}: {result.stderr}")
+
+
+@voice_bp.route("/models/all", methods=["GET"])
+def list_all_voice_models():
+    """List all voice models (Piper TTS + Whisper STT) with installation status."""
+    try:
+        backend_path = get_backend_path()
+
+        models = []
+
+        # Whisper STT models
+        for model_id, model_config in WHISPER_MODELS.items():
+            model_path = os.path.join(backend_path, model_config["path"])
+            is_installed = os.path.exists(model_path)
+            size_mb = os.path.getsize(model_path) / (1024 * 1024) if is_installed else WHISPER_MODEL_SIZES_MB.get(model_id, 0)
+
+            models.append({
+                "id": model_id,
+                "name": model_config["name"],
+                "description": model_config["description"],
+                "model_type": "whisper",
+                "category": "Speech-to-Text",
+                "is_downloaded": is_installed,
+                "size_mb": round(size_mb, 1),
+            })
+
+        # Piper TTS models
+        for voice_id, voice_config in PIPER_VOICES.items():
+            model_path = os.path.join(backend_path, voice_config["model"])
+            config_path = model_path + ".json"
+            is_installed = os.path.exists(model_path) and os.path.exists(config_path)
+            size_mb = os.path.getsize(model_path) / (1024 * 1024) if is_installed else PIPER_MODEL_SIZES_MB.get(voice_id, 0)
+
+            models.append({
+                "id": voice_id,
+                "name": voice_config["name"],
+                "description": voice_config["description"],
+                "model_type": "piper",
+                "category": "Text-to-Speech",
+                "is_downloaded": is_installed,
+                "size_mb": round(size_mb, 1),
+            })
+
+        return success_response({"models": models})
+
+    except Exception as e:
+        logger.error(f"Error listing all voice models: {e}", exc_info=True)
+        return error_response(str(e), 500)
 
 
 @voice_bp.route("/install-whisper", methods=["POST"])
