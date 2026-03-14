@@ -22,6 +22,7 @@ from llx.commands.clients import clients_app
 from llx.commands.websites import websites_app
 from llx.commands.tasks import tasks_app
 from llx.commands.images import images_app
+from llx.commands.videos import videos_app
 
 app = typer.Typer(
     name="guaardvark",
@@ -57,6 +58,7 @@ app.add_typer(clients_app, name="clients")
 app.add_typer(websites_app, name="websites")
 app.add_typer(tasks_app, name="tasks")
 app.add_typer(images_app, name="images")
+app.add_typer(videos_app, name="videos")
 
 
 def version_callback(value: bool):

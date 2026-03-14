@@ -7,9 +7,10 @@
   "type": "service",
   "category": "indexing",
   "port": 5002,
+  "vram_estimate_mb": 0,
   "dependencies": [],
   "config": {
-    "enabled": false,
+    "enabled": true,
     "service_url": "http://localhost:5002",
     "timeout": 30,
     "fallback_enabled": true,

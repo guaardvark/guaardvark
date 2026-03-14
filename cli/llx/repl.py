@@ -48,7 +48,7 @@ def launch_repl():
                      'models', 'm', 'theme', 't', 'dashboard', 'dash', 'd',
                      'agents', 'generate', 'jobs', 'index', 'backup',
                      'family', 'logs', 'rag', 'clients', 'websites',
-                     'tasks', 'images', 'settings',
+                     'tasks', 'images', 'videos', 'v', 'settings',
                      'help', 'exit', 'quit']
     completer = WordCompleter(repl_commands, ignore_case=True)
     history_file = Path.home() / ".llx" / "history"
@@ -284,6 +284,7 @@ def _print_repl_help():
   [llx.accent]websites[/llx.accent]          List websites
   [llx.accent]tasks[/llx.accent]             List tasks
   [llx.accent]images[/llx.accent]            List image batches
+  [llx.accent]videos[/llx.accent] / [llx.accent]v[/llx.accent]       List video batches
   [llx.accent]jobs[/llx.accent]              List active jobs
   [llx.accent]agents[/llx.accent]            List agents
   [llx.accent]settings[/llx.accent]          Show settings
