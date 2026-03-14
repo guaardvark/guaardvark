@@ -1126,11 +1126,13 @@ const VideoGeneratorPage = () => {
                   </Select>
                 </FormControl>
                 <Button
+                  variant="outlined"
                   size="small"
+                  startIcon={<SettingsIcon />}
                   onClick={() => setVideoModelsModalOpen(true)}
-                  sx={{ mt: 0.5, textTransform: "none" }}
+                  sx={{ mt: 1, textTransform: "none" }}
                 >
-                  Manage Models
+                  Manage Video Models
                 </Button>
               </Grid>
 
