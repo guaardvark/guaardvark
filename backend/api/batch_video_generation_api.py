@@ -565,7 +565,7 @@ def download_video_model():
         def _download_task(mid, minfo):
             global _video_model_download_status
             _start_time = time.time()
-            _last_bytes = [0]
+            total_bytes = int(minfo["size_gb"] * 1024**3)
 
             try:
                 from huggingface_hub import hf_hub_download, snapshot_download
@@ -577,49 +577,64 @@ def download_video_model():
                 with _video_model_download_lock:
                     _video_model_download_status["status"] = "downloading"
 
-                if "hf_filename" in minfo:
-                    # Single file download
-                    total_size = minfo["size_gb"] * 1024 * 1024 * 1024
+                # Monitor download progress by watching file sizes on disk
+                stop_monitor = threading.Event()
 
-                    def _progress_callback(current, total):
-                        elapsed = time.time() - _start_time
-                        speed = (current / (1024 * 1024)) / max(elapsed, 0.1)
-                        with _video_model_download_lock:
-                            _video_model_download_status.update({
-                                "progress": int((current / max(total, 1)) * 100),
-                                "speed_mbps": round(speed, 1),
-                                "downloaded_gb": round(current / (1024**3), 2),
-                                "total_gb": round(total / (1024**3), 2),
-                            })
+                def _monitor_progress():
+                    while not stop_monitor.is_set():
+                        try:
+                            # Sum up all .incomplete and final files in the HF cache + local_dir
+                            downloaded = 0
+                            # Check HF cache (downloads go here first)
+                            cache_dir = Path.home() / ".cache" / "huggingface" / "hub"
+                            if cache_dir.exists():
+                                for f in cache_dir.rglob("*.incomplete"):
+                                    downloaded += f.stat().st_size
+                            # Check target files
+                            for cf in minfo["check_files"]:
+                                target = local_dir / cf
+                                if target.exists():
+                                    downloaded += target.stat().st_size
 
-                    # Use hf_hub_download for single files
-                    from tqdm import tqdm
-                    import io
+                            elapsed = time.time() - _start_time
+                            speed = (downloaded / (1024 * 1024)) / max(elapsed, 0.1)
+                            pct = min(int((downloaded / max(total_bytes, 1)) * 100), 99)
 
-                    hf_hub_download(
-                        repo_id=minfo["hf_repo"],
-                        filename=minfo["hf_filename"],
-                        local_dir=str(local_dir),
-                    )
-                    # Update progress to 100% after download
-                    with _video_model_download_lock:
-                        _video_model_download_status.update({
-                            "progress": 100,
-                            "downloaded_gb": minfo["size_gb"],
-                            "total_gb": minfo["size_gb"],
-                        })
-                else:
-                    # Full repo snapshot download
-                    snapshot_download(
-                        repo_id=minfo["hf_repo"],
-                        local_dir=str(local_dir),
-                    )
-                    with _video_model_download_lock:
-                        _video_model_download_status.update({
-                            "progress": 100,
-                            "downloaded_gb": minfo["size_gb"],
-                            "total_gb": minfo["size_gb"],
-                        })
+                            with _video_model_download_lock:
+                                _video_model_download_status.update({
+                                    "progress": pct,
+                                    "speed_mbps": round(speed, 1),
+                                    "downloaded_gb": round(downloaded / 1024**3, 2),
+                                })
+                        except Exception:
+                            pass
+                        stop_monitor.wait(1.0)
+
+                monitor_thread = threading.Thread(target=_monitor_progress, daemon=True)
+                monitor_thread.start()
+
+                try:
+                    if "hf_filename" in minfo:
+                        hf_hub_download(
+                            repo_id=minfo["hf_repo"],
+                            filename=minfo["hf_filename"],
+                            local_dir=str(local_dir),
+                        )
+                    else:
+                        snapshot_download(
+                            repo_id=minfo["hf_repo"],
+                            local_dir=str(local_dir),
+                        )
+                finally:
+                    stop_monitor.set()
+                    monitor_thread.join(timeout=2)
+
+                with _video_model_download_lock:
+                    _video_model_download_status.update({
+                        "progress": 100,
+                        "downloaded_gb": minfo["size_gb"],
+                        "total_gb": minfo["size_gb"],
+                    })
 
                 # Rename file if check_files expects a different name
                 if "hf_filename" in minfo and minfo["check_files"][0] != minfo["hf_filename"]:
