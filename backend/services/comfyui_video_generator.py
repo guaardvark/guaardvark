@@ -848,8 +848,10 @@ class ComfyUIVideoGenerator:
                 result.error = "Failed to queue workflow in ComfyUI"
                 return result
 
-            logger.info(f"Waiting for ComfyUI to complete generation (prompt_id: {prompt_id})...")
-            outputs = self._wait_for_completion(prompt_id, timeout=600)
+            # Wan2.2 MoE runs two passes (~5min each), needs longer timeout
+            gen_timeout = 1200 if model in self.WAN22_MODELS or model in ("wan22", "wan2.2") else 600
+            logger.info(f"Waiting for ComfyUI to complete generation (prompt_id: {prompt_id}, timeout: {gen_timeout}s)...")
+            outputs = self._wait_for_completion(prompt_id, timeout=gen_timeout)
 
             if not outputs:
                 result.error = "ComfyUI generation timed out or failed"
