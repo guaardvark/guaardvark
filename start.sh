@@ -1082,7 +1082,7 @@ vader_separator
 
 vader_step 4 "Ensuring Ollama service is running..."
 if [ "$OLLAMA_AVAILABLE" -eq 1 ]; then
-    if check_service_status "$OLLAMA_SERVICE_NAME" 2>/dev/null || curl -sf http://localhost:11434/ >/dev/null 2>&1; then
+    if curl -sf --max-time 3 http://localhost:11434/ >/dev/null 2>&1; then
         vader_success "Ollama service is already active"
     else
         vader_info "Starting Ollama service..."
@@ -1091,11 +1091,14 @@ if [ "$OLLAMA_AVAILABLE" -eq 1 ]; then
         # Try 1: systemctl (system-level via sudo, then user-level)
         if command_exists "systemctl"; then
             if start_service "$OLLAMA_SERVICE_NAME"; then
-                sleep 3
-                if curl -sf http://localhost:11434/ >/dev/null 2>&1; then
-                    OLLAMA_STARTED=1
-                    vader_success "Ollama service started (systemctl)"
-                fi
+                for _i in {1..5}; do
+                    sleep 2
+                    if curl -sf --max-time 3 http://localhost:11434/ >/dev/null 2>&1; then
+                        OLLAMA_STARTED=1
+                        vader_success "Ollama service started (systemctl)"
+                        break
+                    fi
+                done
             fi
         fi
 
@@ -1103,16 +1106,19 @@ if [ "$OLLAMA_AVAILABLE" -eq 1 ]; then
         if [ "$OLLAMA_STARTED" -eq 0 ]; then
             vader_info "systemctl failed, starting Ollama directly..."
             nohup ollama serve > "$LOGS_DIR/ollama_serve.log" 2>&1 &
-            sleep 3
-            if curl -sf http://localhost:11434/ >/dev/null 2>&1; then
-                OLLAMA_STARTED=1
-                vader_success "Ollama process started (direct)"
-            fi
+            for _i in {1..5}; do
+                sleep 2
+                if curl -sf --max-time 3 http://localhost:11434/ >/dev/null 2>&1; then
+                    OLLAMA_STARTED=1
+                    vader_success "Ollama process started (direct)"
+                    break
+                fi
+            done
         fi
 
         if [ "$OLLAMA_STARTED" -eq 0 ]; then
-            vader_error "Failed to start Ollama. Check $LOGS_DIR/ollama_serve.log. Exiting."
-            exit 1
+            vader_warn "Ollama failed to start (non-critical). Chat/RAG features will be unavailable."
+            vader_info "Check $LOGS_DIR/ollama_serve.log or start manually: ollama serve"
         fi
     fi
 else
