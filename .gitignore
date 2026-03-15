@@ -87,3 +87,4 @@ docs/superpowers/
 # Plugins — external installs, not tracked
 plugins/Comprehensive Architectural.md
 plugins/comfyui/ComfyUI/
+backend/tools/voice/piper-models/*.onnx
