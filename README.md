@@ -374,6 +374,7 @@ Test layers:
 
 Guaardvark is built with love by a solo developer. If it's useful to you, consider supporting continued development:
 
+- [Ko-fi](https://ko-fi.com/albenze) (zero fees!)
 - [GitHub Sponsors](https://github.com/sponsors/guaardvark)
 - [PayPal](https://paypal.me/albenze)
 - [Venmo](https://venmo.com/albenze)
