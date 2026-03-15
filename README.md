@@ -12,11 +12,43 @@ A self-hosted AI platform that runs entirely on your hardware. Chat with your do
 
 | Dashboard | Chat with RAG |
 |:-:|:-:|
-| ![Dashboard](docs/screenshots/dashboard.png) | ![Chat](docs/screenshots/chat.png) |
+| ![Dashboard](docs/screenshots/dashboard-layout-a.png) | ![Chat](docs/screenshots/dashboard-cards-chat.png) |
 
-| Document Manager | Image Library |
+| Video Generation | Plugin System |
 |:-:|:-:|
-| ![Documents](docs/screenshots/documents.png) | ![Images](docs/screenshots/images.png) |
+| ![Video Gen](docs/screenshots/video-gen-page.png) | ![Plugins](docs/screenshots/plugins-page.png) |
+
+| Document Manager | Image Editor |
+|:-:|:-:|
+| ![Documents](docs/screenshots/documents-page-001.png) | ![Image Editor](docs/screenshots/image-editor.png) |
+
+| Image Generation | Media Gallery |
+|:-:|:-:|
+| ![Image Gen](docs/screenshots/image-gen-page.png) | ![Gallery](docs/screenshots/image-gallery-page.png) |
+
+| Agents & Chat | Agent Tools |
+|:-:|:-:|
+| ![Agents](docs/screenshots/agents-page-duck-chat.png) | ![Tools](docs/screenshots/agent-tools-page.png) |
+
+| Rules & Prompts | Settings & Models |
+|:-:|:-:|
+| ![Rules](docs/screenshots/rules-page.png) | ![Settings](docs/screenshots/settings-page-models.png) |
+
+| Websites | Voice Settings |
+|:-:|:-:|
+| ![Websites](docs/screenshots/websites-page.png) | ![Voice](docs/screenshots/voice-settings.png) |
+
+| Job Scheduler | System Dashboard |
+|:-:|:-:|
+| ![Jobs](docs/screenshots/job-scheduler-page.png) | ![System](docs/screenshots/system-dashboard.png) |
+
+| Interconnector | Video Settings |
+|:-:|:-:|
+| ![Interconnector](docs/screenshots/interconnector-001.png) | ![Video Settings](docs/screenshots/video-settings.png) |
+
+| Hacker Theme | Vader Theme |
+|:-:|:-:|
+| ![Hacker](docs/screenshots/hacker-theme.png) | ![Vader](docs/screenshots/vader-theme.png) |
 
 ---
 
