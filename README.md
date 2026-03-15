@@ -6,6 +6,9 @@ A self-hosted AI platform that runs entirely on your hardware. Chat with your do
 
 > **No cloud dependencies. No API keys required. Your data stays on your machine.**
 
+[![Sponsor](https://img.shields.io/badge/Sponsor-Guaardvark-ff69b4?logo=github-sponsors)](https://github.com/sponsors/guaardvark)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buy-me-a-coffee)](https://buymeacoffee.com/guaardvark)
+
 ---
 
 ## Screenshots
@@ -364,6 +367,19 @@ Test layers:
 | `logs/frontend.log` | Vite dev server |
 | `logs/setup.log` | Dependency installation |
 | `logs/test_results/` | Test execution output |
+
+---
+
+## Support the Project
+
+Guaardvark is built with love by a solo developer. If it's useful to you, consider supporting continued development:
+
+- [GitHub Sponsors](https://github.com/sponsors/guaardvark)
+- [Buy Me a Coffee](https://buymeacoffee.com/guaardvark)
+- [Ko-fi](https://ko-fi.com/guaardvark)
+- [PayPal](https://paypal.me/guaardvark)
+
+Star the repo if you find it interesting — it helps with visibility!
 
 ---
 
