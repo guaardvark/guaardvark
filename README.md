@@ -375,9 +375,9 @@ Test layers:
 Guaardvark is built with love by a solo developer. If it's useful to you, consider supporting continued development:
 
 - [GitHub Sponsors](https://github.com/sponsors/guaardvark)
-- [Buy Me a Coffee](https://buymeacoffee.com/guaardvark)
-- [Ko-fi](https://ko-fi.com/guaardvark)
-- [PayPal](https://paypal.me/guaardvark)
+- [PayPal](https://paypal.me/albenze)
+- [Venmo](https://venmo.com/albenze)
+- [Cash App](https://cash.app/$DeanAlbenze)
 
 Star the repo if you find it interesting — it helps with visibility!
 
