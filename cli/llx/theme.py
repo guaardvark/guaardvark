@@ -22,14 +22,14 @@ _SHARED_STATUS = {
 THEMES = {
     "default": {
         "label":        "Default",
-        "description":  "Classic purple and teal",
-        "brand":        "#6c5ce7",
-        "brand_bright": "#a29bfe",
+        "description":  "Deep blue gradient",
+        "brand":        "#1a3a8a",
+        "brand_bright": "#4a7ee0",
         "accent":       "#00cec9",
         "accent_bright":"#81ecec",
         "muted":        "#636e72",
         "dim_text":     "#b2bec3",
-        "gradient":     [(108, 92, 231), (9, 132, 227), (0, 206, 201)],
+        "gradient":     [(10, 30, 120), (25, 70, 180), (55, 130, 220)],
     },
     "teal": {
         "label":        "Teal",
@@ -173,8 +173,8 @@ def _get_active_palette() -> dict:
 # These are used by get_banner() and gradient_text().
 # They reflect the DEFAULT theme. For dynamic access, use _get_active_palette().
 
-BRAND        = "#6c5ce7"
-BRAND_BRIGHT = "#a29bfe"
+BRAND        = "#1a3a8a"
+BRAND_BRIGHT = "#4a7ee0"
 ACCENT       = "#00cec9"
 ACCENT_BRIGHT= "#81ecec"
 SUCCESS      = "#00b894"
@@ -315,6 +315,18 @@ def _bitmap_to_blocks(bitmap: list[str]) -> list[str]:
 
 _AARDVARK_LINES = _bitmap_to_blocks(_AARDVARK_BITMAP)
 
+# ── Small Aardvark (5 lines, same height as wordmark) ────────
+
+_SMALL_AARDVARK_BITMAP = [
+    " ##    ##",
+    "  ######",
+    " ##########",
+    " ##########  ##",
+    "####  ####  ##",
+]
+
+_SMALL_AARDVARK_LINES = _bitmap_to_blocks(_SMALL_AARDVARK_BITMAP)
+
 # ── GUAARDVARK Wordmark ───────────────────────────────────────
 
 _WORDMARK_LINES = [
@@ -331,6 +343,11 @@ def get_aardvark() -> Text:
     return gradient_text("\n".join(_AARDVARK_LINES))
 
 
+def get_small_aardvark() -> Text:
+    """Return a compact 5-line aardvark mascot as gradient-colored Rich Text."""
+    return gradient_text("\n".join(_SMALL_AARDVARK_LINES))
+
+
 def get_wordmark() -> Text:
     """Return the GUAARDVARK wordmark as gradient-colored Rich Text."""
     return gradient_text("\n".join(_WORDMARK_LINES))
@@ -341,17 +358,66 @@ def get_logo() -> Text:
     return gradient_text("\n".join(_WORDMARK_LINES))
 
 
+def _gradient_line(text: str, stops: list) -> Text:
+    """Apply gradient coloring to a single line of block characters."""
+    result = Text()
+    printable = [i for i, ch in enumerate(text) if ch.strip()]
+    total = max(len(printable) - 1, 1)
+    pos = 0
+    for ch in text:
+        if not ch.strip():
+            result.append(ch)
+        else:
+            t = pos / total
+            n = len(stops) - 1
+            seg = min(int(t * n), n - 1)
+            local_t = (t * n) - seg
+            r, g, b = _lerp_color(stops[seg], stops[seg + 1], local_t)
+            result.append(ch, style=Style(color=f"#{r:02x}{g:02x}{b:02x}", bold=True))
+            pos += 1
+    return result
+
+
 def get_banner(version: str, status_line: str, model_line: str) -> Panel:
-    """Build the full REPL banner: aardvark + wordmark + status + model."""
+    """Build the REPL banner: about info + small aardvark above the wordmark."""
+    from datetime import datetime
     palette = _get_active_palette()
-    aardvark = get_aardvark()
+    now = datetime.now()
+    stops = palette["gradient"]
+
+    # Layout widths
+    wordmark_width = max(len(line) for line in _WORDMARK_LINES)
+    aardvark_lines = _SMALL_AARDVARK_LINES
+
+    # About text lines (left side, above wordmark letters)
+    about_lines = [
+        "www.guaardvark.com",
+        now.strftime("%Y-%m-%d  %H:%M:%S"),
+        f"v{version}",
+        "",
+        "",
+    ]
+
+    # Compose top section: about text (left) + aardvark (right-aligned to wordmark width)
+    dim_style = Style(color=palette["dim_text"])
+    top = Text()
+    for i in range(5):
+        about = about_lines[i]
+        ark = aardvark_lines[i] if i < len(aardvark_lines) else ""
+        padding = max(wordmark_width - len(about) - len(ark), 2)
+        top.append(about, style=dim_style)
+        top.append(" " * padding)
+        top.append_text(_gradient_line(ark, stops))
+        if i < 4:
+            top.append("\n")
+
+    # Wordmark + status below
     wordmark = get_wordmark()
-    subtitle = Text(f"  v{version}", style=Style(color=palette["dim_text"]))
     spacer = Text("")
     status = Text.from_markup(f"  {status_line}")
     model = Text.from_markup(f"  {model_line}")
 
-    group = Group(aardvark, spacer, wordmark, subtitle, spacer, status, model)
+    group = Group(top, wordmark, spacer, status, model)
 
     return Panel(
         group,
