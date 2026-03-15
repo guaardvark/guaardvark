@@ -6,6 +6,10 @@ A self-hosted AI platform that runs entirely on your hardware. Chat with your do
 
 > **No cloud dependencies. No API keys required. Your data stays on your machine.**
 
+<p align="center">
+  <video src="https://github.com/guaardvark/guaardvark/raw/master/docs/screenshots/guaardvark-demo.mp4" autoplay loop muted playsinline width="100%"></video>
+</p>
+
 [![Sponsor](https://img.shields.io/badge/Sponsor-Guaardvark-ff69b4?logo=github-sponsors)](https://github.com/sponsors/guaardvark)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buy-me-a-coffee)](https://buymeacoffee.com/guaardvark)
 
