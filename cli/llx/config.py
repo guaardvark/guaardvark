@@ -2,6 +2,7 @@
 
 import json
 import os
+import time
 from pathlib import Path
 from typing import Any
 
@@ -122,12 +123,22 @@ def load_sessions() -> list[dict]:
     return []
 
 
-def save_session(session_id: str, preview: str):
+def save_session(session_id: str, preview: str, message_count: int = 1):
     """Save a chat session to history."""
     ensure_config_dir()
     sessions = load_sessions()
+    # Find existing entry to preserve the higher message_count
+    existing = next((s for s in sessions if s["id"] == session_id), None)
+    if existing:
+        prev_count = existing.get("message_count", 0)
+        message_count = max(message_count, prev_count)
     sessions = [s for s in sessions if s["id"] != session_id]
-    sessions.insert(0, {"id": session_id, "preview": preview[:80]})
+    sessions.insert(0, {
+        "id": session_id,
+        "preview": preview[:80],
+        "timestamp": time.time(),
+        "message_count": message_count,
+    })
     config = load_config()
     max_history = config.get("chat_session_history", 50)
     sessions = sessions[:max_history]
@@ -139,6 +150,50 @@ def get_last_session_id() -> str | None:
     """Get the most recent session ID."""
     sessions = load_sessions()
     return sessions[0]["id"] if sessions else None
+
+
+def get_recent_session(max_age_seconds: float = 3600.0) -> dict | None:
+    """Return the most recent session if its timestamp is within max_age_seconds.
+
+    Returns None if no sessions exist or the most recent is too old.
+    """
+    sessions = load_sessions()
+    if not sessions:
+        return None
+    latest = sessions[0]
+    ts = latest.get("timestamp")
+    if ts is None:
+        return None
+    if (time.time() - ts) > max_age_seconds:
+        return None
+    return latest
+
+
+# --- Project scope persistence ---
+
+def get_project_scope() -> dict | None:
+    """Read the current project scope from config.
+
+    Returns a dict with 'id' and optional 'name', or None if unset.
+    """
+    config = load_config()
+    scope = config.get("project_scope")
+    if not scope or scope.get("id") is None:
+        return None
+    return scope
+
+
+def set_project_scope(project_id: int | None, project_name: str | None = None):
+    """Set or clear the active project scope in config.
+
+    Pass project_id=None to clear the scope.
+    """
+    config = load_config()
+    if project_id is None:
+        config.pop("project_scope", None)
+    else:
+        config["project_scope"] = {"id": project_id, "name": project_name}
+    save_config(config)
 
 
 # --- Theme persistence ---
