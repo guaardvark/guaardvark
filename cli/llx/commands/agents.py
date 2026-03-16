@@ -6,7 +6,7 @@ from llx.global_opts import get_global_json, get_global_server
 from llx import output
 from pathlib import Path
 
-agents_app = typer.Typer(help="Agent configuration and info")
+agents_app = typer.Typer(help="Agent configuration and info", no_args_is_help=True)
 
 
 @agents_app.command("list")

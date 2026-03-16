@@ -11,7 +11,7 @@ from llx.theme import make_console, make_panel, ICON_ONLINE, ICON_OFFLINE, ICON_
 from llx import output
 
 console = make_console()
-family_app = typer.Typer(help="Interconnector family network management")
+family_app = typer.Typer(help="Interconnector family network management", no_args_is_help=True)
 
 
 @family_app.command("list")

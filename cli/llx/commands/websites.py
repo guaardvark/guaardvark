@@ -5,7 +5,7 @@ from llx.client import get_client, LlxError, LlxConnectionError
 from llx.global_opts import get_global_json, get_global_server
 from llx import output
 
-websites_app = typer.Typer(help="Website management")
+websites_app = typer.Typer(help="Website management", no_args_is_help=True)
 
 
 @websites_app.command("list")

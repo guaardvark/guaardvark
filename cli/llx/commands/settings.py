@@ -5,7 +5,7 @@ from llx.client import get_client, LlxError, LlxConnectionError
 from llx.global_opts import get_global_json, get_global_server
 from llx import output
 
-settings_app = typer.Typer(help="Application settings")
+settings_app = typer.Typer(help="Application settings", no_args_is_help=True)
 
 
 @settings_app.command("list")

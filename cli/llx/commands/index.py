@@ -6,7 +6,7 @@ from llx.client import get_client, LlxError, LlxConnectionError
 from llx.global_opts import get_global_json, get_global_server
 from llx import output
 
-index_app = typer.Typer(help="Document and entity indexing for RAG")
+index_app = typer.Typer(help="Document and entity indexing for RAG", no_args_is_help=True)
 
 
 @index_app.command("document")

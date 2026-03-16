@@ -7,7 +7,7 @@ from llx.theme import make_console
 from llx import output
 
 console = make_console()
-tasks_app = typer.Typer(help="Task management (create, run, monitor)")
+tasks_app = typer.Typer(help="Task management (create, run, monitor)", no_args_is_help=True)
 
 
 @tasks_app.command("list")

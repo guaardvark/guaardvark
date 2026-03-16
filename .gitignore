@@ -69,20 +69,37 @@ htmlcov/
 coverage.xml
 .worktrees/
 
-# Private/debug — not part of system
+# Private / AI assistant config — not part of system
 .claude/
+.start_cache/
 .playwright-mcp/
-backend/debug_audio/
-scripts/repro_output*.txt
-guaardvark_backup.json
-guaardvark.code-workspace
-SESSION_HANDOFF*.md
+CLAUDE.md
 GEMINI.md
+KNOWN_BUGS.md
+guaardvark.code-workspace
+*.code-workspace
+SESSION_HANDOFF*.md
+guaardvark_backup.json
 
-# Docs — keep README.md and research, ignore session handoffs
+# Backup / archive files
+*.BACK
+*.BACKUP
+*.backup
+*.bak
+*.orig
+backend/api/_archive/
+backend/api/backs/
+
+# Debug artifacts
+backend/debug_audio/
+scripts/debug_*.py
+scripts/repro_output*.txt
+
+# Docs — keep README screenshots, ignore debug/test screenshots
+docs/test-screenshots/
+docs/superpowers/
 docs/SESSION_HANDOFF.md
 docs/documents_page_snapshot.md
-docs/superpowers/
 
 # Plugins — external installs, not tracked
 plugins/Comprehensive Architectural.md

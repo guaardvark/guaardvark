@@ -10,7 +10,7 @@ from llx.theme import make_console
 from llx import output
 
 console = make_console()
-files_app = typer.Typer(help="File and folder management")
+files_app = typer.Typer(help="File and folder management", no_args_is_help=True)
 
 
 @files_app.command("list")
