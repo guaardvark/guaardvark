@@ -127,3 +127,107 @@ class LlxStreamer:
             if on_error:
                 on_error(f"Failed to connect: {e}")
             self._done.set()
+
+
+# ── Chat Renderer ─────────────────────────────────────────────
+
+from rich.live import Live
+from rich.markdown import Markdown
+from rich.text import Text
+from rich.console import Group
+
+from llx.theme import make_console
+
+_ICON_TOOL = "\u27e1"   # ⟡
+_ICON_OK   = "\u2713"   # ✓
+
+
+class ChatRenderer:
+    """Renders streaming chat responses with live markdown and tool-call UI."""
+
+    def __init__(self):
+        self._console = make_console()
+        self._tokens: list[str] = []
+        self._tool_lines: list[str] = []
+        self._complete_data: dict | None = None
+        self._error: str | None = None
+        self._live: Live | None = None
+
+    # ── Lifecycle ─────────────────────────────────────────────
+
+    def start(self):
+        """Clear state and begin a Live display."""
+        self._tokens = []
+        self._tool_lines = []
+        self._complete_data = None
+        self._error = None
+        self._live = Live(
+            Text(""),
+            console=self._console,
+            refresh_per_second=12,
+            transient=False,
+        )
+        self._live.start()
+
+    def stop(self):
+        """Stop the Live display and print final pretty output."""
+        if self._live is not None:
+            self._live.stop()
+            self._live = None
+
+        # Print tool call lines
+        for line in self._tool_lines:
+            self._console.print(line)
+
+        # Print final accumulated text as rich Markdown
+        full_text = "".join(self._tokens)
+        if full_text.strip():
+            self._console.print(Markdown(full_text))
+
+        # Print error if any
+        if self._error:
+            self._console.print(f"[llx.error]{self._error}[/llx.error]")
+
+        self._console.print()
+
+    # ── Event Callbacks ───────────────────────────────────────
+
+    def on_token(self, content: str):
+        """Append a token and refresh the live display."""
+        self._tokens.append(content)
+        self._refresh()
+
+    def on_tool_call(self, data: dict):
+        """Record a tool call and refresh the live display."""
+        name = data.get("name") or data.get("tool", "unknown")
+        args = data.get("arguments") or data.get("args", "")
+        line = f"[dim]{_ICON_TOOL} Calling: {name}({args})[/dim]"
+        self._tool_lines.append(line)
+        self._refresh()
+
+    def on_complete(self, data: dict):
+        """Store completion data."""
+        self._complete_data = data
+
+    def on_error(self, message: str):
+        """Store an error message."""
+        self._error = message
+
+    # ── Internal ──────────────────────────────────────────────
+
+    def _refresh(self):
+        """Update the Live display with tool lines + streaming text + cursor."""
+        if self._live is None:
+            return
+
+        parts = []
+
+        # Tool call lines rendered as markup
+        for line in self._tool_lines:
+            parts.append(Text.from_markup(line))
+
+        # Streaming text shown as plain text with block cursor (not Markdown)
+        streaming_text = "".join(self._tokens) + "\u2588"
+        parts.append(Text(streaming_text))
+
+        self._live.update(Group(*parts))
