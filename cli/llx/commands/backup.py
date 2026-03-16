@@ -9,7 +9,7 @@ from llx.theme import make_console
 from llx import output
 
 console = make_console()
-backup_app = typer.Typer(help="Backup and restore system data.")
+backup_app = typer.Typer(help="Backup and restore system data.", no_args_is_help=True)
 
 
 @backup_app.command("create")

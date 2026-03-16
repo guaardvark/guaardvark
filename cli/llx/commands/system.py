@@ -11,7 +11,7 @@ from llx import output
 console = make_console()
 
 system_app = typer.Typer(help="System and model commands")
-models_app = typer.Typer(help="LLM model management")
+models_app = typer.Typer(help="LLM model management", no_args_is_help=True)
 
 
 def _find_project_root(path: str) -> str:

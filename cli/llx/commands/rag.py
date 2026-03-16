@@ -10,7 +10,7 @@ from llx.theme import make_console, make_panel, ICON_SUCCESS, ICON_WARNING
 from llx import output
 
 console = make_console()
-rag_app = typer.Typer(help="RAG index inspection and evaluation")
+rag_app = typer.Typer(help="RAG index inspection and evaluation", no_args_is_help=True)
 
 
 @rag_app.command("status")

@@ -11,7 +11,7 @@ from llx.theme import make_console
 from llx import output
 
 console = make_console()
-logs_app = typer.Typer(help="Log viewing and analysis")
+logs_app = typer.Typer(help="Log viewing and analysis", no_args_is_help=True)
 
 # Detect project root
 _ROOT = os.environ.get("GUAARDVARK_ROOT", os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))

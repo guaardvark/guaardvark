@@ -23,13 +23,13 @@ THEMES = {
     "default": {
         "label":        "Default",
         "description":  "Deep blue gradient",
-        "brand":        "#1a3a8a",
-        "brand_bright": "#4a7ee0",
-        "accent":       "#00cec9",
-        "accent_bright":"#81ecec",
-        "muted":        "#636e72",
-        "dim_text":     "#b2bec3",
-        "gradient":     [(10, 30, 120), (25, 70, 180), (55, 130, 220)],
+        "brand":        "#1a0a9e",
+        "brand_bright": "#3a2ae8",
+        "accent":       "#5545ff",
+        "accent_bright":"#7b6eff",
+        "muted":        "#4a4570",
+        "dim_text":     "#8880b0",
+        "gradient":     [(30, 8, 170), (42, 18, 210), (50, 32, 240), (65, 55, 255)],
     },
     "teal": {
         "label":        "Teal",
@@ -173,10 +173,10 @@ def _get_active_palette() -> dict:
 # These are used by get_banner() and gradient_text().
 # They reflect the DEFAULT theme. For dynamic access, use _get_active_palette().
 
-BRAND        = "#1a3a8a"
-BRAND_BRIGHT = "#4a7ee0"
-ACCENT       = "#00cec9"
-ACCENT_BRIGHT= "#81ecec"
+BRAND        = "#1a0a9e"
+BRAND_BRIGHT = "#3a2ae8"
+ACCENT       = "#5545ff"
+ACCENT_BRIGHT= "#7b6eff"
 SUCCESS      = "#00b894"
 ERROR        = "#ff6b6b"
 WARNING      = "#fdcb6e"
@@ -272,33 +272,28 @@ def gradient_text(text: str) -> Text:
 # Bitmap: '#' = filled pixel (rendered as ██), ' ' = empty
 
 _AARDVARK_BITMAP = [
-    "      ##          ##",
-    "      # #        # #",
-    "       ## ##  ## ##",
-    "        ## #### ##",
-    "         ########",
-    "        ##########",
-    "        ### ## ###",
-    "        ##########",
-    "       ############",
-    "       #############",
-    "      ##############",
-    "      ###############",
-    "     ################",
-    "     #############  ####",
-    "     ##############  # #",
-    "     ##############  ###",
-    "    ##################",
-    "    ##################",
-    "   ####################",
-    "   ## ############## ##",
-    "  ##  ##################",
-    "      ##################",
-    "     ##################",
-    "     #################",
-    "     ################",
-    "  #####  ####    ####",
-    " ######  #####   #####",
+    "    ##      ##",
+    "    # #    # #",
+    "     ## ## ##",
+    "      ######",
+    "      #######",
+    "      ## ## #",
+    "     #########",
+    "     ##########",
+    "     ###########",
+    "    ########  ####",
+    "    #########  # #",
+    "    #########  ###",
+    "   ###########",
+    "   ###########",
+    "  #############",
+    "  # ####### ###",
+    " #  ###########",
+    "    ###########",
+    "   ###########",
+    "   ##########",
+    " #### ##   ##",
+    "####  ###  ###",
 ]
 
 
@@ -338,86 +333,165 @@ _WORDMARK_LINES = [
 ]
 
 
-def get_aardvark() -> Text:
-    """Return the aardvark mascot as gradient-colored Rich Text."""
-    return gradient_text("\n".join(_AARDVARK_LINES))
+# ── Retro Scanline Stripes & Shadow ───────────────────────────
+
+_STRIPE_EVEN     = (14, 14, 32)   # Lighter scanline
+_STRIPE_ODD      = (6, 6, 16)     # Darker scanline
+_SHADOW_MAX_DIST = 10
+_SHADOW_BASE     = 8
+_SHADOW_STEP     = 5
+_SHADOW_ALT_BUMP = 4
+_SHADOW_BLUE_MUL = 2.0
+_ART_CELLS       = 37             # Bitmap cells wide (×2 = 74 chars)
+_ART_CHARS       = 74             # Character width for wordmark / stripes
 
 
-def get_small_aardvark() -> Text:
-    """Return a compact 5-line aardvark mascot as gradient-colored Rich Text."""
-    return gradient_text("\n".join(_SMALL_AARDVARK_LINES))
+def _stripe_rgb(row_idx: int) -> tuple[int, int, int]:
+    """Base stripe color for a global row index."""
+    return _STRIPE_EVEN if row_idx % 2 == 0 else _STRIPE_ODD
 
 
-def get_wordmark() -> Text:
-    """Return the GUAARDVARK wordmark as gradient-colored Rich Text."""
-    return gradient_text("\n".join(_WORDMARK_LINES))
+def _shadow_shade(dist: int) -> tuple[int, int, int] | None:
+    """RGB shadow glow for given horizontal distance. None if out of range."""
+    if dist < 1 or dist > _SHADOW_MAX_DIST:
+        return None
+    v = _SHADOW_BASE + (dist - 1) * _SHADOW_STEP
+    return (v, v, min(int(v * _SHADOW_BLUE_MUL), 255))
 
 
-def get_logo() -> Text:
-    """Return the combined logo as gradient-colored Rich Text."""
-    return gradient_text("\n".join(_WORDMARK_LINES))
-
-
-def _gradient_line(text: str, stops: list) -> Text:
-    """Apply gradient coloring to a single line of block characters."""
-    result = Text()
-    printable = [i for i, ch in enumerate(text) if ch.strip()]
-    total = max(len(printable) - 1, 1)
-    pos = 0
-    for ch in text:
-        if not ch.strip():
-            result.append(ch)
+def _horizontal_distances(filled: list[bool]) -> list[int]:
+    """Horizontal distance to nearest True cell. 0 for filled cells."""
+    n = len(filled)
+    d = [n] * n
+    last = -n
+    for i in range(n):
+        if filled[i]:
+            last = i
+            d[i] = 0
         else:
-            t = pos / total
-            n = len(stops) - 1
-            seg = min(int(t * n), n - 1)
-            local_t = (t * n) - seg
-            r, g, b = _lerp_color(stops[seg], stops[seg + 1], local_t)
-            result.append(ch, style=Style(color=f"#{r:02x}{g:02x}{b:02x}", bold=True))
-            pos += 1
+            d[i] = i - last
+    last = 2 * n
+    for i in range(n - 1, -1, -1):
+        if filled[i]:
+            last = i
+        else:
+            d[i] = min(d[i], last - i)
+    return d
+
+
+def _bg_color(dist: int, row_idx: int) -> tuple[int, int, int]:
+    """Background color: max of shadow glow and stripe base."""
+    stripe = _stripe_rgb(row_idx)
+    shade = _shadow_shade(dist)
+    if shade:
+        return (max(shade[0], stripe[0]), max(shade[1], stripe[1]), max(shade[2], stripe[2]))
+    return stripe
+
+
+def _hex(r: int, g: int, b: int) -> str:
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+
+def _stripe_line(row_idx: int) -> Text:
+    """Full-width pure stripe scanline."""
+    r, g, b = _stripe_rgb(row_idx)
+    result = Text()
+    result.append("\u2588" * _ART_CHARS, style=Style(color=_hex(r, g, b)))
     return result
 
 
+def get_aardvark(row_offset: int = 0) -> Text:
+    """Return the aardvark on full-width retro stripe background."""
+    stops = _get_active_palette()["gradient"]
+    DBL = "\u2588\u2588"
+    rows = [row.ljust(_ART_CELLS) for row in _AARDVARK_BITMAP]
+    total_filled = max(sum(ch == '#' for r in rows for ch in r) - 1, 1)
+
+    result = Text()
+    filled_idx = 0
+
+    for local_idx, row in enumerate(rows):
+        grow = row_offset + local_idx
+        filled_map = [ch == '#' for ch in row]
+        dists = _horizontal_distances(filled_map)
+
+        for col, ch in enumerate(row):
+            if ch == '#':
+                t = filled_idx / total_filled
+                n = len(stops) - 1
+                seg = min(int(t * n), n - 1)
+                lt = (t * n) - seg
+                r, g, b = _lerp_color(stops[seg], stops[seg + 1], lt)
+                result.append(DBL, style=Style(color=_hex(r, g, b), bold=True))
+                filled_idx += 1
+            else:
+                r, g, b = _bg_color(dists[col], grow)
+                result.append(DBL, style=Style(color=_hex(r, g, b)))
+
+        if local_idx < len(rows) - 1:
+            result.append("\n")
+
+    return result
+
+
+def get_wordmark(row_offset: int = 0) -> Text:
+    """Return the GUAARDVARK wordmark on full-width retro stripe background."""
+    stops = _get_active_palette()["gradient"]
+    BLK = "\u2588"
+    rows = [line.ljust(_ART_CHARS) for line in _WORDMARK_LINES]
+    total_filled = max(sum(ch == BLK for r in rows for ch in r) - 1, 1)
+
+    result = Text()
+    filled_idx = 0
+
+    for local_idx, line in enumerate(rows):
+        grow = row_offset + local_idx
+        filled_map = [ch == BLK for ch in line]
+        dists = _horizontal_distances(filled_map)
+
+        for col, ch in enumerate(line):
+            if ch == BLK:
+                t = filled_idx / total_filled
+                n = len(stops) - 1
+                seg = min(int(t * n), n - 1)
+                lt = (t * n) - seg
+                r, g, b = _lerp_color(stops[seg], stops[seg + 1], lt)
+                result.append(BLK, style=Style(color=_hex(r, g, b), bold=True))
+                filled_idx += 1
+            else:
+                r, g, b = _bg_color(dists[col], grow)
+                result.append(BLK, style=Style(color=_hex(r, g, b)))
+
+        if local_idx < len(rows) - 1:
+            result.append("\n")
+
+    return result
+
+
+def get_logo() -> Text:
+    """Return the combined logo (wordmark with stripes)."""
+    return get_wordmark()
+
+
 def get_banner(version: str, status_line: str, model_line: str) -> Panel:
-    """Build the REPL banner: about info + small aardvark above the wordmark."""
-    from datetime import datetime
+    """Build the full REPL banner with retro scanline stripe background."""
     palette = _get_active_palette()
-    now = datetime.now()
-    stops = palette["gradient"]
 
-    # Layout widths
-    wordmark_width = max(len(line) for line in _WORDMARK_LINES)
-    aardvark_lines = _SMALL_AARDVARK_LINES
+    # Continuous row numbering for seamless stripe alternation
+    n_aardvark = len(_AARDVARK_BITMAP)     # 22 rows
+    spacer_row = n_aardvark                # row 22
+    wm_start   = n_aardvark + 1            # row 23
 
-    # About text lines (left side, above wordmark letters)
-    about_lines = [
-        "www.guaardvark.com",
-        now.strftime("%Y-%m-%d  %H:%M:%S"),
-        f"v{version}",
-        "",
-        "",
-    ]
+    aardvark = get_aardvark(row_offset=0)
+    spacer_stripe = _stripe_line(spacer_row)
+    wordmark = get_wordmark(row_offset=wm_start)
 
-    # Compose top section: about text (left) + aardvark (right-aligned to wordmark width)
-    dim_style = Style(color=palette["dim_text"])
-    top = Text()
-    for i in range(5):
-        about = about_lines[i]
-        ark = aardvark_lines[i] if i < len(aardvark_lines) else ""
-        padding = max(wordmark_width - len(about) - len(ark), 2)
-        top.append(about, style=dim_style)
-        top.append(" " * padding)
-        top.append_text(_gradient_line(ark, stops))
-        if i < 4:
-            top.append("\n")
-
-    # Wordmark + status below
-    wordmark = get_wordmark()
+    subtitle = Text(f"  v{version}", style=Style(color=palette["dim_text"]))
     spacer = Text("")
     status = Text.from_markup(f"  {status_line}")
     model = Text.from_markup(f"  {model_line}")
 
-    group = Group(top, wordmark, spacer, status, model)
+    group = Group(aardvark, spacer_stripe, wordmark, subtitle, spacer, status, model)
 
     return Panel(
         group,

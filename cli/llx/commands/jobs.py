@@ -12,7 +12,7 @@ from llx.theme import make_console, BRAND, SUCCESS
 from llx import output
 
 console = make_console()
-jobs_app = typer.Typer(help="Background job management")
+jobs_app = typer.Typer(help="Background job management", no_args_is_help=True)
 
 
 @jobs_app.command("list")

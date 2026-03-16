@@ -7,7 +7,7 @@ from llx.client import get_client, LlxError, LlxConnectionError
 from llx.global_opts import get_global_json, get_global_server
 from llx import output
 
-rules_app = typer.Typer(help="Rules and system prompts management")
+rules_app = typer.Typer(help="Rules and system prompts management", no_args_is_help=True)
 
 
 @rules_app.command("list")

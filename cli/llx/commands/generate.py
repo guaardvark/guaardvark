@@ -8,7 +8,7 @@ from llx.theme import make_console
 from llx import output
 
 console = make_console()
-generate_app = typer.Typer(help="Content generation")
+generate_app = typer.Typer(help="Content generation", no_args_is_help=True)
 
 
 @generate_app.command("csv")

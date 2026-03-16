@@ -7,7 +7,7 @@ from llx.theme import make_console
 from llx import output
 
 console = make_console()
-images_app = typer.Typer(help="Image generation and management")
+images_app = typer.Typer(help="Image generation and management", no_args_is_help=True)
 
 
 @images_app.command("list")
