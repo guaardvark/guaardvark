@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage, subscribeWithSelector, devtools } from "zustand/middleware";
 
+// eslint-disable-next-line no-unused-vars
 const createUISlice = (set, get) => ({
   themeName: "guaardvark",
   setThemeName: (name) => set({ themeName: name }),
@@ -41,6 +42,7 @@ const createDataSlice = (set, get) => ({
     systemLogo: logo
   }),
 
+  // eslint-disable-next-line no-unused-vars
   fetchSystemInfo: async (force = false) => {
     const { setIsLoading, setError, clearError, isFetchingSystemInfo } = get();
 

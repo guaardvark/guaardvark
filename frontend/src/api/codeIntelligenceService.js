@@ -574,7 +574,6 @@ export const searchProjectCode = async (projectId, query, limit = 5) => {
 
     if (!searchResult || searchResult.error) {
       // Fallback: return raw document content from project
-      const projectDocIds = new Set(projectDocs.map(d => d.id));
       return {
         success: true,
         sources: projectDocs.slice(0, limit).map(doc => ({

@@ -2,7 +2,7 @@
 // Version 3.0: Enhanced chat service with comprehensive input validation and security
 import { BASE_URL, handleResponse } from "./apiClient";
 import { validateChatInput, checkRateLimit, ValidationError } from "../utils/inputValidation";
-import { RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_WINDOW_MS, CHAT_HISTORY_LIMIT } from "../config/constants";
+import { RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_WINDOW_MS } from "../config/constants";
 
 export const sendQuery = async (
   inputText,
@@ -430,6 +430,7 @@ class EnhancedChatService {
     let content = '';
     let chunkCount = 0;
 
+    // eslint-disable-next-line no-constant-condition
     while (true) {
       const { done, value } = await reader.read();
       if (done) {
@@ -482,7 +483,7 @@ export const sendChatMessage = async (
   onDeltaReceived,
   onRagDebugReceived,
   signal = null,
-  chatMode = null,
+  _chatMode = null, // eslint-disable-line no-unused-vars
   rulesCutoff = false
 ) => {
   console.log('CHAT_DEBUG: sendChatMessage called', {

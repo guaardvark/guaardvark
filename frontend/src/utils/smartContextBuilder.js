@@ -20,7 +20,6 @@ import {
 const MAX_CONTEXT_SIZE = 8000;
 const IMPORTS_BUDGET = 1500;      // Reserve for imports/setup
 const RELEVANT_BUDGET = 5000;     // Reserve for relevant sections
-const STRUCTURE_BUDGET = 1000;    // Reserve for structure summary
 
 /**
  * Build smart context for an LLM request
@@ -32,7 +31,6 @@ const STRUCTURE_BUDGET = 1000;    // Reserve for structure summary
  */
 export const buildSmartContext = (code, language, userQuery, options = {}) => {
   const {
-    includeFullFile = false,  // Force include full file (for small files)
     maxSize = MAX_CONTEXT_SIZE,
     selectedText = null,      // User's selection takes priority
   } = options;

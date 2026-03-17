@@ -266,7 +266,7 @@ class FrontendResourceManager {
   // =============================================================================
   
   async managedApiRequest(processId, requestFn, options = {}) {
-    const { timeout = 30000, retries = 0, onProgress = null } = options;
+    const { timeout = 30000, retries = 0 } = options;
     
     // Create abort controller for this request
     const controller = new AbortController();

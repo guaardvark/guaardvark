@@ -245,7 +245,7 @@ export const detectLanguageFromContent = (content) => {
   }
 
   // YAML detection
-  if (/^[\w-]+:\s*[^\{]/.test(firstLine) && !trimmed.includes('{')) {
+  if (/^[\w-]+:\s*[^{]/.test(firstLine) && !trimmed.includes('{')) {
     return 'yaml';
   }
 

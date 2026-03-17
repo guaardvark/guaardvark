@@ -2,7 +2,7 @@
 // Code-aware AI assistant service that integrates with existing chat infrastructure
 // Leverages Ollama for offline code analysis and generation
 
-import { BASE_URL, handleResponse } from "./apiClient";
+import { BASE_URL } from "./apiClient";
 import { sendChatMessage } from "./chatService";
 
 /**

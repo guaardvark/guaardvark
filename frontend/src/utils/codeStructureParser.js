@@ -31,6 +31,7 @@ export const parseCodeStructure = (code, language = 'javascript') => {
 /**
  * Parse JavaScript/TypeScript/JSX/TSX code structure
  */
+// eslint-disable-next-line no-unused-vars
 const parseJavaScriptStructure = (lines, language) => {
   const structure = {
     functions: [],
@@ -464,6 +465,7 @@ export const findRelevantElements = (structure, query) => {
   const queryWords = queryLower.split(/\s+/).filter(w => w.length > 2);
   const matches = [];
 
+  // eslint-disable-next-line no-unused-vars
   const scoreMatch = (name, type) => {
     const nameLower = name.toLowerCase();
     let score = 0;
