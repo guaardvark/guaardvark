@@ -2,12 +2,10 @@
 
 **Version 2.5.1** · [guaardvark.com](https://guaardvark.com)
 
-A self-hosted AI platform that runs entirely on your hardware. Chat with your documents using RAG, generate images and video, manage files with a desktop-style UI, run autonomous code agents, self-improve with automated testing, sync across machines, and talk to your AI with voice — all through one unified interface backed by local LLMs via Ollama.
-
-> **No cloud dependencies. No API keys required. Your data stays on your machine.**
+A self-hosted AI platform that runs entirely on your hardware. No cloud. No API keys. Your data never leaves your machine.
 
 <p align="center">
-  <video src="https://github.com/guaardvark/guaardvark/raw/master/docs/screenshots/guaardvark-demo.mp4" autoplay loop muted playsinline width="100%"></video>
+  <video src="https://github.com/guaardvark/guaardvark/raw/main/docs/screenshots/guaardvark-demo.mp4" autoplay loop muted playsinline width="100%"></video>
 </p>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -16,6 +14,27 @@ A self-hosted AI platform that runs entirely on your hardware. Chat with your do
 [![GitHub issues](https://img.shields.io/github/issues/guaardvark/guaardvark)](https://github.com/guaardvark/guaardvark/issues)
 [![Sponsor](https://img.shields.io/badge/Sponsor-Guaardvark-ff69b4?logo=github-sponsors)](https://github.com/sponsors/guaardvark)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buy-me-a-coffee)](https://buymeacoffee.com/guaardvark)
+
+Chat with your documents using RAG. Generate images and video with state-of-the-art models. Manage files in a desktop-style UI. Run autonomous code agents. Talk to your AI with voice. Self-improve with automated testing. Sync across machines. All through one interface, backed by local LLMs via Ollama.
+
+```bash
+git clone https://github.com/guaardvark/guaardvark.git
+cd guaardvark
+./start.sh
+```
+
+> That's it. One command installs dependencies, provisions the database, builds the frontend, and starts all services.
+
+---
+
+## Why Guaardvark
+
+- **Fully local** — All AI processing runs on your hardware via Ollama. No cloud, no API keys, no data leaving your machine.
+- **One-command launch** — `./start.sh` handles everything: PostgreSQL, Redis, Python, Node, migrations, builds. First run takes a few minutes; after that, it's instant.
+- **Self-improving** — Runs its own test suite, identifies failures, and dispatches an AI agent to fix them autonomously.
+- **Multi-machine sync** — The Interconnector links instances into a family that shares learnings, syncs code, and coordinates models.
+- **Desktop-style file manager** — Drag-and-drop, folder windows, right-click menus, properties panels — feels like a native OS in the browser.
+- **Swap models at runtime** — Switch LLMs and embedding models on the fly through the UI. GPU memory is managed automatically.
 
 ---
 
@@ -60,17 +79,6 @@ A self-hosted AI platform that runs entirely on your hardware. Chat with your do
 | Hacker Theme | Vader Theme |
 |:-:|:-:|
 | ![Hacker](docs/screenshots/hacker-theme.png) | ![Vader](docs/screenshots/vader-theme.png) |
-
----
-
-## Highlights
-
-- **Fully local** — All AI processing runs on your hardware via Ollama. No cloud, no API keys, no data leaving your machine.
-- **One-command launch** — `./start.sh` handles everything: database, dependencies, builds, services. First run takes a few minutes; after that, it's instant.
-- **Self-improving** — Guaardvark runs its own test suite, identifies failures, and dispatches an AI agent to fix them autonomously.
-- **Multi-machine sync** — The Interconnector links multiple Guaardvark instances into a family that shares learnings, syncs code, and coordinates models.
-- **Desktop-style file manager** — Drag-and-drop files, folder windows, right-click menus, properties panels — feels like a native OS, runs in the browser.
-- **Swap models at runtime** — Switch LLMs and embedding models on the fly through the UI. GPU memory is managed automatically.
 
 ---
 
@@ -159,25 +167,13 @@ cd guaardvark
 ./start.sh
 ```
 
-That's it. The startup script handles everything on first run:
-- Installs Python venv and Node dependencies
-- Provisions PostgreSQL (creates database, user, credentials)
-- Installs and starts Redis
-- Builds Whisper.cpp for voice processing
-- Runs database migrations
-- Builds the frontend
-- Starts all services
+The startup script handles everything on first run: Python venv, Node dependencies, PostgreSQL, Redis, Whisper.cpp, database migrations, frontend build, and all services. First run requires your system password once (to set up PostgreSQL). After that, launches are instant.
 
-First run requires your system password once (to set up PostgreSQL). After that, launches are instant with no password needed.
-
-**Access:**
 | Service | URL |
 |---------|-----|
 | Web UI | http://localhost:5173 |
 | API | http://localhost:5000 |
 | Health Check | http://localhost:5000/api/health |
-
-### Startup Options
 
 ```bash
 ./start.sh                    # Full startup with health checks
