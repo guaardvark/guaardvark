@@ -14,7 +14,9 @@ generate_app = typer.Typer(help="Content generation", no_args_is_help=True)
 @generate_app.command("csv")
 def generate_csv(
     prompt: str = typer.Argument(..., help="Generation prompt"),
-    output_file: str = typer.Option("output.csv", "--output", "-o", help="Output filename"),
+    output_file: str = typer.Option(
+        "output.csv", "--output", "-o", help="Output filename"
+    ),
     client_name: str = typer.Option(None, "--client", "-c", help="Client name"),
     project_name: str = typer.Option(None, "--project", "-p", help="Project name"),
     word_count: int = typer.Option(500, "--words", "-w", help="Target word count"),
@@ -47,7 +49,9 @@ def generate_csv(
             output.print_success(f"Generated: {result.get('output_file', output_file)}")
             stats = result.get("statistics", {})
             if stats:
-                console.print(f"  [llx.dim]Items: {stats.get('generated_items', '?')} | Time: {stats.get('generation_time', '?')}s[/llx.dim]")
+                console.print(
+                    f"  [llx.dim]Items: {stats.get('generated_items', '?')} | Time: {stats.get('generation_time', '?')}s[/llx.dim]"
+                )
 
     except (LlxConnectionError, LlxError) as e:
         output.print_error(str(e))
@@ -66,10 +70,13 @@ def generate_image(
     output.set_json_mode(json_out)
     try:
         api_client = get_client(server)
-        data = api_client.post("/api/batch-image/generate/prompts", json={
-            "prompts": [prompt],
-            "batch_size": 1,
-        })
+        data = api_client.post(
+            "/api/batch-image/generate/prompts",
+            json={
+                "prompts": [prompt],
+                "batch_size": 1,
+            },
+        )
         result = data.get("data", data)
 
         if json_out or output.is_pipe():
@@ -77,7 +84,9 @@ def generate_image(
         else:
             job_id = result.get("job_id", "")
             output.print_success(f"Image generation started (job: {job_id})")
-            console.print(f"  Track with: [llx.accent]llx jobs watch {job_id}[/llx.accent]")
+            console.print(
+                f"  Track with: [llx.accent]llx jobs watch {job_id}[/llx.accent]"
+            )
 
     except (LlxConnectionError, LlxError) as e:
         output.print_error(str(e))

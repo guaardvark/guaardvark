@@ -33,7 +33,9 @@ def create_backup_endpoint() -> Dict[str, str]:
     try:
         # Create backup based on type
         if backup_type == "data":
-            zip_path = backup_service.create_data_backup(components=components, name=name)
+            zip_path = backup_service.create_data_backup(
+                components=components, name=name
+            )
         elif backup_type in ["full", "full_system"]:
             zip_path = backup_service.create_full_backup(name=name)
         elif backup_type in ["code_release", "code_only"]:
@@ -56,16 +58,16 @@ def restore_backup_endpoint() -> Dict[str, str]:
     if "file" in request.files:
         # Handle file upload
         file_obj = request.files["file"]
-        if not file_obj.filename or not file_obj.filename.endswith('.zip'):
+        if not file_obj.filename or not file_obj.filename.endswith(".zip"):
             return jsonify({"error": "Only ZIP files are allowed"}), 400
-        
+
         # Ensure backup directory exists and is secure
         tmp_path = os.path.join(config.BACKUP_DIR, "_upload.zip")
         backup_dir_real = os.path.realpath(config.BACKUP_DIR)
         tmp_path_real = os.path.realpath(tmp_path)
         if not tmp_path_real.startswith(backup_dir_real + os.sep):
             return jsonify({"error": "Invalid backup path"}), 400
-        
+
         # Save uploaded file
         os.makedirs(config.BACKUP_DIR, exist_ok=True)
         file_obj.save(tmp_path)
@@ -76,26 +78,26 @@ def restore_backup_endpoint() -> Dict[str, str]:
         name = data.get("filename")
         if not name:
             return jsonify({"error": "file required"}), 400
-        
+
         # Validate filename
-        if not isinstance(name, str) or '..' in name or '/' in name or '\\' in name:
+        if not isinstance(name, str) or ".." in name or "/" in name or "\\" in name:
             return jsonify({"error": "Invalid filename"}), 400
-        
+
         # Only allow .zip files
-        if not name.endswith('.zip'):
+        if not name.endswith(".zip"):
             return jsonify({"error": "Only ZIP files are allowed"}), 400
-        
+
         # Validate final path
         path = os.path.join(config.BACKUP_DIR, name)
         backup_dir_real = os.path.realpath(config.BACKUP_DIR)
         path_real = os.path.realpath(path)
         if not path_real.startswith(backup_dir_real + os.sep):
             return jsonify({"error": "Invalid backup file path"}), 400
-        
+
         # Check if file exists
         if not os.path.exists(path):
             return jsonify({"error": "Backup file not found"}), 404
-    
+
     try:
         # Restore backup
         summary = backup_service.restore_backup(path)
@@ -128,14 +130,17 @@ def download_backup_endpoint(filename: str) -> Dict[str, str]:
     Returns:
         The backup file as a downloadable response.
     """
-    if not filename or '..' in filename or '/' in filename or '\\' in filename:
+    if not filename or ".." in filename or "/" in filename or "\\" in filename:
         return jsonify({"error": "Invalid filename"}), 400
-    if not filename.endswith('.zip'):
+    if not filename.endswith(".zip"):
         return jsonify({"error": "Only ZIP files can be downloaded"}), 400
     path = os.path.join(config.BACKUP_DIR, filename)
     backup_dir_real = os.path.realpath(config.BACKUP_DIR)
     path_real = os.path.realpath(path)
-    if not path_real.startswith(backup_dir_real + os.sep) and path_real != backup_dir_real:
+    if (
+        not path_real.startswith(backup_dir_real + os.sep)
+        and path_real != backup_dir_real
+    ):
         return jsonify({"error": "Invalid backup file path"}), 400
     if not os.path.exists(path):
         return jsonify({"error": "Backup file not found"}), 404

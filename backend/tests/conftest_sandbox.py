@@ -1,4 +1,5 @@
 """Shared fixtures for self-improvement test suite."""
+
 import os
 import shutil
 import pytest
@@ -32,6 +33,7 @@ def ollama_available():
     try:
         import urllib.request
         import json
+
         resp = urllib.request.urlopen("http://localhost:11434/api/tags", timeout=3)
         data = json.loads(resp.read())
         return len(data.get("models", [])) > 0
@@ -40,6 +42,5 @@ def ollama_available():
 
 
 requires_llm = pytest.mark.skipif(
-    not ollama_available(),
-    reason="Ollama not available or no models loaded"
+    not ollama_available(), reason="Ollama not available or no models loaded"
 )

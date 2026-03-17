@@ -134,9 +134,7 @@ def set_llm_debug():
         if setting:
             setting.value = "true" if enabled else "false"
         else:
-            setting = Setting(
-                key="llm_debug", value="true" if enabled else "false"
-            )
+            setting = Setting(key="llm_debug", value="true" if enabled else "false")
             db.session.add(setting)
         db.session.commit()
     except Exception as e:
@@ -220,31 +218,39 @@ def set_branding():
                 db.session.add(SystemSetting(key="system_name", value=name))
         if file:
             # Validate file is an image
-            if not file.filename or '.' not in file.filename:
-                return error_response("Invalid file: must be an image file", status_code=400)
-            
+            if not file.filename or "." not in file.filename:
+                return error_response(
+                    "Invalid file: must be an image file", status_code=400
+                )
+
             # Get file extension
-            file_ext = file.filename.rsplit('.', 1)[1].lower()
-            if file_ext not in ['png', 'jpg', 'jpeg', 'gif', 'webp']:
-                return error_response("Invalid file type: must be PNG, JPG, JPEG, GIF, or WEBP", status_code=400)
-            
+            file_ext = file.filename.rsplit(".", 1)[1].lower()
+            if file_ext not in ["png", "jpg", "jpeg", "gif", "webp"]:
+                return error_response(
+                    "Invalid file type: must be PNG, JPG, JPEG, GIF, or WEBP",
+                    status_code=400,
+                )
+
             upload_dir = os.path.join(
                 current_app.config.get("UPLOAD_FOLDER", "uploads"), "system"
             )
             os.makedirs(upload_dir, exist_ok=True)
-            
+
             # Keep original filename and extension
             from werkzeug.utils import secure_filename
+
             safe_filename = secure_filename(file.filename)
             logo_rel = os.path.join("system", safe_filename)
             save_path = os.path.join(upload_dir, safe_filename)
-            
+
             file.save(save_path)
             current_app.logger.info(f"Logo saved to: {save_path}")
             current_app.logger.info(f"Logo relative path: {logo_rel}")
-            current_app.logger.info(f"Uploads folder: {current_app.config.get('UPLOAD_FOLDER', 'uploads')}")
+            current_app.logger.info(
+                f"Uploads folder: {current_app.config.get('UPLOAD_FOLDER', 'uploads')}"
+            )
             current_app.logger.info(f"File exists check: {os.path.exists(save_path)}")
-            
+
             row = db.session.get(SystemSetting, "logo_path")
             if row:
                 row.value = logo_rel
@@ -299,36 +305,44 @@ def set_rag_debug():
 def get_rag_features():
     """Get all RAG-related feature settings"""
     try:
-        from backend.config import ENHANCED_CONTEXT_ENABLED, ADVANCED_RAG_ENABLED, RAG_DEBUG_ENABLED
-        
+        from backend.config import (
+            ENHANCED_CONTEXT_ENABLED,
+            ADVANCED_RAG_ENABLED,
+            RAG_DEBUG_ENABLED,
+        )
+
         # Get database settings (runtime overrides)
         enhanced_context = ENHANCED_CONTEXT_ENABLED
-        advanced_rag = ADVANCED_RAG_ENABLED  
+        advanced_rag = ADVANCED_RAG_ENABLED
         rag_debug = RAG_DEBUG_ENABLED
-        
+
         # Check for database overrides
         try:
             context_setting = db.session.get(Setting, "enhanced_context_enabled")
             if context_setting:
                 enhanced_context = context_setting.value == "true"
-                
+
             rag_setting = db.session.get(Setting, "advanced_rag_enabled")
             if rag_setting:
                 advanced_rag = rag_setting.value == "true"
-                
+
             debug_setting = db.session.get(Setting, "rag_debug_enabled")
             if debug_setting:
                 rag_debug = debug_setting.value == "true"
-                
+
         except Exception as db_error:
-            current_app.logger.warning(f"Failed to read RAG settings from database: {db_error}")
-        
-        return success_response({
-            "enhanced_context": enhanced_context,
-            "advanced_rag": advanced_rag,
-            "rag_debug": rag_debug
-        })
-        
+            current_app.logger.warning(
+                f"Failed to read RAG settings from database: {db_error}"
+            )
+
+        return success_response(
+            {
+                "enhanced_context": enhanced_context,
+                "advanced_rag": advanced_rag,
+                "rag_debug": rag_debug,
+            }
+        )
+
     except Exception as e:
         current_app.logger.error(f"Failed to get RAG features: {e}", exc_info=True)
         return error_response("Failed to get RAG features", status_code=500)
@@ -339,31 +353,31 @@ def update_rag_features():
     """Update RAG-related feature settings"""
     if not request.is_json:
         return error_response("Request must be JSON")
-    
+
     data = request.get_json()
-    
+
     try:
         # Update settings that are provided
         settings_to_update = {
             "enhanced_context_enabled": data.get("enhanced_context"),
-            "advanced_rag_enabled": data.get("advanced_rag"), 
-            "rag_debug_enabled": data.get("rag_debug")
+            "advanced_rag_enabled": data.get("advanced_rag"),
+            "rag_debug_enabled": data.get("rag_debug"),
         }
-        
+
         updated_settings = {}
-        
+
         for key, value in settings_to_update.items():
             if value is not None:  # Only update if explicitly provided
                 bool_value = bool(value)
                 str_value = "true" if bool_value else "false"
-                
+
                 setting = db.session.get(Setting, key)
                 if setting:
                     setting.value = str_value
                 else:
                     setting = Setting(key=key, value=str_value)
                     db.session.add(setting)
-                
+
                 # Map back to response format
                 response_key = key.replace("_enabled", "").replace("_", "_")
                 if key == "enhanced_context_enabled":
@@ -372,14 +386,16 @@ def update_rag_features():
                     updated_settings["advanced_rag"] = bool_value
                 elif key == "rag_debug_enabled":
                     updated_settings["rag_debug"] = bool_value
-        
+
         db.session.commit()
-        
-        return success_response({
-            "message": "RAG features updated successfully",
-            "updated": updated_settings
-        })
-        
+
+        return success_response(
+            {
+                "message": "RAG features updated successfully",
+                "updated": updated_settings,
+            }
+        )
+
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Failed to update RAG features: {e}", exc_info=True)
@@ -393,7 +409,7 @@ def clear_behavior_log():
         import os
 
         from backend.utils.chat_utils import USER_BEHAVIOR_LOG_PATH
-        
+
         if os.path.exists(USER_BEHAVIOR_LOG_PATH):
             # Clear the file by opening it in write mode
             with open(USER_BEHAVIOR_LOG_PATH, "w", encoding="utf-8") as f:
@@ -416,29 +432,33 @@ def clear_behavior_log():
 @settings_bp.route("/password/validate", methods=["POST"])
 def validate_password():
     """Validate password strength according to security requirements."""
-    current_app.logger.info("API: Received POST /api/settings/password/validate request")
-    
+    current_app.logger.info(
+        "API: Received POST /api/settings/password/validate request"
+    )
+
     try:
         data = request.get_json()
         if not data:
             return error_response("No data provided", status_code=400)
-        
+
         password = data.get("password")
         username = data.get("username")
         strict = data.get("strict", True)
-        
+
         if not password:
             return error_response("Password is required", status_code=400)
-        
+
         validation_result = validate_password_strength(password, username, strict)
-        
-        return success_response({
-            "valid": validation_result["is_valid"],
-            "errors": validation_result["errors"],
-            "requirements": validation_result["requirements"],
-            "strength_level": validation_result["strength_level"]
-        })
-        
+
+        return success_response(
+            {
+                "valid": validation_result["is_valid"],
+                "errors": validation_result["errors"],
+                "requirements": validation_result["requirements"],
+                "strength_level": validation_result["strength_level"],
+            }
+        )
+
     except Exception as e:
         current_app.logger.error(f"Failed to validate password: {e}", exc_info=True)
         return error_response(f"Failed to validate password: {e}")
@@ -447,27 +467,33 @@ def validate_password():
 @settings_bp.route("/password/requirements", methods=["GET"])
 def get_password_requirements():
     """Get password requirements for the application."""
-    current_app.logger.info("API: Received GET /api/settings/password/requirements request")
-    
+    current_app.logger.info(
+        "API: Received GET /api/settings/password/requirements request"
+    )
+
     try:
         from backend.utils.password_validation import default_password_validator
-        
+
         requirements = default_password_validator.generate_password_requirements_text()
-        
-        return success_response({
-            "requirements": requirements,
-            "min_length": default_password_validator.min_length,
-            "require_uppercase": default_password_validator.require_uppercase,
-            "require_lowercase": default_password_validator.require_lowercase,
-            "require_digits": default_password_validator.require_digits,
-            "require_special": default_password_validator.require_special,
-            "min_special_count": default_password_validator.min_special_count,
-            "max_repeating_chars": default_password_validator.max_repeating_chars,
-            "forbid_common_passwords": default_password_validator.forbid_common_passwords
-        })
-        
+
+        return success_response(
+            {
+                "requirements": requirements,
+                "min_length": default_password_validator.min_length,
+                "require_uppercase": default_password_validator.require_uppercase,
+                "require_lowercase": default_password_validator.require_lowercase,
+                "require_digits": default_password_validator.require_digits,
+                "require_special": default_password_validator.require_special,
+                "min_special_count": default_password_validator.min_special_count,
+                "max_repeating_chars": default_password_validator.max_repeating_chars,
+                "forbid_common_passwords": default_password_validator.forbid_common_passwords,
+            }
+        )
+
     except Exception as e:
-        current_app.logger.error(f"Failed to get password requirements: {e}", exc_info=True)
+        current_app.logger.error(
+            f"Failed to get password requirements: {e}", exc_info=True
+        )
         return error_response(f"Failed to get password requirements: {e}")
 
 
@@ -475,37 +501,47 @@ def get_password_requirements():
 def security_check():
     """Run security checks on the application configuration."""
     current_app.logger.info("API: Received GET /api/settings/security/check request")
-    
+
     try:
         from backend.tools.security_self_check import run_security_checks
-        
+
         warnings = run_security_checks()
-        
+
         # Additional runtime security checks
         additional_checks = []
-        
+
         # Check if default secret key is being used
         if current_app.config.get("SECRET_KEY") == "dev-secret-key":
-            additional_checks.append("Application is using default secret key - change in production")
-        
+            additional_checks.append(
+                "Application is using default secret key - change in production"
+            )
+
         # Check if debug mode is enabled
         if current_app.debug:
             additional_checks.append("Debug mode is enabled - disable in production")
-        
+
         # Check CORS configuration
         if os.getenv("FLASK_ENV") == "production":
             frontend_url = os.getenv("VITE_FRONTEND_URL", "http://localhost:5173")
             if "localhost" in frontend_url:
-                additional_checks.append("Frontend URL contains localhost in production environment")
-        
+                additional_checks.append(
+                    "Frontend URL contains localhost in production environment"
+                )
+
         all_warnings = warnings + additional_checks
-        
-        return success_response({
-            "warnings": all_warnings,
-            "warning_count": len(all_warnings),
-            "security_level": "high" if len(all_warnings) == 0 else "medium" if len(all_warnings) < 3 else "low"
-        })
-        
+
+        return success_response(
+            {
+                "warnings": all_warnings,
+                "warning_count": len(all_warnings),
+                "security_level": (
+                    "high"
+                    if len(all_warnings) == 0
+                    else "medium" if len(all_warnings) < 3 else "low"
+                ),
+            }
+        )
+
     except Exception as e:
         current_app.logger.error(f"Failed to run security check: {e}", exc_info=True)
         return error_response(f"Failed to run security check: {e}")

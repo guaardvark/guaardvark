@@ -26,14 +26,21 @@ def projects_list(
             output.print_json(projects)
             return
 
-        rows = [{
-            "id": p.get("id", ""),
-            "name": p.get("name", ""),
-            "client": (p.get("client") or {}).get("name", "—"),
-            "docs": p.get("document_count", 0),
-            "tasks": p.get("task_count", 0),
-        } for p in projects]
-        output.print_table(rows, columns=["id", "name", "client", "docs", "tasks"], title=f"Projects ({len(rows)})")
+        rows = [
+            {
+                "id": p.get("id", ""),
+                "name": p.get("name", ""),
+                "client": (p.get("client") or {}).get("name", "—"),
+                "docs": p.get("document_count", 0),
+                "tasks": p.get("task_count", 0),
+            }
+            for p in projects
+        ]
+        output.print_table(
+            rows,
+            columns=["id", "name", "client", "docs", "tasks"],
+            title=f"Projects ({len(rows)})",
+        )
 
     except (LlxConnectionError, LlxError) as e:
         output.print_error(str(e))
@@ -63,7 +70,9 @@ def projects_create(
         if json_out or output.is_pipe():
             output.print_json(result)
         else:
-            output.print_success(f"Created project: {name} (id: {result.get('id', '?')})")
+            output.print_success(
+                f"Created project: {name} (id: {result.get('id', '?')})"
+            )
 
     except (LlxConnectionError, LlxError) as e:
         output.print_error(str(e))
@@ -88,14 +97,17 @@ def projects_info(
         if json_out or output.is_pipe():
             output.print_json(project)
         else:
-            output.print_kv({
-                "ID": project.get("id", ""),
-                "Name": project.get("name", ""),
-                "Client": (project.get("client") or {}).get("name", "—"),
-                "Description": project.get("description", "—"),
-                "Documents": project.get("document_count", 0),
-                "Tasks": project.get("task_count", 0),
-            }, title="Project Details")
+            output.print_kv(
+                {
+                    "ID": project.get("id", ""),
+                    "Name": project.get("name", ""),
+                    "Client": (project.get("client") or {}).get("name", "—"),
+                    "Description": project.get("description", "—"),
+                    "Documents": project.get("document_count", 0),
+                    "Tasks": project.get("task_count", 0),
+                },
+                title="Project Details",
+            )
 
     except (LlxConnectionError, LlxError) as e:
         output.print_error(str(e))

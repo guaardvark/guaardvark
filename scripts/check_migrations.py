@@ -11,6 +11,7 @@ Exit codes:
   3 = Database connection error
   4 = Other error
 """
+
 import json
 import os
 import sys
@@ -60,7 +61,7 @@ def main():
         # Get comprehensive migration health
         health = get_comprehensive_health(migrations_dir)
         status = health.get("status")
-        
+
         if status == "multiple_heads":
             return output_result(
                 "multiple_heads",
@@ -68,7 +69,7 @@ def main():
                 fix="Run: cd backend && flask db merge heads -m 'merge heads'",
                 details=health,
             )
-            
+
         if status == "pending":
             return output_result(
                 "pending",
@@ -76,7 +77,7 @@ def main():
                 fix="Run: cd backend && flask db upgrade",
                 details=health,
             )
-            
+
         if status == "model_changes":
             return output_result(
                 "model_changes",

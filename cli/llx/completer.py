@@ -45,8 +45,14 @@ SLASH_TREE: dict[str, list[str]] = {
     "tasks": ["list", "create", "info", "start", "download", "delete"],
     "images": ["list", "generate", "status", "models", "delete"],
     "videos": [
-        "list", "generate", "from-image", "status",
-        "models", "delete", "download", "combine",
+        "list",
+        "generate",
+        "from-image",
+        "status",
+        "models",
+        "delete",
+        "download",
+        "combine",
     ],
     # REPL-only
     "new": [],
@@ -108,6 +114,7 @@ def _get_meta(command: str) -> str:
 # ---------------------------------------------------------------------------
 # Completer
 # ---------------------------------------------------------------------------
+
 
 class SlashCompleter(Completer):
     """Tab-completion for ``/command [subcommand]`` input.
@@ -182,6 +189,7 @@ class SlashCompleter(Completer):
 # ---------------------------------------------------------------------------
 # Factory
 # ---------------------------------------------------------------------------
+
 
 def make_completer(
     get_dynamic: Optional[Callable[[str, str], Optional[List[str]]]] = None,

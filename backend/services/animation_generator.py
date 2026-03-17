@@ -57,6 +57,7 @@ class AnimationGenerator:
 
     def __init__(self):
         from backend.config import OUTPUT_DIR
+
         self.output_dir = Path(OUTPUT_DIR) / "generated_animations"
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -67,7 +68,8 @@ class AnimationGenerator:
 
         try:
             from backend.services.offline_image_generator import (
-                get_image_generator, ImageGenerationRequest
+                get_image_generator,
+                ImageGenerationRequest,
             )
 
             generator = get_image_generator()
@@ -90,7 +92,9 @@ class AnimationGenerator:
             # Step 1: Generate frame 1 via txt2img
             frame1_prompt = request.prompt
             if request.motion_prompt:
-                frame1_prompt = f"{request.prompt}, beginning of motion: {request.motion_prompt}"
+                frame1_prompt = (
+                    f"{request.prompt}, beginning of motion: {request.motion_prompt}"
+                )
 
             frame1_request = ImageGenerationRequest(
                 prompt=frame1_prompt,
@@ -128,11 +132,17 @@ class AnimationGenerator:
                 # Vision steering: every 4 frames, ask the vision model
                 if request.use_vision_steering and i % 4 == 0 and i > 0:
                     steered = self._vision_steer(
-                        current_frame, request.prompt, request.motion_prompt, i, request.num_frames
+                        current_frame,
+                        request.prompt,
+                        request.motion_prompt,
+                        i,
+                        request.num_frames,
                     )
                     if steered:
                         frame_prompt = steered
-                        logger.info(f"Vision steering at frame {i+1}: {steered[:80]}...")
+                        logger.info(
+                            f"Vision steering at frame {i+1}: {steered[:80]}..."
+                        )
 
                 frame_result = generator.generate_image_from_image(
                     prompt=frame_prompt,
@@ -148,14 +158,18 @@ class AnimationGenerator:
                 )
 
                 if not frame_result.success or not frame_result.image_path:
-                    logger.warning(f"Frame {i+1} failed: {frame_result.error}. Using previous frame.")
+                    logger.warning(
+                        f"Frame {i+1} failed: {frame_result.error}. Using previous frame."
+                    )
                     # On failure, duplicate previous frame to keep sequence going
                     frames.append(current_frame.copy())
                     continue
 
                 current_frame = Image.open(frame_result.image_path).convert("RGB")
                 frames.append(current_frame.copy())
-                logger.info(f"Frame {i+1}/{request.num_frames} generated in {frame_result.generation_time:.1f}s")
+                logger.info(
+                    f"Frame {i+1}/{request.num_frames} generated in {frame_result.generation_time:.1f}s"
+                )
 
             # Step 3: Ping-pong loop (append reversed frames minus endpoints)
             if request.loop and len(frames) > 2:
@@ -172,13 +186,17 @@ class AnimationGenerator:
                 gif_path = self._assemble_gif(frames, base_name, request.fps)
                 if gif_path:
                     result.gif_path = str(gif_path)
-                    result.gif_url = f"/api/outputs/generated_animations/{gif_path.name}"
+                    result.gif_url = (
+                        f"/api/outputs/generated_animations/{gif_path.name}"
+                    )
 
             if request.output_format in ("mp4", "both"):
                 mp4_path = self._assemble_mp4(frames, base_name, request.fps)
                 if mp4_path:
                     result.mp4_path = str(mp4_path)
-                    result.mp4_url = f"/api/outputs/generated_animations/{mp4_path.name}"
+                    result.mp4_url = (
+                        f"/api/outputs/generated_animations/{mp4_path.name}"
+                    )
 
             result.success = True
             result.generation_time = time.time() - start_time
@@ -233,8 +251,12 @@ class AnimationGenerator:
         )
 
     def _vision_steer(
-        self, current_frame: Image.Image, base_prompt: str,
-        motion_prompt: str, frame_idx: int, total_frames: int
+        self,
+        current_frame: Image.Image,
+        base_prompt: str,
+        motion_prompt: str,
+        frame_idx: int,
+        total_frames: int,
     ) -> Optional[str]:
         """Feed current frame to the vision model to get a refined prompt."""
         try:
@@ -265,18 +287,21 @@ class AnimationGenerator:
                 try:
                     response = ollama.chat(
                         model=model,
-                        messages=[{
-                            "role": "user",
-                            "content": steering_prompt,
-                            "images": [img_b64],
-                        }],
+                        messages=[
+                            {
+                                "role": "user",
+                                "content": steering_prompt,
+                                "images": [img_b64],
+                            }
+                        ],
                         options={"num_predict": 150, "temperature": 0.3},
                     )
                     text = response.get("message", {}).get("content", "").strip()
                     if text and len(text) > 20:
                         # Strip any thinking tags
                         import re
-                        text = re.sub(r'<think>[\s\S]*?</think>\s*', '', text).strip()
+
+                        text = re.sub(r"<think>[\s\S]*?</think>\s*", "", text).strip()
                         return text
                 except Exception:
                     continue
@@ -286,7 +311,9 @@ class AnimationGenerator:
             logger.warning(f"Vision steering failed: {e}")
             return None
 
-    def _assemble_gif(self, frames: List[Image.Image], base_name: str, fps: int) -> Optional[Path]:
+    def _assemble_gif(
+        self, frames: List[Image.Image], base_name: str, fps: int
+    ) -> Optional[Path]:
         """Assemble frames into an animated GIF."""
         try:
             output_path = self.output_dir / f"{base_name}.gif"
@@ -302,13 +329,17 @@ class AnimationGenerator:
                 optimize=True,
             )
 
-            logger.info(f"GIF assembled: {output_path} ({os.path.getsize(output_path) / 1024:.0f}KB)")
+            logger.info(
+                f"GIF assembled: {output_path} ({os.path.getsize(output_path) / 1024:.0f}KB)"
+            )
             return output_path
         except Exception as e:
             logger.error(f"GIF assembly failed: {e}", exc_info=True)
             return None
 
-    def _assemble_mp4(self, frames: List[Image.Image], base_name: str, fps: int) -> Optional[Path]:
+    def _assemble_mp4(
+        self, frames: List[Image.Image], base_name: str, fps: int
+    ) -> Optional[Path]:
         """Assemble frames into an MP4 video."""
         try:
             import numpy as np
@@ -320,6 +351,7 @@ class AnimationGenerator:
 
             try:
                 import imageio
+
                 imageio.mimwrite(
                     str(output_path),
                     np_frames,
@@ -335,17 +367,29 @@ class AnimationGenerator:
                     for i, frame in enumerate(frames):
                         frame.save(os.path.join(tmpdir, f"frame_{i:04d}.png"))
 
-                    subprocess.run([
-                        "ffmpeg", "-y",
-                        "-framerate", str(fps),
-                        "-i", os.path.join(tmpdir, "frame_%04d.png"),
-                        "-c:v", "libx264",
-                        "-pix_fmt", "yuv420p",
-                        "-preset", "fast",
-                        str(output_path),
-                    ], capture_output=True, check=True)
+                    subprocess.run(
+                        [
+                            "ffmpeg",
+                            "-y",
+                            "-framerate",
+                            str(fps),
+                            "-i",
+                            os.path.join(tmpdir, "frame_%04d.png"),
+                            "-c:v",
+                            "libx264",
+                            "-pix_fmt",
+                            "yuv420p",
+                            "-preset",
+                            "fast",
+                            str(output_path),
+                        ],
+                        capture_output=True,
+                        check=True,
+                    )
 
-            logger.info(f"MP4 assembled: {output_path} ({os.path.getsize(output_path) / 1024:.0f}KB)")
+            logger.info(
+                f"MP4 assembled: {output_path} ({os.path.getsize(output_path) / 1024:.0f}KB)"
+            )
             return output_path
         except Exception as e:
             logger.error(f"MP4 assembly failed: {e}", exc_info=True)

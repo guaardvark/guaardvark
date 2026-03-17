@@ -14,8 +14,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed as futures_compl
 from typing import Dict, List, Any, Optional, Callable
 
 from backend.utils.llm_debug_logger import (
-    log_system_prompt, log_user_message, log_llm_response,
-    log_tool_call, log_tool_result, log_guard_event, log_decision,
+    log_system_prompt,
+    log_user_message,
+    log_llm_response,
+    log_tool_call,
+    log_tool_result,
+    log_guard_event,
+    log_decision,
 )
 
 logger = logging.getLogger(__name__)
@@ -67,37 +72,121 @@ def is_conversational(message: str) -> bool:
 
 # Tool categories for smart selection
 CORE_TOOLS = ["web_search", "search_knowledge_base", "system_command", "generate_file"]
-BROWSER_TOOLS = ["browser_navigate", "browser_click", "browser_fill", "browser_screenshot",
-                 "browser_extract", "browser_wait", "browser_execute_js", "browser_get_html"]
+BROWSER_TOOLS = [
+    "browser_navigate",
+    "browser_click",
+    "browser_fill",
+    "browser_screenshot",
+    "browser_extract",
+    "browser_wait",
+    "browser_execute_js",
+    "browser_get_html",
+]
 CODE_TOOLS = ["codegen", "analyze_code", "generate_csv", "generate_bulk_csv"]
 CONTENT_TOOLS = ["generate_wordpress_content", "generate_enhanced_wordpress_content"]
-DESKTOP_TOOLS = ["app_launch", "app_list", "app_focus", "gui_click", "gui_type",
-                 "gui_hotkey", "gui_screenshot", "notification_send"]
+DESKTOP_TOOLS = [
+    "app_launch",
+    "app_list",
+    "app_focus",
+    "gui_click",
+    "gui_type",
+    "gui_hotkey",
+    "gui_screenshot",
+    "notification_send",
+]
 WEB_TOOLS = ["analyze_website"]
 MEDIA_TOOLS = ["media_play", "media_control", "media_volume", "media_status"]
 IMAGE_TOOLS = ["generate_image", "generate_animation"]
 
 # Keyword triggers for contextual tool selection
 TOOL_CONTEXT_KEYWORDS = {
-    "browser": (["browse", "website", "screenshot", "click", "navigate", "open page",
-                 "go to", "visit", "webpage"], BROWSER_TOOLS),
-    "code": (["code", "script", "function", "file", ".py", ".js", ".ts", ".html",
-              "generate code", "write code", "program"], CODE_TOOLS),
+    "browser": (
+        [
+            "browse",
+            "website",
+            "screenshot",
+            "click",
+            "navigate",
+            "open page",
+            "go to",
+            "visit",
+            "webpage",
+        ],
+        BROWSER_TOOLS,
+    ),
+    "code": (
+        [
+            "code",
+            "script",
+            "function",
+            "file",
+            ".py",
+            ".js",
+            ".ts",
+            ".html",
+            "generate code",
+            "write code",
+            "program",
+        ],
+        CODE_TOOLS,
+    ),
     "content": (["wordpress", "blog post", "article", "content", "seo"], CONTENT_TOOLS),
-    "desktop": (["launch app", "open app", "desktop", "gui", "notification", "clipboard"],
-                DESKTOP_TOOLS),
+    "desktop": (
+        ["launch app", "open app", "desktop", "gui", "notification", "clipboard"],
+        DESKTOP_TOOLS,
+    ),
     "web": (["analyze site", "seo analysis", "website analysis"], WEB_TOOLS),
-    "media": (["play", "pause", "stop", "music", "song", "volume", "mute", "unmute",
-               "next track", "skip", "playing", "louder", "quieter"], MEDIA_TOOLS),
-    "image": (["generate image", "create image", "draw", "make a picture", "make an image",
-               "generate a photo", "visualize", "illustration", "render image", "picture of",
-               "image of", "photo of", "animate", "animation", "gif", "moving image",
-               "video of", "make a video", "create a video", "generate video",
-               "generate a gif", "animated"], IMAGE_TOOLS),
+    "media": (
+        [
+            "play",
+            "pause",
+            "stop",
+            "music",
+            "song",
+            "volume",
+            "mute",
+            "unmute",
+            "next track",
+            "skip",
+            "playing",
+            "louder",
+            "quieter",
+        ],
+        MEDIA_TOOLS,
+    ),
+    "image": (
+        [
+            "generate image",
+            "create image",
+            "draw",
+            "make a picture",
+            "make an image",
+            "generate a photo",
+            "visualize",
+            "illustration",
+            "render image",
+            "picture of",
+            "image of",
+            "photo of",
+            "animate",
+            "animation",
+            "gif",
+            "moving image",
+            "video of",
+            "make a video",
+            "create a video",
+            "generate video",
+            "generate a gif",
+            "animated",
+        ],
+        IMAGE_TOOLS,
+    ),
 }
 
 
-def select_tools_for_context(message: str, all_tool_names: List[str], max_tools: int = 15) -> List[str]:
+def select_tools_for_context(
+    message: str, all_tool_names: List[str], max_tools: int = 15
+) -> List[str]:
     """Select most relevant tools based on message content."""
     # No tools for conversational messages
     if is_conversational(message):
@@ -154,7 +243,12 @@ class SemanticToolSelector:
     """
 
     # Tools that are always included regardless of similarity score.
-    CORE_TOOLS = {"web_search", "search_knowledge_base", "system_command", "generate_file"}
+    CORE_TOOLS = {
+        "web_search",
+        "search_knowledge_base",
+        "system_command",
+        "generate_file",
+    }
 
     def __init__(self):
         self._tool_embeddings: Dict[str, List[float]] = {}
@@ -201,7 +295,7 @@ class SemanticToolSelector:
         if self._initialized:
             return
         with self._lock:
-            if self._initialized:   # double-checked locking
+            if self._initialized:  # double-checked locking
                 return
             all_tool_names = registry.list_tools()
             embeddings: Dict[str, List[float]] = {}
@@ -218,6 +312,7 @@ class SemanticToolSelector:
             # Explicitly unload the embedding model after batch init
             try:
                 import ollama
+
                 ollama.embeddings(
                     model="qwen3-embedding:4b-q4_K_M",
                     prompt=".",
@@ -235,9 +330,7 @@ class SemanticToolSelector:
                 return
             self._tool_embeddings = embeddings
             self._initialized = True
-            logger.info(
-                f"SemanticToolSelector: embedded {len(embeddings)} tools"
-            )
+            logger.info(f"SemanticToolSelector: embedded {len(embeddings)} tools")
 
     @staticmethod
     def _build_tool_doc(name: str, tool) -> str:
@@ -253,6 +346,7 @@ class SemanticToolSelector:
     def _embed(self, text: str, keep_alive=0) -> List[float]:
         """Call ollama to embed text. keep_alive=0 unloads model after use."""
         import ollama
+
         kwargs = {"model": "qwen3-embedding:4b-q4_K_M", "prompt": text}
         if keep_alive is not None:
             kwargs["keep_alive"] = keep_alive
@@ -338,9 +432,17 @@ class UnifiedChatEngine:
         self.app = None  # Flask app reference for thread-safe DB access
         self._semantic_selector = get_semantic_selector()
 
-    def chat(self, session_id: str, message: str, options: Dict[str, Any],
-             emit_fn: Callable, app=None, project_id: int = None,
-             image_data: str = None, image_url: str = None) -> Dict[str, Any]:
+    def chat(
+        self,
+        session_id: str,
+        message: str,
+        options: Dict[str, Any],
+        emit_fn: Callable,
+        app=None,
+        project_id: int = None,
+        image_data: str = None,
+        image_url: str = None,
+    ) -> Dict[str, Any]:
         """
         Main entry point. Runs the ReACT loop with tool access.
 
@@ -367,9 +469,13 @@ class UnifiedChatEngine:
             # Run inside app context if provided
             if app:
                 with app.app_context():
-                    return self._run_chat(session_id, message, options, emit_fn, request_id, steps)
+                    return self._run_chat(
+                        session_id, message, options, emit_fn, request_id, steps
+                    )
             else:
-                return self._run_chat(session_id, message, options, emit_fn, request_id, steps)
+                return self._run_chat(
+                    session_id, message, options, emit_fn, request_id, steps
+                )
         except Exception as e:
             logger.error(f"UnifiedChatEngine error: {e}", exc_info=True)
             emit_fn("chat:error", {"error": str(e), "session_id": session_id})
@@ -377,10 +483,20 @@ class UnifiedChatEngine:
         finally:
             clear_abort_flag(session_id)
 
-    def _run_chat(self, session_id: str, message: str, options: Dict[str, Any],
-                  emit_fn: Callable, request_id: str, steps: List) -> Dict[str, Any]:
+    def _run_chat(
+        self,
+        session_id: str,
+        message: str,
+        options: Dict[str, Any],
+        emit_fn: Callable,
+        request_id: str,
+        steps: List,
+    ) -> Dict[str, Any]:
         """Internal chat execution with app context assumed."""
-        from backend.utils.agent_output_parser import parse_tool_calls_xml, format_tool_result_for_llm
+        from backend.utils.agent_output_parser import (
+            parse_tool_calls_xml,
+            format_tool_result_for_llm,
+        )
 
         # 0. Direct media command intercept — bypass LLM for simple media actions
         media_result = self._try_media_direct(message, session_id, emit_fn, request_id)
@@ -389,12 +505,17 @@ class UnifiedChatEngine:
 
         # 1. Load conversation history
         from backend.config import AGENTIC_HISTORY_LIMIT
+
         history = self._load_history(session_id, limit=AGENTIC_HISTORY_LIMIT)
 
         # 2. RAG context (optional, skipped for action-oriented and conversational messages)
         rag_context = ""
         conversational = is_conversational(message)
-        if options.get("use_rag", True) and not conversational and not self._should_skip_rag(message):
+        if (
+            options.get("use_rag", True)
+            and not conversational
+            and not self._should_skip_rag(message)
+        ):
             rag_context = self._retrieve_rag_context(message)
 
         # 3. System prompt with rules + tools
@@ -403,7 +524,9 @@ class UnifiedChatEngine:
         try:
             selected_tools = self._semantic_selector.select(message, self.registry)
         except Exception:
-            selected_tools = select_tools_for_context(message, self.registry.list_tools())
+            selected_tools = select_tools_for_context(
+                message, self.registry.list_tools()
+            )
         tool_list = build_concise_tool_list(self.registry, selected_tools)
         system_prompt = self._build_system_prompt(rules_persona, tool_list)
 
@@ -428,7 +551,9 @@ class UnifiedChatEngine:
         user_content = message
         context_parts = []
         if rag_context:
-            context_parts.append(f"Relevant context from knowledge base:\n{rag_context}")
+            context_parts.append(
+                f"Relevant context from knowledge base:\n{rag_context}"
+            )
         if context_parts:
             user_content = "\n\n".join(context_parts) + f"\n\nUser message: {message}"
 
@@ -452,17 +577,20 @@ class UnifiedChatEngine:
         iteration = 0
         tools_called = False  # Track if any tools were successfully called
         tool_output_snippets: List[str] = []  # Track tool outputs for grounding check
-        generated_images: List[Dict[str, str]] = []  # Track generated image URLs for persistence
+        generated_images: List[Dict[str, str]] = (
+            []
+        )  # Track generated image URLs for persistence
         # Thought continuity: compact per-iteration progress notes that are
         # prepended to each subsequent iteration's user message so the LLM has
         # an explicit working-memory summary instead of having to re-derive its
         # progress from the raw XML message history.
-        iteration_thoughts: list = []   # [(iteration_num, note_str), ...]
+        iteration_thoughts: list = []  # [(iteration_num, note_str), ...]
         # Token budget tracking — accumulated across all ReACT iterations.
         token_usage: Dict[str, int] = {"input_tokens": 0, "output_tokens": 0}
 
         # Tool execution guard: circuit breaker + duplicate detection
         from backend.services.tool_execution_guard import ToolExecutionGuard
+
         guard = ToolExecutionGuard(max_failures_per_tool=2)
 
         # LLM Debug: log system prompt and user message
@@ -471,50 +599,74 @@ class UnifiedChatEngine:
 
         for iteration in range(1, self.max_iterations + 1):
             if is_aborted(session_id):
-                emit_fn("chat:complete", {
-                    "response": accumulated_response or "Generation stopped.",
-                    "iterations": iteration,
-                    "steps": steps,
-                    "session_id": session_id,
-                    "aborted": True,
-                    "token_usage": token_usage,
-                })
+                emit_fn(
+                    "chat:complete",
+                    {
+                        "response": accumulated_response or "Generation stopped.",
+                        "iterations": iteration,
+                        "steps": steps,
+                        "session_id": session_id,
+                        "aborted": True,
+                        "token_usage": token_usage,
+                    },
+                )
                 break
 
             # 6a. Emit thinking
-            emit_fn("chat:thinking", {"iteration": iteration, "status": "Calling LLM..."})
+            emit_fn(
+                "chat:thinking", {"iteration": iteration, "status": "Calling LLM..."}
+            )
 
             # 6b. Call LLM with streaming
 
             try:
                 from backend.config import AGENTIC_MAX_TOKENS_FINAL
+
                 llm_response, in_tok, out_tok = self._call_llm_streaming(
-                    ollama_messages, emit_fn, session_id,
+                    ollama_messages,
+                    emit_fn,
+                    session_id,
                     emit_tokens=True,
                     max_tokens=AGENTIC_MAX_TOKENS_FINAL,
                 )
                 token_usage["input_tokens"] += in_tok
                 token_usage["output_tokens"] += out_tok
-                log_llm_response("unified_chat", llm_response, session_id=session_id, iteration=iteration)
+                log_llm_response(
+                    "unified_chat",
+                    llm_response,
+                    session_id=session_id,
+                    iteration=iteration,
+                )
             except Exception as e:
                 error_str = str(e)
                 logger.error(f"LLM call failed at iteration {iteration}: {error_str}")
 
-                if "model runner" in error_str.lower() or "unexpectedly stopped" in error_str.lower():
+                if (
+                    "model runner" in error_str.lower()
+                    or "unexpectedly stopped" in error_str.lower()
+                ):
                     friendly_error = (
                         "The LLM model crashed, likely due to GPU memory pressure. "
                         "Another model may be using VRAM. Try again in a few seconds "
                         "after the other model unloads."
                     )
-                elif "connection" in error_str.lower() or "refused" in error_str.lower():
-                    friendly_error = "Cannot connect to Ollama. Is the Ollama service running?"
+                elif (
+                    "connection" in error_str.lower() or "refused" in error_str.lower()
+                ):
+                    friendly_error = (
+                        "Cannot connect to Ollama. Is the Ollama service running?"
+                    )
                 else:
                     friendly_error = f"LLM error: {error_str}"
 
-                emit_fn("chat:error", {"error": friendly_error, "session_id": session_id})
+                emit_fn(
+                    "chat:error", {"error": friendly_error, "session_id": session_id}
+                )
                 return {
-                    "success": False, "error": friendly_error,
-                    "request_id": request_id, "iterations": iteration
+                    "success": False,
+                    "error": friendly_error,
+                    "request_id": request_id,
+                    "iterations": iteration,
                 }
 
             # 6c. Parse for tool calls
@@ -522,31 +674,43 @@ class UnifiedChatEngine:
             # because we sanitize the system prompt. Convert back to XML for the parser.
             parse_input = llm_response
             if "[tool_call]" in llm_response or "[tool]" in llm_response:
-                parse_input = (llm_response
-                    .replace("[tool_call]", "<tool_call>")
+                parse_input = (
+                    llm_response.replace("[tool_call]", "<tool_call>")
                     .replace("[/tool_call]", "</tool_call>")
                     .replace("[tool]", "<tool>")
-                    .replace("[/tool]", "</tool>"))
+                    .replace("[/tool]", "</tool>")
+                )
                 # Convert [param_name]value[/param_name] back to XML
-                parse_input = re.sub(r'\[(\w+)\]', r'<\1>', parse_input)
-                parse_input = re.sub(r'\[/(\w+)\]', r'</\1>', parse_input)
+                parse_input = re.sub(r"\[(\w+)\]", r"<\1>", parse_input)
+                parse_input = re.sub(r"\[/(\w+)\]", r"</\1>", parse_input)
             parsed = parse_tool_calls_xml(parse_input)
 
             # 6d. No tool calls -> final answer
             if parsed.tool_calls:
                 tool_names = [tc.tool_name for tc in parsed.tool_calls]
-                logger.info(f"[UNIFIED_ENGINE] iter={iteration} TOOL_CALLS: {tool_names}")
+                logger.info(
+                    f"[UNIFIED_ENGINE] iter={iteration} TOOL_CALLS: {tool_names}"
+                )
             else:
-                logger.info(f"[UNIFIED_ENGINE] iter={iteration} NO tool calls, returning final answer")
+                logger.info(
+                    f"[UNIFIED_ENGINE] iter={iteration} NO tool calls, returning final answer"
+                )
 
             if not parsed.tool_calls:
                 final_text = parsed.final_answer or llm_response.strip()
-                final_text = re.sub(r'</?(?:tool_call|tool|observation)[^>]*>', '', final_text).strip()
+                final_text = re.sub(
+                    r"</?(?:tool_call|tool|observation)[^>]*>", "", final_text
+                ).strip()
 
-                log_decision("unified_chat", "FINAL_ANSWER", {
-                    "iteration": iteration, "session_id": session_id,
-                    "has_tools_called": tools_called,
-                })
+                log_decision(
+                    "unified_chat",
+                    "FINAL_ANSWER",
+                    {
+                        "iteration": iteration,
+                        "session_id": session_id,
+                        "has_tools_called": tools_called,
+                    },
+                )
 
                 # Anti-hallucination: for real-time queries, if web_search was never
                 # successfully called, prepend a disclaimer instead of letting the
@@ -564,7 +728,7 @@ class UnifiedChatEngine:
             step_info = {
                 "iteration": iteration,
                 "thoughts": parsed.thoughts,
-                "tool_calls": []
+                "tool_calls": [],
             }
 
             # ── Tool execution: parallel when the LLM calls multiple tools ──────
@@ -588,18 +752,27 @@ class UnifiedChatEngine:
             # --- 1. Pre-compute parameters ----------------------------------------
             # Each entry: (tool_call_obj, tool_name, resolved_params)
             tool_jobs = [
-                (tc, tc.tool_name,
-                 self._normalize_parameters(tc.parameters, tool_name=tc.tool_name))
+                (
+                    tc,
+                    tc.tool_name,
+                    self._normalize_parameters(tc.parameters, tool_name=tc.tool_name),
+                )
                 for tc in parsed.tool_calls
             ]
 
             # Log parsed tool calls
             for tc, tool_name, params in tool_jobs:
-                log_tool_call("unified_chat", tool_name, params,
-                              reasoning=tc.reasoning, iteration=iteration)
+                log_tool_call(
+                    "unified_chat",
+                    tool_name,
+                    params,
+                    reasoning=tc.reasoning,
+                    iteration=iteration,
+                )
 
             # --- 1b. Guard pre-filter: block circuit-broken / duplicate calls ----
             from backend.services.agent_tools import ToolResult as _ToolResult
+
             allowed_jobs = []
             blocked_observations = []
             for tc, tool_name, params in tool_jobs:
@@ -607,27 +780,35 @@ class UnifiedChatEngine:
                 if allowed:
                     allowed_jobs.append((tc, tool_name, params))
                 else:
-                    log_guard_event("unified_chat", "BLOCKED", tool_name, details=block_reason)
+                    log_guard_event(
+                        "unified_chat", "BLOCKED", tool_name, details=block_reason
+                    )
                     # Synthetic failed result for the LLM
                     blocked_observations.append(
                         f"<observation>\n<tool>{tool_name}</tool>\n"
                         f"<result>BLOCKED: {block_reason}</result>\n</observation>"
                     )
-                    emit_fn("chat:tool_result", {
-                        "tool": tool_name,
-                        "result": {"success": False, "error": block_reason},
-                        "duration_ms": 0,
-                    })
+                    emit_fn(
+                        "chat:tool_result",
+                        {
+                            "tool": tool_name,
+                            "result": {"success": False, "error": block_reason},
+                            "duration_ms": 0,
+                        },
+                    )
             tool_jobs = allowed_jobs
 
             # --- 2. Announce all calls upfront ------------------------------------
             for tc, tool_name, params in tool_jobs:
-                emit_fn("chat:tool_call", {
-                    "tool": tool_name,
-                    "params": params,
-                    "iteration": iteration,
-                    "reasoning": tc.reasoning,
-                })
+                emit_fn(
+                    "chat:tool_call",
+                    {
+                        "tool": tool_name,
+                        "params": params,
+                        "iteration": iteration,
+                        "reasoning": tc.reasoning,
+                    },
+                )
 
             # --- 3+4. Execute and emit results ------------------------------------
             _emit_lock = threading.Lock()
@@ -635,7 +816,11 @@ class UnifiedChatEngine:
             def _output_str(res) -> str:
                 """Convert a ToolResult output to a plain string."""
                 if res.success and res.output is not None:
-                    return str(res.output) if not isinstance(res.output, str) else res.output
+                    return (
+                        str(res.output)
+                        if not isinstance(res.output, str)
+                        else res.output
+                    )
                 return ""
 
             def _emit_result(job_i: int, res, dur_ms: int) -> None:
@@ -643,15 +828,18 @@ class UnifiedChatEngine:
                 _, t_name, _ = tool_jobs[job_i]
                 out = _output_str(res)
                 with _emit_lock:
-                    emit_fn("chat:tool_result", {
-                        "tool": t_name,
-                        "result": {
-                            "success": res.success,
-                            "output": out[:2000] if res.success else None,
-                            "error": res.error if not res.success else None,
+                    emit_fn(
+                        "chat:tool_result",
+                        {
+                            "tool": t_name,
+                            "result": {
+                                "success": res.success,
+                                "output": out[:2000] if res.success else None,
+                                "error": res.error if not res.success else None,
+                            },
+                            "duration_ms": dur_ms,
                         },
-                        "duration_ms": dur_ms,
-                    })
+                    )
                     # Emit image event if tool result contains an image URL
                     if res.metadata and res.metadata.get("image_url"):
                         img_info = {
@@ -660,12 +848,15 @@ class UnifiedChatEngine:
                             "caption": res.metadata.get("prompt", ""),
                         }
                         generated_images.append(img_info)
-                        emit_fn("chat:image", {
-                            "image_url": img_info["url"],
-                            "alt": img_info["alt"],
-                            "caption": img_info["caption"],
-                            "session_id": session_id,
-                        })
+                        emit_fn(
+                            "chat:image",
+                            {
+                                "image_url": img_info["url"],
+                                "alt": img_info["alt"],
+                                "caption": img_info["caption"],
+                                "session_id": session_id,
+                            },
+                        )
                     # Emit video event if tool result contains a video URL
                     if res.metadata and res.metadata.get("video_url"):
                         vid_info = {
@@ -675,12 +866,15 @@ class UnifiedChatEngine:
                             "type": "video",
                         }
                         generated_images.append(vid_info)
-                        emit_fn("chat:video", {
-                            "video_url": vid_info["url"],
-                            "alt": vid_info["alt"],
-                            "caption": vid_info["caption"],
-                            "session_id": session_id,
-                        })
+                        emit_fn(
+                            "chat:video",
+                            {
+                                "video_url": vid_info["url"],
+                                "alt": vid_info["alt"],
+                                "caption": vid_info["caption"],
+                                "session_id": session_id,
+                            },
+                        )
 
             def _exec_one(job_index: int):
                 """Worker: run one tool call, return (index, result, duration_ms)."""
@@ -694,10 +888,11 @@ class UnifiedChatEngine:
                         exc_info=True,
                     )
                     from backend.services.agent_tools import ToolResult
+
                     res = ToolResult(success=False, output=None, error=str(exc))
                 return job_index, res, int((time.time() - t0) * 1000)
 
-            results_by_index: dict = {}   # job_index -> (result, duration_ms)
+            results_by_index: dict = {}  # job_index -> (result, duration_ms)
             n_tools = len(tool_jobs)
 
             if n_tools > 1 and not is_aborted(session_id):
@@ -711,8 +906,11 @@ class UnifiedChatEngine:
                         except Exception as exc:
                             job_i = futures[future]
                             _, t_name, _ = tool_jobs[job_i]
-                            logger.error(f"Future for '{t_name}' raised: {exc}", exc_info=True)
+                            logger.error(
+                                f"Future for '{t_name}' raised: {exc}", exc_info=True
+                            )
                             from backend.services.agent_tools import ToolResult
+
                             res = ToolResult(success=False, output=None, error=str(exc))
                             dur_ms = 0
                         results_by_index[job_i] = (res, dur_ms)
@@ -727,15 +925,22 @@ class UnifiedChatEngine:
             observation_text = ""
             for job_i, (tc, tool_name, params) in enumerate(tool_jobs):
                 if job_i not in results_by_index:
-                    continue   # session was aborted before this tool ran
+                    continue  # session was aborted before this tool ran
 
                 result, duration_ms = results_by_index[job_i]
                 out = _output_str(result)
 
                 # Record result with guard for circuit breaker tracking
-                guard.record_result(tool_name, params, result.success, result.error, iteration)
-                log_tool_result("unified_chat", tool_name, result.success,
-                                out if result.success else (result.error or ""), iteration=iteration)
+                guard.record_result(
+                    tool_name, params, result.success, result.error, iteration
+                )
+                log_tool_result(
+                    "unified_chat",
+                    tool_name,
+                    result.success,
+                    out if result.success else (result.error or ""),
+                    iteration=iteration,
+                )
 
                 if result.success:
                     tools_called = True
@@ -743,15 +948,17 @@ class UnifiedChatEngine:
                     if out:
                         tool_output_snippets.append(out[:300])
 
-                step_info["tool_calls"].append({
-                    "tool_name": tool_name,
-                    "params": params,
-                    "success": result.success,
-                    "duration_ms": duration_ms,
-                    "output_preview": out[:200] if result.success else result.error,
-                })
+                step_info["tool_calls"].append(
+                    {
+                        "tool_name": tool_name,
+                        "params": params,
+                        "success": result.success,
+                        "duration_ms": duration_ms,
+                        "output_preview": out[:200] if result.success else result.error,
+                    }
+                )
 
-                formatted = format_tool_result_for_llm(tool_name, result, format='xml')
+                formatted = format_tool_result_for_llm(tool_name, result, format="xml")
                 if not result.success:
                     fallback = guard.suggest_fallback(tool_name)
                     fallback_msg = f" Alternative: {fallback}" if fallback else ""
@@ -792,9 +999,7 @@ class UnifiedChatEngine:
                 notes_lines = "\n".join(
                     f"• Step {n}: {note}" for n, note in prior_thoughts
                 )
-                continuity_block = (
-                    f"Progress so far:\n{notes_lines}\n\n"
-                )
+                continuity_block = f"Progress so far:\n{notes_lines}\n\n"
             else:
                 continuity_block = ""
 
@@ -812,58 +1017,75 @@ class UnifiedChatEngine:
             if iteration == 1 and self._is_realtime_query(message):
                 web_search_called = any(
                     tc.tool_name == "web_search"
-                    for s in steps for tc_info in s.get("tool_calls", [])
-                    if (tc_info.get("tool_name") == "web_search" and tc_info.get("success"))
+                    for s in steps
+                    for tc_info in s.get("tool_calls", [])
+                    if (
+                        tc_info.get("tool_name") == "web_search"
+                        and tc_info.get("success")
+                    )
                 )
                 if not web_search_called:
-                    log_decision("unified_chat", "REALTIME_NUDGE", {
-                        "iteration": iteration, "session_id": session_id,
-                    })
+                    log_decision(
+                        "unified_chat",
+                        "REALTIME_NUDGE",
+                        {
+                            "iteration": iteration,
+                            "session_id": session_id,
+                        },
+                    )
                     realtime_nudge = (
                         "IMPORTANT: The user is asking about current/real-time information. "
                         "You MUST call web_search before answering. Do NOT answer from memory.\n\n"
                     )
 
-            ollama_messages.append({
-                "role": "user",
-                "content": (
-                    f"{guard_block}"
-                    f"{realtime_nudge}"
-                    f"{continuity_block}"
-                    f"Latest tool results:\n{observation_text}\n\n"
-                    "Continue reasoning toward the user's goal using all findings above. "
-                    "If you have sufficient information, give your final answer directly. "
-                    "Otherwise, call another tool. Do not repeat tool calls that already ran."
-                )
-            })
+            ollama_messages.append(
+                {
+                    "role": "user",
+                    "content": (
+                        f"{guard_block}"
+                        f"{realtime_nudge}"
+                        f"{continuity_block}"
+                        f"Latest tool results:\n{observation_text}\n\n"
+                        "Continue reasoning toward the user's goal using all findings above. "
+                        "If you have sufficient information, give your final answer directly. "
+                        "Otherwise, call another tool. Do not repeat tool calls that already ran."
+                    ),
+                }
+            )
 
         # 7. Emit complete
-        emit_fn("chat:complete", {
-            "response": accumulated_response,
-            "iterations": iteration,
-            "steps": steps,
-            "session_id": session_id,
-            "request_id": request_id,
-            "token_usage": token_usage,
-            "generated_images": generated_images,
-        })
+        emit_fn(
+            "chat:complete",
+            {
+                "response": accumulated_response,
+                "iterations": iteration,
+                "steps": steps,
+                "session_id": session_id,
+                "request_id": request_id,
+                "token_usage": token_usage,
+                "generated_images": generated_images,
+            },
+        )
 
         # 8. Save assistant message (only if we have actual content)
         #    Strip any residual XML tool-call artifacts so they don't pollute
         #    conversation history and confuse future LLM context windows.
         if accumulated_response.strip():
             clean_response = re.sub(
-                r'</?(?:tool_call|tool|observation|result|reasoning|query|url|'
-                r'param_name|parameter|value|full_page|selector|format|max_results|'
-                r'analysis_type|include_metadata)[^>]*>',
-                '', accumulated_response
+                r"</?(?:tool_call|tool|observation|result|reasoning|query|url|"
+                r"param_name|parameter|value|full_page|selector|format|max_results|"
+                r"analysis_type|include_metadata)[^>]*>",
+                "",
+                accumulated_response,
             ).strip()
             # Collapse runs of whitespace left by tag removal
-            clean_response = re.sub(r'\n{3,}', '\n\n', clean_response)
+            clean_response = re.sub(r"\n{3,}", "\n\n", clean_response)
             extra_data = {"steps": steps, "iterations": iteration} if steps else {}
             if generated_images:
                 extra_data["generatedImages"] = generated_images
-            self._save_message(session_id, "assistant", clean_response, extra_data=extra_data or None)
+            self._save_message(
+                session_id, "assistant", clean_response, extra_data=extra_data or None
+            )
 
         return {
             "success": True,
@@ -879,32 +1101,74 @@ class UnifiedChatEngine:
     # Patterns and their media tool + param extraction. Bypasses the LLM loop.
     _MEDIA_PATTERNS = [
         # Play commands
-        (re.compile(r"(?i)^(?:please\s+)?play\s+(.+)", re.DOTALL), "media_play",
-         lambda m: {"query": m.group(1).strip()}),
+        (
+            re.compile(r"(?i)^(?:please\s+)?play\s+(.+)", re.DOTALL),
+            "media_play",
+            lambda m: {"query": m.group(1).strip()},
+        ),
         # Pause / stop / resume (bare)
-        (re.compile(r"(?i)^(?:please\s+)?(pause|stop|resume)(?:\s+(?:the\s+)?(?:music|song|playback|player|audio))?\.?$"),
-         "media_control", lambda m: {"action": "toggle" if m.group(1).lower() == "resume" else m.group(1).lower()}),
+        (
+            re.compile(
+                r"(?i)^(?:please\s+)?(pause|stop|resume)(?:\s+(?:the\s+)?(?:music|song|playback|player|audio))?\.?$"
+            ),
+            "media_control",
+            lambda m: {
+                "action": (
+                    "toggle" if m.group(1).lower() == "resume" else m.group(1).lower()
+                )
+            },
+        ),
         # Next / skip / previous
-        (re.compile(r"(?i)^(?:please\s+)?(next|skip|previous|prev)(?:\s+(?:song|track))?\.?$"),
-         "media_control", lambda m: {"action": "next" if m.group(1).lower() in ("next", "skip") else "previous"}),
+        (
+            re.compile(
+                r"(?i)^(?:please\s+)?(next|skip|previous|prev)(?:\s+(?:song|track))?\.?$"
+            ),
+            "media_control",
+            lambda m: {
+                "action": (
+                    "next" if m.group(1).lower() in ("next", "skip") else "previous"
+                )
+            },
+        ),
         # What's playing
-        (re.compile(r"(?i)^(?:what'?s|what\s+is)\s+(?:this\s+)?(?:playing|this\s+song)"),
-         "media_status", lambda m: {}),
-        (re.compile(r"(?i)^(?:current|now)\s+(?:playing|song|track)"),
-         "media_status", lambda m: {}),
+        (
+            re.compile(
+                r"(?i)^(?:what'?s|what\s+is)\s+(?:this\s+)?(?:playing|this\s+song)"
+            ),
+            "media_status",
+            lambda m: {},
+        ),
+        (
+            re.compile(r"(?i)^(?:current|now)\s+(?:playing|song|track)"),
+            "media_status",
+            lambda m: {},
+        ),
         # Volume
-        (re.compile(r"(?i)^(?:set\s+)?volume\s+(?:to\s+)?(\d+)"), "media_volume",
-         lambda m: {"level": m.group(1)}),
-        (re.compile(r"(?i)^(?:turn\s+)?(?:the\s+)?volume\s+(up|down)"), "media_volume",
-         lambda m: {"level": "+10" if m.group(1).lower() == "up" else "-10"}),
-        (re.compile(r"(?i)^(louder|quieter|softer)$"), "media_volume",
-         lambda m: {"level": "+10" if m.group(1).lower() == "louder" else "-10"}),
-        (re.compile(r"(?i)^(mute|unmute)(?:\s+(?:the\s+)?(?:audio|sound|volume))?$"), "media_volume",
-         lambda m: {"level": m.group(1).lower()}),
+        (
+            re.compile(r"(?i)^(?:set\s+)?volume\s+(?:to\s+)?(\d+)"),
+            "media_volume",
+            lambda m: {"level": m.group(1)},
+        ),
+        (
+            re.compile(r"(?i)^(?:turn\s+)?(?:the\s+)?volume\s+(up|down)"),
+            "media_volume",
+            lambda m: {"level": "+10" if m.group(1).lower() == "up" else "-10"},
+        ),
+        (
+            re.compile(r"(?i)^(louder|quieter|softer)$"),
+            "media_volume",
+            lambda m: {"level": "+10" if m.group(1).lower() == "louder" else "-10"},
+        ),
+        (
+            re.compile(r"(?i)^(mute|unmute)(?:\s+(?:the\s+)?(?:audio|sound|volume))?$"),
+            "media_volume",
+            lambda m: {"level": m.group(1).lower()},
+        ),
     ]
 
-    def _try_media_direct(self, message: str, session_id: str,
-                          emit_fn: Callable, request_id: str) -> Optional[Dict[str, Any]]:
+    def _try_media_direct(
+        self, message: str, session_id: str, emit_fn: Callable, request_id: str
+    ) -> Optional[Dict[str, Any]]:
         """Check if message is a media command and execute directly, bypassing LLM.
 
         Returns a result dict if handled, or None to fall through to normal chat.
@@ -927,32 +1191,48 @@ class UnifiedChatEngine:
             self._save_message(session_id, "user", message)
 
             # Execute the tool
-            emit_fn("chat:tool_call", {"tool": tool_name, "params": params, "iteration": 1})
+            emit_fn(
+                "chat:tool_call", {"tool": tool_name, "params": params, "iteration": 1}
+            )
             try:
                 result = self.registry.execute_tool(tool_name, **params)
             except Exception as e:
                 result_text = f"Media command failed: {e}"
-                emit_fn("chat:complete", {
-                    "response": result_text, "iterations": 1, "steps": [],
-                    "session_id": session_id, "request_id": request_id,
-                })
+                emit_fn(
+                    "chat:complete",
+                    {
+                        "response": result_text,
+                        "iterations": 1,
+                        "steps": [],
+                        "session_id": session_id,
+                        "request_id": request_id,
+                    },
+                )
                 self._save_message(session_id, "assistant", result_text)
                 return {"success": False, "error": str(e), "request_id": request_id}
 
-            emit_fn("chat:tool_result", {
-                "tool": tool_name,
-                "result": {"success": result.success,
-                           "output": str(result.output)[:2000] if result.success else None,
-                           "error": result.error if not result.success else None},
-            })
+            emit_fn(
+                "chat:tool_result",
+                {
+                    "tool": tool_name,
+                    "result": {
+                        "success": result.success,
+                        "output": str(result.output)[:2000] if result.success else None,
+                        "error": result.error if not result.success else None,
+                    },
+                },
+            )
             # Emit image event if tool result contains an image URL
             if result.metadata and result.metadata.get("image_url"):
-                emit_fn("chat:image", {
-                    "image_url": result.metadata["image_url"],
-                    "alt": f"Generated: {result.metadata.get('prompt', 'image')[:50]}",
-                    "caption": result.metadata.get("prompt", ""),
-                    "session_id": session_id,
-                })
+                emit_fn(
+                    "chat:image",
+                    {
+                        "image_url": result.metadata["image_url"],
+                        "alt": f"Generated: {result.metadata.get('prompt', 'image')[:50]}",
+                        "caption": result.metadata.get("prompt", ""),
+                        "session_id": session_id,
+                    },
+                )
 
             # Build friendly response
             if result.success:
@@ -960,22 +1240,36 @@ class UnifiedChatEngine:
             else:
                 response = f"Sorry, that didn't work: {result.error}"
 
-            emit_fn("chat:complete", {
-                "response": response, "iterations": 1, "steps": [],
-                "session_id": session_id, "request_id": request_id,
-            })
+            emit_fn(
+                "chat:complete",
+                {
+                    "response": response,
+                    "iterations": 1,
+                    "steps": [],
+                    "session_id": session_id,
+                    "request_id": request_id,
+                },
+            )
             self._save_message(session_id, "assistant", response)
             return {
-                "success": True, "response": response, "iterations": 1,
-                "steps": [], "request_id": request_id, "session_id": session_id,
+                "success": True,
+                "response": response,
+                "iterations": 1,
+                "steps": [],
+                "request_id": request_id,
+                "session_id": session_id,
             }
 
         return None  # Not a media command
 
-    def _call_llm_streaming(self, messages: List[Dict[str, str]], emit_fn: Callable,
-                             session_id: str, emit_tokens: bool = True,
-                             max_tokens: int = 768
-                             ) -> tuple:
+    def _call_llm_streaming(
+        self,
+        messages: List[Dict[str, str]],
+        emit_fn: Callable,
+        session_id: str,
+        emit_tokens: bool = True,
+        max_tokens: int = 768,
+    ) -> tuple:
         """Call the LLM with streaming via Ollama client directly.
 
         Bypasses LlamaIndex's PromptHelper entirely, avoiding context_window issues.
@@ -1010,7 +1304,9 @@ class UnifiedChatEngine:
         # Detect thinking models (qwen3-vl, qwen3, etc.) that put output
         # in the "thinking" field and may crash Ollama's JSON serializer
         # when thinking content contains XML-like tags.
-        is_thinking_model = any(t in model_name.lower() for t in ("qwen3", "deepseek-r1", "thinking"))
+        is_thinking_model = any(
+            t in model_name.lower() for t in ("qwen3", "deepseek-r1", "thinking")
+        )
 
         # Track <think>...</think> blocks in the content stream so we can
         # suppress them from being emitted as visible tokens.
@@ -1022,7 +1318,10 @@ class UnifiedChatEngine:
             ctx_window = getattr(self.llm, "context_window", None)
             if not ctx_window or ctx_window <= 0:
                 try:
-                    from backend.utils.ollama_resource_manager import compute_optimal_num_ctx
+                    from backend.utils.ollama_resource_manager import (
+                        compute_optimal_num_ctx,
+                    )
+
                     ctx_window = compute_optimal_num_ctx(model_name)
                 except Exception:
                     ctx_window = 8192
@@ -1038,7 +1337,14 @@ class UnifiedChatEngine:
                 )
                 messages = self._prune_messages_to_fit(messages, ctx_window)
 
-            opts = {"num_ctx": ctx_window, "num_predict": max_tokens, "temperature": 0.4, "top_p": 0.8, "top_k": 30, "num_keep": -1}
+            opts = {
+                "num_ctx": ctx_window,
+                "num_predict": max_tokens,
+                "temperature": 0.4,
+                "top_p": 0.8,
+                "top_k": 30,
+                "num_keep": -1,
+            }
 
             # For thinking models: strip literal XML tags from messages to
             # prevent the model from reproducing them in its thinking stream,
@@ -1068,7 +1374,9 @@ class UnifiedChatEngine:
                     if emit_tokens and not xml_detected:
                         # Check if we've hit a tool_call tag in the accumulated text
                         # Use last 20 chunks to handle slow-chunk Ollama streams
-                        if "<tool_call" in "".join(accumulated[-20:]) or "<tool>" in "".join(accumulated[-20:]):
+                        if "<tool_call" in "".join(
+                            accumulated[-20:]
+                        ) or "<tool>" in "".join(accumulated[-20:]):
                             xml_detected = True
                         else:
                             # Filter out <think>...</think> blocks from content stream
@@ -1080,13 +1388,27 @@ class UnifiedChatEngine:
                                         # Emit anything before the <think> tag
                                         before = think_buffer.split("<think>", 1)[0]
                                         if before:
-                                            emit_fn("chat:token", {"content": before, "session_id": session_id})
+                                            emit_fn(
+                                                "chat:token",
+                                                {
+                                                    "content": before,
+                                                    "session_id": session_id,
+                                                },
+                                            )
                                         in_think_block = True
-                                        think_buffer = think_buffer.split("<think>", 1)[1]
+                                        think_buffer = think_buffer.split("<think>", 1)[
+                                            1
+                                        ]
                                         emit_token = None
                                     elif len(think_buffer) > 20:
                                         # No <think> tag detected, flush buffer
-                                        emit_fn("chat:token", {"content": think_buffer, "session_id": session_id})
+                                        emit_fn(
+                                            "chat:token",
+                                            {
+                                                "content": think_buffer,
+                                                "session_id": session_id,
+                                            },
+                                        )
                                         think_buffer = ""
                                         emit_token = None
                                     else:
@@ -1100,11 +1422,20 @@ class UnifiedChatEngine:
                                         think_buffer = after if after else ""
                                         in_think_block = False
                                         if after:
-                                            emit_fn("chat:token", {"content": after, "session_id": session_id})
+                                            emit_fn(
+                                                "chat:token",
+                                                {
+                                                    "content": after,
+                                                    "session_id": session_id,
+                                                },
+                                            )
                                             think_buffer = ""
                                     emit_token = None
                             if emit_token:
-                                emit_fn("chat:token", {"content": emit_token, "session_id": session_id})
+                                emit_fn(
+                                    "chat:token",
+                                    {"content": emit_token, "session_id": session_id},
+                                )
                 if thinking_token:
                     accumulated_thinking.append(thinking_token)
                 # The final chunk (done=True) carries token-usage stats
@@ -1114,19 +1445,23 @@ class UnifiedChatEngine:
 
             # Flush any remaining think_buffer (non-think text that was still buffered)
             if think_buffer and not in_think_block and emit_tokens:
-                emit_fn("chat:token", {"content": think_buffer, "session_id": session_id})
+                emit_fn(
+                    "chat:token", {"content": think_buffer, "session_id": session_id}
+                )
 
             content = "".join(accumulated).strip()
             thinking = "".join(accumulated_thinking).strip()
 
             # Strip <think>...</think> blocks from final content
             if is_thinking_model:
-                content = re.sub(r'<think>[\s\S]*?</think>\s*', '', content).strip()
+                content = re.sub(r"<think>[\s\S]*?</think>\s*", "", content).strip()
 
             # Thinking models often put all useful output in the thinking field
             # and leave content empty. Use thinking as fallback.
             if not content and thinking:
-                logger.info(f"Using thinking field as response ({len(thinking)} chars, model: {model_name})")
+                logger.info(
+                    f"Using thinking field as response ({len(thinking)} chars, model: {model_name})"
+                )
                 content = thinking
 
             return content, input_tokens, output_tokens
@@ -1136,9 +1471,13 @@ class UnifiedChatEngine:
             # Ollama serialization crash: thinking model output contains XML
             # that breaks Go's JSON encoder.  Retry with sanitized messages.
             if "invalid character" in error_str and is_thinking_model:
-                logger.warning(f"Thinking model serialization error, retrying with sanitized prompt: {error_str}")
+                logger.warning(
+                    f"Thinking model serialization error, retrying with sanitized prompt: {error_str}"
+                )
                 try:
-                    sanitized = self._sanitize_messages_for_thinking_model(messages, aggressive=True)
+                    sanitized = self._sanitize_messages_for_thinking_model(
+                        messages, aggressive=True
+                    )
                     stream = ollama.chat(
                         model=model_name,
                         messages=sanitized,
@@ -1162,7 +1501,7 @@ class UnifiedChatEngine:
                     content = "".join(accumulated).strip()
                     thinking = "".join(accumulated_thinking).strip()
                     # Strip <think>...</think> blocks from retry content
-                    content = re.sub(r'<think>[\s\S]*?</think>\s*', '', content).strip()
+                    content = re.sub(r"<think>[\s\S]*?</think>\s*", "", content).strip()
                     if not content and thinking:
                         content = thinking
                     return content, input_tokens, output_tokens
@@ -1178,6 +1517,7 @@ class UnifiedChatEngine:
         estimated_tokens = total_chars // 4
 
         from backend.config import COMPACTION_THRESHOLD
+
         if estimated_tokens < context_window * COMPACTION_THRESHOLD:
             return messages  # No compaction needed
 
@@ -1194,18 +1534,25 @@ class UnifiedChatEngine:
 
         try:
             import ollama as ollama_client
+
             summary_response = ollama_client.chat(
                 model=getattr(self.llm, "model", "llama3.1:latest"),
-                messages=[{
-                    "role": "user",
-                    "content": f"Summarize the key facts, decisions, and context from this conversation in 200 words:\n\n{old_text}"
-                }],
+                messages=[
+                    {
+                        "role": "user",
+                        "content": f"Summarize the key facts, decisions, and context from this conversation in 200 words:\n\n{old_text}",
+                    }
+                ],
                 options={"num_predict": 256, "temperature": 0.3},
             )
             summary = summary_response["message"]["content"]
-            compacted = [{"role": "system", "content": f"Conversation summary: {summary}"}]
+            compacted = [
+                {"role": "system", "content": f"Conversation summary: {summary}"}
+            ]
             compacted.extend(recent)
-            logger.info(f"Compacted {len(old)} messages into summary ({len(summary)} chars)")
+            logger.info(
+                f"Compacted {len(old)} messages into summary ({len(summary)} chars)"
+            )
             return compacted
         except Exception as e:
             logger.warning(f"Conversation compaction failed: {e}")
@@ -1215,6 +1562,7 @@ class UnifiedChatEngine:
         """Load conversation history from DB (thread-safe with app context)."""
         try:
             from backend.models import LLMSession, LLMMessage, db
+
             ctx = self.app.app_context() if self.app else None
             if ctx:
                 ctx.push()
@@ -1223,8 +1571,7 @@ class UnifiedChatEngine:
                 if not session:
                     return []
                 messages = (
-                    LLMMessage.query
-                    .filter_by(session_id=session_id)
+                    LLMMessage.query.filter_by(session_id=session_id)
                     .order_by(LLMMessage.timestamp.desc())
                     .limit(limit)
                     .all()
@@ -1235,7 +1582,10 @@ class UnifiedChatEngine:
                     content = m.content
                     # Add image context marker if message had an image
                     if m.extra_data and isinstance(m.extra_data, dict):
-                        if m.extra_data.get("hasImage") or m.extra_data.get("messageType") == "image_upload":
+                        if (
+                            m.extra_data.get("hasImage")
+                            or m.extra_data.get("messageType") == "image_upload"
+                        ):
                             fname = m.extra_data.get("imageFileName", "image")
                             content = f"[User attached an image: {fname}] {content}"
                     result.append({"role": m.role, "content": content})
@@ -1251,7 +1601,8 @@ class UnifiedChatEngine:
         """Retrieve relevant RAG context for the query."""
         try:
             from backend.services.indexing_service import search_with_llamaindex
-            project_id = getattr(self, '_project_id', None)
+
+            project_id = getattr(self, "_project_id", None)
             results = search_with_llamaindex(query, max_chunks=3, project_id=project_id)
             if not results:
                 return ""
@@ -1266,10 +1617,20 @@ class UnifiedChatEngine:
             return ""
 
     # Action keywords that indicate tool-use intent — RAG is unlikely to help
-    _ACTION_KEYWORDS = frozenset({
-        "screenshot", "navigate", "click", "browse", "open page",
-        "go to", "visit", "launch", "run", "execute",
-    })
+    _ACTION_KEYWORDS = frozenset(
+        {
+            "screenshot",
+            "navigate",
+            "click",
+            "browse",
+            "open page",
+            "go to",
+            "visit",
+            "launch",
+            "run",
+            "execute",
+        }
+    )
 
     @staticmethod
     def _should_skip_rag(message: str) -> bool:
@@ -1279,9 +1640,20 @@ class UnifiedChatEngine:
 
     # Keywords that indicate a real-time/current-data query requiring web search
     _REALTIME_KEYWORDS = (
-        "weather", "temperature", "forecast", "current", "right now", "today",
-        "latest", "recent", "stock price", "score", "breaking news",
-        "how hot", "how cold", "degrees",
+        "weather",
+        "temperature",
+        "forecast",
+        "current",
+        "right now",
+        "today",
+        "latest",
+        "recent",
+        "stock price",
+        "score",
+        "breaking news",
+        "how hot",
+        "how cold",
+        "degrees",
     )
 
     @staticmethod
@@ -1305,7 +1677,9 @@ class UnifiedChatEngine:
                 )
                 if not text:
                     text, rule_id = rule_utils.get_active_system_prompt(
-                        "global_default_chat_system_prompt", db.session, model_name=model_name
+                        "global_default_chat_system_prompt",
+                        db.session,
+                        model_name=model_name,
                     )
                 if text:
                     logger.info(f"Loaded rule ID {rule_id} for unified chat")
@@ -1374,7 +1748,7 @@ RULES:
             content = msg.get("content", "")
             if aggressive:
                 # Replace all < > that look like XML tags
-                content = re.sub(r'<(/?)(\w+)([^>]*)>', r'[\1\2\3]', content)
+                content = re.sub(r"<(/?)(\w+)([^>]*)>", r"[\1\2\3]", content)
             else:
                 # Only replace XML tags in the tool-call format examples
                 content = content.replace("<tool_call>", "[tool_call]")
@@ -1384,8 +1758,12 @@ RULES:
                 content = content.replace("<param ", "[param ")
                 content = content.replace("</param>", "[/param]")
                 # Also handle the dynamic tag names like <query>, <url> etc.
-                content = re.sub(r'<(query|url|param_name|reasoning)>', r'[\1]', content)
-                content = re.sub(r'</(query|url|param_name|reasoning)>', r'[/\1]', content)
+                content = re.sub(
+                    r"<(query|url|param_name|reasoning)>", r"[\1]", content
+                )
+                content = re.sub(
+                    r"</(query|url|param_name|reasoning)>", r"[/\1]", content
+                )
             sanitized.append({**msg, "content": content})
         return sanitized
 
@@ -1448,12 +1826,12 @@ RULES:
             if role == "user" and (
                 "Latest tool results:" in content or "Tool results:" in content
             ):
-                return 0   # bulky tool-result blocks — drop first
+                return 0  # bulky tool-result blocks — drop first
             if role == "assistant" and (
                 "<tool_call>" in content or "<tool>" in content
             ):
-                return 1   # old tool-call XML — drop second
-            return 2        # conversation history — drop last
+                return 1  # old tool-call XML — drop second
+            return 2  # conversation history — drop last
 
         # Sort: lowest tier first, then oldest (smallest index) first within tier
         candidates.sort(key=lambda i: (_tier(i), i))
@@ -1478,7 +1856,9 @@ RULES:
             )
         return result
 
-    def _build_user_prompt(self, history: List[Dict], rag_context: str, message: str) -> str:
+    def _build_user_prompt(
+        self, history: List[Dict], rag_context: str, message: str
+    ) -> str:
         """Build the user prompt with history, RAG context, and current message."""
         parts = []
 
@@ -1501,8 +1881,13 @@ RULES:
 
         return "\n\n".join(parts)
 
-    def _save_message(self, session_id: str, role: str, content: str,
-                      extra_data: Optional[Dict] = None):
+    def _save_message(
+        self,
+        session_id: str,
+        role: str,
+        content: str,
+        extra_data: Optional[Dict] = None,
+    ):
         """Save a message to the database (thread-safe with app context)."""
         try:
             from backend.models import LLMSession, LLMMessage, db
@@ -1512,10 +1897,12 @@ RULES:
                 ctx.push()
             try:
                 # Ensure session exists
-                project_id = getattr(self, '_project_id', None)
+                project_id = getattr(self, "_project_id", None)
                 session = db.session.get(LLMSession, session_id)
                 if not session:
-                    session = LLMSession(id=session_id, user="default", project_id=project_id)
+                    session = LLMSession(
+                        id=session_id, user="default", project_id=project_id
+                    )
                     db.session.add(session)
                     db.session.flush()
                 elif project_id and not session.project_id:
@@ -1537,11 +1924,14 @@ RULES:
             logger.error(f"Failed to save message: {e}", exc_info=True)
             try:
                 from backend.models import db
+
                 db.session.rollback()
             except Exception:
                 pass
 
-    def _normalize_parameters(self, params: Dict[str, Any], tool_name: Optional[str] = None) -> Dict[str, Any]:
+    def _normalize_parameters(
+        self, params: Dict[str, Any], tool_name: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Normalize tool parameters - coerce string values using tool schema when available."""
         if not params:
             return {}

@@ -13,7 +13,15 @@ import zipfile
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 
-from flask import Blueprint, current_app, jsonify, request, send_file, Response, stream_with_context
+from flask import (
+    Blueprint,
+    current_app,
+    jsonify,
+    request,
+    send_file,
+    Response,
+    stream_with_context,
+)
 from werkzeug.utils import secure_filename
 from datetime import datetime
 import time
@@ -31,24 +39,37 @@ try:
         start_batch_from_csv,
         start_batch_from_prompts,
         get_batch_status,
-        cancel_batch
+        cancel_batch,
     )
     from backend.utils.response_utils import success_response, error_response
     from backend.utils.unified_progress_system import ProcessType
+
     service_available = True
 except ImportError as e:
     logger.error(f"Failed to import batch generation dependencies: {e}")
     service_available = False
+
     # Fallback functions
-    def error_response(message, status_code=500, error_code=None, data=None, details=None):
+    def error_response(
+        message, status_code=500, error_code=None, data=None, details=None
+    ):
         return {"error": message, "status": status_code}
 
-    def success_response(data=None, message="Operation completed successfully", status_code=200):
-        return {"success": True, "data": data, "message": message, "status": status_code}
+    def success_response(
+        data=None, message="Operation completed successfully", status_code=200
+    ):
+        return {
+            "success": True,
+            "data": data,
+            "message": message,
+            "status": status_code,
+        }
+
 
 # Import optional services (don't break main service if unavailable)
 try:
     from backend.services.settings_validator import get_settings_validator
+
     settings_validator_available = True
 except ImportError as e:
     logger.warning(f"Settings validator not available: {e}")
@@ -57,6 +78,7 @@ except ImportError as e:
 
 try:
     from backend.services.model_recommender import get_model_recommender
+
     model_recommender_available = True
 except ImportError as e:
     logger.warning(f"Model recommender not available: {e}")
@@ -94,12 +116,13 @@ IMAGE_MODEL_SIZES = {
     "Linaqruf/anything-v3.0": 2.1,
 }
 
+
 def _validate_csv_upload(file):
     """Validate uploaded CSV file."""
-    if not file or file.filename == '':
+    if not file or file.filename == "":
         return False, "No file provided"
 
-    if not file.filename.lower().endswith('.csv'):
+    if not file.filename.lower().endswith(".csv"):
         return False, "File must be a CSV file"
 
     # Check file size (max 5MB)
@@ -112,10 +135,13 @@ def _validate_csv_upload(file):
 
     return True, "Valid"
 
-def _parse_generation_params(data: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+
+def _parse_generation_params(
+    data: Dict[str, Any],
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """
     Parse and validate generation parameters.
-    
+
     Returns:
         Tuple of (params, validation_info) where validation_info contains warnings and recommendations
     """
@@ -124,43 +150,56 @@ def _parse_generation_params(data: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict
         "warnings": [],
         "errors": [],
         "recommendations": [],
-        "corrected_values": {}
+        "corrected_values": {},
     }
 
     # Generation settings
-    params['max_workers'] = min(max(int(data.get('max_workers', 2)), 1), 4)  # 1-4 workers
-    params['preserve_order'] = bool(data.get('preserve_order', True))
-    params['generate_thumbnails'] = bool(data.get('generate_thumbnails', True))
-    params['save_metadata'] = bool(data.get('save_metadata', True))
+    params["max_workers"] = min(
+        max(int(data.get("max_workers", 2)), 1), 4
+    )  # 1-4 workers
+    params["preserve_order"] = bool(data.get("preserve_order", True))
+    params["generate_thumbnails"] = bool(data.get("generate_thumbnails", True))
+    params["save_metadata"] = bool(data.get("save_metadata", True))
 
     # Model selection - validate against available models
-    valid_models = ['sd-1.5', 'sd-2.1', 'sd-xl', 'dreamlike', 'deliberate',
-                   'realistic-vision', 'epic-realism', 'sd-turbo', 'sdxl-turbo',
-                   'openjourney', 'analog', 'anything-v3']
+    valid_models = [
+        "sd-1.5",
+        "sd-2.1",
+        "sd-xl",
+        "dreamlike",
+        "deliberate",
+        "realistic-vision",
+        "epic-realism",
+        "sd-turbo",
+        "sdxl-turbo",
+        "openjourney",
+        "analog",
+        "anything-v3",
+    ]
     # Default to sd-1.5 (most reliable, always works)
-    model = data.get('model', 'sd-1.5')
-    params['model'] = model if model in valid_models else 'sd-1.5'
+    model = data.get("model", "sd-1.5")
+    params["model"] = model if model in valid_models else "sd-1.5"
 
     # Default image parameters
-    params['style'] = data.get('style', 'realistic')
-    params['width'] = int(data.get('width', 512))
-    params['height'] = int(data.get('height', 512))
-    params['steps'] = min(max(int(data.get('steps', 20)), 10), 50)  # 10-50 steps
+    params["style"] = data.get("style", "realistic")
+    params["width"] = int(data.get("width", 512))
+    params["height"] = int(data.get("height", 512))
+    params["steps"] = min(max(int(data.get("steps", 20)), 10), 50)  # 10-50 steps
 
     # Guidance scale - will be validated by SettingsValidator
-    guidance = float(data.get('guidance', 7.5))
+    guidance = float(data.get("guidance", 7.5))
 
     # Use SettingsValidator for comprehensive validation
     if service_available and settings_validator_available and get_settings_validator:
         try:
             validator = get_settings_validator()
             validation_result = validator.validate_settings(
-                model=params['model'],
+                model=params["model"],
                 guidance=guidance,
-                steps=params['steps'],
-                width=params['width'],
-                height=params['height'],
-                auto_correct=True
+                steps=params["steps"],
+                width=params["width"],
+                height=params["height"],
+                auto_correct=True,
             )
 
             # Apply corrected values
@@ -184,52 +223,59 @@ def _parse_generation_params(data: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict
         except Exception as e:
             logger.warning(f"Settings validation failed, using fallback: {e}")
             # Fallback to original validation logic
-            is_sdxl = 'xl' in params['model'].lower()
+            is_sdxl = "xl" in params["model"].lower()
             if is_sdxl:
                 if guidance > 9.0:
-                    logger.warning(f"Guidance {guidance} too high for SDXL, auto-correcting to 7.5")
+                    logger.warning(
+                        f"Guidance {guidance} too high for SDXL, auto-correcting to 7.5"
+                    )
                     guidance = 7.5
-                    params['guidance'] = guidance
-                    validation_info["warnings"].append(f"Guidance auto-corrected to 7.5 for SDXL")
+                    params["guidance"] = guidance
+                    validation_info["warnings"].append(
+                        f"Guidance auto-corrected to 7.5 for SDXL"
+                    )
                 elif guidance < 4.0:
                     guidance = 6.0
-                    params['guidance'] = guidance
+                    params["guidance"] = guidance
                 else:
-                    params['guidance'] = min(max(guidance, 4.0), 9.0)
+                    params["guidance"] = min(max(guidance, 4.0), 9.0)
             else:
-                params['guidance'] = min(max(guidance, 1.0), 15.0)
+                params["guidance"] = min(max(guidance, 1.0), 15.0)
     else:
         # Fallback validation if service not available
-        is_sdxl = 'xl' in params['model'].lower()
+        is_sdxl = "xl" in params["model"].lower()
         if is_sdxl:
             if guidance > 9.0:
-                logger.warning(f"Guidance {guidance} too high for SDXL, auto-correcting to 7.5")
+                logger.warning(
+                    f"Guidance {guidance} too high for SDXL, auto-correcting to 7.5"
+                )
                 guidance = 7.5
-                params['guidance'] = guidance
+                params["guidance"] = guidance
             elif guidance < 4.0:
                 guidance = 6.0
-                params['guidance'] = guidance
+                params["guidance"] = guidance
             else:
-                params['guidance'] = min(max(guidance, 4.0), 9.0)
+                params["guidance"] = min(max(guidance, 4.0), 9.0)
         else:
-            params['guidance'] = min(max(guidance, 1.0), 15.0)
+            params["guidance"] = min(max(guidance, 1.0), 15.0)
 
     # Quality enhancement parameters
-    params['content_preset'] = data.get('content_preset')  # None = auto-detect
-    params['auto_enhance'] = data.get('auto_enhance', True)
-    params['enhance_anatomy'] = data.get('enhance_anatomy', True)
-    params['enhance_faces'] = data.get('enhance_faces', True)
-    params['enhance_hands'] = data.get('enhance_hands', True)
+    params["content_preset"] = data.get("content_preset")  # None = auto-detect
+    params["auto_enhance"] = data.get("auto_enhance", True)
+    params["enhance_anatomy"] = data.get("enhance_anatomy", True)
+    params["enhance_faces"] = data.get("enhance_faces", True)
+    params["enhance_hands"] = data.get("enhance_hands", True)
 
     # Face restoration parameters
-    params['restore_faces'] = data.get('restore_faces', False)
-    params['face_restoration_weight'] = float(data.get('face_restoration_weight', 0.5))
+    params["restore_faces"] = data.get("restore_faces", False)
+    params["face_restoration_weight"] = float(data.get("face_restoration_weight", 0.5))
 
     # User context
-    params['user_id'] = data.get('user_id')
-    params['project_id'] = data.get('project_id')
+    params["user_id"] = data.get("user_id")
+    params["project_id"] = data.get("project_id")
 
     return params, validation_info
+
 
 @batch_image_bp.route("/status", methods=["GET"])
 def get_service_status():
@@ -244,11 +290,17 @@ def get_service_status():
         try:
             status = {
                 "service_available": generator.service_available,
-                "active_batches": len([b for b in generator.active_batches.values() if b.status == "running"]),
+                "active_batches": len(
+                    [
+                        b
+                        for b in generator.active_batches.values()
+                        if b.status == "running"
+                    ]
+                ),
                 "total_tracked_batches": len(generator.active_batches),
                 "base_output_dir": str(generator.base_output_dir),
                 "cache_dir": str(generator.cache_dir),
-                "image_generator_available": generator.image_generator is not None
+                "image_generator_available": generator.image_generator is not None,
             }
         except Exception as status_error:
             logger.error(f"Error creating basic status: {status_error}")
@@ -269,25 +321,26 @@ def list_models():
             return error_response("Batch image generation service not available", 503)
 
         generator = get_batch_image_generator()
-        
+
         if not generator.image_generator:
             return error_response("Image generator not initialized", 503)
-            
+
         models = []
         for model_id, model_path in generator.image_generator.available_models.items():
             is_downloaded = generator.image_generator._is_model_downloaded(model_path)
-            models.append({
-                "id": model_id,
-                "path": model_path,
-                "is_downloaded": is_downloaded,
-                "name": model_id.replace('-', ' ').title(),
-                "size_gb": IMAGE_MODEL_SIZES.get(model_path, 2.5),
-            })
-            
-        return success_response({
-            "models": models,
-            "default_model": generator.image_generator.default_model
-        })
+            models.append(
+                {
+                    "id": model_id,
+                    "path": model_path,
+                    "is_downloaded": is_downloaded,
+                    "name": model_id.replace("-", " ").title(),
+                    "size_gb": IMAGE_MODEL_SIZES.get(model_path, 2.5),
+                }
+            )
+
+        return success_response(
+            {"models": models, "default_model": generator.image_generator.default_model}
+        )
 
     except Exception as e:
         logger.error(f"Error listing models: {e}")
@@ -304,10 +357,10 @@ def download_model():
             return error_response("Batch image generation service not available", 503)
 
         data = request.get_json()
-        if not data or 'model_path' not in data:
+        if not data or "model_path" not in data:
             return error_response("No model_path provided", 400)
 
-        model_path = data['model_path']
+        model_path = data["model_path"]
         generator = get_batch_image_generator()
 
         if not generator.image_generator:
@@ -317,7 +370,10 @@ def download_model():
 
         with model_download_lock:
             if model_download_status["is_downloading"]:
-                return error_response(f"Already downloading model: {model_download_status['current_model']}", 409)
+                return error_response(
+                    f"Already downloading model: {model_download_status['current_model']}",
+                    409,
+                )
 
             model_download_status = {
                 "is_downloading": True,
@@ -354,7 +410,9 @@ def download_model():
                                     except OSError:
                                         pass
                             # Check target model directory for completed files
-                            target_dir = generator.image_generator._get_model_path(model_path)
+                            target_dir = generator.image_generator._get_model_path(
+                                model_path
+                            )
                             if target_dir.exists():
                                 for f in target_dir.rglob("*"):
                                     if f.is_file():
@@ -368,11 +426,13 @@ def download_model():
                             pct = min(int((downloaded / max(total_bytes, 1)) * 100), 99)
 
                             with model_download_lock:
-                                model_download_status.update({
-                                    "progress": pct,
-                                    "speed_mbps": round(speed, 1),
-                                    "downloaded_gb": round(downloaded / 1024**3, 2),
-                                })
+                                model_download_status.update(
+                                    {
+                                        "progress": pct,
+                                        "speed_mbps": round(speed, 1),
+                                        "downloaded_gb": round(downloaded / 1024**3, 2),
+                                    }
+                                )
                         except Exception:
                             pass
                         stop_monitor.wait(1.0)
@@ -388,39 +448,49 @@ def download_model():
 
                 with model_download_lock:
                     if success:
-                        model_download_status.update({
-                            "status": "completed",
-                            "progress": 100,
-                            "downloaded_gb": total_gb,
-                            "total_gb": total_gb,
-                        })
+                        model_download_status.update(
+                            {
+                                "status": "completed",
+                                "progress": 100,
+                                "downloaded_gb": total_gb,
+                                "total_gb": total_gb,
+                            }
+                        )
                     else:
-                        model_download_status.update({
-                            "status": "failed",
-                            "error": "Failed to download model",
-                            "progress": 0,
-                        })
+                        model_download_status.update(
+                            {
+                                "status": "failed",
+                                "error": "Failed to download model",
+                                "progress": 0,
+                            }
+                        )
             except Exception as e:
                 logger.error(f"Error in model download thread: {e}")
                 with model_download_lock:
-                    model_download_status.update({
-                        "status": "failed",
-                        "error": str(e),
-                        "progress": 0,
-                    })
+                    model_download_status.update(
+                        {
+                            "status": "failed",
+                            "error": str(e),
+                            "progress": 0,
+                        }
+                    )
             finally:
                 with model_download_lock:
                     model_download_status["is_downloading"] = False
 
         # Start download in background
-        thread = threading.Thread(target=download_task, args=(model_path, estimated_size_gb))
+        thread = threading.Thread(
+            target=download_task, args=(model_path, estimated_size_gb)
+        )
         thread.daemon = True
         thread.start()
 
-        return success_response({
-            "message": f"Started downloading model {model_path}",
-            "status": "downloading"
-        })
+        return success_response(
+            {
+                "message": f"Started downloading model {model_path}",
+                "status": "downloading",
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error starting model download: {e}")
@@ -451,16 +521,16 @@ def validate_settings():
             return error_response("No data provided", 400)
 
         # Get settings to validate
-        model = data.get('model', 'sd-1.5')
-        guidance = float(data.get('guidance', 7.5))
-        steps = int(data.get('steps', 20))
-        width = int(data.get('width', 512))
-        height = int(data.get('height', 512))
+        model = data.get("model", "sd-1.5")
+        guidance = float(data.get("guidance", 7.5))
+        steps = int(data.get("steps", 20))
+        width = int(data.get("width", 512))
+        height = int(data.get("height", 512))
 
         # Use SettingsValidator
         if not settings_validator_available or not get_settings_validator:
             return error_response("Settings validator not available", 503)
-        
+
         validator = get_settings_validator()
         validation_result = validator.validate_settings(
             model=model,
@@ -468,23 +538,26 @@ def validate_settings():
             steps=steps,
             width=width,
             height=height,
-            auto_correct=False  # Don't auto-correct, just validate
+            auto_correct=False,  # Don't auto-correct, just validate
         )
 
         # Get model recommendations
         model_recommendations = validator.get_model_recommendations(model)
 
-        return success_response({
-            "is_valid": validation_result.is_valid,
-            "warnings": validation_result.warnings,
-            "errors": validation_result.errors,
-            "recommendations": validation_result.recommendations,
-            "model_recommendations": model_recommendations
-        })
+        return success_response(
+            {
+                "is_valid": validation_result.is_valid,
+                "warnings": validation_result.warnings,
+                "errors": validation_result.errors,
+                "recommendations": validation_result.recommendations,
+                "model_recommendations": model_recommendations,
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error validating settings: {e}")
         return error_response(str(e), 500)
+
 
 @batch_image_bp.route("/model-info/<model>", methods=["GET"])
 def get_model_info(model: str):
@@ -495,20 +568,23 @@ def get_model_info(model: str):
 
         if not settings_validator_available or not get_settings_validator:
             return error_response("Settings validator not available", 503)
-        
+
         validator = get_settings_validator()
         model_info = validator.get_model_info(model)
         recommendations = validator.get_model_recommendations(model)
 
-        return success_response({
-            "model": model,
-            "configuration": model_info,
-            "recommendations": recommendations
-        })
+        return success_response(
+            {
+                "model": model,
+                "configuration": model_info,
+                "recommendations": recommendations,
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error getting model info: {e}")
         return error_response(str(e), 500)
+
 
 @batch_image_bp.route("/face-restoration-status", methods=["GET"])
 def get_face_restoration_status():
@@ -518,20 +594,21 @@ def get_face_restoration_status():
             return error_response("Batch image generation service not available", 503)
 
         try:
-            from backend.services.face_restoration_service import get_face_restoration_service
+            from backend.services.face_restoration_service import (
+                get_face_restoration_service,
+            )
+
             face_service = get_face_restoration_service()
             status = face_service.get_service_status()
             return success_response(status)
         except Exception as e:
             logger.warning(f"Could not get face restoration status: {e}")
-            return success_response({
-                "service_available": False,
-                "error": str(e)
-            })
+            return success_response({"service_available": False, "error": str(e)})
 
     except Exception as e:
         logger.error(f"Error getting face restoration status: {e}")
         return error_response(str(e), 500)
+
 
 @batch_image_bp.route("/presets", methods=["GET"])
 def get_content_presets():
@@ -554,18 +631,22 @@ def get_content_presets():
                 "description": _get_preset_description(name),
                 "recommended_steps": config.get("recommended_steps", 20),
                 "recommended_guidance": config.get("recommended_guidance", 7.5),
-                "recommended_dimensions": config.get("recommended_dimensions", (512, 512)),
+                "recommended_dimensions": config.get(
+                    "recommended_dimensions", (512, 512)
+                ),
             }
 
         # Also include available styles
         styles = list(generator.image_generator.style_configs.keys())
 
-        return success_response({
-            "presets": presets,
-            "styles": styles,
-            "default_preset": "general",
-            "default_style": "realistic"
-        })
+        return success_response(
+            {
+                "presets": presets,
+                "styles": styles,
+                "default_preset": "general",
+                "default_style": "realistic",
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error getting content presets: {e}")
@@ -581,7 +662,7 @@ def _get_preset_description(preset_name: str) -> str:
         "product_photo": "Best for product photography - clean, professional look",
         "landscape": "Best for scenic and nature images - vivid colors and composition",
         "infographic_preset": "Best for diagrams and icons - flat, clean vector style",
-        "general": "General purpose - balanced settings for any content"
+        "general": "General purpose - balanced settings for any content",
     }
     return descriptions.get(preset_name, "Custom preset")
 
@@ -594,10 +675,10 @@ def analyze_prompt():
             return error_response("Batch image generation service not available", 503)
 
         data = request.get_json()
-        if not data or 'prompt' not in data:
+        if not data or "prompt" not in data:
             return error_response("No prompt provided", 400)
 
-        prompt = data['prompt']
+        prompt = data["prompt"]
         if not prompt or not isinstance(prompt, str):
             return error_response("Invalid prompt", 400)
 
@@ -615,8 +696,7 @@ def analyze_prompt():
             try:
                 recommender = get_model_recommender()
                 recommendations = recommender.recommend_models(
-                    detection=detection,
-                    prioritize_quality=True
+                    detection=detection, prioritize_quality=True
                 )
                 # Return top 3 recommendations
                 model_recommendations = [
@@ -624,18 +704,20 @@ def analyze_prompt():
                         "model": rec.model,
                         "score": rec.score,
                         "reasoning": rec.reasoning,
-                        "recommended_settings": rec.recommended_settings
+                        "recommended_settings": rec.recommended_settings,
                     }
                     for rec in recommendations[:3]
                 ]
             except Exception as e:
                 logger.warning(f"Could not generate model recommendations: {e}")
 
-        return success_response({
-            "prompt": prompt,
-            "detection": detection,
-            "model_recommendations": model_recommendations
-        })
+        return success_response(
+            {
+                "prompt": prompt,
+                "detection": detection,
+                "model_recommendations": model_recommendations,
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error analyzing prompt: {e}")
@@ -650,20 +732,20 @@ def enhance_prompt():
             return error_response("Batch image generation service not available", 503)
 
         data = request.get_json()
-        if not data or 'prompt' not in data:
+        if not data or "prompt" not in data:
             return error_response("No prompt provided", 400)
 
-        prompt = data['prompt']
+        prompt = data["prompt"]
         if not prompt or not isinstance(prompt, str):
             return error_response("Invalid prompt", 400)
 
         # Get optional parameters
-        style = data.get('style', 'realistic')
-        content_preset = data.get('content_preset')  # None = auto-detect
-        auto_enhance = data.get('auto_enhance', True)
-        enhance_anatomy = data.get('enhance_anatomy', True)
-        enhance_faces = data.get('enhance_faces', True)
-        enhance_hands = data.get('enhance_hands', True)
+        style = data.get("style", "realistic")
+        content_preset = data.get("content_preset")  # None = auto-detect
+        auto_enhance = data.get("auto_enhance", True)
+        enhance_anatomy = data.get("enhance_anatomy", True)
+        enhance_faces = data.get("enhance_faces", True)
+        enhance_hands = data.get("enhance_hands", True)
 
         generator = get_batch_image_generator()
 
@@ -671,14 +753,16 @@ def enhance_prompt():
             return error_response("Image generator not initialized", 503)
 
         # Enhance the prompt
-        enhanced_prompt, negative_prompt, detection = generator.image_generator.enhance_prompt_for_quality(
-            prompt=prompt,
-            style=style,
-            content_preset=content_preset,
-            auto_enhance=auto_enhance,
-            enhance_anatomy=enhance_anatomy,
-            enhance_faces=enhance_faces,
-            enhance_hands=enhance_hands
+        enhanced_prompt, negative_prompt, detection = (
+            generator.image_generator.enhance_prompt_for_quality(
+                prompt=prompt,
+                style=style,
+                content_preset=content_preset,
+                auto_enhance=auto_enhance,
+                enhance_anatomy=enhance_anatomy,
+                enhance_faces=enhance_faces,
+                enhance_hands=enhance_hands,
+            )
         )
 
         # Get recommended settings from preset
@@ -691,8 +775,7 @@ def enhance_prompt():
             try:
                 recommender = get_model_recommender()
                 recommendations = recommender.recommend_models(
-                    detection=detection,
-                    prioritize_quality=True
+                    detection=detection, prioritize_quality=True
                 )
                 # Return top 3 recommendations
                 model_recommendations = [
@@ -700,29 +783,32 @@ def enhance_prompt():
                         "model": rec.model,
                         "score": rec.score,
                         "reasoning": rec.reasoning,
-                        "recommended_settings": rec.recommended_settings
+                        "recommended_settings": rec.recommended_settings,
                     }
                     for rec in recommendations[:3]
                 ]
             except Exception as e:
                 logger.warning(f"Could not generate model recommendations: {e}")
 
-        return success_response({
-            "original_prompt": prompt,
-            "enhanced_prompt": enhanced_prompt,
-            "negative_prompt": negative_prompt,
-            "detection": detection,
-            "recommended_settings": {
-                "steps": preset.get("recommended_steps", 20),
-                "guidance": preset.get("recommended_guidance", 7.5),
-                "dimensions": preset.get("recommended_dimensions", (512, 512))
-            },
-            "model_recommendations": model_recommendations
-        })
+        return success_response(
+            {
+                "original_prompt": prompt,
+                "enhanced_prompt": enhanced_prompt,
+                "negative_prompt": negative_prompt,
+                "detection": detection,
+                "recommended_settings": {
+                    "steps": preset.get("recommended_steps", 20),
+                    "guidance": preset.get("recommended_guidance", 7.5),
+                    "dimensions": preset.get("recommended_dimensions", (512, 512)),
+                },
+                "model_recommendations": model_recommendations,
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error enhancing prompt: {e}")
         return error_response(str(e), 500)
+
 
 @batch_image_bp.route("/generate/csv", methods=["POST"])
 def generate_from_csv():
@@ -732,16 +818,16 @@ def generate_from_csv():
             return error_response("Batch image generation service not available", 503)
 
         # Validate file upload
-        if 'file' not in request.files:
+        if "file" not in request.files:
             return error_response("No file uploaded", 400)
 
-        file = request.files['file']
+        file = request.files["file"]
         valid, message = _validate_csv_upload(file)
         if not valid:
             return error_response(message, 400)
 
         # Read CSV content
-        csv_content = file.read().decode('utf-8')
+        csv_content = file.read().decode("utf-8")
 
         # Parse generation parameters
         form_data = request.form.to_dict()
@@ -753,15 +839,15 @@ def generate_from_csv():
         response_data = {
             "batch_id": batch_id,
             "message": "Batch generation started",
-            "parameters": params
+            "parameters": params,
         }
-        
+
         # Include validation warnings if any
         if validation_info.get("warnings") or validation_info.get("recommendations"):
             response_data["validation"] = {
                 "warnings": validation_info.get("warnings", []),
                 "recommendations": validation_info.get("recommendations", []),
-                "corrected_values": validation_info.get("corrected_values", {})
+                "corrected_values": validation_info.get("corrected_values", {}),
             }
 
         return success_response(response_data, status_code=201)
@@ -772,6 +858,7 @@ def generate_from_csv():
     except Exception as e:
         logger.error(f"Error starting CSV batch generation: {e}")
         return error_response(str(e), 500)
+
 
 @batch_image_bp.route("/generate/prompts", methods=["POST"])
 def generate_from_prompts():
@@ -785,7 +872,7 @@ def generate_from_prompts():
             return error_response("No JSON data provided", 400)
 
         # Extract prompts
-        prompts = data.get('prompts', [])
+        prompts = data.get("prompts", [])
         logger.info(f"--- DEBUG: API RECEIVED PROMPTS: {prompts} ---")
         if not prompts:
             return error_response("No prompts provided", 400)
@@ -798,8 +885,8 @@ def generate_from_prompts():
         for i, prompt in enumerate(prompts):
             if isinstance(prompt, str):
                 validated_prompts.append(prompt.strip())
-            elif isinstance(prompt, dict) and 'prompt' in prompt:
-                validated_prompts.append(prompt['prompt'].strip())
+            elif isinstance(prompt, dict) and "prompt" in prompt:
+                validated_prompts.append(prompt["prompt"].strip())
             else:
                 logger.warning(f"Invalid prompt at index {i}: {prompt}")
 
@@ -816,15 +903,15 @@ def generate_from_prompts():
             "batch_id": batch_id,
             "message": "Batch generation started",
             "prompt_count": len(validated_prompts),
-            "parameters": params
+            "parameters": params,
         }
-        
+
         # Include validation warnings if any
         if validation_info.get("warnings") or validation_info.get("recommendations"):
             response_data["validation"] = {
                 "warnings": validation_info.get("warnings", []),
                 "recommendations": validation_info.get("recommendations", []),
-                "corrected_values": validation_info.get("corrected_values", {})
+                "corrected_values": validation_info.get("corrected_values", {}),
             }
 
         return success_response(response_data, status_code=201)
@@ -832,6 +919,7 @@ def generate_from_prompts():
     except Exception as e:
         logger.error(f"Error starting prompts batch generation: {e}")
         return error_response(str(e), 500)
+
 
 @batch_image_bp.route("/status/<batch_id>", methods=["GET"])
 def get_batch_generation_status(batch_id: str):
@@ -842,24 +930,28 @@ def get_batch_generation_status(batch_id: str):
 
         generator = get_batch_image_generator()
         status = generator.get_batch_status(batch_id)
-        
+
         # If not in active batches, try to load from disk
         if not status:
             all_batches = generator.list_all_batches()
             status = next((b for b in all_batches if b.batch_id == batch_id), None)
-            
+
             # If found on disk but needs results, load from metadata
-            if status and request.args.get('include_results') == 'true':
+            if status and request.args.get("include_results") == "true":
                 try:
                     import json
+
                     metadata_file = Path(status.output_dir) / "batch_metadata.json"
                     if metadata_file.exists():
-                        with open(metadata_file, 'r') as f:
+                        with open(metadata_file, "r") as f:
                             metadata = json.load(f)
-                        
+
                         # Load results from metadata
-                        if 'results' in metadata:
-                            from backend.services.batch_image_generator import BatchImageResult
+                        if "results" in metadata:
+                            from backend.services.batch_image_generator import (
+                                BatchImageResult,
+                            )
+
                             status.results = [
                                 BatchImageResult(
                                     prompt_id=r.get("prompt_id", ""),
@@ -868,13 +960,15 @@ def get_batch_generation_status(batch_id: str):
                                     thumbnail_path=r.get("thumbnail_path"),
                                     generation_time=r.get("generation_time", 0.0),
                                     error=r.get("error"),
-                                    metadata=r.get("metadata", {})
+                                    metadata=r.get("metadata", {}),
                                 )
                                 for r in metadata.get("results", [])
                             ]
                 except Exception as e:
-                    logger.warning(f"Failed to load results from metadata for batch {batch_id}: {e}")
-        
+                    logger.warning(
+                        f"Failed to load results from metadata for batch {batch_id}: {e}"
+                    )
+
         if not status:
             return error_response("Batch not found", 404)
 
@@ -890,12 +984,16 @@ def get_batch_generation_status(batch_id: str):
             "output_dir": status.output_dir,
             "estimated_time_remaining": status.estimated_time_remaining,
             "error": status.error,
-            "progress_percentage": int((status.completed_images / status.total_images) * 100) if status.total_images > 0 else 0
+            "progress_percentage": (
+                int((status.completed_images / status.total_images) * 100)
+                if status.total_images > 0
+                else 0
+            ),
         }
 
         # Include results if requested
-        if request.args.get('include_results') == 'true':
-            status_data['results'] = [
+        if request.args.get("include_results") == "true":
+            status_data["results"] = [
                 {
                     "prompt_id": r.prompt_id,
                     "success": r.success,
@@ -903,7 +1001,7 @@ def get_batch_generation_status(batch_id: str):
                     "thumbnail_path": r.thumbnail_path,
                     "generation_time": r.generation_time,
                     "error": r.error,
-                    "metadata": r.metadata
+                    "metadata": r.metadata,
                 }
                 for r in status.results
             ]
@@ -913,6 +1011,7 @@ def get_batch_generation_status(batch_id: str):
     except Exception as e:
         logger.error(f"Error getting batch status: {e}")
         return error_response(str(e), 500)
+
 
 @batch_image_bp.route("/cancel/<batch_id>", methods=["POST"])
 def cancel_batch_generation(batch_id: str):
@@ -925,14 +1024,14 @@ def cancel_batch_generation(batch_id: str):
         if not success:
             return error_response("Batch not found or cannot be cancelled", 404)
 
-        return success_response({
-            "batch_id": batch_id,
-            "message": "Batch generation cancelled"
-        })
+        return success_response(
+            {"batch_id": batch_id, "message": "Batch generation cancelled"}
+        )
 
     except Exception as e:
         logger.error(f"Error cancelling batch: {e}")
         return error_response(str(e), 500)
+
 
 @batch_image_bp.route("/list", methods=["GET"])
 def list_batch_generations():
@@ -966,8 +1065,7 @@ def list_batch_generations():
             folder_ids = [f.id for f in folder_cache.values()]
             # Get up to 4 most recent docs per folder using a window function
             all_thumb_docs = (
-                DBDocument.query
-                .filter(DBDocument.folder_id.in_(folder_ids))
+                DBDocument.query.filter(DBDocument.folder_id.in_(folder_ids))
                 .order_by(DBDocument.folder_id, DBDocument.uploaded_at.desc())
                 .all()
             )
@@ -987,9 +1085,15 @@ def list_batch_generations():
                     "total_images": batch.total_images,
                     "completed_images": batch.completed_images,
                     "failed_images": batch.failed_images,
-                    "start_time": batch.start_time.isoformat() if batch.start_time else None,
+                    "start_time": (
+                        batch.start_time.isoformat() if batch.start_time else None
+                    ),
                     "end_time": batch.end_time.isoformat() if batch.end_time else None,
-                    "progress_percentage": int((batch.completed_images / batch.total_images) * 100) if batch.total_images > 0 else 0
+                    "progress_percentage": (
+                        int((batch.completed_images / batch.total_images) * 100)
+                        if batch.total_images > 0
+                        else 0
+                    ),
                 }
 
                 # Add folder_id and thumbnail URLs for completed batches
@@ -1003,28 +1107,32 @@ def list_batch_generations():
 
                 batch_list.append(batch_data)
             except Exception as batch_error:
-                logger.warning(f"Failed to serialize batch {getattr(batch, 'batch_id', 'unknown')}: {batch_error}")
+                logger.warning(
+                    f"Failed to serialize batch {getattr(batch, 'batch_id', 'unknown')}: {batch_error}"
+                )
                 # Add a safe fallback entry
-                batch_list.append({
-                    "batch_id": getattr(batch, 'batch_id', 'unknown'),
-                    "status": "error",
-                    "total_images": 0,
-                    "completed_images": 0,
-                    "failed_images": 0,
-                    "start_time": None,
-                    "end_time": None,
-                    "progress_percentage": 0,
-                    "error": "Serialization failed"
-                })
+                batch_list.append(
+                    {
+                        "batch_id": getattr(batch, "batch_id", "unknown"),
+                        "status": "error",
+                        "total_images": 0,
+                        "completed_images": 0,
+                        "failed_images": 0,
+                        "start_time": None,
+                        "end_time": None,
+                        "progress_percentage": 0,
+                        "error": "Serialization failed",
+                    }
+                )
 
-        return success_response({
-            "batches": batch_list,
-            "total_batches": len(batch_list)
-        })
+        return success_response(
+            {"batches": batch_list, "total_batches": len(batch_list)}
+        )
 
     except Exception as e:
         logger.error(f"Error listing batches: {e}")
         return error_response(str(e), 500)
+
 
 @batch_image_bp.route("/download/<batch_id>", methods=["GET"])
 def download_batch_results(batch_id: str):
@@ -1046,8 +1154,8 @@ def download_batch_results(batch_id: str):
         # Create temporary ZIP file
         output_dir = Path(status.output_dir)
 
-        with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as temp_zip:
-            with zipfile.ZipFile(temp_zip, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_zip:
+            with zipfile.ZipFile(temp_zip, "w", zipfile.ZIP_DEFLATED) as zipf:
 
                 # Add all images
                 images_dir = output_dir / "images"
@@ -1071,7 +1179,7 @@ def download_batch_results(batch_id: str):
             zip_filename = f"batch_{batch_id}_results.zip"
 
             def generate():
-                with open(temp_zip.name, 'rb') as f:
+                with open(temp_zip.name, "rb") as f:
                     while True:
                         chunk = f.read(8192)
                         if not chunk:
@@ -1081,13 +1189,14 @@ def download_batch_results(batch_id: str):
 
             return Response(
                 stream_with_context(generate()),
-                mimetype='application/zip',
-                headers={'Content-Disposition': f'attachment; filename={zip_filename}'}
+                mimetype="application/zip",
+                headers={"Content-Disposition": f"attachment; filename={zip_filename}"},
             )
 
     except Exception as e:
         logger.error(f"Error downloading batch results: {e}")
         return error_response(str(e), 500)
+
 
 @batch_image_bp.route("/image/<batch_id>/<image_name>", methods=["GET"])
 def get_batch_image(batch_id: str, image_name: str):
@@ -1098,36 +1207,37 @@ def get_batch_image(batch_id: str, image_name: str):
 
         generator = get_batch_image_generator()
         status = generator.get_batch_status(batch_id)
-        
+
         # If not in active batches, try to load from disk
         if not status:
             all_batches = generator.list_all_batches()
             status = next((b for b in all_batches if b.batch_id == batch_id), None)
-        
+
         if not status or not status.output_dir:
             return error_response("Batch not found", 404)
 
         # URL decode the image name in case it was encoded
         from urllib.parse import unquote
+
         decoded_image_name = unquote(image_name)
-        
+
         # Secure filename to prevent directory traversal
         safe_image_name = secure_filename(decoded_image_name)
 
         # Check if it's a thumbnail request
-        if request.args.get('thumbnail') == 'true':
+        if request.args.get("thumbnail") == "true":
             image_path = Path(status.output_dir) / "thumbnails" / safe_image_name
-            
+
             # Special case: BatchImageGenerator saves thumbnails as .jpg
             if not image_path.exists():
-                jpg_name = Path(safe_image_name).with_suffix('.jpg')
+                jpg_name = Path(safe_image_name).with_suffix(".jpg")
                 image_path = Path(status.output_dir) / "thumbnails" / jpg_name
-                
+
             # If not found with safe name, try with original decoded name
             if not image_path.exists() and safe_image_name != decoded_image_name:
                 image_path = Path(status.output_dir) / "thumbnails" / decoded_image_name
                 if not image_path.exists():
-                    jpg_name = Path(decoded_image_name).with_suffix('.jpg')
+                    jpg_name = Path(decoded_image_name).with_suffix(".jpg")
                     image_path = Path(status.output_dir) / "thumbnails" / jpg_name
         else:
             image_path = Path(status.output_dir) / "images" / safe_image_name
@@ -1137,36 +1247,47 @@ def get_batch_image(batch_id: str, image_name: str):
 
         if not image_path.exists():
             # If thumbnail was requested but not found, fall back to serving the full image
-            if request.args.get('thumbnail') == 'true':
+            if request.args.get("thumbnail") == "true":
                 fallback_path = Path(status.output_dir) / "images" / safe_image_name
                 if not fallback_path.exists() and safe_image_name != decoded_image_name:
-                    fallback_path = Path(status.output_dir) / "images" / decoded_image_name
+                    fallback_path = (
+                        Path(status.output_dir) / "images" / decoded_image_name
+                    )
                 if fallback_path.exists():
-                    logger.info(f"Thumbnail not found, serving full image as fallback: {fallback_path}")
+                    logger.info(
+                        f"Thumbnail not found, serving full image as fallback: {fallback_path}"
+                    )
                     return send_file(str(fallback_path))
-            logger.warning(f"Image not found: {image_path} (requested: {image_name}, decoded: {decoded_image_name}, safe: {safe_image_name})")
-            images_dir = Path(status.output_dir) / ("thumbnails" if request.args.get('thumbnail') == 'true' else "images")
+            logger.warning(
+                f"Image not found: {image_path} (requested: {image_name}, decoded: {decoded_image_name}, safe: {safe_image_name})"
+            )
+            images_dir = Path(status.output_dir) / (
+                "thumbnails" if request.args.get("thumbnail") == "true" else "images"
+            )
             if images_dir.exists():
                 available_files = [f.name for f in images_dir.iterdir() if f.is_file()]
-                logger.warning(f"Available files in {images_dir}: {available_files[:5]}")
+                logger.warning(
+                    f"Available files in {images_dir}: {available_files[:5]}"
+                )
             return error_response(f"Image not found: {image_name}", 404)
 
         # Determine MIME type from extension
-        mime_type = 'image/png'  # default
-        if image_path.suffix.lower() in ['.jpg', '.jpeg']:
-            mime_type = 'image/jpeg'
-        elif image_path.suffix.lower() == '.png':
-            mime_type = 'image/png'
-        elif image_path.suffix.lower() == '.gif':
-            mime_type = 'image/gif'
-        elif image_path.suffix.lower() == '.webp':
-            mime_type = 'image/webp'
+        mime_type = "image/png"  # default
+        if image_path.suffix.lower() in [".jpg", ".jpeg"]:
+            mime_type = "image/jpeg"
+        elif image_path.suffix.lower() == ".png":
+            mime_type = "image/png"
+        elif image_path.suffix.lower() == ".gif":
+            mime_type = "image/gif"
+        elif image_path.suffix.lower() == ".webp":
+            mime_type = "image/webp"
 
         return send_file(str(image_path), mimetype=mime_type)
 
     except Exception as e:
         logger.error(f"Error serving batch image: {e}")
         return error_response(str(e), 500)
+
 
 @batch_image_bp.route("/image/<batch_id>/<image_name>", methods=["DELETE"])
 def delete_batch_image(batch_id: str, image_name: str):
@@ -1177,17 +1298,18 @@ def delete_batch_image(batch_id: str, image_name: str):
 
         generator = get_batch_image_generator()
         status = generator.get_batch_status(batch_id)
-        
+
         # If not in active batches, try to load from disk
         if not status:
             all_batches = generator.list_all_batches()
             status = next((b for b in all_batches if b.batch_id == batch_id), None)
-        
+
         if not status or not status.output_dir:
             return error_response("Batch not found", 404)
 
         # URL decode the image name
         from urllib.parse import unquote
+
         decoded_image_name = unquote(image_name)
         safe_image_name = secure_filename(decoded_image_name)
 
@@ -1202,7 +1324,7 @@ def delete_batch_image(batch_id: str, image_name: str):
         image_path = images_dir / safe_image_name
         if not image_path.exists() and safe_image_name != decoded_image_name:
             image_path = images_dir / decoded_image_name
-        
+
         if image_path.exists():
             try:
                 image_path.unlink()
@@ -1215,7 +1337,7 @@ def delete_batch_image(batch_id: str, image_name: str):
         thumbnail_path = thumbnails_dir / safe_image_name
         if not thumbnail_path.exists() and safe_image_name != decoded_image_name:
             thumbnail_path = thumbnails_dir / decoded_image_name
-        
+
         if thumbnail_path.exists():
             try:
                 thumbnail_path.unlink()
@@ -1231,43 +1353,52 @@ def delete_batch_image(batch_id: str, image_name: str):
         metadata_file = output_dir / "batch_metadata.json"
         if metadata_file.exists():
             try:
-                with open(metadata_file, 'r') as f:
+                with open(metadata_file, "r") as f:
                     metadata = json.load(f)
-                
+
                 # Update results to remove deleted image
-                if 'results' in metadata:
-                    metadata['results'] = [
-                        r for r in metadata['results']
-                        if r.get('image_path') and not (
-                            decoded_image_name in r.get('image_path', '') or
-                            safe_image_name in r.get('image_path', '')
+                if "results" in metadata:
+                    metadata["results"] = [
+                        r
+                        for r in metadata["results"]
+                        if r.get("image_path")
+                        and not (
+                            decoded_image_name in r.get("image_path", "")
+                            or safe_image_name in r.get("image_path", "")
                         )
                     ]
-                
+
                 # Update counts
-                if 'completed_images' in metadata:
-                    metadata['completed_images'] = max(0, metadata.get('completed_images', 0) - 1)
-                
-                metadata['updated_at'] = datetime.now().isoformat()
-                
-                with open(metadata_file, 'w') as f:
+                if "completed_images" in metadata:
+                    metadata["completed_images"] = max(
+                        0, metadata.get("completed_images", 0) - 1
+                    )
+
+                metadata["updated_at"] = datetime.now().isoformat()
+
+                with open(metadata_file, "w") as f:
                     json.dump(metadata, f, indent=2)
             except Exception as e:
                 logger.warning(f"Could not update metadata: {e}")
 
         if errors:
-            return error_response(f"Deleted files but encountered errors: {'; '.join(errors)}", 207)
-        
-        return success_response({
-            "batch_id": batch_id,
-            "image_name": image_name,
-            "deleted_files": deleted_files,
-            "message": "Image deleted successfully"
-        })
+            return error_response(
+                f"Deleted files but encountered errors: {'; '.join(errors)}", 207
+            )
+
+        return success_response(
+            {
+                "batch_id": batch_id,
+                "image_name": image_name,
+                "deleted_files": deleted_files,
+                "message": "Image deleted successfully",
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error deleting batch image: {e}")
         return error_response(str(e), 500)
+
 
 @batch_image_bp.route("/image/<batch_id>/<image_name>/rename", methods=["PUT"])
 def rename_batch_image(batch_id: str, image_name: str):
@@ -1277,10 +1408,10 @@ def rename_batch_image(batch_id: str, image_name: str):
             return error_response("Batch image generation service not available", 503)
 
         data = request.get_json()
-        if not data or 'new_name' not in data:
+        if not data or "new_name" not in data:
             return error_response("new_name is required", 400)
 
-        new_name = data.get('new_name', '').strip()
+        new_name = data.get("new_name", "").strip()
         if not new_name:
             return error_response("New name cannot be empty", 400)
 
@@ -1291,17 +1422,18 @@ def rename_batch_image(batch_id: str, image_name: str):
 
         generator = get_batch_image_generator()
         status = generator.get_batch_status(batch_id)
-        
+
         # If not in active batches, try to load from disk
         if not status:
             all_batches = generator.list_all_batches()
             status = next((b for b in all_batches if b.batch_id == batch_id), None)
-        
+
         if not status or not status.output_dir:
             return error_response("Batch not found", 404)
 
         # URL decode the image name
         from urllib.parse import unquote
+
         decoded_image_name = unquote(image_name)
         safe_image_name = secure_filename(decoded_image_name)
 
@@ -1320,7 +1452,7 @@ def rename_batch_image(batch_id: str, image_name: str):
         old_image_path = images_dir / safe_image_name
         if not old_image_path.exists() and safe_image_name != decoded_image_name:
             old_image_path = images_dir / decoded_image_name
-        
+
         if not old_image_path.exists():
             return error_response(f"Image not found: {image_name}", 404)
 
@@ -1338,12 +1470,14 @@ def rename_batch_image(batch_id: str, image_name: str):
         old_thumbnail_path = thumbnails_dir / safe_image_name
         if not old_thumbnail_path.exists() and safe_image_name != decoded_image_name:
             old_thumbnail_path = thumbnails_dir / decoded_image_name
-        
+
         if old_thumbnail_path.exists():
             new_thumbnail_path = thumbnails_dir / safe_new_name
             try:
                 old_thumbnail_path.rename(new_thumbnail_path)
-                logger.info(f"Renamed thumbnail: {old_thumbnail_path} -> {new_thumbnail_path}")
+                logger.info(
+                    f"Renamed thumbnail: {old_thumbnail_path} -> {new_thumbnail_path}"
+                )
             except Exception as e:
                 logger.warning(f"Failed to rename thumbnail: {e}")
 
@@ -1351,43 +1485,50 @@ def rename_batch_image(batch_id: str, image_name: str):
         metadata_file = output_dir / "batch_metadata.json"
         if metadata_file.exists():
             try:
-                with open(metadata_file, 'r') as f:
+                with open(metadata_file, "r") as f:
                     metadata = json.load(f)
-                
+
                 # Update results to reflect new filename
-                if 'results' in metadata:
-                    for result in metadata['results']:
-                        if result.get('image_path') and (
-                            decoded_image_name in result.get('image_path', '') or
-                            safe_image_name in result.get('image_path', '')
+                if "results" in metadata:
+                    for result in metadata["results"]:
+                        if result.get("image_path") and (
+                            decoded_image_name in result.get("image_path", "")
+                            or safe_image_name in result.get("image_path", "")
                         ):
                             # Update image_path
-                            old_path = result.get('image_path', '')
+                            old_path = result.get("image_path", "")
                             if old_path:
-                                result['image_path'] = str(Path(old_path).parent / safe_new_name)
-                            
+                                result["image_path"] = str(
+                                    Path(old_path).parent / safe_new_name
+                                )
+
                             # Update thumbnail_path if it exists
-                            if result.get('thumbnail_path'):
-                                old_thumb_path = result.get('thumbnail_path', '')
-                                result['thumbnail_path'] = str(Path(old_thumb_path).parent / safe_new_name)
-                
-                metadata['updated_at'] = datetime.now().isoformat()
-                
-                with open(metadata_file, 'w') as f:
+                            if result.get("thumbnail_path"):
+                                old_thumb_path = result.get("thumbnail_path", "")
+                                result["thumbnail_path"] = str(
+                                    Path(old_thumb_path).parent / safe_new_name
+                                )
+
+                metadata["updated_at"] = datetime.now().isoformat()
+
+                with open(metadata_file, "w") as f:
                     json.dump(metadata, f, indent=2)
             except Exception as e:
                 logger.warning(f"Could not update metadata: {e}")
 
-        return success_response({
-            "batch_id": batch_id,
-            "old_name": image_name,
-            "new_name": safe_new_name,
-            "message": "Image renamed successfully"
-        })
+        return success_response(
+            {
+                "batch_id": batch_id,
+                "old_name": image_name,
+                "new_name": safe_new_name,
+                "message": "Image renamed successfully",
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error renaming batch image: {e}")
         return error_response(str(e), 500)
+
 
 @batch_image_bp.route("/preview/<batch_id>", methods=["GET"])
 def get_batch_preview(batch_id: str):
@@ -1398,17 +1539,17 @@ def get_batch_preview(batch_id: str):
 
         generator = get_batch_image_generator()
         batch = generator.get_batch_status(batch_id)
-        
+
         # If not in active batches, try to load from disk
         if not batch:
             all_batches = generator.list_all_batches()
             batch = next((b for b in all_batches if b.batch_id == batch_id), None)
-        
+
         if not batch or not batch.output_dir:
             return error_response("Batch not found", 404)
 
         output_dir = Path(batch.output_dir)
-        
+
         # Try to get first thumbnail, then first image
         thumbnail_dir = output_dir / "thumbnails"
         images_dir = output_dir / "images"
@@ -1431,12 +1572,13 @@ def get_batch_preview(batch_id: str):
                 images.extend(sorted(images_dir.glob(pattern)))
             if images:
                 return send_file(str(images[0]))
-        
+
         return error_response("No images found in batch", 404)
 
     except Exception as e:
         logger.error(f"Error serving batch preview: {e}")
         return error_response(str(e), 500)
+
 
 @batch_image_bp.route("/delete/<batch_id>", methods=["DELETE"])
 def delete_batch(batch_id: str):
@@ -1447,22 +1589,23 @@ def delete_batch(batch_id: str):
 
         generator = get_batch_image_generator()
         status = generator.get_batch_status(batch_id)
-        
+
         # If not in active batches, try to load from disk
         if not status:
             all_batches = generator.list_all_batches()
             status = next((b for b in all_batches if b.batch_id == batch_id), None)
-        
+
         if not status:
             return error_response("Batch not found", 404)
 
         # Check if batch is still running
-        if status.status == 'running':
+        if status.status == "running":
             return error_response("Wait for generation to finish before deleting.", 400)
 
         # Delete the batch directory
         if status.output_dir and os.path.exists(status.output_dir):
             import shutil
+
             try:
                 shutil.rmtree(status.output_dir)
                 logger.info(f"Deleted batch directory: {status.output_dir}")
@@ -1475,14 +1618,14 @@ def delete_batch(batch_id: str):
             with generator.batch_lock:
                 generator.active_batches.pop(batch_id, None)
 
-        return success_response({
-            "batch_id": batch_id,
-            "message": "Batch deleted successfully"
-        })
+        return success_response(
+            {"batch_id": batch_id, "message": "Batch deleted successfully"}
+        )
 
     except Exception as e:
         logger.error(f"Error deleting batch: {e}")
         return error_response(str(e), 500)
+
 
 @batch_image_bp.route("/rename/<batch_id>", methods=["PUT"])
 def rename_batch(batch_id: str):
@@ -1492,21 +1635,21 @@ def rename_batch(batch_id: str):
             return error_response("Batch image generation service not available", 503)
 
         data = request.get_json()
-        if not data or 'name' not in data:
+        if not data or "name" not in data:
             return error_response("Name is required", 400)
 
-        new_name = data.get('name', '').strip()
+        new_name = data.get("name", "").strip()
         if not new_name:
             return error_response("Name cannot be empty", 400)
 
         generator = get_batch_image_generator()
         status = generator.get_batch_status(batch_id)
-        
+
         # If not in active batches, try to load from disk
         if not status:
             all_batches = generator.list_all_batches()
             status = next((b for b in all_batches if b.batch_id == batch_id), None)
-        
+
         if not status or not status.output_dir:
             return error_response("Batch not found", 404)
 
@@ -1515,15 +1658,16 @@ def rename_batch(batch_id: str):
         if metadata_file.exists():
             try:
                 import json
-                with open(metadata_file, 'r') as f:
+
+                with open(metadata_file, "r") as f:
                     metadata = json.load(f)
-                
-                metadata['display_name'] = new_name
-                metadata['updated_at'] = datetime.now().isoformat()
-                
-                with open(metadata_file, 'w') as f:
+
+                metadata["display_name"] = new_name
+                metadata["updated_at"] = datetime.now().isoformat()
+
+                with open(metadata_file, "w") as f:
                     json.dump(metadata, f, indent=2)
-                
+
                 logger.info(f"Renamed batch {batch_id} to {new_name}")
             except Exception as e:
                 logger.error(f"Error updating metadata: {e}")
@@ -1532,6 +1676,7 @@ def rename_batch(batch_id: str):
             # Create metadata file if it doesn't exist
             try:
                 import json
+
                 metadata = {
                     "batch_id": batch_id,
                     "display_name": new_name,
@@ -1539,25 +1684,32 @@ def rename_batch(batch_id: str):
                     "total_images": status.total_images,
                     "completed_images": status.completed_images,
                     "failed_images": status.failed_images,
-                    "start_time": status.start_time.isoformat() if status.start_time else None,
-                    "end_time": status.end_time.isoformat() if status.end_time else None,
-                    "updated_at": datetime.now().isoformat()
+                    "start_time": (
+                        status.start_time.isoformat() if status.start_time else None
+                    ),
+                    "end_time": (
+                        status.end_time.isoformat() if status.end_time else None
+                    ),
+                    "updated_at": datetime.now().isoformat(),
                 }
-                with open(metadata_file, 'w') as f:
+                with open(metadata_file, "w") as f:
                     json.dump(metadata, f, indent=2)
             except Exception as e:
                 logger.error(f"Error creating metadata: {e}")
                 return error_response(f"Failed to create metadata: {str(e)}", 500)
 
-        return success_response({
-            "batch_id": batch_id,
-            "display_name": new_name,
-            "message": "Batch renamed successfully"
-        })
+        return success_response(
+            {
+                "batch_id": batch_id,
+                "display_name": new_name,
+                "message": "Batch renamed successfully",
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error renaming batch: {e}")
         return error_response(str(e), 500)
+
 
 @batch_image_bp.route("/folder", methods=["POST"])
 def create_batch_folder():
@@ -1567,52 +1719,58 @@ def create_batch_folder():
             return error_response("Batch image generation service not available", 503)
 
         data = request.get_json()
-        if not data or 'name' not in data:
+        if not data or "name" not in data:
             return error_response("Folder name is required", 400)
 
-        folder_name = data.get('name', '').strip()
+        folder_name = data.get("name", "").strip()
         if not folder_name:
             return error_response("Folder name cannot be empty", 400)
 
         # Sanitize folder name
         from werkzeug.utils import secure_filename
+
         safe_folder_name = secure_filename(folder_name)
         if not safe_folder_name:
             return error_response("Invalid folder name", 400)
 
         generator = get_batch_image_generator()
         folder_path = generator.base_output_dir / "_folders" / safe_folder_name
-        
+
         # Check if folder already exists
         if folder_path.exists():
             return error_response("Folder already exists", 409)
 
         # Create folder
         folder_path.mkdir(parents=True, exist_ok=True)
-        
+
         # Create metadata file for folder
         metadata_file = folder_path / ".folder_metadata.json"
         folder_metadata = {
             "name": folder_name,
             "safe_name": safe_folder_name,
             "created_at": datetime.now().isoformat(),
-            "type": "folder"
+            "type": "folder",
         }
-        with open(metadata_file, 'w') as f:
+        with open(metadata_file, "w") as f:
             import json
+
             json.dump(folder_metadata, f, indent=2)
 
         logger.info(f"Created batch folder: {folder_path}")
 
-        return success_response({
-            "folder_name": folder_name,
-            "folder_path": str(folder_path),
-            "message": "Folder created successfully"
-        }, status_code=201)
+        return success_response(
+            {
+                "folder_name": folder_name,
+                "folder_path": str(folder_path),
+                "message": "Folder created successfully",
+            },
+            status_code=201,
+        )
 
     except Exception as e:
         logger.error(f"Error creating folder: {e}")
         return error_response(str(e), 500)
+
 
 @batch_image_bp.route("/move/<batch_id>", methods=["POST"])
 def move_batch_to_folder(batch_id: str):
@@ -1622,30 +1780,31 @@ def move_batch_to_folder(batch_id: str):
             return error_response("Batch image generation service not available", 503)
 
         data = request.get_json()
-        folder_name = data.get('folder_name', '').strip() if data else None
+        folder_name = data.get("folder_name", "").strip() if data else None
 
         generator = get_batch_image_generator()
         status = generator.get_batch_status(batch_id)
-        
+
         # If not in active batches, try to load from disk
         if not status:
             all_batches = generator.list_all_batches()
             status = next((b for b in all_batches if b.batch_id == batch_id), None)
-        
+
         if not status or not status.output_dir:
             return error_response("Batch not found", 404)
 
         current_path = Path(status.output_dir)
-        
+
         if folder_name:
             # Move to folder
             from werkzeug.utils import secure_filename
+
             safe_folder_name = secure_filename(folder_name)
             folder_path = generator.base_output_dir / "_folders" / safe_folder_name
-            
+
             if not folder_path.exists():
                 return error_response("Folder not found", 404)
-            
+
             new_path = folder_path / current_path.name
         else:
             # Move to root
@@ -1657,6 +1816,7 @@ def move_batch_to_folder(batch_id: str):
 
         # Move the directory
         import shutil
+
         try:
             shutil.move(str(current_path), str(new_path))
             logger.info(f"Moved batch {batch_id} from {current_path} to {new_path}")
@@ -1669,27 +1829,31 @@ def move_batch_to_folder(batch_id: str):
         if metadata_file.exists():
             try:
                 import json
-                with open(metadata_file, 'r') as f:
+
+                with open(metadata_file, "r") as f:
                     metadata = json.load(f)
-                
-                metadata['folder'] = folder_name if folder_name else None
-                metadata['updated_at'] = datetime.now().isoformat()
-                
-                with open(metadata_file, 'w') as f:
+
+                metadata["folder"] = folder_name if folder_name else None
+                metadata["updated_at"] = datetime.now().isoformat()
+
+                with open(metadata_file, "w") as f:
                     json.dump(metadata, f, indent=2)
             except Exception as e:
                 logger.warning(f"Could not update metadata: {e}")
 
-        return success_response({
-            "batch_id": batch_id,
-            "folder_name": folder_name,
-            "new_path": str(new_path),
-            "message": "Batch moved successfully"
-        })
+        return success_response(
+            {
+                "batch_id": batch_id,
+                "folder_name": folder_name,
+                "new_path": str(new_path),
+                "message": "Batch moved successfully",
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error moving batch: {e}")
         return error_response(str(e), 500)
+
 
 @batch_image_bp.route("/upload", methods=["POST"])
 def upload_images():
@@ -1698,22 +1862,25 @@ def upload_images():
         if not service_available:
             return error_response("Batch image generation service not available", 503)
 
-        if 'files' not in request.files:
+        if "files" not in request.files:
             return error_response("No files uploaded", 400)
 
-        files = request.files.getlist('files')
+        files = request.files.getlist("files")
         if not files:
             return error_response("No files provided", 400)
 
         generator = get_batch_image_generator()
-        
+
         # Create a new batch folder for uploaded images
         from uuid import uuid4
-        batch_id = f"upload_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid4().hex[:8]}"
+
+        batch_id = (
+            f"upload_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid4().hex[:8]}"
+        )
         batch_dir = generator.base_output_dir / batch_id
         images_dir = batch_dir / "images"
         thumbnails_dir = batch_dir / "thumbnails"
-        
+
         images_dir.mkdir(parents=True, exist_ok=True)
         thumbnails_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1722,16 +1889,20 @@ def upload_images():
             if file and file.filename:
                 # Validate file type
                 filename = secure_filename(file.filename)
-                if not any(filename.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.webp']):
+                if not any(
+                    filename.lower().endswith(ext)
+                    for ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"]
+                ):
                     continue
 
                 # Save original image
                 image_path = images_dir / filename
                 file.save(str(image_path))
-                
+
                 # Create thumbnail (simple resize - could be enhanced)
                 try:
                     from PIL import Image
+
                     img = Image.open(image_path)
                     img.thumbnail((256, 256), Image.Resampling.LANCZOS)
                     thumbnail_path = thumbnails_dir / filename
@@ -1740,15 +1911,20 @@ def upload_images():
                     logger.warning(f"Could not create thumbnail for {filename}: {e}")
                     thumbnail_path = None
 
-                uploaded_files.append({
-                    "filename": filename,
-                    "image_path": str(image_path),
-                    "thumbnail_path": str(thumbnail_path) if thumbnail_path else None
-                })
+                uploaded_files.append(
+                    {
+                        "filename": filename,
+                        "image_path": str(image_path),
+                        "thumbnail_path": (
+                            str(thumbnail_path) if thumbnail_path else None
+                        ),
+                    }
+                )
 
         if not uploaded_files:
             # Clean up empty directory
             import shutil
+
             shutil.rmtree(batch_dir)
             return error_response("No valid image files uploaded", 400)
 
@@ -1779,21 +1955,28 @@ def upload_images():
         }
 
         metadata_file = batch_dir / "batch_metadata.json"
-        with open(metadata_file, 'w') as f:
+        with open(metadata_file, "w") as f:
             import json
+
             json.dump(metadata, f, indent=2)
 
-        logger.info(f"Created upload batch {batch_id} with {len(uploaded_files)} images")
+        logger.info(
+            f"Created upload batch {batch_id} with {len(uploaded_files)} images"
+        )
 
-        return success_response({
-            "batch_id": batch_id,
-            "uploaded_count": len(uploaded_files),
-            "message": f"Successfully uploaded {len(uploaded_files)} image(s)"
-        }, status_code=201)
+        return success_response(
+            {
+                "batch_id": batch_id,
+                "uploaded_count": len(uploaded_files),
+                "message": f"Successfully uploaded {len(uploaded_files)} image(s)",
+            },
+            status_code=201,
+        )
 
     except Exception as e:
         logger.error(f"Error uploading images: {e}")
         return error_response(str(e), 500)
+
 
 @batch_image_bp.route("/template", methods=["GET"])
 def get_csv_template():
@@ -1808,7 +1991,9 @@ def get_csv_template():
 """
 
         # Create temporary file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as temp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False
+        ) as temp_file:
             temp_file.write(template_content)
             temp_file_path = temp_file.name
 
@@ -1817,7 +2002,7 @@ def get_csv_template():
             temp_file_path,
             as_attachment=True,
             download_name="batch_generation_template.csv",
-            mimetype='text/csv'
+            mimetype="text/csv",
         )
 
         # Clean up temp file after sending
@@ -1832,6 +2017,7 @@ def get_csv_template():
         logger.error(f"Error generating CSV template: {e}")
         return error_response(str(e), 500)
 
+
 @batch_image_bp.route("/generate/blueprints", methods=["POST"])
 def generate_blueprints_batch():
     """
@@ -1840,41 +2026,51 @@ def generate_blueprints_batch():
     do not timeout the request; client should poll /api/batch-image/status/<batch_id>.
     """
     try:
-        if 'file' not in request.files:
+        if "file" not in request.files:
             return error_response("No CSV file uploaded", 400)
 
-        file = request.files['file']
-        if not file.filename.endswith('.csv'):
+        file = request.files["file"]
+        if not file.filename.endswith(".csv"):
             return error_response("Must be a CSV file", 400)
 
         csv_content = file.read().decode("UTF-8")
         stream = io.StringIO(csv_content, newline=None)
         reader = csv.DictReader(stream)
-        row_count = sum(1 for row in reader if (row.get('city') or row.get('City') or row.get('name')))
+        row_count = sum(
+            1
+            for row in reader
+            if (row.get("city") or row.get("City") or row.get("name"))
+        )
 
         if row_count > BLUEPRINT_MAX_ROWS:
             return error_response(
                 f"CSV has {row_count} rows with city data. Maximum is {BLUEPRINT_MAX_ROWS}. "
                 "Split the file into smaller batches or reduce the number of rows.",
-                400
+                400,
             )
 
         if row_count == 0:
             return error_response("No rows with city data found in CSV", 400)
 
         generator = get_batch_image_generator()
-        batch_id = generator.start_blueprint_batch(csv_content)  # returns immediately; work runs in background
+        batch_id = generator.start_blueprint_batch(
+            csv_content
+        )  # returns immediately; work runs in background
 
-        return success_response({
-            "batch_id": batch_id,
-            "message": f"Blueprint batch started ({row_count} rows). Poll status at /api/batch-image/status/{batch_id}",
-            "type": "blueprint",
-            "total_images": row_count,
-        }, status_code=201)
+        return success_response(
+            {
+                "batch_id": batch_id,
+                "message": f"Blueprint batch started ({row_count} rows). Poll status at /api/batch-image/status/{batch_id}",
+                "type": "blueprint",
+                "total_images": row_count,
+            },
+            status_code=201,
+        )
 
     except Exception as e:
         logger.error(f"Error starting blueprint batch: {e}")
         return error_response(str(e), 500)
+
 
 # Error handlers
 @batch_image_bp.errorhandler(413)
@@ -1882,10 +2078,12 @@ def request_entity_too_large(error):
     """Handle file too large error."""
     return error_response("File too large", 413)
 
+
 @batch_image_bp.errorhandler(400)
 def bad_request(error):
     """Handle bad request errors."""
     return error_response("Bad request", 400)
+
 
 @batch_image_bp.errorhandler(500)
 def internal_server_error(error):

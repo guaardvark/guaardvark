@@ -21,7 +21,9 @@ import pytest
 import time
 
 # Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.insert(
+    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 
 
 # ─── Unit tests (no server required) ─────────────────────────────────────────
@@ -32,11 +34,17 @@ class TestMessageSanitization:
 
     def _get_engine_class(self):
         from backend.services.unified_chat_engine import UnifiedChatEngine
+
         return UnifiedChatEngine
 
     def test_normal_sanitization_replaces_tool_call_tags(self):
         UCE = self._get_engine_class()
-        messages = [{"role": "system", "content": "<tool_call>\n<tool>web_search</tool>\n<query>test</query>\n</tool_call>"}]
+        messages = [
+            {
+                "role": "system",
+                "content": "<tool_call>\n<tool>web_search</tool>\n<query>test</query>\n</tool_call>",
+            }
+        ]
         result = UCE._sanitize_messages_for_thinking_model(messages)
         assert "<tool_call>" not in result[0]["content"]
         assert "[tool_call]" in result[0]["content"]
@@ -45,14 +53,21 @@ class TestMessageSanitization:
 
     def test_aggressive_sanitization_replaces_all_xml(self):
         UCE = self._get_engine_class()
-        messages = [{"role": "system", "content": "<custom_tag>data</custom_tag> and <tool>name</tool>"}]
+        messages = [
+            {
+                "role": "system",
+                "content": "<custom_tag>data</custom_tag> and <tool>name</tool>",
+            }
+        ]
         result = UCE._sanitize_messages_for_thinking_model(messages, aggressive=True)
         assert "<" not in result[0]["content"]
         assert "[custom_tag]" in result[0]["content"]
 
     def test_sanitization_preserves_non_xml_content(self):
         UCE = self._get_engine_class()
-        messages = [{"role": "user", "content": "What is the temperature in Cincinnati?"}]
+        messages = [
+            {"role": "user", "content": "What is the temperature in Cincinnati?"}
+        ]
         result = UCE._sanitize_messages_for_thinking_model(messages)
         assert result[0]["content"] == "What is the temperature in Cincinnati?"
 
@@ -83,13 +98,14 @@ class TestBracketToXMLConversion:
 [query]current temperature in Cincinnati Ohio[/query]
 [/tool_call]"""
         # Convert brackets to XML (same logic as unified_chat_engine)
-        xml_response = (bracket_response
-            .replace("[tool_call]", "<tool_call>")
+        xml_response = (
+            bracket_response.replace("[tool_call]", "<tool_call>")
             .replace("[/tool_call]", "</tool_call>")
             .replace("[tool]", "<tool>")
-            .replace("[/tool]", "</tool>"))
-        xml_response = re.sub(r'\[(\w+)\]', r'<\1>', xml_response)
-        xml_response = re.sub(r'\[/(\w+)\]', r'</\1>', xml_response)
+            .replace("[/tool]", "</tool>")
+        )
+        xml_response = re.sub(r"\[(\w+)\]", r"<\1>", xml_response)
+        xml_response = re.sub(r"\[/(\w+)\]", r"</\1>", xml_response)
 
         parsed = parse_tool_calls_xml(xml_response)
         assert len(parsed.tool_calls) == 1
@@ -120,13 +136,14 @@ class TestBracketToXMLConversion:
 [query]Cleveland temperature[/query]
 [/tool_call]"""
 
-        xml_response = (bracket_response
-            .replace("[tool_call]", "<tool_call>")
+        xml_response = (
+            bracket_response.replace("[tool_call]", "<tool_call>")
             .replace("[/tool_call]", "</tool_call>")
             .replace("[tool]", "<tool>")
-            .replace("[/tool]", "</tool>"))
-        xml_response = re.sub(r'\[(\w+)\]', r'<\1>', xml_response)
-        xml_response = re.sub(r'\[/(\w+)\]', r'</\1>', xml_response)
+            .replace("[/tool]", "</tool>")
+        )
+        xml_response = re.sub(r"\[(\w+)\]", r"<\1>", xml_response)
+        xml_response = re.sub(r"\[/(\w+)\]", r"</\1>", xml_response)
 
         parsed = parse_tool_calls_xml(xml_response)
         assert len(parsed.tool_calls) == 2
@@ -138,12 +155,16 @@ class TestThinkingModelDetection:
     def test_qwen3_detected(self):
         models = ["qwen3-vl:8b", "qwen3:14b", "qwen3-coder:32b", "QWEN3-VL:2B"]
         for model in models:
-            assert any(t in model.lower() for t in ("qwen3", "deepseek-r1", "thinking")), f"{model} not detected"
+            assert any(
+                t in model.lower() for t in ("qwen3", "deepseek-r1", "thinking")
+            ), f"{model} not detected"
 
     def test_non_thinking_models_not_detected(self):
         models = ["llama3:latest", "qwen2.5:14b", "mistral:7b", "gemma3:12b"]
         for model in models:
-            assert not any(t in model.lower() for t in ("qwen3", "deepseek-r1", "thinking")), f"{model} incorrectly detected"
+            assert not any(
+                t in model.lower() for t in ("qwen3", "deepseek-r1", "thinking")
+            ), f"{model} incorrectly detected"
 
 
 class TestToolExecutionGuardIntegration:
@@ -156,10 +177,14 @@ class TestToolExecutionGuardIntegration:
 
         # Two failures trigger circuit breaker
         guard.check_call("browser_navigate", {"url": "https://a.com"})
-        guard.record_result("browser_navigate", {"url": "https://a.com"}, False, "timeout", 1)
+        guard.record_result(
+            "browser_navigate", {"url": "https://a.com"}, False, "timeout", 1
+        )
 
         guard.check_call("browser_navigate", {"url": "https://b.com"})
-        guard.record_result("browser_navigate", {"url": "https://b.com"}, False, "timeout", 2)
+        guard.record_result(
+            "browser_navigate", {"url": "https://b.com"}, False, "timeout", 2
+        )
 
         allowed, reason = guard.check_call("browser_navigate", {"url": "https://c.com"})
         assert allowed is False
@@ -178,7 +203,9 @@ class TestToolExecutionGuardIntegration:
 
         guard = ToolExecutionGuard(max_failures_per_tool=1)
         guard.check_call("browser_navigate", {"url": "https://a.com"})
-        guard.record_result("browser_navigate", {"url": "https://a.com"}, False, "err", 1)
+        guard.record_result(
+            "browser_navigate", {"url": "https://a.com"}, False, "err", 1
+        )
 
         # browser_navigate blocked
         allowed, _ = guard.check_call("browser_navigate", {"url": "https://b.com"})
@@ -195,11 +222,15 @@ class TestAgentOutputParser:
     def test_json_parsing(self):
         from backend.utils.agent_output_parser import parse_tool_calls_json
 
-        json_response = json.dumps({
-            "thoughts": "I need to search for this.",
-            "tool_calls": [{"tool_name": "web_search", "parameters": {"query": "test"}}],
-            "final_answer": None,
-        })
+        json_response = json.dumps(
+            {
+                "thoughts": "I need to search for this.",
+                "tool_calls": [
+                    {"tool_name": "web_search", "parameters": {"query": "test"}}
+                ],
+                "final_answer": None,
+            }
+        )
         result = parse_tool_calls_json(json_response)
         assert len(result.tool_calls) == 1
         assert result.tool_calls[0].tool_name == "web_search"
@@ -207,11 +238,13 @@ class TestAgentOutputParser:
     def test_json_with_final_answer(self):
         from backend.utils.agent_output_parser import parse_tool_calls_json
 
-        json_response = json.dumps({
-            "thoughts": "I know this.",
-            "tool_calls": [],
-            "final_answer": "The answer is 42.",
-        })
+        json_response = json.dumps(
+            {
+                "thoughts": "I know this.",
+                "tool_calls": [],
+                "final_answer": "The answer is 42.",
+            }
+        )
         result = parse_tool_calls_json(json_response)
         assert len(result.tool_calls) == 0
         assert result.final_answer == "The answer is 42."
@@ -232,11 +265,15 @@ class TestAgentOutputParser:
     def test_structured_parser_prefers_json(self):
         from backend.utils.agent_output_parser import parse_tool_calls_structured
 
-        json_response = json.dumps({
-            "thoughts": "JSON parse",
-            "tool_calls": [{"tool_name": "web_search", "parameters": {"query": "test"}}],
-            "final_answer": None,
-        })
+        json_response = json.dumps(
+            {
+                "thoughts": "JSON parse",
+                "tool_calls": [
+                    {"tool_name": "web_search", "parameters": {"query": "test"}}
+                ],
+                "final_answer": None,
+            }
+        )
         result = parse_tool_calls_structured(json_response)
         assert len(result.tool_calls) == 1
         assert result.thoughts == "JSON parse"
@@ -244,10 +281,12 @@ class TestAgentOutputParser:
 
 # ─── Integration tests (require Ollama) ──────────────────────────────────────
 
+
 def _ollama_available():
     """Check if Ollama is running."""
     try:
         import ollama
+
         ollama.list()
         return True
     except Exception:
@@ -258,9 +297,12 @@ def _model_available(model_name):
     """Check if a specific model is available."""
     try:
         import ollama
+
         models = ollama.list()
-        return any(m.get("name", m.get("model", "")) == model_name
-                    for m in models.get("models", []))
+        return any(
+            m.get("name", m.get("model", "")) == model_name
+            for m in models.get("models", [])
+        )
     except Exception:
         return False
 
@@ -269,7 +311,9 @@ def _model_available(model_name):
 class TestOllamaThinkingModelIntegration:
     """Integration tests with actual Ollama calls."""
 
-    @pytest.mark.skipif(not _model_available("qwen3-vl:8b"), reason="qwen3-vl:8b not installed")
+    @pytest.mark.skipif(
+        not _model_available("qwen3-vl:8b"), reason="qwen3-vl:8b not installed"
+    )
     def test_qwen3_vl_sanitized_prompt_no_crash(self):
         """Verify that sanitized prompts don't crash Ollama's JSON serializer."""
         import ollama
@@ -312,10 +356,13 @@ To call a tool, output this format:
 
         # Should produce a tool call, not crash
         assert len(result) > 0, "Empty response from qwen3-vl:8b"
-        assert "web_search" in result.lower() or "tool" in result.lower(), \
-            f"Expected tool call, got: {result[:200]}"
+        assert (
+            "web_search" in result.lower() or "tool" in result.lower()
+        ), f"Expected tool call, got: {result[:200]}"
 
-    @pytest.mark.skipif(not _model_available("qwen3-vl:8b"), reason="qwen3-vl:8b not installed")
+    @pytest.mark.skipif(
+        not _model_available("qwen3-vl:8b"), reason="qwen3-vl:8b not installed"
+    )
     def test_qwen3_vl_thinking_field_captured(self):
         """Verify thinking field content is captured when content is empty."""
         import ollama
@@ -323,7 +370,10 @@ To call a tool, output this format:
         stream = ollama.chat(
             model="qwen3-vl:8b",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant. Reply briefly."},
+                {
+                    "role": "system",
+                    "content": "You are a helpful assistant. Reply briefly.",
+                },
                 {"role": "user", "content": "What is 2+2?"},
             ],
             stream=True,
@@ -347,15 +397,18 @@ To call a tool, output this format:
         # qwen3-vl puts output in thinking field
         assert len(thinking) > 0 or len(content) > 0, "Both content and thinking empty"
         combined = content or thinking
-        assert "4" in combined or "four" in combined.lower(), \
-            f"Expected '4' or 'four' in response: {combined[:200]}"
+        assert (
+            "4" in combined or "four" in combined.lower()
+        ), f"Expected '4' or 'four' in response: {combined[:200]}"
 
 
 # ─── Playwright E2E tests (require running frontend + backend) ────────────────
 
+
 def _servers_running():
     """Check if both frontend and backend are running."""
     import urllib.request
+
     try:
         urllib.request.urlopen("http://localhost:5002/api/health", timeout=3)
         # Frontend is a Vite SPA — any response (including 404) means it's running
@@ -386,7 +439,9 @@ class TestChatE2EPlaywright:
     def test_chat_page_loads(self, browser_context):
         """Verify the chat page renders without errors."""
         page = browser_context.new_page()
-        page.goto("http://localhost:5175/chat", wait_until="domcontentloaded", timeout=30000)
+        page.goto(
+            "http://localhost:5175/chat", wait_until="domcontentloaded", timeout=30000
+        )
 
         # Chat input should be visible
         chat_input = page.locator("textarea, input[type='text']").first
@@ -396,7 +451,11 @@ class TestChatE2EPlaywright:
     def test_settings_llm_debug_toggle(self, browser_context):
         """Verify the LLM Debug toggle appears on the settings page."""
         page = browser_context.new_page()
-        page.goto("http://localhost:5175/settings", wait_until="domcontentloaded", timeout=30000)
+        page.goto(
+            "http://localhost:5175/settings",
+            wait_until="domcontentloaded",
+            timeout=30000,
+        )
         page.wait_for_timeout(2000)
 
         # Developer section is under MAINTENANCE tab
@@ -407,7 +466,9 @@ class TestChatE2EPlaywright:
 
         # Look for the LLM Debug chip
         llm_debug_chip = page.locator("text=LLM Debug")
-        assert llm_debug_chip.is_visible(timeout=10000), "LLM Debug chip not found on settings page"
+        assert llm_debug_chip.is_visible(
+            timeout=10000
+        ), "LLM Debug chip not found on settings page"
 
         # Click it and verify it toggles
         llm_debug_chip.click()
@@ -418,7 +479,9 @@ class TestChatE2EPlaywright:
     def test_chat_sends_message_and_receives_response(self, browser_context):
         """Send a simple message and verify a response appears."""
         page = browser_context.new_page()
-        page.goto("http://localhost:5175/chat", wait_until="domcontentloaded", timeout=30000)
+        page.goto(
+            "http://localhost:5175/chat", wait_until="domcontentloaded", timeout=30000
+        )
 
         # Find and click the chat input
         chat_input = page.locator("textarea, input[type='text']").first
@@ -444,6 +507,7 @@ class TestChatE2EPlaywright:
         # or actual response text appears in the page.
         # Poll for up to 120s for a response.
         import time
+
         deadline = time.time() + 120
         found_response = False
         while time.time() < deadline:
@@ -464,7 +528,9 @@ class TestChatE2EPlaywright:
     def test_web_search_tool_called_for_weather(self, browser_context):
         """Send a weather query and verify tool calling happens."""
         page = browser_context.new_page()
-        page.goto("http://localhost:5175/chat", wait_until="domcontentloaded", timeout=30000)
+        page.goto(
+            "http://localhost:5175/chat", wait_until="domcontentloaded", timeout=30000
+        )
 
         chat_input = page.locator("textarea, input[type='text']").first
         chat_input.wait_for(state="visible", timeout=10000)
@@ -486,10 +552,12 @@ class TestChatE2EPlaywright:
 
         # Check the page has some response content
         page_text = page.content()
-        has_response = ("temperature" in page_text.lower() or
-                        "couldn't find" in page_text.lower() or
-                        "unable to verify" in page_text.lower() or
-                        "web_search" in page_text.lower())
+        has_response = (
+            "temperature" in page_text.lower()
+            or "couldn't find" in page_text.lower()
+            or "unable to verify" in page_text.lower()
+            or "web_search" in page_text.lower()
+        )
         # Don't assert — just log. The response depends on model + search availability.
         if not has_response:
             print(f"WARNING: No expected response keywords found in page")

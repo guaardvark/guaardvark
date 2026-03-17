@@ -47,66 +47,81 @@ class CodeOperationsHandler(BaseTaskHandler):
             "properties": {
                 "operation": {
                     "type": "string",
-                    "enum": ["analyze", "generate", "edit", "refactor", "explain", "test_gen", "validate", "batch_analyze"],
-                    "description": "Type of code operation"
+                    "enum": [
+                        "analyze",
+                        "generate",
+                        "edit",
+                        "refactor",
+                        "explain",
+                        "test_gen",
+                        "validate",
+                        "batch_analyze",
+                    ],
+                    "description": "Type of code operation",
                 },
                 "target_files": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "File paths to operate on"
+                    "description": "File paths to operate on",
                 },
                 "code_content": {
                     "type": "string",
-                    "description": "Code content for analysis/generation"
+                    "description": "Code content for analysis/generation",
                 },
                 "instructions": {
                     "type": "string",
-                    "description": "Natural language instructions for the operation"
+                    "description": "Natural language instructions for the operation",
                 },
                 "language": {
                     "type": "string",
                     "default": "python",
-                    "description": "Programming language"
+                    "description": "Programming language",
                 },
                 "output_path": {
                     "type": "string",
-                    "description": "Output file path for generated code"
+                    "description": "Output file path for generated code",
                 },
                 "model_name": {
                     "type": "string",
                     "default": "default",
-                    "description": "LLM model for code operations"
+                    "description": "LLM model for code operations",
                 },
                 "create_backup": {
                     "type": "boolean",
                     "default": True,
-                    "description": "Create backup before editing files"
+                    "description": "Create backup before editing files",
                 },
                 "bypass_rules": {
                     "type": "boolean",
                     "default": False,
-                    "description": "Bypass rules system for code generation"
+                    "description": "Bypass rules system for code generation",
                 },
                 "refactor_type": {
                     "type": "string",
-                    "enum": ["optimize", "readability", "maintainability", "security", "modernize"],
+                    "enum": [
+                        "optimize",
+                        "readability",
+                        "maintainability",
+                        "security",
+                        "modernize",
+                    ],
                     "default": "optimize",
-                    "description": "Type of refactoring to apply"
+                    "description": "Type of refactoring to apply",
                 },
                 "test_framework": {
                     "type": "string",
                     "enum": ["auto", "pytest", "jest", "unittest", "mocha"],
                     "default": "auto",
-                    "description": "Test framework for test generation"
-                }
-            }
+                    "description": "Test framework for test generation",
+                },
+            },
         }
 
     def execute(
         self,
         task: Any,
         config: Dict[str, Any],
-        progress_callback: Callable[[int, str, Optional[Dict[str, Any]]], None]
+        progress_callback: Callable[[int, str, Optional[Dict[str, Any]]], None],
     ) -> TaskResult:
         """
         Execute code operations.
@@ -133,7 +148,7 @@ class CodeOperationsHandler(BaseTaskHandler):
                 "explain": self._execute_explain,
                 "test_gen": self._execute_test_gen,
                 "validate": self._execute_validate,
-                "batch_analyze": self._execute_batch_analyze
+                "batch_analyze": self._execute_batch_analyze,
             }
 
             handler = operations.get(operation)
@@ -143,7 +158,7 @@ class CodeOperationsHandler(BaseTaskHandler):
                     message=f"Unknown operation: {operation}",
                     error_message=f"operation must be one of: {', '.join(operations.keys())}",
                     started_at=started_at,
-                    completed_at=datetime.now()
+                    completed_at=datetime.now(),
                 )
 
             return handler(task, config, progress_callback, started_at)
@@ -155,13 +170,14 @@ class CodeOperationsHandler(BaseTaskHandler):
                 message=f"Code operation failed: {str(e)}",
                 error_message=str(e),
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
     def _get_chat_function(self):
         """Get the internal chat function for code operations"""
         try:
             from backend.api.code_intelligence_api import send_chat_message_internal
+
             return send_chat_message_internal
         except ImportError:
             logger.warning("code_intelligence_api not available")
@@ -172,7 +188,7 @@ class CodeOperationsHandler(BaseTaskHandler):
         task: Any,
         config: Dict[str, Any],
         progress_callback: Callable,
-        started_at: datetime
+        started_at: datetime,
     ) -> TaskResult:
         """Analyze code for errors and improvements"""
         code_content = config.get("code_content", "")
@@ -185,7 +201,7 @@ class CodeOperationsHandler(BaseTaskHandler):
                 status=TaskResultStatus.FAILED,
                 message="No code content or files provided",
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
         progress_callback(0, "Starting code analysis...", None)
@@ -194,6 +210,7 @@ class CodeOperationsHandler(BaseTaskHandler):
         if target_files and not code_content:
             try:
                 from backend.tools.llama_code_tools import read_code
+
                 file_contents = []
                 for filepath in target_files[:5]:  # Limit to 5 files
                     content = read_code(filepath)
@@ -211,7 +228,7 @@ class CodeOperationsHandler(BaseTaskHandler):
                 status=TaskResultStatus.FAILED,
                 message="LLM service not available",
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
         # Create analysis prompt
@@ -235,7 +252,7 @@ Please provide:
                 user_message=prompt,
                 project_id=None,
                 use_rag=True,
-                bypass_rules=bypass_rules
+                bypass_rules=bypass_rules,
             )
 
             progress_callback(100, "Analysis complete", None)
@@ -243,7 +260,9 @@ Please provide:
             completed_at = datetime.now()
             duration = (completed_at - started_at).total_seconds()
 
-            analysis_text = response.get("message", "") if response else "Analysis completed"
+            analysis_text = (
+                response.get("message", "") if response else "Analysis completed"
+            )
 
             return TaskResult(
                 status=TaskResultStatus.SUCCESS,
@@ -251,11 +270,11 @@ Please provide:
                 output_data={
                     "analysis": analysis_text,
                     "language": language,
-                    "files_analyzed": target_files
+                    "files_analyzed": target_files,
                 },
                 started_at=started_at,
                 completed_at=completed_at,
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except Exception as e:
@@ -265,7 +284,7 @@ Please provide:
                 message=f"Analysis failed: {str(e)}",
                 error_message=str(e),
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
     def _execute_generate(
@@ -273,7 +292,7 @@ Please provide:
         task: Any,
         config: Dict[str, Any],
         progress_callback: Callable,
-        started_at: datetime
+        started_at: datetime,
     ) -> TaskResult:
         """Generate code from description"""
         instructions = config.get("instructions", "")
@@ -286,7 +305,7 @@ Please provide:
                 status=TaskResultStatus.FAILED,
                 message="No instructions provided for code generation",
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
         progress_callback(0, "Starting code generation...", None)
@@ -297,7 +316,7 @@ Please provide:
                 status=TaskResultStatus.FAILED,
                 message="LLM service not available",
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
         prompt = f"""Generate {language} code for the following requirement:
@@ -321,7 +340,7 @@ Return the code properly formatted for {language}."""
                 user_message=prompt,
                 project_id=None,
                 use_rag=True,
-                bypass_rules=bypass_rules
+                bypass_rules=bypass_rules,
             )
 
             generated_code = response.get("message", "") if response else ""
@@ -332,7 +351,7 @@ Return the code properly formatted for {language}."""
                 try:
                     progress_callback(80, f"Saving to {output_path}...", None)
                     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-                    with open(output_path, 'w', encoding='utf-8') as f:
+                    with open(output_path, "w", encoding="utf-8") as f:
                         f.write(generated_code)
                     output_files.append(output_path)
                 except Exception as e:
@@ -350,11 +369,11 @@ Return the code properly formatted for {language}."""
                 output_data={
                     "generated_code": generated_code,
                     "language": language,
-                    "description": instructions
+                    "description": instructions,
                 },
                 started_at=started_at,
                 completed_at=completed_at,
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except Exception as e:
@@ -364,7 +383,7 @@ Return the code properly formatted for {language}."""
                 message=f"Generation failed: {str(e)}",
                 error_message=str(e),
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
     def _execute_edit(
@@ -372,7 +391,7 @@ Return the code properly formatted for {language}."""
         task: Any,
         config: Dict[str, Any],
         progress_callback: Callable,
-        started_at: datetime
+        started_at: datetime,
     ) -> TaskResult:
         """Edit existing code based on instructions"""
         code_content = config.get("code_content", "")
@@ -387,14 +406,23 @@ Return the code properly formatted for {language}."""
                 status=TaskResultStatus.FAILED,
                 message="No edit instructions provided",
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
         progress_callback(0, "Starting code edit...", None)
 
         # Use llama_code_tools for file editing
         if target_files:
-            return self._edit_files(task, target_files, instructions, language, create_backup, bypass_rules, progress_callback, started_at)
+            return self._edit_files(
+                task,
+                target_files,
+                instructions,
+                language,
+                create_backup,
+                bypass_rules,
+                progress_callback,
+                started_at,
+            )
 
         # Edit code content directly
         if not code_content:
@@ -402,7 +430,7 @@ Return the code properly formatted for {language}."""
                 status=TaskResultStatus.FAILED,
                 message="No code content or files provided",
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
         chat_func = self._get_chat_function()
@@ -411,7 +439,7 @@ Return the code properly formatted for {language}."""
                 status=TaskResultStatus.FAILED,
                 message="LLM service not available",
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
         prompt = f"""Edit this {language} code according to the following instructions:
@@ -434,7 +462,7 @@ Please provide the complete modified code with requested changes applied."""
                 user_message=prompt,
                 project_id=None,
                 use_rag=True,
-                bypass_rules=bypass_rules
+                bypass_rules=bypass_rules,
             )
 
             edited_code = response.get("message", "") if response else ""
@@ -449,13 +477,17 @@ Please provide the complete modified code with requested changes applied."""
                 message="Code edited successfully",
                 output_data={
                     "edited_code": edited_code,
-                    "original_code": code_content[:500] + "..." if len(code_content) > 500 else code_content,
+                    "original_code": (
+                        code_content[:500] + "..."
+                        if len(code_content) > 500
+                        else code_content
+                    ),
                     "instructions": instructions,
-                    "language": language
+                    "language": language,
                 },
                 started_at=started_at,
                 completed_at=completed_at,
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except Exception as e:
@@ -465,7 +497,7 @@ Please provide the complete modified code with requested changes applied."""
                 message=f"Edit failed: {str(e)}",
                 error_message=str(e),
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
     def _edit_files(
@@ -477,11 +509,15 @@ Please provide the complete modified code with requested changes applied."""
         create_backup: bool,
         bypass_rules: bool,
         progress_callback: Callable,
-        started_at: datetime
+        started_at: datetime,
     ) -> TaskResult:
         """Edit actual files using llama_code_tools"""
         try:
-            from backend.tools.llama_code_tools import read_code, edit_code, verify_change
+            from backend.tools.llama_code_tools import (
+                read_code,
+                edit_code,
+                verify_change,
+            )
 
             edited_files = []
             failed_files = []
@@ -495,7 +531,9 @@ Please provide the complete modified code with requested changes applied."""
                     # Read current content
                     current_content = read_code(filepath)
                     if current_content.startswith("ERROR"):
-                        failed_files.append({"file": filepath, "error": current_content})
+                        failed_files.append(
+                            {"file": filepath, "error": current_content}
+                        )
                         continue
 
                     # Create backup if requested
@@ -506,7 +544,9 @@ Please provide the complete modified code with requested changes applied."""
                     # Get LLM to generate edit
                     chat_func = self._get_chat_function()
                     if chat_func:
-                        session_id = f"file-edit-{task.id}-{i}-{datetime.now().timestamp()}"
+                        session_id = (
+                            f"file-edit-{task.id}-{i}-{datetime.now().timestamp()}"
+                        )
                         prompt = f"""Edit this {language} code according to the instructions:
 
 Instructions: {instructions}
@@ -523,20 +563,26 @@ Provide the COMPLETE edited file content."""
                             user_message=prompt,
                             project_id=None,
                             use_rag=True,
-                            bypass_rules=bypass_rules
+                            bypass_rules=bypass_rules,
                         )
 
                         edited_code = response.get("message", "") if response else ""
                         if edited_code:
-                            edited_files.append({
-                                "file": filepath,
-                                "edited": True,
-                                "backup": backup_path if create_backup else None
-                            })
+                            edited_files.append(
+                                {
+                                    "file": filepath,
+                                    "edited": True,
+                                    "backup": backup_path if create_backup else None,
+                                }
+                            )
                         else:
-                            failed_files.append({"file": filepath, "error": "No edit generated"})
+                            failed_files.append(
+                                {"file": filepath, "error": "No edit generated"}
+                            )
                     else:
-                        failed_files.append({"file": filepath, "error": "LLM not available"})
+                        failed_files.append(
+                            {"file": filepath, "error": "LLM not available"}
+                        )
 
                 except Exception as e:
                     failed_files.append({"file": filepath, "error": str(e)})
@@ -548,7 +594,11 @@ Provide the COMPLETE edited file content."""
 
             status = TaskResultStatus.SUCCESS
             if failed_files:
-                status = TaskResultStatus.PARTIAL if edited_files else TaskResultStatus.FAILED
+                status = (
+                    TaskResultStatus.PARTIAL
+                    if edited_files
+                    else TaskResultStatus.FAILED
+                )
 
             return TaskResult(
                 status=status,
@@ -556,13 +606,13 @@ Provide the COMPLETE edited file content."""
                 output_data={
                     "edited_files": edited_files,
                     "failed_files": failed_files,
-                    "backup_files": backup_files
+                    "backup_files": backup_files,
                 },
                 items_processed=len(edited_files),
                 items_total=len(target_files),
                 started_at=started_at,
                 completed_at=completed_at,
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except ImportError:
@@ -570,7 +620,7 @@ Provide the COMPLETE edited file content."""
                 status=TaskResultStatus.FAILED,
                 message="llama_code_tools not available",
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
     def _execute_refactor(
@@ -578,7 +628,7 @@ Provide the COMPLETE edited file content."""
         task: Any,
         config: Dict[str, Any],
         progress_callback: Callable,
-        started_at: datetime
+        started_at: datetime,
     ) -> TaskResult:
         """Refactor code for better quality"""
         code_content = config.get("code_content", "")
@@ -591,7 +641,7 @@ Provide the COMPLETE edited file content."""
                 status=TaskResultStatus.FAILED,
                 message="No code content provided",
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
         progress_callback(0, f"Starting {refactor_type} refactoring...", None)
@@ -602,7 +652,7 @@ Provide the COMPLETE edited file content."""
                 status=TaskResultStatus.FAILED,
                 message="LLM service not available",
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
         prompt = f"""Refactor this {language} code to {refactor_type} it:
@@ -628,7 +678,7 @@ Focus on improving {refactor_type} while preserving functionality."""
                 user_message=prompt,
                 project_id=None,
                 use_rag=True,
-                bypass_rules=bypass_rules
+                bypass_rules=bypass_rules,
             )
 
             refactored_code = response.get("message", "") if response else ""
@@ -644,11 +694,11 @@ Focus on improving {refactor_type} while preserving functionality."""
                 output_data={
                     "refactored_code": refactored_code,
                     "refactor_type": refactor_type,
-                    "language": language
+                    "language": language,
                 },
                 started_at=started_at,
                 completed_at=completed_at,
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except Exception as e:
@@ -658,7 +708,7 @@ Focus on improving {refactor_type} while preserving functionality."""
                 message=f"Refactoring failed: {str(e)}",
                 error_message=str(e),
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
     def _execute_explain(
@@ -666,7 +716,7 @@ Focus on improving {refactor_type} while preserving functionality."""
         task: Any,
         config: Dict[str, Any],
         progress_callback: Callable,
-        started_at: datetime
+        started_at: datetime,
     ) -> TaskResult:
         """Explain what code does"""
         code_content = config.get("code_content", "")
@@ -678,7 +728,7 @@ Focus on improving {refactor_type} while preserving functionality."""
                 status=TaskResultStatus.FAILED,
                 message="No code content provided",
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
         progress_callback(0, "Analyzing code...", None)
@@ -689,7 +739,7 @@ Focus on improving {refactor_type} while preserving functionality."""
                 status=TaskResultStatus.FAILED,
                 message="LLM service not available",
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
         prompt = f"""Please explain this {language} code in detail:
@@ -714,7 +764,7 @@ Please provide:
                 user_message=prompt,
                 project_id=None,
                 use_rag=True,
-                bypass_rules=bypass_rules
+                bypass_rules=bypass_rules,
             )
 
             explanation = response.get("message", "") if response else ""
@@ -727,13 +777,10 @@ Please provide:
             return TaskResult(
                 status=TaskResultStatus.SUCCESS,
                 message="Code explanation generated",
-                output_data={
-                    "explanation": explanation,
-                    "language": language
-                },
+                output_data={"explanation": explanation, "language": language},
                 started_at=started_at,
                 completed_at=completed_at,
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except Exception as e:
@@ -743,7 +790,7 @@ Please provide:
                 message=f"Explanation failed: {str(e)}",
                 error_message=str(e),
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
     def _execute_test_gen(
@@ -751,7 +798,7 @@ Please provide:
         task: Any,
         config: Dict[str, Any],
         progress_callback: Callable,
-        started_at: datetime
+        started_at: datetime,
     ) -> TaskResult:
         """Generate unit tests for code"""
         code_content = config.get("code_content", "")
@@ -765,17 +812,21 @@ Please provide:
                 status=TaskResultStatus.FAILED,
                 message="No code content provided",
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
         # Determine appropriate framework
         frameworks = {
-            'python': 'pytest',
-            'javascript': 'Jest',
-            'typescript': 'Jest',
-            'java': 'JUnit',
+            "python": "pytest",
+            "javascript": "Jest",
+            "typescript": "Jest",
+            "java": "JUnit",
         }
-        framework = frameworks.get(language.lower(), "appropriate testing framework") if test_framework == "auto" else test_framework
+        framework = (
+            frameworks.get(language.lower(), "appropriate testing framework")
+            if test_framework == "auto"
+            else test_framework
+        )
 
         progress_callback(0, f"Generating {framework} tests...", None)
 
@@ -785,7 +836,7 @@ Please provide:
                 status=TaskResultStatus.FAILED,
                 message="LLM service not available",
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
         prompt = f"""Generate unit tests for this {language} code using {framework}:
@@ -809,7 +860,7 @@ Please provide:
                 user_message=prompt,
                 project_id=None,
                 use_rag=True,
-                bypass_rules=bypass_rules
+                bypass_rules=bypass_rules,
             )
 
             test_code = response.get("message", "") if response else ""
@@ -820,7 +871,7 @@ Please provide:
                 try:
                     progress_callback(80, f"Saving tests to {output_path}...", None)
                     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-                    with open(output_path, 'w', encoding='utf-8') as f:
+                    with open(output_path, "w", encoding="utf-8") as f:
                         f.write(test_code)
                     output_files.append(output_path)
                 except Exception as e:
@@ -838,11 +889,11 @@ Please provide:
                 output_data={
                     "test_code": test_code,
                     "framework": framework,
-                    "language": language
+                    "language": language,
                 },
                 started_at=started_at,
                 completed_at=completed_at,
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except Exception as e:
@@ -852,7 +903,7 @@ Please provide:
                 message=f"Test generation failed: {str(e)}",
                 error_message=str(e),
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
     def _execute_validate(
@@ -860,7 +911,7 @@ Please provide:
         task: Any,
         config: Dict[str, Any],
         progress_callback: Callable,
-        started_at: datetime
+        started_at: datetime,
     ) -> TaskResult:
         """Validate code syntax"""
         code_content = config.get("code_content", "")
@@ -872,7 +923,7 @@ Please provide:
                 status=TaskResultStatus.FAILED,
                 message="No code content provided",
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
         progress_callback(0, "Validating code...", None)
@@ -886,11 +937,9 @@ Please provide:
                 compile(code_content, "<string>", "exec")
                 progress_callback(50, "Syntax valid, checking for issues...", None)
             except SyntaxError as e:
-                errors.append({
-                    "line": e.lineno,
-                    "message": str(e.msg),
-                    "severity": "error"
-                })
+                errors.append(
+                    {"line": e.lineno, "message": str(e.msg), "severity": "error"}
+                )
 
         # LLM-based validation for more issues
         chat_func = self._get_chat_function()
@@ -914,7 +963,7 @@ Identify:
                     user_message=prompt,
                     project_id=None,
                     use_rag=False,
-                    bypass_rules=bypass_rules
+                    bypass_rules=bypass_rules,
                 )
                 validation_text = response.get("message", "") if response else ""
             except Exception as e:
@@ -934,11 +983,11 @@ Identify:
                 "validation": validation_text,
                 "errors": errors,
                 "warnings": warnings,
-                "language": language
+                "language": language,
             },
             started_at=started_at,
             completed_at=completed_at,
-            duration_seconds=duration
+            duration_seconds=duration,
         )
 
     def _execute_batch_analyze(
@@ -946,7 +995,7 @@ Identify:
         task: Any,
         config: Dict[str, Any],
         progress_callback: Callable,
-        started_at: datetime
+        started_at: datetime,
     ) -> TaskResult:
         """Analyze multiple files"""
         target_files = config.get("target_files", [])
@@ -958,7 +1007,7 @@ Identify:
                 status=TaskResultStatus.FAILED,
                 message="No target files provided",
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
         progress_callback(0, f"Analyzing {len(target_files)} files...", None)
@@ -973,7 +1022,7 @@ Identify:
                 status=TaskResultStatus.FAILED,
                 message="llama_code_tools not available",
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
         for i, filepath in enumerate(target_files):
@@ -987,12 +1036,8 @@ Identify:
                     continue
 
                 # Quick analysis without full LLM call for each file
-                lines = content.count('\n')
-                results.append({
-                    "file": filepath,
-                    "lines": lines,
-                    "analyzed": True
-                })
+                lines = content.count("\n")
+                results.append({"file": filepath, "lines": lines, "analyzed": True})
 
             except Exception as e:
                 failed.append({"file": filepath, "error": str(e)})
@@ -1012,13 +1057,13 @@ Identify:
             output_data={
                 "analyzed_files": results,
                 "failed_files": failed,
-                "language": language
+                "language": language,
             },
             items_processed=len(results),
             items_total=len(target_files),
             started_at=started_at,
             completed_at=completed_at,
-            duration_seconds=duration
+            duration_seconds=duration,
         )
 
     def get_estimated_duration(self, config: Dict[str, Any]) -> Optional[int]:
@@ -1034,7 +1079,7 @@ Identify:
             "explain": 30,
             "test_gen": 60,
             "validate": 15,
-            "batch_analyze": 20 * len(target_files) if target_files else 60
+            "batch_analyze": 20 * len(target_files) if target_files else 60,
         }
 
         return base_times.get(operation, 30)

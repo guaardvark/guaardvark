@@ -17,8 +17,7 @@ try:
     from llama_index.core.indices.base import BaseIndex
     from llama_index.core.query_engine import RetrieverQueryEngine
     from llama_index.core.retrievers import BaseRetriever
-    from llama_index.core.retrievers.auto_merging_retriever import \
-        AutoMergingRetriever
+    from llama_index.core.retrievers.auto_merging_retriever import AutoMergingRetriever
 except Exception:  # pragma: no cover - missing optional deps
     RetrieverQueryEngine = None  # type: ignore
     BaseRetriever = Any  # type: ignore

@@ -1,4 +1,5 @@
 """Async REST client wrapping all Guaardvark backend endpoints."""
+
 import logging
 from typing import Any, Optional
 import aiohttp
@@ -49,19 +50,36 @@ class GuaardvarkClient:
     # --- Chat ---
     async def chat(self, message: str, session_id: str, project_id: int = None) -> dict:
         """POST /enhanced-chat"""
-        payload = {"message": message, "session_id": session_id, "use_rag": True, "voice_mode": False}
+        payload = {
+            "message": message,
+            "session_id": session_id,
+            "use_rag": True,
+            "voice_mode": False,
+        }
         if project_id is not None:
             payload["project_id"] = project_id
         return await self._post("/enhanced-chat", json=payload)
 
     # --- Image Generation ---
-    async def generate_image(self, prompt: str, steps: int = 20, width: int = 512, height: int = 512) -> dict:
+    async def generate_image(
+        self, prompt: str, steps: int = 20, width: int = 512, height: int = 512
+    ) -> dict:
         """POST /batch-image/generate/prompts"""
-        return await self._post("/batch-image/generate/prompts", json={"prompts": [prompt], "steps": steps, "width": width, "height": height})
+        return await self._post(
+            "/batch-image/generate/prompts",
+            json={
+                "prompts": [prompt],
+                "steps": steps,
+                "width": width,
+                "height": height,
+            },
+        )
 
     async def get_batch_status(self, batch_id: str) -> dict:
         """GET /batch-image/status/<batch_id>"""
-        return await self._get(f"/batch-image/status/{batch_id}", params={"include_results": "true"})
+        return await self._get(
+            f"/batch-image/status/{batch_id}", params={"include_results": "true"}
+        )
 
     async def get_batch_image(self, batch_id: str, image_name: str) -> bytes:
         """GET /batch-image/image/<batch_id>/<image_name>"""
@@ -79,7 +97,14 @@ class GuaardvarkClient:
     # --- CSV Generation ---
     async def generate_csv(self, description: str, output_filename: str) -> dict:
         """POST /generate/csv"""
-        return await self._post("/generate/csv", json={"type": "single", "prompt": description, "output_filename": output_filename})
+        return await self._post(
+            "/generate/csv",
+            json={
+                "type": "single",
+                "prompt": description,
+                "output_filename": output_filename,
+            },
+        )
 
     # --- System ---
     async def get_diagnostics(self) -> dict:
@@ -108,12 +133,16 @@ class GuaardvarkClient:
     async def speech_to_text(self, audio_bytes: bytes) -> dict:
         """POST /voice/speech-to-text"""
         form = aiohttp.FormData()
-        form.add_field("audio", audio_bytes, filename="audio.wav", content_type="audio/wav")
+        form.add_field(
+            "audio", audio_bytes, filename="audio.wav", content_type="audio/wav"
+        )
         return await self._post("/voice/speech-to-text", data=form)
 
     async def text_to_speech(self, text: str, voice: str = "ryan") -> dict:
         """POST /voice/text-to-speech"""
-        return await self._post("/voice/text-to-speech", json={"text": text, "voice": voice})
+        return await self._post(
+            "/voice/text-to-speech", json={"text": text, "voice": voice}
+        )
 
     async def get_voice_audio(self, filename: str) -> bytes:
         """GET /voice/audio/<filename>"""
@@ -127,6 +156,7 @@ class GuaardvarkClient:
 
 class APIError(Exception):
     """Raised when the Guaardvark API returns an error."""
+
     def __init__(self, message: str, status_code: int = 500):
         super().__init__(message)
         self.status_code = status_code

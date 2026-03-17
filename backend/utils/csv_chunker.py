@@ -21,7 +21,7 @@ def _parse_csv_chunks(
     client: Optional[str],
     upload_date: Optional[str],
     include_headers_in_text: bool,
-    chunk_size: int = 10000
+    chunk_size: int = 10000,
 ) -> List[Document]:
     """
     Parse large CSV files in chunks to avoid memory issues
@@ -29,50 +29,51 @@ def _parse_csv_chunks(
     if not Document:
         logger.error("LlamaIndex Document class not available. Cannot parse CSV.")
         return []
-    
+
     documents: List[Document] = []
     filename = file_path.name
     total_rows = 0
     chunk_count = 0
-    
+
     try:
         # Increase CSV field size limit for large files
         import csv
+
         csv.field_size_limit(500000)  # 500KB field limit
-        
+
         # Process CSV in chunks
         chunk_reader = pd.read_csv(
-            file_path, 
-            encoding=encoding, 
-            sep=separator, 
-            engine="python", 
+            file_path,
+            encoding=encoding,
+            sep=separator,
+            engine="python",
             on_bad_lines="warn",
-            chunksize=chunk_size
+            chunksize=chunk_size,
         )
-        
+
         for chunk_idx, df_chunk in enumerate(chunk_reader):
             if df_chunk.empty:
                 continue
-                
+
             chunk_count += 1
             chunk_rows = len(df_chunk)
             total_rows += chunk_rows
-            
+
             logger.info(f"Processing chunk {chunk_idx + 1} with {chunk_rows} rows")
-            
+
             # Create a summary document for this chunk
             chunk_doc_id = f"{doc_id_prefix or filename}_chunk_{chunk_idx + 1}"
             chunk_summary = [
                 f"CSV Chunk {chunk_idx + 1} from {filename}",
                 f"Rows in chunk: {chunk_rows}",
                 f"Total rows processed so far: {total_rows}",
-                f"Columns: {', '.join(df_chunk.columns)}"
+                f"Columns: {', '.join(df_chunk.columns)}",
             ]
-            
+
             # Add sample data from this chunk
             sample_rows = df_chunk.head(3).to_dict(orient="records")
             chunk_summary.append(f"Sample rows from chunk: {sample_rows}")
-            
+
             chunk_document = Document(
                 id_=chunk_doc_id,
                 text="\n".join(chunk_summary),
@@ -82,19 +83,23 @@ def _parse_csv_chunks(
                     "filename": filename,
                     "client": client or "unknown",
                     "upload_date": upload_date or "unknown",
-                    "source_type": "csv_chunk"
-                }
+                    "source_type": "csv_chunk",
+                },
             )
             documents.append(chunk_document)
-            
+
             # Process individual rows (but limit to first 100 rows per chunk to prevent explosion)
             rows_to_process = min(100, chunk_rows)
             if rows_to_process < chunk_rows:
-                logger.info(f"Large chunk detected, processing only first {rows_to_process} rows out of {chunk_rows}")
-            
-            for row_idx, (_, row) in enumerate(df_chunk.head(rows_to_process).iterrows()):
+                logger.info(
+                    f"Large chunk detected, processing only first {rows_to_process} rows out of {chunk_rows}"
+                )
+
+            for row_idx, (_, row) in enumerate(
+                df_chunk.head(rows_to_process).iterrows()
+            ):
                 row_id = f"{doc_id_prefix or filename}_chunk_{chunk_idx + 1}_row_{row_idx + 1}"
-                
+
                 # Build row text content
                 row_parts = []
                 if include_headers_in_text:
@@ -103,7 +108,7 @@ def _parse_csv_chunks(
                             row_parts.append(f"{col}: {val}")
                 else:
                     row_parts = [str(val) for val in row.values if pd.notna(val)]
-                
+
                 if row_parts:
                     row_document = Document(
                         id_=row_id,
@@ -114,11 +119,11 @@ def _parse_csv_chunks(
                             "filename": filename,
                             "client": client or "unknown",
                             "upload_date": upload_date or "unknown",
-                            "source_type": "csv_row"
-                        }
+                            "source_type": "csv_row",
+                        },
                     )
                     documents.append(row_document)
-        
+
         # Create overall summary document
         summary_lines = [
             f"Large CSV File Summary: {filename}",
@@ -126,9 +131,9 @@ def _parse_csv_chunks(
             f"Upload date: {upload_date or 'unknown'}",
             f"Total chunks processed: {chunk_count}",
             f"Total rows: {total_rows}",
-            f"Processing method: Chunked (chunk_size={chunk_size})"
+            f"Processing method: Chunked (chunk_size={chunk_size})",
         ]
-        
+
         summary_doc = Document(
             id_=f"{doc_id_prefix or filename}_summary",
             text="\n".join(summary_lines),
@@ -138,14 +143,16 @@ def _parse_csv_chunks(
                 "filename": filename,
                 "client": client or "unknown",
                 "upload_date": upload_date or "unknown",
-                "source_type": "csv_summary"
-            }
+                "source_type": "csv_summary",
+            },
         )
         documents.insert(0, summary_doc)  # Put summary first
-        
-        logger.info(f"Successfully processed large CSV file in {chunk_count} chunks, {total_rows} total rows, created {len(documents)} documents")
+
+        logger.info(
+            f"Successfully processed large CSV file in {chunk_count} chunks, {total_rows} total rows, created {len(documents)} documents"
+        )
         return documents
-        
+
     except Exception as e:
         logger.error(f"Error processing large CSV file {file_path}: {e}")
         return []
@@ -177,22 +184,34 @@ def parse_csv_rows(
         logger.info(
             f"Attempting to parse CSV file: {file_path} with encoding '{encoding}' and separator '{separator}'"
         )
-        
+
         # Check file size first
         import os
+
         file_size_mb = os.path.getsize(path) / (1024 * 1024)
         logger.info(f"CSV file size: {file_size_mb:.2f}MB")
-        
+
         # Use chunking for large files to avoid memory issues
         if file_size_mb > max_file_size_mb:
-            logger.info(f"Large CSV file detected ({file_size_mb:.2f}MB > {max_file_size_mb}MB), using chunked processing")
-            return _parse_csv_chunks(path, encoding, separator, doc_id_prefix, client, upload_date, include_headers_in_text)
-        
+            logger.info(
+                f"Large CSV file detected ({file_size_mb:.2f}MB > {max_file_size_mb}MB), using chunked processing"
+            )
+            return _parse_csv_chunks(
+                path,
+                encoding,
+                separator,
+                doc_id_prefix,
+                client,
+                upload_date,
+                include_headers_in_text,
+            )
+
         # For smaller files, use the original method
         # Set CSV field size limit for compatibility
         import csv
+
         csv.field_size_limit(500000)  # 500KB field limit
-        
+
         df = pd.read_csv(
             path, encoding=encoding, sep=separator, engine="python", on_bad_lines="warn"
         )
@@ -212,9 +231,11 @@ def parse_csv_rows(
             f"Columns: {', '.join(df.columns)}",
         ]
         # Numeric stats
-        numeric_cols = df.select_dtypes(include=['number']).columns
+        numeric_cols = df.select_dtypes(include=["number"]).columns
         for col in numeric_cols:
-            summary_lines.append(f"Column '{col}': min={df[col].min()}, max={df[col].max()}, mean={df[col].mean()}")
+            summary_lines.append(
+                f"Column '{col}': min={df[col].min()}, max={df[col].max()}, mean={df[col].mean()}"
+            )
         # Sample rows
         sample_rows = df.head(3).to_dict(orient="records")
         summary_lines.append(f"Sample rows: {sample_rows}")

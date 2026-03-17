@@ -260,7 +260,9 @@ def test_get_active_qa_default_template_duplicate_returns_fallback(app):
         assert isinstance(text, str) and text != ""
 
 
-@pytest.mark.skip(reason="ensure_qa_default_rule was removed as part of critical changes; runtime rule self-healing is no longer supported.")
+@pytest.mark.skip(
+    reason="ensure_qa_default_rule was removed as part of critical changes; runtime rule self-healing is no longer supported."
+)
 def test_ensure_qa_default_rule_resets_duplicates(app):
     """Existing qa_default entries are all deactivated and replaced."""
     with app.app_context():
@@ -302,7 +304,9 @@ def test_ensure_qa_default_rule_resets_duplicates(app):
         assert rule.level == "SYSTEM" and rule.type == "QA_TEMPLATE"
 
 
-@pytest.mark.skip(reason="ensure_qa_default_rule was removed as part of critical changes; runtime rule self-healing is no longer supported.")
+@pytest.mark.skip(
+    reason="ensure_qa_default_rule was removed as part of critical changes; runtime rule self-healing is no longer supported."
+)
 def test_ensure_qa_default_rule_creates_when_missing(app):
     """A new qa_default rule is created when none exist and returns healed=False."""
     with app.app_context():
@@ -341,7 +345,9 @@ def test_rule_unique_constraint_enforced(app):
             db.session.commit()
 
 
-@pytest.mark.skip(reason="ensure_qa_default_rule was removed as part of critical changes; runtime rule self-healing is no longer supported.")
+@pytest.mark.skip(
+    reason="ensure_qa_default_rule was removed as part of critical changes; runtime rule self-healing is no longer supported."
+)
 def test_ensure_qa_default_rule_noop_when_single_valid(app):
     """No changes are made if exactly one valid qa_default rule exists."""
     with app.app_context():

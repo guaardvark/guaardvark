@@ -199,12 +199,14 @@ def register_batch_images(
             size=file_size,
             index_status="NOT_INDEXED",
             is_code_file=False,
-            file_metadata=json.dumps({
-                "source": "batch_generation",
-                "batch_id": batch_id,
-                "has_thumbnail": has_thumbnail,
-                "prompt": prompt_text,
-            }),
+            file_metadata=json.dumps(
+                {
+                    "source": "batch_generation",
+                    "batch_id": batch_id,
+                    "has_thumbnail": has_thumbnail,
+                    "prompt": prompt_text,
+                }
+            ),
             uploaded_at=datetime.now(),
             updated_at=datetime.now(),
         )

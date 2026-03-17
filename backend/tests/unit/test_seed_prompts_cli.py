@@ -24,7 +24,9 @@ def init_app(tmp_path):
     return app_module
 
 
-@pytest.mark.skip(reason="Backend no longer deactivates duplicate rules at runtime; test is legacy.")
+@pytest.mark.skip(
+    reason="Backend no longer deactivates duplicate rules at runtime; test is legacy."
+)
 @pytest.mark.prompt_seeding
 @pytest.mark.db
 @pytest.mark.rules

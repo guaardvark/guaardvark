@@ -64,7 +64,9 @@ def client(tmp_path, monkeypatch):
 
 @pytest.mark.rules
 @pytest.mark.db
-@pytest.mark.xfail(reason="Backend no longer self-heals duplicate rules at runtime, only warns. This matches new critical policy.")
+@pytest.mark.xfail(
+    reason="Backend no longer self-heals duplicate rules at runtime, only warns. This matches new critical policy."
+)
 def test_selftest_heals_duplicate_rule(client):
     with client.application.app_context():
         r1 = Rule(

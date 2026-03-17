@@ -1,4 +1,5 @@
 """Search cog — /search command for semantic RAG search."""
+
 import logging
 
 import discord
@@ -29,9 +30,7 @@ class SearchCog(commands.Cog):
         await self._handle_search(interaction, query)
 
     async def _handle_search(self, interaction, query: str):
-        allowed, _, retry_after = self.rate_limiter.check(
-            interaction.user.id, "search"
-        )
+        allowed, _, retry_after = self.rate_limiter.check(interaction.user.id, "search")
         if not allowed:
             await interaction.response.send_message(
                 f"Rate limited. Try again in {retry_after:.0f}s.", ephemeral=True

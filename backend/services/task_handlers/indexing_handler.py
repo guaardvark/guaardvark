@@ -46,55 +46,61 @@ class DocumentIndexingHandler(BaseTaskHandler):
             "properties": {
                 "indexing_type": {
                     "type": "string",
-                    "enum": ["document", "entity", "metadata", "full_reindex", "batch_documents"],
-                    "description": "Type of indexing operation"
+                    "enum": [
+                        "document",
+                        "entity",
+                        "metadata",
+                        "full_reindex",
+                        "batch_documents",
+                    ],
+                    "description": "Type of indexing operation",
                 },
                 "document_ids": {
                     "type": "array",
                     "items": {"type": "integer"},
-                    "description": "Document IDs to index (for document/batch_documents type)"
+                    "description": "Document IDs to index (for document/batch_documents type)",
                 },
                 "entity_type": {
                     "type": "string",
                     "enum": ["client", "project", "website", "task", "all"],
-                    "description": "Entity type for entity indexing"
+                    "description": "Entity type for entity indexing",
                 },
                 "entity_ids": {
                     "type": "array",
                     "items": {"type": "integer"},
-                    "description": "Specific entity IDs to index"
+                    "description": "Specific entity IDs to index",
                 },
                 "project_id": {
                     "type": "integer",
-                    "description": "Project ID for scoped indexing"
+                    "description": "Project ID for scoped indexing",
                 },
                 "client_id": {
                     "type": "integer",
-                    "description": "Client ID for scoped indexing"
+                    "description": "Client ID for scoped indexing",
                 },
                 "code_aware": {
                     "type": "boolean",
                     "default": True,
-                    "description": "Use code-aware chunking for code files"
+                    "description": "Use code-aware chunking for code files",
                 },
                 "use_celery": {
                     "type": "boolean",
                     "default": True,
-                    "description": "Use Celery for async execution"
+                    "description": "Use Celery for async execution",
                 },
                 "force_reindex": {
                     "type": "boolean",
                     "default": False,
-                    "description": "Force reindex even if already indexed"
-                }
-            }
+                    "description": "Force reindex even if already indexed",
+                },
+            },
         }
 
     def execute(
         self,
         task: Any,
         config: Dict[str, Any],
-        progress_callback: Callable[[int, str, Optional[Dict[str, Any]]], None]
+        progress_callback: Callable[[int, str, Optional[Dict[str, Any]]], None],
     ) -> TaskResult:
         """
         Execute document/entity indexing.
@@ -111,22 +117,32 @@ class DocumentIndexingHandler(BaseTaskHandler):
             indexing_type = config.get("indexing_type", "document")
 
             if indexing_type == "document":
-                return self._execute_document_indexing(task, config, progress_callback, started_at)
+                return self._execute_document_indexing(
+                    task, config, progress_callback, started_at
+                )
             elif indexing_type == "batch_documents":
-                return self._execute_batch_document_indexing(task, config, progress_callback, started_at)
+                return self._execute_batch_document_indexing(
+                    task, config, progress_callback, started_at
+                )
             elif indexing_type == "entity":
-                return self._execute_entity_indexing(task, config, progress_callback, started_at)
+                return self._execute_entity_indexing(
+                    task, config, progress_callback, started_at
+                )
             elif indexing_type == "metadata":
-                return self._execute_metadata_indexing(task, config, progress_callback, started_at)
+                return self._execute_metadata_indexing(
+                    task, config, progress_callback, started_at
+                )
             elif indexing_type == "full_reindex":
-                return self._execute_full_reindex(task, config, progress_callback, started_at)
+                return self._execute_full_reindex(
+                    task, config, progress_callback, started_at
+                )
             else:
                 return TaskResult(
                     status=TaskResultStatus.FAILED,
                     message=f"Unknown indexing type: {indexing_type}",
                     error_message=f"indexing_type must be one of: document, batch_documents, entity, metadata, full_reindex",
                     started_at=started_at,
-                    completed_at=datetime.now()
+                    completed_at=datetime.now(),
                 )
 
         except Exception as e:
@@ -136,7 +152,7 @@ class DocumentIndexingHandler(BaseTaskHandler):
                 message=f"Indexing failed: {str(e)}",
                 error_message=str(e),
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
     def _execute_document_indexing(
@@ -144,7 +160,7 @@ class DocumentIndexingHandler(BaseTaskHandler):
         task: Any,
         config: Dict[str, Any],
         progress_callback: Callable,
-        started_at: datetime
+        started_at: datetime,
     ) -> TaskResult:
         """Index specific documents by ID"""
         document_ids = config.get("document_ids", [])
@@ -156,24 +172,30 @@ class DocumentIndexingHandler(BaseTaskHandler):
                 message="No document IDs provided",
                 error_message="document_ids list is empty",
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
-        progress_callback(0, f"Starting indexing for {len(document_ids)} documents", {
-            "total_documents": len(document_ids)
-        })
+        progress_callback(
+            0,
+            f"Starting indexing for {len(document_ids)} documents",
+            {"total_documents": len(document_ids)},
+        )
 
         if use_celery and len(document_ids) > 1:
-            return self._execute_celery_batch(task, document_ids, progress_callback, started_at)
+            return self._execute_celery_batch(
+                task, document_ids, progress_callback, started_at
+            )
         else:
-            return self._execute_sync_documents(task, document_ids, config, progress_callback, started_at)
+            return self._execute_sync_documents(
+                task, document_ids, config, progress_callback, started_at
+            )
 
     def _execute_celery_batch(
         self,
         task: Any,
         document_ids: List[int],
         progress_callback: Callable,
-        started_at: datetime
+        started_at: datetime,
     ) -> TaskResult:
         """Execute document indexing via Celery"""
         try:
@@ -182,10 +204,11 @@ class DocumentIndexingHandler(BaseTaskHandler):
             job_id = task.job_id or f"idx_batch_{task.id}"
             celery_task_ids = []
 
-            progress_callback(5, "Submitting documents to indexing queue...", {
-                "job_id": job_id,
-                "queue": self.celery_queue
-            })
+            progress_callback(
+                5,
+                "Submitting documents to indexing queue...",
+                {"job_id": job_id, "queue": self.celery_queue},
+            )
 
             # Submit each document for indexing
             for i, doc_id in enumerate(document_ids):
@@ -194,19 +217,23 @@ class DocumentIndexingHandler(BaseTaskHandler):
                 # In production, you'd use Celery's apply_async
                 try:
                     from backend.celery_app import celery
+
                     celery_result = celery.send_task(
-                        'backend.celery_tasks_isolated.index_document_task',
+                        "backend.celery_tasks_isolated.index_document_task",
                         args=[doc_id, process_id],
-                        queue=self.celery_queue
+                        queue=self.celery_queue,
                     )
                     celery_task_ids.append(celery_result.id)
                 except Exception as celery_error:
-                    logger.warning(f"Celery submission failed for doc {doc_id}: {celery_error}")
+                    logger.warning(
+                        f"Celery submission failed for doc {doc_id}: {celery_error}"
+                    )
 
-            progress_callback(10, f"Submitted {len(document_ids)} documents to queue", {
-                "celery_task_count": len(celery_task_ids),
-                "job_id": job_id
-            })
+            progress_callback(
+                10,
+                f"Submitted {len(document_ids)} documents to queue",
+                {"celery_task_count": len(celery_task_ids), "job_id": job_id},
+            )
 
             return TaskResult(
                 status=TaskResultStatus.SUCCESS,
@@ -215,16 +242,18 @@ class DocumentIndexingHandler(BaseTaskHandler):
                     "celery_task_ids": celery_task_ids,
                     "job_id": job_id,
                     "document_count": len(document_ids),
-                    "async": True
+                    "async": True,
                 },
                 items_total=len(document_ids),
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
         except ImportError as e:
             logger.warning(f"Celery not available, falling back to sync: {e}")
-            return self._execute_sync_documents(task, document_ids, {}, progress_callback, started_at)
+            return self._execute_sync_documents(
+                task, document_ids, {}, progress_callback, started_at
+            )
 
     def _execute_sync_documents(
         self,
@@ -232,7 +261,7 @@ class DocumentIndexingHandler(BaseTaskHandler):
         document_ids: List[int],
         config: Dict[str, Any],
         progress_callback: Callable,
-        started_at: datetime
+        started_at: datetime,
     ) -> TaskResult:
         """Execute document indexing synchronously"""
         try:
@@ -267,10 +296,11 @@ class DocumentIndexingHandler(BaseTaskHandler):
 
                     # Update progress
                     progress = int(10 + (i / len(document_ids)) * 85)
-                    progress_callback(progress, f"Indexing {document.filename} ({i+1}/{len(document_ids)})", {
-                        "current_document": document.filename,
-                        "document_id": doc_id
-                    })
+                    progress_callback(
+                        progress,
+                        f"Indexing {document.filename} ({i+1}/{len(document_ids)})",
+                        {"current_document": document.filename, "document_id": doc_id},
+                    )
 
                     # Index the document
                     def doc_progress(pct, msg):
@@ -297,10 +327,11 @@ class DocumentIndexingHandler(BaseTaskHandler):
             completed_at = datetime.now()
             duration = (completed_at - started_at).total_seconds()
 
-            progress_callback(100, f"Indexing complete: {indexed_count} succeeded, {failed_count} failed", {
-                "indexed_count": indexed_count,
-                "failed_count": failed_count
-            })
+            progress_callback(
+                100,
+                f"Indexing complete: {indexed_count} succeeded, {failed_count} failed",
+                {"indexed_count": indexed_count, "failed_count": failed_count},
+            )
 
             if failed_count > 0 and indexed_count > 0:
                 return TaskResult(
@@ -309,13 +340,13 @@ class DocumentIndexingHandler(BaseTaskHandler):
                     output_data={
                         "indexed_count": indexed_count,
                         "failed_count": failed_count,
-                        "failed_documents": failed_docs
+                        "failed_documents": failed_docs,
                     },
                     items_processed=indexed_count,
                     items_total=len(document_ids),
                     started_at=started_at,
                     completed_at=completed_at,
-                    duration_seconds=duration
+                    duration_seconds=duration,
                 )
             elif indexed_count == 0:
                 return TaskResult(
@@ -327,7 +358,7 @@ class DocumentIndexingHandler(BaseTaskHandler):
                     items_total=len(document_ids),
                     started_at=started_at,
                     completed_at=completed_at,
-                    duration_seconds=duration
+                    duration_seconds=duration,
                 )
             else:
                 return TaskResult(
@@ -338,7 +369,7 @@ class DocumentIndexingHandler(BaseTaskHandler):
                     items_total=len(document_ids),
                     started_at=started_at,
                     completed_at=completed_at,
-                    duration_seconds=duration
+                    duration_seconds=duration,
                 )
 
         except Exception as e:
@@ -348,7 +379,7 @@ class DocumentIndexingHandler(BaseTaskHandler):
                 message=f"Document indexing failed: {str(e)}",
                 error_message=str(e),
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
     def _execute_batch_document_indexing(
@@ -356,7 +387,7 @@ class DocumentIndexingHandler(BaseTaskHandler):
         task: Any,
         config: Dict[str, Any],
         progress_callback: Callable,
-        started_at: datetime
+        started_at: datetime,
     ) -> TaskResult:
         """Index documents in batch (by project or client scope)"""
         try:
@@ -379,8 +410,8 @@ class DocumentIndexingHandler(BaseTaskHandler):
             if not force_reindex:
                 # Only index documents not already indexed
                 query = query.filter(
-                    (DBDocument.index_status != "INDEXED") |
-                    (DBDocument.index_status.is_(None))
+                    (DBDocument.index_status != "INDEXED")
+                    | (DBDocument.index_status.is_(None))
                 )
 
             documents = query.all()
@@ -393,15 +424,19 @@ class DocumentIndexingHandler(BaseTaskHandler):
                     items_processed=0,
                     items_total=0,
                     started_at=started_at,
-                    completed_at=datetime.now()
+                    completed_at=datetime.now(),
                 )
 
-            progress_callback(5, f"Found {len(document_ids)} documents to index", {
-                "total_documents": len(document_ids)
-            })
+            progress_callback(
+                5,
+                f"Found {len(document_ids)} documents to index",
+                {"total_documents": len(document_ids)},
+            )
 
             # Delegate to sync indexing
-            return self._execute_sync_documents(task, document_ids, config, progress_callback, started_at)
+            return self._execute_sync_documents(
+                task, document_ids, config, progress_callback, started_at
+            )
 
         except Exception as e:
             logger.error(f"Batch document indexing failed: {e}", exc_info=True)
@@ -410,7 +445,7 @@ class DocumentIndexingHandler(BaseTaskHandler):
                 message=f"Batch indexing failed: {str(e)}",
                 error_message=str(e),
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
     def _execute_entity_indexing(
@@ -418,20 +453,23 @@ class DocumentIndexingHandler(BaseTaskHandler):
         task: Any,
         config: Dict[str, Any],
         progress_callback: Callable,
-        started_at: datetime
+        started_at: datetime,
     ) -> TaskResult:
         """Index entities (clients, projects, websites, tasks)"""
         try:
-            from backend.services.entity_indexing_service import get_entity_indexing_service
+            from backend.services.entity_indexing_service import (
+                get_entity_indexing_service,
+            )
 
             entity_service = get_entity_indexing_service()
             entity_type = config.get("entity_type", "all")
             entity_ids = config.get("entity_ids", [])
 
-            progress_callback(0, f"Starting entity indexing: {entity_type}", {
-                "entity_type": entity_type,
-                "entity_ids": entity_ids
-            })
+            progress_callback(
+                0,
+                f"Starting entity indexing: {entity_type}",
+                {"entity_type": entity_type, "entity_ids": entity_ids},
+            )
 
             if entity_type == "all":
                 # Full entity indexing
@@ -441,10 +479,17 @@ class DocumentIndexingHandler(BaseTaskHandler):
                 completed_at = datetime.now()
                 duration = (completed_at - started_at).total_seconds()
 
-                total_indexed = results['clients'] + results['projects'] + results['websites'] + results['tasks']
-                errors = results.get('errors', 0)
+                total_indexed = (
+                    results["clients"]
+                    + results["projects"]
+                    + results["websites"]
+                    + results["tasks"]
+                )
+                errors = results.get("errors", 0)
 
-                progress_callback(100, f"Entity indexing complete: {total_indexed} indexed", results)
+                progress_callback(
+                    100, f"Entity indexing complete: {total_indexed} indexed", results
+                )
 
                 if errors > 0:
                     return TaskResult(
@@ -455,7 +500,7 @@ class DocumentIndexingHandler(BaseTaskHandler):
                         items_total=total_indexed + errors,
                         started_at=started_at,
                         completed_at=completed_at,
-                        duration_seconds=duration
+                        duration_seconds=duration,
                     )
 
                 return TaskResult(
@@ -466,7 +511,7 @@ class DocumentIndexingHandler(BaseTaskHandler):
                     items_total=total_indexed,
                     started_at=started_at,
                     completed_at=completed_at,
-                    duration_seconds=duration
+                    duration_seconds=duration,
                 )
             else:
                 # Index specific entity type
@@ -477,25 +522,37 @@ class DocumentIndexingHandler(BaseTaskHandler):
                     # Index specific entities
                     for i, entity_id in enumerate(entity_ids):
                         progress = int(10 + (i / len(entity_ids)) * 85)
-                        progress_callback(progress, f"Indexing {entity_type} {entity_id}", None)
+                        progress_callback(
+                            progress, f"Indexing {entity_type} {entity_id}", None
+                        )
 
-                        success = entity_service.update_entity_index(entity_type, entity_id)
+                        success = entity_service.update_entity_index(
+                            entity_type, entity_id
+                        )
                         if success:
                             indexed_count += 1
                         else:
                             failed_count += 1
                 else:
                     # Index all of the entity type
-                    return self._index_all_of_type(entity_service, entity_type, progress_callback, started_at)
+                    return self._index_all_of_type(
+                        entity_service, entity_type, progress_callback, started_at
+                    )
 
                 completed_at = datetime.now()
                 duration = (completed_at - started_at).total_seconds()
 
-                progress_callback(100, f"Entity indexing complete: {indexed_count} indexed", None)
+                progress_callback(
+                    100, f"Entity indexing complete: {indexed_count} indexed", None
+                )
 
                 status = TaskResultStatus.SUCCESS
                 if failed_count > 0:
-                    status = TaskResultStatus.PARTIAL if indexed_count > 0 else TaskResultStatus.FAILED
+                    status = (
+                        TaskResultStatus.PARTIAL
+                        if indexed_count > 0
+                        else TaskResultStatus.FAILED
+                    )
 
                 return TaskResult(
                     status=status,
@@ -503,13 +560,13 @@ class DocumentIndexingHandler(BaseTaskHandler):
                     output_data={
                         "indexed_count": indexed_count,
                         "failed_count": failed_count,
-                        "entity_type": entity_type
+                        "entity_type": entity_type,
                     },
                     items_processed=indexed_count,
                     items_total=len(entity_ids),
                     started_at=started_at,
                     completed_at=completed_at,
-                    duration_seconds=duration
+                    duration_seconds=duration,
                 )
 
         except Exception as e:
@@ -519,7 +576,7 @@ class DocumentIndexingHandler(BaseTaskHandler):
                 message=f"Entity indexing failed: {str(e)}",
                 error_message=str(e),
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
     def _index_all_of_type(
@@ -527,7 +584,7 @@ class DocumentIndexingHandler(BaseTaskHandler):
         entity_service,
         entity_type: str,
         progress_callback: Callable,
-        started_at: datetime
+        started_at: datetime,
     ) -> TaskResult:
         """Index all entities of a specific type"""
         from backend.models import Client, Project, Website, Task, db
@@ -536,14 +593,14 @@ class DocumentIndexingHandler(BaseTaskHandler):
             "client": Client,
             "project": Project,
             "website": Website,
-            "task": Task
+            "task": Task,
         }
 
         index_method_map = {
             "client": entity_service.index_client,
             "project": entity_service.index_project,
             "website": entity_service.index_website,
-            "task": entity_service.index_task
+            "task": entity_service.index_task,
         }
 
         model = model_map.get(entity_type)
@@ -554,7 +611,7 @@ class DocumentIndexingHandler(BaseTaskHandler):
                 status=TaskResultStatus.FAILED,
                 message=f"Unknown entity type: {entity_type}",
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
         entities = db.session.query(model).all()
@@ -563,7 +620,9 @@ class DocumentIndexingHandler(BaseTaskHandler):
 
         for i, entity in enumerate(entities):
             progress = int(10 + (i / len(entities)) * 85)
-            name = getattr(entity, 'name', None) or getattr(entity, 'url', str(entity.id))
+            name = getattr(entity, "name", None) or getattr(
+                entity, "url", str(entity.id)
+            )
             progress_callback(progress, f"Indexing {entity_type}: {name}", None)
 
             if index_method(entity):
@@ -574,14 +633,19 @@ class DocumentIndexingHandler(BaseTaskHandler):
         completed_at = datetime.now()
         duration = (completed_at - started_at).total_seconds()
 
-        progress_callback(100, f"Entity indexing complete", {
-            "indexed_count": indexed_count,
-            "failed_count": failed_count
-        })
+        progress_callback(
+            100,
+            f"Entity indexing complete",
+            {"indexed_count": indexed_count, "failed_count": failed_count},
+        )
 
         status = TaskResultStatus.SUCCESS
         if failed_count > 0:
-            status = TaskResultStatus.PARTIAL if indexed_count > 0 else TaskResultStatus.FAILED
+            status = (
+                TaskResultStatus.PARTIAL
+                if indexed_count > 0
+                else TaskResultStatus.FAILED
+            )
 
         return TaskResult(
             status=status,
@@ -589,13 +653,13 @@ class DocumentIndexingHandler(BaseTaskHandler):
             output_data={
                 "indexed_count": indexed_count,
                 "failed_count": failed_count,
-                "entity_type": entity_type
+                "entity_type": entity_type,
             },
             items_processed=indexed_count,
             items_total=len(entities),
             started_at=started_at,
             completed_at=completed_at,
-            duration_seconds=duration
+            duration_seconds=duration,
         )
 
     def _execute_metadata_indexing(
@@ -603,11 +667,13 @@ class DocumentIndexingHandler(BaseTaskHandler):
         task: Any,
         config: Dict[str, Any],
         progress_callback: Callable,
-        started_at: datetime
+        started_at: datetime,
     ) -> TaskResult:
         """Index metadata for entities"""
         try:
-            from backend.services.metadata_indexing_service import MetadataIndexingService
+            from backend.services.metadata_indexing_service import (
+                MetadataIndexingService,
+            )
 
             metadata_service = MetadataIndexingService()
             entity_type = config.get("entity_type", "all")
@@ -627,6 +693,7 @@ class DocumentIndexingHandler(BaseTaskHandler):
                             failed_count += 1
                 elif entity_type == "all":
                     from backend.models import Client, db
+
                     clients = db.session.query(Client).all()
                     for client in clients:
                         if metadata_service.index_client_metadata(client.id):
@@ -643,6 +710,7 @@ class DocumentIndexingHandler(BaseTaskHandler):
                             failed_count += 1
                 elif entity_type == "all":
                     from backend.models import Project, db
+
                     projects = db.session.query(Project).all()
                     for project in projects:
                         if metadata_service.index_project_metadata(project.id):
@@ -653,27 +721,32 @@ class DocumentIndexingHandler(BaseTaskHandler):
             completed_at = datetime.now()
             duration = (completed_at - started_at).total_seconds()
 
-            progress_callback(100, f"Metadata indexing complete", {
-                "indexed_count": indexed_count,
-                "failed_count": failed_count
-            })
+            progress_callback(
+                100,
+                f"Metadata indexing complete",
+                {"indexed_count": indexed_count, "failed_count": failed_count},
+            )
 
             status = TaskResultStatus.SUCCESS
             if failed_count > 0:
-                status = TaskResultStatus.PARTIAL if indexed_count > 0 else TaskResultStatus.FAILED
+                status = (
+                    TaskResultStatus.PARTIAL
+                    if indexed_count > 0
+                    else TaskResultStatus.FAILED
+                )
 
             return TaskResult(
                 status=status,
                 message=f"Indexed metadata for {indexed_count} entities",
                 output_data={
                     "indexed_count": indexed_count,
-                    "failed_count": failed_count
+                    "failed_count": failed_count,
                 },
                 items_processed=indexed_count,
                 items_total=indexed_count + failed_count,
                 started_at=started_at,
                 completed_at=completed_at,
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except Exception as e:
@@ -683,7 +756,7 @@ class DocumentIndexingHandler(BaseTaskHandler):
                 message=f"Metadata indexing failed: {str(e)}",
                 error_message=str(e),
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
     def _execute_full_reindex(
@@ -691,7 +764,7 @@ class DocumentIndexingHandler(BaseTaskHandler):
         task: Any,
         config: Dict[str, Any],
         progress_callback: Callable,
-        started_at: datetime
+        started_at: datetime,
     ) -> TaskResult:
         """Execute full system reindex"""
         try:
@@ -703,7 +776,7 @@ class DocumentIndexingHandler(BaseTaskHandler):
                 "documents_indexed": 0,
                 "documents_failed": 0,
                 "entities_indexed": 0,
-                "entities_failed": 0
+                "entities_failed": 0,
             }
 
             # Phase 1: Index all documents
@@ -714,13 +787,18 @@ class DocumentIndexingHandler(BaseTaskHandler):
 
             if document_ids:
                 doc_result = self._execute_sync_documents(
-                    task, document_ids,
+                    task,
+                    document_ids,
                     {"force_reindex": True},
-                    lambda p, m, d=None: progress_callback(5 + int(p * 0.5), f"Documents: {m}", d),
-                    started_at
+                    lambda p, m, d=None: progress_callback(
+                        5 + int(p * 0.5), f"Documents: {m}", d
+                    ),
+                    started_at,
                 )
                 results["documents_indexed"] = doc_result.items_processed or 0
-                results["documents_failed"] = (doc_result.items_total or 0) - results["documents_indexed"]
+                results["documents_failed"] = (doc_result.items_total or 0) - results[
+                    "documents_indexed"
+                ]
 
             # Phase 2: Index all entities
             progress_callback(55, "Phase 2: Indexing all entities...", None)
@@ -728,18 +806,22 @@ class DocumentIndexingHandler(BaseTaskHandler):
             entity_result = self._execute_entity_indexing(
                 task,
                 {"entity_type": "all"},
-                lambda p, m, d=None: progress_callback(55 + int(p * 0.4), f"Entities: {m}", d),
-                started_at
+                lambda p, m, d=None: progress_callback(
+                    55 + int(p * 0.4), f"Entities: {m}", d
+                ),
+                started_at,
             )
 
             if entity_result.output_data:
-                results["entities_indexed"] = sum([
-                    entity_result.output_data.get('clients', 0),
-                    entity_result.output_data.get('projects', 0),
-                    entity_result.output_data.get('websites', 0),
-                    entity_result.output_data.get('tasks', 0)
-                ])
-                results["entities_failed"] = entity_result.output_data.get('errors', 0)
+                results["entities_indexed"] = sum(
+                    [
+                        entity_result.output_data.get("clients", 0),
+                        entity_result.output_data.get("projects", 0),
+                        entity_result.output_data.get("websites", 0),
+                        entity_result.output_data.get("tasks", 0),
+                    ]
+                )
+                results["entities_failed"] = entity_result.output_data.get("errors", 0)
 
             completed_at = datetime.now()
             duration = (completed_at - started_at).total_seconds()
@@ -747,11 +829,17 @@ class DocumentIndexingHandler(BaseTaskHandler):
             total_indexed = results["documents_indexed"] + results["entities_indexed"]
             total_failed = results["documents_failed"] + results["entities_failed"]
 
-            progress_callback(100, f"Full reindex complete: {total_indexed} items indexed", results)
+            progress_callback(
+                100, f"Full reindex complete: {total_indexed} items indexed", results
+            )
 
             status = TaskResultStatus.SUCCESS
             if total_failed > 0:
-                status = TaskResultStatus.PARTIAL if total_indexed > 0 else TaskResultStatus.FAILED
+                status = (
+                    TaskResultStatus.PARTIAL
+                    if total_indexed > 0
+                    else TaskResultStatus.FAILED
+                )
 
             return TaskResult(
                 status=status,
@@ -761,7 +849,7 @@ class DocumentIndexingHandler(BaseTaskHandler):
                 items_total=total_indexed + total_failed,
                 started_at=started_at,
                 completed_at=completed_at,
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except Exception as e:
@@ -771,7 +859,7 @@ class DocumentIndexingHandler(BaseTaskHandler):
                 message=f"Full reindex failed: {str(e)}",
                 error_message=str(e),
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
     def get_estimated_duration(self, config: Dict[str, Any]) -> Optional[int]:

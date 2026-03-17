@@ -27,7 +27,7 @@ from backend.tools.llama_code_tools import (
     search_code,
     edit_code,
     list_files,
-    verify_change
+    verify_change,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,12 +54,12 @@ def get_code_tools_schema() -> List[Dict[str, Any]]:
                     "properties": {
                         "filepath": {
                             "type": "string",
-                            "description": "Relative path from project root (e.g., 'frontend/src/pages/SettingsPage (Copy).jsx')"
+                            "description": "Relative path from project root (e.g., 'frontend/src/pages/SettingsPage (Copy).jsx')",
                         }
                     },
-                    "required": ["filepath"]
-                }
-            }
+                    "required": ["filepath"],
+                },
+            },
         },
         {
             "type": "function",
@@ -74,17 +74,17 @@ def get_code_tools_schema() -> List[Dict[str, Any]]:
                     "properties": {
                         "pattern": {
                             "type": "string",
-                            "description": "Text or regex pattern to search for (e.g., 'Snibbly Nips', 'Button.*onClick')"
+                            "description": "Text or regex pattern to search for (e.g., 'Snibbly Nips', 'Button.*onClick')",
                         },
                         "file_glob": {
                             "type": "string",
                             "description": "Glob pattern for files to search (default: '**/*.{py,jsx,js,tsx,ts}')",
-                            "default": "**/*.{py,jsx,js,tsx,ts}"
-                        }
+                            "default": "**/*.{py,jsx,js,tsx,ts}",
+                        },
                     },
-                    "required": ["pattern"]
-                }
-            }
+                    "required": ["pattern"],
+                },
+            },
         },
         {
             "type": "function",
@@ -99,20 +99,20 @@ def get_code_tools_schema() -> List[Dict[str, Any]]:
                     "properties": {
                         "filepath": {
                             "type": "string",
-                            "description": "Relative path from project root"
+                            "description": "Relative path from project root",
                         },
                         "old_text": {
                             "type": "string",
-                            "description": "The EXACT text to replace (must be unique in file)"
+                            "description": "The EXACT text to replace (must be unique in file)",
                         },
                         "new_text": {
                             "type": "string",
-                            "description": "The new text to insert (can be empty string for deletion)"
-                        }
+                            "description": "The new text to insert (can be empty string for deletion)",
+                        },
                     },
-                    "required": ["filepath", "old_text", "new_text"]
-                }
-            }
+                    "required": ["filepath", "old_text", "new_text"],
+                },
+            },
         },
         {
             "type": "function",
@@ -125,16 +125,16 @@ def get_code_tools_schema() -> List[Dict[str, Any]]:
                         "directory": {
                             "type": "string",
                             "description": "Relative path from project root (default: 'frontend/src/pages')",
-                            "default": "frontend/src/pages"
+                            "default": "frontend/src/pages",
                         },
                         "max_depth": {
                             "type": "integer",
                             "description": "Maximum directory depth to show (default: 2)",
-                            "default": 2
-                        }
-                    }
-                }
-            }
+                            "default": 2,
+                        },
+                    },
+                },
+            },
         },
         {
             "type": "function",
@@ -146,22 +146,22 @@ def get_code_tools_schema() -> List[Dict[str, Any]]:
                     "properties": {
                         "filepath": {
                             "type": "string",
-                            "description": "Relative path from project root"
+                            "description": "Relative path from project root",
                         },
                         "expected_text": {
                             "type": "string",
-                            "description": "Text to check for"
+                            "description": "Text to check for",
                         },
                         "should_exist": {
                             "type": "boolean",
                             "description": "True if text should exist, False to verify deletion (default: True)",
-                            "default": True
-                        }
+                            "default": True,
+                        },
                     },
-                    "required": ["filepath", "expected_text"]
-                }
-            }
-        }
+                    "required": ["filepath", "expected_text"],
+                },
+            },
+        },
     ]
 
 
@@ -181,7 +181,7 @@ def execute_tool_call(tool_name: str, arguments: Dict[str, Any]) -> str:
         "search_code": search_code,
         "edit_code": edit_code,
         "list_files": list_files,
-        "verify_change": verify_change
+        "verify_change": verify_change,
     }
 
     if tool_name not in tools_map:
@@ -220,23 +220,26 @@ def remove_snibbly_nips_button() -> Dict[str, Any]:
         # Step 1: Search for the button (only in frontend files)
         logger.info("Step 1: Searching for 'Snibbly Nips'...")
         search_result = search_code("Snibbly Nips", "frontend/**/*.jsx")
-        steps.append({"step": 1, "action": "search_code", "result": search_result[:200]})
+        steps.append(
+            {"step": 1, "action": "search_code", "result": search_result[:200]}
+        )
 
         if "No matches found" in search_result:
             return {
                 "success": False,
                 "message": "Button already removed or not found",
-                "steps": steps
+                "steps": steps,
             }
 
         # Extract filepath from search results
         import re
+
         match = re.search(r"1\.\s+([^\:]+):", search_result)
         if not match:
             return {
                 "success": False,
                 "message": "Could not parse search results",
-                "steps": steps
+                "steps": steps,
             }
 
         filepath = match.group(1).strip()
@@ -255,7 +258,9 @@ def remove_snibbly_nips_button() -> Dict[str, Any]:
         content_start = file_content.find(start_marker)
         content_end = file_content.find(end_marker)
         # Skip the marker line + newline
-        actual_content = file_content[content_start + len(start_marker) + 1:content_end]
+        actual_content = file_content[
+            content_start + len(start_marker) + 1 : content_end
+        ]
 
         # Find the text manually by looking for the Tooltip
         search_text = 'title="The mysterious Snibbly Nips button'
@@ -264,30 +269,30 @@ def remove_snibbly_nips_button() -> Dict[str, Any]:
             return {
                 "success": False,
                 "message": "Could not find Snibbly Nips button in file",
-                "steps": steps
+                "steps": steps,
             }
 
         # Search backwards from this position to find the opening <Tooltip tag
         # but only within a reasonable distance (500 chars)
         search_start = max(0, start_idx - 100)
-        tooltip_start = actual_content.rfind('<Tooltip', search_start, start_idx)
+        tooltip_start = actual_content.rfind("<Tooltip", search_start, start_idx)
         if tooltip_start == -1:
             return {
                 "success": False,
                 "message": "Could not find opening Tooltip tag",
-                "steps": steps
+                "steps": steps,
             }
 
         # Find the closing </Tooltip> after our start position
-        tooltip_end = actual_content.find('</Tooltip>', start_idx)
+        tooltip_end = actual_content.find("</Tooltip>", start_idx)
         if tooltip_end == -1:
             return {
                 "success": False,
                 "message": "Could not find closing Tooltip tag",
-                "steps": steps
+                "steps": steps,
             }
 
-        old_text = actual_content[tooltip_start:tooltip_end + len('</Tooltip>')]
+        old_text = actual_content[tooltip_start : tooltip_end + len("</Tooltip>")]
         logger.info(f"Found button code ({len(old_text)} chars): {old_text[:100]}...")
 
         # Step 4: Edit to remove the button
@@ -300,7 +305,7 @@ def remove_snibbly_nips_button() -> Dict[str, Any]:
                 "success": False,
                 "message": "Edit failed",
                 "steps": steps,
-                "error": edit_result
+                "error": edit_result,
             }
 
         # Step 5: Verify removal
@@ -316,9 +321,13 @@ def remove_snibbly_nips_button() -> Dict[str, Any]:
 
         return {
             "success": success,
-            "message": "Successfully removed Snibbly Nips button" if success else "Verification failed",
+            "message": (
+                "Successfully removed Snibbly Nips button"
+                if success
+                else "Verification failed"
+            ),
             "filepath": filepath,
-            "steps": steps
+            "steps": steps,
         }
 
     except Exception as e:
@@ -326,20 +335,20 @@ def remove_snibbly_nips_button() -> Dict[str, Any]:
         return {
             "success": False,
             "message": f"Exception during test: {str(e)}",
-            "steps": steps
+            "steps": steps,
         }
 
 
 # Export functions for external use
 __all__ = [
-    'get_code_tools_schema',
-    'execute_tool_call',
-    'remove_snibbly_nips_button',
-    'read_code',
-    'search_code',
-    'edit_code',
-    'list_files',
-    'verify_change'
+    "get_code_tools_schema",
+    "execute_tool_call",
+    "remove_snibbly_nips_button",
+    "read_code",
+    "search_code",
+    "edit_code",
+    "list_files",
+    "verify_change",
 ]
 
 
@@ -353,18 +362,21 @@ if __name__ == "__main__":
     print("\n1. Available Code Manipulation Tools:")
     tools_schema = get_code_tools_schema()
     for tool in tools_schema:
-        print(f"   - {tool['function']['name']}: {tool['function']['description'][:60]}...")
+        print(
+            f"   - {tool['function']['name']}: {tool['function']['description'][:60]}..."
+        )
 
     # Test milestone goal
     print("\n2. Running Milestone Test: Remove Snibbly Nips Button")
     print("   (This will actually modify the code file!)")
 
     import sys
+
     if len(sys.argv) > 1 and sys.argv[1] == "--run-test":
         result = remove_snibbly_nips_button()
         print(f"\n   Result: {result['message']}")
         print(f"   Success: {result['success']}")
-        if result.get('steps'):
+        if result.get("steps"):
             print(f"   Steps executed: {len(result['steps'])}")
     else:
         print("   (Skipped - use --run-test flag to actually execute)")

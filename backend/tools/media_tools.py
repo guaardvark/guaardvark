@@ -7,7 +7,10 @@ Tools for controlling music playback, volume, and checking current track info.
 import logging
 
 from backend.services.agent_tools import BaseTool, ToolParameter, ToolResult
-from backend.services.media_player_service import get_media_service, MEDIA_CONTROL_ENABLED
+from backend.services.media_player_service import (
+    get_media_service,
+    MEDIA_CONTROL_ENABLED,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +18,7 @@ logger = logging.getLogger(__name__)
 def _disabled_result():
     return ToolResult(
         success=False,
-        error="Media control disabled. Set GUAARDVARK_MEDIA_CONTROL=true to enable."
+        error="Media control disabled. Set GUAARDVARK_MEDIA_CONTROL=true to enable.",
     )
 
 
@@ -32,18 +35,25 @@ class MediaPlayTool(BaseTool):
     )
     parameters = {
         "query": ToolParameter(
-            name="query", type="string", required=False,
+            name="query",
+            type="string",
+            required=False,
             description="Search query for music (e.g. 'Alice in Chains', 'jazz'). "
-                        "Use 'music' for generic 'play some music' requests. "
-                        "Omit entirely to resume paused playback."
+            "Use 'music' for generic 'play some music' requests. "
+            "Omit entirely to resume paused playback.",
         ),
         "shuffle": ToolParameter(
-            name="shuffle", type="bool", required=False,
-            description="Shuffle the playlist", default=False
+            name="shuffle",
+            type="bool",
+            required=False,
+            description="Shuffle the playlist",
+            default=False,
         ),
         "directory": ToolParameter(
-            name="directory", type="string", required=False,
-            description="Play all music in a specific directory path"
+            name="directory",
+            type="string",
+            required=False,
+            description="Play all music in a specific directory path",
         ),
     }
 
@@ -54,7 +64,9 @@ class MediaPlayTool(BaseTool):
         service = get_media_service()
         query = kwargs.get("query", "").strip() if kwargs.get("query") else ""
         shuffle = kwargs.get("shuffle", False)
-        directory = kwargs.get("directory", "").strip() if kwargs.get("directory") else ""
+        directory = (
+            kwargs.get("directory", "").strip() if kwargs.get("directory") else ""
+        )
 
         if directory:
             result = service.launch_vlc(directory=directory, shuffle=shuffle)
@@ -87,12 +99,16 @@ class MediaControlTool(BaseTool):
     )
     parameters = {
         "action": ToolParameter(
-            name="action", type="string", required=True,
-            description="Action to perform: pause, stop, next, previous, toggle"
+            name="action",
+            type="string",
+            required=True,
+            description="Action to perform: pause, stop, next, previous, toggle",
         ),
         "player": ToolParameter(
-            name="player", type="string", required=False,
-            description="Specific player name (default: auto-detect)"
+            name="player",
+            type="string",
+            required=False,
+            description="Specific player name (default: auto-detect)",
         ),
     }
 
@@ -116,7 +132,7 @@ class MediaControlTool(BaseTool):
         if action not in action_map:
             return ToolResult(
                 success=False,
-                error=f"Unknown action '{action}'. Use: pause, stop, next, previous, toggle"
+                error=f"Unknown action '{action}'. Use: pause, stop, next, previous, toggle",
             )
 
         func, label = action_map[action]
@@ -140,9 +156,11 @@ class MediaVolumeTool(BaseTool):
     )
     parameters = {
         "level": ToolParameter(
-            name="level", type="string", required=False,
+            name="level",
+            type="string",
+            required=False,
             description="Volume level: absolute (e.g. '50'), relative ('+10', '-10'), "
-                        "'mute', or 'unmute'. Omit to get current volume."
+            "'mute', or 'unmute'. Omit to get current volume.",
         ),
     }
 
@@ -183,8 +201,10 @@ class MediaStatusTool(BaseTool):
     )
     parameters = {
         "player": ToolParameter(
-            name="player", type="string", required=False,
-            description="Specific player name (default: auto-detect)"
+            name="player",
+            type="string",
+            required=False,
+            description="Specific player name (default: auto-detect)",
         ),
     }
 

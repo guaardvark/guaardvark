@@ -4,6 +4,7 @@ Generates eval Q&A pairs from indexed documents and scores RAG responses
 using LLM-as-judge. The composite quality score (1.0-5.0, higher=better)
 is the single metric for the autoresearch keep/revert loop.
 """
+
 import json
 import hashlib
 import logging
@@ -59,12 +60,14 @@ class RAGEvalHarness:
         if self._llm is None:
             try:
                 from flask import current_app
+
                 self._llm = current_app.config.get("LLAMA_INDEX_LLM")
             except RuntimeError:
                 pass
             if self._llm is None:
                 try:
                     from backend.services.llm_service import get_llm
+
                     self._llm = get_llm()
                 except Exception:
                     pass
@@ -85,6 +88,7 @@ class RAGEvalHarness:
     def has_sufficient_corpus(self) -> bool:
         """Check if enough documents are indexed for meaningful eval."""
         from backend.models import Document, db
+
         count = db.session.query(Document).count()
         return count >= AUTORESEARCH_MIN_CORPUS_SIZE
 
@@ -131,7 +135,9 @@ class RAGEvalHarness:
             if len(pairs) >= target_count:
                 break
             # Use document content or title as the chunk text
-            chunk_text = getattr(doc, "content", None) or getattr(doc, "title", "") or ""
+            chunk_text = (
+                getattr(doc, "content", None) or getattr(doc, "title", "") or ""
+            )
             if len(chunk_text) < 50:
                 continue
             corpus_type = self._detect_corpus_type(doc)
@@ -148,7 +154,10 @@ class RAGEvalHarness:
         """Detect corpus type from document metadata."""
         name = getattr(document, "title", "") or getattr(document, "name", "") or ""
         name_lower = name.lower()
-        if any(ext in name_lower for ext in [".py", ".js", ".jsx", ".ts", ".tsx", ".sh", ".sql"]):
+        if any(
+            ext in name_lower
+            for ext in [".py", ".js", ".jsx", ".ts", ".tsx", ".sh", ".sql"]
+        ):
             return "code"
         if any(kw in name_lower for kw in ["client", "project", "brief", "proposal"]):
             return "client"
@@ -162,9 +171,7 @@ class RAGEvalHarness:
         retrieved_chunks: list,
     ) -> dict:
         """LLM-as-judge scoring. Returns {relevance, grounding, completeness, composite}."""
-        chunks_text = "\n---\n".join(
-            str(c)[:500] for c in (retrieved_chunks or [])
-        )
+        chunks_text = "\n---\n".join(str(c)[:500] for c in (retrieved_chunks or []))
         prompt = JUDGE_PROMPT.format(
             question=question,
             expected_answer=expected_answer,
@@ -190,6 +197,7 @@ class RAGEvalHarness:
     def _get_active_eval_pairs(self) -> list:
         """Load active eval pairs from DB."""
         from backend.models import EvalPair
+
         pairs = EvalPair.query.order_by(EvalPair.created_at.desc()).all()
         return [p.to_dict() for p in pairs]
 
@@ -253,9 +261,7 @@ class RAGEvalHarness:
         import random
         from backend.models import EvalPair
 
-        pairs = EvalPair.query.filter(
-            EvalPair.source_chunk_hash.isnot(None)
-        ).all()
+        pairs = EvalPair.query.filter(EvalPair.source_chunk_hash.isnot(None)).all()
         if not pairs:
             return True
 

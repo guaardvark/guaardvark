@@ -3,8 +3,7 @@
 import os
 
 from flask import Blueprint, jsonify, request
-from llama_index.core import (StorageContext, VectorStoreIndex,
-                              load_index_from_storage)
+from llama_index.core import StorageContext, VectorStoreIndex, load_index_from_storage
 from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.core.vector_stores.types import ExactMatchFilter, MetadataFilters
 
@@ -14,8 +13,9 @@ doc_query_bp = Blueprint("doc_query", __name__, url_prefix="/api/docs/query")
 @doc_query_bp.route("", methods=["POST"])
 def query_documents():
     import logging
+
     logger = logging.getLogger(__name__)
-    
+
     try:
         data = request.get_json()
         question = data.get("question")
@@ -28,11 +28,12 @@ def query_documents():
         project_id = data.get("project_id")
         # Use direct config import instead of current_app to avoid context issues
         from backend.config import STORAGE_DIR
+
         base_dir = STORAGE_DIR
-            
+
         if not base_dir:
             return jsonify({"error": "Server misconfigured"}), 500
-            
+
         from backend.services.indexing_service import get_index_for_project
 
         index, storage_context = get_index_for_project(project_id, base_dir)

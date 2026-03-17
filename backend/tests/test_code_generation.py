@@ -1,4 +1,5 @@
 """Tests for LLM-powered code generation. Requires Ollama."""
+
 import os
 import sys
 import py_compile
@@ -11,6 +12,7 @@ from backend.tests.conftest_sandbox import requires_llm
 
 # CodeGeneratorTool writes to OUTPUT_DIR/code/<filename>
 from backend.config import OUTPUT_DIR
+
 OUTPUT_CODE_DIR = os.path.join(OUTPUT_DIR, "code")
 
 
@@ -31,15 +33,18 @@ class TestCodeGeneration:
         filename = "test_gen_fibonacci.py"
         try:
             from backend.tools.code_tools import CodeGeneratorTool
+
             tool = CodeGeneratorTool()
             result = tool.execute(
                 output_filename=filename,
                 instructions="Write a Python function called 'fibonacci' that takes an integer n and returns the nth Fibonacci number using iteration. Include a docstring.",
-                language="python"
+                language="python",
             )
             assert result.success, f"Codegen failed: {result.error}"
             output_path = os.path.join(OUTPUT_CODE_DIR, filename)
-            assert os.path.exists(output_path), f"Generated file not created at {output_path}"
+            assert os.path.exists(
+                output_path
+            ), f"Generated file not created at {output_path}"
             # Verify it compiles
             py_compile.compile(output_path, doraise=True)
             # Verify content contains the function
@@ -54,11 +59,12 @@ class TestCodeGeneration:
         filename = "test_gen_stack.py"
         try:
             from backend.tools.code_tools import CodeGeneratorTool
+
             tool = CodeGeneratorTool()
             result = tool.execute(
                 output_filename=filename,
                 instructions="Write a Python class called 'Stack' with push, pop, and peek methods. Use a list internally.",
-                language="python"
+                language="python",
             )
             assert result.success, f"Codegen failed: {result.error}"
             output_path = os.path.join(OUTPUT_CODE_DIR, filename)
@@ -78,13 +84,14 @@ class TestCodeGeneration:
 
         try:
             from backend.tools.code_tools import CodeGeneratorTool
+
             tool = CodeGeneratorTool()
             result = tool.execute(
                 input_file=str(input_file),
                 output_filename=filename,
                 instructions="Add a function called 'farewell' that takes a name and returns 'Goodbye, {name}!'. Keep the existing greet function.",
                 language="python",
-                preserve_structure=True
+                preserve_structure=True,
             )
             assert result.success, f"Codegen failed: {result.error}"
             output_path = os.path.join(OUTPUT_CODE_DIR, filename)

@@ -33,24 +33,68 @@ logger = logging.getLogger(__name__)
 
 # Standard patterns to ignore in all backups (junk, temporary, or generated files)
 GLOBAL_IGNORE_PATTERNS = [
-    '__pycache__', '*.pyc', '*.pyo', 'node_modules', 'dist', 'build',
-    '.git', '.gitignore', 'venv', 'env', '.DS_Store', 'Thumbs.db',
-    '.pytest_cache', '.coverage', '*.egg-info',
-    '.claud', '.claude', 'claude.*', 'gemini.*', '*.code-workspace',
-    '.cursorignore', '*__review__*', '*__tests__*', '*.zip',
-    'compare-folders-tmp', '*.db', '*.sqlite', '*.sqlite3',
-    'whisper.cpp', 'piper', 'piper-models', 'whisper-models'
+    "__pycache__",
+    "*.pyc",
+    "*.pyo",
+    "node_modules",
+    "dist",
+    "build",
+    ".git",
+    ".gitignore",
+    "venv",
+    "env",
+    ".DS_Store",
+    "Thumbs.db",
+    ".pytest_cache",
+    ".coverage",
+    "*.egg-info",
+    ".claud",
+    ".claude",
+    "claude.*",
+    "gemini.*",
+    "*.code-workspace",
+    ".cursorignore",
+    "*__review__*",
+    "*__tests__*",
+    "*.zip",
+    "compare-folders-tmp",
+    "*.db",
+    "*.sqlite",
+    "*.sqlite3",
+    "whisper.cpp",
+    "piper",
+    "piper-models",
+    "whisper-models",
 ]
 
 # Same as GLOBAL_IGNORE_PATTERNS but WITHOUT database file exclusions (*.db, *.sqlite, *.sqlite3)
 # Used when copying data directories.
 DATA_IGNORE_PATTERNS = [
-    '__pycache__', '*.pyc', '*.pyo', 'node_modules', 'dist', 'build',
-    '.git', '.gitignore', 'venv', 'env', '.DS_Store', 'Thumbs.db',
-    '.pytest_cache', '.coverage', '*.egg-info',
-    '.claud', '.claude', 'claude.*', 'gemini.*', '*.code-workspace',
-    '.cursorignore', '*__review__*', '*__tests__*', '*.zip',
-    'compare-folders-tmp',
+    "__pycache__",
+    "*.pyc",
+    "*.pyo",
+    "node_modules",
+    "dist",
+    "build",
+    ".git",
+    ".gitignore",
+    "venv",
+    "env",
+    ".DS_Store",
+    "Thumbs.db",
+    ".pytest_cache",
+    ".coverage",
+    "*.egg-info",
+    ".claud",
+    ".claude",
+    "claude.*",
+    "gemini.*",
+    "*.code-workspace",
+    ".cursorignore",
+    "*__review__*",
+    "*__tests__*",
+    "*.zip",
+    "compare-folders-tmp",
 ]
 
 
@@ -79,14 +123,20 @@ def _ensure_document_folder_column() -> None:
     """Ensure the documents table has folder_id (legacy DB compatibility)."""
     try:
         result = models.db.session.execute(
-            text("SELECT column_name FROM information_schema.columns "
-                 "WHERE table_name = 'documents' AND column_name = 'folder_id'")
+            text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'documents' AND column_name = 'folder_id'"
+            )
         )
         if result.fetchone() is None:
             logger.warning("Adding missing documents.folder_id column (legacy DB)")
-            models.db.session.execute(text("ALTER TABLE documents ADD COLUMN folder_id INTEGER"))
             models.db.session.execute(
-                text("CREATE INDEX IF NOT EXISTS idx_documents_folder_id ON documents(folder_id)")
+                text("ALTER TABLE documents ADD COLUMN folder_id INTEGER")
+            )
+            models.db.session.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS idx_documents_folder_id ON documents(folder_id)"
+                )
             )
             models.db.session.commit()
     except Exception as exc:
@@ -108,7 +158,11 @@ def _rel_path(path: str, base: str) -> str:
 def _rel_to_root(path: Path) -> str:
     """Return a POSIX path relative to GUAARDVARK_ROOT, or basename fallback."""
     try:
-        return path.resolve().relative_to(Path(config.GUAARDVARK_ROOT).resolve()).as_posix()
+        return (
+            path.resolve()
+            .relative_to(Path(config.GUAARDVARK_ROOT).resolve())
+            .as_posix()
+        )
     except Exception:
         return path.name
 
@@ -192,40 +246,46 @@ def _create_plugin_ignore_function():
     """Create an ignore function for plugins directory that excludes large data/training directories."""
     standard_ignore = shutil.ignore_patterns(
         *GLOBAL_IGNORE_PATTERNS,
-        '*.bin',
-        '*.onnx',
-        '*.so',
-        '*.so.*',
-        '*.a',
-        '*.o',
-        'whisper-cli',
-        'libwhisper*',
+        "*.bin",
+        "*.onnx",
+        "*.so",
+        "*.so.*",
+        "*.a",
+        "*.o",
+        "whisper-cli",
+        "libwhisper*",
     )
-    
+
     def ignore_plugins(dirname, names):
         """Ignore large plugin subdirectories (data/training) that shouldn't be in backups."""
         ignored = set()
-        
+
         # Determine path relative to plugins root
         rel_dir = os.path.basename(dirname)
-        
+
         # For the training plugin, ignore heavy data directories but KEEP scripts/ and documentation
-        if rel_dir == 'training' or dirname.endswith('plugins/training'):
+        if rel_dir == "training" or dirname.endswith("plugins/training"):
             for name in names:
-                if name in ['datasets', 'processed', 'raw_transcripts', 'output', 'batch_input']:
+                if name in [
+                    "datasets",
+                    "processed",
+                    "raw_transcripts",
+                    "output",
+                    "batch_input",
+                ]:
                     ignored.add(name)
-        
+
         # General plugin level exclusions
-        if rel_dir == 'plugins' or dirname.endswith('plugins'):
+        if rel_dir == "plugins" or dirname.endswith("plugins"):
             for name in names:
-                if name in ['output', 'batch_input']:
+                if name in ["output", "batch_input"]:
                     ignored.add(name)
-        
+
         # Apply standard ignore patterns
         standard_ignored = standard_ignore(dirname, names)
-        
+
         return ignored | set(standard_ignored)
-    
+
     return ignore_plugins
 
 
@@ -264,13 +324,18 @@ def _create_pg_dump(dest_path: Path) -> bool:
         result = subprocess.run(
             [
                 "pg_dump",
-                "-h", params["host"],
-                "-p", params["port"],
-                "-U", params["user"],
+                "-h",
+                params["host"],
+                "-p",
+                params["port"],
+                "-U",
+                params["user"],
                 "--no-owner",
                 "--no-acl",
-                "-F", "c",  # Custom format (compressed, supports pg_restore)
-                "-f", str(dest_path),
+                "-F",
+                "c",  # Custom format (compressed, supports pg_restore)
+                "-f",
+                str(dest_path),
                 params["dbname"],
             ],
             env=env,
@@ -318,10 +383,14 @@ def _restore_pg_dump(dump_path: Path) -> bool:
         result = subprocess.run(
             [
                 "pg_restore",
-                "-h", params["host"],
-                "-p", params["port"],
-                "-U", params["user"],
-                "-d", params["dbname"],
+                "-h",
+                params["host"],
+                "-p",
+                params["port"],
+                "-U",
+                params["user"],
+                "-d",
+                params["dbname"],
                 "--no-owner",
                 "--no-acl",
                 "--clean",
@@ -338,11 +407,17 @@ def _restore_pg_dump(dump_path: Path) -> bool:
         if result.returncode == 0:
             logger.info("PostgreSQL restore completed successfully")
             return True
-        elif "error" in result.stderr.lower() and "warning" not in result.stderr.lower():
-            logger.error("pg_restore failed (rc=%d): %s", result.returncode, result.stderr)
+        elif (
+            "error" in result.stderr.lower() and "warning" not in result.stderr.lower()
+        ):
+            logger.error(
+                "pg_restore failed (rc=%d): %s", result.returncode, result.stderr
+            )
             return False
         else:
-            logger.warning("pg_restore completed with warnings: %s", result.stderr[:500])
+            logger.warning(
+                "pg_restore completed with warnings: %s", result.stderr[:500]
+            )
             return True
     except FileNotFoundError:
         logger.error("pg_restore command not found. Install postgresql-client.")
@@ -369,9 +444,9 @@ def _generate_backup_filename(backup_type: str, name: str | None = None) -> str:
 
     if name:
         # Sanitize name: remove invalid filesystem characters
-        safe_name = re.sub(r'[<>:"/\\|?*]', '_', name.strip())
+        safe_name = re.sub(r'[<>:"/\\|?*]', "_", name.strip())
         # Remove any leading/trailing dots and spaces
-        safe_name = safe_name.strip('. ')
+        safe_name = safe_name.strip(". ")
         # Limit length to avoid filesystem issues
         if len(safe_name) > 100:
             safe_name = safe_name[:100]
@@ -389,7 +464,9 @@ def _generate_backup_filename(backup_type: str, name: str | None = None) -> str:
     return backup_name
 
 
-def create_data_backup(components: List[str] | None = None, name: str | None = None) -> str:
+def create_data_backup(
+    components: List[str] | None = None, name: str | None = None
+) -> str:
     """Create a data backup ZIP file and return its path.
 
     Backs up database components, uploaded files, state files, and context data.
@@ -511,11 +588,16 @@ def create_data_backup(components: List[str] | None = None, name: str | None = N
                     dest_dir = tmp / data_dir
                     try:
                         shutil.copytree(
-                            src_path, dest_dir,
-                            ignore=shutil.ignore_patterns(*DATA_IGNORE_PATTERNS, '*.tmp'),
+                            src_path,
+                            dest_dir,
+                            ignore=shutil.ignore_patterns(
+                                *DATA_IGNORE_PATTERNS, "*.tmp"
+                            ),
                         )
                     except Exception as e:
-                        logger.warning("Failed to copy data directory %s: %s", data_dir, e)
+                        logger.warning(
+                            "Failed to copy data directory %s: %s", data_dir, e
+                        )
 
             # Create PostgreSQL database dump
             pg_dump_path = tmp / "data" / "database" / "guaardvark.pgdump"
@@ -542,7 +624,11 @@ def create_data_backup(components: List[str] | None = None, name: str | None = N
 
 
 # Backward compatibility alias
-def create_backup(backup_type: str = "full", components: List[str] | None = None, name: str | None = None) -> str:
+def create_backup(
+    backup_type: str = "full",
+    components: List[str] | None = None,
+    name: str | None = None,
+) -> str:
     """Backward-compatible wrapper. Maps old types to new functions."""
     if backup_type in ("full_system",):
         return create_full_backup(name=name)
@@ -566,29 +652,29 @@ def create_full_backup(name: str | None = None) -> str:
     - All system configuration files
 
     Extract and run ./start.sh to deploy on a new machine.
-    
+
     This backup can be extracted to a new machine and run immediately.
-    
+
     Args:
         name: Optional custom name for the backup file
     """
     logger.info("Creating complete full system backup")
-    
+
     app_created = False
     if not has_app_context():
         app = _create_app()
         ctx = app.app_context()
         ctx.push()
         app_created = True
-    
+
     try:
         models.db.create_all()
         session = models.db.session
-        
+
         # Get project root directory
         project_root = Path(__file__).parent.parent.parent
         logger.info("Project root: %s", project_root)
-        
+
         # Collect all data
         data = {
             "version": "1.0",
@@ -602,50 +688,50 @@ def create_full_backup(name: str | None = None) -> str:
                 "backup_folder": config.BACKUP_DIR,
                 "python_version": str(sys.version),
                 "platform": os.name,
-                "project_root": str(project_root)
-            }
+                "project_root": str(project_root),
+            },
         }
-        
+
         # Gather all database data
         clients, client_files = _gather_clients(session)
         data["clients"] = clients
-        
+
         data["projects"] = [p.to_dict() for p in session.query(models.Project).all()]
         data["websites"] = [w.to_dict() for w in session.query(models.Website).all()]
         data["tasks"] = [t.to_dict() for t in session.query(models.Task).all()]
-        
+
         docs, doc_files = _gather_documents(session)
         data["documents"] = docs
 
         data["rules"] = [r.to_dict() for r in session.query(models.Rule).all()]
         data["chats"] = _gather_chats(session)
-        
+
         settings, setting_files = _gather_system_settings(session)
         data["system_settings"] = settings
-        
+
         # Combine all file maps
         file_map: Dict[str, str] = {}
         file_map.update(client_files)
         file_map.update(doc_files)
         file_map.update(setting_files)
-        
+
         # Create backup filename with optional custom name
         backup_name = _generate_backup_filename("full", name)
         zip_path = Path(config.BACKUP_DIR) / f"{backup_name}.zip"
-        
+
         # Extract timestamp for installation instructions
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
+
         os.makedirs(config.BACKUP_DIR, exist_ok=True)
-        
+
         with TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)
-            
+
             # Create JSON manifest
             json_path = tmp / "guaardvark_backup.json"
             with open(json_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
-            
+
             # Copy all referenced files to backup structure
             for rel, src in file_map.items():
                 dest = tmp / rel
@@ -654,7 +740,7 @@ def create_full_backup(name: str | None = None) -> str:
                     shutil.copy2(src, dest)
                 except Exception as e:
                     logger.warning("Failed to copy %s: %s", src, e)
-            
+
             # Copy ALL critical system files
             critical_files = [
                 # Startup and management scripts
@@ -665,7 +751,6 @@ def create_full_backup(name: str | None = None) -> str:
                 "start_celery.sh",
                 "start_postgres.sh",
                 "manager",
-
                 # Configuration files
                 "backend/requirements.txt",
                 "backend/requirements-base.txt",
@@ -674,7 +759,6 @@ def create_full_backup(name: str | None = None) -> str:
                 "frontend/package.json",
                 "frontend/package-lock.json",
                 "pytest.ini",
-
                 # Documentation directory and root docs
                 "docs/",
                 "LICENSE",
@@ -685,7 +769,6 @@ def create_full_backup(name: str | None = None) -> str:
                 "FILE_GENERATION_GUIDE.md",
                 "GPU_SETUP_README.md",
                 "AUTOMATION_QUICKSTART.md",
-
                 # Python configuration
                 "sitecustomize.py",
                 "run_tests.py",
@@ -695,15 +778,12 @@ def create_full_backup(name: str | None = None) -> str:
                 "cleanup_system_rules.py",
                 "load_memory.py",
                 "memory_bridge.py",
-
                 # Environment files (if they exist)
                 ".env",
                 ".env.example",
                 ".env.automation.example",
-
                 # Scripts directory
                 "scripts/",
-
                 # Core backend files
                 "backend/__init__.py",
                 "backend/app.py",
@@ -719,7 +799,6 @@ def create_full_backup(name: str | None = None) -> str:
                 "backend/seed_models.py",
                 "backend/seed_rules.json",
                 "backend/cuda_config.py",
-
                 # Backend directories
                 "backend/api/",
                 "backend/services/",
@@ -732,13 +811,10 @@ def create_full_backup(name: str | None = None) -> str:
                 "backend/handlers/",
                 "backend/agents/",
                 "backend/plugins/",
-
                 # Root level plugins directory
                 "plugins/",
-
                 # CLI tool (llx command)
                 "cli/",
-
                 # Frontend source code (excluding node_modules and dist)
                 "frontend/src/",
                 "frontend/public/",
@@ -750,15 +826,15 @@ def create_full_backup(name: str | None = None) -> str:
 
             # Data directory - selective inclusion (exclude runtime/temp data and models)
             data_includes = [
-                "data/database/",      # Database files
-                "data/logos/",         # Client/system logos
-                "data/system/",        # System configuration files
-                "data/uploads/",       # User uploaded files
-                "data/context/",       # Conversation context JSON files
-                "data/conversations/", # Conversation session JSON files
+                "data/database/",  # Database files
+                "data/logos/",  # Client/system logos
+                "data/system/",  # System configuration files
+                "data/uploads/",  # User uploaded files
+                "data/context/",  # Conversation context JSON files
+                "data/conversations/",  # Conversation session JSON files
                 # NOTE: data/models/ excluded - models can be downloaded on new machine
             ]
-            
+
             # State JSON files in data root (explicit list to avoid temporary files)
             state_json_files = [
                 "data/folder_state.json",
@@ -774,12 +850,12 @@ def create_full_backup(name: str | None = None) -> str:
 
             # Empty directories to create (for runtime use on new machine)
             empty_dirs = [
-                "logs",        # Empty logs directory (will be populated at runtime)
-                "pids",        # Empty pids directory (will be populated at runtime)
-                "data/outputs", # Generated outputs
+                "logs",  # Empty logs directory (will be populated at runtime)
+                "pids",  # Empty pids directory (will be populated at runtime)
+                "data/outputs",  # Generated outputs
                 "data/models",  # AI models
                 "backend/tools/voice/whisper.cpp",
-                "backend/tools/voice/piper"
+                "backend/tools/voice/piper",
             ]
 
             # Copy critical files and directories
@@ -806,26 +882,24 @@ def create_full_backup(name: str | None = None) -> str:
                                 # Standard ignore function for other directories
                                 ignore_func = shutil.ignore_patterns(
                                     *GLOBAL_IGNORE_PATTERNS,
-                                    '*.bin',
-                                    '*.onnx',
-                                    '*.so',
-                                    '*.so.*',
-                                    '*.a',
-                                    '*.o',
-                                    'whisper-cli',
-                                    'libwhisper*',
-                                    'piper-models',
-                                    'whisper-models'
+                                    "*.bin",
+                                    "*.onnx",
+                                    "*.so",
+                                    "*.so.*",
+                                    "*.a",
+                                    "*.o",
+                                    "whisper-cli",
+                                    "libwhisper*",
+                                    "piper-models",
+                                    "whisper-models",
                                 )
-                            
-                            shutil.copytree(
-                                src_path,
-                                dest_dir,
-                                ignore=ignore_func
-                            )
+
+                            shutil.copytree(src_path, dest_dir, ignore=ignore_func)
                             logger.info("Copied directory: %s", file_path)
                         except Exception as e:
-                            logger.warning("Failed to copy directory %s: %s", file_path, e)
+                            logger.warning(
+                                "Failed to copy directory %s: %s", file_path, e
+                            )
                 else:
                     logger.info("File/directory not found (skipping): %s", file_path)
 
@@ -849,19 +923,20 @@ def create_full_backup(name: str | None = None) -> str:
                             src_path,
                             dest_dir,
                             ignore=shutil.ignore_patterns(
-                                *DATA_IGNORE_PATTERNS,
-                                '*.tmp'
-                            )
+                                *DATA_IGNORE_PATTERNS, "*.tmp"
+                            ),
                         )
                         logger.info("Copied data directory: %s", data_path)
                     except Exception as e:
-                        logger.warning("Failed to copy data directory %s: %s", data_path, e)
+                        logger.warning(
+                            "Failed to copy data directory %s: %s", data_path, e
+                        )
                 else:
                     # Create empty directory structure for missing data folders
                     dest_dir = tmp / data_path
                     dest_dir.mkdir(parents=True, exist_ok=True)
                     logger.info("Created empty data directory: %s", data_path)
-            
+
             # Copy state JSON files from data root
             for json_file in state_json_files:
                 src_path = project_root / json_file
@@ -875,7 +950,7 @@ def create_full_backup(name: str | None = None) -> str:
                         logger.warning("Failed to copy state file %s: %s", json_file, e)
                 else:
                     logger.debug("State file not found (skipping): %s", json_file)
-            
+
             # Create installation instructions
             install_instructions = f"""# Guaardvark Full System Backup
 
@@ -910,7 +985,7 @@ The startup script handles everything: dependencies, database, frontend build, a
 - Health diagnostics: `./start.sh --test`
 - Check logs in `logs/`
 """
-            
+
             # Write installation instructions
             install_path = tmp / "INSTALL.md"
             with open(install_path, "w", encoding="utf-8") as f:
@@ -928,12 +1003,17 @@ The startup script handles everything: dependencies, database, frontend build, a
                     "data/outputs": "# Outputs Directory\n\nThis directory will contain generated outputs (images, videos, etc.).\nIt is intentionally empty in the backup to reduce file size.\n",
                     "data/models": "# Models Directory\n\nThis directory is for AI models.\nIt is intentionally empty in the backup as models can be downloaded or generated.\n",
                     "backend/tools/voice/whisper.cpp": "# Whisper.cpp Directory\n\nThis directory is for the Whisper.cpp tool.\nIt is intentionally empty in the backup following the 3rd-party software policy.\n",
-                    "backend/tools/voice/piper": "# Piper Directory\n\nThis directory is for the Piper TTS tool.\nIt is intentionally empty in the backup following the 3rd-party software policy.\n"
+                    "backend/tools/voice/piper": "# Piper Directory\n\nThis directory is for the Piper TTS tool.\nIt is intentionally empty in the backup following the 3rd-party software policy.\n",
                 }
                 with open(readme_path, "w") as f:
-                    f.write(readme_content.get(dir_name, f"# {dir_name.title()} Directory\n\nRuntime directory.\n"))
+                    f.write(
+                        readme_content.get(
+                            dir_name,
+                            f"# {dir_name.title()} Directory\n\nRuntime directory.\n",
+                        )
+                    )
                 logger.info("Created empty directory with README: %s", dir_name)
-            
+
             # Create ZIP archive
             with ZipFile(zip_path, "w", ZIP_DEFLATED) as zf:
                 for root, _dirs, filenames in os.walk(tmp):
@@ -941,12 +1021,12 @@ The startup script handles everything: dependencies, database, frontend build, a
                         file_path = Path(root) / name
                         arcname = file_path.relative_to(tmp)
                         zf.write(file_path, arcname)
-            
+
             logger.info("Full system backup created successfully: %s", zip_path)
             logger.info("Backup size: %.2f MB", zip_path.stat().st_size / (1024 * 1024))
-            
+
         return str(zip_path)
-        
+
     finally:
         if app_created:
             ctx.pop()
@@ -977,31 +1057,31 @@ def create_code_release(name: str | None = None) -> str:
         name: Optional custom name for the backup file
     """
     logger.info("Creating code release backup (excluding all data)")
-    
+
     app_created = False
     if not has_app_context():
         app = _create_app()
         ctx = app.app_context()
         ctx.push()
         app_created = True
-    
+
     try:
         # Get project root directory
         project_root = Path(__file__).parent.parent.parent
         logger.info("Project root: %s", project_root)
-        
+
         # Create backup filename with optional custom name
         backup_name = _generate_backup_filename("code_release", name)
         zip_path = Path(config.BACKUP_DIR) / f"{backup_name}.zip"
-        
+
         # Extract timestamp for installation instructions
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
+
         os.makedirs(config.BACKUP_DIR, exist_ok=True)
-        
+
         with TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)
-            
+
             # Metadata about the backup (no data included)
             metadata = {
                 "version": "1.0",
@@ -1012,20 +1092,18 @@ def create_code_release(name: str | None = None) -> str:
                 "system_info": {
                     "python_version": str(sys.version),
                     "platform": os.name,
-                    "project_root": str(project_root)
+                    "project_root": str(project_root),
                 },
                 "note": "This backup contains source code and configuration files only. No database, uploads, or user data is included.",
-                "symlinks": {
-                    "manager": "scripts/system-manager/system-manager"
-                },
-                "post_restore": "Run ./start.sh to install dependencies, provision databases, and start services."
+                "symlinks": {"manager": "scripts/system-manager/system-manager"},
+                "post_restore": "Run ./start.sh to install dependencies, provision databases, and start services.",
             }
-            
+
             # Write metadata JSON
             meta_path = tmp / "guaardvark_backup.json"
             with open(meta_path, "w", encoding="utf-8") as f:
                 json.dump(metadata, f, indent=2)
-            
+
             # Critical files and directories to include (code/config only)
             critical_files = [
                 # Root configuration and startup files
@@ -1047,10 +1125,8 @@ def create_code_release(name: str | None = None) -> str:
                 ".env.example",
                 ".env.automation.example",
                 # NOTE: .env is handled separately below (sanitized for portability)
-                
                 # Scripts directory (contains install_pytorch.sh and other setup scripts)
                 "scripts/",
-                
                 # Core backend files
                 "backend/__init__.py",
                 "backend/app.py",
@@ -1069,7 +1145,6 @@ def create_code_release(name: str | None = None) -> str:
                 "backend/requirements.txt",
                 "backend/requirements-base.txt",
                 "backend/requirements-llm.txt",
-                
                 # Backend directories (code only)
                 "backend/api/",
                 "backend/services/",
@@ -1081,14 +1156,11 @@ def create_code_release(name: str | None = None) -> str:
                 "backend/handlers/",
                 "backend/agents/",
                 "backend/plugins/",
-                
                 # Backend tools directory (voice binaries excluded via ignore_patterns)
                 "backend/tools/",
-                
                 # NOTE: plugins/ root directory excluded from code-only backups
                 # It contains large user-generated data (training, outputs, etc.)
                 # Only include in full_system backups if needed
-                
                 # Frontend source code (excluding node_modules and dist)
                 "frontend/src/",
                 "frontend/public/",
@@ -1098,7 +1170,6 @@ def create_code_release(name: str | None = None) -> str:
                 "frontend/.eslintrc.json",
                 "frontend/package.json",
                 "frontend/package-lock.json",
-
                 # Root level scripts and config
                 "pytest.ini",
                 "test_runner.py",
@@ -1108,27 +1179,25 @@ def create_code_release(name: str | None = None) -> str:
                 "load_memory.py",
                 "memory_bridge.py",
                 "LICENSE",
-
                 # Root level plugins directory (code only)
                 "plugins/",
-
                 # CLI tool (llx command)
                 "cli/",
             ]
-            
+
             # Empty directories to create (for runtime use on new machine)
             empty_dirs = [
-                "logs",        # Empty logs directory (will be populated at runtime)
-                "pids",        # Empty pids directory (will be populated at runtime)
-                "docs",        # Documentation (empty in code-only)
-                "data/outputs", # Generated outputs
+                "logs",  # Empty logs directory (will be populated at runtime)
+                "pids",  # Empty pids directory (will be populated at runtime)
+                "docs",  # Documentation (empty in code-only)
+                "data/outputs",  # Generated outputs
                 "data/models",  # AI models
-                "data/context", # Context files
-                "data/conversations", # Conversation files
+                "data/context",  # Context files
+                "data/conversations",  # Conversation files
                 "backend/tools/voice/whisper.cpp",
-                "backend/tools/voice/piper"
+                "backend/tools/voice/piper",
             ]
-            
+
             # Copy critical files and directories
             for file_path in critical_files:
                 src_path = project_root / file_path
@@ -1146,47 +1215,64 @@ def create_code_release(name: str | None = None) -> str:
                         # Copy directory (excluding certain patterns)
                         dest_dir = tmp / file_path
                         try:
+
                             def ignore_func(dirname, names):
                                 # Use smarter ignore for plugins
-                                if 'plugins' in dirname:
+                                if "plugins" in dirname:
                                     # Reuse the plugin ignore logic but adapted for this context
-                                    ignored = set(shutil.ignore_patterns(
-                                        *GLOBAL_IGNORE_PATTERNS,
-                                        '*.bin', '*.onnx', '*.so', '*.so.*', '*.a', '*.o',
-                                        'piper-models', 'whisper-models'
-                                    )(dirname, names))
-                                    
+                                    ignored = set(
+                                        shutil.ignore_patterns(
+                                            *GLOBAL_IGNORE_PATTERNS,
+                                            "*.bin",
+                                            "*.onnx",
+                                            "*.so",
+                                            "*.so.*",
+                                            "*.a",
+                                            "*.o",
+                                            "piper-models",
+                                            "whisper-models",
+                                        )(dirname, names)
+                                    )
+
                                     # If we are in the training directory, ignore the data subdirs
                                     rel_dir = os.path.basename(dirname)
-                                    if rel_dir == 'training' or dirname.endswith('plugins/training'):
+                                    if rel_dir == "training" or dirname.endswith(
+                                        "plugins/training"
+                                    ):
                                         for name in names:
-                                            if name in ['datasets', 'processed', 'raw_transcripts', 'output', 'batch_input']:
+                                            if name in [
+                                                "datasets",
+                                                "processed",
+                                                "raw_transcripts",
+                                                "output",
+                                                "batch_input",
+                                            ]:
                                                 ignored.add(name)
                                     return ignored
 
-                                ignored = set(shutil.ignore_patterns(
-                                    *GLOBAL_IGNORE_PATTERNS,
-                                    '*.bin',
-                                    '*.onnx',
-                                    '*.so',
-                                    '*.so.*',
-                                    '*.a',
-                                    '*.o',
-                                    'whisper-cli',
-                                    'libwhisper*',
-                                    'piper-models',
-                                    'whisper-models'
-                                )(dirname, names))
+                                ignored = set(
+                                    shutil.ignore_patterns(
+                                        *GLOBAL_IGNORE_PATTERNS,
+                                        "*.bin",
+                                        "*.onnx",
+                                        "*.so",
+                                        "*.so.*",
+                                        "*.a",
+                                        "*.o",
+                                        "whisper-cli",
+                                        "libwhisper*",
+                                        "piper-models",
+                                        "whisper-models",
+                                    )(dirname, names)
+                                )
                                 return ignored
-                            
-                            shutil.copytree(
-                                src_path,
-                                dest_dir,
-                                ignore=ignore_func
-                            )
+
+                            shutil.copytree(src_path, dest_dir, ignore=ignore_func)
                             logger.info("Copied directory: %s", file_path)
                         except Exception as e:
-                            logger.warning("Failed to copy directory %s: %s", file_path, e)
+                            logger.warning(
+                                "Failed to copy directory %s: %s", file_path, e
+                            )
                 else:
                     logger.info("File/directory not found (skipping): %s", file_path)
 
@@ -1211,11 +1297,17 @@ def create_code_release(name: str | None = None) -> str:
                             continue
                         key = stripped.split("=", 1)[0] if "=" in stripped else ""
                         if key in _machine_specific_keys:
-                            sanitized_lines.append(f"# {key}=  # auto-generated on first launch")
+                            sanitized_lines.append(
+                                f"# {key}=  # auto-generated on first launch"
+                            )
                             continue
                         # Strip any value containing machine-specific paths
-                        if "=" in stripped and any(p in stripped.split("=", 1)[1] for p in _machine_paths):
-                            sanitized_lines.append(f"# {key}=  # contained machine-specific path")
+                        if "=" in stripped and any(
+                            p in stripped.split("=", 1)[1] for p in _machine_paths
+                        ):
+                            sanitized_lines.append(
+                                f"# {key}=  # contained machine-specific path"
+                            )
                             continue
                         sanitized_lines.append(stripped)
                 env_dest = tmp / ".env"
@@ -1247,7 +1339,7 @@ To restore data, use a separate data backup or start with a fresh installation.
                 with open(readme_path, "w", encoding="utf-8") as f:
                     f.write(readme_content)
                 logger.info("Created empty data directory: %s", data_dir)
-            
+
             # Create installation instructions
             install_instructions = f"""# Guaardvark Code Release
 
@@ -1286,12 +1378,12 @@ The startup script handles everything: dependencies, database, frontend build, a
 
 To restore existing data, use a separate Guaardvark data backup.
 """
-            
+
             # Write installation instructions
             install_path = tmp / "INSTALL.md"
             with open(install_path, "w", encoding="utf-8") as f:
                 f.write(install_instructions)
-            
+
             # Create empty system directories for new installations
             for dir_name in empty_dirs:
                 dir_path = tmp / dir_name
@@ -1307,12 +1399,17 @@ To restore existing data, use a separate Guaardvark data backup.
                     "data/context": "# Context Directory\n\nThis directory is for conversation context files.\nIt is intentionally empty in this code-only backup.\n",
                     "data/conversations": "# Conversations Directory\n\nThis directory is for conversation session files.\nIt is intentionally empty in this code-only backup.\n",
                     "backend/tools/voice/whisper.cpp": "# Whisper.cpp Directory\n\nThis directory is for the Whisper.cpp tool.\nIt is intentionally empty in this code-only backup following the 3rd-party software policy.\n",
-                    "backend/tools/voice/piper": "# Piper Directory\n\nThis directory is for the Piper TTS tool.\nIt is intentionally empty in this code-only backup following the 3rd-party software policy.\n"
+                    "backend/tools/voice/piper": "# Piper Directory\n\nThis directory is for the Piper TTS tool.\nIt is intentionally empty in this code-only backup following the 3rd-party software policy.\n",
                 }
                 with open(readme_path, "w", encoding="utf-8") as f:
-                    f.write(readme_content.get(dir_name, f"# {dir_name.title()} Directory\n\nRuntime directory.\n"))
+                    f.write(
+                        readme_content.get(
+                            dir_name,
+                            f"# {dir_name.title()} Directory\n\nRuntime directory.\n",
+                        )
+                    )
                 logger.info("Created empty directory with README: %s", dir_name)
-            
+
             # Create ZIP archive
             with ZipFile(zip_path, "w", ZIP_DEFLATED) as zf:
                 for root, _dirs, filenames in os.walk(tmp):
@@ -1320,12 +1417,12 @@ To restore existing data, use a separate Guaardvark data backup.
                         file_path = Path(root) / name
                         arcname = file_path.relative_to(tmp)
                         zf.write(file_path, arcname)
-            
+
             logger.info("Code release backup created successfully: %s", zip_path)
             logger.info("Backup size: %.2f MB", zip_path.stat().st_size / (1024 * 1024))
-            
+
         return str(zip_path)
-        
+
     finally:
         if app_created:
             ctx.pop()
@@ -1439,7 +1536,9 @@ def _restore_clients(data: list[dict]) -> int:
         if extracted_logo.is_file():
             try:
                 if extracted_logo.resolve().is_relative_to(upload_base.resolve()):
-                    rel_path = extracted_logo.resolve().relative_to(upload_base.resolve())
+                    rel_path = extracted_logo.resolve().relative_to(
+                        upload_base.resolve()
+                    )
                     client.logo_path = rel_path.as_posix()
                 else:
                     # Legacy backup path – place under logos/ using original name
@@ -1453,7 +1552,9 @@ def _restore_clients(data: list[dict]) -> int:
                 logger.warning("Failed to restore logo for client %s: %s", name, e)
                 client.logo_path = None
             else:
-                logger.warning("Logo file not found for client %s: %s", name, extracted_logo)
+                logger.warning(
+                    "Logo file not found for client %s: %s", name, extracted_logo
+                )
                 client.logo_path = None
         else:
             client.logo_path = None
@@ -1560,7 +1661,7 @@ def _restore_documents(data: list[dict]) -> int:
         if not doc:
             doc = models.Document(
                 filename=d.get("filename", os.path.basename(relative_path)),
-                path=relative_path
+                path=relative_path,
             )
             models.db.session.add(doc)
 
@@ -1620,7 +1721,9 @@ def _restore_system_settings(data: list[dict]) -> int:
             if extracted_logo.is_file():
                 try:
                     if extracted_logo.is_relative_to(upload_base.resolve()):
-                        rel_path = extracted_logo.relative_to(upload_base.resolve()).as_posix()
+                        rel_path = extracted_logo.relative_to(
+                            upload_base.resolve()
+                        ).as_posix()
                         row.value = rel_path
                         logger.info("Restored system logo: %s", row.value)
                     else:
@@ -1710,13 +1813,22 @@ def restore_backup(zip_file: str) -> Dict[str, int]:
                         if link_path.exists() or link_path.is_symlink():
                             link_path.unlink()
                         os.symlink(link_target, link_path)
-                        logger.info("Recreated symlink: %s -> %s", link_name, link_target)
+                        logger.info(
+                            "Recreated symlink: %s -> %s", link_name, link_target
+                        )
                         summary.setdefault("symlinks_restored", 0)
                         summary["symlinks_restored"] += 1
                     except Exception as e:
-                        logger.warning("Failed to create symlink %s -> %s: %s", link_name, link_target, e)
+                        logger.warning(
+                            "Failed to create symlink %s -> %s: %s",
+                            link_name,
+                            link_target,
+                            e,
+                        )
                 else:
-                    logger.warning("Symlink target not found: %s -> %s", link_name, link_target)
+                    logger.warning(
+                        "Symlink target not found: %s -> %s", link_name, link_target
+                    )
 
             # Restore PostgreSQL dump if present
             if data.get("pg_dump_included"):
@@ -1727,7 +1839,9 @@ def restore_backup(zip_file: str) -> Dict[str, int]:
                         logger.info("PostgreSQL database restored from dump")
                     else:
                         summary["pg_restore"] = "failed"
-                        logger.error("PostgreSQL restore failed, falling back to JSON data")
+                        logger.error(
+                            "PostgreSQL restore failed, falling back to JSON data"
+                        )
                 else:
                     summary["pg_restore"] = "dump_missing"
                     logger.warning("pg_dump_included flag set but dump file not found")
@@ -1782,12 +1896,14 @@ def list_backups() -> list:
         else:
             btype = "data"
 
-        entries.append({
-            "name": f,
-            "size": size,
-            "type": btype,
-            "modified": mtime,
-        })
+        entries.append(
+            {
+                "name": f,
+                "size": size,
+                "type": btype,
+                "modified": mtime,
+            }
+        )
     # Sort newest first
     entries.sort(key=lambda e: e["modified"], reverse=True)
     return entries

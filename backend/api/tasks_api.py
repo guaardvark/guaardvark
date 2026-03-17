@@ -26,7 +26,8 @@ except ImportError:
         import logging  # Use standard logging if current_app logger fails
 
         logging.getLogger(__name__).critical(
-            "Failed to import db/Task/Project/Client/Website models for tasks_api", exc_info=True
+            "Failed to import db/Task/Project/Client/Website models for tasks_api",
+            exc_info=True,
         )
         get_available_ollama_models = None
 
@@ -213,7 +214,7 @@ def create_task():
     """API endpoint to create a new task."""
     logger = current_app.logger if current_app else logging.getLogger(__name__)
     logger.info("API: Received POST /api/tasks request")
-    
+
     try:
         if not db or not Task:
             return jsonify({"error": "DB/Model unavailable."}), 500
@@ -248,7 +249,10 @@ def create_task():
                 due_date = datetime.datetime.fromisoformat(data["due_date"])
             except (ValueError, TypeError):
                 logger.warning(f"Invalid due_date format received: {data['due_date']}")
-                return jsonify({"error": "Invalid due_date format. Use ISO string."}), 400
+                return (
+                    jsonify({"error": "Invalid due_date format. Use ISO string."}),
+                    400,
+                )
         # --- ADDED: Handle project_id ---
         project_id = data.get("project_id")
         if project_id is not None:
@@ -257,7 +261,9 @@ def create_task():
                 # Optional: Check if project exists
                 if (
                     Project
-                    and not db.session.query(Project.id).filter_by(id=project_id).scalar()
+                    and not db.session.query(Project.id)
+                    .filter_by(id=project_id)
+                    .scalar()
                 ):
                     logger.warning(
                         f"Attempted to link task to non-existent project ID: {project_id}"
@@ -269,7 +275,9 @@ def create_task():
             except (ValueError, TypeError):
                 logger.warning(f"Invalid project_id format received: {project_id}")
                 return (
-                    jsonify({"error": "Invalid project_id format. Must be an integer."}),
+                    jsonify(
+                        {"error": "Invalid project_id format. Must be an integer."}
+                    ),
                     400,
                 )
         # --- END ADDED ---
@@ -284,11 +292,15 @@ def create_task():
             if isinstance(models_data, dict) and models_data.get("error"):
                 return (
                     jsonify(
-                        {"error": f"Failed to validate model name: {models_data['error']}"}
+                        {
+                            "error": f"Failed to validate model name: {models_data['error']}"
+                        }
                     ),
                     502,
                 )
-            available_names = [m.get("name") for m in models_data if isinstance(m, dict)]
+            available_names = [
+                m.get("name") for m in models_data if isinstance(m, dict)
+            ]
             if model_name not in available_names:
                 return (
                     jsonify(
@@ -316,6 +328,7 @@ def create_task():
                     workflow_config_json = workflow_config
                 else:
                     import json
+
                     workflow_config_json = json.dumps(workflow_config)
 
             new_task = Task(
@@ -344,15 +357,18 @@ def create_task():
             logger.info(
                 f"Created new task '{new_task.name}' (ID: {new_task.id}, Project: {project_id})."
             )
-            
+
             # Auto-start job if requested - now uses Celery instead of threads
             if auto_start_job:
                 try:
                     # Create job_id for the task
                     from datetime import timezone
+
                     job_id = f"task_{new_task.id}"
                     new_task.job_id = job_id
-                    new_task.status = "queued"  # Mark as queued, Celery will move to in-progress
+                    new_task.status = (
+                        "queued"  # Mark as queued, Celery will move to in-progress
+                    )
                     new_task.updated_at = datetime.datetime.now(timezone.utc)
 
                     # Commit the task first to ensure it exists before Celery picks it up
@@ -360,30 +376,35 @@ def create_task():
 
                     # Submit task to Celery queue instead of daemon thread
                     try:
-                        from backend.tasks.unified_task_executor import execute_unified_task
+                        from backend.tasks.unified_task_executor import (
+                            execute_unified_task,
+                        )
 
                         # Determine queue based on task type
-                        task_type = new_task.type or 'content_generation'
+                        task_type = new_task.type or "content_generation"
                         queue_mapping = {
-                            'file_generation': 'generation',
-                            'csv_generation': 'generation',
-                            'code_generation': 'generation',
-                            'content_generation': 'generation',
-                            'image_generation': 'generation',
-                            'indexing': 'indexing',
+                            "file_generation": "generation",
+                            "csv_generation": "generation",
+                            "code_generation": "generation",
+                            "content_generation": "generation",
+                            "image_generation": "generation",
+                            "indexing": "indexing",
                         }
-                        queue = queue_mapping.get(task_type, 'default')
+                        queue = queue_mapping.get(task_type, "default")
 
                         # Submit to Celery with appropriate queue
                         celery_result = execute_unified_task.apply_async(
-                            args=[new_task.id],
-                            queue=queue
+                            args=[new_task.id], queue=queue
                         )
 
-                        logger.info(f"Auto-started task {new_task.id} via Celery with job_id {job_id}, celery_id={celery_result.id}")
+                        logger.info(
+                            f"Auto-started task {new_task.id} via Celery with job_id {job_id}, celery_id={celery_result.id}"
+                        )
 
                     except Exception as import_error:
-                        logger.warning(f"Celery task executor not available or not registered, falling back to thread: {import_error}")
+                        logger.warning(
+                            f"Celery task executor not available or not registered, falling back to thread: {import_error}"
+                        )
                         # Fallback to thread-based execution if Celery not available
                         from backend.services.task_scheduler import _execute_task
                         import threading
@@ -392,9 +413,13 @@ def create_task():
                         def safe_execute_task():
                             try:
                                 time.sleep(0.1)
-                                _execute_task(current_app._get_current_object(), new_task.id)
+                                _execute_task(
+                                    current_app._get_current_object(), new_task.id
+                                )
                             except Exception as thread_error:
-                                logger.error(f"Thread execution failed for task {new_task.id}: {thread_error}")
+                                logger.error(
+                                    f"Thread execution failed for task {new_task.id}: {thread_error}"
+                                )
 
                         thread = threading.Thread(target=safe_execute_task, daemon=True)
                         thread.start()
@@ -406,17 +431,22 @@ def create_task():
                     # Update task status to indicate auto-start failed
                     try:
                         from datetime import timezone
+
                         new_task.status = "failed"
                         new_task.error_message = f"Auto-start failed: {str(e)}"
                         new_task.updated_at = datetime.datetime.now(timezone.utc)
                         db.session.commit()
-                        logger.info(f"Task {new_task.id} status updated to 'failed' due to auto-start failure")
+                        logger.info(
+                            f"Task {new_task.id} status updated to 'failed' due to auto-start failure"
+                        )
                     except Exception as rollback_error:
-                        logger.error(f"Failed to update task status after auto-start failure: {rollback_error}")
+                        logger.error(
+                            f"Failed to update task status after auto-start failure: {rollback_error}"
+                        )
                         db.session.rollback()
-            
+
             return jsonify(serialize_task(new_task)), 201
-                
+
         except Exception as e:
             try:
                 db.session.rollback()
@@ -424,7 +454,7 @@ def create_task():
                 pass  # Ignore rollback errors
             logger.error(f"Error in create_task: {e}", exc_info=True)
             return jsonify({"error": "Failed to create task."}), 500
-            
+
     except Exception as e:
         logger.error(f"General error in create_task: {e}", exc_info=True)
         return jsonify({"error": "Failed to create task."}), 500
@@ -517,7 +547,7 @@ def update_task(task_id):
                 updated_fields.append("due_date")
             except (ValueError, TypeError):
                 logger.warning(f"Invalid due_date value: {data['due_date']}")
-        
+
         # Update additional fields
         if "client_name" in data:
             task.client_name = data["client_name"]
@@ -535,11 +565,12 @@ def update_task(task_id):
                     task.workflow_config = workflow_config
                 else:
                     import json
+
                     task.workflow_config = json.dumps(workflow_config)
             else:
                 task.workflow_config = None
             updated_fields.append("workflow_config")
-        
+
         # --- ADDED: Handle project_id update ---
         if "project_id" in data:
             new_project_id = data["project_id"]
@@ -614,24 +645,36 @@ def delete_task(task_id):
                 from backend.utils.unified_progress_system import get_unified_progress
 
                 progress_system = get_unified_progress()
-                logger.info(f"Attempting to cancel job {task.job_id} for task {task_id}")
+                logger.info(
+                    f"Attempting to cancel job {task.job_id} for task {task_id}"
+                )
 
                 # Try to cancel the process
-                cancel_result = progress_system.cancel_process(task.job_id, f"Task {task_id} deleted")
+                cancel_result = progress_system.cancel_process(
+                    task.job_id, f"Task {task_id} deleted"
+                )
 
                 if cancel_result:
                     logger.info(f"Successfully cancelled job {task.job_id}")
                 else:
-                    logger.warning(f"Job {task.job_id} cancellation returned false - job may not exist or already completed")
+                    logger.warning(
+                        f"Job {task.job_id} cancellation returned false - job may not exist or already completed"
+                    )
 
             except ImportError as import_error:
-                logger.warning(f"Progress system not available for job cancellation: {import_error}")
+                logger.warning(
+                    f"Progress system not available for job cancellation: {import_error}"
+                )
                 # Continue with deletion - this is not critical for task deletion
             except AttributeError as attr_error:
-                logger.warning(f"Progress system cancel_process method not available: {attr_error}")
+                logger.warning(
+                    f"Progress system cancel_process method not available: {attr_error}"
+                )
                 # Continue with deletion
             except Exception as cancel_error:
-                logger.error(f"Unexpected error cancelling job {task.job_id}: {cancel_error}")
+                logger.error(
+                    f"Unexpected error cancelling job {task.job_id}: {cancel_error}"
+                )
                 # Continue with deletion - task deletion should not fail due to job cancellation issues
 
         db.session.delete(task)
@@ -658,7 +701,7 @@ def process_queue():
         # Check if we have pending tasks first
         pending_tasks = db.session.query(Task).filter(Task.status == "pending").count()
         logger.info(f"Found {pending_tasks} pending tasks to process")
-        
+
         if pending_tasks == 0:
             return jsonify({"message": "No pending tasks to process"}), 200
 
@@ -701,14 +744,22 @@ def start_task(task_id):
             if task.celery_task_id:
                 try:
                     from backend.celery_app import celery
-                    celery.control.revoke(task.celery_task_id, terminate=True, signal='SIGTERM')
-                    logger.info(f"Revoked previous celery task {task.celery_task_id} for task {task_id}")
+
+                    celery.control.revoke(
+                        task.celery_task_id, terminate=True, signal="SIGTERM"
+                    )
+                    logger.info(
+                        f"Revoked previous celery task {task.celery_task_id} for task {task_id}"
+                    )
                 except Exception as revoke_err:
-                    logger.warning(f"Failed to revoke previous celery task: {revoke_err}")
+                    logger.warning(
+                        f"Failed to revoke previous celery task: {revoke_err}"
+                    )
             # Allow re-start instead of blocking
 
         # Create job_id for the task
         from datetime import timezone
+
         job_id = f"task_{task_id}"
         task.job_id = job_id
         task.status = "queued"  # Mark as queued, Celery will move to in-progress
@@ -721,28 +772,29 @@ def start_task(task_id):
             from backend.tasks.unified_task_executor import execute_unified_task
 
             # Determine queue based on task type
-            task_type = task.type or 'content_generation'
+            task_type = task.type or "content_generation"
             queue_mapping = {
-                'file_generation': 'generation',
-                'csv_generation': 'generation',
-                'code_generation': 'generation',
-                'content_generation': 'generation',
-                'image_generation': 'generation',
-                'indexing': 'indexing',
+                "file_generation": "generation",
+                "csv_generation": "generation",
+                "code_generation": "generation",
+                "content_generation": "generation",
+                "image_generation": "generation",
+                "indexing": "indexing",
             }
-            queue = queue_mapping.get(task_type, 'default')
+            queue = queue_mapping.get(task_type, "default")
 
             # Submit to Celery
             celery_result = execute_unified_task.apply_async(
-                args=[task_id],
-                queue=queue
+                args=[task_id], queue=queue
             )
 
             # Store celery task ID so we can revoke it on re-start
             task.celery_task_id = celery_result.id
             db.session.commit()
 
-            logger.info(f"Successfully queued task {task_id} with job_id {job_id}, celery_id={celery_result.id}")
+            logger.info(
+                f"Successfully queued task {task_id} with job_id {job_id}, celery_id={celery_result.id}"
+            )
 
             return (
                 jsonify(
@@ -758,7 +810,9 @@ def start_task(task_id):
             )
 
         except Exception as import_error:
-            logger.warning(f"Celery not available or not registered, falling back to thread: {import_error}")
+            logger.warning(
+                f"Celery not available or not registered, falling back to thread: {import_error}"
+            )
             # Fallback to thread-based execution
             from backend.services.task_scheduler import _execute_task
             import threading
@@ -769,7 +823,7 @@ def start_task(task_id):
             thread = threading.Thread(
                 target=_execute_task,
                 args=(current_app._get_current_object(), task_id),
-                daemon=True
+                daemon=True,
             )
             thread.start()
 
@@ -833,6 +887,7 @@ def reprocess_task(task_id):
         # Update the updated_at timestamp
         # FIX BUG #32: Use timezone-aware datetime
         from datetime import timezone
+
         task.updated_at = datetime.datetime.now(timezone.utc)
 
         db.session.commit()
@@ -966,6 +1021,7 @@ def get_task_file_info(task_id):
             file_size = file_stats.st_size
             # FIX BUG #33: Use timezone-aware datetime for file timestamp
             from datetime import timezone
+
             file_modified = datetime.datetime.fromtimestamp(
                 file_stats.st_mtime, tz=timezone.utc
             ).isoformat()
@@ -1029,6 +1085,7 @@ def duplicate_task(task_id):
         # Create a new task with the same configuration
         # FIX BUG #34: Use timezone-aware datetime for timestamps
         from datetime import timezone
+
         new_task = Task(
             name=f"{original_task.name} (Copy)",
             description=original_task.description,
@@ -1041,7 +1098,7 @@ def duplicate_task(task_id):
             workflow_config=original_task.workflow_config,
             # Don't copy job_id, output_filename, or timestamps
             created_at=datetime.datetime.now(timezone.utc),
-            updated_at=datetime.datetime.now(timezone.utc)
+            updated_at=datetime.datetime.now(timezone.utc),
         )
 
         db.session.add(new_task)
@@ -1053,9 +1110,9 @@ def duplicate_task(task_id):
             {
                 "original_task_id": task_id,
                 "new_task_id": new_task.id,
-                "new_task_name": new_task.name
+                "new_task_name": new_task.name,
             },
-            "Task duplicated successfully"
+            "Task duplicated successfully",
         )
 
     except SQLAlchemyError as e:

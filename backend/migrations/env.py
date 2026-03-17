@@ -19,7 +19,10 @@ if not config.get_main_option("sqlalchemy.url"):
     if env_url:
         config.set_main_option("sqlalchemy.url", env_url)
     else:
-        config.set_main_option("sqlalchemy.url", "postgresql://guaardvark:guaardvark@localhost:5432/guaardvark")
+        config.set_main_option(
+            "sqlalchemy.url",
+            "postgresql://guaardvark:guaardvark@localhost:5432/guaardvark",
+        )
 
 # Ensure the database URL is provided for Alembic when invoked via Flask.
 # Prefer an explicit DATABASE_URL environment variable, falling back to

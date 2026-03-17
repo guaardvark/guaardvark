@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import json
@@ -7,6 +6,7 @@ import os
 from typing import Any, Dict, List, Tuple
 
 logger = logging.getLogger(__name__)
+
 
 def _make_relative(path: str, base_dir: str) -> str:
     try:
@@ -95,7 +95,9 @@ def process_backup_file(input_path: str, output_path: str, uploads_dir: str) -> 
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Rewrite paths in guaardvark backup JSON")
+    parser = argparse.ArgumentParser(
+        description="Rewrite paths in guaardvark backup JSON"
+    )
     parser.add_argument("input", help="Path to original backup JSON")
     parser.add_argument("output", help="Where to write updated JSON")
     parser.add_argument(

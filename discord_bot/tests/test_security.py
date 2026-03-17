@@ -1,4 +1,5 @@
 """Tests for security utilities."""
+
 from unittest.mock import MagicMock
 from discord_bot.core.security import sanitize_input, is_admin, is_channel_allowed
 

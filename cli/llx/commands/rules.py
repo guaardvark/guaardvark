@@ -7,12 +7,16 @@ from llx.client import get_client, LlxError, LlxConnectionError
 from llx.global_opts import get_global_json, get_global_server
 from llx import output
 
-rules_app = typer.Typer(help="Rules and system prompts management", no_args_is_help=True)
+rules_app = typer.Typer(
+    help="Rules and system prompts management", no_args_is_help=True
+)
 
 
 @rules_app.command("list")
 def rules_list(
-    project_id: int = typer.Option(None, "--project", "-p", help="Filter by project ID"),
+    project_id: int = typer.Option(
+        None, "--project", "-p", help="Filter by project ID"
+    ),
     server: str = typer.Option(None, "--server", "-s"),
     json_out: bool = typer.Option(False, "--json", "-j"),
 ):
@@ -32,14 +36,21 @@ def rules_list(
             output.print_json(rules)
             return
 
-        rows = [{
-            "id": r.get("id", ""),
-            "name": r.get("name", ""),
-            "level": r.get("level", ""),
-            "type": r.get("type", ""),
-            "active": "Yes" if r.get("is_active") else "No",
-        } for r in rules]
-        output.print_table(rows, columns=["id", "name", "level", "type", "active"], title=f"Rules ({len(rows)})")
+        rows = [
+            {
+                "id": r.get("id", ""),
+                "name": r.get("name", ""),
+                "level": r.get("level", ""),
+                "type": r.get("type", ""),
+                "active": "Yes" if r.get("is_active") else "No",
+            }
+            for r in rules
+        ]
+        output.print_table(
+            rows,
+            columns=["id", "name", "level", "type", "active"],
+            title=f"Rules ({len(rows)})",
+        )
 
     except (LlxConnectionError, LlxError) as e:
         output.print_error(str(e))
@@ -50,7 +61,9 @@ def rules_list(
 def rules_create(
     name: str = typer.Argument(..., help="Rule name"),
     content: str = typer.Option(None, "--content", "-c", help="Rule text"),
-    file: Path = typer.Option(None, "--file", "-f", help="Read rule text from file", exists=True),
+    file: Path = typer.Option(
+        None, "--file", "-f", help="Read rule text from file", exists=True
+    ),
     level: str = typer.Option("USER_GLOBAL", "--level", "-l", help="Rule level"),
     rule_type: str = typer.Option("SYSTEM", "--type", "-t", help="Rule type"),
     server: str = typer.Option(None, "--server", "-s"),
@@ -71,12 +84,15 @@ def rules_create(
 
     try:
         client = get_client(server)
-        data = client.post("/api/rules", json={
-            "name": name,
-            "rule_text": rule_text,
-            "level": level,
-            "type": rule_type,
-        })
+        data = client.post(
+            "/api/rules",
+            json={
+                "name": name,
+                "rule_text": rule_text,
+                "level": level,
+                "type": rule_type,
+            },
+        )
         result = data.get("data", data)
         if json_out or output.is_pipe():
             output.print_json(result)
@@ -138,7 +154,9 @@ def rules_import(
         created = data.get("created", 0)
         updated = data.get("updated", 0)
         skipped = data.get("skipped", 0)
-        output.print_success(f"Import complete: {created} created, {updated} updated, {skipped} skipped")
+        output.print_success(
+            f"Import complete: {created} created, {updated} updated, {skipped} skipped"
+        )
     except (LlxConnectionError, LlxError) as e:
         output.print_error(str(e))
         raise typer.Exit(1)

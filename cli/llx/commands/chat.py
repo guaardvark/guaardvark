@@ -21,14 +21,29 @@ console = make_console()
 
 def chat(
     message: str = typer.Argument(None, help="Message to send"),
-    resume: bool = typer.Option(False, "--resume", "-r", help="Continue last conversation"),
+    resume: bool = typer.Option(
+        False, "--resume", "-r", help="Continue last conversation"
+    ),
     session: str = typer.Option(None, "--session", help="Resume a specific session ID"),
-    list_sessions: bool = typer.Option(False, "--list", "-l", help="List recent chat sessions"),
-    export: bool = typer.Option(False, "--export", "-e", help="Export conversation to markdown (requires --session or --resume)"),
-    output_file: Path | None = typer.Option(None, "--output", "-o", help="Write export to file (default: stdout)"),
-    project: int = typer.Option(None, "--project", "-p", help="Scope RAG context to a project ID"),
+    list_sessions: bool = typer.Option(
+        False, "--list", "-l", help="List recent chat sessions"
+    ),
+    export: bool = typer.Option(
+        False,
+        "--export",
+        "-e",
+        help="Export conversation to markdown (requires --session or --resume)",
+    ),
+    output_file: Path | None = typer.Option(
+        None, "--output", "-o", help="Write export to file (default: stdout)"
+    ),
+    project: int = typer.Option(
+        None, "--project", "-p", help="Scope RAG context to a project ID"
+    ),
     no_rag: bool = typer.Option(False, "--no-rag", help="Disable RAG context"),
-    stream: bool = typer.Option(False, "--stream", help="Use Socket.IO streaming (experimental)"),
+    stream: bool = typer.Option(
+        False, "--stream", help="Use Socket.IO streaming (experimental)"
+    ),
     server: str = typer.Option(None, "--server", "-s"),
     json_out: bool = typer.Option(False, "--json", "-j"),
 ):
@@ -43,7 +58,10 @@ def chat(
         if not sessions:
             output.print_warning("No chat sessions found.")
             return
-        rows = [{"id": s["id"][:8] + "...", "full_id": s["id"], "preview": s["preview"]} for s in sessions]
+        rows = [
+            {"id": s["id"][:8] + "...", "full_id": s["id"], "preview": s["preview"]}
+            for s in sessions
+        ]
         output.print_table(rows, columns=["id", "preview"], title="Recent Sessions")
         return
 
@@ -51,7 +69,9 @@ def chat(
     if export:
         export_session_id = session or get_last_session_id()
         if not export_session_id:
-            output.print_error("Export requires --session ID or --resume (no previous session).")
+            output.print_error(
+                "Export requires --session ID or --resume (no previous session)."
+            )
             raise typer.Exit(1)
         _chat_export(export_session_id, server, output_file, json_out)
         return
@@ -80,16 +100,27 @@ def chat(
     elif message:
         full_message = message
     else:
-        output.print_error("No message provided. Usage: llx chat \"your message\"")
+        output.print_error('No message provided. Usage: llx chat "your message"')
         raise typer.Exit(1)
 
     if stream:
-        _chat_streaming(session_id, full_message, no_rag, server, json_out, project_id=project)
+        _chat_streaming(
+            session_id, full_message, no_rag, server, json_out, project_id=project
+        )
     else:
-        _chat_sync(session_id, full_message, no_rag, server, json_out, project_id=project)
+        _chat_sync(
+            session_id, full_message, no_rag, server, json_out, project_id=project
+        )
 
 
-def _chat_sync(session_id: str, message: str, no_rag: bool, server: str | None, json_out: bool, project_id: int | None = None):
+def _chat_sync(
+    session_id: str,
+    message: str,
+    no_rag: bool,
+    server: str | None,
+    json_out: bool,
+    project_id: int | None = None,
+):
     """Send chat via synchronous /api/enhanced-chat endpoint."""
     try:
         client = get_client(server)
@@ -105,7 +136,11 @@ def _chat_sync(session_id: str, message: str, no_rag: bool, server: str | None, 
 
         # Show spinner in interactive mode
         if not json_out and not output.is_pipe():
-            with Live(Spinner("dots", text="[llx.dim]Thinking...[/llx.dim]"), console=console, transient=True):
+            with Live(
+                Spinner("dots", text="[llx.dim]Thinking...[/llx.dim]"),
+                console=console,
+                transient=True,
+            ):
                 data = client.post("/api/enhanced-chat", json=body)
         else:
             data = client.post("/api/enhanced-chat", json=body)
@@ -125,15 +160,19 @@ def _chat_sync(session_id: str, message: str, no_rag: bool, server: str | None, 
             )
 
         if json_out or output.is_pipe():
-            output.print_json({
-                "session_id": session_id,
-                "response": response_text,
-                "elapsed": round(elapsed, 2),
-            })
+            output.print_json(
+                {
+                    "session_id": session_id,
+                    "response": response_text,
+                    "elapsed": round(elapsed, 2),
+                }
+            )
         else:
             console.print()
             console.print(Markdown(response_text))
-            console.print(f"\n[llx.dim]Session: {session_id[:8]}  |  {elapsed:.1f}s[/llx.dim]")
+            console.print(
+                f"\n[llx.dim]Session: {session_id[:8]}  |  {elapsed:.1f}s[/llx.dim]"
+            )
 
         save_session(session_id, message[:80])
 
@@ -145,7 +184,9 @@ def _chat_sync(session_id: str, message: str, no_rag: bool, server: str | None, 
         raise typer.Exit(1)
 
 
-def _chat_export(session_id: str, server: str | None, output_file: Path | None, json_out: bool):
+def _chat_export(
+    session_id: str, server: str | None, output_file: Path | None, json_out: bool
+):
     """Export conversation history to markdown."""
     try:
         client = get_client(server)
@@ -187,13 +228,21 @@ def _chat_export(session_id: str, server: str | None, output_file: Path | None, 
         raise typer.Exit(1)
 
 
-def _chat_streaming(session_id: str, message: str, no_rag: bool, server: str | None, json_out: bool, project_id: int | None = None):
+def _chat_streaming(
+    session_id: str,
+    message: str,
+    no_rag: bool,
+    server: str | None,
+    json_out: bool,
+    project_id: int | None = None,
+):
     """Send chat via /api/chat/unified with Socket.IO streaming."""
     import signal
 
     try:
         client = get_client(server)
         from llx.streaming import LlxStreamer
+
         streamer = LlxStreamer(server_url=client.server_url)
 
         response_parts = []
@@ -243,15 +292,19 @@ def _chat_streaming(session_id: str, message: str, no_rag: bool, server: str | N
             streamer.wait(timeout=300)
             full_response = "".join(response_parts)
             if json_out:
-                output.print_json({
-                    "session_id": session_id,
-                    "response": full_response,
-                    "elapsed": round(time.time() - start_time, 2),
-                })
+                output.print_json(
+                    {
+                        "session_id": session_id,
+                        "response": full_response,
+                        "elapsed": round(time.time() - start_time, 2),
+                    }
+                )
             else:
                 print(full_response)
         else:
-            with Live("", console=console, refresh_per_second=15, transient=False) as live:
+            with Live(
+                "", console=console, refresh_per_second=15, transient=False
+            ) as live:
                 while not streamer._done.is_set():
                     current = "".join(response_parts)
                     if current:
@@ -262,7 +315,9 @@ def _chat_streaming(session_id: str, message: str, no_rag: bool, server: str | N
                     live.update(Markdown(current))
 
             elapsed = time.time() - start_time
-            console.print(f"\n[llx.dim]Session: {session_id[:8]}  |  {elapsed:.1f}s[/llx.dim]")
+            console.print(
+                f"\n[llx.dim]Session: {session_id[:8]}  |  {elapsed:.1f}s[/llx.dim]"
+            )
 
         signal.signal(signal.SIGINT, original_sigint)
         save_session(session_id, message[:80])

@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 class TaskResultStatus(Enum):
     """Result status for task execution"""
+
     SUCCESS = "success"
     FAILED = "failed"
     CANCELLED = "cancelled"
@@ -23,6 +24,7 @@ class TaskResultStatus(Enum):
 @dataclass
 class TaskResult:
     """Result of a task handler execution"""
+
     status: TaskResultStatus
     message: str
     output_data: Optional[Dict[str, Any]] = None
@@ -45,7 +47,9 @@ class TaskResult:
             "items_processed": self.items_processed,
             "items_total": self.items_total,
             "started_at": self.started_at.isoformat() if self.started_at else None,
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "completed_at": (
+                self.completed_at.isoformat() if self.completed_at else None
+            ),
             "duration_seconds": self.duration_seconds,
         }
 
@@ -163,7 +167,7 @@ class BaseTaskHandler(ABC):
         self,
         task: Any,  # Task model instance
         config: Dict[str, Any],
-        progress_callback: Callable[[int, str, Optional[Dict[str, Any]]], None]
+        progress_callback: Callable[[int, str, Optional[Dict[str, Any]]], None],
     ) -> TaskResult:
         """
         Execute the task with the given configuration.
@@ -271,10 +275,10 @@ class HandlerRegistry:
     Manages handler registration and lookup.
     """
 
-    _instance: Optional['HandlerRegistry'] = None
+    _instance: Optional["HandlerRegistry"] = None
     _handlers: Dict[str, BaseTaskHandler] = {}
 
-    def __new__(cls) -> 'HandlerRegistry':
+    def __new__(cls) -> "HandlerRegistry":
         """Singleton pattern"""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
@@ -282,7 +286,7 @@ class HandlerRegistry:
         return cls._instance
 
     @classmethod
-    def get_instance(cls) -> 'HandlerRegistry':
+    def get_instance(cls) -> "HandlerRegistry":
         """Get the singleton instance"""
         if cls._instance is None:
             cls._instance = cls()

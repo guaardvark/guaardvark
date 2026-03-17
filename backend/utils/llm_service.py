@@ -15,8 +15,9 @@ try:
     from llama_index.core.program import LLMCompletionProgram
 except Exception:  # pragma: no cover - older versions may not have this class
     try:  # Fallback for older package versions
-        from llama_index.core.program import \
-            LLMTextCompletionProgram as LLMCompletionProgram
+        from llama_index.core.program import (
+            LLMTextCompletionProgram as LLMCompletionProgram,
+        )
     except Exception:
         LLMCompletionProgram = None  # type: ignore
 
@@ -46,14 +47,14 @@ def _safe_content(message) -> Optional[str]:
     try:
         return message.content
     except (ValueError, AttributeError):
-        blocks = getattr(message, 'blocks', [])
+        blocks = getattr(message, "blocks", [])
         for block in blocks:
-            text = getattr(block, 'text', str(block) if block else "")
+            text = getattr(block, "text", str(block) if block else "")
             if text:
                 return text
         if blocks:
             return str(blocks[0])
-        thinking = getattr(message, 'thinking', None)
+        thinking = getattr(message, "thinking", None)
         if thinking:
             return str(thinking)
         return None
@@ -315,7 +316,7 @@ def generate_text_basic(llm=None, prompt=None, is_json_response: bool = False):
 
     # --- Simplified System Prompt - Trust the LLM more ---
     system_prompt_content = "Generate the requested content."
-    
+
     if is_json_response:
         system_prompt_content = "Generate valid JSON as requested."
 
@@ -376,13 +377,18 @@ except ImportError:
         Ollama = None
         logger.warning("Ollama import failed - using fallback")
 
-from backend.config import (ACTIVE_MODEL_FILE, DEFAULT_EMBEDDING_MODEL,
-                            DEFAULT_LLM, OLLAMA_BASE_URL)
+from backend.config import (
+    ACTIVE_MODEL_FILE,
+    DEFAULT_EMBEDDING_MODEL,
+    DEFAULT_LLM,
+    OLLAMA_BASE_URL,
+)
 
 
 def get_default_llm() -> Ollama:
     """Instantiate and return the default Ollama LLM, preferring the saved active model."""
     from backend.config import LLM_REQUEST_TIMEOUT
+
     timeout_value = min(LLM_REQUEST_TIMEOUT, 180.0)
 
     model_name = DEFAULT_LLM
@@ -396,6 +402,7 @@ def get_default_llm() -> Ollama:
     # Adaptive context window based on available resources
     try:
         from backend.utils.ollama_resource_manager import compute_optimal_num_ctx
+
         num_ctx = compute_optimal_num_ctx(model_name)
     except Exception as e:
         logger.warning("Failed to compute adaptive num_ctx, using 8192: %s", e)
@@ -408,7 +415,7 @@ def get_default_llm() -> Ollama:
         temperature=0.4,
         context_window=num_ctx,
         keep_alive="24h",
-        additional_kwargs={"num_ctx": num_ctx, "top_p": 0.8, "top_k": 30}
+        additional_kwargs={"num_ctx": num_ctx, "top_p": 0.8, "top_k": 30},
     )
 
 
@@ -430,11 +437,13 @@ def get_llm_for_startup() -> Ollama:
     # Validate model can be loaded and compute adaptive context window
     try:
         from backend.utils.ollama_resource_manager import validate_model_before_load
+
         safe, reason, num_ctx = validate_model_before_load(model_name)
         if not safe:
             logger.warning(
                 "Model '%s' may not fit in available memory: %s. Using minimum context.",
-                model_name, reason,
+                model_name,
+                reason,
             )
         else:
             logger.info("Resource check for '%s': %s", model_name, reason)
@@ -451,9 +460,14 @@ def get_llm_for_startup() -> Ollama:
         temperature=0.4,
         context_window=num_ctx,
         keep_alive="24h",
-        additional_kwargs={"num_ctx": num_ctx, "top_p": 0.8, "top_k": 30}
+        additional_kwargs={"num_ctx": num_ctx, "top_p": 0.8, "top_k": 30},
     )
-    logger.info("Loaded LLM '%s' with num_ctx=%d in %.2fs", model_name, num_ctx, time.time() - start)
+    logger.info(
+        "Loaded LLM '%s' with num_ctx=%d in %.2fs",
+        model_name,
+        num_ctx,
+        time.time() - start,
+    )
     return llm
 
 
@@ -470,7 +484,10 @@ def get_default_embed_model():
     logger.info("Initializing embedding model via EmbeddingRouter")
 
     try:
-        from backend.utils.embedding_router import get_embedding_router, RouterEmbeddingAdapter
+        from backend.utils.embedding_router import (
+            get_embedding_router,
+            RouterEmbeddingAdapter,
+        )
 
         # Get the global embedding router (singleton)
         router = get_embedding_router()
@@ -489,7 +506,9 @@ def get_default_embed_model():
         return adapter
 
     except Exception as e:
-        logger.warning(f"EmbeddingRouter initialization failed: {e}, falling back to direct Ollama")
+        logger.warning(
+            f"EmbeddingRouter initialization failed: {e}, falling back to direct Ollama"
+        )
 
         # Direct Ollama fallback (no hash-based embedding)
         try:
@@ -548,6 +567,7 @@ def persist_active_model_name(model_name: str) -> None:
         logger.warning("Failed to persist active model to database: %s", e)
         try:
             from backend.models import db
+
             db.session.rollback()
         except Exception:
             pass
@@ -593,7 +613,7 @@ def get_saved_active_model_name() -> Optional[str]:
 def load_active_llm() -> Ollama:
     """Load the last active LLM if available, else fall back to default."""
     from backend.config import LLM_REQUEST_TIMEOUT
-    
+
     saved_model = get_saved_active_model_name()
     if saved_model:
         try:
@@ -607,7 +627,10 @@ def load_active_llm() -> Ollama:
                     timeout_value = min(LLM_REQUEST_TIMEOUT, 180.0)
                     # Adaptive context window
                     try:
-                        from backend.utils.ollama_resource_manager import compute_optimal_num_ctx
+                        from backend.utils.ollama_resource_manager import (
+                            compute_optimal_num_ctx,
+                        )
+
                         num_ctx = compute_optimal_num_ctx(saved_model)
                     except Exception:
                         num_ctx = 8192
@@ -618,7 +641,11 @@ def load_active_llm() -> Ollama:
                         temperature=0.4,
                         context_window=num_ctx,
                         keep_alive="24h",
-                        additional_kwargs={"num_ctx": num_ctx, "top_p": 0.8, "top_k": 30}
+                        additional_kwargs={
+                            "num_ctx": num_ctx,
+                            "top_p": 0.8,
+                            "top_k": 30,
+                        },
                     )
                     llm.complete("Test.")
                     return llm

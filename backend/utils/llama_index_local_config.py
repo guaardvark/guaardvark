@@ -10,6 +10,7 @@ import os
 
 logger = logging.getLogger(__name__)
 
+
 def _patch_chatmessage_content_setter():
     """Patch LlamaIndex ChatMessage.content setter to handle multi-block messages.
 
@@ -20,7 +21,7 @@ def _patch_chatmessage_content_setter():
     try:
         from llama_index.core.base.llms.types import ChatMessage, TextBlock
 
-        original_prop = ChatMessage.__dict__.get('content')
+        original_prop = ChatMessage.__dict__.get("content")
         if not isinstance(original_prop, property):
             return
 
@@ -51,18 +52,19 @@ def force_local_llama_index_config():
     try:
         # Configure CUDA for optimal performance
         # Only disable CUDA for Celery workers to prevent multiprocessing issues
-        if os.environ.get('CELERY_WORKER_MODE', 'false').lower() != 'true':
+        if os.environ.get("CELERY_WORKER_MODE", "false").lower() != "true":
             # Enable CUDA for main application
-            os.environ['CUDA_VISIBLE_DEVICES'] = '0'  # Use GPU 0
+            os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # Use GPU 0
             logger.info("CUDA enabled for LlamaIndex - using GPU acceleration")
         else:
             # CPU-only for Celery workers to prevent multiprocessing issues
-            os.environ['CUDA_VISIBLE_DEVICES'] = ''
+            os.environ["CUDA_VISIBLE_DEVICES"] = ""
             logger.info("CUDA disabled for Celery worker - using CPU")
 
-        os.environ['TOKENIZERS_PARALLELISM'] = 'false'  # Disable tokenizer parallelism
+        os.environ["TOKENIZERS_PARALLELISM"] = "false"  # Disable tokenizer parallelism
         # Import LlamaIndex core components
         from llama_index.core import Settings
+
         # Use local embeddings instead of HuggingFace
         from llama_index.core.embeddings import BaseEmbedding
 
@@ -78,12 +80,19 @@ def force_local_llama_index_config():
                 active_model = None
                 try:
                     import json
-                    with open(ACTIVE_MODEL_FILE, 'r') as f:
+
+                    with open(ACTIVE_MODEL_FILE, "r") as f:
                         data = json.load(f)
-                        active_model = data.get("active_model", "").strip() if isinstance(data, dict) else None
+                        active_model = (
+                            data.get("active_model", "").strip()
+                            if isinstance(data, dict)
+                            else None
+                        )
                     logger.info(f"Using active model from file: {active_model}")
                 except (OSError, ValueError, KeyError):
-                    logger.info("Could not read active model file, using system detection")
+                    logger.info(
+                        "Could not read active model file, using system detection"
+                    )
 
                 # Fallback to system's dynamic model detection
                 if not active_model:
@@ -145,8 +154,8 @@ def force_local_llama_index_config():
         _patch_chatmessage_content_setter()
 
         # Disable OpenAI environment variables to prevent fallback
-        os.environ.pop('OPENAI_API_KEY', None)
-        os.environ.pop('OPENAI_API_BASE', None)
+        os.environ.pop("OPENAI_API_KEY", None)
+        os.environ.pop("OPENAI_API_BASE", None)
 
         logger.info(" LlamaIndex configured to use local models only")
         return True
@@ -157,6 +166,7 @@ def force_local_llama_index_config():
     except Exception as e:
         logger.error(f"Failed to configure local LlamaIndex: {e}")
         return False
+
 
 def get_local_embedding_model():
     """
@@ -192,6 +202,7 @@ def get_local_embedding_model():
             f"Please ensure Ollama is running with an embedding model available."
         ) from e
 
+
 def get_local_llm():
     """Get a local LLM instance using real active model"""
     try:
@@ -205,9 +216,14 @@ def get_local_llm():
             active_model = None
             try:
                 import json
-                with open(ACTIVE_MODEL_FILE, 'r') as f:
+
+                with open(ACTIVE_MODEL_FILE, "r") as f:
                     data = json.load(f)
-                    active_model = data.get("active_model", "").strip() if isinstance(data, dict) else None
+                    active_model = (
+                        data.get("active_model", "").strip()
+                        if isinstance(data, dict)
+                        else None
+                    )
             except (OSError, ValueError, KeyError):
                 pass
 
@@ -224,6 +240,7 @@ def get_local_llm():
     except ImportError:
         logger.error("Ollama not available - no real LLM possible")
         return None
+
 
 # Force configuration on import
 logger.info("Forcing local LlamaIndex configuration...")

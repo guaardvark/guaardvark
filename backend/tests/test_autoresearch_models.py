@@ -1,4 +1,5 @@
 """Tests for RAG Autoresearch database models."""
+
 import uuid
 import pytest
 from datetime import datetime
@@ -63,7 +64,9 @@ class TestExperimentRun:
                 baseline_score=3.2,
                 delta=0.3,
                 status="keep",
-                eval_details={"q1": {"relevance": 4, "grounding": 3, "completeness": 4}},
+                eval_details={
+                    "q1": {"relevance": 4, "grounding": 3, "completeness": 4}
+                },
             )
             db.session.add(run)
             db.session.commit()

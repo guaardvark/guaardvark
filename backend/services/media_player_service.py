@@ -53,6 +53,7 @@ class MediaPlayerService:
         """Read music directory from DB settings, fall back to ~/Music."""
         try:
             from backend.models import db, Setting
+
             setting = db.session.get(Setting, "music_directory")
             if setting and setting.value and setting.value.strip():
                 return setting.value.strip()
@@ -65,22 +66,41 @@ class MediaPlayerService:
     def _gdbus_call(self, bus_name: str, method: str) -> subprocess.CompletedProcess:
         """Call an MPRIS2 Player method via gdbus."""
         return subprocess.run(
-            ["gdbus", "call", "--session",
-             "--dest", bus_name,
-             "--object-path", MPRIS2_OBJECT_PATH,
-             "--method", f"{MPRIS2_PLAYER_IFACE}.{method}"],
-            capture_output=True, text=True, timeout=5
+            [
+                "gdbus",
+                "call",
+                "--session",
+                "--dest",
+                bus_name,
+                "--object-path",
+                MPRIS2_OBJECT_PATH,
+                "--method",
+                f"{MPRIS2_PLAYER_IFACE}.{method}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
 
     def _gdbus_get_property(self, bus_name: str, iface: str, prop: str) -> str:
         """Get a D-Bus property via gdbus."""
         result = subprocess.run(
-            ["gdbus", "call", "--session",
-             "--dest", bus_name,
-             "--object-path", MPRIS2_OBJECT_PATH,
-             "--method", "org.freedesktop.DBus.Properties.Get",
-             iface, prop],
-            capture_output=True, text=True, timeout=5
+            [
+                "gdbus",
+                "call",
+                "--session",
+                "--dest",
+                bus_name,
+                "--object-path",
+                MPRIS2_OBJECT_PATH,
+                "--method",
+                "org.freedesktop.DBus.Properties.Get",
+                iface,
+                prop,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if result.returncode != 0:
             raise RuntimeError(result.stderr.strip())
@@ -93,11 +113,20 @@ class MediaPlayerService:
 
         # List all bus names and find MPRIS2 players
         result = subprocess.run(
-            ["gdbus", "call", "--session",
-             "--dest", "org.freedesktop.DBus",
-             "--object-path", "/org/freedesktop/DBus",
-             "--method", "org.freedesktop.DBus.ListNames"],
-            capture_output=True, text=True, timeout=5
+            [
+                "gdbus",
+                "call",
+                "--session",
+                "--dest",
+                "org.freedesktop.DBus",
+                "--object-path",
+                "/org/freedesktop/DBus",
+                "--method",
+                "org.freedesktop.DBus.ListNames",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if result.returncode != 0:
             raise RuntimeError(f"Failed to list D-Bus names: {result.stderr.strip()}")
@@ -106,11 +135,13 @@ class MediaPlayerService:
             if name.startswith(MPRIS2_BUS_PREFIX):
                 return name
 
-        raise RuntimeError("No media player is currently running. Say 'play <something>' to start.")
+        raise RuntimeError(
+            "No media player is currently running. Say 'play <something>' to start."
+        )
 
     def _player_display_name(self, bus_name: str) -> str:
         if bus_name.startswith(MPRIS2_BUS_PREFIX):
-            return bus_name[len(MPRIS2_BUS_PREFIX):]
+            return bus_name[len(MPRIS2_BUS_PREFIX) :]
         return bus_name
 
     # ===== MPRIS2 Methods =====
@@ -121,14 +152,23 @@ class MediaPlayerService:
             return {"success": False, "error": "Media control disabled"}
         try:
             result = subprocess.run(
-                ["gdbus", "call", "--session",
-                 "--dest", "org.freedesktop.DBus",
-                 "--object-path", "/org/freedesktop/DBus",
-                 "--method", "org.freedesktop.DBus.ListNames"],
-                capture_output=True, text=True, timeout=5
+                [
+                    "gdbus",
+                    "call",
+                    "--session",
+                    "--dest",
+                    "org.freedesktop.DBus",
+                    "--object-path",
+                    "/org/freedesktop/DBus",
+                    "--method",
+                    "org.freedesktop.DBus.ListNames",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             players = [
-                name[len(MPRIS2_BUS_PREFIX):]
+                name[len(MPRIS2_BUS_PREFIX) :]
                 for name in re.findall(r"'([^']+)'", result.stdout)
                 if name.startswith(MPRIS2_BUS_PREFIX)
             ]
@@ -136,7 +176,9 @@ class MediaPlayerService:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def _call_player_method(self, method: str, player_name: Optional[str] = None) -> Dict[str, Any]:
+    def _call_player_method(
+        self, method: str, player_name: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Call a method on the MPRIS2 Player interface."""
         if not MEDIA_CONTROL_ENABLED:
             return {"success": False, "error": "Media control disabled"}
@@ -179,17 +221,23 @@ class MediaPlayerService:
             display = self._player_display_name(bus_name)
 
             # Get PlaybackStatus
-            raw_status = self._gdbus_get_property(bus_name, MPRIS2_PLAYER_IFACE, "PlaybackStatus")
+            raw_status = self._gdbus_get_property(
+                bus_name, MPRIS2_PLAYER_IFACE, "PlaybackStatus"
+            )
             status = re.search(r"'([^']+)'", raw_status)
             status = status.group(1) if status else "Unknown"
 
             # Get Metadata
-            raw_meta = self._gdbus_get_property(bus_name, MPRIS2_PLAYER_IFACE, "Metadata")
+            raw_meta = self._gdbus_get_property(
+                bus_name, MPRIS2_PLAYER_IFACE, "Metadata"
+            )
             track_info = self._parse_metadata(raw_meta)
 
             # Get Volume
             try:
-                raw_vol = self._gdbus_get_property(bus_name, MPRIS2_PLAYER_IFACE, "Volume")
+                raw_vol = self._gdbus_get_property(
+                    bus_name, MPRIS2_PLAYER_IFACE, "Volume"
+                )
                 vol_match = re.search(r"([\d.]+)", raw_vol)
                 if vol_match:
                     track_info["player_volume"] = round(float(vol_match.group(1)) * 100)
@@ -209,7 +257,11 @@ class MediaPlayerService:
 
     def _parse_metadata(self, raw: str) -> Dict[str, Any]:
         """Parse gdbus metadata output into a dict."""
-        info: Dict[str, Any] = {"title": "Unknown", "artist": "Unknown", "album": "Unknown"}
+        info: Dict[str, Any] = {
+            "title": "Unknown",
+            "artist": "Unknown",
+            "album": "Unknown",
+        }
 
         # Extract title: 'xesam:title': <'Some Title'>
         title = re.search(r"'xesam:title':\s*<'([^']*)'", raw)
@@ -246,8 +298,7 @@ class MediaPlayerService:
         """Get current system volume via amixer."""
         try:
             result = subprocess.run(
-                ["amixer", "get", "Master"],
-                capture_output=True, text=True, timeout=5
+                ["amixer", "get", "Master"], capture_output=True, text=True, timeout=5
             )
             if result.returncode != 0:
                 return {"success": False, "error": result.stderr.strip()}
@@ -292,7 +343,9 @@ class MediaPlayerService:
 
     # ===== Music File Search =====
 
-    def find_music_files(self, query: str, search_dirs: Optional[List[str]] = None) -> Dict[str, Any]:
+    def find_music_files(
+        self, query: str, search_dirs: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
         """Search for music files matching a query."""
         if not search_dirs:
             search_dirs = [self._get_music_directory()]
@@ -339,8 +392,12 @@ class MediaPlayerService:
         except Exception:
             pass
 
-    def launch_vlc(self, files: Optional[List[str]] = None, directory: Optional[str] = None,
-                   shuffle: bool = False) -> Dict[str, Any]:
+    def launch_vlc(
+        self,
+        files: Optional[List[str]] = None,
+        directory: Optional[str] = None,
+        shuffle: bool = False,
+    ) -> Dict[str, Any]:
         """Launch VLC with specified files or directory. Kills existing VLC first."""
         if not MEDIA_CONTROL_ENABLED:
             return {"success": False, "error": "Media control disabled"}
@@ -380,7 +437,10 @@ class MediaPlayerService:
                 "action": "launched VLC",
             }
         except FileNotFoundError:
-            return {"success": False, "error": "VLC not found. Install VLC to play music."}
+            return {
+                "success": False,
+                "error": "VLC not found. Install VLC to play music.",
+            }
         except Exception as e:
             return {"success": False, "error": f"Failed to launch VLC: {e}"}
 
@@ -395,7 +455,15 @@ class MediaPlayerService:
         music_dir = self._get_music_directory()
 
         # For empty/generic queries, play the entire music directory
-        if not query or query.lower() in ("music", "some music", "my music", "all", "everything", "anything", "songs"):
+        if not query or query.lower() in (
+            "music",
+            "some music",
+            "my music",
+            "all",
+            "everything",
+            "anything",
+            "songs",
+        ):
             return self.launch_vlc(directory=music_dir, shuffle=shuffle or True)
 
         search_result = self.find_music_files(query)
@@ -407,7 +475,7 @@ class MediaPlayerService:
             return {
                 "success": False,
                 "error": f"No music files found matching '{query}' in {music_dir}. "
-                         f"Check that your music directory is set correctly in Settings.",
+                f"Check that your music directory is set correctly in Settings.",
             }
 
         launch_result = self.launch_vlc(files=files, shuffle=shuffle)

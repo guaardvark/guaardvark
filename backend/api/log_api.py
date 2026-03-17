@@ -1,4 +1,3 @@
-
 import os
 
 from flask import Blueprint, Response, abort, current_app, request
@@ -8,7 +7,7 @@ log_bp = Blueprint("log_api", __name__, url_prefix="/api/logs")
 
 @log_bp.route("/tail", methods=["GET"])
 def tail_logs():
-    
+
     try:
         num = int(request.args.get("lines", 50))
     except ValueError:

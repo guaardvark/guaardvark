@@ -28,7 +28,6 @@ logger = logging.getLogger(__name__)
 db = SQLAlchemy()
 
 
-
 # --- Association Table for Project <-> Rule/Prompt ---
 project_rules_association = Table(
     "project_rules_association",
@@ -135,10 +134,10 @@ class Client(db.Model):
 
     # Extended fields for website metadata
     contact_url = db.Column(db.String(500), nullable=True)  # Contact URL
-    location = db.Column(db.String(255), nullable=True)     # City, State
+    location = db.Column(db.String(255), nullable=True)  # City, State
     primary_service = db.Column(db.String(255), nullable=True)
     secondary_service = db.Column(db.String(255), nullable=True)
-    brand_tone = db.Column(db.String(50), nullable=True, default='neutral')
+    brand_tone = db.Column(db.String(50), nullable=True, default="neutral")
     business_hours = db.Column(db.Text, nullable=True)
     social_links = db.Column(db.Text, nullable=True)  # JSON array of {platform, url}
 
@@ -147,10 +146,14 @@ class Client(db.Model):
     target_audience = db.Column(db.Text, nullable=True)  # Ideal customer profile
     unique_selling_points = db.Column(db.Text, nullable=True)  # Key differentiators
     competitor_urls = db.Column(db.Text, nullable=True)  # JSON array of competitor URLs
-    brand_voice_examples = db.Column(db.Text, nullable=True)  # Sample content showing voice
+    brand_voice_examples = db.Column(
+        db.Text, nullable=True
+    )  # Sample content showing voice
     keywords = db.Column(db.Text, nullable=True)  # JSON array of target SEO keywords
     content_goals = db.Column(db.Text, nullable=True)  # Content marketing objectives
-    regulatory_constraints = db.Column(db.Text, nullable=True)  # Compliance requirements
+    regulatory_constraints = db.Column(
+        db.Text, nullable=True
+    )  # Compliance requirements
     geographic_coverage = db.Column(db.String(100), nullable=True)  # Service area scope
     projects = db.relationship(
         "Project", backref="client_ref", lazy="dynamic", cascade="all, delete-orphan"
@@ -186,7 +189,7 @@ class Client(db.Model):
             if isinstance(value, str):
                 value = value.strip()
                 # Check if it looks like JSON array
-                if value.startswith('['):
+                if value.startswith("["):
                     try:
                         parsed = json.loads(value)
                         return parsed if isinstance(parsed, list) else []
@@ -307,7 +310,9 @@ class Rule(db.Model):
             ),
             name="ck_rule_type",
         ),
-        CheckConstraint('LENGTH(rule_text) <= 50000', name='ck_rule_text_length_extended'),
+        CheckConstraint(
+            "LENGTH(rule_text) <= 50000", name="ck_rule_text_length_extended"
+        ),
         Index("ix_rule_level_name", "level", "name"),
         Index(
             "uq_rule_identity_active",
@@ -393,10 +398,18 @@ class Task(db.Model):
     output_filename = db.Column(db.String(255), nullable=True)
     prompt_text = db.Column(db.Text, nullable=True)
     model_name = db.Column(db.String(120), nullable=True)
-    workflow_config = db.Column(db.Text, nullable=True)  # JSON config for workflow execution
-    client_name = db.Column(db.String(255), nullable=True)  # Store client name for display
-    target_website = db.Column(db.String(2048), nullable=True)  # Store target website URL
-    competitor_url = db.Column(db.String(2048), nullable=True)  # Store competitor website URL for analysis
+    workflow_config = db.Column(
+        db.Text, nullable=True
+    )  # JSON config for workflow execution
+    client_name = db.Column(
+        db.String(255), nullable=True
+    )  # Store client name for display
+    target_website = db.Column(
+        db.String(2048), nullable=True
+    )  # Store target website URL
+    competitor_url = db.Column(
+        db.String(2048), nullable=True
+    )  # Store competitor website URL for analysis
 
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(), index=True)
     updated_at = db.Column(
@@ -422,9 +435,11 @@ class Task(db.Model):
         nullable=True,
         index=True,
     )
-    
+
     # Scheduler fields (from scheduler_001 migration)
-    schedule_type = db.Column(db.String(50), nullable=True, default='immediate', index=True)
+    schedule_type = db.Column(
+        db.String(50), nullable=True, default="immediate", index=True
+    )
     cron_expression = db.Column(db.String(100), nullable=True)
     next_run_at = db.Column(db.DateTime, nullable=True, index=True)
     last_run_at = db.Column(db.DateTime, nullable=True)
@@ -441,11 +456,15 @@ class Task(db.Model):
     task_handler = db.Column(db.String(100), nullable=True, index=True)
     handler_config = db.Column(db.JSON, nullable=True)
     progress = db.Column(db.Integer, nullable=True, default=0)  # 0-100
-    
+
     # Relationships
     project = db.relationship("Project", backref=db.backref("tasks", lazy="dynamic"))
-    client_ref = db.relationship("Client", backref=db.backref("client_tasks", lazy="dynamic"))
-    website_ref = db.relationship("Website", backref=db.backref("website_tasks", lazy="dynamic"))
+    client_ref = db.relationship(
+        "Client", backref=db.backref("client_tasks", lazy="dynamic")
+    )
+    website_ref = db.relationship(
+        "Website", backref=db.backref("website_tasks", lazy="dynamic")
+    )
 
     def __repr__(self):
         return (
@@ -457,10 +476,18 @@ class Task(db.Model):
             {"id": self.project.id, "name": self.project.name} if self.project else None
         )
         client_info = (
-            {"id": self.client_ref.id, "name": self.client_ref.name} if self.client_ref else None
+            {"id": self.client_ref.id, "name": self.client_ref.name}
+            if self.client_ref
+            else None
         )
         website_info = (
-            {"id": self.website_ref.id, "name": self.website_ref.name, "url": self.website_ref.url} if self.website_ref else None
+            {
+                "id": self.website_ref.id,
+                "name": self.website_ref.name,
+                "url": self.website_ref.url,
+            }
+            if self.website_ref
+            else None
         )
         return {
             "id": self.id,
@@ -514,8 +541,12 @@ class Project(db.Model):
     )
 
     # RAG Enhancement fields for project-specific content strategy
-    project_type = db.Column(db.String(100), nullable=True)  # Website Redesign, Content Campaign, etc.
-    target_keywords = db.Column(db.Text, nullable=True)  # JSON array of project-specific keywords
+    project_type = db.Column(
+        db.String(100), nullable=True
+    )  # Website Redesign, Content Campaign, etc.
+    target_keywords = db.Column(
+        db.Text, nullable=True
+    )  # JSON array of project-specific keywords
     content_strategy = db.Column(db.Text, nullable=True)  # Overall content approach
     deliverables = db.Column(db.Text, nullable=True)  # Expected outputs
     seo_strategy = db.Column(db.Text, nullable=True)  # SEO approach
@@ -541,6 +572,7 @@ class Project(db.Model):
 
     def to_dict(self):
         from backend.utils.serialization_utils import format_logo_path
+
         client_info = (
             {
                 "id": self.client_ref.id,
@@ -593,7 +625,9 @@ class Website(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     url = db.Column(db.String(2048), nullable=False, unique=True)
     sitemap = db.Column(db.String(2048), nullable=True)
-    competitor_url = db.Column(db.String(2048), nullable=True)  # Competitor website for analysis
+    competitor_url = db.Column(
+        db.String(2048), nullable=True
+    )  # Competitor website for analysis
     status = db.Column(db.String(50), default="pending", index=True)
     last_crawled = db.Column(db.DateTime, nullable=True)
     project_id = db.Column(
@@ -621,12 +655,17 @@ class Website(db.Model):
 
     def to_dict(self):
         from backend.utils.serialization_utils import format_logo_path
+
         doc_count = self.documents.count() if hasattr(self, "documents") else 0
         project_info = (
             {"id": self.project.id, "name": self.project.name} if self.project else None
         )
         client_info = (
-            {"id": self.client_ref.id, "name": self.client_ref.name, "logo_path": format_logo_path(self.client_ref.logo_path)}
+            {
+                "id": self.client_ref.id,
+                "name": self.client_ref.name,
+                "logo_path": format_logo_path(self.client_ref.logo_path),
+            }
             if self.client_ref
             else None
         )
@@ -651,13 +690,14 @@ class Website(db.Model):
 
 class Folder(db.Model):
     """File system folder model for organizing documents"""
+
     __tablename__ = "folders"
-    __table_args__ = (
-        db.Index("ix_folder_parent_name", "parent_id", "name"),
-    )
+    __table_args__ = (db.Index("ix_folder_parent_name", "parent_id", "name"),)
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
-    path = db.Column(db.String(1024), nullable=False, unique=True)  # Full path on disk relative to uploads/
+    path = db.Column(
+        db.String(1024), nullable=False, unique=True
+    )  # Full path on disk relative to uploads/
     parent_id = db.Column(
         db.Integer,
         db.ForeignKey("folders.id", name="fk_folder_parent_id", ondelete="CASCADE"),
@@ -673,19 +713,42 @@ class Folder(db.Model):
 
     # Repository features
     is_repository = db.Column(db.Boolean, default=False, nullable=False, index=True)
-    description = db.Column(db.Text, nullable=True)  # AI-generated architectural summary
-    repo_metadata = db.Column(db.Text, nullable=True)  # JSON: languages, frameworks, key_components
+    description = db.Column(
+        db.Text, nullable=True
+    )  # AI-generated architectural summary
+    repo_metadata = db.Column(
+        db.Text, nullable=True
+    )  # JSON: languages, frameworks, key_components
 
     # Entity links (same as Document model — allows folder-level property assignment)
-    client_id = db.Column(db.Integer, db.ForeignKey("clients.id", name="fk_folder_client_id"), nullable=True)
-    project_id = db.Column(db.Integer, db.ForeignKey("projects.id", name="fk_folder_project_id"), nullable=True)
-    website_id = db.Column(db.Integer, db.ForeignKey("wordpress_sites.id", name="fk_folder_website_id"), nullable=True)
+    client_id = db.Column(
+        db.Integer,
+        db.ForeignKey("clients.id", name="fk_folder_client_id"),
+        nullable=True,
+    )
+    project_id = db.Column(
+        db.Integer,
+        db.ForeignKey("projects.id", name="fk_folder_project_id"),
+        nullable=True,
+    )
+    website_id = db.Column(
+        db.Integer,
+        db.ForeignKey("wordpress_sites.id", name="fk_folder_website_id"),
+        nullable=True,
+    )
     tags = db.Column(db.Text, nullable=True)  # Comma-separated tags
     notes = db.Column(db.Text, nullable=True)
 
     # Relationships
-    parent = db.relationship("Folder", remote_side=[id], backref=db.backref("subfolders", lazy="dynamic"))
-    documents = db.relationship("Document", back_populates="folder", lazy="dynamic", cascade="all, delete-orphan")
+    parent = db.relationship(
+        "Folder", remote_side=[id], backref=db.backref("subfolders", lazy="dynamic")
+    )
+    documents = db.relationship(
+        "Document",
+        back_populates="folder",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+    )
     client = db.relationship("Client", foreign_keys=[client_id])
     project = db.relationship("Project", foreign_keys=[project_id])
 
@@ -715,7 +778,11 @@ class Folder(db.Model):
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "subfolder_count": self.subfolders.count() if self.subfolders else 0,
             "document_count": self.documents.count() if self.documents else 0,
-            "indexed_document_count": sum(1 for d in self.documents if d.index_status == 'INDEXED') if self.documents else 0,
+            "indexed_document_count": (
+                sum(1 for d in self.documents if d.index_status == "INDEXED")
+                if self.documents
+                else 0
+            ),
         }
 
     def to_dict_light(self):
@@ -758,16 +825,28 @@ class Document(db.Model):
     error_message = db.Column(db.Text, nullable=True)
 
     # NEW: Enhanced file storage for code files - using LONGTEXT for larger content
-    content = db.Column(db.Text, nullable=True)  # Store complete file content for code files (up to 2GB)
-    is_code_file = db.Column(db.Boolean, default=False)  # Flag for code files that should be stored for discussion
+    content = db.Column(
+        db.Text, nullable=True
+    )  # Store complete file content for code files (up to 2GB)
+    is_code_file = db.Column(
+        db.Boolean, default=False
+    )  # Flag for code files that should be stored for discussion
     size = db.Column(db.Integer, nullable=True)  # File size in bytes
-    file_metadata = db.Column(db.Text, nullable=True)  # JSON metadata (renamed from 'metadata' due to SQLAlchemy reservation)
+    file_metadata = db.Column(
+        db.Text, nullable=True
+    )  # JSON metadata (renamed from 'metadata' due to SQLAlchemy reservation)
 
     # RAG Enhancement fields for intelligent document categorization
-    content_category = db.Column(db.String(100), nullable=True)  # Style Guide, Brand Assets, Training Data, etc.
-    relevance_score = db.Column(db.Float, nullable=True, default=5.0)  # RAG priority (1-10)
+    content_category = db.Column(
+        db.String(100), nullable=True
+    )  # Style Guide, Brand Assets, Training Data, etc.
+    relevance_score = db.Column(
+        db.Float, nullable=True, default=5.0
+    )  # RAG priority (1-10)
     summary = db.Column(db.Text, nullable=True)  # AI-generated summary of document
-    rag_context = db.Column(db.Text, nullable=True)  # When/how this document should inform content
+    rag_context = db.Column(
+        db.Text, nullable=True
+    )  # When/how this document should inform content
 
     # Folder hierarchy
     folder_id = db.Column(
@@ -802,7 +881,9 @@ class Document(db.Model):
     )
     tags = db.Column(db.Text, nullable=True)
     notes = db.Column(db.Text, nullable=True)  # User notes - used for RAG context
-    indexing_job_id = db.Column(db.String(255), nullable=True, index=True)  # Progress tracking job ID
+    indexing_job_id = db.Column(
+        db.String(255), nullable=True, index=True
+    )  # Progress tracking job ID
     uploaded_at = db.Column(db.DateTime, default=lambda: datetime.now(), index=True)
     updated_at = db.Column(
         db.DateTime,
@@ -811,18 +892,29 @@ class Document(db.Model):
     )
     # Relationships
     folder = db.relationship("Folder", back_populates="documents")
-    client = db.relationship("Client", backref=db.backref("client_documents", lazy="dynamic"))
+    client = db.relationship(
+        "Client", backref=db.backref("client_documents", lazy="dynamic")
+    )
     website = db.relationship(
         "Website", backref=db.backref("documents", lazy="dynamic")
     )
 
     def to_dict(self):
         from backend.utils.serialization_utils import format_logo_path
+
         folder_info = (
-            {"id": self.folder.id, "name": self.folder.name, "path": self.folder.path} if self.folder else None
+            {"id": self.folder.id, "name": self.folder.name, "path": self.folder.path}
+            if self.folder
+            else None
         )
         client_info = (
-            {"id": self.client.id, "name": self.client.name, "logo_path": format_logo_path(self.client.logo_path)} if self.client else None
+            {
+                "id": self.client.id,
+                "name": self.client.name,
+                "logo_path": format_logo_path(self.client.logo_path),
+            }
+            if self.client
+            else None
         )
         project_info = (
             {"id": self.project.id, "name": self.project.name} if self.project else None
@@ -852,7 +944,7 @@ class Document(db.Model):
                 parsed_metadata = json.loads(self.file_metadata)
             except json.JSONDecodeError:
                 parsed_metadata = {}
-                
+
         return {
             "id": self.id,
             "filename": self.filename,
@@ -861,19 +953,16 @@ class Document(db.Model):
             "index_status": self.index_status,
             "indexed_at": self.indexed_at.isoformat() if self.indexed_at else None,
             "error_message": self.error_message,
-
             # Enhanced file storage fields
             "content": self.content,  # Complete file content for code files
             "is_code_file": self.is_code_file,  # Flag for code files
             "size": self.size,  # File size in bytes
             "metadata": parsed_metadata,  # Parsed metadata
-
             # RAG enhancement fields
             "content_category": self.content_category,
             "relevance_score": self.relevance_score,
             "summary": self.summary,
             "rag_context": self.rag_context,
-
             # Folder and entity links
             "folder_id": self.folder_id,
             "folder": folder_info,
@@ -912,7 +1001,9 @@ class LLMSession(db.Model):
     user = db.Column(db.String(80), nullable=False, index=True)
     project_id = db.Column(
         db.Integer,
-        db.ForeignKey("projects.id", name="fk_llmsession_project_id", ondelete="SET NULL"),
+        db.ForeignKey(
+            "projects.id", name="fk_llmsession_project_id", ondelete="SET NULL"
+        ),
         nullable=True,
         index=True,
     )
@@ -936,16 +1027,16 @@ class LLMMessage(db.Model):
     )
     project_id = db.Column(
         db.Integer,
-        db.ForeignKey("projects.id", name="fk_llmmessage_project_id", ondelete="SET NULL"),
+        db.ForeignKey(
+            "projects.id", name="fk_llmmessage_project_id", ondelete="SET NULL"
+        ),
         nullable=True,
         index=True,
     )
     role = db.Column(db.String(10), nullable=False)
     content = db.Column(db.Text, nullable=False)
     extra_data = db.Column(db.JSON, nullable=True)
-    timestamp = db.Column(
-        db.DateTime, default=lambda: datetime.now(), index=True
-    )
+    timestamp = db.Column(db.DateTime, default=lambda: datetime.now(), index=True)
     __table_args__ = (
         CheckConstraint(
             role.in_(["user", "assistant", "system"]), name="ck_message_role"
@@ -1036,29 +1127,33 @@ class TrainingJob(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     job_id = db.Column(db.String(64), unique=True, index=True)  # UUID
     name = db.Column(db.String(255))
-    
+
     # Config
     base_model = db.Column(db.String(255))
     output_model_name = db.Column(db.String(255))
     dataset_id = db.Column(db.Integer, db.ForeignKey("training_datasets.id"))
     config_json = db.Column(db.Text)  # JSON: {steps, lr, batch, rank, seq_length}
     device_profile_id = db.Column(db.Integer, db.ForeignKey("device_profiles.id"))
-    
+
     # Status
-    pipeline_stage = db.Column(db.String(50))  # parsing, filtering, training, exporting, importing
-    status = db.Column(db.String(50), default="pending")  # pending, running, completed, failed, cancelled
+    pipeline_stage = db.Column(
+        db.String(50)
+    )  # parsing, filtering, training, exporting, importing
+    status = db.Column(
+        db.String(50), default="pending"
+    )  # pending, running, completed, failed, cancelled
     progress = db.Column(db.Integer, default=0)  # 0-100
     current_step = db.Column(db.Integer, default=0)
     total_steps = db.Column(db.Integer)
     error_message = db.Column(db.Text)
     metrics_json = db.Column(db.Text)  # JSON: {loss, epoch, lr, etc}
-    
+
     # Output
     lora_path = db.Column(db.String(1024))
     gguf_path = db.Column(db.String(1024))
     ollama_model_name = db.Column(db.String(255))
     quantization_level = db.Column(db.String(50))  # e.g., q4_k_m, q8_0, f16
-    
+
     # Timing
     created_at = db.Column(db.DateTime, default=lambda: datetime.now())
     started_at = db.Column(db.DateTime)
@@ -1113,7 +1208,9 @@ class TrainingJob(db.Model):
             "quantization_level": self.quantization_level,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "started_at": self.started_at.isoformat() if self.started_at else None,
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "completed_at": (
+                self.completed_at.isoformat() if self.completed_at else None
+            ),
             "celery_task_id": self.celery_task_id,
             "checkpoint_path": self.checkpoint_path,
             "pid": self.pid,
@@ -1123,16 +1220,22 @@ class TrainingJob(db.Model):
 
 # --- Content Generation Models ---
 
+
 class Generation(db.Model):
     """Tracks content generation batches for traceability and persistence"""
+
     __tablename__ = "generations"
 
     id = db.Column(db.String(36), primary_key=True)  # UUID
-    site_key = db.Column(db.String(255), nullable=True, index=True)  # Maps to website selection
-    delimiter = db.Column(db.String(10), nullable=False, default=',')  # CSV delimiter
+    site_key = db.Column(
+        db.String(255), nullable=True, index=True
+    )  # Maps to website selection
+    delimiter = db.Column(db.String(10), nullable=False, default=",")  # CSV delimiter
     structured_html = db.Column(db.Boolean, nullable=False, default=False)
     brand_tone = db.Column(db.String(50), nullable=True)
-    meta_json = db.Column(db.Text, nullable=True)  # JSON: phone, contactUrl, location, services, hours, socials
+    meta_json = db.Column(
+        db.Text, nullable=True
+    )  # JSON: phone, contactUrl, location, services, hours, socials
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(), nullable=False)
 
     # FileGenerationPage context fields
@@ -1142,7 +1245,12 @@ class Generation(db.Model):
     competitor = db.Column(db.String(500), nullable=True)
 
     # Relationships
-    pages = db.relationship("Page", back_populates="generation", lazy="dynamic", cascade="all, delete-orphan")
+    pages = db.relationship(
+        "Page",
+        back_populates="generation",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self):
         return f"<Generation {self.id}: {self.site_key}>"
@@ -1163,20 +1271,26 @@ class Generation(db.Model):
             "brand_tone": self.brand_tone,
             "meta": meta,
             "created_at": self.created_at.isoformat() if self.created_at else None,
-            "page_count": self.pages.count() if hasattr(self, 'pages') else 0,
+            "page_count": self.pages.count() if hasattr(self, "pages") else 0,
             "client": self.client,
             "project": self.project,
             "website": self.website,
-            "competitor": self.competitor
+            "competitor": self.competitor,
         }
 
 
 class Page(db.Model):
     """Individual generated pages/posts with content and metadata"""
+
     __tablename__ = "pages"
 
     id = db.Column(db.String(36), primary_key=True)  # UUID
-    generation_id = db.Column(db.String(36), db.ForeignKey("generations.id", ondelete="CASCADE"), nullable=False, index=True)
+    generation_id = db.Column(
+        db.String(36),
+        db.ForeignKey("generations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     title = db.Column(db.Text, nullable=False)
     slug = db.Column(db.String(500), nullable=False, index=True)
     category = db.Column(db.Text, nullable=True)
@@ -1187,7 +1301,9 @@ class Page(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(), nullable=False)
 
     # Approval/deletion status
-    status = db.Column(db.String(20), nullable=False, default='pending', index=True)  # pending, approved, deleted
+    status = db.Column(
+        db.String(20), nullable=False, default="pending", index=True
+    )  # pending, approved, deleted
     approved_at = db.Column(db.DateTime, nullable=True)
     deleted_at = db.Column(db.DateTime, nullable=True)
 
@@ -1224,16 +1340,19 @@ class Page(db.Model):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "status": self.status,
             "approved_at": self.approved_at.isoformat() if self.approved_at else None,
-            "deleted_at": self.deleted_at.isoformat() if self.deleted_at else None
+            "deleted_at": self.deleted_at.isoformat() if self.deleted_at else None,
         }
 
 
 class Image(db.Model):
     """Image asset management for future roadmap"""
+
     __tablename__ = "images"
 
     id = db.Column(db.String(36), primary_key=True)  # UUID
-    hash = db.Column(db.String(64), nullable=False, unique=True, index=True)  # File hash for deduplication
+    hash = db.Column(
+        db.String(64), nullable=False, unique=True, index=True
+    )  # File hash for deduplication
     file_name = db.Column(db.String(255), nullable=False)
     file_path = db.Column(db.String(1024), nullable=True)  # Path to stored file
     file_size = db.Column(db.Integer, nullable=True)  # File size in bytes
@@ -1268,22 +1387,29 @@ class Image(db.Model):
             "mime_type": self.mime_type,
             "tags": tags,
             "created_at": self.created_at.isoformat() if self.created_at else None,
-            "last_used_at": self.last_used_at.isoformat() if self.last_used_at else None
+            "last_used_at": (
+                self.last_used_at.isoformat() if self.last_used_at else None
+            ),
         }
 
 
 # --- Interconnector Models ---
 class InterconnectorNode(db.Model):
     """Track registered interconnector nodes."""
+
     __tablename__ = "interconnector_nodes"
     node_id = db.Column(db.String(36), primary_key=True)  # UUID
     node_name = db.Column(db.String(255), nullable=False)
     host = db.Column(db.String(255), nullable=False)
     port = db.Column(db.Integer(), nullable=False)
     node_mode = db.Column(db.String(50), nullable=False)  # master/client
-    status = db.Column(db.String(50), nullable=False, default="active")  # active/inactive/disconnected
+    status = db.Column(
+        db.String(50), nullable=False, default="active"
+    )  # active/inactive/disconnected
     last_heartbeat = db.Column(db.DateTime(), nullable=True)
-    capabilities = db.Column(db.Text(), nullable=True)  # JSON: cpu_cores, memory_mb, disk_space_gb, gpu_available
+    capabilities = db.Column(
+        db.Text(), nullable=True
+    )  # JSON: cpu_cores, memory_mb, disk_space_gb, gpu_available
     sync_entities = db.Column(db.Text(), nullable=True)  # JSON array
     registered_at = db.Column(db.DateTime(), default=lambda: datetime.now())
     last_sync_time = db.Column(db.DateTime(), nullable=True)
@@ -1298,6 +1424,7 @@ class InterconnectorNode(db.Model):
 
     def to_dict(self):
         import json
+
         return {
             "node_id": self.node_id,
             "node_name": self.node_name,
@@ -1305,11 +1432,19 @@ class InterconnectorNode(db.Model):
             "port": self.port,
             "node_mode": self.node_mode,
             "status": self.status,
-            "last_heartbeat": self.last_heartbeat.isoformat() if self.last_heartbeat else None,
+            "last_heartbeat": (
+                self.last_heartbeat.isoformat() if self.last_heartbeat else None
+            ),
             "capabilities": json.loads(self.capabilities) if self.capabilities else {},
-            "sync_entities": json.loads(self.sync_entities) if self.sync_entities else [],
-            "registered_at": self.registered_at.isoformat() if self.registered_at else None,
-            "last_sync_time": self.last_sync_time.isoformat() if self.last_sync_time else None,
+            "sync_entities": (
+                json.loads(self.sync_entities) if self.sync_entities else []
+            ),
+            "registered_at": (
+                self.registered_at.isoformat() if self.registered_at else None
+            ),
+            "last_sync_time": (
+                self.last_sync_time.isoformat() if self.last_sync_time else None
+            ),
             "model_name": self.model_name,
             "vram_total": self.vram_total,
             "vram_free": self.vram_free,
@@ -1320,9 +1455,14 @@ class InterconnectorNode(db.Model):
 
 class InterconnectorSyncHistory(db.Model):
     """Track synchronization history."""
+
     __tablename__ = "interconnector_sync_history"
     id = db.Column(db.Integer, primary_key=True)
-    node_id = db.Column(db.String(36), db.ForeignKey("interconnector_nodes.node_id", ondelete="CASCADE"), nullable=False)
+    node_id = db.Column(
+        db.String(36),
+        db.ForeignKey("interconnector_nodes.node_id", ondelete="CASCADE"),
+        nullable=False,
+    )
     sync_direction = db.Column(db.String(50), nullable=False)  # pull/push/bidirectional
     entities_synced = db.Column(db.Text(), nullable=True)  # JSON array
     items_processed = db.Column(db.Integer(), nullable=False, default=0)
@@ -1330,7 +1470,9 @@ class InterconnectorSyncHistory(db.Model):
     items_updated = db.Column(db.Integer(), nullable=False, default=0)
     conflicts_resolved = db.Column(db.Integer(), nullable=False, default=0)
     sync_duration_ms = db.Column(db.Integer(), nullable=True)
-    status = db.Column(db.String(50), nullable=False, default="success")  # success/failed/partial
+    status = db.Column(
+        db.String(50), nullable=False, default="success"
+    )  # success/failed/partial
     error_message = db.Column(db.Text(), nullable=True)
     sync_timestamp = db.Column(db.DateTime(), default=lambda: datetime.now())
 
@@ -1341,11 +1483,14 @@ class InterconnectorSyncHistory(db.Model):
 
     def to_dict(self):
         import json
+
         return {
             "id": self.id,
             "node_id": self.node_id,
             "sync_direction": self.sync_direction,
-            "entities_synced": json.loads(self.entities_synced) if self.entities_synced else [],
+            "entities_synced": (
+                json.loads(self.entities_synced) if self.entities_synced else []
+            ),
             "items_processed": self.items_processed,
             "items_created": self.items_created,
             "items_updated": self.items_updated,
@@ -1353,21 +1498,34 @@ class InterconnectorSyncHistory(db.Model):
             "sync_duration_ms": self.sync_duration_ms,
             "status": self.status,
             "error_message": self.error_message,
-            "sync_timestamp": self.sync_timestamp.isoformat() if self.sync_timestamp else None,
+            "sync_timestamp": (
+                self.sync_timestamp.isoformat() if self.sync_timestamp else None
+            ),
         }
 
 
 class InterconnectorConflict(db.Model):
     """Track synchronization conflicts."""
+
     __tablename__ = "interconnector_conflicts"
     id = db.Column(db.Integer, primary_key=True)
-    node_id = db.Column(db.String(36), db.ForeignKey("interconnector_nodes.node_id", ondelete="CASCADE"), nullable=False)
+    node_id = db.Column(
+        db.String(36),
+        db.ForeignKey("interconnector_nodes.node_id", ondelete="CASCADE"),
+        nullable=False,
+    )
     entity_type = db.Column(db.String(100), nullable=False)  # clients, projects, etc.
-    entity_id = db.Column(db.String(255), nullable=False)  # String to handle different ID types
+    entity_id = db.Column(
+        db.String(255), nullable=False
+    )  # String to handle different ID types
     local_data = db.Column(db.Text(), nullable=True)  # JSON
     remote_data = db.Column(db.Text(), nullable=True)  # JSON
-    conflict_fields = db.Column(db.Text(), nullable=True)  # JSON array of conflicting field names
-    resolution_strategy = db.Column(db.String(50), nullable=True)  # last_write_wins, manual, etc.
+    conflict_fields = db.Column(
+        db.Text(), nullable=True
+    )  # JSON array of conflicting field names
+    resolution_strategy = db.Column(
+        db.String(50), nullable=True
+    )  # last_write_wins, manual, etc.
     resolved = db.Column(db.Boolean(), nullable=False, default=False)
     resolved_at = db.Column(db.DateTime(), nullable=True)
     resolved_by = db.Column(db.String(255), nullable=True)  # node_id that resolved it
@@ -1376,10 +1534,13 @@ class InterconnectorConflict(db.Model):
     node = db.relationship("InterconnectorNode", backref="conflicts")
 
     def __repr__(self):
-        return f"<InterconnectorConflict {self.id}: {self.entity_type}#{self.entity_id}>"
+        return (
+            f"<InterconnectorConflict {self.id}: {self.entity_type}#{self.entity_id}>"
+        )
 
     def to_dict(self):
         import json
+
         return {
             "id": self.id,
             "node_id": self.node_id,
@@ -1387,7 +1548,9 @@ class InterconnectorConflict(db.Model):
             "entity_id": self.entity_id,
             "local_data": json.loads(self.local_data) if self.local_data else None,
             "remote_data": json.loads(self.remote_data) if self.remote_data else None,
-            "conflict_fields": json.loads(self.conflict_fields) if self.conflict_fields else [],
+            "conflict_fields": (
+                json.loads(self.conflict_fields) if self.conflict_fields else []
+            ),
             "resolution_strategy": self.resolution_strategy,
             "resolved": self.resolved,
             "resolved_at": self.resolved_at.isoformat() if self.resolved_at else None,
@@ -1398,6 +1561,7 @@ class InterconnectorConflict(db.Model):
 
 class InterconnectorPendingChange(db.Model):
     """Queue pending changes when offline."""
+
     __tablename__ = "interconnector_pending_changes"
     id = db.Column(db.Integer, primary_key=True)
     change_type = db.Column(db.String(50), nullable=False)  # create/update/delete
@@ -1407,13 +1571,16 @@ class InterconnectorPendingChange(db.Model):
     queued_at = db.Column(db.DateTime(), default=lambda: datetime.now())
     retry_count = db.Column(db.Integer(), nullable=False, default=0)
     last_retry_at = db.Column(db.DateTime(), nullable=True)
-    status = db.Column(db.String(50), nullable=False, default="pending")  # pending/processing/failed/success
+    status = db.Column(
+        db.String(50), nullable=False, default="pending"
+    )  # pending/processing/failed/success
 
     def __repr__(self):
         return f"<InterconnectorPendingChange {self.id}: {self.change_type} {self.entity_type}#{self.entity_id}>"
 
     def to_dict(self):
         import json
+
         return {
             "id": self.id,
             "change_type": self.change_type,
@@ -1422,7 +1589,9 @@ class InterconnectorPendingChange(db.Model):
             "entity_data": json.loads(self.entity_data) if self.entity_data else None,
             "queued_at": self.queued_at.isoformat() if self.queued_at else None,
             "retry_count": self.retry_count,
-            "last_retry_at": self.last_retry_at.isoformat() if self.last_retry_at else None,
+            "last_retry_at": (
+                self.last_retry_at.isoformat() if self.last_retry_at else None
+            ),
             "status": self.status,
         }
 
@@ -1430,12 +1599,15 @@ class InterconnectorPendingChange(db.Model):
 # --- Interconnector Sync Profiles ---
 class InterconnectorSyncProfile(db.Model):
     """Predefined sync configuration profiles."""
+
     __tablename__ = "interconnector_sync_profiles"
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False, unique=True, index=True)
     description = db.Column(db.Text(), nullable=True)
-    profile_type = db.Column(db.String(50))  # quick/full/custom/minimal/code_only/data_only
+    profile_type = db.Column(
+        db.String(50)
+    )  # quick/full/custom/minimal/code_only/data_only
     entity_config = db.Column(db.Text())  # JSON: entity filters
     file_config = db.Column(db.Text())  # JSON: file filters
     is_default = db.Column(db.Boolean(), default=False)
@@ -1444,12 +1616,15 @@ class InterconnectorSyncProfile(db.Model):
 
     def to_dict(self):
         import json
+
         return {
             "id": self.id,
             "name": self.name,
             "description": self.description,
             "profile_type": self.profile_type,
-            "entity_config": json.loads(self.entity_config) if self.entity_config else {},
+            "entity_config": (
+                json.loads(self.entity_config) if self.entity_config else {}
+            ),
             "file_config": json.loads(self.file_config) if self.file_config else {},
             "is_default": self.is_default,
             "created_at": self.created_at.isoformat() if self.created_at else None,
@@ -1460,6 +1635,7 @@ class InterconnectorSyncProfile(db.Model):
 # --- Interconnector Broadcast Models ---
 class InterconnectorBroadcast(db.Model):
     """Track broadcast push operations from master."""
+
     __tablename__ = "interconnector_broadcasts"
 
     id = db.Column(db.String(36), primary_key=True)  # UUID
@@ -1479,6 +1655,7 @@ class InterconnectorBroadcast(db.Model):
 
     def to_dict(self):
         import json
+
         return {
             "id": self.id,
             "sync_type": self.sync_type,
@@ -1487,9 +1664,15 @@ class InterconnectorBroadcast(db.Model):
             "require_approval": self.require_approval,
             "priority": self.priority,
             "status": self.status,
-            "initiated_at": self.initiated_at.isoformat() if self.initiated_at else None,
-            "scheduled_for": self.scheduled_for.isoformat() if self.scheduled_for else None,
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "initiated_at": (
+                self.initiated_at.isoformat() if self.initiated_at else None
+            ),
+            "scheduled_for": (
+                self.scheduled_for.isoformat() if self.scheduled_for else None
+            ),
+            "completed_at": (
+                self.completed_at.isoformat() if self.completed_at else None
+            ),
             "total_clients": self.total_clients,
             "successful_count": self.successful_count,
             "failed_count": self.failed_count,
@@ -1499,6 +1682,7 @@ class InterconnectorBroadcast(db.Model):
 
 class InterconnectorBroadcastTarget(db.Model):
     """Track individual client targets in a broadcast."""
+
     __tablename__ = "interconnector_broadcast_targets"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -1516,7 +1700,9 @@ class InterconnectorBroadcastTarget(db.Model):
     items_pushed = db.Column(db.Integer(), default=0)
     error_message = db.Column(db.Text(), nullable=True)
     retry_count = db.Column(db.Integer(), default=0)
-    approval_status = db.Column(db.String(50), default="pending")  # pending/approved/declined
+    approval_status = db.Column(
+        db.String(50), default="pending"
+    )  # pending/approved/declined
 
     def to_dict(self):
         return {
@@ -1525,7 +1711,9 @@ class InterconnectorBroadcastTarget(db.Model):
             "node_id": self.node_id,
             "status": self.status,
             "started_at": self.started_at.isoformat() if self.started_at else None,
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "completed_at": (
+                self.completed_at.isoformat() if self.completed_at else None
+            ),
             "items_pushed": self.items_pushed,
             "error_message": self.error_message,
             "retry_count": self.retry_count,
@@ -1536,6 +1724,7 @@ class InterconnectorBroadcastTarget(db.Model):
 # --- Interconnector Approvals ---
 class InterconnectorPendingApproval(db.Model):
     """Track pending approval requests for file/entity sync."""
+
     __tablename__ = "interconnector_pending_approvals"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -1546,7 +1735,9 @@ class InterconnectorPendingApproval(db.Model):
     entities_data = db.Column(db.Text())  # JSON: entity changes
     received_at = db.Column(db.DateTime(), default=lambda: datetime.now())
     reviewed_at = db.Column(db.DateTime(), nullable=True)
-    status = db.Column(db.String(50), default="pending")  # pending/approved/declined/partial
+    status = db.Column(
+        db.String(50), default="pending"
+    )  # pending/approved/declined/partial
     decision_reason = db.Column(db.Text(), nullable=True)
     approved_files = db.Column(db.Text(), nullable=True)  # JSON: partial approval
     approved_entities = db.Column(db.Text(), nullable=True)  # JSON: partial approval
@@ -1554,19 +1745,26 @@ class InterconnectorPendingApproval(db.Model):
 
     def to_dict(self):
         import json
+
         return {
             "id": self.id,
             "push_id": self.push_id,
             "source_node": self.source_node,
             "sync_type": self.sync_type,
             "files_data": json.loads(self.files_data) if self.files_data else [],
-            "entities_data": json.loads(self.entities_data) if self.entities_data else {},
+            "entities_data": (
+                json.loads(self.entities_data) if self.entities_data else {}
+            ),
             "received_at": self.received_at.isoformat() if self.received_at else None,
             "reviewed_at": self.reviewed_at.isoformat() if self.reviewed_at else None,
             "status": self.status,
             "decision_reason": self.decision_reason,
-            "approved_files": json.loads(self.approved_files) if self.approved_files else [],
-            "approved_entities": json.loads(self.approved_entities) if self.approved_entities else {},
+            "approved_files": (
+                json.loads(self.approved_files) if self.approved_files else []
+            ),
+            "approved_entities": (
+                json.loads(self.approved_entities) if self.approved_entities else {}
+            ),
             "auto_applied": self.auto_applied,
         }
 
@@ -1578,7 +1776,9 @@ class InterconnectorLearning(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     source_node_id = db.Column(db.String(36), nullable=False)
     timestamp = db.Column(db.DateTime(), default=lambda: datetime.now(), nullable=False)
-    learning_type = db.Column(db.String(50), nullable=False)  # bug_fix, optimization, pattern, model_insight, security
+    learning_type = db.Column(
+        db.String(50), nullable=False
+    )  # bug_fix, optimization, pattern, model_insight, security
     description = db.Column(db.Text(), nullable=False)
     code_diff = db.Column(db.Text())
     confidence = db.Column(db.Float, default=0.5)
@@ -1609,18 +1809,32 @@ class SelfImprovementRun(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     timestamp = db.Column(db.DateTime(), default=lambda: datetime.now(), nullable=False)
     node_id = db.Column(db.String(36))
-    trigger = db.Column(db.String(50), nullable=False)  # scheduled, reactive, directed, family_learning
-    status = db.Column(db.String(50), default="running")  # running, success, failed, blocked_by_guardian
+    trigger = db.Column(
+        db.String(50), nullable=False
+    )  # scheduled, reactive, directed, family_learning
+    status = db.Column(
+        db.String(50), default="running"
+    )  # running, success, failed, blocked_by_guardian
     test_results_before = db.Column(db.Text())  # JSON
     test_results_after = db.Column(db.Text())  # JSON
     changes_made = db.Column(db.Text(), default="[]")  # JSON array of {file, diff}
     uncle_reviewed = db.Column(db.Boolean(), default=False)
     uncle_feedback = db.Column(db.Text())
-    learning_id = db.Column(db.Integer, db.ForeignKey("interconnector_learnings.id", name="fk_sir_learning_id", ondelete="SET NULL"), nullable=True)
+    learning_id = db.Column(
+        db.Integer,
+        db.ForeignKey(
+            "interconnector_learnings.id",
+            name="fk_sir_learning_id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+    )
     error_message = db.Column(db.Text())
     duration_seconds = db.Column(db.Float)
 
-    learning = db.relationship("InterconnectorLearning", backref="improvement_runs", lazy="select")
+    learning = db.relationship(
+        "InterconnectorLearning", backref="improvement_runs", lazy="select"
+    )
 
     def to_dict(self):
         return {
@@ -1629,8 +1843,14 @@ class SelfImprovementRun(db.Model):
             "node_id": self.node_id,
             "trigger": self.trigger,
             "status": self.status,
-            "test_results_before": json.loads(self.test_results_before) if self.test_results_before else None,
-            "test_results_after": json.loads(self.test_results_after) if self.test_results_after else None,
+            "test_results_before": (
+                json.loads(self.test_results_before)
+                if self.test_results_before
+                else None
+            ),
+            "test_results_after": (
+                json.loads(self.test_results_after) if self.test_results_after else None
+            ),
             "changes_made": json.loads(self.changes_made) if self.changes_made else [],
             "uncle_reviewed": self.uncle_reviewed,
             "uncle_feedback": self.uncle_feedback,
@@ -1643,13 +1863,20 @@ class SelfImprovementRun(db.Model):
 # --- WordPress Integration Models ---
 class WordPressSite(db.Model):
     """Track registered WordPress sites for content pull/push operations."""
+
     __tablename__ = "wordpress_sites"
     id = db.Column(db.Integer, primary_key=True)
     url = db.Column(db.String(2048), nullable=False, unique=True)
     site_name = db.Column(db.String(255), nullable=True)
-    username = db.Column(db.String(255), nullable=True)  # Optional, only for direct WordPress REST API
-    api_key = db.Column(db.Text, nullable=False)  # LLAMANATOR2 API key or WordPress Application Password
-    connection_type = db.Column(db.String(50), default="llamanator", nullable=False)  # "llamanator" or "wordpress"
+    username = db.Column(
+        db.String(255), nullable=True
+    )  # Optional, only for direct WordPress REST API
+    api_key = db.Column(
+        db.Text, nullable=False
+    )  # LLAMANATOR2 API key or WordPress Application Password
+    connection_type = db.Column(
+        db.String(50), default="llamanator", nullable=False
+    )  # "llamanator" or "wordpress"
     client_id = db.Column(
         db.Integer,
         db.ForeignKey("clients.id", name="fk_wp_site_client_id", ondelete="SET NULL"),
@@ -1669,8 +1896,12 @@ class WordPressSite(db.Model):
         index=True,
     )
     pull_settings = db.Column(db.Text, nullable=True)  # JSON: what to pull, filters
-    push_settings = db.Column(db.Text, nullable=True)  # JSON: what to push, auto-push settings
-    status = db.Column(db.String(50), default="active", nullable=False, index=True)  # active/inactive/error
+    push_settings = db.Column(
+        db.Text, nullable=True
+    )  # JSON: what to push, auto-push settings
+    status = db.Column(
+        db.String(50), default="active", nullable=False, index=True
+    )  # active/inactive/error
     last_pull_at = db.Column(db.DateTime, nullable=True)
     last_push_at = db.Column(db.DateTime, nullable=True)
     last_test_at = db.Column(db.DateTime, nullable=True)
@@ -1681,16 +1912,27 @@ class WordPressSite(db.Model):
         default=lambda: datetime.now(),
         onupdate=lambda: datetime.now(),
     )
-    
+
     # Relationships
-    client_ref = db.relationship("Client", backref=db.backref("wordpress_sites", lazy="dynamic"))
-    project_ref = db.relationship("Project", backref=db.backref("wordpress_sites", lazy="dynamic"))
-    website_ref = db.relationship("Website", backref=db.backref("wordpress_sites", lazy="dynamic"))
-    pages = db.relationship("WordPressPage", back_populates="wordpress_site", lazy="dynamic", cascade="all, delete-orphan")
-    
+    client_ref = db.relationship(
+        "Client", backref=db.backref("wordpress_sites", lazy="dynamic")
+    )
+    project_ref = db.relationship(
+        "Project", backref=db.backref("wordpress_sites", lazy="dynamic")
+    )
+    website_ref = db.relationship(
+        "Website", backref=db.backref("wordpress_sites", lazy="dynamic")
+    )
+    pages = db.relationship(
+        "WordPressPage",
+        back_populates="wordpress_site",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+    )
+
     def __repr__(self):
         return f"<WordPressSite {self.id}: {self.url}>"
-    
+
     def to_dict(self):
         pull_settings = {}
         push_settings = {}
@@ -1704,26 +1946,46 @@ class WordPressSite(db.Model):
                 push_settings = json.loads(self.push_settings)
             except (json.JSONDecodeError, TypeError):
                 push_settings = {}
-        
+
         return {
             "id": self.id,
             "url": self.url,
             "site_name": self.site_name,
-            "username": self.username if self.username else None,  # Convert empty string to None for API
+            "username": (
+                self.username if self.username else None
+            ),  # Convert empty string to None for API
             "has_api_key": bool(self.api_key),  # Don't expose actual key
             "connection_type": self.connection_type,
             "client_id": self.client_id,
-            "client": {"id": self.client_ref.id, "name": self.client_ref.name} if self.client_ref else None,
+            "client": (
+                {"id": self.client_ref.id, "name": self.client_ref.name}
+                if self.client_ref
+                else None
+            ),
             "project_id": self.project_id,
-            "project": {"id": self.project_ref.id, "name": self.project_ref.name} if self.project_ref else None,
+            "project": (
+                {"id": self.project_ref.id, "name": self.project_ref.name}
+                if self.project_ref
+                else None
+            ),
             "website_id": self.website_id,
-            "website": {"id": self.website_ref.id, "url": self.website_ref.url} if self.website_ref else None,
+            "website": (
+                {"id": self.website_ref.id, "url": self.website_ref.url}
+                if self.website_ref
+                else None
+            ),
             "pull_settings": pull_settings,
             "push_settings": push_settings,
             "status": self.status,
-            "last_pull_at": self.last_pull_at.isoformat() if self.last_pull_at else None,
-            "last_push_at": self.last_push_at.isoformat() if self.last_push_at else None,
-            "last_test_at": self.last_test_at.isoformat() if self.last_test_at else None,
+            "last_pull_at": (
+                self.last_pull_at.isoformat() if self.last_pull_at else None
+            ),
+            "last_push_at": (
+                self.last_push_at.isoformat() if self.last_push_at else None
+            ),
+            "last_test_at": (
+                self.last_test_at.isoformat() if self.last_test_at else None
+            ),
             "error_message": self.error_message,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
@@ -1733,16 +1995,23 @@ class WordPressSite(db.Model):
 
 class WordPressPage(db.Model):
     """Store pulled WordPress content for processing and improvement."""
+
     __tablename__ = "wordpress_pages"
     id = db.Column(db.Integer, primary_key=True)
     wordpress_site_id = db.Column(
         db.Integer,
-        db.ForeignKey("wordpress_sites.id", name="fk_wp_page_site_id", ondelete="CASCADE"),
+        db.ForeignKey(
+            "wordpress_sites.id", name="fk_wp_page_site_id", ondelete="CASCADE"
+        ),
         nullable=False,
         index=True,
     )
-    wordpress_post_id = db.Column(db.Integer, nullable=False, index=True)  # Original WP post ID
-    post_type = db.Column(db.String(50), nullable=False, default="post", index=True)  # post/page/custom
+    wordpress_post_id = db.Column(
+        db.Integer, nullable=False, index=True
+    )  # Original WP post ID
+    post_type = db.Column(
+        db.String(50), nullable=False, default="post", index=True
+    )  # post/page/custom
     title = db.Column(db.Text, nullable=False)
     content = db.Column(db.Text, nullable=True)  # Full content
     excerpt = db.Column(db.Text, nullable=True)
@@ -1759,7 +2028,7 @@ class WordPressPage(db.Model):
     meta_data = db.Column(db.Text, nullable=True)  # JSON: SEO metadata, custom fields
     sitemap_priority = db.Column(db.Float, nullable=True)
     sitemap_changefreq = db.Column(db.String(50), nullable=True)
-    
+
     # SEO Metadata Fields
     seo_title = db.Column(db.Text, nullable=True)
     seo_description = db.Column(db.Text, nullable=True)
@@ -1767,36 +2036,54 @@ class WordPressPage(db.Model):
     robots_meta = db.Column(db.Text, nullable=True)  # JSON array
     canonical_url = db.Column(db.String(2048), nullable=True)
     schema_markup = db.Column(db.Text, nullable=True)  # JSON array of schema objects
-    seo_plugin = db.Column(db.String(50), nullable=True)  # 'seo_concept' | 'rank_math' | null
+    seo_plugin = db.Column(
+        db.String(50), nullable=True
+    )  # 'seo_concept' | 'rank_math' | null
 
     # SEO Scores
     seo_score = db.Column(db.Integer, nullable=True)  # 0-100
     page_score = db.Column(db.Integer, nullable=True)  # 0-100
-    seo_score_breakdown = db.Column(db.Text, nullable=True)  # JSON: {title: score, description: score, etc.}
+    seo_score_breakdown = db.Column(
+        db.Text, nullable=True
+    )  # JSON: {title: score, description: score, etc.}
 
     # Analytics Data (GSC + GA)
-    analytics_data = db.Column(db.Text, nullable=True)  # JSON: {clicks, impressions, position, ctr, keywords, pageviews, visitors}
+    analytics_data = db.Column(
+        db.Text, nullable=True
+    )  # JSON: {clicks, impressions, position, ctr, keywords, pageviews, visitors}
 
     # PageSpeed Scores
     pagespeed_score_mobile = db.Column(db.Integer, nullable=True)  # 0-100
     pagespeed_score_desktop = db.Column(db.Integer, nullable=True)  # 0-100
-    pagespeed_data = db.Column(db.Text, nullable=True)  # JSON: Full PageSpeed API response
+    pagespeed_data = db.Column(
+        db.Text, nullable=True
+    )  # JSON: Full PageSpeed API response
 
     # Image SEO Data
-    image_seo_data = db.Column(db.Text, nullable=True)  # JSON: Array of image objects with alt/title/missing flags
+    image_seo_data = db.Column(
+        db.Text, nullable=True
+    )  # JSON: Array of image objects with alt/title/missing flags
 
     # Historical Tracking
-    seo_score_history = db.Column(db.Text, nullable=True)  # JSON: [{date: str, score: int}, ...]
+    seo_score_history = db.Column(
+        db.Text, nullable=True
+    )  # JSON: [{date: str, score: int}, ...]
     analytics_synced_at = db.Column(db.DateTime, nullable=True)
     pagespeed_synced_at = db.Column(db.DateTime, nullable=True)
-    
+
     # Pull status
-    pull_status = db.Column(db.String(50), default="pending", nullable=False, index=True)  # pending/pulled/error
+    pull_status = db.Column(
+        db.String(50), default="pending", nullable=False, index=True
+    )  # pending/pulled/error
     pulled_at = db.Column(db.DateTime, nullable=True)
-    original_content_hash = db.Column(db.String(64), nullable=True)  # SHA256 hash for change detection
-    
+    original_content_hash = db.Column(
+        db.String(64), nullable=True
+    )  # SHA256 hash for change detection
+
     # Processing status
-    process_status = db.Column(db.String(50), default="pending", nullable=False, index=True)  # pending/processing/completed/reviewed/approved/rejected
+    process_status = db.Column(
+        db.String(50), default="pending", nullable=False, index=True
+    )  # pending/processing/completed/reviewed/approved/rejected
     improved_title = db.Column(db.Text, nullable=True)
     improved_content = db.Column(db.Text, nullable=True)
     improved_excerpt = db.Column(db.Text, nullable=True)
@@ -1805,29 +2092,35 @@ class WordPressPage(db.Model):
     improved_schema = db.Column(db.Text, nullable=True)  # JSON schema markup
     improvement_summary = db.Column(db.Text, nullable=True)  # What was changed and why
     processed_at = db.Column(db.DateTime, nullable=True)
-    
+
     # Review status
-    review_status = db.Column(db.String(50), nullable=True, index=True)  # pending/approved/rejected/edited
+    review_status = db.Column(
+        db.String(50), nullable=True, index=True
+    )  # pending/approved/rejected/edited
     reviewed_by = db.Column(db.String(255), nullable=True)
     reviewed_at = db.Column(db.DateTime, nullable=True)
     review_notes = db.Column(db.Text, nullable=True)
-    
+
     # Push status
-    push_status = db.Column(db.String(50), nullable=True, index=True)  # pending/pushing/completed/error
+    push_status = db.Column(
+        db.String(50), nullable=True, index=True
+    )  # pending/pushing/completed/error
     pushed_at = db.Column(db.DateTime, nullable=True)
     push_error = db.Column(db.Text, nullable=True)
-    wordpress_response = db.Column(db.Text, nullable=True)  # JSON response from WordPress API
-    
+    wordpress_response = db.Column(
+        db.Text, nullable=True
+    )  # JSON response from WordPress API
+
     created_at = db.Column(db.DateTime, default=lambda: datetime.now())
     updated_at = db.Column(
         db.DateTime,
         default=lambda: datetime.now(),
         onupdate=lambda: datetime.now(),
     )
-    
+
     # Relationships
     wordpress_site = db.relationship("WordPressSite", back_populates="pages")
-    
+
     # Indexes for performance
     __table_args__ = (
         Index("ix_wp_page_site_post", "wordpress_site_id", "wordpress_post_id"),
@@ -1837,15 +2130,15 @@ class WordPressPage(db.Model):
         Index("ix_wp_page_seo_plugin", "seo_plugin"),
         Index("ix_wp_page_analytics_synced", "analytics_synced_at"),
     )
-    
+
     def __repr__(self):
         return f"<WordPressPage {self.id}: {self.title[:50]}>"
-    
+
     def to_dict(self):
         categories = []
         tags = []
         meta_data = {}
-        
+
         if self.categories:
             try:
                 categories = json.loads(self.categories)
@@ -1861,7 +2154,7 @@ class WordPressPage(db.Model):
                 meta_data = json.loads(self.meta_data)
             except (json.JSONDecodeError, TypeError):
                 meta_data = {}
-        
+
         # Parse SEO fields
         focus_keywords = []
         if self.focus_keywords:
@@ -1869,70 +2162,70 @@ class WordPressPage(db.Model):
                 focus_keywords = json.loads(self.focus_keywords)
             except (json.JSONDecodeError, TypeError):
                 pass
-        
+
         robots_meta = []
         if self.robots_meta:
             try:
                 robots_meta = json.loads(self.robots_meta)
             except (json.JSONDecodeError, TypeError):
                 pass
-        
+
         schema_markup = []
         if self.schema_markup:
             try:
                 schema_markup = json.loads(self.schema_markup)
             except (json.JSONDecodeError, TypeError):
                 pass
-        
+
         analytics_data = {}
         if self.analytics_data:
             try:
                 analytics_data = json.loads(self.analytics_data)
             except (json.JSONDecodeError, TypeError):
                 pass
-        
+
         pagespeed_data = {}
         if self.pagespeed_data:
             try:
                 pagespeed_data = json.loads(self.pagespeed_data)
             except (json.JSONDecodeError, TypeError):
                 pass
-        
+
         image_seo_data = []
         if self.image_seo_data:
             try:
                 image_seo_data = json.loads(self.image_seo_data)
             except (json.JSONDecodeError, TypeError):
                 pass
-        
+
         seo_score_history = []
         if self.seo_score_history:
             try:
                 seo_score_history = json.loads(self.seo_score_history)
             except (json.JSONDecodeError, TypeError):
                 pass
-        
+
         seo_score_breakdown = {}
         if self.seo_score_breakdown:
             try:
                 seo_score_breakdown = json.loads(self.seo_score_breakdown)
             except (json.JSONDecodeError, TypeError):
                 pass
-        
+
         improved_schema = {}
         if self.improved_schema:
             try:
                 improved_schema = json.loads(self.improved_schema)
             except (json.JSONDecodeError, TypeError):
                 improved_schema = {}
-        
+
         wordpress_response = {}
         if self.wordpress_response:
             try:
                 wordpress_response = json.loads(self.wordpress_response)
             except (json.JSONDecodeError, TypeError):
                 wordpress_response = {}
-        
+
         return {
             "id": self.id,
             "wordpress_site_id": self.wordpress_site_id,
@@ -1965,7 +2258,9 @@ class WordPressPage(db.Model):
             "improved_meta_title": self.improved_meta_title,
             "improved_schema": improved_schema,
             "improvement_summary": self.improvement_summary,
-            "processed_at": self.processed_at.isoformat() if self.processed_at else None,
+            "processed_at": (
+                self.processed_at.isoformat() if self.processed_at else None
+            ),
             "review_status": self.review_status,
             "reviewed_by": self.reviewed_by,
             "reviewed_at": self.reviewed_at.isoformat() if self.reviewed_at else None,
@@ -1993,9 +2288,17 @@ class WordPressPage(db.Model):
                 "pagespeed_data": pagespeed_data,
                 "image_seo_data": image_seo_data,
                 "seo_score_history": seo_score_history,
-                "analytics_synced_at": self.analytics_synced_at.isoformat() if self.analytics_synced_at else None,
-                "pagespeed_synced_at": self.pagespeed_synced_at.isoformat() if self.pagespeed_synced_at else None
-            }
+                "analytics_synced_at": (
+                    self.analytics_synced_at.isoformat()
+                    if self.analytics_synced_at
+                    else None
+                ),
+                "pagespeed_synced_at": (
+                    self.pagespeed_synced_at.isoformat()
+                    if self.pagespeed_synced_at
+                    else None
+                ),
+            },
         }
 
 
@@ -2003,8 +2306,10 @@ class WordPressPage(db.Model):
 # RAG Autoresearch Models
 # ---------------------------------------------------------------------------
 
+
 class ExperimentRun(db.Model):
     """Tracks individual autoresearch experiment results."""
+
     __tablename__ = "experiment_runs"
 
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -2017,21 +2322,30 @@ class ExperimentRun(db.Model):
     composite_score = db.Column(db.Float, nullable=False)
     baseline_score = db.Column(db.Float, nullable=True)
     delta = db.Column(db.Float, nullable=True)
-    status = db.Column(db.String(20), nullable=False, default="discard")  # keep, discard, crash
+    status = db.Column(
+        db.String(20), nullable=False, default="discard"
+    )  # keep, discard, crash
     eval_details = db.Column(db.JSON, nullable=True)
     duration_seconds = db.Column(db.Float, nullable=True)
-    node_id = db.Column(db.String(36), nullable=True)  # nullable for standalone instances
+    node_id = db.Column(
+        db.String(36), nullable=True
+    )  # nullable for standalone instances
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
     def to_dict(self):
         return {
-            "id": self.id, "run_tag": self.run_tag, "phase": self.phase,
+            "id": self.id,
+            "run_tag": self.run_tag,
+            "phase": self.phase,
             "parameter_changed": self.parameter_changed,
-            "old_value": self.old_value, "new_value": self.new_value,
+            "old_value": self.old_value,
+            "new_value": self.new_value,
             "hypothesis": self.hypothesis,
             "composite_score": self.composite_score,
-            "baseline_score": self.baseline_score, "delta": self.delta,
-            "status": self.status, "eval_details": self.eval_details,
+            "baseline_score": self.baseline_score,
+            "delta": self.delta,
+            "status": self.status,
+            "eval_details": self.eval_details,
             "duration_seconds": self.duration_seconds,
             "node_id": self.node_id,
             "created_at": self.created_at.isoformat() if self.created_at else None,
@@ -2040,6 +2354,7 @@ class ExperimentRun(db.Model):
 
 class EvalPair(db.Model):
     """Auto-generated Q&A pairs for RAG evaluation."""
+
     __tablename__ = "eval_pairs"
 
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -2056,8 +2371,10 @@ class EvalPair(db.Model):
 
     def to_dict(self):
         return {
-            "id": self.id, "eval_generation_id": self.eval_generation_id,
-            "question": self.question, "expected_answer": self.expected_answer,
+            "id": self.id,
+            "eval_generation_id": self.eval_generation_id,
+            "question": self.question,
+            "expected_answer": self.expected_answer,
             "source_doc_id": self.source_doc_id,
             "source_chunk_hash": self.source_chunk_hash,
             "corpus_type": self.corpus_type,
@@ -2068,6 +2385,7 @@ class EvalPair(db.Model):
 
 class ResearchConfig(db.Model):
     """Snapshot of RAG configuration with its eval score."""
+
     __tablename__ = "research_configs"
 
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -2075,12 +2393,15 @@ class ResearchConfig(db.Model):
     composite_score = db.Column(db.Float, nullable=True)
     is_active = db.Column(db.Boolean, default=False, index=True)
     promoted_at = db.Column(db.DateTime, nullable=True)
-    source = db.Column(db.String(30), nullable=True)  # local, family_broadcast, uncle_directive
+    source = db.Column(
+        db.String(30), nullable=True
+    )  # local, family_broadcast, uncle_directive
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):
         return {
-            "id": self.id, "params": self.params,
+            "id": self.id,
+            "params": self.params,
             "composite_score": self.composite_score,
             "is_active": self.is_active,
             "promoted_at": self.promoted_at.isoformat() if self.promoted_at else None,

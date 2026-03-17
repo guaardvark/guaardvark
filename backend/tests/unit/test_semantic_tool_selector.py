@@ -2,13 +2,14 @@
 Tests for SemanticToolSelector in unified_chat_engine.
 Mocks ollama.embeddings so the suite runs without a live Ollama instance.
 """
+
 import threading
 from unittest.mock import MagicMock
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_tool(name: str, description: str, params: dict | None = None):
     """Build a minimal mock tool object."""
@@ -16,10 +17,7 @@ def _make_tool(name: str, description: str, params: dict | None = None):
     tool.name = name
     tool.description = description
     params = params or {}
-    tool.parameters = {
-        k: MagicMock(type=v, required=True)
-        for k, v in params.items()
-    }
+    tool.parameters = {k: MagicMock(type=v, required=True) for k, v in params.items()}
     return tool
 
 
@@ -43,8 +41,10 @@ def _unit_vec(dim: int, idx: int) -> list:
 # The class under test — import inline so we can patch first
 # ---------------------------------------------------------------------------
 
+
 def _import_selector():
     from backend.services.unified_chat_engine import SemanticToolSelector
+
     return SemanticToolSelector
 
 
@@ -52,25 +52,28 @@ def _import_selector():
 # Tests
 # ---------------------------------------------------------------------------
 
+
 def test_select_returns_core_tools_always():
     """CORE_TOOLS are always included even if their similarity is zero."""
     SemanticToolSelector = _import_selector()
 
     tools = [
-        _make_tool("web_search",           "Search the internet",          {"query": "string"}),
-        _make_tool("search_knowledge_base", "Search local knowledge base",  {"query": "string"}),
-        _make_tool("system_command",        "Run shell commands",           {"command": "string"}),
-        _make_tool("generate_file",         "Create and write files",       {"filename": "string"}),
-        _make_tool("totally_unrelated",     "Something completely unrelated"),
+        _make_tool("web_search", "Search the internet", {"query": "string"}),
+        _make_tool(
+            "search_knowledge_base", "Search local knowledge base", {"query": "string"}
+        ),
+        _make_tool("system_command", "Run shell commands", {"command": "string"}),
+        _make_tool("generate_file", "Create and write files", {"filename": "string"}),
+        _make_tool("totally_unrelated", "Something completely unrelated"),
     ]
     registry = _make_registry(tools)
 
     embedding_map = {
-        "web_search":            _unit_vec(5, 0),
+        "web_search": _unit_vec(5, 0),
         "search_knowledge_base": _unit_vec(5, 1),
-        "system_command":        _unit_vec(5, 2),
-        "generate_file":         _unit_vec(5, 3),
-        "totally_unrelated":     _unit_vec(5, 4),
+        "system_command": _unit_vec(5, 2),
+        "generate_file": _unit_vec(5, 3),
+        "totally_unrelated": _unit_vec(5, 4),
     }
 
     def fake_embed(text: str) -> list:
@@ -78,14 +81,17 @@ def test_select_returns_core_tools_always():
 
     sel = SemanticToolSelector()
     sel._embed = fake_embed
-    sel._tool_embeddings = {
-        name: embedding_map[name] for name in embedding_map
-    }
+    sel._tool_embeddings = {name: embedding_map[name] for name in embedding_map}
     sel._initialized = True
 
     result = sel.select("any message", registry, max_tools=5)
 
-    for core in ("web_search", "search_knowledge_base", "system_command", "generate_file"):
+    for core in (
+        "web_search",
+        "search_knowledge_base",
+        "system_command",
+        "generate_file",
+    ):
         assert core in result, f"CORE tool '{core}' missing from {result}"
 
 
@@ -94,12 +100,12 @@ def test_select_ranks_by_similarity():
     SemanticToolSelector = _import_selector()
 
     tools = [
-        _make_tool("web_search",       "Search the internet"),
+        _make_tool("web_search", "Search the internet"),
         _make_tool("search_knowledge_base", "Search local knowledge base"),
-        _make_tool("system_command",   "Run shell commands"),
-        _make_tool("generate_file",    "Create files"),
+        _make_tool("system_command", "Run shell commands"),
+        _make_tool("generate_file", "Create files"),
         _make_tool("browser_navigate", "Open a web page in a browser"),
-        _make_tool("codegen",          "Generate source code"),
+        _make_tool("codegen", "Generate source code"),
     ]
     registry = _make_registry(tools)
 
@@ -111,23 +117,25 @@ def test_select_ranks_by_similarity():
     sel = SemanticToolSelector()
     sel._embed = fake_embed
     sel._tool_embeddings = {
-        "web_search":            _unit_vec(6, 0),
+        "web_search": _unit_vec(6, 0),
         "search_knowledge_base": _unit_vec(6, 1),
-        "system_command":        _unit_vec(6, 2),
-        "generate_file":         _unit_vec(6, 3),
-        "browser_navigate":      _unit_vec(6, 4),
-        "codegen":               _unit_vec(6, 5),
+        "system_command": _unit_vec(6, 2),
+        "generate_file": _unit_vec(6, 3),
+        "browser_navigate": _unit_vec(6, 4),
+        "codegen": _unit_vec(6, 5),
     }
     sel._initialized = True
 
-    result = sel.select("open a web page and navigate to google.com", registry, max_tools=6)
+    result = sel.select(
+        "open a web page and navigate to google.com", registry, max_tools=6
+    )
     assert "browser_navigate" in result, f"Expected browser_navigate in {result}"
     # Verify browser_navigate ranks first among non-core tools
     core = {"web_search", "search_knowledge_base", "system_command", "generate_file"}
     non_core = [t for t in result if t not in core]
-    assert non_core and non_core[0] == "browser_navigate", (
-        f"Expected browser_navigate ranked first among non-core tools, got {non_core}"
-    )
+    assert (
+        non_core and non_core[0] == "browser_navigate"
+    ), f"Expected browser_navigate ranked first among non-core tools, got {non_core}"
 
 
 def test_select_respects_max_tools():
@@ -155,10 +163,10 @@ def test_select_fallback_on_embed_failure():
     from backend.services.unified_chat_engine import select_tools_for_context
 
     tools = [
-        _make_tool("web_search",       "Search the internet"),
+        _make_tool("web_search", "Search the internet"),
         _make_tool("search_knowledge_base", "Search local knowledge base"),
-        _make_tool("system_command",   "Run shell commands"),
-        _make_tool("generate_file",    "Create files"),
+        _make_tool("system_command", "Run shell commands"),
+        _make_tool("generate_file", "Create files"),
     ]
     registry = _make_registry(tools)
     tool_names = [t.name for t in tools]

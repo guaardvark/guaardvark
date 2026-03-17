@@ -9,10 +9,12 @@ from flask import Blueprint, current_app, jsonify, request
 
 logger = logging.getLogger(__name__)
 
+
 def get_project_root() -> Path:
     """Get the project root directory."""
     try:
         from backend.config import GUAARDVARK_ROOT
+
         return Path(GUAARDVARK_ROOT)
     except ImportError:
         backend_dir = Path(__file__).resolve().parent.parent
@@ -102,9 +104,7 @@ def find_pycache_directories(root: Path) -> List[Path]:
 
 def purge_backend_modules() -> List[str]:
     """Purge backend modules from sys.modules."""
-    modules_to_purge = [
-        m for m in list(sys.modules.keys()) if m.startswith("backend.")
-    ]
+    modules_to_purge = [m for m in list(sys.modules.keys()) if m.startswith("backend.")]
     purged = []
     for mod_name in modules_to_purge:
         try:
@@ -226,6 +226,7 @@ def clear_pycache_endpoint() -> Tuple[Dict, int]:
 
     except Exception as e:
         import traceback
+
         error_traceback = traceback.format_exc()
         logger.error(f"Error in clear_pycache_endpoint: {e}\n{error_traceback}")
         return (

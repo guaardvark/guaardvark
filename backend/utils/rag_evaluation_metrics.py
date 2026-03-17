@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RetrievalMetrics:
     """Metrics for retrieval performance"""
+
     precision: float = 0.0
     recall: float = 0.0
     f1_score: float = 0.0
@@ -34,6 +35,7 @@ class RetrievalMetrics:
 @dataclass
 class AnswerRelevanceMetrics:
     """Metrics for answer quality"""
+
     relevance_score: float = 0.0
     coherence_score: float = 0.0
     completeness_score: float = 0.0
@@ -44,6 +46,7 @@ class AnswerRelevanceMetrics:
 @dataclass
 class UserFeedback:
     """User feedback on a retrieval/answer"""
+
     feedback_id: str
     query: str
     result_id: str
@@ -59,6 +62,7 @@ class UserFeedback:
 @dataclass
 class ABTestResult:
     """Result from A/B test comparison"""
+
     test_id: str
     variant_a: str
     variant_b: str
@@ -84,7 +88,7 @@ class RetrievalEvaluator:
         relevant_docs: List[Any],
         retrieved_ids: Optional[List[str]] = None,
         relevant_ids: Optional[List[str]] = None,
-        k: int = 10
+        k: int = 10,
     ) -> RetrievalMetrics:
         """
         Evaluate retrieval performance
@@ -122,8 +126,11 @@ class RetrievalEvaluator:
 
                 # F1 Score
                 if metrics.precision + metrics.recall > 0:
-                    metrics.f1_score = 2 * (metrics.precision * metrics.recall) / \
-                                      (metrics.precision + metrics.recall)
+                    metrics.f1_score = (
+                        2
+                        * (metrics.precision * metrics.recall)
+                        / (metrics.precision + metrics.recall)
+                    )
 
         # Mean Reciprocal Rank (MRR)
         metrics.mrr = self._calculate_mrr(retrieved_ids, relevant_set)
@@ -135,24 +142,28 @@ class RetrievalEvaluator:
         metrics.map_score = self._calculate_map(retrieved_ids, relevant_set, k)
 
         # Store in history
-        self.evaluation_history.append({
-            'timestamp': datetime.now().isoformat(),
-            'metrics': asdict(metrics),
-            'k': k
-        })
+        self.evaluation_history.append(
+            {
+                "timestamp": datetime.now().isoformat(),
+                "metrics": asdict(metrics),
+                "k": k,
+            }
+        )
 
-        logger.info(f"Retrieval evaluation: P={metrics.precision:.3f}, "
-                   f"R={metrics.recall:.3f}, F1={metrics.f1_score:.3f}")
+        logger.info(
+            f"Retrieval evaluation: P={metrics.precision:.3f}, "
+            f"R={metrics.recall:.3f}, F1={metrics.f1_score:.3f}"
+        )
 
         return metrics
 
     def _extract_id(self, doc: Any) -> str:
         """Extract ID from document"""
         if isinstance(doc, dict):
-            return doc.get('id') or doc.get('doc_id') or str(doc)
-        elif hasattr(doc, 'id_'):
+            return doc.get("id") or doc.get("doc_id") or str(doc)
+        elif hasattr(doc, "id_"):
             return doc.id_
-        elif hasattr(doc, 'node_id'):
+        elif hasattr(doc, "node_id"):
             return doc.node_id
         else:
             return str(doc)
@@ -164,7 +175,9 @@ class RetrievalEvaluator:
                 return 1.0 / i
         return 0.0
 
-    def _calculate_ndcg(self, retrieved_ids: List[str], relevant_set: Set[str], k: int) -> float:
+    def _calculate_ndcg(
+        self, retrieved_ids: List[str], relevant_set: Set[str], k: int
+    ) -> float:
         """Calculate Normalized Discounted Cumulative Gain"""
         # DCG
         dcg = 0.0
@@ -179,7 +192,9 @@ class RetrievalEvaluator:
 
         return dcg / idcg if idcg > 0 else 0.0
 
-    def _calculate_map(self, retrieved_ids: List[str], relevant_set: Set[str], k: int) -> float:
+    def _calculate_map(
+        self, retrieved_ids: List[str], relevant_set: Set[str], k: int
+    ) -> float:
         """Calculate Mean Average Precision"""
         if not relevant_set:
             return 0.0
@@ -200,15 +215,15 @@ class RetrievalEvaluator:
         if not self.evaluation_history:
             return {}
 
-        metrics_list = [entry['metrics'] for entry in self.evaluation_history]
+        metrics_list = [entry["metrics"] for entry in self.evaluation_history]
 
         aggregate = {}
         for key in metrics_list[0].keys():
             values = [m[key] for m in metrics_list]
-            aggregate[f'avg_{key}'] = np.mean(values)
-            aggregate[f'std_{key}'] = np.std(values)
-            aggregate[f'min_{key}'] = np.min(values)
-            aggregate[f'max_{key}'] = np.max(values)
+            aggregate[f"avg_{key}"] = np.mean(values)
+            aggregate[f"std_{key}"] = np.std(values)
+            aggregate[f"min_{key}"] = np.min(values)
+            aggregate[f"max_{key}"] = np.max(values)
 
         return aggregate
 
@@ -225,7 +240,7 @@ class AnswerRelevanceEvaluator:
         query: str,
         answer: str,
         retrieved_context: List[str],
-        ground_truth: Optional[str] = None
+        ground_truth: Optional[str] = None,
     ) -> AnswerRelevanceMetrics:
         """
         Evaluate answer quality
@@ -261,14 +276,18 @@ class AnswerRelevanceEvaluator:
         )
 
         # Store in history
-        self.evaluation_history.append({
-            'timestamp': datetime.now().isoformat(),
-            'query': query,
-            'metrics': asdict(metrics)
-        })
+        self.evaluation_history.append(
+            {
+                "timestamp": datetime.now().isoformat(),
+                "query": query,
+                "metrics": asdict(metrics),
+            }
+        )
 
-        logger.info(f"Answer evaluation: Relevance={metrics.relevance_score:.3f}, "
-                   f"Coherence={metrics.coherence_score:.3f}")
+        logger.info(
+            f"Answer evaluation: Relevance={metrics.relevance_score:.3f}, "
+            f"Coherence={metrics.coherence_score:.3f}"
+        )
 
         return metrics
 
@@ -279,7 +298,19 @@ class AnswerRelevanceEvaluator:
         answer_words = set(answer.lower().split())
 
         # Remove common stop words
-        stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for'}
+        stop_words = {
+            "the",
+            "a",
+            "an",
+            "and",
+            "or",
+            "but",
+            "in",
+            "on",
+            "at",
+            "to",
+            "for",
+        }
         query_words -= stop_words
         answer_words -= stop_words
 
@@ -302,7 +333,7 @@ class AnswerRelevanceEvaluator:
             score += 0.2
 
         # Check for complete sentences
-        sentences = answer.split('.')
+        sentences = answer.split(".")
         if len(sentences) >= 2:
             score += 0.1
 
@@ -311,7 +342,7 @@ class AnswerRelevanceEvaluator:
             score += 0.1
 
         # Check for conclusion words
-        conclusion_words = ['therefore', 'thus', 'in conclusion', 'finally', 'overall']
+        conclusion_words = ["therefore", "thus", "in conclusion", "finally", "overall"]
         if any(word in answer.lower() for word in conclusion_words):
             score += 0.1
 
@@ -323,18 +354,22 @@ class AnswerRelevanceEvaluator:
         score = 0.5
 
         # Extract question words
-        question_words = {'what', 'where', 'when', 'who', 'why', 'how', 'which'}
+        question_words = {"what", "where", "when", "who", "why", "how", "which"}
         query_lower = query.lower()
 
         # Check if question type is addressed
         for qword in question_words:
             if qword in query_lower:
                 # Check if answer provides appropriate response
-                if qword == 'why' and ('because' in answer.lower() or 'reason' in answer.lower()):
+                if qword == "why" and (
+                    "because" in answer.lower() or "reason" in answer.lower()
+                ):
                     score += 0.2
-                elif qword == 'how' and ('by' in answer.lower() or 'through' in answer.lower()):
+                elif qword == "how" and (
+                    "by" in answer.lower() or "through" in answer.lower()
+                ):
                     score += 0.2
-                elif qword in ['what', 'which', 'who'] and len(answer) > 20:
+                elif qword in ["what", "which", "who"] and len(answer) > 20:
                     score += 0.2
 
         # Check answer length proportional to query complexity
@@ -352,7 +387,7 @@ class AnswerRelevanceEvaluator:
         answer_words = set(answer.lower().split())
 
         # Check overlap with context
-        context_text = ' '.join(context).lower()
+        context_text = " ".join(context).lower()
         context_words = set(context_text.split())
 
         # Calculate overlap
@@ -365,15 +400,16 @@ class AnswerRelevanceEvaluator:
         """Evaluate quality of citations"""
         # Check for citation patterns
         citation_patterns = [
-            r'\[\d+\]',  # [1], [2], etc.
-            r'\(\d+\)',  # (1), (2), etc.
-            r'according to',
-            r'based on',
-            r'as stated in',
+            r"\[\d+\]",  # [1], [2], etc.
+            r"\(\d+\)",  # (1), (2), etc.
+            r"according to",
+            r"based on",
+            r"as stated in",
         ]
 
         score = 0.0
         import re
+
         for pattern in citation_patterns:
             if re.search(pattern, answer.lower()):
                 score += 0.2
@@ -396,6 +432,7 @@ class UserFeedbackIntegration:
             self.storage_path.mkdir(parents=True, exist_ok=True)
         else:
             from backend.config import STORAGE_DIR
+
             self.storage_path = Path(STORAGE_DIR) / "feedback"
             self.storage_path.mkdir(parents=True, exist_ok=True)
 
@@ -407,7 +444,7 @@ class UserFeedbackIntegration:
         feedback_file = self.storage_path / "user_feedback.json"
         if feedback_file.exists():
             try:
-                with open(feedback_file, 'r') as f:
+                with open(feedback_file, "r") as f:
                     data = json.load(f)
                     self.feedback_db = data
                 logger.info(f"Loaded {len(self.feedback_db)} feedback entries")
@@ -418,7 +455,7 @@ class UserFeedbackIntegration:
         """Save feedback to storage"""
         feedback_file = self.storage_path / "user_feedback.json"
         try:
-            with open(feedback_file, 'w') as f:
+            with open(feedback_file, "w") as f:
                 json.dump(self.feedback_db, f, indent=2, default=str)
             logger.debug("Saved feedback to storage")
         except Exception as e:
@@ -432,38 +469,39 @@ class UserFeedbackIntegration:
             feedback: UserFeedback object
         """
         feedback_dict = asdict(feedback)
-        feedback_dict['timestamp'] = feedback.timestamp.isoformat()
+        feedback_dict["timestamp"] = feedback.timestamp.isoformat()
         self.feedback_db.append(feedback_dict)
         self._save_feedback()
 
-        logger.info(f"Added feedback: {feedback.feedback_id} - Rating: {feedback.rating}")
+        logger.info(
+            f"Added feedback: {feedback.feedback_id} - Rating: {feedback.rating}"
+        )
 
     def get_feedback_for_query(self, query: str) -> List[UserFeedback]:
         """Get all feedback for a specific query"""
         results = []
         for fb in self.feedback_db:
-            if fb['query'] == query:
+            if fb["query"] == query:
                 results.append(UserFeedback(**fb))
         return results
 
     def get_average_rating(self, query: Optional[str] = None) -> float:
         """Get average rating (optionally for specific query)"""
         if query:
-            feedbacks = [fb for fb in self.feedback_db if fb['query'] == query]
+            feedbacks = [fb for fb in self.feedback_db if fb["query"] == query]
         else:
             feedbacks = self.feedback_db
 
         if not feedbacks:
             return 0.0
 
-        ratings = [fb['rating'] for fb in feedbacks]
+        ratings = [fb["rating"] for fb in feedbacks]
         return np.mean(ratings)
 
     def get_relevance_rate(self) -> float:
         """Get percentage of results marked as relevant"""
         relevant_count = sum(
-            1 for fb in self.feedback_db
-            if fb.get('is_relevant') is True
+            1 for fb in self.feedback_db if fb.get("is_relevant") is True
         )
         total = len(self.feedback_db)
         return relevant_count / total if total > 0 else 0.0
@@ -474,18 +512,22 @@ class UserFeedbackIntegration:
             return {}
 
         return {
-            'total_feedback': len(self.feedback_db),
-            'average_rating': self.get_average_rating(),
-            'relevance_rate': self.get_relevance_rate(),
-            'rating_distribution': self._get_rating_distribution(),
-            'latest_feedback': self.feedback_db[-5:] if len(self.feedback_db) >= 5 else self.feedback_db
+            "total_feedback": len(self.feedback_db),
+            "average_rating": self.get_average_rating(),
+            "relevance_rate": self.get_relevance_rate(),
+            "rating_distribution": self._get_rating_distribution(),
+            "latest_feedback": (
+                self.feedback_db[-5:]
+                if len(self.feedback_db) >= 5
+                else self.feedback_db
+            ),
         }
 
     def _get_rating_distribution(self) -> Dict[int, int]:
         """Get distribution of ratings"""
         distribution = defaultdict(int)
         for fb in self.feedback_db:
-            distribution[fb['rating']] += 1
+            distribution[fb["rating"]] += 1
         return dict(distribution)
 
 
@@ -503,6 +545,7 @@ class ABTestingFramework:
             self.storage_path = Path(storage_path)
         else:
             from backend.config import STORAGE_DIR
+
             self.storage_path = Path(STORAGE_DIR) / "ab_tests"
 
         self.storage_path.mkdir(parents=True, exist_ok=True)
@@ -510,11 +553,7 @@ class ABTestingFramework:
         self.completed_tests = []
 
     def create_test(
-        self,
-        test_id: str,
-        variant_a: str,
-        variant_b: str,
-        description: str = ""
+        self, test_id: str, variant_a: str, variant_b: str, description: str = ""
     ) -> None:
         """
         Create a new A/B test
@@ -526,24 +565,20 @@ class ABTestingFramework:
             description: Test description
         """
         self.active_tests[test_id] = {
-            'test_id': test_id,
-            'variant_a': variant_a,
-            'variant_b': variant_b,
-            'description': description,
-            'results_a': [],
-            'results_b': [],
-            'queries_tested': 0,
-            'created_at': datetime.now().isoformat()
+            "test_id": test_id,
+            "variant_a": variant_a,
+            "variant_b": variant_b,
+            "description": description,
+            "results_a": [],
+            "results_b": [],
+            "queries_tested": 0,
+            "created_at": datetime.now().isoformat(),
         }
 
         logger.info(f"Created A/B test: {test_id} ({variant_a} vs {variant_b})")
 
     def record_result(
-        self,
-        test_id: str,
-        variant: str,
-        query: str,
-        metrics: Dict[str, float]
+        self, test_id: str, variant: str, query: str, metrics: Dict[str, float]
     ) -> None:
         """
         Record result for a variant
@@ -561,20 +596,20 @@ class ABTestingFramework:
         test = self.active_tests[test_id]
 
         result = {
-            'query': query,
-            'metrics': metrics,
-            'timestamp': datetime.now().isoformat()
+            "query": query,
+            "metrics": metrics,
+            "timestamp": datetime.now().isoformat(),
         }
 
-        if variant == test['variant_a']:
-            test['results_a'].append(result)
-        elif variant == test['variant_b']:
-            test['results_b'].append(result)
+        if variant == test["variant_a"]:
+            test["results_a"].append(result)
+        elif variant == test["variant_b"]:
+            test["results_b"].append(result)
         else:
             logger.warning(f"Unknown variant: {variant}")
             return
 
-        test['queries_tested'] += 1
+        test["queries_tested"] += 1
 
     def analyze_test(self, test_id: str) -> ABTestResult:
         """
@@ -592,37 +627,41 @@ class ABTestingFramework:
         test = self.active_tests[test_id]
 
         # Calculate aggregate metrics
-        metrics_a = self._aggregate_metrics(test['results_a'])
-        metrics_b = self._aggregate_metrics(test['results_b'])
+        metrics_a = self._aggregate_metrics(test["results_a"])
+        metrics_b = self._aggregate_metrics(test["results_b"])
 
         # Compare variants
         wins_a, wins_b, ties = self._compare_variants(metrics_a, metrics_b)
 
         # Statistical significance (simplified)
         total_comparisons = wins_a + wins_b + ties
-        significance = abs(wins_a - wins_b) / total_comparisons if total_comparisons > 0 else 0.0
+        significance = (
+            abs(wins_a - wins_b) / total_comparisons if total_comparisons > 0 else 0.0
+        )
 
         # Determine preferred variant
         preferred = None
         if significance > 0.1:  # 10% threshold
-            preferred = test['variant_a'] if wins_a > wins_b else test['variant_b']
+            preferred = test["variant_a"] if wins_a > wins_b else test["variant_b"]
 
         result = ABTestResult(
             test_id=test_id,
-            variant_a=test['variant_a'],
-            variant_b=test['variant_b'],
-            queries_tested=test['queries_tested'],
+            variant_a=test["variant_a"],
+            variant_b=test["variant_b"],
+            queries_tested=test["queries_tested"],
             variant_a_wins=wins_a,
             variant_b_wins=wins_b,
             ties=ties,
             statistical_significance=significance,
             preferred_variant=preferred,
             metrics_a=metrics_a,
-            metrics_b=metrics_b
+            metrics_b=metrics_b,
         )
 
-        logger.info(f"A/B test analysis: {preferred or 'No clear winner'} "
-                   f"(sig={significance:.3f})")
+        logger.info(
+            f"A/B test analysis: {preferred or 'No clear winner'} "
+            f"(sig={significance:.3f})"
+        )
 
         return result
 
@@ -633,18 +672,13 @@ class ABTestingFramework:
 
         aggregated = defaultdict(list)
         for result in results:
-            for key, value in result['metrics'].items():
+            for key, value in result["metrics"].items():
                 aggregated[key].append(value)
 
-        return {
-            key: np.mean(values)
-            for key, values in aggregated.items()
-        }
+        return {key: np.mean(values) for key, values in aggregated.items()}
 
     def _compare_variants(
-        self,
-        metrics_a: Dict[str, float],
-        metrics_b: Dict[str, float]
+        self, metrics_a: Dict[str, float], metrics_b: Dict[str, float]
     ) -> Tuple[int, int, int]:
         """Compare metrics between variants"""
         wins_a = 0
@@ -677,15 +711,17 @@ class ABTestingFramework:
         result = self.analyze_test(test_id)
 
         # Archive test
-        self.completed_tests.append({
-            'test': test,
-            'result': asdict(result),
-            'completed_at': datetime.now().isoformat()
-        })
+        self.completed_tests.append(
+            {
+                "test": test,
+                "result": asdict(result),
+                "completed_at": datetime.now().isoformat(),
+            }
+        )
 
         # Save to file
         test_file = self.storage_path / f"{test_id}_results.json"
-        with open(test_file, 'w') as f:
+        with open(test_file, "w") as f:
             json.dump(self.completed_tests[-1], f, indent=2, default=str)
 
         # Remove from active tests

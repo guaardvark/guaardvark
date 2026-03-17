@@ -1,4 +1,3 @@
-
 import logging
 import os
 import uuid
@@ -11,11 +10,14 @@ from typing import Dict, List, Optional, Tuple
 logger = logging.getLogger(__name__)
 
 if "PYTORCH_CUDA_ALLOC_CONF" not in os.environ:
-    os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:False,max_split_size_mb:512"
+    os.environ["PYTORCH_CUDA_ALLOC_CONF"] = (
+        "expandable_segments:False,max_split_size_mb:512"
+    )
     logger.info("Set PYTORCH_CUDA_ALLOC_CONF to prevent CUDA memory allocation errors")
 
 try:
     import imageio
+
     imageio_available = True
 except Exception as e:
     logger.warning(f"imageio not available: {e}")
@@ -23,6 +25,7 @@ except Exception as e:
 
 try:
     from PIL import Image, ImageDraw, ImageFont
+
     pillow_available = True
 except Exception as e:
     logger.warning(f"Pillow not available: {e}")
@@ -30,6 +33,7 @@ except Exception as e:
 
 try:
     import torch
+
     torch_available = True
 except Exception as e:
     logger.warning(f"PyTorch not available: {e}")
@@ -37,6 +41,7 @@ except Exception as e:
 
 try:
     from diffusers import StableVideoDiffusionPipeline, DiffusionPipeline
+
     diffusers_available = True
     svd_available = True
 except Exception as e:
@@ -48,6 +53,7 @@ except Exception as e:
 
 try:
     from diffusers import CogVideoXPipeline, CogVideoXImageToVideoPipeline
+
     cogvideox_available = True
 except Exception as e:
     logger.warning(f"CogVideoX not available: {e}")
@@ -58,6 +64,7 @@ except Exception as e:
 
 try:
     from backend.config import CACHE_DIR
+
     config_available = True
 except ImportError:
     config_available = False
@@ -65,6 +72,7 @@ except ImportError:
 
 try:
     from backend.services.gpu_resource_coordinator import get_gpu_coordinator
+
     gpu_coordinator_available = True
 except ImportError:
     gpu_coordinator_available = False
@@ -75,6 +83,7 @@ try:
         get_image_generator,
         ImageGenerationRequest,
     )
+
     image_generator_available = True
 except ImportError as e:
     logger.warning(f"Image generator not available for text-to-video: {e}")
@@ -93,23 +102,28 @@ def force_clear_gpu_memory() -> dict:
     try:
         before_allocated = torch.cuda.memory_allocated() / (1024**3)
         before_reserved = torch.cuda.memory_reserved() / (1024**3)
-        result["before"] = {"allocated_gb": before_allocated, "reserved_gb": before_reserved}
+        result["before"] = {
+            "allocated_gb": before_allocated,
+            "reserved_gb": before_reserved,
+        }
 
-        logger.info(f"GPU memory before cleanup: {before_allocated:.2f} GB allocated, {before_reserved:.2f} GB reserved")
+        logger.info(
+            f"GPU memory before cleanup: {before_allocated:.2f} GB allocated, {before_reserved:.2f} GB reserved"
+        )
 
         if image_generator_available and get_image_generator is not None:
             try:
                 img_gen = get_image_generator()
-                if hasattr(img_gen, '_pipeline') and img_gen._pipeline is not None:
+                if hasattr(img_gen, "_pipeline") and img_gen._pipeline is not None:
                     logger.info("Force unloading image generator pipeline...")
                     try:
-                        if hasattr(img_gen._pipeline, 'to'):
-                            img_gen._pipeline.to('cpu')
+                        if hasattr(img_gen._pipeline, "to"):
+                            img_gen._pipeline.to("cpu")
                     except Exception:
                         pass
                     del img_gen._pipeline
                     img_gen._pipeline = None
-                    if hasattr(img_gen, '_current_model'):
+                    if hasattr(img_gen, "_current_model"):
                         img_gen._current_model = None
             except Exception as e:
                 logger.warning(f"Error unloading image generator: {e}")
@@ -121,10 +135,10 @@ def force_clear_gpu_memory() -> dict:
         torch.cuda.synchronize()
 
         torch.cuda.reset_peak_memory_stats()
-        if hasattr(torch.cuda, 'reset_accumulated_memory_stats'):
+        if hasattr(torch.cuda, "reset_accumulated_memory_stats"):
             torch.cuda.reset_accumulated_memory_stats()
 
-        if hasattr(torch.cuda, 'ipc_collect'):
+        if hasattr(torch.cuda, "ipc_collect"):
             torch.cuda.ipc_collect()
 
         torch.cuda.empty_cache()
@@ -135,11 +149,16 @@ def force_clear_gpu_memory() -> dict:
 
         after_allocated = torch.cuda.memory_allocated() / (1024**3)
         after_reserved = torch.cuda.memory_reserved() / (1024**3)
-        result["after"] = {"allocated_gb": after_allocated, "reserved_gb": after_reserved}
+        result["after"] = {
+            "allocated_gb": after_allocated,
+            "reserved_gb": after_reserved,
+        }
         result["freed_gb"] = before_reserved - after_reserved
         result["success"] = True
 
-        logger.info(f"GPU memory after cleanup: {after_allocated:.2f} GB allocated, {after_reserved:.2f} GB reserved")
+        logger.info(
+            f"GPU memory after cleanup: {after_allocated:.2f} GB allocated, {after_reserved:.2f} GB reserved"
+        )
         logger.info(f"Freed approximately {result['freed_gb']:.2f} GB of GPU memory")
 
         return result
@@ -235,22 +254,32 @@ class OfflineVideoGenerator:
                 self.device = "cuda"
                 self.dtype = torch.float16
                 try:
-                    self.gpu_vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+                    self.gpu_vram_gb = torch.cuda.get_device_properties(
+                        0
+                    ).total_memory / (1024**3)
                 except Exception:
                     self.gpu_vram_gb = 8
-                logger.info(f"Video generator using CUDA with float16 (VRAM: {self.gpu_vram_gb:.1f}GB)")
+                logger.info(
+                    f"Video generator using CUDA with float16 (VRAM: {self.gpu_vram_gb:.1f}GB)"
+                )
             else:
                 self.device = "cpu"
                 self.dtype = torch.float32
                 logger.info("Video generator using CPU with float32")
 
-        self.service_available = diffusers_available or pillow_available or imageio_available
-        self.svd_available = svd_available and torch_available and image_generator_available
+        self.service_available = (
+            diffusers_available or pillow_available or imageio_available
+        )
+        self.svd_available = (
+            svd_available and torch_available and image_generator_available
+        )
         self.cogvideox_available = cogvideox_available and torch_available
         self.ai_available = self.svd_available or self.cogvideox_available
 
         if not self.service_available:
-            logger.error("Video generation service unavailable - missing required dependencies")
+            logger.error(
+                "Video generation service unavailable - missing required dependencies"
+            )
         else:
             models_str = []
             if self.svd_available:
@@ -258,11 +287,17 @@ class OfflineVideoGenerator:
             if self.cogvideox_available:
                 models_str.append("CogVideoX")
             if models_str:
-                logger.info(f"Video generation service available with AI support: {', '.join(models_str)}")
+                logger.info(
+                    f"Video generation service available with AI support: {', '.join(models_str)}"
+                )
             else:
-                logger.info("Video generation service available (placeholder mode only)")
+                logger.info(
+                    "Video generation service available (placeholder mode only)"
+                )
 
-    def _make_output_dirs(self, batch_dir: Path, item_id: str) -> Tuple[Path, Path, Path]:
+    def _make_output_dirs(
+        self, batch_dir: Path, item_id: str
+    ) -> Tuple[Path, Path, Path]:
         item_dir = batch_dir / item_id
         videos_dir = item_dir / "videos"
         frames_dir = item_dir / "frames"
@@ -291,7 +326,9 @@ class OfflineVideoGenerator:
         gc.collect()
         if torch_available and torch.cuda.is_available():
             torch.cuda.empty_cache()
-            logger.info(f"GPU memory before loading SVD: {torch.cuda.memory_allocated() / 1024**3:.2f} GB")
+            logger.info(
+                f"GPU memory before loading SVD: {torch.cuda.memory_allocated() / 1024**3:.2f} GB"
+            )
 
         logger.info(f"Loading SVD model: {model_id}")
 
@@ -308,12 +345,16 @@ class OfflineVideoGenerator:
                     self._svd_pipeline.enable_sequential_cpu_offload()
                     logger.info("Enabled sequential CPU offload for memory efficiency")
                 except Exception as e:
-                    logger.warning(f"Sequential CPU offload failed, trying model offload: {e}")
+                    logger.warning(
+                        f"Sequential CPU offload failed, trying model offload: {e}"
+                    )
                     try:
                         self._svd_pipeline.enable_model_cpu_offload()
                         logger.info("Enabled model CPU offload")
                     except Exception as e2:
-                        logger.warning(f"Model CPU offload also failed, using direct GPU: {e2}")
+                        logger.warning(
+                            f"Model CPU offload also failed, using direct GPU: {e2}"
+                        )
                         self._svd_pipeline.to(self.device)
 
                 if hasattr(self._svd_pipeline, "enable_vae_slicing"):
@@ -334,18 +375,18 @@ class OfflineVideoGenerator:
         if image_generator_available:
             try:
                 img_gen = get_image_generator()
-                if hasattr(img_gen, '_pipeline') and img_gen._pipeline is not None:
+                if hasattr(img_gen, "_pipeline") and img_gen._pipeline is not None:
                     logger.info("Unloading image generator pipeline to free GPU memory")
                     try:
-                        if hasattr(img_gen._pipeline, 'to'):
-                            img_gen._pipeline.to('cpu')
+                        if hasattr(img_gen._pipeline, "to"):
+                            img_gen._pipeline.to("cpu")
                     except Exception:
                         pass
                     del img_gen._pipeline
                     img_gen._pipeline = None
-                    if hasattr(img_gen, '_current_model'):
+                    if hasattr(img_gen, "_current_model"):
                         img_gen._current_model = None
-                    if hasattr(img_gen, '_loaded_model'):
+                    if hasattr(img_gen, "_loaded_model"):
                         img_gen._loaded_model = None
                     gc.collect()
                     if torch_available and torch.cuda.is_available():
@@ -410,7 +451,9 @@ class OfflineVideoGenerator:
 
     def _load_cogvideox_pipeline(self, model_key: str = "cogvideox-2b"):
         if not cogvideox_available:
-            raise RuntimeError("CogVideoX not available - diffusers version may be too old")
+            raise RuntimeError(
+                "CogVideoX not available - diffusers version may be too old"
+            )
 
         model_config = self.COGVIDEOX_MODELS.get(model_key)
         if not model_config:
@@ -427,7 +470,9 @@ class OfflineVideoGenerator:
         gc.collect()
         if torch_available and torch.cuda.is_available():
             torch.cuda.empty_cache()
-            logger.info(f"GPU memory before loading CogVideoX: {torch.cuda.memory_allocated() / 1024**3:.2f} GB")
+            logger.info(
+                f"GPU memory before loading CogVideoX: {torch.cuda.memory_allocated() / 1024**3:.2f} GB"
+            )
 
         logger.info(f"Loading CogVideoX model: {model_id} (type: {model_type})")
 
@@ -459,7 +504,9 @@ class OfflineVideoGenerator:
                         self._cogvideox_pipeline.enable_sequential_cpu_offload()
                         logger.info("Enabled sequential CPU offload for CogVideoX")
                     except Exception as e2:
-                        logger.warning(f"Sequential CPU offload also failed, using direct GPU: {e2}")
+                        logger.warning(
+                            f"Sequential CPU offload also failed, using direct GPU: {e2}"
+                        )
                         self._cogvideox_pipeline.to(self.device)
 
                 if hasattr(self._cogvideox_pipeline, "vae"):
@@ -472,18 +519,25 @@ class OfflineVideoGenerator:
                     self._cogvideox_pipeline.enable_vae_slicing()
                 if hasattr(self._cogvideox_pipeline, "enable_vae_tiling"):
                     self._cogvideox_pipeline.enable_vae_tiling()
-                
+
                 if hasattr(self._cogvideox_pipeline, "enable_attention_slicing"):
                     try:
-                        self._cogvideox_pipeline.enable_attention_slicing(slice_size="max")
+                        self._cogvideox_pipeline.enable_attention_slicing(
+                            slice_size="max"
+                        )
                         logger.info("Enabled attention slicing for CogVideoX")
                     except Exception as e:
                         logger.warning(f"Attention slicing not available: {e}")
-                
+
                 try:
-                    if hasattr(self._cogvideox_pipeline, "enable_xformers_memory_efficient_attention"):
+                    if hasattr(
+                        self._cogvideox_pipeline,
+                        "enable_xformers_memory_efficient_attention",
+                    ):
                         self._cogvideox_pipeline.enable_xformers_memory_efficient_attention()
-                        logger.info("Enabled xformers memory efficient attention for CogVideoX")
+                        logger.info(
+                            "Enabled xformers memory efficient attention for CogVideoX"
+                        )
                 except Exception as e:
                     logger.debug(f"xformers not available: {e}")
             else:
@@ -539,14 +593,20 @@ class OfflineVideoGenerator:
         frame_paths: List[str] = []
 
         try:
-            logger.info("Aggressively freeing GPU memory before CogVideoX generation...")
+            logger.info(
+                "Aggressively freeing GPU memory before CogVideoX generation..."
+            )
             self._unload_all_pipelines()
 
             cleanup_result = force_clear_gpu_memory()
             if cleanup_result.get("success"):
-                logger.info(f"GPU cleanup freed {cleanup_result.get('freed_gb', 0):.2f} GB")
+                logger.info(
+                    f"GPU cleanup freed {cleanup_result.get('freed_gb', 0):.2f} GB"
+                )
             else:
-                logger.warning(f"GPU cleanup may have failed: {cleanup_result.get('error', 'unknown')}")
+                logger.warning(
+                    f"GPU cleanup may have failed: {cleanup_result.get('error', 'unknown')}"
+                )
 
             max_frames = model_config["max_frames"]
             actual_num_frames = min(num_frames, max_frames)
@@ -561,17 +621,25 @@ class OfflineVideoGenerator:
                     reserved = allocated
                 free_mem = total_mem - reserved
 
-                logger.info(f"GPU memory after aggressive cleanup: {allocated / 1024**3:.2f} GB allocated, {reserved / 1024**3:.2f} GB reserved, {free_mem / 1024**3:.2f} GB free")
+                logger.info(
+                    f"GPU memory after aggressive cleanup: {allocated / 1024**3:.2f} GB allocated, {reserved / 1024**3:.2f} GB reserved, {free_mem / 1024**3:.2f} GB free"
+                )
 
                 if free_mem / 1024**3 < vram_required * 0.8:
-                    logger.warning(f"Low GPU memory after cleanup: {free_mem / 1024**3:.2f} GB free, {vram_required} GB required")
-                    logger.warning("Something may be holding GPU memory. Consider restarting the backend.")
+                    logger.warning(
+                        f"Low GPU memory after cleanup: {free_mem / 1024**3:.2f} GB free, {vram_required} GB required"
+                    )
+                    logger.warning(
+                        "Something may be holding GPU memory. Consider restarting the backend."
+                    )
                     if actual_num_frames > 24:
-                        logger.info(f"Reducing frames from {actual_num_frames} to 24 due to low memory")
+                        logger.info(
+                            f"Reducing frames from {actual_num_frames} to 24 due to low memory"
+                        )
                         actual_num_frames = 24
 
             pipeline = self._load_cogvideox_pipeline(model_key)
-            
+
             if torch_available and torch.cuda.is_available():
                 torch.cuda.empty_cache()
                 torch.cuda.synchronize()
@@ -586,7 +654,9 @@ class OfflineVideoGenerator:
 
             target_width, target_height = model_config["resolution"]
 
-            logger.info(f"Generating {actual_num_frames} frames with CogVideoX at {target_width}x{target_height}...")
+            logger.info(
+                f"Generating {actual_num_frames} frames with CogVideoX at {target_width}x{target_height}..."
+            )
 
             if torch_available and torch.cuda.is_available():
                 allocated = torch.cuda.memory_allocated()
@@ -594,13 +664,17 @@ class OfflineVideoGenerator:
                     reserved = torch.cuda.memory_reserved(0)
                 except (AttributeError, TypeError):
                     reserved = allocated
-                logger.info(f"GPU memory before inference: {allocated / 1024**3:.2f} GB allocated, {reserved / 1024**3:.2f} GB reserved")
+                logger.info(
+                    f"GPU memory before inference: {allocated / 1024**3:.2f} GB allocated, {reserved / 1024**3:.2f} GB reserved"
+                )
 
             inference_mode = torch.inference_mode if torch_available else nullcontext
             with inference_mode() if torch_available else nullcontext():
                 with torch.no_grad() if torch_available else nullcontext():
                     if model_config["type"] == "image2video" and image is not None:
-                        image_resized = image.resize((target_width, target_height), Image.Resampling.LANCZOS)
+                        image_resized = image.resize(
+                            (target_width, target_height), Image.Resampling.LANCZOS
+                        )
                         video_frames = pipeline(
                             prompt=prompt,
                             image=image_resized,
@@ -617,7 +691,7 @@ class OfflineVideoGenerator:
                             guidance_scale=guidance_scale,
                             generator=generator,
                         ).frames[0]
-                    
+
                     if torch_available and torch.cuda.is_available():
                         torch.cuda.empty_cache()
                         torch.cuda.synchronize()
@@ -629,15 +703,21 @@ class OfflineVideoGenerator:
                     frame = Image.fromarray(frame)
                 frame.save(frame_path)
                 frame_paths.append(str(frame_path))
-                
-                if torch_available and torch.cuda.is_available() and (idx + 1) % 10 == 0:
+
+                if (
+                    torch_available
+                    and torch.cuda.is_available()
+                    and (idx + 1) % 10 == 0
+                ):
                     torch.cuda.empty_cache()
 
-            logger.info(f"Generated {len(frame_paths)} frames with CogVideoX successfully")
+            logger.info(
+                f"Generated {len(frame_paths)} frames with CogVideoX successfully"
+            )
 
             del video_frames
             gc.collect()
-            
+
             if torch_available and torch.cuda.is_available():
                 torch.cuda.empty_cache()
                 torch.cuda.synchronize()
@@ -653,11 +733,18 @@ class OfflineVideoGenerator:
             self._unload_cogvideox_pipeline()
             if torch_available and torch.cuda.is_available():
                 torch.cuda.empty_cache()
-            raise RuntimeError(f"GPU out of memory - try cogvideox-2b model or reduce frames: {e}")
+            raise RuntimeError(
+                f"GPU out of memory - try cogvideox-2b model or reduce frames: {e}"
+            )
         except RuntimeError as e:
             error_str = str(e)
-            if "expandable_segment" in error_str or "INTERNAL ASSERT FAILED" in error_str:
-                logger.error(f"CogVideoX CUDA allocator error (expandable_segment): {e}")
+            if (
+                "expandable_segment" in error_str
+                or "INTERNAL ASSERT FAILED" in error_str
+            ):
+                logger.error(
+                    f"CogVideoX CUDA allocator error (expandable_segment): {e}"
+                )
                 logger.info("This error is often caused by memory fragmentation. Try:")
                 logger.info("1. Restarting the application to clear GPU memory")
                 logger.info("2. Using cogvideox-2b instead of cogvideox-5b")
@@ -731,7 +818,9 @@ class OfflineVideoGenerator:
             pipeline = self._load_svd_pipeline(model_key)
 
             target_width, target_height = target_size
-            image_resized = image.resize((target_width, target_height), Image.Resampling.LANCZOS)
+            image_resized = image.resize(
+                (target_width, target_height), Image.Resampling.LANCZOS
+            )
 
             generator = None
             if seed is not None and torch_available:
@@ -740,10 +829,14 @@ class OfflineVideoGenerator:
             svd_max_frames = 25 if model_key == "svd-xt" else 14
             actual_num_frames = max(1, min(num_frames, svd_max_frames))
 
-            logger.info(f"Generating {actual_num_frames} frames with SVD at {target_width}x{target_height}...")
+            logger.info(
+                f"Generating {actual_num_frames} frames with SVD at {target_width}x{target_height}..."
+            )
 
             if torch_available and torch.cuda.is_available():
-                logger.info(f"GPU memory before inference: {torch.cuda.memory_allocated() / 1024**3:.2f} GB")
+                logger.info(
+                    f"GPU memory before inference: {torch.cuda.memory_allocated() / 1024**3:.2f} GB"
+                )
 
             frames = pipeline(
                 image_resized,
@@ -772,7 +865,9 @@ class OfflineVideoGenerator:
         except torch.cuda.OutOfMemoryError as e:
             logger.error(f"GPU out of memory during SVD generation: {e}")
             self._unload_svd_pipeline()
-            raise RuntimeError(f"GPU out of memory - try reducing resolution or frames: {e}")
+            raise RuntimeError(
+                f"GPU out of memory - try reducing resolution or frames: {e}"
+            )
         except Exception as e:
             logger.error(f"SVD frame generation failed: {e}")
             self._unload_svd_pipeline()
@@ -827,7 +922,9 @@ class OfflineVideoGenerator:
 
         try:
             frames = [imageio.imread(frame) for frame in frame_files]
-            imageio.mimwrite(str(output_video_path), frames, fps=fps, macro_block_size=1)
+            imageio.mimwrite(
+                str(output_video_path), frames, fps=fps, macro_block_size=1
+            )
             return str(output_video_path)
         except Exception as e:
             logger.error(f"Failed to combine frames into video: {e}")
@@ -841,15 +938,26 @@ class OfflineVideoGenerator:
                 prompt_used=request.prompt,
             )
 
-        is_batch_controlled = request.metadata.get("batch_controlled", False) if request.metadata else False
+        is_batch_controlled = (
+            request.metadata.get("batch_controlled", False)
+            if request.metadata
+            else False
+        )
         gpu_lock_acquired = False
 
-        if not is_batch_controlled and gpu_coordinator_available and get_gpu_coordinator:
+        if (
+            not is_batch_controlled
+            and gpu_coordinator_available
+            and get_gpu_coordinator
+        ):
             coordinator = get_gpu_coordinator()
-            item_id_for_lock = request.metadata.get("item_id", "single_video") if request.metadata else "single_video"
+            item_id_for_lock = (
+                request.metadata.get("item_id", "single_video")
+                if request.metadata
+                else "single_video"
+            )
             lock_result = coordinator.acquire_for_video_generation(
-                batch_id=f"single_{item_id_for_lock}",
-                lease_seconds=1800
+                batch_id=f"single_{item_id_for_lock}", lease_seconds=1800
             )
             if not lock_result.get("success"):
                 return VideoGenerationResult(
@@ -868,7 +976,9 @@ class OfflineVideoGenerator:
                 coordinator.release_video_generation_lock(restart_ollama=True)
                 logger.info("GPU lock released after single video generation")
 
-    def _generate_video_impl(self, request: VideoGenerationRequest) -> VideoGenerationResult:
+    def _generate_video_impl(
+        self, request: VideoGenerationRequest
+    ) -> VideoGenerationResult:
         batch_dir = request.output_dir or (self.cache_dir / f"batch_{uuid.uuid4().hex}")
         batch_dir = Path(batch_dir)
         item_id = request.metadata.get("item_id") if request.metadata else None
@@ -902,14 +1012,22 @@ class OfflineVideoGenerator:
             is_cogvideox = self._is_cogvideox_model(request.model)
             is_svd = self._is_svd_model(request.model)
 
-            logger.info(f"Video generation request - model: {request.model}, is_cogvideox: {is_cogvideox}, is_svd: {is_svd}")
-            logger.info(f"AI availability - ai_available: {self.ai_available}, cogvideox_available: {self.cogvideox_available}, svd_available: {self.svd_available}")
+            logger.info(
+                f"Video generation request - model: {request.model}, is_cogvideox: {is_cogvideox}, is_svd: {is_svd}"
+            )
+            logger.info(
+                f"AI availability - ai_available: {self.ai_available}, cogvideox_available: {self.cogvideox_available}, svd_available: {self.svd_available}"
+            )
 
-            image_path = request.metadata.get("image_path") if request.metadata else None
+            image_path = (
+                request.metadata.get("image_path") if request.metadata else None
+            )
             has_input_image = image_path and Path(image_path).exists()
 
             if self.ai_available:
-                logger.info(f"Generating video with {'CogVideoX' if is_cogvideox else 'SVD'} for prompt: {request.prompt[:100]}...")
+                logger.info(
+                    f"Generating video with {'CogVideoX' if is_cogvideox else 'SVD'} for prompt: {request.prompt[:100]}..."
+                )
 
                 if is_cogvideox and self.cogvideox_available:
                     try:
@@ -921,9 +1039,13 @@ class OfflineVideoGenerator:
                                 logger.info(f"Using provided image: {image_path}")
                                 initial_image = Image.open(image_path).convert("RGB")
                             else:
-                                logger.warning("CogVideoX I2V model requires an input image")
+                                logger.warning(
+                                    "CogVideoX I2V model requires an input image"
+                                )
                                 request.model = "cogvideox-2b"
-                                model_config = self.COGVIDEOX_MODELS.get(request.model, {})
+                                model_config = self.COGVIDEOX_MODELS.get(
+                                    request.model, {}
+                                )
 
                         frame_paths = self._generate_cogvideox_frames(
                             prompt=request.prompt,
@@ -935,9 +1057,12 @@ class OfflineVideoGenerator:
                             model_key=request.model,
                             image=initial_image,
                         )
-                        logger.info(f"CogVideoX generation successful: {len(frame_paths)} frames")
+                        logger.info(
+                            f"CogVideoX generation successful: {len(frame_paths)} frames"
+                        )
                     except Exception as e:
                         import traceback
+
                         logger.error(f"CogVideoX generation failed: {e}")
                         logger.error(f"Full traceback: {traceback.format_exc()}")
                         result.error = f"CogVideoX generation failed: {e}"
@@ -965,7 +1090,9 @@ class OfflineVideoGenerator:
                             motion_bucket_id = int(request.motion_strength * 127)
                             motion_bucket_id = max(1, min(255, motion_bucket_id))
 
-                            target_width, target_height = self._clamp_resolution(request.width, request.height)
+                            target_width, target_height = self._clamp_resolution(
+                                request.width, request.height
+                            )
 
                             frame_paths = self._generate_svd_frames(
                                 image=initial_image,
@@ -979,7 +1106,9 @@ class OfflineVideoGenerator:
                                 seed=seed_value,
                                 model_key=request.model,
                             )
-                            logger.info(f"SVD generation successful: {len(frame_paths)} frames")
+                            logger.info(
+                                f"SVD generation successful: {len(frame_paths)} frames"
+                            )
                         except Exception as e:
                             logger.warning(f"SVD generation failed: {e}")
                             frame_paths = []
@@ -1044,4 +1173,3 @@ def get_video_generator() -> OfflineVideoGenerator:
     if _video_generator_instance is None:
         _video_generator_instance = OfflineVideoGenerator()
     return _video_generator_instance
-

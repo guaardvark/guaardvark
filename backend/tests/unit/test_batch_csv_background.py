@@ -6,8 +6,10 @@ import pytest
 try:
     from flask import Flask
 
-    from backend.api.generation_api import (CSV_HEADER_BATCH_SEO,
-                                            _generate_batch_csv_background)
+    from backend.api.generation_api import (
+        CSV_HEADER_BATCH_SEO,
+        _generate_batch_csv_background,
+    )
     from backend.models import Task, db
     from backend.utils import llm_service, progress_manager, prompt_templates
 except Exception:

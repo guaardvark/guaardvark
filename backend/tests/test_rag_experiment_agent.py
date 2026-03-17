@@ -1,4 +1,5 @@
 """Tests for the RAG experiment agent — hypothesis engine."""
+
 import pytest
 from unittest.mock import patch, MagicMock
 from backend.services.rag_experiment_agent import RAGExperimentAgent
@@ -25,7 +26,9 @@ class TestPropose:
         agent = RAGExperimentAgent()
         with patch.object(agent, "_call_llm", return_value="not json at all"):
             proposal = agent.propose_experiment(
-                history=[], current_config={"top_k": 5}, phase=1,
+                history=[],
+                current_config={"top_k": 5},
+                phase=1,
             )
             assert "parameter" in proposal
             assert "new_value" in proposal
@@ -46,7 +49,9 @@ class TestPropose:
                 current_config={"top_k": 5, "dedup_threshold": 0.85},
                 phase=1,
             )
-            assert not (proposal["parameter"] == "top_k" and proposal["new_value"] in [8, 10])
+            assert not (
+                proposal["parameter"] == "top_k" and proposal["new_value"] in [8, 10]
+            )
 
 
 class TestPhaseTransition:

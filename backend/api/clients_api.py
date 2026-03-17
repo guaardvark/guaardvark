@@ -31,7 +31,11 @@ logger = logging.getLogger(__name__)
 
 
 # Import centralized serialization utilities
-from backend.utils.serialization_utils import serialize_client as utils_serialize_client, serialize_project as utils_serialize_project
+from backend.utils.serialization_utils import (
+    serialize_client as utils_serialize_client,
+    serialize_project as utils_serialize_project,
+)
+
 
 def serialize_client(client_obj, overrides=None):
     """Serialize client using centralized utility with Pydantic validation"""
@@ -92,7 +96,8 @@ def get_clients():
         project_counts = dict(
             db.session.query(Project.client_id, func.count(Project.id))
             .filter(Project.client_id.isnot(None))
-            .group_by(Project.client_id).all()
+            .group_by(Project.client_id)
+            .all()
         )
 
         clients_list = []
@@ -102,7 +107,10 @@ def get_clients():
                 serialized = serialize_client(c, overrides=overrides)
                 clients_list.append(serialized)
             except Exception as serialize_error:
-                logger.error(f"Error serializing client {c.id} ({c.name}): {serialize_error}", exc_info=True)
+                logger.error(
+                    f"Error serializing client {c.id} ({c.name}): {serialize_error}",
+                    exc_info=True,
+                )
                 # Continue with other clients instead of failing completely
                 continue
         logger.info(f"Successfully serialized {len(clients_list)} clients from DB.")
@@ -110,6 +118,7 @@ def get_clients():
     except Exception as e:
         logger.error(f"Error fetching clients: {e}", exc_info=True)
         import traceback
+
         logger.error(f"Traceback: {traceback.format_exc()}")
         return (
             jsonify({"error": "An unexpected error occurred while fetching clients"}),
@@ -152,6 +161,7 @@ def create_client():
 
     try:
         import json
+
         new_client_db = Client(
             name=name.strip(),
             email=email.strip() if email else None,
@@ -162,13 +172,17 @@ def create_client():
             # RAG Enhancement fields (storing arrays as JSON)
             industry=json.dumps(industry) if industry else None,
             target_audience=json.dumps(target_audience) if target_audience else None,
-            unique_selling_points=json.dumps(unique_selling_points) if unique_selling_points else None,
+            unique_selling_points=(
+                json.dumps(unique_selling_points) if unique_selling_points else None
+            ),
             competitor_urls=json.dumps(competitor_urls) if competitor_urls else None,
             brand_voice_examples=brand_voice_examples,
             keywords=json.dumps(keywords) if keywords else None,
             content_goals=json.dumps(content_goals) if content_goals else None,
             regulatory_constraints=regulatory_constraints,
-            geographic_coverage=json.dumps(geographic_coverage) if geographic_coverage else None,
+            geographic_coverage=(
+                json.dumps(geographic_coverage) if geographic_coverage else None
+            ),
         )
         db.session.add(new_client_db)
         db.session.commit()
@@ -277,23 +291,38 @@ def update_client(client_id):
 
         # RAG Enhancement fields (now supporting arrays stored as JSON)
         import json
+
         if "industry" in data:
-            new_industry = json.dumps(data.get("industry", [])) if data.get("industry") else None
+            new_industry = (
+                json.dumps(data.get("industry", [])) if data.get("industry") else None
+            )
             if client_obj.industry != new_industry:
                 client_obj.industry = new_industry
                 updated_fields.append("industry")
         if "target_audience" in data:
-            new_target_audience = json.dumps(data.get("target_audience", [])) if data.get("target_audience") else None
+            new_target_audience = (
+                json.dumps(data.get("target_audience", []))
+                if data.get("target_audience")
+                else None
+            )
             if client_obj.target_audience != new_target_audience:
                 client_obj.target_audience = new_target_audience
                 updated_fields.append("target_audience")
         if "unique_selling_points" in data:
-            new_usps = json.dumps(data.get("unique_selling_points", [])) if data.get("unique_selling_points") else None
+            new_usps = (
+                json.dumps(data.get("unique_selling_points", []))
+                if data.get("unique_selling_points")
+                else None
+            )
             if client_obj.unique_selling_points != new_usps:
                 client_obj.unique_selling_points = new_usps
                 updated_fields.append("unique_selling_points")
         if "competitor_urls" in data:
-            new_competitor_urls = json.dumps(data.get("competitor_urls", [])) if data.get("competitor_urls") else None
+            new_competitor_urls = (
+                json.dumps(data.get("competitor_urls", []))
+                if data.get("competitor_urls")
+                else None
+            )
             if client_obj.competitor_urls != new_competitor_urls:
                 client_obj.competitor_urls = new_competitor_urls
                 updated_fields.append("competitor_urls")
@@ -302,12 +331,18 @@ def update_client(client_id):
                 client_obj.brand_voice_examples = data.get("brand_voice_examples")
                 updated_fields.append("brand_voice_examples")
         if "keywords" in data:
-            new_keywords = json.dumps(data.get("keywords", [])) if data.get("keywords") else None
+            new_keywords = (
+                json.dumps(data.get("keywords", [])) if data.get("keywords") else None
+            )
             if client_obj.keywords != new_keywords:
                 client_obj.keywords = new_keywords
                 updated_fields.append("keywords")
         if "content_goals" in data:
-            new_content_goals = json.dumps(data.get("content_goals", [])) if data.get("content_goals") else None
+            new_content_goals = (
+                json.dumps(data.get("content_goals", []))
+                if data.get("content_goals")
+                else None
+            )
             if client_obj.content_goals != new_content_goals:
                 client_obj.content_goals = new_content_goals
                 updated_fields.append("content_goals")
@@ -316,7 +351,11 @@ def update_client(client_id):
                 client_obj.regulatory_constraints = data.get("regulatory_constraints")
                 updated_fields.append("regulatory_constraints")
         if "geographic_coverage" in data:
-            new_geographic_coverage = json.dumps(data.get("geographic_coverage", [])) if data.get("geographic_coverage") else None
+            new_geographic_coverage = (
+                json.dumps(data.get("geographic_coverage", []))
+                if data.get("geographic_coverage")
+                else None
+            )
             if client_obj.geographic_coverage != new_geographic_coverage:
                 client_obj.geographic_coverage = new_geographic_coverage
                 updated_fields.append("geographic_coverage")

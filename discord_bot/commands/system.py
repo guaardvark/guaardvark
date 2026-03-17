@@ -1,4 +1,5 @@
 """System cog — /status, /models, /switch-model commands."""
+
 import logging
 
 import discord
@@ -17,9 +18,7 @@ class SystemCog(commands.Cog):
         self.api = api_client
         self.config = config
 
-    @app_commands.command(
-        name="status", description="Show Guaardvark system status"
-    )
+    @app_commands.command(name="status", description="Show Guaardvark system status")
     @app_commands.describe(detailed="Show detailed diagnostics (admin only)")
     async def status(self, interaction, detailed: bool = False):
         await self._handle_status(interaction, detailed)
@@ -48,9 +47,7 @@ class SystemCog(commands.Cog):
                 value=str(data.get("document_count", "?")),
                 inline=True,
             )
-            embed.add_field(
-                name="Version", value=data.get("version", "?"), inline=True
-            )
+            embed.add_field(name="Version", value=data.get("version", "?"), inline=True)
             embed.add_field(
                 name="Platform", value=data.get("platform", "?"), inline=True
             )
@@ -64,13 +61,9 @@ class SystemCog(commands.Cog):
                     try:
                         metrics = await self.api.get_detailed_diagnostics()
                         for key, val in list(metrics.items())[:10]:
-                            embed.add_field(
-                                name=key, value=str(val)[:100], inline=True
-                            )
+                            embed.add_field(name=key, value=str(val)[:100], inline=True)
                     except APIError:
-                        embed.set_footer(
-                            text="Could not fetch detailed metrics."
-                        )
+                        embed.set_footer(text="Could not fetch detailed metrics.")
 
             await interaction.followup.send(embed=embed)
 
@@ -91,9 +84,7 @@ class SystemCog(commands.Cog):
                 await interaction.followup.send(content="No models available.")
                 return
 
-            embed = discord.Embed(
-                title="Available Models", color=discord.Color.blue()
-            )
+            embed = discord.Embed(title="Available Models", color=discord.Color.blue())
             for m in models[:25]:
                 name = m.get("name", "unknown")
                 details = m.get("details", {})
@@ -114,9 +105,7 @@ class SystemCog(commands.Cog):
         await self._handle_switch_model(interaction, model_name)
 
     async def _handle_switch_model(self, interaction, model_name):
-        if not is_admin(
-            interaction.user, self.config["security"]["admin_roles"]
-        ):
+        if not is_admin(interaction.user, self.config["security"]["admin_roles"]):
             await interaction.response.send_message(
                 "You need an Admin role to switch models.", ephemeral=True
             )
@@ -130,9 +119,7 @@ class SystemCog(commands.Cog):
                 content=f"Model switch initiated: {result.get('message', 'Switching...')}"
             )
         except APIError as e:
-            await interaction.followup.send(
-                content=f"Model switch failed: {e}"
-            )
+            await interaction.followup.send(content=f"Model switch failed: {e}")
 
 
 async def setup(bot):

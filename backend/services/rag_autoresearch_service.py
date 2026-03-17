@@ -3,6 +3,7 @@
 Coordinates the eval harness, experiment agent, and config management.
 Runs experiments when the system is idle, pauses on user activity.
 """
+
 import json
 import os
 import time
@@ -164,11 +165,15 @@ class RAGAutoresearchService:
             config["phase_plateau_count"] = 0
             self._save_config(config)
             self._promote_config(config, new_score, "local")
-            logger.info(f"KEEP: {param_name}={new_value} score={new_score:.4f} (delta=+{delta:.4f})")
+            logger.info(
+                f"KEEP: {param_name}={new_value} score={new_score:.4f} (delta=+{delta:.4f})"
+            )
         else:
             config["phase_plateau_count"] = config.get("phase_plateau_count", 0) + 1
             self._save_config(config)
-            logger.info(f"DISCARD: {param_name}={new_value} score={new_score:.4f} (delta={delta:.4f})")
+            logger.info(
+                f"DISCARD: {param_name}={new_value} score={new_score:.4f} (delta={delta:.4f})"
+            )
 
         result = {
             "experiment_id": experiment_id,
@@ -230,6 +235,7 @@ class RAGAutoresearchService:
         """Verify system is ready for autoresearch."""
         try:
             from flask import current_app
+
             if not self.eval_harness.has_sufficient_corpus():
                 logger.warning("Insufficient corpus for autoresearch")
                 return False
@@ -243,6 +249,7 @@ class RAGAutoresearchService:
         """Save experiment result to ExperimentRun table."""
         try:
             from backend.models import ExperimentRun, db
+
             run = ExperimentRun(
                 id=result["experiment_id"],
                 phase=result.get("phase", 1),
@@ -266,6 +273,7 @@ class RAGAutoresearchService:
         """Save winning config to ResearchConfig table."""
         try:
             from backend.models import ResearchConfig, db
+
             ResearchConfig.query.filter_by(is_active=True).update({"is_active": False})
             new_config = ResearchConfig(
                 id=str(uuid.uuid4()),
@@ -284,9 +292,9 @@ class RAGAutoresearchService:
         """Get recent experiment results from DB."""
         try:
             from backend.models import ExperimentRun
+
             runs = (
-                ExperimentRun.query
-                .order_by(ExperimentRun.created_at.desc())
+                ExperimentRun.query.order_by(ExperimentRun.created_at.desc())
                 .limit(limit)
                 .all()
             )
@@ -298,6 +306,7 @@ class RAGAutoresearchService:
         """Broadcast winning config via interconnector."""
         try:
             from backend.services.interconnector_sync_service import broadcast_learning
+
             broadcast_learning(
                 learning_type="rag_optimization",
                 description=(
@@ -312,13 +321,17 @@ class RAGAutoresearchService:
         """Emit real-time update via Socket.IO."""
         try:
             from backend.socketio_instance import socketio
-            socketio.emit("autoresearch:experiment_complete", {
-                "experiment_id": result["experiment_id"],
-                "parameter": result["parameter"],
-                "status": result["status"],
-                "score": result.get("composite_score"),
-                "delta": result.get("delta"),
-            })
+
+            socketio.emit(
+                "autoresearch:experiment_complete",
+                {
+                    "experiment_id": result["experiment_id"],
+                    "parameter": result["parameter"],
+                    "status": result["status"],
+                    "score": result.get("composite_score"),
+                    "delta": result.get("delta"),
+                },
+            )
         except Exception:
             pass
 
@@ -339,6 +352,7 @@ class RAGAutoresearchService:
     def _count_experiments(self) -> int:
         try:
             from backend.models import ExperimentRun
+
             return ExperimentRun.query.count()
         except Exception:
             return 0
@@ -346,6 +360,7 @@ class RAGAutoresearchService:
     def _count_improvements(self) -> int:
         try:
             from backend.models import ExperimentRun
+
             return ExperimentRun.query.filter_by(status="keep").count()
         except Exception:
             return 0

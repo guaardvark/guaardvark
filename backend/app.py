@@ -1,5 +1,3 @@
-
-
 import importlib
 import os
 import shutil
@@ -72,6 +70,7 @@ from backend import rule_utils
 from backend.utils.project_config import load_config
 
 from packaging import version
+
 if version.parse(_np.__version__) < version.parse("1.26.0"):
     print(
         f"WARNING: NumPy version {_np.__version__} may be incompatible; recommended 1.26.4+",
@@ -80,10 +79,14 @@ if version.parse(_np.__version__) < version.parse("1.26.0"):
 
 try:
     import torch
+
     if torch.cuda.is_available():
         from backend.cuda_config import configure_cuda_optimizations
+
         cuda_status = configure_cuda_optimizations(verbose=True)
-        print(f"CUDA optimizations applied: {', '.join(cuda_status.get('optimizations_applied', []))}")
+        print(
+            f"CUDA optimizations applied: {', '.join(cuda_status.get('optimizations_applied', []))}"
+        )
     else:
         print("CUDA not available - running in CPU mode")
 except ImportError as e:
@@ -150,24 +153,32 @@ root_logger.info(f"[STARTUP] Logging initialized. Log file: {LOG_FILE_PATH}")
 # LLM Debug logger — separate file, always DEBUG level (gated by setting check in helper)
 LLM_DEBUG_LOG_PATH = os.path.join(LOG_DIR, "llm_debug.log")
 _llm_debug_handler = TimedRotatingFileHandler(
-    LLM_DEBUG_LOG_PATH, when="midnight", interval=1, backupCount=10,
-    encoding="utf-8", delay=False, utc=False,
+    LLM_DEBUG_LOG_PATH,
+    when="midnight",
+    interval=1,
+    backupCount=10,
+    encoding="utf-8",
+    delay=False,
+    utc=False,
 )
 _llm_debug_handler.setLevel(logging.DEBUG)
-_llm_debug_handler.setFormatter(logging.Formatter(
-    "%(asctime)s [%(levelname)s] %(message)s"
-))
+_llm_debug_handler.setFormatter(
+    logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+)
 _llm_debug_logger = logging.getLogger("guaardvark.llm_debug")
 _llm_debug_logger.addHandler(_llm_debug_handler)
 _llm_debug_logger.setLevel(logging.DEBUG)
 _llm_debug_logger.propagate = False
-root_logger.info(f"[STARTUP] LLM debug logger initialized. Log file: {LLM_DEBUG_LOG_PATH}")
+root_logger.info(
+    f"[STARTUP] LLM debug logger initialized. Log file: {LLM_DEBUG_LOG_PATH}"
+)
 werkzeug_log_level = os.getenv("WERKZEUG_LOG_LEVEL", "WARNING").upper()
 werkzeug_logger = logging.getLogger("werkzeug")
 werkzeug_logger.setLevel(getattr(logging, werkzeug_log_level, logging.WARNING))
 
 try:
     from backend.utils.llama_index_local_config import force_local_llama_index_config
+
     force_local_llama_index_config()
     root_logger.info(" Forced local LlamaIndex configuration before imports")
 except ImportError as e:
@@ -188,7 +199,9 @@ try:
     llama_index_imported_successfully = True
 except ImportError as e:
     root_logger.critical(f"Failed to import LlamaIndex components: {e}")
-    sys.exit("CRITICAL: LlamaIndex is not installed or failed to import. The application cannot start.")
+    sys.exit(
+        "CRITICAL: LlamaIndex is not installed or failed to import. The application cannot start."
+    )
 
 root_logger.info("Using LlamaIndex local embeddings only")
 
@@ -317,6 +330,7 @@ def create_app():
 
     return app
 
+
 def _initialize_app_components(app):
     global start_time, executor, socketio, celery
 
@@ -324,8 +338,9 @@ def _initialize_app_components(app):
     executor = Executor(app)
     app.executor = executor
     from backend.socketio_instance import socketio, FRONTEND_URL
+
     celery = make_celery(app)
-    
+
     app.logger.setLevel(
         root_logger.level
     )  # Ensure app.logger respects the root logger's level
@@ -337,10 +352,12 @@ def _initialize_app_components(app):
     else:
         app.debug = os.getenv("FLASK_DEBUG", "false").lower() == "true"
         if app.debug:
-            app.logger.warning("Debug mode is enabled - this should only be used in development")
-    
+            app.logger.warning(
+                "Debug mode is enabled - this should only be used in development"
+            )
+
     app.logger.info(f"Using database URL: {DATABASE_URL}")
-    
+
     app.config.update(
         {
             "SQLALCHEMY_DATABASE_URI": DATABASE_URL,
@@ -355,12 +372,8 @@ def _initialize_app_components(app):
             "MAX_CONTENT_LENGTH": 100 * 1024 * 1024,
         }
     )
-    app.logger.info(
-        f"Backend application version {__version__} starting..."
-    )
-    app.logger.info(
-        f"CORS policy configured to allow specific origins."
-    )
+    app.logger.info(f"Backend application version {__version__} starting...")
+    app.logger.info(f"CORS policy configured to allow specific origins.")
 
     if flask_env == "production":
         allowed_origins = [FRONTEND_URL]
@@ -382,11 +395,13 @@ def _initialize_app_components(app):
     interconnector_master_mode = False
     try:
         from backend.api.interconnector_api import _get_config
+
         interconnector_config = _get_config()
         if interconnector_config:
             if interconnector_config.get("node_mode") == "master":
                 interconnector_master_mode = True
                 import re
+
                 lan_patterns = [
                     r"http://192\.168\.\d+\.\d+:\d+",
                     r"http://10\.\d+\.\d+\.\d+:\d+",
@@ -397,10 +412,13 @@ def _initialize_app_components(app):
                 ]
                 allowed_origins = lan_patterns + allowed_origins
                 supports_credentials = False
-                app.logger.info("CORS: Master mode - allowing LAN origins for interconnector")
+                app.logger.info(
+                    "CORS: Master mode - allowing LAN origins for interconnector"
+                )
             master_url = interconnector_config.get("master_url")
             if master_url:
                 from urllib.parse import urlparse
+
                 parsed = urlparse(master_url)
                 master_origin = f"{parsed.scheme}://{parsed.netloc}"
                 if master_origin not in allowed_origins:
@@ -408,7 +426,9 @@ def _initialize_app_components(app):
                     app.logger.info(f"CORS: Added master origin {master_origin}")
     except Exception as cors_err:
         if "application context" not in str(cors_err).lower():
-            app.logger.warning(f"Could not load interconnector config for CORS: {cors_err}")
+            app.logger.warning(
+                f"Could not load interconnector config for CORS: {cors_err}"
+            )
 
     CORS(
         app,
@@ -423,19 +443,24 @@ def _initialize_app_components(app):
 
     try:
         from backend.utils.unified_progress_system import get_unified_progress
+
         unified_progress = get_unified_progress()
-        unified_progress.initialize(output_dir=config.OUTPUT_DIR, socketio=socketio, flask_app=app)
-        app.logger.info("Unified Progress System initialized with SocketIO and Flask app context")
-        
+        unified_progress.initialize(
+            output_dir=config.OUTPUT_DIR, socketio=socketio, flask_app=app
+        )
+        app.logger.info(
+            "Unified Progress System initialized with SocketIO and Flask app context"
+        )
+
         import threading
         import glob
         import json
         from pathlib import Path
-        
+
         def poll_celery_progress():
             last_modified_times = {}
             poll_count = 0
-            TERMINAL_STATUSES = {'complete', 'error', 'cancelled', 'end'}
+            TERMINAL_STATUSES = {"complete", "error", "cancelled", "end"}
             STALE_THRESHOLD = 2700  # 45 minutes - indexing can take 15-25 min per doc
 
             while True:
@@ -452,48 +477,68 @@ def _initialize_app_components(app):
                                 file_key = str(metadata_file)
 
                                 # Skip files that haven't changed since last poll
-                                if file_key in last_modified_times and last_modified_times[file_key] == current_mtime:
+                                if (
+                                    file_key in last_modified_times
+                                    and last_modified_times[file_key] == current_mtime
+                                ):
                                     continue
 
                                 # Mark stale non-terminal files as error (zombie job cleanup)
                                 if time.time() - current_mtime > STALE_THRESHOLD:
                                     try:
-                                        with open(metadata_file, 'r') as f:
+                                        with open(metadata_file, "r") as f:
                                             stale_meta = json.load(f)
-                                        if stale_meta.get('status') not in TERMINAL_STATUSES:
-                                            stale_meta['status'] = 'error'
-                                            stale_meta['message'] = 'Timed out — worker likely crashed'
-                                            stale_meta['is_complete'] = True
-                                            stale_meta['completion_time_utc'] = datetime.utcnow().isoformat()
-                                            with open(metadata_file, 'w') as f:
+                                        if (
+                                            stale_meta.get("status")
+                                            not in TERMINAL_STATUSES
+                                        ):
+                                            stale_meta["status"] = "error"
+                                            stale_meta["message"] = (
+                                                "Timed out — worker likely crashed"
+                                            )
+                                            stale_meta["is_complete"] = True
+                                            stale_meta["completion_time_utc"] = (
+                                                datetime.utcnow().isoformat()
+                                            )
+                                            with open(metadata_file, "w") as f:
                                                 json.dump(stale_meta, f, indent=4)
-                                            app.logger.info(f"Marked stale job as error: {stale_meta.get('job_id', 'unknown')}")
+                                            app.logger.info(
+                                                f"Marked stale job as error: {stale_meta.get('job_id', 'unknown')}"
+                                            )
                                     except Exception:
                                         pass
                                     last_modified_times[file_key] = current_mtime
                                     continue
 
-                                with open(metadata_file, 'r') as f:
+                                with open(metadata_file, "r") as f:
                                     metadata = json.load(f)
 
                                 # Skip terminal statuses — no need to re-emit completed/errored jobs
-                                job_status = metadata.get('status', 'unknown')
+                                job_status = metadata.get("status", "unknown")
                                 if job_status in TERMINAL_STATUSES:
                                     last_modified_times[file_key] = current_mtime
                                     continue
 
                                 event_data = {
-                                    'job_id': metadata.get('job_id', 'unknown'),
-                                    'progress': metadata.get('progress', 0),
-                                    'message': metadata.get('message', ''),
-                                    'status': job_status,
-                                    'process_type': metadata.get('process_type', 'unknown'),
-                                    'timestamp': metadata.get('last_update_utc', metadata.get('timestamp', '')),
-                                    **metadata.get('additional_data', {})
+                                    "job_id": metadata.get("job_id", "unknown"),
+                                    "progress": metadata.get("progress", 0),
+                                    "message": metadata.get("message", ""),
+                                    "status": job_status,
+                                    "process_type": metadata.get(
+                                        "process_type", "unknown"
+                                    ),
+                                    "timestamp": metadata.get(
+                                        "last_update_utc", metadata.get("timestamp", "")
+                                    ),
+                                    **metadata.get("additional_data", {}),
                                 }
 
-                                socketio.emit("job_progress", event_data, to="global_progress")
-                                app.logger.info(f"Polled and emitted progress: {metadata.get('job_id')} at {event_data['progress']}%")
+                                socketio.emit(
+                                    "job_progress", event_data, to="global_progress"
+                                )
+                                app.logger.info(
+                                    f"Polled and emitted progress: {metadata.get('job_id')} at {event_data['progress']}%"
+                                )
 
                                 last_modified_times[file_key] = current_mtime
 
@@ -501,16 +546,20 @@ def _initialize_app_components(app):
                                 continue
 
                             except Exception as e:
-                                app.logger.warning(f"Error processing progress file {metadata_file}: {e}")
+                                app.logger.warning(
+                                    f"Error processing progress file {metadata_file}: {e}"
+                                )
 
                     if poll_count % 30 == 0:
-                        app.logger.debug(f"Celery progress polling active - monitoring {len(last_modified_times)} files")
+                        app.logger.debug(
+                            f"Celery progress polling active - monitoring {len(last_modified_times)} files"
+                        )
 
                     time.sleep(1)
                 except Exception as e:
                     app.logger.error(f"Error in Celery progress polling: {e}")
                     time.sleep(5)
-        
+
         polling_thread = threading.Thread(target=poll_celery_progress, daemon=True)
         polling_thread.start()
         app.logger.info("Started Celery progress polling thread")
@@ -518,25 +567,39 @@ def _initialize_app_components(app):
         # Redis pub/sub relay: Celery workers publish progress to Redis,
         # this thread subscribes and re-emits via SocketIO
         # Guard: only start one relay thread per process
-        if not getattr(app, '_redis_relay_started', False):
+        if not getattr(app, "_redis_relay_started", False):
             app._redis_relay_started = True
 
             def relay_redis_progress():
                 try:
-                    r = redis.Redis(host='localhost', port=6379, db=0)
+                    r = redis.Redis(host="localhost", port=6379, db=0)
                     pubsub = r.pubsub()
-                    pubsub.subscribe('guaardvark:progress')
-                    app.logger.info("Redis progress relay subscribed to guaardvark:progress")
+                    pubsub.subscribe("guaardvark:progress")
+                    app.logger.info(
+                        "Redis progress relay subscribed to guaardvark:progress"
+                    )
                     for msg in pubsub.listen():
-                        if msg['type'] == 'message':
+                        if msg["type"] == "message":
                             try:
-                                event_data = json.loads(msg['data'])
-                                process_id = event_data.get('job_id', '')
+                                event_data = json.loads(msg["data"])
+                                process_id = event_data.get("job_id", "")
                                 if process_id:
-                                    socketio.emit('job_progress', event_data, to=process_id, namespace='/')
-                                socketio.emit('job_progress', event_data, to='global_progress', namespace='/')
+                                    socketio.emit(
+                                        "job_progress",
+                                        event_data,
+                                        to=process_id,
+                                        namespace="/",
+                                    )
+                                socketio.emit(
+                                    "job_progress",
+                                    event_data,
+                                    to="global_progress",
+                                    namespace="/",
+                                )
                             except (json.JSONDecodeError, KeyError) as e:
-                                app.logger.warning(f"Bad progress message from Redis: {e}")
+                                app.logger.warning(
+                                    f"Bad progress message from Redis: {e}"
+                                )
                 except Exception as e:
                     app.logger.error(f"Redis progress relay error: {e}")
 
@@ -551,28 +614,36 @@ def _initialize_app_components(app):
 
     def perform_startup_security_checks():
         security_warnings = []
-        
+
         if app.debug:
             security_warnings.append(" Debug mode is enabled - disable in production")
-        
+
         if app.config.get("SECRET_KEY") == "dev-secret-key":
             security_warnings.append(" Using default secret key - change in production")
-        
+
         if flask_env == "production" and len(allowed_origins) > 1:
-            security_warnings.append(" Multiple CORS origins in production - restrict to single domain")
-        
+            security_warnings.append(
+                " Multiple CORS origins in production - restrict to single domain"
+            )
+
         max_upload = app.config.get("MAX_CONTENT_LENGTH", 0)
         if max_upload > 500 * 1024 * 1024:
-            security_warnings.append(" Large file upload limit - consider reducing for security")
-        
+            security_warnings.append(
+                " Large file upload limit - consider reducing for security"
+            )
+
         if "sqlite" in app.config.get("SQLALCHEMY_DATABASE_URI", ""):
-            security_warnings.append(" Using SQLite in production - consider PostgreSQL for production")
-        
+            security_warnings.append(
+                " Using SQLite in production - consider PostgreSQL for production"
+            )
+
         if security_warnings:
             app.logger.warning("SECURITY WARNINGS DETECTED:")
             for warning in security_warnings:
                 app.logger.warning(f"   {warning}")
-            app.logger.warning("Please address these security issues before deploying to production")
+            app.logger.warning(
+                "Please address these security issues before deploying to production"
+            )
         else:
             app.logger.info("Startup security checks passed")
 
@@ -592,16 +663,23 @@ def _initialize_app_components(app):
 
     # Protect sensitive endpoints (code execution, backup restore/delete)
     from backend.utils.auth_guard import check_endpoint_auth
+
     app.before_request(check_endpoint_auth)
 
     @app.before_request
     def track_user_activity():
         """Update activity timestamp for autoresearch idle detection."""
         from flask import request as req
-        if req.path.startswith('/api/autoresearch') or req.path.startswith('/api/health'):
+
+        if req.path.startswith("/api/autoresearch") or req.path.startswith(
+            "/api/health"
+        ):
             return
         try:
-            from backend.services.rag_autoresearch_service import get_autoresearch_service
+            from backend.services.rag_autoresearch_service import (
+                get_autoresearch_service,
+            )
+
             get_autoresearch_service().record_activity()
         except Exception:
             pass
@@ -611,12 +689,16 @@ def _initialize_app_components(app):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+        response.headers["Permissions-Policy"] = (
+            "geolocation=(), microphone=(), camera=()"
+        )
 
-        if request.path.startswith('/api/'):
-            response.headers['X-CSRF-Token-Required'] = 'true'
+        if request.path.startswith("/api/"):
+            response.headers["X-CSRF-Token-Required"] = "true"
 
         return response
 
@@ -630,13 +712,17 @@ def _initialize_app_components(app):
     @app.after_request
     def cleanup_database_session(response):
         try:
-            if request.path.startswith('/api/bulk-csv/') or \
-               request.path.startswith('/api/generate/') or \
-               request.path.startswith('/api/simple-csv/'):
-                app.logger.debug(f"Skipping session cleanup for CSV generation endpoint: {request.path}")
+            if (
+                request.path.startswith("/api/bulk-csv/")
+                or request.path.startswith("/api/generate/")
+                or request.path.startswith("/api/simple-csv/")
+            ):
+                app.logger.debug(
+                    f"Skipping session cleanup for CSV generation endpoint: {request.path}"
+                )
                 return response
 
-            if hasattr(db, 'session') and db.session:
+            if hasattr(db, "session") and db.session:
                 try:
                     db.session.remove()
                 except Exception as session_check_error:
@@ -649,20 +735,29 @@ def _initialize_app_components(app):
 
     try:
         if app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite:///"):
-            db_path_cfg = app.config["SQLALCHEMY_DATABASE_URI"].replace("sqlite:///", "")
+            db_path_cfg = app.config["SQLALCHEMY_DATABASE_URI"].replace(
+                "sqlite:///", ""
+            )
             if not os.path.isabs(db_path_cfg):
                 db_path_cfg = os.path.join(project_root, db_path_cfg)
             app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path_cfg}"
             os.makedirs(os.path.dirname(os.path.abspath(db_path_cfg)), exist_ok=True)
             app.logger.info(f"DB directory ensured: {db_path_cfg}")
-            expected_final_path = str(config.GUAARDVARK_ROOT / "data" / "database" / "system_analysis.db")
+            expected_final_path = str(
+                config.GUAARDVARK_ROOT / "data" / "database" / "system_analysis.db"
+            )
             if os.path.abspath(db_path_cfg) != expected_final_path:
                 app.logger.error(
                     f"CRITICAL: Database path mismatch! Expected: {expected_final_path}, "
                     f"Got: {os.path.abspath(db_path_cfg)}. Database isolation may be broken!"
                 )
 
-        for key_dir in ["UPLOAD_FOLDER", "CLIENT_LOGO_FOLDER", "STORAGE_DIR", "OUTPUT_DIR"]:
+        for key_dir in [
+            "UPLOAD_FOLDER",
+            "CLIENT_LOGO_FOLDER",
+            "STORAGE_DIR",
+            "OUTPUT_DIR",
+        ]:
             path_val = app.config.get(key_dir)
             if not path_val:
                 raise KeyError(f"Configuration key '{key_dir}' not found.")
@@ -682,35 +777,48 @@ def _initialize_app_components(app):
 
     try:
         from backend.tools import initialize_all_tools, get_registered_tools
+
         tool_registry = initialize_all_tools()
         app.tool_registry = tool_registry
-        app.logger.info(f"Tool Registry initialized with {len(get_registered_tools())} tools: {', '.join(get_registered_tools())}")
+        app.logger.info(
+            f"Tool Registry initialized with {len(get_registered_tools())} tools: {', '.join(get_registered_tools())}"
+        )
     except Exception as e:
         app.logger.warning(f"Tool Registry initialization failed (non-critical): {e}")
         app.tool_registry = None
 
     try:
         from backend.plugins import get_plugin_manager, get_plugin_registry
+
         registry = get_plugin_registry()
-        app.logger.info(f"Plugin Registry initialized, discovered {len(registry.get_all_plugins())} plugins")
-        
+        app.logger.info(
+            f"Plugin Registry initialized, discovered {len(registry.get_all_plugins())} plugins"
+        )
+
         manager = get_plugin_manager()
         app.plugin_manager = manager
         app.logger.info("Plugin Manager initialized successfully")
     except Exception as e:
-        app.logger.warning(f"Plugin Manager initialization failed (non-critical): {e}", exc_info=True)
+        app.logger.warning(
+            f"Plugin Manager initialization failed (non-critical): {e}", exc_info=True
+        )
         app.plugin_manager = None
 
     from backend.utils.blueprint_discovery import auto_register_blueprints
+
     auto_register_blueprints(app)
 
     try:
-        from backend.services.browser_automation_service import register_browser_shutdown
+        from backend.services.browser_automation_service import (
+            register_browser_shutdown,
+        )
+
         register_browser_shutdown(app)
     except Exception as e:
         app.logger.debug(f"Browser shutdown registration skipped: {e}")
 
     return app
+
 
 app = create_app()
 
@@ -748,7 +856,10 @@ try:
     # Skip migration checks if start.sh already verified them
     migrations_already_verified = os.environ.get("GUAARDVARK_MIGRATIONS_VERIFIED")
 
-    if not os.environ.get("GUAARDVARK_SKIP_MIGRATIONS") and not migrations_already_verified:
+    if (
+        not os.environ.get("GUAARDVARK_SKIP_MIGRATIONS")
+        and not migrations_already_verified
+    ):
         try:
             migration_utils.ensure_single_head(migrations_dir, auto_merge=True)
         except Exception as mig_err:
@@ -760,11 +871,16 @@ try:
 
     with app.app_context():
         try:
-            if os.path.isdir(migrations_dir) and not os.environ.get(
-                "PYTEST_SKIP_MIGRATION_CHECK"
-            ) and not os.environ.get("GUAARDVARK_SKIP_MIGRATIONS") and not migrations_already_verified:
+            if (
+                os.path.isdir(migrations_dir)
+                and not os.environ.get("PYTEST_SKIP_MIGRATION_CHECK")
+                and not os.environ.get("GUAARDVARK_SKIP_MIGRATIONS")
+                and not migrations_already_verified
+            ):
                 try:
-                    app.logger.info(f"Starting database migrations from {migrations_dir}...")
+                    app.logger.info(
+                        f"Starting database migrations from {migrations_dir}..."
+                    )
                     from flask_migrate import upgrade as alembic_upgrade
 
                     alembic_upgrade(directory=migrations_dir)
@@ -779,7 +895,6 @@ try:
             db.create_all()
             app.logger.info("Database tables created/verified successfully.")
 
-
             app.logger.info(
                 "Global system prompt rule creation disabled - using hardcoded default"
             )
@@ -791,13 +906,17 @@ except Exception as e_init:
     app.logger.critical(f"Initialization error (DB/Dirs): {e_init}", exc_info=True)
     sys.exit("CRITICAL: App initialization failed (DB/Dirs).")
 
+
 def initialize_llm_and_index_async():
     import time
+
     time.sleep(2)
 
     try:
         with app.app_context():
-            app.logger.warning("[LLM-Init] Setting up LLM and index (background thread)...")
+            app.logger.warning(
+                "[LLM-Init] Setting up LLM and index (background thread)..."
+            )
 
             llm = llm_service.get_llm_for_startup()
             embed_model = llm_service.get_default_embed_model()
@@ -805,18 +924,26 @@ def initialize_llm_and_index_async():
 
             get_or_create_index()
 
-            from backend.services.indexing_service import index as llama_index_from_service
+            from backend.services.indexing_service import (
+                index as llama_index_from_service,
+            )
             from backend.services.indexing_service import (
                 storage_context as storage_context_from_service,
             )
 
             if llama_index_from_service is None:
-                app.logger.error("CRITICAL: Index initialization failed - llama_index_from_service is None")
+                app.logger.error(
+                    "CRITICAL: Index initialization failed - llama_index_from_service is None"
+                )
                 raise RuntimeError("Failed to initialize LlamaIndex during startup")
 
             if storage_context_from_service is None:
-                app.logger.error("CRITICAL: Storage context initialization failed - storage_context_from_service is None")
-                raise RuntimeError("Failed to initialize storage context during startup")
+                app.logger.error(
+                    "CRITICAL: Storage context initialization failed - storage_context_from_service is None"
+                )
+                raise RuntimeError(
+                    "Failed to initialize storage context during startup"
+                )
 
             app.config["LLAMA_INDEX_LLM"] = llm
             app.config["LLAMA_INDEX_EMBED_MODEL"] = embed_model
@@ -826,30 +953,53 @@ def initialize_llm_and_index_async():
             app.config["LLAMA_INDEX_CHAT_ENGINE"] = None
 
             try:
-                llm_service.persist_active_model_name(getattr(llm, "model", DEFAULT_LLM))
+                llm_service.persist_active_model_name(
+                    getattr(llm, "model", DEFAULT_LLM)
+                )
             except Exception as e:
-                app.logger.warning(f"[LLM-Init] Failed to persist active model on startup: {e}")
+                app.logger.warning(
+                    f"[LLM-Init] Failed to persist active model on startup: {e}"
+                )
 
             try:
                 model_name = getattr(llm, "model", "unknown")
-                app.logger.warning(f"[LLM-Init] Warming up model '{model_name}' (loading into GPU)...")
+                app.logger.warning(
+                    f"[LLM-Init] Warming up model '{model_name}' (loading into GPU)..."
+                )
                 warmup_start = time.time()
                 llm.complete("warmup")
                 warmup_duration = time.time() - warmup_start
-                app.logger.warning(f"[LLM-Init] Model warmup completed in {warmup_duration:.1f}s — ready for chat")
+                app.logger.warning(
+                    f"[LLM-Init] Model warmup completed in {warmup_duration:.1f}s — ready for chat"
+                )
             except Exception as e:
-                app.logger.error(f"[LLM-Init] Model warmup FAILED: {e} — first chat will be slow", exc_info=True)
+                app.logger.error(
+                    f"[LLM-Init] Model warmup FAILED: {e} — first chat will be slow",
+                    exc_info=True,
+                )
 
             app.config["LLM_READY"] = True
-            app.logger.warning("[LLM-Init] LLM and index initialization completed successfully")
+            app.logger.warning(
+                "[LLM-Init] LLM and index initialization completed successfully"
+            )
     except Exception as e:
-        app.config["LLM_READY"] = True  # Mark ready even on failure so chat isn't blocked forever
-        app.logger.error(f"[LLM-Init] FAILED to initialize LLM and index: {e}", exc_info=True)
+        app.config["LLM_READY"] = (
+            True  # Mark ready even on failure so chat isn't blocked forever
+        )
+        app.logger.error(
+            f"[LLM-Init] FAILED to initialize LLM and index: {e}", exc_info=True
+        )
+
 
 import threading
-llm_init_thread = threading.Thread(target=initialize_llm_and_index_async, daemon=True, name="LLM-Index-Init")
+
+llm_init_thread = threading.Thread(
+    target=initialize_llm_and_index_async, daemon=True, name="LLM-Index-Init"
+)
 llm_init_thread.start()
-app.logger.info("LLM and index initialization started in background thread - Flask will start immediately")
+app.logger.info(
+    "LLM and index initialization started in background thread - Flask will start immediately"
+)
 
 try:
     from backend.api.cache_api import cache_bp
@@ -875,18 +1025,18 @@ except ImportError as e:
 app.logger.info("[ROUTING] Registering blueprints with automated discovery...")
 
 
-is_celery_worker = os.environ.get('CELERY_WORKER_MODE', 'false').lower() == 'true'
+is_celery_worker = os.environ.get("CELERY_WORKER_MODE", "false").lower() == "true"
 
 if is_celery_worker:
     app.logger.info("Running in Celery worker mode - skipping blueprint registration")
     registration_summary = {
-        'registration': {
-            'total_discovered': 0,
-            'registered': 0,
-            'skipped': 0,
-            'errors': 0
+        "registration": {
+            "total_discovered": 0,
+            "registered": 0,
+            "skipped": 0,
+            "errors": 0,
         },
-        'errors': []
+        "errors": [],
     }
 else:
     app.logger.info("Blueprint registration completed during app creation")
@@ -899,7 +1049,7 @@ if not is_celery_worker:
         ("backend.api.batch_image_generation_api.batch_image_bp", "batch_image_bp"),
         ("backend.api.backup_api.backup_bp", "backup_bp"),
     ]
-    
+
     for bp_path_str, bp_expected_name in critical_blueprints:
         try:
             module_name, blueprint_attr_name = bp_path_str.rsplit(".", 1)
@@ -909,14 +1059,18 @@ if not is_celery_worker:
                 app.register_blueprint(blueprint_obj)
                 app.logger.info(f"Fallback registered: {blueprint_attr_name}")
         except Exception as fallback_error:
-            app.logger.error(f"Fallback registration failed for {bp_expected_name}: {fallback_error}")
+            app.logger.error(
+                f"Fallback registration failed for {bp_expected_name}: {fallback_error}"
+            )
 
 
 blueprints_to_register_list = []
 
 
 app.logger.info("Blueprint registration method: AUTOMATED DISCOVERY")
-app.logger.info(" Manual maintenance eliminated - blueprints auto-discovered from filesystem")
+app.logger.info(
+    " Manual maintenance eliminated - blueprints auto-discovered from filesystem"
+)
 
 try:
     if early_blueprints_imported:
@@ -937,27 +1091,37 @@ try:
         if entity_indexing_bp:
             if entity_indexing_bp.name not in app.blueprints:
                 app.register_blueprint(entity_indexing_bp)
-                app.logger.debug("Registered early imported blueprint: entity_indexing_bp")
+                app.logger.debug(
+                    "Registered early imported blueprint: entity_indexing_bp"
+                )
         else:
-            app.logger.error("entity_indexing_bp was not imported successfully, cannot register.")
+            app.logger.error(
+                "entity_indexing_bp was not imported successfully, cannot register."
+            )
         if entity_links_bp:
             if entity_links_bp.name not in app.blueprints:
                 app.register_blueprint(entity_links_bp)
                 app.logger.debug("Registered early imported blueprint: entity_links_bp")
         else:
-            app.logger.error("entity_links_bp was not imported successfully, cannot register.")
+            app.logger.error(
+                "entity_links_bp was not imported successfully, cannot register."
+            )
         if rag_debug_bp:
             if rag_debug_bp.name not in app.blueprints:
                 app.register_blueprint(rag_debug_bp)
                 app.logger.debug("Registered early imported blueprint: rag_debug_bp")
         else:
-            app.logger.error("rag_debug_bp was not imported successfully, cannot register.")
+            app.logger.error(
+                "rag_debug_bp was not imported successfully, cannot register."
+            )
         if automation_bp:
             if automation_bp.name not in app.blueprints:
                 app.register_blueprint(automation_bp)
                 app.logger.debug("Registered early imported blueprint: automation_bp")
         else:
-            app.logger.error("automation_bp was not imported successfully, cannot register.")
+            app.logger.error(
+                "automation_bp was not imported successfully, cannot register."
+            )
     else:
         app.logger.warning(
             "Skipping registration of generation_bp and cache_bp due to earlier import failure."
@@ -965,6 +1129,7 @@ try:
     # RAG Autoresearch blueprint
     try:
         from backend.api.rag_autoresearch_api import autoresearch_bp
+
         if autoresearch_bp.name not in app.blueprints:
             app.register_blueprint(autoresearch_bp)
             app.logger.debug("Registered autoresearch_bp")
@@ -1102,10 +1267,11 @@ def debug_env():
         from backend.config import GUAARDVARK_ROOT, DATABASE_URL, STORAGE_DIR
 
         # Mask password in database URL for display
-        masked_db_url = _re.sub(r'://([^:]+):([^@]+)@', r'://\1:***@', DATABASE_URL)
+        masked_db_url = _re.sub(r"://([^:]+):([^@]+)@", r"://\1:***@", DATABASE_URL)
         masked_sqlalchemy_uri = _re.sub(
-            r'://([^:]+):([^@]+)@', r'://\1:***@',
-            app.config.get("SQLALCHEMY_DATABASE_URI", "NOT SET")
+            r"://([^:]+):([^@]+)@",
+            r"://\1:***@",
+            app.config.get("SQLALCHEMY_DATABASE_URI", "NOT SET"),
         )
 
         env_info = {
@@ -1125,10 +1291,11 @@ def debug_env():
             "working_directory": os.getcwd(),
             "process_id": os.getpid(),
         }
-        
+
         return jsonify(env_info), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 @app.route("/api/health")
 def health_check():
@@ -1157,13 +1324,16 @@ def health_db():
 _celery_health_cache = {"data": None, "timestamp": 0}
 _HEALTH_CACHE_DURATION = 30
 
+
 @app.route("/api/health/celery")
 def health_celery():
     import time
 
     current_time = time.time()
-    if (_celery_health_cache["data"] is not None and
-        current_time - _celery_health_cache["timestamp"] < _HEALTH_CACHE_DURATION):
+    if (
+        _celery_health_cache["data"] is not None
+        and current_time - _celery_health_cache["timestamp"] < _HEALTH_CACHE_DURATION
+    ):
         return _celery_health_cache["data"]
 
     previous_status = None
@@ -1175,79 +1345,97 @@ def health_celery():
 
     try:
         from backend.celery_app import celery
-        result = celery.send_task('backend.celery_tasks_isolated.ping', queue='health')
+
+        result = celery.send_task("backend.celery_tasks_isolated.ping", queue="health")
         status = result.get(timeout=15)
 
         inspect = celery.control.inspect()
         active_tasks = inspect.active()
-        
+
         worker_info = {
-            "active_tasks": len(active_tasks.get('celery@GUAARDVARK', [])) if active_tasks else 0,
-            "result": status
+            "active_tasks": (
+                len(active_tasks.get("celery@GUAARDVARK", [])) if active_tasks else 0
+            ),
+            "result": status,
         }
-        
+
         response_data = jsonify({"status": "up", **worker_info}), 200
-        
+
         if previous_status != "up":
             try:
                 from backend.socketio_events import emit_health_status_change
+
                 emit_health_status_change("celery", "up", worker_info)
             except Exception as e:
                 app.logger.warning(f"Failed to emit health status change: {e}")
-        
+
         _celery_health_cache["data"] = response_data
         _celery_health_cache["timestamp"] = current_time
-        
+
         return response_data
     except Exception as exc:
         error_msg = str(exc)
-        
+
         if "timeout" in error_msg.lower():
             error_msg = f"Worker busy or overloaded: {error_msg}"
-        
-        error_response = jsonify({
-            "status": "down", 
-            "error": error_msg,
-            "suggestion": "Worker may be processing large tasks. Check /api/celery/tasks for details."
-        }), 503
-        
+
+        error_response = (
+            jsonify(
+                {
+                    "status": "down",
+                    "error": error_msg,
+                    "suggestion": "Worker may be processing large tasks. Check /api/celery/tasks for details.",
+                }
+            ),
+            503,
+        )
+
         if previous_status != "down":
             try:
                 from backend.socketio_events import emit_health_status_change
+
                 emit_health_status_change("celery", "down", {"error": error_msg})
             except Exception as e:
                 app.logger.warning(f"Failed to emit health status change: {e}")
-        
+
         _celery_health_cache["data"] = error_response
         _celery_health_cache["timestamp"] = current_time - (_HEALTH_CACHE_DURATION - 5)
-        
+
         return error_response
 
 
 @app.route("/api/version")
 def get_version():
     from flask import jsonify
-    return jsonify({
-        "version": __version__,
-        "name": "guaardvark",
-        "description": "LLM-powered development environment",
-        "timestamp": "2025-09-27T07:15:00Z"
-    }), 200
+
+    return (
+        jsonify(
+            {
+                "version": __version__,
+                "name": "guaardvark",
+                "description": "LLM-powered development environment",
+                "timestamp": "2025-09-27T07:15:00Z",
+            }
+        ),
+        200,
+    )
 
 
 @app.route("/api/meta/test-llm")
 def test_llm():
     try:
-        return jsonify({
-            "status": "available",
-            "message": "LLM service is configured",
-            "model": "llama3:latest"
-        }), 200
+        return (
+            jsonify(
+                {
+                    "status": "available",
+                    "message": "LLM service is configured",
+                    "model": "llama3:latest",
+                }
+            ),
+            200,
+        )
     except Exception as e:
-        return jsonify({
-            "status": "unavailable",
-            "error": str(e)
-        }), 503
+        return jsonify({"status": "unavailable", "error": str(e)}), 503
 
 
 @app.route("/api/health/redis")
@@ -1263,47 +1451,62 @@ def health_redis():
 @app.route("/api/health/tools")
 def health_tools():
     try:
-        from backend.tools.tool_registry_init import get_registered_tools, get_tools_by_category
+        from backend.tools.tool_registry_init import (
+            get_registered_tools,
+            get_tools_by_category,
+        )
 
         tools = get_registered_tools()
         categories = get_tools_by_category()
 
-        return jsonify({
-            "status": "up" if len(tools) > 0 else "degraded",
-            "total_tools": len(tools),
-            "tools": tools,
-            "categories": {cat: len(names) for cat, names in categories.items()}
-        }), 200
+        return (
+            jsonify(
+                {
+                    "status": "up" if len(tools) > 0 else "degraded",
+                    "total_tools": len(tools),
+                    "tools": tools,
+                    "categories": {
+                        cat: len(names) for cat, names in categories.items()
+                    },
+                }
+            ),
+            200,
+        )
     except Exception as exc:
-        return jsonify({
-            "status": "down",
-            "error": str(exc)
-        }), 503
+        return jsonify({"status": "down", "error": str(exc)}), 503
 
 
 @app.route("/api/health/db-connections")
 def health_db_connections():
     try:
         from backend.utils.db_utils import get_db_connection_info
-        
+
         connection_info = get_db_connection_info()
-        
+
         if "error" in connection_info:
-            return jsonify({"status": "unhealthy", "error": connection_info["error"]}), 503
-        
+            return (
+                jsonify({"status": "unhealthy", "error": connection_info["error"]}),
+                503,
+            )
+
         checked_out = connection_info.get("checked_out", 0)
         pool_size = connection_info.get("pool_size", 0)
-        
+
         status = "healthy"
         if checked_out >= pool_size * 0.8:
             status = "warning"
-        
-        return jsonify({
-            "status": status,
-            "message": "Database connection pool information",
-            "connections": connection_info
-        }), 200
-        
+
+        return (
+            jsonify(
+                {
+                    "status": status,
+                    "message": "Database connection pool information",
+                    "connections": connection_info,
+                }
+            ),
+            200,
+        )
+
     except Exception as e:
         return jsonify({"status": "unhealthy", "error": str(e)}), 503
 
@@ -1312,14 +1515,14 @@ def health_db_connections():
 def cleanup_db_connections():
     try:
         from backend.utils.db_utils import cleanup_idle_connections
-        
+
         result = cleanup_idle_connections()
-        
+
         if "error" in result:
             return jsonify({"success": False, "error": result["error"]}), 500
-        
+
         return jsonify({"success": True, "result": result}), 200
-        
+
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -1627,7 +1830,7 @@ def db_health_cli():
 
 @app.cli.command("celery-health")
 def celery_health_cli():
-    result = celery.send_task('backend.celery_tasks_isolated.ping', queue='health')
+    result = celery.send_task("backend.celery_tasks_isolated.ping", queue="health")
     try:
         response = result.get(timeout=5)
     except Exception as exc:
@@ -1661,40 +1864,56 @@ def dead_code_cli():
 
 @app.cli.command("index-entities")
 @click.option("--force", is_flag=True, help="Force reindexing of all entities.")
-@click.option("--type", help="Index only specific entity type (client, project, website, task).")
+@click.option(
+    "--type", help="Index only specific entity type (client, project, website, task)."
+)
 def index_entities_cli(force, type):
     from backend.services.entity_indexing_service import get_entity_indexing_service
-    
+
     try:
         service = get_entity_indexing_service()
-        
+
         if type:
             if type not in ["client", "project", "website", "task"]:
-                print(f"Error: Invalid entity type '{type}'. Must be one of: client, project, website, task")
+                print(
+                    f"Error: Invalid entity type '{type}'. Must be one of: client, project, website, task"
+                )
                 return
-            
+
             print(f"Indexing {type} entities...")
-            
+
             if type == "client":
                 from backend.models import Client
+
                 entities = db.session.query(Client).all()
-                success_count = sum(1 for entity in entities if service.index_client(entity))
+                success_count = sum(
+                    1 for entity in entities if service.index_client(entity)
+                )
             elif type == "project":
                 from backend.models import Project
+
                 entities = db.session.query(Project).all()
-                success_count = sum(1 for entity in entities if service.index_project(entity))
+                success_count = sum(
+                    1 for entity in entities if service.index_project(entity)
+                )
             elif type == "website":
                 from backend.models import Website
+
                 entities = db.session.query(Website).all()
-                success_count = sum(1 for entity in entities if service.index_website(entity))
+                success_count = sum(
+                    1 for entity in entities if service.index_website(entity)
+                )
             elif type == "task":
                 from backend.models import Task
+
                 entities = db.session.query(Task).all()
-                success_count = sum(1 for entity in entities if service.index_task(entity))
-            
+                success_count = sum(
+                    1 for entity in entities if service.index_task(entity)
+                )
+
             error_count = len(entities) - success_count
             print(f"Indexed {success_count} {type} entities, {error_count} errors")
-            
+
         else:
             print("Indexing all entities...")
             results = service.index_all_entities()
@@ -1704,31 +1923,43 @@ def index_entities_cli(force, type):
             print(f"  Websites: {results.get('websites', 0)}")
             print(f"  Tasks: {results.get('tasks', 0)}")
             print(f"  Errors: {results.get('errors', 0)}")
-        
+
         if service.storage_context:
             from backend.config import INDEX_ROOT
+
             persist_dir = getattr(service.storage_context, "persist_dir", INDEX_ROOT)
-            if persist_dir and ("/storage" in persist_dir or "\\storage" in persist_dir or persist_dir.endswith("/storage") or persist_dir.endswith("\\storage")):
+            if persist_dir and (
+                "/storage" in persist_dir
+                or "\\storage" in persist_dir
+                or persist_dir.endswith("/storage")
+                or persist_dir.endswith("\\storage")
+            ):
                 persist_dir = INDEX_ROOT
-                print(f"Prevented use of legacy storage folder, using {persist_dir} instead")
+                print(
+                    f"Prevented use of legacy storage folder, using {persist_dir} instead"
+                )
             service.storage_context.persist(persist_dir=persist_dir)
             print("Index changes persisted successfully")
-        
+
     except Exception as e:
         print(f"Error indexing entities: {e}")
         import traceback
+
         traceback.print_exc()
 
 
 if __name__ == "__main__":
     run_host = os.environ.get("FLASK_RUN_HOST", "0.0.0.0")
-    run_port = int(os.environ.get("FLASK_PORT", os.environ.get("FLASK_RUN_PORT", "5000")))
+    run_port = int(
+        os.environ.get("FLASK_PORT", os.environ.get("FLASK_RUN_PORT", "5000"))
+    )
     app.logger.info(
         f"Starting Flask+SocketIO server on {run_host}:{run_port} "
         f"(LLM timeout: {app.config.get('LLM_REQUEST_TIMEOUT', LLM_REQUEST_TIMEOUT)}s)"
     )
-    socketio.run(app, host=run_host, port=run_port, debug=app.debug,
-                 allow_unsafe_werkzeug=True)
+    socketio.run(
+        app, host=run_host, port=run_port, debug=app.debug, allow_unsafe_werkzeug=True
+    )
 else:
     app.logger.info(
         f"Application instance '{app.name}' version {__version__} created and configured for WSGI server."

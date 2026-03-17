@@ -16,12 +16,16 @@ def handle_subscribe(data):
     if not job_id:
         emit("error", {"message": "job_id required"})
         return
-    
+
     # Handle special global_progress room
     if job_id == "global_progress":
         join_room("global_progress")
         logger.info("Client joined global progress room")
-        emit("status", {"data": "Subscribed to global progress updates"}, room="global_progress")
+        emit(
+            "status",
+            {"data": "Subscribed to global progress updates"},
+            room="global_progress",
+        )
     else:
         join_room(job_id)
         logger.info(f"Client joined room for job_id: {job_id}")
@@ -69,7 +73,7 @@ def emit_health_status_change(service, status, details=None):
         "service": service,
         "status": status,
         "timestamp": time.time(),
-        "details": details or {}
+        "details": details or {},
     }
     socketio.emit("health_status_change", event_data, room="health_updates")
     logger.info(f"Emitted health status change: {service} -> {status}")
@@ -97,6 +101,7 @@ def handle_chat_abort(data):
         return
     try:
         from backend.services.unified_chat_engine import set_abort_flag
+
         set_abort_flag(session_id)
         logger.info(f"Abort requested for chat session: {session_id}")
         emit("chat:aborted", {"session_id": session_id})
@@ -110,7 +115,7 @@ def emit_celery_worker_event(event_type, worker_info=None):
     event_data = {
         "event_type": event_type,  # 'started', 'stopped', 'error', 'heartbeat'
         "timestamp": time.time(),
-        "worker_info": worker_info or {}
+        "worker_info": worker_info or {},
     }
     socketio.emit("celery_worker_event", event_data, room="health_updates")
     logger.info(f"Emitted Celery worker event: {event_type}")
@@ -118,28 +123,37 @@ def emit_celery_worker_event(event_type, worker_info=None):
 
 def emit_self_improvement_event(event_type: str, data: dict):
     """Emit self-improvement status events."""
-    socketio.emit(f"self_improvement:{event_type}", {
-        "event_type": event_type,
-        "timestamp": time.time(),
-        **data,
-    })
+    socketio.emit(
+        f"self_improvement:{event_type}",
+        {
+            "event_type": event_type,
+            "timestamp": time.time(),
+            **data,
+        },
+    )
     logger.info(f"Emitted self_improvement:{event_type}")
 
 
 def emit_uncle_directive(directive: str, reason: str):
     """Emit Uncle Claude directive to all connected clients."""
-    socketio.emit("uncle:directive", {
-        "directive": directive,
-        "reason": reason,
-        "timestamp": time.time(),
-    })
+    socketio.emit(
+        "uncle:directive",
+        {
+            "directive": directive,
+            "reason": reason,
+            "timestamp": time.time(),
+        },
+    )
     logger.info(f"Emitted uncle:directive: {directive}")
 
 
 def emit_family_learning(learning_data: dict):
     """Emit family learning update to all connected clients."""
-    socketio.emit("family:learning", {
-        "timestamp": time.time(),
-        **learning_data,
-    })
+    socketio.emit(
+        "family:learning",
+        {
+            "timestamp": time.time(),
+            **learning_data,
+        },
+    )
     logger.info(f"Emitted family:learning")

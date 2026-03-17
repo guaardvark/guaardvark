@@ -19,11 +19,19 @@ os.environ.setdefault("GUAARDVARK_ROOT", str(project_root))
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="Migrate batch images to Documents system")
-    parser.add_argument("--dry-run", action="store_true", help="Show what would be done without doing it")
+
+    parser = argparse.ArgumentParser(
+        description="Migrate batch images to Documents system"
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be done without doing it",
+    )
     args = parser.parse_args()
 
     from backend.app import create_app
+
     app = create_app()
 
     with app.app_context():
@@ -34,10 +42,13 @@ def main():
             print("No batch images directory found. Nothing to migrate.")
             return
 
-        batch_dirs = sorted([
-            d for d in batch_base.iterdir()
-            if d.is_dir() and not d.name.startswith("_")
-        ])
+        batch_dirs = sorted(
+            [
+                d
+                for d in batch_base.iterdir()
+                if d.is_dir() and not d.name.startswith("_")
+            ]
+        )
 
         print(f"Found {len(batch_dirs)} batch directories")
 
@@ -66,7 +77,9 @@ def main():
             image_count = len(list(images_dir.glob("*")))
 
             if args.dry_run:
-                print(f"  WOULD MIGRATE {batch_id} ({image_count} images) -> /Images/{batch_name}/")
+                print(
+                    f"  WOULD MIGRATE {batch_id} ({image_count} images) -> /Images/{batch_name}/"
+                )
                 migrated += 1
                 continue
 

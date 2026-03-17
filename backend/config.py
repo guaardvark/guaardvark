@@ -5,6 +5,7 @@ from pathlib import Path
 
 try:
     from dotenv import load_dotenv
+
     _config_root = Path(__file__).resolve().parents[1]
     load_dotenv(_config_root / ".env", override=False)
 except ImportError:
@@ -52,28 +53,49 @@ BACKUP_DIR = _resolve_path("GUAARDVARK_BACKUP_DIR", "backups")
 
 # Video Generation / ComfyUI configuration
 COMFYUI_URL = os.environ.get("GUAARDVARK_COMFYUI_URL", "http://127.0.0.1:8188")
-COMFYUI_DIR = os.environ.get("GUAARDVARK_COMFYUI_DIR", os.path.join(GUAARDVARK_ROOT, "plugins", "comfyui", "ComfyUI"))
-COMFYUI_VENV = os.environ.get("GUAARDVARK_COMFYUI_VENV", os.path.join(GUAARDVARK_ROOT, "backend", "venv"))
-COMFYUI_OUTPUT_DIR = os.environ.get("COMFYUI_OUTPUT_DIR", os.path.join(OUTPUT_DIR, "video"))
-VIDEO_GENERATION_BACKEND = os.environ.get("GUAARDVARK_VIDEO_BACKEND", "auto")  # "comfyui" | "offline" | "auto"
+COMFYUI_DIR = os.environ.get(
+    "GUAARDVARK_COMFYUI_DIR",
+    os.path.join(GUAARDVARK_ROOT, "plugins", "comfyui", "ComfyUI"),
+)
+COMFYUI_VENV = os.environ.get(
+    "GUAARDVARK_COMFYUI_VENV", os.path.join(GUAARDVARK_ROOT, "backend", "venv")
+)
+COMFYUI_OUTPUT_DIR = os.environ.get(
+    "COMFYUI_OUTPUT_DIR", os.path.join(OUTPUT_DIR, "video")
+)
+VIDEO_GENERATION_BACKEND = os.environ.get(
+    "GUAARDVARK_VIDEO_BACKEND", "auto"
+)  # "comfyui" | "offline" | "auto"
 COMFYUI_IDLE_TIMEOUT = int(os.environ.get("GUAARDVARK_COMFYUI_IDLE_TIMEOUT", "1800"))
 
 _config_logger = logging.getLogger(__name__)
 _config_logger.info(f"Config initialized - GUAARDVARK_ROOT: {GUAARDVARK_ROOT}")
 _config_logger.info(f"Config initialized - STORAGE_DIR: {STORAGE_DIR}")
 
-ENHANCED_CONTEXT_ENABLED = os.environ.get("GUAARDVARK_ENHANCED_CONTEXT", "true").lower() == "true"
-ADVANCED_RAG_ENABLED = os.environ.get("GUAARDVARK_ADVANCED_RAG", "true").lower() == "true"
+ENHANCED_CONTEXT_ENABLED = (
+    os.environ.get("GUAARDVARK_ENHANCED_CONTEXT", "true").lower() == "true"
+)
+ADVANCED_RAG_ENABLED = (
+    os.environ.get("GUAARDVARK_ADVANCED_RAG", "true").lower() == "true"
+)
 RAG_DEBUG_ENABLED = os.environ.get("GUAARDVARK_RAG_DEBUG", "true").lower() == "true"
 CONTEXT_PERSISTENCE_DIR = _resolve_path("GUAARDVARK_CONTEXT_DIR", "data/context")
 
-BROWSER_AUTOMATION_ENABLED = os.environ.get("GUAARDVARK_BROWSER_AUTOMATION", "true").lower() == "true"
-BROWSER_HEADLESS = os.environ.get("GUAARDVARK_BROWSER_HEADLESS", "true").lower() == "true"
+BROWSER_AUTOMATION_ENABLED = (
+    os.environ.get("GUAARDVARK_BROWSER_AUTOMATION", "true").lower() == "true"
+)
+BROWSER_HEADLESS = (
+    os.environ.get("GUAARDVARK_BROWSER_HEADLESS", "true").lower() == "true"
+)
 BROWSER_MAX_PAGES = int(os.environ.get("GUAARDVARK_BROWSER_MAX_PAGES", "5"))
 BROWSER_TIMEOUT = int(os.environ.get("GUAARDVARK_BROWSER_TIMEOUT", "30000"))
 
-DESKTOP_AUTOMATION_ENABLED = os.environ.get("GUAARDVARK_DESKTOP_AUTOMATION", "false").lower() == "true"
-GUI_AUTOMATION_ENABLED = os.environ.get("GUAARDVARK_GUI_AUTOMATION", "false").lower() == "true"
+DESKTOP_AUTOMATION_ENABLED = (
+    os.environ.get("GUAARDVARK_DESKTOP_AUTOMATION", "false").lower() == "true"
+)
+GUI_AUTOMATION_ENABLED = (
+    os.environ.get("GUAARDVARK_GUI_AUTOMATION", "false").lower() == "true"
+)
 
 ALLOWED_AUTOMATION_PATHS = [
     str(GUAARDVARK_ROOT / "data"),
@@ -82,15 +104,34 @@ ALLOWED_AUTOMATION_PATHS = [
     "/tmp",
 ]
 if os.environ.get("GUAARDVARK_ALLOWED_PATHS"):
-    ALLOWED_AUTOMATION_PATHS.extend(os.environ.get("GUAARDVARK_ALLOWED_PATHS").split(":"))
+    ALLOWED_AUTOMATION_PATHS.extend(
+        os.environ.get("GUAARDVARK_ALLOWED_PATHS").split(":")
+    )
 
 ALLOWED_APPS = [
-    "code", "code-insiders",
-    "firefox", "firefox-esr", "chrome", "chromium", "chromium-browser",
-    "gnome-terminal", "konsole", "xterm", "alacritty", "kitty",
-    "nautilus", "dolphin", "thunar", "nemo",
-    "gedit", "kate", "nano", "vim",
-    "libreoffice", "gimp", "inkscape",
+    "code",
+    "code-insiders",
+    "firefox",
+    "firefox-esr",
+    "chrome",
+    "chromium",
+    "chromium-browser",
+    "gnome-terminal",
+    "konsole",
+    "xterm",
+    "alacritty",
+    "kitty",
+    "nautilus",
+    "dolphin",
+    "thunar",
+    "nemo",
+    "gedit",
+    "kate",
+    "nano",
+    "vim",
+    "libreoffice",
+    "gimp",
+    "inkscape",
 ]
 if os.environ.get("GUAARDVARK_ALLOWED_APPS"):
     ALLOWED_APPS.extend(os.environ.get("GUAARDVARK_ALLOWED_APPS").split(":"))
@@ -100,25 +141,47 @@ MCP_TIMEOUT = int(os.environ.get("GUAARDVARK_MCP_TIMEOUT", "30"))
 MCP_SERVERS_CONFIG = os.environ.get("GUAARDVARK_MCP_SERVERS", "{}")
 
 # Uncle Claude configuration
-CLAUDE_API_ENABLED = os.environ.get("GUAARDVARK_CLAUDE_API_ENABLED", "true").lower() == "true"
-CLAUDE_DEFAULT_MODEL = os.environ.get("GUAARDVARK_CLAUDE_MODEL", "claude-sonnet-4-20250514")
+CLAUDE_API_ENABLED = (
+    os.environ.get("GUAARDVARK_CLAUDE_API_ENABLED", "true").lower() == "true"
+)
+CLAUDE_DEFAULT_MODEL = os.environ.get(
+    "GUAARDVARK_CLAUDE_MODEL", "claude-sonnet-4-20250514"
+)
 CLAUDE_MAX_OUTPUT_TOKENS = int(os.environ.get("GUAARDVARK_CLAUDE_MAX_TOKENS", "4096"))
-CLAUDE_MONTHLY_TOKEN_BUDGET = int(os.environ.get("GUAARDVARK_CLAUDE_TOKEN_BUDGET", "1000000"))
-CLAUDE_ESCALATION_MODE = os.environ.get("GUAARDVARK_CLAUDE_ESCALATION_MODE", "manual")  # manual, smart, always
+CLAUDE_MONTHLY_TOKEN_BUDGET = int(
+    os.environ.get("GUAARDVARK_CLAUDE_TOKEN_BUDGET", "1000000")
+)
+CLAUDE_ESCALATION_MODE = os.environ.get(
+    "GUAARDVARK_CLAUDE_ESCALATION_MODE", "manual"
+)  # manual, smart, always
 
 # Self-improvement configuration
-SELF_IMPROVEMENT_ENABLED = os.environ.get("GUAARDVARK_SELF_IMPROVEMENT", "false").lower() == "true"
-SELF_IMPROVEMENT_INTERVAL_HOURS = int(os.environ.get("GUAARDVARK_SELF_IMPROVEMENT_INTERVAL", "6"))
-SELF_HEALING_ERROR_THRESHOLD = int(os.environ.get("GUAARDVARK_SELF_HEALING_THRESHOLD", "3"))
-SELF_HEALING_WINDOW_MINUTES = int(os.environ.get("GUAARDVARK_SELF_HEALING_WINDOW", "60"))
+SELF_IMPROVEMENT_ENABLED = (
+    os.environ.get("GUAARDVARK_SELF_IMPROVEMENT", "false").lower() == "true"
+)
+SELF_IMPROVEMENT_INTERVAL_HOURS = int(
+    os.environ.get("GUAARDVARK_SELF_IMPROVEMENT_INTERVAL", "6")
+)
+SELF_HEALING_ERROR_THRESHOLD = int(
+    os.environ.get("GUAARDVARK_SELF_HEALING_THRESHOLD", "3")
+)
+SELF_HEALING_WINDOW_MINUTES = int(
+    os.environ.get("GUAARDVARK_SELF_HEALING_WINDOW", "60")
+)
 
 # KV Cache optimization
 COMPACTION_THRESHOLD = float(os.environ.get("GUAARDVARK_COMPACTION_THRESHOLD", "0.7"))
-CHUNK_SIMILARITY_THRESHOLD = float(os.environ.get("GUAARDVARK_CHUNK_SIMILARITY_THRESHOLD", "0.85"))
+CHUNK_SIMILARITY_THRESHOLD = float(
+    os.environ.get("GUAARDVARK_CHUNK_SIMILARITY_THRESHOLD", "0.85")
+)
 
 # RAG Autoresearch configuration
-AUTORESEARCH_ENABLED = os.environ.get("GUAARDVARK_AUTORESEARCH_ENABLED", "true").lower() == "true"
-AUTORESEARCH_IDLE_MINUTES = int(os.environ.get("GUAARDVARK_AUTORESEARCH_IDLE_MINUTES", "10"))
+AUTORESEARCH_ENABLED = (
+    os.environ.get("GUAARDVARK_AUTORESEARCH_ENABLED", "true").lower() == "true"
+)
+AUTORESEARCH_IDLE_MINUTES = int(
+    os.environ.get("GUAARDVARK_AUTORESEARCH_IDLE_MINUTES", "10")
+)
 AUTORESEARCH_MAX_EXPERIMENT_DURATION = 300  # 5 minutes, matching Karpathy's time budget
 AUTORESEARCH_MAX_LLM_CALLS_PER_EXPERIMENT = 200
 AUTORESEARCH_PHASE_PLATEAU_THRESHOLD = 10  # consecutive discards before phase advance
@@ -192,7 +255,9 @@ if _env_db_url:
     allowed_schemes = ["postgresql", "postgres"]
     if any(_env_db_url.startswith(f"{scheme}://") for scheme in allowed_schemes):
         DATABASE_URL = _env_db_url
-        _config_logger.info(f"Using DATABASE_URL from environment: {_env_db_url[:50]}...")
+        _config_logger.info(
+            f"Using DATABASE_URL from environment: {_env_db_url[:50]}..."
+        )
     else:
         _config_logger.warning(
             f"DATABASE_URL has unsupported scheme: {_env_db_url[:20]}... "
@@ -216,29 +281,29 @@ def get_default_llm():
 
         response = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
         if response.status_code == 200:
-            models = response.json().get('models', [])
+            models = response.json().get("models", [])
 
             preferred_patterns = [
-                'llama3.1',
-                'llama3',
-                'gemma',
-                'phi',
-                'mistral',
-                'qwen',
+                "llama3.1",
+                "llama3",
+                "gemma",
+                "phi",
+                "mistral",
+                "qwen",
             ]
 
             for pattern in preferred_patterns:
                 for model in models:
-                    name = model.get('name', '').lower()
+                    name = model.get("name", "").lower()
                     if not is_text_chat_model(name):
                         continue
-                    if pattern in name and ':' in name:
-                        return model.get('name')
+                    if pattern in name and ":" in name:
+                        return model.get("name")
 
             for model in models:
-                name = model.get('name', '').lower()
+                name = model.get("name", "").lower()
                 if is_text_chat_model(name):
-                    return model.get('name')
+                    return model.get("name")
 
     except Exception:
         pass
@@ -263,12 +328,15 @@ def get_embedding_vram_estimates() -> dict:
 
 def _get_gpu_vram_info() -> dict:
     import subprocess
+
     result = {"total_vram_mb": 0, "used_by_models_mb": 0, "budget_mb": 0}
 
     try:
         proc = subprocess.run(
             ["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits"],
-            capture_output=True, text=True, timeout=5
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if proc.returncode == 0 and proc.stdout.strip():
             result["total_vram_mb"] = int(proc.stdout.strip().split("\n")[0])
@@ -277,6 +345,7 @@ def _get_gpu_vram_info() -> dict:
 
     try:
         import requests
+
         ps_response = requests.get(f"{OLLAMA_BASE_URL}/api/ps", timeout=5)
         if ps_response.status_code == 200:
             for model in ps_response.json().get("models", []):
@@ -288,7 +357,9 @@ def _get_gpu_vram_info() -> dict:
         pass
 
     safety_margin_mb = 500
-    result["budget_mb"] = max(0, result["total_vram_mb"] - result["used_by_models_mb"] - safety_margin_mb)
+    result["budget_mb"] = max(
+        0, result["total_vram_mb"] - result["used_by_models_mb"] - safety_margin_mb
+    )
     return result
 
 
@@ -296,16 +367,20 @@ def get_active_embedding_model() -> str:
     # Check if user has explicitly set an embedding model (via Settings UI)
     try:
         from backend.models import Setting, db
+
         if db and Setting:
             setting = db.session.get(Setting, "active_embedding_model")
             if setting and setting.value:
-                _config_logger.info(f"Using user-selected embedding model: {setting.value}")
+                _config_logger.info(
+                    f"Using user-selected embedding model: {setting.value}"
+                )
                 return setting.value
     except Exception:
         pass  # DB not available yet (startup), fall through to auto-selection
 
     try:
         import requests
+
         response = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
         available_models = [m["name"] for m in response.json().get("models", [])]
     except Exception:
@@ -408,41 +483,43 @@ _llm_timeout_env = os.getenv("GUAARDVARK_LLM_REQUEST_TIMEOUT")
 LLM_REQUEST_TIMEOUT = float(_llm_timeout_env) if _llm_timeout_env else 7200.0
 if _llm_timeout_env:
     logging.info(
-        "GUAARDVARK_LLM_REQUEST_TIMEOUT overridden via environment: %s", LLM_REQUEST_TIMEOUT
+        "GUAARDVARK_LLM_REQUEST_TIMEOUT overridden via environment: %s",
+        LLM_REQUEST_TIMEOUT,
     )
 
 INDEXING_USE_CUDA = os.getenv("GUAARDVARK_INDEXING_USE_CUDA", "auto").lower()
 
 if INDEXING_USE_CUDA not in ["auto", "force_cpu", "force_cuda"]:
-    logging.warning(f"Invalid INDEXING_USE_CUDA value: {INDEXING_USE_CUDA}. Using 'auto'.")
+    logging.warning(
+        f"Invalid INDEXING_USE_CUDA value: {INDEXING_USE_CUDA}. Using 'auto'."
+    )
     INDEXING_USE_CUDA = "auto"
 
 SECRET_KEY = os.environ.get("SECRET_KEY")
 if not SECRET_KEY:
     if GUAARDVARK_MODE == "production":
-        raise ValueError("SECRET_KEY environment variable must be set in production mode")
+        raise ValueError(
+            "SECRET_KEY environment variable must be set in production mode"
+        )
     else:
         SECRET_KEY = "dev-secret-key-change-in-production"
-        logging.warning("Using default SECRET_KEY for development. Set SECRET_KEY environment variable for production.")
+        logging.warning(
+            "Using default SECRET_KEY for development. Set SECRET_KEY environment variable for production."
+        )
 
 METRICS_LOG_LEVEL = os.environ.get("GUAARDVARK_METRICS_LOG_LEVEL", "WARNING").upper()
 
 AGENTIC_MAX_TOKENS_FINAL = int(os.environ.get("GUAARDVARK_AGENTIC_MAX_TOKENS", "1024"))
 AGENTIC_HISTORY_LIMIT = int(os.environ.get("GUAARDVARK_AGENTIC_HISTORY_LIMIT", "10"))
 
-CHAT_HISTORY_LIMIT_FOR_ENGINE = (
-    20
-)
-CHAT_HISTORY_MAX_TOKENS_FOR_ENGINE = (
-    3072
-)
-CHAT_MEMORY_TOKEN_LIMIT = (
-    4096
-)
+CHAT_HISTORY_LIMIT_FOR_ENGINE = 20
+CHAT_HISTORY_MAX_TOKENS_FOR_ENGINE = 3072
+CHAT_MEMORY_TOKEN_LIMIT = 4096
 
 PROJECT_INDEX_MODE = os.environ.get("GUAARDVARK_PROJECT_INDEX_MODE", "global").lower()
 
 DISABLE_CELERY = os.environ.get("DISABLE_CELERY", "false").lower() == "true"
+
 
 # GPU embedding plugin was removed — the EmbeddingRouter now handles
 # GPU/CPU routing natively via Ollama num_gpu=0 for the CPU path.
@@ -450,8 +527,10 @@ DISABLE_CELERY = os.environ.get("DISABLE_CELERY", "false").lower() == "true"
 def is_gpu_embedding_plugin_enabled() -> bool:
     return False
 
+
 def is_gpu_embedding_service_available() -> bool:
     return False
+
 
 GPU_EMBEDDING_SERVICE_URL = ""
 GPU_EMBEDDING_TIMEOUT = 30

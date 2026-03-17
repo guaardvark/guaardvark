@@ -20,8 +20,12 @@ def settings_list(
     try:
         client = get_client(server)
         KNOWN_KEYS = [
-            "web_access", "advanced_debug", "llm_debug",
-            "behavior_learning", "rag_debug", "music_directory",
+            "web_access",
+            "advanced_debug",
+            "llm_debug",
+            "behavior_learning",
+            "rag_debug",
+            "music_directory",
         ]
         settings = {}
         for key in KNOWN_KEYS:

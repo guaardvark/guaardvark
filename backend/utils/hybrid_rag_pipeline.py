@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RetrievalResult:
     """Result from hybrid retrieval"""
+
     node: TextNode
     score: float
     retrieval_method: str  # 'dense', 'sparse', 'expanded', 'reranked'
@@ -41,6 +42,7 @@ class RetrievalResult:
 @dataclass
 class HybridRetrievalConfig:
     """Configuration for hybrid retrieval"""
+
     # Number of results to retrieve
     dense_top_k: int = 10
     sparse_top_k: int = 10
@@ -53,7 +55,7 @@ class HybridRetrievalConfig:
 
     # Reranking
     enable_reranking: bool = True
-    rerank_method: str = 'rrf'  # 'rrf' (Reciprocal Rank Fusion), 'score', 'weighted'
+    rerank_method: str = "rrf"  # 'rrf' (Reciprocal Rank Fusion), 'score', 'weighted'
 
     # Weights for hybrid scoring
     dense_weight: float = 0.5
@@ -102,7 +104,7 @@ class BM25Index:
         """Tokenize text for BM25"""
         # Simple tokenization - lowercase and split on non-alphanumeric
         text = text.lower()
-        tokens = re.findall(r'\b\w+\b', text)
+        tokens = re.findall(r"\b\w+\b", text)
         return tokens
 
     def search(self, query: str, top_k: int = 10) -> List[Tuple[TextNode, float]]:
@@ -118,7 +120,9 @@ class BM25Index:
         scores = self.bm25.get_scores(tokenized_query)
 
         # Get top-k results
-        top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
+        top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[
+            :top_k
+        ]
 
         results = []
         for idx in top_indices:
@@ -172,14 +176,14 @@ class QueryExpander:
         """Expand query with synonyms (simple keyword approach)"""
         # Simple synonym mapping
         synonyms = {
-            'error': 'problem issue bug failure',
-            'fix': 'repair resolve solve correct',
-            'create': 'make generate build develop',
-            'delete': 'remove erase destroy',
-            'update': 'modify change edit revise',
-            'find': 'search locate discover',
-            'how': 'what method way process',
-            'why': 'reason cause explanation',
+            "error": "problem issue bug failure",
+            "fix": "repair resolve solve correct",
+            "create": "make generate build develop",
+            "delete": "remove erase destroy",
+            "update": "modify change edit revise",
+            "find": "search locate discover",
+            "how": "what method way process",
+            "why": "reason cause explanation",
         }
 
         words = query.lower().split()
@@ -192,24 +196,24 @@ class QueryExpander:
                 first_synonym = synonyms[word].split()[0]
                 expanded_words.append(first_synonym)
 
-        return ' '.join(expanded_words)
+        return " ".join(expanded_words)
 
     def _reformulate_query(self, query: str) -> str:
         """Reformulate query as a different question type"""
         query_lower = query.lower()
 
         # Convert "how to X" to "X methods"
-        if query_lower.startswith('how to '):
+        if query_lower.startswith("how to "):
             base = query[7:]
             return f"{base} methods and approaches"
 
         # Convert "what is X" to "X definition"
-        if query_lower.startswith('what is '):
+        if query_lower.startswith("what is "):
             base = query[8:]
             return f"{base} definition and explanation"
 
         # Convert "why X" to "X reasons"
-        if query_lower.startswith('why '):
+        if query_lower.startswith("why "):
             base = query[4:]
             return f"{base} causes and reasons"
 
@@ -219,11 +223,11 @@ class QueryExpander:
     def _expand_with_entities(self, query: str) -> str:
         """Expand query with extracted entities"""
         # Simple entity extraction - capitalized words
-        entities = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', query)
+        entities = re.findall(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b", query)
 
         if entities:
             # Add entity context
-            entity_terms = ' '.join(entities)
+            entity_terms = " ".join(entities)
             return f"{query} {entity_terms} related"
 
         return query
@@ -232,7 +236,7 @@ class QueryExpander:
 class HybridReranker:
     """Reranks combined results from multiple retrieval methods"""
 
-    def __init__(self, method: str = 'rrf'):
+    def __init__(self, method: str = "rrf"):
         self.method = method
 
     def rerank(
@@ -240,19 +244,19 @@ class HybridReranker:
         dense_results: List[Tuple[TextNode, float]],
         sparse_results: List[Tuple[TextNode, float]],
         expanded_results: List[List[Tuple[TextNode, float]]],
-        config: HybridRetrievalConfig
+        config: HybridRetrievalConfig,
     ) -> List[RetrievalResult]:
         """Rerank all results"""
 
-        if self.method == 'rrf':
+        if self.method == "rrf":
             return self._reciprocal_rank_fusion(
                 dense_results, sparse_results, expanded_results, config
             )
-        elif self.method == 'score':
+        elif self.method == "score":
             return self._score_based_ranking(
                 dense_results, sparse_results, expanded_results, config
             )
-        elif self.method == 'weighted':
+        elif self.method == "weighted":
             return self._weighted_ranking(
                 dense_results, sparse_results, expanded_results, config
             )
@@ -267,7 +271,7 @@ class HybridReranker:
         dense_results: List[Tuple[TextNode, float]],
         sparse_results: List[Tuple[TextNode, float]],
         expanded_results: List[List[Tuple[TextNode, float]]],
-        config: HybridRetrievalConfig
+        config: HybridRetrievalConfig,
     ) -> List[RetrievalResult]:
         """Reciprocal Rank Fusion (RRF) reranking"""
         k = 60  # RRF constant
@@ -280,11 +284,11 @@ class HybridReranker:
             scores[node_id] += config.dense_weight / (k + rank)
             if node_id not in node_info:
                 node_info[node_id] = {
-                    'node': node,
-                    'methods': [],
-                    'original_rank': rank
+                    "node": node,
+                    "methods": [],
+                    "original_rank": rank,
                 }
-            node_info[node_id]['methods'].append('dense')
+            node_info[node_id]["methods"].append("dense")
 
         # Process sparse results
         for rank, (node, score) in enumerate(sparse_results, 1):
@@ -292,11 +296,11 @@ class HybridReranker:
             scores[node_id] += config.sparse_weight / (k + rank)
             if node_id not in node_info:
                 node_info[node_id] = {
-                    'node': node,
-                    'methods': [],
-                    'original_rank': rank
+                    "node": node,
+                    "methods": [],
+                    "original_rank": rank,
                 }
-            node_info[node_id]['methods'].append('sparse')
+            node_info[node_id]["methods"].append("sparse")
 
         # Process expanded results
         for exp_results in expanded_results:
@@ -305,11 +309,11 @@ class HybridReranker:
                 scores[node_id] += config.expanded_weight / (k + rank)
                 if node_id not in node_info:
                     node_info[node_id] = {
-                        'node': node,
-                        'methods': [],
-                        'original_rank': rank
+                        "node": node,
+                        "methods": [],
+                        "original_rank": rank,
                     }
-                node_info[node_id]['methods'].append('expanded')
+                node_info[node_id]["methods"].append("expanded")
 
         # Sort by RRF score
         sorted_node_ids = sorted(scores.keys(), key=lambda x: scores[x], reverse=True)
@@ -319,11 +323,11 @@ class HybridReranker:
         for idx, node_id in enumerate(sorted_node_ids):
             info = node_info[node_id]
             result = RetrievalResult(
-                node=info['node'],
+                node=info["node"],
                 score=scores[node_id],
-                retrieval_method=','.join(set(info['methods'])),
-                original_rank=info['original_rank'],
-                metadata={'rrf_score': scores[node_id], 'methods': info['methods']}
+                retrieval_method=",".join(set(info["methods"])),
+                original_rank=info["original_rank"],
+                metadata={"rrf_score": scores[node_id], "methods": info["methods"]},
             )
             results.append(result)
 
@@ -334,7 +338,7 @@ class HybridReranker:
         dense_results: List[Tuple[TextNode, float]],
         sparse_results: List[Tuple[TextNode, float]],
         expanded_results: List[List[Tuple[TextNode, float]]],
-        config: HybridRetrievalConfig
+        config: HybridRetrievalConfig,
     ) -> List[RetrievalResult]:
         """Score-based ranking (normalize and combine scores)"""
         scores = defaultdict(float)
@@ -351,11 +355,11 @@ class HybridReranker:
             scores[node_id] += config.dense_weight * normalized_score
             if node_id not in node_info:
                 node_info[node_id] = {
-                    'node': node,
-                    'methods': [],
-                    'original_rank': rank
+                    "node": node,
+                    "methods": [],
+                    "original_rank": rank,
                 }
-            node_info[node_id]['methods'].append('dense')
+            node_info[node_id]["methods"].append("dense")
 
         # Process sparse results
         for rank, (node, score) in enumerate(sparse_results, 1):
@@ -364,11 +368,11 @@ class HybridReranker:
             scores[node_id] += config.sparse_weight * normalized_score
             if node_id not in node_info:
                 node_info[node_id] = {
-                    'node': node,
-                    'methods': [],
-                    'original_rank': rank
+                    "node": node,
+                    "methods": [],
+                    "original_rank": rank,
                 }
-            node_info[node_id]['methods'].append('sparse')
+            node_info[node_id]["methods"].append("sparse")
 
         # Process expanded results
         for exp_results in expanded_results:
@@ -379,11 +383,11 @@ class HybridReranker:
                 scores[node_id] += config.expanded_weight * normalized_score
                 if node_id not in node_info:
                     node_info[node_id] = {
-                        'node': node,
-                        'methods': [],
-                        'original_rank': rank
+                        "node": node,
+                        "methods": [],
+                        "original_rank": rank,
                     }
-                node_info[node_id]['methods'].append('expanded')
+                node_info[node_id]["methods"].append("expanded")
 
         # Sort by combined score
         sorted_node_ids = sorted(scores.keys(), key=lambda x: scores[x], reverse=True)
@@ -393,11 +397,14 @@ class HybridReranker:
         for idx, node_id in enumerate(sorted_node_ids):
             info = node_info[node_id]
             result = RetrievalResult(
-                node=info['node'],
+                node=info["node"],
                 score=scores[node_id],
-                retrieval_method=','.join(set(info['methods'])),
-                original_rank=info['original_rank'],
-                metadata={'combined_score': scores[node_id], 'methods': info['methods']}
+                retrieval_method=",".join(set(info["methods"])),
+                original_rank=info["original_rank"],
+                metadata={
+                    "combined_score": scores[node_id],
+                    "methods": info["methods"],
+                },
             )
             results.append(result)
 
@@ -408,7 +415,7 @@ class HybridReranker:
         dense_results: List[Tuple[TextNode, float]],
         sparse_results: List[Tuple[TextNode, float]],
         expanded_results: List[List[Tuple[TextNode, float]]],
-        config: HybridRetrievalConfig
+        config: HybridRetrievalConfig,
     ) -> List[RetrievalResult]:
         """Weighted ranking based on position"""
         scores = defaultdict(float)
@@ -421,11 +428,11 @@ class HybridReranker:
             scores[node_id] += config.dense_weight * position_weight
             if node_id not in node_info:
                 node_info[node_id] = {
-                    'node': node,
-                    'methods': [],
-                    'original_rank': rank
+                    "node": node,
+                    "methods": [],
+                    "original_rank": rank,
                 }
-            node_info[node_id]['methods'].append('dense')
+            node_info[node_id]["methods"].append("dense")
 
         # Process sparse results
         for rank, (node, score) in enumerate(sparse_results, 1):
@@ -434,11 +441,11 @@ class HybridReranker:
             scores[node_id] += config.sparse_weight * position_weight
             if node_id not in node_info:
                 node_info[node_id] = {
-                    'node': node,
-                    'methods': [],
-                    'original_rank': rank
+                    "node": node,
+                    "methods": [],
+                    "original_rank": rank,
                 }
-            node_info[node_id]['methods'].append('sparse')
+            node_info[node_id]["methods"].append("sparse")
 
         # Process expanded results
         for exp_results in expanded_results:
@@ -448,11 +455,11 @@ class HybridReranker:
                 scores[node_id] += config.expanded_weight * position_weight
                 if node_id not in node_info:
                     node_info[node_id] = {
-                        'node': node,
-                        'methods': [],
-                        'original_rank': rank
+                        "node": node,
+                        "methods": [],
+                        "original_rank": rank,
                     }
-                node_info[node_id]['methods'].append('expanded')
+                node_info[node_id]["methods"].append("expanded")
 
         # Sort by weighted score
         sorted_node_ids = sorted(scores.keys(), key=lambda x: scores[x], reverse=True)
@@ -462,11 +469,14 @@ class HybridReranker:
         for idx, node_id in enumerate(sorted_node_ids):
             info = node_info[node_id]
             result = RetrievalResult(
-                node=info['node'],
+                node=info["node"],
                 score=scores[node_id],
-                retrieval_method=','.join(set(info['methods'])),
-                original_rank=info['original_rank'],
-                metadata={'weighted_score': scores[node_id], 'methods': info['methods']}
+                retrieval_method=",".join(set(info["methods"])),
+                original_rank=info["original_rank"],
+                metadata={
+                    "weighted_score": scores[node_id],
+                    "methods": info["methods"],
+                },
             )
             results.append(result)
 
@@ -482,7 +492,7 @@ class HybridRAGPipeline:
         self,
         index_manager: Optional[UnifiedIndexManager] = None,
         config: Optional[HybridRetrievalConfig] = None,
-        project_id: Optional[str] = None
+        project_id: Optional[str] = None,
     ):
         """
         Initialize Hybrid RAG Pipeline
@@ -503,11 +513,11 @@ class HybridRAGPipeline:
 
         # Statistics
         self.stats = {
-            'total_queries': 0,
-            'dense_retrievals': 0,
-            'sparse_retrievals': 0,
-            'expanded_queries': 0,
-            'reranked_results': 0
+            "total_queries": 0,
+            "dense_retrievals": 0,
+            "sparse_retrievals": 0,
+            "expanded_queries": 0,
+            "reranked_results": 0,
         }
 
         logger.info("Initialized HybridRAGPipeline")
@@ -521,20 +531,21 @@ class HybridRAGPipeline:
         # Get index from manager
         if self.index_manager is None:
             from backend.utils.unified_index_manager import get_global_index_manager
+
             self.index_manager = get_global_index_manager()
 
         index, _ = self.index_manager.get_index(project_id=self.project_id)
 
         # Get all nodes from index
         nodes = []
-        if hasattr(index, 'docstore') and hasattr(index.docstore, 'docs'):
+        if hasattr(index, "docstore") and hasattr(index.docstore, "docs"):
             for doc_id, doc in index.docstore.docs.items():
-                if hasattr(doc, 'get_content'):
+                if hasattr(doc, "get_content"):
                     # Create TextNode from document
                     node = TextNode(
                         text=doc.get_content(),
                         id_=doc_id,
-                        metadata=doc.metadata if hasattr(doc, 'metadata') else {}
+                        metadata=doc.metadata if hasattr(doc, "metadata") else {},
                     )
                     nodes.append(node)
 
@@ -545,9 +556,7 @@ class HybridRAGPipeline:
         logger.info(f"Built BM25 index with {len(nodes)} nodes")
 
     def retrieve(
-        self,
-        query: str,
-        top_k: Optional[int] = None
+        self, query: str, top_k: Optional[int] = None
     ) -> List[RetrievalResult]:
         """
         Retrieve documents using hybrid approach
@@ -560,7 +569,7 @@ class HybridRAGPipeline:
             List of RetrievalResult objects
         """
         k = top_k or self.config.final_top_k
-        self.stats['total_queries'] += 1
+        self.stats["total_queries"] += 1
 
         # Ensure BM25 index is built
         if self.bm25_index is None:
@@ -568,27 +577,31 @@ class HybridRAGPipeline:
 
         # 1. Dense retrieval (semantic/vector search)
         dense_results = self._dense_retrieval(query, self.config.dense_top_k)
-        self.stats['dense_retrievals'] += 1
+        self.stats["dense_retrievals"] += 1
 
         # 2. Sparse retrieval (BM25/keyword search)
         sparse_results = self._sparse_retrieval(query, self.config.sparse_top_k)
-        self.stats['sparse_retrievals'] += 1
+        self.stats["sparse_retrievals"] += 1
 
         # 3. Query expansion
         expanded_results = []
         if self.config.enable_query_expansion:
-            expanded_results = self._expanded_retrieval(query, self.config.expanded_top_k)
-            self.stats['expanded_queries'] += len(expanded_results)
+            expanded_results = self._expanded_retrieval(
+                query, self.config.expanded_top_k
+            )
+            self.stats["expanded_queries"] += len(expanded_results)
 
         # 4. Combine and rerank
         if self.config.enable_reranking:
             reranked = self.reranker.rerank(
                 dense_results, sparse_results, expanded_results, self.config
             )
-            self.stats['reranked_results'] += 1
+            self.stats["reranked_results"] += 1
         else:
             # Simple concatenation without reranking
-            reranked = self._simple_combine(dense_results, sparse_results, expanded_results)
+            reranked = self._simple_combine(
+                dense_results, sparse_results, expanded_results
+            )
 
         # 5. Deduplication
         if self.config.enable_deduplication:
@@ -601,12 +614,12 @@ class HybridRAGPipeline:
         """Dense (vector/semantic) retrieval"""
         if self.index_manager is None:
             from backend.utils.unified_index_manager import get_global_index_manager
+
             self.index_manager = get_global_index_manager()
 
         # Get retriever from index manager
         retriever = self.index_manager.get_retriever(
-            project_id=self.project_id,
-            similarity_top_k=top_k
+            project_id=self.project_id, similarity_top_k=top_k
         )
 
         # Retrieve nodes
@@ -630,7 +643,9 @@ class HybridRAGPipeline:
         logger.debug(f"Sparse retrieval found {len(results)} results")
         return results
 
-    def _expanded_retrieval(self, query: str, top_k: int) -> List[List[Tuple[TextNode, float]]]:
+    def _expanded_retrieval(
+        self, query: str, top_k: int
+    ) -> List[List[Tuple[TextNode, float]]]:
         """Query expansion and retrieval"""
         # Expand query
         expanded_queries = self.query_expander.expand_query(
@@ -654,7 +669,7 @@ class HybridRAGPipeline:
         self,
         dense_results: List[Tuple[TextNode, float]],
         sparse_results: List[Tuple[TextNode, float]],
-        expanded_results: List[List[Tuple[TextNode, float]]]
+        expanded_results: List[List[Tuple[TextNode, float]]],
     ) -> List[RetrievalResult]:
         """Simple combination without reranking"""
         results = []
@@ -664,24 +679,28 @@ class HybridRAGPipeline:
         for rank, (node, score) in enumerate(dense_results, 1):
             node_id = node.node_id or node.id_
             if node_id not in seen_ids:
-                results.append(RetrievalResult(
-                    node=node,
-                    score=score,
-                    retrieval_method='dense',
-                    original_rank=rank
-                ))
+                results.append(
+                    RetrievalResult(
+                        node=node,
+                        score=score,
+                        retrieval_method="dense",
+                        original_rank=rank,
+                    )
+                )
                 seen_ids.add(node_id)
 
         # Add sparse results
         for rank, (node, score) in enumerate(sparse_results, 1):
             node_id = node.node_id or node.id_
             if node_id not in seen_ids:
-                results.append(RetrievalResult(
-                    node=node,
-                    score=score,
-                    retrieval_method='sparse',
-                    original_rank=rank
-                ))
+                results.append(
+                    RetrievalResult(
+                        node=node,
+                        score=score,
+                        retrieval_method="sparse",
+                        original_rank=rank,
+                    )
+                )
                 seen_ids.add(node_id)
 
         # Add expanded results
@@ -689,12 +708,14 @@ class HybridRAGPipeline:
             for rank, (node, score) in enumerate(exp_results, 1):
                 node_id = node.node_id or node.id_
                 if node_id not in seen_ids:
-                    results.append(RetrievalResult(
-                        node=node,
-                        score=score,
-                        retrieval_method='expanded',
-                        original_rank=rank
-                    ))
+                    results.append(
+                        RetrievalResult(
+                            node=node,
+                            score=score,
+                            retrieval_method="expanded",
+                            original_rank=rank,
+                        )
+                    )
                     seen_ids.add(node_id)
 
         return results
@@ -734,32 +755,31 @@ class HybridRAGPipeline:
         """Get pipeline statistics"""
         return {
             **self.stats,
-            'timestamp': datetime.now().isoformat(),
-            'config': {
-                'dense_top_k': self.config.dense_top_k,
-                'sparse_top_k': self.config.sparse_top_k,
-                'final_top_k': self.config.final_top_k,
-                'rerank_method': self.config.rerank_method,
-                'query_expansion_enabled': self.config.enable_query_expansion,
-                'reranking_enabled': self.config.enable_reranking
-            }
+            "timestamp": datetime.now().isoformat(),
+            "config": {
+                "dense_top_k": self.config.dense_top_k,
+                "sparse_top_k": self.config.sparse_top_k,
+                "final_top_k": self.config.final_top_k,
+                "rerank_method": self.config.rerank_method,
+                "query_expansion_enabled": self.config.enable_query_expansion,
+                "reranking_enabled": self.config.enable_reranking,
+            },
         }
 
     def reset_stats(self) -> None:
         """Reset statistics"""
         self.stats = {
-            'total_queries': 0,
-            'dense_retrievals': 0,
-            'sparse_retrievals': 0,
-            'expanded_queries': 0,
-            'reranked_results': 0
+            "total_queries": 0,
+            "dense_retrievals": 0,
+            "sparse_retrievals": 0,
+            "expanded_queries": 0,
+            "reranked_results": 0,
         }
 
 
 # Convenience function
 def create_hybrid_pipeline(
-    project_id: Optional[str] = None,
-    config: Optional[HybridRetrievalConfig] = None
+    project_id: Optional[str] = None, config: Optional[HybridRetrievalConfig] = None
 ) -> HybridRAGPipeline:
     """
     Create a HybridRAGPipeline instance

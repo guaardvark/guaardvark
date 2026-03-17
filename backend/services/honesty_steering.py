@@ -42,7 +42,9 @@ class HonestySteering:
         # Default vector path
         if vector_path is None:
             project_root = Path(__file__).parent.parent.parent
-            vector_path = str(project_root / "models" / "steering_vectors" / "honesty.pt")
+            vector_path = str(
+                project_root / "models" / "steering_vectors" / "honesty.pt"
+            )
 
         self.vector_path = vector_path
 
@@ -68,7 +70,9 @@ class HonestySteering:
             logger.info(f"Loaded steering vector from {self.vector_path}")
 
         except ImportError:
-            logger.info("steering_vectors library not installed, using prompt-based steering")
+            logger.info(
+                "steering_vectors library not installed, using prompt-based steering"
+            )
         except Exception as e:
             logger.warning(f"Failed to load steering vector: {e}")
 
@@ -89,7 +93,6 @@ Example response pattern:
 "I don't have access to real-time [lottery results/stock prices/weather/etc.]. My knowledge has a cutoff date and I cannot browse the internet. For current [data type], please check [relevant source like official lottery website, financial news, weather service]."
 
 DO NOT provide any specific numbers, dates, or values for real-time data - always redirect to authoritative sources.""",
-
             # For factual queries where model might be uncertain
             "uncertain": """HONESTY GUIDELINE:
 When responding to factual questions:
@@ -97,23 +100,17 @@ When responding to factual questions:
 - If information might be outdated, note that your knowledge has a cutoff
 - Don't present speculation as fact
 - It's better to say "I don't know" than to guess incorrectly""",
-
             # For general enhanced honesty
             "general": """HONESTY REMINDER:
 - Only state facts you're confident about
 - Acknowledge uncertainty when present
 - Don't make up citations, URLs, or specific data
 - Correct yourself if you realize you made an error""",
-
             # Minimal honesty nudge (least intrusive)
-            "minimal": """Be accurate and honest. Say "I don't know" if uncertain."""
+            "minimal": """Be accurate and honest. Say "I don't know" if uncertain.""",
         }
 
-    def get_steering_prompt(
-        self,
-        intent: str,
-        intensity: str = "standard"
-    ) -> str:
+    def get_steering_prompt(self, intent: str, intensity: str = "standard") -> str:
         """
         Get the appropriate honesty steering prompt.
 
@@ -136,12 +133,7 @@ When responding to factual questions:
         else:
             return self._honesty_prompts["general"]
 
-    def apply_steering(
-        self,
-        model: Any,
-        intent: str,
-        coefficient: float = 0.3
-    ) -> bool:
+    def apply_steering(self, model: Any, intent: str, coefficient: float = 0.3) -> bool:
         """
         Apply activation steering to a model.
 
@@ -178,7 +170,7 @@ When responding to factual questions:
                 model,
                 self._steering_vector,
                 coefficient=coefficient,
-                layer_range=(10, 20)  # Middle layers typically work best
+                layer_range=(10, 20),  # Middle layers typically work best
             )
 
             logger.debug(f"Applied activation steering with coefficient {coefficient}")
@@ -217,10 +209,7 @@ When responding to factual questions:
         return True
 
     def get_enhanced_system_prompt(
-        self,
-        base_prompt: str,
-        intent: str,
-        intensity: str = "standard"
+        self, base_prompt: str, intent: str, intensity: str = "standard"
     ) -> str:
         """
         Enhance a system prompt with honesty steering.
@@ -255,7 +244,7 @@ When responding to factual questions:
             "vector_loaded": self._steering_vector is not None,
             "prompt_steering_available": True,  # Always available as fallback
             "available_intensities": ["minimal", "standard", "strong"],
-            "supported_intents": list(self._honesty_prompts.keys())
+            "supported_intents": list(self._honesty_prompts.keys()),
         }
 
 
@@ -263,7 +252,7 @@ When responding to factual questions:
 def compute_honesty_vector(
     model_name: str = "meta-llama/Llama-2-7b-hf",
     output_path: str = None,
-    dataset: str = "PKU-Alignment/BeaverTails"
+    dataset: str = "PKU-Alignment/BeaverTails",
 ) -> Optional[str]:
     """
     Compute a honesty/refusal steering vector from the BeaverTails dataset.
@@ -297,13 +286,13 @@ def compute_honesty_vector(
         # Set default output path
         if output_path is None:
             project_root = Path(__file__).parent.parent.parent
-            output_path = str(project_root / "models" / "steering_vectors" / "honesty.pt")
+            output_path = str(
+                project_root / "models" / "steering_vectors" / "honesty.pt"
+            )
 
         # Load model
         model = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            torch_dtype=torch.float16,
-            device_map="auto"
+            model_name, torch_dtype=torch.float16, device_map="auto"
         )
         tokenizer = AutoTokenizer.from_pretrained(model_name)
 
@@ -326,7 +315,7 @@ def compute_honesty_vector(
             tokenizer=tokenizer,
             positive_examples=positive_examples[:200],
             negative_examples=negative_examples[:200],
-            layers=list(range(10, 21))  # Middle layers
+            layers=list(range(10, 21)),  # Middle layers
         )
 
         # Save vector
@@ -367,13 +356,13 @@ def get_steering_prompt(intent: str, intensity: str = "standard") -> str:
 
 
 def enhance_prompt_for_honesty(
-    base_prompt: str,
-    intent: str,
-    intensity: str = "standard"
+    base_prompt: str, intent: str, intensity: str = "standard"
 ) -> str:
     """
     Enhance a system prompt with honesty steering.
 
     Convenience function using global steerer.
     """
-    return get_honesty_steerer().get_enhanced_system_prompt(base_prompt, intent, intensity)
+    return get_honesty_steerer().get_enhanced_system_prompt(
+        base_prompt, intent, intensity
+    )

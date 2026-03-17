@@ -29,17 +29,20 @@ logger = logging.getLogger(__name__)
 
 # Dedicated video generation log file
 _video_log_handler = None
+
+
 def _get_video_logger():
     global _video_log_handler
     if _video_log_handler is None:
         try:
             from backend.config import LOG_DIR
+
             log_path = Path(LOG_DIR) / "video_generation.log"
             log_path.parent.mkdir(parents=True, exist_ok=True)
             _video_log_handler = logging.FileHandler(str(log_path))
-            _video_log_handler.setFormatter(logging.Formatter(
-                "%(asctime)s %(levelname)s %(message)s"
-            ))
+            _video_log_handler.setFormatter(
+                logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+            )
             logger.addHandler(_video_log_handler)
         except Exception:
             pass
@@ -117,7 +120,9 @@ class BatchVideoGenerator:
         self.video_generator = get_video_generator()
         self.service_available = self.video_generator.service_available
         _get_video_logger()  # Initialize dedicated log file
-        logger.info(f"BatchVideoGenerator initialized - Service available: {self.service_available}")
+        logger.info(
+            f"BatchVideoGenerator initialized - Service available: {self.service_available}"
+        )
 
     @staticmethod
     def _extract_thumbnail(video_path: Path, thumbnail_path: Path) -> bool:
@@ -126,11 +131,17 @@ class BatchVideoGenerator:
             thumbnail_path.parent.mkdir(parents=True, exist_ok=True)
             subprocess.run(
                 [
-                    "ffmpeg", "-i", str(video_path),
-                    "-vf", "select=eq(n\\,0)",
-                    "-frames:v", "1",
-                    "-q:v", "2",
-                    "-y", str(thumbnail_path),
+                    "ffmpeg",
+                    "-i",
+                    str(video_path),
+                    "-vf",
+                    "select=eq(n\\,0)",
+                    "-frames:v",
+                    "1",
+                    "-q:v",
+                    "2",
+                    "-y",
+                    str(thumbnail_path),
                 ],
                 capture_output=True,
                 timeout=30,
@@ -148,7 +159,9 @@ class BatchVideoGenerator:
 
     def _save_metadata(self, batch_status: BatchVideoStatus) -> None:
         try:
-            batch_dir = Path(batch_status.output_dir or self._get_batch_dir(batch_status.batch_id))
+            batch_dir = Path(
+                batch_status.output_dir or self._get_batch_dir(batch_status.batch_id)
+            )
             batch_dir.mkdir(parents=True, exist_ok=True)
             metadata_file = batch_dir / "batch_metadata.json"
             serializable = asdict(batch_status)
@@ -162,12 +175,13 @@ class BatchVideoGenerator:
         except Exception as e:  # pragma: no cover - best effort
             logger.warning(f"Failed to save batch metadata: {e}")
 
-    def _run_batch(self, batch_request: BatchVideoRequest, status: BatchVideoStatus) -> None:
+    def _run_batch(
+        self, batch_request: BatchVideoRequest, status: BatchVideoStatus
+    ) -> None:
         # Acquire GPU lock before starting video generation
         gpu_coordinator = get_gpu_coordinator()
         lock_result = gpu_coordinator.acquire_for_video_generation(
-            batch_id=batch_request.batch_id,
-            lease_seconds=3600  # 1 hour max
+            batch_id=batch_request.batch_id, lease_seconds=3600  # 1 hour max
         )
 
         if not lock_result.get("success"):
@@ -175,7 +189,9 @@ class BatchVideoGenerator:
             status.error = f"Could not acquire GPU: {lock_result.get('error')}"
             status.end_time = datetime.now()
             self._save_metadata(status)
-            logger.error(f"Batch {batch_request.batch_id} failed to acquire GPU lock: {lock_result.get('error')}")
+            logger.error(
+                f"Batch {batch_request.batch_id} failed to acquire GPU lock: {lock_result.get('error')}"
+            )
             return
 
         try:
@@ -219,7 +235,9 @@ class BatchVideoGenerator:
                         enhance_prompt=batch_request.enhance_prompt,
                     )
 
-                    result: VideoGenerationResult = self.video_generator.generate_video(gen_request)
+                    result: VideoGenerationResult = self.video_generator.generate_video(
+                        gen_request
+                    )
                     batch_result = BatchVideoResult(
                         item_id=item.id,
                         success=result.success,
@@ -261,9 +279,14 @@ class BatchVideoGenerator:
         prompts: List[str],
         **params,
     ) -> BatchVideoStatus:
-        batch_id = params.get("batch_id") or f"batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+        batch_id = (
+            params.get("batch_id")
+            or f"batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+        )
         items = [
-            BatchVideoItem(id=str(uuid.uuid4()), prompt=p, metadata={"source": "prompt"})
+            BatchVideoItem(
+                id=str(uuid.uuid4()), prompt=p, metadata={"source": "prompt"}
+            )
             for p in prompts
         ]
         return self._start_batch(batch_id=batch_id, items=items, **params)
@@ -273,7 +296,10 @@ class BatchVideoGenerator:
         image_paths: List[str],
         **params,
     ) -> BatchVideoStatus:
-        batch_id = params.get("batch_id") or f"batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+        batch_id = (
+            params.get("batch_id")
+            or f"batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+        )
         user_prompt = params.pop("prompt", "")
         items = [
             BatchVideoItem(
@@ -286,7 +312,9 @@ class BatchVideoGenerator:
         ]
         return self._start_batch(batch_id=batch_id, items=items, **params)
 
-    def _start_batch(self, batch_id: str, items: List[BatchVideoItem], **params) -> BatchVideoStatus:
+    def _start_batch(
+        self, batch_id: str, items: List[BatchVideoItem], **params
+    ) -> BatchVideoStatus:
         batch_dir = self._get_batch_dir(batch_id)
         batch_dir.mkdir(parents=True, exist_ok=True)
 
@@ -332,7 +360,9 @@ class BatchVideoGenerator:
             self.active_batches[batch_id] = status
 
         # Launch background thread
-        t = threading.Thread(target=self._run_batch, args=(batch_request, status), daemon=True)
+        t = threading.Thread(
+            target=self._run_batch, args=(batch_request, status), daemon=True
+        )
         t.start()
 
         return status
@@ -350,36 +380,50 @@ class BatchVideoGenerator:
             try:
                 with open(metadata_file, "r") as f:
                     data = json.load(f)
-                results = [
-                    BatchVideoResult(**res)
-                    for res in data.get("results", [])
-                ]
+                results = [BatchVideoResult(**res) for res in data.get("results", [])]
                 # Retroactively extract thumbnails for results that have videos but no thumbnail
                 metadata_changed = False
                 for res in results:
                     if res.video_path and not res.thumbnail_path:
                         video_file = batch_dir / res.video_path
-                        if video_file.exists() and video_file.suffix.lower() in (".mp4", ".webm", ".avi", ".mov"):
+                        if video_file.exists() and video_file.suffix.lower() in (
+                            ".mp4",
+                            ".webm",
+                            ".avi",
+                            ".mov",
+                        ):
                             thumb_filename = video_file.stem + "_thumb.jpg"
                             # Place thumbnail in a thumbnails subdir next to the video
                             thumbs_dir = video_file.parent.parent / "thumbnails"
                             thumb_path = thumbs_dir / thumb_filename
                             if self._extract_thumbnail(video_file, thumb_path):
-                                res.thumbnail_path = str(thumb_path.relative_to(batch_dir))
+                                res.thumbnail_path = str(
+                                    thumb_path.relative_to(batch_dir)
+                                )
                                 metadata_changed = True
                 if metadata_changed:
                     # Persist the updated thumbnail paths back to metadata
                     try:
                         for i, res in enumerate(results):
                             if res.thumbnail_path and i < len(data.get("results", [])):
-                                data["results"][i]["thumbnail_path"] = res.thumbnail_path
+                                data["results"][i][
+                                    "thumbnail_path"
+                                ] = res.thumbnail_path
                         with open(metadata_file, "w") as f:
                             json.dump(data, f, indent=2)
                     except Exception:
                         pass  # Best effort
 
-                start_time = datetime.fromisoformat(data["start_time"]) if data.get("start_time") else None
-                end_time = datetime.fromisoformat(data["end_time"]) if data.get("end_time") else None
+                start_time = (
+                    datetime.fromisoformat(data["start_time"])
+                    if data.get("start_time")
+                    else None
+                )
+                end_time = (
+                    datetime.fromisoformat(data["end_time"])
+                    if data.get("end_time")
+                    else None
+                )
                 return BatchVideoStatus(
                     batch_id=data["batch_id"],
                     status=data.get("status", "completed"),
@@ -419,7 +463,9 @@ class BatchVideoGenerator:
                                 "failed_videos": data.get("failed_videos", 0),
                                 "start_time": data.get("start_time"),
                                 "end_time": data.get("end_time"),
-                                "display_name": data.get("metadata", {}).get("display_name"),
+                                "display_name": data.get("metadata", {}).get(
+                                    "display_name"
+                                ),
                             }
                         )
                     except Exception as e:
@@ -467,7 +513,9 @@ class BatchVideoGenerator:
                 return thumbs[0]
         return None
 
-    def combine_frames(self, batch_id: str, item_id: Optional[str] = None, fps: int = 7) -> Optional[str]:
+    def combine_frames(
+        self, batch_id: str, item_id: Optional[str] = None, fps: int = 7
+    ) -> Optional[str]:
         batch_dir = self._get_batch_dir(batch_id)
         if not batch_dir.exists():
             return None
@@ -494,7 +542,9 @@ class BatchVideoGenerator:
         videos_dir.mkdir(parents=True, exist_ok=True)
 
         video_path = videos_dir / f"video_{uuid.uuid4().hex}.mp4"
-        combined = self.video_generator._combine_frames_to_video(frames_dir, video_path, fps)
+        combined = self.video_generator._combine_frames_to_video(
+            frames_dir, video_path, fps
+        )
         if not combined:
             return None
 
@@ -536,4 +586,3 @@ def get_batch_video_generator() -> BatchVideoGenerator:
     if _batch_video_generator_instance is None:
         _batch_video_generator_instance = BatchVideoGenerator()
     return _batch_video_generator_instance
-

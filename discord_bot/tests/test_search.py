@@ -1,4 +1,5 @@
 """Tests for the SearchCog (/search command)."""
+
 import pytest
 from unittest.mock import MagicMock, AsyncMock
 
@@ -14,7 +15,9 @@ def search_cog(mock_api_client, sample_config):
 
 class TestSearchCommand:
     @pytest.mark.asyncio
-    async def test_search_returns_embed(self, search_cog, mock_interaction, mock_api_client):
+    async def test_search_returns_embed(
+        self, search_cog, mock_interaction, mock_api_client
+    ):
         """Search should return an embed with the answer and sources."""
         await search_cog._handle_search(mock_interaction, "what is the answer?")
 
@@ -26,7 +29,9 @@ class TestSearchCommand:
         assert "42" in embed.description
 
     @pytest.mark.asyncio
-    async def test_search_handles_no_results(self, search_cog, mock_interaction, mock_api_client):
+    async def test_search_handles_no_results(
+        self, search_cog, mock_interaction, mock_api_client
+    ):
         """When there are no results, show a 'no results' message."""
         mock_api_client.semantic_search.return_value = {
             "answer": None,
@@ -40,7 +45,9 @@ class TestSearchCommand:
         assert "no matching results" in embed.description.lower()
 
     @pytest.mark.asyncio
-    async def test_search_sanitizes_input(self, search_cog, mock_interaction, mock_api_client):
+    async def test_search_sanitizes_input(
+        self, search_cog, mock_interaction, mock_api_client
+    ):
         """Mentions and code blocks should be stripped from search query."""
         await search_cog._handle_search(mock_interaction, "<@!99999> find ```stuff```")
 
@@ -49,9 +56,13 @@ class TestSearchCommand:
         assert "```" not in call_args
 
     @pytest.mark.asyncio
-    async def test_search_handles_api_error(self, search_cog, mock_interaction, mock_api_client):
+    async def test_search_handles_api_error(
+        self, search_cog, mock_interaction, mock_api_client
+    ):
         """API errors should be reported to the user."""
-        mock_api_client.semantic_search.side_effect = APIError("Search service down", 503)
+        mock_api_client.semantic_search.side_effect = APIError(
+            "Search service down", 503
+        )
 
         await search_cog._handle_search(mock_interaction, "test query")
 

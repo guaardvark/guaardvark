@@ -128,8 +128,7 @@ def get_code_generation_prompt(
     # --- Retry Block ---
     retry_block_str = ""
     if error_message and previous_code:
-        retry_block_str = textwrap.dedent(
-            f"""
+        retry_block_str = textwrap.dedent(f"""
         -----------------------------------------------------
         **RETRYING FAILED ATTEMPT**
         The previous Python code attempt failed.
@@ -143,8 +142,7 @@ def get_code_generation_prompt(
         ```
         **Action Required:** Analyze the error and the previous code. Review ALL execution rules below, especially regarding allowed tools, file paths, and the mandatory `output_path` variable. Provide the fully corrected Python code.
         -----------------------------------------------------
-        """
-        )
+        """)
     elif error_message:
         retry_block_str = f"\n**Retry Information:** A previous attempt failed with the error: {error_message}. Please review the rules carefully and provide corrected code.\n"
 
@@ -215,26 +213,28 @@ The generated code will be executed in a restricted environment with access ONLY
 @lru_cache(maxsize=128)
 def get_qa_prompt(model_name: Optional[str] = None) -> str:
     """Retrieves the QA prompt template from database rules (RulesPage)."""
-    
+
     logger.debug(f"Retrieving QA prompt template for model: {model_name}")
-    
+
     try:
         # Import rule_utils for database-based rule fetching
         from backend import rule_utils
         from backend.models import db
-        
+
         # Fetch qa_default template from database via RulesPage
         template, rule_id = rule_utils.get_active_qa_default_template(
             db.session, model_name=model_name
         )
-        
+
         if rule_id:
-            logger.debug(f"Using qa_default rule ID {rule_id} from database for model '{model_name}'")
+            logger.debug(
+                f"Using qa_default rule ID {rule_id} from database for model '{model_name}'"
+            )
         else:
             logger.debug(f"Using fallback qa_default template for model '{model_name}'")
-            
+
         return template
-        
+
     except ImportError as e:
         logger.error(f"Failed to import rule_utils for QA template: {e}")
         # Fallback to basic template

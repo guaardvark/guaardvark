@@ -1,4 +1,5 @@
 """Generation cog — /generate-csv command."""
+
 import logging
 import time
 
@@ -68,9 +69,7 @@ class GenerationCog(commands.Cog):
             await interaction.followup.send(content=f"CSV generation failed: {e}")
         except Exception as e:
             logger.exception("Unexpected error in /generate-csv")
-            await interaction.followup.send(
-                content="An unexpected error occurred."
-            )
+            await interaction.followup.send(content="An unexpected error occurred.")
 
 
 async def setup(bot):

@@ -1,4 +1,3 @@
-
 import sys
 import os
 import logging
@@ -16,7 +15,7 @@ logging.basicConfig(level=logging.INFO)
 app = create_app()
 
 with app.app_context():
-    with app.test_request_context('/api/files/browse?path=/'):
+    with app.test_request_context("/api/files/browse?path=/"):
         try:
             print("Calling browse_folder...")
             response = browse_folder()
@@ -24,4 +23,5 @@ with app.app_context():
         except Exception as e:
             print("Caught exception:")
             import traceback
+
             traceback.print_exc()

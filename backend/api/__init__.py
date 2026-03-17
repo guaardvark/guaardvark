@@ -3,6 +3,7 @@ def register_blueprints(app):
     from .celery_monitor_api import celery_monitor_bp
     from .diagnostics_api import diagnostics_bp
     from .files_api import files_bp
+
     # REMOVED: generation_api moved to archived_scripts/ - using bulk_generation_api instead
     from .bulk_generation_api import bulk_gen_bp
     from .index_mgmt_api import index_mgmt_bp
@@ -14,9 +15,11 @@ def register_blueprints(app):
     from .web_search_api import web_search_bp
     from .docs_api import docs_bp
     from .tasks_api import tasks_bp
+
     # Add missing blueprint imports
     from .query_api import query_bp
     from .backup_api import backup_bp
+
     # DEPRECATED: upload_api moved to docs_api - from .upload_api import upload_bp
     from .rules_api import rules_bp
     from .cache_stats_api import cache_stats_bp

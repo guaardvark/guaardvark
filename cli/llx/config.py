@@ -112,6 +112,7 @@ def get_api_key() -> str | None:
 
 # --- Session persistence ---
 
+
 def load_sessions() -> list[dict]:
     """Load chat session history."""
     if SESSIONS_FILE.exists():
@@ -133,12 +134,15 @@ def save_session(session_id: str, preview: str, message_count: int = 1):
         prev_count = existing.get("message_count", 0)
         message_count = max(message_count, prev_count)
     sessions = [s for s in sessions if s["id"] != session_id]
-    sessions.insert(0, {
-        "id": session_id,
-        "preview": preview[:80],
-        "timestamp": time.time(),
-        "message_count": message_count,
-    })
+    sessions.insert(
+        0,
+        {
+            "id": session_id,
+            "preview": preview[:80],
+            "timestamp": time.time(),
+            "message_count": message_count,
+        },
+    )
     config = load_config()
     max_history = config.get("chat_session_history", 50)
     sessions = sessions[:max_history]
@@ -171,6 +175,7 @@ def get_recent_session(max_age_seconds: float = 3600.0) -> dict | None:
 
 # --- Project scope persistence ---
 
+
 def get_project_scope() -> dict | None:
     """Read the current project scope from config.
 
@@ -197,6 +202,7 @@ def set_project_scope(project_id: int | None, project_name: str | None = None):
 
 
 # --- Theme persistence ---
+
 
 def get_theme_name() -> str:
     """Get the saved theme name from config."""

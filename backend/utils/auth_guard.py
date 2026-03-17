@@ -16,20 +16,18 @@ logger = logging.getLogger(__name__)
 
 # Endpoints that always require protection (any method)
 PROTECTED_PREFIXES = (
-    '/api/code-execution/',
-    '/api/backups/restore',
-    '/api/backups/create',
+    "/api/code-execution/",
+    "/api/backups/restore",
+    "/api/backups/create",
 )
 
 # Endpoints protected only on DELETE
-PROTECTED_DELETE_PREFIXES = (
-    '/api/backups/',
-)
+PROTECTED_DELETE_PREFIXES = ("/api/backups/",)
 
 
 def _is_localhost(addr):
     """Check if address is a loopback/localhost address."""
-    return addr in ('127.0.0.1', '::1', 'localhost')
+    return addr in ("127.0.0.1", "::1", "localhost")
 
 
 def _is_protected():
@@ -38,7 +36,7 @@ def _is_protected():
     for prefix in PROTECTED_PREFIXES:
         if path.startswith(prefix):
             return True
-    if request.method == 'DELETE':
+    if request.method == "DELETE":
         for prefix in PROTECTED_DELETE_PREFIXES:
             if path.startswith(prefix):
                 return True
@@ -56,7 +54,7 @@ def check_endpoint_auth():
     if not _is_protected():
         return None
 
-    api_key = os.environ.get('GUAARDVARK_API_KEY')
+    api_key = os.environ.get("GUAARDVARK_API_KEY")
 
     if not api_key:
         # No key configured — localhost-only access
@@ -68,7 +66,7 @@ def check_endpoint_auth():
         return jsonify({"error": "Access denied from remote host"}), 403
 
     # API key is configured — require it
-    provided_key = request.headers.get('X-API-Key', '')
+    provided_key = request.headers.get("X-API-Key", "")
     if provided_key and hmac.compare_digest(provided_key, api_key):
         return None
 

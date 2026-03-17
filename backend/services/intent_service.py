@@ -49,7 +49,6 @@ TRAINING_DATA = [
     ("Who's trending today?", "realtime"),
     ("Live cryptocurrency prices", "realtime"),
     ("Current exchange rate USD to EUR", "realtime"),
-
     # General queries - can be answered from knowledge
     ("How do I write a Python function?", "general"),
     ("Explain quantum computing", "general"),
@@ -129,8 +128,7 @@ class SemanticIntentClassifier:
                 from transformers import AutoTokenizer
 
                 self._onnx_session = ort.InferenceSession(
-                    self.onnx_path,
-                    providers=['CPUExecutionProvider']
+                    self.onnx_path, providers=["CPUExecutionProvider"]
                 )
 
                 # Load tokenizer for preprocessing
@@ -196,7 +194,7 @@ class SemanticIntentClassifier:
                 padding=True,
                 truncation=True,
                 max_length=128,
-                return_tensors="np"
+                return_tensors="np",
             )
 
             # Run inference
@@ -204,13 +202,14 @@ class SemanticIntentClassifier:
                 None,
                 {
                     "input_ids": inputs["input_ids"],
-                    "attention_mask": inputs["attention_mask"]
-                }
+                    "attention_mask": inputs["attention_mask"],
+                },
             )
 
             # Get prediction (assuming logits output)
             logits = outputs[0][0]
             import numpy as np
+
             probs = np.exp(logits) / np.sum(np.exp(logits))
 
             # Assuming index 0 = general, index 1 = realtime
@@ -249,15 +248,40 @@ class SemanticIntentClassifier:
         query_lower = query.lower()
 
         realtime_keywords = [
-            'lottery', 'lotto', 'powerball', 'mega millions',
-            'stock price', 'trading at', 'market',
-            'weather', 'temperature', 'forecast', 'rain',
-            'score', 'game', 'match', 'won', 'winning',
-            'bitcoin', 'crypto', 'ethereum', 'price today',
-            'news', 'breaking', 'latest', 'current',
-            'right now', 'today', 'tonight', 'live',
-            'traffic', 'flight status', 'delayed',
-            'trending', 'viral', 'election results'
+            "lottery",
+            "lotto",
+            "powerball",
+            "mega millions",
+            "stock price",
+            "trading at",
+            "market",
+            "weather",
+            "temperature",
+            "forecast",
+            "rain",
+            "score",
+            "game",
+            "match",
+            "won",
+            "winning",
+            "bitcoin",
+            "crypto",
+            "ethereum",
+            "price today",
+            "news",
+            "breaking",
+            "latest",
+            "current",
+            "right now",
+            "today",
+            "tonight",
+            "live",
+            "traffic",
+            "flight status",
+            "delayed",
+            "trending",
+            "viral",
+            "election results",
         ]
 
         matches = sum(1 for kw in realtime_keywords if kw in query_lower)
@@ -275,7 +299,7 @@ class SemanticIntentClassifier:
         output_path: str,
         training_data: Optional[List[Tuple[str, str]]] = None,
         base_model: str = "sentence-transformers/all-MiniLM-L6-v2",
-        export_onnx: bool = True
+        export_onnx: bool = True,
     ) -> "SemanticIntentClassifier":
         """
         Train a new SetFit classifier and save it.
@@ -303,10 +327,7 @@ class SemanticIntentClassifier:
         texts = [t[0] for t in training_data]
         labels = [t[1] for t in training_data]
 
-        dataset = Dataset.from_dict({
-            "text": texts,
-            "label": labels
-        })
+        dataset = Dataset.from_dict({"text": texts, "label": labels})
 
         # Create and train model
         logger.info(f"Training SetFit model with {len(training_data)} examples...")
@@ -366,7 +387,7 @@ class SemanticIntentClassifier:
                 padding=True,
                 truncation=True,
                 max_length=128,
-                return_tensors="pt"
+                return_tensors="pt",
             )
 
             # Export
@@ -379,9 +400,9 @@ class SemanticIntentClassifier:
                 dynamic_axes={
                     "input_ids": {0: "batch", 1: "sequence"},
                     "attention_mask": {0: "batch", 1: "sequence"},
-                    "embeddings": {0: "batch"}
+                    "embeddings": {0: "batch"},
                 },
-                opset_version=14
+                opset_version=14,
             )
 
             # Save tokenizer
@@ -404,7 +425,7 @@ class SemanticIntentClassifier:
             "model_path": self.model_path,
             "using_onnx": self._use_onnx,
             "using_setfit": self._model is not None,
-            "using_keyword_fallback": not self.is_model_loaded()
+            "using_keyword_fallback": not self.is_model_loaded(),
         }
 
 

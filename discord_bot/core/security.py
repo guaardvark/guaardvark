@@ -1,4 +1,5 @@
 """Input sanitization, admin checks, and channel allowlists."""
+
 import re
 from typing import Optional
 

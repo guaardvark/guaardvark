@@ -27,23 +27,23 @@ class MessageImportance:
 
     # Importance indicators
     HIGH_VALUE_PATTERNS = [
-        r'\b(important|remember|note|key point|crucial|critical)\b',
-        r'\b(my name is|I am|I work)\b',  # Identity information
-        r'\b(project|client|website|document) (?:called|named|is)\b',  # Entity definitions
-        r'\b(always|never|every time|whenever)\b',  # Behavioral rules
-        r'\b(prefer|like|want|need)\b',  # Preferences
+        r"\b(important|remember|note|key point|crucial|critical)\b",
+        r"\b(my name is|I am|I work)\b",  # Identity information
+        r"\b(project|client|website|document) (?:called|named|is)\b",  # Entity definitions
+        r"\b(always|never|every time|whenever)\b",  # Behavioral rules
+        r"\b(prefer|like|want|need)\b",  # Preferences
     ]
 
     DECISION_PATTERNS = [
-        r'\b(decided|agreed|confirmed|approved)\b',
-        r'\b(will|going to|planning to)\b',
-        r'\b(yes|no|okay|sure|definitely)\b.*\?',  # Responses to decisions
+        r"\b(decided|agreed|confirmed|approved)\b",
+        r"\b(will|going to|planning to)\b",
+        r"\b(yes|no|okay|sure|definitely)\b.*\?",  # Responses to decisions
     ]
 
     FACTUAL_PATTERNS = [
-        r'\b(is|are|was|were) (?:a|an|the)?\s*\w+',  # Factual statements
-        r'\d+',  # Numbers/data
-        r'[A-Z][a-z]+ (?:is|are|was|were)',  # Named entities with facts
+        r"\b(is|are|was|were) (?:a|an|the)?\s*\w+",  # Factual statements
+        r"\d+",  # Numbers/data
+        r"[A-Z][a-z]+ (?:is|are|was|were)",  # Named entities with facts
     ]
 
     @classmethod
@@ -63,7 +63,7 @@ class MessageImportance:
         content_lower = content.lower()
 
         # User messages generally more important (contain intent)
-        if role == 'user':
+        if role == "user":
             score += 0.1
 
         # Check high-value patterns
@@ -79,13 +79,14 @@ class MessageImportance:
                 break
 
         # Check factual patterns
-        factual_matches = sum(1 for pattern in cls.FACTUAL_PATTERNS
-                            if re.search(pattern, content_lower))
+        factual_matches = sum(
+            1 for pattern in cls.FACTUAL_PATTERNS if re.search(pattern, content_lower)
+        )
         score += min(factual_matches * 0.05, 0.15)
 
         # Short messages less important (unless questions)
         if len(content) < 50:
-            if '?' in content:
+            if "?" in content:
                 score += 0.05  # Questions are important
             else:
                 score -= 0.1
@@ -95,12 +96,12 @@ class MessageImportance:
             score += 0.1
 
         # Code blocks are important
-        if '```' in content or 'def ' in content or 'class ' in content:
+        if "```" in content or "def " in content or "class " in content:
             score += 0.15
 
         # Entity mentions
-        if metadata and metadata.get('entities'):
-            score += len(metadata['entities']) * 0.05
+        if metadata and metadata.get("entities"):
+            score += len(metadata["entities"]) * 0.05
 
         # Cap at 1.0
         return min(score, 1.0)
@@ -110,50 +111,70 @@ class EntityTracker:
     """Track entities (clients, projects, people) across conversation"""
 
     def __init__(self):
-        self.entities = defaultdict(lambda: {
-            'mentions': [],
-            'facts': [],
-            'last_mentioned': None
-        })
+        self.entities = defaultdict(
+            lambda: {"mentions": [], "facts": [], "last_mentioned": None}
+        )
 
     def extract_entities(self, content: str, timestamp: datetime) -> List[Dict]:
         """Extract entities from message"""
         entities_found = []
 
         # Client/Company names (capitalized, possibly with &)
-        client_pattern = r'\b([A-Z][a-z]+(?:\s+&?\s+[A-Z][a-z]+)?)\b'
+        client_pattern = r"\b([A-Z][a-z]+(?:\s+&?\s+[A-Z][a-z]+)?)\b"
         for match in re.finditer(client_pattern, content):
             entity_name = match.group(1)
-            if len(entity_name) > 2 and entity_name not in ['The', 'This', 'That', 'What', 'When']:
-                entities_found.append({
-                    'type': 'client',
-                    'name': entity_name,
-                    'context': content[max(0, match.start()-50):min(len(content), match.end()+50)]
-                })
+            if len(entity_name) > 2 and entity_name not in [
+                "The",
+                "This",
+                "That",
+                "What",
+                "When",
+            ]:
+                entities_found.append(
+                    {
+                        "type": "client",
+                        "name": entity_name,
+                        "context": content[
+                            max(0, match.start() - 50) : min(
+                                len(content), match.end() + 50
+                            )
+                        ],
+                    }
+                )
 
         # Project references
-        project_pattern = r'project\s+(?:called\s+|named\s+)?[\"\']?([A-Za-z0-9\s-]+)[\"\']?'
+        project_pattern = (
+            r"project\s+(?:called\s+|named\s+)?[\"\']?([A-Za-z0-9\s-]+)[\"\']?"
+        )
         for match in re.finditer(project_pattern, content, re.IGNORECASE):
-            entities_found.append({
-                'type': 'project',
-                'name': match.group(1).strip(),
-                'context': content[max(0, match.start()-30):min(len(content), match.end()+30)]
-            })
+            entities_found.append(
+                {
+                    "type": "project",
+                    "name": match.group(1).strip(),
+                    "context": content[
+                        max(0, match.start() - 30) : min(len(content), match.end() + 30)
+                    ],
+                }
+            )
 
         # Website/URL references
-        url_pattern = r'(?:https?://)?(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z]{2,})'
+        url_pattern = r"(?:https?://)?(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z]{2,})"
         for match in re.finditer(url_pattern, content):
-            entities_found.append({
-                'type': 'website',
-                'name': match.group(1),
-                'context': content[max(0, match.start()-20):min(len(content), match.end()+20)]
-            })
+            entities_found.append(
+                {
+                    "type": "website",
+                    "name": match.group(1),
+                    "context": content[
+                        max(0, match.start() - 20) : min(len(content), match.end() + 20)
+                    ],
+                }
+            )
 
         # Update entity tracking
         for entity in entities_found:
             key = f"{entity['type']}:{entity['name'].lower()}"
-            self.entities[key]['mentions'].append(timestamp)
-            self.entities[key]['last_mentioned'] = timestamp
+            self.entities[key]["mentions"].append(timestamp)
+            self.entities[key]["last_mentioned"] = timestamp
 
         return entities_found
 
@@ -164,17 +185,21 @@ class EntityTracker:
 
         recent = []
         for key, data in self.entities.items():
-            if data['last_mentioned'] and data['last_mentioned'] > since:
-                entity_type, name = key.split(':', 1)
-                recent.append({
-                    'type': entity_type,
-                    'name': name,
-                    'mention_count': len(data['mentions']),
-                    'last_mentioned': data['last_mentioned']
-                })
+            if data["last_mentioned"] and data["last_mentioned"] > since:
+                entity_type, name = key.split(":", 1)
+                recent.append(
+                    {
+                        "type": entity_type,
+                        "name": name,
+                        "mention_count": len(data["mentions"]),
+                        "last_mentioned": data["last_mentioned"],
+                    }
+                )
 
         # Sort by recency and mention count
-        recent.sort(key=lambda x: (x['last_mentioned'], x['mention_count']), reverse=True)
+        recent.sort(
+            key=lambda x: (x["last_mentioned"], x["mention_count"]), reverse=True
+        )
         return recent
 
 
@@ -203,19 +228,23 @@ class ConversationSummarizer:
         entities_mentioned = set()
 
         for msg in messages:
-            content = msg.get('content', '')
-            role = msg.get('role', 'unknown')
+            content = msg.get("content", "")
+            role = msg.get("role", "unknown")
 
             # Extract topics (capitalized phrases)
-            topic_matches = re.findall(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\b', content)
+            topic_matches = re.findall(r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\b", content)
             topics.update(topic_matches[:3])  # Limit to prevent bloat
 
             # Extract decisions
-            if re.search(r'\b(decided|confirmed|will|going to)\b', content, re.IGNORECASE):
+            if re.search(
+                r"\b(decided|confirmed|will|going to)\b", content, re.IGNORECASE
+            ):
                 # Get sentence containing decision
-                sentences = content.split('. ')
+                sentences = content.split(". ")
                 for sent in sentences:
-                    if re.search(r'\b(decided|confirmed|will|going to)\b', sent, re.IGNORECASE):
+                    if re.search(
+                        r"\b(decided|confirmed|will|going to)\b", sent, re.IGNORECASE
+                    ):
                         decisions.append(sent.strip()[:100])
                         break
 
@@ -223,7 +252,7 @@ class ConversationSummarizer:
             importance = MessageImportance.score_message(role, content)
             if importance > 0.7:
                 # Extract first sentence or first 100 chars
-                first_sentence = content.split('.')[0].strip()
+                first_sentence = content.split(".")[0].strip()
                 if len(first_sentence) > 100:
                     first_sentence = first_sentence[:100] + "..."
                 key_points.append(first_sentence)
@@ -244,7 +273,7 @@ class ConversationSummarizer:
 
         # Truncate if too long
         if len(summary) > max_length:
-            summary = summary[:max_length-3] + "..."
+            summary = summary[: max_length - 3] + "..."
 
         return summary or "General conversation"
 
@@ -273,7 +302,9 @@ class MemoryManager:
             self.entity_trackers[session_id] = EntityTracker()
         return self.entity_trackers[session_id]
 
-    def score_conversation_context(self, session_id: str, messages: List[Dict]) -> List[Dict]:
+    def score_conversation_context(
+        self, session_id: str, messages: List[Dict]
+    ) -> List[Dict]:
         """
         Score and rank messages by importance for context inclusion
 
@@ -290,30 +321,32 @@ class MemoryManager:
         for msg in messages:
             # Extract entities
             entities = tracker.extract_entities(
-                msg.get('content', ''),
-                msg.get('timestamp', datetime.now())
+                msg.get("content", ""), msg.get("timestamp", datetime.now())
             )
 
             # Score importance
             importance = MessageImportance.score_message(
-                msg.get('role', 'user'),
-                msg.get('content', ''),
-                {'entities': entities}
+                msg.get("role", "user"), msg.get("content", ""), {"entities": entities}
             )
 
             # Add metadata
             msg_copy = msg.copy()
-            msg_copy['importance'] = importance
-            msg_copy['entities'] = entities
+            msg_copy["importance"] = importance
+            msg_copy["entities"] = entities
             scored_messages.append(msg_copy)
 
         # Sort by importance (descending)
-        scored_messages.sort(key=lambda x: x['importance'], reverse=True)
+        scored_messages.sort(key=lambda x: x["importance"], reverse=True)
 
         return scored_messages
 
-    def get_smart_context(self, session_id: str, messages: List[Dict],
-                         max_messages: int = 10, max_tokens: int = 8000) -> List[Dict]:
+    def get_smart_context(
+        self,
+        session_id: str,
+        messages: List[Dict],
+        max_messages: int = 10,
+        max_tokens: int = 8000,
+    ) -> List[Dict]:
         """
         Get smart context window with most important messages
 
@@ -335,7 +368,9 @@ class MemoryManager:
         recent_ids = {id(msg) for msg in recent_messages}
 
         # Score remaining messages
-        older_messages = messages[:-recent_count] if len(messages) > recent_count else []
+        older_messages = (
+            messages[:-recent_count] if len(messages) > recent_count else []
+        )
         scored_older = self.score_conversation_context(session_id, older_messages)
 
         # Build context: recent + important older messages
@@ -344,7 +379,7 @@ class MemoryManager:
 
         # Add recent messages first (chronological order)
         for msg in recent_messages:
-            msg_tokens = len(msg.get('content', '')) // 4  # Rough estimate
+            msg_tokens = len(msg.get("content", "")) // 4  # Rough estimate
             if token_estimate + msg_tokens < max_tokens:
                 context.append(msg)
                 token_estimate += msg_tokens
@@ -355,7 +390,7 @@ class MemoryManager:
             if important_added >= (max_messages - recent_count):
                 break
             if id(msg) not in recent_ids:
-                msg_tokens = len(msg.get('content', '')) // 4
+                msg_tokens = len(msg.get("content", "")) // 4
                 if token_estimate + msg_tokens < max_tokens:
                     # Insert before recent messages to maintain chronology
                     context.insert(0, msg)
@@ -363,12 +398,13 @@ class MemoryManager:
                     important_added += 1
 
         # Sort by timestamp for correct order
-        context.sort(key=lambda x: x.get('timestamp', datetime.min))
+        context.sort(key=lambda x: x.get("timestamp", datetime.min))
 
         return context
 
-    def create_session_summary(self, session_id: str, messages: List[Dict],
-                              window_size: int = 20) -> Dict:
+    def create_session_summary(
+        self, session_id: str, messages: List[Dict], window_size: int = 20
+    ) -> Dict:
         """
         Create a rolling summary of conversation
 
@@ -386,16 +422,18 @@ class MemoryManager:
         # Summarize in windows
         summaries = []
         for i in range(0, len(messages), window_size):
-            window = messages[i:i+window_size]
+            window = messages[i : i + window_size]
             if len(window) >= 3:  # Only summarize if enough messages
                 summary = ConversationSummarizer.create_summary(window)
-                summaries.append({
-                    'start_index': i,
-                    'end_index': min(i + window_size, len(messages)),
-                    'summary': summary,
-                    'message_count': len(window),
-                    'created_at': datetime.now()
-                })
+                summaries.append(
+                    {
+                        "start_index": i,
+                        "end_index": min(i + window_size, len(messages)),
+                        "summary": summary,
+                        "message_count": len(window),
+                        "created_at": datetime.now(),
+                    }
+                )
 
         # Store summaries
         if session_id not in self.session_summaries:
@@ -403,13 +441,18 @@ class MemoryManager:
         self.session_summaries[session_id].extend(summaries)
 
         return {
-            'summary_count': len(summaries),
-            'total_messages_summarized': len(messages),
-            'summaries': summaries
+            "summary_count": len(summaries),
+            "total_messages_summarized": len(messages),
+            "summaries": summaries,
         }
 
-    def get_memory_context(self, session_id: str, current_message: str,
-                          all_messages: List[Dict], max_tokens: int = 4000) -> Dict:
+    def get_memory_context(
+        self,
+        session_id: str,
+        current_message: str,
+        all_messages: List[Dict],
+        max_tokens: int = 4000,
+    ) -> Dict:
         """
         Get comprehensive memory context for a message
 
@@ -424,18 +467,12 @@ class MemoryManager:
         """
         # Get smart context (important + recent messages)
         context_messages = self.get_smart_context(
-            session_id,
-            all_messages,
-            max_messages=15,
-            max_tokens=max_tokens
+            session_id, all_messages, max_messages=15, max_tokens=max_tokens
         )
 
         # Extract entities from current message
         tracker = self._get_entity_tracker(session_id)
-        current_entities = tracker.extract_entities(
-            current_message,
-            datetime.now()
-        )
+        current_entities = tracker.extract_entities(current_message, datetime.now())
 
         # Get recently mentioned entities
         recent_entities = tracker.get_recent_entities(
@@ -447,13 +484,13 @@ class MemoryManager:
         recent_summaries = summaries[-3:] if summaries else []  # Last 3 summaries
 
         return {
-            'context_messages': context_messages,
-            'current_entities': current_entities,
-            'recent_entities': recent_entities,
-            'summaries': recent_summaries,
-            'total_messages': len(all_messages),
-            'context_message_count': len(context_messages),
-            'entity_count': len(recent_entities)
+            "context_messages": context_messages,
+            "current_entities": current_entities,
+            "recent_entities": recent_entities,
+            "summaries": recent_summaries,
+            "total_messages": len(all_messages),
+            "context_message_count": len(context_messages),
+            "entity_count": len(recent_entities),
         }
 
     def format_memory_for_prompt(self, memory_context: Dict) -> str:
@@ -469,24 +506,28 @@ class MemoryManager:
         parts = []
 
         # Add conversation summaries
-        if memory_context.get('summaries'):
-            summary_text = " → ".join([s['summary'] for s in memory_context['summaries']])
+        if memory_context.get("summaries"):
+            summary_text = " → ".join(
+                [s["summary"] for s in memory_context["summaries"]]
+            )
             parts.append(f"**Conversation History**: {summary_text}")
 
         # Add recent entities
-        if memory_context.get('recent_entities'):
-            entities = memory_context['recent_entities'][:5]
+        if memory_context.get("recent_entities"):
+            entities = memory_context["recent_entities"][:5]
             entity_list = ", ".join([f"{e['name']} ({e['type']})" for e in entities])
             parts.append(f"**Context Entities**: {entity_list}")
 
         # Add current entities
-        if memory_context.get('current_entities'):
-            current = memory_context['current_entities'][:3]
-            current_list = ", ".join([e['name'] for e in current])
+        if memory_context.get("current_entities"):
+            current = memory_context["current_entities"][:3]
+            current_list = ", ".join([e["name"] for e in current])
             parts.append(f"**Referenced**: {current_list}")
 
         # Add stats
-        parts.append(f"**Memory**: {memory_context.get('context_message_count', 0)}/{memory_context.get('total_messages', 0)} messages")
+        parts.append(
+            f"**Memory**: {memory_context.get('context_message_count', 0)}/{memory_context.get('total_messages', 0)} messages"
+        )
 
         return " | ".join(parts)
 
@@ -507,9 +548,9 @@ class MemoryManager:
             # Store memory metadata in system settings
             memory_key = f"memory_state_{session_id}"
             memory_data = {
-                'entities': dict(self._get_entity_tracker(session_id).entities),
-                'summaries': self.session_summaries.get(session_id, []),
-                'last_updated': datetime.now().isoformat()
+                "entities": dict(self._get_entity_tracker(session_id).entities),
+                "summaries": self.session_summaries.get(session_id, []),
+                "last_updated": datetime.now().isoformat(),
             }
 
             # Serialize for storage
@@ -553,22 +594,28 @@ class MemoryManager:
                 memory_data = json.loads(setting.value)
 
                 # Restore entities
-                if 'entities' in memory_data:
-                    for key, data in memory_data['entities'].items():
+                if "entities" in memory_data:
+                    for key, data in memory_data["entities"].items():
                         # Convert ISO strings back to datetime
-                        if data.get('last_mentioned'):
-                            data['last_mentioned'] = datetime.fromisoformat(data['last_mentioned'])
-                        if 'mentions' in data:
-                            data['mentions'] = [datetime.fromisoformat(m) if isinstance(m, str) else m
-                                              for m in data['mentions']]
+                        if data.get("last_mentioned"):
+                            data["last_mentioned"] = datetime.fromisoformat(
+                                data["last_mentioned"]
+                            )
+                        if "mentions" in data:
+                            data["mentions"] = [
+                                datetime.fromisoformat(m) if isinstance(m, str) else m
+                                for m in data["mentions"]
+                            ]
                         self._get_entity_tracker(session_id).entities[key] = data
 
                 # Restore summaries
-                if 'summaries' in memory_data:
-                    self.session_summaries[session_id] = memory_data['summaries']
+                if "summaries" in memory_data:
+                    self.session_summaries[session_id] = memory_data["summaries"]
 
                 tracker = self._get_entity_tracker(session_id)
-                logger.info(f"Memory loaded for session {session_id}: {len(tracker.entities)} entities")
+                logger.info(
+                    f"Memory loaded for session {session_id}: {len(tracker.entities)} entities"
+                )
 
         except Exception as e:
             logger.error(f"Failed to load memory: {e}")
@@ -589,10 +636,14 @@ class MemoryManager:
             cutoff = datetime.now() - timedelta(days=days)
 
             # Find old memory states
-            old_settings = self.db.query(SystemSetting).filter(
-                SystemSetting.key.like('memory_state_%'),
-                SystemSetting.updated_at < cutoff
-            ).all()
+            old_settings = (
+                self.db.query(SystemSetting)
+                .filter(
+                    SystemSetting.key.like("memory_state_%"),
+                    SystemSetting.updated_at < cutoff,
+                )
+                .all()
+            )
 
             for setting in old_settings:
                 self.db.delete(setting)
@@ -608,6 +659,7 @@ class MemoryManager:
 
 # Singleton instance
 _memory_manager = None
+
 
 def get_memory_manager(db_session=None):
     """Get or create global memory manager instance"""

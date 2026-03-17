@@ -94,5 +94,7 @@ def test_scheduler_logs_empty_output(app, caplog, monkeypatch):
         task_scheduler._execute_task(app, task.id)
 
     # Check for the warning message in the captured logs
-    warning_messages = [record.message for record in caplog.records if record.levelno >= logging.WARNING]
+    warning_messages = [
+        record.message for record in caplog.records if record.levelno >= logging.WARNING
+    ]
     assert any("LLM produced no output" in msg for msg in warning_messages)

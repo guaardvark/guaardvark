@@ -1,4 +1,5 @@
 """Tests for SelfImprovementService."""
+
 import json
 import pytest
 from unittest.mock import patch, MagicMock
@@ -11,6 +12,7 @@ class TestSelfImprovementService:
     def test_check_enabled_returns_false_when_disabled(self):
         """Service should not run when disabled."""
         from backend.services.self_improvement_service import SelfImprovementService
+
         service = SelfImprovementService.__new__(SelfImprovementService)
         service._check_enabled = lambda: False
         assert service._check_enabled() is False
@@ -18,14 +20,19 @@ class TestSelfImprovementService:
     def test_check_enabled_returns_false_when_locked(self):
         """Service should not run when codebase is locked."""
         from backend.services.self_improvement_service import SelfImprovementService
+
         service = SelfImprovementService.__new__(SelfImprovementService)
-        with patch("backend.services.self_improvement_service._is_codebase_locked", return_value=True):
+        with patch(
+            "backend.services.self_improvement_service._is_codebase_locked",
+            return_value=True,
+        ):
             service._initialized = True
             assert service._is_safe_to_run() is False
 
     def test_parse_test_results(self):
         """Should parse pytest output into structured results."""
         from backend.services.self_improvement_service import SelfImprovementService
+
         service = SelfImprovementService.__new__(SelfImprovementService)
 
         pytest_output = """
@@ -42,6 +49,7 @@ FAILED backend/tests/test_self_improvement.py::test_planted_bug_fix - RuntimeErr
     def test_error_fingerprint(self):
         """Should generate consistent fingerprints for same errors."""
         from backend.services.self_improvement_service import SelfImprovementService
+
         service = SelfImprovementService.__new__(SelfImprovementService)
 
         fp1 = service._error_fingerprint("backend/api/foo.py", 42, "ValueError")

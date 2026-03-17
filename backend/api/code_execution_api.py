@@ -20,7 +20,7 @@ code_exec_bp = Blueprint("code_execution", __name__, url_prefix="/api/code-execu
 # Security settings
 MAX_EXECUTION_TIME = 30  # seconds
 MAX_OUTPUT_SIZE = 1024 * 1024  # 1MB
-ALLOWED_LANGUAGES = ['python', 'javascript', 'shell', 'bash']
+ALLOWED_LANGUAGES = ["python", "javascript", "shell", "bash"]
 RATE_LIMIT_MAX = 30  # requests per window
 RATE_LIMIT_WINDOW = 60  # seconds
 
@@ -39,7 +39,14 @@ def _check_rate_limit():
 
     if len(_rate_limits[ip]) >= RATE_LIMIT_MAX:
         logger.warning(f"Rate limit exceeded for {ip} on {request.path}")
-        return jsonify({"error": f"Rate limit exceeded ({RATE_LIMIT_MAX} requests per {RATE_LIMIT_WINDOW}s)"}), 429
+        return (
+            jsonify(
+                {
+                    "error": f"Rate limit exceeded ({RATE_LIMIT_MAX} requests per {RATE_LIMIT_WINDOW}s)"
+                }
+            ),
+            429,
+        )
 
     _rate_limits[ip].append(now)
     return None
@@ -47,7 +54,7 @@ def _check_rate_limit():
 
 def _audit_log(language, code_or_cmd):
     """Log execution request for audit trail."""
-    code_hash = hashlib.sha256(code_or_cmd.encode(errors='replace')).hexdigest()[:16]
+    code_hash = hashlib.sha256(code_or_cmd.encode(errors="replace")).hexdigest()[:16]
     logger.info(
         f"[CODE_EXEC] ip={request.remote_addr} lang={language} "
         f"len={len(code_or_cmd)} hash={code_hash}"
@@ -56,10 +63,11 @@ def _audit_log(language, code_or_cmd):
 
 def create_temp_file(content, extension):
     """Create a temporary file with the given content"""
-    temp_file = tempfile.NamedTemporaryFile(mode='w', suffix=extension, delete=False)
+    temp_file = tempfile.NamedTemporaryFile(mode="w", suffix=extension, delete=False)
     temp_file.write(content)
     temp_file.close()
     return temp_file.name
+
 
 def cleanup_temp_file(file_path):
     """Clean up temporary file"""
@@ -68,6 +76,7 @@ def cleanup_temp_file(file_path):
             os.remove(file_path)
     except Exception as e:
         logger.warning(f"Failed to cleanup temp file {file_path}: {e}")
+
 
 def execute_command(command, timeout=MAX_EXECUTION_TIME, cwd=None, use_shell=False):
     """Execute a command safely with timeout
@@ -88,7 +97,7 @@ def execute_command(command, timeout=MAX_EXECUTION_TIME, cwd=None, use_shell=Fal
             text=True,
             timeout=timeout,
             cwd=cwd,
-            env=os.environ.copy()
+            env=os.environ.copy(),
         )
 
         execution_time = time.time() - start_time
@@ -103,7 +112,7 @@ def execute_command(command, timeout=MAX_EXECUTION_TIME, cwd=None, use_shell=Fal
             "stdout": stdout,
             "stderr": stderr,
             "exitCode": result.returncode,
-            "executionTime": execution_time
+            "executionTime": execution_time,
         }
 
     except subprocess.TimeoutExpired:
@@ -113,7 +122,7 @@ def execute_command(command, timeout=MAX_EXECUTION_TIME, cwd=None, use_shell=Fal
             "stdout": "",
             "stderr": f"Execution timed out after {timeout} seconds",
             "exitCode": -1,
-            "executionTime": timeout
+            "executionTime": timeout,
         }
     except Exception as e:
         return {
@@ -122,10 +131,13 @@ def execute_command(command, timeout=MAX_EXECUTION_TIME, cwd=None, use_shell=Fal
             "stdout": "",
             "stderr": f"Execution failed: {str(e)}",
             "exitCode": -1,
-            "executionTime": 0
+            "executionTime": 0,
         }
 
-def execute_command_with_stdin(command, timeout=MAX_EXECUTION_TIME, stdin_data="", cwd=None):
+
+def execute_command_with_stdin(
+    command, timeout=MAX_EXECUTION_TIME, stdin_data="", cwd=None
+):
     """Execute a command with stdin data provided
 
     Args:
@@ -144,7 +156,7 @@ def execute_command_with_stdin(command, timeout=MAX_EXECUTION_TIME, stdin_data="
             text=True,
             timeout=timeout,
             cwd=cwd,
-            env=os.environ.copy()
+            env=os.environ.copy(),
         )
 
         execution_time = time.time() - start_time
@@ -159,7 +171,7 @@ def execute_command_with_stdin(command, timeout=MAX_EXECUTION_TIME, stdin_data="
             "stdout": stdout,
             "stderr": stderr,
             "exitCode": result.returncode,
-            "executionTime": execution_time
+            "executionTime": execution_time,
         }
 
     except subprocess.TimeoutExpired:
@@ -169,7 +181,7 @@ def execute_command_with_stdin(command, timeout=MAX_EXECUTION_TIME, stdin_data="
             "stdout": "",
             "stderr": f"Execution timed out after {timeout} seconds",
             "exitCode": -1,
-            "executionTime": timeout
+            "executionTime": timeout,
         }
     except Exception as e:
         return {
@@ -178,8 +190,9 @@ def execute_command_with_stdin(command, timeout=MAX_EXECUTION_TIME, stdin_data="
             "stdout": "",
             "stderr": f"Execution failed: {str(e)}",
             "exitCode": -1,
-            "executionTime": 0
+            "executionTime": 0,
         }
+
 
 @code_exec_bp.route("/python", methods=["POST"])
 def execute_python():
@@ -190,32 +203,32 @@ def execute_python():
 
     try:
         data = request.get_json()
-        if not data or 'code' not in data:
+        if not data or "code" not in data:
             return jsonify({"error": "code is required"}), 400
 
-        code = data['code']
-        timeout = min(data.get('timeout', MAX_EXECUTION_TIME), MAX_EXECUTION_TIME)
-        input_data = data.get('input', '')
+        code = data["code"]
+        timeout = min(data.get("timeout", MAX_EXECUTION_TIME), MAX_EXECUTION_TIME)
+        input_data = data.get("input", "")
 
-        _audit_log('python', code)
+        _audit_log("python", code)
 
         # Create temporary file
-        temp_file = create_temp_file(code, '.py')
+        temp_file = create_temp_file(code, ".py")
         input_file = None
 
         try:
             # Prepare command - use list to avoid shell injection
             if input_data:
                 # Write input to a file
-                input_file = create_temp_file(input_data, '.txt')
+                input_file = create_temp_file(input_data, ".txt")
                 # Read input file and pass to stdin
-                with open(input_file, 'r') as f:
+                with open(input_file, "r") as f:
                     input_content = f.read()
                 # Execute without shell, providing stdin directly
-                command = ['python3', temp_file]
+                command = ["python3", temp_file]
                 result = execute_command_with_stdin(command, timeout, input_content)
             else:
-                command = ['python3', temp_file]
+                command = ["python3", temp_file]
                 result = execute_command(command, timeout)
 
             # Cleanup
@@ -235,6 +248,7 @@ def execute_python():
         logger.error(f"Error executing Python code: {e}")
         return jsonify({"error": str(e)}), 500
 
+
 @code_exec_bp.route("/javascript", methods=["POST"])
 def execute_javascript():
     """Execute JavaScript code"""
@@ -244,32 +258,32 @@ def execute_javascript():
 
     try:
         data = request.get_json()
-        if not data or 'code' not in data:
+        if not data or "code" not in data:
             return jsonify({"error": "code is required"}), 400
 
-        code = data['code']
-        timeout = min(data.get('timeout', MAX_EXECUTION_TIME), MAX_EXECUTION_TIME)
-        input_data = data.get('input', '')
+        code = data["code"]
+        timeout = min(data.get("timeout", MAX_EXECUTION_TIME), MAX_EXECUTION_TIME)
+        input_data = data.get("input", "")
 
-        _audit_log('javascript', code)
+        _audit_log("javascript", code)
 
         # Create temporary file
-        temp_file = create_temp_file(code, '.js')
+        temp_file = create_temp_file(code, ".js")
         input_file = None
 
         try:
             # Prepare command - use list to avoid shell injection
             if input_data:
                 # Write input to a file
-                input_file = create_temp_file(input_data, '.txt')
+                input_file = create_temp_file(input_data, ".txt")
                 # Read input file and pass to stdin
-                with open(input_file, 'r') as f:
+                with open(input_file, "r") as f:
                     input_content = f.read()
                 # Execute without shell, providing stdin directly
-                command = ['node', temp_file]
+                command = ["node", temp_file]
                 result = execute_command_with_stdin(command, timeout, input_content)
             else:
-                command = ['node', temp_file]
+                command = ["node", temp_file]
                 result = execute_command(command, timeout)
 
             # Cleanup
@@ -289,6 +303,7 @@ def execute_javascript():
         logger.error(f"Error executing JavaScript code: {e}")
         return jsonify({"error": str(e)}), 500
 
+
 @code_exec_bp.route("/shell", methods=["POST"])
 def execute_shell():
     """Execute shell command (without shell=True for safety)"""
@@ -298,21 +313,38 @@ def execute_shell():
 
     try:
         data = request.get_json()
-        if not data or 'command' not in data:
+        if not data or "command" not in data:
             return jsonify({"error": "command is required"}), 400
 
-        command = data['command']
-        timeout = min(data.get('timeout', MAX_EXECUTION_TIME), MAX_EXECUTION_TIME)
-        working_directory = data.get('workingDirectory', '/tmp')
+        command = data["command"]
+        timeout = min(data.get("timeout", MAX_EXECUTION_TIME), MAX_EXECUTION_TIME)
+        working_directory = data.get("workingDirectory", "/tmp")
 
         # Security check - block dangerous commands (defense-in-depth)
-        dangerous_commands = ['rm -rf', 'sudo', 'su', 'chmod 777', 'dd if=', 'mkfs', 'fdisk',
-                             'format', '>', '>>', '|', '&', ';', '$(', '`']
+        dangerous_commands = [
+            "rm -rf",
+            "sudo",
+            "su",
+            "chmod 777",
+            "dd if=",
+            "mkfs",
+            "fdisk",
+            "format",
+            ">",
+            ">>",
+            "|",
+            "&",
+            ";",
+            "$(",
+            "`",
+        ]
         if any(dangerous in command.lower() for dangerous in dangerous_commands):
-            logger.warning(f"[CODE_EXEC] Blocked dangerous shell command from {request.remote_addr}: {command}")
+            logger.warning(
+                f"[CODE_EXEC] Blocked dangerous shell command from {request.remote_addr}: {command}"
+            )
             return jsonify({"error": "Command not allowed for security reasons"}), 403
 
-        _audit_log('shell', command)
+        _audit_log("shell", command)
 
         # Parse command into list to avoid shell injection (no shell=True)
         try:
@@ -332,90 +364,98 @@ def execute_shell():
         logger.error(f"Error executing shell command: {e}")
         return jsonify({"error": str(e)}), 500
 
+
 @code_exec_bp.route("/format", methods=["POST"])
 def format_code():
     """Format code using appropriate formatter"""
     try:
         data = request.get_json()
-        if not data or 'code' not in data or 'language' not in data:
+        if not data or "code" not in data or "language" not in data:
             return jsonify({"error": "code and language are required"}), 400
 
-        code = data['code']
-        language = data['language']
-        options = data.get('options', {})
+        code = data["code"]
+        language = data["language"]
+        options = data.get("options", {})
 
         # Create temporary file
         extensions = {
-            'python': '.py',
-            'javascript': '.js',
-            'typescript': '.ts',
-            'html': '.html',
-            'css': '.css',
-            'json': '.json'
+            "python": ".py",
+            "javascript": ".js",
+            "typescript": ".ts",
+            "html": ".html",
+            "css": ".css",
+            "json": ".json",
         }
 
-        ext = extensions.get(language, '.txt')
+        ext = extensions.get(language, ".txt")
         temp_file = create_temp_file(code, ext)
 
         try:
             formatted_code = code
             changes = []
 
-            if language == 'python':
+            if language == "python":
                 # Use black for Python formatting
-                command = ['black', '--line-length', str(options.get('maxLineLength', 80)), temp_file]
+                command = [
+                    "black",
+                    "--line-length",
+                    str(options.get("maxLineLength", 80)),
+                    temp_file,
+                ]
                 result = execute_command(command, 10)
-                if result['success']:
-                    with open(temp_file, 'r') as f:
+                if result["success"]:
+                    with open(temp_file, "r") as f:
                         formatted_code = f.read()
                     changes = ["Applied Black formatting"]
 
-            elif language in ['javascript', 'typescript']:
+            elif language in ["javascript", "typescript"]:
                 # Use prettier for JS/TS formatting
-                command = ['prettier', '--write', temp_file]
+                command = ["prettier", "--write", temp_file]
                 result = execute_command(command, 10)
-                if result['success']:
-                    with open(temp_file, 'r') as f:
+                if result["success"]:
+                    with open(temp_file, "r") as f:
                         formatted_code = f.read()
                     changes = ["Applied Prettier formatting"]
 
-            elif language == 'html':
+            elif language == "html":
                 # Use prettier for HTML formatting
-                command = ['prettier', '--write', '--parser', 'html', temp_file]
+                command = ["prettier", "--write", "--parser", "html", temp_file]
                 result = execute_command(command, 10)
-                if result['success']:
-                    with open(temp_file, 'r') as f:
+                if result["success"]:
+                    with open(temp_file, "r") as f:
                         formatted_code = f.read()
                     changes = ["Applied Prettier formatting"]
 
-            elif language == 'css':
+            elif language == "css":
                 # Use prettier for CSS formatting
-                command = ['prettier', '--write', '--parser', 'css', temp_file]
+                command = ["prettier", "--write", "--parser", "css", temp_file]
                 result = execute_command(command, 10)
-                if result['success']:
-                    with open(temp_file, 'r') as f:
+                if result["success"]:
+                    with open(temp_file, "r") as f:
                         formatted_code = f.read()
                     changes = ["Applied Prettier formatting"]
 
-            elif language == 'json':
+            elif language == "json":
                 # Use prettier for JSON formatting
-                command = ['prettier', '--write', '--parser', 'json', temp_file]
+                command = ["prettier", "--write", "--parser", "json", temp_file]
                 result = execute_command(command, 10)
-                if result['success']:
-                    with open(temp_file, 'r') as f:
+                if result["success"]:
+                    with open(temp_file, "r") as f:
                         formatted_code = f.read()
                     changes = ["Applied Prettier formatting"]
 
             # Cleanup
             cleanup_temp_file(temp_file)
 
-            return jsonify({
-                "success": True,
-                "formattedCode": formatted_code,
-                "originalCode": code,
-                "language": language,
-                "changes": changes
-            })
+            return jsonify(
+                {
+                    "success": True,
+                    "formattedCode": formatted_code,
+                    "originalCode": code,
+                    "language": language,
+                    "changes": changes,
+                }
+            )
 
         except Exception as e:
             cleanup_temp_file(temp_file)
@@ -425,28 +465,29 @@ def format_code():
         logger.error(f"Error formatting code: {e}")
         return jsonify({"error": str(e)}), 500
 
+
 @code_exec_bp.route("/lint", methods=["POST"])
 def lint_code():
     """Lint code for errors and warnings"""
     try:
         data = request.get_json()
-        if not data or 'code' not in data or 'language' not in data:
+        if not data or "code" not in data or "language" not in data:
             return jsonify({"error": "code and language are required"}), 400
 
-        code = data['code']
-        language = data['language']
-        options = data.get('options', {})
+        code = data["code"]
+        language = data["language"]
+        options = data.get("options", {})
 
         # Create temporary file
         extensions = {
-            'python': '.py',
-            'javascript': '.js',
-            'typescript': '.ts',
-            'html': '.html',
-            'css': '.css'
+            "python": ".py",
+            "javascript": ".js",
+            "typescript": ".ts",
+            "html": ".html",
+            "css": ".css",
         }
 
-        ext = extensions.get(language, '.txt')
+        ext = extensions.get(language, ".txt")
         temp_file = create_temp_file(code, ext)
 
         try:
@@ -455,64 +496,72 @@ def lint_code():
             suggestions = []
             score = 100
 
-            if language == 'python':
+            if language == "python":
                 # Use flake8 for Python linting — pass as list, no shell
-                command = ['flake8', temp_file, '--format=json']
+                command = ["flake8", temp_file, "--format=json"]
                 result = execute_command(command, 10)
-                if result['success'] or result['stderr']:
+                if result["success"] or result["stderr"]:
                     try:
-                        if result['stderr']:
+                        if result["stderr"]:
                             # Parse flake8 output
-                            lines = result['stderr'].strip().split('\n')
+                            lines = result["stderr"].strip().split("\n")
                             for line in lines:
-                                if ':' in line:
-                                    parts = line.split(':')
+                                if ":" in line:
+                                    parts = line.split(":")
                                     if len(parts) >= 4:
                                         line_num = parts[1]
                                         col_num = parts[2]
                                         error_code = parts[3].split()[0]
-                                        message = ':'.join(parts[3:]).strip()
+                                        message = ":".join(parts[3:]).strip()
 
-                                        if error_code.startswith('E'):
-                                            errors.append({
-                                                "line": int(line_num),
-                                                "column": int(col_num),
-                                                "code": error_code,
-                                                "message": message
-                                            })
-                                        elif error_code.startswith('W'):
-                                            warnings.append({
-                                                "line": int(line_num),
-                                                "column": int(col_num),
-                                                "code": error_code,
-                                                "message": message
-                                            })
+                                        if error_code.startswith("E"):
+                                            errors.append(
+                                                {
+                                                    "line": int(line_num),
+                                                    "column": int(col_num),
+                                                    "code": error_code,
+                                                    "message": message,
+                                                }
+                                            )
+                                        elif error_code.startswith("W"):
+                                            warnings.append(
+                                                {
+                                                    "line": int(line_num),
+                                                    "column": int(col_num),
+                                                    "code": error_code,
+                                                    "message": message,
+                                                }
+                                            )
                     except Exception as e:
                         logger.warning(f"Failed to parse flake8 output: {e}")
 
-            elif language in ['javascript', 'typescript']:
+            elif language in ["javascript", "typescript"]:
                 # Use eslint for JS/TS linting — pass as list, no shell
-                command = ['eslint', temp_file, '--format=json']
+                command = ["eslint", temp_file, "--format=json"]
                 result = execute_command(command, 10)
-                if result['stdout']:
+                if result["stdout"]:
                     try:
-                        eslint_output = json.loads(result['stdout'])
+                        eslint_output = json.loads(result["stdout"])
                         for file_result in eslint_output:
-                            for message in file_result.get('messages', []):
-                                if message['severity'] == 2:  # Error
-                                    errors.append({
-                                        "line": message['line'],
-                                        "column": message['column'],
-                                        "code": message['ruleId'],
-                                        "message": message['message']
-                                    })
-                                elif message['severity'] == 1:  # Warning
-                                    warnings.append({
-                                        "line": message['line'],
-                                        "column": message['column'],
-                                        "code": message['ruleId'],
-                                        "message": message['message']
-                                    })
+                            for message in file_result.get("messages", []):
+                                if message["severity"] == 2:  # Error
+                                    errors.append(
+                                        {
+                                            "line": message["line"],
+                                            "column": message["column"],
+                                            "code": message["ruleId"],
+                                            "message": message["message"],
+                                        }
+                                    )
+                                elif message["severity"] == 1:  # Warning
+                                    warnings.append(
+                                        {
+                                            "line": message["line"],
+                                            "column": message["column"],
+                                            "code": message["ruleId"],
+                                            "message": message["message"],
+                                        }
+                                    )
                     except Exception as e:
                         logger.warning(f"Failed to parse eslint output: {e}")
 
@@ -522,14 +571,16 @@ def lint_code():
             # Cleanup
             cleanup_temp_file(temp_file)
 
-            return jsonify({
-                "success": True,
-                "errors": errors,
-                "warnings": warnings,
-                "suggestions": suggestions,
-                "score": score,
-                "language": language
-            })
+            return jsonify(
+                {
+                    "success": True,
+                    "errors": errors,
+                    "warnings": warnings,
+                    "suggestions": suggestions,
+                    "score": score,
+                    "language": language,
+                }
+            )
 
         except Exception as e:
             cleanup_temp_file(temp_file)
@@ -538,6 +589,7 @@ def lint_code():
     except Exception as e:
         logger.error(f"Error linting code: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 @code_exec_bp.route("/build", methods=["POST"])
 def build_project():
@@ -548,61 +600,67 @@ def build_project():
 
     try:
         data = request.get_json()
-        if not data or 'projectPath' not in data:
+        if not data or "projectPath" not in data:
             return jsonify({"error": "projectPath is required"}), 400
 
-        project_path = data['projectPath']
-        options = data.get('options', {})
+        project_path = data["projectPath"]
+        options = data.get("options", {})
 
         if not os.path.exists(project_path):
             return jsonify({"error": "Project path not found"}), 404
 
-        _audit_log('build', project_path)
+        _audit_log("build", project_path)
 
         # Determine build command based on project type
         build_command = None
 
         # Check for package.json (Node.js project)
-        if os.path.exists(os.path.join(project_path, 'package.json')):
-            if options.get('clean'):
+        if os.path.exists(os.path.join(project_path, "package.json")):
+            if options.get("clean"):
                 # Run clean then build as separate commands
-                clean_result = execute_command(['npm', 'run', 'clean'], 60, project_path)
-                if not clean_result['success']:
-                    return jsonify({
-                        "success": False,
-                        "output": clean_result['output'],
-                        "error": clean_result['stderr'],
-                        "buildTime": clean_result['executionTime'],
-                        "artifacts": [],
-                        "exitCode": clean_result['exitCode']
-                    })
-            build_command = ['npm', 'run', 'build']
+                clean_result = execute_command(
+                    ["npm", "run", "clean"], 60, project_path
+                )
+                if not clean_result["success"]:
+                    return jsonify(
+                        {
+                            "success": False,
+                            "output": clean_result["output"],
+                            "error": clean_result["stderr"],
+                            "buildTime": clean_result["executionTime"],
+                            "artifacts": [],
+                            "exitCode": clean_result["exitCode"],
+                        }
+                    )
+            build_command = ["npm", "run", "build"]
 
         # Check for requirements.txt (Python project)
-        elif os.path.exists(os.path.join(project_path, 'requirements.txt')):
-            build_command = ['python', '-m', 'pip', 'install', '-r', 'requirements.txt']
+        elif os.path.exists(os.path.join(project_path, "requirements.txt")):
+            build_command = ["python", "-m", "pip", "install", "-r", "requirements.txt"]
 
         # Check for Makefile
-        elif os.path.exists(os.path.join(project_path, 'Makefile')):
-            build_command = ['make']
+        elif os.path.exists(os.path.join(project_path, "Makefile")):
+            build_command = ["make"]
 
         # Check for Cargo.toml (Rust project)
-        elif os.path.exists(os.path.join(project_path, 'Cargo.toml')):
-            build_command = ['cargo', 'build']
+        elif os.path.exists(os.path.join(project_path, "Cargo.toml")):
+            build_command = ["cargo", "build"]
 
         if not build_command:
             return jsonify({"error": "No build system detected"}), 400
 
         # Execute build command as list (no shell=True)
         start_time = time.time()
-        result = execute_command(build_command, 300, project_path)  # 5 minute timeout for builds
+        result = execute_command(
+            build_command, 300, project_path
+        )  # 5 minute timeout for builds
         build_time = time.time() - start_time
 
         # Find build artifacts
         artifacts = []
-        if result['success']:
+        if result["success"]:
             # Look for common build output directories
-            output_dirs = ['dist', 'build', 'out', 'target', 'bin']
+            output_dirs = ["dist", "build", "out", "target", "bin"]
             for output_dir in output_dirs:
                 output_path = os.path.join(project_path, output_dir)
                 if os.path.exists(output_path):
@@ -610,14 +668,16 @@ def build_project():
                         for file in files:
                             artifacts.append(os.path.join(root, file))
 
-        return jsonify({
-            "success": result['success'],
-            "output": result['output'],
-            "error": result['stderr'] if not result['success'] else "",
-            "buildTime": build_time,
-            "artifacts": artifacts,
-            "exitCode": result['exitCode']
-        })
+        return jsonify(
+            {
+                "success": result["success"],
+                "output": result["output"],
+                "error": result["stderr"] if not result["success"] else "",
+                "buildTime": build_time,
+                "artifacts": artifacts,
+                "exitCode": result["exitCode"],
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error building project: {e}")

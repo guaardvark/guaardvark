@@ -21,14 +21,21 @@ from urllib.parse import quote
 
 # Suppress SSL warnings for self-signed certs (common in local networks)
 import urllib3
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 from flask import Blueprint, request, current_app, send_file
 from typing import Optional, Dict, Any
 from backend.models import (
-    Setting, db,
-    InterconnectorNode, InterconnectorSyncHistory, InterconnectorConflict, InterconnectorPendingChange,
-    InterconnectorSyncProfile, InterconnectorBroadcast, InterconnectorBroadcastTarget,
-    InterconnectorPendingApproval
+    Setting,
+    db,
+    InterconnectorNode,
+    InterconnectorSyncHistory,
+    InterconnectorConflict,
+    InterconnectorPendingChange,
+    InterconnectorSyncProfile,
+    InterconnectorBroadcast,
+    InterconnectorBroadcastTarget,
+    InterconnectorPendingApproval,
 )
 from backend.services.interconnector_sync_service import get_sync_service
 from backend.services.interconnector_file_sync_service import get_file_sync_service
@@ -42,6 +49,7 @@ from backend.utils.response_utils import (
 # Try to import psutil for system capabilities detection
 try:
     import psutil
+
     PSUTIL_AVAILABLE = True
 except ImportError:
     PSUTIL_AVAILABLE = False
@@ -49,7 +57,9 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-interconnector_bp = Blueprint("interconnector", __name__, url_prefix="/api/interconnector")
+interconnector_bp = Blueprint(
+    "interconnector", __name__, url_prefix="/api/interconnector"
+)
 
 # Default configuration
 DEFAULT_CONFIG = {
@@ -66,6 +76,7 @@ DEFAULT_CONFIG = {
     "use_master_image_repository": True,  # Use master server for all image storage
     "require_file_approval": True,
 }
+
 
 def _is_production():
     """Detect production-like environments."""
@@ -92,9 +103,11 @@ def _log_interconnector_alert(message: str, details: Optional[Dict[str, Any]] = 
 
 _config_cache = {"config": None, "expires": 0}
 
+
 def _get_config():
     """Get interconnector configuration from database (cached 10s to avoid pool exhaustion)."""
     import time
+
     now = time.time()
     if _config_cache["config"] is not None and now < _config_cache["expires"]:
         return _config_cache["config"].copy()
@@ -158,34 +171,39 @@ def _verify_api_key(provided_key, stored_hash):
 def _check_api_key(config, provided_key=None):
     """
     Check if API key is required and valid.
-    
+
     Args:
         config: Interconnector configuration
         provided_key: API key from request (optional)
-    
+
     Returns:
         Tuple of (is_valid, error_message)
         - (True, None) if API key check passes
         - (False, error_message) if API key check fails
     """
     require_api_key = config.get("require_api_key", True)
-    
+
     if not require_api_key:
         logger.debug("[SYNC] API key check skipped (require_api_key=False)")
         return (True, None)
-    
+
     if not provided_key:
         return (False, "API key is required")
-    
+
     stored_hash = config.get("api_key_hash", "")
     if not stored_hash:
         # API key required but not generated yet - reject connections
-        logger.warning("[SYNC] API key required but no key has been generated yet. Generate an API key first.")
-        return (False, "API key authentication is enabled but no API key has been generated. The master must generate an API key first.")
-    
+        logger.warning(
+            "[SYNC] API key required but no key has been generated yet. Generate an API key first."
+        )
+        return (
+            False,
+            "API key authentication is enabled but no API key has been generated. The master must generate an API key first.",
+        )
+
     if not _verify_api_key(provided_key, stored_hash):
         return (False, "Invalid API key")
-    
+
     return (True, None)
 
 
@@ -204,16 +222,16 @@ def _get_master_image_url(image_path: str) -> Optional[str]:
     config = _get_config()
     if not config.get("is_enabled") or config.get("node_mode") == "master":
         return None
-    
+
     master_url = config.get("master_url", "").rstrip("/")
     if not master_url:
         return None
-    
+
     # Construct URL to access image from master
     # image_path is typically relative like "uploads/filename.png" or "outputs/batch_images/..."
     if image_path.startswith("/"):
         image_path = image_path[1:]
-    
+
     # Determine the appropriate API endpoint based on path
     if image_path.startswith("uploads/"):
         return f"{master_url}/api/uploads/{image_path.replace('uploads/', '')}"
@@ -230,7 +248,7 @@ def _get_master_image_url(image_path: str) -> Optional[str]:
                 return f"{master_url}/api/batch-image/image/{batch_id}/{image_name}"
     elif image_path.startswith("outputs/"):
         return f"{master_url}/api/outputs/{image_path.replace('outputs/', '')}"
-    
+
     return None
 
 
@@ -243,14 +261,20 @@ def _get_outputs_root() -> Path:
     return project_root / "data" / "outputs"
 
 
-def _load_profile(profile_name: Optional[str] = None, profile_id: Optional[int] = None) -> Optional[InterconnectorSyncProfile]:
+def _load_profile(
+    profile_name: Optional[str] = None, profile_id: Optional[int] = None
+) -> Optional[InterconnectorSyncProfile]:
     """Fetch a sync profile by name or id."""
     try:
         if profile_id:
             return db.session.get(InterconnectorSyncProfile, profile_id)
         if profile_name:
-            return InterconnectorSyncProfile.query.filter(InterconnectorSyncProfile.name == profile_name).first()
-        return InterconnectorSyncProfile.query.filter(InterconnectorSyncProfile.is_default.is_(True)).first()
+            return InterconnectorSyncProfile.query.filter(
+                InterconnectorSyncProfile.name == profile_name
+            ).first()
+        return InterconnectorSyncProfile.query.filter(
+            InterconnectorSyncProfile.is_default.is_(True)
+        ).first()
     except Exception as e:
         logger.error(f"[SYNC PROFILE] Error loading profile: {e}", exc_info=True)
         return None
@@ -265,7 +289,28 @@ def _seed_default_profiles():
             "profile_type": "full",
             "description": "Full sync: code, scripts, and system-wide config (rules).",
             "entity_config": {"entities": ["rules"]},
-            "file_config": {"paths": ["backend/api/", "backend/services/", "backend/utils/", "backend/routes/", "frontend/src/", "scripts/", "start.sh", "stop.sh", "start_redis.sh", "start_celery.sh"], "include_patterns": ["**/*.py", "**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx", "**/*.sh"]},
+            "file_config": {
+                "paths": [
+                    "backend/api/",
+                    "backend/services/",
+                    "backend/utils/",
+                    "backend/routes/",
+                    "frontend/src/",
+                    "scripts/",
+                    "start.sh",
+                    "stop.sh",
+                    "start_redis.sh",
+                    "start_celery.sh",
+                ],
+                "include_patterns": [
+                    "**/*.py",
+                    "**/*.js",
+                    "**/*.jsx",
+                    "**/*.ts",
+                    "**/*.tsx",
+                    "**/*.sh",
+                ],
+            },
             "is_default": True,
         },
         {
@@ -273,7 +318,27 @@ def _seed_default_profiles():
             "profile_type": "code_only",
             "description": "Only code and scripts, no config data.",
             "entity_config": {"entities": []},
-            "file_config": {"paths": ["backend/api/", "backend/services/", "backend/utils/", "frontend/src/", "scripts/", "start.sh", "stop.sh", "start_redis.sh", "start_celery.sh"], "include_patterns": ["**/*.py", "**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx", "**/*.sh"]},
+            "file_config": {
+                "paths": [
+                    "backend/api/",
+                    "backend/services/",
+                    "backend/utils/",
+                    "frontend/src/",
+                    "scripts/",
+                    "start.sh",
+                    "stop.sh",
+                    "start_redis.sh",
+                    "start_celery.sh",
+                ],
+                "include_patterns": [
+                    "**/*.py",
+                    "**/*.js",
+                    "**/*.jsx",
+                    "**/*.ts",
+                    "**/*.tsx",
+                    "**/*.sh",
+                ],
+            },
             "is_default": False,
         },
         {
@@ -394,23 +459,33 @@ def update_config():
                 if key == "master_api_key" and data[key] == "***HIDDEN***":
                     continue
                 if key == "require_api_key" and _is_production() and data[key] is False:
-                    return validation_error_response("require_api_key cannot be disabled in production")
+                    return validation_error_response(
+                        "require_api_key cannot be disabled in production"
+                    )
                 config[key] = data[key]
 
         # Validate required fields when enabled
         if config.get("is_enabled"):
             if not config.get("node_name"):
-                return validation_error_response("Node name is required when interconnector is enabled")
+                return validation_error_response(
+                    "Node name is required when interconnector is enabled"
+                )
 
             if config.get("node_mode") == "client":
                 if not config.get("master_url"):
-                    return validation_error_response("Master URL is required in client mode")
+                    return validation_error_response(
+                        "Master URL is required in client mode"
+                    )
                 url_error = _validate_master_url(config.get("master_url"))
                 if url_error:
                     return validation_error_response(url_error)
                 # API key only required if require_api_key is True
-                if config.get("require_api_key", True) and not config.get("master_api_key"):
-                    return validation_error_response("Master API key is required when API key authentication is enabled")
+                if config.get("require_api_key", True) and not config.get(
+                    "master_api_key"
+                ):
+                    return validation_error_response(
+                        "Master API key is required when API key authentication is enabled"
+                    )
 
         # Enforce minimum sync interval (avoid hammering master)
         interval = config.get("sync_interval_seconds")
@@ -421,14 +496,18 @@ def update_config():
         if not _save_config(config):
             return error_response("Failed to save configuration", 500)
 
-        logger.info(f"Interconnector configuration updated: mode={config.get('node_mode')}, enabled={config.get('is_enabled')}")
+        logger.info(
+            f"Interconnector configuration updated: mode={config.get('node_mode')}, enabled={config.get('is_enabled')}"
+        )
 
         # Return sanitized config
         response_config = config.copy()
         if "master_api_key" in response_config and response_config["master_api_key"]:
             response_config["master_api_key"] = "***HIDDEN***"
 
-        return success_response({"config": response_config}, "Configuration updated successfully")
+        return success_response(
+            {"config": response_config}, "Configuration updated successfully"
+        )
 
     except Exception as e:
         logger.error(f"Error updating interconnector config: {e}")
@@ -442,7 +521,9 @@ def generate_api_key():
         config = _get_config()
 
         if config.get("node_mode") != "master":
-            return error_response("API key generation is only available in master mode", 400)
+            return error_response(
+                "API key generation is only available in master mode", 400
+            )
 
         # Generate new API key
         api_key = _generate_api_key()
@@ -492,16 +573,20 @@ def get_status():
         if config.get("node_mode") == "client":
             # For clients, get last sync from this node's history
             # (we'll need to track local node_id - for now use node_name as identifier)
-            last_sync = db.session.query(InterconnectorSyncHistory).order_by(
-                InterconnectorSyncHistory.sync_timestamp.desc()
-            ).first()
+            last_sync = (
+                db.session.query(InterconnectorSyncHistory)
+                .order_by(InterconnectorSyncHistory.sync_timestamp.desc())
+                .first()
+            )
             if last_sync:
                 last_sync_time = last_sync.sync_timestamp.isoformat()
         else:
             # For master, get most recent sync from any node
-            last_sync = db.session.query(InterconnectorSyncHistory).order_by(
-                InterconnectorSyncHistory.sync_timestamp.desc()
-            ).first()
+            last_sync = (
+                db.session.query(InterconnectorSyncHistory)
+                .order_by(InterconnectorSyncHistory.sync_timestamp.desc())
+                .first()
+            )
             if last_sync:
                 last_sync_time = last_sync.sync_timestamp.isoformat()
 
@@ -538,15 +623,16 @@ def get_status():
 
 def _get_client_ip():
     """Get client IP address from request."""
-    forwarded_for = request.headers.get('X-Forwarded-For')
+    forwarded_for = request.headers.get("X-Forwarded-For")
     if forwarded_for:
-        return forwarded_for.split(',')[0].strip()
-    return request.remote_addr or 'unknown'
+        return forwarded_for.split(",")[0].strip()
+    return request.remote_addr or "unknown"
 
 
 def _get_local_network_ip():
     """Get the local network IP address of this device (not 127.0.0.1)."""
     import socket
+
     try:
         # Create a socket to determine the outbound IP
         # This doesn't actually send data, just determines the route
@@ -558,7 +644,7 @@ def _get_local_network_ip():
             return ip
     except Exception:
         pass
-    
+
     # Fallback: try to get from hostname
     try:
         hostname = socket.gethostname()
@@ -567,15 +653,13 @@ def _get_local_network_ip():
             return ip
     except Exception:
         pass
-    
+
     # Last resort: check all network interfaces
     try:
         import subprocess
+
         result = subprocess.run(
-            ["hostname", "-I"],
-            capture_output=True,
-            text=True,
-            timeout=2
+            ["hostname", "-I"], capture_output=True, text=True, timeout=2
         )
         if result.returncode == 0:
             ips = result.stdout.strip().split()
@@ -584,7 +668,7 @@ def _get_local_network_ip():
                     return ip
     except Exception:
         pass
-    
+
     return "127.0.0.1"
 
 
@@ -592,20 +676,23 @@ def _get_local_network_ip():
 def get_network_info():
     """Get network information for this node including its LAN IP."""
     import socket
-    
+
     try:
         network_ip = _get_local_network_ip()
         hostname = socket.gethostname()
-        
+
         # Get the port from environment or config
         port = os.environ.get("FLASK_PORT", "5000")
-        
-        return success_response({
-            "network_ip": network_ip,
-            "hostname": hostname,
-            "port": int(port),
-            "full_address": f"{network_ip}:{port}"
-        }, "Network info retrieved")
+
+        return success_response(
+            {
+                "network_ip": network_ip,
+                "hostname": hostname,
+                "port": int(port),
+                "full_address": f"{network_ip}:{port}",
+            },
+            "Network info retrieved",
+        )
     except Exception as e:
         logger.error(f"Error getting network info: {e}")
         return error_response(f"Failed to get network info: {str(e)}", 500)
@@ -619,25 +706,26 @@ def _detect_system_capabilities():
         "disk_space_gb": 10,
         "gpu_available": False,
     }
-    
+
     if PSUTIL_AVAILABLE:
         try:
             capabilities["cpu_cores"] = psutil.cpu_count(logical=True) or 1
             memory = psutil.virtual_memory()
             capabilities["memory_mb"] = int(memory.total / (1024 * 1024))
-            disk = psutil.disk_usage('/')
+            disk = psutil.disk_usage("/")
             capabilities["disk_space_gb"] = int(disk.free / (1024 * 1024 * 1024))
         except Exception as e:
             logger.warning(f"Failed to detect system capabilities: {e}")
-    
+
     # Check for GPU availability
     try:
         import subprocess
-        result = subprocess.run(['which', 'nvidia-smi'], capture_output=True, timeout=1)
+
+        result = subprocess.run(["which", "nvidia-smi"], capture_output=True, timeout=1)
         capabilities["gpu_available"] = result.returncode == 0
     except Exception:
         capabilities["gpu_available"] = False
-    
+
     return capabilities
 
 
@@ -652,18 +740,20 @@ def debug_nodes():
             return error_response("Interconnector is not enabled", 400)
 
         if config.get("node_mode") != "master":
-            return error_response("Debug endpoint is only available in master mode", 400)
+            return error_response(
+                "Debug endpoint is only available in master mode", 400
+            )
 
         # Get ALL nodes regardless of status
         all_nodes = db.session.query(InterconnectorNode).all()
-        
+
         debug_info = {
             "total_nodes": len(all_nodes),
             "nodes": [],
             "by_status": {},
-            "by_node_id": {}
+            "by_node_id": {},
         }
-        
+
         for node in all_nodes:
             node_dict = {
                 "node_id": node.node_id,
@@ -672,29 +762,37 @@ def debug_nodes():
                 "port": node.port,
                 "status": node.status,
                 "node_mode": node.node_mode,
-                "last_heartbeat": node.last_heartbeat.isoformat() if node.last_heartbeat else None,
-                "registered_at": node.registered_at.isoformat() if node.registered_at else None,
+                "last_heartbeat": (
+                    node.last_heartbeat.isoformat() if node.last_heartbeat else None
+                ),
+                "registered_at": (
+                    node.registered_at.isoformat() if node.registered_at else None
+                ),
                 "time_since_heartbeat": None,
             }
-            
+
             if node.last_heartbeat:
                 delta = datetime.now() - node.last_heartbeat
-                node_dict["time_since_heartbeat"] = f"{delta.total_seconds():.0f} seconds"
-            
+                node_dict["time_since_heartbeat"] = (
+                    f"{delta.total_seconds():.0f} seconds"
+                )
+
             debug_info["nodes"].append(node_dict)
-            
+
             # Count by status
             status = node.status or "unknown"
             debug_info["by_status"][status] = debug_info["by_status"].get(status, 0) + 1
-            
+
             # Index by node_id
             debug_info["by_node_id"][node.node_id] = node_dict
-        
-        logger.info(f"[SYNC DEBUG] Debug info: {len(all_nodes)} total nodes, "
-                   f"status breakdown: {debug_info['by_status']}")
-        
+
+        logger.info(
+            f"[SYNC DEBUG] Debug info: {len(all_nodes)} total nodes, "
+            f"status breakdown: {debug_info['by_status']}"
+        )
+
         return success_response(debug_info, "Debug information retrieved")
-        
+
     except Exception as e:
         logger.error(f"[SYNC DEBUG] Error in debug endpoint: {e}", exc_info=True)
         return error_response(f"Debug failed: {str(e)}", 500)
@@ -708,12 +806,18 @@ def register_node():
         config = _get_config()
 
         if not config.get("is_enabled"):
-            logger.warning("[SYNC] Node registration rejected: Interconnector not enabled")
+            logger.warning(
+                "[SYNC] Node registration rejected: Interconnector not enabled"
+            )
             return error_response("Interconnector is not enabled", 400)
 
         if config.get("node_mode") != "master":
-            logger.warning(f"[SYNC] Node registration rejected: Not in master mode (mode={config.get('node_mode')})")
-            return error_response("Node registration is only available in master mode", 400)
+            logger.warning(
+                f"[SYNC] Node registration rejected: Not in master mode (mode={config.get('node_mode')})"
+            )
+            return error_response(
+                "Node registration is only available in master mode", 400
+            )
 
         if not request.is_json:
             logger.warning("[SYNC] Node registration rejected: Request not JSON")
@@ -723,7 +827,9 @@ def register_node():
         api_key = request.headers.get("X-API-Key")
         is_valid, error_msg = _check_api_key(config, api_key)
         if not is_valid:
-            logger.warning(f"[SYNC] Node registration failed: {error_msg} from {request.remote_addr}")
+            logger.warning(
+                f"[SYNC] Node registration failed: {error_msg} from {request.remote_addr}"
+            )
             return error_response(error_msg or "Invalid or missing API key", 401)
 
         data = request.get_json()
@@ -732,8 +838,10 @@ def register_node():
         capabilities = data.get("capabilities", {})
         sync_entities = data.get("sync_entities", [])
 
-        logger.info(f"[SYNC] Registration data: node_name={node_name}, node_mode={node_mode}, "
-                   f"provided_node_id={data.get('node_id')}")
+        logger.info(
+            f"[SYNC] Registration data: node_name={node_name}, node_mode={node_mode}, "
+            f"provided_node_id={data.get('node_id')}"
+        )
 
         if not node_name:
             logger.error("[SYNC] Node registration rejected: Node name missing")
@@ -742,29 +850,33 @@ def register_node():
         # Get client IP and port
         client_ip = _get_client_ip()
         logger.info(f"[SYNC] Detected client IP: {client_ip}")
-        logger.info(f"[SYNC] Request headers - Host: {request.headers.get('Host')}, "
-                   f"X-Forwarded-For: {request.headers.get('X-Forwarded-For')}, "
-                   f"Remote-Addr: {request.remote_addr}")
-        
+        logger.info(
+            f"[SYNC] Request headers - Host: {request.headers.get('Host')}, "
+            f"X-Forwarded-For: {request.headers.get('X-Forwarded-For')}, "
+            f"Remote-Addr: {request.remote_addr}"
+        )
+
         # Allow client to provide their own IP if they know it better
         # (useful for NAT/firewall scenarios)
         provided_ip = data.get("client_ip")
         provided_port = data.get("client_port")
-        
+
         if provided_ip:
             logger.info(f"[SYNC] Using client-provided IP: {provided_ip}")
             client_ip = provided_ip
-        
+
         # Determine port: prefer client-provided, fallback to default FLASK_PORT.
         # NOTE: Do NOT extract from Host header — it reflects the *master's* address
         # as seen by the client, not the client's own listening port.
-        default_port = int(os.environ.get('FLASK_PORT', 5000))
+        default_port = int(os.environ.get("FLASK_PORT", 5000))
         if provided_port:
             port = int(provided_port)
             logger.info(f"[SYNC] Using client-provided port: {port}")
         else:
             port = default_port
-            logger.info(f"[SYNC] Using default port: {port} (client should send client_port for accuracy)")
+            logger.info(
+                f"[SYNC] Using default port: {port} (client should send client_port for accuracy)"
+            )
 
         # Generate node ID — always generate fresh for new registrations to
         # prevent collisions when Full Backups are restored to multiple machines.
@@ -777,12 +889,16 @@ def register_node():
             if existing_node and existing_node.host == client_ip:
                 # Same machine re-registering (e.g., after reboot) — safe to reuse
                 node_id = provided_id
-                logger.info(f"[SYNC] Reusing node_id {node_id} (IP matches: {client_ip})")
+                logger.info(
+                    f"[SYNC] Reusing node_id {node_id} (IP matches: {client_ip})"
+                )
             elif existing_node:
                 # COLLISION: Different machine using same node_id (backup restore scenario)
-                logger.warning(f"[SYNC] Node ID collision detected: {provided_id} registered to "
-                             f"{existing_node.host} but request from {client_ip}. "
-                             f"Generating fresh ID to prevent cross-machine interference.")
+                logger.warning(
+                    f"[SYNC] Node ID collision detected: {provided_id} registered to "
+                    f"{existing_node.host} but request from {client_ip}. "
+                    f"Generating fresh ID to prevent cross-machine interference."
+                )
                 node_id = str(uuid.uuid4())
             else:
                 node_id = provided_id
@@ -805,7 +921,9 @@ def register_node():
             existing_node.capabilities = json.dumps(capabilities)
             existing_node.sync_entities = json.dumps(sync_entities)
             db.session.commit()
-            logger.info(f"[SYNC] Updated existing node registration: {node_id} ({node_name}) from {client_ip}:{port}")
+            logger.info(
+                f"[SYNC] Updated existing node registration: {node_id} ({node_name}) from {client_ip}:{port}"
+            )
         else:
             # Create new node
             logger.info(f"[SYNC] Creating new node: {node_id}")
@@ -823,19 +941,25 @@ def register_node():
             )
             db.session.add(new_node)
             db.session.commit()
-            logger.info(f"[SYNC] Registered new node: {node_id} ({node_name}) from {client_ip}:{port}")
-            
+            logger.info(
+                f"[SYNC] Registered new node: {node_id} ({node_name}) from {client_ip}:{port}"
+            )
+
             # Verify node was saved
             verify_node = db.session.get(InterconnectorNode, node_id)
             if verify_node:
-                logger.info(f"[SYNC] Node verified in database: {verify_node.node_name}, status={verify_node.status}")
+                logger.info(
+                    f"[SYNC] Node verified in database: {verify_node.node_name}, status={verify_node.status}"
+                )
             else:
-                logger.error(f"[SYNC] CRITICAL: Node {node_id} was not saved to database!")
+                logger.error(
+                    f"[SYNC] CRITICAL: Node {node_id} was not saved to database!"
+                )
 
         # Return node ID
         return success_response(
             {"node_id": node_id, "registered_at": datetime.now().isoformat()},
-            "Node registered successfully"
+            "Node registered successfully",
         )
 
     except Exception as e:
@@ -856,7 +980,9 @@ def node_heartbeat(node_id):
             return error_response("Interconnector is not enabled", 400)
 
         if config.get("node_mode") != "master":
-            logger.warning(f"[SYNC] Heartbeat rejected: Not in master mode (mode={config.get('node_mode')})")
+            logger.warning(
+                f"[SYNC] Heartbeat rejected: Not in master mode (mode={config.get('node_mode')})"
+            )
             return error_response("Heartbeat is only available in master mode", 400)
 
         # Verify API key (if enabled)
@@ -874,7 +1000,7 @@ def node_heartbeat(node_id):
         # Update heartbeat
         node.last_heartbeat = datetime.now()
         node.status = "active"
-        
+
         # Update capabilities if provided
         if request.is_json:
             data = request.get_json()
@@ -888,12 +1014,14 @@ def node_heartbeat(node_id):
 
         return success_response(
             {"node_id": node_id, "heartbeat_at": node.last_heartbeat.isoformat()},
-            "Heartbeat updated"
+            "Heartbeat updated",
         )
 
     except Exception as e:
         db.session.rollback()
-        logger.error(f"[SYNC] Error updating heartbeat for node {node_id}: {e}", exc_info=True)
+        logger.error(
+            f"[SYNC] Error updating heartbeat for node {node_id}: {e}", exc_info=True
+        )
         return error_response(f"Failed to update heartbeat: {str(e)}", 500)
 
 
@@ -911,28 +1039,40 @@ def get_nodes():
 
         # Clean up stale nodes (no heartbeat in 5+ minutes)
         cutoff_time = datetime.now() - timedelta(minutes=5)
-        stale_nodes = db.session.query(InterconnectorNode).filter(
-            InterconnectorNode.last_heartbeat < cutoff_time,
-            InterconnectorNode.status == "active"
-        ).all()
-        
-        logger.info(f"[SYNC] Found {len(stale_nodes)} stale nodes (heartbeat older than 5 minutes)")
+        stale_nodes = (
+            db.session.query(InterconnectorNode)
+            .filter(
+                InterconnectorNode.last_heartbeat < cutoff_time,
+                InterconnectorNode.status == "active",
+            )
+            .all()
+        )
+
+        logger.info(
+            f"[SYNC] Found {len(stale_nodes)} stale nodes (heartbeat older than 5 minutes)"
+        )
         for node in stale_nodes:
-            logger.info(f"[SYNC] Marking node {node.node_id} ({node.node_name}) as disconnected - "
-                        f"last heartbeat: {node.last_heartbeat}")
+            logger.info(
+                f"[SYNC] Marking node {node.node_id} ({node.node_name}) as disconnected - "
+                f"last heartbeat: {node.last_heartbeat}"
+            )
             node.status = "disconnected"
-        
+
         db.session.commit()
 
         # Get all active/inactive nodes
-        nodes = db.session.query(InterconnectorNode).filter(
-            InterconnectorNode.status.in_(["active", "inactive"])
-        ).all()
+        nodes = (
+            db.session.query(InterconnectorNode)
+            .filter(InterconnectorNode.status.in_(["active", "inactive"]))
+            .all()
+        )
 
         logger.info(f"[SYNC] Returning {len(nodes)} active/inactive nodes")
         for node in nodes:
-            logger.info(f"[SYNC] Active node: {node.node_name} ({node.node_id}), "
-                        f"status={node.status}, heartbeat={node.last_heartbeat}")
+            logger.info(
+                f"[SYNC] Active node: {node.node_name} ({node.node_id}), "
+                f"status={node.status}, heartbeat={node.last_heartbeat}"
+            )
 
         nodes_data = [node.to_dict() for node in nodes]
 
@@ -954,33 +1094,37 @@ def get_sync_history():
             return error_response("Interconnector is not enabled", 400)
 
         if config.get("node_mode") != "client":
-            return error_response("Sync history endpoint is only available in client mode", 400)
+            return error_response(
+                "Sync history endpoint is only available in client mode", 400
+            )
 
         # Get last N sync history records
         limit = int(request.args.get("limit", 10))
-        
+
         local_node_id = config.get("node_name", "local_node")
-        
-        sync_history_records = db.session.query(InterconnectorSyncHistory).filter(
-            InterconnectorSyncHistory.node_id == local_node_id
-        ).order_by(
-            InterconnectorSyncHistory.sync_timestamp.desc()
-        ).limit(limit).all()
+
+        sync_history_records = (
+            db.session.query(InterconnectorSyncHistory)
+            .filter(InterconnectorSyncHistory.node_id == local_node_id)
+            .order_by(InterconnectorSyncHistory.sync_timestamp.desc())
+            .limit(limit)
+            .all()
+        )
 
         history_data = [record.to_dict() for record in sync_history_records]
-        
+
         # Get latest sync info
         latest_sync = sync_history_records[0] if sync_history_records else None
-        
+
         logger.info(f"[SYNC] Returning {len(history_data)} sync history records")
-        
+
         return success_response(
             {
                 "history": history_data,
                 "latest_sync": latest_sync.to_dict() if latest_sync else None,
                 "total_records": len(history_data),
             },
-            "Sync history retrieved"
+            "Sync history retrieved",
         )
 
     except Exception as e:
@@ -996,17 +1140,25 @@ def test_all_client_connections():
         config = _get_config()
 
         if not config.get("is_enabled"):
-            logger.warning("[SYNC] Client connections test rejected: Interconnector not enabled")
+            logger.warning(
+                "[SYNC] Client connections test rejected: Interconnector not enabled"
+            )
             return error_response("Interconnector is not enabled", 400)
 
         if config.get("node_mode") != "master":
-            logger.warning(f"[SYNC] Client connections test rejected: Not in master mode (mode={config.get('node_mode')})")
-            return error_response("Client connections test is only available on master nodes", 400)
+            logger.warning(
+                f"[SYNC] Client connections test rejected: Not in master mode (mode={config.get('node_mode')})"
+            )
+            return error_response(
+                "Client connections test is only available on master nodes", 400
+            )
 
         # Get all active nodes
-        nodes = db.session.query(InterconnectorNode).filter(
-            InterconnectorNode.status.in_(["active", "inactive"])
-        ).all()
+        nodes = (
+            db.session.query(InterconnectorNode)
+            .filter(InterconnectorNode.status.in_(["active", "inactive"]))
+            .all()
+        )
 
         if not nodes:
             return success_response(
@@ -1017,9 +1169,9 @@ def test_all_client_connections():
                         "successful": 0,
                         "failed": 0,
                         "with_sync_history": 0,
-                    }
+                    },
                 },
-                "No client nodes found"
+                "No client nodes found",
             )
 
         results = []
@@ -1047,45 +1199,47 @@ def test_all_client_connections():
             client_host = node.host
             client_port = node.port
             client_url = f"http://{client_host}:{client_port}"
-            if client_host.startswith(('http://', 'https://')):
+            if client_host.startswith(("http://", "https://")):
                 client_url = client_host
-                if ':' not in client_host.split('://')[1]:
+                if ":" not in client_host.split("://")[1]:
                     client_url = f"{client_url}:{client_port}"
 
             try:
                 # Test connection and get sync history
                 sync_history_url = f"{client_url}/api/interconnector/sync/history"
-                
-                logger.info(f"[SYNC] Testing connection to client {node.node_name} ({node.node_id}) at {sync_history_url}")
-                
-                start_time = time.time()
-                response = requests.get(
-                    sync_history_url,
-                    timeout=10,
-                    verify=False
+
+                logger.info(
+                    f"[SYNC] Testing connection to client {node.node_name} ({node.node_id}) at {sync_history_url}"
                 )
+
+                start_time = time.time()
+                response = requests.get(sync_history_url, timeout=10, verify=False)
                 latency_ms = int((time.time() - start_time) * 1000)
-                
+
                 node_result["latency_ms"] = latency_ms
-                
+
                 if response.status_code == 200:
                     sync_data = response.json()
                     history_data = sync_data.get("data", {})
-                    
+
                     node_result["connection_status"] = "success"
                     node_result["sync_history"] = history_data.get("history", [])
                     node_result["latest_sync"] = history_data.get("latest_sync")
-                    
+
                     if node_result["latest_sync"]:
                         summary["with_sync_history"] += 1
-                        logger.info(f"[SYNC] Client {node.node_name} has sync history: last sync at {node_result['latest_sync'].get('sync_timestamp')}")
-                    
+                        logger.info(
+                            f"[SYNC] Client {node.node_name} has sync history: last sync at {node_result['latest_sync'].get('sync_timestamp')}"
+                        )
+
                     summary["successful"] += 1
                 else:
                     node_result["connection_status"] = "error"
                     node_result["error"] = f"HTTP {response.status_code}"
                     summary["failed"] += 1
-                    logger.warning(f"[SYNC] Client {node.node_name} returned HTTP {response.status_code}")
+                    logger.warning(
+                        f"[SYNC] Client {node.node_name} returned HTTP {response.status_code}"
+                    )
 
             except requests.exceptions.Timeout:
                 node_result["connection_status"] = "timeout"
@@ -1101,12 +1255,16 @@ def test_all_client_connections():
                 node_result["connection_status"] = "error"
                 node_result["error"] = str(e)
                 summary["failed"] += 1
-                logger.error(f"[SYNC] Error testing client {node.node_name}: {e}", exc_info=True)
+                logger.error(
+                    f"[SYNC] Error testing client {node.node_name}: {e}", exc_info=True
+                )
 
             results.append(node_result)
 
-        logger.info(f"[SYNC] Client connections test complete: {summary['successful']} successful, "
-                   f"{summary['failed']} failed, {summary['with_sync_history']} with sync history")
+        logger.info(
+            f"[SYNC] Client connections test complete: {summary['successful']} successful, "
+            f"{summary['failed']} failed, {summary['with_sync_history']} with sync history"
+        )
 
         return success_response(
             {
@@ -1115,7 +1273,7 @@ def test_all_client_connections():
                 "summary": summary,
                 "timestamp": datetime.now().isoformat(),
             },
-            f"Tested {len(nodes)} client nodes"
+            f"Tested {len(nodes)} client nodes",
         )
 
     except Exception as e:
@@ -1131,12 +1289,18 @@ def test_client_connection(node_id):
         config = _get_config()
 
         if not config.get("is_enabled"):
-            logger.warning("[SYNC] Client connection test rejected: Interconnector not enabled")
+            logger.warning(
+                "[SYNC] Client connection test rejected: Interconnector not enabled"
+            )
             return error_response("Interconnector is not enabled", 400)
 
         if config.get("node_mode") != "master":
-            logger.warning(f"[SYNC] Client connection test rejected: Not in master mode (mode={config.get('node_mode')})")
-            return error_response("Client connection test is only available on master nodes", 400)
+            logger.warning(
+                f"[SYNC] Client connection test rejected: Not in master mode (mode={config.get('node_mode')})"
+            )
+            return error_response(
+                "Client connection test is only available on master nodes", 400
+            )
 
         # Get node information
         node = db.session.get(InterconnectorNode, node_id)
@@ -1147,32 +1311,32 @@ def test_client_connection(node_id):
         # Construct client URL
         client_host = node.host
         client_port = node.port
-        
+
         # Try to determine protocol (http by default)
         client_url = f"http://{client_host}:{client_port}"
-        if client_host.startswith(('http://', 'https://')):
+        if client_host.startswith(("http://", "https://")):
             client_url = client_host
-            if ':' not in client_host.split('://')[1]:
+            if ":" not in client_host.split("://")[1]:
                 client_url = f"{client_url}:{client_port}"
-        
+
         # Test connection by calling client's status endpoint
         test_url = f"{client_url}/api/interconnector/status"
-        
+
         logger.info(f"[SYNC] Testing connection to client: {test_url}")
-        
+
         try:
             start_time = time.time()
             response = requests.get(
-                test_url,
-                timeout=10,
-                verify=False  # Allow self-signed certs
+                test_url, timeout=10, verify=False  # Allow self-signed certs
             )
             latency_ms = int((time.time() - start_time) * 1000)
-            
+
             if response.status_code == 200:
                 client_status = response.json()
-                logger.info(f"[SYNC] Successfully connected to client {node_id}: {latency_ms}ms latency")
-                
+                logger.info(
+                    f"[SYNC] Successfully connected to client {node_id}: {latency_ms}ms latency"
+                )
+
                 return success_response(
                     {
                         "node_id": node_id,
@@ -1181,12 +1345,16 @@ def test_client_connection(node_id):
                         "connection_status": "success",
                         "latency_ms": latency_ms,
                         "http_status": response.status_code,
-                        "client_status": client_status.get("data", {}).get("status", {}),
+                        "client_status": client_status.get("data", {}).get(
+                            "status", {}
+                        ),
                     },
-                    f"Connection test successful: {latency_ms}ms latency"
+                    f"Connection test successful: {latency_ms}ms latency",
                 )
             else:
-                logger.warning(f"[SYNC] Client connection test returned HTTP {response.status_code}")
+                logger.warning(
+                    f"[SYNC] Client connection test returned HTTP {response.status_code}"
+                )
                 return success_response(
                     {
                         "node_id": node_id,
@@ -1197,9 +1365,9 @@ def test_client_connection(node_id):
                         "http_status": response.status_code,
                         "error": f"HTTP {response.status_code}",
                     },
-                    f"Connection test completed with HTTP {response.status_code}"
+                    f"Connection test completed with HTTP {response.status_code}",
                 )
-        
+
         except requests.exceptions.Timeout:
             logger.error(f"[SYNC] Client connection test timeout: {node_id}")
             return success_response(
@@ -1210,7 +1378,7 @@ def test_client_connection(node_id):
                     "connection_status": "timeout",
                     "error": "Connection timeout",
                 },
-                "Connection test failed: Timeout"
+                "Connection test failed: Timeout",
             )
         except requests.exceptions.ConnectionError as e:
             logger.error(f"[SYNC] Client connection test failed: {e}")
@@ -1222,7 +1390,7 @@ def test_client_connection(node_id):
                     "connection_status": "failed",
                     "error": str(e),
                 },
-                f"Connection test failed: Unable to reach client"
+                f"Connection test failed: Unable to reach client",
             )
         except Exception as e:
             logger.error(f"[SYNC] Error testing client connection: {e}", exc_info=True)
@@ -1243,7 +1411,9 @@ def disconnect_node(node_id):
             return error_response("Interconnector is not enabled", 400)
 
         if config.get("node_mode") != "master":
-            return error_response("Node disconnection is only available in master mode", 400)
+            return error_response(
+                "Node disconnection is only available in master mode", 400
+            )
 
         node = db.session.get(InterconnectorNode, node_id)
         if not node:
@@ -1271,8 +1441,13 @@ def get_sync_profiles():
     """List available sync profiles."""
     try:
         _seed_default_profiles()
-        profiles = InterconnectorSyncProfile.query.order_by(InterconnectorSyncProfile.is_default.desc(), InterconnectorSyncProfile.name.asc()).all()
-        return success_response({"profiles": [p.to_dict() for p in profiles]}, "Sync profiles retrieved")
+        profiles = InterconnectorSyncProfile.query.order_by(
+            InterconnectorSyncProfile.is_default.desc(),
+            InterconnectorSyncProfile.name.asc(),
+        ).all()
+        return success_response(
+            {"profiles": [p.to_dict() for p in profiles]}, "Sync profiles retrieved"
+        )
     except Exception as e:
         logger.error(f"[SYNC PROFILE] Error fetching profiles: {e}", exc_info=True)
         return error_response(f"Failed to get profiles: {str(e)}", 500)
@@ -1288,7 +1463,9 @@ def pull_entities():
             return error_response("Interconnector is not enabled", 400)
 
         if config.get("node_mode") != "master":
-            return error_response("Pull endpoint is only available on master nodes", 400)
+            return error_response(
+                "Pull endpoint is only available on master nodes", 400
+            )
 
         # Verify API key (if enabled)
         api_key = request.headers.get("X-API-Key")
@@ -1307,7 +1484,7 @@ def pull_entities():
         since = None
         if since_str:
             try:
-                since = datetime.fromisoformat(since_str.replace('Z', '+00:00'))
+                since = datetime.fromisoformat(since_str.replace("Z", "+00:00"))
             except Exception:
                 pass
 
@@ -1325,7 +1502,7 @@ def pull_entities():
                 "since": since.isoformat() if since else None,
                 "timestamp": datetime.now().isoformat(),
             },
-            "Entities retrieved for sync"
+            "Entities retrieved for sync",
         )
 
     except Exception as e:
@@ -1343,7 +1520,9 @@ def push_entities():
             return error_response("Interconnector is not enabled", 400)
 
         if config.get("node_mode") != "master":
-            return error_response("Push endpoint is only available on master nodes", 400)
+            return error_response(
+                "Push endpoint is only available on master nodes", 400
+            )
 
         # Verify API key (if enabled)
         api_key = request.headers.get("X-API-Key")
@@ -1378,7 +1557,13 @@ def push_entities():
             if entity_type not in sync_service.supported_entities:
                 continue
 
-            entity_stats = {"processed": 0, "created": 0, "updated": 0, "conflicts": 0, "errors": 0}
+            entity_stats = {
+                "processed": 0,
+                "created": 0,
+                "updated": 0,
+                "conflicts": 0,
+                "errors": 0,
+            }
 
             for entity_data in entity_list:
                 try:
@@ -1423,7 +1608,7 @@ def push_entities():
                 "details": details,
                 "timestamp": datetime.now().isoformat(),
             },
-            "Entities applied successfully"
+            "Entities applied successfully",
         )
 
     except Exception as e:
@@ -1436,11 +1621,16 @@ def push_entities():
 def get_pending_approvals():
     """Get list of pending approval requests."""
     try:
-        approvals = InterconnectorPendingApproval.query.filter_by(status="pending").order_by(
-            InterconnectorPendingApproval.received_at.desc()
-        ).all()
+        approvals = (
+            InterconnectorPendingApproval.query.filter_by(status="pending")
+            .order_by(InterconnectorPendingApproval.received_at.desc())
+            .all()
+        )
         return success_response(
-            {"pending_count": len(approvals), "approvals": [a.to_dict() for a in approvals]},
+            {
+                "pending_count": len(approvals),
+                "approvals": [a.to_dict() for a in approvals],
+            },
             "Pending approvals retrieved",
         )
     except Exception as e:
@@ -1478,7 +1668,13 @@ def decide_approval(approval_id: int):
         if decision == "partial" and approved_files:
             files_to_apply = [f for f in files_list if f.get("path") in approved_files]
 
-        apply_results = {"processed": 0, "created": 0, "updated": 0, "conflicts": 0, "errors": 0}
+        apply_results = {
+            "processed": 0,
+            "created": 0,
+            "updated": 0,
+            "conflicts": 0,
+            "errors": 0,
+        }
         details = []
 
         if decision in {"approve", "partial"} and files_to_apply:
@@ -1492,13 +1688,21 @@ def decide_approval(approval_id: int):
             apply_results["conflicts"] = asum.get("total_conflicts", 0)
             apply_results["errors"] = asum.get("total_errors", 0)
             details = [
-                {"path": d.get("path"), "status": d.get("status", "success"), "error": d.get("error")}
+                {
+                    "path": d.get("path"),
+                    "status": d.get("status", "success"),
+                    "error": d.get("error"),
+                }
                 for d in apply_result.get("details", [])
             ]
 
-        approval.status = "approved" if decision in {"approve", "partial"} else "declined"
+        approval.status = (
+            "approved" if decision in {"approve", "partial"} else "declined"
+        )
         approval.reviewed_at = datetime.now()
-        approval.approved_files = json.dumps(list(approved_files)) if approved_files else None
+        approval.approved_files = (
+            json.dumps(list(approved_files)) if approved_files else None
+        )
         approval.decision_reason = data.get("reason")
         db.session.commit()
 
@@ -1513,7 +1717,9 @@ def decide_approval(approval_id: int):
         )
     except Exception as e:
         db.session.rollback()
-        logger.error(f"[APPROVAL] Error deciding approval {approval_id}: {e}", exc_info=True)
+        logger.error(
+            f"[APPROVAL] Error deciding approval {approval_id}: {e}", exc_info=True
+        )
         return error_response(f"Failed to process approval: {str(e)}", 500)
 
 
@@ -1526,7 +1732,9 @@ def _build_client_url(node: InterconnectorNode) -> str:
 def broadcast_push_to_client(self, broadcast_id: str, node_id: str, payload: Dict):
     """Trigger a client to pull from master by invoking its manual sync."""
     try:
-        target = InterconnectorBroadcastTarget.query.filter_by(broadcast_id=broadcast_id, node_id=node_id).first()
+        target = InterconnectorBroadcastTarget.query.filter_by(
+            broadcast_id=broadcast_id, node_id=node_id
+        ).first()
         node = db.session.get(InterconnectorNode, node_id)
         if not node or not target:
             return {"status": "error", "error": "Node or target not found"}
@@ -1552,7 +1760,9 @@ def broadcast_push_to_client(self, broadcast_id: str, node_id: str, payload: Dic
     except Exception as e:
         db.session.rollback()
         try:
-            target = InterconnectorBroadcastTarget.query.filter_by(broadcast_id=broadcast_id, node_id=node_id).first()
+            target = InterconnectorBroadcastTarget.query.filter_by(
+                broadcast_id=broadcast_id, node_id=node_id
+            ).first()
             if target:
                 target.status = "failed"
                 target.error_message = str(e)
@@ -1568,7 +1778,10 @@ def broadcast_push():
     try:
         config = _get_config()
         if not config.get("is_enabled") or config.get("node_mode") != "master":
-            return error_response("Broadcast is only available in master mode with interconnector enabled", 400)
+            return error_response(
+                "Broadcast is only available in master mode with interconnector enabled",
+                400,
+            )
 
         data = request.get_json() or {}
         target_clients = data.get("target_clients")  # list or "all"
@@ -1585,8 +1798,12 @@ def broadcast_push():
         exclude_patterns = data.get("exclude_patterns")
         if profile:
             try:
-                entity_cfg = json.loads(profile.entity_config) if profile.entity_config else {}
-                file_cfg = json.loads(profile.file_config) if profile.file_config else {}
+                entity_cfg = (
+                    json.loads(profile.entity_config) if profile.entity_config else {}
+                )
+                file_cfg = (
+                    json.loads(profile.file_config) if profile.file_config else {}
+                )
                 if entity_cfg.get("entities") is not None:
                     entities = entity_cfg.get("entities") or []
                 if file_cfg.get("paths"):
@@ -1594,10 +1811,16 @@ def broadcast_push():
                 include_patterns = include_patterns or file_cfg.get("include_patterns")
                 exclude_patterns = exclude_patterns or file_cfg.get("exclude_patterns")
             except Exception as e:
-                logger.error(f"[BROADCAST] Failed to apply profile {profile.name}: {e}", exc_info=True)
+                logger.error(
+                    f"[BROADCAST] Failed to apply profile {profile.name}: {e}",
+                    exc_info=True,
+                )
 
         # Select targets
-        query = InterconnectorNode.query.filter(InterconnectorNode.node_mode == "client", InterconnectorNode.status == "active")
+        query = InterconnectorNode.query.filter(
+            InterconnectorNode.node_mode == "client",
+            InterconnectorNode.status == "active",
+        )
         if target_clients and target_clients != "all":
             query = query.filter(InterconnectorNode.node_id.in_(target_clients))
         nodes = query.all()
@@ -1630,7 +1853,9 @@ def broadcast_push():
 
         # Build payload for clients (they will pull from master)
         payload = {
-            "direction": "pull" if sync_type in {"entities", "both"} else "bidirectional",
+            "direction": (
+                "pull" if sync_type in {"entities", "both"} else "bidirectional"
+            ),
             "entities": entities,
             "sync_files": sync_type in {"files", "both"},
             "file_paths": file_paths,
@@ -1641,14 +1866,19 @@ def broadcast_push():
 
         tasks = []
         for node in nodes:
-            tasks.append(broadcast_push_to_client.s(broadcast.id, node.node_id, payload))
+            tasks.append(
+                broadcast_push_to_client.s(broadcast.id, node.node_id, payload)
+            )
 
         if tasks:
             group(tasks).apply_async()
             broadcast.status = "in_progress"
             db.session.commit()
 
-        return success_response({"broadcast_id": broadcast.id, "targets": [n.node_id for n in nodes]}, "Broadcast initiated")
+        return success_response(
+            {"broadcast_id": broadcast.id, "targets": [n.node_id for n in nodes]},
+            "Broadcast initiated",
+        )
     except Exception as e:
         db.session.rollback()
         logger.error(f"[BROADCAST] Error initiating broadcast: {e}", exc_info=True)
@@ -1663,7 +1893,9 @@ def get_broadcast_status(broadcast_id: str):
         if not broadcast:
             return not_found_response("Broadcast not found")
 
-        targets = InterconnectorBroadcastTarget.query.filter_by(broadcast_id=broadcast_id).all()
+        targets = InterconnectorBroadcastTarget.query.filter_by(
+            broadcast_id=broadcast_id
+        ).all()
         return success_response(
             {
                 "broadcast": broadcast.to_dict(),
@@ -1672,7 +1904,9 @@ def get_broadcast_status(broadcast_id: str):
             "Broadcast status",
         )
     except Exception as e:
-        logger.error(f"[BROADCAST] Error getting status for {broadcast_id}: {e}", exc_info=True)
+        logger.error(
+            f"[BROADCAST] Error getting status for {broadcast_id}: {e}", exc_info=True
+        )
         return error_response(f"Failed to get broadcast status: {str(e)}", 500)
 
 
@@ -1688,19 +1922,23 @@ def test_file_scanning():
             return error_response("Interconnector is not enabled", 400)
 
         if config.get("node_mode") != "master":
-            logger.warning(f"[SYNC] File scan test rejected: Not in master mode (mode={config.get('node_mode')})")
-            return error_response("File scan test is only available on master nodes", 400)
+            logger.warning(
+                f"[SYNC] File scan test rejected: Not in master mode (mode={config.get('node_mode')})"
+            )
+            return error_response(
+                "File scan test is only available on master nodes", 400
+            )
 
         file_sync_service = get_file_sync_service()
         logger.info("[SYNC] File scan test: Starting file scan...")
-        
+
         # Test scanning with default paths
         files_list = file_sync_service.scan_files(None, None)
-        
+
         # Calculate statistics
         total_size = sum(f.get("size", 0) for f in files_list)
         total_files = len(files_list)
-        
+
         # Group by directory
         by_directory = {}
         for file_data in files_list:
@@ -1713,20 +1951,22 @@ def test_file_scanning():
             # Keep first 3 files per directory as examples
             if len(by_directory[dir_path]["files"]) < 3:
                 by_directory[dir_path]["files"].append(path)
-        
+
         # Get sample files from key directories (not just first 10)
         sample_files = []
         key_dirs = ["backend/api", "backend/services", "backend/utils", "frontend/src"]
         for key_dir in key_dirs:
-            matching_files = [f for f in files_list if f.get("path", "").startswith(key_dir)]
+            matching_files = [
+                f for f in files_list if f.get("path", "").startswith(key_dir)
+            ]
             if matching_files:
                 sample_files.extend(matching_files[:2])  # 2 files per key directory
-        
+
         # Fill remaining slots with any files if we don't have enough
         if len(sample_files) < 10:
             remaining = [f for f in files_list if f not in sample_files]
-            sample_files.extend(remaining[:10 - len(sample_files)])
-        
+            sample_files.extend(remaining[: 10 - len(sample_files)])
+
         # Verify critical files are present
         critical_files = [
             "backend/api/interconnector_api.py",
@@ -1740,11 +1980,15 @@ def test_file_scanning():
                 found_critical.append(critical_file)
             else:
                 missing_critical.append(critical_file)
-        
-        logger.info(f"[SYNC] File scan test complete: {total_files} files, "
-                   f"{total_size / 1024 / 1024:.2f} MB total")
-        logger.info(f"[SYNC] Critical files check: {len(found_critical)} found, {len(missing_critical)} missing")
-        
+
+        logger.info(
+            f"[SYNC] File scan test complete: {total_files} files, "
+            f"{total_size / 1024 / 1024:.2f} MB total"
+        )
+        logger.info(
+            f"[SYNC] Critical files check: {len(found_critical)} found, {len(missing_critical)} missing"
+        )
+
         return success_response(
             {
                 "success": True,
@@ -1760,7 +2004,7 @@ def test_file_scanning():
                 "sync_paths": file_sync_service.default_sync_paths,
                 "project_root": str(file_sync_service.get_project_root()),
             },
-            f"File scan test successful: Found {total_files} files"
+            f"File scan test successful: Found {total_files} files",
         )
 
     except Exception as e:
@@ -1776,7 +2020,9 @@ def verify_files():
         config = _get_config()
 
         if not config.get("is_enabled"):
-            logger.warning("[SYNC] File verification rejected: Interconnector not enabled")
+            logger.warning(
+                "[SYNC] File verification rejected: Interconnector not enabled"
+            )
             return error_response("Interconnector is not enabled", 400)
 
         if not request.is_json:
@@ -1784,13 +2030,13 @@ def verify_files():
 
         data = request.get_json() or {}
         file_checks = data.get("files", [])
-        
+
         if not file_checks:
             # If no files specified, verify all sync paths
             logger.info("[SYNC] No files specified, verifying all sync paths")
             file_sync_service = get_file_sync_service()
             files_list = file_sync_service.scan_files(None, None)
-            
+
             # Convert to verification format
             file_checks = [
                 {"path": f["path"], "hash": f.get("hash"), "size": f.get("size")}
@@ -1800,15 +2046,14 @@ def verify_files():
 
         file_sync_service = get_file_sync_service()
         verification_results = file_sync_service.verify_files_batch(file_checks)
-        
-        logger.info(f"[SYNC] Verification complete: {verification_results['matches']} matches, "
-                   f"{verification_results['mismatches']} mismatches, "
-                   f"{verification_results['missing']} missing")
 
-        return success_response(
-            verification_results,
-            "File verification completed"
+        logger.info(
+            f"[SYNC] Verification complete: {verification_results['matches']} matches, "
+            f"{verification_results['mismatches']} mismatches, "
+            f"{verification_results['missing']} missing"
         )
+
+        return success_response(verification_results, "File verification completed")
 
     except Exception as e:
         logger.error(f"[SYNC] Error verifying files: {e}", exc_info=True)
@@ -1825,7 +2070,9 @@ def list_outputs_index():
             return error_response("Interconnector is not enabled", 400)
 
         if config.get("node_mode") != "master":
-            return error_response("Outputs index is only available on master nodes", 400)
+            return error_response(
+                "Outputs index is only available on master nodes", 400
+            )
 
         # Verify API key (if enabled)
         api_key = request.headers.get("X-API-Key")
@@ -1848,7 +2095,7 @@ def list_outputs_index():
                 "offset": offset,
                 "timestamp": datetime.now().isoformat(),
             },
-            f"Found {len(files)} output files"
+            f"Found {len(files)} output files",
         )
     except Exception as e:
         logger.error(f"[SYNC OUTPUTS] Error listing outputs: {e}", exc_info=True)
@@ -1865,7 +2112,9 @@ def fetch_output_content():
             return error_response("Interconnector is not enabled", 400)
 
         if config.get("node_mode") != "master":
-            return error_response("Output content is only available on master nodes", 400)
+            return error_response(
+                "Output content is only available on master nodes", 400
+            )
 
         api_key = request.headers.get("X-API-Key")
         is_valid, error_msg = _check_api_key(config, api_key)
@@ -1907,8 +2156,12 @@ def pull_files():
             return error_response("Interconnector is not enabled", 400)
 
         if config.get("node_mode") != "master":
-            logger.warning(f"[SYNC] File pull rejected: Not in master mode (mode={config.get('node_mode')})")
-            return error_response("Pull files endpoint is only available on master nodes", 400)
+            logger.warning(
+                f"[SYNC] File pull rejected: Not in master mode (mode={config.get('node_mode')})"
+            )
+            return error_response(
+                "Pull files endpoint is only available on master nodes", 400
+            )
 
         # Verify API key (if enabled)
         api_key = request.headers.get("X-API-Key")
@@ -1933,29 +2186,35 @@ def pull_files():
         since = None
         if since_str:
             try:
-                since = datetime.fromisoformat(since_str.replace('Z', '+00:00'))
-                logger.info(f"[SYNC] File pull: Filtering files modified after: {since}")
+                since = datetime.fromisoformat(since_str.replace("Z", "+00:00"))
+                logger.info(
+                    f"[SYNC] File pull: Filtering files modified after: {since}"
+                )
             except Exception as e:
-                logger.warning(f"[SYNC] File pull: Could not parse since timestamp '{since_str}': {e}")
+                logger.warning(
+                    f"[SYNC] File pull: Could not parse since timestamp '{since_str}': {e}"
+                )
 
         file_sync_service = get_file_sync_service()
         logger.info("[SYNC] File pull: Starting file scan...")
         files_list = file_sync_service.scan_files(
-            sync_paths, since, include_content=True,
+            sync_paths,
+            since,
+            include_content=True,
             include_patterns=include_patterns,
             exclude_patterns=exclude_patterns,
         )
         logger.info(f"[SYNC] File pull: Scan complete, found {len(files_list)} files")
-        
+
         # Pre-send validation: filter out files missing content (prevents CLIENT crash)
         valid_files, invalid_files = file_sync_service.validate_files_batch(files_list)
         invalid_paths = [f.get("path", "?") for f in invalid_files]
-        
+
         if invalid_files:
             logger.warning(
                 f"[SYNC] File pull: Excluding {len(invalid_files)} files without content: {invalid_paths[:10]}"
             )
-        
+
         # Log details about files being sent
         total_size = sum(f.get("size", 0) for f in valid_files)
         logger.info(
@@ -1971,7 +2230,7 @@ def pull_files():
                 "since": since.isoformat() if since else None,
                 "timestamp": datetime.now().isoformat(),
             },
-            "Files retrieved for sync"
+            "Files retrieved for sync",
         )
 
     except Exception as e:
@@ -1989,10 +2248,15 @@ def push_files():
             return error_response("Interconnector is not enabled", 400)
 
         if config.get("node_mode") != "master":
-            return error_response("Push files endpoint is only available on master nodes", 400)
+            return error_response(
+                "Push files endpoint is only available on master nodes", 400
+            )
 
         # Enforce master -> client only for code sync
-        return error_response("Code sync is master-to-client only. Pushing files to master is not allowed.", 400)
+        return error_response(
+            "Code sync is master-to-client only. Pushing files to master is not allowed.",
+            400,
+        )
 
         # Verify API key (if enabled)
         api_key = request.headers.get("X-API-Key")
@@ -2055,11 +2319,13 @@ def push_files():
             except Exception as e:
                 logger.error(f"Error applying file {file_data.get('path')}: {e}")
                 summary["total_errors"] += 1
-                details.append({
-                    "path": file_data.get("path"),
-                    "status": "error",
-                    "error": str(e),
-                })
+                details.append(
+                    {
+                        "path": file_data.get("path"),
+                        "status": "error",
+                        "error": str(e),
+                    }
+                )
 
         return success_response(
             {
@@ -2067,7 +2333,7 @@ def push_files():
                 "details": details,
                 "timestamp": datetime.now().isoformat(),
             },
-            "Files applied successfully"
+            "Files applied successfully",
         )
 
     except Exception as e:
@@ -2105,8 +2371,12 @@ def trigger_manual_sync():
         profile = _load_profile(profile_name, profile_id)
         if profile:
             try:
-                entity_cfg = json.loads(profile.entity_config) if profile.entity_config else {}
-                file_cfg = json.loads(profile.file_config) if profile.file_config else {}
+                entity_cfg = (
+                    json.loads(profile.entity_config) if profile.entity_config else {}
+                )
+                file_cfg = (
+                    json.loads(profile.file_config) if profile.file_config else {}
+                )
                 if entity_cfg.get("entities") is not None:
                     entities = entity_cfg.get("entities") or []
                 if file_cfg.get("paths"):
@@ -2115,21 +2385,33 @@ def trigger_manual_sync():
                 exclude_patterns = exclude_patterns or file_cfg.get("exclude_patterns")
                 logger.info(f"[SYNC] Applying profile '{profile.name}' to manual sync")
             except Exception as e:
-                logger.error(f"[SYNC] Failed to apply profile {profile.name}: {e}", exc_info=True)
+                logger.error(
+                    f"[SYNC] Failed to apply profile {profile.name}: {e}", exc_info=True
+                )
 
-        logger.info(f"[SYNC] Manual sync parameters: direction={direction}, entities={entities}, "
-                   f"sync_files={sync_files}, file_paths={file_paths}, node_mode={config.get('node_mode')}")
+        logger.info(
+            f"[SYNC] Manual sync parameters: direction={direction}, entities={entities}, "
+            f"sync_files={sync_files}, file_paths={file_paths}, node_mode={config.get('node_mode')}"
+        )
 
         if direction not in ["bidirectional", "pull", "push"]:
             logger.error(f"[SYNC] Invalid sync direction: {direction}")
-            return validation_error_response("Invalid sync direction. Must be: bidirectional, pull, or push")
+            return validation_error_response(
+                "Invalid sync direction. Must be: bidirectional, pull, or push"
+            )
 
         if sync_files and direction != "pull":
-            logger.error(f"[SYNC] Code sync rejected: direction={direction} (code sync is pull-only from master)")
-            return validation_error_response("Code sync is master-to-client only. Use direction='pull' for code updates.")
+            logger.error(
+                f"[SYNC] Code sync rejected: direction={direction} (code sync is pull-only from master)"
+            )
+            return validation_error_response(
+                "Code sync is master-to-client only. Use direction='pull' for code updates."
+            )
 
         if config.get("node_mode") != "client":
-            logger.warning(f"[SYNC] Manual sync rejected: Not in client mode (mode={config.get('node_mode')})")
+            logger.warning(
+                f"[SYNC] Manual sync rejected: Not in client mode (mode={config.get('node_mode')})"
+            )
             return error_response("Manual sync is only available in client mode", 400)
 
         master_url = config.get("master_url")
@@ -2140,11 +2422,13 @@ def trigger_manual_sync():
             return error_response("Master URL and API key must be configured", 400)
 
         # Clean up URL
-        master_url = master_url.rstrip('/')
-        if not master_url.startswith(('http://', 'https://')):
+        master_url = master_url.rstrip("/")
+        if not master_url.startswith(("http://", "https://")):
             master_url = f"http://{master_url}"
 
-        logger.info(f"[SYNC] Starting sync to master: {master_url}, direction={direction}")
+        logger.info(
+            f"[SYNC] Starting sync to master: {master_url}, direction={direction}"
+        )
         sync_start_time = time.time()
         summary = {
             "total_processed": 0,
@@ -2164,9 +2448,12 @@ def trigger_manual_sync():
                 logger.info(f"Starting pull sync for entities: {entities}")
 
                 # Get last sync time for incremental sync
-                last_sync = db.session.query(InterconnectorSyncHistory).filter(
-                    InterconnectorSyncHistory.node_id == local_node_id
-                ).order_by(InterconnectorSyncHistory.sync_timestamp.desc()).first()
+                last_sync = (
+                    db.session.query(InterconnectorSyncHistory)
+                    .filter(InterconnectorSyncHistory.node_id == local_node_id)
+                    .order_by(InterconnectorSyncHistory.sync_timestamp.desc())
+                    .first()
+                )
 
                 since = None
                 if last_sync:
@@ -2184,11 +2471,7 @@ def trigger_manual_sync():
                     headers["X-API-Key"] = master_api_key
 
                 response = requests.get(
-                    pull_url,
-                    headers=headers,
-                    params=params,
-                    timeout=60,
-                    verify=False
+                    pull_url, headers=headers, params=params, timeout=60, verify=False
                 )
 
                 if response.status_code == 200:
@@ -2202,12 +2485,21 @@ def trigger_manual_sync():
                         if entity_type not in sync_service.supported_entities:
                             continue
 
-                        entity_stats = {"processed": 0, "created": 0, "updated": 0, "conflicts": 0, "errors": 0}
+                        entity_stats = {
+                            "processed": 0,
+                            "created": 0,
+                            "updated": 0,
+                            "conflicts": 0,
+                            "errors": 0,
+                        }
 
                         for entity_data in entity_list:
                             try:
                                 success, conflict_id, stats = sync_service.apply_entity(
-                                    entity_type, entity_data, conflict_strategy, "master"
+                                    entity_type,
+                                    entity_data,
+                                    conflict_strategy,
+                                    "master",
                                 )
 
                                 entity_stats["processed"] += 1
@@ -2216,82 +2508,116 @@ def trigger_manual_sync():
                                 if stats.get("created"):
                                     entity_stats["created"] += 1
                                     summary["total_created"] += 1
-                                    
+
                                     # For clients with logos, download logo file from master
-                                    if entity_type == "clients" and entity_data.get("logo_path"):
+                                    if entity_type == "clients" and entity_data.get(
+                                        "logo_path"
+                                    ):
                                         try:
                                             logo_filename = entity_data.get("logo_path")
                                             logo_url = f"{master_url}/api/uploads/logos/{logo_filename}"
-                                            
+
                                             # Build headers - conditionally include API key
                                             logo_headers = {}
                                             if master_api_key:
-                                                logo_headers["X-API-Key"] = master_api_key
-                                            
+                                                logo_headers["X-API-Key"] = (
+                                                    master_api_key
+                                                )
+
                                             logo_response = requests.get(
                                                 logo_url,
                                                 headers=logo_headers,
                                                 timeout=10,
-                                                verify=False
+                                                verify=False,
                                             )
                                             if logo_response.status_code == 200:
                                                 # Save logo to local uploads/logos directory
                                                 from flask import current_app
                                                 import os
-                                                from werkzeug.utils import secure_filename
-                                                
-                                                upload_base = current_app.config.get("CLIENT_LOGO_FOLDER") or os.path.join(
-                                                    current_app.config["UPLOAD_FOLDER"], "logos"
+                                                from werkzeug.utils import (
+                                                    secure_filename,
+                                                )
+
+                                                upload_base = current_app.config.get(
+                                                    "CLIENT_LOGO_FOLDER"
+                                                ) or os.path.join(
+                                                    current_app.config["UPLOAD_FOLDER"],
+                                                    "logos",
                                                 )
                                                 os.makedirs(upload_base, exist_ok=True)
-                                                safe_filename = secure_filename(logo_filename)
-                                                save_path = os.path.join(upload_base, safe_filename)
-                                                
-                                                with open(save_path, 'wb') as f:
+                                                safe_filename = secure_filename(
+                                                    logo_filename
+                                                )
+                                                save_path = os.path.join(
+                                                    upload_base, safe_filename
+                                                )
+
+                                                with open(save_path, "wb") as f:
                                                     f.write(logo_response.content)
-                                                logger.info(f"Downloaded logo for client {entity_data.get('id')}: {safe_filename}")
+                                                logger.info(
+                                                    f"Downloaded logo for client {entity_data.get('id')}: {safe_filename}"
+                                                )
                                         except Exception as logo_error:
-                                            logger.warning(f"Failed to download logo for client {entity_data.get('id')}: {logo_error}")
-                                    
+                                            logger.warning(
+                                                f"Failed to download logo for client {entity_data.get('id')}: {logo_error}"
+                                            )
+
                                 elif stats.get("updated"):
                                     entity_stats["updated"] += 1
                                     summary["total_updated"] += 1
-                                    
+
                                     # Also check for logo updates
-                                    if entity_type == "clients" and entity_data.get("logo_path"):
+                                    if entity_type == "clients" and entity_data.get(
+                                        "logo_path"
+                                    ):
                                         try:
                                             logo_filename = entity_data.get("logo_path")
                                             from flask import current_app
                                             import os
-                                            
-                                            upload_base = current_app.config.get("CLIENT_LOGO_FOLDER") or os.path.join(
-                                                current_app.config["UPLOAD_FOLDER"], "logos"
+
+                                            upload_base = current_app.config.get(
+                                                "CLIENT_LOGO_FOLDER"
+                                            ) or os.path.join(
+                                                current_app.config["UPLOAD_FOLDER"],
+                                                "logos",
                                             )
-                                            logo_path = os.path.join(upload_base, logo_filename)
-                                            
+                                            logo_path = os.path.join(
+                                                upload_base, logo_filename
+                                            )
+
                                             # Download if file doesn't exist locally
                                             if not os.path.exists(logo_path):
                                                 logo_url = f"{master_url}/api/uploads/logos/{logo_filename}"
                                                 logo_response = requests.get(
                                                     logo_url,
-                                                    headers={"X-API-Key": master_api_key},
+                                                    headers={
+                                                        "X-API-Key": master_api_key
+                                                    },
                                                     timeout=10,
-                                                    verify=False
+                                                    verify=False,
                                                 )
                                                 if logo_response.status_code == 200:
-                                                    os.makedirs(upload_base, exist_ok=True)
-                                                    with open(logo_path, 'wb') as f:
+                                                    os.makedirs(
+                                                        upload_base, exist_ok=True
+                                                    )
+                                                    with open(logo_path, "wb") as f:
                                                         f.write(logo_response.content)
-                                                    logger.info(f"Downloaded updated logo for client {entity_data.get('id')}: {logo_filename}")
+                                                    logger.info(
+                                                        f"Downloaded updated logo for client {entity_data.get('id')}: {logo_filename}"
+                                                    )
                                         except Exception as logo_error:
-                                            logger.warning(f"Failed to download logo update for client {entity_data.get('id')}: {logo_error}")
+                                            logger.warning(
+                                                f"Failed to download logo update for client {entity_data.get('id')}: {logo_error}"
+                                            )
 
                                 if conflict_id:
                                     entity_stats["conflicts"] += 1
                                     summary["total_conflicts"] += 1
 
                             except Exception as e:
-                                logger.error(f"Error applying {entity_type} entity during pull: {e}")
+                                logger.error(
+                                    f"Error applying {entity_type} entity during pull: {e}"
+                                )
                                 entity_stats["errors"] += 1
                                 summary["total_errors"] += 1
 
@@ -2318,7 +2644,9 @@ def trigger_manual_sync():
                 # Get local entities
                 for entity_type in entities:
                     if entity_type in sync_service.supported_entities:
-                        entities_to_push[entity_type] = sync_service.get_entities_for_sync(entity_type)
+                        entities_to_push[entity_type] = (
+                            sync_service.get_entities_for_sync(entity_type)
+                        )
 
                 # Send to master
                 push_url = f"{master_url}/api/interconnector/sync/push"
@@ -2340,7 +2668,7 @@ def trigger_manual_sync():
                     headers=push_headers,
                     json=push_data,
                     timeout=60,
-                    verify=False
+                    verify=False,
                 )
 
                 if response.status_code == 200:
@@ -2358,8 +2686,20 @@ def trigger_manual_sync():
                     # Merge details
                     for entity_type, entity_stats in push_details.items():
                         if entity_type not in details:
-                            details[entity_type] = {"processed": 0, "created": 0, "updated": 0, "conflicts": 0, "errors": 0}
-                        for key in ["processed", "created", "updated", "conflicts", "errors"]:
+                            details[entity_type] = {
+                                "processed": 0,
+                                "created": 0,
+                                "updated": 0,
+                                "conflicts": 0,
+                                "errors": 0,
+                            }
+                        for key in [
+                            "processed",
+                            "created",
+                            "updated",
+                            "conflicts",
+                            "errors",
+                        ]:
                             details[entity_type][key] += entity_stats.get(key, 0)
 
                     logger.info(f"Push sync completed: {push_summary}")
@@ -2376,7 +2716,7 @@ def trigger_manual_sync():
             # File sync (if enabled)
             if sync_files:
                 logger.info(f"[SYNC] Starting file sync (direction={direction})")
-                
+
                 file_sync_service = get_file_sync_service()
                 file_summary = {
                     "total_processed": 0,
@@ -2391,59 +2731,84 @@ def trigger_manual_sync():
                 # Pull files
                 if direction in ["pull", "bidirectional"]:
                     try:
-                        logger.info(f"[SYNC] File pull: Getting last sync time for node_id={local_node_id}")
+                        logger.info(
+                            f"[SYNC] File pull: Getting last sync time for node_id={local_node_id}"
+                        )
                         # Get last sync time for incremental file sync
                         # Only use incremental sync if we have a previous file sync (not just entity sync)
-                        last_sync = db.session.query(InterconnectorSyncHistory).filter(
-                            InterconnectorSyncHistory.node_id == local_node_id
-                        ).order_by(
-                            InterconnectorSyncHistory.sync_timestamp.desc()
-                        ).first()
-                        
+                        last_sync = (
+                            db.session.query(InterconnectorSyncHistory)
+                            .filter(InterconnectorSyncHistory.node_id == local_node_id)
+                            .order_by(InterconnectorSyncHistory.sync_timestamp.desc())
+                            .first()
+                        )
+
                         # Check if last sync actually included files
                         # We need to check if the sync history includes file sync info
                         # For now, we'll check if there's a sync history entry that suggests files were synced
                         last_sync_had_files = False
                         if last_sync:
-                            logger.info(f"[SYNC] File pull: Last sync found: {last_sync.sync_timestamp}, "
-                                       f"sync_direction={last_sync.sync_direction}")
+                            logger.info(
+                                f"[SYNC] File pull: Last sync found: {last_sync.sync_timestamp}, "
+                                f"sync_direction={last_sync.sync_direction}"
+                            )
                             # Check if there are any file sync records by looking for syncs with file counts
                             # Since we don't track file sync separately, we'll check if this is a recent sync
-                            # and if sync_files flag was used. For now, be conservative and assume first 
+                            # and if sync_files flag was used. For now, be conservative and assume first
                             # file sync should be full sync
-                            
+
                             # Check if last sync was very recent (within last hour) - if so, might be incremental
                             # Otherwise, do full sync to be safe
-                            time_since_last_sync = datetime.now() - last_sync.sync_timestamp
-                            if time_since_last_sync.total_seconds() < 3600:  # Less than 1 hour
-                                logger.info(f"[SYNC] File pull: Last sync was recent ({time_since_last_sync.total_seconds():.0f}s ago), "
-                                           f"assuming it included files, will use incremental sync")
+                            time_since_last_sync = (
+                                datetime.now() - last_sync.sync_timestamp
+                            )
+                            if (
+                                time_since_last_sync.total_seconds() < 3600
+                            ):  # Less than 1 hour
+                                logger.info(
+                                    f"[SYNC] File pull: Last sync was recent ({time_since_last_sync.total_seconds():.0f}s ago), "
+                                    f"assuming it included files, will use incremental sync"
+                                )
                                 last_sync_had_files = True
                             else:
-                                logger.info(f"[SYNC] File pull: Last sync was {time_since_last_sync.total_seconds()/3600:.1f} hours ago, "
-                                           f"performing full sync to be safe")
+                                logger.info(
+                                    f"[SYNC] File pull: Last sync was {time_since_last_sync.total_seconds()/3600:.1f} hours ago, "
+                                    f"performing full sync to be safe"
+                                )
                                 last_sync_had_files = False
                         else:
-                            logger.info(f"[SYNC] File pull: No previous sync found, performing full sync")
+                            logger.info(
+                                f"[SYNC] File pull: No previous sync found, performing full sync"
+                            )
 
                         since = None
                         if last_sync and last_sync_had_files:
                             since = last_sync.sync_timestamp
-                            logger.info(f"[SYNC] File pull: Using incremental sync since: {since}, "
-                                       f"will only sync files modified after this time")
+                            logger.info(
+                                f"[SYNC] File pull: Using incremental sync since: {since}, "
+                                f"will only sync files modified after this time"
+                            )
                         else:
-                            logger.info(f"[SYNC] File pull: Performing full file sync (no previous file sync found)")
+                            logger.info(
+                                f"[SYNC] File pull: Performing full file sync (no previous file sync found)"
+                            )
                             since = None  # Explicitly set to None for full sync
 
                         # Request files from master
-                        files_pull_url = f"{master_url}/api/interconnector/sync/files/pull"
+                        files_pull_url = (
+                            f"{master_url}/api/interconnector/sync/files/pull"
+                        )
                         files_params = {}
                         if file_paths:
                             files_params["paths"] = file_paths
-                            logger.info(f"[SYNC] File pull: Using custom paths: {file_paths}")
+                            logger.info(
+                                f"[SYNC] File pull: Using custom paths: {file_paths}"
+                            )
                         if since:
                             files_params["since"] = since.isoformat()
-                            logger.info(f"[SYNC] File pull: Using since timestamp: {since.isoformat()}")
+                            logger.info(
+                                f"[SYNC] File pull: Using since timestamp: {since.isoformat()}"
+                            )
                         if include_patterns:
                             files_params["include_patterns"] = include_patterns
                         if exclude_patterns:
@@ -2454,21 +2819,27 @@ def trigger_manual_sync():
                         if master_api_key:
                             headers["X-API-Key"] = master_api_key
 
-                        logger.info(f"[SYNC] File pull: Requesting files from {files_pull_url} with params={files_params}")
+                        logger.info(
+                            f"[SYNC] File pull: Requesting files from {files_pull_url} with params={files_params}"
+                        )
                         files_response = requests.get(
                             files_pull_url,
                             headers=headers,
                             params=files_params,
                             timeout=120,  # Longer timeout for file sync
-                            verify=False
+                            verify=False,
                         )
 
-                        logger.info(f"[SYNC] File pull: Response status={files_response.status_code}")
+                        logger.info(
+                            f"[SYNC] File pull: Response status={files_response.status_code}"
+                        )
                         if files_response.status_code == 200:
                             files_data = files_response.json()
                             files_list = files_data.get("data", {}).get("files", [])
-                            logger.info(f"[SYNC] File pull: Received {len(files_list)} files from master")
-                            
+                            logger.info(
+                                f"[SYNC] File pull: Received {len(files_list)} files from master"
+                            )
+
                             if config.get("require_file_approval", True) and files_list:
                                 # Queue approval instead of applying immediately
                                 approval = InterconnectorPendingApproval(
@@ -2481,8 +2852,10 @@ def trigger_manual_sync():
                                 )
                                 db.session.add(approval)
                                 db.session.commit()
-                                logger.info(f"[SYNC] Queued {len(files_list)} files for approval (id={approval.id})")
-                                
+                                logger.info(
+                                    f"[SYNC] Queued {len(files_list)} files for approval (id={approval.id})"
+                                )
+
                                 summary["files"] = {
                                     "summary": {
                                         "total_processed": 0,
@@ -2497,24 +2870,44 @@ def trigger_manual_sync():
                                 }
                                 # Skip applying files; continue to history recording
                                 files_list = []
-                            
+
                             # Log sample of files received
                             if files_list:
                                 sample_files = files_list[:5]
                                 logger.info(f"[SYNC] File pull: Sample files received:")
                                 for f in sample_files:
-                                    has_content = f.get("content") is not None or f.get("content_compressed")
-                                    content_len = len(f.get("content", "")) if f.get("content") else (len(f.get("content_compressed", "")) if f.get("content_compressed") else 0)
-                                    logger.info(f"[SYNC]   - {f.get('path')}: size={f.get('size')}, "
-                                               f"has_content={has_content}, content_length={content_len}")
+                                    has_content = f.get("content") is not None or f.get(
+                                        "content_compressed"
+                                    )
+                                    content_len = (
+                                        len(f.get("content", ""))
+                                        if f.get("content")
+                                        else (
+                                            len(f.get("content_compressed", ""))
+                                            if f.get("content_compressed")
+                                            else 0
+                                        )
+                                    )
+                                    logger.info(
+                                        f"[SYNC]   - {f.get('path')}: size={f.get('size')}, "
+                                        f"has_content={has_content}, content_length={content_len}"
+                                    )
                             else:
-                                logger.warning(f"[SYNC] File pull: No files received from master!")
+                                logger.warning(
+                                    f"[SYNC] File pull: No files received from master!"
+                                )
 
                             # Pre-apply: check import dependencies (JS/TS)
-                            missing_deps = file_sync_service.check_import_dependencies(files_list)
+                            missing_deps = file_sync_service.check_import_dependencies(
+                                files_list
+                            )
                             if missing_deps:
                                 file_summary["missing_dependencies"] = [
-                                    {"file": d["file"], "imports": d["missing"], "resolved": d["resolved_path"]}
+                                    {
+                                        "file": d["file"],
+                                        "imports": d["missing"],
+                                        "resolved": d["resolved_path"],
+                                    }
                                     for d in missing_deps
                                 ]
                                 logger.warning(
@@ -2522,20 +2915,32 @@ def trigger_manual_sync():
                                     f"sync may break frontend. Run full sync or ensure referenced files are included."
                                 )
                             # Apply files atomically (all succeed or all rollback)
-                            logger.info(f"[SYNC] File pull: Processing {len(files_list)} files atomically")
-                            success, apply_result = file_sync_service.apply_files_atomic(
-                                files_list, conflict_strategy, create_backup=True
+                            logger.info(
+                                f"[SYNC] File pull: Processing {len(files_list)} files atomically"
+                            )
+                            success, apply_result = (
+                                file_sync_service.apply_files_atomic(
+                                    files_list, conflict_strategy, create_backup=True
+                                )
                             )
                             asum = apply_result.get("summary", {})
-                            file_summary["total_processed"] = asum.get("total_processed", 0)
+                            file_summary["total_processed"] = asum.get(
+                                "total_processed", 0
+                            )
                             file_summary["total_created"] = asum.get("total_created", 0)
                             file_summary["total_updated"] = asum.get("total_updated", 0)
-                            file_summary["total_conflicts"] = asum.get("total_conflicts", 0)
+                            file_summary["total_conflicts"] = asum.get(
+                                "total_conflicts", 0
+                            )
                             file_summary["total_errors"] = asum.get("total_errors", 0)
-                            file_summary["total_backed_up"] = asum.get("total_backed_up", 0)
+                            file_summary["total_backed_up"] = asum.get(
+                                "total_backed_up", 0
+                            )
                             file_details.extend(apply_result.get("details", []))
-                            
-                            invalid_from_master = files_data.get("data", {}).get("invalid_files", [])
+
+                            invalid_from_master = files_data.get("data", {}).get(
+                                "invalid_files", []
+                            )
                             if invalid_from_master:
                                 logger.warning(
                                     f"[SYNC] File pull: Master excluded {len(invalid_from_master)} files without content"
@@ -2545,17 +2950,26 @@ def trigger_manual_sync():
                                     f"[SYNC] File pull: Skipped {len(apply_result['invalid_files'])} files missing content"
                                 )
                             if asum.get("rolled_back"):
-                                logger.error("[SYNC] File pull: Atomic apply failed, rolled back all changes")
+                                logger.error(
+                                    "[SYNC] File pull: Atomic apply failed, rolled back all changes"
+                                )
 
-                            logger.info(f"[SYNC] File pull sync completed: processed={file_summary['total_processed']}, "
-                                       f"created={file_summary['total_created']}, updated={file_summary['total_updated']}, "
-                                       f"errors={file_summary['total_errors']}, rolled_back={asum.get('rolled_back', False)}")
+                            logger.info(
+                                f"[SYNC] File pull sync completed: processed={file_summary['total_processed']}, "
+                                f"created={file_summary['total_created']}, updated={file_summary['total_updated']}, "
+                                f"errors={file_summary['total_errors']}, rolled_back={asum.get('rolled_back', False)}"
+                            )
                         else:
-                            logger.error(f"[SYNC] File pull sync failed: HTTP {files_response.status_code}, "
-                                       f"response={files_response.text[:500]}")
+                            logger.error(
+                                f"[SYNC] File pull sync failed: HTTP {files_response.status_code}, "
+                                f"response={files_response.text[:500]}"
+                            )
                             _log_interconnector_alert(
                                 "File pull sync failed",
-                                {"url": files_pull_url, "status": files_response.status_code},
+                                {
+                                    "url": files_pull_url,
+                                    "status": files_response.status_code,
+                                },
                             )
                             file_summary["total_errors"] += 1
 
@@ -2570,7 +2984,9 @@ def trigger_manual_sync():
                         local_files = file_sync_service.scan_files(file_paths)
 
                         # Send to master
-                        files_push_url = f"{master_url}/api/interconnector/sync/files/push"
+                        files_push_url = (
+                            f"{master_url}/api/interconnector/sync/files/push"
+                        )
                         files_push_data = {
                             "files": local_files,
                             "conflict_strategy": conflict_strategy,
@@ -2588,27 +3004,48 @@ def trigger_manual_sync():
                             headers=push_headers,
                             json=files_push_data,
                             timeout=120,
-                            verify=False
+                            verify=False,
                         )
 
                         if files_response.status_code == 200:
                             files_result = files_response.json()
-                            push_file_summary = files_result.get("data", {}).get("summary", {})
+                            push_file_summary = files_result.get("data", {}).get(
+                                "summary", {}
+                            )
 
                             # Merge push results
-                            file_summary["total_processed"] += push_file_summary.get("total_processed", 0)
-                            file_summary["total_created"] += push_file_summary.get("total_created", 0)
-                            file_summary["total_updated"] += push_file_summary.get("total_updated", 0)
-                            file_summary["total_conflicts"] += push_file_summary.get("total_conflicts", 0)
-                            file_summary["total_errors"] += push_file_summary.get("total_errors", 0)
-                            file_summary["total_backed_up"] += push_file_summary.get("total_backed_up", 0)
+                            file_summary["total_processed"] += push_file_summary.get(
+                                "total_processed", 0
+                            )
+                            file_summary["total_created"] += push_file_summary.get(
+                                "total_created", 0
+                            )
+                            file_summary["total_updated"] += push_file_summary.get(
+                                "total_updated", 0
+                            )
+                            file_summary["total_conflicts"] += push_file_summary.get(
+                                "total_conflicts", 0
+                            )
+                            file_summary["total_errors"] += push_file_summary.get(
+                                "total_errors", 0
+                            )
+                            file_summary["total_backed_up"] += push_file_summary.get(
+                                "total_backed_up", 0
+                            )
 
-                            logger.info(f"File push sync completed: {push_file_summary}")
+                            logger.info(
+                                f"File push sync completed: {push_file_summary}"
+                            )
                         else:
-                            logger.warning(f"File push sync failed: HTTP {files_response.status_code}")
+                            logger.warning(
+                                f"File push sync failed: HTTP {files_response.status_code}"
+                            )
                             _log_interconnector_alert(
                                 "File push sync failed",
-                                {"url": files_push_url, "status": files_response.status_code},
+                                {
+                                    "url": files_push_url,
+                                    "status": files_response.status_code,
+                                },
                             )
                             file_summary["total_errors"] += 1
 
@@ -2618,17 +3055,21 @@ def trigger_manual_sync():
 
                 # Add file sync results to summary (always include, even if empty)
                 if sync_files:
-                    logger.info(f"[SYNC] Adding file sync results to summary: "
-                               f"processed={file_summary['total_processed']}, "
-                               f"created={file_summary['total_created']}, "
-                               f"updated={file_summary['total_updated']}, "
-                               f"errors={file_summary['total_errors']}")
+                    logger.info(
+                        f"[SYNC] Adding file sync results to summary: "
+                        f"processed={file_summary['total_processed']}, "
+                        f"created={file_summary['total_created']}, "
+                        f"updated={file_summary['total_updated']}, "
+                        f"errors={file_summary['total_errors']}"
+                    )
                     summary["files"] = {
                         "summary": file_summary,
                         "details": file_details,
                     }
                 else:
-                    logger.debug("[SYNC] File sync not enabled, skipping file sync results")
+                    logger.debug(
+                        "[SYNC] File sync not enabled, skipping file sync results"
+                    )
 
         except requests.exceptions.RequestException as e:
             logger.error(f"Network error during sync: {e}")
@@ -2642,9 +3083,11 @@ def trigger_manual_sync():
         sync_duration_ms = int((time.time() - sync_start_time) * 1000)
         sync_status = "success" if summary["total_errors"] == 0 else "partial"
 
-        logger.info(f"[SYNC] Recording sync history - node_id={local_node_id}, direction={direction}, "
-                   f"status={sync_status}, duration={sync_duration_ms}ms, "
-                   f"processed={summary['total_processed']}, errors={summary['total_errors']}")
+        logger.info(
+            f"[SYNC] Recording sync history - node_id={local_node_id}, direction={direction}, "
+            f"status={sync_status}, duration={sync_duration_ms}ms, "
+            f"processed={summary['total_processed']}, errors={summary['total_errors']}"
+        )
 
         try:
             sync_history = InterconnectorSyncHistory(
@@ -2660,33 +3103,53 @@ def trigger_manual_sync():
                 sync_timestamp=datetime.now(),
             )
             db.session.add(sync_history)
-            logger.info(f"[SYNC] Sync history record created: node_id={local_node_id}, "
-                       f"sync_timestamp={sync_history.sync_timestamp}")
+            logger.info(
+                f"[SYNC] Sync history record created: node_id={local_node_id}, "
+                f"sync_timestamp={sync_history.sync_timestamp}"
+            )
 
             # Update node's last sync time if it exists
-            logger.info(f"[SYNC] Looking up node record - trying node_id={local_node_id} first")
-            node = db.session.query(InterconnectorNode).filter_by(node_id=local_node_id).first()
+            logger.info(
+                f"[SYNC] Looking up node record - trying node_id={local_node_id} first"
+            )
+            node = (
+                db.session.query(InterconnectorNode)
+                .filter_by(node_id=local_node_id)
+                .first()
+            )
             if not node:
                 node_name = config.get("node_name")
-                logger.info(f"[SYNC] Node not found by node_id, trying node_name={node_name}")
-                node = db.session.query(InterconnectorNode).filter_by(node_name=node_name).first()
-            
+                logger.info(
+                    f"[SYNC] Node not found by node_id, trying node_name={node_name}"
+                )
+                node = (
+                    db.session.query(InterconnectorNode)
+                    .filter_by(node_name=node_name)
+                    .first()
+                )
+
             if node:
-                logger.info(f"[SYNC] Node found: node_id={node.node_id}, node_name={node.node_name}, "
-                           f"updating last_sync_time and heartbeat")
+                logger.info(
+                    f"[SYNC] Node found: node_id={node.node_id}, node_name={node.node_name}, "
+                    f"updating last_sync_time and heartbeat"
+                )
                 node.last_sync_time = datetime.now()
                 # Also update heartbeat if node exists
                 node.last_heartbeat = datetime.now()
                 node.status = "active"
             else:
-                logger.warning(f"[SYNC] Node record not found for node_id={local_node_id} "
-                             f"or node_name={config.get('node_name')} - cannot update last_sync_time")
+                logger.warning(
+                    f"[SYNC] Node record not found for node_id={local_node_id} "
+                    f"or node_name={config.get('node_name')} - cannot update last_sync_time"
+                )
 
             db.session.commit()
             logger.info(f"[SYNC] Sync history and node record committed successfully")
-            
+
             # Log sync completion for debugging
-            logger.info(f"[SYNC] Sync completed: {summary}, direction={direction}, node_id={local_node_id}")
+            logger.info(
+                f"[SYNC] Sync completed: {summary}, direction={direction}, node_id={local_node_id}"
+            )
         except Exception as e:
             logger.error(f"[SYNC] Failed to record sync history: {e}", exc_info=True)
             db.session.rollback()
@@ -2722,14 +3185,14 @@ def test_connection():
 
         if not master_url:
             return validation_error_response("Master URL is required")
-        
+
         # API key is optional if server doesn't require it
         # But we can't check server config from here, so we'll allow empty API key
         # The server will accept or reject based on its require_api_key setting
 
         # Clean up URL
-        master_url = master_url.rstrip('/')
-        if not master_url.startswith(('http://', 'https://')):
+        master_url = master_url.rstrip("/")
+        if not master_url.startswith(("http://", "https://")):
             master_url = f"http://{master_url}"
 
         # Build headers - conditionally include API key
@@ -2740,13 +3203,13 @@ def test_connection():
         # Test connection with latency measurement
         start_time = time.time()
         test_url = f"{master_url}/api/interconnector/status"
-        
+
         try:
             response = requests.get(
                 test_url,
                 headers=test_headers,
                 timeout=10,
-                verify=False  # Allow self-signed certs for local networks
+                verify=False,  # Allow self-signed certs for local networks
             )
             latency_ms = int((time.time() - start_time) * 1000)
 
@@ -2773,14 +3236,15 @@ def test_connection():
                 )
             else:
                 return error_response(
-                    f"Connection test failed: HTTP {response.status_code}",
-                    400
+                    f"Connection test failed: HTTP {response.status_code}", 400
                 )
 
         except requests.exceptions.Timeout:
             return error_response("Connection test failed: Timeout", 408)
         except requests.exceptions.ConnectionError as e:
-            return error_response(f"Connection test failed: Unable to reach server - {str(e)}", 503)
+            return error_response(
+                f"Connection test failed: Unable to reach server - {str(e)}", 503
+            )
         except requests.exceptions.RequestException as e:
             return error_response(f"Connection test failed: {str(e)}", 500)
 
@@ -2794,12 +3258,13 @@ def test_connection():
 # These endpoints provide a streamlined "Updates Available" experience for clients
 # =============================================================================
 
+
 @interconnector_bp.route("/updates/check", methods=["GET"])
 def check_for_updates():
     """
     Lightweight endpoint for clients to check if code updates are available.
     This does NOT transfer file contents - only metadata for comparison.
-    
+
     Returns:
         - available: bool - whether updates are available
         - count: int - number of files that differ
@@ -2810,63 +3275,75 @@ def check_for_updates():
     try:
         logger.info("[UPDATES] Checking for updates...")
         config = _get_config()
-        
+
         if not config.get("is_enabled"):
             logger.warning("[UPDATES] Check rejected: Interconnector not enabled")
             return error_response("Interconnector is not enabled", 400)
-        
+
         if config.get("node_mode") != "client":
-            logger.warning(f"[UPDATES] Check rejected: Not in client mode (mode={config.get('node_mode')})")
+            logger.warning(
+                f"[UPDATES] Check rejected: Not in client mode (mode={config.get('node_mode')})"
+            )
             return error_response("Update check is only available on client nodes", 400)
-        
+
         master_url = config.get("master_url", "").rstrip("/")
         master_api_key = config.get("master_api_key", "")
-        
+
         if not master_url:
             logger.warning("[UPDATES] Check rejected: No master URL configured")
             return error_response("Master URL not configured", 400)
-        
+
         logger.info(f"[UPDATES] Fetching manifest from master: {master_url}")
-        
+
         # Build headers
         headers = {}
         if master_api_key:
             headers["X-API-Key"] = master_api_key
-        
+
         # Fetch file metadata from master (without content for speed)
         try:
             # First, get file hashes from master
             manifest_url = f"{master_url}/api/interconnector/updates/manifest"
             logger.debug(f"[UPDATES] Requesting manifest from: {manifest_url}")
-            
+
             response = requests.get(
-                manifest_url,
-                headers=headers,
-                timeout=30,
-                verify=False
+                manifest_url, headers=headers, timeout=30, verify=False
             )
-            
+
             logger.debug(f"[UPDATES] Master response status: {response.status_code}")
-            
+
             if response.status_code != 200:
-                logger.error(f"[UPDATES] Master returned HTTP {response.status_code}: {response.text[:200]}")
-                return error_response(f"Failed to fetch update manifest from master: HTTP {response.status_code}", 502)
-            
+                logger.error(
+                    f"[UPDATES] Master returned HTTP {response.status_code}: {response.text[:200]}"
+                )
+                return error_response(
+                    f"Failed to fetch update manifest from master: HTTP {response.status_code}",
+                    502,
+                )
+
             master_data = response.json()
             if master_data.get("error"):
-                logger.error(f"[UPDATES] Master returned error: {master_data.get('error')}")
-                return error_response(f"Master returned error: {master_data.get('error')}", 502)
-            
+                logger.error(
+                    f"[UPDATES] Master returned error: {master_data.get('error')}"
+                )
+                return error_response(
+                    f"Master returned error: {master_data.get('error')}", 502
+                )
+
             master_files = master_data.get("data", {}).get("files", [])
             master_timestamp = master_data.get("data", {}).get("timestamp")
-            
-            logger.info(f"[UPDATES] Received {len(master_files)} files from master manifest")
-            
+
+            logger.info(
+                f"[UPDATES] Received {len(master_files)} files from master manifest"
+            )
+
             # Debug: Log first few files with hashes
             if master_files:
                 for f in master_files[:3]:
-                    logger.debug(f"[UPDATES] Master file sample: {f.get('path')} hash={f.get('hash', 'NONE')[:16] if f.get('hash') else 'NULL'}...")
-            
+                    logger.debug(
+                        f"[UPDATES] Master file sample: {f.get('path')} hash={f.get('hash', 'NONE')[:16] if f.get('hash') else 'NULL'}..."
+                    )
+
         except requests.exceptions.Timeout:
             logger.error("[UPDATES] Timeout connecting to master server")
             return error_response("Timeout connecting to master server", 504)
@@ -2876,54 +3353,62 @@ def check_for_updates():
         except Exception as e:
             logger.error(f"[UPDATES] Error fetching from master: {e}", exc_info=True)
             return error_response(f"Error fetching from master: {str(e)}", 502)
-        
+
         # Get local file hashes for comparison
         logger.info("[UPDATES] Scanning local files for comparison...")
         file_sync_service = get_file_sync_service()
         local_files = file_sync_service.scan_files(include_content=False)
-        
+
         logger.info(f"[UPDATES] Found {len(local_files)} local files")
-        
+
         # Debug: Log first few local files with hashes
         if local_files:
             for f in local_files[:3]:
-                logger.debug(f"[UPDATES] Local file sample: {f.get('path')} hash={f.get('hash', 'NONE')[:16] if f.get('hash') else 'NULL'}...")
-        
+                logger.debug(
+                    f"[UPDATES] Local file sample: {f.get('path')} hash={f.get('hash', 'NONE')[:16] if f.get('hash') else 'NULL'}..."
+                )
+
         # Build lookup dict of local files
         local_lookup = {f["path"]: f for f in local_files}
-        
+
         # Compare files
         updates_needed = []
         new_files = []
         modified_files = []
-        
+
         for master_file in master_files:
             path = master_file.get("path")
             master_hash = master_file.get("hash")
-            
+
             local_file = local_lookup.get(path)
-            
+
             if not local_file:
                 # New file on master
                 logger.debug(f"[UPDATES] New file on master: {path}")
-                new_files.append({
-                    "path": path,
-                    "action": "create",
-                    "size": master_file.get("size", 0)
-                })
+                new_files.append(
+                    {
+                        "path": path,
+                        "action": "create",
+                        "size": master_file.get("size", 0),
+                    }
+                )
                 updates_needed.append(master_file)
             elif local_file.get("hash") != master_hash:
                 # File differs
-                logger.debug(f"[UPDATES] File differs: {path} (local={local_file.get('hash', 'NULL')[:16] if local_file.get('hash') else 'NULL'}... vs master={master_hash[:16] if master_hash else 'NULL'}...)")
-                modified_files.append({
-                    "path": path,
-                    "action": "update",
-                    "size": master_file.get("size", 0),
-                    "local_modified": local_file.get("modified_at"),
-                    "master_modified": master_file.get("modified_at")
-                })
+                logger.debug(
+                    f"[UPDATES] File differs: {path} (local={local_file.get('hash', 'NULL')[:16] if local_file.get('hash') else 'NULL'}... vs master={master_hash[:16] if master_hash else 'NULL'}...)"
+                )
+                modified_files.append(
+                    {
+                        "path": path,
+                        "action": "update",
+                        "size": master_file.get("size", 0),
+                        "local_modified": local_file.get("modified_at"),
+                        "master_modified": master_file.get("modified_at"),
+                    }
+                )
                 updates_needed.append(master_file)
-        
+
         # Build summary by directory
         summary = {"backend": 0, "frontend": 0, "other": 0}
         for f in updates_needed:
@@ -2934,28 +3419,35 @@ def check_for_updates():
                 summary["frontend"] += 1
             else:
                 summary["other"] += 1
-        
+
         # Get local version (most recent file modification)
         local_version = None
         if local_files:
-            local_times = [f.get("modified_at") for f in local_files if f.get("modified_at")]
+            local_times = [
+                f.get("modified_at") for f in local_files if f.get("modified_at")
+            ]
             if local_times:
                 local_version = max(local_times)
-        
-        logger.info(f"[UPDATES] Check complete: {len(updates_needed)} updates available "
-                   f"({len(new_files)} new, {len(modified_files)} modified)")
-        
-        return success_response({
-            "available": len(updates_needed) > 0,
-            "count": len(updates_needed),
-            "new_files": len(new_files),
-            "modified_files": len(modified_files),
-            "summary": summary,
-            "master_version": master_timestamp,
-            "local_version": local_version,
-            "last_checked": datetime.now().isoformat()
-        }, "Update check complete")
-        
+
+        logger.info(
+            f"[UPDATES] Check complete: {len(updates_needed)} updates available "
+            f"({len(new_files)} new, {len(modified_files)} modified)"
+        )
+
+        return success_response(
+            {
+                "available": len(updates_needed) > 0,
+                "count": len(updates_needed),
+                "new_files": len(new_files),
+                "modified_files": len(modified_files),
+                "summary": summary,
+                "master_version": master_timestamp,
+                "local_version": local_version,
+                "last_checked": datetime.now().isoformat(),
+            },
+            "Update check complete",
+        )
+
     except Exception as e:
         logger.error(f"Error checking for updates: {e}", exc_info=True)
         return error_response(f"Update check failed: {str(e)}", 500)
@@ -2970,52 +3462,65 @@ def get_update_manifest():
     try:
         logger.info("[UPDATES] Manifest requested")
         config = _get_config()
-        
+
         if not config.get("is_enabled"):
             logger.warning("[UPDATES] Manifest rejected: Interconnector not enabled")
             return error_response("Interconnector is not enabled", 400)
-        
+
         if config.get("node_mode") != "master":
-            logger.warning(f"[UPDATES] Manifest rejected: Not in master mode (mode={config.get('node_mode')})")
-            return error_response("Manifest endpoint is only available on master nodes", 400)
-        
+            logger.warning(
+                f"[UPDATES] Manifest rejected: Not in master mode (mode={config.get('node_mode')})"
+            )
+            return error_response(
+                "Manifest endpoint is only available on master nodes", 400
+            )
+
         # Verify API key if required
         api_key = request.headers.get("X-API-Key")
         is_valid, error_msg = _check_api_key(config, api_key)
         if not is_valid:
             logger.warning(f"[UPDATES] Manifest rejected: {error_msg}")
             return error_response(error_msg or "Invalid or missing API key", 401)
-        
+
         # Scan files WITHOUT content (metadata only for speed, but WITH hashes for comparison)
         logger.info("[UPDATES] Scanning files for manifest...")
         file_sync_service = get_file_sync_service()
         files_list = file_sync_service.scan_files(include_content=False)
-        
+
         logger.info(f"[UPDATES] Manifest scan complete: {len(files_list)} files")
-        
+
         # Verify hashes are present
         files_with_hash = sum(1 for f in files_list if f.get("hash"))
         files_without_hash = len(files_list) - files_with_hash
         if files_without_hash > 0:
-            logger.warning(f"[UPDATES] Warning: {files_without_hash} files missing hash in manifest")
-        
+            logger.warning(
+                f"[UPDATES] Warning: {files_without_hash} files missing hash in manifest"
+            )
+
         # Debug: Log sample files
         if files_list:
             for f in files_list[:3]:
-                logger.debug(f"[UPDATES] Manifest sample: {f.get('path')} hash={f.get('hash', 'NONE')[:16] if f.get('hash') else 'NULL'}...")
-        
+                logger.debug(
+                    f"[UPDATES] Manifest sample: {f.get('path')} hash={f.get('hash', 'NONE')[:16] if f.get('hash') else 'NULL'}..."
+                )
+
         # Get most recent modification time
         timestamps = [f.get("modified_at") for f in files_list if f.get("modified_at")]
         latest_timestamp = max(timestamps) if timestamps else datetime.now().isoformat()
-        
-        logger.info(f"[UPDATES] Manifest ready: {len(files_list)} files, latest: {latest_timestamp}")
-        
-        return success_response({
-            "files": files_list,
-            "count": len(files_list),
-            "timestamp": latest_timestamp,
-        }, "Manifest retrieved")
-        
+
+        logger.info(
+            f"[UPDATES] Manifest ready: {len(files_list)} files, latest: {latest_timestamp}"
+        )
+
+        return success_response(
+            {
+                "files": files_list,
+                "count": len(files_list),
+                "timestamp": latest_timestamp,
+            },
+            "Manifest retrieved",
+        )
+
     except Exception as e:
         logger.error(f"Error getting update manifest: {e}", exc_info=True)
         return error_response(f"Failed to get manifest: {str(e)}", 500)
@@ -3029,91 +3534,106 @@ def preview_updates():
     """
     try:
         config = _get_config()
-        
+
         if not config.get("is_enabled"):
             return error_response("Interconnector is not enabled", 400)
-        
+
         if config.get("node_mode") != "client":
-            return error_response("Update preview is only available on client nodes", 400)
-        
+            return error_response(
+                "Update preview is only available on client nodes", 400
+            )
+
         master_url = config.get("master_url", "").rstrip("/")
         master_api_key = config.get("master_api_key", "")
-        
+
         if not master_url:
             return error_response("Master URL not configured", 400)
-        
+
         headers = {}
         if master_api_key:
             headers["X-API-Key"] = master_api_key
-        
+
         # Fetch manifest from master
         try:
             response = requests.get(
                 f"{master_url}/api/interconnector/updates/manifest",
                 headers=headers,
                 timeout=30,
-                verify=False
+                verify=False,
             )
-            
+
             if response.status_code != 200:
-                return error_response(f"Failed to fetch manifest: HTTP {response.status_code}", 502)
-            
+                return error_response(
+                    f"Failed to fetch manifest: HTTP {response.status_code}", 502
+                )
+
             master_data = response.json()
             master_files = master_data.get("data", {}).get("files", [])
-            
+
         except Exception as e:
             return error_response(f"Error fetching from master: {str(e)}", 502)
-        
+
         # Get local files
         file_sync_service = get_file_sync_service()
         local_files = file_sync_service.scan_files(include_content=False)
         local_lookup = {f["path"]: f for f in local_files}
-        
+
         # Build detailed preview
         preview_files = []
         total_size = 0
-        
+
         for master_file in master_files:
             path = master_file.get("path")
             master_hash = master_file.get("hash")
             file_size = master_file.get("size", 0)
-            
+
             local_file = local_lookup.get(path)
-            
+
             if not local_file:
-                preview_files.append({
-                    "path": path,
-                    "action": "create",
-                    "size": file_size,
-                    "size_display": _format_size(file_size),
-                    "master_modified": master_file.get("modified_at")
-                })
+                preview_files.append(
+                    {
+                        "path": path,
+                        "action": "create",
+                        "size": file_size,
+                        "size_display": _format_size(file_size),
+                        "master_modified": master_file.get("modified_at"),
+                    }
+                )
                 total_size += file_size
             elif local_file.get("hash") != master_hash:
                 size_diff = file_size - local_file.get("size", 0)
-                preview_files.append({
-                    "path": path,
-                    "action": "update",
-                    "size": file_size,
-                    "size_display": _format_size(file_size),
-                    "size_diff": size_diff,
-                    "size_diff_display": f"+{_format_size(size_diff)}" if size_diff >= 0 else f"-{_format_size(abs(size_diff))}",
-                    "local_modified": local_file.get("modified_at"),
-                    "master_modified": master_file.get("modified_at")
-                })
+                preview_files.append(
+                    {
+                        "path": path,
+                        "action": "update",
+                        "size": file_size,
+                        "size_display": _format_size(file_size),
+                        "size_diff": size_diff,
+                        "size_diff_display": (
+                            f"+{_format_size(size_diff)}"
+                            if size_diff >= 0
+                            else f"-{_format_size(abs(size_diff))}"
+                        ),
+                        "local_modified": local_file.get("modified_at"),
+                        "master_modified": master_file.get("modified_at"),
+                    }
+                )
                 total_size += file_size
-        
+
         # Sort by path for consistent display
         preview_files.sort(key=lambda x: x["path"])
-        
-        return success_response({
-            "files": preview_files,
-            "count": len(preview_files),
-            "total_size": total_size,
-            "total_size_display": _format_size(total_size),
-            "backup_note": "All existing files will be backed up before changes are applied."
-        }, "Update preview generated")
-        
+
+        return success_response(
+            {
+                "files": preview_files,
+                "count": len(preview_files),
+                "total_size": total_size,
+                "total_size_display": _format_size(total_size),
+                "backup_note": "All existing files will be backed up before changes are applied.",
+            },
+            "Update preview generated",
+        )
+
     except Exception as e:
         logger.error(f"Error previewing updates: {e}", exc_info=True)
         return error_response(f"Preview failed: {str(e)}", 500)
@@ -3134,106 +3654,120 @@ def apply_updates():
     """
     Client endpoint: Apply code updates from master.
     This fetches the actual file contents and applies them locally.
-    
+
     Optional body parameters:
         - files: list of specific file paths to update (if empty, updates all)
     """
     try:
         config = _get_config()
-        
+
         if not config.get("is_enabled"):
             return error_response("Interconnector is not enabled", 400)
-        
+
         if config.get("node_mode") != "client":
-            return error_response("Apply updates is only available on client nodes", 400)
-        
+            return error_response(
+                "Apply updates is only available on client nodes", 400
+            )
+
         master_url = config.get("master_url", "").rstrip("/")
         master_api_key = config.get("master_api_key", "")
-        
+
         if not master_url:
             return error_response("Master URL not configured", 400)
-        
+
         headers = {"Content-Type": "application/json"}
         if master_api_key:
             headers["X-API-Key"] = master_api_key
-        
+
         # Get optional file filter from request body
         data = request.get_json() or {}
         requested_files = data.get("files", [])  # Empty = all files
-        
+
         # Step 1: Get manifest from master to know what to update
         try:
             manifest_response = requests.get(
                 f"{master_url}/api/interconnector/updates/manifest",
                 headers=headers,
                 timeout=30,
-                verify=False
+                verify=False,
             )
-            
+
             if manifest_response.status_code != 200:
-                return error_response(f"Failed to fetch manifest: HTTP {manifest_response.status_code}", 502)
-            
+                return error_response(
+                    f"Failed to fetch manifest: HTTP {manifest_response.status_code}",
+                    502,
+                )
+
             master_manifest = manifest_response.json()
             master_files = master_manifest.get("data", {}).get("files", [])
-            
+
         except Exception as e:
             return error_response(f"Error fetching manifest: {str(e)}", 502)
-        
+
         # Step 2: Get local files for comparison
         file_sync_service = get_file_sync_service()
         local_files = file_sync_service.scan_files(include_content=False)
         local_lookup = {f["path"]: f for f in local_files}
-        
+
         # Step 3: Determine which files need updating
         files_to_update = []
         for master_file in master_files:
             path = master_file.get("path")
             master_hash = master_file.get("hash")
-            
+
             # If specific files requested, only update those
             if requested_files and path not in requested_files:
                 continue
-            
+
             local_file = local_lookup.get(path)
-            
+
             if not local_file or local_file.get("hash") != master_hash:
                 files_to_update.append(path)
-        
+
         if not files_to_update:
-            return success_response({
-                "applied": 0,
-                "message": "No updates needed - all files are up to date"
-            }, "No updates needed")
-        
+            return success_response(
+                {
+                    "applied": 0,
+                    "message": "No updates needed - all files are up to date",
+                },
+                "No updates needed",
+            )
+
         # Step 4: Fetch full file contents from master
         logger.info(f"[UPDATES] Fetching {len(files_to_update)} files from master...")
-        
+
         try:
             pull_response = requests.get(
                 f"{master_url}/api/interconnector/sync/files/pull",
                 headers=headers,
                 timeout=120,  # Longer timeout for file transfer
-                verify=False
+                verify=False,
             )
-            
+
             if pull_response.status_code != 200:
-                return error_response(f"Failed to pull files: HTTP {pull_response.status_code}", 502)
-            
+                return error_response(
+                    f"Failed to pull files: HTTP {pull_response.status_code}", 502
+                )
+
             pull_data = pull_response.json()
             all_master_files = pull_data.get("data", {}).get("files", [])
-            
+
         except Exception as e:
             return error_response(f"Error pulling files: {str(e)}", 502)
-        
+
         # Step 5: Apply updates atomically (filter to files we need, then apply all)
-        files_to_apply = [f for f in all_master_files if f.get("path") in files_to_update]
-        valid_files, invalid_files = file_sync_service.validate_files_batch(files_to_apply)
-        
+        files_to_apply = [
+            f for f in all_master_files if f.get("path") in files_to_update
+        ]
+        valid_files, invalid_files = file_sync_service.validate_files_batch(
+            files_to_apply
+        )
+
         if invalid_files:
             logger.warning(
                 f"[UPDATES] {len(invalid_files)} files missing content, excluding from update"
             )
-        
+
         success = True
         summary = {
             "total_processed": 0,
@@ -3241,11 +3775,11 @@ def apply_updates():
             "total_updated": 0,
             "total_backed_up": 0,
             "total_errors": 0,
-            "total_skipped": 0
+            "total_skipped": 0,
         }
         details = []
         backup_path = None
-        
+
         if valid_files:
             success, apply_result = file_sync_service.apply_files_atomic(
                 valid_files, "last_write_wins", create_backup=True
@@ -3265,34 +3799,39 @@ def apply_updates():
                     action = "updated"
                 elif d.get("status") == "error":
                     action = "error"
-                details.append({
-                    "path": d.get("path"),
-                    "action": action,
-                    "error": d.get("error"),
-                })
+                details.append(
+                    {
+                        "path": d.get("path"),
+                        "action": action,
+                        "error": d.get("error"),
+                    }
+                )
             if asum.get("rolled_back"):
                 logger.error("[UPDATES] Atomic apply failed, rolled back all changes")
-        
+
         # Get backup path for display
         project_root = file_sync_service.get_project_root()
         backup_dir = project_root / "backups" / "file_sync"
         if backup_dir.exists():
             backup_path = str(backup_dir)
-        
+
         logger.info(f"[UPDATES] Update complete: {summary}")
-        
-        return success_response({
-            "applied": summary["total_processed"],
-            "created": summary["total_created"],
-            "updated": summary["total_updated"],
-            "backed_up": summary["total_backed_up"],
-            "skipped": summary["total_skipped"],
-            "errors": summary["total_errors"],
-            "backup_path": backup_path,
-            "details": details,
-            "timestamp": datetime.now().isoformat()
-        }, f"Successfully applied {summary['total_processed']} updates")
-        
+
+        return success_response(
+            {
+                "applied": summary["total_processed"],
+                "created": summary["total_created"],
+                "updated": summary["total_updated"],
+                "backed_up": summary["total_backed_up"],
+                "skipped": summary["total_skipped"],
+                "errors": summary["total_errors"],
+                "backup_path": backup_path,
+                "details": details,
+                "timestamp": datetime.now().isoformat(),
+            },
+            f"Successfully applied {summary['total_processed']} updates",
+        )
+
     except Exception as e:
         logger.error(f"Error applying updates: {e}", exc_info=True)
         return error_response(f"Update failed: {str(e)}", 500)
@@ -3307,7 +3846,9 @@ def receive_directive():
         api_key = request.headers.get("X-API-Key")
         is_valid, error_msg = _check_api_key(config, api_key)
         if not is_valid:
-            logger.warning(f"[SYNC] Rejected directive from {request.remote_addr}: {error_msg}")
+            logger.warning(
+                f"[SYNC] Rejected directive from {request.remote_addr}: {error_msg}"
+            )
             return error_response("Unauthorized: invalid or missing API key", 401)
 
     data = request.get_json()
@@ -3317,18 +3858,27 @@ def receive_directive():
     directive = data["directive"]
     reason = data.get("reason", "No reason provided")
 
-    logger.critical(f"Received Uncle Claude directive from {request.remote_addr}: {directive} — {reason}")
+    logger.critical(
+        f"Received Uncle Claude directive from {request.remote_addr}: {directive} — {reason}"
+    )
 
-    from backend.tools.agent_tools.code_manipulation_tools import _handle_uncle_directive
+    from backend.tools.agent_tools.code_manipulation_tools import (
+        _handle_uncle_directive,
+    )
+
     _handle_uncle_directive(directive, reason)
 
     try:
         from backend.socketio_instance import socketio
-        socketio.emit("uncle:directive", {
-            "directive": directive,
-            "reason": reason,
-            "source": "family_broadcast",
-        })
+
+        socketio.emit(
+            "uncle:directive",
+            {
+                "directive": directive,
+                "reason": reason,
+                "source": "family_broadcast",
+            },
+        )
     except Exception as e:
         logger.error(f"Failed to emit directive to frontend: {e}")
 
@@ -3339,30 +3889,39 @@ def receive_directive():
 def route_inference():
     """Route an inference request to the best-suited node."""
     from backend.models import db, InterconnectorNode
+
     data = request.get_json()
     if not data or "message" not in data:
         return error_response("message is required", 400)
 
-    nodes = db.session.query(InterconnectorNode).filter(InterconnectorNode.status == "active").all()
+    nodes = (
+        db.session.query(InterconnectorNode)
+        .filter(InterconnectorNode.status == "active")
+        .all()
+    )
     node_capabilities = []
     for node in nodes:
-        node_capabilities.append({
-            "node_id": node.node_id,
-            "model_name": node.model_name,
-            "vram_free": node.vram_free or 0,
-            "current_load": node.current_load or 0.0,
-            "specialties": json.loads(node.specialties) if node.specialties else [],
-            "api_url": f"http://{node.host}:{node.port}",
-        })
+        node_capabilities.append(
+            {
+                "node_id": node.node_id,
+                "model_name": node.model_name,
+                "vram_free": node.vram_free or 0,
+                "current_load": node.current_load or 0.0,
+                "specialties": json.loads(node.specialties) if node.specialties else [],
+                "api_url": f"http://{node.host}:{node.port}",
+            }
+        )
 
     # Simple routing: pick node with lowest load that has VRAM
     best = sorted(node_capabilities, key=lambda n: n["current_load"])
     best = [n for n in best if n["vram_free"] and n["vram_free"] > 0] or best
 
-    return success_response(data={
-        "recommended_node": best[0] if best else None,
-        "all_nodes": node_capabilities,
-    })
+    return success_response(
+        data={
+            "recommended_node": best[0] if best else None,
+            "all_nodes": node_capabilities,
+        }
+    )
 
 
 @interconnector_bp.route("/ask-family", methods=["POST"])
@@ -3375,27 +3934,37 @@ def ask_family():
     if not data or "message" not in data:
         return error_response("message is required", 400)
 
-    nodes = db.session.query(InterconnectorNode).filter(InterconnectorNode.status == "active").all()
+    nodes = (
+        db.session.query(InterconnectorNode)
+        .filter(InterconnectorNode.status == "active")
+        .all()
+    )
     for node in nodes:
         try:
             api_url = f"http://{node.host}:{node.port}"
             resp = req.post(
                 f"{api_url}/api/chat/unified",
-                json={"message": data["message"], "session_id": data.get("session_id", "family_query")},
+                json={
+                    "message": data["message"],
+                    "session_id": data.get("session_id", "family_query"),
+                },
                 timeout=30,
             )
             if resp.ok:
-                return success_response(data={
-                    "handled_by": node.node_id,
-                    "model": node.model_name,
-                    "response": resp.json(),
-                })
+                return success_response(
+                    data={
+                        "handled_by": node.node_id,
+                        "model": node.model_name,
+                        "response": resp.json(),
+                    }
+                )
         except Exception as e:
             logger.debug(f"Node {node.node_id} couldn't handle request: {e}")
             continue
 
-    return success_response(data={
-        "handled_by": None,
-        "message": "No family member could handle this request. Escalate to Uncle Claude.",
-    })
-
+    return success_response(
+        data={
+            "handled_by": None,
+            "message": "No family member could handle this request. Escalate to Uncle Claude.",
+        }
+    )

@@ -11,7 +11,10 @@ logger = logging.getLogger(__name__)
 def get_upload(filename):
     # Check if this image should be proxied from master server
     try:
-        from backend.utils.interconnector_image_utils import should_use_master_image_repository, proxy_image_from_master
+        from backend.utils.interconnector_image_utils import (
+            should_use_master_image_repository,
+            proxy_image_from_master,
+        )
 
         image_path = f"uploads/{filename}"
         if should_use_master_image_repository():
@@ -25,16 +28,18 @@ def get_upload(filename):
 
                 content_type, _ = guess_type(filename)
                 if not content_type:
-                    content_type = 'application/octet-stream'
+                    content_type = "application/octet-stream"
 
                 logger.info(f"Proxied image from master: {filename}")
                 return Response(
                     image_data,
                     mimetype=content_type,
-                    headers={'Cache-Control': 'public, max-age=3600'}
+                    headers={"Cache-Control": "public, max-age=3600"},
                 )
             elif error:
-                logger.warning(f"Failed to proxy image from master: {error}, falling back to local")
+                logger.warning(
+                    f"Failed to proxy image from master: {error}, falling back to local"
+                )
                 # Fall through to local storage
     except Exception as e:
         logger.error(f"Error checking master image repository: {e}")

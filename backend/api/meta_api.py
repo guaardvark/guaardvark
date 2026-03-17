@@ -17,8 +17,16 @@ from werkzeug.utils import secure_filename
 import backend.config
 
 try:
-    from backend.models import (Client, Document, Project, Rule, Task,
-                                TrainingDataset, Website, db)
+    from backend.models import (
+        Client,
+        Document,
+        Project,
+        Rule,
+        Task,
+        TrainingDataset,
+        Website,
+        db,
+    )
 except Exception:
     db = Rule = Project = Client = Website = Document = Task = TrainingDataset = None
 

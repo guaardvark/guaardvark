@@ -6,6 +6,7 @@ import subprocess
 import sys
 from datetime import datetime
 
+
 def _ensure_llama_index() -> None:
     """
     Ensure llama_index is installed.
@@ -14,6 +15,7 @@ def _ensure_llama_index() -> None:
     """
     try:
         import llama_index
+
         return
     except ImportError:
         print("[preflight] llama_index missing; attempting install...")
@@ -71,6 +73,7 @@ def install_playwright_browsers() -> None:
     """
     try:
         import playwright.__main__
+
         playwright.__main__.main(["install", "chromium"])
     except Exception as e:
         print("Playwright install failed:", e)

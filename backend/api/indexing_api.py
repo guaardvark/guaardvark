@@ -16,8 +16,10 @@ try:
     # Import the Document model for fetching
     from backend.models import Document as DBDocument, Folder
     from backend.models import db
-    from backend.services.indexing_service import (add_file_to_index,
-                                                   update_document_status)
+    from backend.services.indexing_service import (
+        add_file_to_index,
+        update_document_status,
+    )
 except ImportError as e:
     logging.getLogger(__name__).critical(
         f"CRITICAL Failed to import dependencies for indexing_api: {e}", exc_info=True
@@ -59,8 +61,8 @@ def trigger_document_indexing(document_id):
     try:
         # Get request data for parent job linking
         request_data = request.get_json() or {}
-        parent_job_id = request_data.get('parent_job_id')
-        
+        parent_job_id = request_data.get("parent_job_id")
+
         # 1. Find the document in the database
         document = db.session.get(DBDocument, document_id)
         if not document:
@@ -111,29 +113,32 @@ def trigger_document_indexing(document_id):
 
         job_id = None
         progress_system = get_unified_progress()
-        
+
         if parent_job_id:
             # Try to continue from upload job if it exists
             try:
                 existing_process = progress_system.get_process(parent_job_id)
-                if existing_process and existing_process.status.value != 'complete':
+                if existing_process and existing_process.status.value != "complete":
                     job_id = parent_job_id
-                    progress_system.update_process(job_id, 50, f"Starting indexing for {filename}")
-                    logger.info(f"Continuing upload job {parent_job_id} for indexing document {document_id}")
+                    progress_system.update_process(
+                        job_id, 50, f"Starting indexing for {filename}"
+                    )
+                    logger.info(
+                        f"Continuing upload job {parent_job_id} for indexing document {document_id}"
+                    )
                 else:
                     parent_job_id = None  # Create new job if parent is complete
             except Exception as e:
                 logger.warning(f"Could not continue parent job {parent_job_id}: {e}")
                 parent_job_id = None
-        
+
         if not job_id:
             # Create new indexing job
             job_id = progress_system.create_process(
-                ProcessType.INDEXING,
-                f"Indexing document {document_id}: {filename}"
+                ProcessType.INDEXING, f"Indexing document {document_id}: {filename}"
             )
             progress_system.update_process(job_id, 0, "Starting indexing process")
-        
+
         # Store the job_id in the document for future reference
         document.indexing_job_id = job_id
         db.session.commit()
@@ -141,9 +146,14 @@ def trigger_document_indexing(document_id):
         # Use Celery task instead of Flask-Executor
         try:
             from backend.celery_tasks_isolated import index_document_task
+
             # Submit to Celery with explicit queue specification
-            task = index_document_task.apply_async((document.id, job_id), queue='indexing')
-            logger.info(f"Submitted indexing task to Celery queue 'indexing': {task.id}")
+            task = index_document_task.apply_async(
+                (document.id, job_id), queue="indexing"
+            )
+            logger.info(
+                f"Submitted indexing task to Celery queue 'indexing': {task.id}"
+            )
         except ImportError as e:
             logger.error(f"Failed to import Celery task: {e}")
             update_document_status(document.id, "ERROR", "Indexing service unavailable")
@@ -203,7 +213,10 @@ def trigger_bulk_indexing():
     logger.info("API: Received POST /api/index/bulk request")
 
     if add_file_to_index is None or update_document_status is None:
-        return jsonify({"error": "Indexing service unavailable due to import error."}), 500
+        return (
+            jsonify({"error": "Indexing service unavailable due to import error."}),
+            500,
+        )
 
     if db is None or DBDocument is None or Folder is None:
         return jsonify({"error": "Database unavailable for indexing."}), 500
@@ -226,13 +239,17 @@ def trigger_bulk_indexing():
                 logger.warning(f"Bulk indexing: Folder {fid} not found, skipping.")
 
         if not all_doc_ids:
-            return jsonify({"error": "No documents found in the specified folders/documents."}), 404
+            return (
+                jsonify(
+                    {"error": "No documents found in the specified folders/documents."}
+                ),
+                404,
+            )
 
         # Create a parent progress job
         progress_system = get_unified_progress()
         job_id = progress_system.create_process(
-            ProcessType.INDEXING,
-            f"Bulk indexing {len(all_doc_ids)} documents"
+            ProcessType.INDEXING, f"Bulk indexing {len(all_doc_ids)} documents"
         )
         progress_system.update_process(job_id, 0, "Starting bulk indexing")
 
@@ -249,16 +266,21 @@ def trigger_bulk_indexing():
             if not doc:
                 continue
             update_document_status(doc.id, "INDEXING")
-            index_document_task.apply_async((doc.id, job_id), queue='indexing')
+            index_document_task.apply_async((doc.id, job_id), queue="indexing")
             dispatched += 1
 
         logger.info(f"Bulk indexing: dispatched {dispatched} tasks under job {job_id}")
 
-        return jsonify({
-            "message": f"Bulk indexing started for {dispatched} documents.",
-            "job_id": job_id,
-            "total_documents": dispatched,
-        }), 202
+        return (
+            jsonify(
+                {
+                    "message": f"Bulk indexing started for {dispatched} documents.",
+                    "job_id": job_id,
+                    "total_documents": dispatched,
+                }
+            ),
+            202,
+        )
 
     except Exception as e:
         logger.error(f"API Bulk Indexing: Unexpected error: {e}", exc_info=True)

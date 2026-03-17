@@ -12,18 +12,20 @@ from pathlib import Path
 from datetime import datetime, timedelta
 
 # Add backend to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from sqlalchemy import create_engine, text
 from backend.config import DATABASE_URL, OUTPUT_DIR, UPLOAD_DIR
 
 _engine = None
 
+
 def get_db_engine():
     global _engine
     if _engine is None:
         _engine = create_engine(DATABASE_URL)
     return _engine
+
 
 def find_orphaned_documents():
     """Find documents that reference non-existent files"""
@@ -40,16 +42,19 @@ def find_orphaned_documents():
         doc_id, filename, path, status, uploaded_at = row
         full_path = os.path.join(UPLOAD_DIR, path) if not os.path.isabs(path) else path
         if not os.path.exists(full_path):
-            orphaned.append({
-                'id': doc_id,
-                'filename': filename,
-                'path': path,
-                'status': status,
-                'uploaded_at': uploaded_at,
-                'full_path': full_path
-            })
+            orphaned.append(
+                {
+                    "id": doc_id,
+                    "filename": filename,
+                    "path": path,
+                    "status": status,
+                    "uploaded_at": uploaded_at,
+                    "full_path": full_path,
+                }
+            )
 
     return orphaned
+
 
 def find_stale_progress_jobs():
     """Find stale progress job directories"""
@@ -65,27 +70,37 @@ def find_stale_progress_jobs():
             metadata_file = job_dir / "metadata.json"
             if metadata_file.exists():
                 try:
-                    with open(metadata_file, 'r') as f:
+                    with open(metadata_file, "r") as f:
                         metadata = json.load(f)
 
                     # Check if job is stuck/stale
-                    status = metadata.get('status', 'unknown')
-                    created_at = metadata.get('created_at')
+                    status = metadata.get("status", "unknown")
+                    created_at = metadata.get("created_at")
 
                     if created_at:
-                        created_time = datetime.fromisoformat(created_at.replace('Z', '+00:00').replace('+00:00', ''))
-                        if created_time < cutoff_time and status not in ['complete', 'error']:
-                            stale_jobs.append({
-                                'job_id': job_dir.name,
-                                'path': str(job_dir),
-                                'status': status,
-                                'created_at': created_at,
-                                'process_type': metadata.get('process_type', 'unknown')
-                            })
+                        created_time = datetime.fromisoformat(
+                            created_at.replace("Z", "+00:00").replace("+00:00", "")
+                        )
+                        if created_time < cutoff_time and status not in [
+                            "complete",
+                            "error",
+                        ]:
+                            stale_jobs.append(
+                                {
+                                    "job_id": job_dir.name,
+                                    "path": str(job_dir),
+                                    "status": status,
+                                    "created_at": created_at,
+                                    "process_type": metadata.get(
+                                        "process_type", "unknown"
+                                    ),
+                                }
+                            )
                 except Exception as e:
                     print(f"Error reading {metadata_file}: {e}")
 
     return stale_jobs
+
 
 def cleanup_orphaned_documents(orphaned_docs, dry_run=True):
     """Remove orphaned document records from database"""
@@ -96,7 +111,9 @@ def cleanup_orphaned_documents(orphaned_docs, dry_run=True):
     if dry_run:
         print(f"\n[DRY RUN] Would remove {len(orphaned_docs)} orphaned documents:")
         for doc in orphaned_docs[:10]:  # Show first 10
-            print(f"  - ID {doc['id']}: {doc['filename']} (status: {doc['status']}, file missing: {doc['full_path']})")
+            print(
+                f"  - ID {doc['id']}: {doc['filename']} (status: {doc['status']}, file missing: {doc['full_path']})"
+            )
         if len(orphaned_docs) > 10:
             print(f"  ... and {len(orphaned_docs) - 10} more")
         return 0
@@ -106,7 +123,9 @@ def cleanup_orphaned_documents(orphaned_docs, dry_run=True):
     with engine.connect() as conn:
         for doc in orphaned_docs:
             try:
-                conn.execute(text("DELETE FROM documents WHERE id = :id"), {"id": doc['id']})
+                conn.execute(
+                    text("DELETE FROM documents WHERE id = :id"), {"id": doc["id"]}
+                )
                 cleaned_count += 1
             except Exception as e:
                 print(f"Error deleting document {doc['id']}: {e}")
@@ -114,6 +133,7 @@ def cleanup_orphaned_documents(orphaned_docs, dry_run=True):
 
     print(f"Removed {cleaned_count} orphaned document records")
     return cleaned_count
+
 
 def cleanup_stale_jobs(stale_jobs, dry_run=True):
     """Remove stale progress job directories"""
@@ -124,7 +144,9 @@ def cleanup_stale_jobs(stale_jobs, dry_run=True):
     if dry_run:
         print(f"\n[DRY RUN] Would remove {len(stale_jobs)} stale job directories:")
         for job in stale_jobs[:10]:  # Show first 10
-            print(f"  - {job['job_id']} ({job['process_type']}, status: {job['status']}, created: {job['created_at']})")
+            print(
+                f"  - {job['job_id']} ({job['process_type']}, status: {job['status']}, created: {job['created_at']})"
+            )
         if len(stale_jobs) > 10:
             print(f"  ... and {len(stale_jobs) - 10} more")
         return 0
@@ -132,13 +154,14 @@ def cleanup_stale_jobs(stale_jobs, dry_run=True):
     cleaned_count = 0
     for job in stale_jobs:
         try:
-            shutil.rmtree(job['path'])
+            shutil.rmtree(job["path"])
             cleaned_count += 1
         except Exception as e:
             print(f"Error removing {job['path']}: {e}")
 
     print(f"Removed {cleaned_count} stale job directories")
     return cleaned_count
+
 
 def reset_stuck_documents(dry_run=True):
     """Reset documents stuck in INDEXING status to PENDING"""
@@ -180,11 +203,14 @@ def reset_stuck_documents(dry_run=True):
     with engine.connect() as conn:
         for doc_id, filename, indexed_at in stuck_docs:
             try:
-                conn.execute(text("""
+                conn.execute(
+                    text("""
                     UPDATE documents
                     SET index_status = 'PENDING', indexed_at = NULL, error_message = NULL
                     WHERE id = :id
-                """), {"id": doc_id})
+                """),
+                    {"id": doc_id},
+                )
                 reset_count += 1
             except Exception as e:
                 print(f"Error resetting document {doc_id}: {e}")
@@ -193,13 +219,22 @@ def reset_stuck_documents(dry_run=True):
     print(f"Reset {reset_count} stuck documents to PENDING status")
     return reset_count
 
+
 def main():
     """Main cleanup function"""
     import argparse
 
-    parser = argparse.ArgumentParser(description='Clean up stale indexing jobs and orphaned documents')
-    parser.add_argument('--dry-run', action='store_true', help='Show what would be cleaned without actually doing it')
-    parser.add_argument('--execute', action='store_true', help='Actually perform the cleanup')
+    parser = argparse.ArgumentParser(
+        description="Clean up stale indexing jobs and orphaned documents"
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be cleaned without actually doing it",
+    )
+    parser.add_argument(
+        "--execute", action="store_true", help="Actually perform the cleanup"
+    )
     args = parser.parse_args()
 
     dry_run = not args.execute

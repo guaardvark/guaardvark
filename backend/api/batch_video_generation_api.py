@@ -25,6 +25,7 @@ from backend.services.batch_video_generator import get_batch_video_generator
 # GPU Resource Coordinator for pre-flight availability check
 try:
     from backend.services.gpu_resource_coordinator import get_gpu_coordinator
+
     gpu_coordinator_available = True
 except ImportError:
     gpu_coordinator_available = False
@@ -49,12 +50,13 @@ def _check_gpu_availability():
             owner = status.get("owner", "unknown")
             return False, error_response(
                 f"GPU currently in use by {owner}. Please wait for current operation to complete or check /api/gpu/status.",
-                409
+                409,
             )
         return True, None
     except Exception as e:
         logger.warning(f"GPU availability check failed: {e}")
         return True, None  # Allow request on check failure
+
 
 batch_video_bp = Blueprint("batch_video", __name__, url_prefix="/api/batch-video")
 
@@ -71,7 +73,9 @@ def _parse_list(value) -> List[str]:
                 return parsed
         except Exception:
             # Fallback: split by newlines/commas
-            parts = [v.strip() for v in value.replace("\r", "").split("\n") if v.strip()]
+            parts = [
+                v.strip() for v in value.replace("\r", "").split("\n") if v.strip()
+            ]
             if not parts:
                 parts = [v.strip() for v in value.split(",") if v.strip()]
             return parts
@@ -114,17 +118,28 @@ def generate_text_to_video_batch():
             "num_inference_steps": int(data.get("num_inference_steps", 25)),
             "guidance_scale": float(data.get("guidance_scale", 7.5)),
             "seed": _parse_int(data.get("seed")),
-            "generate_frames_only": str(data.get("generate_frames_only", "false")).lower() == "true",
+            "generate_frames_only": str(
+                data.get("generate_frames_only", "false")
+            ).lower()
+            == "true",
             "frames_per_batch": int(data.get("frames_per_batch", 1)),
-            "combine_frames": str(data.get("combine_frames", "false")).lower() == "true",
+            "combine_frames": str(data.get("combine_frames", "false")).lower()
+            == "true",
             "interpolation_multiplier": int(data.get("interpolation_multiplier", 2)),
             "prompt_style": data.get("prompt_style", "cinematic"),
-            "enhance_prompt": str(data.get("enhance_prompt", "true")).lower() != "false",
+            "enhance_prompt": str(data.get("enhance_prompt", "true")).lower()
+            != "false",
             "metadata": {
                 **(data.get("metadata") or {}),
                 "upscale": str(data.get("upscale", "false")).lower() == "true",
-                "teacache_threshold": float(data.get("teacache_threshold")) if data.get("teacache_threshold") else None,
-                "feta_weight": float(data.get("feta_weight")) if data.get("feta_weight") else None,
+                "teacache_threshold": (
+                    float(data.get("teacache_threshold"))
+                    if data.get("teacache_threshold")
+                    else None
+                ),
+                "feta_weight": (
+                    float(data.get("feta_weight")) if data.get("feta_weight") else None
+                ),
             },
         }
 
@@ -166,17 +181,28 @@ def generate_image_to_video_batch():
             "num_inference_steps": int(data.get("num_inference_steps", 25)),
             "guidance_scale": float(data.get("guidance_scale", 7.5)),
             "seed": _parse_int(data.get("seed")),
-            "generate_frames_only": str(data.get("generate_frames_only", "false")).lower() == "true",
+            "generate_frames_only": str(
+                data.get("generate_frames_only", "false")
+            ).lower()
+            == "true",
             "frames_per_batch": int(data.get("frames_per_batch", 1)),
-            "combine_frames": str(data.get("combine_frames", "false")).lower() == "true",
+            "combine_frames": str(data.get("combine_frames", "false")).lower()
+            == "true",
             "interpolation_multiplier": int(data.get("interpolation_multiplier", 2)),
             "prompt_style": data.get("prompt_style", "cinematic"),
-            "enhance_prompt": str(data.get("enhance_prompt", "true")).lower() != "false",
+            "enhance_prompt": str(data.get("enhance_prompt", "true")).lower()
+            != "false",
             "metadata": {
                 **(data.get("metadata") or {}),
                 "upscale": str(data.get("upscale", "false")).lower() == "true",
-                "teacache_threshold": float(data.get("teacache_threshold")) if data.get("teacache_threshold") else None,
-                "feta_weight": float(data.get("feta_weight")) if data.get("feta_weight") else None,
+                "teacache_threshold": (
+                    float(data.get("teacache_threshold"))
+                    if data.get("teacache_threshold")
+                    else None
+                ),
+                "feta_weight": (
+                    float(data.get("feta_weight")) if data.get("feta_weight") else None
+                ),
             },
         }
 
@@ -218,7 +244,9 @@ def get_batch_status(batch_id: str):
                 "total_videos": status.total_videos,
                 "completed_videos": status.completed_videos,
                 "failed_videos": status.failed_videos,
-                "start_time": status.start_time.isoformat() if status.start_time else None,
+                "start_time": (
+                    status.start_time.isoformat() if status.start_time else None
+                ),
                 "end_time": status.end_time.isoformat() if status.end_time else None,
                 "results": results,
                 "metadata": status.metadata,
@@ -298,7 +326,9 @@ def delete_video(batch_id: str, video_name: str):
                 changed = False
                 for res in data.get("results", []):
                     rel = res.get("video_path", "")
-                    if rel and (rel == str(Path(video_name)) or rel.endswith(video_name)):
+                    if rel and (
+                        rel == str(Path(video_name)) or rel.endswith(video_name)
+                    ):
                         res["video_path"] = None
                         changed = True
                 if changed:
@@ -348,7 +378,9 @@ def rename_video(batch_id: str, video_name: str):
                 updated = False
                 for res in meta.get("results", []):
                     rel = res.get("video_path", "")
-                    if rel and (rel == str(Path(video_name)) or rel.endswith(video_name)):
+                    if rel and (
+                        rel == str(Path(video_name)) or rel.endswith(video_name)
+                    ):
                         res["video_path"] = str(dst_path.relative_to(batch_dir))
                         updated = True
                 if updated:
@@ -357,7 +389,9 @@ def rename_video(batch_id: str, video_name: str):
             except Exception as e:
                 logger.warning(f"Failed to update metadata after rename: {e}")
 
-        return success_response({"batch_id": batch_id, "old_name": video_name, "new_name": new_safe})
+        return success_response(
+            {"batch_id": batch_id, "old_name": video_name, "new_name": new_safe}
+        )
     except Exception as e:
         logger.error(f"Failed to rename video: {e}")
         return error_response(str(e), 500)
@@ -435,7 +469,9 @@ def combine_frames(batch_id: str):
         combined = generator.combine_frames(batch_id, item_id=item_id, fps=fps)
         if not combined:
             return error_response("Failed to combine frames (missing frames?)", 400)
-        return success_response({"batch_id": batch_id, "item_id": item_id, "video_path": combined})
+        return success_response(
+            {"batch_id": batch_id, "item_id": item_id, "video_path": combined}
+        )
     except Exception as e:
         logger.error(f"Failed to combine frames: {e}")
         return error_response(str(e), 500)
@@ -443,12 +479,15 @@ def combine_frames(batch_id: str):
 
 # ── Video Model Management ──────────────────────────────────────────────
 
+
 # Model registry: maps model IDs to HuggingFace repos, local paths, and metadata
 def _get_comfyui_models_dir():
     try:
         from backend.config import COMFYUI_DIR
     except ImportError:
-        COMFYUI_DIR = os.path.join(os.environ.get("GUAARDVARK_ROOT", "."), "plugins", "comfyui", "ComfyUI")
+        COMFYUI_DIR = os.path.join(
+            os.environ.get("GUAARDVARK_ROOT", "."), "plugins", "comfyui", "ComfyUI"
+        )
     return Path(COMFYUI_DIR) / "models"
 
 
@@ -458,7 +497,10 @@ VIDEO_MODEL_REGISTRY = {
         "description": "Text-to-video, 6s clips. Good quality, fits in 12GB VRAM.",
         "hf_repo": "THUDM/CogVideoX-2b",
         "local_subdir": "CogVideo/CogVideoX-2b",
-        "check_files": ["transformer/diffusion_pytorch_model.safetensors", "vae/diffusion_pytorch_model.safetensors"],
+        "check_files": [
+            "transformer/diffusion_pytorch_model.safetensors",
+            "vae/diffusion_pytorch_model.safetensors",
+        ],
         "size_gb": 13.0,
         "vram_mb": 12000,
         "type": "cogvideox",
@@ -468,7 +510,10 @@ VIDEO_MODEL_REGISTRY = {
         "description": "Text-to-video, 6s clips. Best quality, needs ~16GB VRAM.",
         "hf_repo": "THUDM/CogVideoX-5b",
         "local_subdir": "CogVideo/CogVideoX-5b",
-        "check_files": ["transformer/diffusion_pytorch_model-00001-of-00002.safetensors", "vae/diffusion_pytorch_model.safetensors"],
+        "check_files": [
+            "transformer/diffusion_pytorch_model-00001-of-00002.safetensors",
+            "vae/diffusion_pytorch_model.safetensors",
+        ],
         "size_gb": 11.3,
         "vram_mb": 16000,
         "type": "cogvideox",
@@ -500,7 +545,10 @@ VIDEO_MODEL_REGISTRY = {
         "description": "State-of-the-art video gen. Two-expert MoE architecture, best quality on 16GB GPU. Requires both HighNoise + LowNoise experts.",
         "hf_repo": "QuantStack/Wan2.2-T2V-A14B-GGUF",
         "local_subdir": "unet",
-        "check_files": ["Wan2.2-T2V-A14B-HighNoise-Q5_K_M.gguf", "Wan2.2-T2V-A14B-LowNoise-Q5_K_M.gguf"],
+        "check_files": [
+            "Wan2.2-T2V-A14B-HighNoise-Q5_K_M.gguf",
+            "Wan2.2-T2V-A14B-LowNoise-Q5_K_M.gguf",
+        ],
         "size_gb": 21.0,
         "vram_mb": 11000,
         "type": "wan",
@@ -585,15 +633,17 @@ def list_video_models():
     try:
         models = []
         for model_id, info in VIDEO_MODEL_REGISTRY.items():
-            models.append({
-                "id": model_id,
-                "name": info["name"],
-                "description": info["description"],
-                "type": info["type"],
-                "size_gb": info["size_gb"],
-                "vram_mb": info["vram_mb"],
-                "is_downloaded": _check_model_downloaded(model_id),
-            })
+            models.append(
+                {
+                    "id": model_id,
+                    "name": info["name"],
+                    "description": info["description"],
+                    "type": info["type"],
+                    "size_gb": info["size_gb"],
+                    "vram_mb": info["vram_mb"],
+                    "is_downloaded": _check_model_downloaded(model_id),
+                }
+            )
         return success_response({"models": models})
     except Exception as e:
         logger.error(f"Error listing video models: {e}")
@@ -619,7 +669,8 @@ def download_video_model():
         with _video_model_download_lock:
             if _video_model_download_status["is_downloading"]:
                 return error_response(
-                    f"Already downloading: {_video_model_download_status['current_model']}", 409
+                    f"Already downloading: {_video_model_download_status['current_model']}",
+                    409,
                 )
             model_info = VIDEO_MODEL_REGISTRY[model_id]
             _video_model_download_status = {
@@ -672,11 +723,13 @@ def download_video_model():
                             pct = min(int((downloaded / max(total_bytes, 1)) * 100), 99)
 
                             with _video_model_download_lock:
-                                _video_model_download_status.update({
-                                    "progress": pct,
-                                    "speed_mbps": round(speed, 1),
-                                    "downloaded_gb": round(downloaded / 1024**3, 2),
-                                })
+                                _video_model_download_status.update(
+                                    {
+                                        "progress": pct,
+                                        "speed_mbps": round(speed, 1),
+                                        "downloaded_gb": round(downloaded / 1024**3, 2),
+                                    }
+                                )
                         except Exception:
                             pass
                         stop_monitor.wait(1.0)
@@ -701,18 +754,24 @@ def download_video_model():
                     monitor_thread.join(timeout=2)
 
                 with _video_model_download_lock:
-                    _video_model_download_status.update({
-                        "progress": 100,
-                        "downloaded_gb": minfo["size_gb"],
-                        "total_gb": minfo["size_gb"],
-                    })
+                    _video_model_download_status.update(
+                        {
+                            "progress": 100,
+                            "downloaded_gb": minfo["size_gb"],
+                            "total_gb": minfo["size_gb"],
+                        }
+                    )
 
                 # Rename file if check_files expects a different name
-                if "hf_filename" in minfo and minfo["check_files"][0] != minfo["hf_filename"]:
+                if (
+                    "hf_filename" in minfo
+                    and minfo["check_files"][0] != minfo["hf_filename"]
+                ):
                     src = local_dir / minfo["hf_filename"]
                     dst = local_dir / minfo["check_files"][0]
                     if src.exists() and not dst.exists():
                         import shutil
+
                         shutil.copy2(str(src), str(dst))
 
                 with _video_model_download_lock:
@@ -722,11 +781,13 @@ def download_video_model():
             except Exception as e:
                 logger.error(f"Video model download failed: {e}", exc_info=True)
                 with _video_model_download_lock:
-                    _video_model_download_status.update({
-                        "status": "failed",
-                        "error": str(e),
-                        "progress": 0,
-                    })
+                    _video_model_download_status.update(
+                        {
+                            "status": "failed",
+                            "error": str(e),
+                            "progress": 0,
+                        }
+                    )
             finally:
                 with _video_model_download_lock:
                     _video_model_download_status["is_downloading"] = False
@@ -737,10 +798,12 @@ def download_video_model():
         thread.daemon = True
         thread.start()
 
-        return success_response({
-            "message": f"Started downloading {model_id}",
-            "status": "downloading",
-        })
+        return success_response(
+            {
+                "message": f"Started downloading {model_id}",
+                "status": "downloading",
+            }
+        )
     except Exception as e:
         logger.error(f"Error starting video model download: {e}")
         return error_response(str(e), 500)
@@ -755,4 +818,3 @@ def get_video_model_download_status():
     except Exception as e:
         logger.error(f"Error getting download status: {e}")
         return error_response(str(e), 500)
-

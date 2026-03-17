@@ -21,7 +21,7 @@ class SlashRouter:
     """
 
     def __init__(self, repl_state: dict):
-        self._state = repl_state          # shared mutable dict
+        self._state = repl_state  # shared mutable dict
         self._console = make_console()
 
         # command name -> handler callable
@@ -159,9 +159,13 @@ class SlashRouter:
             # For other commands with positional args, pass them through
             params = list(sig.parameters.values())
             positional = [
-                p for p in params
+                p
+                for p in params
                 if p.default is inspect.Parameter.empty
-                or (hasattr(p.default, "__class__") and p.default.__class__.__name__ == "ArgumentInfo")
+                or (
+                    hasattr(p.default, "__class__")
+                    and p.default.__class__.__name__ == "ArgumentInfo"
+                )
             ]
 
             # Feed positional args from user input
@@ -184,6 +188,7 @@ class SlashRouter:
 
     def _register_subapp(self, name: str, typer_app):
         """Register a Typer sub-app (uses sys.argv mutation pattern)."""
+
         def handler(args: list[str]):
             from llx.global_opts import set_global_opts
             from llx.main import app
@@ -239,14 +244,18 @@ class SlashRouter:
                 return
 
             if idx < 0 or idx >= len(sessions):
-                self._console.print(f"[llx.error]Index out of range (0-{len(sessions) - 1})[/llx.error]")
+                self._console.print(
+                    f"[llx.error]Index out of range (0-{len(sessions) - 1})[/llx.error]"
+                )
                 return
 
             session = sessions[idx]
             self._state["session_id"] = session["id"]
             self._state["message_count"] = session.get("message_count", 0)
             self._state["context"] = None
-            self._console.print(f"[llx.success]Resumed session {session['id'][:8]}...[/llx.success]")
+            self._console.print(
+                f"[llx.success]Resumed session {session['id'][:8]}...[/llx.success]"
+            )
             preview = session.get("preview", "")
             if preview:
                 self._console.print(f"[llx.dim]{preview}[/llx.dim]")
@@ -259,14 +268,20 @@ class SlashRouter:
             ts = session.get("timestamp")
             age = _format_age(ts) if ts else "?"
             msgs = session.get("message_count", 0)
-            current = " [llx.success]*[/llx.success]" if session["id"] == self._state.get("session_id") else ""
+            current = (
+                " [llx.success]*[/llx.success]"
+                if session["id"] == self._state.get("session_id")
+                else ""
+            )
             self._console.print(
                 f"  [llx.accent]{i:>2}[/llx.accent]  "
                 f"[llx.dim]{age:<12}[/llx.dim] "
                 f"[llx.dim]({msgs} msgs)[/llx.dim]  "
                 f"{preview}{current}"
             )
-        self._console.print(f"\n[llx.dim]Usage: /history <index> to resume a session[/llx.dim]\n")
+        self._console.print(
+            f"\n[llx.dim]Usage: /history <index> to resume a session[/llx.dim]\n"
+        )
 
     def _cmd_export(self, args: list[str]):
         """Export current session as markdown."""
@@ -278,10 +293,13 @@ class SlashRouter:
         server = self._state.get("server")
         try:
             from llx.client import get_client, LlxError, LlxConnectionError
+
             client = get_client(server)
             data = client.get(f"/api/enhanced-chat/{session_id}/history")
         except Exception as e:
-            self._console.print(f"[llx.error]Failed to fetch session history: {e}[/llx.error]")
+            self._console.print(
+                f"[llx.error]Failed to fetch session history: {e}[/llx.error]"
+            )
             return
 
         # Format as markdown
@@ -311,12 +329,15 @@ class SlashRouter:
             try:
                 with open(file_path, "w") as f:
                     f.write(md_text)
-                self._console.print(f"[llx.success]Session exported to {file_path}[/llx.success]")
+                self._console.print(
+                    f"[llx.success]Session exported to {file_path}[/llx.success]"
+                )
             except OSError as e:
                 self._console.print(f"[llx.error]Failed to write file: {e}[/llx.error]")
         else:
             # Print to console
             from rich.markdown import Markdown
+
             self._console.print(Markdown(md_text))
 
     def _cmd_config(self, args: list[str]):
@@ -365,7 +386,9 @@ class SlashRouter:
         if not args:
             # List available themes
             current = get_active_theme_name()
-            self._console.print("\n[llx.brand_bright]Available themes:[/llx.brand_bright]")
+            self._console.print(
+                "\n[llx.brand_bright]Available themes:[/llx.brand_bright]"
+            )
             for name, data in THEMES.items():
                 marker = " [llx.success]*[/llx.success]" if name == current else ""
                 self._console.print(
@@ -378,13 +401,16 @@ class SlashRouter:
         name = args[0].lower()
         if name not in THEMES:
             self._console.print(f"[llx.error]Unknown theme: {name}[/llx.error]")
-            self._console.print(f"[llx.dim]Available: {', '.join(THEMES.keys())}[/llx.dim]")
+            self._console.print(
+                f"[llx.dim]Available: {', '.join(THEMES.keys())}[/llx.dim]"
+            )
             return
 
         set_active_theme(name)
 
         # Persist to config
         from llx.config import set_theme_name
+
         set_theme_name(name)
 
         # Refresh consoles
@@ -458,6 +484,7 @@ class SlashRouter:
 
 
 # ── Helpers ───────────────────────────────────────────────────
+
 
 def _format_age(timestamp: float) -> str:
     """Format a Unix timestamp as a human-readable age string."""

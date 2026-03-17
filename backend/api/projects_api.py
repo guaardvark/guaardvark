@@ -22,7 +22,15 @@ except ImportError as e:
     logging.getLogger(__name__).critical(
         f"CRITICAL: Failed to import models for projects_api: {e}", exc_info=True
     )
-    db, Project, Client, Website, Document, Rule, Task = None, None, None, None, None, None, None
+    db, Project, Client, Website, Document, Rule, Task = (
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
 
 projects_bp = Blueprint(
     "projects_api", __name__, url_prefix="/api/projects"
@@ -32,6 +40,7 @@ logger = logging.getLogger(__name__)
 
 def project_to_dict(project, counts=None):
     from backend.utils.serialization_utils import format_logo_path
+
     if not project:
         return None
 
@@ -39,7 +48,9 @@ def project_to_dict(project, counts=None):
         client_info = {
             "id": project.client_ref.id,
             "name": project.client_ref.name,
-            "logo_path": format_logo_path(getattr(project.client_ref, "logo_path", None)),
+            "logo_path": format_logo_path(
+                getattr(project.client_ref, "logo_path", None)
+            ),
         }
     else:
         client_info = None
@@ -76,7 +87,8 @@ def project_to_dict(project, counts=None):
         )
         rule_count = (
             project.linked_rules.count()
-            if hasattr(project, "linked_rules") and hasattr(project.linked_rules, "count")
+            if hasattr(project, "linked_rules")
+            and hasattr(project.linked_rules, "count")
             else 0
         )
         primary_rule_count = (
@@ -120,29 +132,37 @@ def get_projects_route():
         counts = {}
         counts["websites"] = dict(
             db.session.query(Website.project_id, func.count(Website.id))
-            .group_by(Website.project_id).all()
+            .group_by(Website.project_id)
+            .all()
         )
         counts["documents"] = dict(
             db.session.query(Document.project_id, func.count(Document.id))
-            .group_by(Document.project_id).all()
+            .group_by(Document.project_id)
+            .all()
         )
         counts["tasks"] = dict(
             db.session.query(Task.project_id, func.count(Task.id))
-            .group_by(Task.project_id).all()
+            .group_by(Task.project_id)
+            .all()
         )
         # linked_rules via association table
         linked_rules_rows = db.session.execute(
-            text("SELECT project_id, COUNT(rule_id) FROM project_rules_association GROUP BY project_id")
+            text(
+                "SELECT project_id, COUNT(rule_id) FROM project_rules_association GROUP BY project_id"
+            )
         ).fetchall()
         counts["linked_rules"] = dict(linked_rules_rows)
         # primary_rules — rules with project_id set directly
         counts["primary_rules"] = dict(
             db.session.query(Rule.project_id, func.count(Rule.id))
             .filter(Rule.project_id.isnot(None))
-            .group_by(Rule.project_id).all()
+            .group_by(Rule.project_id)
+            .all()
         )
 
-        projects_list = [project_to_dict(project, counts=counts) for project in projects]
+        projects_list = [
+            project_to_dict(project, counts=counts) for project in projects
+        ]
         logger.info(f"API: Found {len(projects_list)} projects.")
         return jsonify(projects_list), 200
     except Exception as e:
@@ -168,13 +188,18 @@ def create_project_route():
 
     if not name or not name.strip():
         return jsonify({"error": "Project name cannot be empty."}), 400
-    
+
     # SECURITY FIX: Add length validation
     if len(name.strip()) > 255:
         return jsonify({"error": "Project name too long. Maximum 255 characters."}), 400
-    
+
     if description and len(description) > 1000:
-        return jsonify({"error": "Project description too long. Maximum 1000 characters."}), 400
+        return (
+            jsonify(
+                {"error": "Project description too long. Maximum 1000 characters."}
+            ),
+            400,
+        )
     if client_id_str is None:
         return jsonify({"error": "Missing required field: client_id"}), 400
 
@@ -183,7 +208,7 @@ def create_project_route():
         # SECURITY FIX: Add bounds checking for integer values
         if client_id < 1 or client_id > 2147483647:  # 32-bit signed int max
             return jsonify({"error": "Invalid client_id value"}), 400
-        
+
         client_exists = (
             db.session.query(Client.id).filter_by(id=client_id).scalar() is not None
         )

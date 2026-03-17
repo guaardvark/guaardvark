@@ -39,7 +39,9 @@ def _extract_and_save_screenshots(result):
                 )
                 os.makedirs(screenshots_dir, exist_ok=True)
 
-                filename = f"screenshot_{int(time.time() * 1000)}_{len(screenshot_urls)}.{fmt}"
+                filename = (
+                    f"screenshot_{int(time.time() * 1000)}_{len(screenshot_urls)}.{fmt}"
+                )
                 filepath = os.path.join(screenshots_dir, filename)
                 with open(filepath, "wb") as f:
                     f.write(base64.b64decode(image_b64))
@@ -55,12 +57,13 @@ def _extract_and_save_screenshots(result):
 def _get_tool_registry():
     """Get the tool registry from app or initialize"""
     # Try to get from app instance first
-    if hasattr(current_app, 'tool_registry') and current_app.tool_registry:
+    if hasattr(current_app, "tool_registry") and current_app.tool_registry:
         return current_app.tool_registry
 
     # Fallback: initialize directly
     try:
         from backend.tools import initialize_all_tools
+
         return initialize_all_tools()
     except Exception as e:
         logger.error(f"Failed to get tool registry: {e}")
@@ -89,41 +92,36 @@ def list_tools():
     try:
         registry = _get_tool_registry()
         if not registry:
-            return jsonify({
-                "success": False,
-                "error": "Tool registry not initialized"
-            }), 500
+            return (
+                jsonify({"success": False, "error": "Tool registry not initialized"}),
+                500,
+            )
 
         tools = []
         for tool_name in registry.list_tools():
             tool = registry.get_tool(tool_name)
             if tool:
-                tools.append({
-                    "name": tool.name,
-                    "description": tool.description,
-                    "parameters": {
-                        name: {
-                            "type": param.type,
-                            "required": param.required,
-                            "description": param.description,
-                            "default": param.default
-                        }
-                        for name, param in tool.parameters.items()
+                tools.append(
+                    {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "parameters": {
+                            name: {
+                                "type": param.type,
+                                "required": param.required,
+                                "description": param.description,
+                                "default": param.default,
+                            }
+                            for name, param in tool.parameters.items()
+                        },
                     }
-                })
+                )
 
-        return jsonify({
-            "success": True,
-            "tools": tools,
-            "count": len(tools)
-        })
+        return jsonify({"success": True, "tools": tools, "count": len(tools)})
 
     except Exception as e:
         logger.error(f"Failed to list tools: {e}", exc_info=True)
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @tools_bp.route("/<tool_name>", methods=["GET"])
@@ -146,43 +144,42 @@ def get_tool_schema(tool_name: str):
     try:
         registry = _get_tool_registry()
         if not registry:
-            return jsonify({
-                "success": False,
-                "error": "Tool registry not initialized"
-            }), 500
+            return (
+                jsonify({"success": False, "error": "Tool registry not initialized"}),
+                500,
+            )
 
         tool = registry.get_tool(tool_name)
         if not tool:
-            return jsonify({
-                "success": False,
-                "error": f"Tool '{tool_name}' not found"
-            }), 404
+            return (
+                jsonify({"success": False, "error": f"Tool '{tool_name}' not found"}),
+                404,
+            )
 
-        return jsonify({
-            "success": True,
-            "tool": {
-                "name": tool.name,
-                "description": tool.description,
-                "parameters": {
-                    name: {
-                        "type": param.type,
-                        "required": param.required,
-                        "description": param.description,
-                        "default": param.default
-                    }
-                    for name, param in tool.parameters.items()
+        return jsonify(
+            {
+                "success": True,
+                "tool": {
+                    "name": tool.name,
+                    "description": tool.description,
+                    "parameters": {
+                        name: {
+                            "type": param.type,
+                            "required": param.required,
+                            "description": param.description,
+                            "default": param.default,
+                        }
+                        for name, param in tool.parameters.items()
+                    },
+                    "xml_schema": tool.get_schema(),
+                    "json_schema": tool.get_json_schema(),
                 },
-                "xml_schema": tool.get_schema(),
-                "json_schema": tool.get_json_schema()
             }
-        })
+        )
 
     except Exception as e:
         logger.error(f"Failed to get tool schema: {e}", exc_info=True)
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @tools_bp.route("/execute", methods=["POST"])
@@ -213,34 +210,28 @@ def execute_tool():
     try:
         data = request.get_json()
         if not data:
-            return jsonify({
-                "success": False,
-                "error": "Request body required"
-            }), 400
+            return jsonify({"success": False, "error": "Request body required"}), 400
 
         tool_name = data.get("tool_name")
         parameters = data.get("parameters", {})
 
         if not tool_name:
-            return jsonify({
-                "success": False,
-                "error": "tool_name is required"
-            }), 400
+            return jsonify({"success": False, "error": "tool_name is required"}), 400
 
         registry = _get_tool_registry()
         if not registry:
-            return jsonify({
-                "success": False,
-                "error": "Tool registry not initialized"
-            }), 500
+            return (
+                jsonify({"success": False, "error": "Tool registry not initialized"}),
+                500,
+            )
 
         # Check if tool exists
         tool = registry.get_tool(tool_name)
         if not tool:
-            return jsonify({
-                "success": False,
-                "error": f"Tool '{tool_name}' not found"
-            }), 404
+            return (
+                jsonify({"success": False, "error": f"Tool '{tool_name}' not found"}),
+                404,
+            )
 
         # Validate required parameters
         missing_params = []
@@ -249,26 +240,27 @@ def execute_tool():
                 missing_params.append(param_name)
 
         if missing_params:
-            return jsonify({
-                "success": False,
-                "error": f"Missing required parameters: {', '.join(missing_params)}"
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": f"Missing required parameters: {', '.join(missing_params)}",
+                    }
+                ),
+                400,
+            )
 
         # Execute tool
-        logger.info(f"Executing tool '{tool_name}' with parameters: {list(parameters.keys())}")
+        logger.info(
+            f"Executing tool '{tool_name}' with parameters: {list(parameters.keys())}"
+        )
         result = registry.execute_tool(tool_name, **parameters)
 
-        return jsonify({
-            "success": True,
-            "result": result.to_dict()
-        })
+        return jsonify({"success": True, "result": result.to_dict()})
 
     except Exception as e:
         logger.error(f"Failed to execute tool: {e}", exc_info=True)
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @tools_bp.route("/schemas", methods=["GET"])
@@ -289,33 +281,32 @@ def get_all_schemas():
     try:
         format_type = request.args.get("format", "xml")
         if format_type not in ["xml", "json"]:
-            return jsonify({
-                "success": False,
-                "error": "Format must be 'xml' or 'json'"
-            }), 400
+            return (
+                jsonify({"success": False, "error": "Format must be 'xml' or 'json'"}),
+                400,
+            )
 
         registry = _get_tool_registry()
         if not registry:
-            return jsonify({
-                "success": False,
-                "error": "Tool registry not initialized"
-            }), 500
+            return (
+                jsonify({"success": False, "error": "Tool registry not initialized"}),
+                500,
+            )
 
         schemas = registry.get_tool_schemas(format=format_type)
 
-        return jsonify({
-            "success": True,
-            "format": format_type,
-            "schemas": schemas,
-            "tool_count": len(registry)
-        })
+        return jsonify(
+            {
+                "success": True,
+                "format": format_type,
+                "schemas": schemas,
+                "tool_count": len(registry),
+            }
+        )
 
     except Exception as e:
         logger.error(f"Failed to get schemas: {e}", exc_info=True)
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @tools_bp.route("/route", methods=["POST"])
@@ -347,41 +338,35 @@ def route_message():
     try:
         data = request.get_json()
         if not data:
-            return jsonify({
-                "success": False,
-                "error": "Request body required"
-            }), 400
+            return jsonify({"success": False, "error": "Request body required"}), 400
 
         message = data.get("message", "")
         context = data.get("context", {})
 
         if not message:
-            return jsonify({
-                "success": False,
-                "error": "message is required"
-            }), 400
+            return jsonify({"success": False, "error": "message is required"}), 400
 
         from backend.services.agent_router import route_message as do_route
+
         decision = do_route(message, context)
 
-        return jsonify({
-            "success": True,
-            "route": {
-                "route_type": decision.route_type.value,
-                "tool_name": decision.tool_name,
-                "tool_params": decision.tool_params,
-                "confidence": decision.confidence,
-                "reasoning": decision.reasoning,
-                "suggested_mode": decision.suggested_mode
+        return jsonify(
+            {
+                "success": True,
+                "route": {
+                    "route_type": decision.route_type.value,
+                    "tool_name": decision.tool_name,
+                    "tool_params": decision.tool_params,
+                    "confidence": decision.confidence,
+                    "reasoning": decision.reasoning,
+                    "suggested_mode": decision.suggested_mode,
+                },
             }
-        })
+        )
 
     except Exception as e:
         logger.error(f"Failed to route message: {e}", exc_info=True)
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @tools_bp.route("/route-and-execute", methods=["POST"])
@@ -404,21 +389,16 @@ def route_and_execute():
     try:
         data = request.get_json()
         if not data:
-            return jsonify({
-                "success": False,
-                "error": "Request body required"
-            }), 400
+            return jsonify({"success": False, "error": "Request body required"}), 400
 
         message = data.get("message", "")
         context = data.get("context", {})
 
         if not message:
-            return jsonify({
-                "success": False,
-                "error": "message is required"
-            }), 400
+            return jsonify({"success": False, "error": "message is required"}), 400
 
         from backend.services.agent_router import execute_routed_message
+
         result = execute_routed_message(message, context)
 
         # Extract screenshots from agent result and save to files
@@ -427,7 +407,9 @@ def route_and_execute():
             result["screenshot_urls"] = screenshot_urls
 
         # Build display content: final answer + screenshot markdown
-        final_answer = result.get("final_answer", "") or result.get("response", "") or ""
+        final_answer = (
+            result.get("final_answer", "") or result.get("response", "") or ""
+        )
         display_content = final_answer
         for url in screenshot_urls:
             display_content += f"\n\n![Screenshot]({url})"
@@ -449,15 +431,19 @@ def route_and_execute():
 
                 # Save user message
                 user_msg = LLMMessage(
-                    session_id=session_id, role="user",
-                    content=message, timestamp=datetime.now()
+                    session_id=session_id,
+                    role="user",
+                    content=message,
+                    timestamp=datetime.now(),
                 )
                 db.session.add(user_msg)
 
                 # Save assistant response with screenshot markdown
                 assistant_msg = LLMMessage(
-                    session_id=session_id, role="assistant",
-                    content=display_content, timestamp=datetime.now()
+                    session_id=session_id,
+                    role="assistant",
+                    content=display_content,
+                    timestamp=datetime.now(),
                 )
                 db.session.add(assistant_msg)
 
@@ -472,18 +458,17 @@ def route_and_execute():
 
         # Propagate error status from agent/tool execution
         is_error = result.get("type") == "error"
-        return jsonify({
-            "success": not is_error,
-            "result": result,
-            **({"error": result.get("error")} if is_error else {})
-        }), 500 if is_error else 200
+        return jsonify(
+            {
+                "success": not is_error,
+                "result": result,
+                **({"error": result.get("error")} if is_error else {}),
+            }
+        ), (500 if is_error else 200)
 
     except Exception as e:
         logger.error(f"Failed to route and execute: {e}", exc_info=True)
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @tools_bp.route("/screenshots/<path:filename>", methods=["GET"])
@@ -492,7 +477,9 @@ def serve_screenshot(filename):
     screenshots_dir = os.path.join(
         current_app.config.get("OUTPUT_DIR", "data/outputs"), "screenshots"
     )
-    safe_path = os.path.normpath(os.path.abspath(os.path.join(screenshots_dir, filename)))
+    safe_path = os.path.normpath(
+        os.path.abspath(os.path.join(screenshots_dir, filename))
+    )
     if not safe_path.startswith(os.path.abspath(screenshots_dir) + os.sep):
         abort(403)
     if not os.path.isfile(safe_path):
@@ -518,18 +505,13 @@ def get_tool_categories():
     try:
         registry = _get_tool_registry()
         if not registry:
-            return jsonify({
-                "success": False,
-                "error": "Tool registry not initialized"
-            }), 500
+            return (
+                jsonify({"success": False, "error": "Tool registry not initialized"}),
+                500,
+            )
 
         # Categorize tools based on naming patterns
-        categories = {
-            "content": [],
-            "generation": [],
-            "code": [],
-            "other": []
-        }
+        categories = {"content": [], "generation": [], "code": [], "other": []}
 
         for tool_name in registry.list_tools():
             if "wordpress" in tool_name or "content" in tool_name:
@@ -544,14 +526,8 @@ def get_tool_categories():
         # Remove empty categories
         categories = {k: v for k, v in categories.items() if v}
 
-        return jsonify({
-            "success": True,
-            "categories": categories
-        })
+        return jsonify({"success": True, "categories": categories})
 
     except Exception as e:
         logger.error(f"Failed to get tool categories: {e}", exc_info=True)
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
+        return jsonify({"success": False, "error": str(e)}), 500

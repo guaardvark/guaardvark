@@ -1,4 +1,5 @@
 """Integration tests for the Agent Executor ReACT loop."""
+
 import os
 import sys
 import json
@@ -18,7 +19,12 @@ from backend.utils.agent_output_parser import (
 
 def _make_code_tool_registry(project_root):
     """Create a minimal tool registry with code tools pointed at sandbox."""
-    from backend.services.agent_tools import ToolRegistry, BaseTool, ToolParameter, ToolResult
+    from backend.services.agent_tools import (
+        ToolRegistry,
+        BaseTool,
+        ToolParameter,
+        ToolResult,
+    )
     import backend.tools.llama_code_tools as code_tools
 
     original_root = code_tools.PROJECT_ROOT
@@ -30,9 +36,14 @@ def _make_code_tool_registry(project_root):
         name = "read_code"
         description = "Read a source code file. Args: filepath (relative path to file)"
         parameters = {
-            "filepath": ToolParameter(name="filepath", type="string", required=True,
-                                       description="Relative path to file to read")
+            "filepath": ToolParameter(
+                name="filepath",
+                type="string",
+                required=True,
+                description="Relative path to file to read",
+            )
         }
+
         def execute(self, **kwargs):
             result = code_tools.read_code(kwargs["filepath"])
             return ToolResult(success=True, output=result)
@@ -41,45 +52,88 @@ def _make_code_tool_registry(project_root):
         name = "search_code"
         description = "Search for a text pattern across code files. Args: pattern, file_glob (optional)"
         parameters = {
-            "pattern": ToolParameter(name="pattern", type="string", required=True,
-                                      description="Text or regex pattern to search for"),
-            "file_glob": ToolParameter(name="file_glob", type="string", required=False,
-                                        description="File glob pattern", default="**/*.py")
+            "pattern": ToolParameter(
+                name="pattern",
+                type="string",
+                required=True,
+                description="Text or regex pattern to search for",
+            ),
+            "file_glob": ToolParameter(
+                name="file_glob",
+                type="string",
+                required=False,
+                description="File glob pattern",
+                default="**/*.py",
+            ),
         }
+
         def execute(self, **kwargs):
-            result = code_tools.search_code(kwargs["pattern"], kwargs.get("file_glob", "**/*.py"))
+            result = code_tools.search_code(
+                kwargs["pattern"], kwargs.get("file_glob", "**/*.py")
+            )
             return ToolResult(success=True, output=result)
 
     class EditCodeTool(BaseTool):
         name = "edit_code"
         description = "Edit a source code file by replacing exact text with new text. Creates automatic backup. Args: filepath, old_text, new_text"
         parameters = {
-            "filepath": ToolParameter(name="filepath", type="string", required=True,
-                                       description="Relative path to file"),
-            "old_text": ToolParameter(name="old_text", type="string", required=True,
-                                       description="Exact text to find and replace"),
-            "new_text": ToolParameter(name="new_text", type="string", required=True,
-                                       description="New text to insert")
+            "filepath": ToolParameter(
+                name="filepath",
+                type="string",
+                required=True,
+                description="Relative path to file",
+            ),
+            "old_text": ToolParameter(
+                name="old_text",
+                type="string",
+                required=True,
+                description="Exact text to find and replace",
+            ),
+            "new_text": ToolParameter(
+                name="new_text",
+                type="string",
+                required=True,
+                description="New text to insert",
+            ),
         }
+
         def execute(self, **kwargs):
-            result = code_tools.edit_code(kwargs["filepath"], kwargs["old_text"], kwargs["new_text"])
+            result = code_tools.edit_code(
+                kwargs["filepath"], kwargs["old_text"], kwargs["new_text"]
+            )
             return ToolResult(success="error" not in result.lower(), output=result)
 
     class VerifyChangeTool(BaseTool):
         name = "verify_change"
         description = "Verify that a code change was applied correctly by checking if text exists in file. Args: filepath, expected_text, should_exist"
         parameters = {
-            "filepath": ToolParameter(name="filepath", type="string", required=True,
-                                       description="Relative path to file"),
-            "expected_text": ToolParameter(name="expected_text", type="string", required=True,
-                                            description="Text to check for"),
-            "should_exist": ToolParameter(name="should_exist", type="bool", required=False,
-                                           description="True if text should exist, False if should be gone",
-                                           default=True)
+            "filepath": ToolParameter(
+                name="filepath",
+                type="string",
+                required=True,
+                description="Relative path to file",
+            ),
+            "expected_text": ToolParameter(
+                name="expected_text",
+                type="string",
+                required=True,
+                description="Text to check for",
+            ),
+            "should_exist": ToolParameter(
+                name="should_exist",
+                type="bool",
+                required=False,
+                description="True if text should exist, False if should be gone",
+                default=True,
+            ),
         }
+
         def execute(self, **kwargs):
-            result = code_tools.verify_change(kwargs["filepath"], kwargs["expected_text"],
-                                               kwargs.get("should_exist", True))
+            result = code_tools.verify_change(
+                kwargs["filepath"],
+                kwargs["expected_text"],
+                kwargs.get("should_exist", True),
+            )
             return ToolResult(success=True, output=result)
 
     for tool_cls in [ReadCodeTool, SearchCodeTool, EditCodeTool, VerifyChangeTool]:
@@ -99,17 +153,22 @@ class TestAgentExecutor:
         from backend.utils.llm_service import get_default_llm
 
         target = sandbox_dir / "readme.py"
-        target.write_text("# This module handles user authentication\ndef login(user, pwd):\n    pass\n")
+        target.write_text(
+            "# This module handles user authentication\ndef login(user, pwd):\n    pass\n"
+        )
 
         registry, orig_root = _make_code_tool_registry(sandbox_dir)
         try:
             llm = get_default_llm()
             executor = AgentExecutor(registry, llm, max_iterations=5)
-            result = executor.execute("Read the file readme.py and tell me what it does.")
+            result = executor.execute(
+                "Read the file readme.py and tell me what it does."
+            )
             assert result.success
             assert len(result.steps) > 0, "Agent should have used at least one tool"
         finally:
             import backend.tools.llama_code_tools as mod
+
             mod.PROJECT_ROOT = orig_root
 
     @pytest.mark.timeout(120)
@@ -119,17 +178,22 @@ class TestAgentExecutor:
         from backend.utils.llm_service import get_default_llm
 
         target = sandbox_dir / "app.py"
-        target.write_text("SECRET_KEY = 'abc123'\ndef get_config():\n    return {'key': SECRET_KEY}\n")
+        target.write_text(
+            "SECRET_KEY = 'abc123'\ndef get_config():\n    return {'key': SECRET_KEY}\n"
+        )
 
         registry, orig_root = _make_code_tool_registry(sandbox_dir)
         try:
             llm = get_default_llm()
             executor = AgentExecutor(registry, llm, max_iterations=5)
-            result = executor.execute("Search for any hardcoded secrets or passwords in the code files.")
+            result = executor.execute(
+                "Search for any hardcoded secrets or passwords in the code files."
+            )
             assert result.success
             assert len(result.steps) > 0
         finally:
             import backend.tools.llama_code_tools as mod
+
             mod.PROJECT_ROOT = orig_root
 
     @pytest.mark.timeout(180)
@@ -157,6 +221,7 @@ class TestAgentExecutor:
             assert "DEBUG = False" in content or "DEBUG=False" in content
         finally:
             import backend.tools.llama_code_tools as mod
+
             mod.PROJECT_ROOT = orig_root
 
     @pytest.mark.timeout(120)
@@ -169,10 +234,13 @@ class TestAgentExecutor:
         try:
             llm = get_default_llm()
             executor = AgentExecutor(registry, llm, max_iterations=2)
-            result = executor.execute("Do a very complex multi-step analysis of every file in the project.")
+            result = executor.execute(
+                "Do a very complex multi-step analysis of every file in the project."
+            )
             assert result.iterations <= 2
         finally:
             import backend.tools.llama_code_tools as mod
+
             mod.PROJECT_ROOT = orig_root
 
 
@@ -188,7 +256,9 @@ class TestJSONToolCallParsing:
         assert result.final_answer is None
 
     def test_parse_final_answer(self):
-        response = '{"thoughts": null, "tool_calls": [], "final_answer": "The answer is 42."}'
+        response = (
+            '{"thoughts": null, "tool_calls": [], "final_answer": "The answer is 42."}'
+        )
         result = parse_tool_calls_json(response)
         assert result.final_answer == "The answer is 42."
         assert len(result.tool_calls) == 0
@@ -212,7 +282,9 @@ class TestJSONToolCallParsing:
         assert result.final_answer is None
 
     def test_xml_fallback_still_works(self):
-        xml = '<tool_call><tool>read_code</tool><filepath>test.py</filepath></tool_call>'
+        xml = (
+            "<tool_call><tool>read_code</tool><filepath>test.py</filepath></tool_call>"
+        )
         result = parse_tool_calls_structured(xml)
         assert len(result.tool_calls) == 1
         assert result.tool_calls[0].tool_name == "read_code"
@@ -225,8 +297,9 @@ class TestJSONToolCallParsing:
 
     def test_json_observation_format_success(self):
         from backend.services.agent_tools import ToolResult
+
         result = ToolResult(success=True, output="found 3", metadata={"count": 3})
-        formatted = format_tool_result_for_llm("search", result, format='json')
+        formatted = format_tool_result_for_llm("search", result, format="json")
         parsed = json.loads(formatted)
         assert parsed["tool"] == "search"
         assert parsed["status"] == "success"
@@ -234,15 +307,17 @@ class TestJSONToolCallParsing:
 
     def test_json_observation_format_error(self):
         from backend.services.agent_tools import ToolResult
+
         result = ToolResult(success=False, error="timeout")
-        formatted = format_tool_result_for_llm("search", result, format='json')
+        formatted = format_tool_result_for_llm("search", result, format="json")
         parsed = json.loads(formatted)
         assert parsed["status"] == "failed"
         assert parsed["error"] == "timeout"
 
     def test_xml_observation_format_backward_compat(self):
         from backend.services.agent_tools import ToolResult
+
         result = ToolResult(success=True, output="data here")
-        formatted = format_tool_result_for_llm("tool", result, format='xml')
+        formatted = format_tool_result_for_llm("tool", result, format="xml")
         assert "<observation tool='tool'>" in formatted
         assert "data here" in formatted

@@ -13,7 +13,9 @@ class LlxStreamer:
 
     def __init__(self, server_url: str | None = None):
         self.server_url = server_url or get_server_url()
-        self.sio = socketio.Client(reconnection=False, logger=False, engineio_logger=False)
+        self.sio = socketio.Client(
+            reconnection=False, logger=False, engineio_logger=False
+        )
         self._connected = False
         self._done = threading.Event()
 
@@ -138,8 +140,8 @@ from rich.console import Group
 
 from llx.theme import make_console
 
-_ICON_TOOL = "\u27e1"   # ⟡
-_ICON_OK   = "\u2713"   # ✓
+_ICON_TOOL = "\u27e1"  # ⟡
+_ICON_OK = "\u2713"  # ✓
 
 
 class ChatRenderer:

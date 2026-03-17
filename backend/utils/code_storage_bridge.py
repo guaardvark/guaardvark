@@ -34,14 +34,17 @@ logger = logging.getLogger(__name__)
 # Database connection (PostgreSQL via SQLAlchemy)
 # ============================================================================
 
+
 def _get_database_url():
-    url = os.environ.get('DATABASE_URL')
+    url = os.environ.get("DATABASE_URL")
     if url:
         return url
     return "postgresql://guaardvark:guaardvark@localhost:5432/guaardvark"
 
+
 _engine = None
 _SessionFactory = None
+
 
 def _get_db_session():
     global _engine, _SessionFactory
@@ -70,9 +73,13 @@ class CodeStorageBridge:
         else:
             self.index_manager = None
 
-        logger.info(f"Code storage bridge initialized (db_path kept for reference: {db_path})")
+        logger.info(
+            f"Code storage bridge initialized (db_path kept for reference: {db_path})"
+        )
 
-    def get_stored_code_documents(self, project_id: Optional[int] = None) -> List[LlamaDocument]:
+    def get_stored_code_documents(
+        self, project_id: Optional[int] = None
+    ) -> List[LlamaDocument]:
         """Retrieve stored code files from database as LlamaDocuments"""
 
         documents = []
@@ -98,35 +105,39 @@ class CodeStorageBridge:
                 rows = result.fetchall()
 
                 for row in rows:
-                    doc_id, filename, content, file_metadata_json, size, indexed_at = row
+                    doc_id, filename, content, file_metadata_json, size, indexed_at = (
+                        row
+                    )
 
                     # Parse metadata
                     try:
-                        file_metadata = json.loads(file_metadata_json) if file_metadata_json else {}
+                        file_metadata = (
+                            json.loads(file_metadata_json) if file_metadata_json else {}
+                        )
                     except json.JSONDecodeError:
                         file_metadata = {}
 
                     # Create enhanced metadata for LlamaIndex
                     metadata = {
-                        'document_id': doc_id,
-                        'filename': filename,
-                        'file_extension': Path(filename).suffix,
-                        'source': 'database_storage',
-                        'indexed_at': indexed_at,
-                        'size_bytes': size,
-                        'storage_method': 'enhanced_code_aware',
-                        **file_metadata  # Include enhanced metadata from indexing
+                        "document_id": doc_id,
+                        "filename": filename,
+                        "file_extension": Path(filename).suffix,
+                        "source": "database_storage",
+                        "indexed_at": indexed_at,
+                        "size_bytes": size,
+                        "storage_method": "enhanced_code_aware",
+                        **file_metadata,  # Include enhanced metadata from indexing
                     }
 
                     # Create LlamaDocument
                     llama_doc = LlamaDocument(
-                        text=content,
-                        doc_id=f"stored_doc_{doc_id}",
-                        metadata=metadata
+                        text=content, doc_id=f"stored_doc_{doc_id}", metadata=metadata
                     )
 
                     documents.append(llama_doc)
-                    logger.debug(f"Retrieved stored document: {filename} ({len(content)} chars)")
+                    logger.debug(
+                        f"Retrieved stored document: {filename} ({len(content)} chars)"
+                    )
 
             finally:
                 session.close()
@@ -147,7 +158,7 @@ class CodeStorageBridge:
 
         try:
             # Use auto-detection which will choose 'code' strategy for code files
-            nodes = self.chunker.chunk_documents(documents, strategy_name='auto')
+            nodes = self.chunker.chunk_documents(documents, strategy_name="auto")
 
             logger.info(f"Chunked {len(documents)} documents into {len(nodes)} nodes")
 
@@ -161,8 +172,9 @@ class CodeStorageBridge:
             logger.error(f"Failed to chunk stored documents: {e}")
             return []
 
-    def create_or_update_index(self, project_id: Optional[int] = None,
-                              force_rebuild: bool = False) -> bool:
+    def create_or_update_index(
+        self, project_id: Optional[int] = None, force_rebuild: bool = False
+    ) -> bool:
         """Create or update the index with stored code files"""
 
         if not self.index_manager:
@@ -186,7 +198,9 @@ class CodeStorageBridge:
 
             # Get or create index
             try:
-                index, storage_context = self.index_manager.get_index(project_id, create_if_missing=True)
+                index, storage_context = self.index_manager.get_index(
+                    project_id, create_if_missing=True
+                )
 
                 if force_rebuild:
                     # Clear existing nodes and rebuild
@@ -212,7 +226,7 @@ class CodeStorageBridge:
                     doc = LlamaDocument(
                         text=node.get_content(),
                         metadata=clean_metadata,
-                        doc_id=node.node_id
+                        doc_id=node.node_id,
                     )
                     docs_to_insert.append(doc)
 
@@ -234,8 +248,9 @@ class CodeStorageBridge:
             logger.error(f"Failed to create/update index: {e}")
             return False
 
-    def search_stored_code(self, query: str, project_id: Optional[int] = None,
-                          top_k: int = 5) -> List[Dict[str, Any]]:
+    def search_stored_code(
+        self, query: str, project_id: Optional[int] = None, top_k: int = 5
+    ) -> List[Dict[str, Any]]:
         """Search stored code files using the index"""
 
         if not self.index_manager:
@@ -244,7 +259,9 @@ class CodeStorageBridge:
 
         try:
             # Get index
-            index, storage_context = self.index_manager.get_index(project_id, create_if_missing=True)
+            index, storage_context = self.index_manager.get_index(
+                project_id, create_if_missing=True
+            )
 
             # Create retriever
             retriever = index.as_retriever(similarity_top_k=top_k)
@@ -256,12 +273,12 @@ class CodeStorageBridge:
             results = []
             for node in retrieved_nodes:
                 result = {
-                    'content': node.get_content(),
-                    'metadata': node.metadata,
-                    'score': getattr(node, 'score', 0.0),
-                    'document_id': node.metadata.get('document_id'),
-                    'filename': node.metadata.get('filename'),
-                    'file_extension': node.metadata.get('file_extension')
+                    "content": node.get_content(),
+                    "metadata": node.metadata,
+                    "score": getattr(node, "score", 0.0),
+                    "document_id": node.metadata.get("document_id"),
+                    "filename": node.metadata.get("filename"),
+                    "file_extension": node.metadata.get("file_extension"),
                 }
                 results.append(result)
 
@@ -319,54 +336,64 @@ class CodeStorageBridge:
                 session.close()
 
             stats = {
-                'status_counts': status_counts,
-                'file_type_counts': type_counts,
-                'total_content_size': total_content_size,
-                'chunker_available': self.chunker is not None,
-                'index_manager_available': self.index_manager is not None
+                "status_counts": status_counts,
+                "file_type_counts": type_counts,
+                "total_content_size": total_content_size,
+                "chunker_available": self.chunker is not None,
+                "index_manager_available": self.index_manager is not None,
             }
 
             if self.chunker:
-                stats['chunking_stats'] = self.chunker.get_chunking_stats()
+                stats["chunking_stats"] = self.chunker.get_chunking_stats()
 
             return stats
 
         except Exception as e:
             logger.error(f"Failed to get bridge stats: {e}")
-            return {'error': str(e)}
+            return {"error": str(e)}
 
 
 # Convenience functions for easy integration
-def get_code_storage_bridge(db_path: str = None, storage_dir: str = None) -> CodeStorageBridge:
+def get_code_storage_bridge(
+    db_path: str = None, storage_dir: str = None
+) -> CodeStorageBridge:
     """Get a configured code storage bridge instance"""
 
     if not db_path:
         # db_path is kept for compatibility/logging; actual DB access uses DATABASE_URL
         db_path = os.path.join(
-            os.environ.get('GUAARDVARK_STORAGE_DIR', os.path.join(os.environ.get('GUAARDVARK_ROOT', '.'), 'data')),
-            'database',
-            'system_analysis.db'
+            os.environ.get(
+                "GUAARDVARK_STORAGE_DIR",
+                os.path.join(os.environ.get("GUAARDVARK_ROOT", "."), "data"),
+            ),
+            "database",
+            "system_analysis.db",
         )
 
     if not storage_dir:
         storage_dir = os.path.join(
-            os.environ.get('GUAARDVARK_STORAGE_DIR', os.path.join(os.environ.get('GUAARDVARK_ROOT', '.'), 'data')),
-            'indexes'
+            os.environ.get(
+                "GUAARDVARK_STORAGE_DIR",
+                os.path.join(os.environ.get("GUAARDVARK_ROOT", "."), "data"),
+            ),
+            "indexes",
         )
 
     return CodeStorageBridge(db_path, storage_dir)
 
 
-def search_code_files(query: str, project_id: Optional[int] = None,
-                     top_k: int = 5) -> List[Dict[str, Any]]:
+def search_code_files(
+    query: str, project_id: Optional[int] = None, top_k: int = 5
+) -> List[Dict[str, Any]]:
     """Convenience function to search stored code files"""
 
     bridge = get_code_storage_bridge()
     return bridge.search_stored_code(query, project_id, top_k)
 
 
-def update_code_index(project_id: Optional[int] = None,
-                     force_rebuild: bool = False) -> bool:
+def update_code_index(
+    project_id: Optional[int] = None, force_rebuild: bool = False
+) -> bool:
     """Convenience function to update the code index"""
 
     bridge = get_code_storage_bridge()

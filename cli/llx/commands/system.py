@@ -30,7 +30,9 @@ def _find_project_root(path: str) -> str:
 
 
 def start(
-    path: str | None = typer.Option(None, "--path", "-p", help="Project path (default: GUAARDVARK_ROOT or cwd)"),
+    path: str | None = typer.Option(
+        None, "--path", "-p", help="Project path (default: GUAARDVARK_ROOT or cwd)"
+    ),
 ):
     """Start Guaardvark services (Flask, Celery, Vite)."""
     target = path or os.environ.get("GUAARDVARK_ROOT") or os.getcwd()
@@ -44,7 +46,9 @@ def start(
 
 
 def stop(
-    path: str | None = typer.Option(None, "--path", "-p", help="Project path (default: GUAARDVARK_ROOT or cwd)"),
+    path: str | None = typer.Option(
+        None, "--path", "-p", help="Project path (default: GUAARDVARK_ROOT or cwd)"
+    ),
 ):
     """Stop Guaardvark services."""
     target = path or os.environ.get("GUAARDVARK_ROOT") or os.getcwd()
@@ -58,8 +62,12 @@ def stop(
 
 
 def doctor(
-    path: str | None = typer.Option(None, "--path", "-p", help="Project path (default: GUAARDVARK_ROOT or cwd)"),
-    repair: bool = typer.Option(False, "--repair", "-r", help="Run repair instead of check"),
+    path: str | None = typer.Option(
+        None, "--path", "-p", help="Project path (default: GUAARDVARK_ROOT or cwd)"
+    ),
+    repair: bool = typer.Option(
+        False, "--repair", "-r", help="Run repair instead of check"
+    ),
 ):
     """Run environment health check (or repair) via system-manager."""
     target = path or os.environ.get("GUAARDVARK_ROOT") or os.getcwd()
@@ -92,7 +100,9 @@ def health(
             version = data.get("version", "?")
             uptime = int(data.get("uptime_seconds", 0))
             h, m = divmod(uptime // 60, 60)
-            console.print(f"[{style}]{icon} {status}[/{style}]  [llx.dim]|[/llx.dim]  Version: {version}  [llx.dim]|[/llx.dim]  Uptime: {h}h {m}m")
+            console.print(
+                f"[{style}]{icon} {status}[/{style}]  [llx.dim]|[/llx.dim]  Version: {version}  [llx.dim]|[/llx.dim]  Uptime: {h}h {m}m"
+            )
     except LlxConnectionError as e:
         output.print_error(str(e))
         raise typer.Exit(1)
@@ -117,12 +127,14 @@ def status(
             metrics_data = {}
 
         if json_out or output.is_pipe():
-            output.print_json({
-                "health": health_data,
-                "model": model_data,
-                "celery": celery_data,
-                "metrics": metrics_data,
-            })
+            output.print_json(
+                {
+                    "health": health_data,
+                    "model": model_data,
+                    "celery": celery_data,
+                    "metrics": metrics_data,
+                }
+            )
             return
 
         server_url = client.server_url
@@ -135,7 +147,9 @@ def status(
         if isinstance(model_info, str):
             model_info = {}
         text_model = model_info.get("text_model", "none")
-        model_line = f"[llx.kv.key]Model:[/llx.kv.key]   [llx.accent]{text_model}[/llx.accent]"
+        model_line = (
+            f"[llx.kv.key]Model:[/llx.kv.key]   [llx.accent]{text_model}[/llx.accent]"
+        )
 
         celery_status = celery_data.get("status", "unknown")
         workers = celery_data.get("workers", [])
@@ -146,13 +160,23 @@ def status(
         metrics = metrics_data.get("data", metrics_data) if metrics_data else {}
         gpu_mem = metrics.get("gpu_mem")
         cpu_pct = metrics.get("cpu_percent")
-        gpu_line = f"[llx.kv.key]GPU:[/llx.kv.key]     {gpu_mem:.0f}% memory" if gpu_mem is not None else "[llx.kv.key]GPU:[/llx.kv.key]     [llx.dim]N/A[/llx.dim]"
-        cpu_line = f"[llx.kv.key]CPU:[/llx.kv.key]     {cpu_pct:.0f}% util" if cpu_pct is not None else "[llx.kv.key]CPU:[/llx.kv.key]     [llx.dim]N/A[/llx.dim]"
+        gpu_line = (
+            f"[llx.kv.key]GPU:[/llx.kv.key]     {gpu_mem:.0f}% memory"
+            if gpu_mem is not None
+            else "[llx.kv.key]GPU:[/llx.kv.key]     [llx.dim]N/A[/llx.dim]"
+        )
+        cpu_line = (
+            f"[llx.kv.key]CPU:[/llx.kv.key]     {cpu_pct:.0f}% util"
+            if cpu_pct is not None
+            else "[llx.kv.key]CPU:[/llx.kv.key]     [llx.dim]N/A[/llx.dim]"
+        )
 
         version = health_data.get("version", "?")
         ver_line = f"[llx.kv.key]Version:[/llx.kv.key] {version}"
 
-        content = "\n".join([server_line, model_line, celery_line, gpu_line, cpu_line, ver_line])
+        content = "\n".join(
+            [server_line, model_line, celery_line, gpu_line, cpu_line, ver_line]
+        )
         console.print(make_panel(content, title="System Status"))
 
     except LlxConnectionError as e:
@@ -173,7 +197,9 @@ def init():
     try:
         client = get_client(server)
         data = client.get("/api/health")
-        console.print(f"  [llx.success]{ICON_ONLINE} Connected![/llx.success] Server version: {data.get('version', '?')}")
+        console.print(
+            f"  [llx.success]{ICON_ONLINE} Connected![/llx.success] Server version: {data.get('version', '?')}"
+        )
     except (LlxConnectionError, LlxError) as e:
         console.print(f"  [llx.error]{ICON_OFFLINE} Failed:[/llx.error] {e}")
         if not typer.confirm("Save config anyway?", default=False):
@@ -189,7 +215,9 @@ def init():
     except LlxError:
         pass
 
-    api_key = typer.prompt("API key (leave blank for none)", default="", show_default=False)
+    api_key = typer.prompt(
+        "API key (leave blank for none)", default="", show_default=False
+    )
 
     config["server"] = server
     config["api_key"] = api_key if api_key else None
@@ -220,8 +248,13 @@ def models_list(
             output.print_json(models)
             return
 
-        rows = [{"name": m.get("name", "?"), "id": m.get("id", m.get("full_name", "?"))} for m in models]
-        output.print_table(rows, columns=["name", "id"], title=f"Available Models ({len(rows)})")
+        rows = [
+            {"name": m.get("name", "?"), "id": m.get("id", m.get("full_name", "?"))}
+            for m in models
+        ]
+        output.print_table(
+            rows, columns=["name", "id"], title=f"Available Models ({len(rows)})"
+        )
 
     except LlxConnectionError as e:
         output.print_error(str(e))
@@ -250,12 +283,15 @@ def models_active(
             output.print_json(info)
             return
 
-        output.print_kv({
-            "Text model": info.get("text_model", "none"),
-            "Vision model": info.get("vision_model", "none"),
-            "Vision loaded": str(info.get("vision_loaded", False)),
-            "Image gen model": info.get("image_gen_model", "none"),
-        }, title="Active Models")
+        output.print_kv(
+            {
+                "Text model": info.get("text_model", "none"),
+                "Vision model": info.get("vision_model", "none"),
+                "Vision loaded": str(info.get("vision_loaded", False)),
+                "Image gen model": info.get("image_gen_model", "none"),
+            },
+            title="Active Models",
+        )
 
     except (LlxConnectionError, LlxError) as e:
         output.print_error(str(e))

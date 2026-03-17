@@ -1,4 +1,5 @@
 """Chat cog — /ask command for LLM conversation."""
+
 import io
 import logging
 

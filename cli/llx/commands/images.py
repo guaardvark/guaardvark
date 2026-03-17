@@ -30,13 +30,20 @@ def images_list(
             output.print_json(batches)
             return
 
-        rows = [{
-            "id": b.get("batch_id", b.get("id", "")),
-            "name": b.get("name", b.get("batch_id", "")),
-            "images": b.get("image_count", 0),
-            "status": b.get("status", ""),
-        } for b in batches]
-        output.print_table(rows, columns=["id", "name", "images", "status"], title=f"Image Batches ({len(rows)})")
+        rows = [
+            {
+                "id": b.get("batch_id", b.get("id", "")),
+                "name": b.get("name", b.get("batch_id", "")),
+                "images": b.get("image_count", 0),
+                "status": b.get("status", ""),
+            }
+            for b in batches
+        ]
+        output.print_table(
+            rows,
+            columns=["id", "name", "images", "status"],
+            title=f"Image Batches ({len(rows)})",
+        )
 
     except (LlxConnectionError, LlxError) as e:
         output.print_error(str(e))
@@ -71,9 +78,13 @@ def images_generate(
             output.print_json(result)
         else:
             job_id = result.get("job_id", result.get("batch_id", ""))
-            output.print_success(f"Image generation started ({count} image{'s' if count > 1 else ''})")
+            output.print_success(
+                f"Image generation started ({count} image{'s' if count > 1 else ''})"
+            )
             if job_id:
-                console.print(f"  Track with: [llx.accent]llx jobs watch {job_id}[/llx.accent]")
+                console.print(
+                    f"  Track with: [llx.accent]llx jobs watch {job_id}[/llx.accent]"
+                )
 
     except (LlxConnectionError, LlxError) as e:
         output.print_error(str(e))
@@ -98,12 +109,15 @@ def images_status(
         if json_out or output.is_pipe():
             output.print_json(result)
         else:
-            output.print_kv({
-                "Batch ID": batch_id,
-                "Status": result.get("status", ""),
-                "Progress": f"{result.get('progress', 0)}%",
-                "Images": result.get("image_count", result.get("completed", 0)),
-            }, title="Batch Status")
+            output.print_kv(
+                {
+                    "Batch ID": batch_id,
+                    "Status": result.get("status", ""),
+                    "Progress": f"{result.get('progress', 0)}%",
+                    "Images": result.get("image_count", result.get("completed", 0)),
+                },
+                title="Batch Status",
+            )
 
     except (LlxConnectionError, LlxError) as e:
         output.print_error(str(e))
@@ -129,7 +143,10 @@ def images_models(
             return
 
         if isinstance(models, list):
-            rows = [{"name": m.get("name", m) if isinstance(m, dict) else str(m)} for m in models]
+            rows = [
+                {"name": m.get("name", m) if isinstance(m, dict) else str(m)}
+                for m in models
+            ]
             output.print_table(rows, columns=["name"], title="Image Models")
         else:
             output.print_json(models)

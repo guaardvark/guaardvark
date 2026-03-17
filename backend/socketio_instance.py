@@ -26,8 +26,8 @@ socketio = SocketIO(
     ping_timeout=60,  # 60 second ping timeout
     ping_interval=25,  # 25 second ping interval
     max_http_buffer_size=1024 * 1024,  # 1MB max buffer size
-    async_mode='threading',  # Use threading for better memory management
+    async_mode="threading",  # Use threading for better memory management
     logger=False,  # Disabled to prevent log flooding
-    engineio_logger=False  # Disabled to prevent log flooding
+    engineio_logger=False,  # Disabled to prevent log flooding
 )
-logger = logging.getLogger(__name__) 
+logger = logging.getLogger(__name__)

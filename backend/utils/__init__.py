@@ -5,6 +5,6 @@ from .code_executor import execute_generated_code
 
 __all__ = [
     "llm_service",
-    "index_manager", 
+    "index_manager",
     "execute_generated_code",
 ]

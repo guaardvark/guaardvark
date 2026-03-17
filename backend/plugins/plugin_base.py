@@ -1,4 +1,3 @@
-
 import json
 import logging
 from abc import ABC, abstractmethod
@@ -34,20 +33,20 @@ class PluginConfig:
     timeout: int = 30
     fallback_enabled: bool = True
     extra: Dict[str, Any] = field(default_factory=dict)
-    
+
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'PluginConfig':
-        known_fields = {'enabled', 'service_url', 'timeout', 'fallback_enabled'}
+    def from_dict(cls, data: Dict[str, Any]) -> "PluginConfig":
+        known_fields = {"enabled", "service_url", "timeout", "fallback_enabled"}
         known_data = {k: v for k, v in data.items() if k in known_fields}
         extra_data = {k: v for k, v in data.items() if k not in known_fields}
         return cls(**known_data, extra=extra_data)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         result = {
-            'enabled': self.enabled,
-            'service_url': self.service_url,
-            'timeout': self.timeout,
-            'fallback_enabled': self.fallback_enabled,
+            "enabled": self.enabled,
+            "service_url": self.service_url,
+            "timeout": self.timeout,
+            "fallback_enabled": self.fallback_enabled,
         }
         result.update(self.extra)
         return result
@@ -68,55 +67,55 @@ class PluginMetadata:
     config: PluginConfig = field(default_factory=PluginConfig)
     requirements: Dict[str, bool] = field(default_factory=dict)
     endpoints: Dict[str, str] = field(default_factory=dict)
-    
+
     @classmethod
-    def from_json_file(cls, json_path: Path) -> 'PluginMetadata':
+    def from_json_file(cls, json_path: Path) -> "PluginMetadata":
         try:
-            with open(json_path, 'r', encoding='utf-8') as f:
+            with open(json_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            
-            config_data = data.pop('config', {})
+
+            config_data = data.pop("config", {})
             config = PluginConfig.from_dict(config_data)
-            
+
             return cls(
-                id=data.get('id', json_path.parent.name),
-                name=data.get('name', data.get('id', 'Unknown')),
-                version=data.get('version', '0.0.0'),
-                description=data.get('description', ''),
-                author=data.get('author', ''),
-                type=data.get('type', 'service'),
-                category=data.get('category', 'general'),
-                port=data.get('port'),
-                vram_estimate_mb=data.get('vram_estimate_mb', 0),
-                dependencies=data.get('dependencies', []),
+                id=data.get("id", json_path.parent.name),
+                name=data.get("name", data.get("id", "Unknown")),
+                version=data.get("version", "0.0.0"),
+                description=data.get("description", ""),
+                author=data.get("author", ""),
+                type=data.get("type", "service"),
+                category=data.get("category", "general"),
+                port=data.get("port"),
+                vram_estimate_mb=data.get("vram_estimate_mb", 0),
+                dependencies=data.get("dependencies", []),
                 config=config,
-                requirements=data.get('requirements', {}),
-                endpoints=data.get('endpoints', {}),
+                requirements=data.get("requirements", {}),
+                endpoints=data.get("endpoints", {}),
             )
         except Exception as e:
             logger.error(f"Failed to load plugin metadata from {json_path}: {e}")
             raise
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
-            'id': self.id,
-            'name': self.name,
-            'version': self.version,
-            'description': self.description,
-            'author': self.author,
-            'type': self.type,
-            'category': self.category,
-            'port': self.port,
-            'vram_estimate_mb': self.vram_estimate_mb,
-            'dependencies': self.dependencies,
-            'config': self.config.to_dict(),
-            'requirements': self.requirements,
-            'endpoints': self.endpoints,
+            "id": self.id,
+            "name": self.name,
+            "version": self.version,
+            "description": self.description,
+            "author": self.author,
+            "type": self.type,
+            "category": self.category,
+            "port": self.port,
+            "vram_estimate_mb": self.vram_estimate_mb,
+            "dependencies": self.dependencies,
+            "config": self.config.to_dict(),
+            "requirements": self.requirements,
+            "endpoints": self.endpoints,
         }
-    
+
     def save(self, json_path: Path):
         try:
-            with open(json_path, 'w', encoding='utf-8') as f:
+            with open(json_path, "w", encoding="utf-8") as f:
                 json.dump(self.to_dict(), f, indent=2)
         except Exception as e:
             logger.error(f"Failed to save plugin metadata to {json_path}: {e}")
@@ -124,50 +123,50 @@ class PluginMetadata:
 
 
 class PluginBase(ABC):
-    
+
     def __init__(self, plugin_dir: Path):
         self.plugin_dir = plugin_dir
         self.metadata: Optional[PluginMetadata] = None
         self.status = PluginStatus.UNKNOWN
         self._load_metadata()
-    
+
     def _load_metadata(self):
-        json_path = self.plugin_dir / 'plugin.json'
+        json_path = self.plugin_dir / "plugin.json"
         if json_path.exists():
             self.metadata = PluginMetadata.from_json_file(json_path)
             if self.metadata.config.enabled:
                 self.status = PluginStatus.STOPPED
             else:
                 self.status = PluginStatus.DISABLED
-    
+
     @property
     def id(self) -> str:
         return self.metadata.id if self.metadata else self.plugin_dir.name
-    
+
     @property
     def name(self) -> str:
         return self.metadata.name if self.metadata else self.id
-    
+
     @property
     def is_enabled(self) -> bool:
         return self.metadata.config.enabled if self.metadata else False
-    
+
     @property
     def is_running(self) -> bool:
         return self.status == PluginStatus.RUNNING
-    
+
     @abstractmethod
     def start(self) -> bool:
         pass
-    
+
     @abstractmethod
     def stop(self) -> bool:
         pass
-    
+
     @abstractmethod
     def health_check(self) -> Dict[str, Any]:
         pass
-    
+
     def enable(self) -> bool:
         if self.metadata:
             self.metadata.config.enabled = True
@@ -175,7 +174,7 @@ class PluginBase(ABC):
             self.status = PluginStatus.STOPPED
             return True
         return False
-    
+
     def disable(self) -> bool:
         if self.is_running:
             self.stop()
@@ -185,19 +184,19 @@ class PluginBase(ABC):
             self.status = PluginStatus.DISABLED
             return True
         return False
-    
+
     def _save_config(self):
         if self.metadata:
-            json_path = self.plugin_dir / 'plugin.json'
+            json_path = self.plugin_dir / "plugin.json"
             self.metadata.save(json_path)
-    
+
     def get_info(self) -> Dict[str, Any]:
         return {
-            'id': self.id,
-            'name': self.name,
-            'status': self.status.value,
-            'enabled': self.is_enabled,
-            'running': self.is_running,
-            'metadata': self.metadata.to_dict() if self.metadata else None,
-            'plugin_dir': str(self.plugin_dir),
+            "id": self.id,
+            "name": self.name,
+            "status": self.status.value,
+            "enabled": self.is_enabled,
+            "running": self.is_running,
+            "metadata": self.metadata.to_dict() if self.metadata else None,
+            "plugin_dir": str(self.plugin_dir),
         }

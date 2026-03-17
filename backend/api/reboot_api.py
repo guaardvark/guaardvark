@@ -9,16 +9,24 @@ import subprocess
 import sys
 import time
 
-from flask import Blueprint, current_app, jsonify, request, Response, stream_with_context
+from flask import (
+    Blueprint,
+    current_app,
+    jsonify,
+    request,
+    Response,
+    stream_with_context,
+)
 
 reboot_bp = Blueprint("reboot", __name__, url_prefix="/api")
 logger = logging.getLogger(__name__)
 
-ANSI_RE = re.compile(r'\x1b\[[0-9;]*[a-zA-Z]|\x1b\].*?\x07')
+ANSI_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]|\x1b\].*?\x07")
 
 # ---------------------------------------------------------------------------
 # GET /api/reboot/log  — fallback log reader (when log server isn't available)
 # ---------------------------------------------------------------------------
+
 
 @reboot_bp.route("/reboot/log", methods=["GET"])
 def get_reboot_log():
@@ -28,7 +36,9 @@ def get_reboot_log():
 
     try:
         if not os.path.isfile(log_file_path):
-            return jsonify({"success": False, "content_lines": [], "offset": 0, "size": 0})
+            return jsonify(
+                {"success": False, "content_lines": [], "offset": 0, "size": 0}
+            )
 
         file_size = os.path.getsize(log_file_path)
         offset = request.args.get("offset", 0, type=int)
@@ -45,12 +55,14 @@ def get_reboot_log():
         content = ANSI_RE.sub("", content)
         content_lines = [ln for ln in content.split("\n") if ln.strip()]
 
-        return jsonify({
-            "success": True,
-            "content_lines": content_lines,
-            "offset": file_size,
-            "size": file_size,
-        })
+        return jsonify(
+            {
+                "success": True,
+                "content_lines": content_lines,
+                "offset": file_size,
+                "size": file_size,
+            }
+        )
     except Exception as e:
         logger.error(f"Error reading reboot log: {e}", exc_info=True)
         return jsonify({"success": False, "error": str(e), "offset": 0, "size": 0}), 500
@@ -59,6 +71,7 @@ def get_reboot_log():
 # ---------------------------------------------------------------------------
 # POST /api/reboot/stream  — main reboot handler
 # ---------------------------------------------------------------------------
+
 
 @reboot_bp.route("/reboot/stream", methods=["POST"])
 def stream_reboot():
@@ -73,7 +86,9 @@ def stream_reboot():
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     start_script_path = os.path.join(project_root, "start.sh")
     log_file_path = os.path.join(project_root, "logs", "reboot.log")
-    log_server_script = os.path.join(project_root, "backend", "utils", "reboot_log_server.py")
+    log_server_script = os.path.join(
+        project_root, "backend", "utils", "reboot_log_server.py"
+    )
 
     os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
 
@@ -82,10 +97,15 @@ def stream_reboot():
 
     # --- Validate start.sh ---
     if not os.path.isfile(start_script_path):
+
         def err():
             yield f"data: {json.dumps({'type': 'error', 'message': f'start.sh not found at {start_script_path}'})}\n\n"
-        return Response(stream_with_context(err()), mimetype="text/event-stream",
-                        headers={"Cache-Control": "no-cache"})
+
+        return Response(
+            stream_with_context(err()),
+            mimetype="text/event-stream",
+            headers={"Cache-Control": "no-cache"},
+        )
 
     if not os.access(start_script_path, os.X_OK):
         try:
@@ -109,6 +129,7 @@ def stream_reboot():
             try:
                 # Kill any leftover log server from a previous reboot
                 import urllib.request
+
                 try:
                     urllib.request.urlopen(f"{log_server_url}/shutdown", timeout=2)
                     time.sleep(0.3)
@@ -119,9 +140,12 @@ def stream_reboot():
                     [
                         sys.executable,
                         log_server_script,
-                        "--port", str(log_server_port),
-                        "--log-file", log_file_path,
-                        "--timeout", "300",
+                        "--port",
+                        str(log_server_port),
+                        "--log-file",
+                        log_file_path,
+                        "--timeout",
+                        "300",
                     ],
                     cwd="/tmp",  # stop.sh checks CWD — /tmp won't match project root
                     stdout=subprocess.DEVNULL,
@@ -130,7 +154,10 @@ def stream_reboot():
                 )
                 time.sleep(0.5)
                 yield _sse("log_server", url=log_server_url)
-                yield _sse("status", message="Log server ready — live output will continue during restart")
+                yield _sse(
+                    "status",
+                    message="Log server ready — live output will continue during restart",
+                )
             except Exception as exc:
                 logger.error(f"Failed to start log server: {exc}")
                 yield _sse("warning", message=f"Log server unavailable: {exc}")
@@ -158,7 +185,9 @@ def stream_reboot():
                     if os.path.exists(log_file_path):
                         cur_size = os.path.getsize(log_file_path)
                         if cur_size > last_size:
-                            with open(log_file_path, "r", encoding="utf-8", errors="replace") as f:
+                            with open(
+                                log_file_path, "r", encoding="utf-8", errors="replace"
+                            ) as f:
                                 f.seek(last_size)
                                 new = f.read()
                             for raw_line in new.split("\n"):
@@ -172,7 +201,9 @@ def stream_reboot():
                 time.sleep(0.3)
 
             # -- Tell frontend to switch to log-server polling --
-            yield _sse("complete", returnCode=None, polling=True, logServerUrl=log_server_url)
+            yield _sse(
+                "complete", returnCode=None, polling=True, logServerUrl=log_server_url
+            )
 
         except Exception as exc:
             logger.error(f"Reboot stream error: {exc}", exc_info=True)
@@ -195,6 +226,7 @@ def stream_reboot():
 # POST /api/reboot  — legacy redirect
 # ---------------------------------------------------------------------------
 
+
 @reboot_bp.route("/reboot", methods=["POST"])
 def trigger_service_restart():
     return stream_reboot()
@@ -203,6 +235,7 @@ def trigger_service_restart():
 # ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------
+
 
 def _sse(event_type, **kwargs):
     """Format a Server-Sent Event data line."""

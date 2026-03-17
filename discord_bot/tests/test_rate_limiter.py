@@ -1,4 +1,5 @@
 """Tests for the sliding window rate limiter."""
+
 import time
 from unittest.mock import patch
 from discord_bot.core.rate_limiter import RateLimiter

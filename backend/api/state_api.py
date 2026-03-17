@@ -1,4 +1,3 @@
-
 import json
 import logging
 import os
@@ -16,12 +15,15 @@ except ImportError:
 state_bp = Blueprint("state_api", __name__, url_prefix="/api/state")
 
 from backend.config import STORAGE_DIR
+
 LAYOUT_FILE = os.path.join(STORAGE_DIR, "dashboard_layout.json")
 DASHBOARD_STATE_FILE = os.path.join(STORAGE_DIR, "dashboard_state.json")
 FOLDER_STATE_FILE = os.path.join(STORAGE_DIR, "folder_state.json")
 CODE_EDITOR_STATE_FILE = os.path.join(STORAGE_DIR, "code_editor_state.json")
 CODE_EDITOR_SESSION_FILE = os.path.join(STORAGE_DIR, "code_editor_session.json")
-DOCUMENTS_WINDOWS_STATE_FILE = os.path.join(STORAGE_DIR, "documents_windows_v2_state.json")
+DOCUMENTS_WINDOWS_STATE_FILE = os.path.join(
+    STORAGE_DIR, "documents_windows_v2_state.json"
+)
 IMAGES_WINDOWS_STATE_FILE = os.path.join(STORAGE_DIR, "images_windows_state.json")
 STICKY_NOTES_STATE_FILE = os.path.join(STORAGE_DIR, "sticky_notes_state.json")
 LAYOUT_DIR = os.path.dirname(LAYOUT_FILE)
@@ -256,9 +258,7 @@ def get_folder_state():
             exc_info=True,
         )
         return (
-            jsonify(
-                {"error": "Failed to read folder state file.", "details": str(e)}
-            ),
+            jsonify({"error": "Failed to read folder state file.", "details": str(e)}),
             500,
         )
 
@@ -318,9 +318,7 @@ def save_folder_state():
         with open(FOLDER_STATE_FILE, "w", encoding="utf-8") as f:
             json.dump(folder_state, f, indent=2)
 
-        logger.info(
-            f"API: Folder state saved successfully to {FOLDER_STATE_FILE}."
-        )
+        logger.info(f"API: Folder state saved successfully to {FOLDER_STATE_FILE}.")
         return jsonify({"message": "Folder state saved."}), 200
     except Exception as e:
         logger.error(
@@ -328,9 +326,7 @@ def save_folder_state():
             exc_info=True,
         )
         return (
-            jsonify(
-                {"error": "Failed to save folder state file.", "details": str(e)}
-            ),
+            jsonify({"error": "Failed to save folder state file.", "details": str(e)}),
             500,
         )
 
@@ -357,7 +353,10 @@ def get_documents_windows_state():
         )
         return (
             jsonify(
-                {"error": "Failed to decode documents windows state file.", "details": str(e)}
+                {
+                    "error": "Failed to decode documents windows state file.",
+                    "details": str(e),
+                }
             ),
             500,
         )
@@ -368,7 +367,10 @@ def get_documents_windows_state():
         )
         return (
             jsonify(
-                {"error": "Failed to read documents windows state file.", "details": str(e)}
+                {
+                    "error": "Failed to read documents windows state file.",
+                    "details": str(e),
+                }
             ),
             500,
         )
@@ -429,7 +431,10 @@ def save_documents_windows_state():
         )
         return (
             jsonify(
-                {"error": "Failed to save documents windows state file.", "details": str(e)}
+                {
+                    "error": "Failed to save documents windows state file.",
+                    "details": str(e),
+                }
             ),
             500,
         )
@@ -451,13 +456,23 @@ def get_images_windows_state():
             f"API Error (GET /images-windows): Error decoding JSON: {e}",
             exc_info=True,
         )
-        return jsonify({"error": "Failed to decode images windows state.", "details": str(e)}), 500
+        return (
+            jsonify(
+                {"error": "Failed to decode images windows state.", "details": str(e)}
+            ),
+            500,
+        )
     except Exception as e:
         logger.error(
             f"API Error (GET /images-windows): Error reading state file: {e}",
             exc_info=True,
         )
-        return jsonify({"error": "Failed to read images windows state.", "details": str(e)}), 500
+        return (
+            jsonify(
+                {"error": "Failed to read images windows state.", "details": str(e)}
+            ),
+            500,
+        )
 
 
 @state_bp.route("/images-windows", methods=["POST"])
@@ -471,7 +486,14 @@ def save_images_windows_state():
     try:
         state_data = request.get_json()
         if not isinstance(state_data, dict):
-            return jsonify({"error": "Invalid state format. Request body must be a JSON object."}), 400
+            return (
+                jsonify(
+                    {
+                        "error": "Invalid state format. Request body must be a JSON object."
+                    }
+                ),
+                400,
+            )
 
         os.makedirs(LAYOUT_DIR, exist_ok=True)
 
@@ -484,7 +506,12 @@ def save_images_windows_state():
             f"API Error (POST /images-windows): Error saving state: {e}",
             exc_info=True,
         )
-        return jsonify({"error": "Failed to save images windows state.", "details": str(e)}), 500
+        return (
+            jsonify(
+                {"error": "Failed to save images windows state.", "details": str(e)}
+            ),
+            500,
+        )
 
 
 @state_bp.route("/code-editor", methods=["GET"])
@@ -509,7 +536,9 @@ def get_code_editor_state():
             exc_info=True,
         )
         return (
-            jsonify({"error": "Invalid JSON in code editor state file", "details": str(e)}),
+            jsonify(
+                {"error": "Invalid JSON in code editor state file", "details": str(e)}
+            ),
             500,
         )
     except Exception as e:
@@ -536,15 +565,24 @@ def save_code_editor_state():
 
     try:
         state_data = request.get_json()
-        logger.info(f"API: Saving code editor state with keys: {list(state_data.keys())}")
+        logger.info(
+            f"API: Saving code editor state with keys: {list(state_data.keys())}"
+        )
 
         os.makedirs(LAYOUT_DIR, exist_ok=True)
 
         with open(CODE_EDITOR_STATE_FILE, "w", encoding="utf-8") as f:
             json.dump(state_data, f, indent=2, ensure_ascii=False)
 
-        logger.info(f"API: Successfully saved code editor state to {CODE_EDITOR_STATE_FILE}")
-        return jsonify({"success": True, "message": "Code editor state saved successfully"}), 200
+        logger.info(
+            f"API: Successfully saved code editor state to {CODE_EDITOR_STATE_FILE}"
+        )
+        return (
+            jsonify(
+                {"success": True, "message": "Code editor state saved successfully"}
+            ),
+            200,
+        )
 
     except Exception as e:
         logger.error(
@@ -581,7 +619,9 @@ def get_code_editor_session():
             exc_info=True,
         )
         return (
-            jsonify({"error": "Invalid JSON in code editor session file", "details": str(e)}),
+            jsonify(
+                {"error": "Invalid JSON in code editor session file", "details": str(e)}
+            ),
             500,
         )
     except Exception as e:
@@ -608,9 +648,17 @@ def save_code_editor_session():
 
     try:
         session_data = request.get_json()
-        logger.info(f"API: Saving code editor session with keys: {list(session_data.keys())}")
+        logger.info(
+            f"API: Saving code editor session with keys: {list(session_data.keys())}"
+        )
 
-        expected_keys = ["openTabs", "activeTabIndex", "chatMessages", "fileTree", "searchResults"]
+        expected_keys = [
+            "openTabs",
+            "activeTabIndex",
+            "chatMessages",
+            "fileTree",
+            "searchResults",
+        ]
         for key in expected_keys:
             if key not in session_data:
                 logger.warning(f"API: Missing expected key '{key}' in session data")
@@ -619,16 +667,27 @@ def save_code_editor_session():
 
         session_data["lastSaved"] = json.dumps(
             {"timestamp": "now"}, default=str
-        ).replace('"now"', f'"{logger.handlers[0].formatter.formatTime(logger.makeRecord("", 0, "", 0, "", (), None)) if logger.handlers else "unknown"}"')
+        ).replace(
+            '"now"',
+            f'"{logger.handlers[0].formatter.formatTime(logger.makeRecord("", 0, "", 0, "", (), None)) if logger.handlers else "unknown"}"',
+        )
 
         import datetime
+
         session_data["lastSaved"] = datetime.datetime.now().isoformat()
 
         with open(CODE_EDITOR_SESSION_FILE, "w", encoding="utf-8") as f:
             json.dump(session_data, f, indent=2, ensure_ascii=False)
 
-        logger.info(f"API: Successfully saved code editor session to {CODE_EDITOR_SESSION_FILE}")
-        return jsonify({"success": True, "message": "Code editor session saved successfully"}), 200
+        logger.info(
+            f"API: Successfully saved code editor session to {CODE_EDITOR_SESSION_FILE}"
+        )
+        return (
+            jsonify(
+                {"success": True, "message": "Code editor session saved successfully"}
+            ),
+            200,
+        )
 
     except Exception as e:
         logger.error(
@@ -659,13 +718,21 @@ def get_sticky_notes_state():
             f"API Error (GET /sticky-notes): Error decoding JSON: {e}",
             exc_info=True,
         )
-        return jsonify({"error": "Failed to decode sticky notes state.", "details": str(e)}), 500
+        return (
+            jsonify(
+                {"error": "Failed to decode sticky notes state.", "details": str(e)}
+            ),
+            500,
+        )
     except Exception as e:
         logger.error(
             f"API Error (GET /sticky-notes): Error reading state file: {e}",
             exc_info=True,
         )
-        return jsonify({"error": "Failed to read sticky notes state.", "details": str(e)}), 500
+        return (
+            jsonify({"error": "Failed to read sticky notes state.", "details": str(e)}),
+            500,
+        )
 
 
 @state_bp.route("/sticky-notes", methods=["POST"])
@@ -679,7 +746,14 @@ def save_sticky_notes_state():
     try:
         state_data = request.get_json()
         if not isinstance(state_data, dict):
-            return jsonify({"error": "Invalid state format. Request body must be a JSON object."}), 400
+            return (
+                jsonify(
+                    {
+                        "error": "Invalid state format. Request body must be a JSON object."
+                    }
+                ),
+                400,
+            )
 
         os.makedirs(LAYOUT_DIR, exist_ok=True)
 
@@ -692,4 +766,7 @@ def save_sticky_notes_state():
             f"API Error (POST /sticky-notes): Error saving state: {e}",
             exc_info=True,
         )
-        return jsonify({"error": "Failed to save sticky notes state.", "details": str(e)}), 500
+        return (
+            jsonify({"error": "Failed to save sticky notes state.", "details": str(e)}),
+            500,
+        )

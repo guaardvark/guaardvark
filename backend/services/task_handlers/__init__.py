@@ -1,10 +1,9 @@
-
 from .base_handler import (
     BaseTaskHandler,
     TaskResult,
     TaskResultStatus,
     HandlerRegistry,
-    get_handler_registry
+    get_handler_registry,
 )
 
 from .csv_generation_handler import CSVGenerationHandler
@@ -15,17 +14,17 @@ from .web_research_handler import WebResearchHandler
 from .system_maintenance_handler import SystemMaintenanceHandler
 
 __all__ = [
-    'BaseTaskHandler',
-    'TaskResult',
-    'TaskResultStatus',
-    'HandlerRegistry',
-    'get_handler_registry',
-    'CSVGenerationHandler',
-    'BatchImageHandler',
-    'DocumentIndexingHandler',
-    'CodeOperationsHandler',
-    'WebResearchHandler',
-    'SystemMaintenanceHandler',
+    "BaseTaskHandler",
+    "TaskResult",
+    "TaskResultStatus",
+    "HandlerRegistry",
+    "get_handler_registry",
+    "CSVGenerationHandler",
+    "BatchImageHandler",
+    "DocumentIndexingHandler",
+    "CodeOperationsHandler",
+    "WebResearchHandler",
+    "SystemMaintenanceHandler",
 ]
 
 

@@ -35,7 +35,7 @@ def get_upload_base_path() -> Path:
 
 def ensure_path_is_safe(path: str) -> bool:
     """Ensure path doesn't contain directory traversal attacks
-    
+
     Note: This function validates database folder paths (virtual paths like '/002')
     which may start with '/' but are not filesystem absolute paths.
     """
@@ -56,44 +56,66 @@ def ensure_path_is_safe(path: str) -> bool:
     # For database paths (virtual folder paths), paths starting with '/' are valid
     # They represent root-level folders in the database, not filesystem absolute paths
     # Examples: '/002', '/My Projects', '/folder/subfolder'
-    
+
     # If path starts with '/', it's a database path - validate differently
-    if path.startswith('/') and path != '/':
+    if path.startswith("/") and path != "/":
         # Database path validation: check for dangerous characters
         # Allow alphanumeric, spaces, hyphens, underscores, forward slashes, and dots
         # Reject control characters and filesystem-unsafe characters
         if re.search(r'[<>:"|?*\x00-\x1f]', decoded_path):
             logger.warning(f"Rejected path with invalid characters: {path}")
             return False
-        
+
         # Additional check: ensure it doesn't look like an absolute filesystem path
         # Real filesystem paths on Unix start with /home, /usr, /var, /tmp, /opt, etc.
         # Or on Windows: C:\, D:\, etc.
-        path_after_slash = decoded_path.lstrip('/')
+        path_after_slash = decoded_path.lstrip("/")
         if path_after_slash:
             # Check for Windows drive letters
-            if ':' in path_after_slash and len(path_after_slash) > 1 and path_after_slash[1] == ':':
+            if (
+                ":" in path_after_slash
+                and len(path_after_slash) > 1
+                and path_after_slash[1] == ":"
+            ):
                 logger.warning(f"Rejected Windows absolute path: {path}")
                 return False
-            
+
             # Check for common Unix filesystem roots (but allow short names like '002')
             # Only reject if it's clearly a filesystem path
-            unix_roots = ['home', 'usr', 'var', 'tmp', 'opt', 'etc', 'bin', 'sbin', 'root', 'sys', 'proc', 'dev']
-            first_segment = path_after_slash.split('/')[0].lower()
-            if first_segment in unix_roots and len(path_after_slash) > len(first_segment) + 1:
+            unix_roots = [
+                "home",
+                "usr",
+                "var",
+                "tmp",
+                "opt",
+                "etc",
+                "bin",
+                "sbin",
+                "root",
+                "sys",
+                "proc",
+                "dev",
+            ]
+            first_segment = path_after_slash.split("/")[0].lower()
+            if (
+                first_segment in unix_roots
+                and len(path_after_slash) > len(first_segment) + 1
+            ):
                 logger.warning(f"Rejected Unix absolute path: {path}")
                 return False
-        
+
         # Database path is valid
         return True
-    
+
     # For paths that don't start with '/', validate as filesystem relative paths
     # Remove leading '/' for filesystem validation if present
-    path_for_validation = path.lstrip('/')
-    decoded_for_validation = decoded_path.lstrip('/')
-    
+    path_for_validation = path.lstrip("/")
+    decoded_for_validation = decoded_path.lstrip("/")
+
     # Reject actual absolute filesystem paths
-    if decoded_for_validation and (os.path.isabs(decoded_for_validation) or os.path.isabs(path_for_validation)):
+    if decoded_for_validation and (
+        os.path.isabs(decoded_for_validation) or os.path.isabs(path_for_validation)
+    ):
         logger.warning(f"Rejected absolute filesystem path: {path}")
         return False
 
@@ -105,7 +127,9 @@ def ensure_path_is_safe(path: str) -> bool:
         final_str = str(Path(final_path).resolve())
 
         if not final_str.startswith(base_str):
-            logger.warning(f"Rejected path outside base: {path} -> {final_str} not in {base_str}")
+            logger.warning(
+                f"Rejected path outside base: {path} -> {final_str} not in {base_str}"
+            )
             return False
 
         return True
@@ -126,13 +150,17 @@ def get_physical_path(relative_path: str) -> Path:
 # FOLDER OPERATIONS
 # ============================================================================
 
+
 def _batch_subfolder_counts(parent_ids):
     """Get subfolder counts for multiple parent folders in a single query"""
     if not parent_ids:
         return {}
-    rows = db.session.query(
-        Folder.parent_id, sa_func.count(Folder.id)
-    ).filter(Folder.parent_id.in_(parent_ids)).group_by(Folder.parent_id).all()
+    rows = (
+        db.session.query(Folder.parent_id, sa_func.count(Folder.id))
+        .filter(Folder.parent_id.in_(parent_ids))
+        .group_by(Folder.parent_id)
+        .all()
+    )
     return {pid: cnt for pid, cnt in rows}
 
 
@@ -140,9 +168,12 @@ def _batch_document_counts(folder_ids):
     """Get document counts for multiple folders in a single query"""
     if not folder_ids:
         return {}
-    rows = db.session.query(
-        DBDocument.folder_id, sa_func.count(DBDocument.id)
-    ).filter(DBDocument.folder_id.in_(folder_ids)).group_by(DBDocument.folder_id).all()
+    rows = (
+        db.session.query(DBDocument.folder_id, sa_func.count(DBDocument.id))
+        .filter(DBDocument.folder_id.in_(folder_ids))
+        .group_by(DBDocument.folder_id)
+        .all()
+    )
     return {fid: cnt for fid, cnt in rows}
 
 
@@ -150,12 +181,14 @@ def _batch_indexed_document_counts(folder_ids):
     """Get count of INDEXED documents per folder in a single query"""
     if not folder_ids:
         return {}
-    rows = db.session.query(
-        DBDocument.folder_id, sa_func.count(DBDocument.id)
-    ).filter(
-        DBDocument.folder_id.in_(folder_ids),
-        DBDocument.index_status == 'INDEXED'
-    ).group_by(DBDocument.folder_id).all()
+    rows = (
+        db.session.query(DBDocument.folder_id, sa_func.count(DBDocument.id))
+        .filter(
+            DBDocument.folder_id.in_(folder_ids), DBDocument.index_status == "INDEXED"
+        )
+        .group_by(DBDocument.folder_id)
+        .all()
+    )
     return {fid: cnt for fid, cnt in rows}
 
 
@@ -184,7 +217,9 @@ def browse_folder():
         folder_path = request.args.get("path", "").strip()
         fields = request.args.get("fields", "full")
         offset = max(0, int(request.args.get("offset", 0)))
-        limit = max(0, int(request.args.get("limit", 0)))  # 0 = unlimited (backward compat)
+        limit = max(
+            0, int(request.args.get("limit", 0))
+        )  # 0 = unlimited (backward compat)
         sort_by = request.args.get("sort_by", "name")
         sort_dir = request.args.get("sort_dir", "asc")
         use_light = fields == "light"
@@ -284,7 +319,9 @@ def browse_folder():
         if folder_id_val is not None:
             result["folder_id"] = folder_id_val
             # Include current folder's full properties for inheritance checks
-            result["current_folder"] = folder.to_dict_light() if use_light else folder.to_dict()
+            result["current_folder"] = (
+                folder.to_dict_light() if use_light else folder.to_dict()
+            )
 
         return success_response(result)
 
@@ -313,7 +350,9 @@ def create_folder():
         if parent_path and parent_path != "/":
             parent_folder = Folder.query.filter_by(path=parent_path).first()
             if not parent_folder:
-                return error_response("Parent folder not found", 404, "PARENT_NOT_FOUND")
+                return error_response(
+                    "Parent folder not found", 404, "PARENT_NOT_FOUND"
+                )
             parent_id = parent_folder.id
             new_path = f"{parent_path}/{folder_name}".lstrip("/")
         else:
@@ -344,12 +383,12 @@ def _update_child_paths(folder: Folder, old_base: str, new_base: str):
     # Update all descendant folders in one query
     Folder.query.filter(Folder.path.like(f"{old_base}/%")).update(
         {Folder.path: sa_func.replace(Folder.path, old_base, new_base)},
-        synchronize_session='fetch'
+        synchronize_session="fetch",
     )
     # Update all descendant documents in one query
     DBDocument.query.filter(DBDocument.path.like(f"{old_base}/%")).update(
         {DBDocument.path: sa_func.replace(DBDocument.path, old_base, new_base)},
-        synchronize_session='fetch'
+        synchronize_session="fetch",
     )
 
 
@@ -368,12 +407,14 @@ def rename_folder(folder_id):
         new_name = data["name"].strip()
         if not new_name or new_name == folder.name:
             return success_response(folder.to_dict())
-        
+
         # Basic validation for dangerous characters
         invalid_chars = '<>:"/\\|?*\x00-\x1f'
         if any(char in invalid_chars for char in new_name):
-            return error_response("Folder name contains invalid characters", 400, "INVALID_FILENAME")
-        
+            return error_response(
+                "Folder name contains invalid characters", 400, "INVALID_FILENAME"
+            )
+
         if len(new_name) > 255:
             return error_response("Folder name too long", 400, "INVALID_FILENAME")
         old_path = folder.path
@@ -386,10 +427,14 @@ def rename_folder(folder_id):
         new_physical_path = get_physical_path(new_path)
         existing = Folder.query.filter_by(path=new_path).first()
         if existing:
-            return error_response("Folder with this name already exists", 409, "FOLDER_EXISTS")
+            return error_response(
+                "Folder with this name already exists", 409, "FOLDER_EXISTS"
+            )
         if old_physical_path.exists():
             shutil.move(str(old_physical_path), str(new_physical_path))
-            logger.info(f"Renamed physical folder: {old_physical_path} -> {new_physical_path}")
+            logger.info(
+                f"Renamed physical folder: {old_physical_path} -> {new_physical_path}"
+            )
         folder.name = new_name
         folder.path = new_path
         _update_child_paths(folder, old_path, new_path)
@@ -417,7 +462,9 @@ def move_folder(folder_id):
 
         data = request.get_json()
         if not data or "destination_path" not in data:
-            return error_response("Destination path required", 400, "MISSING_DESTINATION")
+            return error_response(
+                "Destination path required", 400, "MISSING_DESTINATION"
+            )
 
         dest_path = data["destination_path"].strip()
         if not ensure_path_is_safe(dest_path):
@@ -429,14 +476,18 @@ def move_folder(folder_id):
 
         # Prevent moving folder into its own descendant
         if dest_path.startswith(folder.path + "/"):
-            return error_response("Cannot move folder into its own subfolder", 400, "INVALID_MOVE")
+            return error_response(
+                "Cannot move folder into its own subfolder", 400, "INVALID_MOVE"
+            )
 
         # Resolve destination parent
         dest_folder_id = None
         if dest_path and dest_path != "/":
             dest_folder = Folder.query.filter_by(path=dest_path).first()
             if not dest_folder:
-                return error_response("Destination folder not found", 404, "DEST_NOT_FOUND")
+                return error_response(
+                    "Destination folder not found", 404, "DEST_NOT_FOUND"
+                )
             dest_folder_id = dest_folder.id
 
         # Build new path
@@ -449,7 +500,11 @@ def move_folder(folder_id):
         # Check for name collision at destination
         existing = Folder.query.filter_by(path=new_path).first()
         if existing and existing.id != folder.id:
-            return error_response("A folder with this name already exists at the destination", 409, "FOLDER_EXISTS")
+            return error_response(
+                "A folder with this name already exists at the destination",
+                409,
+                "FOLDER_EXISTS",
+            )
 
         # Move physical directory
         old_physical_path = get_physical_path(old_path)
@@ -482,31 +537,38 @@ def _cascade_properties_to_folder(folder: Folder, properties: dict, stats: dict)
     documents = folder.documents.all()
     for doc in documents:
         updated = False
-        if 'client_id' in properties:
-            doc.client_id = properties['client_id']
+        if "client_id" in properties:
+            doc.client_id = properties["client_id"]
             updated = True
-        if 'project_id' in properties:
-            doc.project_id = properties['project_id']
+        if "project_id" in properties:
+            doc.project_id = properties["project_id"]
             updated = True
-        if 'website_id' in properties:
-            doc.website_id = properties['website_id']
+        if "website_id" in properties:
+            doc.website_id = properties["website_id"]
             updated = True
-        if 'tags' in properties:
-            doc.tags = properties['tags']
+        if "tags" in properties:
+            doc.tags = properties["tags"]
             updated = True
-        if 'notes' in properties:
-            doc.notes = properties['notes']
+        if "notes" in properties:
+            doc.notes = properties["notes"]
             updated = True
         if updated:
             doc.updated_at = datetime.datetime.now()
             db.session.add(doc)
-            stats['files_updated'] += 1
+            stats["files_updated"] += 1
 
     # Recursively process subfolders — update subfolder properties too
     subfolders = folder.subfolders.all()
     for subfolder in subfolders:
-        stats['folders_processed'] += 1
-        for key in ('client_id', 'project_id', 'website_id', 'tags', 'notes', 'is_repository'):
+        stats["folders_processed"] += 1
+        for key in (
+            "client_id",
+            "project_id",
+            "website_id",
+            "tags",
+            "notes",
+            "is_repository",
+        ):
             if key in properties and hasattr(subfolder, key):
                 setattr(subfolder, key, properties[key])
         subfolder.updated_at = datetime.datetime.now()
@@ -523,53 +585,53 @@ def link_folder_to_entities(folder_id):
         folder = db.session.get(Folder, folder_id)
         if not folder:
             return error_response("Folder not found", 404, "FOLDER_NOT_FOUND")
-        
+
         data = request.get_json()
         if not data:
             return error_response("No data provided", 400, "NO_DATA")
-        
+
         # Build properties dict from request
         properties = {}
         if "client_id" in data:
             client_id = data["client_id"]
             if client_id and not db.session.get(Client, client_id):
                 return error_response("Client not found", 404, "CLIENT_NOT_FOUND")
-            properties['client_id'] = client_id
-        
+            properties["client_id"] = client_id
+
         if "project_id" in data:
             project_id = data["project_id"]
             if project_id and not db.session.get(Project, project_id):
                 return error_response("Project not found", 404, "PROJECT_NOT_FOUND")
-            properties['project_id'] = project_id
-        
+            properties["project_id"] = project_id
+
         if "website_id" in data:
             website_id = data["website_id"]
             if website_id and not db.session.get(Website, website_id):
                 return error_response("Website not found", 404, "WEBSITE_NOT_FOUND")
-            properties['website_id'] = website_id
-        
+            properties["website_id"] = website_id
+
         if "tags" in data:
             # Convert list to JSON string for storage
             tags = data["tags"]
             if isinstance(tags, list):
-                properties['tags'] = json.dumps(tags) if tags else None
+                properties["tags"] = json.dumps(tags) if tags else None
             elif isinstance(tags, str):
-                properties['tags'] = tags if tags else None
+                properties["tags"] = tags if tags else None
             else:
-                properties['tags'] = None
-        
+                properties["tags"] = None
+
         if "notes" in data:
-            properties['notes'] = data["notes"] if data["notes"] else None
+            properties["notes"] = data["notes"] if data["notes"] else None
 
         if "is_repository" in data:
-            properties['is_repository'] = bool(data["is_repository"])
+            properties["is_repository"] = bool(data["is_repository"])
 
         # Cascade properties to all children
         stats = {
-            'files_updated': 0,
-            'folders_processed': 0,
+            "files_updated": 0,
+            "folders_processed": 0,
         }
-        
+
         # Save properties on the folder itself
         for key, value in properties.items():
             if hasattr(folder, key):
@@ -581,15 +643,14 @@ def link_folder_to_entities(folder_id):
 
         # Update folder's updated_at timestamp
         folder.updated_at = datetime.datetime.now()
-        
+
         db.session.commit()
-        
-        logger.info(f"Updated entity links for folder {folder_id} and cascaded to {stats['files_updated']} files in {stats['folders_processed']} subfolders")
-        
-        return success_response({
-            **folder.to_dict(),
-            "cascade_stats": stats
-        })
+
+        logger.info(
+            f"Updated entity links for folder {folder_id} and cascaded to {stats['files_updated']} files in {stats['folders_processed']} subfolders"
+        )
+
+        return success_response({**folder.to_dict(), "cascade_stats": stats})
     except SQLAlchemyError as e:
         db.session.rollback()
         logger.error(f"Database error linking folder: {e}", exc_info=True)
@@ -599,13 +660,15 @@ def link_folder_to_entities(folder_id):
         return error_response("Failed to link folder", 500, "LINK_ERROR")
 
 
-def _delete_folder_recursive(folder: Folder, deleted_folders: list, deleted_documents: list):
+def _delete_folder_recursive(
+    folder: Folder, deleted_folders: list, deleted_documents: list
+):
     """Recursively delete a folder and all its subfolders and documents"""
     # First, recursively delete all subfolders
     subfolders = folder.subfolders.all()
     for subfolder in subfolders:
         _delete_folder_recursive(subfolder, deleted_folders, deleted_documents)
-    
+
     # Delete all documents in this folder
     documents = folder.documents.all()
     doc_ids_to_deindex = []
@@ -618,20 +681,29 @@ def _delete_folder_recursive(folder: Folder, deleted_folders: list, deleted_docu
                 physical_doc_path.unlink()
                 logger.info(f"Deleted physical document: {physical_doc_path}")
             except Exception as e:
-                logger.warning(f"Failed to delete physical document {physical_doc_path}: {e}")
+                logger.warning(
+                    f"Failed to delete physical document {physical_doc_path}: {e}"
+                )
         db.session.delete(document)
         deleted_documents.append(document.filename)
 
     # Batch deindex from vector store
     index_instance = current_app.config.get("LLAMA_INDEX_INDEX")
     storage_dir = current_app.config.get("STORAGE_DIR")
-    if doc_ids_to_deindex and index_instance and storage_dir and hasattr(index_instance, "delete_ref_doc"):
+    if (
+        doc_ids_to_deindex
+        and index_instance
+        and storage_dir
+        and hasattr(index_instance, "delete_ref_doc")
+    ):
         for ref_doc_id in doc_ids_to_deindex:
             try:
                 index_instance.delete_ref_doc(ref_doc_id, delete_from_docstore=True)
                 logger.info(f"Removed document {ref_doc_id} from vector index")
             except Exception:
-                logger.warning(f"Failed to remove doc {ref_doc_id} from index (continuing)")
+                logger.warning(
+                    f"Failed to remove doc {ref_doc_id} from index (continuing)"
+                )
         try:
             index_instance.storage_context.persist(persist_dir=storage_dir)
         except Exception as e:
@@ -646,7 +718,7 @@ def _delete_folder_recursive(folder: Folder, deleted_folders: list, deleted_docu
             logger.info(f"Deleted physical folder: {physical_path}")
         except Exception as e:
             logger.warning(f"Failed to delete physical folder {physical_path}: {e}")
-    
+
     # Delete the folder from database
     folder_name = folder.name
     db.session.delete(folder)
@@ -663,25 +735,29 @@ def delete_folder(folder_id):
         folder = db.session.get(Folder, folder_id)
         if not folder:
             return error_response("Folder not found", 404, "FOLDER_NOT_FOUND")
-        
+
         folder_name = folder.name
         deleted_folders = []
         deleted_documents = []
-        
+
         # Recursively delete folder and all its contents
         _delete_folder_recursive(folder, deleted_folders, deleted_documents)
-        
+
         # Commit all deletions
         db.session.commit()
-        
-        logger.info(f"Successfully deleted folder {folder_id}: {folder_name} with {len(deleted_folders)} subfolders and {len(deleted_documents)} documents")
-        return success_response({
-            "message": "Folder deleted successfully",
-            "folder_id": folder_id,
-            "name": folder_name,
-            "deleted_subfolders": len(deleted_folders),
-            "deleted_documents": len(deleted_documents)
-        })
+
+        logger.info(
+            f"Successfully deleted folder {folder_id}: {folder_name} with {len(deleted_folders)} subfolders and {len(deleted_documents)} documents"
+        )
+        return success_response(
+            {
+                "message": "Folder deleted successfully",
+                "folder_id": folder_id,
+                "name": folder_name,
+                "deleted_subfolders": len(deleted_folders),
+                "deleted_documents": len(deleted_documents),
+            }
+        )
     except SQLAlchemyError as e:
         db.session.rollback()
         logger.error(f"Database error deleting folder: {e}", exc_info=True)
@@ -690,6 +766,8 @@ def delete_folder(folder_id):
         db.session.rollback()
         logger.error(f"Error deleting folder: {e}", exc_info=True)
         return error_response("Failed to delete folder", 500, "DELETE_ERROR")
+
+
 @files_bp.route("/folder/<int:folder_id>/toggle-repo", methods=["PUT", "POST"])
 @ensure_db_session_cleanup
 def toggle_repo_status(folder_id):
@@ -708,37 +786,45 @@ def toggle_repo_status(folder_id):
             folder.is_repository = not folder.is_repository
 
         # Cascade is_repository to all child folders
-        stats = {'files_updated': 0, 'folders_processed': 0}
-        _cascade_properties_to_folder(folder, {'is_repository': folder.is_repository}, stats)
+        stats = {"files_updated": 0, "folders_processed": 0}
+        _cascade_properties_to_folder(
+            folder, {"is_repository": folder.is_repository}, stats
+        )
 
         db.session.commit()
 
-        status_msg = "marked as repository" if folder.is_repository else "unmarked as repository"
-        logger.info(f"Folder {folder_id} {status_msg} (cascaded to {stats['folders_processed']} subfolders)")
+        status_msg = (
+            "marked as repository" if folder.is_repository else "unmarked as repository"
+        )
+        logger.info(
+            f"Folder {folder_id} {status_msg} (cascaded to {stats['folders_processed']} subfolders)"
+        )
 
         # Trigger analysis if marked as repository (non-blocking)
         if folder.is_repository:
             try:
                 from backend.tasks.repo_analysis_tasks import analyze_repository_task
+
                 analyze_repository_task.delay(folder_id)
             except Exception as task_err:
                 logger.warning(f"Could not dispatch repo analysis task: {task_err}")
 
-        return success_response({
-            **folder.to_dict(),
-            "cascade_stats": stats
-        })
+        return success_response({**folder.to_dict(), "cascade_stats": stats})
     except SQLAlchemyError as e:
         db.session.rollback()
         logger.error(f"Database error toggling repo status: {e}", exc_info=True)
         return error_response("Database error", 500, "DB_ERROR")
     except Exception as e:
         logger.error(f"Error toggling repo status: {e}", exc_info=True)
-        return error_response(f"Failed to toggle repository status: {e}", 500, "TOGGLE_ERROR")
+        return error_response(
+            f"Failed to toggle repository status: {e}", 500, "TOGGLE_ERROR"
+        )
+
 
 # ============================================================================
 # FILE OPERATIONS
 # ============================================================================
+
 
 @files_bp.route("/upload", methods=["POST"])
 @ensure_db_session_cleanup
@@ -751,7 +837,7 @@ def upload_file():
         file = request.files["file"]
         if file.filename == "":
             return error_response("No file selected", 400, "NO_FILE")
-        
+
         # Get parameters (support both folder-based and project-based uploads)
         folder_path = request.form.get("folder_path", "").strip()
         project_id = request.form.get("project_id", type=int)
@@ -759,21 +845,27 @@ def upload_file():
         website_id = request.form.get("website_id", type=int)
         tags = request.form.get("tags", "")
         metadata_str = request.form.get("metadata", "{}")
-        auto_index = request.form.get("auto_index", "true").lower() not in ("false", "0", "no")
-        
+        auto_index = request.form.get("auto_index", "true").lower() not in (
+            "false",
+            "0",
+            "no",
+        )
+
         # Validate folder_path if provided
         if folder_path and not ensure_path_is_safe(folder_path):
             return error_response("Invalid folder path", 400, "INVALID_PATH")
-        
+
         # Parse metadata
         try:
             metadata = json.loads(metadata_str) if metadata_str else {}
         except json.JSONDecodeError:
-            return error_response("Invalid metadata JSON format", 400, "INVALID_METADATA")
-        
+            return error_response(
+                "Invalid metadata JSON format", 400, "INVALID_METADATA"
+            )
+
         # Use unified upload service
         from backend.services.unified_upload_service import UnifiedUploadService
-        
+
         document, job_id = UnifiedUploadService.upload_file(
             file=file,
             folder_path=folder_path if folder_path else None,
@@ -785,14 +877,16 @@ def upload_file():
             store_content=True,  # Store content for text/code files
             auto_index=auto_index,
         )
-        
+
         response_data = document.to_dict()
         if job_id:
-            response_data['job_id'] = job_id
-        
-        logger.info(f"Successfully uploaded file {document.filename} (ID: {document.id})")
+            response_data["job_id"] = job_id
+
+        logger.info(
+            f"Successfully uploaded file {document.filename} (ID: {document.id})"
+        )
         return success_response(response_data, 201)
-        
+
     except ValueError as e:
         logger.warning(f"Validation error during upload: {e}")
         return error_response(str(e), 400, "VALIDATION_ERROR")
@@ -820,12 +914,14 @@ def rename_document(doc_id):
         new_filename = data["filename"].strip()
         if not new_filename:
             return error_response("Invalid filename", 400, "INVALID_FILENAME")
-        
+
         # Basic validation for dangerous characters but preserve file extensions
         invalid_chars = '<>:"/\\|?*\x00-\x1f'
         if any(char in invalid_chars for char in new_filename):
-            return error_response("Filename contains invalid characters", 400, "INVALID_FILENAME")
-        
+            return error_response(
+                "Filename contains invalid characters", 400, "INVALID_FILENAME"
+            )
+
         if len(new_filename) > 255:
             return error_response("Filename too long", 400, "INVALID_FILENAME")
         document.filename = new_filename
@@ -853,7 +949,9 @@ def move_document(doc_id):
             return error_response("Document not found", 404, "DOCUMENT_NOT_FOUND")
         data = request.get_json()
         if not data or "destination_path" not in data:
-            return error_response("Destination path required", 400, "MISSING_DESTINATION")
+            return error_response(
+                "Destination path required", 400, "MISSING_DESTINATION"
+            )
         dest_path = data["destination_path"].strip()
         if not ensure_path_is_safe(dest_path):
             return error_response("Invalid destination path", 400, "INVALID_PATH")
@@ -861,7 +959,9 @@ def move_document(doc_id):
         if dest_path and dest_path != "/":
             dest_folder = Folder.query.filter_by(path=dest_path).first()
             if not dest_folder:
-                return error_response("Destination folder not found", 404, "DEST_NOT_FOUND")
+                return error_response(
+                    "Destination folder not found", 404, "DEST_NOT_FOUND"
+                )
             dest_folder_id = dest_folder.id
         old_path = document.path
         old_physical_path = get_physical_path(old_path)
@@ -901,7 +1001,9 @@ def copy_document(doc_id):
             return error_response("Document not found", 404, "DOCUMENT_NOT_FOUND")
         data = request.get_json()
         if not data or "destination_path" not in data:
-            return error_response("Destination path required", 400, "MISSING_DESTINATION")
+            return error_response(
+                "Destination path required", 400, "MISSING_DESTINATION"
+            )
         dest_path = data["destination_path"].strip()
         if not ensure_path_is_safe(dest_path):
             return error_response("Invalid destination path", 400, "INVALID_PATH")
@@ -911,7 +1013,9 @@ def copy_document(doc_id):
         if dest_path and dest_path != "/":
             dest_folder = Folder.query.filter_by(path=dest_path).first()
             if not dest_folder:
-                return error_response("Destination folder not found", 404, "DEST_NOT_FOUND")
+                return error_response(
+                    "Destination folder not found", 404, "DEST_NOT_FOUND"
+                )
             dest_folder_id = dest_folder.id
 
         # Physical copy
@@ -990,8 +1094,7 @@ def delete_document(doc_id):
         # Remove from vector index if it was indexed
         index_instance = current_app.config.get("LLAMA_INDEX_INDEX")
         storage_dir = current_app.config.get("STORAGE_DIR")
-        if (index_instance and storage_dir and
-                hasattr(index_instance, "delete_ref_doc")):
+        if index_instance and storage_dir and hasattr(index_instance, "delete_ref_doc"):
             try:
                 ref_doc_id = str(document.id)
                 index_instance.delete_ref_doc(ref_doc_id, delete_from_docstore=True)
@@ -999,13 +1102,23 @@ def delete_document(doc_id):
                 try:
                     index_instance.storage_context.persist(persist_dir=storage_dir)
                 except Exception as persist_err:
-                    logger.warning(f"Failed to persist index after deletion: {persist_err}")
+                    logger.warning(
+                        f"Failed to persist index after deletion: {persist_err}"
+                    )
             except Exception as index_err:
-                logger.warning(f"Failed to remove doc {doc_id} from index (continuing): {index_err}")
+                logger.warning(
+                    f"Failed to remove doc {doc_id} from index (continuing): {index_err}"
+                )
         db.session.delete(document)
         db.session.commit()
         logger.info(f"Deleted document {doc_id}: {doc_filename}")
-        return success_response({"message": "Document deleted successfully", "document_id": doc_id, "filename": doc_filename})
+        return success_response(
+            {
+                "message": "Document deleted successfully",
+                "document_id": doc_id,
+                "filename": doc_filename,
+            }
+        )
     except SQLAlchemyError as e:
         db.session.rollback()
         logger.error(f"Database error deleting document: {e}", exc_info=True)
@@ -1074,7 +1187,9 @@ def download_document(doc_id):
         physical_path = get_physical_path(document.path)
         if not physical_path.exists():
             return error_response("File not found on disk", 404, "FILE_NOT_FOUND")
-        response = send_file(physical_path, as_attachment=True, download_name=document.filename)
+        response = send_file(
+            physical_path, as_attachment=True, download_name=document.filename
+        )
         # Disable long-term caching so edited images are served fresh
         response.headers["Cache-Control"] = "no-cache, must-revalidate"
         return response
@@ -1122,6 +1237,7 @@ def get_thumbnail():
 # ============================================================================
 # IMAGE EDITING
 # ============================================================================
+
 
 @files_bp.route("/image/edit", methods=["POST"])
 def edit_image():
@@ -1196,10 +1312,14 @@ def edit_image():
                     img = img.resize((int(rw), int(rh)), PILImage.LANCZOS)
                 elif rw:
                     ratio = int(rw) / img.width
-                    img = img.resize((int(rw), int(img.height * ratio)), PILImage.LANCZOS)
+                    img = img.resize(
+                        (int(rw), int(img.height * ratio)), PILImage.LANCZOS
+                    )
                 elif rh:
                     ratio = int(rh) / img.height
-                    img = img.resize((int(img.width * ratio), int(rh)), PILImage.LANCZOS)
+                    img = img.resize(
+                        (int(img.width * ratio), int(rh)), PILImage.LANCZOS
+                    )
             elif op_type == "flip":
                 direction = op.get("direction", "horizontal")
                 if direction == "horizontal":
@@ -1209,9 +1329,17 @@ def edit_image():
 
         # Determine output format
         orig_ext = physical_path.suffix.lower().lstrip(".")
-        format_map = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png", "webp": "webp", "gif": "png"}
+        format_map = {
+            "jpg": "jpeg",
+            "jpeg": "jpeg",
+            "png": "png",
+            "webp": "webp",
+            "gif": "png",
+        }
         target_format = out_format or format_map.get(orig_ext, "png")
-        target_ext = {"jpeg": ".jpg", "png": ".png", "webp": ".webp"}.get(target_format, ".png")
+        target_ext = {"jpeg": ".jpg", "png": ".png", "webp": ".webp"}.get(
+            target_format, ".png"
+        )
 
         # Convert RGBA to RGB for JPEG
         if target_format == "jpeg" and img.mode in ("RGBA", "LA", "P"):
@@ -1238,7 +1366,9 @@ def edit_image():
             stem = physical_path.stem
             counter = 1
             while True:
-                new_name = f"{stem}_edited{f'_{counter}' if counter > 1 else ''}{target_ext}"
+                new_name = (
+                    f"{stem}_edited{f'_{counter}' if counter > 1 else ''}{target_ext}"
+                )
                 out_path = physical_path.parent / new_name
                 if not out_path.exists():
                     break
@@ -1268,20 +1398,30 @@ def edit_image():
         out_doc.file_size = out_path.stat().st_size
 
         # Remove old file if format changed on overwrite
-        if save_mode == "overwrite" and old_path and old_path != out_path and old_path.exists():
+        if (
+            save_mode == "overwrite"
+            and old_path
+            and old_path != out_path
+            and old_path.exists()
+        ):
             old_path.unlink()
 
         db.session.commit()
 
-        logger.info(f"Image edited: doc={doc_id}, mode={save_mode}, format={target_format}, path={out_path}")
-        return success_response({
-            "document_id": out_doc.id,
-            "filename": out_doc.filename,
-            "path": out_doc.path,
-            "file_size": out_doc.file_size,
-            "width": img.width,
-            "height": img.height,
-        }, "Image saved successfully")
+        logger.info(
+            f"Image edited: doc={doc_id}, mode={save_mode}, format={target_format}, path={out_path}"
+        )
+        return success_response(
+            {
+                "document_id": out_doc.id,
+                "filename": out_doc.filename,
+                "path": out_doc.path,
+                "file_size": out_doc.file_size,
+                "width": img.width,
+                "height": img.height,
+            },
+            "Image saved successfully",
+        )
 
     except Exception as e:
         db.session.rollback()
@@ -1308,15 +1448,17 @@ def get_image_info(doc_id):
             mode = img.mode
             fmt = img.format or physical_path.suffix.lstrip(".")
 
-        return success_response({
-            "document_id": doc_id,
-            "filename": document.filename,
-            "width": width,
-            "height": height,
-            "mode": mode,
-            "format": fmt,
-            "file_size": document.file_size,
-        })
+        return success_response(
+            {
+                "document_id": doc_id,
+                "filename": document.filename,
+                "width": width,
+                "height": height,
+                "mode": mode,
+                "format": fmt,
+                "file_size": document.file_size,
+            }
+        )
     except Exception as e:
         logger.error(f"Error getting image info: {e}", exc_info=True)
         return error_response("Failed to get image info", 500, "INFO_ERROR")
@@ -1325,6 +1467,7 @@ def get_image_info(doc_id):
 # ============================================================================
 # SEARCH & UTILITIES
 # ============================================================================
+
 
 @files_bp.route("/search", methods=["GET"])
 def search_files():
@@ -1338,16 +1481,28 @@ def search_files():
 
         # BUG FIX #18: Sanitize search query to prevent SQL injection
         # Escape SQL wildcards and limit length
-        query = query.replace('%', '\\%').replace('_', '\\_')[:100]
+        query = query.replace("%", "\\%").replace("_", "\\_")[:100]
 
-        folders = Folder.query.filter(Folder.name.ilike(f"%{query}%", escape='\\')).limit(limit).all()
-        documents = DBDocument.query.filter(DBDocument.filename.ilike(f"%{query}%", escape='\\')).limit(limit).all()
-        return success_response({
-            "query": query,
-            "folders": [f.to_dict() for f in folders],
-            "documents": [d.to_dict() for d in documents],
-            "total_results": len(folders) + len(documents)
-        })
+        folders = (
+            Folder.query.filter(Folder.name.ilike(f"%{query}%", escape="\\"))
+            .limit(limit)
+            .all()
+        )
+        documents = (
+            DBDocument.query.filter(
+                DBDocument.filename.ilike(f"%{query}%", escape="\\")
+            )
+            .limit(limit)
+            .all()
+        )
+        return success_response(
+            {
+                "query": query,
+                "folders": [f.to_dict() for f in folders],
+                "documents": [d.to_dict() for d in documents],
+                "total_results": len(folders) + len(documents),
+            }
+        )
     except Exception as e:
         logger.error(f"Error searching files: {e}", exc_info=True)
         return error_response("Search failed", 500, "SEARCH_ERROR")
@@ -1359,7 +1514,9 @@ def get_recent_files():
     logger.info("API: Get recent files request")
     try:
         limit = request.args.get("limit", 20, type=int)
-        documents = DBDocument.query.order_by(DBDocument.uploaded_at.desc()).limit(limit).all()
+        documents = (
+            DBDocument.query.order_by(DBDocument.uploaded_at.desc()).limit(limit).all()
+        )
         return success_response({"documents": [d.to_dict() for d in documents]})
     except Exception as e:
         logger.error(f"Error getting recent files: {e}", exc_info=True)
@@ -1375,7 +1532,9 @@ import redis
 import json as json_lib
 
 try:
-    _redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+    _redis_client = redis.Redis(
+        host="localhost", port=6379, db=0, decode_responses=True
+    )
     _redis_client.ping()
     logger.info("Connected to Redis for bulk import job storage")
     USE_REDIS = True
@@ -1383,6 +1542,7 @@ except Exception as e:
     logger.warning(f"Redis not available, using in-memory storage: {e}")
     USE_REDIS = False
     _bulk_import_jobs = {}
+
 
 def get_job_status(job_id):
     """Get job status from Redis or in-memory storage"""
@@ -1392,13 +1552,14 @@ def get_job_status(job_id):
     else:
         return _bulk_import_jobs.get(job_id)
 
+
 def set_job_status(job_id, status_data):
     """Set job status in Redis or in-memory storage"""
     if USE_REDIS:
         _redis_client.setex(
             f"bulk_import_job:{job_id}",
             3600,  # Expire after 1 hour
-            json_lib.dumps(status_data)
+            json_lib.dumps(status_data),
         )
     else:
         _bulk_import_jobs[job_id] = status_data
@@ -1416,10 +1577,13 @@ def start_bulk_import():
 
         source_path = data.get("source_path", "").strip()
         if not source_path:
-            return error_response("source_path cannot be empty", 400, "INVALID_SOURCE_PATH")
+            return error_response(
+                "source_path cannot be empty", 400, "INVALID_SOURCE_PATH"
+            )
 
         # Generate a job ID
         import uuid
+
         job_id = str(uuid.uuid4())
 
         # Store job info
@@ -1469,7 +1633,7 @@ def start_bulk_import():
                     force_copy,
                     dry_run,
                 ),
-                queue="indexing"
+                queue="indexing",
             )
 
             job_data["celery_task_id"] = task.id
@@ -1482,20 +1646,27 @@ def start_bulk_import():
             job_data["status"] = "error"
             job_data["message"] = "Celery worker not available"
             set_job_status(job_id, job_data)
-            logger.error("Cannot import bulk_import_documents_task - Celery task not defined")
+            logger.error(
+                "Cannot import bulk_import_documents_task - Celery task not defined"
+            )
             return error_response(
                 "Bulk import task not available - Celery worker may not be configured",
                 503,
-                "CELERY_NOT_AVAILABLE"
+                "CELERY_NOT_AVAILABLE",
             )
 
         # Return response in format frontend expects (unwrapped)
         job_data = get_job_status(job_id)
-        return jsonify({
-            "job_id": job_id,
-            "status": job_data["status"],
-            "message": "Bulk import started"
-        }), 202
+        return (
+            jsonify(
+                {
+                    "job_id": job_id,
+                    "status": job_data["status"],
+                    "message": "Bulk import started",
+                }
+            ),
+            202,
+        )
 
     except Exception as e:
         logger.error(f"Error starting bulk import: {e}", exc_info=True)
@@ -1554,7 +1725,7 @@ def browse_server_directory():
 
             for entry in sorted(entries):
                 # Skip hidden entries unless show_hidden is true
-                if entry.startswith('.') and not show_hidden:
+                if entry.startswith(".") and not show_hidden:
                     continue
 
                 entry_path = os.path.join(requested_path, entry)
@@ -1563,24 +1734,34 @@ def browse_server_directory():
                     if os.path.isdir(entry_path):
                         # Count items in directory for preview
                         try:
-                            item_count = len([e for e in os.listdir(entry_path) if not e.startswith('.')])
+                            item_count = len(
+                                [
+                                    e
+                                    for e in os.listdir(entry_path)
+                                    if not e.startswith(".")
+                                ]
+                            )
                         except (PermissionError, OSError):
                             item_count = -1  # Permission denied or error
 
-                        directories.append({
-                            "name": entry,
-                            "item_count": item_count,
-                            "modified": stat_info.st_mtime
-                        })
+                        directories.append(
+                            {
+                                "name": entry,
+                                "item_count": item_count,
+                                "modified": stat_info.st_mtime,
+                            }
+                        )
                     elif include_files:
                         # Get file extension for type identification
                         _, ext = os.path.splitext(entry)
-                        files.append({
-                            "name": entry,
-                            "size": stat_info.st_size,
-                            "modified": stat_info.st_mtime,
-                            "extension": ext.lower().lstrip('.')
-                        })
+                        files.append(
+                            {
+                                "name": entry,
+                                "size": stat_info.st_size,
+                                "modified": stat_info.st_mtime,
+                                "extension": ext.lower().lstrip("."),
+                            }
+                        )
                 except (PermissionError, OSError):
                     # Skip entries we can't access
                     continue
@@ -1588,7 +1769,9 @@ def browse_server_directory():
             response_data = {
                 "path": requested_path,
                 "directories": directories,
-                "parent_path": os.path.dirname(requested_path) if requested_path != "/" else None
+                "parent_path": (
+                    os.path.dirname(requested_path) if requested_path != "/" else None
+                ),
             }
 
             if include_files:

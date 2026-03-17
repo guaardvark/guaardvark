@@ -40,17 +40,20 @@ logger = logging.getLogger(__name__)
 # ROW TRACKING SYSTEM - Core Data Structures
 # ============================================================================
 
+
 class RowStatus(Enum):
     """Status of a tracked row"""
-    ORIGINAL = "original"              # First attempt, passed validation
-    REPLACED = "replaced"              # Failed validation, was replaced
+
+    ORIGINAL = "original"  # First attempt, passed validation
+    REPLACED = "replaced"  # Failed validation, was replaced
     FLAGGED = "flagged_manual_review"  # Max retries reached, needs review
-    ACTIVE = "active"                  # Currently in use (latest version)
+    ACTIVE = "active"  # Currently in use (latest version)
 
 
 @dataclass
 class ValidationFailure:
     """Record of a single validation failure"""
+
     timestamp: str
     reason: str
     word_count: Optional[int] = None
@@ -61,6 +64,7 @@ class ValidationFailure:
 @dataclass
 class RowReplacement:
     """Record of a row replacement attempt"""
+
     attempt_number: int
     timestamp: str
     success: bool
@@ -78,13 +82,14 @@ class RowRecord:
     - Future adjustments to specific line items
     - Quality analysis and reporting
     """
+
     # Core identification
-    unique_id: str                    # Format: YYYYMMDD_HHMMSS_SEQ (e.g., 20250114_143022_001)
-    sequence_number: int              # Position in requested batch (1-indexed)
+    unique_id: str  # Format: YYYYMMDD_HHMMSS_SEQ (e.g., 20250114_143022_001)
+    sequence_number: int  # Position in requested batch (1-indexed)
 
     # Status tracking
     status: RowStatus
-    is_active: bool                   # True if this row is in final CSV
+    is_active: bool  # True if this row is in final CSV
 
     # Original request context
     original_topic: str
@@ -117,18 +122,18 @@ class RowRecord:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization"""
         data = asdict(self)
-        data['status'] = self.status.value
+        data["status"] = self.status.value
         return data
 
     def get_tracking_summary(self) -> Dict[str, Any]:
         """Get a concise summary for logging"""
         return {
-            'id': self.unique_id,
-            'seq': self.sequence_number,
-            'status': self.status.value,
-            'replacements': self.replacement_count,
-            'word_count': self.final_word_count,
-            'needs_review': self.needs_manual_review
+            "id": self.unique_id,
+            "seq": self.sequence_number,
+            "status": self.status.value,
+            "replacements": self.replacement_count,
+            "word_count": self.final_word_count,
+            "needs_review": self.needs_manual_review,
         }
 
 
@@ -144,10 +149,12 @@ class RowTracker:
     - Generate tracking reports
     """
 
-    def __init__(self,
-                 target_row_count: int,
-                 max_replacement_attempts: int = 5,
-                 job_id: Optional[str] = None):
+    def __init__(
+        self,
+        target_row_count: int,
+        max_replacement_attempts: int = 5,
+        job_id: Optional[str] = None,
+    ):
         """
         Initialize row tracker
 
@@ -178,8 +185,10 @@ class RowTracker:
         self._id_counter = 0
         self._id_timestamp_base = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        logger.info(f"RowTracker initialized: target={target_row_count}, "
-                   f"max_attempts={max_replacement_attempts}, job_id={self.job_id}")
+        logger.info(
+            f"RowTracker initialized: target={target_row_count}, "
+            f"max_attempts={max_replacement_attempts}, job_id={self.job_id}"
+        )
 
     def generate_unique_id(self, sequence_number: int) -> str:
         """
@@ -198,10 +207,9 @@ class RowTracker:
         unique_id = f"{self._id_timestamp_base}_{sequence_number:03d}"
         return unique_id
 
-    def create_row_record(self,
-                         sequence_number: int,
-                         topic: str,
-                         task_id: str) -> RowRecord:
+    def create_row_record(
+        self, sequence_number: int, topic: str, task_id: str
+    ) -> RowRecord:
         """
         Create a new row record for tracking
 
@@ -222,21 +230,25 @@ class RowTracker:
             is_active=False,
             original_topic=topic,
             original_task_id=task_id,
-            request_timestamp=datetime.now().isoformat()
+            request_timestamp=datetime.now().isoformat(),
         )
 
         self.records[unique_id] = record
         self.sequence_to_id[sequence_number] = unique_id
 
-        logger.debug(f"Created row record: {unique_id} (seq={sequence_number}, topic={topic[:50]})")
+        logger.debug(
+            f"Created row record: {unique_id} (seq={sequence_number}, topic={topic[:50]})"
+        )
         return record
 
-    def record_generation_attempt(self,
-                                  unique_id: str,
-                                  success: bool,
-                                  row_data: Optional[Dict[str, Any]] = None,
-                                  validation_failure: Optional[ValidationFailure] = None,
-                                  generation_time_ms: Optional[float] = None):
+    def record_generation_attempt(
+        self,
+        unique_id: str,
+        success: bool,
+        row_data: Optional[Dict[str, Any]] = None,
+        validation_failure: Optional[ValidationFailure] = None,
+        generation_time_ms: Optional[float] = None,
+    ):
         """
         Record a content generation attempt
 
@@ -260,7 +272,7 @@ class RowTracker:
             timestamp=datetime.now().isoformat(),
             success=success,
             validation_failure=validation_failure,
-            generation_time_ms=generation_time_ms
+            generation_time_ms=generation_time_ms,
         )
 
         record.replacement_history.append(replacement)
@@ -276,8 +288,8 @@ class RowTracker:
             record.generation_duration_ms = generation_time_ms
 
             # Calculate word count
-            if row_data and 'Content' in row_data:
-                content = row_data['Content'] or ""
+            if row_data and "Content" in row_data:
+                content = row_data["Content"] or ""
                 record.final_word_count = len(content.split())
 
             # Update status
@@ -286,8 +298,10 @@ class RowTracker:
             else:
                 record.status = RowStatus.ORIGINAL
 
-            logger.info(f"Row {unique_id}: Generation successful (attempt {attempt_number}, "
-                       f"word_count={record.final_word_count})")
+            logger.info(
+                f"Row {unique_id}: Generation successful (attempt {attempt_number}, "
+                f"word_count={record.final_word_count})"
+            )
         else:
             # Failed generation
             record.replacement_count += 1
@@ -298,14 +312,20 @@ class RowTracker:
                 record.status = RowStatus.FLAGGED
                 record.max_attempts_reached = True
                 record.needs_manual_review = True
-                record.manual_review_reason = f"Failed validation after {record.replacement_count} attempts"
+                record.manual_review_reason = (
+                    f"Failed validation after {record.replacement_count} attempts"
+                )
                 self.rows_flagged_for_review += 1
 
-                logger.warning(f"Row {unique_id}: FLAGGED for manual review after "
-                             f"{record.replacement_count} attempts")
+                logger.warning(
+                    f"Row {unique_id}: FLAGGED for manual review after "
+                    f"{record.replacement_count} attempts"
+                )
             else:
-                logger.info(f"Row {unique_id}: Validation failed (attempt {attempt_number}), "
-                          f"will retry ({record.replacement_count}/{self.max_replacement_attempts})")
+                logger.info(
+                    f"Row {unique_id}: Validation failed (attempt {attempt_number}), "
+                    f"will retry ({record.replacement_count}/{self.max_replacement_attempts})"
+                )
 
     def get_rows_needing_generation(self) -> List[Tuple[int, str]]:
         """
@@ -356,12 +376,16 @@ class RowTracker:
         active_count = sum(1 for r in self.records.values() if r.is_active)
 
         if active_count != self.target_row_count:
-            logger.error(f"TRACKING INCONSISTENCY: Expected {self.target_row_count} "
-                        f"active rows, found {active_count}")
+            logger.error(
+                f"TRACKING INCONSISTENCY: Expected {self.target_row_count} "
+                f"active rows, found {active_count}"
+            )
 
-        logger.info(f"RowTracker finalized: {active_count} active rows, "
-                   f"{self.total_validation_failures} failures, "
-                   f"{self.rows_flagged_for_review} flagged for review")
+        logger.info(
+            f"RowTracker finalized: {active_count} active rows, "
+            f"{self.total_validation_failures} failures, "
+            f"{self.rows_flagged_for_review} flagged for review"
+        )
 
     def get_statistics(self) -> Dict[str, Any]:
         """Generate comprehensive statistics"""
@@ -376,23 +400,31 @@ class RowTracker:
 
         # Replacement statistics
         replacement_counts = [r.replacement_count for r in active_rows]
-        avg_replacements = sum(replacement_counts) / len(replacement_counts) if replacement_counts else 0
+        avg_replacements = (
+            sum(replacement_counts) / len(replacement_counts)
+            if replacement_counts
+            else 0
+        )
 
         return {
-            'job_id': self.job_id,
-            'target_row_count': self.target_row_count,
-            'actual_row_count': len(active_rows),
-            'rows_match_target': len(active_rows) == self.target_row_count,
-            'total_generation_attempts': self.total_generation_attempts,
-            'total_validation_failures': self.total_validation_failures,
-            'total_replacements': self.total_replacements,
-            'rows_flagged_for_review': len(flagged_rows),
-            'success_rate': (len(active_rows) / self.total_generation_attempts * 100) if self.total_generation_attempts > 0 else 0,
-            'average_word_count': round(avg_word_count, 1),
-            'average_replacements_per_row': round(avg_replacements, 2),
-            'duration_seconds': duration.total_seconds(),
-            'start_time': self.start_time.isoformat(),
-            'end_time': self.end_time.isoformat() if self.end_time else None
+            "job_id": self.job_id,
+            "target_row_count": self.target_row_count,
+            "actual_row_count": len(active_rows),
+            "rows_match_target": len(active_rows) == self.target_row_count,
+            "total_generation_attempts": self.total_generation_attempts,
+            "total_validation_failures": self.total_validation_failures,
+            "total_replacements": self.total_replacements,
+            "rows_flagged_for_review": len(flagged_rows),
+            "success_rate": (
+                (len(active_rows) / self.total_generation_attempts * 100)
+                if self.total_generation_attempts > 0
+                else 0
+            ),
+            "average_word_count": round(avg_word_count, 1),
+            "average_replacements_per_row": round(avg_replacements, 2),
+            "duration_seconds": duration.total_seconds(),
+            "start_time": self.start_time.isoformat(),
+            "end_time": self.end_time.isoformat() if self.end_time else None,
         }
 
     def export_tracking_log_json(self, output_path: str):
@@ -403,17 +435,17 @@ class RowTracker:
             output_path: Path to output JSON file
         """
         tracking_data = {
-            'metadata': {
-                'job_id': self.job_id,
-                'export_timestamp': datetime.now().isoformat(),
-                'target_row_count': self.target_row_count,
-                'max_replacement_attempts': self.max_replacement_attempts
+            "metadata": {
+                "job_id": self.job_id,
+                "export_timestamp": datetime.now().isoformat(),
+                "target_row_count": self.target_row_count,
+                "max_replacement_attempts": self.max_replacement_attempts,
             },
-            'statistics': self.get_statistics(),
-            'row_records': [record.to_dict() for record in self.records.values()]
+            "statistics": self.get_statistics(),
+            "row_records": [record.to_dict() for record in self.records.values()],
         }
 
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             json.dump(tracking_data, f, indent=2, ensure_ascii=False)
 
         logger.info(f"Exported tracking log to: {output_path}")
@@ -426,36 +458,38 @@ class RowTracker:
             output_path: Path to output CSV file
         """
         fieldnames = [
-            'unique_id',
-            'sequence_number',
-            'status',
-            'is_active',
-            'original_topic',
-            'replacement_count',
-            'final_word_count',
-            'final_validation_passed',
-            'needs_manual_review',
-            'manual_review_reason',
-            'request_timestamp'
+            "unique_id",
+            "sequence_number",
+            "status",
+            "is_active",
+            "original_topic",
+            "replacement_count",
+            "final_word_count",
+            "final_validation_passed",
+            "needs_manual_review",
+            "manual_review_reason",
+            "request_timestamp",
         ]
 
-        with open(output_path, 'w', newline='', encoding='utf-8') as f:
+        with open(output_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
 
-            for record in sorted(self.records.values(), key=lambda r: r.sequence_number):
+            for record in sorted(
+                self.records.values(), key=lambda r: r.sequence_number
+            ):
                 row = {
-                    'unique_id': record.unique_id,
-                    'sequence_number': record.sequence_number,
-                    'status': record.status.value,
-                    'is_active': record.is_active,
-                    'original_topic': record.original_topic[:100],  # Truncate for CSV
-                    'replacement_count': record.replacement_count,
-                    'final_word_count': record.final_word_count or 0,
-                    'final_validation_passed': record.final_validation_passed,
-                    'needs_manual_review': record.needs_manual_review,
-                    'manual_review_reason': record.manual_review_reason or '',
-                    'request_timestamp': record.request_timestamp
+                    "unique_id": record.unique_id,
+                    "sequence_number": record.sequence_number,
+                    "status": record.status.value,
+                    "is_active": record.is_active,
+                    "original_topic": record.original_topic[:100],  # Truncate for CSV
+                    "replacement_count": record.replacement_count,
+                    "final_word_count": record.final_word_count or 0,
+                    "final_validation_passed": record.final_validation_passed,
+                    "needs_manual_review": record.needs_manual_review,
+                    "manual_review_reason": record.manual_review_reason or "",
+                    "request_timestamp": record.request_timestamp,
                 }
                 writer.writerow(row)
 
@@ -496,31 +530,35 @@ class RowTracker:
             "QUALITY FLAGS",
             "-" * 80,
             f"Rows Flagged for Review: {len(flagged_rows)}",
-            ""
+            "",
         ]
 
         if flagged_rows:
             lines.append("FLAGGED ROWS (Manual Review Required)")
             lines.append("-" * 80)
             for record in flagged_rows:
-                lines.append(f"  [{record.unique_id}] Seq #{record.sequence_number}: {record.original_topic[:60]}")
+                lines.append(
+                    f"  [{record.unique_id}] Seq #{record.sequence_number}: {record.original_topic[:60]}"
+                )
                 lines.append(f"    Reason: {record.manual_review_reason}")
                 lines.append(f"    Attempts: {record.replacement_count}")
                 lines.append("")
 
-        lines.extend([
-            "TIMING",
-            "-" * 80,
-            f"Start Time:              {stats['start_time']}",
-            f"End Time:                {stats['end_time'] or 'In Progress'}",
-            f"Duration:                {stats['duration_seconds']:.1f} seconds",
-            "",
-            "=" * 80
-        ])
+        lines.extend(
+            [
+                "TIMING",
+                "-" * 80,
+                f"Start Time:              {stats['start_time']}",
+                f"End Time:                {stats['end_time'] or 'In Progress'}",
+                f"Duration:                {stats['duration_seconds']:.1f} seconds",
+                "",
+                "=" * 80,
+            ]
+        )
 
         report_text = "\n".join(lines)
 
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             f.write(report_text)
 
         logger.info(f"Generated summary report: {output_path}")
@@ -533,6 +571,7 @@ class RowTracker:
 # EXAMPLE USAGE AND INTEGRATION
 # ============================================================================
 
+
 def example_usage():
     """
     Example demonstrating row tracking system integration
@@ -541,18 +580,14 @@ def example_usage():
     # Initialize tracker
     target_rows = 100
     tracker = RowTracker(
-        target_row_count=target_rows,
-        max_replacement_attempts=5,
-        job_id="demo_job_001"
+        target_row_count=target_rows, max_replacement_attempts=5, job_id="demo_job_001"
     )
 
     # Create initial row records
     print("Creating row records...")
     for seq in range(1, target_rows + 1):
         tracker.create_row_record(
-            sequence_number=seq,
-            topic=f"Sample Topic {seq}",
-            task_id=f"task_{seq:03d}"
+            sequence_number=seq, topic=f"Sample Topic {seq}", task_id=f"task_{seq:03d}"
         )
 
     # Simulate generation with some failures
@@ -571,13 +606,13 @@ def example_usage():
             if success:
                 # Successful generation
                 row_data = {
-                    'ID': unique_id,
-                    'Title': f"Generated Title for Topic {seq}",
-                    'Content': "Lorem ipsum " * 200,  # Simulated content
-                    'Excerpt': "Sample excerpt",
-                    'Category': "General",
-                    'Tags': "sample, test",
-                    'slug': f"topic-{seq}"
+                    "ID": unique_id,
+                    "Title": f"Generated Title for Topic {seq}",
+                    "Content": "Lorem ipsum " * 200,  # Simulated content
+                    "Excerpt": "Sample excerpt",
+                    "Category": "General",
+                    "Tags": "sample, test",
+                    "slug": f"topic-{seq}",
                 }
 
                 validation_failure = None
@@ -585,22 +620,26 @@ def example_usage():
                     unique_id=unique_id,
                     success=True,
                     row_data=row_data,
-                    generation_time_ms=random.uniform(500, 2000)
+                    generation_time_ms=random.uniform(500, 2000),
                 )
                 break
             else:
                 # Failed validation
                 validation_failure = ValidationFailure(
                     timestamp=datetime.now().isoformat(),
-                    reason="Content too short" if random.random() < 0.5 else "Invalid format",
-                    word_count=random.randint(50, 150)
+                    reason=(
+                        "Content too short"
+                        if random.random() < 0.5
+                        else "Invalid format"
+                    ),
+                    word_count=random.randint(50, 150),
                 )
 
                 tracker.record_generation_attempt(
                     unique_id=unique_id,
                     success=False,
                     validation_failure=validation_failure,
-                    generation_time_ms=random.uniform(500, 2000)
+                    generation_time_ms=random.uniform(500, 2000),
                 )
 
     # Finalize tracking

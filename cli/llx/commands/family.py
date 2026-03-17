@@ -7,11 +7,20 @@ from rich.table import Table
 
 from llx.client import get_client, LlxError, LlxConnectionError
 from llx.global_opts import get_global_json, get_global_server
-from llx.theme import make_console, make_panel, ICON_ONLINE, ICON_OFFLINE, ICON_SUCCESS, ICON_WARNING
+from llx.theme import (
+    make_console,
+    make_panel,
+    ICON_ONLINE,
+    ICON_OFFLINE,
+    ICON_SUCCESS,
+    ICON_WARNING,
+)
 from llx import output
 
 console = make_console()
-family_app = typer.Typer(help="Interconnector family network management", no_args_is_help=True)
+family_app = typer.Typer(
+    help="Interconnector family network management", no_args_is_help=True
+)
 
 
 @family_app.command("list")
@@ -36,10 +45,14 @@ def family_list(
 
         if not nodes:
             console.print("[llx.dim]No family members registered.[/llx.dim]")
-            console.print("[llx.dim]Use the Settings UI or API to register nodes.[/llx.dim]")
+            console.print(
+                "[llx.dim]Use the Settings UI or API to register nodes.[/llx.dim]"
+            )
             return
 
-        table = Table(title="Family Network", border_style="llx.panel.border", show_lines=True)
+        table = Table(
+            title="Family Network", border_style="llx.panel.border", show_lines=True
+        )
         table.add_column("Name", style="llx.accent")
         table.add_column("Host")
         table.add_column("Port", justify="right")
@@ -94,23 +107,31 @@ def family_status(
 
         enabled = status_data.get("enabled", False)
         role = status_data.get("role", "unknown")
-        node_count = status_data.get("connected_nodes", status_data.get("node_count", 0))
+        node_count = status_data.get(
+            "connected_nodes", status_data.get("node_count", 0)
+        )
         pending = status_data.get("pending_updates", 0)
 
         lines = []
         e_icon = ICON_ONLINE if enabled else ICON_OFFLINE
         e_style = "llx.status.online" if enabled else "llx.status.offline"
-        lines.append(f"[{e_style}]{e_icon} Interconnector {'Enabled' if enabled else 'Disabled'}[/{e_style}]")
+        lines.append(
+            f"[{e_style}]{e_icon} Interconnector {'Enabled' if enabled else 'Disabled'}[/{e_style}]"
+        )
         lines.append(f"[llx.kv.key]Role:[/llx.kv.key]             {role}")
         lines.append(f"[llx.kv.key]Connected Nodes:[/llx.kv.key]  {node_count}")
         if pending:
-            lines.append(f"[llx.warning]{ICON_WARNING} Pending Updates: {pending}[/llx.warning]")
+            lines.append(
+                f"[llx.warning]{ICON_WARNING} Pending Updates: {pending}[/llx.warning]"
+            )
         else:
             lines.append(f"[llx.kv.key]Pending Updates:[/llx.kv.key]  0")
 
         node_id = status_data.get("node_id")
         if node_id:
-            lines.append(f"[llx.kv.key]Node ID:[/llx.kv.key]          {node_id[:16]}...")
+            lines.append(
+                f"[llx.kv.key]Node ID:[/llx.kv.key]          {node_id[:16]}..."
+            )
 
         console.print(make_panel("\n".join(lines), title="Interconnector"))
 
@@ -188,12 +209,20 @@ def family_health(
             is_online = node.get("is_online", node.get("status") == "online")
             if is_online:
                 online += 1
-                console.print(f"  [llx.status.online]{ICON_ONLINE}[/llx.status.online] {name:<20} {host}:{port}")
+                console.print(
+                    f"  [llx.status.online]{ICON_ONLINE}[/llx.status.online] {name:<20} {host}:{port}"
+                )
             else:
-                console.print(f"  [llx.status.offline]{ICON_OFFLINE}[/llx.status.offline] {name:<20} {host}:{port}  [llx.dim]unreachable[/llx.dim]")
+                console.print(
+                    f"  [llx.status.offline]{ICON_OFFLINE}[/llx.status.offline] {name:<20} {host}:{port}  [llx.dim]unreachable[/llx.dim]"
+                )
 
         total = len(nodes)
-        color = "llx.success" if online == total else ("llx.warning" if online > 0 else "llx.error")
+        color = (
+            "llx.success"
+            if online == total
+            else ("llx.warning" if online > 0 else "llx.error")
+        )
         console.print(f"\n[{color}]{online}/{total} nodes online[/{color}]")
 
     except LlxConnectionError as e:

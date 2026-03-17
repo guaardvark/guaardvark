@@ -79,6 +79,7 @@ def check_critical_imports():
     # Verify config exports
     try:
         from backend import config
+
         for sym in config_symbols:
             if hasattr(config, sym):
                 print(f"  {PASS} backend.config.{sym}")
@@ -103,7 +104,8 @@ def check_api_modules():
 
     all_ok = True
     api_files = sorted(
-        f for f in os.listdir(api_dir)
+        f
+        for f in os.listdir(api_dir)
         if f.endswith("_api.py") and not f.startswith("_")
     )
 
@@ -132,7 +134,8 @@ def check_service_modules():
 
     all_ok = True
     service_files = sorted(
-        f for f in os.listdir(services_dir)
+        f
+        for f in os.listdir(services_dir)
         if f.endswith(".py") and not f.startswith("_")
     )
 
@@ -145,7 +148,8 @@ def check_service_modules():
             short_err = str(e).split("\n")[0][:80]
             # Some services need GPU/optional deps - downgrade to warning
             if "No module named" in str(e) and any(
-                dep in str(e) for dep in ["cv2", "imageio", "torch", "diffusers", "piper"]
+                dep in str(e)
+                for dep in ["cv2", "imageio", "torch", "diffusers", "piper"]
             ):
                 warn(mod_name, f"Optional dependency missing: {short_err}")
             else:
@@ -190,9 +194,25 @@ def main():
     # Always clear pycache first
     print("\n\033[1m[0/4] Clearing __pycache__\033[0m")
     result = subprocess.run(
-        ["find", BACKEND_DIR, "-path", "*/venv", "-prune", "-o",
-         "-type", "d", "-name", "__pycache__", "-exec", "rm", "-rf", "{}", "+"],
-        capture_output=True, text=True
+        [
+            "find",
+            BACKEND_DIR,
+            "-path",
+            "*/venv",
+            "-prune",
+            "-o",
+            "-type",
+            "d",
+            "-name",
+            "__pycache__",
+            "-exec",
+            "rm",
+            "-rf",
+            "{}",
+            "+",
+        ],
+        capture_output=True,
+        text=True,
     )
     print(f"  {PASS} Cleared stale bytecode cache")
 

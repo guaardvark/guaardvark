@@ -21,9 +21,11 @@ def get_rules():
             )
 
         # Optimize query with pagination and eager loading
-        page = request.args.get('page', 1, type=int)
-        per_page = min(request.args.get('per_page', 50, type=int), 100)  # Max 100 per page
-        
+        page = request.args.get("page", 1, type=int)
+        per_page = min(
+            request.args.get("per_page", 50, type=int), 100
+        )  # Max 100 per page
+
         rules = query.order_by(Rule.updated_at.desc().nullslast()).paginate(
             page=page, per_page=per_page, error_out=False
         )
@@ -59,7 +61,9 @@ def create_rule():
 
     rule_text = data.get("rule_text")
     if not rule_text or not isinstance(rule_text, str):
-        return error_response("Missing or invalid 'rule_text' field", 400, "INVALID_RULE_TEXT")
+        return error_response(
+            "Missing or invalid 'rule_text' field", 400, "INVALID_RULE_TEXT"
+        )
 
     # Validate optional fields
     level = data.get("level", "PROMPT")
@@ -100,11 +104,14 @@ def create_rule():
         db.session.rollback()
         return error_response(
             "Duplicate command_label. Each rule must have a unique command_label.",
-            409, "DUPLICATE_COMMAND_LABEL"
+            409,
+            "DUPLICATE_COMMAND_LABEL",
         )
     except SQLAlchemyError as e:
         db.session.rollback()
-        return error_response("Failed to create rule due to database error", 500, "DATABASE_ERROR")
+        return error_response(
+            "Failed to create rule due to database error", 500, "DATABASE_ERROR"
+        )
     except Exception as e:
         db.session.rollback()
         return error_response("Failed to create rule", 500, "CREATE_FAILED")
@@ -149,7 +156,9 @@ def update_rule(rule_id):
         return success_response(message="Rule updated.")
     except IntegrityError as e:
         db.session.rollback()
-        return error_response("Duplicate command_label. Each rule must have a unique command_label.", 409)
+        return error_response(
+            "Duplicate command_label. Each rule must have a unique command_label.", 409
+        )
     except SQLAlchemyError as e:
         db.session.rollback()
         return error_response("Failed to update rule", 500)

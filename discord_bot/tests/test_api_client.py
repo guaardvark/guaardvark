@@ -1,4 +1,5 @@
 """Tests for the Guaardvark API client."""
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from discord_bot.core.api_client import GuaardvarkClient, APIError

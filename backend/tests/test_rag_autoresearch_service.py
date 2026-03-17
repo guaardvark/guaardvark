@@ -1,4 +1,5 @@
 """Tests for the RAG Autoresearch orchestrator."""
+
 import pytest
 import time
 from unittest.mock import patch, MagicMock
@@ -30,19 +31,32 @@ class TestExperimentCycle:
         """A winning experiment updates the config."""
         with app.app_context():
             svc = RAGAutoresearchService()
-            with patch.object(svc.agent, "propose_experiment") as mock_propose, \
-                 patch.object(svc.eval_harness, "run_full_eval") as mock_eval, \
-                 patch.object(svc, "_load_config") as mock_load, \
-                 patch.object(svc, "_save_config") as mock_save, \
-                 patch.object(svc, "_log_experiment") as mock_log:
+            with patch.object(
+                svc.agent, "propose_experiment"
+            ) as mock_propose, patch.object(
+                svc.eval_harness, "run_full_eval"
+            ) as mock_eval, patch.object(
+                svc, "_load_config"
+            ) as mock_load, patch.object(
+                svc, "_save_config"
+            ) as mock_save, patch.object(
+                svc, "_log_experiment"
+            ) as mock_log:
                 mock_load.return_value = {
-                    "params": {"top_k": 5}, "baseline_score": 3.0, "phase": 1
+                    "params": {"top_k": 5},
+                    "baseline_score": 3.0,
+                    "phase": 1,
                 }
                 mock_propose.return_value = {
-                    "parameter": "top_k", "new_value": 8,
+                    "parameter": "top_k",
+                    "new_value": 8,
                     "hypothesis": "try more chunks",
                 }
-                mock_eval.return_value = {"composite_score": 3.5, "num_pairs": 10, "details": []}
+                mock_eval.return_value = {
+                    "composite_score": 3.5,
+                    "num_pairs": 10,
+                    "details": [],
+                }
 
                 result = svc.run_single_experiment()
                 assert result["status"] == "keep"
@@ -53,20 +67,34 @@ class TestExperimentCycle:
         """A losing experiment reverts the config — promote is NOT called."""
         with app.app_context():
             svc = RAGAutoresearchService()
-            with patch.object(svc.agent, "propose_experiment") as mock_propose, \
-                 patch.object(svc.eval_harness, "run_full_eval") as mock_eval, \
-                 patch.object(svc, "_load_config") as mock_load, \
-                 patch.object(svc, "_save_config") as mock_save, \
-                 patch.object(svc, "_log_experiment") as mock_log, \
-                 patch.object(svc, "_promote_config") as mock_promote:
+            with patch.object(
+                svc.agent, "propose_experiment"
+            ) as mock_propose, patch.object(
+                svc.eval_harness, "run_full_eval"
+            ) as mock_eval, patch.object(
+                svc, "_load_config"
+            ) as mock_load, patch.object(
+                svc, "_save_config"
+            ) as mock_save, patch.object(
+                svc, "_log_experiment"
+            ) as mock_log, patch.object(
+                svc, "_promote_config"
+            ) as mock_promote:
                 mock_load.return_value = {
-                    "params": {"top_k": 5}, "baseline_score": 3.0, "phase": 1
+                    "params": {"top_k": 5},
+                    "baseline_score": 3.0,
+                    "phase": 1,
                 }
                 mock_propose.return_value = {
-                    "parameter": "top_k", "new_value": 2,
+                    "parameter": "top_k",
+                    "new_value": 2,
                     "hypothesis": "try fewer chunks",
                 }
-                mock_eval.return_value = {"composite_score": 2.5, "num_pairs": 10, "details": []}
+                mock_eval.return_value = {
+                    "composite_score": 2.5,
+                    "num_pairs": 10,
+                    "details": [],
+                }
 
                 result = svc.run_single_experiment()
                 assert result["status"] == "discard"

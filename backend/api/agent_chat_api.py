@@ -55,7 +55,7 @@ def _initialize_agent_system():
 def agent_chat():
     """
     Agent-powered chat endpoint with tool calling
-    
+
     Request:
     {
         "message": "Read app.py and tell me about the blueprint registration",
@@ -63,7 +63,7 @@ def agent_chat():
         "max_iterations": 10,  # optional
         "context": "additional context"  # optional
     }
-    
+
     Response:
     {
         "success": true,
@@ -77,78 +77,91 @@ def agent_chat():
         # Validate request
         if not request.is_json:
             return jsonify({"error": "Request must be JSON"}), 400
-        
+
         data = request.get_json()
-        message = data.get('message')
-        session_id = data.get('session_id')
-        max_iterations = data.get('max_iterations', 10)
-        context = data.get('context', '')
-        
+        message = data.get("message")
+        session_id = data.get("session_id")
+        max_iterations = data.get("max_iterations", 10)
+        context = data.get("context", "")
+
         if not message:
             return jsonify({"error": "Missing 'message' parameter"}), 400
-        
+
         if not session_id:
             return jsonify({"error": "Missing 'session_id' parameter"}), 400
-        
+
         # Initialize agent system
         if not _initialize_agent_system():
             return jsonify({"error": "Agent system initialization failed"}), 500
-        
+
         # Use system coordinator if available
         try:
-            from backend.utils.system_coordinator import get_system_coordinator, ProcessType
+            from backend.utils.system_coordinator import (
+                get_system_coordinator,
+                ProcessType,
+            )
+
             coordinator = get_system_coordinator()
-            
-            with coordinator.managed_operation("agent_chat", ProcessType.CHAT_SESSION) as process_id:
+
+            with coordinator.managed_operation(
+                "agent_chat", ProcessType.CHAT_SESSION
+            ) as process_id:
                 # Validate security
                 if not coordinator.validate_security("llm_prompt", prompt=message):
                     return jsonify({"error": "Security validation failed"}), 403
-                
+
                 # Execute agent
                 result = _agent_executor.execute(
-                    user_query=message,
-                    session_context=context,
-                    process_id=process_id
+                    user_query=message, session_context=context, process_id=process_id
                 )
-                
+
         except ImportError:
             # Run without coordinator
             logger.warning("System coordinator not available, running without it")
             result = _agent_executor.execute(
-                user_query=message,
-                session_context=context
+                user_query=message, session_context=context
             )
-        
+
         # Format response
         if not result.success:
-            return jsonify({
-                "success": False,
-                "error": result.error,
-                "steps": [step.__dict__ for step in result.steps],
-                "iterations": result.iterations
-            }), 500
-        
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": result.error,
+                        "steps": [step.__dict__ for step in result.steps],
+                        "iterations": result.iterations,
+                    }
+                ),
+                500,
+            )
+
         # Count total tool calls
         total_tool_calls = sum(len(step.tool_calls) for step in result.steps)
-        
-        return jsonify({
-            "success": True,
-            "final_answer": result.final_answer,
-            "steps": [
+
+        return (
+            jsonify(
                 {
-                    'iteration': step.iteration,
-                    'thoughts': step.thoughts,
-                    'tool_calls': step.tool_calls,
-                    'observations': step.observations,
-                    'timestamp': step.timestamp
+                    "success": True,
+                    "final_answer": result.final_answer,
+                    "steps": [
+                        {
+                            "iteration": step.iteration,
+                            "thoughts": step.thoughts,
+                            "tool_calls": step.tool_calls,
+                            "observations": step.observations,
+                            "timestamp": step.timestamp,
+                        }
+                        for step in result.steps
+                    ],
+                    "iterations": result.iterations,
+                    "tool_calls": total_tool_calls,
+                    "session_id": session_id,
                 }
-                for step in result.steps
-            ],
-            "iterations": result.iterations,
-            "tool_calls": total_tool_calls,
-            "session_id": session_id
-        }), 200
-        
+            ),
+            200,
+        )
+
     except Exception as e:
         logger.error(f"Agent chat error: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
@@ -158,7 +171,7 @@ def agent_chat():
 def list_tools():
     """
     List available tools
-    
+
     Response:
     {
         "tools": [
@@ -175,18 +188,15 @@ def list_tools():
         # Initialize agent system
         if not _initialize_agent_system():
             return jsonify({"error": "Agent system initialization failed"}), 500
-        
+
         # Get tool information
         tools = []
         for tool_name in _tool_registry.list_tools():
             tool = _tool_registry.get_tool(tool_name)
             tools.append(tool.get_json_schema())
-        
-        return jsonify({
-            "tools": tools,
-            "count": len(tools)
-        }), 200
-        
+
+        return jsonify({"tools": tools, "count": len(tools)}), 200
+
     except Exception as e:
         logger.error(f"Error listing tools: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
@@ -198,23 +208,31 @@ def agent_health():
     try:
         # Try to initialize
         initialized = _initialize_agent_system()
-        
+
         if initialized:
-            return jsonify({
-                "status": "healthy",
-                "tools_registered": len(_tool_registry) if _tool_registry else 0,
-                "agent_ready": _agent_executor is not None
-            }), 200
+            return (
+                jsonify(
+                    {
+                        "status": "healthy",
+                        "tools_registered": (
+                            len(_tool_registry) if _tool_registry else 0
+                        ),
+                        "agent_ready": _agent_executor is not None,
+                    }
+                ),
+                200,
+            )
         else:
-            return jsonify({
-                "status": "unhealthy",
-                "error": "Agent system failed to initialize"
-            }), 503
-            
+            return (
+                jsonify(
+                    {
+                        "status": "unhealthy",
+                        "error": "Agent system failed to initialize",
+                    }
+                ),
+                503,
+            )
+
     except Exception as e:
         logger.error(f"Agent health check failed: {e}", exc_info=True)
-        return jsonify({
-            "status": "error",
-            "error": str(e)
-        }), 500
-
+        return jsonify({"status": "error", "error": str(e)}), 500

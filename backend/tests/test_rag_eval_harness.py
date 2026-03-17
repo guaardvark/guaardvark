@@ -1,4 +1,5 @@
 """Tests for RAG eval harness — eval pair generation and LLM-as-judge scoring."""
+
 import pytest
 from unittest.mock import patch, MagicMock
 
@@ -80,15 +81,26 @@ class TestLLMJudge:
         """Full eval runs all eval pairs and returns average composite score."""
         with app.app_context():
             harness = RAGEvalHarness()
-            with patch.object(harness, "_get_active_eval_pairs") as mock_pairs, \
-                 patch.object(harness, "_eval_single_pair") as mock_eval:
+            with patch.object(
+                harness, "_get_active_eval_pairs"
+            ) as mock_pairs, patch.object(harness, "_eval_single_pair") as mock_eval:
                 mock_pairs.return_value = [
                     {"id": "1", "question": "q1", "expected_answer": "a1"},
                     {"id": "2", "question": "q2", "expected_answer": "a2"},
                 ]
                 mock_eval.side_effect = [
-                    {"composite": 4.0, "relevance": 4, "grounding": 4, "completeness": 4},
-                    {"composite": 3.0, "relevance": 3, "grounding": 3, "completeness": 3},
+                    {
+                        "composite": 4.0,
+                        "relevance": 4,
+                        "grounding": 4,
+                        "completeness": 4,
+                    },
+                    {
+                        "composite": 3.0,
+                        "relevance": 3,
+                        "grounding": 3,
+                        "completeness": 3,
+                    },
                 ]
                 result = harness.run_full_eval(config={"top_k": 5})
                 assert result["composite_score"] == 3.5

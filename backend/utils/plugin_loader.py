@@ -1,4 +1,3 @@
-
 import os
 import json
 import logging
@@ -7,6 +6,7 @@ from typing import Dict, List, Optional
 from flask import Flask
 
 logger = logging.getLogger(__name__)
+
 
 class PluginLoader:
 
@@ -17,11 +17,11 @@ class PluginLoader:
         self.plugin_manifests: Dict[str, dict] = {}
 
     def _get_default_plugins_dir(self) -> str:
-        llamax_root = self.app.config.get('GUAARDVARK_ROOT')
+        llamax_root = self.app.config.get("GUAARDVARK_ROOT")
         if llamax_root:
-            return os.path.join(llamax_root, 'backend', 'plugins')
+            return os.path.join(llamax_root, "backend", "plugins")
         else:
-            return os.path.join(os.path.dirname(os.path.dirname(__file__)), 'plugins')
+            return os.path.join(os.path.dirname(os.path.dirname(__file__)), "plugins")
 
     def discover_plugins(self) -> List[str]:
         if not os.path.exists(self.plugins_dir):
@@ -31,22 +31,24 @@ class PluginLoader:
 
         plugins = []
         for entry in os.listdir(self.plugins_dir):
-            if entry.startswith('__') or entry.startswith('.'):
+            if entry.startswith("__") or entry.startswith("."):
                 continue
 
             plugin_path = os.path.join(self.plugins_dir, entry)
-            manifest_path = os.path.join(plugin_path, 'manifest.json')
+            manifest_path = os.path.join(plugin_path, "manifest.json")
 
             if os.path.isdir(plugin_path) and os.path.exists(manifest_path):
                 try:
-                    with open(manifest_path, 'r') as f:
+                    with open(manifest_path, "r") as f:
                         manifest = json.load(f)
-                        plugin_id = manifest.get('id', entry)
+                        plugin_id = manifest.get("id", entry)
                         plugins.append(plugin_id)
                         self.plugin_manifests[plugin_id] = manifest
-                        logger.debug("Discovered plugin: %s (v%s)",
-                                   manifest.get('name', plugin_id),
-                                   manifest.get('version', 'unknown'))
+                        logger.debug(
+                            "Discovered plugin: %s (v%s)",
+                            manifest.get("name", plugin_id),
+                            manifest.get("version", "unknown"),
+                        )
                 except Exception as e:
                     logger.error("Failed to read manifest for %s: %s", entry, e)
 
@@ -62,14 +64,13 @@ class PluginLoader:
             import importlib.util
             import sys
 
-            init_file = os.path.join(plugin_path, '__init__.py')
+            init_file = os.path.join(plugin_path, "__init__.py")
 
             if not os.path.exists(init_file):
                 raise ImportError(f"Plugin {plugin_id} has no __init__.py")
 
             spec = importlib.util.spec_from_file_location(
-                f"backend.plugins.{plugin_id}",
-                init_file
+                f"backend.plugins.{plugin_id}", init_file
             )
 
             if spec is None or spec.loader is None:
@@ -81,14 +82,16 @@ class PluginLoader:
 
             spec.loader.exec_module(module)
 
-            if hasattr(module, 'init_plugin'):
+            if hasattr(module, "init_plugin"):
                 plugin_instance = module.init_plugin(self.app)
                 self.loaded_plugins[plugin_id] = plugin_instance
 
                 manifest = self.plugin_manifests.get(plugin_id, {})
-                logger.info("✅ Loaded plugin: %s (v%s)",
-                          manifest.get('name', plugin_id),
-                          manifest.get('version', 'unknown'))
+                logger.info(
+                    "✅ Loaded plugin: %s (v%s)",
+                    manifest.get("name", plugin_id),
+                    manifest.get("version", "unknown"),
+                )
             else:
                 logger.warning("Plugin %s has no init_plugin() function", plugin_id)
 
@@ -103,7 +106,7 @@ class PluginLoader:
             logger.info("No plugins found in %s", self.plugins_dir)
             return
 
-        logger.info("Discovered %d plugin(s): %s", len(plugins), ', '.join(plugins))
+        logger.info("Discovered %d plugin(s): %s", len(plugins), ", ".join(plugins))
 
         for plugin_id in plugins:
             try:
@@ -123,11 +126,12 @@ class PluginLoader:
     def shutdown_all_plugins(self):
         for plugin_id, plugin_instance in self.loaded_plugins.items():
             try:
-                if hasattr(plugin_instance, 'shutdown'):
+                if hasattr(plugin_instance, "shutdown"):
                     plugin_instance.shutdown()
                     logger.debug("Shutdown plugin: %s", plugin_id)
             except Exception as e:
                 logger.error("Error shutting down plugin %s: %s", plugin_id, e)
+
 
 def init_plugins(app: Flask) -> PluginLoader:
     logger.info("🔌 Initializing plugin system")

@@ -2,7 +2,12 @@ import httpx
 from pathlib import Path
 from typing import Any
 
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+)
 
 from llx.config import get_server_url, get_api_key, get_timeout
 from llx.global_opts import get_global_timeout
@@ -21,7 +26,12 @@ class LlxConnectionError(LlxError):
 
 class LlxClient:
 
-    def __init__(self, server_url: str | None = None, api_key: str | None = None, timeout: float | None = None):
+    def __init__(
+        self,
+        server_url: str | None = None,
+        api_key: str | None = None,
+        timeout: float | None = None,
+    ):
         self.server_url = server_url or get_server_url()
         api_key = api_key or get_api_key()
         timeout = timeout or get_global_timeout() or get_timeout()
@@ -97,9 +107,17 @@ class LlxClient:
                     "Is the server running? Try: ./start.sh"
                 )
 
-    def upload_with_progress(self, path: str, file_path: Path, console=None, **extra_fields) -> dict:
+    def upload_with_progress(
+        self, path: str, file_path: Path, console=None, **extra_fields
+    ) -> dict:
         """Upload a file with a Rich progress bar."""
-        from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TransferSpeedColumn
+        from rich.progress import (
+            Progress,
+            SpinnerColumn,
+            BarColumn,
+            TextColumn,
+            TransferSpeedColumn,
+        )
 
         file_size = file_path.stat().st_size
         data = {k: str(v) for k, v in extra_fields.items() if v is not None}
@@ -118,6 +136,7 @@ class LlxClient:
                 def __init__(self, fp, callback):
                     self.fp = fp
                     self.callback = callback
+
                 def read(self, size=-1):
                     chunk = self.fp.read(size)
                     if chunk:
@@ -140,7 +159,9 @@ class LlxClient:
         try:
             resp = self.http.get(path)
             if resp.status_code >= 400:
-                raise LlxError(f"Download failed: HTTP {resp.status_code}", resp.status_code)
+                raise LlxError(
+                    f"Download failed: HTTP {resp.status_code}", resp.status_code
+                )
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_bytes(resp.content)
             return dest

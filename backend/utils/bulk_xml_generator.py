@@ -23,9 +23,17 @@ class BulkXMLGenerator(BulkCSVGenerator):
     Extends BulkCSVGenerator to maintain same batch processing architecture.
     """
 
-    def __init__(self, output_dir: str, concurrent_workers: int = 10, batch_size: int = 50,
-                 target_word_count: int = 500, prompt_rule: Optional[object] = None,
-                 unified_progress_system=None, job_id=None, **kwargs):
+    def __init__(
+        self,
+        output_dir: str,
+        concurrent_workers: int = 10,
+        batch_size: int = 50,
+        target_word_count: int = 500,
+        prompt_rule: Optional[object] = None,
+        unified_progress_system=None,
+        job_id=None,
+        **kwargs,
+    ):
         """Initialize XML generator with same parameters as CSV generator"""
         super().__init__(
             output_dir=output_dir,
@@ -34,17 +42,16 @@ class BulkXMLGenerator(BulkCSVGenerator):
             target_word_count=target_word_count,
             unified_progress_system=unified_progress_system,
             job_id=job_id,
-            **kwargs
+            **kwargs,
         )
         self.prompt_rule = prompt_rule
-        self.output_format = 'xml'
-        logger.info(f"BulkXMLGenerator initialized with {concurrent_workers} workers, batch size {batch_size}")
+        self.output_format = "xml"
+        logger.info(
+            f"BulkXMLGenerator initialized with {concurrent_workers} workers, batch size {batch_size}"
+        )
 
     def generate_bulk_content(
-        self,
-        tasks: List[GenerationTask],
-        output_filename: str,
-        **kwargs
+        self, tasks: List[GenerationTask], output_filename: str, **kwargs
     ) -> Dict:
         """
         Generate XML file with WordPress-compatible structure.
@@ -76,7 +83,9 @@ class BulkXMLGenerator(BulkCSVGenerator):
                 batch_end = min(batch_start + self.batch_size, len(tasks))
                 batch_tasks = tasks[batch_start:batch_end]
 
-                logger.info(f"Processing batch {batch_num + 1}/{total_batches} ({len(batch_tasks)} tasks)")
+                logger.info(
+                    f"Processing batch {batch_num + 1}/{total_batches} ({len(batch_tasks)} tasks)"
+                )
 
                 # Generate content for batch using parent's concurrent method
                 batch_results = self._generate_batch_concurrent(batch_tasks)
@@ -86,23 +95,25 @@ class BulkXMLGenerator(BulkCSVGenerator):
                 progress_pct = (len(all_results) / len(tasks)) * 100
                 self._update_progress(
                     f"Batch {batch_num + 1}/{total_batches} complete. Generated: {len(all_results)}/{len(tasks)}",
-                    progress_pct
+                    progress_pct,
                 )
 
             # Convert ContentRow objects to dictionaries for XML building
             results = []
             for content_row in all_results:
                 if content_row:
-                    results.append({
-                        'id': content_row.id,
-                        'title': content_row.title,
-                        'content': content_row.content,
-                        'excerpt': content_row.excerpt,
-                        'category': content_row.category,
-                        'tags': content_row.tags,
-                        'slug': content_row.slug,
-                        'image': getattr(content_row, 'image', '')
-                    })
+                    results.append(
+                        {
+                            "id": content_row.id,
+                            "title": content_row.title,
+                            "content": content_row.content,
+                            "excerpt": content_row.excerpt,
+                            "category": content_row.category,
+                            "tags": content_row.tags,
+                            "slug": content_row.slug,
+                            "image": getattr(content_row, "image", ""),
+                        }
+                    )
 
             # Build XML structure
             xml_data = self._build_xml_structure(results, **kwargs)
@@ -113,28 +124,32 @@ class BulkXMLGenerator(BulkCSVGenerator):
 
             # Calculate statistics
             stats = {
-                'total_tasks': len(tasks),
-                'successful': len([r for r in results if r is not None]),
-                'failed': len([r for r in results if r is None]),
-                'output_file': output_path,
-                'file_size': os.path.getsize(output_path) if os.path.exists(output_path) else 0
+                "total_tasks": len(tasks),
+                "successful": len([r for r in results if r is not None]),
+                "failed": len([r for r in results if r is None]),
+                "output_file": output_path,
+                "file_size": (
+                    os.path.getsize(output_path) if os.path.exists(output_path) else 0
+                ),
             }
 
-            logger.info(f"XML generation complete: {stats['successful']}/{stats['total_tasks']} successful")
+            logger.info(
+                f"XML generation complete: {stats['successful']}/{stats['total_tasks']} successful"
+            )
 
             return {
-                'success': True,
-                'file_path': output_path,
-                'statistics': stats,
-                'message': f"Generated {stats['successful']} posts in XML format"
+                "success": True,
+                "file_path": output_path,
+                "statistics": stats,
+                "message": f"Generated {stats['successful']} posts in XML format",
             }
 
         except Exception as e:
             logger.error(f"XML generation failed: {e}", exc_info=True)
             return {
-                'success': False,
-                'error': str(e),
-                'message': f"XML generation failed: {e}"
+                "success": False,
+                "error": str(e),
+                "message": f"XML generation failed: {e}",
             }
 
     def _build_xml_structure(self, results: List[Dict], **kwargs) -> ET.Element:
@@ -149,70 +164,87 @@ class BulkXMLGenerator(BulkCSVGenerator):
             XML root element
         """
         # Create root element
-        root = ET.Element('llamanator_export')
-        root.set('version', '3.02')
-        root.set('generator', 'LLM009.2 Bulk Generator')
+        root = ET.Element("llamanator_export")
+        root.set("version", "3.02")
+        root.set("generator", "LLM009.2 Bulk Generator")
         from datetime import timezone
-        root.set('date', datetime.now(timezone.utc).isoformat())
+
+        root.set("date", datetime.now(timezone.utc).isoformat())
 
         # Get insert content options
-        insert_content = kwargs.get('insert_content', '')
-        insert_position = kwargs.get('insert_position', 'none')
+        insert_content = kwargs.get("insert_content", "")
+        insert_position = kwargs.get("insert_position", "none")
 
         # Process each result
         for idx, result in enumerate(results, 1):
             if result is None:
                 continue
 
-            post = ET.SubElement(root, 'post')
+            post = ET.SubElement(root, "post")
 
             # Core WordPress fields
-            self._add_xml_element(post, 'ID', result.get('id', str(idx)))
-            self._add_xml_element(post, 'Title', result.get('title', f'Untitled Post {idx}'))
+            self._add_xml_element(post, "ID", result.get("id", str(idx)))
+            self._add_xml_element(
+                post, "Title", result.get("title", f"Untitled Post {idx}")
+            )
 
             # Handle content with insert options
-            content = result.get('content', '')
-            if insert_content and insert_position != 'none':
-                if insert_position == 'top':
+            content = result.get("content", "")
+            if insert_content and insert_position != "none":
+                if insert_position == "top":
                     content = f"{insert_content}\n\n{content}"
-                elif insert_position == 'bottom':
+                elif insert_position == "bottom":
                     content = f"{content}\n\n{insert_content}"
 
-            self._add_xml_element(post, 'Content', content, use_cdata=True)
-            self._add_xml_element(post, 'Excerpt', result.get('excerpt', ''), use_cdata=True)
+            self._add_xml_element(post, "Content", content, use_cdata=True)
+            self._add_xml_element(
+                post, "Excerpt", result.get("excerpt", ""), use_cdata=True
+            )
 
             # Taxonomy fields
-            categories = result.get('category', result.get('categories', ''))
+            categories = result.get("category", result.get("categories", ""))
             if isinstance(categories, list):
-                categories = '|'.join(categories)
-            self._add_xml_element(post, 'Category', categories)
+                categories = "|".join(categories)
+            self._add_xml_element(post, "Category", categories)
 
-            tags = result.get('tags', '')
+            tags = result.get("tags", "")
             if isinstance(tags, list):
-                tags = '|'.join(tags)
-            self._add_xml_element(post, 'Tags', tags)
+                tags = "|".join(tags)
+            self._add_xml_element(post, "Tags", tags)
 
             # Permalink/slug
-            self._add_xml_element(post, 'slug', result.get('slug', ''))
+            self._add_xml_element(post, "slug", result.get("slug", ""))
 
             # Featured image (if available)
-            if 'image' in result or 'featured_image' in result:
-                image_url = result.get('image', result.get('featured_image', ''))
+            if "image" in result or "featured_image" in result:
+                image_url = result.get("image", result.get("featured_image", ""))
                 if image_url:
-                    self._add_xml_element(post, 'Featured Image', image_url)
+                    self._add_xml_element(post, "Featured Image", image_url)
 
             # Custom metadata fields (anything not in core fields)
-            core_fields = {'id', 'title', 'content', 'excerpt', 'category', 'categories',
-                          'tags', 'slug', 'image', 'featured_image'}
+            core_fields = {
+                "id",
+                "title",
+                "content",
+                "excerpt",
+                "category",
+                "categories",
+                "tags",
+                "slug",
+                "image",
+                "featured_image",
+            }
             for key, value in result.items():
                 if key not in core_fields and value:
                     # Custom fields with underscore prefix are treated as private meta
-                    field_name = key if key.startswith('_') else f"_{key}"
+                    field_name = key if key.startswith("_") else f"_{key}"
                     self._add_xml_element(post, field_name, str(value))
 
         return root
 
-    def _add_xml_element(self, parent: ET.Element, tag: str, text: str, use_cdata: bool = False):
+    def _add_xml_element(
+        self, parent: ET.Element, tag: str, text: str, use_cdata: bool = False
+    ):
         """
         Add an XML element with proper escaping.
 
@@ -230,7 +262,7 @@ class BulkXMLGenerator(BulkCSVGenerator):
         if use_cdata:
             # CDATA sections are added during prettification
             element.text = text
-            element.set('cdata', 'true')  # Mark for CDATA wrapping
+            element.set("cdata", "true")  # Mark for CDATA wrapping
         else:
             element.text = str(text)
 
@@ -243,20 +275,20 @@ class BulkXMLGenerator(BulkCSVGenerator):
             output_path: Path to output file
         """
         # Convert to string
-        xml_string = ET.tostring(root, encoding='utf-8', method='xml')
+        xml_string = ET.tostring(root, encoding="utf-8", method="xml")
 
         # Pretty print with minidom (without XML declaration to avoid double declaration)
         dom = minidom.parseString(xml_string)
-        pretty_xml_str = dom.toprettyxml(indent='    ')
+        pretty_xml_str = dom.toprettyxml(indent="    ")
 
         # Add proper XML declaration manually
-        if not pretty_xml_str.startswith('<?xml'):
+        if not pretty_xml_str.startswith("<?xml"):
             pretty_xml_str = '<?xml version="1.0" encoding="utf-8"?>\n' + pretty_xml_str
 
-        pretty_xml = pretty_xml_str.encode('utf-8')
+        pretty_xml = pretty_xml_str.encode("utf-8")
 
         # Replace CDATA markers with actual CDATA sections
-        pretty_xml_str = pretty_xml.decode('utf-8')
+        pretty_xml_str = pretty_xml.decode("utf-8")
 
         # Find elements marked for CDATA and wrap them (handles multiline elements)
         import re
@@ -268,37 +300,39 @@ class BulkXMLGenerator(BulkCSVGenerator):
             content = match.group(2)
             tag_close = match.group(3)
             # Remove cdata attribute and wrap content
-            tag_open_clean = tag_open.replace(' cdata="true"', '')
+            tag_open_clean = tag_open.replace(' cdata="true"', "")
             return f"{tag_open_clean}<![CDATA[{content}]]>{tag_close}"
 
         # Pattern matches: <Tag cdata="true">content</Tag> (multiline-aware)
         pattern = r'(<[^>]+ cdata="true"[^>]*>)(.*?)(<\/[^>]+>)'
         output_lines = []
 
-        for line in pretty_xml_str.split('\n'):
+        for line in pretty_xml_str.split("\n"):
             if 'cdata="true"' in line:
                 # Check if this is a single-line CDATA element
-                if '>' in line and '</' in line and line.count('>') >= 2:
+                if ">" in line and "</" in line and line.count(">") >= 2:
                     # Single line - use simple replacement
-                    line = line.replace(' cdata="true"', '')
-                    if '>' in line and '</' in line:
-                        start_tag_end = line.index('>')
-                        end_tag_start = line.rindex('</')
-                        tag_start = line[:start_tag_end + 1]
-                        content = line[start_tag_end + 1:end_tag_start]
+                    line = line.replace(' cdata="true"', "")
+                    if ">" in line and "</" in line:
+                        start_tag_end = line.index(">")
+                        end_tag_start = line.rindex("</")
+                        tag_start = line[: start_tag_end + 1]
+                        content = line[start_tag_end + 1 : end_tag_start]
                         tag_end = line[end_tag_start:]
                         line = f"{tag_start}<![CDATA[{content}]]>{tag_end}"
             output_lines.append(line)
 
-        final_xml = '\n'.join(output_lines)
+        final_xml = "\n".join(output_lines)
 
         # Write to file
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             f.write(final_xml)
 
         logger.info(f"XML file written to: {output_path}")
 
-    def _parse_csv_response(self, response_text: str, task: GenerationTask) -> Optional['ContentRow']:
+    def _parse_csv_response(
+        self, response_text: str, task: GenerationTask
+    ) -> Optional["ContentRow"]:
         """
         Parse LLM response into ContentRow object.
         Overrides parent method to ensure XML-compatible output.
@@ -321,7 +355,7 @@ class BulkXMLGenerator(BulkCSVGenerator):
 
                 # Ensure slug is set
                 if not content_row.slug or content_row.slug == "":
-                    fallback_title = getattr(task, 'topic', 'Untitled Post')
+                    fallback_title = getattr(task, "topic", "Untitled Post")
                     title = content_row.title if content_row.title else fallback_title
                     content_row.slug = self._generate_slug(title)
 
@@ -344,24 +378,26 @@ class BulkXMLGenerator(BulkCSVGenerator):
         import re
 
         if not title or not isinstance(title, str):
-            return 'untitled-post'
+            return "untitled-post"
 
         # Convert to lowercase
         slug = title.lower()
 
         # Replace spaces and special characters with hyphens
-        slug = re.sub(r'[^\w\s-]', '', slug)
-        slug = re.sub(r'[-\s]+', '-', slug)
+        slug = re.sub(r"[^\w\s-]", "", slug)
+        slug = re.sub(r"[-\s]+", "-", slug)
 
         # Remove leading/trailing hyphens
-        slug = slug.strip('-')
+        slug = slug.strip("-")
 
         # Limit slug length but warn if truncated
         if len(slug) > 200:
-            logger.warning(f"Slug truncated from {len(slug)} to 200 characters: '{slug[:50]}...'")
+            logger.warning(
+                f"Slug truncated from {len(slug)} to 200 characters: '{slug[:50]}...'"
+            )
             slug = slug[:200]
 
-        return slug or 'untitled-post'  # Fallback if slug is empty after processing
+        return slug or "untitled-post"  # Fallback if slug is empty after processing
 
 
 # Convenience function for direct usage
@@ -375,7 +411,7 @@ def generate_xml_file(
     prompt_rule: Optional[object] = None,
     unified_progress_system=None,
     job_id=None,
-    **kwargs
+    **kwargs,
 ) -> Dict:
     """
     Generate XML file with batch processing.
@@ -403,7 +439,7 @@ def generate_xml_file(
         prompt_rule=prompt_rule,
         unified_progress_system=unified_progress_system,
         job_id=job_id,
-        **kwargs
+        **kwargs,
     )
 
     return generator.generate_bulk_content(tasks, output_filename, **kwargs)

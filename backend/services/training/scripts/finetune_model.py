@@ -11,7 +11,7 @@ import argparse
 from pathlib import Path
 from datetime import datetime
 
-TRAINING_DIR = Path(os.environ.get('GUAARDVARK_ROOT', '.')) / "training"
+TRAINING_DIR = Path(os.environ.get("GUAARDVARK_ROOT", ".")) / "training"
 DATASETS_DIR = TRAINING_DIR / "datasets"
 MODELS_DIR = TRAINING_DIR / "models"
 
@@ -26,24 +26,28 @@ def check_dependencies():
 
     try:
         import torch
+
         print(f"PyTorch: {torch.__version__}, CUDA: {torch.cuda.is_available()}")
     except ImportError:
         missing.append("torch")
 
     try:
         import unsloth
+
         print(f"Unsloth: installed")
     except ImportError:
         missing.append("unsloth")
 
     try:
         from datasets import load_dataset
+
         print(f"Datasets: installed")
     except ImportError:
         missing.append("datasets")
 
     try:
         from trl import SFTTrainer
+
         print(f"TRL: installed")
     except ImportError:
         missing.append("trl")
@@ -62,14 +66,14 @@ def load_training_data(data_path: str):
 
     data_path = Path(data_path)
 
-    if data_path.suffix == '.jsonl':
+    if data_path.suffix == ".jsonl":
         records = []
         with open(data_path) as f:
             for line in f:
                 records.append(json.loads(line))
         return Dataset.from_list(records)
 
-    elif data_path.suffix == '.json':
+    elif data_path.suffix == ".json":
         with open(data_path) as f:
             records = json.load(f)
         return Dataset.from_list(records)
@@ -115,9 +119,9 @@ def find_last_checkpoint(output_dir: Path) -> str:
 
 def format_prompt(example):
     """Format training example into prompt."""
-    instruction = example.get('instruction', '')
-    inp = example.get('input', '')
-    output = example.get('output', '')
+    instruction = example.get("instruction", "")
+    inp = example.get("input", "")
+    output = example.get("output", "")
 
     if inp:
         text = f"""### Instruction:
@@ -151,7 +155,7 @@ def finetune(
     offload_to_cpu: bool = True,
     freeze_vision: bool = True,
     progress_callback: callable = None,
-    resume: bool = False
+    resume: bool = False,
 ):
     """
     Fine-tune a model with LoRA.
@@ -176,7 +180,9 @@ def finetune(
     from trl import SFTTrainer
     from transformers import TrainingArguments
 
-    output_name = output_name or f"guaardvark-{base_model.replace('/', '-').replace(':', '-')}"
+    output_name = (
+        output_name or f"guaardvark-{base_model.replace('/', '-').replace(':', '-')}"
+    )
     output_dir = MODELS_DIR / output_name
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -212,8 +218,15 @@ def finetune(
     model = FastLanguageModel.get_peft_model(
         model,
         r=lora_rank,
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
-                       "gate_proj", "up_proj", "down_proj"],
+        target_modules=[
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "o_proj",
+            "gate_proj",
+            "up_proj",
+            "down_proj",
+        ],
         lora_alpha=lora_rank,
         lora_dropout=0,
         bias="none",
@@ -224,18 +237,25 @@ def finetune(
     # Check memory after model load
     import torch
     import gc
+
     if torch.cuda.is_available():
-        print(f"GPU Memory after loading model: {torch.cuda.memory_allocated() / 1024**3:.2f} GB")
+        print(
+            f"GPU Memory after loading model: {torch.cuda.memory_allocated() / 1024**3:.2f} GB"
+        )
 
     # Freeze vision tower if requested
     if freeze_vision:
         # Try different paths to find vision tower
         vision_tower = None
         if hasattr(model, "model") and hasattr(model.model, "vision_tower"):
-             vision_tower = model.model.vision_tower
-        elif hasattr(model, "base_model") and hasattr(model.base_model, "model") and hasattr(model.base_model.model, "vision_tower"):
-             vision_tower = model.base_model.model.vision_tower
-        
+            vision_tower = model.model.vision_tower
+        elif (
+            hasattr(model, "base_model")
+            and hasattr(model.base_model, "model")
+            and hasattr(model.base_model.model, "vision_tower")
+        ):
+            vision_tower = model.base_model.model.vision_tower
+
         if vision_tower:
             print("Freezing vision tower to save memory...")
             vision_tower.requires_grad_(False)
@@ -251,22 +271,28 @@ def finetune(
 
     # Filter out examples that are too long to prevent OOM/CUDA errors
     original_len = len(dataset)
-    
+
     def filter_long_examples(example):
         # Use the tokenizer to get the exact token count
         # We process single example, so we get a list of IDs
-        ids = tokenizer(example["text"], truncation=False, add_special_tokens=True)["input_ids"]
+        ids = tokenizer(example["text"], truncation=False, add_special_tokens=True)[
+            "input_ids"
+        ]
         return len(ids) <= max_seq_length
 
     print("Filtering dataset based on token length...")
     dataset = dataset.filter(filter_long_examples)
     filtered_len = len(dataset)
-    
+
     if filtered_len < original_len:
-        print(f"Filtered out {original_len - filtered_len} examples exceeding max sequence length of {max_seq_length}.")
-    
+        print(
+            f"Filtered out {original_len - filtered_len} examples exceeding max sequence length of {max_seq_length}."
+        )
+
     if filtered_len == 0:
-        raise ValueError("All training examples were filtered out! Increase max_seq_length or check your data.")
+        raise ValueError(
+            "All training examples were filtered out! Increase max_seq_length or check your data."
+        )
 
     print(f"Training examples: {len(dataset)}")
 
@@ -288,7 +314,7 @@ def finetune(
         # Ensure process group is initialized for DeepSpeed
         import torch
         import torch.distributed as dist
-        
+
         # Set default env vars for single-GPU DeepSpeed if not set
         if "MASTER_ADDR" not in os.environ:
             os.environ["MASTER_ADDR"] = "127.0.0.1"
@@ -298,7 +324,7 @@ def finetune(
             os.environ["WORLD_SIZE"] = "1"
         if "RANK" not in os.environ:
             os.environ["RANK"] = "0"
-        
+
         try:
             if not dist.is_initialized():
                 print("Initializing process group for DeepSpeed...")
@@ -312,10 +338,7 @@ def finetune(
         deepspeed_config = {
             "zero_optimization": {
                 "stage": 2,
-                "offload_optimizer": {
-                    "device": "cpu",
-                    "pin_memory": True
-                },
+                "offload_optimizer": {"device": "cpu", "pin_memory": True},
                 "allgather_partitions": True,
                 "allgather_bucket_size": 2e8,
                 "reduce_scatter": True,
@@ -328,7 +351,7 @@ def finetune(
             "gradient_accumulation_steps": "auto",
         }
         ds_config_path = output_dir / "ds_config.json"
-        with open(ds_config_path, 'w') as f:
+        with open(ds_config_path, "w") as f:
             json.dump(deepspeed_config, f, indent=2)
         training_args["deepspeed"] = str(ds_config_path)
         training_args["optim"] = "adamw_torch"
@@ -337,24 +360,29 @@ def finetune(
     callbacks = []
     if progress_callback:
         from transformers import TrainerCallback
-        
+
         class ProgressCallback(TrainerCallback):
             def __init__(self, callback_func, total_steps):
                 self.callback_func = callback_func
                 self.total_steps = total_steps
-            
+
             def on_log(self, args, state, control, logs=None, **kwargs):
                 if state.global_step and self.callback_func:
                     progress = int((state.global_step / self.total_steps) * 100)
                     metrics = {
                         "loss": logs.get("loss", 0),
                         "learning_rate": logs.get("learning_rate", 0),
-                        "epoch": state.epoch if hasattr(state, "epoch") else 0
+                        "epoch": state.epoch if hasattr(state, "epoch") else 0,
                     }
-                    self.callback_func(state.global_step, self.total_steps, metrics.get("loss", 0), metrics)
-        
+                    self.callback_func(
+                        state.global_step,
+                        self.total_steps,
+                        metrics.get("loss", 0),
+                        metrics,
+                    )
+
         callbacks.append(ProgressCallback(progress_callback, max_steps))
-    
+
     trainer = SFTTrainer(
         model=model,
         tokenizer=tokenizer,
@@ -370,7 +398,9 @@ def finetune(
     gc.collect()
     torch.cuda.empty_cache()
     if torch.cuda.is_available():
-        print(f"GPU Memory before train: {torch.cuda.memory_allocated() / 1024**3:.2f} GB")
+        print(
+            f"GPU Memory before train: {torch.cuda.memory_allocated() / 1024**3:.2f} GB"
+        )
 
     print("\nStarting training...")
     if resume_checkpoint:
@@ -413,9 +443,7 @@ def export_to_gguf(model_dir: str, quantization: str = "q4_k_m"):
     gguf_path = model_dir / f"model-{quantization}.gguf"
 
     model.save_pretrained_gguf(
-        str(model_dir),
-        tokenizer,
-        quantization_method=quantization
+        str(model_dir), tokenizer, quantization_method=quantization
     )
 
     print(f"GGUF exported: {gguf_path}")
@@ -454,39 +482,58 @@ SYSTEM \"\"\"You are a helpful, accurate, and concise assistant. You are honest 
 
 
 def main():
-    parser = argparse.ArgumentParser(description='GUAARDVARK Model Fine-Tuner')
-    subparsers = parser.add_subparsers(dest='command', help='Commands')
+    parser = argparse.ArgumentParser(description="GUAARDVARK Model Fine-Tuner")
+    subparsers = parser.add_subparsers(dest="command", help="Commands")
 
-    train_parser = subparsers.add_parser('train', help='Fine-tune a model')
-    train_parser.add_argument('--base', required=True, help='Base model (e.g., unsloth/gemma-2-2b)')
-    train_parser.add_argument('--data', required=True, help='Training data (JSONL or JSON)')
-    train_parser.add_argument('--name', help='Output model name')
-    train_parser.add_argument('--steps', type=int, default=500, help='Training steps')
-    train_parser.add_argument('--lr', type=float, default=2e-4, help='Learning rate')
-    train_parser.add_argument('--batch', type=int, default=2, help='Batch size')
-    train_parser.add_argument('--grad-acc', type=int, default=4, help='Gradient accumulation steps')
-    train_parser.add_argument('--rank', type=int, default=16, help='LoRA rank')
-    train_parser.add_argument('--seq', type=int, default=2048, help='Max sequence length (use 1024 for large models)')
-    train_parser.add_argument('--offload', action='store_true', help='Offload optimizer to CPU (uses system RAM)')
-    train_parser.add_argument('--no-freeze-vision', action='store_true', help='Do not freeze vision tower')
-    train_parser.add_argument('--resume', action='store_true', help='Resume from last checkpoint if available')
+    train_parser = subparsers.add_parser("train", help="Fine-tune a model")
+    train_parser.add_argument(
+        "--base", required=True, help="Base model (e.g., unsloth/gemma-2-2b)"
+    )
+    train_parser.add_argument(
+        "--data", required=True, help="Training data (JSONL or JSON)"
+    )
+    train_parser.add_argument("--name", help="Output model name")
+    train_parser.add_argument("--steps", type=int, default=500, help="Training steps")
+    train_parser.add_argument("--lr", type=float, default=2e-4, help="Learning rate")
+    train_parser.add_argument("--batch", type=int, default=2, help="Batch size")
+    train_parser.add_argument(
+        "--grad-acc", type=int, default=4, help="Gradient accumulation steps"
+    )
+    train_parser.add_argument("--rank", type=int, default=16, help="LoRA rank")
+    train_parser.add_argument(
+        "--seq",
+        type=int,
+        default=2048,
+        help="Max sequence length (use 1024 for large models)",
+    )
+    train_parser.add_argument(
+        "--offload",
+        action="store_true",
+        help="Offload optimizer to CPU (uses system RAM)",
+    )
+    train_parser.add_argument(
+        "--no-freeze-vision", action="store_true", help="Do not freeze vision tower"
+    )
+    train_parser.add_argument(
+        "--resume", action="store_true", help="Resume from last checkpoint if available"
+    )
 
-    export_parser = subparsers.add_parser('export', help='Export to GGUF')
-    export_parser.add_argument('--model', required=True, help='Model directory')
-    export_parser.add_argument('--quant', default='q4_k_m', help='Quantization method')
+    export_parser = subparsers.add_parser("export", help="Export to GGUF")
+    export_parser.add_argument("--model", required=True, help="Model directory")
+    export_parser.add_argument("--quant", default="q4_k_m", help="Quantization method")
 
-    ollama_parser = subparsers.add_parser('ollama', help='Create Ollama Modelfile')
-    ollama_parser.add_argument('--model', required=True, help='Model directory')
-    ollama_parser.add_argument('--name', required=True, help='Ollama model name')
+    ollama_parser = subparsers.add_parser("ollama", help="Create Ollama Modelfile")
+    ollama_parser.add_argument("--model", required=True, help="Model directory")
+    ollama_parser.add_argument("--name", required=True, help="Ollama model name")
 
-    check_parser = subparsers.add_parser('check', help='Check dependencies')
+    check_parser = subparsers.add_parser("check", help="Check dependencies")
 
     args = parser.parse_args()
 
-    if args.command == 'check':
+    if args.command == "check":
         check_dependencies()
 
-    elif args.command == 'train':
+    elif args.command == "train":
         if not check_dependencies():
             return
         finetune(
@@ -501,13 +548,13 @@ def main():
             gradient_accumulation_steps=args.grad_acc,
             offload_to_cpu=args.offload,
             freeze_vision=not args.no_freeze_vision,
-            resume=args.resume
+            resume=args.resume,
         )
 
-    elif args.command == 'export':
+    elif args.command == "export":
         export_to_gguf(args.model, args.quant)
 
-    elif args.command == 'ollama':
+    elif args.command == "ollama":
         create_ollama_modelfile(args.model, args.name)
 
     else:

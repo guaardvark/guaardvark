@@ -20,7 +20,11 @@ def clients_list(
     try:
         client = get_client(server)
         data = client.get("/api/clients")
-        clients = data if isinstance(data, list) else data.get("data", data.get("clients", []))
+        clients = (
+            data
+            if isinstance(data, list)
+            else data.get("data", data.get("clients", []))
+        )
         if not isinstance(clients, list):
             clients = []
 
@@ -28,12 +32,17 @@ def clients_list(
             output.print_json(clients)
             return
 
-        rows = [{
-            "id": c.get("id", ""),
-            "name": c.get("name", ""),
-            "projects": c.get("project_count", len(c.get("projects", []))),
-        } for c in clients]
-        output.print_table(rows, columns=["id", "name", "projects"], title=f"Clients ({len(rows)})")
+        rows = [
+            {
+                "id": c.get("id", ""),
+                "name": c.get("name", ""),
+                "projects": c.get("project_count", len(c.get("projects", []))),
+            }
+            for c in clients
+        ]
+        output.print_table(
+            rows, columns=["id", "name", "projects"], title=f"Clients ({len(rows)})"
+        )
 
     except (LlxConnectionError, LlxError) as e:
         output.print_error(str(e))
@@ -62,7 +71,9 @@ def clients_create(
         if json_out or output.is_pipe():
             output.print_json(result)
         else:
-            output.print_success(f"Created client: {name} (id: {result.get('id', '?')})")
+            output.print_success(
+                f"Created client: {name} (id: {result.get('id', '?')})"
+            )
 
     except (LlxConnectionError, LlxError) as e:
         output.print_error(str(e))
@@ -87,12 +98,17 @@ def clients_info(
         if json_out or output.is_pipe():
             output.print_json(result)
         else:
-            output.print_kv({
-                "ID": result.get("id", ""),
-                "Name": result.get("name", ""),
-                "Description": result.get("description", "—"),
-                "Projects": result.get("project_count", len(result.get("projects", []))),
-            }, title="Client Details")
+            output.print_kv(
+                {
+                    "ID": result.get("id", ""),
+                    "Name": result.get("name", ""),
+                    "Description": result.get("description", "—"),
+                    "Projects": result.get(
+                        "project_count", len(result.get("projects", []))
+                    ),
+                },
+                title="Client Details",
+            )
 
     except (LlxConnectionError, LlxError) as e:
         output.print_error(str(e))

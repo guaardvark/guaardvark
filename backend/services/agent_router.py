@@ -16,17 +16,18 @@ logger = logging.getLogger(__name__)
 
 class RouteType(Enum):
     """Types of routing destinations"""
-    TOOL_DIRECT = "tool_direct"      # Direct tool execution
-    AGENT_LOOP = "agent_loop"        # Full agent reasoning loop
-    CHAT_ONLY = "chat_only"          # Standard chat (no tools)
-    FILE_GENERATION = "file_gen"     # File generation flow
-    ORCHESTRATOR = "orchestrator"    # High-level task orchestration
 
+    TOOL_DIRECT = "tool_direct"  # Direct tool execution
+    AGENT_LOOP = "agent_loop"  # Full agent reasoning loop
+    CHAT_ONLY = "chat_only"  # Standard chat (no tools)
+    FILE_GENERATION = "file_gen"  # File generation flow
+    ORCHESTRATOR = "orchestrator"  # High-level task orchestration
 
 
 @dataclass
 class RouteDecision:
     """Result of routing decision"""
+
     route_type: RouteType
     tool_name: Optional[str] = None
     tool_params: Optional[Dict[str, Any]] = None
@@ -38,6 +39,7 @@ class RouteDecision:
 @dataclass
 class IntentPattern:
     """Pattern for detecting user intent"""
+
     name: str
     patterns: List[str]
     route_type: RouteType
@@ -62,6 +64,7 @@ class AgentRouter:
         if self._tool_registry is None:
             try:
                 from backend.tools import initialize_all_tools
+
                 self._tool_registry = initialize_all_tools()
             except Exception as e:
                 logger.error(f"Failed to get tool registry: {e}")
@@ -72,6 +75,7 @@ class AgentRouter:
         if self._llm is None:
             try:
                 from backend.utils.llm_service import get_default_llm
+
                 self._llm = get_default_llm()
             except Exception as e:
                 logger.error(f"Failed to get LLM: {e}")
@@ -90,9 +94,8 @@ class AgentRouter:
                     r"/wordpress\b",
                 ],
                 route_type=RouteType.TOOL_DIRECT,
-                tool_name="generate_wordpress_content"
+                tool_name="generate_wordpress_content",
             ),
-
             # Bulk CSV Generation
             IntentPattern(
                 name="bulk_csv",
@@ -105,9 +108,8 @@ class AgentRouter:
                 ],
                 route_type=RouteType.TOOL_DIRECT,
                 tool_name="generate_bulk_csv",
-                param_extractors={"quantity": r"(\d+)\s+(?:pages?|rows?|entries)"}
+                param_extractors={"quantity": r"(\d+)\s+(?:pages?|rows?|entries)"},
             ),
-
             # File Generation
             IntentPattern(
                 name="file_generation",
@@ -118,9 +120,8 @@ class AgentRouter:
                     r"/createfile\b",
                 ],
                 route_type=RouteType.FILE_GENERATION,
-                tool_name="generate_file"
+                tool_name="generate_file",
             ),
-
             # CSV Generation (single)
             IntentPattern(
                 name="csv_generation",
@@ -130,9 +131,8 @@ class AgentRouter:
                     r"/createcsv\b",
                 ],
                 route_type=RouteType.TOOL_DIRECT,
-                tool_name="generate_csv"
+                tool_name="generate_csv",
             ),
-
             # Code Generation
             IntentPattern(
                 name="code_generation",
@@ -144,9 +144,8 @@ class AgentRouter:
                     r"modify.*(?:file|code)",
                 ],
                 route_type=RouteType.TOOL_DIRECT,
-                tool_name="codegen"
+                tool_name="codegen",
             ),
-
             # Code Analysis
             IntentPattern(
                 name="code_analysis",
@@ -157,9 +156,8 @@ class AgentRouter:
                     r"what.*(?:does|is).*(?:this|the).*(?:code|file)",
                 ],
                 route_type=RouteType.TOOL_DIRECT,
-                tool_name="analyze_code"
+                tool_name="analyze_code",
             ),
-
             # Browser Automation
             IntentPattern(
                 name="browser_automation",
@@ -178,9 +176,8 @@ class AgentRouter:
                     r"(?i)wait\s+for\s+(?:the\s+)?(?:element|page|button)",
                 ],
                 route_type=RouteType.AGENT_LOOP,
-                tool_name=None
+                tool_name=None,
             ),
-
             # Desktop Automation
             IntentPattern(
                 name="desktop_automation",
@@ -202,9 +199,8 @@ class AgentRouter:
                     r"(?i)gui\s+automat",
                 ],
                 route_type=RouteType.AGENT_LOOP,
-                tool_name=None
+                tool_name=None,
             ),
-
             # Media Player Control — TOOL_DIRECT (no agent loop needed)
             IntentPattern(
                 name="media_play",
@@ -214,7 +210,7 @@ class AgentRouter:
                     r"(?i)^play\s+.+",
                 ],
                 route_type=RouteType.TOOL_DIRECT,
-                tool_name="media_play"
+                tool_name="media_play",
             ),
             IntentPattern(
                 name="media_control_action",
@@ -226,7 +222,9 @@ class AgentRouter:
                 ],
                 route_type=RouteType.TOOL_DIRECT,
                 tool_name="media_control",
-                param_extractors={"action": r"(?i)(pause|stop|resume|next|skip|previous|prev)"}
+                param_extractors={
+                    "action": r"(?i)(pause|stop|resume|next|skip|previous|prev)"
+                },
             ),
             IntentPattern(
                 name="media_status",
@@ -235,7 +233,7 @@ class AgentRouter:
                     r"(?i)(?:current|now)\s+(?:playing|song|track)",
                 ],
                 route_type=RouteType.TOOL_DIRECT,
-                tool_name="media_status"
+                tool_name="media_status",
             ),
             IntentPattern(
                 name="media_volume",
@@ -248,9 +246,10 @@ class AgentRouter:
                 ],
                 route_type=RouteType.TOOL_DIRECT,
                 tool_name="media_volume",
-                param_extractors={"level": r"(?i)(?:volume\s+(?:to\s+)?|set\s+(?:the\s+)?volume\s+(?:to\s+)?)(\d+)|(?:volume\s+)(up|down)|^(mute|unmute)$|(louder|quieter|softer)"}
+                param_extractors={
+                    "level": r"(?i)(?:volume\s+(?:to\s+)?|set\s+(?:the\s+)?volume\s+(?:to\s+)?)(\d+)|(?:volume\s+)(up|down)|^(mute|unmute)$|(louder|quieter|softer)"
+                },
             ),
-
             # MCP Integration
             IntentPattern(
                 name="mcp_automation",
@@ -263,9 +262,8 @@ class AgentRouter:
                     r"(?i)mcp\s+(?:status|state)",
                 ],
                 route_type=RouteType.AGENT_LOOP,
-                tool_name=None
+                tool_name=None,
             ),
-
             # Complex multi-step tasks requiring agent reasoning loop
             IntentPattern(
                 name="complex_research",
@@ -276,9 +274,8 @@ class AgentRouter:
                     r"compare.*(?:and|then).*(?:recommend|suggest)",
                 ],
                 route_type=RouteType.AGENT_LOOP,
-                tool_name=None  # Agent decides which tools to use
+                tool_name=None,  # Agent decides which tools to use
             ),
-
             IntentPattern(
                 name="multi_step_generation",
                 patterns=[
@@ -287,9 +284,8 @@ class AgentRouter:
                     r"generate.*(?:using|from).*(?:template|existing|previous)",
                 ],
                 route_type=RouteType.AGENT_LOOP,
-                tool_name=None
+                tool_name=None,
             ),
-
             IntentPattern(
                 name="intelligent_assistant",
                 patterns=[
@@ -298,9 +294,8 @@ class AgentRouter:
                     r"how\s+(?:should|can|would)\s+(?:i|we).*(?:implement|build|create)",
                 ],
                 route_type=RouteType.AGENT_LOOP,
-                tool_name=None
+                tool_name=None,
             ),
-
             IntentPattern(
                 name="explicit_agent",
                 patterns=[
@@ -311,9 +306,8 @@ class AgentRouter:
                     r"reason\s+(?:through|about)",
                 ],
                 route_type=RouteType.AGENT_LOOP,
-                tool_name=None
+                tool_name=None,
             ),
-
             # Explicit tool request
             IntentPattern(
                 name="explicit_tool",
@@ -324,11 +318,15 @@ class AgentRouter:
                 ],
                 route_type=RouteType.TOOL_DIRECT,
                 tool_name=None,  # Extracted from pattern
-                param_extractors={"tool_name": r"(?:use|run|execute)\s+(?:tool\s+)?(\w+)"}
+                param_extractors={
+                    "tool_name": r"(?:use|run|execute)\s+(?:tool\s+)?(\w+)"
+                },
             ),
         ]
 
-    def route(self, message: str, context: Optional[Dict[str, Any]] = None) -> RouteDecision:
+    def route(
+        self, message: str, context: Optional[Dict[str, Any]] = None
+    ) -> RouteDecision:
         """
         Analyze message and determine routing.
 
@@ -357,14 +355,14 @@ class AgentRouter:
             return RouteDecision(
                 route_type=RouteType.FILE_GENERATION,
                 confidence=0.6,
-                reasoning="Message suggests file generation based on context"
+                reasoning="Message suggests file generation based on context",
             )
 
         # Default to chat-only
         return RouteDecision(
             route_type=RouteType.CHAT_ONLY,
             confidence=1.0,
-            reasoning="No specific tool pattern detected, routing to standard chat"
+            reasoning="No specific tool pattern detected, routing to standard chat",
         )
 
     def _handle_command(self, message: str, context: Dict[str, Any]) -> RouteDecision:
@@ -375,7 +373,10 @@ class AgentRouter:
 
         command_tool_map = {
             "/wordpress": ("generate_wordpress_content", RouteType.TOOL_DIRECT),
-            "/wordpress_enhanced": ("generate_enhanced_wordpress_content", RouteType.TOOL_DIRECT),
+            "/wordpress_enhanced": (
+                "generate_enhanced_wordpress_content",
+                RouteType.TOOL_DIRECT,
+            ),
             "/batchcsv": ("generate_bulk_csv", RouteType.TOOL_DIRECT),
             "/createfile": ("generate_file", RouteType.FILE_GENERATION),
             "/createcsv": ("generate_csv", RouteType.TOOL_DIRECT),
@@ -394,16 +395,18 @@ class AgentRouter:
                 tool_name=tool_name,
                 tool_params={"args": args} if args else None,
                 confidence=1.0,
-                reasoning=f"Explicit command: {command}"
+                reasoning=f"Explicit command: {command}",
             )
 
         return RouteDecision(
             route_type=RouteType.CHAT_ONLY,
             confidence=0.5,
-            reasoning=f"Unknown command: {command}"
+            reasoning=f"Unknown command: {command}",
         )
 
-    def _match_pattern(self, message: str, intent: IntentPattern) -> Optional[RouteDecision]:
+    def _match_pattern(
+        self, message: str, intent: IntentPattern
+    ) -> Optional[RouteDecision]:
         """Match message against intent pattern"""
         for pattern in intent.patterns:
             match = re.search(pattern, message, re.IGNORECASE)
@@ -426,7 +429,7 @@ class AgentRouter:
                     tool_name=tool_name,
                     tool_params=params if params else None,
                     confidence=0.8,
-                    reasoning=f"Matched pattern: {intent.name}"
+                    reasoning=f"Matched pattern: {intent.name}",
                 )
 
         return None
@@ -450,8 +453,12 @@ class AgentRouter:
         message_lower = message.lower()
         return any(re.search(p, message_lower) for p in file_indicators)
 
-    def execute_route(self, decision: RouteDecision, message: str,
-                      context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def execute_route(
+        self,
+        decision: RouteDecision,
+        message: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """
         Execute the routing decision.
 
@@ -466,11 +473,7 @@ class AgentRouter:
         context = context or {}
 
         if decision.route_type == RouteType.CHAT_ONLY:
-            return {
-                "type": "chat",
-                "requires_llm": True,
-                "message": message
-            }
+            return {"type": "chat", "requires_llm": True, "message": message}
 
         if decision.route_type == RouteType.TOOL_DIRECT:
             return self._execute_tool(decision, message, context)
@@ -484,34 +487,23 @@ class AgentRouter:
         if decision.route_type == RouteType.ORCHESTRATOR:
             return self._execute_orchestrator(decision, message, context)
 
-        return {
-            "type": "error",
-            "error": f"Unknown route type: {decision.route_type}"
-        }
+        return {"type": "error", "error": f"Unknown route type: {decision.route_type}"}
 
-    def _execute_tool(self, decision: RouteDecision, message: str,
-                      context: Dict[str, Any]) -> Dict[str, Any]:
+    def _execute_tool(
+        self, decision: RouteDecision, message: str, context: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Execute a direct tool call"""
         registry = self._get_tool_registry()
         if not registry:
-            return {
-                "type": "error",
-                "error": "Tool registry not available"
-            }
+            return {"type": "error", "error": "Tool registry not available"}
 
         tool_name = decision.tool_name
         if not tool_name:
-            return {
-                "type": "error",
-                "error": "No tool specified"
-            }
+            return {"type": "error", "error": "No tool specified"}
 
         tool = registry.get_tool(tool_name)
         if not tool:
-            return {
-                "type": "error",
-                "error": f"Tool '{tool_name}' not found"
-            }
+            return {"type": "error", "error": f"Tool '{tool_name}' not found"}
 
         # Build parameters from decision and context
         params = decision.tool_params or {}
@@ -570,7 +562,7 @@ class AgentRouter:
                 "tool_name": tool_name,
                 "missing_params": missing,
                 "tool_description": tool.description,
-                "message": f"Tool '{tool_name}' needs more information: {', '.join(missing)}"
+                "message": f"Tool '{tool_name}' needs more information: {', '.join(missing)}",
             }
 
         # Execute the tool
@@ -579,20 +571,18 @@ class AgentRouter:
             return {
                 "type": "tool_result",
                 "tool_name": tool_name,
-                "result": result.to_dict()
+                "result": result.to_dict(),
             }
         except Exception as e:
             logger.error(f"Tool execution failed: {e}", exc_info=True)
-            return {
-                "type": "error",
-                "error": f"Tool execution failed: {str(e)}"
-            }
+            return {"type": "error", "error": f"Tool execution failed: {str(e)}"}
 
-    def _handle_file_generation(self, decision: RouteDecision, message: str,
-                                context: Dict[str, Any]) -> Dict[str, Any]:
+    def _handle_file_generation(
+        self, decision: RouteDecision, message: str, context: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Handle file generation requests"""
         # Extract filename if present
-        filename_match = re.search(r'(\w+\.\w+)', message)
+        filename_match = re.search(r"(\w+\.\w+)", message)
         filename = filename_match.group(1) if filename_match else None
 
         return {
@@ -600,11 +590,12 @@ class AgentRouter:
             "tool_name": decision.tool_name or "generate_file",
             "suggested_filename": filename,
             "message": message,
-            "show_file_dialog": True
+            "show_file_dialog": True,
         }
 
-    def _execute_agent_loop(self, decision: RouteDecision, message: str,
-                            context: Dict[str, Any]) -> Dict[str, Any]:
+    def _execute_agent_loop(
+        self, decision: RouteDecision, message: str, context: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Execute full agent reasoning loop using agent config system"""
         try:
             from backend.services.agent_executor import AgentExecutor
@@ -613,20 +604,18 @@ class AgentRouter:
             # Get agent config manager to find the right agent
             manager = get_agent_config_manager()
             agent = manager.get_agent_for_message(message)
-            
+
             if not agent:
                 # Fallback to generic executor if no agent matches
                 logger.warning("No matching agent found, using generic executor")
                 return self._execute_generic_agent_loop(decision, message, context)
-            
+
             if not agent.enabled:
-                return {
-                    "type": "error",
-                    "error": f"Agent '{agent.id}' is disabled"
-                }
+                return {"type": "error", "error": f"Agent '{agent.id}' is disabled"}
 
             # Redirect to Orchestrator service if applicable
             from backend.services.agent_config import AgentType
+
             if agent.agent_type == AgentType.ORCHESTRATOR:
                 logger.info(f"Redirecting agent '{agent.id}' to OrchestratorService")
                 # Wrap as a decision to reuse _execute_orchestrator signature
@@ -637,25 +626,25 @@ class AgentRouter:
             llm = self._get_llm()
 
             if not registry or not llm:
-                return {
-                    "type": "error",
-                    "error": "Agent system not available"
-                }
+                return {"type": "error", "error": "Agent system not available"}
 
             # Filter tool registry to only agent's assigned tools (like /api/agents/execute does)
             from backend.services.agent_tools import ToolRegistry
+
             agent_tool_registry = ToolRegistry()
             for tool_name in agent.tools:
                 tool = registry.get_tool(tool_name)
                 if tool:
                     agent_tool_registry.register(tool)
                 else:
-                    logger.warning(f"Agent '{agent.id}' references tool '{tool_name}' which is not available")
+                    logger.warning(
+                        f"Agent '{agent.id}' references tool '{tool_name}' which is not available"
+                    )
 
             if len(agent_tool_registry) == 0:
                 return {
                     "type": "error",
-                    "error": f"Agent '{agent.id}' has no available tools"
+                    "error": f"Agent '{agent.id}' has no available tools",
                 }
 
             # Use args from tool_params if available (for /agent command)
@@ -665,7 +654,9 @@ class AgentRouter:
                 query = decision.tool_params["args"]
 
             # Create executor with agent's max_iterations
-            executor = AgentExecutor(agent_tool_registry, llm, max_iterations=agent.max_iterations)
+            executor = AgentExecutor(
+                agent_tool_registry, llm, max_iterations=agent.max_iterations
+            )
 
             # Build session context with agent's system prompt (like /api/agents/execute does)
             session_context = f"""Agent: {agent.name}
@@ -684,23 +675,21 @@ User Context: {str(context)}"""
                         "iteration": s.iteration,
                         "thoughts": s.thoughts,
                         "tool_calls": s.tool_calls,
-                        "observations": s.observations
+                        "observations": s.observations,
                     }
                     for s in result.steps
                 ],
                 "iterations": result.iterations,
-                "success": result.success
+                "success": result.success,
             }
 
         except Exception as e:
             logger.error(f"Agent execution failed: {e}", exc_info=True)
-            return {
-                "type": "error",
-                "error": f"Agent execution failed: {str(e)}"
-            }
-    
-    def _execute_generic_agent_loop(self, decision: RouteDecision, message: str,
-                                     context: Dict[str, Any]) -> Dict[str, Any]:
+            return {"type": "error", "error": f"Agent execution failed: {str(e)}"}
+
+    def _execute_generic_agent_loop(
+        self, decision: RouteDecision, message: str, context: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Fallback: Execute generic agent loop without specific agent config"""
         try:
             from backend.services.agent_executor import AgentExecutor
@@ -709,10 +698,7 @@ User Context: {str(context)}"""
             llm = self._get_llm()
 
             if not registry or not llm:
-                return {
-                    "type": "error",
-                    "error": "Agent system not available"
-                }
+                return {"type": "error", "error": "Agent system not available"}
 
             # Use args from tool_params if available (for /agent command)
             # Otherwise use the full message
@@ -731,45 +717,44 @@ User Context: {str(context)}"""
                         "iteration": s.iteration,
                         "thoughts": s.thoughts,
                         "tool_calls": s.tool_calls,
-                        "observations": s.observations
+                        "observations": s.observations,
                     }
                     for s in result.steps
                 ],
                 "iterations": result.iterations,
-                "success": result.success
+                "success": result.success,
             }
 
         except Exception as e:
             logger.error(f"Generic agent execution failed: {e}", exc_info=True)
-            return {
-                "type": "error",
-                "error": f"Agent execution failed: {str(e)}"
-            }
+            return {"type": "error", "error": f"Agent execution failed: {str(e)}"}
 
-
-    def _execute_orchestrator(self, decision: RouteDecision, message: str,
-                            context: Dict[str, Any]) -> Dict[str, Any]:
+    def _execute_orchestrator(
+        self, decision: RouteDecision, message: str, context: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Execute the orchestrator service"""
         try:
             from backend.services.orchestrator_service import get_orchestrator
+
             orchestrator = get_orchestrator()
-            
+
             result = orchestrator.process_request(message, context)
-            
+
             return {
                 "type": "orchestrator_result",
                 "final_answer": result.get("final_answer"),
                 "plan": result.get("plan"),
                 "success": result.get("success", False),
-                "error": result.get("error")
+                "error": result.get("error"),
             }
-            
+
         except Exception as e:
             logger.error(f"Orchestrator execution failed: {e}", exc_info=True)
             return {
                 "type": "error",
-                "error": f"Orchestrator execution failed: {str(e)}"
+                "error": f"Orchestrator execution failed: {str(e)}",
             }
+
 
 # Global router instance
 _router: Optional[AgentRouter] = None
@@ -783,13 +768,17 @@ def get_agent_router() -> AgentRouter:
     return _router
 
 
-def route_message(message: str, context: Optional[Dict[str, Any]] = None) -> RouteDecision:
+def route_message(
+    message: str, context: Optional[Dict[str, Any]] = None
+) -> RouteDecision:
     """Convenience function to route a message"""
     router = get_agent_router()
     return router.route(message, context)
 
 
-def execute_routed_message(message: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def execute_routed_message(
+    message: str, context: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
     """Convenience function to route and execute a message"""
     router = get_agent_router()
     decision = router.route(message, context)

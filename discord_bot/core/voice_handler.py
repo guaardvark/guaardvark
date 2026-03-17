@@ -1,4 +1,5 @@
 """Voice channel audio pipeline: Discord PCM -> Whisper STT -> LLM -> Piper TTS -> Discord playback."""
+
 import asyncio
 import io
 import logging
@@ -18,7 +19,11 @@ TARGET_SAMPLE_RATE = 16000
 TARGET_CHANNELS = 1
 
 
-def pcm_to_wav(pcm_data: bytes, sample_rate: int = DISCORD_SAMPLE_RATE, channels: int = DISCORD_CHANNELS) -> bytes:
+def pcm_to_wav(
+    pcm_data: bytes,
+    sample_rate: int = DISCORD_SAMPLE_RATE,
+    channels: int = DISCORD_CHANNELS,
+) -> bytes:
     buf = io.BytesIO()
     with wave.open(buf, "wb") as wf:
         wf.setnchannels(channels)
@@ -28,10 +33,16 @@ def pcm_to_wav(pcm_data: bytes, sample_rate: int = DISCORD_SAMPLE_RATE, channels
     return buf.getvalue()
 
 
-def downsample_pcm(pcm_data: bytes, from_rate=DISCORD_SAMPLE_RATE, to_rate=TARGET_SAMPLE_RATE, from_channels=2, to_channels=1) -> bytes:
+def downsample_pcm(
+    pcm_data: bytes,
+    from_rate=DISCORD_SAMPLE_RATE,
+    to_rate=TARGET_SAMPLE_RATE,
+    from_channels=2,
+    to_channels=1,
+) -> bytes:
     samples = struct.unpack(f"<{len(pcm_data)//2}h", pcm_data)
     if from_channels == 2 and to_channels == 1:
-        mono = [(samples[i] + samples[i+1]) // 2 for i in range(0, len(samples), 2)]
+        mono = [(samples[i] + samples[i + 1]) // 2 for i in range(0, len(samples), 2)]
     else:
         mono = list(samples)
     ratio = from_rate // to_rate
@@ -77,8 +88,14 @@ class VoiceHandler:
         # SCAFFOLD: discord.py audio receive is experimental.
         # The process_audio() method below implements the complete pipeline.
         # TODO: Wire up VoiceClient.listen(sink) when discord.py voice receive is stable.
-        logger.info("Voice listen loop started (silence=%dms, max=%ds)", silence_ms, max_duration)
-        logger.info("NOTE: Audio capture requires discord.py experimental voice receive.")
+        logger.info(
+            "Voice listen loop started (silence=%dms, max=%ds)",
+            silence_ms,
+            max_duration,
+        )
+        logger.info(
+            "NOTE: Audio capture requires discord.py experimental voice receive."
+        )
         while self.voice_client and self.voice_client.is_connected():
             await asyncio.sleep(1.0)
 
@@ -100,7 +117,9 @@ class VoiceHandler:
             if not response:
                 return
             logger.info("Voice LLM response: '%s'", response[:100])
-            tts_result = await self.api.text_to_speech(response, voice=self.config.get("voice", {}).get("tts_voice", "ryan"))
+            tts_result = await self.api.text_to_speech(
+                response, voice=self.config.get("voice", {}).get("tts_voice", "ryan")
+            )
             audio_filename = tts_result.get("filename")
             if not audio_filename:
                 return

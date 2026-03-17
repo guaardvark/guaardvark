@@ -1,4 +1,5 @@
 """Guaardvark Discord Bot — entry point."""
+
 import asyncio
 import logging
 import os
@@ -13,7 +14,12 @@ import yaml
 from discord_bot.core.api_client import GuaardvarkClient
 
 # Setup logging
-log_dir = os.path.join(os.environ.get("GUAARDVARK_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "logs")
+log_dir = os.path.join(
+    os.environ.get(
+        "GUAARDVARK_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    ),
+    "logs",
+)
 os.makedirs(log_dir, exist_ok=True)
 
 logging.basicConfig(
@@ -59,7 +65,9 @@ class GuaardvarkBot(commands.Bot):
         intents = discord.Intents.default()
         intents.message_content = True
         intents.voice_states = True
-        super().__init__(command_prefix=config.get("bot", {}).get("prefix", "!"), intents=intents)
+        super().__init__(
+            command_prefix=config.get("bot", {}).get("prefix", "!"), intents=intents
+        )
         self.config = config
         self.api_client = GuaardvarkClient(base_url=config["api"]["base_url"])
 
@@ -67,7 +75,9 @@ class GuaardvarkBot(commands.Bot):
         await self.api_client.setup()
         try:
             await self.api_client.health_check()
-            logger.info("Guaardvark backend is reachable at %s", self.config["api"]["base_url"])
+            logger.info(
+                "Guaardvark backend is reachable at %s", self.config["api"]["base_url"]
+            )
         except Exception as e:
             logger.warning("Backend health check failed: %s (bot will start anyway)", e)
 
@@ -109,7 +119,9 @@ def main():
     config = load_config()
     token = config.get("bot", {}).get("token", "")
     if not token or token.startswith("$"):
-        logger.error("DISCORD_BOT_TOKEN not set. Export it: export DISCORD_BOT_TOKEN=your_token")
+        logger.error(
+            "DISCORD_BOT_TOKEN not set. Export it: export DISCORD_BOT_TOKEN=your_token"
+        )
         sys.exit(1)
     bot = GuaardvarkBot(config)
     loop = asyncio.new_event_loop()

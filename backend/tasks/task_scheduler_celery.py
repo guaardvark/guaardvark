@@ -28,13 +28,15 @@ MAX_RETRY_COUNT = 3
 
 def _get_database_url():
     """Get DATABASE_URL from environment (set by start_postgres.sh in .env)."""
-    url = os.environ.get('DATABASE_URL')
+    url = os.environ.get("DATABASE_URL")
     if url:
         return url
     return "postgresql://guaardvark:guaardvark@localhost:5432/guaardvark"
 
+
 _engine = None
 _SessionFactory = None
+
 
 def get_db_session():
     """Get a SQLAlchemy session for database operations without Flask."""
@@ -60,7 +62,8 @@ def get_scheduled_tasks() -> List[Dict[str, Any]]:
         # 1. Are in 'pending' status (not 'queued' or 'in-progress')
         # 2. Don't have a job_id (haven't been submitted to Celery yet)
         # This prevents duplicate task submissions
-        result = session.execute(text("""
+        result = session.execute(
+            text("""
             SELECT id, name, status, type, due_date, priority, job_id
             FROM tasks
             WHERE status = 'pending'
@@ -68,19 +71,23 @@ def get_scheduled_tasks() -> List[Dict[str, Any]]:
               AND (due_date IS NULL OR due_date <= :now)
             ORDER BY priority ASC, due_date ASC
             LIMIT 10
-        """), {"now": now})
+        """),
+            {"now": now},
+        )
 
         tasks = []
         for row in result.fetchall():
-            tasks.append({
-                'id': row[0],
-                'name': row[1],
-                'status': row[2],
-                'type': row[3],
-                'due_date': row[4],
-                'priority': row[5],
-                'job_id': row[6]
-            })
+            tasks.append(
+                {
+                    "id": row[0],
+                    "name": row[1],
+                    "status": row[2],
+                    "type": row[3],
+                    "due_date": row[4],
+                    "priority": row[5],
+                    "job_id": row[6],
+                }
+            )
 
         return tasks
 
@@ -106,29 +113,34 @@ def get_stuck_tasks() -> List[Dict[str, Any]]:
         # Tasks can get stuck in 'queued' if Celery never picks them up
         # (e.g., worker died, queue misconfigured, etc.)
         threshold_time = (
-            datetime.datetime.now(datetime.timezone.utc) -
-            datetime.timedelta(minutes=STUCK_TASK_THRESHOLD_MINUTES)
+            datetime.datetime.now(datetime.timezone.utc)
+            - datetime.timedelta(minutes=STUCK_TASK_THRESHOLD_MINUTES)
         ).isoformat()
 
-        result = session.execute(text("""
+        result = session.execute(
+            text("""
             SELECT id, name, status, job_id, retry_count, updated_at, type
             FROM tasks
             WHERE status IN ('in-progress', 'queued')
               AND updated_at < :threshold_time
             ORDER BY updated_at ASC
-        """), {"threshold_time": threshold_time})
+        """),
+            {"threshold_time": threshold_time},
+        )
 
         tasks = []
         for row in result.fetchall():
-            tasks.append({
-                'id': row[0],
-                'name': row[1],
-                'status': row[2],
-                'job_id': row[3],
-                'retry_count': row[4] or 0,
-                'updated_at': row[5],
-                'type': row[6]
-            })
+            tasks.append(
+                {
+                    "id": row[0],
+                    "name": row[1],
+                    "status": row[2],
+                    "job_id": row[3],
+                    "retry_count": row[4] or 0,
+                    "updated_at": row[5],
+                    "type": row[6],
+                }
+            )
 
         return tasks
 
@@ -145,7 +157,8 @@ def update_task_for_retry(task_id: int, retry_count: int, error_message: str) ->
     try:
         now = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
-        session.execute(text("""
+        session.execute(
+            text("""
             UPDATE tasks
             SET status = 'pending',
                 job_id = NULL,
@@ -153,7 +166,14 @@ def update_task_for_retry(task_id: int, retry_count: int, error_message: str) ->
                 error_message = :error_message,
                 updated_at = :now
             WHERE id = :task_id
-        """), {"retry_count": retry_count, "error_message": error_message, "now": now, "task_id": task_id})
+        """),
+            {
+                "retry_count": retry_count,
+                "error_message": error_message,
+                "now": now,
+                "task_id": task_id,
+            },
+        )
 
         session.commit()
         return True
@@ -172,13 +192,16 @@ def mark_task_failed(task_id: int, error_message: str) -> bool:
     try:
         now = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
-        session.execute(text("""
+        session.execute(
+            text("""
             UPDATE tasks
             SET status = 'failed',
                 error_message = :error_message,
                 updated_at = :now
             WHERE id = :task_id
-        """), {"error_message": error_message, "now": now, "task_id": task_id})
+        """),
+            {"error_message": error_message, "now": now, "task_id": task_id},
+        )
 
         session.commit()
         return True
@@ -211,7 +234,7 @@ def check_celery_task_active(job_id: str) -> bool:
         state = result.state
 
         # Active states
-        active_states = {'PENDING', 'STARTED', 'RETRY', 'RECEIVED'}
+        active_states = {"PENDING", "STARTED", "RETRY", "RECEIVED"}
 
         if state in active_states:
             logger.debug(f"Task {job_id} is in active state: {state}")
@@ -245,7 +268,7 @@ def check_scheduled_tasks(self):
 
         if not scheduled_tasks:
             logger.debug("No scheduled tasks found")
-            return {'processed': 0, 'message': 'No scheduled tasks found'}
+            return {"processed": 0, "message": "No scheduled tasks found"}
 
         logger.info(f"Found {len(scheduled_tasks)} scheduled tasks to process")
 
@@ -254,10 +277,10 @@ def check_scheduled_tasks(self):
 
         submitted_count = 0
         for task in scheduled_tasks:
-            task_id = task['id']
+            task_id = task["id"]
 
             # Skip if task already has a job_id (might be queued already)
-            if task.get('job_id'):
+            if task.get("job_id"):
                 logger.debug(f"Task {task_id} already has job_id, skipping")
                 continue
 
@@ -271,11 +294,14 @@ def check_scheduled_tasks(self):
                 try:
                     now = datetime.datetime.now(datetime.timezone.utc).isoformat()
                     # Use conditional update to prevent race with concurrent schedulers
-                    result = session.execute(text("""
+                    result = session.execute(
+                        text("""
                         UPDATE tasks
                         SET job_id = :job_id, status = 'queued', updated_at = :now
                         WHERE id = :task_id AND status = 'pending' AND job_id IS NULL
-                    """), {"job_id": job_id, "now": now, "task_id": task_id})
+                    """),
+                        {"job_id": job_id, "now": now, "task_id": task_id},
+                    )
                     rows_affected = result.rowcount
                     session.commit()
                 finally:
@@ -283,16 +309,19 @@ def check_scheduled_tasks(self):
 
                 # Only submit to Celery if we successfully claimed the task
                 if rows_affected == 0:
-                    logger.debug(f"Task {task_id} already claimed by another scheduler, skipping")
+                    logger.debug(
+                        f"Task {task_id} already claimed by another scheduler, skipping"
+                    )
                     continue
 
                 # Now submit task to Celery
                 result = execute_unified_task.apply_async(
-                    args=[task_id],
-                    queue=_get_queue_for_task_type(task.get('type'))
+                    args=[task_id], queue=_get_queue_for_task_type(task.get("type"))
                 )
 
-                logger.info(f"Submitted scheduled task {task_id} ({task['name']}) with Celery ID: {result.id}")
+                logger.info(
+                    f"Submitted scheduled task {task_id} ({task['name']}) with Celery ID: {result.id}"
+                )
                 submitted_count += 1
 
             except Exception as e:
@@ -300,24 +329,27 @@ def check_scheduled_tasks(self):
                 # Revert task status if Celery submission failed
                 try:
                     revert_session = get_db_session()
-                    revert_session.execute(text("""
+                    revert_session.execute(
+                        text("""
                         UPDATE tasks SET job_id = NULL, status = 'pending'
                         WHERE id = :task_id AND status = 'queued'
-                    """), {"task_id": task_id})
+                    """),
+                        {"task_id": task_id},
+                    )
                     revert_session.commit()
                     revert_session.close()
                 except Exception:
                     pass
 
         return {
-            'processed': submitted_count,
-            'total_found': len(scheduled_tasks),
-            'message': f'Submitted {submitted_count} tasks for execution'
+            "processed": submitted_count,
+            "total_found": len(scheduled_tasks),
+            "message": f"Submitted {submitted_count} tasks for execution",
         }
 
     except Exception as e:
         logger.error(f"Error in check_scheduled_tasks: {e}", exc_info=True)
-        return {'error': str(e)}
+        return {"error": str(e)}
 
 
 @shared_task(bind=True)
@@ -342,7 +374,7 @@ def recover_stuck_tasks(self):
 
         if not stuck_tasks:
             logger.debug("No stuck tasks found")
-            return {'recovered': 0, 'failed': 0, 'message': 'No stuck tasks found'}
+            return {"recovered": 0, "failed": 0, "message": "No stuck tasks found"}
 
         logger.info(f"Found {len(stuck_tasks)} potentially stuck tasks")
 
@@ -354,9 +386,9 @@ def recover_stuck_tasks(self):
         skipped_count = 0
 
         for task in stuck_tasks:
-            task_id = task['id']
-            job_id = task.get('job_id')
-            retry_count = task.get('retry_count', 0)
+            task_id = task["id"]
+            job_id = task.get("job_id")
+            retry_count = task.get("retry_count", 0)
 
             # Check if Celery task is actually still running
             if check_celery_task_active(job_id):
@@ -364,7 +396,9 @@ def recover_stuck_tasks(self):
                 skipped_count += 1
                 continue
 
-            logger.warning(f"Task {task_id} ({task['name']}) appears stuck, last update: {task['updated_at']}")
+            logger.warning(
+                f"Task {task_id} ({task['name']}) appears stuck, last update: {task['updated_at']}"
+            )
 
             if retry_count < MAX_RETRY_COUNT:
                 # Reset for retry
@@ -376,24 +410,31 @@ def recover_stuck_tasks(self):
                     try:
                         result = execute_unified_task.apply_async(
                             args=[task_id],
-                            queue=_get_queue_for_task_type(task.get('type')),
-                            countdown=10  # Small delay before retry
+                            queue=_get_queue_for_task_type(task.get("type")),
+                            countdown=10,  # Small delay before retry
                         )
-                        logger.info(f"Requeued stuck task {task_id} for retry {new_retry_count}/{MAX_RETRY_COUNT}")
+                        logger.info(
+                            f"Requeued stuck task {task_id} for retry {new_retry_count}/{MAX_RETRY_COUNT}"
+                        )
                         recovered_count += 1
                     except Exception as e:
                         logger.error(f"Failed to requeue task {task_id}: {e}")
 
             else:
                 # Max retries exceeded, mark as failed
-                error_message = f"Task failed after {MAX_RETRY_COUNT} automatic recovery attempts"
+                error_message = (
+                    f"Task failed after {MAX_RETRY_COUNT} automatic recovery attempts"
+                )
                 if mark_task_failed(task_id, error_message):
                     logger.warning(f"Task {task_id} marked as failed after max retries")
                     failed_count += 1
 
                     # Notify progress system
                     try:
-                        from backend.utils.unified_progress_system import get_unified_progress
+                        from backend.utils.unified_progress_system import (
+                            get_unified_progress,
+                        )
+
                         progress_system = get_unified_progress()
                         process_id = f"task_{task_id}"
                         progress_system.error_process(process_id, error_message)
@@ -401,32 +442,32 @@ def recover_stuck_tasks(self):
                         pass
 
         return {
-            'recovered': recovered_count,
-            'failed': failed_count,
-            'skipped': skipped_count,
-            'total_found': len(stuck_tasks),
-            'message': f'Recovered {recovered_count}, failed {failed_count}, skipped {skipped_count}'
+            "recovered": recovered_count,
+            "failed": failed_count,
+            "skipped": skipped_count,
+            "total_found": len(stuck_tasks),
+            "message": f"Recovered {recovered_count}, failed {failed_count}, skipped {skipped_count}",
         }
 
     except Exception as e:
         logger.error(f"Error in recover_stuck_tasks: {e}", exc_info=True)
-        return {'error': str(e)}
+        return {"error": str(e)}
 
 
 def _get_queue_for_task_type(task_type: str) -> str:
     """Get appropriate Celery queue for task type"""
     queue_mapping = {
-        'file_generation': 'generation',
-        'csv_generation': 'generation',
-        'code_generation': 'generation',
-        'content_generation': 'generation',
-        'image_generation': 'generation',
-        'video_generation': 'generation',
-        'indexing': 'indexing',
-        'data_analysis': 'default',
-        'web_scraping': 'default',
+        "file_generation": "generation",
+        "csv_generation": "generation",
+        "code_generation": "generation",
+        "content_generation": "generation",
+        "image_generation": "generation",
+        "video_generation": "generation",
+        "indexing": "indexing",
+        "data_analysis": "default",
+        "web_scraping": "default",
     }
-    return queue_mapping.get(task_type, 'default')
+    return queue_mapping.get(task_type, "default")
 
 
 # Health check task for monitoring
@@ -434,11 +475,11 @@ def _get_queue_for_task_type(task_type: str) -> str:
 def scheduler_health_check():
     """Simple health check task"""
     return {
-        'status': 'healthy',
-        'timestamp': datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        'service': 'task_scheduler_celery'
+        "status": "healthy",
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "service": "task_scheduler_celery",
     }
 
 
 # Export for Celery discovery
-__all__ = ['check_scheduled_tasks', 'recover_stuck_tasks', 'scheduler_health_check']
+__all__ = ["check_scheduled_tasks", "recover_stuck_tasks", "scheduler_health_check"]

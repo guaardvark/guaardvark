@@ -36,7 +36,13 @@ def search(
 
         if sources:
             console.print(f"\n[llx.dim]Sources ({len(sources)}):[/llx.dim]")
-            rows = [{"source": s.get("source_document", "?"), "score": f"{s.get('score', 0):.3f}"} for s in sources]
+            rows = [
+                {
+                    "source": s.get("source_document", "?"),
+                    "score": f"{s.get('score', 0):.3f}",
+                }
+                for s in sources
+            ]
             output.print_table(rows, columns=["source", "score"])
 
     except (LlxConnectionError, LlxError) as e:

@@ -1,6 +1,12 @@
 """Agent Tools - Tool implementations for agent capabilities"""
 
-from backend.services.agent_tools import BaseTool, ToolRegistry, ToolResult, ToolParameter, get_tool_registry
+from backend.services.agent_tools import (
+    BaseTool,
+    ToolRegistry,
+    ToolResult,
+    ToolParameter,
+    get_tool_registry,
+)
 
 # Import code manipulation tools
 from backend.tools.agent_tools.code_manipulation_tools import (
@@ -14,19 +20,19 @@ from backend.tools.agent_tools.code_manipulation_tools import (
 )
 
 __all__ = [
-    'BaseTool',
-    'ToolRegistry',
-    'ToolResult',
-    'ToolParameter',
-    'get_tool_registry',
+    "BaseTool",
+    "ToolRegistry",
+    "ToolResult",
+    "ToolParameter",
+    "get_tool_registry",
     # Code manipulation tools
-    'ReadCodeTool',
-    'SearchCodeTool',
-    'EditCodeTool',
-    'ListCodeFilesTool',
-    'VerifyChangeTool',
-    'CODE_MANIPULATION_TOOLS',
-    'register_code_manipulation_tools',
+    "ReadCodeTool",
+    "SearchCodeTool",
+    "EditCodeTool",
+    "ListCodeFilesTool",
+    "VerifyChangeTool",
+    "CODE_MANIPULATION_TOOLS",
+    "register_code_manipulation_tools",
 ]
 
 
@@ -40,5 +46,5 @@ try:
     initialize_all_tools()
 except Exception as e:
     import logging
-    logging.getLogger(__name__).warning(f"Failed to auto-register tools: {e}")
 
+    logging.getLogger(__name__).warning(f"Failed to auto-register tools: {e}")

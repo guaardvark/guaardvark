@@ -15,21 +15,38 @@ logger = logging.getLogger(__name__)
 
 try:
     from backend.config import (
-        COMFYUI_URL, COMFYUI_DIR, COMFYUI_VENV,
-        VIDEO_GENERATION_BACKEND, COMFYUI_IDLE_TIMEOUT,
-        LOG_DIR, GUAARDVARK_ROOT,
+        COMFYUI_URL,
+        COMFYUI_DIR,
+        COMFYUI_VENV,
+        VIDEO_GENERATION_BACKEND,
+        COMFYUI_IDLE_TIMEOUT,
+        LOG_DIR,
+        GUAARDVARK_ROOT,
     )
 except ImportError:
     COMFYUI_URL = os.environ.get("GUAARDVARK_COMFYUI_URL", "http://127.0.0.1:8188")
-    COMFYUI_DIR = os.environ.get("GUAARDVARK_COMFYUI_DIR", os.path.join(os.environ.get("GUAARDVARK_ROOT", "."), "plugins", "comfyui", "ComfyUI"))
-    COMFYUI_VENV = os.environ.get("GUAARDVARK_COMFYUI_VENV", os.path.join(os.environ.get("GUAARDVARK_ROOT", "."), "backend", "venv"))
+    COMFYUI_DIR = os.environ.get(
+        "GUAARDVARK_COMFYUI_DIR",
+        os.path.join(
+            os.environ.get("GUAARDVARK_ROOT", "."), "plugins", "comfyui", "ComfyUI"
+        ),
+    )
+    COMFYUI_VENV = os.environ.get(
+        "GUAARDVARK_COMFYUI_VENV",
+        os.path.join(os.environ.get("GUAARDVARK_ROOT", "."), "backend", "venv"),
+    )
     VIDEO_GENERATION_BACKEND = os.environ.get("GUAARDVARK_VIDEO_BACKEND", "auto")
-    COMFYUI_IDLE_TIMEOUT = int(os.environ.get("GUAARDVARK_COMFYUI_IDLE_TIMEOUT", "1800"))
+    COMFYUI_IDLE_TIMEOUT = int(
+        os.environ.get("GUAARDVARK_COMFYUI_IDLE_TIMEOUT", "1800")
+    )
     LOG_DIR = "logs"
     GUAARDVARK_ROOT = os.environ.get("GUAARDVARK_ROOT", ".")
 
 # Re-export the shared dataclasses so batch_video_generator can import from here
-from backend.services.comfyui_video_generator import VideoGenerationRequest, VideoGenerationResult
+from backend.services.comfyui_video_generator import (
+    VideoGenerationRequest,
+    VideoGenerationResult,
+)
 
 
 class VideoGenerationRouter:
@@ -61,6 +78,7 @@ class VideoGenerationRouter:
         """Lazy-load ComfyUI generator."""
         if self._comfyui_gen is None or force_refresh:
             from backend.services.comfyui_video_generator import ComfyUIVideoGenerator
+
             self._comfyui_gen = ComfyUIVideoGenerator()
         return self._comfyui_gen
 
@@ -68,7 +86,10 @@ class VideoGenerationRouter:
         """Lazy-load Offline Diffusers generator."""
         if self._offline_gen is None:
             try:
-                from backend.services.offline_video_generator import OfflineVideoGenerator
+                from backend.services.offline_video_generator import (
+                    OfflineVideoGenerator,
+                )
+
                 self._offline_gen = OfflineVideoGenerator()
             except ImportError as e:
                 logger.warning(f"Offline video generator unavailable: {e}")
@@ -79,6 +100,7 @@ class VideoGenerationRouter:
         """Ping ComfyUI to see if it's running."""
         try:
             import requests
+
             resp = requests.get(COMFYUI_URL, timeout=2)
             return resp.status_code == 200
         except Exception:
@@ -91,7 +113,9 @@ class VideoGenerationRouter:
             if gen:
                 logger.info("Using Offline Diffusers backend (configured)")
                 return gen
-            raise RuntimeError("Offline video generator not available (missing torch/diffusers)")
+            raise RuntimeError(
+                "Offline video generator not available (missing torch/diffusers)"
+            )
 
         # Try ComfyUI first
         if self._check_comfyui():
@@ -113,7 +137,9 @@ class VideoGenerationRouter:
         if self._backend_pref == "auto":
             gen = self._get_offline()
             if gen:
-                logger.info("ComfyUI unavailable, falling back to Offline Diffusers backend")
+                logger.info(
+                    "ComfyUI unavailable, falling back to Offline Diffusers backend"
+                )
                 return gen
 
         raise RuntimeError(
@@ -138,7 +164,9 @@ class VideoGenerationRouter:
             )
         finally:
             with self._gen_count_lock:
-                self._active_generation_count = max(0, self._active_generation_count - 1)
+                self._active_generation_count = max(
+                    0, self._active_generation_count - 1
+                )
                 if self._active_generation_count == 0:
                     self._schedule_idle_shutdown()
 
@@ -164,7 +192,9 @@ class VideoGenerationRouter:
 
         # Prefer the plugin start script — it handles duplicate detection,
         # correct cwd, PID file writing, and log setup consistently.
-        plugin_start_script = Path(GUAARDVARK_ROOT) / "plugins" / "comfyui" / "scripts" / "start.sh"
+        plugin_start_script = (
+            Path(GUAARDVARK_ROOT) / "plugins" / "comfyui" / "scripts" / "start.sh"
+        )
         if plugin_start_script.exists():
             return self._start_comfyui_via_plugin(plugin_start_script)
 
@@ -177,10 +207,14 @@ class VideoGenerationRouter:
         try:
             result = subprocess.run(
                 ["bash", str(start_script)],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             if result.returncode != 0:
-                logger.error(f"Plugin start script failed (rc={result.returncode}): {result.stderr}")
+                logger.error(
+                    f"Plugin start script failed (rc={result.returncode}): {result.stderr}"
+                )
                 return False
             logger.info(f"Plugin start script output: {result.stdout.strip()}")
 
@@ -232,7 +266,9 @@ class VideoGenerationRouter:
 
             # Write PID file
             self._pid_file.write_text(str(proc.pid))
-            logger.info(f"ComfyUI started (PID: {proc.pid}), waiting for it to be ready...")
+            logger.info(
+                f"ComfyUI started (PID: {proc.pid}), waiting for it to be ready..."
+            )
 
             # Wait up to 90 seconds for ComfyUI to respond
             for i in range(90):
@@ -325,7 +361,9 @@ class VideoGenerationRouter:
     def _idle_shutdown(self):
         """Called by timer — stop ComfyUI if still idle and no active generations."""
         if self.is_generating:
-            logger.info("ComfyUI idle timeout fired but generation is active, rescheduling...")
+            logger.info(
+                "ComfyUI idle timeout fired but generation is active, rescheduling..."
+            )
             self._schedule_idle_shutdown()
             return
         if self._check_comfyui():

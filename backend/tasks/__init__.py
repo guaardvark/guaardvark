@@ -28,21 +28,21 @@ from .task_scheduler_celery import (
 
 __all__ = [
     # Training tasks
-    'parse_transcripts_task',
-    'filter_dataset_task',
-    'finetune_model_task',
-    'export_gguf_task',
-    'import_ollama_task',
-    'full_training_pipeline_task',
+    "parse_transcripts_task",
+    "filter_dataset_task",
+    "finetune_model_task",
+    "export_gguf_task",
+    "import_ollama_task",
+    "full_training_pipeline_task",
     # CSV generation
-    'generate_proven_csv_task',
+    "generate_proven_csv_task",
     # Cleanup tasks
-    'create_cleanup_tasks',
-    'schedule_periodic_cleanup',
+    "create_cleanup_tasks",
+    "schedule_periodic_cleanup",
     # Unified task executor
-    'execute_unified_task',
+    "execute_unified_task",
     # Task scheduler Beat tasks
-    'check_scheduled_tasks',
-    'recover_stuck_tasks',
-    'scheduler_health_check',
+    "check_scheduled_tasks",
+    "recover_stuck_tasks",
+    "scheduler_health_check",
 ]

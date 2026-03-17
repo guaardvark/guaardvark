@@ -19,6 +19,7 @@ MODEL_LIST_CACHE_TTL = 30  # seconds
 # --- LlamaIndex Imports ---
 try:
     from llama_index.core import PromptTemplate, Settings
+
     # Import base engines for type checking if needed, not for creation here
     from llama_index.core.base.base_query_engine import BaseQueryEngine
     from llama_index.core.chat_engine.types import BaseChatEngine
@@ -76,16 +77,20 @@ def unload_model_from_ollama(model_name: str) -> bool:
                 "model": model_name,
                 "prompt": "",
                 "keep_alive": 0,  # Unload immediately
-                "options": {"num_ctx": 1}
+                "options": {"num_ctx": 1},
             },
-            timeout=30
+            timeout=30,
         )
 
         if response.ok:
-            logger.info(f"Successfully unloaded model '{model_name}' from Ollama memory")
+            logger.info(
+                f"Successfully unloaded model '{model_name}' from Ollama memory"
+            )
             return True
         else:
-            logger.warning(f"Failed to unload model '{model_name}': {response.status_code} {response.text}")
+            logger.warning(
+                f"Failed to unload model '{model_name}': {response.status_code} {response.text}"
+            )
             return False
 
     except requests.exceptions.RequestException as e:
@@ -169,7 +174,15 @@ def get_available_ollama_models(use_cache: bool = True, force_refresh: bool = Fa
             return {"error": "Invalid format received from Ollama API."}
 
         # Filter out embedding-only models (cannot be used for chat)
-        embedding_patterns = ["embed", "nomic-embed", "all-minilm", "bge", "gte", "e5-", "mxbai-embed"]
+        embedding_patterns = [
+            "embed",
+            "nomic-embed",
+            "all-minilm",
+            "bge",
+            "gte",
+            "e5-",
+            "mxbai-embed",
+        ]
         chat_models = []
         filtered_count = 0
 
@@ -183,7 +196,9 @@ def get_available_ollama_models(use_cache: bool = True, force_refresh: bool = Fa
                 filtered_count += 1
                 logger.debug(f"Filtered out embedding model: {model_item.get('name')}")
 
-        logger.info(f"Found {len(chat_models)} chat models from Ollama API (filtered {filtered_count} embedding models).")
+        logger.info(
+            f"Found {len(chat_models)} chat models from Ollama API (filtered {filtered_count} embedding models)."
+        )
 
         # Add a simple id for frontend key prop if missing
         for i, model_item in enumerate(chat_models):
@@ -209,8 +224,10 @@ def get_available_ollama_models(use_cache: bool = True, force_refresh: bool = Fa
 @model_bp.route("/list", methods=["GET"])
 def list_models():
     """API endpoint to list available models from Ollama."""
-    force_refresh = request.args.get('refresh', '').lower() == 'true'
-    models_data = get_available_ollama_models(use_cache=True, force_refresh=force_refresh)
+    force_refresh = request.args.get("refresh", "").lower() == "true"
+    models_data = get_available_ollama_models(
+        use_cache=True, force_refresh=force_refresh
+    )
     if isinstance(models_data, dict) and models_data.get("error"):
         return error_response(models_data["error"], 502, "OLLAMA_ERROR")
     logger.info(f"Returning {len(models_data)} available models from Ollama.")
@@ -221,10 +238,9 @@ def list_models():
 def list_loaded_models():
     """API endpoint to list currently loaded models in Ollama memory."""
     loaded = get_loaded_models()
-    return success_response("Loaded models retrieved", {
-        "models": loaded,
-        "count": len(loaded)
-    })
+    return success_response(
+        "Loaded models retrieved", {"models": loaded, "count": len(loaded)}
+    )
 
 
 @model_bp.route("/unload", methods=["POST"])
@@ -241,34 +257,46 @@ def unload_models():
     elif model_name:
         success = unload_model_from_ollama(model_name)
         if success:
-            return success_response(f"Unloaded model {model_name}", {"model": model_name})
+            return success_response(
+                f"Unloaded model {model_name}", {"model": model_name}
+            )
         else:
-            return error_response(f"Failed to unload model {model_name}", 500, "UNLOAD_FAILED")
+            return error_response(
+                f"Failed to unload model {model_name}", 500, "UNLOAD_FAILED"
+            )
     else:
-        return error_response("Specify 'model' name or 'all': true", 400, "INVALID_REQUEST")
+        return error_response(
+            "Specify 'model' name or 'all': true", 400, "INVALID_REQUEST"
+        )
 
 
 @model_bp.route("/vision", methods=["GET"])
 def list_vision_models():
     """API endpoint to list currently available vision models."""
     try:
-        from backend.utils.chat_utils import get_available_vision_models, clear_vision_models_cache
-        
+        from backend.utils.chat_utils import (
+            get_available_vision_models,
+            clear_vision_models_cache,
+        )
+
         # Check if force refresh requested
-        force_refresh = request.args.get('refresh', '').lower() == 'true'
+        force_refresh = request.args.get("refresh", "").lower() == "true"
         if force_refresh:
             clear_vision_models_cache()
             logger.info("Vision models cache cleared due to force refresh")
-        
+
         vision_models = get_available_vision_models()
-        
+
         logger.info(f"Returning {len(vision_models)} vision models")
-        return success_response("Vision models retrieved", {
-            "vision_models": vision_models,
-            "count": len(vision_models),
-            "cache_refreshed": force_refresh
-        })
-        
+        return success_response(
+            "Vision models retrieved",
+            {
+                "vision_models": vision_models,
+                "count": len(vision_models),
+                "cache_refreshed": force_refresh,
+            },
+        )
+
     except Exception as e:
         logger.error(f"Error listing vision models: {e}", exc_info=True)
         return error_response(str(e), 500, "VISION_MODELS_ERROR")
@@ -279,17 +307,19 @@ def check_vision_capability(model_name):
     """API endpoint to check if a specific model supports vision."""
     try:
         from backend.utils.chat_utils import is_vision_model
-        
+
         is_vision_capable = is_vision_model(model_name)
-        
+
         logger.debug(f"Vision capability check for '{model_name}': {is_vision_capable}")
-        return success_response("Vision capability checked", {
-            "model_name": model_name,
-            "is_vision_capable": is_vision_capable
-        })
-        
+        return success_response(
+            "Vision capability checked",
+            {"model_name": model_name, "is_vision_capable": is_vision_capable},
+        )
+
     except Exception as e:
-        logger.error(f"Error checking vision capability for '{model_name}': {e}", exc_info=True)
+        logger.error(
+            f"Error checking vision capability for '{model_name}': {e}", exc_info=True
+        )
         return error_response(str(e), 500, "VISION_CHECK_ERROR")
 
 
@@ -314,15 +344,21 @@ def get_current_model():
                 logger.warning(
                     f"LLM not found in Settings, returning model from app config: {model_name}"
                 )
-                return success_response("Current model retrieved", {"model": model_name})
+                return success_response(
+                    "Current model retrieved", {"model": model_name}
+                )
             else:
                 logger.error(
                     "Could not determine active model from Settings or app config."
                 )
-                return error_response("Active model not configured or found.", 500, "NOT_FOUND")
+                return error_response(
+                    "Active model not configured or found.", 500, "NOT_FOUND"
+                )
     except Exception as e:
         logger.error(f"Error retrieving current model: {e}", exc_info=True)
-        return error_response("Failed to retrieve current model.", 500, "RETRIEVAL_ERROR")
+        return error_response(
+            "Failed to retrieve current model.", 500, "RETRIEVAL_ERROR"
+        )
 
 
 @model_bp.route("/health", methods=["GET"])
@@ -343,7 +379,9 @@ def model_health():
     except requests.RequestException as e:
         logger.error("Model health check failed: %s", e)
         return error_response(str(e), 503, "HEALTH_CHECK_FAILED")
-    return success_response("Model health checked", {"active_model": model_name, "available": available})
+    return success_response(
+        "Model health checked", {"active_model": model_name, "available": available}
+    )
 
 
 @model_bp.route("/status", methods=["GET"])
@@ -360,49 +398,73 @@ def model_status():
         # Check if current text model has vision capabilities
         vision_model = text_model  # Default to text model
         vision_loaded = False
-        
+
         if text_model:
             try:
                 from backend.utils.chat_utils import is_vision_model
-                
+
                 # Check if the current text model supports vision
                 if is_vision_model(text_model):
                     # Current model is vision-capable, check if it's loaded
                     try:
                         resp = requests.post(
-                            f"{OLLAMA_BASE_URL}/api/show", json={"name": text_model}, timeout=5
+                            f"{OLLAMA_BASE_URL}/api/show",
+                            json={"name": text_model},
+                            timeout=5,
                         )
                         vision_loaded = bool(resp.ok)
-                        logger.debug(f"Text model '{text_model}' is vision-capable and loaded: {vision_loaded}")
-                    except (requests.RequestException, requests.Timeout, ConnectionError) as e:
-                        logger.debug(f"Vision model check failed for '{text_model}': {e}")
+                        logger.debug(
+                            f"Text model '{text_model}' is vision-capable and loaded: {vision_loaded}"
+                        )
+                    except (
+                        requests.RequestException,
+                        requests.Timeout,
+                        ConnectionError,
+                    ) as e:
+                        logger.debug(
+                            f"Vision model check failed for '{text_model}': {e}"
+                        )
                         vision_loaded = False
                 else:
                     # Text model doesn't support vision, check for separate vision models
                     vision_model = "llava"  # Fallback to separate vision model
                     try:
                         resp = requests.post(
-                            f"{OLLAMA_BASE_URL}/api/show", json={"name": vision_model}, timeout=5
+                            f"{OLLAMA_BASE_URL}/api/show",
+                            json={"name": vision_model},
+                            timeout=5,
                         )
                         vision_loaded = bool(resp.ok)
-                        logger.debug(f"Separate vision model '{vision_model}' loaded: {vision_loaded}")
-                    except (requests.RequestException, requests.Timeout, ConnectionError) as e:
+                        logger.debug(
+                            f"Separate vision model '{vision_model}' loaded: {vision_loaded}"
+                        )
+                    except (
+                        requests.RequestException,
+                        requests.Timeout,
+                        ConnectionError,
+                    ) as e:
                         logger.debug(f"Separate vision model check failed: {e}")
                         vision_loaded = False
-                        
+
             except ImportError as e:
                 logger.warning(f"Could not import vision detection utilities: {e}")
                 # Fallback to checking for llava
                 vision_model = "llava"
                 try:
                     resp = requests.post(
-                        f"{OLLAMA_BASE_URL}/api/show", json={"name": vision_model}, timeout=5
+                        f"{OLLAMA_BASE_URL}/api/show",
+                        json={"name": vision_model},
+                        timeout=5,
                     )
                     vision_loaded = bool(resp.ok)
-                except (requests.RequestException, requests.Timeout, ConnectionError) as e:
+                except (
+                    requests.RequestException,
+                    requests.Timeout,
+                    ConnectionError,
+                ) as e:
                     logger.debug(f"Fallback vision model check failed: {e}")
                     vision_loaded = False
-        
+
         # Default image generation model (separate from vision)
         image_gen_model = "sdxl"
 
@@ -450,9 +512,13 @@ def get_resources():
 
     try:
         out = subprocess.check_output(
-            ["nvidia-smi", "--query-gpu=memory.free,memory.total",
-             "--format=csv,nounits,noheader"],
-            timeout=5, text=True,
+            [
+                "nvidia-smi",
+                "--query-gpu=memory.free,memory.total",
+                "--format=csv,nounits,noheader",
+            ],
+            timeout=5,
+            text=True,
         )
         parts = out.strip().split(",")
         if len(parts) == 2:
@@ -463,6 +529,7 @@ def get_resources():
 
     try:
         import psutil
+
         vm = psutil.virtual_memory()
         ram_free = vm.available / (1024 * 1024)
         ram_total = vm.total / (1024 * 1024)
@@ -501,11 +568,16 @@ def get_resources():
     logger.info("RESOURCES: checking router...")
     try:
         from backend.utils.embedding_router import _embedding_router
+
         if _embedding_router is not None and _embedding_router._initialized:
             router_stats = {
                 "hardware_profile": _embedding_router.hardware_profile.value,
-                "gpu_enabled": _embedding_router.profile_config.get("gpu_enabled", False),
-                "parallel_threshold": _embedding_router.profile_config.get("parallel_threshold", 0),
+                "gpu_enabled": _embedding_router.profile_config.get(
+                    "gpu_enabled", False
+                ),
+                "parallel_threshold": _embedding_router.profile_config.get(
+                    "parallel_threshold", 0
+                ),
                 "gpu_initialized": _embedding_router._gpu_embedding is not None,
                 "cpu_initialized": _embedding_router._cpu_embedding is not None,
                 "active_model": _embedding_router._active_model_name,
@@ -515,21 +587,26 @@ def get_resources():
     except Exception:
         pass
 
-    return success_response("Resources retrieved", {
-        "gpu": {
-            "total_mb": round(gpu_total),
-            "used_mb": round(gpu_used),
-            "free_mb": round(gpu_free),
-            "utilization_pct": round(gpu_used / gpu_total * 100, 1) if gpu_total > 0 else 0,
+    return success_response(
+        "Resources retrieved",
+        {
+            "gpu": {
+                "total_mb": round(gpu_total),
+                "used_mb": round(gpu_used),
+                "free_mb": round(gpu_free),
+                "utilization_pct": (
+                    round(gpu_used / gpu_total * 100, 1) if gpu_total > 0 else 0
+                ),
+            },
+            "ram": {
+                "total_mb": round(ram_total),
+                "free_mb": round(ram_free),
+            },
+            "loaded_models": loaded_summary,
+            "embedding_model": embed_model_name,
+            "embedding_router": router_stats,
         },
-        "ram": {
-            "total_mb": round(ram_total),
-            "free_mb": round(ram_free),
-        },
-        "loaded_models": loaded_summary,
-        "embedding_model": embed_model_name,
-        "embedding_router": router_stats,
-    })
+    )
 
 
 @model_bp.route("/embedding/list", methods=["GET"])
@@ -542,28 +619,42 @@ def list_embedding_models():
     except Exception as e:
         return error_response(f"Cannot reach Ollama: {e}", 502, "OLLAMA_ERROR")
 
-    embedding_patterns = ["embed", "nomic-embed", "all-minilm", "bge", "gte", "e5-", "mxbai-embed"]
+    embedding_patterns = [
+        "embed",
+        "nomic-embed",
+        "all-minilm",
+        "bge",
+        "gte",
+        "e5-",
+        "mxbai-embed",
+    ]
     embedding_models = []
     for m in all_models:
         name = m.get("name", "").lower()
         if any(p in name for p in embedding_patterns):
-            embedding_models.append({
-                "name": m.get("name"),
-                "size_mb": round(m.get("size", 0) / (1024 * 1024)),
-            })
+            embedding_models.append(
+                {
+                    "name": m.get("name"),
+                    "size_mb": round(m.get("size", 0) / (1024 * 1024)),
+                }
+            )
 
     # Also get the currently active embedding model
     active_embed = None
     try:
         from backend.config import get_active_embedding_model
+
         active_embed = get_active_embedding_model()
     except Exception:
         pass
 
-    return success_response({
-        "models": embedding_models,
-        "active": active_embed,
-    }, "Embedding models retrieved")
+    return success_response(
+        {
+            "models": embedding_models,
+            "active": active_embed,
+        },
+        "Embedding models retrieved",
+    )
 
 
 @model_bp.route("/embedding/set", methods=["POST"])
@@ -587,7 +678,9 @@ def set_embedding_model():
             f"{OLLAMA_BASE_URL}/api/show", json={"name": model_name}, timeout=10
         )
         if not resp.ok:
-            return error_response(f"Model '{model_name}' not found in Ollama", 404, "NOT_FOUND")
+            return error_response(
+                f"Model '{model_name}' not found in Ollama", 404, "NOT_FOUND"
+            )
     except Exception as e:
         return error_response(f"Cannot reach Ollama: {e}", 502, "OLLAMA_ERROR")
 
@@ -605,7 +698,11 @@ def set_embedding_model():
 
         # Reset the EmbeddingRouter singleton so it picks up the new model
         try:
-            from backend.utils.embedding_router import EmbeddingRouter, RouterEmbeddingAdapter
+            from backend.utils.embedding_router import (
+                EmbeddingRouter,
+                RouterEmbeddingAdapter,
+            )
+
             router = EmbeddingRouter()
             router._cpu_embedding = test_embed
             router._active_model_name = model_name
@@ -614,12 +711,15 @@ def set_embedding_model():
             current_app.config["LLAMA_INDEX_EMBED_MODEL"] = adapter
             logger.info(f"EmbeddingRouter updated with model: {model_name}")
         except Exception as router_err:
-            logger.warning(f"EmbeddingRouter update failed, using direct OllamaEmbedding: {router_err}")
+            logger.warning(
+                f"EmbeddingRouter update failed, using direct OllamaEmbedding: {router_err}"
+            )
             current_app.config["LLAMA_INDEX_EMBED_MODEL"] = test_embed
 
         # Update LlamaIndex global Settings
         try:
             from llama_index.core import Settings as LISettings
+
             LISettings.embed_model = current_app.config["LLAMA_INDEX_EMBED_MODEL"]
         except Exception:
             pass
@@ -627,8 +727,11 @@ def set_embedding_model():
         # Clear vector store to prevent mixed-dimension corruption
         try:
             import os
-            storage_dir = current_app.config.get("STORAGE_DIR",
-                os.path.join(os.environ.get("GUAARDVARK_ROOT", ""), "data"))
+
+            storage_dir = current_app.config.get(
+                "STORAGE_DIR",
+                os.path.join(os.environ.get("GUAARDVARK_ROOT", ""), "data"),
+            )
             cleared_files = []
             for fname in ("default__vector_store.json", "vector_store.json"):
                 fpath = os.path.join(storage_dir, fname)
@@ -636,10 +739,13 @@ def set_embedding_model():
                     os.remove(fpath)
                     cleared_files.append(fname)
             if cleared_files:
-                logger.info(f"Cleared vector store files after embedding switch: {cleared_files}")
+                logger.info(
+                    f"Cleared vector store files after embedding switch: {cleared_files}"
+                )
                 # Reset in-memory index so it rebuilds fresh on next use
                 try:
                     import backend.services.indexing_service as idx_svc
+
                     idx_svc.index = None
                     idx_svc.storage_context = None
                 except Exception:
@@ -659,14 +765,19 @@ def set_embedding_model():
         except Exception as e:
             logger.warning(f"Failed to persist embedding model to DB: {e}")
 
-        return success_response(f"Embedding model switched to {model_name}", {
-            "model": model_name,
-            "dimensions": embed_dim,
-        })
+        return success_response(
+            f"Embedding model switched to {model_name}",
+            {
+                "model": model_name,
+                "dimensions": embed_dim,
+            },
+        )
 
     except Exception as e:
         logger.error(f"Failed to switch embedding model: {e}", exc_info=True)
-        return error_response(f"Failed to switch embedding model: {str(e)}", 500, "SWITCH_FAILED")
+        return error_response(
+            f"Failed to switch embedding model: {str(e)}", 500, "SWITCH_FAILED"
+        )
 
 
 def switch_active_model(new_model_name: str):
@@ -709,19 +820,22 @@ def switch_active_model(new_model_name: str):
     # Adaptive context window based on available resources (computed AFTER unload)
     try:
         from backend.utils.ollama_resource_manager import compute_optimal_num_ctx
+
         num_ctx = compute_optimal_num_ctx(new_model_name)
     except Exception as e:
         logger.warning(f"Failed to compute adaptive num_ctx: {e}, using 8192")
         num_ctx = 8192
 
-    logger.info(f"Creating new Ollama instance for model: {new_model_name} (num_ctx={num_ctx})")
+    logger.info(
+        f"Creating new Ollama instance for model: {new_model_name} (num_ctx={num_ctx})"
+    )
     new_llm = Ollama(
         model=new_model_name,
         base_url=OLLAMA_BASE_URL,
         request_timeout=120.0,
         temperature=0.4,
         context_window=num_ctx,
-        additional_kwargs={"num_ctx": num_ctx, "top_p": 0.8, "top_k": 30}
+        additional_kwargs={"num_ctx": num_ctx, "top_p": 0.8, "top_k": 30},
     )
     new_llm.complete("Test.")
     logger.info(f"Successfully created and tested Ollama instance for {new_model_name}")
@@ -739,10 +853,14 @@ def switch_active_model(new_model_name: str):
 
     index_instance = current_app.config.get("LLAMA_INDEX_INDEX")
     if not index_instance:
-        logger.warning("Index instance not found in app config. Attempting to continue without query engine recreation...")
+        logger.warning(
+            "Index instance not found in app config. Attempting to continue without query engine recreation..."
+        )
         # Don't raise an error - allow model switching to continue
         # Query engine will be recreated when index is next loaded
-        logger.info("Model switch will continue without query engine recreation - engines will be recreated when index is loaded")
+        logger.info(
+            "Model switch will continue without query engine recreation - engines will be recreated when index is loaded"
+        )
     else:
         logger.debug(
             f"Fetching QA template for new model '{new_model_name}' to recreate engines."
@@ -758,9 +876,13 @@ def switch_active_model(new_model_name: str):
             )
 
             if rule_id:
-                logger.info(f"Using qa_default rule ID {rule_id} from database for model '{new_model_name}'")
+                logger.info(
+                    f"Using qa_default rule ID {rule_id} from database for model '{new_model_name}'"
+                )
             else:
-                logger.info(f"Using fallback qa_default template for model '{new_model_name}'")
+                logger.info(
+                    f"Using fallback qa_default template for model '{new_model_name}'"
+                )
 
         except ImportError as e:
             logger.error(f"Failed to import rule_utils for QA template: {e}")
@@ -796,7 +918,9 @@ def switch_active_model(new_model_name: str):
             if "{show_reasoning}" not in qa_template_string:
                 current_format_args.pop("show_reasoning")
 
-            formatted_template_for_engine = qa_template_string.format(**current_format_args)
+            formatted_template_for_engine = qa_template_string.format(
+                **current_format_args
+            )
             base_qa_template_obj = PromptTemplate(formatted_template_for_engine)
 
         except KeyError as fmt_err:
@@ -825,6 +949,7 @@ def switch_active_model(new_model_name: str):
     # Persist to JSON file and database
     try:
         from backend.utils.llm_service import persist_active_model_name
+
         persist_active_model_name(new_model_name)
     except Exception as e:
         logger.warning("Failed to persist active model: %s", e)
@@ -850,19 +975,29 @@ def _switch_model_background(app, new_model_name: str):
                 logger.info(f"Current model before switch: {old_model_name}")
 
             # Emit started event
-            socketio.emit("model_switch", {
-                "status": "loading",
-                "model": new_model_name,
-                "message": f"Loading model {new_model_name}..."
-            }, namespace="/")
+            socketio.emit(
+                "model_switch",
+                {
+                    "status": "loading",
+                    "model": new_model_name,
+                    "message": f"Loading model {new_model_name}...",
+                },
+                namespace="/",
+            )
 
             # Validate model exists (uses cached list)
             available_models_data = get_available_ollama_models(use_cache=True)
-            if isinstance(available_models_data, dict) and available_models_data.get("error"):
-                raise RuntimeError(f"Failed to validate model: {available_models_data['error']}")
+            if isinstance(available_models_data, dict) and available_models_data.get(
+                "error"
+            ):
+                raise RuntimeError(
+                    f"Failed to validate model: {available_models_data['error']}"
+                )
 
             available_model_names = [
-                m.get("name", "").lower() for m in available_models_data if isinstance(m, dict)
+                m.get("name", "").lower()
+                for m in available_models_data
+                if isinstance(m, dict)
             ]
             if not any(
                 n == new_model_name.lower() or new_model_name.lower() in n
@@ -872,60 +1007,85 @@ def _switch_model_background(app, new_model_name: str):
 
             # --- Unload old model FIRST to free VRAM ---
             if old_model_name and old_model_name.lower() != new_model_name.lower():
-                socketio.emit("model_switch", {
-                    "status": "loading",
-                    "model": new_model_name,
-                    "message": f"Unloading {old_model_name} to free resources..."
-                }, namespace="/")
+                socketio.emit(
+                    "model_switch",
+                    {
+                        "status": "loading",
+                        "model": new_model_name,
+                        "message": f"Unloading {old_model_name} to free resources...",
+                    },
+                    namespace="/",
+                )
                 unload_model_from_ollama(old_model_name)
                 gc.collect()
-                logger.info(f"Unloaded old model '{old_model_name}' before loading new one")
+                logger.info(
+                    f"Unloaded old model '{old_model_name}' before loading new one"
+                )
                 # Brief pause to let Ollama release memory
                 time.sleep(1)
 
-            socketio.emit("model_switch", {
-                "status": "loading",
-                "model": new_model_name,
-                "message": f"Creating LLM instance for {new_model_name}..."
-            }, namespace="/")
+            socketio.emit(
+                "model_switch",
+                {
+                    "status": "loading",
+                    "model": new_model_name,
+                    "message": f"Creating LLM instance for {new_model_name}...",
+                },
+                namespace="/",
+            )
 
             # Adaptive context window based on available resources (computed AFTER unload)
             try:
-                from backend.utils.ollama_resource_manager import compute_optimal_num_ctx
+                from backend.utils.ollama_resource_manager import (
+                    compute_optimal_num_ctx,
+                )
+
                 num_ctx = compute_optimal_num_ctx(new_model_name)
             except Exception as e:
                 logger.warning(f"Failed to compute adaptive num_ctx: {e}, using 8192")
                 num_ctx = 8192
 
             # Create new LLM instance
-            logger.info(f"Creating new Ollama instance for model: {new_model_name} (num_ctx={num_ctx})")
+            logger.info(
+                f"Creating new Ollama instance for model: {new_model_name} (num_ctx={num_ctx})"
+            )
             new_llm = Ollama(
                 model=new_model_name,
                 base_url=OLLAMA_BASE_URL,
                 request_timeout=300.0,
                 temperature=0.4,
                 context_window=num_ctx,
-                additional_kwargs={"num_ctx": num_ctx, "top_p": 0.8, "top_k": 30}
+                additional_kwargs={"num_ctx": num_ctx, "top_p": 0.8, "top_k": 30},
             )
 
-            socketio.emit("model_switch", {
-                "status": "loading",
-                "model": new_model_name,
-                "message": f"Warming up {new_model_name} (this may take a moment)..."
-            }, namespace="/")
+            socketio.emit(
+                "model_switch",
+                {
+                    "status": "loading",
+                    "model": new_model_name,
+                    "message": f"Warming up {new_model_name} (this may take a moment)...",
+                },
+                namespace="/",
+            )
 
             # Test the model — this triggers Ollama to actually load it into VRAM
             new_llm.complete("Hello")
-            logger.info(f"Successfully created and tested Ollama instance for {new_model_name}")
+            logger.info(
+                f"Successfully created and tested Ollama instance for {new_model_name}"
+            )
 
             # Update global settings
             Settings.llm = new_llm
 
-            socketio.emit("model_switch", {
-                "status": "loading",
-                "model": new_model_name,
-                "message": "Updating query engines..."
-            }, namespace="/")
+            socketio.emit(
+                "model_switch",
+                {
+                    "status": "loading",
+                    "model": new_model_name,
+                    "message": "Updating query engines...",
+                },
+                namespace="/",
+            )
 
             # Update app config
             current_app.config["LLAMA_INDEX_LLM"] = new_llm
@@ -937,10 +1097,15 @@ def _switch_model_background(app, new_model_name: str):
                     from backend import rule_utils
                     from backend.models import db as db_instance
 
-                    qa_template_string, rule_id = rule_utils.get_active_qa_default_template(
-                        db_instance.session, model_name=new_model_name
+                    qa_template_string, rule_id = (
+                        rule_utils.get_active_qa_default_template(
+                            db_instance.session, model_name=new_model_name
+                        )
                     )
-                    if not qa_template_string or "{query_str}" not in qa_template_string:
+                    if (
+                        not qa_template_string
+                        or "{query_str}" not in qa_template_string
+                    ):
                         qa_template_string = "{context_str}\n\n{query_str}"
 
                     if "{rules_str}" not in qa_template_string:
@@ -958,7 +1123,9 @@ def _switch_model_background(app, new_model_name: str):
                     if "{show_reasoning}" not in qa_template_string:
                         current_format_args.pop("show_reasoning")
 
-                    formatted_template = qa_template_string.format(**current_format_args)
+                    formatted_template = qa_template_string.format(
+                        **current_format_args
+                    )
                     base_qa_template_obj = PromptTemplate(formatted_template)
 
                     new_query_engine = index_instance.as_query_engine(
@@ -974,6 +1141,7 @@ def _switch_model_background(app, new_model_name: str):
             # Persist to file and database
             try:
                 from backend.utils.llm_service import persist_active_model_name
+
                 persist_active_model_name(new_model_name)
             except Exception as e:
                 logger.warning(f"Failed to persist model: {e}")
@@ -982,11 +1150,15 @@ def _switch_model_background(app, new_model_name: str):
             gc.collect()
 
             # Emit success
-            socketio.emit("model_switch", {
-                "status": "complete",
-                "model": new_model_name,
-                "message": f"Successfully switched to {new_model_name}"
-            }, namespace="/")
+            socketio.emit(
+                "model_switch",
+                {
+                    "status": "complete",
+                    "model": new_model_name,
+                    "message": f"Successfully switched to {new_model_name}",
+                },
+                namespace="/",
+            )
             logger.info(f"Model switch complete: {new_model_name}")
 
         except Exception as e:
@@ -995,11 +1167,15 @@ def _switch_model_background(app, new_model_name: str):
             # Rollback: try to reload the old model if the new one failed
             if old_model_name and old_model_name.lower() != new_model_name.lower():
                 logger.info(f"Attempting rollback to previous model: {old_model_name}")
-                socketio.emit("model_switch", {
-                    "status": "loading",
-                    "model": new_model_name,
-                    "message": f"Failed — rolling back to {old_model_name}..."
-                }, namespace="/")
+                socketio.emit(
+                    "model_switch",
+                    {
+                        "status": "loading",
+                        "model": new_model_name,
+                        "message": f"Failed — rolling back to {old_model_name}...",
+                    },
+                    namespace="/",
+                )
                 try:
                     rollback_llm = Ollama(
                         model=old_model_name,
@@ -1007,20 +1183,26 @@ def _switch_model_background(app, new_model_name: str):
                         request_timeout=300.0,
                         temperature=0.4,
                         context_window=8192,
-                        additional_kwargs={"num_ctx": 8192, "top_p": 0.8, "top_k": 30}
+                        additional_kwargs={"num_ctx": 8192, "top_p": 0.8, "top_k": 30},
                     )
                     rollback_llm.complete("Hello")
                     Settings.llm = rollback_llm
                     current_app.config["LLAMA_INDEX_LLM"] = rollback_llm
                     logger.info(f"Rollback to {old_model_name} succeeded")
                 except Exception as rollback_err:
-                    logger.error(f"Rollback to {old_model_name} also failed: {rollback_err}")
+                    logger.error(
+                        f"Rollback to {old_model_name} also failed: {rollback_err}"
+                    )
 
-            socketio.emit("model_switch", {
-                "status": "error",
-                "model": new_model_name,
-                "message": f"Failed to switch model: {str(e)}"
-            }, namespace="/")
+            socketio.emit(
+                "model_switch",
+                {
+                    "status": "error",
+                    "model": new_model_name,
+                    "message": f"Failed to switch model: {str(e)}",
+                },
+                namespace="/",
+            )
             gc.collect()
 
 
@@ -1042,7 +1224,12 @@ def set_current_model():
     # Quick validation using cached model list (avoids slow re-fetch)
     available_models_data = get_available_ollama_models(use_cache=True)
     if isinstance(available_models_data, dict) and available_models_data.get("error"):
-        return jsonify({"error": f"Cannot verify model: {available_models_data['error']}"}), 500
+        return (
+            jsonify(
+                {"error": f"Cannot verify model: {available_models_data['error']}"}
+            ),
+            500,
+        )
 
     available_model_names = [
         m.get("name", "").lower() for m in available_models_data if isinstance(m, dict)
@@ -1056,14 +1243,17 @@ def set_current_model():
     # Start background thread for model switching
     app = current_app._get_current_object()
     thread = threading.Thread(
-        target=_switch_model_background,
-        args=(app, new_model_name),
-        daemon=True
+        target=_switch_model_background, args=(app, new_model_name), daemon=True
     )
     thread.start()
 
     # Return immediately - frontend will get updates via SocketIO
-    return jsonify({
-        "message": f"Model switch to {new_model_name} started",
-        "status": "switching"
-    }), 202
+    return (
+        jsonify(
+            {
+                "message": f"Model switch to {new_model_name} started",
+                "status": "switching",
+            }
+        ),
+        202,
+    )

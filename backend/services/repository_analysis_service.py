@@ -7,6 +7,7 @@ from backend.services.indexing_service import add_text_to_index
 
 logger = logging.getLogger(__name__)
 
+
 class RepositoryAnalysisService:
     @staticmethod
     def analyze_repository(folder_id):
@@ -26,37 +27,39 @@ class RepositoryAnalysisService:
         # 1. Collect file stats
         files = folder.documents.all()
         # For a real implementation, we would traversal strictly or rely on flat list if documents are flattened?
-        # Folder.documents relationship might only be immediate children. 
+        # Folder.documents relationship might only be immediate children.
         # We need recursive file list.
-        
+
         all_files = RepositoryAnalysisService._get_all_files_recursive(folder)
-        
+
         languages = {}
         file_structure = []
-        
+
         for doc in all_files:
             # Safer extension extraction
-            parts = doc.filename.split('.')
-            ext = parts[-1].lower() if len(parts) > 1 else 'no_extension'
+            parts = doc.filename.split(".")
+            ext = parts[-1].lower() if len(parts) > 1 else "no_extension"
             languages[ext] = languages.get(ext, 0) + 1
             file_structure.append(doc.path)
 
         # 2. Heuristic Framework Detection (Basic)
         frameworks = []
-        if any('package.json' in f for f in file_structure):
+        if any("package.json" in f for f in file_structure):
             frameworks.append("Node.js")
-        if any('requirements.txt' in f for f in file_structure) or any('pyproject.toml' in f for f in file_structure):
+        if any("requirements.txt" in f for f in file_structure) or any(
+            "pyproject.toml" in f for f in file_structure
+        ):
             frameworks.append("Python")
-        if any('pom.xml' in f for f in file_structure):
+        if any("pom.xml" in f for f in file_structure):
             frameworks.append("Java/Maven")
-        if any('go.mod' in f for f in file_structure):
+        if any("go.mod" in f for f in file_structure):
             frameworks.append("Go")
-        if any('Cargo.toml' in f for f in file_structure):
+        if any("Cargo.toml" in f for f in file_structure):
             frameworks.append("Rust")
-            
+
         # 3. Generate Summary using LLM
         # We'll send a truncated file list to LLM for high-level structure analysis
-        file_list_str = "\\n".join(file_structure[:500]) # Limit to first 500 files
+        file_list_str = "\\n".join(file_structure[:500])  # Limit to first 500 files
         if len(file_structure) > 500:
             file_list_str += f"\\n... (and {len(file_structure) - 500} more files)"
 
@@ -73,12 +76,12 @@ class RepositoryAnalysisService:
         2. Likely architecture pattern (MVC, Microservices, etc).
         3. Key components identification based on file names.
         """
-        
+
         try:
             # Using LLMService via Agent or direct call if possible.
             # We will use a simplified mock for now to ensure reliability until LLMService is fully verified
             # In production, this would call: response = LLMService.generate(prompt)
-            
+
             # Placeholder summary enhanced with dynamic data
             summary = (
                 f"Repository Analysis for {folder.name}\\n"
@@ -101,24 +104,24 @@ class RepositoryAnalysisService:
             "languages": languages,
             "frameworks": frameworks,
             "file_count": len(all_files),
-            "analyzed_at": datetime.now().isoformat()
+            "analyzed_at": datetime.now().isoformat(),
         }
-        
+
         folder.description = summary
         folder.repo_metadata = json.dumps(metadata)
         db.session.commit()
-        
+
         # 5. Index the Summary (RAG)
         try:
             success = add_text_to_index(
-                text=summary, 
+                text=summary,
                 metadata={
-                    "type": "repository_summary", 
+                    "type": "repository_summary",
                     "folder_id": folder.id,
                     "folder_name": folder.name,
                     "folder_path": folder.path,
-                    "source": "repository_analysis"
-                }
+                    "source": "repository_analysis",
+                },
             )
             if success:
                 logger.info(f"Successfully indexed summary for {folder.name}")
@@ -126,7 +129,7 @@ class RepositoryAnalysisService:
                 logger.warning(f"Failed to index summary for {folder.name}")
         except Exception as e:
             logger.error(f"Error indexing summary: {e}")
-        
+
         logger.info(f"Finished analysis for {folder.name}")
 
     @staticmethod

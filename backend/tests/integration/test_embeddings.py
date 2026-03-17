@@ -20,7 +20,12 @@ try:
     from backend.api.search_api import search_bp
     from backend.services import indexing_service
     from backend import config
-    from llama_index.core import VectorStoreIndex, StorageContext, load_index_from_storage, Settings
+    from llama_index.core import (
+        VectorStoreIndex,
+        StorageContext,
+        load_index_from_storage,
+        Settings,
+    )
     from llama_index.core.schema import Document
 except Exception as e:
     pytest.skip(f"Flask or backend modules not available: {e}", allow_module_level=True)
@@ -46,13 +51,15 @@ def app(tmp_path, monkeypatch):
 
     # Create Flask app
     app = Flask(__name__)
-    app.config.update({
-        "TESTING": True,
-        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
-        "INDEX_ROOT": str(tmp_path / "indices"),
-        "STORAGE_DIR": str(tmp_path / "storage"),
-        "UPLOAD_DIR": str(tmp_path / "uploads"),
-    })
+    app.config.update(
+        {
+            "TESTING": True,
+            "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+            "INDEX_ROOT": str(tmp_path / "indices"),
+            "STORAGE_DIR": str(tmp_path / "storage"),
+            "UPLOAD_DIR": str(tmp_path / "uploads"),
+        }
+    )
 
     # Initialize database
     db.init_app(app)
@@ -67,7 +74,7 @@ def app(tmp_path, monkeypatch):
         db.create_all()
 
         # Clear any cached indexes
-        if hasattr(indexing_service, '_index_cache'):
+        if hasattr(indexing_service, "_index_cache"):
             indexing_service._index_cache = {}
 
         yield app
@@ -98,8 +105,11 @@ def test_embedding_model_initialization():
 
     # Should be OllamaEmbedding if Ollama is available
     # Otherwise it falls back to other models
-    assert model_type in ["OllamaEmbedding", "HuggingFaceEmbedding", "SimpleTextEmbedding"], \
-        f"Unexpected embedding model type: {model_type}"
+    assert model_type in [
+        "OllamaEmbedding",
+        "HuggingFaceEmbedding",
+        "SimpleTextEmbedding",
+    ], f"Unexpected embedding model type: {model_type}"
 
 
 @pytest.mark.indexing
@@ -122,15 +132,22 @@ def test_embedding_dimensions():
     # But fallback models may have different dimensions
     assert actual_dim > 0, "Embedding is empty"
     assert isinstance(embedding, list), "Embedding should be a list"
-    assert all(isinstance(x, (int, float)) for x in embedding), "Embedding values should be numeric"
+    assert all(
+        isinstance(x, (int, float)) for x in embedding
+    ), "Embedding values should be numeric"
 
     # Log the dimension for verification
-    if hasattr(embed_model, 'model_name'):
+    if hasattr(embed_model, "model_name"):
         print(f"Model: {embed_model.model_name}, Dimensions: {actual_dim}")
 
     # If using qwen3-embedding:8b, should be exactly 4096
-    if hasattr(embed_model, 'model_name') and 'qwen3-embedding:8b' in embed_model.model_name:
-        assert actual_dim == 4096, f"qwen3-embedding:8b should produce 4096-dim embeddings, got {actual_dim}"
+    if (
+        hasattr(embed_model, "model_name")
+        and "qwen3-embedding:8b" in embed_model.model_name
+    ):
+        assert (
+            actual_dim == 4096
+        ), f"qwen3-embedding:8b should produce 4096-dim embeddings, got {actual_dim}"
 
 
 @pytest.mark.indexing
@@ -144,7 +161,9 @@ def test_embedding_fallback():
 
     # Test that we have a working embedding model (any type)
     test_embedding = embed_model.get_text_embedding("fallback test")
-    assert len(test_embedding) > 0, "Fallback embedding model should still produce embeddings"
+    assert (
+        len(test_embedding) > 0
+    ), "Fallback embedding model should still produce embeddings"
 
     print(f"Fallback model type: {model_type}, dimensions: {len(test_embedding)}")
 
@@ -173,7 +192,7 @@ def test_document_indexing_with_embeddings(app, tmp_path):
             path=str(test_file.relative_to(tmp_path.parent)),
             type="txt",
             content=test_content,
-            index_status="PENDING"
+            index_status="PENDING",
         )
         db.session.add(doc)
         db.session.commit()
@@ -181,9 +200,7 @@ def test_document_indexing_with_embeddings(app, tmp_path):
 
         # Index the document (returns bool)
         result = indexing_service.add_file_to_index(
-            file_path=str(test_file),
-            db_document=doc,
-            progress_callback=None
+            file_path=str(test_file), db_document=doc, progress_callback=None
         )
 
         # Verify indexing succeeded (function returns True on success)
@@ -192,7 +209,9 @@ def test_document_indexing_with_embeddings(app, tmp_path):
         # Reload document and check status
         indexed_doc = db.session.get(DBDocument, doc_id)
         assert indexed_doc is not None
-        assert indexed_doc.index_status == "INDEXED", f"Document status is {indexed_doc.index_status}, expected INDEXED"
+        assert (
+            indexed_doc.index_status == "INDEXED"
+        ), f"Document status is {indexed_doc.index_status}, expected INDEXED"
 
         # Verify index was created
         index_root = Path(app.config["INDEX_ROOT"])
@@ -201,10 +220,14 @@ def test_document_indexing_with_embeddings(app, tmp_path):
         # Check for vector store files
         docstore_file = index_root / "docstore.json"
         if docstore_file.exists():
-            with open(docstore_file, 'r') as f:
+            with open(docstore_file, "r") as f:
                 docstore_data = json.load(f)
-            assert len(docstore_data.get('docstore/data', {})) > 0, "Docstore should contain documents"
-            print(f"Documents in docstore: {len(docstore_data.get('docstore/data', {}))}")
+            assert (
+                len(docstore_data.get("docstore/data", {})) > 0
+            ), "Docstore should contain documents"
+            print(
+                f"Documents in docstore: {len(docstore_data.get('docstore/data', {}))}"
+            )
 
 
 @pytest.mark.indexing
@@ -216,9 +239,18 @@ def test_search_with_embeddings(app, tmp_path):
     with app.app_context():
         # Create and index test documents
         docs_to_index = [
-            ("Python is a programming language used for web development and data science.", "python.txt"),
-            ("JavaScript is commonly used for frontend web development and Node.js.", "javascript.txt"),
-            ("Machine learning models can predict patterns from historical data.", "ml.txt"),
+            (
+                "Python is a programming language used for web development and data science.",
+                "python.txt",
+            ),
+            (
+                "JavaScript is commonly used for frontend web development and Node.js.",
+                "javascript.txt",
+            ),
+            (
+                "Machine learning models can predict patterns from historical data.",
+                "ml.txt",
+            ),
         ]
 
         for content, filename in docs_to_index:
@@ -232,16 +264,14 @@ def test_search_with_embeddings(app, tmp_path):
                 path=str(test_file.relative_to(tmp_path.parent)),
                 type="txt",
                 content=content,
-                index_status="PENDING"
+                index_status="PENDING",
             )
             db.session.add(doc)
             db.session.commit()
 
             # Index document
             indexing_service.add_file_to_index(
-                file_path=str(test_file),
-                db_document=doc,
-                progress_callback=None
+                file_path=str(test_file), db_document=doc, progress_callback=None
             )
 
         # Perform semantic search
@@ -255,9 +285,9 @@ def test_search_with_embeddings(app, tmp_path):
 
         # Check result structure
         for result in results:
-            assert 'text' in result, "Result should contain text"
-            assert 'score' in result, "Result should contain similarity score"
-            assert 'metadata' in result, "Result should contain metadata"
+            assert "text" in result, "Result should contain text"
+            assert "score" in result, "Result should contain similarity score"
+            assert "metadata" in result, "Result should contain metadata"
 
         # Verify relevance - results about Python/JavaScript should score higher
         # than ML for a web development query
@@ -267,7 +297,9 @@ def test_search_with_embeddings(app, tmp_path):
 
         # Results should be sorted by score (highest first)
         if len(results) > 1:
-            assert results[0]['score'] >= results[1]['score'], "Results should be sorted by relevance"
+            assert (
+                results[0]["score"] >= results[1]["score"]
+            ), "Results should be sorted by relevance"
 
 
 @pytest.mark.indexing
@@ -318,16 +350,14 @@ def test_index_persistence(app, tmp_path):
             path=str(test_file.relative_to(tmp_path.parent)),
             type="txt",
             content=test_content,
-            index_status="PENDING"
+            index_status="PENDING",
         )
         db.session.add(doc)
         db.session.commit()
 
         # Index document (returns bool)
         result = indexing_service.add_file_to_index(
-            file_path=str(test_file),
-            db_document=doc,
-            progress_callback=None
+            file_path=str(test_file), db_document=doc, progress_callback=None
         )
 
         assert result is True, "Initial indexing should succeed"
@@ -336,7 +366,7 @@ def test_index_persistence(app, tmp_path):
         assert (index_path / "docstore.json").exists(), "Docstore should be persisted"
 
         # Clear index cache to force reload
-        if hasattr(indexing_service, '_index_cache'):
+        if hasattr(indexing_service, "_index_cache"):
             indexing_service._index_cache = {}
 
         # Reload index from storage

@@ -8,10 +8,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Common person name prefixes
-PERSON_PREFIXES = ['mr.', 'mrs.', 'ms.', 'dr.', 'prof.', 'rev.', 'hon.']
+PERSON_PREFIXES = ["mr.", "mrs.", "ms.", "dr.", "prof.", "rev.", "hon."]
 
 # Business suffixes to filter
-BUSINESS_SUFFIXES = ['llc', 'inc', 'corp', 'ltd', 'company', 'co', 'group', 'pllc']
+BUSINESS_SUFFIXES = ["llc", "inc", "corp", "ltd", "company", "co", "group", "pllc"]
 
 
 def normalize_quotes(text: str) -> str:
@@ -29,10 +29,10 @@ def normalize_quotes(text: str) -> str:
         return text
 
     # Remove triple/double quotes
-    text = text.replace('"""', '').replace("'''", '')
+    text = text.replace('"""', "").replace("'''", "")
 
     # Remove escaped quotes
-    text = text.replace('\\"', '').replace("\\'", '')
+    text = text.replace('\\"', "").replace("\\'", "")
 
     # Strip surrounding quotes
     text = text.strip('"').strip("'")
@@ -63,7 +63,7 @@ def to_title_case(tag: str) -> str:
         else:
             result.append(word.capitalize())
 
-    return ' '.join(result)
+    return " ".join(result)
 
 
 def preserve_multi_word_locations(tags_list: list) -> list:
@@ -97,13 +97,20 @@ def preserve_multi_word_locations(tags_list: list) -> list:
             # 2. Title case
             # 3. Combined length < 20 chars
             # 4. Not all caps (not acronyms)
-            if (' ' not in tag and ' ' not in next_tag and
-                tag.istitle() and next_tag.istitle() and
-                len(tag) + len(next_tag) < 20 and
-                not tag.isupper() and not next_tag.isupper()):
+            if (
+                " " not in tag
+                and " " not in next_tag
+                and tag.istitle()
+                and next_tag.istitle()
+                and len(tag) + len(next_tag) < 20
+                and not tag.isupper()
+                and not next_tag.isupper()
+            ):
                 merged.append(f"{tag} {next_tag}")
                 skip_next = True
-                logger.info(f"Merged location tags: '{tag}' + '{next_tag}' → '{tag} {next_tag}'")
+                logger.info(
+                    f"Merged location tags: '{tag}' + '{next_tag}' → '{tag} {next_tag}'"
+                )
                 continue
 
         merged.append(tag)
@@ -128,13 +135,17 @@ def filter_entity_names(tags_list: list, client_name: str = None) -> list:
         tag_lower = tag.lower()
 
         # Skip person names (Mr., Dr., etc.)
-        has_person_prefix = any(tag_lower.startswith(prefix) for prefix in PERSON_PREFIXES)
+        has_person_prefix = any(
+            tag_lower.startswith(prefix) for prefix in PERSON_PREFIXES
+        )
         if has_person_prefix:
             logger.info(f"Filtered person name tag: '{tag}'")
             continue
 
         # Skip business suffixes
-        has_business_suffix = any(tag_lower.endswith(suffix) for suffix in BUSINESS_SUFFIXES)
+        has_business_suffix = any(
+            tag_lower.endswith(suffix) for suffix in BUSINESS_SUFFIXES
+        )
         if has_business_suffix:
             logger.info(f"Filtered business tag: '{tag}'")
             continue
@@ -145,7 +156,9 @@ def filter_entity_names(tags_list: list, client_name: str = None) -> list:
             continue
 
         # Skip if tag contains business suffix anywhere
-        has_business_word = any(f' {suffix}' in tag_lower for suffix in BUSINESS_SUFFIXES)
+        has_business_word = any(
+            f" {suffix}" in tag_lower for suffix in BUSINESS_SUFFIXES
+        )
         if has_business_word:
             logger.info(f"Filtered business-related tag: '{tag}'")
             continue
@@ -180,7 +193,9 @@ def deduplicate_tags(tags_list: list) -> list:
     return unique
 
 
-def ensure_tag_count(tags_list: list, topic: str, min_count: int = 3, max_count: int = 7) -> list:
+def ensure_tag_count(
+    tags_list: list, topic: str, min_count: int = 3, max_count: int = 7
+) -> list:
     """
     Ensure tags list has between min_count and max_count tags
 
@@ -200,10 +215,12 @@ def ensure_tag_count(tags_list: list, topic: str, min_count: int = 3, max_count:
 
     # If too few, add from topic
     if len(tags_list) < min_count:
-        logger.info(f"Adding tags from topic (current: {len(tags_list)}, target: {min_count})")
+        logger.info(
+            f"Adding tags from topic (current: {len(tags_list)}, target: {min_count})"
+        )
 
         # Extract words from topic
-        topic_words = [w.strip('.,!?:;') for w in topic.split() if len(w) > 4]
+        topic_words = [w.strip(".,!?:;") for w in topic.split() if len(w) > 4]
 
         # Add topic words as tags until we reach min_count
         for word in topic_words:
@@ -230,7 +247,7 @@ def normalize_tags(
     topic: str,
     client_name: str = None,
     min_count: int = 3,
-    max_count: int = 7
+    max_count: int = 7,
 ) -> str:
     """
     Main normalization function for tags field
@@ -248,20 +265,22 @@ def normalize_tags(
     if not tags:
         logger.warning("Tags empty, generating from topic")
         # Generate from topic
-        topic_words = [w.strip('.,!?:;') for w in topic.split() if len(w) > 4][:max_count]
-        tags = ', '.join([to_title_case(w) for w in topic_words])
+        topic_words = [w.strip(".,!?:;") for w in topic.split() if len(w) > 4][
+            :max_count
+        ]
+        tags = ", ".join([to_title_case(w) for w in topic_words])
         return tags
 
     # Step 1: Fix malformed quotes
     tags = normalize_quotes(tags)
 
     # Step 2: Convert pipe separators to commas
-    if '|' in tags:
-        tags = tags.replace('|', ',')
+    if "|" in tags:
+        tags = tags.replace("|", ",")
         logger.info("Converted pipe separators to commas in tags")
 
     # Step 3: Split and clean
-    tag_list = [t.strip() for t in tags.split(',') if t.strip()]
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()]
 
     # Step 4: Remove overly long tags (likely full sentences)
     original_count = len(tag_list)
@@ -285,7 +304,7 @@ def normalize_tags(
     tag_list = ensure_tag_count(tag_list, topic, min_count, max_count)
 
     # Join with commas
-    result = ', '.join(tag_list)
+    result = ", ".join(tag_list)
     logger.info(f"Normalized tags: {result}")
 
     return result

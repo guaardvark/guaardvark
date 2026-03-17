@@ -1,4 +1,5 @@
 """Image cog — /imagine and /enhance-prompt commands."""
+
 import asyncio
 import io
 import logging
@@ -68,9 +69,7 @@ class ImageCog(commands.Cog):
             prompt, max_length=self.config["security"]["max_image_prompt_length"]
         )
         if not cleaned:
-            await interaction.response.send_message(
-                "Prompt was empty.", ephemeral=True
-            )
+            await interaction.response.send_message("Prompt was empty.", ephemeral=True)
             return
 
         await interaction.response.defer()
@@ -128,14 +127,10 @@ class ImageCog(commands.Cog):
             await interaction.followup.send(content="Image generation timed out.")
 
         except APIError as e:
-            await interaction.followup.send(
-                content=f"Image generation error: {e}"
-            )
+            await interaction.followup.send(content=f"Image generation error: {e}")
         except Exception as e:
             logger.exception("Unexpected error in /imagine")
-            await interaction.followup.send(
-                content="An unexpected error occurred."
-            )
+            await interaction.followup.send(content="An unexpected error occurred.")
         finally:
             self._active_jobs = max(0, self._active_jobs - 1)
 
@@ -160,9 +155,7 @@ class ImageCog(commands.Cog):
             prompt, max_length=self.config["security"]["max_image_prompt_length"]
         )
         if not cleaned:
-            await interaction.response.send_message(
-                "Prompt was empty.", ephemeral=True
-            )
+            await interaction.response.send_message("Prompt was empty.", ephemeral=True)
             return
 
         await interaction.response.defer()
@@ -183,9 +176,7 @@ class ImageCog(commands.Cog):
             await interaction.followup.send(embed=embed)
 
         except APIError as e:
-            await interaction.followup.send(
-                content=f"Prompt enhancement failed: {e}"
-            )
+            await interaction.followup.send(content=f"Prompt enhancement failed: {e}")
 
 
 async def setup(bot):

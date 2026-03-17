@@ -1,4 +1,5 @@
 """REST API for Uncle Claude integration."""
+
 import logging
 from flask import Blueprint, request
 from backend.utils.response_utils import success_response, error_response
@@ -12,25 +13,35 @@ claude_advisor_bp = Blueprint("claude_advisor", __name__, url_prefix="/api/claud
 def get_status():
     """Check Claude API availability and usage."""
     from backend.services.claude_advisor_service import get_claude_advisor
+
     advisor = get_claude_advisor()
-    return success_response(data={
-        "available": advisor.is_available(),
-        "usage": advisor.get_usage(),
-        "escalation_mode": advisor._escalation_mode,
-        "model": advisor._model,
-    })
+    return success_response(
+        data={
+            "available": advisor.is_available(),
+            "usage": advisor.get_usage(),
+            "escalation_mode": advisor._escalation_mode,
+            "model": advisor._model,
+        }
+    )
 
 
 @claude_advisor_bp.route("/test-connection", methods=["POST"])
 def test_connection():
     """Test Claude API connection."""
     from backend.services.claude_advisor_service import get_claude_advisor
+
     advisor = get_claude_advisor()
     if not advisor.is_available():
-        return error_response("Claude API not configured. Set ANTHROPIC_API_KEY in .env", 400)
-    result = advisor.escalate("Respond with 'Connection successful' and nothing else.", [])
+        return error_response(
+            "Claude API not configured. Set ANTHROPIC_API_KEY in .env", 400
+        )
+    result = advisor.escalate(
+        "Respond with 'Connection successful' and nothing else.", []
+    )
     if result.get("available"):
-        return success_response(data={"connected": True, "response": result["response"]})
+        return success_response(
+            data={"connected": True, "response": result["response"]}
+        )
     return error_response(result.get("reason", "Connection failed"), 503)
 
 
@@ -38,6 +49,7 @@ def test_connection():
 def escalate():
     """Escalate a message to Uncle Claude."""
     from backend.services.claude_advisor_service import get_claude_advisor
+
     data = request.get_json()
     if not data or "message" not in data:
         return error_response("message is required", 400)
@@ -57,6 +69,7 @@ def escalate():
 def get_advice():
     """Get Uncle Claude's recommendations for system improvements."""
     from backend.services.claude_advisor_service import get_claude_advisor
+
     data = request.get_json() or {}
     advisor = get_claude_advisor()
 
@@ -64,11 +77,20 @@ def get_advice():
     if not system_state:
         try:
             import subprocess
+
             gpu_info = subprocess.run(
-                ["nvidia-smi", "--query-gpu=memory.used,memory.total", "--format=csv,noheader"],
-                capture_output=True, text=True, timeout=5
+                [
+                    "nvidia-smi",
+                    "--query-gpu=memory.used,memory.total",
+                    "--format=csv,noheader",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
-            system_state["gpu"] = gpu_info.stdout.strip() if gpu_info.returncode == 0 else "unavailable"
+            system_state["gpu"] = (
+                gpu_info.stdout.strip() if gpu_info.returncode == 0 else "unavailable"
+            )
         except Exception:
             system_state["gpu"] = "unavailable"
 
@@ -82,6 +104,7 @@ def get_advice():
 def get_usage():
     """Get current token usage and budget."""
     from backend.services.claude_advisor_service import get_claude_advisor
+
     advisor = get_claude_advisor()
     return success_response(data=advisor.get_usage())
 
@@ -90,6 +113,7 @@ def get_usage():
 def update_config():
     """Update Claude API configuration."""
     from backend.services.claude_advisor_service import get_claude_advisor
+
     data = request.get_json()
     if not data:
         return error_response("No configuration provided", 400)
@@ -116,6 +140,7 @@ def update_config():
 
 def _save_setting(key: str, value: str):
     from backend.models import db, SystemSetting
+
     setting = db.session.query(SystemSetting).filter_by(key=key).first()
     if setting:
         setting.value = value

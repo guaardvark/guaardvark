@@ -70,21 +70,39 @@ def version_callback(value: bool):
 @app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
-    version: bool = typer.Option(False, "--version", "-v", callback=version_callback, is_eager=True),
-    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON (for scripting)"),
-    server: str | None = typer.Option(None, "--server", "-s", help="Override server URL"),
-    timeout: float | None = typer.Option(None, "--timeout", "-t", help="Request timeout in seconds"),
-    theme: str | None = typer.Option(None, "--theme", help="Color theme (default, teal, musk, hacker, vader, guaardvark)"),
+    version: bool = typer.Option(
+        False, "--version", "-v", callback=version_callback, is_eager=True
+    ),
+    json_out: bool = typer.Option(
+        False, "--json", "-j", help="Output as JSON (for scripting)"
+    ),
+    server: str | None = typer.Option(
+        None, "--server", "-s", help="Override server URL"
+    ),
+    timeout: float | None = typer.Option(
+        None, "--timeout", "-t", help="Request timeout in seconds"
+    ),
+    theme: str | None = typer.Option(
+        None,
+        "--theme",
+        help="Color theme (default, teal, musk, hacker, vader, guaardvark)",
+    ),
     verbose: bool = typer.Option(False, "--verbose", "-V", help="Verbose output"),
-    quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress non-essential output"),
+    quiet: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress non-essential output"
+    ),
 ):
-    set_global_opts(server=server, json_out=json_out, timeout=timeout, verbose=verbose, quiet=quiet)
+    set_global_opts(
+        server=server, json_out=json_out, timeout=timeout, verbose=verbose, quiet=quiet
+    )
     if theme:
         from llx.theme import set_active_theme, THEMES
+
         if theme in THEMES:
             set_active_theme(theme)
     if ctx.invoked_subcommand is None:
         from llx.repl import launch_repl
+
         launch_repl()
 
 

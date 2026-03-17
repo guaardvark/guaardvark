@@ -61,7 +61,9 @@ class QualityFilter:
                 score -= 0.5
                 break
 
-        if output_lower.startswith(("sure!", "certainly!", "of course!", "absolutely!")):
+        if output_lower.startswith(
+            ("sure!", "certainly!", "of course!", "absolutely!")
+        ):
             issues.append("sycophantic_opener")
             score -= 0.1
 
@@ -76,10 +78,14 @@ class QualityFilter:
         input_path: str,
         output_path: str = None,
         min_score: float = 0.5,
-        verbose: bool = True
+        verbose: bool = True,
     ) -> Tuple[str, Dict]:
         input_path = Path(input_path)
-        output_path = Path(output_path) if output_path else input_path.with_suffix('.filtered.jsonl')
+        output_path = (
+            Path(output_path)
+            if output_path
+            else input_path.with_suffix(".filtered.jsonl")
+        )
 
         kept = []
         removed = []
@@ -88,8 +94,8 @@ class QualityFilter:
             for line_num, line in enumerate(f, 1):
                 try:
                     example = json.loads(line)
-                    instruction = example.get('instruction', '')
-                    output = example.get('output', '')
+                    instruction = example.get("instruction", "")
+                    output = example.get("output", "")
 
                     score, issues = self.score_example(instruction, output)
 
@@ -97,38 +103,42 @@ class QualityFilter:
                         self.stats[issue] += 1
 
                     if score >= min_score:
-                        example['_quality_score'] = score
+                        example["_quality_score"] = score
                         kept.append(example)
                     else:
-                        removed.append({
-                            'line': line_num,
-                            'score': score,
-                            'issues': issues,
-                            'instruction_preview': instruction[:100]
-                        })
+                        removed.append(
+                            {
+                                "line": line_num,
+                                "score": score,
+                                "issues": issues,
+                                "instruction_preview": instruction[:100],
+                            }
+                        )
 
                 except json.JSONDecodeError:
-                    self.stats['json_error'] += 1
+                    self.stats["json_error"] += 1
 
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             for example in kept:
-                f.write(json.dumps(example) + '\n')
+                f.write(json.dumps(example) + "\n")
 
         report = {
-            'input': str(input_path),
-            'output': str(output_path),
-            'total': len(kept) + len(removed),
-            'kept': len(kept),
-            'removed': len(removed),
-            'issues': dict(self.stats),
-            'removed_examples': removed[:20]
+            "input": str(input_path),
+            "output": str(output_path),
+            "total": len(kept) + len(removed),
+            "kept": len(kept),
+            "removed": len(removed),
+            "issues": dict(self.stats),
+            "removed_examples": removed[:20],
         }
 
         if verbose:
             print(f"\n=== Quality Filter Report ===")
             print(f"Input: {input_path}")
             print(f"Total examples: {report['total']}")
-            print(f"Kept: {report['kept']} ({100*report['kept']/max(1,report['total']):.1f}%)")
+            print(
+                f"Kept: {report['kept']} ({100*report['kept']/max(1,report['total']):.1f}%)"
+            )
             print(f"Removed: {report['removed']}")
             print(f"\nIssue breakdown:")
             for issue, count in sorted(self.stats.items(), key=lambda x: -x[1]):
@@ -139,7 +149,11 @@ class QualityFilter:
 
     def interactive_review(self, input_path: str, output_path: str = None):
         input_path = Path(input_path)
-        output_path = Path(output_path) if output_path else input_path.with_suffix('.reviewed.jsonl')
+        output_path = (
+            Path(output_path)
+            if output_path
+            else input_path.with_suffix(".reviewed.jsonl")
+        )
 
         approved = []
         rejected = []
@@ -152,8 +166,8 @@ class QualityFilter:
         print("Commands: [y]es, [n]o, [e]dit, [s]kip, [q]uit\n")
 
         for i, example in enumerate(examples):
-            instruction = example.get('instruction', '')
-            output = example.get('output', '')
+            instruction = example.get("instruction", "")
+            output = example.get("output", "")
             score, issues = self.score_example(instruction, output)
 
             print(f"\n--- Example {i+1}/{len(examples)} (score: {score:.2f}) ---")
@@ -165,28 +179,28 @@ class QualityFilter:
             while True:
                 choice = input("\n[y/n/e/s/q]: ").lower().strip()
 
-                if choice == 'y':
+                if choice == "y":
                     approved.append(example)
                     break
-                elif choice == 'n':
+                elif choice == "n":
                     rejected.append(example)
                     break
-                elif choice == 's':
+                elif choice == "s":
                     break
-                elif choice == 'q':
-                    with open(output_path, 'w') as f:
+                elif choice == "q":
+                    with open(output_path, "w") as f:
                         for ex in approved:
-                            f.write(json.dumps(ex) + '\n')
+                            f.write(json.dumps(ex) + "\n")
                     print(f"\nSaved {len(approved)} approved examples to {output_path}")
                     return str(output_path)
-                elif choice == 'e':
+                elif choice == "e":
                     print("Edit mode not implemented yet")
                 else:
                     print("Invalid choice")
 
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             for ex in approved:
-                f.write(json.dumps(ex) + '\n')
+                f.write(json.dumps(ex) + "\n")
 
         print(f"\n=== Review Complete ===")
         print(f"Approved: {len(approved)}")
@@ -199,11 +213,15 @@ class QualityFilter:
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(description='Guaardvark Quality Filter')
-    parser.add_argument('input', help='Input JSONL file')
-    parser.add_argument('-o', '--output', help='Output file')
-    parser.add_argument('--min-score', type=float, default=0.5, help='Minimum quality score (0-1)')
-    parser.add_argument('--interactive', action='store_true', help='Interactive review mode')
+    parser = argparse.ArgumentParser(description="Guaardvark Quality Filter")
+    parser.add_argument("input", help="Input JSONL file")
+    parser.add_argument("-o", "--output", help="Output file")
+    parser.add_argument(
+        "--min-score", type=float, default=0.5, help="Minimum quality score (0-1)"
+    )
+    parser.add_argument(
+        "--interactive", action="store_true", help="Interactive review mode"
+    )
 
     args = parser.parse_args()
 

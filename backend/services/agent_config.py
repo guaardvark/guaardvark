@@ -43,7 +43,7 @@ class AgentConfig:
             "enabled": self.enabled,
             "priority": self.priority,
             "trigger_patterns": self.trigger_patterns,
-            "metadata": self.metadata
+            "metadata": self.metadata,
         }
 
 
@@ -83,9 +83,8 @@ When generating content, use the appropriate tool based on the request scale and
             r"bulk.*pages?",
             r"generate.*\d+.*(?:pages?|articles?|posts?)",
             r"seo.*content",
-        ]
+        ],
     ),
-
     "code_assistant": AgentConfig(
         id="code_assistant",
         name="Code Assistant",
@@ -160,9 +159,8 @@ When asked to modify code, follow the READ -> PLAN -> EDIT -> VERIFY cycle.""",
             r"remove.*button",
             r"add.*feature",
             r"update.*component",
-        ]
+        ],
     ),
-
     "data_analyst": AgentConfig(
         id="data_analyst",
         name="Data Analyst",
@@ -197,9 +195,8 @@ When generating data files, ensure they're properly formatted and immediately us
             r"\.csv\b",
             r"\.json\b",
             r"\.xml\b",
-        ]
+        ],
     ),
-
     "research_agent": AgentConfig(
         id="research_agent",
         name="Web Research Agent",
@@ -257,9 +254,8 @@ When researching, be thorough and verify information across multiple sources whe
             r"what.*online",
             r"find.*information",
             r"search.*web",
-        ]
+        ],
     ),
-
     "browser_automation": AgentConfig(
         id="browser_automation",
         name="Browser Automation Agent",
@@ -325,9 +321,8 @@ When asked to automate browser tasks, plan the sequence of actions carefully."""
             r"(?i)get\s+(?:the\s+)?html",
             r"(?i)execute\s+javascript",
             r"(?i)wait\s+for\s+(?:the\s+)?(?:element|page|button)",
-        ]
+        ],
     ),
-
     "desktop_automation": AgentConfig(
         id="desktop_automation",
         name="Desktop Automation Agent",
@@ -394,9 +389,8 @@ When asked to automate desktop tasks, verify permissions and proceed carefully."
             r"(?i)desktop\s+automat",
             r"(?i)gui\s+automat",
             r"(?i)focus\s+.*window",
-        ]
+        ],
     ),
-
     "media_control": AgentConfig(
         id="media_control",
         name="Media Player Agent",
@@ -451,9 +445,8 @@ Do NOT call the same tool again. One successful tool call = task complete = set 
             r"(?i)(?:turn|set)\s+(?:the\s+)?volume",
             r"(?i)volume\s+(?:up|down|\d+)",
             r"(?i)(?:mute|unmute|louder|quieter|softer)",
-        ]
+        ],
     ),
-
     "orchestrator_agent": AgentConfig(
         id="orchestrator_agent",
         name="Task Orchestrator",
@@ -469,9 +462,8 @@ Do NOT call the same tool again. One successful tool call = task complete = set 
             r"coordinate",
             r"orchestrate",
             r"(?:first|step\s*1).*(?:then|next|step\s*2)",
-        ]
+        ],
     ),
-
     "general_assistant": AgentConfig(
         id="general_assistant",
         name="General Assistant",
@@ -493,7 +485,7 @@ Be helpful, concise, and action-oriented.""",
         max_iterations=10,
         enabled=True,
         priority=0,
-        trigger_patterns=[]
+        trigger_patterns=[],
     ),
 }
 
@@ -543,7 +535,9 @@ class AgentConfigManager:
         for agent in self.get_enabled_agents():
             for pattern in agent.trigger_patterns:
                 if re.search(pattern, message_lower, re.IGNORECASE):
-                    logger.debug(f"Message matched agent '{agent.id}' with pattern: {pattern}")
+                    logger.debug(
+                        f"Message matched agent '{agent.id}' with pattern: {pattern}"
+                    )
                     return agent
 
         return self._agents.get("general_assistant")
@@ -553,10 +547,7 @@ class AgentConfigManager:
         return agent.tools if agent else []
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
-            agent_id: agent.to_dict()
-            for agent_id, agent in self._agents.items()
-        }
+        return {agent_id: agent.to_dict() for agent_id, agent in self._agents.items()}
 
 
 _config_manager: Optional[AgentConfigManager] = None

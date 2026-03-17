@@ -17,18 +17,27 @@ except Exception:
 def client(monkeypatch, tmp_path):
     app = Flask(__name__)
     app.config.update(
-        {"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:", "OUTPUT_DIR": str(tmp_path)}
+        {
+            "TESTING": True,
+            "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+            "OUTPUT_DIR": str(tmp_path),
+        }
     )
     db.init_app(app)
     if generation_bp.name not in app.blueprints:
         app.register_blueprint(generation_bp)
     with app.app_context():
         db.create_all()
+
         class DummyLLM:
             def complete(self, prompt):
                 return type("R", (), {"text": ""})()
+
             def chat(self, messages, **_):
-                return type("Resp", (), {"message": type("Msg", (), {"content": ""})()})()
+                return type(
+                    "Resp", (), {"message": type("Msg", (), {"content": ""})()}
+                )()
+
         app.config["LLAMA_INDEX_LLM"] = DummyLLM()
         yield app.test_client()
         db.session.remove()
@@ -37,11 +46,14 @@ def client(monkeypatch, tmp_path):
 
 def test_generate_from_command_llm_failure(client, monkeypatch, tmp_path):
     """Tests that the /generate/from_command endpoint handles LLM failures gracefully."""
+
     class DummyLLM:
         def complete(self, prompt):
             return type("R", (), {"text": ""})()
+
         def chat(self, messages, **_):
             return type("Resp", (), {"message": type("Msg", (), {"content": ""})()})()
+
     client.application.config["LLAMA_INDEX_LLM"] = DummyLLM()
     mock_rule = MagicMock()
     mock_rule.rule_text = "Test prompt"
@@ -59,6 +71,7 @@ def test_generate_from_command_llm_failure(client, monkeypatch, tmp_path):
     assert response.status_code == 200
     # Check that the file was written (even if empty)
     import os
+
     output_dir = client.application.config.get("OUTPUT_DIR", str(tmp_path))
     output_path = os.path.join(output_dir, "test.txt")
     assert os.path.exists(output_path)

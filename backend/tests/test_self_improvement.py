@@ -1,4 +1,5 @@
 """End-to-end self-improvement tests. Full pipeline through agent executor."""
+
 import os
 import sys
 import shutil
@@ -34,7 +35,7 @@ class TestSelfImprovement:
         """Agent finds and fixes the divide bug in buggy_calculator.py."""
         shutil.copy2(
             os.path.join(FIXTURES_DIR, "buggy_calculator.py"),
-            sandbox_dir / "buggy_calculator.py"
+            sandbox_dir / "buggy_calculator.py",
         )
 
         executor, orig_root = _make_sandbox_agent(sandbox_dir)
@@ -47,10 +48,15 @@ class TestSelfImprovement:
             content = (sandbox_dir / "buggy_calculator.py").read_text()
             # The bug: divide returns a * b instead of a / b
             # After fix, the divide function body should contain a / b
-            divide_section = content.split("def divide")[1] if "def divide" in content else ""
-            assert "/" in divide_section, f"divide function should use / operator. Content: {divide_section[:200]}"
+            divide_section = (
+                content.split("def divide")[1] if "def divide" in content else ""
+            )
+            assert (
+                "/" in divide_section
+            ), f"divide function should use / operator. Content: {divide_section[:200]}"
         finally:
             import backend.tools.llama_code_tools as mod
+
             mod.PROJECT_ROOT = orig_root
 
     @pytest.mark.timeout(180)
@@ -58,7 +64,7 @@ class TestSelfImprovement:
         """Agent fixes the farewell stub in minimal_module.py."""
         shutil.copy2(
             os.path.join(FIXTURES_DIR, "minimal_module.py"),
-            sandbox_dir / "minimal_module.py"
+            sandbox_dir / "minimal_module.py",
         )
 
         executor, orig_root = _make_sandbox_agent(sandbox_dir)
@@ -66,7 +72,7 @@ class TestSelfImprovement:
             result = executor.execute(
                 "Read minimal_module.py. The farewell function has a bug — it returns nothing "
                 "(just 'pass') instead of returning a farewell message. Fix the farewell function "
-                "so it returns f\"Goodbye, {name}!\" using the edit_code tool. "
+                'so it returns f"Goodbye, {name}!" using the edit_code tool. '
                 "Replace the line 'pass  # BUG: should return f\"Goodbye, {name}!\" but returns nothing' "
                 "with 'return f\"Goodbye, {name}!\"'. Then verify the fix."
             )
@@ -79,6 +85,7 @@ class TestSelfImprovement:
             assert "pass  # BUG" not in content
         finally:
             import backend.tools.llama_code_tools as mod
+
             mod.PROJECT_ROOT = orig_root
 
     @pytest.mark.timeout(60)
@@ -90,6 +97,7 @@ class TestSelfImprovement:
 
         from backend.tools.llama_code_tools import edit_code
         import backend.tools.llama_code_tools as mod
+
         original_root = mod.PROJECT_ROOT
         mod.PROJECT_ROOT = Path(sandbox_dir)
         try:
@@ -124,15 +132,20 @@ class TestRealFileModification:
         try:
             from backend.tools.llama_code_tools import edit_code, verify_change
             import backend.tools.llama_code_tools as mod
+
             original_root = mod.PROJECT_ROOT
             # Point PROJECT_ROOT so the relative path works
             mod.PROJECT_ROOT = Path(os.path.dirname(os.path.dirname(FIXTURES_DIR)))
 
             try:
                 rel_path = os.path.relpath(real_file, str(mod.PROJECT_ROOT))
-                result = edit_code(rel_path, "return a * b  # BUG", "return a / b  # FIXED")
+                result = edit_code(
+                    rel_path, "return a * b  # BUG", "return a / b  # FIXED"
+                )
                 # Check edit succeeded
-                assert "error" not in result.lower() or "success" in result.lower(), f"Edit failed: {result}"
+                assert (
+                    "error" not in result.lower() or "success" in result.lower()
+                ), f"Edit failed: {result}"
 
                 # Verify the fix applied
                 v_result = verify_change(rel_path, "a / b", should_exist=True)

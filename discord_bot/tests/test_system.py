@@ -1,4 +1,5 @@
 """Tests for the SystemCog (/status, /models, /switch-model commands)."""
+
 import pytest
 from unittest.mock import MagicMock, AsyncMock
 
@@ -34,7 +35,9 @@ def _make_regular_user():
 
 class TestStatusCommand:
     @pytest.mark.asyncio
-    async def test_status_returns_embed(self, system_cog, mock_interaction, mock_api_client):
+    async def test_status_returns_embed(
+        self, system_cog, mock_interaction, mock_api_client
+    ):
         """Status should return an embed with system info."""
         await system_cog._handle_status(mock_interaction)
 
@@ -49,7 +52,9 @@ class TestStatusCommand:
         assert "Version" in field_names
 
     @pytest.mark.asyncio
-    async def test_status_handles_api_error(self, system_cog, mock_interaction, mock_api_client):
+    async def test_status_handles_api_error(
+        self, system_cog, mock_interaction, mock_api_client
+    ):
         """API errors should be reported."""
         mock_api_client.get_diagnostics.side_effect = APIError("Backend down", 503)
 
@@ -61,7 +66,9 @@ class TestStatusCommand:
 
 class TestModelsCommand:
     @pytest.mark.asyncio
-    async def test_models_returns_list(self, system_cog, mock_interaction, mock_api_client):
+    async def test_models_returns_list(
+        self, system_cog, mock_interaction, mock_api_client
+    ):
         """Models should return an embed listing available models."""
         await system_cog._handle_models(mock_interaction)
 
@@ -75,7 +82,9 @@ class TestModelsCommand:
         assert "mistral" in field_names
 
     @pytest.mark.asyncio
-    async def test_models_empty_list(self, system_cog, mock_interaction, mock_api_client):
+    async def test_models_empty_list(
+        self, system_cog, mock_interaction, mock_api_client
+    ):
         """When no models available, show a text message."""
         mock_api_client.get_models.return_value = {"models": []}
 
@@ -96,11 +105,15 @@ class TestSwitchModelCommand:
         mock_interaction.response.send_message.assert_awaited_once()
         call_args = mock_interaction.response.send_message.call_args
         assert call_args.kwargs.get("ephemeral") is True
-        content = call_args.args[0] if call_args.args else call_args.kwargs.get("content", "")
+        content = (
+            call_args.args[0] if call_args.args else call_args.kwargs.get("content", "")
+        )
         assert "admin" in content.lower()
 
     @pytest.mark.asyncio
-    async def test_switch_model_admin_succeeds(self, system_cog, mock_interaction, mock_api_client):
+    async def test_switch_model_admin_succeeds(
+        self, system_cog, mock_interaction, mock_api_client
+    ):
         """Admin users should be able to switch models."""
         mock_interaction.user = _make_admin_user()
 
@@ -112,7 +125,9 @@ class TestSwitchModelCommand:
         assert "switch" in call_kwargs.get("content", "").lower()
 
     @pytest.mark.asyncio
-    async def test_switch_model_api_error(self, system_cog, mock_interaction, mock_api_client):
+    async def test_switch_model_api_error(
+        self, system_cog, mock_interaction, mock_api_client
+    ):
         """API errors during model switch should be reported."""
         mock_interaction.user = _make_admin_user()
         mock_api_client.switch_model.side_effect = APIError("Model not found", 404)

@@ -30,7 +30,6 @@ from llx.theme import (
     make_console,
 )
 
-
 # ── Helpers ───────────────────────────────────────────────────
 
 
@@ -88,7 +87,11 @@ def _dynamic_completions(command: str, sub_text: str):
     """Provide dynamic completions for certain commands."""
     if command == "theme":
         prefix = sub_text.strip().lower()
-        return [n for n in THEMES if n.startswith(prefix)] if prefix else list(THEMES.keys())
+        return (
+            [n for n in THEMES if n.startswith(prefix)]
+            if prefix
+            else list(THEMES.keys())
+        )
     return None
 
 
@@ -126,14 +129,17 @@ def _handle_chat(state: dict, ctx: ContextSnapshot, message: str):
     # POST the chat message
     try:
         client = get_client(server)
-        client.post("/api/chat/unified", json={
-            "session_id": session_id,
-            "message": message,
-            "options": {
-                "use_rag": True,
-                "context": context_block,
+        client.post(
+            "/api/chat/unified",
+            json={
+                "session_id": session_id,
+                "message": message,
+                "options": {
+                    "use_rag": True,
+                    "context": context_block,
+                },
             },
-        })
+        )
     except (LlxConnectionError, LlxError, Exception) as e:
         renderer.stop()
         console.print(f"[llx.error]Chat error: {e}[/llx.error]")
@@ -184,7 +190,9 @@ def launch_repl():
     # Determine connection status from cached context
     if ctx.is_online():
         model = ctx.get_model_name()
-        status_line = f"[llx.status.online]{ICON_ONLINE} Connected[/llx.status.online]  {server}"
+        status_line = (
+            f"[llx.status.online]{ICON_ONLINE} Connected[/llx.status.online]  {server}"
+        )
         model_line = f"[llx.accent]{model}[/llx.accent]"
     else:
         # Fall back to direct health check
@@ -211,7 +219,9 @@ def launch_repl():
         )
         if preview:
             console.print(f"[llx.dim]  Last: {preview}[/llx.dim]")
-        console.print("[llx.dim]Press Enter to resume, or type to start fresh.[/llx.dim]\n")
+        console.print(
+            "[llx.dim]Press Enter to resume, or type to start fresh.[/llx.dim]\n"
+        )
         state["pending_resume"] = recent
     else:
         console.print()

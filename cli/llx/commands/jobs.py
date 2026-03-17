@@ -35,12 +35,15 @@ def jobs_list(
             output.print_json(jobs)
             return
 
-        rows = [{
-            "id": j.get("task_id", j.get("id", "")),
-            "name": j.get("name", ""),
-            "type": j.get("type", ""),
-            "status": j.get("status", ""),
-        } for j in jobs]
+        rows = [
+            {
+                "id": j.get("task_id", j.get("id", "")),
+                "name": j.get("name", ""),
+                "type": j.get("type", ""),
+                "status": j.get("status", ""),
+            }
+            for j in jobs
+        ]
         output.print_table(rows, columns=["id", "name", "type", "status"], title="Jobs")
 
     except (LlxConnectionError, LlxError) as e:
@@ -67,14 +70,17 @@ def jobs_status(
             return
 
         progress = data.get("progress", {})
-        output.print_kv({
-            "Task ID": data.get("task_id", ""),
-            "Job ID": data.get("job_id", ""),
-            "Name": data.get("name", ""),
-            "Status": data.get("status", ""),
-            "Progress": f"{progress.get('percentage', 0)}%",
-            "Message": progress.get("message", "—"),
-        }, title="Job Status")
+        output.print_kv(
+            {
+                "Task ID": data.get("task_id", ""),
+                "Job ID": data.get("job_id", ""),
+                "Name": data.get("name", ""),
+                "Status": data.get("status", ""),
+                "Progress": f"{progress.get('percentage', 0)}%",
+                "Message": progress.get("message", "—"),
+            },
+            title="Job Status",
+        )
 
     except (LlxConnectionError, LlxError) as e:
         output.print_error(str(e))
@@ -94,7 +100,9 @@ def jobs_watch(
 
         with Progress(
             TextColumn("[llx.brand]{task.description}"),
-            BarColumn(complete_style=Style(color=BRAND), finished_style=Style(color=SUCCESS)),
+            BarColumn(
+                complete_style=Style(color=BRAND), finished_style=Style(color=SUCCESS)
+            ),
             TextColumn("[llx.dim]{task.percentage:>3.0f}%[/llx.dim]"),
             TimeElapsedColumn(),
             console=console,
@@ -107,12 +115,21 @@ def jobs_watch(
                 progress.update(task, completed=pct, description=msg or f"Job {job_id}")
 
             def on_complete(data):
-                progress.update(task, completed=100, description="[llx.success]Complete[/llx.success]")
+                progress.update(
+                    task,
+                    completed=100,
+                    description="[llx.success]Complete[/llx.success]",
+                )
 
             def on_error(msg):
                 progress.update(task, description=f"[llx.error]{msg}[/llx.error]")
 
-            streamer.watch_job(job_id, on_progress=on_progress, on_complete=on_complete, on_error=on_error)
+            streamer.watch_job(
+                job_id,
+                on_progress=on_progress,
+                on_complete=on_complete,
+                on_error=on_error,
+            )
             streamer.wait(timeout=600)
             streamer.disconnect()
 

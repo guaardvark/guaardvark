@@ -1,4 +1,5 @@
 """Per-user sliding window rate limiter."""
+
 import time
 from collections import defaultdict
 

@@ -55,7 +55,15 @@ DEMO_CLIENTS = [
         "brand_tone": "professional",
         "target_audience": "CTOs and VP Engineering at mid-to-large enterprises looking to modernize their cloud infrastructure and streamline deployment pipelines.",
         "unique_selling_points": "Zero-downtime migrations, 99.99% SLA guarantee, dedicated solutions architect for every account",
-        "keywords": json.dumps(["cloud migration", "enterprise SaaS", "DevOps automation", "infrastructure as code", "CI/CD pipelines"]),
+        "keywords": json.dumps(
+            [
+                "cloud migration",
+                "enterprise SaaS",
+                "DevOps automation",
+                "infrastructure as code",
+                "CI/CD pipelines",
+            ]
+        ),
         "content_goals": "Establish thought leadership in cloud-native architecture. Drive enterprise demo requests through technical content marketing.",
         "geographic_coverage": "North America, EMEA",
     },
@@ -72,7 +80,15 @@ DEMO_CLIENTS = [
         "brand_tone": "creative",
         "target_audience": "Founders and marketing directors at consumer brands (DTC, CPG, lifestyle) seeking premium brand identities that resonate with modern audiences.",
         "unique_selling_points": "Over 200 brands launched, 3x Webby Award winner, specialized in sustainable packaging design",
-        "keywords": json.dumps(["brand identity", "packaging design", "creative agency", "visual storytelling", "DTC branding"]),
+        "keywords": json.dumps(
+            [
+                "brand identity",
+                "packaging design",
+                "creative agency",
+                "visual storytelling",
+                "DTC branding",
+            ]
+        ),
         "content_goals": "Showcase portfolio work and behind-the-scenes process. Attract premium clients through case studies and design thinking content.",
         "geographic_coverage": "United States",
     },
@@ -89,7 +105,15 @@ DEMO_CLIENTS = [
         "brand_tone": "professional",
         "target_audience": "Patients and families in the Colorado/Wyoming region seeking accessible, technology-forward primary and specialty care.",
         "unique_selling_points": "Same-day telehealth appointments, integrated patient portal, top-rated patient satisfaction scores in the region",
-        "keywords": json.dumps(["healthcare", "telehealth", "patient portal", "primary care", "health technology"]),
+        "keywords": json.dumps(
+            [
+                "healthcare",
+                "telehealth",
+                "patient portal",
+                "primary care",
+                "health technology",
+            ]
+        ),
         "content_goals": "Increase patient portal adoption and telehealth usage. Build trust through health education content and provider spotlights.",
         "regulatory_constraints": "HIPAA compliance required for all patient-facing content. Medical claims must be reviewed by clinical staff.",
         "geographic_coverage": "Colorado, Wyoming",
@@ -107,7 +131,15 @@ DEMO_CLIENTS = [
         "brand_tone": "professional",
         "target_audience": "Climate tech founders seeking Series A/B funding, and limited partners interested in impact-driven venture returns.",
         "unique_selling_points": "$450M AUM, 28 portfolio companies, dedicated climate tech thesis, operator-led investment team",
-        "keywords": json.dumps(["venture capital", "climate tech", "sustainable investment", "impact investing", "ocean economy"]),
+        "keywords": json.dumps(
+            [
+                "venture capital",
+                "climate tech",
+                "sustainable investment",
+                "impact investing",
+                "ocean economy",
+            ]
+        ),
         "content_goals": "Attract top-tier climate tech deal flow. Publish quarterly market insights to establish thesis credibility with LPs and founders.",
         "geographic_coverage": "Global",
     },
@@ -124,7 +156,15 @@ DEMO_CLIENTS = [
         "brand_tone": "friendly",
         "target_audience": "Health-conscious consumers aged 25-45 who prioritize organic, sustainable, and plant-based food options at mainstream retail price points.",
         "unique_selling_points": "100% certified organic, carbon-neutral supply chain, available in 4,000+ stores, B Corp certified",
-        "keywords": json.dumps(["organic food", "plant-based protein", "sustainable snacks", "B Corp", "clean label"]),
+        "keywords": json.dumps(
+            [
+                "organic food",
+                "plant-based protein",
+                "sustainable snacks",
+                "B Corp",
+                "clean label",
+            ]
+        ),
         "content_goals": "Drive brand awareness and trial through recipe content, sustainability storytelling, and retail partnership announcements.",
         "geographic_coverage": "United States",
     },
@@ -141,7 +181,15 @@ DEMO_CLIENTS = [
         "brand_tone": "bold",
         "target_audience": "Growth-stage SaaS and e-commerce companies ($5M-$100M ARR) seeking data-driven marketing that delivers measurable ROI.",
         "unique_selling_points": "Average 3.2x ROAS for clients, proprietary AI analytics platform, Google Premier Partner, Meta Business Partner",
-        "keywords": json.dumps(["performance marketing", "digital agency", "AI analytics", "content strategy", "growth marketing"]),
+        "keywords": json.dumps(
+            [
+                "performance marketing",
+                "digital agency",
+                "AI analytics",
+                "content strategy",
+                "growth marketing",
+            ]
+        ),
         "content_goals": "Demonstrate ROI-driven results through case studies and data reports. Position as the go-to agency for AI-powered marketing.",
         "geographic_coverage": "United States, United Kingdom",
     },
@@ -160,7 +208,9 @@ def _projects_for(client_name):
                 "project_type": "Infrastructure",
                 "content_strategy": "Technical blog series documenting migration patterns and lessons learned, targeting DevOps decision-makers.",
                 "deliverables": "Migration playbook, architecture diagrams, 6 technical blog posts, 2 case study videos",
-                "target_keywords": json.dumps(["cloud migration", "Kubernetes", "multi-region", "zero downtime"]),
+                "target_keywords": json.dumps(
+                    ["cloud migration", "Kubernetes", "multi-region", "zero downtime"]
+                ),
                 "created_at": now - timedelta(days=90),
             },
             {
@@ -169,7 +219,14 @@ def _projects_for(client_name):
                 "project_type": "Website Redesign",
                 "content_strategy": "Developer-first content with code-heavy tutorials, API reference guides, and video walkthroughs.",
                 "deliverables": "New developer portal, API reference docs, 12 tutorial articles, SDK quickstart guides",
-                "target_keywords": json.dumps(["developer portal", "API documentation", "SDK", "developer experience"]),
+                "target_keywords": json.dumps(
+                    [
+                        "developer portal",
+                        "API documentation",
+                        "SDK",
+                        "developer experience",
+                    ]
+                ),
                 "created_at": now - timedelta(days=45),
             },
             {
@@ -178,7 +235,14 @@ def _projects_for(client_name):
                 "project_type": "Content Campaign",
                 "content_strategy": "Gated long-form content targeting CISOs and security teams, distributed via LinkedIn and industry events.",
                 "deliverables": "4 whitepapers, executive summary one-pagers, LinkedIn ad creative, landing pages",
-                "target_keywords": json.dumps(["enterprise security", "SOC2 compliance", "zero trust", "data sovereignty"]),
+                "target_keywords": json.dumps(
+                    [
+                        "enterprise security",
+                        "SOC2 compliance",
+                        "zero trust",
+                        "data sovereignty",
+                    ]
+                ),
                 "created_at": now - timedelta(days=20),
             },
         ],
@@ -189,7 +253,14 @@ def _projects_for(client_name):
                 "project_type": "Brand Identity",
                 "content_strategy": "Behind-the-scenes content documenting the refresh process, culminating in a launch campaign across social and email.",
                 "deliverables": "Brand guidelines, logo files, social media templates, email templates, business cards, letterhead",
-                "target_keywords": json.dumps(["brand refresh", "visual identity", "brand guidelines", "design system"]),
+                "target_keywords": json.dumps(
+                    [
+                        "brand refresh",
+                        "visual identity",
+                        "brand guidelines",
+                        "design system",
+                    ]
+                ),
                 "created_at": now - timedelta(days=60),
             },
             {
@@ -198,7 +269,13 @@ def _projects_for(client_name):
                 "project_type": "Packaging Design",
                 "content_strategy": "Case study series highlighting sustainable design choices and environmental impact metrics.",
                 "deliverables": "Packaging designs for 3 product lines, print-ready files, supplier specs, sustainability report",
-                "target_keywords": json.dumps(["sustainable packaging", "eco-friendly design", "recycled materials"]),
+                "target_keywords": json.dumps(
+                    [
+                        "sustainable packaging",
+                        "eco-friendly design",
+                        "recycled materials",
+                    ]
+                ),
                 "created_at": now - timedelta(days=30),
             },
         ],
@@ -209,7 +286,14 @@ def _projects_for(client_name):
                 "project_type": "Website Redesign",
                 "content_strategy": "Patient onboarding guides, video tutorials for new features, and email campaigns to drive adoption.",
                 "deliverables": "Redesigned portal, mobile-responsive UI, onboarding flow, 8 tutorial videos, email drip sequence",
-                "target_keywords": json.dumps(["patient portal", "telehealth", "healthcare UX", "appointment scheduling"]),
+                "target_keywords": json.dumps(
+                    [
+                        "patient portal",
+                        "telehealth",
+                        "healthcare UX",
+                        "appointment scheduling",
+                    ]
+                ),
                 "seo_strategy": "Local SEO targeting Colorado/Wyoming healthcare searches. Schema markup for medical practice listings.",
                 "created_at": now - timedelta(days=120),
             },
@@ -219,7 +303,13 @@ def _projects_for(client_name):
                 "project_type": "Content Campaign",
                 "content_strategy": "Provider spotlight stories, culture content, and targeted ads on medical job boards and LinkedIn.",
                 "deliverables": "Recruitment landing page, 6 provider spotlight articles, LinkedIn ad creative, job board postings",
-                "target_keywords": json.dumps(["healthcare recruitment", "physician jobs Colorado", "telehealth careers"]),
+                "target_keywords": json.dumps(
+                    [
+                        "healthcare recruitment",
+                        "physician jobs Colorado",
+                        "telehealth careers",
+                    ]
+                ),
                 "created_at": now - timedelta(days=15),
             },
         ],
@@ -230,7 +320,14 @@ def _projects_for(client_name):
                 "project_type": "Web Application",
                 "content_strategy": "Internal tool with LP-facing quarterly reports auto-generated from dashboard data.",
                 "deliverables": "Analytics dashboard, LP login portal, automated report generation, ESG scoring module",
-                "target_keywords": json.dumps(["portfolio analytics", "LP dashboard", "ESG metrics", "fund performance"]),
+                "target_keywords": json.dumps(
+                    [
+                        "portfolio analytics",
+                        "LP dashboard",
+                        "ESG metrics",
+                        "fund performance",
+                    ]
+                ),
                 "created_at": now - timedelta(days=75),
             },
             {
@@ -239,7 +336,13 @@ def _projects_for(client_name):
                 "project_type": "Content Campaign",
                 "content_strategy": "Flagship thought leadership piece distributed via email, social, events, and media partnerships.",
                 "deliverables": "60-page market report, executive summary, infographic series, press release, social media assets",
-                "target_keywords": json.dumps(["climate tech trends", "sustainable investment report", "ocean economy"]),
+                "target_keywords": json.dumps(
+                    [
+                        "climate tech trends",
+                        "sustainable investment report",
+                        "ocean economy",
+                    ]
+                ),
                 "created_at": now - timedelta(days=40),
             },
         ],
@@ -250,7 +353,14 @@ def _projects_for(client_name):
                 "project_type": "Marketing Campaign",
                 "content_strategy": "Recipe-driven content with influencer partnerships, retail POS materials, and paid social targeting health-conscious consumers.",
                 "deliverables": "Campaign creative, 20 recipe posts, influencer briefs, retail displays, social ad sets, email sequences",
-                "target_keywords": json.dumps(["plant-based protein", "healthy recipes", "new year health", "organic snacks"]),
+                "target_keywords": json.dumps(
+                    [
+                        "plant-based protein",
+                        "healthy recipes",
+                        "new year health",
+                        "organic snacks",
+                    ]
+                ),
                 "created_at": now - timedelta(days=50),
             },
             {
@@ -259,7 +369,14 @@ def _projects_for(client_name):
                 "project_type": "Website Launch",
                 "content_strategy": "Launch campaign with email waitlist, social countdown, influencer unboxings, and a PR push.",
                 "deliverables": "E-commerce site, subscription management, loyalty program, launch email sequence, PR kit",
-                "target_keywords": json.dumps(["DTC food brand", "subscription box", "organic e-commerce", "loyalty program"]),
+                "target_keywords": json.dumps(
+                    [
+                        "DTC food brand",
+                        "subscription box",
+                        "organic e-commerce",
+                        "loyalty program",
+                    ]
+                ),
                 "created_at": now - timedelta(days=10),
             },
         ],
@@ -270,7 +387,13 @@ def _projects_for(client_name):
                 "project_type": "Product Launch",
                 "content_strategy": "Thought leadership on AI in marketing, beta user case studies, and product demo content.",
                 "deliverables": "Beta platform, onboarding docs, 4 case studies, demo video, product landing page",
-                "target_keywords": json.dumps(["AI marketing analytics", "predictive optimization", "attribution modeling"]),
+                "target_keywords": json.dumps(
+                    [
+                        "AI marketing analytics",
+                        "predictive optimization",
+                        "attribution modeling",
+                    ]
+                ),
                 "created_at": now - timedelta(days=100),
             },
             {
@@ -279,7 +402,13 @@ def _projects_for(client_name):
                 "project_type": "Website Redesign",
                 "content_strategy": "Results-focused case studies with real metrics, interactive tools to engage prospects, and a weekly insights blog.",
                 "deliverables": "New website, 10 case studies, ROI calculator tool, blog launch with 12 initial posts",
-                "target_keywords": json.dumps(["digital marketing agency", "performance marketing results", "marketing ROI"]),
+                "target_keywords": json.dumps(
+                    [
+                        "digital marketing agency",
+                        "performance marketing results",
+                        "marketing ROI",
+                    ]
+                ),
                 "created_at": now - timedelta(days=25),
             },
         ],
@@ -362,6 +491,7 @@ def _websites_for(client_name):
 # Seed logic
 # ---------------------------------------------------------------------------
 
+
 def _fix_sequences():
     """
     Ensure id column defaults are linked to their sequences.
@@ -375,11 +505,15 @@ def _fix_sequences():
     for table, seq in fixes:
         # Set default to use the sequence
         db.session.execute(
-            db.text(f"ALTER TABLE {table} ALTER COLUMN id SET DEFAULT nextval('{seq}'::regclass)")
+            db.text(
+                f"ALTER TABLE {table} ALTER COLUMN id SET DEFAULT nextval('{seq}'::regclass)"
+            )
         )
         # Ensure the sequence is ahead of any existing rows
         db.session.execute(
-            db.text(f"SELECT setval('{seq}', COALESCE((SELECT MAX(id) FROM {table}), 0) + 1, false)")
+            db.text(
+                f"SELECT setval('{seq}', COALESCE((SELECT MAX(id) FROM {table}), 0) + 1, false)"
+            )
         )
     db.session.commit()
     print("Fixed id sequences for clients, projects, websites.")

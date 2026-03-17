@@ -17,10 +17,12 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 
-def generate_bulk_csv_with_tracking(self,
-                                     tasks: List['GenerationTask'],
-                                     output_filename: str,
-                                     resume_from_id: Optional[str] = None) -> Tuple[str, Dict]:
+def generate_bulk_csv_with_tracking(
+    self,
+    tasks: List["GenerationTask"],
+    output_filename: str,
+    resume_from_id: Optional[str] = None,
+) -> Tuple[str, Dict]:
     """
     Generate bulk CSV content with comprehensive row tracking
 
@@ -39,7 +41,9 @@ def generate_bulk_csv_with_tracking(self,
         Tuple of (output_path, statistics)
     """
     from bulk_csv_generator_with_tracking import (
-        RowTracker, RowStatus, ValidationFailure
+        RowTracker,
+        RowStatus,
+        ValidationFailure,
     )
 
     output_path = os.path.join(self.output_dir, output_filename)
@@ -49,14 +53,17 @@ def generate_bulk_csv_with_tracking(self,
     self.row_tracker = RowTracker(
         target_row_count=target_count,
         max_replacement_attempts=5,
-        job_id=self.job_id or f"csv_gen_{int(time.time())}"
+        job_id=self.job_id or f"csv_gen_{int(time.time())}",
     )
 
-    self._log_info("Initializing row tracking system", {
-        "target_count": target_count,
-        "max_replacement_attempts": 5,
-        "job_id": self.row_tracker.job_id
-    })
+    self._log_info(
+        "Initializing row tracking system",
+        {
+            "target_count": target_count,
+            "max_replacement_attempts": 5,
+            "job_id": self.row_tracker.job_id,
+        },
+    )
 
     # Create row records for all tasks
     self._log_info("Creating row records", {"count": len(tasks)})
@@ -64,17 +71,12 @@ def generate_bulk_csv_with_tracking(self,
 
     for i, task in enumerate(tasks, start=1):
         record = self.row_tracker.create_row_record(
-            sequence_number=i,
-            topic=task.topic,
-            task_id=task.item_id
+            sequence_number=i, topic=task.topic, task_id=task.item_id
         )
         task_to_record[task.item_id] = record
 
     # Update progress
-    self._update_progress(
-        f"Starting tracked generation: {target_count} rows",
-        0.0
-    )
+    self._update_progress(f"Starting tracked generation: {target_count} rows", 0.0)
 
     # Main generation loop with tracking
     generation_round = 0
@@ -98,7 +100,9 @@ def generate_bulk_csv_with_tracking(self,
             # If we're short, use flagged rows with their best attempt
             flagged_rows = self.row_tracker.get_flagged_rows()
             if len(active_rows) + len(flagged_rows) >= target_count:
-                self._log_info(f"Using {len(flagged_rows)} flagged rows to reach target")
+                self._log_info(
+                    f"Using {len(flagged_rows)} flagged rows to reach target"
+                )
 
                 for flagged in flagged_rows:
                     if flagged.current_row_data and not flagged.is_active:
@@ -106,7 +110,7 @@ def generate_bulk_csv_with_tracking(self,
                         flagged.needs_manual_review = True
                         self._log_warning(
                             f"Row {flagged.unique_id} flagged but included in output",
-                            {"attempts": flagged.replacement_count}
+                            {"attempts": flagged.replacement_count},
                         )
                 break
             else:
@@ -122,8 +126,8 @@ def generate_bulk_csv_with_tracking(self,
             {
                 "active": len(active_rows),
                 "target": target_count,
-                "needs_work": len(needs_work)
-            }
+                "needs_work": len(needs_work),
+            },
         )
 
         # Check for cancellation
@@ -135,7 +139,9 @@ def generate_bulk_csv_with_tracking(self,
         for seq_num, unique_id in batch:
             # Find corresponding task
             record = self.row_tracker.records[unique_id]
-            task = next((t for t in tasks if t.item_id == record.original_task_id), None)
+            task = next(
+                (t for t in tasks if t.item_id == record.original_task_id), None
+            )
 
             if not task:
                 self._log_error(f"Cannot find task for record {unique_id}")
@@ -163,14 +169,14 @@ def generate_bulk_csv_with_tracking(self,
                     validation_failure = ValidationFailure(
                         timestamp=datetime.now().isoformat(),
                         reason="generation_returned_none",
-                        validation_details={"error": "LLM returned None"}
+                        validation_details={"error": "LLM returned None"},
                     )
 
                     self.row_tracker.record_generation_attempt(
                         unique_id=unique_id,
                         success=False,
                         validation_failure=validation_failure,
-                        generation_time_ms=generation_time_ms
+                        generation_time_ms=generation_time_ms,
                     )
                     continue
 
@@ -186,20 +192,21 @@ def generate_bulk_csv_with_tracking(self,
                         "Excerpt": content_row.excerpt or "",
                         "Category": content_row.category or "General",
                         "Tags": content_row.tags or "professional, services, quality",
-                        "slug": content_row.slug or self._generate_slug_from_title(content_row.title)
+                        "slug": content_row.slug
+                        or self._generate_slug_from_title(content_row.title),
                     }
 
                     self.row_tracker.record_generation_attempt(
                         unique_id=unique_id,
                         success=True,
                         row_data=row_data,
-                        generation_time_ms=generation_time_ms
+                        generation_time_ms=generation_time_ms,
                     )
 
                     self.generated_count += 1
                     self._update_progress(
                         f"Generated {self.generated_count}/{target_count} rows",
-                        (self.generated_count / target_count) * 100
+                        (self.generated_count / target_count) * 100,
                     )
 
                 else:
@@ -212,7 +219,10 @@ def generate_bulk_csv_with_tracking(self,
                         reason = "content_too_short"
                     elif not content_row.title or len(content_row.title) < 10:
                         reason = "title_too_short"
-                    elif any(content_text.strip().endswith(tag) for tag in ['<', '</', '</h', '</p']):
+                    elif any(
+                        content_text.strip().endswith(tag)
+                        for tag in ["<", "</", "</h", "</p"]
+                    ):
                         reason = "truncated_html"
                     else:
                         reason = "validation_failed"
@@ -224,15 +234,15 @@ def generate_bulk_csv_with_tracking(self,
                         content_preview=content_text[:100],
                         validation_details={
                             "title_length": len(content_row.title or ""),
-                            "has_excerpt": bool(content_row.excerpt)
-                        }
+                            "has_excerpt": bool(content_row.excerpt),
+                        },
                     )
 
                     self.row_tracker.record_generation_attempt(
                         unique_id=unique_id,
                         success=False,
                         validation_failure=validation_failure,
-                        generation_time_ms=generation_time_ms
+                        generation_time_ms=generation_time_ms,
                     )
 
             except Exception as e:
@@ -242,14 +252,14 @@ def generate_bulk_csv_with_tracking(self,
                 validation_failure = ValidationFailure(
                     timestamp=datetime.now().isoformat(),
                     reason="generation_exception",
-                    validation_details={"error": str(e)}
+                    validation_details={"error": str(e)},
                 )
 
                 self.row_tracker.record_generation_attempt(
                     unique_id=unique_id,
                     success=False,
                     validation_failure=validation_failure,
-                    generation_time_ms=generation_time_ms
+                    generation_time_ms=generation_time_ms,
                 )
 
                 self._log_error(f"Exception generating row {unique_id}: {e}")
@@ -265,7 +275,7 @@ def generate_bulk_csv_with_tracking(self,
     if len(active_rows) != target_count:
         self._log_warning(
             f"Row count mismatch: {len(active_rows)} active, {target_count} target",
-            {"flagged_count": len(self.row_tracker.get_flagged_rows())}
+            {"flagged_count": len(self.row_tracker.get_flagged_rows())},
         )
 
     # Prepare rows for CSV writing
@@ -274,8 +284,8 @@ def generate_bulk_csv_with_tracking(self,
         if record.current_row_data:
             # Add tracking ID to metadata
             row_copy = record.current_row_data.copy()
-            row_copy['_tracking_id'] = record.unique_id
-            row_copy['_tracking_sequence'] = record.sequence_number
+            row_copy["_tracking_id"] = record.unique_id
+            row_copy["_tracking_sequence"] = record.sequence_number
             csv_rows.append(row_copy)
 
     # Write main CSV
@@ -288,58 +298,57 @@ def generate_bulk_csv_with_tracking(self,
             file_path=output_path,
             headers=headers,
             rows=csv_rows,
-            delimiter=self.csv_delimiter
+            delimiter=self.csv_delimiter,
         )
         self._log_info(f"Wrote CSV: {output_path} ({len(csv_rows)} rows)")
 
     except ImportError:
         # Fallback to basic CSV writing
         import csv
-        with open(output_path, 'w', newline='', encoding='utf-8') as f:
+
+        with open(output_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=headers, delimiter=self.csv_delimiter)
             writer.writeheader()
             for row in csv_rows:
-                writer.writerow({k: row.get(k, '') for k in headers})
+                writer.writerow({k: row.get(k, "") for k in headers})
 
         self._log_info(f"Wrote CSV (fallback): {output_path} ({len(csv_rows)} rows)")
 
     # Export tracking data
-    tracking_dir = os.path.join(self.output_dir, 'tracking')
+    tracking_dir = os.path.join(self.output_dir, "tracking")
     os.makedirs(tracking_dir, exist_ok=True)
 
     job_id = self.row_tracker.job_id
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # JSON tracking log (detailed)
-    json_path = os.path.join(tracking_dir, f'{job_id}_tracking_{timestamp}.json')
+    json_path = os.path.join(tracking_dir, f"{job_id}_tracking_{timestamp}.json")
     self.row_tracker.export_tracking_log_json(json_path)
 
     # CSV tracking log (summary)
-    tracking_csv_path = os.path.join(tracking_dir, f'{job_id}_tracking_{timestamp}.csv')
+    tracking_csv_path = os.path.join(tracking_dir, f"{job_id}_tracking_{timestamp}.csv")
     self.row_tracker.export_tracking_log_csv(tracking_csv_path)
 
     # Summary report
-    summary_path = os.path.join(tracking_dir, f'{job_id}_summary_{timestamp}.txt')
+    summary_path = os.path.join(tracking_dir, f"{job_id}_summary_{timestamp}.txt")
     self.row_tracker.generate_summary_report(summary_path)
 
     # Prepare statistics for return
     tracking_stats = self.row_tracker.get_statistics()
 
     statistics = {
-        'total_tasks': len(tasks),
-        'generated_count': len(active_rows),
-        'error_count': self.error_count,
-        'target_matched': len(active_rows) == target_count,
-
+        "total_tasks": len(tasks),
+        "generated_count": len(active_rows),
+        "error_count": self.error_count,
+        "target_matched": len(active_rows) == target_count,
         # Tracking statistics
-        'tracking': tracking_stats,
-
+        "tracking": tracking_stats,
         # Tracking file paths
-        'tracking_files': {
-            'json_log': json_path,
-            'csv_log': tracking_csv_path,
-            'summary_report': summary_path
-        }
+        "tracking_files": {
+            "json_log": json_path,
+            "csv_log": tracking_csv_path,
+            "summary_report": summary_path,
+        },
     }
 
     self._log_info("Generation complete with tracking", statistics)
@@ -350,6 +359,7 @@ def generate_bulk_csv_with_tracking(self,
 # ============================================================================
 # HELPER: Monkey-patch existing BulkCSVGenerator
 # ============================================================================
+
 
 def apply_tracking_to_generator(generator_instance):
     """
@@ -363,9 +373,9 @@ def apply_tracking_to_generator(generator_instance):
 
     # Replace the method
     import types
+
     generator_instance.generate_bulk_csv = types.MethodType(
-        generate_bulk_csv_with_tracking,
-        generator_instance
+        generate_bulk_csv_with_tracking, generator_instance
     )
 
     logger.info("Applied row tracking to BulkCSVGenerator instance")

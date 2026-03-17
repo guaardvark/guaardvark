@@ -31,48 +31,48 @@ class BulkCSVGeneratorTool(BaseTool):
             name="filename",
             type="string",
             required=True,
-            description="Output CSV filename (e.g., 'output.csv')"
+            description="Output CSV filename (e.g., 'output.csv')",
         ),
         "quantity": ToolParameter(
             name="quantity",
             type="int",
             required=True,
-            description="Number of CSV entries/pages to generate (50-1000+)"
+            description="Number of CSV entries/pages to generate (50-1000+)",
         ),
         "topic": ToolParameter(
             name="topic",
             type="string",
             required=True,
-            description="Main topic or subject for content generation"
+            description="Main topic or subject for content generation",
         ),
         "client": ToolParameter(
             name="client",
             type="string",
             required=False,
             description="Client name for personalized content",
-            default=""
+            default="",
         ),
         "word_count": ToolParameter(
             name="word_count",
             type="int",
             required=False,
             description="Target word count per entry",
-            default=600
+            default=600,
         ),
         "project_id": ToolParameter(
             name="project_id",
             type="int",
             required=False,
             description="Project ID for RAG context",
-            default=None
+            default=None,
         ),
         "concurrent_workers": ToolParameter(
             name="concurrent_workers",
             type="int",
             required=False,
             description="Number of concurrent generation workers",
-            default=5
-        )
+            default=5,
+        ),
     }
 
     def __init__(self):
@@ -84,6 +84,7 @@ class BulkCSVGeneratorTool(BaseTool):
         if self._generator is None:
             try:
                 from backend.utils.bulk_csv_generator import BulkCSVGenerator
+
                 self._generator = BulkCSVGenerator()
             except Exception as e:
                 logger.error(f"Failed to initialize BulkCSVGenerator: {e}")
@@ -103,23 +104,22 @@ class BulkCSVGeneratorTool(BaseTool):
         try:
             # Validate parameters
             if quantity < 1:
-                return ToolResult(
-                    success=False,
-                    error="Quantity must be at least 1"
-                )
+                return ToolResult(success=False, error="Quantity must be at least 1")
 
             if quantity > 5000:
                 return ToolResult(
                     success=False,
-                    error="Quantity cannot exceed 5000 per job for performance reasons"
+                    error="Quantity cannot exceed 5000 per job for performance reasons",
                 )
 
             # Generate unique job ID
             import uuid
+
             job_id = f"bulk_{uuid.uuid4().hex[:8]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
             # Determine output path
             from backend.config import OUTPUT_DIR
+
             output_dir = os.path.join(OUTPUT_DIR, "csv")
             os.makedirs(output_dir, exist_ok=True)
             output_path = os.path.join(output_dir, filename)
@@ -129,7 +129,7 @@ class BulkCSVGeneratorTool(BaseTool):
                 from backend.services.unified_file_generation import (
                     UnifiedFileGenerationService,
                     GenerationRequest,
-                    GenerationType
+                    GenerationType,
                 )
 
                 service = UnifiedFileGenerationService()
@@ -140,12 +140,12 @@ class BulkCSVGeneratorTool(BaseTool):
                         "topic": topic,
                         "client": client,
                         "quantity": quantity,
-                        "word_count": word_count
+                        "word_count": word_count,
                     },
                     context_variables={
                         "project_id": str(project_id) if project_id else "",
-                        "concurrent_workers": str(concurrent_workers)
-                    }
+                        "concurrent_workers": str(concurrent_workers),
+                    },
                 )
 
                 result = service.generate(request)
@@ -157,23 +157,26 @@ class BulkCSVGeneratorTool(BaseTool):
                             "job_id": result.job_id or job_id,
                             "output_path": result.output_path or output_path,
                             "status": "started",
-                            "message": f"Bulk CSV generation started for {quantity} entries"
+                            "message": f"Bulk CSV generation started for {quantity} entries",
                         },
                         metadata={
                             "quantity": quantity,
                             "topic": topic,
                             "client": client,
-                            "filename": filename
-                        }
+                            "filename": filename,
+                        },
                     )
 
             except Exception as unified_error:
-                logger.warning(f"Unified service failed, falling back to direct generation: {unified_error}")
+                logger.warning(
+                    f"Unified service failed, falling back to direct generation: {unified_error}"
+                )
 
             # Fallback: Direct generation for smaller batches
             if quantity <= 10:
                 # For small quantities, generate inline
                 from backend.tools.content_tools import WordPressContentTool
+
                 tool = WordPressContentTool()
 
                 rows = []
@@ -182,14 +185,14 @@ class BulkCSVGeneratorTool(BaseTool):
                         client=client,
                         topic=f"{topic} - Part {i}",
                         row_id=i,
-                        word_count=word_count
+                        word_count=word_count,
                     )
                     if result.success:
                         rows.append(result.output)
 
                 # Write to file
-                with open(output_path, 'w', encoding='utf-8') as f:
-                    f.write('\n'.join(rows))
+                with open(output_path, "w", encoding="utf-8") as f:
+                    f.write("\n".join(rows))
 
                 return ToolResult(
                     success=True,
@@ -198,13 +201,9 @@ class BulkCSVGeneratorTool(BaseTool):
                         "output_path": output_path,
                         "status": "completed",
                         "rows_generated": len(rows),
-                        "message": f"Generated {len(rows)} CSV rows"
+                        "message": f"Generated {len(rows)} CSV rows",
                     },
-                    metadata={
-                        "quantity": quantity,
-                        "topic": topic,
-                        "client": client
-                    }
+                    metadata={"quantity": quantity, "topic": topic, "client": client},
                 )
 
             # For larger quantities, queue the job
@@ -214,23 +213,20 @@ class BulkCSVGeneratorTool(BaseTool):
                     "job_id": job_id,
                     "output_path": output_path,
                     "status": "queued",
-                    "message": f"Bulk generation job queued for {quantity} entries. Use job_id to track progress."
+                    "message": f"Bulk generation job queued for {quantity} entries. Use job_id to track progress.",
                 },
                 metadata={
                     "quantity": quantity,
                     "topic": topic,
                     "client": client,
                     "filename": filename,
-                    "note": "Large job queued for background processing"
-                }
+                    "note": "Large job queued for background processing",
+                },
             )
 
         except Exception as e:
             logger.error(f"Bulk CSV generation failed: {e}", exc_info=True)
-            return ToolResult(
-                success=False,
-                error=f"Bulk generation failed: {str(e)}"
-            )
+            return ToolResult(success=False, error=f"Bulk generation failed: {str(e)}")
 
 
 class FileGeneratorTool(BaseTool):
@@ -242,35 +238,37 @@ class FileGeneratorTool(BaseTool):
     """
 
     name = "generate_file"
-    description = "Generate file content (code, documents, data files) based on specifications"
+    description = (
+        "Generate file content (code, documents, data files) based on specifications"
+    )
 
     parameters = {
         "filename": ToolParameter(
             name="filename",
             type="string",
             required=True,
-            description="Output filename with extension (e.g., 'script.py', 'config.json')"
+            description="Output filename with extension (e.g., 'script.py', 'config.json')",
         ),
         "content_description": ToolParameter(
             name="content_description",
             type="string",
             required=True,
-            description="Description of what the file should contain"
+            description="Description of what the file should contain",
         ),
         "file_type": ToolParameter(
             name="file_type",
             type="string",
             required=False,
             description="File type hint (code, document, data, config)",
-            default="auto"
+            default="auto",
         ),
         "save_to_disk": ToolParameter(
             name="save_to_disk",
             type="bool",
             required=False,
             description="Whether to save the file to disk",
-            default=True
-        )
+            default=True,
+        ),
     }
 
     def __init__(self):
@@ -280,16 +278,31 @@ class FileGeneratorTool(BaseTool):
     def _get_llm(self):
         if self._llm is None:
             from backend.utils.llm_service import get_default_llm
+
             self._llm = get_default_llm()
         return self._llm
 
     def _detect_file_type(self, filename: str) -> str:
         """Detect file type from extension"""
         ext = os.path.splitext(filename)[1].lower()
-        code_extensions = {'.py', '.js', '.jsx', '.ts', '.tsx', '.java', '.cpp', '.c', '.h', '.go', '.rs', '.rb', '.php'}
-        data_extensions = {'.json', '.csv', '.xml', '.yaml', '.yml'}
-        doc_extensions = {'.md', '.txt', '.rst', '.html'}
-        config_extensions = {'.ini', '.cfg', '.conf', '.env', '.toml'}
+        code_extensions = {
+            ".py",
+            ".js",
+            ".jsx",
+            ".ts",
+            ".tsx",
+            ".java",
+            ".cpp",
+            ".c",
+            ".h",
+            ".go",
+            ".rs",
+            ".rb",
+            ".php",
+        }
+        data_extensions = {".json", ".csv", ".xml", ".yaml", ".yml"}
+        doc_extensions = {".md", ".txt", ".rst", ".html"}
+        config_extensions = {".ini", ".cfg", ".conf", ".env", ".toml"}
 
         if ext in code_extensions:
             return "code"
@@ -327,6 +340,7 @@ Request: {content_description}
 Generate the file content now:"""
 
             from backend.utils.llm_service import ChatMessage, MessageRole
+
             messages = [ChatMessage(role=MessageRole.USER, content=prompt)]
             response = llm.chat(messages)
 
@@ -334,8 +348,15 @@ Generate the file content now:"""
                 try:
                     file_content = str(response.message.content).strip()
                 except (ValueError, AttributeError):
-                    blocks = getattr(response.message, 'blocks', [])
-                    file_content = next((getattr(b, 'text', str(b)) for b in blocks if getattr(b, 'text', None)), "")
+                    blocks = getattr(response.message, "blocks", [])
+                    file_content = next(
+                        (
+                            getattr(b, "text", str(b))
+                            for b in blocks
+                            if getattr(b, "text", None)
+                        ),
+                        "",
+                    )
                     file_content = file_content.strip()
             else:
                 file_content = ""
@@ -343,21 +364,22 @@ Generate the file content now:"""
             # Clean up common artifacts
             if file_content.startswith("```"):
                 # Remove markdown code fences
-                lines = file_content.split('\n')
+                lines = file_content.split("\n")
                 if lines[0].startswith("```"):
                     lines = lines[1:]
                 if lines and lines[-1].strip() == "```":
                     lines = lines[:-1]
-                file_content = '\n'.join(lines)
+                file_content = "\n".join(lines)
 
             output_path = None
             if save_to_disk:
                 from backend.config import OUTPUT_DIR
+
                 output_dir = os.path.join(OUTPUT_DIR, "files")
                 os.makedirs(output_dir, exist_ok=True)
                 output_path = os.path.join(output_dir, filename)
 
-                with open(output_path, 'w', encoding='utf-8') as f:
+                with open(output_path, "w", encoding="utf-8") as f:
                     f.write(file_content)
 
             return ToolResult(
@@ -367,21 +389,18 @@ Generate the file content now:"""
                     "output_path": output_path,
                     "filename": filename,
                     "file_type": file_type,
-                    "content_length": len(file_content)
+                    "content_length": len(file_content),
                 },
                 metadata={
                     "filename": filename,
                     "file_type": file_type,
-                    "saved": save_to_disk
-                }
+                    "saved": save_to_disk,
+                },
             )
 
         except Exception as e:
             logger.error(f"File generation failed: {e}", exc_info=True)
-            return ToolResult(
-                success=False,
-                error=f"File generation failed: {str(e)}"
-            )
+            return ToolResult(success=False, error=f"File generation failed: {str(e)}")
 
 
 class CSVGeneratorTool(BaseTool):
@@ -400,28 +419,28 @@ class CSVGeneratorTool(BaseTool):
             name="filename",
             type="string",
             required=True,
-            description="Output CSV filename"
+            description="Output CSV filename",
         ),
         "data_description": ToolParameter(
             name="data_description",
             type="string",
             required=True,
-            description="Description of the data to generate (columns, rows, content type)"
+            description="Description of the data to generate (columns, rows, content type)",
         ),
         "include_headers": ToolParameter(
             name="include_headers",
             type="bool",
             required=False,
             description="Whether to include column headers",
-            default=True
+            default=True,
         ),
         "row_count": ToolParameter(
             name="row_count",
             type="int",
             required=False,
             description="Number of data rows to generate",
-            default=10
-        )
+            default=10,
+        ),
     }
 
     def __init__(self):
@@ -431,6 +450,7 @@ class CSVGeneratorTool(BaseTool):
     def _get_llm(self):
         if self._llm is None:
             from backend.utils.llm_service import get_default_llm
+
             self._llm = get_default_llm()
         return self._llm
 
@@ -460,6 +480,7 @@ Requirements:
 Generate the CSV content now:"""
 
             from backend.utils.llm_service import ChatMessage, MessageRole
+
             messages = [ChatMessage(role=MessageRole.USER, content=prompt)]
             response = llm.chat(messages)
 
@@ -467,32 +488,40 @@ Generate the CSV content now:"""
                 try:
                     csv_content = str(response.message.content).strip()
                 except (ValueError, AttributeError):
-                    blocks = getattr(response.message, 'blocks', [])
-                    csv_content = next((getattr(b, 'text', str(b)) for b in blocks if getattr(b, 'text', None)), "")
+                    blocks = getattr(response.message, "blocks", [])
+                    csv_content = next(
+                        (
+                            getattr(b, "text", str(b))
+                            for b in blocks
+                            if getattr(b, "text", None)
+                        ),
+                        "",
+                    )
                     csv_content = csv_content.strip()
             else:
                 csv_content = ""
 
             # Clean up
             if csv_content.startswith("```"):
-                lines = csv_content.split('\n')
+                lines = csv_content.split("\n")
                 if lines[0].startswith("```"):
                     lines = lines[1:]
                 if lines and lines[-1].strip() == "```":
                     lines = lines[:-1]
-                csv_content = '\n'.join(lines)
+                csv_content = "\n".join(lines)
 
             # Save to disk
             from backend.config import OUTPUT_DIR
+
             output_dir = os.path.join(OUTPUT_DIR, "csv")
             os.makedirs(output_dir, exist_ok=True)
             output_path = os.path.join(output_dir, filename)
 
-            with open(output_path, 'w', encoding='utf-8') as f:
+            with open(output_path, "w", encoding="utf-8") as f:
                 f.write(csv_content)
 
             # Count rows
-            row_count_actual = len([l for l in csv_content.split('\n') if l.strip()])
+            row_count_actual = len([l for l in csv_content.split("\n") if l.strip()])
 
             return ToolResult(
                 success=True,
@@ -500,18 +529,19 @@ Generate the CSV content now:"""
                     "output_path": output_path,
                     "filename": filename,
                     "row_count": row_count_actual,
-                    "content_preview": csv_content[:500] + "..." if len(csv_content) > 500 else csv_content
+                    "content_preview": (
+                        csv_content[:500] + "..."
+                        if len(csv_content) > 500
+                        else csv_content
+                    ),
                 },
                 metadata={
                     "filename": filename,
                     "rows_generated": row_count_actual,
-                    "has_headers": include_headers
-                }
+                    "has_headers": include_headers,
+                },
             )
 
         except Exception as e:
             logger.error(f"CSV generation failed: {e}", exc_info=True)
-            return ToolResult(
-                success=False,
-                error=f"CSV generation failed: {str(e)}"
-            )
+            return ToolResult(success=False, error=f"CSV generation failed: {str(e)}")

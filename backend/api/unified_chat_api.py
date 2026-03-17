@@ -57,16 +57,26 @@ def unified_chat():
         logger.warning("LLAMA_INDEX_LLM not in app config, creating on demand")
         try:
             from backend.utils.llm_service import get_llm_for_startup
+
             llm = get_llm_for_startup()
             # Cache it for next time
             current_app.config["LLAMA_INDEX_LLM"] = llm
         except Exception as e:
             logger.error(f"Failed to create LLM instance: {e}")
-            return jsonify({"success": False, "error": "LLM not available. Check Ollama is running."}), 503
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": "LLM not available. Check Ollama is running.",
+                    }
+                ),
+                503,
+            )
 
     # Get tool registry
     try:
         from backend.tools.tool_registry_init import initialize_all_tools
+
         registry = initialize_all_tools()
     except Exception as e:
         logger.error(f"Failed to initialize tool registry: {e}")
@@ -74,6 +84,7 @@ def unified_chat():
 
     # Create engine
     from backend.services.unified_chat_engine import UnifiedChatEngine
+
     engine = UnifiedChatEngine(registry, llm)
 
     # Build emit function
@@ -92,6 +103,7 @@ def unified_chat():
         try:
             import os, base64 as b64mod
             from backend.config import UPLOAD_DIR
+
             img_dir = os.path.join(UPLOAD_DIR, "chat_images")
             os.makedirs(img_dir, exist_ok=True)
             fname = f"chat_image_{uuid.uuid4().hex[:12]}.png"
@@ -104,20 +116,32 @@ def unified_chat():
 
     def run_engine():
         try:
-            engine.chat(session_id, message, options, emit_fn, app=app,
-                       project_id=project_id, image_data=image_data, image_url=image_url)
+            engine.chat(
+                session_id,
+                message,
+                options,
+                emit_fn,
+                app=app,
+                project_id=project_id,
+                image_data=image_data,
+                image_url=image_url,
+            )
         except Exception as e:
             logger.error(f"Unified chat engine thread error: {e}", exc_info=True)
             emit_fn("chat:error", {"error": str(e)})
 
-    thread = threading.Thread(target=run_engine, daemon=True, name=f"unified-chat-{request_id[:8]}")
+    thread = threading.Thread(
+        target=run_engine, daemon=True, name=f"unified-chat-{request_id[:8]}"
+    )
     thread.start()
 
-    return jsonify({
-        "success": True,
-        "request_id": request_id,
-        "session_id": session_id,
-    })
+    return jsonify(
+        {
+            "success": True,
+            "request_id": request_id,
+            "session_id": session_id,
+        }
+    )
 
 
 @unified_chat_bp.route("/<session_id>/history", methods=["GET"])
@@ -136,18 +160,19 @@ def get_history(session_id):
             return jsonify({"success": True, "messages": []})
 
         messages = (
-            LLMMessage.query
-            .filter_by(session_id=session_id)
+            LLMMessage.query.filter_by(session_id=session_id)
             .order_by(LLMMessage.timestamp.asc())
             .limit(limit)
             .all()
         )
 
-        return jsonify({
-            "success": True,
-            "messages": [m.to_dict() for m in messages],
-            "session_id": session_id,
-        })
+        return jsonify(
+            {
+                "success": True,
+                "messages": [m.to_dict() for m in messages],
+                "session_id": session_id,
+            }
+        )
     except Exception as e:
         logger.error(f"Failed to get history for {session_id}: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
@@ -160,5 +185,6 @@ def abort_chat(session_id):
     Abort the current generation for a session.
     """
     from backend.services.unified_chat_engine import set_abort_flag
+
     set_abort_flag(session_id)
     return jsonify({"success": True, "message": f"Abort requested for {session_id}"})

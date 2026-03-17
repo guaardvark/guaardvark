@@ -4,6 +4,7 @@ Reads experiment history and research_program.md, proposes the next
 parameter change to try. Falls back to random search if LLM output
 is unparseable.
 """
+
 import json
 import os
 import random
@@ -20,10 +21,22 @@ logger = logging.getLogger(__name__)
 
 # Phase -> parameter names
 PHASE_PARAMS = {
-    1: ["top_k", "dedup_threshold", "context_window_chunks",
-        "reranking_enabled", "query_expansion", "hybrid_search_alpha"],
-    2: ["chunk_size", "chunk_overlap", "use_semantic_splitting",
-        "use_hierarchical_splitting", "extract_entities", "preserve_structure"],
+    1: [
+        "top_k",
+        "dedup_threshold",
+        "context_window_chunks",
+        "reranking_enabled",
+        "query_expansion",
+        "hybrid_search_alpha",
+    ],
+    2: [
+        "chunk_size",
+        "chunk_overlap",
+        "use_semantic_splitting",
+        "use_hierarchical_splitting",
+        "extract_entities",
+        "preserve_structure",
+    ],
     3: ["embedding_model"],
 }
 
@@ -68,12 +81,14 @@ class RAGExperimentAgent:
         if self._llm is None:
             try:
                 from flask import current_app
+
                 self._llm = current_app.config.get("LLAMA_INDEX_LLM")
             except RuntimeError:
                 pass
             if self._llm is None:
                 try:
                     from backend.services.llm_service import get_llm
+
                     self._llm = get_llm()
                 except Exception:
                     pass
@@ -111,7 +126,11 @@ class RAGExperimentAgent:
             new = exp.get("new_value", "?")
             delta = exp.get("delta", 0)
             status = exp.get("status", "?")
-            delta_str = f"+{delta:.3f}" if delta and delta > 0 else f"{delta:.3f}" if delta else "?"
+            delta_str = (
+                f"+{delta:.3f}"
+                if delta and delta > 0
+                else f"{delta:.3f}" if delta else "?"
+            )
             lines.append(f"{i}  | {param} | {old}->{new} | {delta_str} | {status}")
         return "\n".join(lines)
 
@@ -120,8 +139,7 @@ class RAGExperimentAgent:
     ) -> dict:
         """Propose next experiment. Falls back to random if LLM fails."""
         available = [
-            p for p in PHASE_PARAMS.get(phase, [])
-            if p not in PROTECTED_RAG_PARAMS
+            p for p in PHASE_PARAMS.get(phase, []) if p not in PROTECTED_RAG_PARAMS
         ]
         if not available:
             return self._random_proposal(available or ["top_k"], current_config)
@@ -157,7 +175,9 @@ class RAGExperimentAgent:
             pass
 
         # Fallback: random proposal
-        logger.info("Agent LLM failed to produce valid proposal, falling back to random")
+        logger.info(
+            "Agent LLM failed to produce valid proposal, falling back to random"
+        )
         return self._random_proposal(available, current_config)
 
     def _random_proposal(self, available: list, current_config: dict) -> dict:

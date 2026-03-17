@@ -25,7 +25,9 @@ def get_web_access() -> bool:
             if setting and setting.value == "true":
                 allow = True
         else:
-            logger.warning("get_web_access called outside app context - returning False")
+            logger.warning(
+                "get_web_access called outside app context - returning False"
+            )
             return False
     except Exception as e:
         try:

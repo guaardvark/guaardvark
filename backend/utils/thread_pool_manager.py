@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 class PoolType(Enum):
     """Thread pool types for different workload categories"""
+
     CPU_BOUND = "cpu_bound"  # CPU-intensive tasks
     IO_BOUND = "io_bound"  # I/O-intensive tasks (network, disk)
     GPU_BOUND = "gpu_bound"  # GPU tasks (serialized to prevent conflicts)
@@ -50,12 +51,15 @@ class ThreadPoolManager:
         self._task_queues: Dict[PoolType, list] = {}  # Track submitted tasks
         self._load_history: Dict[PoolType, list] = {}  # Track load over time
 
-        logger.info(f"ThreadPoolManager: CPU cores={self._cpu_count}, GPUs={self._gpu_count}")
+        logger.info(
+            f"ThreadPoolManager: CPU cores={self._cpu_count}, GPUs={self._gpu_count}"
+        )
 
     def _detect_gpu_count(self) -> int:
         """Detect number of available GPUs."""
         try:
             import torch
+
             if torch.cuda.is_available():
                 gpu_count = torch.cuda.device_count()
                 logger.info(f"Detected {gpu_count} CUDA GPU(s)")
@@ -66,14 +70,15 @@ class ThreadPoolManager:
         # Fallback: Check nvidia-smi
         try:
             import subprocess
+
             result = subprocess.run(
                 ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=5,
             )
             if result.returncode == 0:
-                gpu_count = len(result.stdout.strip().split('\n'))
+                gpu_count = len(result.stdout.strip().split("\n"))
                 logger.info(f"Detected {gpu_count} GPU(s) via nvidia-smi")
                 return gpu_count
         except Exception:
@@ -92,16 +97,14 @@ class ThreadPoolManager:
             # CPU-bound pool: Use number of CPU cores
             cpu_workers = self._cpu_count
             self._pools[PoolType.CPU_BOUND] = ThreadPoolExecutor(
-                max_workers=cpu_workers,
-                thread_name_prefix="cpu_pool"
+                max_workers=cpu_workers, thread_name_prefix="cpu_pool"
             )
             logger.info(f"Initialized CPU-bound pool with {cpu_workers} workers")
 
             # I/O-bound pool: Use 2x CPU cores (I/O tasks spend time waiting)
             io_workers = self._cpu_count * 2
             self._pools[PoolType.IO_BOUND] = ThreadPoolExecutor(
-                max_workers=io_workers,
-                thread_name_prefix="io_pool"
+                max_workers=io_workers, thread_name_prefix="io_pool"
             )
             logger.info(f"Initialized I/O-bound pool with {io_workers} workers")
 
@@ -109,29 +112,21 @@ class ThreadPoolManager:
             # If no GPU, use 1 worker for CPU fallback
             gpu_workers = max(1, self._gpu_count)
             self._pools[PoolType.GPU_BOUND] = ThreadPoolExecutor(
-                max_workers=gpu_workers,
-                thread_name_prefix="gpu_pool"
+                max_workers=gpu_workers, thread_name_prefix="gpu_pool"
             )
             logger.info(f"Initialized GPU-bound pool with {gpu_workers} workers")
 
             # Mixed workload pool: Balanced configuration
             mixed_workers = max(4, self._cpu_count)
             self._pools[PoolType.MIXED] = ThreadPoolExecutor(
-                max_workers=mixed_workers,
-                thread_name_prefix="mixed_pool"
+                max_workers=mixed_workers, thread_name_prefix="mixed_pool"
             )
             logger.info(f"Initialized mixed workload pool with {mixed_workers} workers")
 
             self._initialized = True
             logger.info(" ThreadPoolManager initialization complete")
 
-    def submit(
-        self,
-        pool_type: PoolType,
-        fn: Callable,
-        *args,
-        **kwargs
-    ) -> Future:
+    def submit(self, pool_type: PoolType, fn: Callable, *args, **kwargs) -> Future:
         """
         Submit a task to the appropriate thread pool.
 
@@ -217,14 +212,14 @@ class ThreadPoolManager:
             "initialized": True,
             "cpu_count": self._cpu_count,
             "gpu_count": self._gpu_count,
-            "pools": {}
+            "pools": {},
         }
 
         with self._lock:
             for pool_type, pool in self._pools.items():
                 stats["pools"][pool_type.value] = {
                     "max_workers": pool._max_workers,
-                    "thread_name_prefix": pool._thread_name_prefix
+                    "thread_name_prefix": pool._thread_name_prefix,
                 }
 
         return stats
@@ -252,18 +247,18 @@ class ThreadPoolManager:
                 raise ValueError(f"Invalid pool type: {pool_type}")
 
             # Shutdown old pool
-            logger.info(f"Resizing {pool_type.value} pool from {old_pool._max_workers} to {new_size} workers")
+            logger.info(
+                f"Resizing {pool_type.value} pool from {old_pool._max_workers} to {new_size} workers"
+            )
             old_pool.shutdown(wait=True)
 
             # Create new pool
             new_pool = ThreadPoolExecutor(
-                max_workers=new_size,
-                thread_name_prefix=f"{pool_type.value}_pool"
+                max_workers=new_size, thread_name_prefix=f"{pool_type.value}_pool"
             )
             self._pools[pool_type] = new_pool
 
             logger.info(f" Resized {pool_type.value} pool to {new_size} workers")
-
 
     def enable_auto_scaling(self, check_interval: int = 30):
         """
@@ -287,7 +282,7 @@ class ThreadPoolManager:
             target=self._monitor_and_scale,
             args=(check_interval,),
             daemon=True,
-            name="pool_auto_scaler"
+            name="pool_auto_scaler",
         )
         self._scale_monitor_thread.start()
 
@@ -331,15 +326,23 @@ class ThreadPoolManager:
                     load_factor = self._estimate_pool_load(pool_type)
 
                     # Scale up if load is high (>80%)
-                    if load_factor > 0.8 and current_size < self._get_max_size(pool_type):
+                    if load_factor > 0.8 and current_size < self._get_max_size(
+                        pool_type
+                    ):
                         new_size = min(current_size + 2, self._get_max_size(pool_type))
-                        logger.info(f"Scaling up {pool_type.value} pool: {current_size} -> {new_size} (load: {load_factor:.0%})")
+                        logger.info(
+                            f"Scaling up {pool_type.value} pool: {current_size} -> {new_size} (load: {load_factor:.0%})"
+                        )
                         self.resize_pool(pool_type, new_size)
 
                     # Scale down if load is low (<30%) and above minimum
-                    elif load_factor < 0.3 and current_size > self._get_min_size(pool_type):
+                    elif load_factor < 0.3 and current_size > self._get_min_size(
+                        pool_type
+                    ):
                         new_size = max(current_size - 1, self._get_min_size(pool_type))
-                        logger.info(f"Scaling down {pool_type.value} pool: {current_size} -> {new_size} (load: {load_factor:.0%})")
+                        logger.info(
+                            f"Scaling down {pool_type.value} pool: {current_size} -> {new_size} (load: {load_factor:.0%})"
+                        )
                         self.resize_pool(pool_type, new_size)
 
                     # Record load history
@@ -370,7 +373,9 @@ class ThreadPoolManager:
 
         # Return average of historical load or 0.5 as placeholder
         if pool_type in self._load_history and self._load_history[pool_type]:
-            return sum(self._load_history[pool_type]) / len(self._load_history[pool_type])
+            return sum(self._load_history[pool_type]) / len(
+                self._load_history[pool_type]
+            )
 
         return 0.5  # Neutral load estimate
 
@@ -380,7 +385,7 @@ class ThreadPoolManager:
             PoolType.CPU_BOUND: 2,
             PoolType.IO_BOUND: 4,
             PoolType.GPU_BOUND: 1,
-            PoolType.MIXED: 2
+            PoolType.MIXED: 2,
         }
         return minimums.get(pool_type, 1)
 
@@ -390,9 +395,11 @@ class ThreadPoolManager:
             PoolType.CPU_BOUND: self._cpu_count * 2,
             PoolType.IO_BOUND: self._cpu_count * 4,
             PoolType.GPU_BOUND: max(2, self._gpu_count),
-            PoolType.MIXED: self._cpu_count * 2
+            PoolType.MIXED: self._cpu_count * 2,
         }
         return maximums.get(pool_type, self._cpu_count)
+
+
 # Global singleton instance
 _thread_pool_manager: Optional[ThreadPoolManager] = None
 _manager_lock = threading.Lock()

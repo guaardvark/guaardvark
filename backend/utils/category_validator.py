@@ -11,32 +11,115 @@ logger = logging.getLogger(__name__)
 # Top 500 US cities blacklist (selected major cities)
 CITY_BLACKLIST = {
     # Major cities
-    'tampa', 'orlando', 'miami', 'jacksonville', 'tallahassee',
-    'stockton', 'sacramento', 'san francisco', 'los angeles', 'san diego', 'san jose',
-    'new york', 'brooklyn', 'manhattan', 'queens', 'bronx',
-    'chicago', 'houston', 'phoenix', 'philadelphia', 'san antonio',
-    'dallas', 'austin', 'fort worth', 'columbus', 'charlotte',
-    'indianapolis', 'seattle', 'denver', 'boston', 'detroit',
-    'nashville', 'memphis', 'portland', 'las vegas', 'baltimore',
-    'milwaukee', 'albuquerque', 'tucson', 'fresno', 'mesa',
-    'atlanta', 'raleigh', 'miami gardens', 'long beach', 'virginia beach',
-    'oakland', 'minneapolis', 'tulsa', 'bakersfield', 'wichita',
-    'arlington', 'aurora', 'tampa bay', 'new orleans', 'cleveland',
+    "tampa",
+    "orlando",
+    "miami",
+    "jacksonville",
+    "tallahassee",
+    "stockton",
+    "sacramento",
+    "san francisco",
+    "los angeles",
+    "san diego",
+    "san jose",
+    "new york",
+    "brooklyn",
+    "manhattan",
+    "queens",
+    "bronx",
+    "chicago",
+    "houston",
+    "phoenix",
+    "philadelphia",
+    "san antonio",
+    "dallas",
+    "austin",
+    "fort worth",
+    "columbus",
+    "charlotte",
+    "indianapolis",
+    "seattle",
+    "denver",
+    "boston",
+    "detroit",
+    "nashville",
+    "memphis",
+    "portland",
+    "las vegas",
+    "baltimore",
+    "milwaukee",
+    "albuquerque",
+    "tucson",
+    "fresno",
+    "mesa",
+    "atlanta",
+    "raleigh",
+    "miami gardens",
+    "long beach",
+    "virginia beach",
+    "oakland",
+    "minneapolis",
+    "tulsa",
+    "bakersfield",
+    "wichita",
+    "arlington",
+    "aurora",
+    "tampa bay",
+    "new orleans",
+    "cleveland",
     # Ohio cities (relevant to the example CSV)
-    'bentonville', 'manchester', 'blue creek', 'cherry fork', 'lynx',
-    'peebles', 'seaman', 'west union', 'winchester', 'lima',
-    'beaverdam', 'gomer', 'bluffton', 'cairo', 'delphos',
+    "bentonville",
+    "manchester",
+    "blue creek",
+    "cherry fork",
+    "lynx",
+    "peebles",
+    "seaman",
+    "west union",
+    "winchester",
+    "lima",
+    "beaverdam",
+    "gomer",
+    "bluffton",
+    "cairo",
+    "delphos",
     # Additional major cities
-    'cincinnati', 'toledo', 'akron', 'dayton', 'parma', 'canton',
-    'youngstown', 'lorain', 'hamilton', 'springfield', 'kettering',
-    'elyria', 'newark', 'cuyahoga falls', 'middletown', 'euclid',
+    "cincinnati",
+    "toledo",
+    "akron",
+    "dayton",
+    "parma",
+    "canton",
+    "youngstown",
+    "lorain",
+    "hamilton",
+    "springfield",
+    "kettering",
+    "elyria",
+    "newark",
+    "cuyahoga falls",
+    "middletown",
+    "euclid",
 }
 
 # Business suffix patterns
 BUSINESS_SUFFIXES = [
-    'llc', 'inc', 'corp', 'ltd', 'limited', 'corporation',
-    'company', 'co', 'group', 'enterprises', 'associates',
-    'law firm', 'pllc', 'pa', 'pc', 'professional association'
+    "llc",
+    "inc",
+    "corp",
+    "ltd",
+    "limited",
+    "corporation",
+    "company",
+    "co",
+    "group",
+    "enterprises",
+    "associates",
+    "law firm",
+    "pllc",
+    "pa",
+    "pc",
+    "professional association",
 ]
 
 
@@ -87,7 +170,7 @@ def is_business_name(text: str, client_name: str = None) -> bool:
     for suffix in BUSINESS_SUFFIXES:
         if lower_text.endswith(suffix):
             return True
-        if f' {suffix}' in lower_text:
+        if f" {suffix}" in lower_text:
             return True
 
     # Check if client name is in the text
@@ -102,7 +185,7 @@ def is_business_name(text: str, client_name: str = None) -> bool:
             return True
 
     # Check for common business prefixes
-    business_prefixes = ['the ', 'dr. ', 'dr ', 'doctor ']
+    business_prefixes = ["the ", "dr. ", "dr ", "doctor "]
     for prefix in business_prefixes:
         if lower_text.startswith(prefix):
             return True
@@ -121,23 +204,25 @@ def fix_concatenated_category(text: str) -> str:
     Returns:
         Fixed category with proper spacing
     """
-    if not text or ' ' in text:
+    if not text or " " in text:
         return text
 
     # Add space before capital letters (except first character)
-    result = re.sub(r'([a-z])([A-Z])', r'\1 \2', text)
+    result = re.sub(r"([a-z])([A-Z])", r"\1 \2", text)
 
     # Remove city names from the result
     words = result.split()
     filtered_words = [w for w in words if not is_city_name(w)]
 
-    fixed = ' '.join(filtered_words).strip()
+    fixed = " ".join(filtered_words).strip()
 
     logger.info(f"Fixed concatenated category: '{text}' → '{fixed}'")
     return fixed
 
 
-def generate_category_from_topic(topic: str, primary_service: str = None, industry: str = None) -> str:
+def generate_category_from_topic(
+    topic: str, primary_service: str = None, industry: str = None
+) -> str:
     """
     Generate a proper category from topic and available metadata
 
@@ -160,26 +245,26 @@ def generate_category_from_topic(topic: str, primary_service: str = None, indust
     # Priority 3: Extract from topic
     # Look for service keywords
     service_keywords = {
-        'seo': 'SEO Services',
-        'search engine': 'SEO Services',
-        'web': 'Web Development',
-        'website': 'Web Development',
-        'legal': 'Legal Services',
-        'law': 'Legal Services',
-        'attorney': 'Legal Services',
-        'lawyer': 'Legal Services',
-        'marketing': 'Marketing Services',
-        'consulting': 'Consulting Services',
-        'health': 'Health Services',
-        'fitness': 'Health & Fitness',
-        'nutrition': 'Health & Fitness',
-        'diet': 'Health & Fitness',
-        'training': 'Training Services',
-        'education': 'Education Services',
-        'technology': 'Technology Services',
-        'software': 'Software Development',
-        'finance': 'Financial Services',
-        'accounting': 'Financial Services',
+        "seo": "SEO Services",
+        "search engine": "SEO Services",
+        "web": "Web Development",
+        "website": "Web Development",
+        "legal": "Legal Services",
+        "law": "Legal Services",
+        "attorney": "Legal Services",
+        "lawyer": "Legal Services",
+        "marketing": "Marketing Services",
+        "consulting": "Consulting Services",
+        "health": "Health Services",
+        "fitness": "Health & Fitness",
+        "nutrition": "Health & Fitness",
+        "diet": "Health & Fitness",
+        "training": "Training Services",
+        "education": "Education Services",
+        "technology": "Technology Services",
+        "software": "Software Development",
+        "finance": "Financial Services",
+        "accounting": "Financial Services",
     }
 
     topic_lower = topic.lower()
@@ -190,7 +275,7 @@ def generate_category_from_topic(topic: str, primary_service: str = None, indust
     # Priority 4: Extract first 2-3 significant words from topic
     words = [w for w in topic.split() if len(w) > 3][:3]
     if words:
-        return ' '.join(words).title()
+        return " ".join(words).title()
 
     # Fallback
     return "Professional Services"
@@ -210,13 +295,13 @@ def clean_category(category: str) -> str:
         return category
 
     # Remove JSON array formatting: [""Health""] or ["Health"]
-    if category.startswith('[') and category.endswith(']'):
-        category = category.strip('[]').strip('"').strip("'").strip()
+    if category.startswith("[") and category.endswith("]"):
+        category = category.strip("[]").strip('"').strip("'").strip()
         logger.info(f"Removed JSON array formatting from category")
 
     # Fix escaped/multiple quotes
     if '""' in category or '\\"' in category:
-        category = category.replace('""', '').replace('\\"', '')
+        category = category.replace('""', "").replace('\\"', "")
         logger.info(f"Removed escaped quotes from category")
 
     return category.strip()
@@ -227,7 +312,7 @@ def validate_and_fix_category(
     topic: str,
     primary_service: str = None,
     industry: str = None,
-    client_name: str = None
+    client_name: str = None,
 ) -> str:
     """
     Main validation and fixing function for category field
@@ -261,7 +346,7 @@ def validate_and_fix_category(
         return generate_category_from_topic(topic, primary_service, industry)
 
     # Step 5: Fix concatenated words
-    if ' ' not in category and len(category) > 20:
+    if " " not in category and len(category) > 20:
         capital_count = sum(1 for c in category if c.isupper())
         if capital_count >= 3:
             logger.warning(f"Category '{category}' appears concatenated, fixing")
@@ -278,8 +363,8 @@ def validate_and_fix_category(
     category = category.title()
 
     # Step 7: Remove excessive punctuation
-    if ',' in category or len(category) > 50:
-        category = category.split(',')[0].strip()[:50]
+    if "," in category or len(category) > 50:
+        category = category.split(",")[0].strip()[:50]
         logger.info(f"Simplified category to: {category}")
 
     return category

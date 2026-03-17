@@ -14,7 +14,12 @@ console = make_console()
 logs_app = typer.Typer(help="Log viewing and analysis", no_args_is_help=True)
 
 # Detect project root
-_ROOT = os.environ.get("GUAARDVARK_ROOT", os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+_ROOT = os.environ.get(
+    "GUAARDVARK_ROOT",
+    os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    ),
+)
 _LOG_DIR = os.path.join(_ROOT, "logs")
 
 SERVICE_LOGS = {
@@ -49,15 +54,23 @@ def _colorize_line(line: str) -> Text:
 
 @logs_app.command("tail")
 def logs_tail(
-    service: str = typer.Argument("backend", help="Service to tail (backend, celery, frontend, startup, setup)"),
+    service: str = typer.Argument(
+        "backend", help="Service to tail (backend, celery, frontend, startup, setup)"
+    ),
     lines: int = typer.Option(50, "--lines", "-n", help="Number of lines to show"),
-    follow: bool = typer.Option(False, "--follow", "-f", help="Follow log output (like tail -f)"),
-    filter_str: str = typer.Option(None, "--filter", help="Show only lines matching this string"),
+    follow: bool = typer.Option(
+        False, "--follow", "-f", help="Follow log output (like tail -f)"
+    ),
+    filter_str: str = typer.Option(
+        None, "--filter", help="Show only lines matching this string"
+    ),
 ):
     """Tail a service log with color-coded output."""
     log_path = _find_log(service)
     if not log_path:
-        output.print_error(f"Log file not found for '{service}'. Available: {', '.join(SERVICE_LOGS.keys())}")
+        output.print_error(
+            f"Log file not found for '{service}'. Available: {', '.join(SERVICE_LOGS.keys())}"
+        )
         raise typer.Exit(1)
 
     console.print(f"[llx.accent]{service}[/llx.accent] [llx.dim]{log_path}[/llx.dim]\n")
@@ -77,7 +90,9 @@ def logs_tail(
                 return
 
             # Follow mode
-            console.print(f"\n[llx.dim]--- Following {service} log (Ctrl+C to stop) ---[/llx.dim]\n")
+            console.print(
+                f"\n[llx.dim]--- Following {service} log (Ctrl+C to stop) ---[/llx.dim]\n"
+            )
             while True:
                 line = f.readline()
                 if line:
@@ -98,7 +113,9 @@ def logs_tail(
 def logs_search(
     pattern: str = typer.Argument(help="Search pattern (regex supported)"),
     service: str = typer.Option(None, "--service", "-s", help="Limit to one service"),
-    lines: int = typer.Option(5, "--context", "-C", help="Context lines around matches"),
+    lines: int = typer.Option(
+        5, "--context", "-C", help="Context lines around matches"
+    ),
     max_results: int = typer.Option(20, "--max", "-m", help="Maximum results to show"),
     json_out: bool = typer.Option(False, "--json", "-j"),
 ):
@@ -106,7 +123,11 @@ def logs_search(
     json_out = json_out or get_global_json()
     output.set_json_mode(json_out)
 
-    services = {service: SERVICE_LOGS[service]} if service and service in SERVICE_LOGS else SERVICE_LOGS
+    services = (
+        {service: SERVICE_LOGS[service]}
+        if service and service in SERVICE_LOGS
+        else SERVICE_LOGS
+    )
     results = []
 
     try:
@@ -126,12 +147,17 @@ def logs_search(
                 if regex.search(line):
                     context_start = max(0, i - lines)
                     context_end = min(len(file_lines), i + lines + 1)
-                    results.append({
-                        "service": svc,
-                        "line_number": i + 1,
-                        "match": line.rstrip(),
-                        "context": [l.rstrip() for l in file_lines[context_start:context_end]],
-                    })
+                    results.append(
+                        {
+                            "service": svc,
+                            "line_number": i + 1,
+                            "match": line.rstrip(),
+                            "context": [
+                                l.rstrip()
+                                for l in file_lines[context_start:context_end]
+                            ],
+                        }
+                    )
                     if len(results) >= max_results:
                         break
         except Exception:
@@ -147,9 +173,13 @@ def logs_search(
         console.print(f"[llx.dim]No matches for '{pattern}'[/llx.dim]")
         return
 
-    console.print(f"[llx.accent]Found {len(results)} match(es) for[/llx.accent] [bold]{pattern}[/bold]\n")
+    console.print(
+        f"[llx.accent]Found {len(results)} match(es) for[/llx.accent] [bold]{pattern}[/bold]\n"
+    )
     for r in results:
-        console.print(f"[llx.brand]{r['service']}[/llx.brand]:[llx.dim]{r['line_number']}[/llx.dim]")
+        console.print(
+            f"[llx.brand]{r['service']}[/llx.brand]:[llx.dim]{r['line_number']}[/llx.dim]"
+        )
         for ctx_line in r["context"]:
             if regex.search(ctx_line):
                 console.print(f"  [bold red]> {ctx_line}[/bold red]")
@@ -175,8 +205,8 @@ def logs_stats(
             with open(path, "r") as f:
                 content = f.read()
             size = os.path.getsize(path)
-            errors = len(re.findall(r'\bERROR\b', content, re.IGNORECASE))
-            warnings = len(re.findall(r'\bWARNING\b', content, re.IGNORECASE))
+            errors = len(re.findall(r"\bERROR\b", content, re.IGNORECASE))
+            warnings = len(re.findall(r"\bWARNING\b", content, re.IGNORECASE))
             total_lines = content.count("\n")
             stats[svc] = {
                 "lines": total_lines,
@@ -197,17 +227,26 @@ def logs_stats(
 
     rows = []
     for svc, s in stats.items():
-        err_str = f"[red]{s['errors']}[/red]" if s["errors"] > 0 else "[llx.dim]0[/llx.dim]"
-        warn_str = f"[yellow]{s['warnings']}[/yellow]" if s["warnings"] > 0 else "[llx.dim]0[/llx.dim]"
-        rows.append({
-            "Service": svc,
-            "Lines": str(s["lines"]),
-            "Errors": err_str,
-            "Warnings": warn_str,
-            "Size": f"{s['size_mb']} MB",
-        })
+        err_str = (
+            f"[red]{s['errors']}[/red]" if s["errors"] > 0 else "[llx.dim]0[/llx.dim]"
+        )
+        warn_str = (
+            f"[yellow]{s['warnings']}[/yellow]"
+            if s["warnings"] > 0
+            else "[llx.dim]0[/llx.dim]"
+        )
+        rows.append(
+            {
+                "Service": svc,
+                "Lines": str(s["lines"]),
+                "Errors": err_str,
+                "Warnings": warn_str,
+                "Size": f"{s['size_mb']} MB",
+            }
+        )
 
     from rich.table import Table
+
     table = Table(title="Log Statistics", border_style="llx.panel.border")
     table.add_column("Service", style="llx.accent")
     table.add_column("Lines", justify="right")

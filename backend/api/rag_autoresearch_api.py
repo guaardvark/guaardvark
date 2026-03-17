@@ -1,4 +1,5 @@
 """RAG Autoresearch API — REST endpoints for dashboard and manual triggers."""
+
 from flask import Blueprint, jsonify, request
 from backend.services.rag_autoresearch_service import get_autoresearch_service
 from backend.models import ExperimentRun, EvalPair, ResearchConfig, Setting, db
@@ -19,7 +20,10 @@ def start_loop():
         return jsonify({"error": "Already running"}), 409
     max_exp = request.json.get("max_experiments", 0) if request.is_json else 0
     import threading
-    t = threading.Thread(target=svc.run_loop, kwargs={"max_experiments": max_exp}, daemon=True)
+
+    t = threading.Thread(
+        target=svc.run_loop, kwargs={"max_experiments": max_exp}, daemon=True
+    )
     t.start()
     return jsonify({"status": "started"})
 
@@ -35,17 +39,17 @@ def stop_loop():
 def get_history():
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 50, type=int)
-    runs = (
-        ExperimentRun.query
-        .order_by(ExperimentRun.created_at.desc())
-        .paginate(page=page, per_page=per_page, error_out=False)
+    runs = ExperimentRun.query.order_by(ExperimentRun.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
     )
-    return jsonify({
-        "experiments": [r.to_dict() for r in runs.items],
-        "total": runs.total,
-        "page": page,
-        "pages": runs.pages,
-    })
+    return jsonify(
+        {
+            "experiments": [r.to_dict() for r in runs.items],
+            "total": runs.total,
+            "page": page,
+            "pages": runs.pages,
+        }
+    )
 
 
 @autoresearch_bp.route("/config", methods=["GET"])
@@ -58,6 +62,7 @@ def get_config():
 @autoresearch_bp.route("/config/reset", methods=["POST"])
 def reset_config():
     from backend.config import AUTORESEARCH_DEFAULT_PARAMS
+
     svc = get_autoresearch_service()
     config = {
         "version": 1,
@@ -81,7 +86,13 @@ def regenerate_eval_pairs():
     svc = get_autoresearch_service()
     pairs = svc.eval_harness.generate_eval_set()
     for pair_data in pairs:
-        pair = EvalPair(**{k: v for k, v in pair_data.items() if k in EvalPair.__table__.columns.keys()})
+        pair = EvalPair(
+            **{
+                k: v
+                for k, v in pair_data.items()
+                if k in EvalPair.__table__.columns.keys()
+            }
+        )
         db.session.add(pair)
     db.session.commit()
     return jsonify({"status": "regenerated", "count": len(pairs)})

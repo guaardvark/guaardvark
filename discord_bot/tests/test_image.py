@@ -1,4 +1,5 @@
 """Tests for the ImageCog (/imagine and /enhance-prompt commands)."""
+
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 
@@ -14,7 +15,9 @@ def image_cog(mock_api_client, sample_config):
 
 class TestImagineCommand:
     @pytest.mark.asyncio
-    async def test_imagine_defers_and_starts(self, image_cog, mock_interaction, mock_api_client):
+    async def test_imagine_defers_and_starts(
+        self, image_cog, mock_interaction, mock_api_client
+    ):
         """Imagine should defer, call generate_image, then poll and send result."""
         with patch("discord_bot.commands.image.asyncio.sleep", new_callable=AsyncMock):
             await image_cog._handle_imagine(mock_interaction, "a cute cat")
@@ -26,7 +29,9 @@ class TestImagineCommand:
         assert call_kwargs.get("file") is not None
 
     @pytest.mark.asyncio
-    async def test_imagine_polls_until_complete(self, image_cog, mock_interaction, mock_api_client):
+    async def test_imagine_polls_until_complete(
+        self, image_cog, mock_interaction, mock_api_client
+    ):
         """Should poll get_batch_status until it returns completed."""
         # First call returns pending, second returns completed
         mock_api_client.get_batch_status.side_effect = [
@@ -45,7 +50,9 @@ class TestImagineCommand:
         assert call_kwargs.get("file") is not None
 
     @pytest.mark.asyncio
-    async def test_imagine_handles_generation_failure(self, image_cog, mock_interaction, mock_api_client):
+    async def test_imagine_handles_generation_failure(
+        self, image_cog, mock_interaction, mock_api_client
+    ):
         """If generation fails, report the error."""
         mock_api_client.get_batch_status.return_value = {
             "status": "failed",
@@ -67,11 +74,15 @@ class TestImagineCommand:
 
         mock_interaction.response.send_message.assert_awaited_once()
         call_args = mock_interaction.response.send_message.call_args
-        content = call_args.args[0] if call_args.args else call_args.kwargs.get("content", "")
+        content = (
+            call_args.args[0] if call_args.args else call_args.kwargs.get("content", "")
+        )
         assert "not available in dms" in content.lower()
 
     @pytest.mark.asyncio
-    async def test_imagine_decrements_active_jobs(self, image_cog, mock_interaction, mock_api_client):
+    async def test_imagine_decrements_active_jobs(
+        self, image_cog, mock_interaction, mock_api_client
+    ):
         """Active jobs counter should return to 0 after completion."""
         with patch("discord_bot.commands.image.asyncio.sleep", new_callable=AsyncMock):
             await image_cog._handle_imagine(mock_interaction, "test")
@@ -81,7 +92,9 @@ class TestImagineCommand:
 
 class TestEnhancePromptCommand:
     @pytest.mark.asyncio
-    async def test_enhance_returns_improved_prompt(self, image_cog, mock_interaction, mock_api_client):
+    async def test_enhance_returns_improved_prompt(
+        self, image_cog, mock_interaction, mock_api_client
+    ):
         """Enhance prompt should return an embed with original, enhanced, and negative prompts."""
         await image_cog._handle_enhance(mock_interaction, "a landscape")
 
@@ -96,7 +109,9 @@ class TestEnhancePromptCommand:
         assert "Negative Prompt" in field_names
 
     @pytest.mark.asyncio
-    async def test_enhance_handles_api_error(self, image_cog, mock_interaction, mock_api_client):
+    async def test_enhance_handles_api_error(
+        self, image_cog, mock_interaction, mock_api_client
+    ):
         """API errors should be reported."""
         mock_api_client.enhance_prompt.side_effect = APIError("Service down", 500)
 

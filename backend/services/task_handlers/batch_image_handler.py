@@ -56,65 +56,75 @@ class BatchImageHandler(BaseTaskHandler):
                             "steps": {"type": "integer", "default": 20},
                             "guidance": {"type": "number", "default": 7.5},
                             "seed": {"type": "integer"},
-                            "model": {"type": "string", "default": "sd-1.5"}
+                            "model": {"type": "string", "default": "sd-1.5"},
                         },
-                        "required": ["prompt"]
+                        "required": ["prompt"],
                     },
-                    "description": "List of image generation prompts"
+                    "description": "List of image generation prompts",
                 },
-                "batch_name": {
-                    "type": "string",
-                    "description": "Name for the batch"
-                },
+                "batch_name": {"type": "string", "description": "Name for the batch"},
                 "model": {
                     "type": "string",
                     "default": "sd-1.5",
-                    "enum": ["sd-1.5", "sd-xl", "dreamlike", "deliberate", "realistic-vision"],
-                    "description": "Default image generation model"
+                    "enum": [
+                        "sd-1.5",
+                        "sd-xl",
+                        "dreamlike",
+                        "deliberate",
+                        "realistic-vision",
+                    ],
+                    "description": "Default image generation model",
                 },
                 "max_workers": {
                     "type": "integer",
                     "default": 2,
-                    "description": "Number of concurrent workers (use 1 for GPU)"
+                    "description": "Number of concurrent workers (use 1 for GPU)",
                 },
                 "generate_thumbnails": {
                     "type": "boolean",
                     "default": True,
-                    "description": "Generate thumbnail images"
+                    "description": "Generate thumbnail images",
                 },
                 "content_preset": {
                     "type": "string",
-                    "enum": ["auto", "person_portrait", "person_full_body", "product_photo", "landscape", "abstract"],
-                    "description": "Content preset for quality enhancement"
+                    "enum": [
+                        "auto",
+                        "person_portrait",
+                        "person_full_body",
+                        "product_photo",
+                        "landscape",
+                        "abstract",
+                    ],
+                    "description": "Content preset for quality enhancement",
                 },
                 "auto_enhance": {
                     "type": "boolean",
                     "default": True,
-                    "description": "Enable automatic quality enhancement"
+                    "description": "Enable automatic quality enhancement",
                 },
                 "enhance_anatomy": {
                     "type": "boolean",
                     "default": True,
-                    "description": "Enhance human anatomy in images"
+                    "description": "Enhance human anatomy in images",
                 },
                 "enhance_faces": {
                     "type": "boolean",
                     "default": True,
-                    "description": "Enhance facial features"
+                    "description": "Enhance facial features",
                 },
                 "enhance_hands": {
                     "type": "boolean",
                     "default": True,
-                    "description": "Enhance hand rendering"
-                }
-            }
+                    "description": "Enhance hand rendering",
+                },
+            },
         }
 
     def execute(
         self,
         task: Any,
         config: Dict[str, Any],
-        progress_callback: Callable[[int, str, Optional[Dict[str, Any]]], None]
+        progress_callback: Callable[[int, str, Optional[Dict[str, Any]]], None],
     ) -> TaskResult:
         """
         Execute batch image generation.
@@ -127,7 +137,7 @@ class BatchImageHandler(BaseTaskHandler):
             from backend.services.batch_image_generator import (
                 get_batch_image_generator,
                 BatchPrompt,
-                BatchImageRequest
+                BatchImageRequest,
             )
 
             generator = get_batch_image_generator()
@@ -137,7 +147,7 @@ class BatchImageHandler(BaseTaskHandler):
                     message="Batch image generator service not available",
                     error_message="Could not initialize BatchImageGenerator",
                     started_at=started_at,
-                    completed_at=datetime.now()
+                    completed_at=datetime.now(),
                 )
 
             # Parse prompts from config
@@ -148,12 +158,14 @@ class BatchImageHandler(BaseTaskHandler):
                     message="No prompts provided",
                     error_message="prompts list is empty",
                     started_at=started_at,
-                    completed_at=datetime.now()
+                    completed_at=datetime.now(),
                 )
 
-            progress_callback(0, f"Preparing batch of {len(raw_prompts)} images", {
-                "total_images": len(raw_prompts)
-            })
+            progress_callback(
+                0,
+                f"Preparing batch of {len(raw_prompts)} images",
+                {"total_images": len(raw_prompts)},
+            )
 
             # Convert to BatchPrompt objects
             batch_prompts = []
@@ -167,35 +179,39 @@ class BatchImageHandler(BaseTaskHandler):
             for i, p in enumerate(raw_prompts):
                 if isinstance(p, str):
                     # Simple string prompt
-                    batch_prompts.append(BatchPrompt(
-                        id=f"prompt_{i+1}",
-                        prompt=p,
-                        model=default_model,
-                        content_preset=content_preset,
-                        auto_enhance=auto_enhance,
-                        enhance_anatomy=enhance_anatomy,
-                        enhance_faces=enhance_faces,
-                        enhance_hands=enhance_hands
-                    ))
+                    batch_prompts.append(
+                        BatchPrompt(
+                            id=f"prompt_{i+1}",
+                            prompt=p,
+                            model=default_model,
+                            content_preset=content_preset,
+                            auto_enhance=auto_enhance,
+                            enhance_anatomy=enhance_anatomy,
+                            enhance_faces=enhance_faces,
+                            enhance_hands=enhance_hands,
+                        )
+                    )
                 elif isinstance(p, dict):
                     # Full prompt config
-                    batch_prompts.append(BatchPrompt(
-                        id=p.get("id", f"prompt_{i+1}"),
-                        prompt=p.get("prompt", ""),
-                        negative_prompt=p.get("negative_prompt", ""),
-                        style=p.get("style", "realistic"),
-                        width=p.get("width", 512),
-                        height=p.get("height", 512),
-                        steps=p.get("steps", 20),
-                        guidance=p.get("guidance", 7.5),
-                        seed=p.get("seed"),
-                        model=p.get("model", default_model),
-                        content_preset=p.get("content_preset", content_preset),
-                        auto_enhance=p.get("auto_enhance", auto_enhance),
-                        enhance_anatomy=p.get("enhance_anatomy", enhance_anatomy),
-                        enhance_faces=p.get("enhance_faces", enhance_faces),
-                        enhance_hands=p.get("enhance_hands", enhance_hands)
-                    ))
+                    batch_prompts.append(
+                        BatchPrompt(
+                            id=p.get("id", f"prompt_{i+1}"),
+                            prompt=p.get("prompt", ""),
+                            negative_prompt=p.get("negative_prompt", ""),
+                            style=p.get("style", "realistic"),
+                            width=p.get("width", 512),
+                            height=p.get("height", 512),
+                            steps=p.get("steps", 20),
+                            guidance=p.get("guidance", 7.5),
+                            seed=p.get("seed"),
+                            model=p.get("model", default_model),
+                            content_preset=p.get("content_preset", content_preset),
+                            auto_enhance=p.get("auto_enhance", auto_enhance),
+                            enhance_anatomy=p.get("enhance_anatomy", enhance_anatomy),
+                            enhance_faces=p.get("enhance_faces", enhance_faces),
+                            enhance_hands=p.get("enhance_hands", enhance_hands),
+                        )
+                    )
 
             if not batch_prompts:
                 return TaskResult(
@@ -203,10 +219,12 @@ class BatchImageHandler(BaseTaskHandler):
                     message="No valid prompts after parsing",
                     error_message="Could not parse any valid prompts from config",
                     started_at=started_at,
-                    completed_at=datetime.now()
+                    completed_at=datetime.now(),
                 )
 
-            progress_callback(5, f"Starting generation of {len(batch_prompts)} images", None)
+            progress_callback(
+                5, f"Starting generation of {len(batch_prompts)} images", None
+            )
 
             # Create batch request
             batch_name = config.get("batch_name", f"task_{task.id}")
@@ -215,7 +233,9 @@ class BatchImageHandler(BaseTaskHandler):
 
             # Create output directory
             output_dir = generator._create_output_directory(
-                generator._generate_batch_id() if not hasattr(task, 'job_id') else f"batch_{task.job_id}"
+                generator._generate_batch_id()
+                if not hasattr(task, "job_id")
+                else f"batch_{task.job_id}"
             )
 
             request = BatchImageRequest(
@@ -228,16 +248,17 @@ class BatchImageHandler(BaseTaskHandler):
                 auto_enhance=auto_enhance,
                 enhance_anatomy=enhance_anatomy,
                 enhance_faces=enhance_faces,
-                enhance_hands=enhance_hands
+                enhance_hands=enhance_hands,
             )
 
             # Start batch generation (this runs in a background thread)
             batch_id = generator.start_batch_generation(request)
 
-            progress_callback(10, f"Batch {batch_id} started", {
-                "batch_id": batch_id,
-                "output_dir": str(output_dir)
-            })
+            progress_callback(
+                10,
+                f"Batch {batch_id} started",
+                {"batch_id": batch_id, "output_dir": str(output_dir)},
+            )
 
             # Poll for completion with progress updates
             completed_images = 0
@@ -245,6 +266,7 @@ class BatchImageHandler(BaseTaskHandler):
             total_images = len(batch_prompts)
 
             import time
+
             max_wait_seconds = 3600  # 1 hour max
             poll_interval = 2  # Check every 2 seconds
             waited = 0
@@ -258,7 +280,7 @@ class BatchImageHandler(BaseTaskHandler):
                         message=f"Lost track of batch {batch_id}",
                         error_message="Batch status not found",
                         started_at=started_at,
-                        completed_at=datetime.now()
+                        completed_at=datetime.now(),
                     )
 
                 completed_images = status.completed_images
@@ -266,16 +288,22 @@ class BatchImageHandler(BaseTaskHandler):
 
                 # Calculate progress (10-95% range for generation)
                 if total_images > 0:
-                    progress = int(10 + (completed_images + failed_images) / total_images * 85)
+                    progress = int(
+                        10 + (completed_images + failed_images) / total_images * 85
+                    )
                 else:
                     progress = 10
 
-                progress_callback(progress, f"Generated {completed_images}/{total_images} images", {
-                    "completed_images": completed_images,
-                    "failed_images": failed_images,
-                    "total_images": total_images,
-                    "batch_id": batch_id
-                })
+                progress_callback(
+                    progress,
+                    f"Generated {completed_images}/{total_images} images",
+                    {
+                        "completed_images": completed_images,
+                        "failed_images": failed_images,
+                        "total_images": total_images,
+                        "batch_id": batch_id,
+                    },
+                )
 
                 if status.status in ("completed", "error", "cancelled"):
                     break
@@ -295,13 +323,17 @@ class BatchImageHandler(BaseTaskHandler):
                     error_message="Could not retrieve final batch status",
                     started_at=started_at,
                     completed_at=completed_at,
-                    duration_seconds=duration
+                    duration_seconds=duration,
                 )
 
-            progress_callback(100, "Batch generation complete", {
-                "completed_images": final_status.completed_images,
-                "failed_images": final_status.failed_images
-            })
+            progress_callback(
+                100,
+                "Batch generation complete",
+                {
+                    "completed_images": final_status.completed_images,
+                    "failed_images": final_status.failed_images,
+                },
+            )
 
             # Collect output files
             output_files = []
@@ -320,7 +352,7 @@ class BatchImageHandler(BaseTaskHandler):
                     items_total=total_images,
                     started_at=started_at,
                     completed_at=completed_at,
-                    duration_seconds=duration
+                    duration_seconds=duration,
                 )
 
             if final_status.failed_images > 0:
@@ -332,13 +364,13 @@ class BatchImageHandler(BaseTaskHandler):
                         "batch_id": batch_id,
                         "output_dir": str(output_dir),
                         "completed_images": final_status.completed_images,
-                        "failed_images": final_status.failed_images
+                        "failed_images": final_status.failed_images,
                     },
                     items_processed=final_status.completed_images,
                     items_total=total_images,
                     started_at=started_at,
                     completed_at=completed_at,
-                    duration_seconds=duration
+                    duration_seconds=duration,
                 )
 
             return TaskResult(
@@ -348,13 +380,13 @@ class BatchImageHandler(BaseTaskHandler):
                 output_data={
                     "batch_id": batch_id,
                     "output_dir": str(output_dir),
-                    "completed_images": final_status.completed_images
+                    "completed_images": final_status.completed_images,
                 },
                 items_processed=final_status.completed_images,
                 items_total=total_images,
                 started_at=started_at,
                 completed_at=completed_at,
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except ImportError as e:
@@ -364,7 +396,7 @@ class BatchImageHandler(BaseTaskHandler):
                 message="Batch image generator not available",
                 error_message=str(e),
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
         except Exception as e:
             logger.error(f"Batch image handler error: {e}", exc_info=True)
@@ -373,7 +405,7 @@ class BatchImageHandler(BaseTaskHandler):
                 message=f"Batch image generation failed: {str(e)}",
                 error_message=str(e),
                 started_at=started_at,
-                completed_at=datetime.now()
+                completed_at=datetime.now(),
             )
 
     def get_estimated_duration(self, config: Dict[str, Any]) -> Optional[int]:

@@ -1,4 +1,5 @@
 """End-to-end test for the autoresearch experiment loop."""
+
 import pytest
 from unittest.mock import patch, MagicMock
 
@@ -34,21 +35,32 @@ class TestEndToEnd:
         with app.app_context():
             svc = RAGAutoresearchService()
 
-            with patch.object(svc.eval_harness, "_call_llm") as mock_llm, \
-                 patch.object(svc.agent, "_call_llm") as mock_agent_llm, \
-                 patch.object(svc.eval_harness, "_get_active_eval_pairs") as mock_pairs, \
-                 patch.object(svc.eval_harness, "has_sufficient_corpus", return_value=True), \
-                 patch("backend.services.indexing_service.search_with_llamaindex") as mock_search, \
-                 patch.object(svc, "_load_config") as mock_load, \
-                 patch.object(svc, "_save_config"), \
-                 patch.object(svc, "_log_experiment"), \
-                 patch.object(svc, "_emit_socket_event"), \
-                 patch.object(svc, "_broadcast_to_family"):
+            with patch.object(svc.eval_harness, "_call_llm") as mock_llm, patch.object(
+                svc.agent, "_call_llm"
+            ) as mock_agent_llm, patch.object(
+                svc.eval_harness, "_get_active_eval_pairs"
+            ) as mock_pairs, patch.object(
+                svc.eval_harness, "has_sufficient_corpus", return_value=True
+            ), patch(
+                "backend.services.indexing_service.search_with_llamaindex"
+            ) as mock_search, patch.object(
+                svc, "_load_config"
+            ) as mock_load, patch.object(
+                svc, "_save_config"
+            ), patch.object(
+                svc, "_log_experiment"
+            ), patch.object(
+                svc, "_emit_socket_event"
+            ), patch.object(
+                svc, "_broadcast_to_family"
+            ):
 
                 # Provide a clean config so test is deterministic
                 mock_load.return_value = {
-                    "params": {"top_k": 5}, "baseline_score": 3.0,
-                    "phase": 1, "phase_plateau_count": 0,
+                    "params": {"top_k": 5},
+                    "baseline_score": 3.0,
+                    "phase": 1,
+                    "phase_plateau_count": 0,
                 }
 
                 mock_pairs.return_value = [
@@ -79,24 +91,38 @@ class TestEndToEnd:
         with app.app_context():
             svc = RAGAutoresearchService()
 
-            with patch.object(svc.agent, "propose_experiment") as mock_propose, \
-                 patch.object(svc.eval_harness, "run_full_eval") as mock_eval, \
-                 patch.object(svc, "_load_config") as mock_load, \
-                 patch.object(svc, "_save_config") as mock_save, \
-                 patch.object(svc, "_log_experiment") as mock_log, \
-                 patch.object(svc, "_emit_socket_event"), \
-                 patch.object(svc, "_broadcast_to_family"), \
-                 patch.object(svc, "_promote_config") as mock_promote:
+            with patch.object(
+                svc.agent, "propose_experiment"
+            ) as mock_propose, patch.object(
+                svc.eval_harness, "run_full_eval"
+            ) as mock_eval, patch.object(
+                svc, "_load_config"
+            ) as mock_load, patch.object(
+                svc, "_save_config"
+            ) as mock_save, patch.object(
+                svc, "_log_experiment"
+            ) as mock_log, patch.object(
+                svc, "_emit_socket_event"
+            ), patch.object(
+                svc, "_broadcast_to_family"
+            ), patch.object(
+                svc, "_promote_config"
+            ) as mock_promote:
                 mock_load.return_value = {
-                    "params": {"top_k": 5}, "baseline_score": 3.0, "phase": 1,
+                    "params": {"top_k": 5},
+                    "baseline_score": 3.0,
+                    "phase": 1,
                     "phase_plateau_count": 0,
                 }
                 mock_propose.return_value = {
-                    "parameter": "top_k", "new_value": 8,
+                    "parameter": "top_k",
+                    "new_value": 8,
                     "hypothesis": "try more chunks",
                 }
                 mock_eval.return_value = {
-                    "composite_score": 3.5, "num_pairs": 10, "details": [],
+                    "composite_score": 3.5,
+                    "num_pairs": 10,
+                    "details": [],
                 }
 
                 result = svc.run_single_experiment()
@@ -111,24 +137,38 @@ class TestEndToEnd:
         with app.app_context():
             svc = RAGAutoresearchService()
 
-            with patch.object(svc.agent, "propose_experiment") as mock_propose, \
-                 patch.object(svc.eval_harness, "run_full_eval") as mock_eval, \
-                 patch.object(svc, "_load_config") as mock_load, \
-                 patch.object(svc, "_save_config"), \
-                 patch.object(svc, "_log_experiment"), \
-                 patch.object(svc, "_emit_socket_event"), \
-                 patch.object(svc, "_broadcast_to_family"), \
-                 patch.object(svc, "_promote_config") as mock_promote:
+            with patch.object(
+                svc.agent, "propose_experiment"
+            ) as mock_propose, patch.object(
+                svc.eval_harness, "run_full_eval"
+            ) as mock_eval, patch.object(
+                svc, "_load_config"
+            ) as mock_load, patch.object(
+                svc, "_save_config"
+            ), patch.object(
+                svc, "_log_experiment"
+            ), patch.object(
+                svc, "_emit_socket_event"
+            ), patch.object(
+                svc, "_broadcast_to_family"
+            ), patch.object(
+                svc, "_promote_config"
+            ) as mock_promote:
                 mock_load.return_value = {
-                    "params": {"top_k": 5}, "baseline_score": 3.0, "phase": 1,
+                    "params": {"top_k": 5},
+                    "baseline_score": 3.0,
+                    "phase": 1,
                     "phase_plateau_count": 0,
                 }
                 mock_propose.return_value = {
-                    "parameter": "top_k", "new_value": 2,
+                    "parameter": "top_k",
+                    "new_value": 2,
                     "hypothesis": "try fewer chunks",
                 }
                 mock_eval.return_value = {
-                    "composite_score": 2.5, "num_pairs": 10, "details": [],
+                    "composite_score": 2.5,
+                    "num_pairs": 10,
+                    "details": [],
                 }
 
                 result = svc.run_single_experiment()
@@ -141,17 +181,26 @@ class TestEndToEnd:
         with app.app_context():
             svc = RAGAutoresearchService()
 
-            with patch.object(svc.agent, "propose_experiment") as mock_propose, \
-                 patch.object(svc.eval_harness, "run_full_eval") as mock_eval, \
-                 patch.object(svc, "_load_config") as mock_load, \
-                 patch.object(svc, "_save_config"), \
-                 patch.object(svc, "_log_experiment") as mock_log:
+            with patch.object(
+                svc.agent, "propose_experiment"
+            ) as mock_propose, patch.object(
+                svc.eval_harness, "run_full_eval"
+            ) as mock_eval, patch.object(
+                svc, "_load_config"
+            ) as mock_load, patch.object(
+                svc, "_save_config"
+            ), patch.object(
+                svc, "_log_experiment"
+            ) as mock_log:
                 mock_load.return_value = {
-                    "params": {"top_k": 5}, "baseline_score": 3.0, "phase": 1,
+                    "params": {"top_k": 5},
+                    "baseline_score": 3.0,
+                    "phase": 1,
                     "phase_plateau_count": 0,
                 }
                 mock_propose.return_value = {
-                    "parameter": "top_k", "new_value": 8,
+                    "parameter": "top_k",
+                    "new_value": 8,
                     "hypothesis": "test",
                 }
                 mock_eval.side_effect = RuntimeError("GPU OOM")
@@ -186,9 +235,13 @@ class TestEndToEnd:
                     "composite_score": 3.0,
                 }
 
-            with patch.object(svc, "_check_prerequisites", return_value=True), \
-                 patch.object(svc, "run_single_experiment", side_effect=fake_experiment), \
-                 patch.object(svc, "_get_recent_history", return_value=[]):
+            with patch.object(
+                svc, "_check_prerequisites", return_value=True
+            ), patch.object(
+                svc, "run_single_experiment", side_effect=fake_experiment
+            ), patch.object(
+                svc, "_get_recent_history", return_value=[]
+            ):
                 svc.run_loop(max_experiments=3)
                 assert call_count == 3
                 assert not svc.is_running()
@@ -205,11 +258,19 @@ class TestEndToEnd:
                 "composite_score": 0.0,
             }
 
-            with patch.object(svc, "_check_prerequisites", return_value=True), \
-                 patch.object(svc, "run_single_experiment", return_value=crash_result), \
-                 patch.object(svc, "_get_recent_history", return_value=[
-                     {"status": "crash"}, {"status": "crash"}, {"status": "crash"},
-                 ]):
+            with patch.object(
+                svc, "_check_prerequisites", return_value=True
+            ), patch.object(
+                svc, "run_single_experiment", return_value=crash_result
+            ), patch.object(
+                svc,
+                "_get_recent_history",
+                return_value=[
+                    {"status": "crash"},
+                    {"status": "crash"},
+                    {"status": "crash"},
+                ],
+            ):
                 svc.run_loop(max_experiments=10)
                 # Should have stopped after detecting 3 crashes, not run all 10
                 assert not svc.is_running()

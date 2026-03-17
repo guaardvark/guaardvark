@@ -19,7 +19,12 @@ import json
 
 from backend.services.agent_config import get_agent_config_manager
 from backend.services.agent_executor import AgentExecutor
-from backend.utils.llm_service import get_default_llm, ChatMessage, MessageRole, _safe_content
+from backend.utils.llm_service import (
+    get_default_llm,
+    ChatMessage,
+    MessageRole,
+    _safe_content,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -27,11 +32,12 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SubTask:
     """A sub-task to be executed by a specific agent"""
+
     id: int
     description: str
     assigned_agent: str
     dependencies: List[int] = field(default_factory=list)
-    status: str = "pending"   # pending | running | completed | failed
+    status: str = "pending"  # pending | running | completed | failed
     result: Optional[str] = None
     error: Optional[str] = None
 
@@ -39,6 +45,7 @@ class SubTask:
 @dataclass
 class OrchestrationPlan:
     """A plan consisting of multiple sub-tasks"""
+
     original_request: str
     subtasks: List[SubTask] = field(default_factory=list)
     current_step_index: int = 0
@@ -281,9 +288,7 @@ RULES:
                     subtask.status = "failed"
                     subtask.error = result.get("error", "Unknown error")
                     plan.status = "failed"
-                    logger.error(
-                        f"  ✗ Task {subtask.id} failed: {subtask.error}"
-                    )
+                    logger.error(f"  ✗ Task {subtask.id} failed: {subtask.error}")
                     return {
                         "success": False,
                         "error": (
@@ -340,6 +345,7 @@ RULES:
         """Lazily initialise the global tool registry once and reuse it."""
         if self._all_tools is None:
             from backend.tools.tool_registry_init import initialize_all_tools
+
             self._all_tools = initialize_all_tools()
         return self._all_tools
 

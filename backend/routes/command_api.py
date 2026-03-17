@@ -23,6 +23,7 @@ def codefile_command():
 def websearch_command():
     """Execute explicit web search command."""
     import logging
+
     logger = logging.getLogger(__name__)
 
     try:
@@ -32,7 +33,7 @@ def websearch_command():
         if not query:
             return success_response(
                 data={"error": "No query provided"},
-                message="Please provide a search query"
+                message="Please provide a search query",
             )
 
         logger.info(f"/websearch command: '{query}'")
@@ -74,9 +75,9 @@ def websearch_command():
                     "query": query,
                     "response": response_text,
                     "raw_results": search_results,
-                    "result_type": result_type
+                    "result_type": result_type,
                 },
-                message="Web search completed successfully"
+                message="Web search completed successfully",
             )
         else:
             error = search_results.get("error", "Unknown error")
@@ -84,14 +85,13 @@ def websearch_command():
                 data={
                     "query": query,
                     "error": error,
-                    "response": f"Web search failed: {error}"
+                    "response": f"Web search failed: {error}",
                 },
-                message="Web search failed"
+                message="Web search failed",
             )
 
     except Exception as e:
         logger.error(f"/websearch command error: {e}", exc_info=True)
         return success_response(
-            data={"error": str(e)},
-            message=f"Web search error: {str(e)}"
+            data={"error": str(e)}, message=f"Web search error: {str(e)}"
         )

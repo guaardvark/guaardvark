@@ -6,6 +6,7 @@ Three tiers:
   2. Guardian: review self-improvement code changes
   3. Update Advisor: system health recommendations
 """
+
 import json
 import logging
 import os
@@ -16,8 +17,12 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 VALID_DIRECTIVES = [
-    "proceed", "proceed_with_caution", "reject",
-    "halt_self_improvement", "lock_codebase", "halt_family",
+    "proceed",
+    "proceed_with_caution",
+    "reject",
+    "halt_self_improvement",
+    "lock_codebase",
+    "halt_family",
 ]
 
 
@@ -41,34 +46,52 @@ class ClaudeAdvisorService:
 
         self._api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip() or None
         self._client = None
-        self._model = os.environ.get("GUAARDVARK_CLAUDE_MODEL", "claude-sonnet-4-20250514")
-        self._max_output_tokens = int(os.environ.get("GUAARDVARK_CLAUDE_MAX_TOKENS", "4096"))
-        self._monthly_budget = int(os.environ.get("GUAARDVARK_CLAUDE_TOKEN_BUDGET", "1000000"))
-        self._escalation_mode = os.environ.get("GUAARDVARK_CLAUDE_ESCALATION_MODE", "manual")
+        self._model = os.environ.get(
+            "GUAARDVARK_CLAUDE_MODEL", "claude-sonnet-4-20250514"
+        )
+        self._max_output_tokens = int(
+            os.environ.get("GUAARDVARK_CLAUDE_MAX_TOKENS", "4096")
+        )
+        self._monthly_budget = int(
+            os.environ.get("GUAARDVARK_CLAUDE_TOKEN_BUDGET", "1000000")
+        )
+        self._escalation_mode = os.environ.get(
+            "GUAARDVARK_CLAUDE_ESCALATION_MODE", "manual"
+        )
 
         self._usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
-        self._usage_reset_date = datetime.now().replace(day=1, hour=0, minute=0, second=0)
+        self._usage_reset_date = datetime.now().replace(
+            day=1, hour=0, minute=0, second=0
+        )
 
         if self._api_key:
             try:
                 import anthropic
+
                 self._client = anthropic.Anthropic(api_key=self._api_key)
                 logger.info("ClaudeAdvisorService initialized with API key")
             except ImportError:
-                logger.warning("anthropic package not installed — pip install anthropic")
+                logger.warning(
+                    "anthropic package not installed — pip install anthropic"
+                )
                 self._client = None
             except Exception as e:
                 logger.error(f"Failed to initialize Anthropic client: {e}")
                 self._client = None
         else:
-            logger.info("ClaudeAdvisorService initialized without API key (offline mode)")
+            logger.info(
+                "ClaudeAdvisorService initialized without API key (offline mode)"
+            )
 
     def is_available(self) -> bool:
         return self._api_key is not None and self._client is not None
 
     def _check_budget(self) -> bool:
         now = datetime.now()
-        if now.month != self._usage_reset_date.month or now.year != self._usage_reset_date.year:
+        if (
+            now.month != self._usage_reset_date.month
+            or now.year != self._usage_reset_date.year
+        ):
             self._usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
             self._usage_reset_date = now.replace(day=1, hour=0, minute=0, second=0)
         return self._usage["total_tokens"] < self._monthly_budget
@@ -76,7 +99,7 @@ class ClaudeAdvisorService:
     def _track_usage(self, input_tokens: int = 0, output_tokens: int = 0):
         self._usage["input_tokens"] += input_tokens
         self._usage["output_tokens"] += output_tokens
-        self._usage["total_tokens"] += (input_tokens + output_tokens)
+        self._usage["total_tokens"] += input_tokens + output_tokens
 
     def get_usage(self) -> Dict[str, Any]:
         return {
@@ -84,10 +107,14 @@ class ClaudeAdvisorService:
             "output_tokens": self._usage["output_tokens"],
             "total_tokens": self._usage["total_tokens"],
             "monthly_budget": self._monthly_budget,
-            "budget_remaining": max(0, self._monthly_budget - self._usage["total_tokens"]),
-            "budget_used_percent": round(
-                (self._usage["total_tokens"] / self._monthly_budget) * 100, 1
-            ) if self._monthly_budget > 0 else 0,
+            "budget_remaining": max(
+                0, self._monthly_budget - self._usage["total_tokens"]
+            ),
+            "budget_used_percent": (
+                round((self._usage["total_tokens"] / self._monthly_budget) * 100, 1)
+                if self._monthly_budget > 0
+                else 0
+            ),
         }
 
     def _build_system_context(self) -> str:
@@ -135,11 +162,13 @@ class ClaudeAdvisorService:
             response = self._client.messages.create(
                 model=self._model,
                 max_tokens=self._max_output_tokens,
-                system=[{
-                    "type": "text",
-                    "text": system_prompt,
-                    "cache_control": {"type": "ephemeral"},
-                }],
+                system=[
+                    {
+                        "type": "text",
+                        "text": system_prompt,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
                 messages=messages,
             )
 
@@ -193,21 +222,26 @@ class ClaudeAdvisorService:
             with self._client.messages.stream(
                 model=self._model,
                 max_tokens=self._max_output_tokens,
-                system=[{
-                    "type": "text",
-                    "text": system_prompt,
-                    "cache_control": {"type": "ephemeral"},
-                }],
+                system=[
+                    {
+                        "type": "text",
+                        "text": system_prompt,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
                 messages=messages,
             ) as stream:
                 for text in stream.text_stream:
                     full_response += text
                     if emit_fn:
-                        emit_fn("chat:token", {
-                            "content": text,
-                            "session_id": session_id,
-                            "source": "uncle_claude",
-                        })
+                        emit_fn(
+                            "chat:token",
+                            {
+                                "content": text,
+                                "session_id": session_id,
+                                "source": "uncle_claude",
+                            },
+                        )
 
                 final_message = stream.get_final_message()
                 input_tokens = final_message.usage.input_tokens
@@ -269,11 +303,13 @@ class ClaudeAdvisorService:
             response = self._client.messages.create(
                 model=self._model,
                 max_tokens=1024,
-                system=[{
-                    "type": "text",
-                    "text": self._build_system_context(),
-                    "cache_control": {"type": "ephemeral"},
-                }],
+                system=[
+                    {
+                        "type": "text",
+                        "text": self._build_system_context(),
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
                 messages=[{"role": "user", "content": review_prompt}],
             )
 
@@ -339,11 +375,13 @@ class ClaudeAdvisorService:
             response = self._client.messages.create(
                 model=self._model,
                 max_tokens=2048,
-                system=[{
-                    "type": "text",
-                    "text": self._build_system_context(),
-                    "cache_control": {"type": "ephemeral"},
-                }],
+                system=[
+                    {
+                        "type": "text",
+                        "text": self._build_system_context(),
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
                 messages=[{"role": "user", "content": advice_prompt}],
             )
 

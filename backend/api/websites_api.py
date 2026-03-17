@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 # --- Helper Function for Serialization ---
 def website_to_dict(website):
     from backend.utils.serialization_utils import format_logo_path
+
     if not website:
         return None
 
@@ -66,22 +67,31 @@ def website_to_dict(website):
         website_docs = 0
         if hasattr(website, "documents") and website.documents:
             website_docs = website.documents.count()
-        
-        # Count project documents (since website belongs to project) 
+
+        # Count project documents (since website belongs to project)
         project_docs = 0
         if hasattr(website, "project") and website.project:
             try:
                 # Use scalar query for dynamic relationship count
                 from backend.models import Document
-                project_docs = db.session.query(Document).filter(Document.project_id == website.project.id).count()
+
+                project_docs = (
+                    db.session.query(Document)
+                    .filter(Document.project_id == website.project.id)
+                    .count()
+                )
             except Exception as count_error:
-                _logger = current_app.logger if current_app else logging.getLogger(__name__)
-                _logger.warning(f"Failed to count project documents for website {website.id}: {count_error}")
+                _logger = (
+                    current_app.logger if current_app else logging.getLogger(__name__)
+                )
+                _logger.warning(
+                    f"Failed to count project documents for website {website.id}: {count_error}"
+                )
                 project_docs = 0
-        
+
         # Total: direct website docs + project docs
         doc_count = website_docs + project_docs
-        
+
     except Exception as e:
         # Use a logger instance, assuming logger is defined globally or passed
         _logger = current_app.logger if current_app else logging.getLogger(__name__)
@@ -131,7 +141,9 @@ def get_websites_route():
 
     try:
         query = db.session.query(Website).options(
-            joinedload(Website.project),  # Load project but not documents (lazy="dynamic")
+            joinedload(
+                Website.project
+            ),  # Load project but not documents (lazy="dynamic")
             joinedload(Website.client_ref),
         )
 
@@ -223,7 +235,7 @@ def create_website_route():
 
     url = url.strip()
     sitemap_cleaned = sitemap_from_payload.strip() if sitemap_from_payload else None
-    
+
     # Extract competitor_url
     competitor_url = data.get("competitor_url")
     competitor_url_cleaned = competitor_url.strip() if competitor_url else None
@@ -282,11 +294,11 @@ def create_website_route():
 
     try:
         new_website = Website(
-            url=url, 
-            sitemap=sitemap_cleaned, 
+            url=url,
+            sitemap=sitemap_cleaned,
             competitor_url=competitor_url_cleaned,
-            project_id=project_id, 
-            client_id=client_id
+            project_id=project_id,
+            client_id=client_id,
         )
         db.session.add(new_website)
         db.session.commit()
@@ -391,7 +403,7 @@ def update_website_route(website_id):
             if website.sitemap != new_sitemap_stripped:
                 website.sitemap = new_sitemap_stripped
                 updated_fields.append("sitemap")
-        
+
         # Handle competitor_url
         if "competitor_url" in data:
             new_competitor_url = data.get("competitor_url")

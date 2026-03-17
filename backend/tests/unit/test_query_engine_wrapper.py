@@ -2,7 +2,9 @@ import pytest
 
 try:
     from backend.utils.query_engine_wrapper import (
-        RetrieverQueryEngine, _build_query_engine_from_retriever)
+        RetrieverQueryEngine,
+        _build_query_engine_from_retriever,
+    )
 except Exception:
     pytest.skip("Required modules not available", allow_module_level=True)
 

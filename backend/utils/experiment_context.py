@@ -6,6 +6,7 @@ _retrieve_rag_context) checks get_experiment_config() and applies overrides
 if present. Outside of eval runs, get_experiment_config() returns None and
 the default config is used — zero impact on normal user queries.
 """
+
 import threading
 
 _experiment_config = threading.local()

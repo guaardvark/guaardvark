@@ -65,7 +65,16 @@ def test_full_backup(tmp_path, app):
         assert meta["version"] == "2.0"
         assert meta["backup_type"] == "full"
         assert set(meta["components"]) == set(
-            ["clients", "documents", "projects", "tasks", "websites", "chats", "rules", "system_settings"]
+            [
+                "clients",
+                "documents",
+                "projects",
+                "tasks",
+                "websites",
+                "chats",
+                "rules",
+                "system_settings",
+            ]
         )
         assert "clients" in meta and meta["clients"]
         assert "documents" in meta and meta["documents"]

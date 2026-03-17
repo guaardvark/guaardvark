@@ -14,7 +14,9 @@ _capability_cache: Dict[str, Dict[str, Any]] = {}
 _CACHE_TTL_SECONDS = 300  # 5 minutes
 
 
-def _get_cache_key(model_name: str, web_search_enabled: bool, rag_enabled: bool, tools: List[str]) -> str:
+def _get_cache_key(
+    model_name: str, web_search_enabled: bool, rag_enabled: bool, tools: List[str]
+) -> str:
     """Generate a cache key for capability prompt section"""
     tools_str = ",".join(sorted(tools)) if tools else ""
     key_str = f"{model_name}:{web_search_enabled}:{rag_enabled}:{tools_str}"
@@ -34,10 +36,7 @@ def _get_cached(key: str) -> Optional[str]:
 
 def _set_cached(key: str, value: str) -> None:
     """Store value in cache with timestamp"""
-    _capability_cache[key] = {
-        "value": value,
-        "timestamp": time.time()
-    }
+    _capability_cache[key] = {"value": value, "timestamp": time.time()}
 
 
 def classify_model_tier(model_name: str) -> str:
@@ -51,30 +50,30 @@ def classify_model_tier(model_name: str) -> str:
         'small', 'medium', or 'large'
     """
     if not model_name:
-        return 'medium'  # Default to medium if unknown
+        return "medium"  # Default to medium if unknown
 
     name = model_name.lower()
 
     # Tier 1: Very small models (need most guidance)
-    small_indicators = ['1b', '2b', '3b', '4b', 'mini', 'tiny', 'small', 'nano']
+    small_indicators = ["1b", "2b", "3b", "4b", "mini", "tiny", "small", "nano"]
     if any(x in name for x in small_indicators):
-        return 'small'
+        return "small"
 
     # Tier 2: Medium models (good but need some guidance)
-    medium_indicators = ['7b', '8b', '13b', '14b']
+    medium_indicators = ["7b", "8b", "13b", "14b"]
     if any(x in name for x in medium_indicators):
-        return 'medium'
+        return "medium"
 
     # Tier 3: Large models (minimal guidance needed)
     # 30b+, 70b+, etc.
-    return 'large'
+    return "large"
 
 
 def get_capability_context(
     web_search_enabled: bool,
     rag_enabled: bool,
     tools: List[str] = None,
-    tools_with_descriptions: List[dict] = None
+    tools_with_descriptions: List[dict] = None,
 ) -> str:
     """
     Generate minimal capability awareness context for LLM.
@@ -96,8 +95,12 @@ def get_capability_context(
         logger.error(f"Expected tools to be a list, got {type(tools).__name__}")
         tools = []
 
-    if tools_with_descriptions is not None and not isinstance(tools_with_descriptions, list):
-        logger.error(f"Expected tools_with_descriptions to be a list, got {type(tools_with_descriptions).__name__}")
+    if tools_with_descriptions is not None and not isinstance(
+        tools_with_descriptions, list
+    ):
+        logger.error(
+            f"Expected tools_with_descriptions to be a list, got {type(tools_with_descriptions).__name__}"
+        )
         tools_with_descriptions = []
 
     capabilities = []
@@ -129,7 +132,7 @@ def get_capability_context(
             "content": "content generation",
             "generation": "file generation",
             "code": "code tools",
-            "web": "web tools"
+            "web": "web tools",
         }
 
         for cat, cat_tools in by_category.items():
@@ -143,37 +146,56 @@ def get_capability_context(
             tool_descriptions.append(desc)
 
         if tool_descriptions:
-            capabilities.append(f"use powerful tools including: {'; '.join(tool_descriptions)}")
+            capabilities.append(
+                f"use powerful tools including: {'; '.join(tool_descriptions)}"
+            )
 
     elif tools:
         # Fallback: categorize tools by name pattern
-        browser_tools = [t for t in tools if 'browser' in t.lower()]
-        desktop_tools = [t for t in tools if any(x in t.lower() for x in ['file_', 'app_', 'gui_', 'clipboard', 'notification'])]
-        mcp_tools = [t for t in tools if 'mcp' in t.lower()]
-        other_tools = [t for t in tools if t not in browser_tools + desktop_tools + mcp_tools]
+        browser_tools = [t for t in tools if "browser" in t.lower()]
+        desktop_tools = [
+            t
+            for t in tools
+            if any(
+                x in t.lower()
+                for x in ["file_", "app_", "gui_", "clipboard", "notification"]
+            )
+        ]
+        mcp_tools = [t for t in tools if "mcp" in t.lower()]
+        other_tools = [
+            t for t in tools if t not in browser_tools + desktop_tools + mcp_tools
+        ]
 
         tool_descriptions = []
         if browser_tools:
-            tool_descriptions.append(f"browser automation ({len(browser_tools)} tools: navigate, screenshot, extract data, etc.)")
+            tool_descriptions.append(
+                f"browser automation ({len(browser_tools)} tools: navigate, screenshot, extract data, etc.)"
+            )
         if desktop_tools:
-            tool_descriptions.append(f"desktop automation ({len(desktop_tools)} tools: file operations, notifications, clipboard, etc.)")
+            tool_descriptions.append(
+                f"desktop automation ({len(desktop_tools)} tools: file operations, notifications, clipboard, etc.)"
+            )
         if mcp_tools:
             tool_descriptions.append(f"MCP integration ({len(mcp_tools)} tools)")
         if other_tools:
             # Show first few other tools
-            other_str = ', '.join(other_tools[:3])
+            other_str = ", ".join(other_tools[:3])
             if len(other_tools) > 3:
                 other_str += f" and {len(other_tools) - 3} more"
             tool_descriptions.append(other_str)
 
         if tool_descriptions:
-            capabilities.append(f"use powerful tools including: {'; '.join(tool_descriptions)}")
+            capabilities.append(
+                f"use powerful tools including: {'; '.join(tool_descriptions)}"
+            )
 
     # Core limitations all LLMs have
-    limitations.extend([
-        "I cannot know lottery numbers, stock prices, sports scores, or weather without web search",
-        "I cannot access your local files or systems unless you share them"
-    ])
+    limitations.extend(
+        [
+            "I cannot know lottery numbers, stock prices, sports scores, or weather without web search",
+            "I cannot access your local files or systems unless you share them",
+        ]
+    )
 
     context_parts = []
     if capabilities:
@@ -199,7 +221,7 @@ def get_honesty_framework(model_name: str) -> str:
     """
     tier = classify_model_tier(model_name)
 
-    if tier == 'small':
+    if tier == "small":
         return """RULES:
 - If you don't know, say "I don't know"
 - NEVER make up facts or data
@@ -208,7 +230,7 @@ def get_honesty_framework(model_name: str) -> str:
 - Be concise. Give direct answers, not data dumps
 - Stay on topic"""
 
-    elif tier == 'medium':
+    elif tier == "medium":
         return """RULES:
 - Say "I don't know" when uncertain
 - Only reference search if === WEB SEARCH RESULTS === is in your context
@@ -231,13 +253,13 @@ def get_tier_guidance(model_name: str) -> str:
     """
     tier = classify_model_tier(model_name)
 
-    if tier == 'small':
+    if tier == "small":
         return """IMPORTANT: You are a smaller language model. Be extra careful to:
 - Not guess when you don't know
 - Ask for clarification if confused
 - Keep responses focused and on-topic"""
 
-    elif tier == 'medium':
+    elif tier == "medium":
         return "Focus on accuracy over verbosity. Acknowledge uncertainty when present."
 
     else:
@@ -258,26 +280,26 @@ def requires_realtime_data(message: str) -> Tuple[bool, str]:
         Tuple of (requires_realtime: bool, reason: str)
     """
     realtime_patterns = {
-        'lottery': 'Lottery numbers change daily and require live lookup',
-        'lotto': 'Lotto numbers change daily and require live lookup',
-        'powerball': 'Powerball numbers require live lookup',
-        'mega millions': 'Mega Millions numbers require live lookup',
-        'stock price': 'Stock prices change in real-time',
-        'share price': 'Share prices change in real-time',
-        'weather': 'Weather conditions require current data',
-        'temperature': 'Temperature requires current weather data',
-        'forecast': 'Forecasts require current weather data',
-        'score': 'Sports scores require live updates',
-        'game result': 'Game results require live updates',
-        'breaking news': 'Breaking news requires real-time sources',
-        'happening now': 'Current events require real-time sources',
-        'right now': 'Current data requires real-time access',
-        'tonight\'s': 'Tonight\'s information requires live lookup',
-        'today\'s': 'Today\'s specific data requires current information',
-        'this evening': 'This evening\'s data requires live lookup',
-        'current price': 'Current prices require real-time data',
-        'live': 'Live information requires real-time access',
-        'latest': 'Latest information may require real-time lookup'
+        "lottery": "Lottery numbers change daily and require live lookup",
+        "lotto": "Lotto numbers change daily and require live lookup",
+        "powerball": "Powerball numbers require live lookup",
+        "mega millions": "Mega Millions numbers require live lookup",
+        "stock price": "Stock prices change in real-time",
+        "share price": "Share prices change in real-time",
+        "weather": "Weather conditions require current data",
+        "temperature": "Temperature requires current weather data",
+        "forecast": "Forecasts require current weather data",
+        "score": "Sports scores require live updates",
+        "game result": "Game results require live updates",
+        "breaking news": "Breaking news requires real-time sources",
+        "happening now": "Current events require real-time sources",
+        "right now": "Current data requires real-time access",
+        "tonight's": "Tonight's information requires live lookup",
+        "today's": "Today's specific data requires current information",
+        "this evening": "This evening's data requires live lookup",
+        "current price": "Current prices require real-time data",
+        "live": "Live information requires real-time access",
+        "latest": "Latest information may require real-time lookup",
     }
 
     msg_lower = message.lower()
@@ -314,7 +336,7 @@ def build_capability_prompt_section(
     rag_enabled: bool,
     user_message: str = "",
     tools: List[str] = None,
-    tools_with_descriptions: List[dict] = None
+    tools_with_descriptions: List[dict] = None,
 ) -> str:
     """
     Build complete capability awareness section for system prompt.
@@ -351,7 +373,9 @@ def build_capability_prompt_section(
         parts.append(honesty)
 
     # 2. Capability context
-    capabilities = get_capability_context(web_search_enabled, rag_enabled, tools, tools_with_descriptions)
+    capabilities = get_capability_context(
+        web_search_enabled, rag_enabled, tools, tools_with_descriptions
+    )
     if capabilities:
         parts.append(capabilities)
 
@@ -365,10 +389,14 @@ def build_capability_prompt_section(
         rt_warning = get_realtime_warning(user_message)
         if rt_warning:
             parts.append(rt_warning)
-            logger.info(f"Capability awareness: Real-time query detected for model '{model_name}' - {rt_warning[:100]}")
+            logger.info(
+                f"Capability awareness: Real-time query detected for model '{model_name}' - {rt_warning[:100]}"
+            )
 
     # Log capability awareness application
-    logger.info(f"Capability awareness applied for model '{model_name}': web_search={web_search_enabled}, rag={rag_enabled}, tools={len(tools) if tools else 0}")
+    logger.info(
+        f"Capability awareness applied for model '{model_name}': web_search={web_search_enabled}, rag={rag_enabled}, tools={len(tools) if tools else 0}"
+    )
 
     result = "\n\n".join(parts)
 

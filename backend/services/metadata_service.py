@@ -11,6 +11,7 @@ logger = logging.getLogger("backend.services.metadata_service")
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 # Point at the real metadata JSON in storage using config
 from backend.config import STORAGE_DIR
+
 META_PATH = os.path.join(STORAGE_DIR, "docstore.json")
 
 # In-memory metadata map

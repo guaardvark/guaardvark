@@ -32,63 +32,63 @@ class CodeGeneratorTool(BaseTool):
             type="string",
             required=False,
             description="Path to input file to analyze and modify (optional)",
-            default=""
+            default="",
         ),
         "output_filename": ToolParameter(
             name="output_filename",
             type="string",
             required=True,
-            description="Output filename for generated code"
+            description="Output filename for generated code",
         ),
         "instructions": ToolParameter(
             name="instructions",
             type="string",
             required=True,
-            description="Modification instructions or code generation request"
+            description="Modification instructions or code generation request",
         ),
         "language": ToolParameter(
             name="language",
             type="string",
             required=False,
             description="Programming language (auto-detected from extension if not specified)",
-            default="auto"
+            default="auto",
         ),
         "preserve_structure": ToolParameter(
             name="preserve_structure",
             type="bool",
             required=False,
             description="Preserve original file structure and formatting",
-            default=True
-        )
+            default=True,
+        ),
     }
 
     LANGUAGE_MAP = {
-        '.py': 'python',
-        '.js': 'javascript',
-        '.jsx': 'javascript-react',
-        '.ts': 'typescript',
-        '.tsx': 'typescript-react',
-        '.java': 'java',
-        '.cpp': 'cpp',
-        '.c': 'c',
-        '.h': 'c-header',
-        '.go': 'go',
-        '.rs': 'rust',
-        '.rb': 'ruby',
-        '.php': 'php',
-        '.swift': 'swift',
-        '.kt': 'kotlin',
-        '.cs': 'csharp',
-        '.sql': 'sql',
-        '.html': 'html',
-        '.css': 'css',
-        '.scss': 'scss',
-        '.json': 'json',
-        '.yaml': 'yaml',
-        '.yml': 'yaml',
-        '.xml': 'xml',
-        '.sh': 'bash',
-        '.bash': 'bash',
+        ".py": "python",
+        ".js": "javascript",
+        ".jsx": "javascript-react",
+        ".ts": "typescript",
+        ".tsx": "typescript-react",
+        ".java": "java",
+        ".cpp": "cpp",
+        ".c": "c",
+        ".h": "c-header",
+        ".go": "go",
+        ".rs": "rust",
+        ".rb": "ruby",
+        ".php": "php",
+        ".swift": "swift",
+        ".kt": "kotlin",
+        ".cs": "csharp",
+        ".sql": "sql",
+        ".html": "html",
+        ".css": "css",
+        ".scss": "scss",
+        ".json": "json",
+        ".yaml": "yaml",
+        ".yml": "yaml",
+        ".xml": "xml",
+        ".sh": "bash",
+        ".bash": "bash",
     }
 
     def __init__(self):
@@ -98,13 +98,14 @@ class CodeGeneratorTool(BaseTool):
     def _get_llm(self):
         if self._llm is None:
             from backend.utils.llm_service import get_default_llm
+
             self._llm = get_default_llm()
         return self._llm
 
     def _detect_language(self, filename: str) -> str:
         """Detect programming language from file extension"""
         ext = os.path.splitext(filename)[1].lower()
-        return self.LANGUAGE_MAP.get(ext, 'unknown')
+        return self.LANGUAGE_MAP.get(ext, "unknown")
 
     def _read_input_file(self, filepath: str) -> Optional[str]:
         """Read input file content if it exists"""
@@ -114,14 +115,20 @@ class CodeGeneratorTool(BaseTool):
         # Try multiple possible locations
         possible_paths = [
             filepath,
-            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), filepath),
-            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads", filepath),
+            os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))), filepath
+            ),
+            os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                "uploads",
+                filepath,
+            ),
         ]
 
         for path in possible_paths:
             if os.path.exists(path):
                 try:
-                    with open(path, 'r', encoding='utf-8') as f:
+                    with open(path, "r", encoding="utf-8") as f:
                         return f.read()
                 except Exception as e:
                     logger.warning(f"Failed to read {path}: {e}")
@@ -193,6 +200,7 @@ QUALITY STANDARDS:
 OUTPUT THE COMPLETE FILE NOW (no explanations, no markdown fences, just code):"""
 
             from backend.utils.llm_service import ChatMessage, MessageRole
+
             messages = [ChatMessage(role=MessageRole.USER, content=prompt)]
             response = llm.chat(messages)
 
@@ -200,25 +208,33 @@ OUTPUT THE COMPLETE FILE NOW (no explanations, no markdown fences, just code):""
                 try:
                     code_content = str(response.message.content).strip()
                 except (ValueError, AttributeError):
-                    blocks = getattr(response.message, 'blocks', [])
-                    code_content = next((getattr(b, 'text', str(b)) for b in blocks if getattr(b, 'text', None)), "")
+                    blocks = getattr(response.message, "blocks", [])
+                    code_content = next(
+                        (
+                            getattr(b, "text", str(b))
+                            for b in blocks
+                            if getattr(b, "text", None)
+                        ),
+                        "",
+                    )
                     code_content = code_content.strip()
             else:
                 code_content = ""
 
             # Clean up markdown artifacts
             if code_content.startswith("```"):
-                lines = code_content.split('\n')
+                lines = code_content.split("\n")
                 if lines[0].startswith("```"):
                     lines = lines[1:]
                 if lines and lines[-1].strip() == "```":
                     lines = lines[:-1]
-                code_content = '\n'.join(lines)
+                code_content = "\n".join(lines)
 
             # Save to disk — use project's configured OUTPUT_DIR
             from backend.config import OUTPUT_DIR
+
             output_dir = os.path.join(OUTPUT_DIR, "code")
-            
+
             # Use context to determine output logic if available
             if self._context:
                 # Example: If project_id is present, maybe save to a project-specific folder
@@ -226,15 +242,15 @@ OUTPUT THE COMPLETE FILE NOW (no explanations, no markdown fences, just code):""
                 project_id = self._context.get("project_id")
                 if project_id:
                     logger.info(f"CodeGenerator using context: project_id={project_id}")
-            
+
             os.makedirs(output_dir, exist_ok=True)
             output_path = os.path.join(output_dir, output_filename)
 
-            with open(output_path, 'w', encoding='utf-8') as f:
+            with open(output_path, "w", encoding="utf-8") as f:
                 f.write(code_content)
 
             # Calculate some metrics
-            line_count = len(code_content.split('\n'))
+            line_count = len(code_content.split("\n"))
             char_count = len(code_content)
 
             return ToolResult(
@@ -245,22 +261,23 @@ OUTPUT THE COMPLETE FILE NOW (no explanations, no markdown fences, just code):""
                     "language": language,
                     "line_count": line_count,
                     "char_count": char_count,
-                    "content_preview": code_content[:500] + "..." if len(code_content) > 500 else code_content
+                    "content_preview": (
+                        code_content[:500] + "..."
+                        if len(code_content) > 500
+                        else code_content
+                    ),
                 },
                 metadata={
                     "filename": output_filename,
                     "language": language,
                     "had_input_file": bool(input_content),
-                    "lines": line_count
-                }
+                    "lines": line_count,
+                },
             )
 
         except Exception as e:
             logger.error(f"Code generation failed: {e}", exc_info=True)
-            return ToolResult(
-                success=False,
-                error=f"Code generation failed: {str(e)}"
-            )
+            return ToolResult(success=False, error=f"Code generation failed: {str(e)}")
 
 
 class CodeAnalysisTool(BaseTool):
@@ -276,15 +293,15 @@ class CodeAnalysisTool(BaseTool):
             name="file_path",
             type="string",
             required=True,
-            description="Path to the code file to analyze"
+            description="Path to the code file to analyze",
         ),
         "analysis_type": ToolParameter(
             name="analysis_type",
             type="string",
             required=False,
             description="Type of analysis: 'full', 'structure', 'security', 'performance', 'style'",
-            default="full"
-        )
+            default="full",
+        ),
     }
 
     def __init__(self):
@@ -294,6 +311,7 @@ class CodeAnalysisTool(BaseTool):
     def _get_llm(self):
         if self._llm is None:
             from backend.utils.llm_service import get_default_llm
+
             self._llm = get_default_llm()
         return self._llm
 
@@ -301,14 +319,20 @@ class CodeAnalysisTool(BaseTool):
         """Read file content"""
         possible_paths = [
             filepath,
-            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), filepath),
-            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads", filepath),
+            os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))), filepath
+            ),
+            os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                "uploads",
+                filepath,
+            ),
         ]
 
         for path in possible_paths:
             if os.path.exists(path):
                 try:
-                    with open(path, 'r', encoding='utf-8') as f:
+                    with open(path, "r", encoding="utf-8") as f:
                         return f.read()
                 except Exception as e:
                     logger.warning(f"Failed to read {path}: {e}")
@@ -317,26 +341,59 @@ class CodeAnalysisTool(BaseTool):
 
     def _extract_structure(self, content: str, language: str) -> str:
         """Extract code structure summary for large files"""
-        lines = content.split('\n')
+        lines = content.split("\n")
         structure_parts = []
 
-        if language in ['python']:
-            import_lines = [l for l in lines[:50] if l.strip().startswith(('import ', 'from '))]
-            class_lines = [(i+1, l) for i, l in enumerate(lines) if l.strip().startswith('class ')]
-            func_lines = [(i+1, l) for i, l in enumerate(lines) if l.strip().startswith('def ')]
+        if language in ["python"]:
+            import_lines = [
+                l for l in lines[:50] if l.strip().startswith(("import ", "from "))
+            ]
+            class_lines = [
+                (i + 1, l)
+                for i, l in enumerate(lines)
+                if l.strip().startswith("class ")
+            ]
+            func_lines = [
+                (i + 1, l) for i, l in enumerate(lines) if l.strip().startswith("def ")
+            ]
         else:
-            import_lines = [l for l in lines[:50] if l.strip().startswith(('import ', 'from ', 'require(', 'const ', 'let ')) and ('require' in l or 'import' in l)]
-            class_lines = [(i+1, l) for i, l in enumerate(lines) if 'class ' in l and '{' in l or l.strip().startswith('class ')]
-            func_lines = [(i+1, l) for i, l in enumerate(lines) if 'function ' in l or ('=>' in l and ('const ' in l or 'let ' in l))]
+            import_lines = [
+                l
+                for l in lines[:50]
+                if l.strip().startswith(
+                    ("import ", "from ", "require(", "const ", "let ")
+                )
+                and ("require" in l or "import" in l)
+            ]
+            class_lines = [
+                (i + 1, l)
+                for i, l in enumerate(lines)
+                if "class " in l and "{" in l or l.strip().startswith("class ")
+            ]
+            func_lines = [
+                (i + 1, l)
+                for i, l in enumerate(lines)
+                if "function " in l or ("=>" in l and ("const " in l or "let " in l))
+            ]
 
         if import_lines:
-            structure_parts.append(f"Imports ({len(import_lines)}): {', '.join(import_lines[:5])}...")
+            structure_parts.append(
+                f"Imports ({len(import_lines)}): {', '.join(import_lines[:5])}..."
+            )
         if class_lines:
-            structure_parts.append(f"Classes: {', '.join([l[1].strip()[:50] for l in class_lines[:5]])}")
+            structure_parts.append(
+                f"Classes: {', '.join([l[1].strip()[:50] for l in class_lines[:5]])}"
+            )
         if func_lines:
-            structure_parts.append(f"Functions ({len(func_lines)}): lines {', '.join([str(l[0]) for l in func_lines[:10]])}")
+            structure_parts.append(
+                f"Functions ({len(func_lines)}): lines {', '.join([str(l[0]) for l in func_lines[:10]])}"
+            )
 
-        return '\n'.join(structure_parts) if structure_parts else "Structure could not be extracted"
+        return (
+            "\n".join(structure_parts)
+            if structure_parts
+            else "Structure could not be extracted"
+        )
 
     def execute(self, **kwargs) -> ToolResult:
         """Analyze code file"""
@@ -348,26 +405,27 @@ class CodeAnalysisTool(BaseTool):
             content = self._read_file(file_path)
             if not content:
                 return ToolResult(
-                    success=False,
-                    error=f"Could not read file: {file_path}"
+                    success=False, error=f"Could not read file: {file_path}"
                 )
 
             llm = self._get_llm()
             original_size = len(content)
-            line_count = len(content.split('\n'))
+            line_count = len(content.split("\n"))
 
             ext = os.path.splitext(file_path)[1].lower()
-            language = CodeGeneratorTool.LANGUAGE_MAP.get(ext, 'unknown')
+            language = CodeGeneratorTool.LANGUAGE_MAP.get(ext, "unknown")
 
             analysis_prompts = {
                 "full": "Provide a comprehensive analysis including structure, patterns, best practices, potential issues, and improvement suggestions.",
                 "structure": "Analyze the file structure: imports, classes, functions, dependencies, and overall organization.",
                 "security": "Perform a security review: identify potential vulnerabilities, injection risks, authentication issues, and security best practices.",
                 "performance": "Analyze performance: identify bottlenecks, inefficient patterns, memory usage concerns, and optimization opportunities.",
-                "style": "Review code style: naming conventions, formatting, documentation, readability, and adherence to language conventions."
+                "style": "Review code style: naming conventions, formatting, documentation, readability, and adherence to language conventions.",
             }
 
-            analysis_instruction = analysis_prompts.get(analysis_type, analysis_prompts["full"])
+            analysis_instruction = analysis_prompts.get(
+                analysis_type, analysis_prompts["full"]
+            )
 
             truncated = False
             structure_summary = ""
@@ -377,9 +435,9 @@ class CodeAnalysisTool(BaseTool):
                 first_portion = int(MAX_CONTENT_SIZE * 0.6)
                 last_portion = int(MAX_CONTENT_SIZE * 0.3)
                 content = (
-                    content[:first_portion] +
-                    f"\n\n... [TRUNCATED: {original_size - MAX_CONTENT_SIZE} chars omitted from middle] ...\n\n" +
-                    content[-last_portion:]
+                    content[:first_portion]
+                    + f"\n\n... [TRUNCATED: {original_size - MAX_CONTENT_SIZE} chars omitted from middle] ...\n\n"
+                    + content[-last_portion:]
                 )
 
             prompt = f"""Analyze this {language} code file.
@@ -397,6 +455,7 @@ ANALYSIS REQUEST: {analysis_instruction}
 Provide a structured analysis with clear sections and actionable insights."""
 
             from backend.utils.llm_service import ChatMessage, MessageRole
+
             messages = [ChatMessage(role=MessageRole.USER, content=prompt)]
             response = llm.chat(messages)
 
@@ -404,8 +463,15 @@ Provide a structured analysis with clear sections and actionable insights."""
                 try:
                     analysis = str(response.message.content).strip()
                 except (ValueError, AttributeError):
-                    blocks = getattr(response.message, 'blocks', [])
-                    analysis = next((getattr(b, 'text', str(b)) for b in blocks if getattr(b, 'text', None)), "")
+                    blocks = getattr(response.message, "blocks", [])
+                    analysis = next(
+                        (
+                            getattr(b, "text", str(b))
+                            for b in blocks
+                            if getattr(b, "text", None)
+                        ),
+                        "",
+                    )
                     analysis = analysis.strip()
             else:
                 analysis = ""
@@ -419,19 +485,16 @@ Provide a structured analysis with clear sections and actionable insights."""
                     "analysis": analysis,
                     "line_count": line_count,
                     "char_count": original_size,
-                    "truncated": truncated
+                    "truncated": truncated,
                 },
                 metadata={
                     "file": file_path,
                     "language": language,
                     "analysis_type": analysis_type,
-                    "truncated": truncated
-                }
+                    "truncated": truncated,
+                },
             )
 
         except Exception as e:
             logger.error(f"Code analysis failed: {e}", exc_info=True)
-            return ToolResult(
-                success=False,
-                error=f"Code analysis failed: {str(e)}"
-            )
+            return ToolResult(success=False, error=f"Code analysis failed: {str(e)}")

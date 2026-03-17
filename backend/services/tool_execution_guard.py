@@ -39,6 +39,7 @@ SLOW_TOOLS = {"generate_image", "generate_video", "generate_animation", "codegen
 @dataclass
 class ToolCallRecord:
     """Record of a single tool call attempt."""
+
     tool_name: str
     params_hash: str
     success: bool
@@ -56,7 +57,9 @@ class ToolExecutionGuard:
 
     def __init__(self, max_failures_per_tool: int = 2, max_duplicate_calls: int = 1):
         self._max_failures = max_failures_per_tool
-        self._max_failures_slow = max(max_failures_per_tool * 2, 4)  # Higher threshold for slow tools
+        self._max_failures_slow = max(
+            max_failures_per_tool * 2, 4
+        )  # Higher threshold for slow tools
         self._max_duplicates = max_duplicate_calls
         self._call_history: List[ToolCallRecord] = []
         self._failure_counts: Dict[str, int] = {}  # tool_name -> consecutive failures
@@ -84,7 +87,9 @@ class ToolExecutionGuard:
         key = json.dumps({"tool": tool_name, "params": normalized}, sort_keys=True)
         return hashlib.sha256(key.encode()).hexdigest()[:16]
 
-    def check_call(self, tool_name: str, params: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+    def check_call(
+        self, tool_name: str, params: Dict[str, Any]
+    ) -> Tuple[bool, Optional[str]]:
         """
         Check if a tool call should be allowed.
 
@@ -106,7 +111,9 @@ class ToolExecutionGuard:
             call_hash = self._hash_call(tool_name, params)
             count = self._seen_hashes.get(call_hash, 0)
             if count >= self._max_duplicates:
-                fallback = FALLBACK_MAP.get(tool_name, "Try different parameters or a different tool.")
+                fallback = FALLBACK_MAP.get(
+                    tool_name, "Try different parameters or a different tool."
+                )
                 reason = (
                     f"[BLOCKED] Already called '{tool_name}' with these exact parameters. "
                     f"{fallback}"
@@ -119,25 +126,33 @@ class ToolExecutionGuard:
             return True, None
 
     def record_result(
-        self, tool_name: str, params: Dict[str, Any],
-        success: bool, error: Optional[str], iteration: int
+        self,
+        tool_name: str,
+        params: Dict[str, Any],
+        success: bool,
+        error: Optional[str],
+        iteration: int,
     ) -> None:
         """Record the outcome of a tool call for circuit breaker tracking."""
         with self._lock:
             call_hash = self._hash_call(tool_name, params)
-            self._call_history.append(ToolCallRecord(
-                tool_name=tool_name,
-                params_hash=call_hash,
-                success=success,
-                error=error,
-                iteration=iteration,
-            ))
+            self._call_history.append(
+                ToolCallRecord(
+                    tool_name=tool_name,
+                    params_hash=call_hash,
+                    success=success,
+                    error=error,
+                    iteration=iteration,
+                )
+            )
 
             if success:
                 # Reset failure count on success
                 self._failure_counts[tool_name] = 0
             else:
-                self._failure_counts[tool_name] = self._failure_counts.get(tool_name, 0) + 1
+                self._failure_counts[tool_name] = (
+                    self._failure_counts.get(tool_name, 0) + 1
+                )
                 threshold = (
                     self._max_failures_slow
                     if tool_name in SLOW_TOOLS

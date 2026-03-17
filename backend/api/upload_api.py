@@ -4,7 +4,7 @@
 import logging
 import os
 from datetime import datetime, timezone
-import json # Added for json.loads
+import json  # Added for json.loads
 
 from flask import Blueprint, current_app, jsonify, request
 from sqlalchemy.exc import SQLAlchemyError
@@ -31,33 +31,117 @@ upload_bp = Blueprint("upload", __name__, url_prefix="/api/upload")
 # Allowed file extensions - expanded to support development files
 ALLOWED_EXTENSIONS = {
     # Text and documentation
-    "txt", "md", "rst", "rtf",
+    "txt",
+    "md",
+    "rst",
+    "rtf",
     # Data formats
-    "csv", "json", "xml", "yaml", "yml", "toml",
+    "csv",
+    "json",
+    "xml",
+    "yaml",
+    "yml",
+    "toml",
     # Documents
-    "pdf", "docx", "doc", "odt",
+    "pdf",
+    "docx",
+    "doc",
+    "odt",
     # Web technologies
-    "html", "htm", "css", "scss", "sass", "less",
-    "js", "jsx", "ts", "tsx", "vue", "svelte",
+    "html",
+    "htm",
+    "css",
+    "scss",
+    "sass",
+    "less",
+    "js",
+    "jsx",
+    "ts",
+    "tsx",
+    "vue",
+    "svelte",
     # Programming languages
-    "py", "pyw", "pyi", "rb", "php", "java", "kt", "scala",
-    "c", "cpp", "cc", "cxx", "h", "hpp", "hxx",
-    "cs", "fs", "vb", "go", "rs", "swift", "dart",
-    "r", "m", "mm", "pl", "sh", "bash", "zsh", "fish",
-    "sql", "lua", "nim", "zig", "julia", "elm",
+    "py",
+    "pyw",
+    "pyi",
+    "rb",
+    "php",
+    "java",
+    "kt",
+    "scala",
+    "c",
+    "cpp",
+    "cc",
+    "cxx",
+    "h",
+    "hpp",
+    "hxx",
+    "cs",
+    "fs",
+    "vb",
+    "go",
+    "rs",
+    "swift",
+    "dart",
+    "r",
+    "m",
+    "mm",
+    "pl",
+    "sh",
+    "bash",
+    "zsh",
+    "fish",
+    "sql",
+    "lua",
+    "nim",
+    "zig",
+    "julia",
+    "elm",
     # Configuration and scripts
-    "ini", "conf", "config", "cfg", "env",
-    "dockerfile", "makefile", "cmake", "gradle",
-    "gitignore", "gitattributes", "editorconfig",
+    "ini",
+    "conf",
+    "config",
+    "cfg",
+    "env",
+    "dockerfile",
+    "makefile",
+    "cmake",
+    "gradle",
+    "gitignore",
+    "gitattributes",
+    "editorconfig",
     # Markup and templating
-    "svg", "mxml", "xaml", "jsp", "asp", "aspx",
-    "handlebars", "hbs", "mustache", "twig", "jinja2",
+    "svg",
+    "mxml",
+    "xaml",
+    "jsp",
+    "asp",
+    "aspx",
+    "handlebars",
+    "hbs",
+    "mustache",
+    "twig",
+    "jinja2",
     # Images
-    "png", "jpg", "jpeg", "gif", "webp", "bmp", "tiff", "tif",
+    "png",
+    "jpg",
+    "jpeg",
+    "gif",
+    "webp",
+    "bmp",
+    "tiff",
+    "tif",
     # Shell and batch
-    "bat", "cmd", "ps1", "psm1",
+    "bat",
+    "cmd",
+    "ps1",
+    "psm1",
     # Other common formats
-    "log", "diff", "patch", "properties", "plist"
+    "log",
+    "diff",
+    "patch",
+    "properties",
+    "plist",
 }
 
 # MIME type validation for additional security - expanded for code files
@@ -67,7 +151,6 @@ ALLOWED_MIME_TYPES = {
     "md": ["text/plain", "text/markdown", "text/x-markdown"],
     "rst": ["text/plain", "text/x-rst"],
     "rtf": ["application/rtf", "text/rtf"],
-    
     # Data formats
     "csv": ["text/csv", "application/csv", "text/plain"],
     "json": ["application/json", "text/json", "text/plain"],
@@ -75,13 +158,11 @@ ALLOWED_MIME_TYPES = {
     "yaml": ["application/x-yaml", "text/yaml", "text/plain"],
     "yml": ["application/x-yaml", "text/yaml", "text/plain"],
     "toml": ["application/toml", "text/plain"],
-    
     # Documents
     "pdf": ["application/pdf"],
     "docx": ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
     "doc": ["application/msword"],
     "odt": ["application/vnd.oasis.opendocument.text"],
-    
     # Web technologies
     "html": ["text/html", "text/plain"],
     "htm": ["text/html", "text/plain"],
@@ -95,7 +176,6 @@ ALLOWED_MIME_TYPES = {
     "tsx": ["text/plain", "application/typescript"],
     "vue": ["text/plain"],
     "svelte": ["text/plain"],
-    
     # Programming languages
     "py": ["text/plain", "text/x-python"],
     "pyw": ["text/plain", "text/x-python"],
@@ -129,7 +209,6 @@ ALLOWED_MIME_TYPES = {
     "fish": ["text/plain"],
     "sql": ["text/plain", "application/sql"],
     "lua": ["text/plain", "text/x-lua"],
-    
     # Configuration and scripts
     "ini": ["text/plain"],
     "conf": ["text/plain"],
@@ -140,13 +219,11 @@ ALLOWED_MIME_TYPES = {
     "makefile": ["text/plain"],
     "cmake": ["text/plain"],
     "gradle": ["text/plain"],
-    
     # Markup and templating
     "svg": ["image/svg+xml", "text/xml"],
     "jsp": ["text/plain"],
     "asp": ["text/plain"],
     "aspx": ["text/plain"],
-    
     # Images
     "png": ["image/png"],
     "jpg": ["image/jpeg"],
@@ -156,12 +233,10 @@ ALLOWED_MIME_TYPES = {
     "bmp": ["image/bmp"],
     "tiff": ["image/tiff"],
     "tif": ["image/tiff"],
-    
     # Shell and batch
     "bat": ["text/plain"],
     "cmd": ["text/plain"],
     "ps1": ["text/plain"],
-    
     # Other formats
     "log": ["text/plain"],
     "diff": ["text/plain"],
@@ -177,33 +252,33 @@ def allowed_file(filename):
 def validate_file_content(file, filename):
     """
     Validate file content to ensure it matches the expected file type.
-    
+
     Args:
         file: The uploaded file object
         filename: The filename
-        
+
     Returns:
         bool: True if file is valid, False otherwise
     """
     if not filename or "." not in filename:
         return False
-    
+
     file_ext = filename.rsplit(".", 1)[1].lower()
-    
+
     # Check if extension is allowed
     if file_ext not in ALLOWED_EXTENSIONS:
         return False
-    
+
     # Read a small portion of the file to check content
     try:
         file.seek(0)  # Reset file pointer
         content_start = file.read(8192)  # Read first 8KB for better validation
         file.seek(0)  # Reset file pointer again
-        
+
         # Basic content validation based on file type
         if file_ext == "pdf":
             # PDF files should start with %PDF
-            if not content_start.startswith(b'%PDF'):
+            if not content_start.startswith(b"%PDF"):
                 return False
         elif file_ext in ["docx", "doc", "odt"]:
             # Binary document formats - just check they're not empty and have binary content
@@ -213,8 +288,10 @@ def validate_file_content(file, filename):
         elif file_ext in ["svg"]:
             # SVG files should contain XML content
             try:
-                content_str = content_start.decode('utf-8', errors='ignore')
-                if not ('<svg' in content_str.lower() or '<?xml' in content_str.lower()):
+                content_str = content_start.decode("utf-8", errors="ignore")
+                if not (
+                    "<svg" in content_str.lower() or "<?xml" in content_str.lower()
+                ):
                     return False
             except Exception:
                 return False
@@ -223,45 +300,60 @@ def validate_file_content(file, filename):
             if len(content_start) == 0:
                 return False
             # Basic binary format validation
-            if file_ext == "png" and not content_start.startswith(b'\x89PNG'):
+            if file_ext == "png" and not content_start.startswith(b"\x89PNG"):
                 return False
-            elif file_ext in ["jpg", "jpeg"] and not content_start.startswith(b'\xFF\xD8'):
+            elif file_ext in ["jpg", "jpeg"] and not content_start.startswith(
+                b"\xff\xd8"
+            ):
                 return False
-            elif file_ext == "gif" and not content_start.startswith(b'GIF'):
+            elif file_ext == "gif" and not content_start.startswith(b"GIF"):
                 return False
             # For other image formats, just ensure they have binary content
         elif file_ext == "json":
             # JSON files should be valid JSON (for smaller files) or start with { or [
             try:
-                content_str = content_start.decode('utf-8')
+                content_str = content_start.decode("utf-8")
                 # Try to parse as JSON first
                 try:
                     json.loads(content_str)
                 except json.JSONDecodeError:
                     # If that fails, check if it looks like JSON structure
                     content_str = content_str.strip()
-                if not content_str.startswith(('{', '[')):
-                        return False
+                if not content_str.startswith(("{", "[")):
+                    return False
             except UnicodeDecodeError:
                 return False
         elif file_ext in ["xml", "mxml", "xaml"]:
             # XML files should start with <?xml or contain XML-like content
             try:
-                content_str = content_start.decode('utf-8', errors='ignore')
+                content_str = content_start.decode("utf-8", errors="ignore")
                 content_str_lower = content_str.lower()
-                if not ('<?xml' in content_str_lower or '<' in content_str_lower):
+                if not ("<?xml" in content_str_lower or "<" in content_str_lower):
                     return False
             except Exception:
                 return False
         elif file_ext in ["html", "htm", "jsp", "asp", "aspx"]:
             # HTML/markup files should contain HTML-like content
             try:
-                content_str = content_start.decode('utf-8', errors='ignore')
+                content_str = content_start.decode("utf-8", errors="ignore")
                 content_str_lower = content_str.lower()
-                html_indicators = ['<html', '<head', '<body', '<div', '<p', '<h1', '<h2', '<!doctype', '<script', '<style']
-                if not any(indicator in content_str_lower for indicator in html_indicators):
+                html_indicators = [
+                    "<html",
+                    "<head",
+                    "<body",
+                    "<div",
+                    "<p",
+                    "<h1",
+                    "<h2",
+                    "<!doctype",
+                    "<script",
+                    "<style",
+                ]
+                if not any(
+                    indicator in content_str_lower for indicator in html_indicators
+                ):
                     # Allow empty HTML files or files that just have text content
-                    if len(content_str.strip()) == 0 or '<' not in content_str:
+                    if len(content_str.strip()) == 0 or "<" not in content_str:
                         pass  # Allow these cases
             except Exception:
                 return False
@@ -270,17 +362,17 @@ def validate_file_content(file, filename):
             # Just verify they can be decoded as text (UTF-8 with fallback to latin-1)
             try:
                 # Try UTF-8 first
-                content_start.decode('utf-8')
+                content_start.decode("utf-8")
             except UnicodeDecodeError:
                 try:
                     # Fallback to latin-1 (which can decode any byte sequence)
-                    content_start.decode('latin-1')
+                    content_start.decode("latin-1")
                 except UnicodeDecodeError:
                     # If even latin-1 fails, something is very wrong
                     return False
-        
+
         return True
-        
+
     except Exception as e:
         # Log the validation error for debugging
         logger = logging.getLogger(__name__)
@@ -295,7 +387,9 @@ def upload_file_endpoint():
     Handles file uploads, saves file, and creates DB record including project_id and tags.
     """
     logger = current_app.logger if current_app else logging.getLogger(__name__)
-    logger.warning("API: Received POST /api/upload request - DEPRECATED ENDPOINT. Use /api/docs/upload instead.")
+    logger.warning(
+        "API: Received POST /api/upload request - DEPRECATED ENDPOINT. Use /api/docs/upload instead."
+    )
 
     if not db or not DBDocument:
         logger.error("API Error (POST /upload): DB or Document model unavailable.")
@@ -316,55 +410,73 @@ def upload_file_endpoint():
 
     # Implement streaming file processing for large files
     file.seek(0)  # Reset file pointer to beginning
-    
+
     # Check file size for streaming processing and validation
     file.seek(0, 2)  # Seek to end
     file_size = file.tell()
     file.seek(0)  # Reset to beginning
-    
+
     # File size validation
     MAX_FILE_SIZE = 500 * 1024 * 1024  # 500MB limit
     if file_size > MAX_FILE_SIZE:
         return error_response(
             f"File too large. Maximum file size is {MAX_FILE_SIZE // (1024*1024)}MB, got {file_size // (1024*1024)}MB",
-            status_code=413
+            status_code=413,
         )
-    
+
     if file_size == 0:
         return error_response("Empty file not allowed", status_code=400)
-    
+
     # Use streaming for files larger than 10MB
     use_streaming = file_size > 10 * 1024 * 1024  # 10MB threshold
     if use_streaming:
-        logger.info(f"Large file detected ({file_size} bytes) - using streaming processing")
+        logger.info(
+            f"Large file detected ({file_size} bytes) - using streaming processing"
+        )
 
     # SECURITY FIX: Validate file content matches extension
     if not validate_file_content(file, file.filename):
-        logger.warning(f"API Error (POST /upload): File content validation failed for: {file.filename}")
-        return jsonify({"error": "File content does not match file type or contains invalid data"}), 400
+        logger.warning(
+            f"API Error (POST /upload): File content validation failed for: {file.filename}"
+        )
+        return (
+            jsonify(
+                {
+                    "error": "File content does not match file type or contains invalid data"
+                }
+            ),
+            400,
+        )
 
     if file and allowed_file(file.filename):
         # Check if this is an image and should be forwarded to master
         file_ext = os.path.splitext(file.filename)[1].lower().lstrip(".")
-        is_image = file_ext in ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg']
-        
+        is_image = file_ext in ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"]
+
         if is_image:
             try:
-                from backend.utils.interconnector_image_utils import should_use_master_image_repository, forward_image_to_master
-                
+                from backend.utils.interconnector_image_utils import (
+                    should_use_master_image_repository,
+                    forward_image_to_master,
+                )
+
                 if should_use_master_image_repository():
                     # Forward image to master server
                     file.seek(0)  # Reset to beginning
                     file_data = file.read()
-                    success, master_path, error = forward_image_to_master(file_data, file.filename, "/api/uploads/")
-                    
+                    success, master_path, error = forward_image_to_master(
+                        file_data, file.filename, "/api/uploads/"
+                    )
+
                     if success:
                         # Create local DB record pointing to master path
                         filename = secure_filename(file.filename)
                         db_relative_path = master_path if master_path else filename
-                        
+
                         # Create or update document record
-                        existing_doc = DBDocument.query.filter_by(path=db_relative_path).first()
+                        existing_doc = DBDocument.query.filter_by(
+                            path=db_relative_path
+                        ).first()
                         if existing_doc:
                             existing_doc.filename = filename
                             existing_doc.type = file_ext
@@ -381,34 +493,46 @@ def upload_file_endpoint():
                                 type=file_ext,
                                 size=file_size,
                                 project_id=project_id,
-                                tags=tags_str
+                                tags=tags_str,
                             )
                             db.session.add(new_doc)
-                        
+
                         db.session.commit()
-                        
+
                         result_doc = existing_doc if existing_doc else new_doc
                         logger.info(f"Image forwarded to master server: {master_path}")
-                        return jsonify({
-                            "success": True,
-                            "message": "File uploaded to master server",
-                            "data": result_doc.to_dict()
-                        }), 201
+                        return (
+                            jsonify(
+                                {
+                                    "success": True,
+                                    "message": "File uploaded to master server",
+                                    "data": result_doc.to_dict(),
+                                }
+                            ),
+                            201,
+                        )
                     else:
                         logger.warning(f"Failed to forward image to master: {error}")
                         # Fall through to local storage
             except Exception as e:
                 logger.error(f"Error checking master image repository: {e}")
                 # Fall through to local storage
-        
+
         # Sanitize filename
         filename = secure_filename(file.filename)
-        
+
         # SECURITY FIX: Additional path traversal protection
-        if not filename or filename.startswith('.') or '/' in filename or '\\' in filename:
-            logger.warning(f"API Error (POST /upload): Invalid filename after sanitization: {filename}")
+        if (
+            not filename
+            or filename.startswith(".")
+            or "/" in filename
+            or "\\" in filename
+        ):
+            logger.warning(
+                f"API Error (POST /upload): Invalid filename after sanitization: {filename}"
+            )
             return jsonify({"error": "Invalid filename"}), 400
-            
+
         # --- MODIFIED: Get file extension for 'type' field ---
         file_ext = (
             os.path.splitext(filename)[1].lower().lstrip(".")
@@ -430,7 +554,9 @@ def upload_file_endpoint():
                 project_id = int(project_id_str)
                 # SECURITY FIX: Add bounds checking for project_id
                 if project_id < 1 or project_id > 2147483647:  # 32-bit signed int max
-                    logger.warning(f"API Warning (POST /upload): Project ID out of valid range: {project_id}")
+                    logger.warning(
+                        f"API Warning (POST /upload): Project ID out of valid range: {project_id}"
+                    )
                     project_id = None
                 # Optional: Validate if project_id actually exists in the Project table
                 elif Project and not db.session.get(Project, project_id):
@@ -466,14 +592,16 @@ def upload_file_endpoint():
             # --- MODIFIED: Store relative path in DB for portability ---
             # Save file with original secure filename
             save_path_abs = os.path.join(upload_folder_path, filename)
-            
+
             # SECURITY FIX: Validate that the final path is within upload directory
             upload_folder_real = os.path.realpath(upload_folder_path)
             save_path_real = os.path.realpath(save_path_abs)
             if not save_path_real.startswith(upload_folder_real + os.sep):
-                logger.error(f"SECURITY: Path traversal attempt detected: {save_path_real}")
+                logger.error(
+                    f"SECURITY: Path traversal attempt detected: {save_path_real}"
+                )
                 return jsonify({"error": "Invalid file path"}), 400
-            
+
             # Store the filename itself as the relative path within the upload folder
             db_relative_path = filename
             # --- END MODIFICATION ---
@@ -487,10 +615,12 @@ def upload_file_endpoint():
             # --- Create or Update Database Record ---
             # Check if document with same path already exists
             existing_doc = DBDocument.query.filter_by(path=db_relative_path).first()
-            
+
             if existing_doc:
                 # Update existing document record instead of creating new one
-                logger.info(f"Updating existing document record for path: {db_relative_path}")
+                logger.info(
+                    f"Updating existing document record for path: {db_relative_path}"
+                )
                 existing_doc.filename = filename
                 existing_doc.type = file_ext
                 existing_doc.uploaded_at = datetime.now()
@@ -500,22 +630,43 @@ def upload_file_endpoint():
                 existing_doc.project_id = project_id
                 existing_doc.tags = tags_str
                 existing_doc.size = file_size  # Store file size for existing documents
-                
+
                 # RAG FIX: Update content for existing document too
                 try:
-                    if os.path.exists(save_path_abs) and os.path.getsize(save_path_abs) < 50 * 1024 * 1024:  # 50MB limit
-                        with open(save_path_abs, 'r', encoding='utf-8', errors='ignore') as f:
+                    if (
+                        os.path.exists(save_path_abs)
+                        and os.path.getsize(save_path_abs) < 50 * 1024 * 1024
+                    ):  # 50MB limit
+                        with open(
+                            save_path_abs, "r", encoding="utf-8", errors="ignore"
+                        ) as f:
                             file_content = f.read()
                         existing_doc.content = file_content
-                        existing_doc.is_code_file = file_ext in ['.py', '.js', '.jsx', '.ts', '.tsx', '.java', '.cpp', '.c', '.h']
-                        logger.info(f"Updated file content for RAG access: {filename} ({len(file_content)} chars)")
+                        existing_doc.is_code_file = file_ext in [
+                            ".py",
+                            ".js",
+                            ".jsx",
+                            ".ts",
+                            ".tsx",
+                            ".java",
+                            ".cpp",
+                            ".c",
+                            ".h",
+                        ]
+                        logger.info(
+                            f"Updated file content for RAG access: {filename} ({len(file_content)} chars)"
+                        )
                 except Exception as content_error:
-                    logger.warning(f"Could not update content for {filename}: {content_error}")
-                
+                    logger.warning(
+                        f"Could not update content for {filename}: {content_error}"
+                    )
+
                 new_doc = existing_doc  # For consistency with return response
             else:
                 # Create new document record
-                logger.info(f"Creating new document record for path: {db_relative_path}")
+                logger.info(
+                    f"Creating new document record for path: {db_relative_path}"
+                )
                 new_doc = DBDocument(
                     filename=filename,
                     path=db_relative_path,  # Store relative path
@@ -528,18 +679,37 @@ def upload_file_endpoint():
                     # indexed_at and error_message will be set later
                 )
                 db.session.add(new_doc)
-            
+
             # RAG FIX: Store file content for immediate LLM access
             try:
-                if os.path.exists(save_path_abs) and os.path.getsize(save_path_abs) < 50 * 1024 * 1024:  # 50MB limit
-                    with open(save_path_abs, 'r', encoding='utf-8', errors='ignore') as f:
+                if (
+                    os.path.exists(save_path_abs)
+                    and os.path.getsize(save_path_abs) < 50 * 1024 * 1024
+                ):  # 50MB limit
+                    with open(
+                        save_path_abs, "r", encoding="utf-8", errors="ignore"
+                    ) as f:
                         file_content = f.read()
                     new_doc.content = file_content
-                    new_doc.is_code_file = file_ext in ['.py', '.js', '.jsx', '.ts', '.tsx', '.java', '.cpp', '.c', '.h']
-                    logger.info(f"Stored file content for RAG access: {filename} ({len(file_content)} chars)")
+                    new_doc.is_code_file = file_ext in [
+                        ".py",
+                        ".js",
+                        ".jsx",
+                        ".ts",
+                        ".tsx",
+                        ".java",
+                        ".cpp",
+                        ".c",
+                        ".h",
+                    ]
+                    logger.info(
+                        f"Stored file content for RAG access: {filename} ({len(file_content)} chars)"
+                    )
             except Exception as content_error:
-                logger.warning(f"Could not store content for {filename}: {content_error}")
-            
+                logger.warning(
+                    f"Could not store content for {filename}: {content_error}"
+                )
+
             db.session.commit()
             logger.info(
                 f"DEBUG: Saved Document to DB: ID={new_doc.id}, Filename='{new_doc.filename}', Path='{new_doc.path}', ProjectID={new_doc.project_id}, Tags='{new_doc.tags}', Status='{new_doc.index_status}'"
@@ -548,12 +718,20 @@ def upload_file_endpoint():
             # RAG FIX: Trigger auto-indexing for immediate LLM access
             try:
                 from backend.api.indexing_api import trigger_document_indexing
-                logger.info(f"Triggering auto-indexing for document {new_doc.id} after upload.")
+
+                logger.info(
+                    f"Triggering auto-indexing for document {new_doc.id} after upload."
+                )
                 with current_app.test_request_context():
                     resp = trigger_document_indexing(new_doc.id)
-                    logger.info(f"Auto-indexing response for doc {new_doc.id}: {resp[0].get_json() if hasattr(resp[0], 'get_json') else resp}")
+                    logger.info(
+                        f"Auto-indexing response for doc {new_doc.id}: {resp[0].get_json() if hasattr(resp[0], 'get_json') else resp}"
+                    )
             except Exception as e:
-                logger.error(f"Failed to auto-trigger indexing for doc {new_doc.id}: {e}", exc_info=True)
+                logger.error(
+                    f"Failed to auto-trigger indexing for doc {new_doc.id}: {e}",
+                    exc_info=True,
+                )
 
             # Return success response including the new document ID and filename
             return (
@@ -575,15 +753,17 @@ def upload_file_endpoint():
                 db.session.rollback()
             except Exception as rollback_err:
                 logger.error(f"Failed to rollback transaction: {rollback_err}")
-            
+
             # Clean up uploaded file on database failure
             try:
                 if "save_path_abs" in locals() and os.path.exists(save_path_abs):
                     os.remove(save_path_abs)
                     logger.info(f"Cleaned up file {save_path_abs} after database error")
             except OSError as cleanup_err:
-                logger.warning(f"Failed to clean up file {save_path_abs}: {cleanup_err}")
-            
+                logger.warning(
+                    f"Failed to clean up file {save_path_abs}: {cleanup_err}"
+                )
+
             logger.error(
                 f"Database error saving document record for '{filename}': {e}",
                 exc_info=True,

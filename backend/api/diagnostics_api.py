@@ -1,4 +1,3 @@
-
 import json
 import logging
 import os
@@ -127,14 +126,20 @@ def get_system_status():
         if db and Document:
             try:
                 import re as _re
+
                 status["document_count"] = db.session.query(Document.id).count()
                 db_uri = str(db.engine.url)
                 # Mask password in database URL for display
-                status["db_path"] = _re.sub(r'://([^:]+):([^@]+)@', r'://\1:***@', db_uri)
+                status["db_path"] = _re.sub(
+                    r"://([^:]+):([^@]+)@", r"://\1:***@", db_uri
+                )
                 try:
                     from sqlalchemy import text
+
                     with db.engine.connect() as conn:
-                        result = conn.execute(text("SELECT pg_database_size(current_database())"))
+                        result = conn.execute(
+                            text("SELECT pg_database_size(current_database())")
+                        )
                         size_bytes = result.scalar()
                         status["db_size_kb"] = round(size_bytes / 1024, 2)
                 except Exception:
@@ -216,6 +221,7 @@ def test_llm_endpoint():
     try:
         if llama_index_available:
             from llama_index.core import Settings
+
             llm = Settings.llm
 
         if not llm:
@@ -328,7 +334,7 @@ def get_system_metrics():
 
 def _gather_diagnostics() -> dict:
     global rule_utils, db, Document, Setting, Rule, Project
-    
+
     results = {
         "ollama_reachable": False,
         "active_model_name": None,
@@ -433,6 +439,7 @@ def _gather_diagnostics() -> dict:
 
             try:
                 import requests
+
                 resp = requests.post(
                     f"{OLLAMA_BASE_URL}/api/show",
                     json={"name": results["active_model_name"]},
@@ -442,7 +449,9 @@ def _gather_diagnostics() -> dict:
                     "Loaded" if resp.ok else f"Not Found ({resp.status_code})"
                 )
             except ImportError as e:
-                results["active_model_health"] = f"Import Error: requests module not available - {e}"
+                results["active_model_health"] = (
+                    f"Import Error: requests module not available - {e}"
+                )
             except Exception as e:
                 results["active_model_health"] = f"Error: {e}"
         else:
@@ -558,11 +567,11 @@ def _gather_diagnostics() -> dict:
             try:
                 from backend import rule_utils
                 from backend.models import db
-                
+
                 template, rule_id = rule_utils.get_active_qa_default_template(
                     db.session, model_name=results["active_model_name"]
                 )
-                
+
                 if (
                     template
                     and "{query_str}" in template
@@ -570,9 +579,13 @@ def _gather_diagnostics() -> dict:
                 ):
                     results["qa_prompt_loadable"] = True
                     if rule_id:
-                        logger.debug(f"SelfTest: QA prompt loaded from database rule ID {rule_id}")
+                        logger.debug(
+                            f"SelfTest: QA prompt loaded from database rule ID {rule_id}"
+                        )
                     else:
-                        logger.debug("SelfTest: QA prompt loaded using fallback template")
+                        logger.debug(
+                            "SelfTest: QA prompt loaded using fallback template"
+                        )
                 else:
                     logger.warning("SelfTest: QA prompt missing required placeholders")
             except Exception as e:
@@ -630,9 +643,15 @@ def run_selftest():
         try:
             pip_check = subprocess.run(
                 [sys.executable, "-m", "pip", "check"],
-                capture_output=True, text=True, timeout=30
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
-            legacy_results["pip_check"] = pip_check.stdout.strip() if pip_check.returncode == 0 else f"Error (code {pip_check.returncode}): {pip_check.stderr.strip()}"
+            legacy_results["pip_check"] = (
+                pip_check.stdout.strip()
+                if pip_check.returncode == 0
+                else f"Error (code {pip_check.returncode}): {pip_check.stderr.strip()}"
+            )
         except subprocess.TimeoutExpired:
             legacy_results["pip_check"] = "Timeout after 30 seconds"
         except Exception as e:
@@ -641,9 +660,15 @@ def run_selftest():
         try:
             outdated = subprocess.run(
                 [sys.executable, "-m", "pip", "list", "--outdated"],
-                capture_output=True, text=True, timeout=30
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
-            legacy_results["pip_outdated"] = outdated.stdout.strip() if outdated.returncode == 0 else f"Error (code {outdated.returncode})"
+            legacy_results["pip_outdated"] = (
+                outdated.stdout.strip()
+                if outdated.returncode == 0
+                else f"Error (code {outdated.returncode})"
+            )
         except subprocess.TimeoutExpired:
             legacy_results["pip_outdated"] = "Timeout after 30 seconds"
         except Exception as e:
@@ -652,20 +677,17 @@ def run_selftest():
         results["legacy_diagnostics"] = legacy_results
 
     if test_mode in ["comprehensive", "quick"] or test_category:
-        comprehensive_results = _run_comprehensive_selftest(
-            test_mode, test_category)
+        comprehensive_results = _run_comprehensive_selftest(test_mode, test_category)
         results.update(comprehensive_results)
 
     advanced_debug_enabled = False
     try:
         if db and Setting:
             setting = db.session.get(Setting, "advanced_debug")
-            advanced_debug_enabled = (
-                setting.value == "true" if setting else False)
+            advanced_debug_enabled = setting.value == "true" if setting else False
     except Exception as e:
         logger.error(f"Failed to read advanced debug setting: {e}")
-        advanced_debug_enabled = (
-            os.getenv("ADVANCED_DEBUG", "false").lower() == "true")
+        advanced_debug_enabled = os.getenv("ADVANCED_DEBUG", "false").lower() == "true"
 
     if advanced_debug_enabled and include_legacy:
         logger.debug("pip check output:\n%s", pip_check.stdout.strip())
@@ -676,30 +698,43 @@ def run_selftest():
     results["test_mode"] = test_mode
     results["timestamp"] = datetime.now().isoformat()
 
-    logger.info("Self-test results summary: %s", {
-        "mode": test_mode,
-        "status": overall_status,
-        "categories": list(results.get("categories", {}).keys())
-        if "categories" in results else []
-    })
+    logger.info(
+        "Self-test results summary: %s",
+        {
+            "mode": test_mode,
+            "status": overall_status,
+            "categories": (
+                list(results.get("categories", {}).keys())
+                if "categories" in results
+                else []
+            ),
+        },
+    )
 
     return jsonify({"message": "Self-test complete.", "results": results}), 200
 
 
 def _run_comprehensive_selftest(
-        test_mode: str, test_category: Optional[str] = None) -> dict:
+    test_mode: str, test_category: Optional[str] = None
+) -> dict:
     try:
-        script_path = os.path.abspath(os.path.join(
-            current_app.root_path, "..", "scripts", "consolidated_selftest.py"))
-        output_path = os.path.abspath(os.path.join(
-            current_app.root_path, "..", "logs", "api_selftest_results.json"))
+        script_path = os.path.abspath(
+            os.path.join(
+                current_app.root_path, "..", "scripts", "consolidated_selftest.py"
+            )
+        )
+        output_path = os.path.abspath(
+            os.path.join(
+                current_app.root_path, "..", "logs", "api_selftest_results.json"
+            )
+        )
 
         if not os.path.exists(script_path):
             logger.error(f"Consolidated selftest script not found at {script_path}")
             return {
                 "comprehensive_test_available": False,
                 "error": f"Test script not found: {script_path}",
-                "execution_time": 0.0
+                "execution_time": 0.0,
             }
 
         cmd = [sys.executable, script_path]
@@ -718,14 +753,14 @@ def _run_comprehensive_selftest(
             capture_output=True,
             text=True,
             timeout=300,
-            cwd=os.path.join(current_app.root_path, "..")
+            cwd=os.path.join(current_app.root_path, ".."),
         )
         duration = time.time() - start_time
 
         results = {
             "comprehensive_test_available": True,
             "execution_time": duration,
-            "exit_code": proc.returncode
+            "exit_code": proc.returncode,
         }
 
         try:
@@ -734,7 +769,7 @@ def _run_comprehensive_selftest(
                 results["categories"] = {}
                 results["error"] = f"Test results file not created at {output_path}"
             else:
-                with open(output_path, 'r') as f:
+                with open(output_path, "r") as f:
                     test_data = json.load(f)
                 results.update(test_data)
         except json.JSONDecodeError as e:
@@ -758,15 +793,14 @@ def _run_comprehensive_selftest(
         return {
             "comprehensive_test_available": False,
             "error": "Test execution timeout (5 minutes)",
-            "execution_time": 300.0
+            "execution_time": 300.0,
         }
     except Exception as e:
-        logger.error(f"Error running comprehensive selftest: {e}",
-                     exc_info=True)
+        logger.error(f"Error running comprehensive selftest: {e}", exc_info=True)
         return {
             "comprehensive_test_available": False,
             "error": f"Test execution error: {str(e)}",
-            "execution_time": 0.0
+            "execution_time": 0.0,
         }
 
 
@@ -779,8 +813,7 @@ def _determine_overall_status(results: dict) -> str:
 
     categories = results.get("categories", {})
     if categories:
-        category_statuses = [
-            cat.get("status", "ERROR") for cat in categories.values()]
+        category_statuses = [cat.get("status", "ERROR") for cat in categories.values()]
 
         if any(status == "FAIL" for status in category_statuses):
             return "FAIL"
@@ -839,16 +872,23 @@ def export_diagnostics():
                 # For PostgreSQL, export database info instead of copying a file
                 if db and db.engine:
                     import re as _re
+
                     db_url = str(db.engine.url)
-                    masked_url = _re.sub(r'://([^:]+):([^@]+)@', r'://\1:***@', db_url)
+                    masked_url = _re.sub(r"://([^:]+):([^@]+)@", r"://\1:***@", db_url)
                     dest_dir = os.path.join(tmpdir, "db")
                     os.makedirs(dest_dir, exist_ok=True)
                     info_path = os.path.join(dest_dir, "database_info.json")
-                    db_info = {"database_url": masked_url, "engine_driver": db.engine.driver}
+                    db_info = {
+                        "database_url": masked_url,
+                        "engine_driver": db.engine.driver,
+                    }
                     try:
                         from sqlalchemy import text
+
                         with db.engine.connect() as conn:
-                            size_result = conn.execute(text("SELECT pg_database_size(current_database())"))
+                            size_result = conn.execute(
+                                text("SELECT pg_database_size(current_database())")
+                            )
                             db_info["database_size_bytes"] = size_result.scalar()
                     except Exception as e_size:
                         db_info["database_size_error"] = str(e_size)
@@ -909,10 +949,7 @@ def run_tests_endpoint():
             return jsonify({"error": f"Test script not found at {script_path}"}), 404
 
         proc = subprocess.run(
-            [sys.executable, script_path],
-            capture_output=True,
-            text=True,
-            timeout=300
+            [sys.executable, script_path], capture_output=True, text=True, timeout=300
         )
         stdout = proc.stdout.strip()
         stderr = proc.stderr.strip()
@@ -937,24 +974,36 @@ def restore_diagnostics():
     if "file" not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
     uploaded = request.files["file"]
-    
-    if not uploaded.filename or not uploaded.filename.endswith('.zip'):
+
+    if not uploaded.filename or not uploaded.filename.endswith(".zip"):
         return jsonify({"error": "Only ZIP files are allowed"}), 400
-    
+
     with tempfile.TemporaryDirectory() as tmpdir:
         zip_path = os.path.join(tmpdir, "upload.zip")
         uploaded.save(zip_path)
-        
+
         try:
             with zipfile.ZipFile(zip_path, "r") as zipf:
                 for info in zipf.infolist():
-                    if '..' in info.filename or info.filename.startswith('/') or '\\' in info.filename:
+                    if (
+                        ".." in info.filename
+                        or info.filename.startswith("/")
+                        or "\\" in info.filename
+                    ):
                         logger.warning(f"Dangerous path in zip file: {info.filename}")
-                        return jsonify({"error": "ZIP file contains invalid paths"}), 400
-                    
+                        return (
+                            jsonify({"error": "ZIP file contains invalid paths"}),
+                            400,
+                        )
+
                     if info.file_size > 100 * 1024 * 1024:
-                        return jsonify({"error": "ZIP file contains files that are too large"}), 400
-                
+                        return (
+                            jsonify(
+                                {"error": "ZIP file contains files that are too large"}
+                            ),
+                            400,
+                        )
+
                 zipf.extractall(tmpdir)
         except zipfile.BadZipFile:
             return jsonify({"error": "Invalid or corrupted ZIP file"}), 400
@@ -975,28 +1024,30 @@ def restore_diagnostics():
             # Database restore is not supported for PostgreSQL databases.
             # The db_files entry now contains metadata only (database_info.json).
             for rel in meta.get("db_files", []):
-                if '..' in rel or rel.startswith('/') or '\\' in rel:
+                if ".." in rel or rel.startswith("/") or "\\" in rel:
                     logger.warning(f"Dangerous database file path: {rel}")
                     continue
                 src = os.path.join(tmpdir, rel)
-                if os.path.exists(src) and src.endswith('.json'):
-                    logger.info(f"Database info file found in export: {rel} (restore not supported for PostgreSQL)")
+                if os.path.exists(src) and src.endswith(".json"):
+                    logger.info(
+                        f"Database info file found in export: {rel} (restore not supported for PostgreSQL)"
+                    )
 
             for rel in meta.get("embedding_dirs", []):
-                if '..' in rel or rel.startswith('/') or '\\' in rel:
+                if ".." in rel or rel.startswith("/") or "\\" in rel:
                     logger.warning(f"Dangerous embedding directory path: {rel}")
                     continue
-                    
+
                 src = os.path.join(tmpdir, rel)
                 dest_root = current_app.config.get("STORAGE_DIR")
                 if dest_root and os.path.isdir(dest_root) and os.path.exists(src):
                     safe_dirname = os.path.basename(rel)
-                    if safe_dirname and not safe_dirname.startswith('.'):
+                    if safe_dirname and not safe_dirname.startswith("."):
                         dest = os.path.join(dest_root, safe_dirname)
-                        
+
                         dest_real = os.path.realpath(dest)
                         storage_real = os.path.realpath(dest_root)
-                        
+
                         if dest_real.startswith(storage_real + os.sep):
                             try:
                                 if os.path.exists(dest):
@@ -1004,7 +1055,9 @@ def restore_diagnostics():
                                 shutil.copytree(src, dest)
                                 logger.info(f"Restored embedding directory to: {dest}")
                             except Exception as e:
-                                logger.error(f"Failed to restore embedding directory: {e}")
+                                logger.error(
+                                    f"Failed to restore embedding directory: {e}"
+                                )
 
     return jsonify({"message": "Restore completed."}), 200
 
@@ -1013,36 +1066,49 @@ def restore_diagnostics():
 def get_gpu_progress_metrics():
     try:
         from backend.utils.unified_progress_system import get_unified_progress_system
-        
+
         progress_system = get_unified_progress_system()
         gpu_metrics = progress_system.get_gpu_metrics()
         gpu_processing_active = progress_system.is_gpu_processing_active()
         gpu_memory_usage = progress_system.get_gpu_memory_usage()
-        
+
         active_processes = progress_system.get_active_processes()
         gpu_bound_processes = []
-        
+
         for process_id, event in active_processes.items():
-            if event.process_type.value in ['llm_processing', 'file_generation', 'csv_processing']:
-                gpu_bound_processes.append({
-                    "process_id": process_id,
-                    "type": event.process_type.value,
-                    "progress": event.progress,
-                    "message": event.message,
-                    "status": event.status.value,
-                    "gpu_metrics": event.additional_data.get("gpu_metrics"),
-                    "gpu_processing_active": event.additional_data.get("gpu_processing_active")
-                })
-        
-        return jsonify({
-            "gpu_metrics": gpu_metrics,
-            "gpu_processing_active": gpu_processing_active,
-            "gpu_memory_usage": gpu_memory_usage,
-            "gpu_bound_processes": gpu_bound_processes,
-            "active_process_count": len(active_processes),
-            "gpu_bound_process_count": len(gpu_bound_processes)
-        }), 200
-        
+            if event.process_type.value in [
+                "llm_processing",
+                "file_generation",
+                "csv_processing",
+            ]:
+                gpu_bound_processes.append(
+                    {
+                        "process_id": process_id,
+                        "type": event.process_type.value,
+                        "progress": event.progress,
+                        "message": event.message,
+                        "status": event.status.value,
+                        "gpu_metrics": event.additional_data.get("gpu_metrics"),
+                        "gpu_processing_active": event.additional_data.get(
+                            "gpu_processing_active"
+                        ),
+                    }
+                )
+
+        return (
+            jsonify(
+                {
+                    "gpu_metrics": gpu_metrics,
+                    "gpu_processing_active": gpu_processing_active,
+                    "gpu_memory_usage": gpu_memory_usage,
+                    "gpu_bound_processes": gpu_bound_processes,
+                    "active_process_count": len(active_processes),
+                    "gpu_bound_process_count": len(gpu_bound_processes),
+                }
+            ),
+            200,
+        )
+
     except Exception as e:
         logger.error(f"GPU progress metrics failed: {e}")
         return jsonify({"error": str(e)}), 500

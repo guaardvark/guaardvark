@@ -13,78 +13,78 @@ from rich import box
 # Status colors (success/error/warning/info) are shared across all themes.
 
 _SHARED_STATUS = {
-    "success":      "#00b894",    # Mint green
-    "error":        "#ff6b6b",    # Soft red
-    "warning":      "#fdcb6e",    # Warm amber
-    "info":         "#74b9ff",    # Sky blue
+    "success": "#00b894",  # Mint green
+    "error": "#ff6b6b",  # Soft red
+    "warning": "#fdcb6e",  # Warm amber
+    "info": "#74b9ff",  # Sky blue
 }
 
 THEMES = {
     "default": {
-        "label":        "Default",
-        "description":  "Deep blue gradient",
-        "brand":        "#1a0a9e",
+        "label": "Default",
+        "description": "Deep blue gradient",
+        "brand": "#1a0a9e",
         "brand_bright": "#3a2ae8",
-        "accent":       "#5545ff",
-        "accent_bright":"#7b6eff",
-        "muted":        "#4a4570",
-        "dim_text":     "#8880b0",
-        "gradient":     [(30, 8, 170), (42, 18, 210), (50, 32, 240), (65, 55, 255)],
+        "accent": "#5545ff",
+        "accent_bright": "#7b6eff",
+        "muted": "#4a4570",
+        "dim_text": "#8880b0",
+        "gradient": [(30, 8, 170), (42, 18, 210), (50, 32, 240), (65, 55, 255)],
     },
     "teal": {
-        "label":        "Teal",
-        "description":  "Clean dark theme with teal accents",
-        "brand":        "#008080",
+        "label": "Teal",
+        "description": "Clean dark theme with teal accents",
+        "brand": "#008080",
         "brand_bright": "#26a6a6",
-        "accent":       "#ce93d8",
-        "accent_bright":"#e1bee7",
-        "muted":        "#636e72",
-        "dim_text":     "#a0a0a0",
-        "gradient":     [(0, 102, 102), (0, 128, 128), (38, 166, 166)],
+        "accent": "#ce93d8",
+        "accent_bright": "#e1bee7",
+        "muted": "#636e72",
+        "dim_text": "#a0a0a0",
+        "gradient": [(0, 102, 102), (0, 128, 128), (38, 166, 166)],
     },
     "musk": {
-        "label":        "Musk",
-        "description":  "Futuristic neon cyan and red",
-        "brand":        "#00e5ff",
+        "label": "Musk",
+        "description": "Futuristic neon cyan and red",
+        "brand": "#00e5ff",
         "brand_bright": "#18ffff",
-        "accent":       "#ff1744",
-        "accent_bright":"#ff5252",
-        "muted":        "#555555",
-        "dim_text":     "#9e9e9e",
-        "gradient":     [(0, 184, 212), (0, 229, 255), (24, 255, 255)],
+        "accent": "#ff1744",
+        "accent_bright": "#ff5252",
+        "muted": "#555555",
+        "dim_text": "#9e9e9e",
+        "gradient": [(0, 184, 212), (0, 229, 255), (24, 255, 255)],
     },
     "hacker": {
-        "label":        "Matrix Hacker",
-        "description":  "Terminal green-on-black",
-        "brand":        "#00ff41",
+        "label": "Matrix Hacker",
+        "description": "Terminal green-on-black",
+        "brand": "#00ff41",
         "brand_bright": "#33ff66",
-        "accent":       "#39ff14",
-        "accent_bright":"#66ff47",
-        "muted":        "#2e6b30",
-        "dim_text":     "#5aaf5c",
-        "gradient":     [(0, 184, 47), (0, 255, 65), (51, 255, 102)],
+        "accent": "#39ff14",
+        "accent_bright": "#66ff47",
+        "muted": "#2e6b30",
+        "dim_text": "#5aaf5c",
+        "gradient": [(0, 184, 47), (0, 255, 65), (51, 255, 102)],
     },
     "vader": {
-        "label":        "Vader",
-        "description":  "Dark imposing black and red",
-        "brand":        "#d32f2f",
+        "label": "Vader",
+        "description": "Dark imposing black and red",
+        "brand": "#d32f2f",
         "brand_bright": "#f44336",
-        "accent":       "#b0b0b0",
-        "accent_bright":"#e0e0e0",
-        "muted":        "#555555",
-        "dim_text":     "#9e9e9e",
-        "gradient":     [(183, 28, 28), (211, 47, 47), (244, 67, 54)],
+        "accent": "#b0b0b0",
+        "accent_bright": "#e0e0e0",
+        "muted": "#555555",
+        "dim_text": "#9e9e9e",
+        "gradient": [(183, 28, 28), (211, 47, 47), (244, 67, 54)],
     },
     "guaardvark": {
-        "label":        "Guaardvark",
-        "description":  "Ultra-minimal monochrome",
-        "brand":        "#8a9bae",
+        "label": "Guaardvark",
+        "description": "Ultra-minimal monochrome",
+        "brand": "#8a9bae",
         "brand_bright": "#a8b5c4",
-        "accent":       "#9e9e9e",
-        "accent_bright":"#bdbdbd",
-        "muted":        "#4a5568",
-        "dim_text":     "#718096",
-        "gradient":     [(107, 125, 145), (138, 155, 174), (168, 181, 196)],
+        "accent": "#9e9e9e",
+        "accent_bright": "#bdbdbd",
+        "muted": "#4a5568",
+        "dim_text": "#718096",
+        "gradient": [(107, 125, 145), (138, 155, 174), (168, 181, 196)],
     },
 }
 
@@ -97,47 +97,42 @@ _active_rich_theme: Theme | None = None
 
 def _build_rich_theme(palette: dict) -> Theme:
     """Build a Rich Theme from a palette dict."""
-    brand        = palette["brand"]
+    brand = palette["brand"]
     brand_bright = palette["brand_bright"]
-    accent       = palette["accent"]
-    accent_bright= palette["accent_bright"]
-    muted        = palette["muted"]
-    dim_text     = palette["dim_text"]
-    success      = _SHARED_STATUS["success"]
-    error        = _SHARED_STATUS["error"]
-    warning      = _SHARED_STATUS["warning"]
-    info         = _SHARED_STATUS["info"]
+    accent = palette["accent"]
+    accent_bright = palette["accent_bright"]
+    muted = palette["muted"]
+    dim_text = palette["dim_text"]
+    success = _SHARED_STATUS["success"]
+    error = _SHARED_STATUS["error"]
+    warning = _SHARED_STATUS["warning"]
+    info = _SHARED_STATUS["info"]
 
-    return Theme({
-        "llx.brand":          Style(color=brand, bold=True),
-        "llx.brand_bright":   Style(color=brand_bright),
-        "llx.accent":         Style(color=accent),
-        "llx.accent_bright":  Style(color=accent_bright),
-
-        "llx.success":        Style(color=success, bold=True),
-        "llx.error":          Style(color=error, bold=True),
-        "llx.warning":        Style(color=warning),
-        "llx.info":           Style(color=info),
-        "llx.muted":          Style(color=muted),
-        "llx.dim":            Style(color=dim_text),
-
-        "llx.prompt":         Style(color=brand, bold=True),
-
-        "llx.table.header":   Style(color=brand_bright, bold=True),
-        "llx.table.border":   Style(color=muted),
-
-        "llx.panel.border":   Style(color=brand),
-        "llx.panel.title":    Style(color=brand_bright, bold=True),
-
-        "llx.status.online":  Style(color=success, bold=True),
-        "llx.status.offline": Style(color=error, bold=True),
-
-        "llx.kv.key":         Style(color=brand_bright, bold=True),
-
-        "llx.tree.folder":    Style(color=brand_bright, bold=True),
-        "llx.tree.file":      Style(color="white"),
-        "llx.tree.meta":      Style(color=dim_text),
-    })
+    return Theme(
+        {
+            "llx.brand": Style(color=brand, bold=True),
+            "llx.brand_bright": Style(color=brand_bright),
+            "llx.accent": Style(color=accent),
+            "llx.accent_bright": Style(color=accent_bright),
+            "llx.success": Style(color=success, bold=True),
+            "llx.error": Style(color=error, bold=True),
+            "llx.warning": Style(color=warning),
+            "llx.info": Style(color=info),
+            "llx.muted": Style(color=muted),
+            "llx.dim": Style(color=dim_text),
+            "llx.prompt": Style(color=brand, bold=True),
+            "llx.table.header": Style(color=brand_bright, bold=True),
+            "llx.table.border": Style(color=muted),
+            "llx.panel.border": Style(color=brand),
+            "llx.panel.title": Style(color=brand_bright, bold=True),
+            "llx.status.online": Style(color=success, bold=True),
+            "llx.status.offline": Style(color=error, bold=True),
+            "llx.kv.key": Style(color=brand_bright, bold=True),
+            "llx.tree.folder": Style(color=brand_bright, bold=True),
+            "llx.tree.file": Style(color="white"),
+            "llx.tree.meta": Style(color=dim_text),
+        }
+    )
 
 
 def set_active_theme(name: str) -> bool:
@@ -173,16 +168,16 @@ def _get_active_palette() -> dict:
 # These are used by get_banner() and gradient_text().
 # They reflect the DEFAULT theme. For dynamic access, use _get_active_palette().
 
-BRAND        = "#1a0a9e"
+BRAND = "#1a0a9e"
 BRAND_BRIGHT = "#3a2ae8"
-ACCENT       = "#5545ff"
-ACCENT_BRIGHT= "#7b6eff"
-SUCCESS      = "#00b894"
-ERROR        = "#ff6b6b"
-WARNING      = "#fdcb6e"
-INFO         = "#74b9ff"
-MUTED        = "#636e72"
-DIM_TEXT     = "#b2bec3"
+ACCENT = "#5545ff"
+ACCENT_BRIGHT = "#7b6eff"
+SUCCESS = "#00b894"
+ERROR = "#ff6b6b"
+WARNING = "#fdcb6e"
+INFO = "#74b9ff"
+MUTED = "#636e72"
+DIM_TEXT = "#b2bec3"
 
 # Keep LLX_THEME for any code that imports it directly (backward compat)
 LLX_THEME = _build_rich_theme(THEMES["default"])
@@ -190,17 +185,18 @@ LLX_THEME = _build_rich_theme(THEMES["default"])
 
 # ── Unicode Indicators ─────────────────────────────────────────
 
-ICON_SUCCESS  = "✓"
-ICON_ERROR    = "✗"
-ICON_WARNING  = "▲"
-ICON_INFO     = "●"
-ICON_ONLINE   = "●"
-ICON_OFFLINE  = "○"
-ICON_BULLET   = "›"
-ICON_SPINNER  = "dots"
+ICON_SUCCESS = "✓"
+ICON_ERROR = "✗"
+ICON_WARNING = "▲"
+ICON_INFO = "●"
+ICON_ONLINE = "●"
+ICON_OFFLINE = "○"
+ICON_BULLET = "›"
+ICON_SPINNER = "dots"
 
 
 # ── Console Factory ────────────────────────────────────────────
+
 
 def make_console(stderr: bool = False) -> Console:
     """Create a Console with the active LLX theme applied."""
@@ -208,6 +204,7 @@ def make_console(stderr: bool = False) -> Console:
 
 
 # ── Styled Table Factory ───────────────────────────────────────
+
 
 def make_table(title: str | None = None, **kwargs) -> Table:
     """Create a Table with LLX styling defaults."""
@@ -226,6 +223,7 @@ def make_table(title: str | None = None, **kwargs) -> Table:
 
 # ── Styled Panel Factory ──────────────────────────────────────
 
+
 def make_panel(content, title: str | None = None, **kwargs) -> Panel:
     """Create a Panel with LLX styling defaults."""
     return Panel(
@@ -240,6 +238,7 @@ def make_panel(content, title: str | None = None, **kwargs) -> Panel:
 
 
 # ── Gradient Text ──────────────────────────────────────────────
+
 
 def _lerp_color(c1: tuple, c2: tuple, t: float) -> tuple:
     return tuple(int(a + (b - a) * t) for a, b in zip(c1, c2))
@@ -335,15 +334,15 @@ _WORDMARK_LINES = [
 
 # ── Retro Scanline Stripes & Shadow ───────────────────────────
 
-_STRIPE_EVEN     = (14, 14, 32)   # Lighter scanline
-_STRIPE_ODD      = (6, 6, 16)     # Darker scanline
+_STRIPE_EVEN = (14, 14, 32)  # Lighter scanline
+_STRIPE_ODD = (6, 6, 16)  # Darker scanline
 _SHADOW_MAX_DIST = 10
-_SHADOW_BASE     = 8
-_SHADOW_STEP     = 5
+_SHADOW_BASE = 8
+_SHADOW_STEP = 5
 _SHADOW_ALT_BUMP = 4
 _SHADOW_BLUE_MUL = 2.0
-_ART_CELLS       = 37             # Bitmap cells wide (×2 = 74 chars)
-_ART_CHARS       = 74             # Character width for wordmark / stripes
+_ART_CELLS = 37  # Bitmap cells wide (×2 = 74 chars)
+_ART_CHARS = 74  # Character width for wordmark / stripes
 
 
 def _stripe_rgb(row_idx: int) -> tuple[int, int, int]:
@@ -384,7 +383,11 @@ def _bg_color(dist: int, row_idx: int) -> tuple[int, int, int]:
     stripe = _stripe_rgb(row_idx)
     shade = _shadow_shade(dist)
     if shade:
-        return (max(shade[0], stripe[0]), max(shade[1], stripe[1]), max(shade[2], stripe[2]))
+        return (
+            max(shade[0], stripe[0]),
+            max(shade[1], stripe[1]),
+            max(shade[2], stripe[2]),
+        )
     return stripe
 
 
@@ -405,18 +408,18 @@ def get_aardvark(row_offset: int = 0) -> Text:
     stops = _get_active_palette()["gradient"]
     DBL = "\u2588\u2588"
     rows = [row.ljust(_ART_CELLS) for row in _AARDVARK_BITMAP]
-    total_filled = max(sum(ch == '#' for r in rows for ch in r) - 1, 1)
+    total_filled = max(sum(ch == "#" for r in rows for ch in r) - 1, 1)
 
     result = Text()
     filled_idx = 0
 
     for local_idx, row in enumerate(rows):
         grow = row_offset + local_idx
-        filled_map = [ch == '#' for ch in row]
+        filled_map = [ch == "#" for ch in row]
         dists = _horizontal_distances(filled_map)
 
         for col, ch in enumerate(row):
-            if ch == '#':
+            if ch == "#":
                 t = filled_idx / total_filled
                 n = len(stops) - 1
                 seg = min(int(t * n), n - 1)
@@ -478,9 +481,9 @@ def get_banner(version: str, status_line: str, model_line: str) -> Panel:
     palette = _get_active_palette()
 
     # Continuous row numbering for seamless stripe alternation
-    n_aardvark = len(_AARDVARK_BITMAP)     # 22 rows
-    spacer_row = n_aardvark                # row 22
-    wm_start   = n_aardvark + 1            # row 23
+    n_aardvark = len(_AARDVARK_BITMAP)  # 22 rows
+    spacer_row = n_aardvark  # row 22
+    wm_start = n_aardvark + 1  # row 23
 
     aardvark = get_aardvark(row_offset=0)
     spacer_stripe = _stripe_line(spacer_row)
@@ -503,15 +506,18 @@ def get_banner(version: str, status_line: str, model_line: str) -> Panel:
 
 # ── Initialize from config on import ──────────────────────────
 
+
 def init_theme_from_config():
     """Load the saved theme from config. Called once at startup."""
     try:
         from llx.config import load_config
+
         config = load_config()
         name = config.get("theme", "default")
         if name in THEMES:
             set_active_theme(name)
     except Exception:
         pass  # Fall back to default
+
 
 init_theme_from_config()

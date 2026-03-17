@@ -38,7 +38,12 @@ def run_test(name, fn):
                 "details": result.get("details", "OK"),
                 "error_message": result.get("error_message"),
             }
-        return {"name": name, "status": "pass", "duration": duration, "details": str(result) if result else "OK"}
+        return {
+            "name": name,
+            "status": "pass",
+            "duration": duration,
+            "details": str(result) if result else "OK",
+        }
     except Exception as e:
         return {
             "name": name,
@@ -53,6 +58,7 @@ def run_test(name, fn):
 # Test categories
 # ---------------------------------------------------------------------------
 
+
 def test_database():
     """Database connectivity and integrity tests."""
     tests = []
@@ -60,6 +66,7 @@ def test_database():
     def db_connection():
         from sqlalchemy import create_engine, inspect, text
         from backend.config import DATABASE_URL
+
         engine = create_engine(DATABASE_URL)
         with engine.connect() as conn:
             inspector = inspect(engine)
@@ -69,6 +76,7 @@ def test_database():
     def db_document_count():
         from sqlalchemy import create_engine, text
         from backend.config import DATABASE_URL
+
         engine = create_engine(DATABASE_URL)
         with engine.connect() as conn:
             count = conn.execute(text("SELECT COUNT(*) FROM documents")).scalar()
@@ -77,10 +85,13 @@ def test_database():
     def db_migration_current():
         from sqlalchemy import create_engine, text
         from backend.config import DATABASE_URL
+
         engine = create_engine(DATABASE_URL)
         try:
             with engine.connect() as conn:
-                rev = conn.execute(text("SELECT version_num FROM alembic_version")).fetchone()
+                rev = conn.execute(
+                    text("SELECT version_num FROM alembic_version")
+                ).fetchone()
                 if rev:
                     return {"status": "pass", "details": f"Revision: {rev[0][:12]}"}
                 return {"status": "warning", "details": "No alembic version found"}
@@ -99,12 +110,14 @@ def test_services():
 
     def redis_connection():
         import redis
+
         r = redis.Redis(host="localhost", port=6379, db=0, socket_timeout=3)
         r.ping()
         return {"status": "pass", "details": "Redis responding"}
 
     def ollama_connection():
         import urllib.request
+
         req = urllib.request.Request("http://localhost:11434/api/tags", method="GET")
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read())
@@ -113,6 +126,7 @@ def test_services():
 
     def celery_broker():
         import redis
+
         r = redis.Redis(host="localhost", port=6379, db=0, socket_timeout=3)
         queues = r.keys("celery*") + r.keys("_kombu*")
         return {"status": "pass", "details": f"{len(queues)} Celery queue keys"}
@@ -129,6 +143,7 @@ def test_filesystem():
 
     def storage_dirs():
         from backend.config import STORAGE_DIR, UPLOAD_DIR, OUTPUT_DIR, INDEX_ROOT
+
         dirs = {
             "STORAGE_DIR": str(STORAGE_DIR),
             "UPLOAD_DIR": str(UPLOAD_DIR),
@@ -137,35 +152,58 @@ def test_filesystem():
         }
         missing = [k for k, v in dirs.items() if not os.path.isdir(v)]
         if missing:
-            return {"status": "fail", "details": f"Missing: {', '.join(missing)}", "error_message": str(missing)}
+            return {
+                "status": "fail",
+                "details": f"Missing: {', '.join(missing)}",
+                "error_message": str(missing),
+            }
         return {"status": "pass", "details": f"All {len(dirs)} directories accessible"}
 
     def index_files():
         from backend.config import INDEX_ROOT
+
         docstore = os.path.join(str(INDEX_ROOT), "docstore.json")
         if not os.path.exists(docstore):
-            return {"status": "warning", "details": "No docstore.json — index may not be built yet"}
+            return {
+                "status": "warning",
+                "details": "No docstore.json — index may not be built yet",
+            }
         size = os.path.getsize(docstore)
         if size == 0:
             return {"status": "warning", "details": "docstore.json is empty"}
-        return {"status": "pass", "details": f"docstore.json: {size / 1024 / 1024:.1f} MB"}
+        return {
+            "status": "pass",
+            "details": f"docstore.json: {size / 1024 / 1024:.1f} MB",
+        }
 
     def vector_store():
         from backend.config import INDEX_ROOT
+
         vs_path = os.path.join(str(INDEX_ROOT), "default__vector_store.json")
         if not os.path.exists(vs_path):
             return {"status": "warning", "details": "No vector store file"}
         size = os.path.getsize(vs_path)
         if size == 0:
-            return {"status": "warning", "details": "Vector store file is empty (0 bytes) — needs rebuild"}
-        return {"status": "pass", "details": f"vector_store: {size / 1024 / 1024:.1f} MB"}
+            return {
+                "status": "warning",
+                "details": "Vector store file is empty (0 bytes) — needs rebuild",
+            }
+        return {
+            "status": "pass",
+            "details": f"vector_store: {size / 1024 / 1024:.1f} MB",
+        }
 
     def disk_space():
         import shutil
+
         usage = shutil.disk_usage(PROJECT_ROOT)
-        free_gb = usage.free / (1024 ** 3)
+        free_gb = usage.free / (1024**3)
         if free_gb < 1:
-            return {"status": "fail", "details": f"{free_gb:.1f} GB free", "error_message": "Less than 1 GB free"}
+            return {
+                "status": "fail",
+                "details": f"{free_gb:.1f} GB free",
+                "error_message": "Less than 1 GB free",
+            }
         if free_gb < 5:
             return {"status": "warning", "details": f"{free_gb:.1f} GB free"}
         return {"status": "pass", "details": f"{free_gb:.1f} GB free"}
@@ -183,22 +221,34 @@ def test_backend():
 
     def api_health():
         import urllib.request
+
         port = os.environ.get("FLASK_PORT", "5002")
-        req = urllib.request.Request(f"http://localhost:{port}/api/health", method="GET")
+        req = urllib.request.Request(
+            f"http://localhost:{port}/api/health", method="GET"
+        )
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read())
-            return {"status": "pass", "details": f"Health: {data.get('status', 'unknown')}"}
+            return {
+                "status": "pass",
+                "details": f"Health: {data.get('status', 'unknown')}",
+            }
 
     def api_celery_health():
         import urllib.request
         import urllib.error
+
         port = os.environ.get("FLASK_PORT", "5002")
-        req = urllib.request.Request(f"http://localhost:{port}/api/health/celery", method="GET")
+        req = urllib.request.Request(
+            f"http://localhost:{port}/api/health/celery", method="GET"
+        )
         try:
             with urllib.request.urlopen(req, timeout=15) as resp:
                 data = json.loads(resp.read())
                 status = data.get("status", "unknown")
-                return {"status": "pass" if status in ("ok", "up") else "warning", "details": f"Celery: {status}"}
+                return {
+                    "status": "pass" if status in ("ok", "up") else "warning",
+                    "details": f"Celery: {status}",
+                }
         except urllib.error.HTTPError as e:
             try:
                 body = json.loads(e.read())
@@ -208,9 +258,17 @@ def test_backend():
                 detail = f"Celery: {status}"
                 if error:
                     detail += f" - {error}"
-                return {"status": "warning", "details": detail, "error_message": suggestion or error}
+                return {
+                    "status": "warning",
+                    "details": detail,
+                    "error_message": suggestion or error,
+                }
             except Exception:
-                return {"status": "fail", "details": f"HTTP {e.code}", "error_message": str(e)}
+                return {
+                    "status": "fail",
+                    "details": f"HTTP {e.code}",
+                    "error_message": str(e),
+                }
 
     def backend_process():
         port = int(os.environ.get("FLASK_PORT", "5002"))
@@ -220,7 +278,11 @@ def test_backend():
         s.close()
         if result == 0:
             return {"status": "pass", "details": f"Port {port} open"}
-        return {"status": "fail", "details": f"Port {port} not responding", "error_message": f"connect_ex returned {result}"}
+        return {
+            "status": "fail",
+            "details": f"Port {port} not responding",
+            "error_message": f"connect_ex returned {result}",
+        }
 
     tests.append(run_test("backend_process", backend_process))
     tests.append(run_test("api_health", api_health))
@@ -234,17 +296,23 @@ def test_llm():
 
     def ollama_models():
         import urllib.request
+
         req = urllib.request.Request("http://localhost:11434/api/tags", method="GET")
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read())
             models = [m["name"] for m in data.get("models", [])]
-            return {"status": "pass", "details": f"{len(models)} models: {', '.join(models[:5])}"}
+            return {
+                "status": "pass",
+                "details": f"{len(models)} models: {', '.join(models[:5])}",
+            }
 
     def embedding_model():
         from backend.config import get_active_embedding_model
+
         model = get_active_embedding_model()
         # Test if model responds
         import urllib.request
+
         payload = json.dumps({"model": model, "input": "test"}).encode()
         req = urllib.request.Request(
             "http://localhost:11434/api/embed",
@@ -262,12 +330,15 @@ def test_llm():
 
     def llm_basic_response():
         import urllib.request
-        payload = json.dumps({
-            "model": "llama3:latest",
-            "prompt": "Say OK",
-            "stream": False,
-            "options": {"num_predict": 10},
-        }).encode()
+
+        payload = json.dumps(
+            {
+                "model": "llama3:latest",
+                "prompt": "Say OK",
+                "stream": False,
+                "options": {"num_predict": 10},
+            }
+        ).encode()
         req = urllib.request.Request(
             "http://localhost:11434/api/generate",
             data=payload,
@@ -290,14 +361,22 @@ def test_imports():
     tests = []
 
     critical_modules = [
-        "flask", "flask_socketio", "sqlalchemy", "celery", "redis",
-        "llama_index.core", "torch", "transformers",
+        "flask",
+        "flask_socketio",
+        "sqlalchemy",
+        "celery",
+        "redis",
+        "llama_index.core",
+        "torch",
+        "transformers",
     ]
 
     for mod in critical_modules:
+
         def check_import(m=mod):
             importlib.import_module(m)
             return {"status": "pass", "details": "Importable"}
+
         tests.append(run_test(f"import_{mod.replace('.', '_')}", check_import))
 
     return tests
@@ -358,7 +437,9 @@ def run_categories(category_keys):
 
 def main():
     parser = argparse.ArgumentParser(description="Guaardvark consolidated self-test")
-    parser.add_argument("--quick", action="store_true", help="Run quick subset of tests")
+    parser.add_argument(
+        "--quick", action="store_true", help="Run quick subset of tests"
+    )
     parser.add_argument("--all", action="store_true", help="Run all test categories")
     parser.add_argument("--category", type=str, help="Run a specific category")
     parser.add_argument("--output", type=str, help="Output JSON file path")

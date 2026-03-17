@@ -59,7 +59,9 @@ def should_include_time_context(user_message: str) -> bool:
         return True
 
     # Weaker signals: require question framing.
-    if "time" in msg and any(q in msg for q in ("?", "what", "current", "now", "please")):
+    if "time" in msg and any(
+        q in msg for q in ("?", "what", "current", "now", "please")
+    ):
         return True
 
     # Date/day requests.
@@ -73,7 +75,7 @@ def get_system_time_context():
     """Get current system time information for LLM context."""
     now = datetime.now().astimezone()
     now_utc = datetime.now(timezone.utc)
-    
+
     time_context = f"""[CURRENT SYSTEM TIME]
 Local Time: {now.strftime('%Y-%m-%d %H:%M:%S')} ({str(now.astimezone().tzinfo)})
 UTC Time: {now_utc.strftime('%Y-%m-%d %H:%M:%S UTC')}
@@ -99,16 +101,20 @@ def get_prompt_template_text(
     web_search_enabled: Optional[bool] = None,
 ) -> str:
     """Legacy function - RulesPage should be used instead."""
-    logger.warning(f"get_prompt_template_text() called for '{prompt_name}' - consider using RulesPage instead")
+    logger.warning(
+        f"get_prompt_template_text() called for '{prompt_name}' - consider using RulesPage instead"
+    )
     return "{rules_str}"
 
 
 def get_prompt_text_by_name(
-    name: str, 
-    project_id: Optional[int] = None, 
+    name: str,
+    project_id: Optional[int] = None,
     model_name: Optional[str] = None,
     web_search_enabled: Optional[bool] = None,
 ) -> Optional[str]:
     """Legacy function - RulesPage should be used instead."""
-    logger.warning(f"get_prompt_text_by_name() called for '{name}' - consider using RulesPage instead")
+    logger.warning(
+        f"get_prompt_text_by_name() called for '{name}' - consider using RulesPage instead"
+    )
     return "{rules_str}"

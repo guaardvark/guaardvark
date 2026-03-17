@@ -1,5 +1,6 @@
 """Minimal module for testing feature addition."""
 
+
 def greet(name):
     return f"Hello, {name}!"
 

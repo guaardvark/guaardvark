@@ -104,6 +104,7 @@ def test_plain_chat_returns_content(client):
 def test_createfile_command_generates_file(client, tmp_path, monkeypatch):
     # Insert a dummy command rule for /createfile
     from backend.models import db, Rule
+
     with client.application.app_context():
         rule = Rule(
             name="/createfile",
@@ -122,5 +123,6 @@ def test_createfile_command_generates_file(client, tmp_path, monkeypatch):
     assert resp.status_code == 200
     # Check that the file was created
     import os
+
     output_path = os.path.join(tmp_path, "test.txt")
     assert os.path.exists(output_path)

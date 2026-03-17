@@ -1,4 +1,5 @@
 """Voice cog — /voice join, /voice leave, /voice status commands."""
+
 import logging
 import discord
 from discord import app_commands
@@ -21,7 +22,9 @@ class VoiceCog(commands.Cog):
     @voice_group.command(name="join", description="Join your voice channel")
     async def voice_join(self, interaction):
         if not interaction.user.voice or not interaction.user.voice.channel:
-            await interaction.response.send_message("You need to be in a voice channel first.", ephemeral=True)
+            await interaction.response.send_message(
+                "You need to be in a voice channel first.", ephemeral=True
+            )
             return
         guild_id = interaction.guild.id
         channel = interaction.user.voice.channel
@@ -31,11 +34,17 @@ class VoiceCog(commands.Cog):
         success = await handler.join(channel, interaction.channel)
         if success:
             self.handlers[guild_id] = handler
-            embed = discord.Embed(title="Voice Connected", description=f"Joined **{channel.name}**. Speak and I'll respond!", color=discord.Color.green())
+            embed = discord.Embed(
+                title="Voice Connected",
+                description=f"Joined **{channel.name}**. Speak and I'll respond!",
+                color=discord.Color.green(),
+            )
             embed.set_footer(text="Use /voice leave to disconnect")
             await interaction.response.send_message(embed=embed)
         else:
-            await interaction.response.send_message("Failed to join voice channel.", ephemeral=True)
+            await interaction.response.send_message(
+                "Failed to join voice channel.", ephemeral=True
+            )
 
     @voice_group.command(name="leave", description="Leave the voice channel")
     async def voice_leave(self, interaction):
@@ -45,20 +54,32 @@ class VoiceCog(commands.Cog):
             await handler.leave()
             await interaction.response.send_message("Disconnected from voice channel.")
         else:
-            await interaction.response.send_message("Not connected to a voice channel.", ephemeral=True)
+            await interaction.response.send_message(
+                "Not connected to a voice channel.", ephemeral=True
+            )
 
     @voice_group.command(name="status", description="Show voice session info")
     async def voice_status(self, interaction):
         guild_id = interaction.guild.id
         handler = self.handlers.get(guild_id)
-        if not handler or not handler.voice_client or not handler.voice_client.is_connected():
-            await interaction.response.send_message("Not connected to a voice channel.", ephemeral=True)
+        if (
+            not handler
+            or not handler.voice_client
+            or not handler.voice_client.is_connected()
+        ):
+            await interaction.response.send_message(
+                "Not connected to a voice channel.", ephemeral=True
+            )
             return
         channel = handler.voice_client.channel
         embed = discord.Embed(title="Voice Status", color=discord.Color.blue())
         embed.add_field(name="Channel", value=channel.name, inline=True)
         embed.add_field(name="Members", value=str(len(channel.members)), inline=True)
-        embed.add_field(name="Processing", value="Yes" if handler._processing else "Idle", inline=True)
+        embed.add_field(
+            name="Processing",
+            value="Yes" if handler._processing else "Idle",
+            inline=True,
+        )
         await interaction.response.send_message(embed=embed)
 
     async def cog_unload(self):

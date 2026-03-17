@@ -1,4 +1,3 @@
-
 import logging
 import json
 import subprocess
@@ -18,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from backend.config import CACHE_DIR, COMFYUI_URL, COMFYUI_OUTPUT_DIR
+
     config_available = True
 except ImportError:
     config_available = False
@@ -42,9 +42,13 @@ class VideoGenerationRequest:
     combine_frames: bool = False
     output_dir: Optional[Path] = None
     metadata: Dict[str, str] = field(default_factory=dict)
-    interpolation_multiplier: int = 2  # 1 = no interpolation, 2 = double fps, 4 = quad fps
-    prompt_style: str = "cinematic"   # Enhancement style: cinematic, realistic, artistic, anime, none
-    enhance_prompt: bool = True       # Whether to run prompt through the enhancer
+    interpolation_multiplier: int = (
+        2  # 1 = no interpolation, 2 = double fps, 4 = quad fps
+    )
+    prompt_style: str = (
+        "cinematic"  # Enhancement style: cinematic, realistic, artistic, anime, none
+    )
+    enhance_prompt: bool = True  # Whether to run prompt through the enhancer
 
 
 @dataclass
@@ -63,7 +67,11 @@ class ComfyUIVideoGenerator:
     def __init__(self):
         project_root = Path(__file__).parent.parent.parent
 
-        self.comfy_url = COMFYUI_URL if config_available else os.environ.get("GUAARDVARK_COMFYUI_URL", "http://127.0.0.1:8188")
+        self.comfy_url = (
+            COMFYUI_URL
+            if config_available
+            else os.environ.get("GUAARDVARK_COMFYUI_URL", "http://127.0.0.1:8188")
+        )
 
         self.templates_dir = project_root / "data" / "templates"
         self.templates_dir.mkdir(parents=True, exist_ok=True)
@@ -71,14 +79,25 @@ class ComfyUIVideoGenerator:
         self.cache_dir = Path(CACHE_DIR) / "generated_videos"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
-        self.comfy_output_dir = Path(COMFYUI_OUTPUT_DIR if config_available else os.environ.get('COMFYUI_OUTPUT_DIR', os.path.join(os.environ.get('GUAARDVARK_ROOT', '.'), 'data', 'outputs', 'video')))
+        self.comfy_output_dir = Path(
+            COMFYUI_OUTPUT_DIR
+            if config_available
+            else os.environ.get(
+                "COMFYUI_OUTPUT_DIR",
+                os.path.join(
+                    os.environ.get("GUAARDVARK_ROOT", "."), "data", "outputs", "video"
+                ),
+            )
+        )
 
         self.service_available = self._check_comfyui_connection()
 
         if self.service_available:
             logger.info(f"ComfyUI video generator connected to {self.comfy_url}")
         else:
-            logger.warning(f"ComfyUI not available at {self.comfy_url}. Video generation will fail unless ComfyUI is started.")
+            logger.warning(
+                f"ComfyUI not available at {self.comfy_url}. Video generation will fail unless ComfyUI is started."
+            )
 
     def _check_comfyui_connection(self) -> bool:
         try:
@@ -89,14 +108,11 @@ class ComfyUIVideoGenerator:
 
     def _upload_image_to_comfyui(self, image_path: str) -> Optional[str]:
         try:
-            with open(image_path, 'rb') as f:
-                files = {'image': f}
-                data = {'type': 'input', 'overwrite': 'true'}
+            with open(image_path, "rb") as f:
+                files = {"image": f}
+                data = {"type": "input", "overwrite": "true"}
                 response = requests.post(
-                    f"{self.comfy_url}/upload/image",
-                    files=files,
-                    data=data,
-                    timeout=30
+                    f"{self.comfy_url}/upload/image", files=files, data=data, timeout=30
                 )
                 response.raise_for_status()
 
@@ -133,14 +149,12 @@ class ComfyUIVideoGenerator:
                     "model": ["4", 0],
                     "positive": ["6", 0],
                     "negative": ["7", 0],
-                    "latent_image": ["5", 0]
-                }
+                    "latent_image": ["5", 0],
+                },
             },
             "4": {
                 "class_type": "ImageOnlyCheckpointLoader",
-                "inputs": {
-                    "ckpt_name": "svd_xt.safetensors"
-                }
+                "inputs": {"ckpt_name": "svd_xt.safetensors"},
             },
             "5": {
                 "class_type": "SVD_img2vid_Conditioning",
@@ -153,37 +167,21 @@ class ComfyUIVideoGenerator:
                     "augmentation_level": 0,
                     "clip_vision": ["4", 1],
                     "init_image": ["8", 0],
-                    "vae": ["4", 2]
-                }
+                    "vae": ["4", 2],
+                },
             },
             "6": {
                 "class_type": "EmptyLatentImage",
-                "inputs": {
-                    "width": 512,
-                    "height": 512,
-                    "batch_size": 1
-                }
+                "inputs": {"width": 512, "height": 512, "batch_size": 1},
             },
             "7": {
                 "class_type": "EmptyLatentImage",
-                "inputs": {
-                    "width": 512,
-                    "height": 512,
-                    "batch_size": 1
-                }
+                "inputs": {"width": 512, "height": 512, "batch_size": 1},
             },
-            "8": {
-                "class_type": "LoadImage",
-                "inputs": {
-                    "image": image_filename
-                }
-            },
+            "8": {"class_type": "LoadImage", "inputs": {"image": image_filename}},
             "9": {
                 "class_type": "VAEDecode",
-                "inputs": {
-                    "samples": ["3", 0],
-                    "vae": ["4", 2]
-                }
+                "inputs": {"samples": ["3", 0], "vae": ["4", 2]},
             },
             "10": {
                 "class_type": "VHS_VideoCombine",
@@ -192,9 +190,9 @@ class ComfyUIVideoGenerator:
                     "loop_count": 0,
                     "filename_prefix": "svd_video",
                     "format": "video/h264-mp4",
-                    "images": ["9", 0]
-                }
-            }
+                    "images": ["9", 0],
+                },
+            },
         }
 
         return workflow
@@ -246,10 +244,12 @@ class ComfyUIVideoGenerator:
                 "class_type": "CogVideoXTeaCache",
                 "inputs": {
                     "rel_l1_thresh": float(teacache_threshold),
-                }
+                },
             }
             workflow[sampler_node_id]["inputs"]["teacache_args"] = [tea_id, 0]
-            logger.info(f"Added TeaCache (threshold={teacache_threshold}) to CogVideoX workflow")
+            logger.info(
+                f"Added TeaCache (threshold={teacache_threshold}) to CogVideoX workflow"
+            )
 
         if feta_weight is not None:
             feta_id = str(next_id)
@@ -260,10 +260,12 @@ class ComfyUIVideoGenerator:
                     "weight": float(feta_weight),
                     "start_percent": 0.0,
                     "end_percent": 1.0,
-                }
+                },
             }
             workflow[sampler_node_id]["inputs"]["feta_args"] = [feta_id, 0]
-            logger.info(f"Added Enhance-A-Video (weight={feta_weight}) to CogVideoX workflow")
+            logger.info(
+                f"Added Enhance-A-Video (weight={feta_weight}) to CogVideoX workflow"
+            )
 
         return workflow
 
@@ -290,7 +292,7 @@ class ComfyUIVideoGenerator:
                 "inputs": {
                     "clip_name": "t5/google_t5-v1_1-xxl_encoderonly-fp8_e4m3fn.safetensors",
                     "type": "sd3",
-                }
+                },
             },
             "2": {
                 "class_type": "CogVideoTextEncode",
@@ -299,7 +301,7 @@ class ComfyUIVideoGenerator:
                     "prompt": prompt,
                     "strength": 1,
                     "force_offload": False,
-                }
+                },
             },
             "3": {
                 "class_type": "CogVideoTextEncode",
@@ -308,7 +310,7 @@ class ComfyUIVideoGenerator:
                     "prompt": negative_prompt,
                     "strength": 1,
                     "force_offload": True,
-                }
+                },
             },
             "4": {
                 "class_type": "DownloadAndLoadCogVideoModel",
@@ -319,7 +321,7 @@ class ComfyUIVideoGenerator:
                     "compile": False,
                     "attention_mode": "sdpa",
                     "device": "main_device",
-                }
+                },
             },
             "5": {
                 "class_type": "EmptyLatentImage",
@@ -327,7 +329,7 @@ class ComfyUIVideoGenerator:
                     "width": width,
                     "height": height,
                     "batch_size": 1,
-                }
+                },
             },
             "6": {
                 "class_type": "CogVideoSampler",
@@ -343,7 +345,7 @@ class ComfyUIVideoGenerator:
                     "control_after_generate": "fixed",
                     "scheduler": "CogVideoXDDIM",
                     "denoise_strength": 1.0,
-                }
+                },
             },
             "7": {
                 "class_type": "CogVideoDecode",
@@ -356,7 +358,7 @@ class ComfyUIVideoGenerator:
                     "tile_overlap_factor_height": 0.2,
                     "tile_overlap_factor_width": 0.2,
                     "auto_tile_size": True,
-                }
+                },
             },
             "8": {
                 "class_type": "VHS_VideoCombine",
@@ -376,7 +378,7 @@ class ComfyUIVideoGenerator:
                         "paused": False,
                         "params": {},
                     },
-                }
+                },
             },
         }
 
@@ -384,7 +386,7 @@ class ComfyUIVideoGenerator:
         if interpolation_multiplier > 1:
             self._add_rife_interpolation(
                 workflow,
-                source_node_id="7",        # CogVideoDecode
+                source_node_id="7",  # CogVideoDecode
                 video_combine_node_id="8",  # VHS_VideoCombine
                 base_fps=fps,
                 multiplier=interpolation_multiplier,
@@ -416,7 +418,7 @@ class ComfyUIVideoGenerator:
                 "inputs": {
                     "clip_name": "t5/google_t5-v1_1-xxl_encoderonly-fp8_e4m3fn.safetensors",
                     "type": "sd3",
-                }
+                },
             },
             "2": {
                 "class_type": "CogVideoTextEncode",
@@ -425,7 +427,7 @@ class ComfyUIVideoGenerator:
                     "prompt": prompt,
                     "strength": 1,
                     "force_offload": False,
-                }
+                },
             },
             "3": {
                 "class_type": "CogVideoTextEncode",
@@ -434,7 +436,7 @@ class ComfyUIVideoGenerator:
                     "prompt": negative_prompt,
                     "strength": 1,
                     "force_offload": True,
-                }
+                },
             },
             "4": {
                 "class_type": "DownloadAndLoadCogVideoModel",
@@ -445,13 +447,13 @@ class ComfyUIVideoGenerator:
                     "compile": False,
                     "attention_mode": "sdpa",
                     "device": "main_device",
-                }
+                },
             },
             "5": {
                 "class_type": "LoadImage",
                 "inputs": {
                     "image": image_filename,
-                }
+                },
             },
             "10": {
                 "class_type": "ImageResizeKJ",
@@ -462,14 +464,14 @@ class ComfyUIVideoGenerator:
                     "interpolation": "lanczos",
                     "keep_proportion": False,
                     "divisible_by": 16,
-                }
+                },
             },
             "9": {
                 "class_type": "CogVideoImageEncode",
                 "inputs": {
                     "vae": ["4", 1],
                     "start_image": ["10", 0],
-                }
+                },
             },
             "6": {
                 "class_type": "CogVideoSampler",
@@ -485,7 +487,7 @@ class ComfyUIVideoGenerator:
                     "control_after_generate": "fixed",
                     "scheduler": "CogVideoXDDIM",
                     "denoise_strength": 1.0,
-                }
+                },
             },
             "7": {
                 "class_type": "CogVideoDecode",
@@ -498,7 +500,7 @@ class ComfyUIVideoGenerator:
                     "tile_overlap_factor_height": 0.2,
                     "tile_overlap_factor_width": 0.2,
                     "auto_tile_size": True,
-                }
+                },
             },
             "8": {
                 "class_type": "VHS_VideoCombine",
@@ -518,7 +520,7 @@ class ComfyUIVideoGenerator:
                         "paused": False,
                         "params": {},
                     },
-                }
+                },
             },
         }
 
@@ -526,7 +528,7 @@ class ComfyUIVideoGenerator:
         if interpolation_multiplier > 1:
             self._add_rife_interpolation(
                 workflow,
-                source_node_id="7",        # CogVideoDecode
+                source_node_id="7",  # CogVideoDecode
                 video_combine_node_id="8",  # VHS_VideoCombine
                 base_fps=fps,
                 multiplier=interpolation_multiplier,
@@ -576,14 +578,14 @@ class ComfyUIVideoGenerator:
                 "class_type": "UnetLoaderGGUF",
                 "inputs": {
                     "unet_name": model_files["unet_high"],
-                }
+                },
             },
             # Node 2: Load LowNoise GGUF expert
             "2": {
                 "class_type": "UnetLoaderGGUF",
                 "inputs": {
                     "unet_name": model_files["unet_low"],
-                }
+                },
             },
             # Node 3: Load UMT5 text encoder (Wan clip type)
             "3": {
@@ -592,16 +594,15 @@ class ComfyUIVideoGenerator:
                     "clip_name": model_files["clip"],
                     "type": "wan",
                     "device": "default",
-                }
+                },
             },
             # Node 4: Load Wan VAE
             "4": {
                 "class_type": "VAELoader",
                 "inputs": {
                     "vae_name": model_files["vae"],
-                }
+                },
             },
-
             # ── Text Encoding ──────────────────────────────────────────────
             # Node 5: Positive prompt
             "5": {
@@ -609,7 +610,7 @@ class ComfyUIVideoGenerator:
                 "inputs": {
                     "clip": ["3", 0],
                     "text": prompt,
-                }
+                },
             },
             # Node 6: Negative prompt
             "6": {
@@ -617,9 +618,8 @@ class ComfyUIVideoGenerator:
                 "inputs": {
                     "clip": ["3", 0],
                     "text": negative_prompt,
-                }
+                },
             },
-
             # ── Latent ─────────────────────────────────────────────────────
             # Node 7: Empty video latent
             "7": {
@@ -629,9 +629,8 @@ class ComfyUIVideoGenerator:
                     "height": height,
                     "length": num_frames,
                     "batch_size": 1,
-                }
+                },
             },
-
             # ── Noise Scheduling ───────────────────────────────────────────
             # Node 8: ModelSamplingSD3 for HighNoise expert (shift=8.0)
             "8": {
@@ -639,7 +638,7 @@ class ComfyUIVideoGenerator:
                 "inputs": {
                     "model": ["1", 0],
                     "shift": 8.0,
-                }
+                },
             },
             # Node 9: ModelSamplingSD3 for LowNoise expert (shift=8.0)
             "9": {
@@ -647,13 +646,11 @@ class ComfyUIVideoGenerator:
                 "inputs": {
                     "model": ["2", 0],
                     "shift": 8.0,
-                }
+                },
             },
-
             # ── Two-Pass Sampling (MoE) ────────────────────────────────────
             # Steps are SPLIT at midpoint: HighNoise does steps 0→mid,
             # LowNoise continues from mid→end. Total steps = num_inference_steps.
-
             # Node 10: Pass 1 — HighNoise expert (layout + motion, first half)
             "10": {
                 "class_type": "KSamplerAdvanced",
@@ -672,7 +669,7 @@ class ComfyUIVideoGenerator:
                     "start_at_step": 0,
                     "end_at_step": midpoint,
                     "return_with_leftover_noise": "enable",
-                }
+                },
             },
             # Node 11: Pass 2 — LowNoise expert (detail refinement, second half)
             "11": {
@@ -692,9 +689,8 @@ class ComfyUIVideoGenerator:
                     "start_at_step": midpoint,
                     "end_at_step": 10000,
                     "return_with_leftover_noise": "disable",
-                }
+                },
             },
-
             # ── Decode + Output ────────────────────────────────────────────
             # Node 12: VAE Decode
             "12": {
@@ -702,7 +698,7 @@ class ComfyUIVideoGenerator:
                 "inputs": {
                     "samples": ["11", 0],
                     "vae": ["4", 0],
-                }
+                },
             },
             # Node 13: Create video from frames
             "13": {
@@ -723,7 +719,7 @@ class ComfyUIVideoGenerator:
                         "paused": False,
                         "params": {},
                     },
-                }
+                },
             },
         }
 
@@ -731,8 +727,8 @@ class ComfyUIVideoGenerator:
         if interpolation_multiplier > 1:
             self._add_rife_interpolation(
                 workflow,
-                source_node_id="12",       # VAEDecode
-                video_combine_node_id="13", # VHS_VideoCombine
+                source_node_id="12",  # VAEDecode
+                video_combine_node_id="13",  # VHS_VideoCombine
                 base_fps=fps,
                 multiplier=interpolation_multiplier,
             )
@@ -777,7 +773,7 @@ class ComfyUIVideoGenerator:
                 "dtype": "float32",
                 "torch_compile": False,
                 "batch_size": 1,
-            }
+            },
         }
 
         # Rewire VHS_VideoCombine to take frames from RIFE instead of source
@@ -817,7 +813,7 @@ class ComfyUIVideoGenerator:
             "class_type": "UpscaleModelLoader",
             "inputs": {
                 "model_name": "RealESRGAN_x2.pth",
-            }
+            },
         }
 
         # Apply upscaling to frames
@@ -826,7 +822,7 @@ class ComfyUIVideoGenerator:
             "inputs": {
                 "upscale_model": [loader_id, 0],
                 "image": [source_node_id, 0],
-            }
+            },
         }
 
         # Rewire VHS_VideoCombine to take frames from upscaler
@@ -843,9 +839,7 @@ class ComfyUIVideoGenerator:
         try:
             payload = {"prompt": workflow}
             response = requests.post(
-                f"{self.comfy_url}/prompt",
-                json=payload,
-                timeout=10
+                f"{self.comfy_url}/prompt", json=payload, timeout=10
             )
             response.raise_for_status()
 
@@ -858,21 +852,22 @@ class ComfyUIVideoGenerator:
             logger.error(f"Failed to queue workflow in ComfyUI: {e}")
             return None
 
-    def _wait_for_completion(self, prompt_id: str, timeout: int = 600) -> Optional[dict]:
+    def _wait_for_completion(
+        self, prompt_id: str, timeout: int = 600
+    ) -> Optional[dict]:
         start_time = time.time()
         last_log_time = start_time
 
         while time.time() - start_time < timeout:
             try:
                 response = requests.get(
-                    f"{self.comfy_url}/history/{prompt_id}",
-                    timeout=5
+                    f"{self.comfy_url}/history/{prompt_id}", timeout=5
                 )
                 response.raise_for_status()
                 history = response.json()
 
                 if prompt_id in history:
-                    outputs = history[prompt_id].get('outputs', {})
+                    outputs = history[prompt_id].get("outputs", {})
                     logger.info(f"Generation complete: {prompt_id}")
                     return outputs
 
@@ -895,20 +890,30 @@ class ComfyUIVideoGenerator:
 
         try:
             for node_id, node_output in outputs.items():
-                if 'gifs' in node_output:
-                    for item in node_output['gifs']:
-                        filename = item.get('filename')
+                if "gifs" in node_output:
+                    for item in node_output["gifs"]:
+                        filename = item.get("filename")
                         if filename:
                             downloaded_files.extend(
-                                self._download_file(filename, destination_dir, file_type='output', subfolder=item.get('subfolder', ''))
+                                self._download_file(
+                                    filename,
+                                    destination_dir,
+                                    file_type="output",
+                                    subfolder=item.get("subfolder", ""),
+                                )
                             )
 
-                if 'images' in node_output:
-                    for item in node_output['images']:
-                        filename = item.get('filename')
+                if "images" in node_output:
+                    for item in node_output["images"]:
+                        filename = item.get("filename")
                         if filename:
                             downloaded_files.extend(
-                                self._download_file(filename, destination_dir, file_type='output', subfolder=item.get('subfolder', ''))
+                                self._download_file(
+                                    filename,
+                                    destination_dir,
+                                    file_type="output",
+                                    subfolder=item.get("subfolder", ""),
+                                )
                             )
 
             logger.info(f"Downloaded {len(downloaded_files)} files from ComfyUI")
@@ -918,7 +923,13 @@ class ComfyUIVideoGenerator:
             logger.error(f"Failed to download results from ComfyUI: {e}")
             return []
 
-    def _download_file(self, filename: str, destination_dir: Path, file_type: str = 'output', subfolder: str = '') -> List[str]:
+    def _download_file(
+        self,
+        filename: str,
+        destination_dir: Path,
+        file_type: str = "output",
+        subfolder: str = "",
+    ) -> List[str]:
         try:
             params = {"filename": filename, "type": file_type}
             if subfolder:
@@ -944,11 +955,17 @@ class ComfyUIVideoGenerator:
         try:
             result = subprocess.run(
                 [
-                    "ffmpeg", "-i", str(video_path),
-                    "-vf", "select=eq(n\\,0)",
-                    "-frames:v", "1",
-                    "-q:v", "2",
-                    "-y", str(thumbnail_path),
+                    "ffmpeg",
+                    "-i",
+                    str(video_path),
+                    "-vf",
+                    "select=eq(n\\,0)",
+                    "-frames:v",
+                    "1",
+                    "-q:v",
+                    "2",
+                    "-y",
+                    str(thumbnail_path),
                 ],
                 capture_output=True,
                 timeout=30,
@@ -956,7 +973,9 @@ class ComfyUIVideoGenerator:
             if thumbnail_path.exists() and thumbnail_path.stat().st_size > 0:
                 logger.info(f"Extracted thumbnail: {thumbnail_path}")
                 return True
-            logger.warning(f"ffmpeg ran but thumbnail not created (rc={result.returncode})")
+            logger.warning(
+                f"ffmpeg ran but thumbnail not created (rc={result.returncode})"
+            )
             return False
         except FileNotFoundError:
             logger.warning("ffmpeg not found on system, cannot extract thumbnail")
@@ -983,11 +1002,21 @@ class ComfyUIVideoGenerator:
         # ── Prompt enhancement ───────────────────────────────────────
         if request.enhance_prompt and request.prompt:
             try:
-                from backend.utils.prompt_enhancer import enhance_video_prompt, get_default_negative_prompt
-                request.prompt = enhance_video_prompt(request.prompt, style=request.prompt_style)
+                from backend.utils.prompt_enhancer import (
+                    enhance_video_prompt,
+                    get_default_negative_prompt,
+                )
+
+                request.prompt = enhance_video_prompt(
+                    request.prompt, style=request.prompt_style
+                )
                 if not request.negative_prompt:
-                    request.negative_prompt = get_default_negative_prompt(style=request.prompt_style)
-                logger.info(f"Prompt enhanced (style={request.prompt_style}): {request.prompt[:120]}...")
+                    request.negative_prompt = get_default_negative_prompt(
+                        style=request.prompt_style
+                    )
+                logger.info(
+                    f"Prompt enhanced (style={request.prompt_style}): {request.prompt[:120]}..."
+                )
             except Exception as e:
                 logger.warning(f"Prompt enhancement failed, using original prompt: {e}")
 
@@ -1016,9 +1045,15 @@ class ComfyUIVideoGenerator:
         )
 
         try:
-            image_path = request.metadata.get("image_path") if request.metadata else None
+            image_path = (
+                request.metadata.get("image_path") if request.metadata else None
+            )
             model = request.model or "svd"
-            seed = request.seed if request.seed is not None else int(time.time() * 1000) % (2**31)
+            seed = (
+                request.seed
+                if request.seed is not None
+                else int(time.time() * 1000) % (2**31)
+            )
 
             interpolation = request.interpolation_multiplier
 
@@ -1042,7 +1077,9 @@ class ComfyUIVideoGenerator:
                     fps=request.fps,
                     interpolation_multiplier=interpolation,
                 )
-                logger.info(f"Using Wan 2.2 text-to-video ({model_key}) via ComfyUI GGUF")
+                logger.info(
+                    f"Using Wan 2.2 text-to-video ({model_key}) via ComfyUI GGUF"
+                )
 
             elif model in ("cogvideox-2b", "cogvideox-5b"):
                 if image_path:
@@ -1065,7 +1102,8 @@ class ComfyUIVideoGenerator:
                 # Add optional TeaCache / FETA nodes for CogVideoX
                 meta = request.metadata or {}
                 self._add_cogvideox_optional_nodes(
-                    workflow, sampler_node_id="6",
+                    workflow,
+                    sampler_node_id="6",
                     teacache_threshold=meta.get("teacache_threshold"),
                     feta_weight=meta.get("feta_weight"),
                 )
@@ -1097,7 +1135,8 @@ class ComfyUIVideoGenerator:
                 # Add optional TeaCache / FETA nodes for CogVideoX I2V
                 meta = request.metadata or {}
                 self._add_cogvideox_optional_nodes(
-                    workflow, sampler_node_id="6",
+                    workflow,
+                    sampler_node_id="6",
                     teacache_threshold=meta.get("teacache_threshold"),
                     feta_weight=meta.get("feta_weight"),
                 )
@@ -1123,16 +1162,24 @@ class ComfyUIVideoGenerator:
                 logger.info(f"Using SVD image-to-video via ComfyUI")
 
             # Apply Real-ESRGAN 2x upscale if requested
-            upscale = request.metadata.get("upscale", False) if request.metadata else False
+            upscale = (
+                request.metadata.get("upscale", False) if request.metadata else False
+            )
             if upscale:
                 # Find VHS_VideoCombine and its current frame source
                 vhs_node_id = next(
-                    (nid for nid, node in workflow.items() if node.get("class_type") == "VHS_VideoCombine"),
-                    None
+                    (
+                        nid
+                        for nid, node in workflow.items()
+                        if node.get("class_type") == "VHS_VideoCombine"
+                    ),
+                    None,
                 )
                 if vhs_node_id:
                     # The node currently feeding images to VHS_VideoCombine
-                    source_ref = workflow[vhs_node_id]["inputs"].get("images", [None])[0]
+                    source_ref = workflow[vhs_node_id]["inputs"].get("images", [None])[
+                        0
+                    ]
                     if source_ref:
                         self._add_upscale_node(workflow, source_ref, vhs_node_id)
 
@@ -1144,8 +1191,14 @@ class ComfyUIVideoGenerator:
                 return result
 
             # Wan2.2 MoE runs two passes (~5min each), needs longer timeout
-            gen_timeout = 1200 if model in self.WAN22_MODELS or model in ("wan22", "wan2.2") else 600
-            logger.info(f"Waiting for ComfyUI to complete generation (prompt_id: {prompt_id}, timeout: {gen_timeout}s)...")
+            gen_timeout = (
+                1200
+                if model in self.WAN22_MODELS or model in ("wan22", "wan2.2")
+                else 600
+            )
+            logger.info(
+                f"Waiting for ComfyUI to complete generation (prompt_id: {prompt_id}, timeout: {gen_timeout}s)..."
+            )
             outputs = self._wait_for_completion(prompt_id, timeout=gen_timeout)
 
             if not outputs:
@@ -1160,12 +1213,19 @@ class ComfyUIVideoGenerator:
                 return result
 
             result.video_path = str(Path(downloaded_files[0]).relative_to(batch_dir))
-            result.frame_paths = [str(Path(f).relative_to(batch_dir)) for f in downloaded_files]
+            result.frame_paths = [
+                str(Path(f).relative_to(batch_dir)) for f in downloaded_files
+            ]
             result.success = True
 
             # Extract thumbnail from the first video file
             video_file = Path(downloaded_files[0])
-            if video_file.exists() and video_file.suffix.lower() in (".mp4", ".webm", ".avi", ".mov"):
+            if video_file.exists() and video_file.suffix.lower() in (
+                ".mp4",
+                ".webm",
+                ".avi",
+                ".mov",
+            ):
                 thumb_filename = video_file.stem + "_thumb.jpg"
                 thumb_path = thumbs_dir / thumb_filename
                 if self._extract_thumbnail(video_file, thumb_path):
@@ -1177,6 +1237,7 @@ class ComfyUIVideoGenerator:
         except Exception as e:
             logger.error(f"Error during video generation: {e}")
             import traceback
+
             logger.error(traceback.format_exc())
             result.error = str(e)
             result.success = False

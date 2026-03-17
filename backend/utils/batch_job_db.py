@@ -17,14 +17,17 @@ logger = logging.getLogger(__name__)
 # Database connection (PostgreSQL via SQLAlchemy)
 # ============================================================================
 
+
 def _get_database_url():
-    url = os.environ.get('DATABASE_URL')
+    url = os.environ.get("DATABASE_URL")
     if url:
         return url
     return "postgresql://guaardvark:guaardvark@localhost:5432/guaardvark"
 
+
 _engine = None
 _SessionFactory = None
+
 
 def _get_db_session():
     global _engine, _SessionFactory
@@ -76,18 +79,18 @@ def _sanitize_column_name(column_name: str) -> str:
         raise ValueError("Column name must be a string")
 
     # Remove any characters that aren't alphanumeric or underscore
-    sanitized = re.sub(r'[^a-zA-Z0-9_]', '', column_name)
+    sanitized = re.sub(r"[^a-zA-Z0-9_]", "", column_name)
 
     # Ensure it starts with a letter or underscore
     if sanitized and sanitized[0].isdigit():
-        sanitized = '_' + sanitized
+        sanitized = "_" + sanitized
 
     # Truncate to reasonable length
     sanitized = sanitized[:64]
 
     # Provide fallback if empty
     if not sanitized:
-        sanitized = 'col_unnamed'
+        sanitized = "col_unnamed"
 
     return sanitized
 
@@ -115,8 +118,7 @@ def _validate_columns(columns: List[str]) -> List[str]:
 
         if sanitized != col:
             logger.warning(
-                "Column name '%s' sanitized to '%s' for security",
-                col, sanitized
+                "Column name '%s' sanitized to '%s' for security", col, sanitized
             )
 
     return sanitized_columns
@@ -137,14 +139,14 @@ def init_db(output_dir: str, job_id: str, columns: List[str]) -> str:
     session = _get_db_session()
     try:
         # Store the column definitions for this job
-        session.execute(text("""
+        session.execute(
+            text("""
             INSERT INTO batch_job_columns (job_id, columns)
             VALUES (:job_id, :columns)
             ON CONFLICT (job_id) DO UPDATE SET columns = EXCLUDED.columns
-        """), {
-            "job_id": job_id,
-            "columns": json.dumps(sanitized_columns)
-        })
+        """),
+            {"job_id": job_id, "columns": json.dumps(sanitized_columns)},
+        )
         session.commit()
         logger.info("Initialised batch job storage for job %s", job_id)
         return job_id
@@ -175,13 +177,13 @@ def insert_row(
 
     session = _get_db_session()
     try:
-        session.execute(text("""
+        session.execute(
+            text("""
             INSERT INTO batch_job_rows (job_id, row_data)
             VALUES (:job_id, :row_data)
-        """), {
-            "job_id": job_id,
-            "row_data": json.dumps(row_data)
-        })
+        """),
+            {"job_id": job_id, "row_data": json.dumps(row_data)},
+        )
         session.commit()
     except Exception:
         session.rollback()
@@ -210,11 +212,14 @@ def export_to_csv(
 
     session = _get_db_session()
     try:
-        result = session.execute(text("""
+        result = session.execute(
+            text("""
             SELECT row_data FROM batch_job_rows
             WHERE job_id = :job_id
             ORDER BY id
-        """), {"job_id": job_id})
+        """),
+            {"job_id": job_id},
+        )
 
         all_rows = result.fetchall()
     finally:
@@ -273,12 +278,18 @@ def cleanup_db(output_dir: str, job_id: str) -> None:
 
     session = _get_db_session()
     try:
-        session.execute(text("""
+        session.execute(
+            text("""
             DELETE FROM batch_job_rows WHERE job_id = :job_id
-        """), {"job_id": job_id})
-        session.execute(text("""
+        """),
+            {"job_id": job_id},
+        )
+        session.execute(
+            text("""
             DELETE FROM batch_job_columns WHERE job_id = :job_id
-        """), {"job_id": job_id})
+        """),
+            {"job_id": job_id},
+        )
         session.commit()
         logger.info("Removed batch data for job %s", job_id)
     except Exception:

@@ -14,7 +14,9 @@ backup_app = typer.Typer(help="Backup and restore system data.", no_args_is_help
 
 @backup_app.command("create")
 def create_backup(
-    backup_type: str = typer.Option("full", "--type", "-t", help="Backup type: full, data, code_release"),
+    backup_type: str = typer.Option(
+        "full", "--type", "-t", help="Backup type: full, data, code_release"
+    ),
     name: str = typer.Option(None, "--name", "-n", help="Custom backup name"),
     server: str = typer.Option(None, "--server", "-s"),
     json_out: bool = typer.Option(False, "--json", "-j"),
@@ -35,7 +37,11 @@ def create_backup(
             payload["name"] = name
 
         if not json_out and not output.is_pipe():
-            with Live(Spinner("dots", text="[llx.dim]Creating backup...[/llx.dim]"), console=console, transient=True):
+            with Live(
+                Spinner("dots", text="[llx.dim]Creating backup...[/llx.dim]"),
+                console=console,
+                transient=True,
+            ):
                 data = client.post("/api/backups/create", json=payload)
         else:
             data = client.post("/api/backups/create", json=payload)
@@ -75,6 +81,7 @@ def list_backups(
             console.print("[llx.dim]No backups found.[/llx.dim]")
         else:
             from llx.theme import make_table
+
             table = make_table(title="Backups")
             table.add_column("Filename")
             for b in backups:
@@ -133,7 +140,9 @@ def restore_backup(
         raise typer.Exit(1)
 
     if not force and not json_out:
-        confirm = typer.confirm(f"Restore from {file.name}? This will overwrite existing data")
+        confirm = typer.confirm(
+            f"Restore from {file.name}? This will overwrite existing data"
+        )
         if not confirm:
             console.print("[llx.dim]Cancelled.[/llx.dim]")
             raise typer.Exit(0)
@@ -145,7 +154,11 @@ def restore_backup(
         from rich.spinner import Spinner
 
         if not json_out and not output.is_pipe():
-            with Live(Spinner("dots", text="[llx.dim]Restoring backup...[/llx.dim]"), console=console, transient=True):
+            with Live(
+                Spinner("dots", text="[llx.dim]Restoring backup...[/llx.dim]"),
+                console=console,
+                transient=True,
+            ):
                 data = client.upload("/api/backups/restore", file)
         else:
             data = client.upload("/api/backups/restore", file)

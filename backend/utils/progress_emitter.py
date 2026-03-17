@@ -11,9 +11,11 @@ from .unified_progress_system import get_unified_progress, ProcessType
 
 logger = logging.getLogger(__name__)
 
+
 def _get_socketio():
     """Legacy function - not needed in unified system"""
     return None
+
 
 def emit_progress_event(
     process_id: str,
@@ -21,11 +23,11 @@ def emit_progress_event(
     message: str,
     status: str = "processing",
     process_type: str = "unknown",
-    additional_data: Optional[Dict[str, Any]] = None
+    additional_data: Optional[Dict[str, Any]] = None,
 ):
     """
     Emit a unified progress event - routes to unified progress system.
-    
+
     Args:
         process_id: Unique identifier for the process
         progress: Progress percentage (0-100)
@@ -36,7 +38,7 @@ def emit_progress_event(
     """
     try:
         progress_system = get_unified_progress()
-        
+
         # Map old process types to new ProcessType enum
         process_type_mapping = {
             "indexing": ProcessType.INDEXING,
@@ -53,11 +55,11 @@ def emit_progress_event(
             "document_processing": ProcessType.DOCUMENT_PROCESSING,
             "csv_processing": ProcessType.CSV_PROCESSING,
             "processing": ProcessType.UNKNOWN,
-            "unknown": ProcessType.UNKNOWN
+            "unknown": ProcessType.UNKNOWN,
         }
-        
+
         process_type_enum = process_type_mapping.get(process_type, ProcessType.UNKNOWN)
-        
+
         # Handle different status types
         if status == "start":
             # Create or update process
@@ -65,13 +67,15 @@ def emit_progress_event(
             if not existing_process:
                 # Use process_id as custom ID if provided (for training jobs, etc.)
                 progress_system.create_process(
-                    process_type_enum, 
-                    message, 
+                    process_type_enum,
+                    message,
                     additional_data,
-                    process_id=process_id  # Use the provided process_id
+                    process_id=process_id,  # Use the provided process_id
                 )
             else:
-                progress_system.update_process(process_id, progress, message, additional_data)
+                progress_system.update_process(
+                    process_id, progress, message, additional_data
+                )
         elif status == "complete":
             progress_system.complete_process(process_id, message, additional_data)
         elif status == "error":
@@ -83,23 +87,25 @@ def emit_progress_event(
             existing_process = progress_system.get_process(process_id)
             if not existing_process:
                 progress_system.create_process(
-                    process_type_enum,
-                    message,
-                    additional_data,
-                    process_id=process_id
+                    process_type_enum, message, additional_data, process_id=process_id
                 )
-            progress_system.update_process(process_id, progress, message, additional_data)
-            
-        logger.debug(f"Emitted unified progress event for {process_id}: {progress}% - {message}")
-            
+            progress_system.update_process(
+                process_id, progress, message, additional_data
+            )
+
+        logger.debug(
+            f"Emitted unified progress event for {process_id}: {progress}% - {message}"
+        )
+
     except Exception as e:
         logger.error(f"Failed to emit progress event: {e}")
+
 
 def create_progress_tracker(process_type: str, description: str = "") -> str:
     """Create a progress tracker - routes to unified progress system"""
     try:
         progress_system = get_unified_progress()
-        
+
         # Map string to ProcessType enum
         process_type_mapping = {
             "indexing": ProcessType.INDEXING,
@@ -116,22 +122,31 @@ def create_progress_tracker(process_type: str, description: str = "") -> str:
             "document_processing": ProcessType.DOCUMENT_PROCESSING,
             "csv_processing": ProcessType.CSV_PROCESSING,
             "processing": ProcessType.UNKNOWN,
-            "unknown": ProcessType.UNKNOWN
+            "unknown": ProcessType.UNKNOWN,
         }
-        
+
         process_type_enum = process_type_mapping.get(process_type, ProcessType.UNKNOWN)
-        
+
         process_id = progress_system.create_process(process_type_enum, description)
-        logger.info(f"Created progress tracker {process_id} via unified progress system")
+        logger.info(
+            f"Created progress tracker {process_id} via unified progress system"
+        )
         return process_id
-        
+
     except Exception as e:
         logger.error(f"Failed to create progress tracker: {e}")
         # Fallback to simple ID generation
         import uuid
+
         return str(uuid.uuid4())
 
-def update_progress(process_id: str, progress: int, message: str, additional_data: Optional[Dict[str, Any]] = None):
+
+def update_progress(
+    process_id: str,
+    progress: int,
+    message: str,
+    additional_data: Optional[Dict[str, Any]] = None,
+):
     """Update progress - routes to unified progress system"""
     try:
         progress_system = get_unified_progress()
@@ -140,7 +155,12 @@ def update_progress(process_id: str, progress: int, message: str, additional_dat
     except Exception as e:
         logger.error(f"Failed to update progress: {e}")
 
-def complete_progress(process_id: str, message: str = "Complete", additional_data: Optional[Dict[str, Any]] = None):
+
+def complete_progress(
+    process_id: str,
+    message: str = "Complete",
+    additional_data: Optional[Dict[str, Any]] = None,
+):
     """Complete progress - routes to unified progress system"""
     try:
         progress_system = get_unified_progress()
@@ -149,7 +169,12 @@ def complete_progress(process_id: str, message: str = "Complete", additional_dat
     except Exception as e:
         logger.error(f"Failed to complete progress: {e}")
 
-def error_progress(process_id: str, message: str = "Error", additional_data: Optional[Dict[str, Any]] = None):
+
+def error_progress(
+    process_id: str,
+    message: str = "Error",
+    additional_data: Optional[Dict[str, Any]] = None,
+):
     """Error progress - routes to unified progress system"""
     try:
         progress_system = get_unified_progress()
@@ -158,7 +183,12 @@ def error_progress(process_id: str, message: str = "Error", additional_data: Opt
     except Exception as e:
         logger.error(f"Failed to set error progress: {e}")
 
-def cancel_progress(process_id: str, message: str = "Cancelled", additional_data: Optional[Dict[str, Any]] = None):
+
+def cancel_progress(
+    process_id: str,
+    message: str = "Cancelled",
+    additional_data: Optional[Dict[str, Any]] = None,
+):
     """Cancel progress - routes to unified progress system"""
     try:
         progress_system = get_unified_progress()
@@ -192,9 +222,16 @@ class ProgressTracker:
             complete_progress(self.process_id, "Complete")
         return False  # Don't suppress exceptions
 
-    def update(self, progress: int, message: str, additional_data: Optional[Dict[str, Any]] = None):
+    def update(
+        self,
+        progress: int,
+        message: str,
+        additional_data: Optional[Dict[str, Any]] = None,
+    ):
         """Update progress"""
         update_progress(self.process_id, progress, message, additional_data)
 
 
-logger.info("Progress emitter compatibility layer loaded - routing to unified progress system")
+logger.info(
+    "Progress emitter compatibility layer loaded - routing to unified progress system"
+)

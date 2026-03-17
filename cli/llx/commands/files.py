@@ -47,7 +47,9 @@ def files_list(
             doc_id = d.get("id", "")
             size = d.get("size", 0)
             size_str = _format_size(size) if size else ""
-            tree.add(f"[llx.tree.file]{name}[/llx.tree.file]  [llx.tree.meta]{size_str}  id:{doc_id}[/llx.tree.meta]")
+            tree.add(
+                f"[llx.tree.file]{name}[/llx.tree.file]  [llx.tree.meta]{size_str}  id:{doc_id}[/llx.tree.meta]"
+            )
         console.print(tree)
 
     except (LlxConnectionError, LlxError) as e:
@@ -60,7 +62,9 @@ def files_upload(
     file_path: Path = typer.Argument(..., help="File to upload", exists=True),
     folder: str = typer.Option(None, "--folder", "-f", help="Target folder path"),
     tags: str = typer.Option(None, "--tags", "-t", help="Comma-separated tags"),
-    index: bool = typer.Option(True, "--index/--no-index", help="Trigger indexing after upload (default: on)"),
+    index: bool = typer.Option(
+        True, "--index/--no-index", help="Trigger indexing after upload (default: on)"
+    ),
     server: str = typer.Option(None, "--server", "-s"),
     json_out: bool = typer.Option(False, "--json", "-j"),
 ):
@@ -157,7 +161,9 @@ def files_mkdir(
     output.set_json_mode(json_out)
     try:
         client = get_client(server)
-        data = client.post("/api/files/folder", json={"name": name, "parent_id": parent})
+        data = client.post(
+            "/api/files/folder", json={"name": name, "parent_id": parent}
+        )
         result = data.get("data", data)
         if json_out or output.is_pipe():
             output.print_json(result)

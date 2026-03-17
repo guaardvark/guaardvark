@@ -109,10 +109,14 @@ def ensure_folder(
     parent_path = ""
     if "/" in path_rel:
         parent_path = path_rel.rsplit("/", 1)[0]
-    parent_folder = ensure_folder(db, FolderModel, parent_path, cache) if parent_path else None
+    parent_folder = (
+        ensure_folder(db, FolderModel, parent_path, cache) if parent_path else None
+    )
 
     name = path_rel.split("/")[-1]
-    folder = FolderModel(name=name, path=path_rel, parent_id=parent_folder.id if parent_folder else None)
+    folder = FolderModel(
+        name=name, path=path_rel, parent_id=parent_folder.id if parent_folder else None
+    )
     db.session.add(folder)
     db.session.commit()
     cache[path_rel] = folder
@@ -151,11 +155,16 @@ def main():
 
     from backend.app import app
     from backend.models import db, Folder as FolderModel, Document as DocumentModel
-    from backend.services.indexing_service import add_file_to_index, update_document_status
+    from backend.services.indexing_service import (
+        add_file_to_index,
+        update_document_status,
+    )
 
     source_dir = Path(args.source).expanduser().resolve()
     if not source_dir.exists() or not source_dir.is_dir():
-        logger.error("Source directory does not exist or is not a directory: %s", source_dir)
+        logger.error(
+            "Source directory does not exist or is not a directory: %s", source_dir
+        )
         sys.exit(1)
 
     with app.app_context():
@@ -163,7 +172,9 @@ def main():
         logger.info("Uploads directory: %s", uploads_dir)
         logger.info("Source directory : %s", source_dir)
 
-        copy_mode, in_place_base_rel = determine_mode(uploads_dir, source_dir, args.force_copy)
+        copy_mode, in_place_base_rel = determine_mode(
+            uploads_dir, source_dir, args.force_copy
+        )
         if copy_mode:
             logger.info("Mode: COPY into uploads/ under target '%s'", args.target)
         else:
@@ -188,7 +199,9 @@ def main():
         logger.info("Found %d files to consider for import.", len(all_files))
 
         if args.dry_run:
-            logger.info("Dry run enabled. No filesystem or database changes will be made.")
+            logger.info(
+                "Dry run enabled. No filesystem or database changes will be made."
+            )
 
         folder_cache: Dict[str, FolderModel] = {}
         processed_docs = 0
@@ -199,11 +212,15 @@ def main():
         for idx, file_path in enumerate(all_files, start=1):
             if copy_mode:
                 rel_from_source = file_path.parent.relative_to(source_dir)
-                rel_from_source_str = "" if str(rel_from_source) == "." else rel_from_source.as_posix()
+                rel_from_source_str = (
+                    "" if str(rel_from_source) == "." else rel_from_source.as_posix()
+                )
 
                 if target_root_rel:
                     folder_rel = normalize_rel_path(
-                        f"{target_root_rel}/{rel_from_source_str}" if rel_from_source_str else target_root_rel
+                        f"{target_root_rel}/{rel_from_source_str}"
+                        if rel_from_source_str
+                        else target_root_rel
                     )
                 else:
                     folder_rel = normalize_rel_path(rel_from_source_str)
@@ -221,7 +238,9 @@ def main():
                 folder_rel = normalize_rel_path(rel_in_uploads)
                 dest_file_path = file_path
                 doc_path_rel = normalize_rel_path(
-                    f"{rel_in_uploads}/{file_path.name}" if rel_in_uploads else file_path.name
+                    f"{rel_in_uploads}/{file_path.name}"
+                    if rel_in_uploads
+                    else file_path.name
                 )
 
             logger.info(
@@ -240,13 +259,15 @@ def main():
                     shutil.copy2(file_path, dest_file_path)
                     logger.info("Copied to %s", dest_file_path)
                 else:
-                    logger.info("Destination file already exists, reusing: %s", dest_file_path)
+                    logger.info(
+                        "Destination file already exists, reusing: %s", dest_file_path
+                    )
 
             folder_obj = ensure_folder(db, FolderModel, folder_rel, folder_cache)
 
-            existing_doc: Optional[DocumentModel] = (
-                DocumentModel.query.filter_by(path=doc_path_rel).first()
-            )
+            existing_doc: Optional[DocumentModel] = DocumentModel.query.filter_by(
+                path=doc_path_rel
+            ).first()
 
             if existing_doc:
                 processed_docs += 1
@@ -263,7 +284,9 @@ def main():
                     )
                     try:
                         update_document_status(existing_doc.id, "INDEXING")
-                        success = add_file_to_index(str(dest_file_path), existing_doc, progress_callback=None)
+                        success = add_file_to_index(
+                            str(dest_file_path), existing_doc, progress_callback=None
+                        )
                         if success:
                             update_document_status(existing_doc.id, "INDEXED")
                             indexed_docs += 1
@@ -275,7 +298,9 @@ def main():
                                 "Bulk import reindex failed",
                             )
                     except Exception as e:
-                        logger.exception("Reindexing failed for document %s: %s", existing_doc.id, e)
+                        logger.exception(
+                            "Reindexing failed for document %s: %s", existing_doc.id, e
+                        )
                         update_document_status(
                             existing_doc.id,
                             "ERROR",
@@ -285,7 +310,9 @@ def main():
                     skipped_existing += 1
                 continue
 
-            file_size = dest_file_path.stat().st_size if dest_file_path.exists() else None
+            file_size = (
+                dest_file_path.stat().st_size if dest_file_path.exists() else None
+            )
             doc = DocumentModel(
                 filename=file_path.name,
                 path=doc_path_rel,
@@ -304,7 +331,9 @@ def main():
 
             try:
                 update_document_status(doc.id, "INDEXING")
-                success = add_file_to_index(str(dest_file_path), doc, progress_callback=None)
+                success = add_file_to_index(
+                    str(dest_file_path), doc, progress_callback=None
+                )
                 if success:
                     update_document_status(doc.id, "INDEXED")
                     indexed_docs += 1
@@ -331,4 +360,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

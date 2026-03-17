@@ -4,14 +4,12 @@ import logging
 import os
 
 from flask import Blueprint, current_app, jsonify, request
-from llama_index.core import (StorageContext, VectorStoreIndex,
-                              load_index_from_storage)
+from llama_index.core import StorageContext, VectorStoreIndex, load_index_from_storage
 from llama_index.core.query_engine import RetrieverQueryEngine
 
 from backend.config import STORAGE_DIR
 from backend.models import Document, db
-from backend.services.metadata_service import (get_docs_by_project,
-                                               get_docs_by_tag)
+from backend.services.metadata_service import get_docs_by_project, get_docs_by_tag
 
 # Use centralized query engine utilities
 from backend.utils.query_engine_wrapper import get_query_engine
@@ -24,6 +22,7 @@ logger = logging.getLogger("backend.api.search_api")
 
 # Removed duplicate get_query_engine function - using centralized wrapper instead
 
+
 @search_bp.route("/semantic", methods=["POST"])
 def search_semantic():
     data = request.get_json()
@@ -35,11 +34,11 @@ def search_semantic():
         storage_context = StorageContext.from_defaults(persist_dir=STORAGE_DIR)
         index = load_index_from_storage(storage_context)
         query_engine = get_query_engine(index)
-        
+
         if not query_engine:
             logger.error("Failed to create query engine from centralized wrapper")
             return jsonify({"error": "Query engine initialization failed"}), 500
-        
+
         result = query_engine.query(query)
 
         if not result or not result.source_nodes:
@@ -68,7 +67,11 @@ def search_semantic():
     except Exception as e:
         err_msg = str(e)
         # Friendly message when vector index was built with different embedding dimensions (e.g. 384 vs 4096)
-        if "not aligned" in err_msg or "dim 0" in err_msg or ("4096" in err_msg and "384" in err_msg):
+        if (
+            "not aligned" in err_msg
+            or "dim 0" in err_msg
+            or ("4096" in err_msg and "384" in err_msg)
+        ):
             logger.warning(
                 "Semantic search failed due to embedding dimension mismatch. "
                 "Suggest user reset/rebuild index: %s",

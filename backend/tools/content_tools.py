@@ -29,34 +29,34 @@ class WordPressContentTool(BaseTool):
             name="client",
             type="string",
             required=True,
-            description="Client/company name for content personalization"
+            description="Client/company name for content personalization",
         ),
         "website": ToolParameter(
             name="website",
             type="string",
             required=False,
             description="Client website URL for context",
-            default=""
+            default="",
         ),
         "topic": ToolParameter(
             name="topic",
             type="string",
             required=True,
-            description="Content topic or subject to write about"
+            description="Content topic or subject to write about",
         ),
         "row_id": ToolParameter(
             name="row_id",
             type="int",
             required=True,
-            description="Unique row ID for the CSV entry"
+            description="Unique row ID for the CSV entry",
         ),
         "word_count": ToolParameter(
             name="word_count",
             type="int",
             required=False,
             description="Target word count for the content section",
-            default=500
-        )
+            default=500,
+        ),
     }
 
     def __init__(self):
@@ -68,6 +68,7 @@ class WordPressContentTool(BaseTool):
         if self._llm is None:
             try:
                 from backend.utils.llm_service import get_default_llm
+
                 self._llm = get_default_llm()
             except Exception as e:
                 logger.error(f"Failed to initialize LLM: {e}")
@@ -110,6 +111,7 @@ GENERATE THE SINGLE CSV DATA ROW NOW:"""
 
             # Call LLM
             from backend.utils.llm_service import ChatMessage, MessageRole
+
             messages = [ChatMessage(role=MessageRole.USER, content=prompt)]
             response = llm.chat(messages)
 
@@ -117,18 +119,30 @@ GENERATE THE SINGLE CSV DATA ROW NOW:"""
                 try:
                     csv_content = str(response.message.content).strip()
                 except (ValueError, AttributeError):
-                    blocks = getattr(response.message, 'blocks', [])
-                    csv_content = next((getattr(b, 'text', str(b)) for b in blocks if getattr(b, 'text', None)), "")
+                    blocks = getattr(response.message, "blocks", [])
+                    csv_content = next(
+                        (
+                            getattr(b, "text", str(b))
+                            for b in blocks
+                            if getattr(b, "text", None)
+                        ),
+                        "",
+                    )
                     csv_content = csv_content.strip()
             else:
                 csv_content = ""
 
             # Validate response looks like CSV
             if not csv_content.startswith('"'):
-                logger.warning("Generated content doesn't look like CSV, attempting to extract")
+                logger.warning(
+                    "Generated content doesn't look like CSV, attempting to extract"
+                )
                 # Try to find CSV-like content
                 import re
-                csv_match = re.search(r'"[^"]*","[^"]*","[^"]*","[^"]*","[^"]*","[^"]*"', csv_content)
+
+                csv_match = re.search(
+                    r'"[^"]*","[^"]*","[^"]*","[^"]*","[^"]*","[^"]*"', csv_content
+                )
                 if csv_match:
                     csv_content = csv_match.group(0)
 
@@ -140,15 +154,14 @@ GENERATE THE SINGLE CSV DATA ROW NOW:"""
                     "topic": topic,
                     "row_id": row_id,
                     "word_count_target": word_count,
-                    "format": "csv_row"
-                }
+                    "format": "csv_row",
+                },
             )
 
         except Exception as e:
             logger.error(f"WordPress content generation failed: {e}", exc_info=True)
             return ToolResult(
-                success=False,
-                error=f"Content generation failed: {str(e)}"
+                success=False, error=f"Content generation failed: {str(e)}"
             )
 
 
@@ -168,69 +181,63 @@ class EnhancedWordPressContentTool(BaseTool):
             name="client",
             type="string",
             required=True,
-            description="Client/company name"
+            description="Client/company name",
         ),
         "website": ToolParameter(
             name="website",
             type="string",
             required=False,
             description="Client website URL",
-            default=""
+            default="",
         ),
         "topic": ToolParameter(
-            name="topic",
-            type="string",
-            required=True,
-            description="Content topic"
+            name="topic", type="string", required=True, description="Content topic"
         ),
         "row_id": ToolParameter(
-            name="row_id",
-            type="int",
-            required=True,
-            description="Unique row ID"
+            name="row_id", type="int", required=True, description="Unique row ID"
         ),
         "industry": ToolParameter(
             name="industry",
             type="string",
             required=False,
             description="Client industry for context",
-            default=""
+            default="",
         ),
         "primary_service": ToolParameter(
             name="primary_service",
             type="string",
             required=False,
             description="Client's primary service offering",
-            default=""
+            default="",
         ),
         "secondary_service": ToolParameter(
             name="secondary_service",
             type="string",
             required=False,
             description="Client's secondary service offering",
-            default=""
+            default="",
         ),
         "target_audience": ToolParameter(
             name="target_audience",
             type="string",
             required=False,
             description="Target audience for content",
-            default=""
+            default="",
         ),
         "brand_tone": ToolParameter(
             name="brand_tone",
             type="string",
             required=False,
             description="Brand voice/tone",
-            default="professional"
+            default="professional",
         ),
         "location": ToolParameter(
             name="location",
             type="string",
             required=False,
             description="Geographic location for local SEO",
-            default=""
-        )
+            default="",
+        ),
     }
 
     def __init__(self):
@@ -240,6 +247,7 @@ class EnhancedWordPressContentTool(BaseTool):
     def _get_llm(self):
         if self._llm is None:
             from backend.utils.llm_service import get_default_llm
+
             self._llm = get_default_llm()
         return self._llm
 
@@ -299,6 +307,7 @@ TASK: Generate professional CSV content for {client}: {website}
 Generate the single CSV row now:"""
 
             from backend.utils.llm_service import ChatMessage, MessageRole
+
             messages = [ChatMessage(role=MessageRole.USER, content=prompt)]
             response = llm.chat(messages)
 
@@ -306,8 +315,15 @@ Generate the single CSV row now:"""
                 try:
                     csv_content = str(response.message.content).strip()
                 except (ValueError, AttributeError):
-                    blocks = getattr(response.message, 'blocks', [])
-                    csv_content = next((getattr(b, 'text', str(b)) for b in blocks if getattr(b, 'text', None)), "")
+                    blocks = getattr(response.message, "blocks", [])
+                    csv_content = next(
+                        (
+                            getattr(b, "text", str(b))
+                            for b in blocks
+                            if getattr(b, "text", None)
+                        ),
+                        "",
+                    )
                     csv_content = csv_content.strip()
             else:
                 csv_content = ""
@@ -321,13 +337,14 @@ Generate the single CSV row now:"""
                     "row_id": row_id,
                     "industry": industry,
                     "primary_service": primary_service,
-                    "format": "csv_row_enhanced"
-                }
+                    "format": "csv_row_enhanced",
+                },
             )
 
         except Exception as e:
-            logger.error(f"Enhanced WordPress content generation failed: {e}", exc_info=True)
+            logger.error(
+                f"Enhanced WordPress content generation failed: {e}", exc_info=True
+            )
             return ToolResult(
-                success=False,
-                error=f"Enhanced content generation failed: {str(e)}"
+                success=False, error=f"Enhanced content generation failed: {str(e)}"
             )

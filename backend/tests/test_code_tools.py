@@ -1,4 +1,5 @@
 """Unit tests for code manipulation tools (sandbox-based, no LLM)."""
+
 import os
 import sys
 import pytest
@@ -23,6 +24,7 @@ class TestReadCode:
     def test_read_existing_file(self, sandbox_file):
         from backend.tools.llama_code_tools import read_code
         import backend.tools.llama_code_tools as mod
+
         orig = _patch_root(mod, sandbox_file.parent)
         try:
             result = read_code(sandbox_file.name)
@@ -34,16 +36,22 @@ class TestReadCode:
     def test_read_nonexistent_file(self, sandbox_dir):
         from backend.tools.llama_code_tools import read_code
         import backend.tools.llama_code_tools as mod
+
         orig = _patch_root(mod, sandbox_dir)
         try:
             result = read_code("nonexistent_file_xyz.py")
-            assert "error" in result.lower() or "not found" in result.lower() or "does not exist" in result.lower()
+            assert (
+                "error" in result.lower()
+                or "not found" in result.lower()
+                or "does not exist" in result.lower()
+            )
         finally:
             mod.PROJECT_ROOT = orig
 
     def test_read_rejects_path_traversal(self, sandbox_dir):
         from backend.tools.llama_code_tools import read_code
         import backend.tools.llama_code_tools as mod
+
         orig = _patch_root(mod, sandbox_dir)
         try:
             result = read_code("../../etc/passwd")
@@ -59,6 +67,7 @@ class TestSearchCode:
     def test_search_finds_pattern(self, sandbox_dir):
         from backend.tools.llama_code_tools import search_code
         import backend.tools.llama_code_tools as mod
+
         orig = _patch_root(mod, sandbox_dir)
         try:
             result = search_code("def hello", "**/*.py")
@@ -69,10 +78,15 @@ class TestSearchCode:
     def test_search_no_matches(self, sandbox_dir):
         from backend.tools.llama_code_tools import search_code
         import backend.tools.llama_code_tools as mod
+
         orig = _patch_root(mod, sandbox_dir)
         try:
             result = search_code("xyznonexistentpattern123", "**/*.py")
-            assert "no matches" in result.lower() or "0 match" in result.lower() or result.strip() == ""
+            assert (
+                "no matches" in result.lower()
+                or "0 match" in result.lower()
+                or result.strip() == ""
+            )
         finally:
             mod.PROJECT_ROOT = orig
 
@@ -83,6 +97,7 @@ class TestEditCode:
     def test_edit_replaces_text(self, sandbox_file):
         from backend.tools.llama_code_tools import edit_code
         import backend.tools.llama_code_tools as mod
+
         orig = _patch_root(mod, sandbox_file.parent)
         try:
             result = edit_code(sandbox_file.name, 'return "world"', 'return "universe"')
@@ -96,6 +111,7 @@ class TestEditCode:
     def test_edit_creates_backup(self, sandbox_file):
         from backend.tools.llama_code_tools import edit_code
         import backend.tools.llama_code_tools as mod
+
         orig = _patch_root(mod, sandbox_file.parent)
         try:
             edit_code(sandbox_file.name, 'return "world"', 'return "backup_test"')
@@ -109,9 +125,12 @@ class TestEditCode:
     def test_edit_rejects_nonexistent_text(self, sandbox_file):
         from backend.tools.llama_code_tools import edit_code
         import backend.tools.llama_code_tools as mod
+
         orig = _patch_root(mod, sandbox_file.parent)
         try:
-            result = edit_code(sandbox_file.name, "THIS TEXT DOES NOT EXIST", "replacement")
+            result = edit_code(
+                sandbox_file.name, "THIS TEXT DOES NOT EXIST", "replacement"
+            )
             assert "error" in result.lower() or "not found" in result.lower()
         finally:
             mod.PROJECT_ROOT = orig
@@ -121,6 +140,7 @@ class TestEditCode:
         target.write_text("def foo():\n    x = 1\n    y = 2\n    return x + y\n")
         from backend.tools.llama_code_tools import edit_code
         import backend.tools.llama_code_tools as mod
+
         orig = _patch_root(mod, sandbox_dir)
         try:
             edit_code("multiline.py", "    x = 1\n    y = 2", "    x = 10\n    y = 20")
@@ -137,6 +157,7 @@ class TestVerifyChange:
     def test_verify_text_present(self, sandbox_file):
         from backend.tools.llama_code_tools import verify_change
         import backend.tools.llama_code_tools as mod
+
         orig = _patch_root(mod, sandbox_file.parent)
         try:
             result = verify_change(sandbox_file.name, "hello", should_exist=True)
@@ -147,9 +168,12 @@ class TestVerifyChange:
     def test_verify_text_absent(self, sandbox_file):
         from backend.tools.llama_code_tools import verify_change
         import backend.tools.llama_code_tools as mod
+
         orig = _patch_root(mod, sandbox_file.parent)
         try:
-            result = verify_change(sandbox_file.name, "nonexistent_text_xyz", should_exist=False)
+            result = verify_change(
+                sandbox_file.name, "nonexistent_text_xyz", should_exist=False
+            )
             assert "error" not in result.lower()
         finally:
             mod.PROJECT_ROOT = orig
@@ -161,6 +185,7 @@ class TestListFiles:
     def test_list_files_shows_contents(self, sandbox_dir):
         from backend.tools.llama_code_tools import list_files
         import backend.tools.llama_code_tools as mod
+
         orig = _patch_root(mod, sandbox_dir.parent)
         try:
             result = list_files(sandbox_dir.name)

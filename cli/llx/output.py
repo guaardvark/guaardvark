@@ -7,7 +7,14 @@ from typing import Any
 from rich.markdown import Markdown
 from rich.syntax import Syntax
 
-from llx.theme import make_console, make_table, make_panel, ICON_SUCCESS, ICON_ERROR, ICON_WARNING
+from llx.theme import (
+    make_console,
+    make_table,
+    make_panel,
+    ICON_SUCCESS,
+    ICON_ERROR,
+    ICON_WARNING,
+)
 
 _json_mode = False
 _console = make_console(stderr=True)
@@ -40,7 +47,9 @@ def print_json(data: Any):
     print(json.dumps(data, indent=2, default=str))
 
 
-def print_table(rows: list[dict], columns: list[str] | None = None, title: str | None = None):
+def print_table(
+    rows: list[dict], columns: list[str] | None = None, title: str | None = None
+):
     """Render a Rich table, or JSON in json/pipe mode."""
     if _json_mode or is_pipe():
         print_json(rows)

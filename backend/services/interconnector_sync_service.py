@@ -10,9 +10,17 @@ import os
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
 from backend.models import (
-    db, Client, Project, Rule, Task, Document, Website,
-    InterconnectorSyncHistory, InterconnectorConflict, InterconnectorPendingChange,
-    project_rules_association
+    db,
+    Client,
+    Project,
+    Rule,
+    Task,
+    Document,
+    Website,
+    InterconnectorSyncHistory,
+    InterconnectorConflict,
+    InterconnectorPendingChange,
+    project_rules_association,
 )
 
 logger = logging.getLogger(__name__)
@@ -34,6 +42,7 @@ class InterconnectorSyncService:
 
     def _serialize_learning(self, learning):
         from backend.models import InterconnectorLearning
+
         return {
             "id": learning.id,
             "source_node_id": learning.source_node_id,
@@ -45,16 +54,28 @@ class InterconnectorSyncService:
             "model_used": learning.model_used,
             "uncle_reviewed": learning.uncle_reviewed,
             "uncle_feedback": learning.uncle_feedback,
-            "_sync_metadata": {"entity_type": "learnings", "sync_id": f"learning_{learning.id}"},
+            "_sync_metadata": {
+                "entity_type": "learnings",
+                "sync_id": f"learning_{learning.id}",
+            },
         }
 
     def broadcast_directive(self, directive: str, reason: str):
         """Broadcast an Uncle Claude directive to all connected nodes."""
-        from backend.models import db, InterconnectorNode, InterconnectorBroadcast, InterconnectorBroadcastTarget
+        from backend.models import (
+            db,
+            InterconnectorNode,
+            InterconnectorBroadcast,
+            InterconnectorBroadcastTarget,
+        )
         import requests
 
         local_node_id = os.environ.get("GUAARDVARK_NODE_ID", "local")
-        nodes = db.session.query(InterconnectorNode).filter(InterconnectorNode.status == "active").all()
+        nodes = (
+            db.session.query(InterconnectorNode)
+            .filter(InterconnectorNode.status == "active")
+            .all()
+        )
         broadcast = InterconnectorBroadcast(
             broadcast_type="uncle_directive",
             payload=json.dumps({"directive": directive, "reason": reason}),
@@ -67,9 +88,14 @@ class InterconnectorSyncService:
         config = {}
         try:
             from backend.models import Setting
+
             setting = db.session.get(Setting, "interconnector_config")
             if setting:
-                config = json.loads(setting.value) if isinstance(setting.value, str) else setting.value
+                config = (
+                    json.loads(setting.value)
+                    if isinstance(setting.value, str)
+                    else setting.value
+                )
         except Exception:
             pass
         api_key = config.get("api_key", "")
@@ -110,7 +136,7 @@ class InterconnectorSyncService:
         if not serializer:
             logger.warning(f"Unsupported entity type for sync: {entity_type}")
             return None
-        
+
         try:
             return serializer(entity)
         except Exception as e:
@@ -125,12 +151,12 @@ class InterconnectorSyncService:
             "rules": self._deserialize_rule,
             "websites": self._deserialize_website,
         }
-        
+
         deserializer = deserializers.get(entity_type)
         if not deserializer:
             logger.warning(f"Unsupported entity type for deserialize: {entity_type}")
             return None
-        
+
         try:
             return deserializer(data)
         except Exception as e:
@@ -138,13 +164,11 @@ class InterconnectorSyncService:
             return None
 
     def get_entities_for_sync(
-        self, 
-        entity_type: str, 
-        since: Optional[datetime] = None
+        self, entity_type: str, since: Optional[datetime] = None
     ) -> List[Dict]:
         """Get entities of a given type that need to be synced."""
         entities = []
-        
+
         try:
             if entity_type == "clients":
                 query = db.session.query(Client)
@@ -154,7 +178,7 @@ class InterconnectorSyncService:
                     serialized = self._serialize_client(client)
                     if serialized:
                         entities.append(serialized)
-            
+
             elif entity_type == "projects":
                 query = db.session.query(Project)
                 if since:
@@ -163,7 +187,7 @@ class InterconnectorSyncService:
                     serialized = self._serialize_project(project)
                     if serialized:
                         entities.append(serialized)
-            
+
             elif entity_type == "websites":
                 query = db.session.query(Website)
                 if since:
@@ -172,7 +196,7 @@ class InterconnectorSyncService:
                     serialized = self._serialize_website(website)
                     if serialized:
                         entities.append(serialized)
-            
+
             elif entity_type == "rules":
                 query = db.session.query(Rule)
                 if since:
@@ -181,48 +205,54 @@ class InterconnectorSyncService:
                     serialized = self._serialize_rule(rule)
                     if serialized:
                         entities.append(serialized)
-        
+
         except Exception as e:
             logger.error(f"Error getting entities for sync ({entity_type}): {e}")
-        
+
         return entities
 
     def apply_entity(
-        self, 
-        entity_type: str, 
+        self,
+        entity_type: str,
         entity_data: Dict,
         conflict_strategy: str = "last_write_wins",
-        node_id: Optional[str] = None
+        node_id: Optional[str] = None,
     ) -> Tuple[bool, Optional[str], Dict]:
         """
         Apply an entity to the local database.
-        
+
         Args:
             entity_type: Type of entity (clients, projects, rules)
             entity_data: Serialized entity data
             conflict_strategy: How to handle conflicts (last_write_wins, manual)
             node_id: ID of the node this entity came from (for conflict tracking)
-        
+
         Returns:
             Tuple of (success, conflict_id if conflict, stats dict)
         """
         stats = {"created": False, "updated": False, "skipped": False}
         conflict_id = None
-        
+
         try:
             if entity_type == "clients":
-                return self._apply_client(entity_data, conflict_strategy, stats, node_id)
+                return self._apply_client(
+                    entity_data, conflict_strategy, stats, node_id
+                )
             elif entity_type == "projects":
-                return self._apply_project(entity_data, conflict_strategy, stats, node_id)
+                return self._apply_project(
+                    entity_data, conflict_strategy, stats, node_id
+                )
             elif entity_type == "rules":
                 return self._apply_rule(entity_data, conflict_strategy, stats, node_id)
             elif entity_type == "websites":
-                return self._apply_website(entity_data, conflict_strategy, stats, node_id)
+                return self._apply_website(
+                    entity_data, conflict_strategy, stats, node_id
+                )
             else:
                 logger.warning(f"Unsupported entity type for apply: {entity_type}")
                 stats["skipped"] = True
                 return False, None, stats
-        
+
         except Exception as e:
             logger.error(f"Error applying {entity_type}: {e}")
             return False, None, stats
@@ -260,7 +290,7 @@ class InterconnectorSyncService:
             "_sync_metadata": {
                 "entity_type": "clients",
                 "sync_id": f"client_{client.id}",
-            }
+            },
         }
 
     def _serialize_project(self, project: Project) -> Dict:
@@ -275,19 +305,27 @@ class InterconnectorSyncService:
             "content_strategy": project.content_strategy,
             "deliverables": project.deliverables,
             "seo_strategy": project.seo_strategy,
-            "created_at": project.created_at.isoformat() if project.created_at else None,
-            "updated_at": project.updated_at.isoformat() if project.updated_at else None,
+            "created_at": (
+                project.created_at.isoformat() if project.created_at else None
+            ),
+            "updated_at": (
+                project.updated_at.isoformat() if project.updated_at else None
+            ),
             "_sync_metadata": {
                 "entity_type": "projects",
                 "sync_id": f"project_{project.id}",
-            }
+            },
         }
 
     def _serialize_rule(self, rule: Rule) -> Dict:
         """Serialize a Rule entity."""
         # Get linked project IDs
-        project_ids = [p.id for p in rule.linked_projects.all()] if hasattr(rule, 'linked_projects') else []
-        
+        project_ids = (
+            [p.id for p in rule.linked_projects.all()]
+            if hasattr(rule, "linked_projects")
+            else []
+        )
+
         return {
             "id": rule.id,
             "name": rule.name,
@@ -307,7 +345,7 @@ class InterconnectorSyncService:
             "_sync_metadata": {
                 "entity_type": "rules",
                 "sync_id": f"rule_{rule.id}",
-            }
+            },
         }
 
     def _serialize_website(self, website: Website) -> Dict:
@@ -318,15 +356,21 @@ class InterconnectorSyncService:
             "sitemap": website.sitemap,
             "competitor_url": website.competitor_url,
             "status": website.status,
-            "last_crawled": website.last_crawled.isoformat() if website.last_crawled else None,
+            "last_crawled": (
+                website.last_crawled.isoformat() if website.last_crawled else None
+            ),
             "project_id": website.project_id,
             "client_id": website.client_id,
-            "created_at": website.created_at.isoformat() if website.created_at else None,
-            "updated_at": website.updated_at.isoformat() if website.updated_at else None,
+            "created_at": (
+                website.created_at.isoformat() if website.created_at else None
+            ),
+            "updated_at": (
+                website.updated_at.isoformat() if website.updated_at else None
+            ),
             "_sync_metadata": {
                 "entity_type": "websites",
                 "sync_id": f"website_{website.id}",
-            }
+            },
         }
 
     # --- Deserialization Methods ---
@@ -352,30 +396,36 @@ class InterconnectorSyncService:
     # --- Apply Methods ---
 
     def _apply_client(
-        self, 
-        data: Dict, 
+        self,
+        data: Dict,
         conflict_strategy: str,
         stats: Dict,
-        node_id: Optional[str] = None
+        node_id: Optional[str] = None,
     ) -> Tuple[bool, Optional[str], Dict]:
         """Apply a client entity to the database."""
         client_id = data.get("id")
         remote_updated = data.get("updated_at")
-        
+
         # Parse updated_at
         remote_updated_dt = None
         if remote_updated:
             try:
-                remote_updated_dt = datetime.fromisoformat(remote_updated.replace('Z', '+00:00'))
+                remote_updated_dt = datetime.fromisoformat(
+                    remote_updated.replace("Z", "+00:00")
+                )
             except Exception:
                 pass
-        
+
         existing_client = db.session.get(Client, client_id) if client_id else None
-        
+
         if existing_client:
             # Check for conflicts
             local_updated = existing_client.updated_at
-            if local_updated and remote_updated_dt and local_updated != remote_updated_dt:
+            if (
+                local_updated
+                and remote_updated_dt
+                and local_updated != remote_updated_dt
+            ):
                 # Conflict detected
                 if conflict_strategy == "last_write_wins":
                     # Use the one with later updated_at
@@ -390,7 +440,9 @@ class InterconnectorSyncService:
                         return True, None, stats
                 else:
                     # Manual merge - create conflict record
-                    conflict_id = self._create_conflict("clients", client_id, existing_client, data, node_id)
+                    conflict_id = self._create_conflict(
+                        "clients", client_id, existing_client, data, node_id
+                    )
                     return False, conflict_id, stats
             else:
                 # No conflict, update
@@ -409,7 +461,7 @@ class InterconnectorSyncService:
         data: Dict,
         conflict_strategy: str,
         stats: Dict,
-        node_id: Optional[str] = None
+        node_id: Optional[str] = None,
     ) -> Tuple[bool, Optional[str], Dict]:
         """Apply a website entity to the database."""
         website_id = data.get("id")
@@ -418,7 +470,9 @@ class InterconnectorSyncService:
         remote_updated_dt = None
         if remote_updated:
             try:
-                remote_updated_dt = datetime.fromisoformat(remote_updated.replace('Z', '+00:00'))
+                remote_updated_dt = datetime.fromisoformat(
+                    remote_updated.replace("Z", "+00:00")
+                )
             except Exception:
                 pass
 
@@ -426,7 +480,11 @@ class InterconnectorSyncService:
 
         if existing_website:
             local_updated = existing_website.updated_at
-            if local_updated and remote_updated_dt and local_updated != remote_updated_dt:
+            if (
+                local_updated
+                and remote_updated_dt
+                and local_updated != remote_updated_dt
+            ):
                 if conflict_strategy == "last_write_wins":
                     if remote_updated_dt > local_updated:
                         self._update_website(existing_website, data)
@@ -436,7 +494,9 @@ class InterconnectorSyncService:
                         stats["skipped"] = True
                         return True, None, stats
                 else:
-                    conflict_id = self._create_conflict("websites", website_id, existing_website, data, node_id)
+                    conflict_id = self._create_conflict(
+                        "websites", website_id, existing_website, data, node_id
+                    )
                     return False, conflict_id, stats
             else:
                 self._update_website(existing_website, data)
@@ -450,30 +510,36 @@ class InterconnectorSyncService:
             return True, None, stats
 
     def _apply_project(
-        self, 
-        data: Dict, 
+        self,
+        data: Dict,
         conflict_strategy: str,
         stats: Dict,
-        node_id: Optional[str] = None
+        node_id: Optional[str] = None,
     ) -> Tuple[bool, Optional[str], Dict]:
         """Apply a project entity to the database."""
         project_id = data.get("id")
         remote_updated = data.get("updated_at")
-        
+
         # Parse updated_at
         remote_updated_dt = None
         if remote_updated:
             try:
-                remote_updated_dt = datetime.fromisoformat(remote_updated.replace('Z', '+00:00'))
+                remote_updated_dt = datetime.fromisoformat(
+                    remote_updated.replace("Z", "+00:00")
+                )
             except Exception:
                 pass
-        
+
         existing_project = db.session.get(Project, project_id) if project_id else None
-        
+
         if existing_project:
             # Check for conflicts
             local_updated = existing_project.updated_at
-            if local_updated and remote_updated_dt and local_updated != remote_updated_dt:
+            if (
+                local_updated
+                and remote_updated_dt
+                and local_updated != remote_updated_dt
+            ):
                 # Conflict detected
                 if conflict_strategy == "last_write_wins":
                     if remote_updated_dt > local_updated:
@@ -484,7 +550,9 @@ class InterconnectorSyncService:
                         stats["skipped"] = True
                         return True, None, stats
                 else:
-                    conflict_id = self._create_conflict("projects", project_id, existing_project, data, node_id)
+                    conflict_id = self._create_conflict(
+                        "projects", project_id, existing_project, data, node_id
+                    )
                     return False, conflict_id, stats
             else:
                 self._update_project(existing_project, data)
@@ -494,38 +562,46 @@ class InterconnectorSyncService:
             # Check if client_id exists (required foreign key)
             client_id = data.get("client_id")
             if client_id and not db.session.get(Client, client_id):
-                logger.warning(f"Cannot create project {project_id}: client {client_id} does not exist")
+                logger.warning(
+                    f"Cannot create project {project_id}: client {client_id} does not exist"
+                )
                 stats["skipped"] = True
                 return False, None, stats
-            
+
             new_project = self._create_project(data)
             db.session.add(new_project)
             stats["created"] = True
             return True, None, stats
 
     def _apply_rule(
-        self, 
-        data: Dict, 
+        self,
+        data: Dict,
         conflict_strategy: str,
         stats: Dict,
-        node_id: Optional[str] = None
+        node_id: Optional[str] = None,
     ) -> Tuple[bool, Optional[str], Dict]:
         """Apply a rule entity to the database."""
         rule_id = data.get("id")
         remote_updated = data.get("updated_at")
-        
+
         remote_updated_dt = None
         if remote_updated:
             try:
-                remote_updated_dt = datetime.fromisoformat(remote_updated.replace('Z', '+00:00'))
+                remote_updated_dt = datetime.fromisoformat(
+                    remote_updated.replace("Z", "+00:00")
+                )
             except Exception:
                 pass
-        
+
         existing_rule = db.session.get(Rule, rule_id) if rule_id else None
-        
+
         if existing_rule:
             local_updated = existing_rule.updated_at
-            if local_updated and remote_updated_dt and local_updated != remote_updated_dt:
+            if (
+                local_updated
+                and remote_updated_dt
+                and local_updated != remote_updated_dt
+            ):
                 if conflict_strategy == "last_write_wins":
                     if remote_updated_dt > local_updated:
                         self._update_rule(existing_rule, data)
@@ -535,7 +611,9 @@ class InterconnectorSyncService:
                         stats["skipped"] = True
                         return True, None, stats
                 else:
-                    conflict_id = self._create_conflict("rules", rule_id, existing_rule, data, node_id)
+                    conflict_id = self._create_conflict(
+                        "rules", rule_id, existing_rule, data, node_id
+                    )
                     return False, conflict_id, stats
             else:
                 self._update_rule(existing_rule, data)
@@ -545,12 +623,12 @@ class InterconnectorSyncService:
             new_rule = self._create_rule(data)
             db.session.add(new_rule)
             db.session.flush()  # Get ID before setting associations
-            
+
             # Handle linked projects association
             linked_project_ids = data.get("linked_project_ids", [])
             if linked_project_ids:
                 self._update_rule_project_associations(new_rule, linked_project_ids)
-            
+
             stats["created"] = True
             return True, None, stats
 
@@ -586,12 +664,16 @@ class InterconnectorSyncService:
         # Set timestamps if provided
         if data.get("created_at"):
             try:
-                client.created_at = datetime.fromisoformat(data["created_at"].replace('Z', '+00:00'))
+                client.created_at = datetime.fromisoformat(
+                    data["created_at"].replace("Z", "+00:00")
+                )
             except Exception:
                 pass
         if data.get("updated_at"):
             try:
-                client.updated_at = datetime.fromisoformat(data["updated_at"].replace('Z', '+00:00'))
+                client.updated_at = datetime.fromisoformat(
+                    data["updated_at"].replace("Z", "+00:00")
+                )
             except Exception:
                 pass
         return client
@@ -607,23 +689,35 @@ class InterconnectorSyncService:
         client.contact_url = data.get("contact_url", client.contact_url)
         client.location = data.get("location", client.location)
         client.primary_service = data.get("primary_service", client.primary_service)
-        client.secondary_service = data.get("secondary_service", client.secondary_service)
+        client.secondary_service = data.get(
+            "secondary_service", client.secondary_service
+        )
         client.brand_tone = data.get("brand_tone", client.brand_tone)
         client.business_hours = data.get("business_hours", client.business_hours)
         client.social_links = data.get("social_links", client.social_links)
         client.industry = data.get("industry", client.industry)
         client.target_audience = data.get("target_audience", client.target_audience)
-        client.unique_selling_points = data.get("unique_selling_points", client.unique_selling_points)
+        client.unique_selling_points = data.get(
+            "unique_selling_points", client.unique_selling_points
+        )
         client.competitor_urls = data.get("competitor_urls", client.competitor_urls)
-        client.brand_voice_examples = data.get("brand_voice_examples", client.brand_voice_examples)
+        client.brand_voice_examples = data.get(
+            "brand_voice_examples", client.brand_voice_examples
+        )
         client.keywords = data.get("keywords", client.keywords)
         client.content_goals = data.get("content_goals", client.content_goals)
-        client.regulatory_constraints = data.get("regulatory_constraints", client.regulatory_constraints)
-        client.geographic_coverage = data.get("geographic_coverage", client.geographic_coverage)
+        client.regulatory_constraints = data.get(
+            "regulatory_constraints", client.regulatory_constraints
+        )
+        client.geographic_coverage = data.get(
+            "geographic_coverage", client.geographic_coverage
+        )
         # Update timestamp if provided
         if data.get("updated_at"):
             try:
-                client.updated_at = datetime.fromisoformat(data["updated_at"].replace('Z', '+00:00'))
+                client.updated_at = datetime.fromisoformat(
+                    data["updated_at"].replace("Z", "+00:00")
+                )
             except Exception:
                 pass
 
@@ -642,12 +736,16 @@ class InterconnectorSyncService:
         )
         if data.get("created_at"):
             try:
-                project.created_at = datetime.fromisoformat(data["created_at"].replace('Z', '+00:00'))
+                project.created_at = datetime.fromisoformat(
+                    data["created_at"].replace("Z", "+00:00")
+                )
             except Exception:
                 pass
         if data.get("updated_at"):
             try:
-                project.updated_at = datetime.fromisoformat(data["updated_at"].replace('Z', '+00:00'))
+                project.updated_at = datetime.fromisoformat(
+                    data["updated_at"].replace("Z", "+00:00")
+                )
             except Exception:
                 pass
         return project
@@ -659,12 +757,16 @@ class InterconnectorSyncService:
         project.client_id = data.get("client_id", project.client_id)
         project.project_type = data.get("project_type", project.project_type)
         project.target_keywords = data.get("target_keywords", project.target_keywords)
-        project.content_strategy = data.get("content_strategy", project.content_strategy)
+        project.content_strategy = data.get(
+            "content_strategy", project.content_strategy
+        )
         project.deliverables = data.get("deliverables", project.deliverables)
         project.seo_strategy = data.get("seo_strategy", project.seo_strategy)
         if data.get("updated_at"):
             try:
-                project.updated_at = datetime.fromisoformat(data["updated_at"].replace('Z', '+00:00'))
+                project.updated_at = datetime.fromisoformat(
+                    data["updated_at"].replace("Z", "+00:00")
+                )
             except Exception:
                 pass
 
@@ -686,15 +788,19 @@ class InterconnectorSyncService:
         )
         if data.get("created_at"):
             try:
-                rule.created_at = datetime.fromisoformat(data["created_at"].replace('Z', '+00:00'))
+                rule.created_at = datetime.fromisoformat(
+                    data["created_at"].replace("Z", "+00:00")
+                )
             except Exception:
                 pass
         if data.get("updated_at"):
             try:
-                rule.updated_at = datetime.fromisoformat(data["updated_at"].replace('Z', '+00:00'))
+                rule.updated_at = datetime.fromisoformat(
+                    data["updated_at"].replace("Z", "+00:00")
+                )
             except Exception:
                 pass
-        
+
         return rule
 
     def _update_rule(self, rule: Rule, data: Dict):
@@ -706,16 +812,20 @@ class InterconnectorSyncService:
         rule.reference_id = data.get("reference_id", rule.reference_id)
         rule.rule_text = data.get("rule_text", rule.rule_text)
         rule.description = data.get("description", rule.description)
-        rule.output_schema_name = data.get("output_schema_name", rule.output_schema_name)
+        rule.output_schema_name = data.get(
+            "output_schema_name", rule.output_schema_name
+        )
         rule.target_models = data.get("target_models", rule.target_models)
         rule.is_active = data.get("is_active", rule.is_active)
         rule.project_id = data.get("project_id", rule.project_id)
         if data.get("updated_at"):
             try:
-                rule.updated_at = datetime.fromisoformat(data["updated_at"].replace('Z', '+00:00'))
+                rule.updated_at = datetime.fromisoformat(
+                    data["updated_at"].replace("Z", "+00:00")
+                )
             except Exception:
                 pass
-        
+
         # Update linked projects if provided
         linked_project_ids = data.get("linked_project_ids")
         if linked_project_ids is not None:
@@ -726,7 +836,7 @@ class InterconnectorSyncService:
         try:
             # Clear existing associations
             rule.linked_projects = []
-            
+
             # Add new associations
             for project_id in project_ids:
                 project = db.session.get(Project, project_id)
@@ -749,17 +859,23 @@ class InterconnectorSyncService:
         )
         if data.get("last_crawled"):
             try:
-                website.last_crawled = datetime.fromisoformat(data["last_crawled"].replace('Z', '+00:00'))
+                website.last_crawled = datetime.fromisoformat(
+                    data["last_crawled"].replace("Z", "+00:00")
+                )
             except Exception:
                 pass
         if data.get("created_at"):
             try:
-                website.created_at = datetime.fromisoformat(data["created_at"].replace('Z', '+00:00'))
+                website.created_at = datetime.fromisoformat(
+                    data["created_at"].replace("Z", "+00:00")
+                )
             except Exception:
                 pass
         if data.get("updated_at"):
             try:
-                website.updated_at = datetime.fromisoformat(data["updated_at"].replace('Z', '+00:00'))
+                website.updated_at = datetime.fromisoformat(
+                    data["updated_at"].replace("Z", "+00:00")
+                )
             except Exception:
                 pass
         return website
@@ -774,49 +890,55 @@ class InterconnectorSyncService:
         website.client_id = data.get("client_id", website.client_id)
         if data.get("last_crawled"):
             try:
-                website.last_crawled = datetime.fromisoformat(data["last_crawled"].replace('Z', '+00:00'))
+                website.last_crawled = datetime.fromisoformat(
+                    data["last_crawled"].replace("Z", "+00:00")
+                )
             except Exception:
                 pass
         if data.get("updated_at"):
             try:
-                website.updated_at = datetime.fromisoformat(data["updated_at"].replace('Z', '+00:00'))
+                website.updated_at = datetime.fromisoformat(
+                    data["updated_at"].replace("Z", "+00:00")
+                )
             except Exception:
                 pass
 
     def _create_conflict(
-        self, 
-        entity_type: str, 
+        self,
+        entity_type: str,
         entity_id: Any,
         local_entity: Any,
         remote_data: Dict,
-        node_id: Optional[str] = None
+        node_id: Optional[str] = None,
     ) -> Optional[str]:
         """Create a conflict record for manual resolution."""
         try:
             # Serialize local entity
             local_data = {}
-            if hasattr(local_entity, 'to_dict'):
+            if hasattr(local_entity, "to_dict"):
                 local_data = local_entity.to_dict()
             else:
                 # Basic serialization
                 for key in dir(local_entity):
-                    if not key.startswith('_'):
+                    if not key.startswith("_"):
                         try:
                             value = getattr(local_entity, key)
                             if not callable(value):
-                                local_data[key] = str(value) if value is not None else None
+                                local_data[key] = (
+                                    str(value) if value is not None else None
+                                )
                         except Exception:
                             pass
-            
+
             # Find conflicting fields
             conflict_fields = []
             for key, remote_value in remote_data.items():
-                if key.startswith('_'):
+                if key.startswith("_"):
                     continue
                 local_value = local_data.get(key)
                 if local_value != remote_value:
                     conflict_fields.append(key)
-            
+
             # Create conflict record
             conflict = InterconnectorConflict(
                 node_id=node_id or "unknown",
@@ -831,7 +953,7 @@ class InterconnectorSyncService:
             db.session.add(conflict)
             db.session.flush()  # Get ID without committing
             return str(conflict.id)
-        
+
         except Exception as e:
             logger.error(f"Error creating conflict record: {e}")
             return None
@@ -840,10 +962,10 @@ class InterconnectorSyncService:
 # Singleton instance
 _sync_service = None
 
+
 def get_sync_service() -> InterconnectorSyncService:
     """Get the singleton sync service instance."""
     global _sync_service
     if _sync_service is None:
         _sync_service = InterconnectorSyncService()
     return _sync_service
-

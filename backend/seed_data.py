@@ -106,39 +106,39 @@ def seed_demo_data():
     Seeds demo/development data ONLY if explicitly requested.
     Use environment variable SEED_DEMO_DATA=true to enable.
     """
-    if not os.getenv('SEED_DEMO_DATA', '').lower() == 'true':
+    if not os.getenv("SEED_DEMO_DATA", "").lower() == "true":
         logger.info(" Demo data seeding skipped. Set SEED_DEMO_DATA=true to enable.")
         return
-        
+
     logger.info("Seeding demo data (development only)...")
-    
+
     try:
         # Demo Client (only for development)
         demo_client = Client.query.filter_by(name="Demo Client").first()
         if not demo_client:
             demo_client = Client(
-                name="Demo Client", 
-                notes="Development demo client - remove in production"
+                name="Demo Client",
+                notes="Development demo client - remove in production",
             )
             db.session.add(demo_client)
             logger.info("Added Demo Client (development only).")
-        
+
         db.session.commit()
-        
+
         # Demo Project
         demo_project = Project.query.filter_by(name="Demo Project").first()
         if not demo_project and demo_client:
             demo_project = Project(
-                name="Demo Project", 
-                description="Development demo project - remove in production"
+                name="Demo Project",
+                description="Development demo project - remove in production",
             )
             demo_project.client_id = demo_client.id
             db.session.add(demo_project)
             logger.info("Added Demo Project (development only).")
-        
+
         db.session.commit()
         logger.info("Demo data seeded. Remember to remove in production.")
-        
+
     except Exception as e:
         logger.error(f"Error seeding demo data: {e}")
         db.session.rollback()
@@ -148,13 +148,13 @@ def seed_demo_data():
 def seed_database():
     """Main seeding function - seeds essential data and optionally demo data."""
     logger.info("🌱 Starting database seeding...")
-    
+
     # Always seed essential system data
     seed_essential_system_data()
-    
+
     # Only seed demo data if explicitly requested
     seed_demo_data()
-    
+
     logger.info("Database seeding completed.")
 
 

@@ -13,12 +13,13 @@ try:
 except ImportError:
     # Create a mock module if import fails
     import types
+
     chat_api = types.SimpleNamespace()
     chat_api.MessageRole = None
     chat_api.ChatMessage = None
     chat_api.ChatMemoryBuffer = None
 
-if getattr(chat_api, 'MessageRole', None) is None:
+if getattr(chat_api, "MessageRole", None) is None:
 
     class _Role:
         def __init__(self, val):
@@ -35,7 +36,7 @@ if getattr(chat_api, 'MessageRole', None) is None:
 
     chat_api.MessageRole = DummyMessageRole
 
-if getattr(chat_api, 'ChatMessage', None) is None:
+if getattr(chat_api, "ChatMessage", None) is None:
 
     class DummyChatMsg:
         def __init__(self, role=None, content=None):
@@ -44,7 +45,7 @@ if getattr(chat_api, 'ChatMessage', None) is None:
 
     chat_api.ChatMessage = DummyChatMsg
 
-if getattr(chat_api, 'ChatMemoryBuffer', None) is None:
+if getattr(chat_api, "ChatMemoryBuffer", None) is None:
 
     class DummyBuffer:
         @classmethod

@@ -55,7 +55,9 @@ def release_gpu_lock():
         restart_ollama = data.get("restart_ollama", True)
 
         coordinator = get_gpu_coordinator()
-        result = coordinator.release_video_generation_lock(restart_ollama=restart_ollama)
+        result = coordinator.release_video_generation_lock(
+            restart_ollama=restart_ollama
+        )
 
         if result.get("success"):
             return success_response(result)
@@ -105,8 +107,7 @@ def start_ollama():
         status = coordinator.get_gpu_status()
         if not status.get("available"):
             return error_response(
-                f"Cannot start Ollama - GPU locked by {status.get('owner')}",
-                409
+                f"Cannot start Ollama - GPU locked by {status.get('owner')}", 409
             )
 
         success = coordinator._start_ollama()
@@ -139,11 +140,13 @@ def stop_ollama():
 
 # ── ComfyUI lifecycle endpoints ──────────────────────────────────────────
 
+
 @gpu_bp.route("/comfyui/status", methods=["GET"])
 def get_comfyui_status():
     """Check if ComfyUI is running and available."""
     try:
         from backend.services.video_generation_router import get_video_router
+
         router = get_video_router()
         status = router.get_status()
         return success_response(status)
@@ -157,6 +160,7 @@ def start_comfyui():
     """Manually start ComfyUI server."""
     try:
         from backend.services.video_generation_router import get_video_router
+
         router = get_video_router()
         if router._check_comfyui():
             return success_response({"message": "ComfyUI is already running"})
@@ -175,6 +179,7 @@ def stop_comfyui():
     """Manually stop ComfyUI server."""
     try:
         from backend.services.video_generation_router import get_video_router
+
         router = get_video_router()
         stopped = router.stop_comfyui()
         if stopped:

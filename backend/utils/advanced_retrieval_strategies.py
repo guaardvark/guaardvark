@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RetrievalStrategy:
     """Configuration for retrieval strategies"""
+
     # Time-based weighting
     enable_time_weighting: bool = True
     time_decay_factor: float = 0.1  # Exponential decay rate
@@ -53,7 +54,7 @@ class TimeWeightedRetriever:
     def apply_time_weighting(
         self,
         results: List[Tuple[TextNode, float]],
-        current_time: Optional[datetime] = None
+        current_time: Optional[datetime] = None,
     ) -> List[Tuple[TextNode, float]]:
         """
         Apply time-based weighting to results
@@ -93,10 +94,16 @@ class TimeWeightedRetriever:
 
     def _extract_timestamp(self, node: TextNode) -> Optional[datetime]:
         """Extract timestamp from node metadata"""
-        metadata = node.metadata if hasattr(node, 'metadata') else {}
+        metadata = node.metadata if hasattr(node, "metadata") else {}
 
         # Try various timestamp fields
-        timestamp_fields = ['timestamp', 'created_at', 'date', 'published_date', 'last_modified']
+        timestamp_fields = [
+            "timestamp",
+            "created_at",
+            "date",
+            "published_date",
+            "last_modified",
+        ]
 
         for field in timestamp_fields:
             if field in metadata:
@@ -108,7 +115,7 @@ class TimeWeightedRetriever:
                 elif isinstance(ts, str):
                     try:
                         # Try ISO format
-                        return datetime.fromisoformat(ts.replace('Z', '+00:00'))
+                        return datetime.fromisoformat(ts.replace("Z", "+00:00"))
                     except (ValueError, TypeError):
                         pass
                 elif isinstance(ts, (int, float)):
@@ -120,7 +127,9 @@ class TimeWeightedRetriever:
 
         return None
 
-    def _calculate_time_weight(self, timestamp: datetime, current_time: datetime) -> float:
+    def _calculate_time_weight(
+        self, timestamp: datetime, current_time: datetime
+    ) -> float:
         """
         Calculate time-based weight
 
@@ -152,13 +161,10 @@ class AuthorityWeightedRetriever:
         self.strategy = strategy
 
         # Normalize authority sources to lowercase
-        self.authority_sources = set(
-            src.lower() for src in strategy.authority_sources
-        )
+        self.authority_sources = set(src.lower() for src in strategy.authority_sources)
 
     def apply_authority_weighting(
-        self,
-        results: List[Tuple[TextNode, float]]
+        self, results: List[Tuple[TextNode, float]]
     ) -> List[Tuple[TextNode, float]]:
         """
         Apply authority-based weighting to results
@@ -197,35 +203,35 @@ class AuthorityWeightedRetriever:
         Returns:
             Authority weight multiplier
         """
-        metadata = node.metadata if hasattr(node, 'metadata') else {}
+        metadata = node.metadata if hasattr(node, "metadata") else {}
         weight = 1.0
 
         # Check if source is authoritative
-        source = metadata.get('source', '').lower()
+        source = metadata.get("source", "").lower()
         if any(auth_src in source for auth_src in self.authority_sources):
             weight *= self.strategy.authority_boost
             logger.debug(f"Applied authority boost to source: {source}")
 
         # Check for explicit authority score
-        if 'authority_score' in metadata:
+        if "authority_score" in metadata:
             try:
-                auth_score = float(metadata['authority_score'])
-                weight *= (1.0 + auth_score * 0.5)  # Max 50% boost from authority score
+                auth_score = float(metadata["authority_score"])
+                weight *= 1.0 + auth_score * 0.5  # Max 50% boost from authority score
             except (ValueError, TypeError):
                 pass
 
         # Check citation count (if available)
-        if 'citation_count' in metadata:
+        if "citation_count" in metadata:
             try:
-                citations = int(metadata['citation_count'])
+                citations = int(metadata["citation_count"])
                 # Logarithmic scaling for citations
                 citation_bonus = math.log(1 + citations) * self.strategy.citation_weight
-                weight *= (1.0 + citation_bonus)
+                weight *= 1.0 + citation_bonus
             except (ValueError, TypeError):
                 pass
 
         # Check for verified or trusted flag
-        if metadata.get('verified') or metadata.get('trusted'):
+        if metadata.get("verified") or metadata.get("trusted"):
             weight *= 1.2
 
         return weight
@@ -248,9 +254,7 @@ class DiversityAwareRetriever:
         self.strategy = strategy
 
     def apply_diversity_filtering(
-        self,
-        results: List[Tuple[TextNode, float]],
-        top_k: int
+        self, results: List[Tuple[TextNode, float]], top_k: int
     ) -> List[Tuple[TextNode, float]]:
         """
         Apply Maximal Marginal Relevance (MMR) for diversity
@@ -275,19 +279,15 @@ class DiversityAwareRetriever:
         )
 
         # Build diverse results
-        diverse_results = [
-            (nodes[i], scores[i]) for i in selected_indices
-        ]
+        diverse_results = [(nodes[i], scores[i]) for i in selected_indices]
 
-        logger.debug(f"Applied diversity filtering: {len(results)} -> {len(diverse_results)}")
+        logger.debug(
+            f"Applied diversity filtering: {len(results)} -> {len(diverse_results)}"
+        )
         return diverse_results
 
     def _mmr_selection(
-        self,
-        nodes: List[TextNode],
-        scores: List[float],
-        k: int,
-        lambda_param: float
+        self, nodes: List[TextNode], scores: List[float], k: int, lambda_param: float
     ) -> List[int]:
         """
         Maximal Marginal Relevance selection
@@ -312,7 +312,7 @@ class DiversityAwareRetriever:
 
         # Select remaining documents
         while len(selected) < k and remaining:
-            best_score = float('-inf')
+            best_score = float("-inf")
             best_idx = None
 
             for idx in remaining:
@@ -322,13 +322,13 @@ class DiversityAwareRetriever:
                 # Maximum similarity to already selected documents
                 max_similarity = 0.0
                 for sel_idx in selected:
-                    similarity = self._calculate_similarity(
-                        nodes[idx], nodes[sel_idx]
-                    )
+                    similarity = self._calculate_similarity(nodes[idx], nodes[sel_idx])
                     max_similarity = max(max_similarity, similarity)
 
                 # MMR score
-                mmr_score = lambda_param * relevance - (1 - lambda_param) * max_similarity
+                mmr_score = (
+                    lambda_param * relevance - (1 - lambda_param) * max_similarity
+                )
 
                 if mmr_score > best_score:
                     best_score = mmr_score
@@ -361,8 +361,7 @@ class DiversityAwareRetriever:
         return intersection / union if union > 0 else 0.0
 
     def remove_redundant_results(
-        self,
-        results: List[Tuple[TextNode, float]]
+        self, results: List[Tuple[TextNode, float]]
     ) -> List[Tuple[TextNode, float]]:
         """
         Remove highly similar/redundant results
@@ -410,7 +409,7 @@ class NegativeSamplingRetriever:
     def apply_negative_filtering(
         self,
         results: List[Tuple[TextNode, float]],
-        negative_examples: Optional[List[str]] = None
+        negative_examples: Optional[List[str]] = None,
     ) -> List[Tuple[TextNode, float]]:
         """
         Apply negative sampling to filter out unwanted results
@@ -430,17 +429,13 @@ class NegativeSamplingRetriever:
             return results
 
         # Convert negative examples to word sets
-        negative_sets = [
-            set(example.lower().split()) for example in negative_examples
-        ]
+        negative_sets = [set(example.lower().split()) for example in negative_examples]
 
         filtered_results = []
 
         for node, score in results:
             # Calculate negative similarity
-            negative_score = self._calculate_negative_similarity(
-                node, negative_sets
-            )
+            negative_score = self._calculate_negative_similarity(node, negative_sets)
 
             # Apply negative weight
             adjusted_score = score + (negative_score * self.strategy.negative_weight)
@@ -452,13 +447,13 @@ class NegativeSamplingRetriever:
         # Re-sort by adjusted score
         filtered_results.sort(key=lambda x: x[1], reverse=True)
 
-        logger.debug(f"Applied negative filtering: {len(results)} -> {len(filtered_results)}")
+        logger.debug(
+            f"Applied negative filtering: {len(results)} -> {len(filtered_results)}"
+        )
         return filtered_results
 
     def _calculate_negative_similarity(
-        self,
-        node: TextNode,
-        negative_sets: List[Set[str]]
+        self, node: TextNode, negative_sets: List[Set[str]]
     ) -> float:
         """
         Calculate maximum similarity to negative examples
@@ -514,7 +509,7 @@ class AdvancedRetrievalPipeline:
         results: List[Tuple[TextNode, float]],
         top_k: int,
         current_time: Optional[datetime] = None,
-        negative_examples: Optional[List[str]] = None
+        negative_examples: Optional[List[str]] = None,
     ) -> List[Tuple[TextNode, float]]:
         """
         Apply all retrieval strategies in sequence
@@ -544,7 +539,9 @@ class AdvancedRetrievalPipeline:
 
         # 4. Apply diversity filtering
         if self.strategy.enable_diversity:
-            results = self.diversity_retriever.apply_diversity_filtering(results, top_k * 2)
+            results = self.diversity_retriever.apply_diversity_filtering(
+                results, top_k * 2
+            )
 
         # 5. Remove redundant results
         if self.strategy.enable_diversity:
@@ -563,7 +560,7 @@ class AdvancedRetrievalPipeline:
 
 
 def create_advanced_pipeline(
-    strategy: Optional[RetrievalStrategy] = None
+    strategy: Optional[RetrievalStrategy] = None,
 ) -> AdvancedRetrievalPipeline:
     """
     Convenience function to create an AdvancedRetrievalPipeline

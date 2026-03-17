@@ -12,7 +12,7 @@ from backend.services.agent_tools import (
     BaseTool,
     ToolRegistry,
     get_tool_registry,
-    register_tool
+    register_tool,
 )
 
 logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ def register_content_tools() -> List[str]:
     try:
         from backend.tools.content_tools import (
             WordPressContentTool,
-            EnhancedWordPressContentTool
+            EnhancedWordPressContentTool,
         )
 
         register_tool(WordPressContentTool())
@@ -63,7 +63,7 @@ def register_generation_tools() -> List[str]:
         from backend.tools.generation_tools import (
             BulkCSVGeneratorTool,
             FileGeneratorTool,
-            CSVGeneratorTool
+            CSVGeneratorTool,
         )
 
         register_tool(BulkCSVGeneratorTool())
@@ -96,10 +96,7 @@ def register_code_tools() -> List[str]:
     category = "code"
 
     try:
-        from backend.tools.code_tools import (
-            CodeGeneratorTool,
-            CodeAnalysisTool
-        )
+        from backend.tools.code_tools import CodeGeneratorTool, CodeAnalysisTool
 
         register_tool(CodeGeneratorTool())
         registered.append("codegen")
@@ -126,10 +123,7 @@ def register_web_tools() -> List[str]:
     category = "web"
 
     try:
-        from backend.tools.web_tools import (
-            WebAnalysisTool,
-            WebSearchTool
-        )
+        from backend.tools.web_tools import WebAnalysisTool, WebSearchTool
 
         register_tool(WebAnalysisTool())
         registered.append("analyze_website")
@@ -456,6 +450,7 @@ def register_image_tools() -> List[str]:
     registered = []
     try:
         from backend.tools.image_tools import ImageGeneratorTool
+
         register_tool(ImageGeneratorTool())
         registered.append("generate_image")
         logger.info("Registered: ImageGeneratorTool")
@@ -464,6 +459,7 @@ def register_image_tools() -> List[str]:
 
     try:
         from backend.tools.image_tools import AnimationGeneratorTool
+
         register_tool(AnimationGeneratorTool())
         registered.append("generate_animation")
         _tool_categories["generate_animation"] = "image"
@@ -481,6 +477,7 @@ def register_test_execution_tools() -> List[str]:
     category = "test_execution"
     try:
         from backend.tools.agent_tools.code_execution_tools import ExecutePythonTool
+
         tool = ExecutePythonTool()
         tool._sandboxed = True  # Flag for sandbox enforcement
         register_tool(tool)
@@ -581,16 +578,18 @@ def get_registered_tools_with_descriptions() -> List[Dict[str, str]]:
     for tool_name in _registered_tools:
         tool = registry.get_tool(tool_name)
         if tool:
-            result.append({
-                "name": tool.name,
-                "description": tool.description,
-                "category": _tool_categories.get(tool_name, "other")
-            })
+            result.append(
+                {
+                    "name": tool.name,
+                    "description": tool.description,
+                    "category": _tool_categories.get(tool_name, "other"),
+                }
+            )
 
     return result
 
 
-def get_tool_schemas_for_prompt(format: str = 'xml') -> str:
+def get_tool_schemas_for_prompt(format: str = "xml") -> str:
     """
     Get tool schemas formatted for LLM prompts.
 
@@ -622,12 +621,12 @@ def execute_tool_by_name(tool_name: str, **kwargs) -> dict:
 
 # Convenience exports
 __all__ = [
-    'initialize_all_tools',
-    'get_registered_tools',
-    'get_tool_categories',
-    'get_tools_by_category',
-    'get_registered_tools_with_descriptions',
-    'get_tool_schemas_for_prompt',
-    'execute_tool_by_name',
-    'get_tool_registry',
+    "initialize_all_tools",
+    "get_registered_tools",
+    "get_tool_categories",
+    "get_tools_by_category",
+    "get_registered_tools_with_descriptions",
+    "get_tool_schemas_for_prompt",
+    "execute_tool_by_name",
+    "get_tool_registry",
 ]

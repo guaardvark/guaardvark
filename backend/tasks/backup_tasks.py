@@ -13,7 +13,9 @@ from celery import shared_task
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, name='maintenance.daily_backup', max_retries=2, default_retry_delay=300)
+@shared_task(
+    bind=True, name="maintenance.daily_backup", max_retries=2, default_retry_delay=300
+)
 def daily_backup(self):
     """Create a daily automatic backup and clean up old auto-backups.
 
@@ -42,7 +44,7 @@ def daily_backup(self):
             if not backup_name.startswith("auto_daily_"):
                 continue
             # Extract YYYYMMDD from auto_daily_YYYYMMDD_HHMMSS.zip
-            date_part = backup_name[len("auto_daily_"):][:8]
+            date_part = backup_name[len("auto_daily_") :][:8]
             try:
                 backup_date = datetime.strptime(date_part, "%Y%m%d")
                 if backup_date < cutoff:

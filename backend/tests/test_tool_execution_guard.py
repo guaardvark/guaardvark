@@ -2,7 +2,11 @@
 """Tests for ToolExecutionGuard — circuit breaker, duplicate detection, fallback suggestions."""
 
 import pytest
-from backend.services.tool_execution_guard import ToolExecutionGuard, FALLBACK_MAP, SLOW_TOOLS
+from backend.services.tool_execution_guard import (
+    ToolExecutionGuard,
+    FALLBACK_MAP,
+    SLOW_TOOLS,
+)
 
 
 class TestCircuitBreaker:
@@ -10,14 +14,18 @@ class TestCircuitBreaker:
 
     def test_allows_first_call(self):
         guard = ToolExecutionGuard(max_failures_per_tool=2)
-        allowed, reason = guard.check_call("browser_navigate", {"url": "https://example.com"})
+        allowed, reason = guard.check_call(
+            "browser_navigate", {"url": "https://example.com"}
+        )
         assert allowed is True
         assert reason is None
 
     def test_allows_after_one_failure(self):
         guard = ToolExecutionGuard(max_failures_per_tool=2)
         guard.check_call("browser_navigate", {"url": "https://a.com"})
-        guard.record_result("browser_navigate", {"url": "https://a.com"}, False, "timeout", 1)
+        guard.record_result(
+            "browser_navigate", {"url": "https://a.com"}, False, "timeout", 1
+        )
 
         # Second call with different params should still be allowed
         allowed, _ = guard.check_call("browser_navigate", {"url": "https://b.com"})
@@ -28,11 +36,15 @@ class TestCircuitBreaker:
 
         # First call + failure
         guard.check_call("browser_navigate", {"url": "https://a.com"})
-        guard.record_result("browser_navigate", {"url": "https://a.com"}, False, "timeout", 1)
+        guard.record_result(
+            "browser_navigate", {"url": "https://a.com"}, False, "timeout", 1
+        )
 
         # Second call + failure — triggers circuit breaker
         guard.check_call("browser_navigate", {"url": "https://b.com"})
-        guard.record_result("browser_navigate", {"url": "https://b.com"}, False, "timeout", 2)
+        guard.record_result(
+            "browser_navigate", {"url": "https://b.com"}, False, "timeout", 2
+        )
 
         # Third call should be blocked
         allowed, reason = guard.check_call("browser_navigate", {"url": "https://c.com"})
@@ -65,7 +77,9 @@ class TestCircuitBreaker:
         # Break browser_navigate
         for i in range(2):
             guard.check_call("browser_navigate", {"url": f"https://a{i}.com"})
-            guard.record_result("browser_navigate", {"url": f"https://a{i}.com"}, False, "err", i + 1)
+            guard.record_result(
+                "browser_navigate", {"url": f"https://a{i}.com"}, False, "err", i + 1
+            )
 
         # browser_navigate blocked
         allowed, _ = guard.check_call("browser_navigate", {"url": "https://a2.com"})
@@ -85,18 +99,26 @@ class TestCircuitBreaker:
         # Two failures should NOT block generate_image (would block a normal tool)
         for i in range(2):
             guard.check_call("generate_image", {"prompt": f"test{i}"})
-            guard.record_result("generate_image", {"prompt": f"test{i}"}, False, "OOM", i + 1)
+            guard.record_result(
+                "generate_image", {"prompt": f"test{i}"}, False, "OOM", i + 1
+            )
 
         allowed, _ = guard.check_call("generate_image", {"prompt": "test_after_2"})
-        assert allowed is True, "generate_image should not be blocked after only 2 failures"
+        assert (
+            allowed is True
+        ), "generate_image should not be blocked after only 2 failures"
 
         # Third failure — still allowed
-        guard.record_result("generate_image", {"prompt": "test_after_2"}, False, "OOM", 3)
+        guard.record_result(
+            "generate_image", {"prompt": "test_after_2"}, False, "OOM", 3
+        )
         allowed, _ = guard.check_call("generate_image", {"prompt": "test_after_3"})
         assert allowed is True, "generate_image should not be blocked after 3 failures"
 
         # Fourth failure — NOW blocked
-        guard.record_result("generate_image", {"prompt": "test_after_3"}, False, "OOM", 4)
+        guard.record_result(
+            "generate_image", {"prompt": "test_after_3"}, False, "OOM", 4
+        )
         allowed, reason = guard.check_call("generate_image", {"prompt": "test_after_4"})
         assert allowed is False
         assert "BLOCKED" in reason
@@ -108,7 +130,9 @@ class TestCircuitBreaker:
         # 3 failures
         for i in range(3):
             guard.check_call("generate_image", {"prompt": f"fail{i}"})
-            guard.record_result("generate_image", {"prompt": f"fail{i}"}, False, "OOM", i + 1)
+            guard.record_result(
+                "generate_image", {"prompt": f"fail{i}"}, False, "OOM", i + 1
+            )
 
         # 1 success resets
         guard.check_call("generate_image", {"prompt": "success"})
@@ -143,7 +167,9 @@ class TestDuplicateDetection:
         guard.check_call("browser_navigate", {"url": "https://example.com/"})
 
         # Same URL without trailing slash → should be treated as duplicate
-        allowed, reason = guard.check_call("browser_navigate", {"url": "https://example.com"})
+        allowed, reason = guard.check_call(
+            "browser_navigate", {"url": "https://example.com"}
+        )
         assert allowed is False
 
     def test_normalizes_whitespace(self):
@@ -184,9 +210,14 @@ class TestFallbackSuggestions:
 
     def test_all_browser_tools_have_fallbacks(self):
         browser_tools = [
-            "browser_navigate", "browser_click", "browser_fill",
-            "browser_screenshot", "browser_extract", "browser_get_html",
-            "browser_wait", "browser_execute_js",
+            "browser_navigate",
+            "browser_click",
+            "browser_fill",
+            "browser_screenshot",
+            "browser_extract",
+            "browser_get_html",
+            "browser_wait",
+            "browser_execute_js",
         ]
         for tool in browser_tools:
             assert tool in FALLBACK_MAP, f"Missing fallback for {tool}"
@@ -202,7 +233,9 @@ class TestBlockedToolsSummary:
     def test_includes_blocked_tools(self):
         guard = ToolExecutionGuard(max_failures_per_tool=1)
         guard.check_call("browser_navigate", {"url": "https://a.com"})
-        guard.record_result("browser_navigate", {"url": "https://a.com"}, False, "err", 1)
+        guard.record_result(
+            "browser_navigate", {"url": "https://a.com"}, False, "err", 1
+        )
 
         summary = guard.get_blocked_tools_summary()
         assert "browser_navigate" in summary
@@ -213,6 +246,8 @@ class TestBlockedToolsSummary:
         assert len(guard.blocked_tools) == 0
 
         guard.check_call("browser_navigate", {"url": "https://a.com"})
-        guard.record_result("browser_navigate", {"url": "https://a.com"}, False, "err", 1)
+        guard.record_result(
+            "browser_navigate", {"url": "https://a.com"}, False, "err", 1
+        )
 
         assert "browser_navigate" in guard.blocked_tools

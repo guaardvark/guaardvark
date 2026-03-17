@@ -17,17 +17,26 @@ logger = logging.getLogger(__name__)
 
 # Vision/multimodal model patterns — these need special handling
 VISION_MODEL_PATTERNS = [
-    r'vl\b', r'vision', r'llava', r'moondream', r'bakllava',
-    r'minicpm-v', r'llama.*vision', r'granite.*vision', r'gemma.*vision',
+    r"vl\b",
+    r"vision",
+    r"llava",
+    r"moondream",
+    r"bakllava",
+    r"minicpm-v",
+    r"llama.*vision",
+    r"granite.*vision",
+    r"gemma.*vision",
 ]
 
 # Models that should never be auto-selected as default text LLM
 NON_TEXT_MODEL_PATTERNS = VISION_MODEL_PATTERNS + [
-    r'embed', r'retrieval', r'minilm',
+    r"embed",
+    r"retrieval",
+    r"minilm",
 ]
 
 # Memory reserves (MB)
-GPU_RESERVE_MB = 2048   # 2GB for embedding model + display + system
+GPU_RESERVE_MB = 2048  # 2GB for embedding model + display + system
 RAM_RESERVE_MB = 10240  # 10GB for system + other processes
 
 # Context window limits
@@ -46,6 +55,7 @@ def get_ollama_base_url() -> str:
     """Get Ollama base URL from config or default."""
     try:
         from backend.config import OLLAMA_BASE_URL
+
         return OLLAMA_BASE_URL
     except ImportError:
         return "http://localhost:11434"
@@ -83,6 +93,7 @@ def get_system_resources() -> Dict[str, float]:
     # GPU memory via PyTorch/pynvml
     try:
         import torch
+
         if torch.cuda.is_available():
             mem_free, mem_total = torch.cuda.mem_get_info(0)
             result["gpu_free_mb"] = mem_free / (1024 * 1024)
@@ -92,10 +103,15 @@ def get_system_resources() -> Dict[str, float]:
         # Fallback: try nvidia-smi
         try:
             import subprocess
+
             out = subprocess.check_output(
-                ["nvidia-smi", "--query-gpu=memory.free,memory.total",
-                 "--format=csv,nounits,noheader"],
-                timeout=5, text=True,
+                [
+                    "nvidia-smi",
+                    "--query-gpu=memory.free,memory.total",
+                    "--format=csv,nounits,noheader",
+                ],
+                timeout=5,
+                text=True,
             )
             parts = out.strip().split(",")
             if len(parts) == 2:
@@ -107,6 +123,7 @@ def get_system_resources() -> Dict[str, float]:
     # System RAM via psutil
     try:
         import psutil
+
         vm = psutil.virtual_memory()
         result["ram_free_mb"] = vm.available / (1024 * 1024)
         result["ram_total_mb"] = vm.total / (1024 * 1024)
@@ -151,7 +168,9 @@ def get_model_info(model_name: str) -> Optional[dict]:
             timeout=10,
         )
         if not resp.ok:
-            logger.debug("Ollama /api/show returned %d for '%s'", resp.status_code, model_name)
+            logger.debug(
+                "Ollama /api/show returned %d for '%s'", resp.status_code, model_name
+            )
             return None
 
         data = resp.json()
@@ -197,7 +216,9 @@ def get_model_info(model_name: str) -> Optional[dict]:
         # Fallback: estimate from parameter count and quantization
         if size_bytes == 0 and parameter_count > 0:
             # Q4 ≈ 0.5 bytes per param, Q8 ≈ 1 byte per param
-            bpp = 0.5 if "q4" in (details.get("quantization_level", "")).lower() else 0.75
+            bpp = (
+                0.5 if "q4" in (details.get("quantization_level", "")).lower() else 0.75
+            )
             size_bytes = int(parameter_count * bpp)
 
         info = {
@@ -207,7 +228,8 @@ def get_model_info(model_name: str) -> Optional[dict]:
             "architecture": details.get("family", "unknown"),
             "families": details.get("families", []),
             "quantization": details.get("quantization_level", "unknown"),
-            "is_vision": is_vision_model(model_name) or "clip" in str(details.get("families", [])).lower(),
+            "is_vision": is_vision_model(model_name)
+            or "clip" in str(details.get("families", [])).lower(),
             "_cached_at": time.time(),
         }
 
@@ -262,8 +284,14 @@ def compute_optimal_num_ctx(model_name: str) -> int:
     resources = get_system_resources()
 
     if not model_info:
-        default = DEFAULT_VISION_NUM_CTX if is_vision_model(model_name) else DEFAULT_TEXT_NUM_CTX
-        logger.info("No model info for '%s', using default num_ctx=%d", model_name, default)
+        default = (
+            DEFAULT_VISION_NUM_CTX
+            if is_vision_model(model_name)
+            else DEFAULT_TEXT_NUM_CTX
+        )
+        logger.info(
+            "No model info for '%s', using default num_ctx=%d", model_name, default
+        )
         return default
 
     gpu_free_mb = resources["gpu_free_mb"]
@@ -274,7 +302,8 @@ def compute_optimal_num_ctx(model_name: str) -> int:
     if total_budget_mb <= 0:
         logger.warning(
             "Very low available memory (GPU free: %.0fMB, RAM free: %.0fMB). Using minimum context.",
-            gpu_free_mb, resources["ram_free_mb"],
+            gpu_free_mb,
+            resources["ram_free_mb"],
         )
         return MIN_NUM_CTX
 
@@ -286,7 +315,9 @@ def compute_optimal_num_ctx(model_name: str) -> int:
     if model_weight_mb > total_budget_mb:
         logger.warning(
             "Model '%s' weights (%.0fMB) exceed available budget (%.0fMB). Using minimum context.",
-            model_name, model_weight_mb, total_budget_mb,
+            model_name,
+            model_weight_mb,
+            total_budget_mb,
         )
         return MIN_NUM_CTX
 
@@ -305,17 +336,25 @@ def compute_optimal_num_ctx(model_name: str) -> int:
         practical_ceiling = MAX_NUM_CTX
         logger.debug(
             "Model '%s' fits in GPU at 8K ctx (%.0fMB <= %.0fMB). Allowing up to %d.",
-            model_name, total_at_default, gpu_budget_mb, practical_ceiling,
+            model_name,
+            total_at_default,
+            gpu_budget_mb,
+            practical_ceiling,
         )
     else:
         # Model needs CPU offloading. Cap at 8192 for responsive inference.
         practical_ceiling = DEFAULT_TEXT_NUM_CTX
         logger.debug(
             "Model '%s' needs CPU offload at 8K ctx (%.0fMB > %.0fMB GPU). Capping at %d.",
-            model_name, total_at_default, gpu_budget_mb, practical_ceiling,
+            model_name,
+            total_at_default,
+            gpu_budget_mb,
+            practical_ceiling,
         )
 
-    ceiling = min(native_ctx, practical_ceiling) if native_ctx > 0 else practical_ceiling
+    ceiling = (
+        min(native_ctx, practical_ceiling) if native_ctx > 0 else practical_ceiling
+    )
 
     # Also verify total fits in combined GPU+RAM budget
     remaining_mb = total_budget_mb - model_weight_mb
@@ -335,9 +374,15 @@ def compute_optimal_num_ctx(model_name: str) -> int:
     logger.info(
         "Adaptive context for '%s': num_ctx=%d (native=%d, ceiling=%d, "
         "model=%.0fMB, est_total=%.0fMB, gpu_only=%s, gpu_free=%.0fMB, ram_free=%.0fMB)",
-        model_name, optimal, native_ctx, ceiling,
-        model_weight_mb, est_total, fits_in_gpu,
-        gpu_free_mb, resources["ram_free_mb"],
+        model_name,
+        optimal,
+        native_ctx,
+        ceiling,
+        model_weight_mb,
+        est_total,
+        fits_in_gpu,
+        gpu_free_mb,
+        resources["ram_free_mb"],
     )
 
     return optimal
@@ -354,11 +399,14 @@ def validate_model_before_load(model_name: str) -> Tuple[bool, str, int]:
     resources = get_system_resources()
 
     if not model_info:
-        return True, "Model info unavailable — proceeding with defaults", FALLBACK_NUM_CTX
+        return (
+            True,
+            "Model info unavailable — proceeding with defaults",
+            FALLBACK_NUM_CTX,
+        )
 
-    total_available_mb = (
-        max(0, resources["gpu_free_mb"] - GPU_RESERVE_MB) +
-        max(0, resources["ram_free_mb"] - RAM_RESERVE_MB)
+    total_available_mb = max(0, resources["gpu_free_mb"] - GPU_RESERVE_MB) + max(
+        0, resources["ram_free_mb"] - RAM_RESERVE_MB
     )
 
     model_weight_mb = model_info["size_mb"]
@@ -377,7 +425,8 @@ def validate_model_before_load(model_name: str) -> Tuple[bool, str, int]:
 
     # Check if we can give at least minimum context
     overhead_at_min = _estimate_total_overhead_mb(
-        model_info["parameter_count"], MIN_NUM_CTX,
+        model_info["parameter_count"],
+        MIN_NUM_CTX,
     )
     if model_weight_mb + overhead_at_min > total_available_mb:
         return (

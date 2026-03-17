@@ -26,11 +26,14 @@ logger = logging.getLogger(__name__)
 
 try:
     from llama_index.core.embeddings import BaseEmbedding
+
     LLAMAINDEX_AVAILABLE = True
 except ImportError:
     LLAMAINDEX_AVAILABLE = False
     BaseEmbedding = object
-    logger.warning("LlamaIndex not available - RouterEmbeddingAdapter will have limited functionality")
+    logger.warning(
+        "LlamaIndex not available - RouterEmbeddingAdapter will have limited functionality"
+    )
 
 
 class HardwareProfile(Enum):
@@ -88,8 +91,12 @@ class LatencyTracker:
             return {
                 "gpu_samples": len(self.gpu_latencies),
                 "cpu_samples": len(self.cpu_latencies),
-                "avg_gpu_ms": round(mean(self.gpu_latencies), 1) if self.gpu_latencies else None,
-                "avg_cpu_ms": round(mean(self.cpu_latencies), 1) if self.cpu_latencies else None,
+                "avg_gpu_ms": (
+                    round(mean(self.gpu_latencies), 1) if self.gpu_latencies else None
+                ),
+                "avg_cpu_ms": (
+                    round(mean(self.cpu_latencies), 1) if self.cpu_latencies else None
+                ),
                 "optimal_gpu_ratio": round(self.get_optimal_split_ratio(), 2),
             }
 
@@ -147,15 +154,15 @@ class EmbeddingRouter:
         try:
             import psutil
 
-            memory_gb = psutil.virtual_memory().total / (1024 ** 3)
+            memory_gb = psutil.virtual_memory().total / (1024**3)
             cpu_cores = psutil.cpu_count(logical=True) or 2
 
             gpu_available = False
             try:
                 import subprocess
+
                 result = subprocess.run(
-                    ['which', 'nvidia-smi'],
-                    capture_output=True, timeout=1
+                    ["which", "nvidia-smi"], capture_output=True, timeout=1
                 )
                 gpu_available = result.returncode == 0
             except Exception:
@@ -231,6 +238,7 @@ class EmbeddingRouter:
     def _get_ollama_base_url(self) -> str:
         try:
             from backend.config import OLLAMA_BASE_URL
+
             return OLLAMA_BASE_URL
         except ImportError:
             return "http://localhost:11434"
@@ -251,7 +259,7 @@ class EmbeddingRouter:
                 )
                 self._gpu_embedding.model_name = model_name
 
-                if hasattr(self._gpu_embedding, 'embed_dim'):
+                if hasattr(self._gpu_embedding, "embed_dim"):
                     self._embed_dim = self._gpu_embedding.embed_dim
 
                 logger.info(f"GPU embedding client initialized: {model_name}")
@@ -277,7 +285,9 @@ class EmbeddingRouter:
                 )
                 self._cpu_embedding.model_name = model_name
 
-                logger.info(f"CPU embedding client initialized: {model_name} (num_gpu=0)")
+                logger.info(
+                    f"CPU embedding client initialized: {model_name} (num_gpu=0)"
+                )
             except Exception as e:
                 logger.error(f"Failed to initialize CPU embedding: {e}")
                 raise
@@ -288,14 +298,18 @@ class EmbeddingRouter:
         if self._embed_dim is None:
             # Check already-initialized clients (non-blocking)
             for client in (self._gpu_embedding, self._cpu_embedding):
-                if client and hasattr(client, 'embed_dim') and client.embed_dim:
+                if client and hasattr(client, "embed_dim") and client.embed_dim:
                     self._embed_dim = client.embed_dim
                     break
 
             # Estimate from config if clients not yet initialized
             if self._embed_dim is None:
                 try:
-                    from backend.config import get_embedding_vram_estimates, get_active_embedding_model
+                    from backend.config import (
+                        get_embedding_vram_estimates,
+                        get_active_embedding_model,
+                    )
+
                     model = get_active_embedding_model()
                     estimates = get_embedding_vram_estimates()
                     for key, info in estimates.items():
@@ -316,7 +330,7 @@ class EmbeddingRouter:
         try:
             if len(texts) == 1:
                 result = [model.get_text_embedding(texts[0])]
-            elif hasattr(model, 'get_text_embeddings'):
+            elif hasattr(model, "get_text_embeddings"):
                 result = model.get_text_embeddings(texts)
             else:
                 result = [model.get_text_embedding(t) for t in texts]
@@ -335,7 +349,7 @@ class EmbeddingRouter:
         try:
             if len(texts) == 1:
                 result = [model.get_text_embedding(texts[0])]
-            elif hasattr(model, 'get_text_embeddings'):
+            elif hasattr(model, "get_text_embeddings"):
                 result = model.get_text_embeddings(texts)
             else:
                 result = [model.get_text_embedding(t) for t in texts]
@@ -413,9 +427,11 @@ class EmbeddingRouter:
             threshold = self.profile_config["parallel_threshold"]
 
             # Large batch: parallel GPU+CPU
-            if (self.profile_config["gpu_enabled"]
-                    and threshold > 0
-                    and len(texts) >= threshold):
+            if (
+                self.profile_config["gpu_enabled"]
+                and threshold > 0
+                and len(texts) >= threshold
+            ):
                 try:
                     return self._parallel_batch(texts)
                 except Exception as e:
@@ -436,6 +452,7 @@ class EmbeddingRouter:
         if not model_name:
             try:
                 from backend.config import get_active_embedding_model
+
                 model_name = get_active_embedding_model()
             except Exception:
                 model_name = "Unknown"
@@ -470,6 +487,7 @@ class RouterEmbeddingAdapter(BaseEmbedding if LLAMAINDEX_AVAILABLE else object):
             return self._router._active_model_name
         try:
             from backend.config import get_active_embedding_model
+
             return get_active_embedding_model()
         except Exception:
             return "Unknown"
@@ -486,11 +504,13 @@ class RouterEmbeddingAdapter(BaseEmbedding if LLAMAINDEX_AVAILABLE else object):
 
     async def _aget_query_embedding(self, query: str) -> List[float]:
         import asyncio
+
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, self._router.get_embedding, query)
 
     async def _aget_text_embedding(self, text: str) -> List[float]:
         import asyncio
+
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, self._router.get_embedding, text)
 

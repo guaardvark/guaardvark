@@ -7,59 +7,66 @@ from pathlib import Path
 
 GUAARDVARK_ROOT = Path(os.path.dirname(os.path.abspath(__file__))).parent
 
+
 def count_lines_of_code():
     total_python = 0
     total_js = 0
 
-    for py_file in Path(GUAARDVARK_ROOT).glob('backend/**/*.py'):
-        if '__pycache__' not in str(py_file):
+    for py_file in Path(GUAARDVARK_ROOT).glob("backend/**/*.py"):
+        if "__pycache__" not in str(py_file):
             try:
-                with open(py_file, 'r', encoding='utf-8') as f:
+                with open(py_file, "r", encoding="utf-8") as f:
                     total_python += len(f.readlines())
             except:
                 pass
 
-    for js_file in Path(GUAARDVARK_ROOT).glob('frontend/**/*.{js,jsx}'):
-        if 'node_modules' not in str(js_file):
+    for js_file in Path(GUAARDVARK_ROOT).glob("frontend/**/*.{js,jsx}"):
+        if "node_modules" not in str(js_file):
             try:
-                with open(js_file, 'r', encoding='utf-8') as f:
+                with open(js_file, "r", encoding="utf-8") as f:
                     total_js += len(f.readlines())
             except:
                 pass
 
     return total_python, total_js
 
+
 def get_api_endpoints():
     endpoints = []
-    api_dir = Path(GUAARDVARK_ROOT) / 'backend' / 'api'
+    api_dir = Path(GUAARDVARK_ROOT) / "backend" / "api"
 
     if api_dir.exists():
         import re
-        for api_file in api_dir.glob('*.py'):
+
+        for api_file in api_dir.glob("*.py"):
             try:
-                with open(api_file, 'r') as f:
+                with open(api_file, "r") as f:
                     content = f.read()
 
-                pattern = r'@\w+\.route\(["\']([^"\']+)["\']\s*,?\s*(?:methods=\[([^\]]+)\])?'
+                pattern = (
+                    r'@\w+\.route\(["\']([^"\']+)["\']\s*,?\s*(?:methods=\[([^\]]+)\])?'
+                )
                 for match in re.finditer(pattern, content):
                     route = match.group(1)
-                    methods = match.group(2) if match.group(2) else 'GET'
+                    methods = match.group(2) if match.group(2) else "GET"
                     endpoints.append((methods, route, api_file.stem))
             except:
                 pass
 
     return endpoints
 
+
 def load_catalog():
-    catalog_path = Path(GUAARDVARK_ROOT) / 'data' / 'code_catalog.json'
+    catalog_path = Path(GUAARDVARK_ROOT) / "data" / "code_catalog.json"
 
     if catalog_path.exists():
         try:
-            with open(catalog_path, 'r') as f:
+            with open(catalog_path, "r") as f:
                 return json.load(f)
         except:
             return None
     return None
+
 
 def generate_full_context():
     python_loc, js_loc = count_lines_of_code()
@@ -179,10 +186,10 @@ result = celery.send_task('backend.celery_tasks_isolated.task_name', [args])
 """
 
     key_routes = [
-        '/api/bulk-generate/csv',
-        '/api/bulk-generate/xml',
-        '/api/health',
-        '/api/tasks',
+        "/api/bulk-generate/csv",
+        "/api/bulk-generate/xml",
+        "/api/health",
+        "/api/tasks",
     ]
 
     context += "### Critical Endpoints:\n"
@@ -201,11 +208,11 @@ result = celery.send_task('backend.celery_tasks_isolated.task_name', [args])
 - **Total Artifacts**: {catalog['metadata']['total_artifacts']}
 - **By Type**:
 """
-        for artifact_type, items in sorted(catalog['by_type'].items()):
+        for artifact_type, items in sorted(catalog["by_type"].items()):
             context += f"  - {artifact_type}: {len(items)}\n"
 
-        if 'unused' in catalog['by_status']:
-            unused_count = len(catalog['by_status']['unused'])
+        if "unused" in catalog["by_status"]:
+            unused_count = len(catalog["by_status"]["unused"])
             context += f"\n⚠️ **{unused_count} Unused Artifacts** - Run: `python scripts/index_codebase.py --show-unused`\n"
 
     context += """
@@ -264,6 +271,7 @@ curl http://localhost:5000/api/routes
 
     return context
 
+
 def generate_brief_context():
     return """
 # 🤖 QUICK CONTEXT: LLM010.5.3
@@ -294,6 +302,7 @@ python scripts/index_codebase.py --query "<your-feature>"
 **📖 Full context**: `SYSTEM_MAP.md`, `AGENT_PRIMER.md`
 """
 
+
 def generate_feature_context(feature: str):
     catalog = load_catalog()
 
@@ -303,12 +312,14 @@ def generate_feature_context(feature: str):
     results = []
     query_lower = feature.lower()
 
-    for artifact in catalog['artifacts']:
-        searchable = ' '.join([
-            artifact['name'],
-            artifact['description'],
-            ' '.join(artifact.get('tags', []))
-        ]).lower()
+    for artifact in catalog["artifacts"]:
+        searchable = " ".join(
+            [
+                artifact["name"],
+                artifact["description"],
+                " ".join(artifact.get("tags", [])),
+            ]
+        ).lower()
 
         if query_lower in searchable:
             results.append(artifact)
@@ -331,10 +342,10 @@ Found {len(results)} relevant artifact(s):
 - **Status**: {artifact['status']}
 - **Description**: {artifact['description'][:200]}...
 """
-        if artifact.get('tags'):
+        if artifact.get("tags"):
             context += f"- **Tags**: {', '.join(artifact['tags'])}\n"
 
-        if artifact.get('usage_example'):
+        if artifact.get("usage_example"):
             context += f"- **Usage**: `{artifact['usage_example']}`\n"
 
         context += "\n"
@@ -374,13 +385,16 @@ def action():
 
     return context
 
+
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(description='Generate AI Agent Session Context')
-    parser.add_argument('--brief', action='store_true', help='Generate brief context')
-    parser.add_argument('--feature', type=str, help='Generate context for specific feature')
-    parser.add_argument('--output', type=str, help='Save to file instead of stdout')
+    parser = argparse.ArgumentParser(description="Generate AI Agent Session Context")
+    parser.add_argument("--brief", action="store_true", help="Generate brief context")
+    parser.add_argument(
+        "--feature", type=str, help="Generate context for specific feature"
+    )
+    parser.add_argument("--output", type=str, help="Save to file instead of stdout")
 
     args = parser.parse_args()
 
@@ -398,5 +412,6 @@ def main():
     else:
         print(context)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

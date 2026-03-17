@@ -20,7 +20,11 @@ def websites_list(
     try:
         api_client = get_client(server)
         data = api_client.get("/api/websites/")
-        sites = data if isinstance(data, list) else data.get("data", data.get("websites", []))
+        sites = (
+            data
+            if isinstance(data, list)
+            else data.get("data", data.get("websites", []))
+        )
         if not isinstance(sites, list):
             sites = []
 
@@ -28,13 +32,20 @@ def websites_list(
             output.print_json(sites)
             return
 
-        rows = [{
-            "id": s.get("id", ""),
-            "name": s.get("name", ""),
-            "url": s.get("url", ""),
-            "pages": s.get("page_count", 0),
-        } for s in sites]
-        output.print_table(rows, columns=["id", "name", "url", "pages"], title=f"Websites ({len(rows)})")
+        rows = [
+            {
+                "id": s.get("id", ""),
+                "name": s.get("name", ""),
+                "url": s.get("url", ""),
+                "pages": s.get("page_count", 0),
+            }
+            for s in sites
+        ]
+        output.print_table(
+            rows,
+            columns=["id", "name", "url", "pages"],
+            title=f"Websites ({len(rows)})",
+        )
 
     except (LlxConnectionError, LlxError) as e:
         output.print_error(str(e))
@@ -67,7 +78,9 @@ def websites_create(
         if json_out or output.is_pipe():
             output.print_json(result)
         else:
-            output.print_success(f"Created website: {name} (id: {result.get('id', '?')})")
+            output.print_success(
+                f"Created website: {name} (id: {result.get('id', '?')})"
+            )
 
     except (LlxConnectionError, LlxError) as e:
         output.print_error(str(e))
@@ -92,13 +105,16 @@ def websites_info(
         if json_out or output.is_pipe():
             output.print_json(result)
         else:
-            output.print_kv({
-                "ID": result.get("id", ""),
-                "Name": result.get("name", ""),
-                "URL": result.get("url", ""),
-                "Pages": result.get("page_count", 0),
-                "Client": (result.get("client") or {}).get("name", "—"),
-            }, title="Website Details")
+            output.print_kv(
+                {
+                    "ID": result.get("id", ""),
+                    "Name": result.get("name", ""),
+                    "URL": result.get("url", ""),
+                    "Pages": result.get("page_count", 0),
+                    "Client": (result.get("client") or {}).get("name", "—"),
+                },
+                title="Website Details",
+            )
 
     except (LlxConnectionError, LlxError) as e:
         output.print_error(str(e))

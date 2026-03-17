@@ -106,7 +106,11 @@ def _system_prompt_cache_key(prompt_rule_name: str, model_name: Optional[str]) -
     )
     # model-specific filtering done after query
     latest = query.scalar()
-    return (prompt_rule_name, model_name, latest.isoformat() if latest is not None else None)
+    return (
+        prompt_rule_name,
+        model_name,
+        latest.isoformat() if latest is not None else None,
+    )
 
 
 @lru_cache(maxsize=_system_prompt_cache_size)
@@ -209,47 +213,57 @@ def get_active_system_prompt(
     Get system prompt from database rules (RulesPage) - the single source of truth.
     Integrates web search capability status for rule processing.
     """
-    
+
     if not Rule:
         logger.error("Rule model unavailable in get_active_system_prompt.")
         return None, None
     if not db_session:
         logger.error("Database session not provided.")
         return None, None
-        
-    logger.debug(f"Fetching system prompt from database: Name='{prompt_rule_name}', Model='{model_name}'")
-    
+
+    logger.debug(
+        f"Fetching system prompt from database: Name='{prompt_rule_name}', Model='{model_name}'"
+    )
+
     try:
         # Get web search setting for context (but don't override rules)
         web_search_enabled = False
         try:
             from backend.utils.settings_utils import get_web_access
+
             web_search_enabled = get_web_access()
             logger.debug(f"Web search setting: {web_search_enabled}")
         except Exception as e:
             logger.warning(f"Failed to get web search setting: {e}")
-        
+
         # Fetch prompt from database rules (RulesPage system)
         key = _system_prompt_cache_key(prompt_rule_name, model_name)
         text, rule_id = _cached_active_system_prompt(key)
-        
+
         if text:
-            logger.info(f"Using database rule '{prompt_rule_name}' (ID: {rule_id}) for model '{model_name}'")
-            
+            logger.info(
+                f"Using database rule '{prompt_rule_name}' (ID: {rule_id}) for model '{model_name}'"
+            )
+
             # If the rule contains web search placeholders, provide the setting
             if "{web_search_enabled}" in text:
                 text = text.replace("{web_search_enabled}", str(web_search_enabled))
             if "{web_access_status}" in text:
                 status = "ENABLED" if web_search_enabled else "DISABLED"
                 text = text.replace("{web_access_status}", status)
-                
+
             return text, rule_id
         else:
-            logger.warning(f"System prompt rule '{prompt_rule_name}' not found or not active.")
+            logger.warning(
+                f"System prompt rule '{prompt_rule_name}' not found or not active."
+            )
             return None, None
-            
+
     except Exception as e:
-        logger.error(f"DB error fetching system prompt rule '{prompt_rule_name}': {e}", exc_info=True)
+        logger.error(
+            f"DB error fetching system prompt rule '{prompt_rule_name}': {e}",
+            exc_info=True,
+        )
         return None, None
 
 
@@ -260,9 +274,11 @@ def get_active_qa_default_template(
     Get QA template from database rules (RulesPage) - the single source of truth.
     Integrates web search capability status for rule processing.
     """
-    
+
     # Fallback QA template if no database rule found
-    fallback_text = getattr(prompt_utils, "FALLBACK_QA_PROMPT_TEXT", "{context_str}\n\n{query_str}")
+    fallback_text = getattr(
+        prompt_utils, "FALLBACK_QA_PROMPT_TEXT", "{context_str}\n\n{query_str}"
+    )
 
     if not Rule:
         logger.error("Rule model unavailable in get_active_qa_default_template.")
@@ -271,37 +287,42 @@ def get_active_qa_default_template(
         logger.error("Database session not provided to get_active_qa_default_template.")
         return fallback_text, None
 
-    logger.debug(f"Fetching qa_default QA_TEMPLATE from database for model '{model_name}'.")
-    
+    logger.debug(
+        f"Fetching qa_default QA_TEMPLATE from database for model '{model_name}'."
+    )
+
     try:
         # Get web search setting for context (but don't override rules)
         web_search_enabled = False
         try:
             from backend.utils.settings_utils import get_web_access
+
             web_search_enabled = get_web_access()
             logger.debug(f"Web search setting for QA template: {web_search_enabled}")
         except Exception as e:
             logger.warning(f"Failed to get web search setting for QA template: {e}")
-        
+
         # Fetch QA template from database rules
         key = _qa_template_cache_key(model_name)
         text, rule_id = _cached_active_qa_template(key, fallback_text)
-        
+
         if rule_id is not None:
-            logger.info(f"Using database qa_default rule ID {rule_id} for model '{model_name or '__ALL__'}'.")
-            
+            logger.info(
+                f"Using database qa_default rule ID {rule_id} for model '{model_name or '__ALL__'}'."
+            )
+
             # If the rule contains web search placeholders, provide the setting
             if "{web_search_enabled}" in text:
                 text = text.replace("{web_search_enabled}", str(web_search_enabled))
             if "{web_access_status}" in text:
                 status = "ENABLED" if web_search_enabled else "DISABLED"
                 text = text.replace("{web_access_status}", status)
-                
+
         else:
             logger.warning("No active qa_default rule found; using fallback template.")
-            
+
         return text, rule_id
-        
+
     except Exception as e:
         logger.error(f"DB error fetching qa_default QA_TEMPLATE: {e}", exc_info=True)
         return fallback_text, None

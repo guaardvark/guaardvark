@@ -52,10 +52,10 @@ def read_code(filepath: str) -> str:
         if not full_path.is_file():
             return f"ERROR: '{filepath}' is a directory, not a file"
 
-        with open(full_path, 'r', encoding='utf-8') as f:
+        with open(full_path, "r", encoding="utf-8") as f:
             content = f.read()
 
-        line_count = len(content.split('\n'))
+        line_count = len(content.split("\n"))
         char_count = len(content)
 
         result = f"""✓ Successfully read: {filepath}
@@ -93,10 +93,10 @@ def search_code(pattern: str, file_glob: str = "**/*.{py,jsx,js,tsx,ts}") -> str
         matches = []
 
         # Convert glob pattern to list of patterns for common extensions
-        if '{' in file_glob and '}' in file_glob:
+        if "{" in file_glob and "}" in file_glob:
             # Expand {py,jsx,js} syntax
-            base_pattern = file_glob.split('{')[0]
-            extensions = file_glob.split('{')[1].split('}')[0].split(',')
+            base_pattern = file_glob.split("{")[0]
+            extensions = file_glob.split("{")[1].split("}")[0].split(",")
             file_patterns = [base_pattern + ext for ext in extensions]
         else:
             file_patterns = [file_glob]
@@ -109,19 +109,31 @@ def search_code(pattern: str, file_glob: str = "**/*.{py,jsx,js,tsx,ts}") -> str
         for filepath in all_files:
             # Skip common directories
             path_str = str(filepath)
-            if any(skip in path_str for skip in ['venv', 'node_modules', '.git', 'dist', '__pycache__', 'htmlcov']):
+            if any(
+                skip in path_str
+                for skip in [
+                    "venv",
+                    "node_modules",
+                    ".git",
+                    "dist",
+                    "__pycache__",
+                    "htmlcov",
+                ]
+            ):
                 continue
 
             try:
-                with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
                     for line_num, line in enumerate(f, start=1):
                         if re.search(pattern, line, re.IGNORECASE):
                             relative_path = filepath.relative_to(PROJECT_ROOT)
-                            matches.append({
-                                'file': str(relative_path),
-                                'line': line_num,
-                                'content': line.rstrip()
-                            })
+                            matches.append(
+                                {
+                                    "file": str(relative_path),
+                                    "line": line_num,
+                                    "content": line.rstrip(),
+                                }
+                            )
             except Exception as e:
                 logger.debug(f"Skipping {filepath}: {e}")
                 continue
@@ -184,7 +196,7 @@ def edit_code(filepath: str, old_text: str, new_text: str) -> str:
             return f"ERROR: File '{filepath}' does not exist"
 
         # Read current content
-        with open(full_path, 'r', encoding='utf-8') as f:
+        with open(full_path, "r", encoding="utf-8") as f:
             current_content = f.read()
 
         # Check if old_text exists and is unique
@@ -216,8 +228,8 @@ Include the full element:
 """
 
         # Create backup
-        backup_path = full_path.with_suffix(full_path.suffix + '.backup')
-        with open(backup_path, 'w', encoding='utf-8') as f:
+        backup_path = full_path.with_suffix(full_path.suffix + ".backup")
+        with open(backup_path, "w", encoding="utf-8") as f:
             f.write(current_content)
 
         logger.info(f"Created backup at {backup_path}")
@@ -226,7 +238,7 @@ Include the full element:
         if not backup_path.exists():
             return f"ERROR: Backup file was not created for '{filepath}' - edit aborted"
         backup_size = backup_path.stat().st_size
-        if backup_size != len(current_content.encode('utf-8')):
+        if backup_size != len(current_content.encode("utf-8")):
             return (
                 f"ERROR: Backup verification failed for '{filepath}' "
                 f"(backup size {backup_size} != original {len(current_content.encode('utf-8'))}) - edit aborted"
@@ -236,24 +248,24 @@ Include the full element:
         updated_content = current_content.replace(old_text, new_text)
 
         # Write updated content
-        with open(full_path, 'w', encoding='utf-8') as f:
+        with open(full_path, "w", encoding="utf-8") as f:
             f.write(updated_content)
 
         # Verify the change
-        with open(full_path, 'r', encoding='utf-8') as f:
+        with open(full_path, "r", encoding="utf-8") as f:
             verify_content = f.read()
 
         # Check if edit was successful
         if new_text and new_text not in verify_content:
             # Restore from backup
-            with open(backup_path, 'r', encoding='utf-8') as f:
-                with open(full_path, 'w', encoding='utf-8') as out:
+            with open(backup_path, "r", encoding="utf-8") as f:
+                with open(full_path, "w", encoding="utf-8") as out:
                     out.write(f.read())
             return f"ERROR: Verification failed - edit was rolled back. Backup preserved at {backup_path.name}"
 
         # Calculate changes
-        old_lines = len(old_text.split('\n'))
-        new_lines = len(new_text.split('\n'))
+        old_lines = len(old_text.split("\n"))
+        new_lines = len(new_text.split("\n"))
         lines_diff = new_lines - old_lines
 
         result = f"""✓ Successfully edited '{filepath}'
@@ -307,13 +319,28 @@ def list_files(directory: str = "frontend/src/pages", max_depth: int = 5) -> str
 
             tree = ""
             try:
-                items = sorted(dir_path.iterdir(), key=lambda x: (not x.is_dir(), x.name))
+                items = sorted(
+                    dir_path.iterdir(), key=lambda x: (not x.is_dir(), x.name)
+                )
 
                 # Filter out common skip directories
-                items = [item for item in items if item.name not in [
-                    'venv', 'node_modules', '.git', '__pycache__', 'dist',
-                    '.pytest_cache', 'htmlcov', '.coverage', 'build', 'logs'
-                ]]
+                items = [
+                    item
+                    for item in items
+                    if item.name
+                    not in [
+                        "venv",
+                        "node_modules",
+                        ".git",
+                        "__pycache__",
+                        "dist",
+                        ".pytest_cache",
+                        "htmlcov",
+                        ".coverage",
+                        "build",
+                        "logs",
+                    ]
+                ]
 
                 for i, item in enumerate(items):
                     is_last = i == len(items) - 1
@@ -366,14 +393,16 @@ def verify_change(filepath: str, expected_text: str, should_exist: bool = True) 
         if not full_path.exists():
             return f"ERROR: File '{filepath}' does not exist"
 
-        with open(full_path, 'r', encoding='utf-8') as f:
+        with open(full_path, "r", encoding="utf-8") as f:
             content = f.read()
 
         text_found = expected_text in content
 
         if should_exist:
             if text_found:
-                return f"✓ VERIFIED: Text '{expected_text[:50]}...' exists in '{filepath}'"
+                return (
+                    f"✓ VERIFIED: Text '{expected_text[:50]}...' exists in '{filepath}'"
+                )
             else:
                 return f"✗ VERIFICATION FAILED: Expected text not found in '{filepath}'"
         else:
@@ -387,13 +416,7 @@ def verify_change(filepath: str, expected_text: str, should_exist: bool = True) 
 
 
 # Export functions for LlamaIndex FunctionTool creation
-__all__ = [
-    'read_code',
-    'search_code',
-    'edit_code',
-    'list_files',
-    'verify_change'
-]
+__all__ = ["read_code", "search_code", "edit_code", "list_files", "verify_change"]
 
 
 if __name__ == "__main__":

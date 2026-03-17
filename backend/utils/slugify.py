@@ -20,14 +20,13 @@ def remove_diacritics(text: str) -> str:
         String with diacritics removed
     """
     # Normalize to NFD (decomposed form)
-    normalized = unicodedata.normalize('NFD', text)
+    normalized = unicodedata.normalize("NFD", text)
     # Remove combining characters (diacritics)
-    without_diacritics = ''.join(
-        char for char in normalized
-        if unicodedata.category(char) != 'Mn'
+    without_diacritics = "".join(
+        char for char in normalized if unicodedata.category(char) != "Mn"
     )
     # Normalize back to NFC (composed form)
-    return unicodedata.normalize('NFC', without_diacritics)
+    return unicodedata.normalize("NFC", without_diacritics)
 
 
 def slugify(title: str, max_length: Optional[int] = None) -> str:
@@ -44,7 +43,7 @@ def slugify(title: str, max_length: Optional[int] = None) -> str:
         URL-friendly slug
     """
     if not title or not isinstance(title, str):
-        return ''
+        return ""
 
     slug = title
 
@@ -55,22 +54,22 @@ def slugify(title: str, max_length: Optional[int] = None) -> str:
     slug = remove_diacritics(slug)
 
     # Step 3: Replace non a-z0-9 characters with dashes
-    slug = re.sub(r'[^a-z0-9\s]', '-', slug)
+    slug = re.sub(r"[^a-z0-9\s]", "-", slug)
 
     # Step 4: Replace whitespace with dashes
-    slug = re.sub(r'\s+', '-', slug)
+    slug = re.sub(r"\s+", "-", slug)
 
     # Step 5: Collapse multiple consecutive dashes
-    slug = re.sub(r'-+', '-', slug)
+    slug = re.sub(r"-+", "-", slug)
 
     # Step 6: Trim leading and trailing dashes
-    slug = slug.strip('-')
+    slug = slug.strip("-")
 
     # Step 7: Apply length limit if specified (but not by default)
     if max_length and isinstance(max_length, int) and max_length > 0:
         slug = slug[:max_length]
         # Re-trim trailing dashes after truncation
-        slug = slug.rstrip('-')
+        slug = slug.rstrip("-")
 
     return slug
 
@@ -89,7 +88,7 @@ def is_valid_slug(slug: str) -> bool:
         return False
 
     # Check if slug matches the pattern: lowercase a-z0-9 with dashes
-    slug_pattern = re.compile(r'^[a-z0-9]+(?:-[a-z0-9]+)*$')
+    slug_pattern = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
     return bool(slug_pattern.match(slug))
 
 
@@ -114,7 +113,9 @@ async def ensure_unique_slug(base_slug: str, check_exists_func) -> str:
     return slug
 
 
-def create_slug_with_validation(title: str, max_length: Optional[int] = None) -> Dict[str, Any]:
+def create_slug_with_validation(
+    title: str, max_length: Optional[int] = None
+) -> Dict[str, Any]:
     """
     Create slug from title with validation
 
@@ -130,19 +131,14 @@ def create_slug_with_validation(title: str, max_length: Optional[int] = None) ->
     errors = []
 
     if not slug:
-        errors.append('Title produces empty slug')
+        errors.append("Title produces empty slug")
     elif not is_valid:
-        errors.append('Generated slug contains invalid characters')
+        errors.append("Generated slug contains invalid characters")
 
     if title and len(title) > 100 and not slug:
-        errors.append('Title too complex to generate valid slug')
+        errors.append("Title too complex to generate valid slug")
 
-    return {
-        'slug': slug,
-        'is_valid': is_valid,
-        'errors': errors,
-        'original': title
-    }
+    return {"slug": slug, "is_valid": is_valid, "errors": errors, "original": title}
 
 
 def test_slugify() -> Dict[str, Any]:
@@ -153,73 +149,69 @@ def test_slugify() -> Dict[str, Any]:
         Test results dictionary
     """
     test_cases = [
+        {"input": "Simple Title", "expected": "simple-title"},
         {
-            'input': 'Simple Title',
-            'expected': 'simple-title'
+            "input": "Title with Spéciàl Chäräctërs",
+            "expected": "title-with-special-characters",
         },
         {
-            'input': 'Title with Spéciàl Chäräctërs',
-            'expected': 'title-with-special-characters'
+            "input": "Title!!! with @#$ symbols & stuff",
+            "expected": "title-with-symbols-stuff",
         },
         {
-            'input': 'Title!!! with @#$ symbols & stuff',
-            'expected': 'title-with-symbols-stuff'
+            "input": "Multiple    Spaces   Between",
+            "expected": "multiple-spaces-between",
         },
         {
-            'input': 'Multiple    Spaces   Between',
-            'expected': 'multiple-spaces-between'
+            "input": "---Leading and Trailing Dashes---",
+            "expected": "leading-and-trailing-dashes",
         },
         {
-            'input': '---Leading and Trailing Dashes---',
-            'expected': 'leading-and-trailing-dashes'
+            "input": "Ñoñó Español & François Français",
+            "expected": "nono-espanol-francois-francais",
         },
+        {"input": "123 Numbers and UPPERCASE", "expected": "123-numbers-and-uppercase"},
         {
-            'input': 'Ñoñó Español & François Français',
-            'expected': 'nono-espanol-francois-francais'
+            "input": "Very-Long-Title-That-Would-Previously-Be-Truncated-But-Now-Should-Remain-Complete",
+            "expected": "very-long-title-that-would-previously-be-truncated-but-now-should-remain-complete",
         },
-        {
-            'input': '123 Numbers and UPPERCASE',
-            'expected': '123-numbers-and-uppercase'
-        },
-        {
-            'input': 'Very-Long-Title-That-Would-Previously-Be-Truncated-But-Now-Should-Remain-Complete',
-            'expected': 'very-long-title-that-would-previously-be-truncated-but-now-should-remain-complete'
-        }
     ]
 
     results = []
     for test_case in test_cases:
-        input_title = test_case['input']
-        expected = test_case['expected']
+        input_title = test_case["input"]
+        expected = test_case["expected"]
         result = slugify(input_title)
         passed = result == expected
 
-        results.append({
-            'input': input_title,
-            'expected': expected,
-            'result': result,
-            'passed': passed
-        })
+        results.append(
+            {
+                "input": input_title,
+                "expected": expected,
+                "result": result,
+                "passed": passed,
+            }
+        )
 
-    all_passed = all(test['passed'] for test in results)
-    passed_count = sum(1 for test in results if test['passed'])
+    all_passed = all(test["passed"] for test in results)
+    passed_count = sum(1 for test in results if test["passed"])
 
     return {
-        'all_passed': all_passed,
-        'results': results,
-        'summary': f"{passed_count}/{len(results)} tests passed"
+        "all_passed": all_passed,
+        "results": results,
+        "summary": f"{passed_count}/{len(results)} tests passed",
     }
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Run tests when executed directly
     test_results = test_slugify()
     print(f"Slugify Tests: {test_results['summary']}")
 
-    if not test_results['all_passed']:
+    if not test_results["all_passed"]:
         print("\nFailed tests:")
-        for test in test_results['results']:
-            if not test['passed']:
+        for test in test_results["results"]:
+            if not test["passed"]:
                 print(f"Input: '{test['input']}'")
                 print(f"Expected: '{test['expected']}'")
                 print(f"Got: '{test['result']}'")

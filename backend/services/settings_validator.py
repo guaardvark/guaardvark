@@ -8,14 +8,17 @@ from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class ValidationResult:
     """Result of settings validation"""
+
     is_valid: bool
     warnings: List[str]
     errors: List[str]
     corrected_values: Dict[str, Any]
     recommendations: List[str]
+
 
 # Model-specific settings configuration
 MODEL_SETTINGS = {
@@ -28,7 +31,7 @@ MODEL_SETTINGS = {
         "recommended_steps": 25,
         "best_for": ["high_res", "anatomy", "landscapes"],
         "warnings": ["Guidance > 9.0 causes black images"],
-        "max_dimensions": (1536, 1536)
+        "max_dimensions": (1536, 1536),
     },
     "sdxl-turbo": {
         "guidance_range": (0.0, 1.0),
@@ -38,8 +41,11 @@ MODEL_SETTINGS = {
         "steps_range": (1, 4),
         "recommended_steps": 4,
         "best_for": ["speed", "previews", "high_res"],
-        "warnings": ["Not for final quality images", "Guidance not used by turbo models"],
-        "max_dimensions": (1536, 1536)
+        "warnings": [
+            "Not for final quality images",
+            "Guidance not used by turbo models",
+        ],
+        "max_dimensions": (1536, 1536),
     },
     "sd-1.5": {
         "guidance_range": (1.0, 15.0),
@@ -50,7 +56,7 @@ MODEL_SETTINGS = {
         "recommended_steps": 20,
         "best_for": ["general", "speed", "reliability"],
         "warnings": [],
-        "max_dimensions": (768, 768)
+        "max_dimensions": (768, 768),
     },
     "sd-2.1": {
         "guidance_range": (7.0, 12.0),
@@ -61,7 +67,7 @@ MODEL_SETTINGS = {
         "recommended_steps": 30,
         "best_for": ["general", "anatomy"],
         "warnings": [],
-        "max_dimensions": (768, 768)
+        "max_dimensions": (768, 768),
     },
     "realistic-vision": {
         "guidance_range": (7.0, 10.0),
@@ -72,7 +78,7 @@ MODEL_SETTINGS = {
         "recommended_steps": 30,
         "best_for": ["faces", "portraits", "photorealism"],
         "warnings": [],
-        "max_dimensions": (768, 768)
+        "max_dimensions": (768, 768),
     },
     "epic-realism": {
         "guidance_range": (7.0, 9.0),
@@ -83,7 +89,7 @@ MODEL_SETTINGS = {
         "recommended_steps": 35,
         "best_for": ["faces", "portraits", "cinematic"],
         "warnings": [],
-        "max_dimensions": (768, 768)
+        "max_dimensions": (768, 768),
     },
     "deliberate": {
         "guidance_range": (7.0, 10.0),
@@ -94,7 +100,7 @@ MODEL_SETTINGS = {
         "recommended_steps": 25,
         "best_for": ["artistic", "realistic", "versatile"],
         "warnings": [],
-        "max_dimensions": (768, 768)
+        "max_dimensions": (768, 768),
     },
     "dreamlike": {
         "guidance_range": (7.0, 10.0),
@@ -105,7 +111,7 @@ MODEL_SETTINGS = {
         "recommended_steps": 25,
         "best_for": ["photorealism", "artistic"],
         "warnings": [],
-        "max_dimensions": (768, 768)
+        "max_dimensions": (768, 768),
     },
     "sd-turbo": {
         "guidance_range": (0.0, 1.0),
@@ -115,8 +121,11 @@ MODEL_SETTINGS = {
         "steps_range": (1, 4),
         "recommended_steps": 4,
         "best_for": ["speed", "previews"],
-        "warnings": ["Not for final quality images", "Guidance not used by turbo models"],
-        "max_dimensions": (512, 512)
+        "warnings": [
+            "Not for final quality images",
+            "Guidance not used by turbo models",
+        ],
+        "max_dimensions": (512, 512),
     },
     "openjourney": {
         "guidance_range": (7.0, 10.0),
@@ -127,7 +136,7 @@ MODEL_SETTINGS = {
         "recommended_steps": 25,
         "best_for": ["artistic", "midjourney_style"],
         "warnings": [],
-        "max_dimensions": (768, 768)
+        "max_dimensions": (768, 768),
     },
     "analog": {
         "guidance_range": (7.0, 10.0),
@@ -138,7 +147,7 @@ MODEL_SETTINGS = {
         "recommended_steps": 25,
         "best_for": ["film_photography", "aesthetic"],
         "warnings": [],
-        "max_dimensions": (768, 768)
+        "max_dimensions": (768, 768),
     },
     "anything-v3": {
         "guidance_range": (7.0, 10.0),
@@ -149,9 +158,10 @@ MODEL_SETTINGS = {
         "recommended_steps": 25,
         "best_for": ["anime", "illustration"],
         "warnings": [],
-        "max_dimensions": (768, 768)
-    }
+        "max_dimensions": (768, 768),
+    },
 }
+
 
 class SettingsValidator:
     """Validates image generation settings with model-specific rules."""
@@ -159,16 +169,18 @@ class SettingsValidator:
     def __init__(self):
         self.model_settings = MODEL_SETTINGS
 
-    def validate_settings(self, 
-                          model: str,
-                          guidance: float,
-                          steps: int,
-                          width: int,
-                          height: int,
-                          auto_correct: bool = True) -> ValidationResult:
+    def validate_settings(
+        self,
+        model: str,
+        guidance: float,
+        steps: int,
+        width: int,
+        height: int,
+        auto_correct: bool = True,
+    ) -> ValidationResult:
         """
         Validate generation settings for a specific model.
-        
+
         Args:
             model: Model identifier
             guidance: Guidance scale value
@@ -176,7 +188,7 @@ class SettingsValidator:
             width: Image width
             height: Image height
             auto_correct: Whether to auto-correct invalid values
-            
+
         Returns:
             ValidationResult with validation status, warnings, errors, and corrections
         """
@@ -203,7 +215,9 @@ class SettingsValidator:
             else:
                 errors.append(error_msg)
         elif guidance != model_config["recommended_guidance"]:
-            recommendations.append(f"Recommended guidance for {model}: {model_config['recommended_guidance']}")
+            recommendations.append(
+                f"Recommended guidance for {model}: {model_config['recommended_guidance']}"
+            )
 
         # Validate steps
         steps_min, steps_max = model_config["steps_range"]
@@ -216,12 +230,14 @@ class SettingsValidator:
             else:
                 warnings.append(error_msg)
         elif steps != model_config["recommended_steps"]:
-            recommendations.append(f"Recommended steps for {model}: {model_config['recommended_steps']}")
+            recommendations.append(
+                f"Recommended steps for {model}: {model_config['recommended_steps']}"
+            )
 
         # Validate dimensions
         min_w, min_h = model_config["min_dimensions"]
         max_w, max_h = model_config.get("max_dimensions", (2048, 2048))
-        
+
         if width < min_w or height < min_h:
             error_msg = f"Dimensions {width}x{height} are below minimum {min_w}x{min_h} for {model}"
             if auto_correct:
@@ -229,7 +245,9 @@ class SettingsValidator:
                 corrected_height = max(min_h, height)
                 corrected_values["width"] = corrected_width
                 corrected_values["height"] = corrected_height
-                warnings.append(f"{error_msg}. Auto-corrected to {corrected_width}x{corrected_height}")
+                warnings.append(
+                    f"{error_msg}. Auto-corrected to {corrected_width}x{corrected_height}"
+                )
             else:
                 errors.append(error_msg)
         elif width > max_w or height > max_h:
@@ -239,7 +257,9 @@ class SettingsValidator:
         # Check for recommended dimensions
         rec_w, rec_h = model_config["recommended_dimensions"]
         if width != rec_w or height != rec_h:
-            recommendations.append(f"Recommended dimensions for {model}: {rec_w}x{rec_h}")
+            recommendations.append(
+                f"Recommended dimensions for {model}: {rec_w}x{rec_h}"
+            )
 
         # Add model-specific warnings
         for warning in model_config.get("warnings", []):
@@ -247,10 +267,14 @@ class SettingsValidator:
 
         # Check for common issues
         if "turbo" in model.lower() and guidance > 1.0:
-            warnings.append(f"Turbo models ({model}) don't use guidance scale effectively. Consider setting to 0.0-1.0")
+            warnings.append(
+                f"Turbo models ({model}) don't use guidance scale effectively. Consider setting to 0.0-1.0"
+            )
 
         if width != height and "xl" in model.lower():
-            recommendations.append("SDXL models work best with square dimensions (1024x1024)")
+            recommendations.append(
+                "SDXL models work best with square dimensions (1024x1024)"
+            )
 
         is_valid = len(errors) == 0
 
@@ -259,7 +283,7 @@ class SettingsValidator:
             warnings=warnings,
             errors=errors,
             corrected_values=corrected_values,
-            recommendations=recommendations
+            recommendations=recommendations,
         )
 
     def get_model_recommendations(self, model: str) -> Dict[str, Any]:
@@ -274,7 +298,7 @@ class SettingsValidator:
             "width": model_config["recommended_dimensions"][0],
             "height": model_config["recommended_dimensions"][1],
             "best_for": model_config["best_for"],
-            "warnings": model_config.get("warnings", [])
+            "warnings": model_config.get("warnings", []),
         }
 
     def get_model_info(self, model: str) -> Dict[str, Any]:
@@ -289,10 +313,10 @@ class SettingsValidator:
 # Singleton instance
 _validator_instance = None
 
+
 def get_settings_validator() -> SettingsValidator:
     """Get singleton settings validator instance."""
     global _validator_instance
     if _validator_instance is None:
         _validator_instance = SettingsValidator()
     return _validator_instance
-

@@ -23,14 +23,17 @@ logger = logging.getLogger(__name__)
 # Database connection (PostgreSQL via SQLAlchemy)
 # ============================================================================
 
+
 def _get_database_url():
-    url = os.environ.get('DATABASE_URL')
+    url = os.environ.get("DATABASE_URL")
     if url:
         return url
     return "postgresql://guaardvark:guaardvark@localhost:5432/guaardvark"
 
+
 _engine = None
 _SessionFactory = None
+
 
 def get_db_session():
     global _engine, _SessionFactory
@@ -43,6 +46,7 @@ def get_db_session():
 # ============================================================================
 # Dead Letter Queue (DLQ)
 # ============================================================================
+
 
 def init_dlq_database():
     """Initialize the DLQ database tables."""
@@ -90,8 +94,15 @@ def init_dlq_database():
         session.close()
 
 
-def add_to_dlq(task_id: str, task_name: str, args: tuple, kwargs: dict,
-               exception: Exception, traceback_str: str, retry_count: int = 0):
+def add_to_dlq(
+    task_id: str,
+    task_name: str,
+    args: tuple,
+    kwargs: dict,
+    exception: Exception,
+    traceback_str: str,
+    retry_count: int = 0,
+):
     """
     Add a failed task to the dead letter queue.
 
@@ -113,14 +124,17 @@ def add_to_dlq(task_id: str, task_name: str, args: tuple, kwargs: dict,
 
             # Check if task already exists in DLQ
             result = session.execute(
-                text("SELECT id, retry_count, first_failure_time FROM dead_letter_queue WHERE task_id = :task_id"),
-                {"task_id": task_id}
+                text(
+                    "SELECT id, retry_count, first_failure_time FROM dead_letter_queue WHERE task_id = :task_id"
+                ),
+                {"task_id": task_id},
             )
             existing = result.fetchone()
 
             if existing:
                 # Update existing entry
-                session.execute(text("""
+                session.execute(
+                    text("""
                     UPDATE dead_letter_queue
                     SET retry_count = :retry_count,
                         last_failure_time = :last_failure_time,
@@ -129,35 +143,40 @@ def add_to_dlq(task_id: str, task_name: str, args: tuple, kwargs: dict,
                         traceback = :traceback,
                         status = 'failed'
                     WHERE task_id = :task_id
-                """), {
-                    "retry_count": retry_count,
-                    "last_failure_time": now,
-                    "exception_type": type(exception).__name__,
-                    "exception_message": str(exception),
-                    "traceback": traceback_str,
-                    "task_id": task_id
-                })
+                """),
+                    {
+                        "retry_count": retry_count,
+                        "last_failure_time": now,
+                        "exception_type": type(exception).__name__,
+                        "exception_message": str(exception),
+                        "traceback": traceback_str,
+                        "task_id": task_id,
+                    },
+                )
                 logger.info(f"Updated DLQ entry for task {task_id}")
             else:
                 # Insert new entry
-                session.execute(text("""
+                session.execute(
+                    text("""
                     INSERT INTO dead_letter_queue
                     (task_id, task_name, args, kwargs, exception_type, exception_message,
                      traceback, retry_count, first_failure_time, last_failure_time)
                     VALUES (:task_id, :task_name, :args, :kwargs, :exception_type, :exception_message,
                             :traceback, :retry_count, :first_failure_time, :last_failure_time)
-                """), {
-                    "task_id": task_id,
-                    "task_name": task_name,
-                    "args": json.dumps(args),
-                    "kwargs": json.dumps(kwargs),
-                    "exception_type": type(exception).__name__,
-                    "exception_message": str(exception),
-                    "traceback": traceback_str,
-                    "retry_count": retry_count,
-                    "first_failure_time": now,
-                    "last_failure_time": now
-                })
+                """),
+                    {
+                        "task_id": task_id,
+                        "task_name": task_name,
+                        "args": json.dumps(args),
+                        "kwargs": json.dumps(kwargs),
+                        "exception_type": type(exception).__name__,
+                        "exception_message": str(exception),
+                        "traceback": traceback_str,
+                        "retry_count": retry_count,
+                        "first_failure_time": now,
+                        "last_failure_time": now,
+                    },
+                )
                 logger.info(f"Added task {task_id} to DLQ")
 
             session.commit()
@@ -172,7 +191,7 @@ def add_to_dlq(task_id: str, task_name: str, args: tuple, kwargs: dict,
         logger.error(f"Failed to add task to DLQ: {e}")
 
 
-def get_dlq_entries(status: str = 'failed', limit: int = 100) -> List[Dict[str, Any]]:
+def get_dlq_entries(status: str = "failed", limit: int = 100) -> List[Dict[str, Any]]:
     """
     Get entries from the dead letter queue.
 
@@ -189,18 +208,24 @@ def get_dlq_entries(status: str = 'failed', limit: int = 100) -> List[Dict[str, 
 
         try:
             if status:
-                result = session.execute(text("""
+                result = session.execute(
+                    text("""
                     SELECT * FROM dead_letter_queue
                     WHERE status = :status
                     ORDER BY last_failure_time DESC
                     LIMIT :limit
-                """), {"status": status, "limit": limit})
+                """),
+                    {"status": status, "limit": limit},
+                )
             else:
-                result = session.execute(text("""
+                result = session.execute(
+                    text("""
                     SELECT * FROM dead_letter_queue
                     ORDER BY last_failure_time DESC
                     LIMIT :limit
-                """), {"limit": limit})
+                """),
+                    {"limit": limit},
+                )
 
             rows = result.mappings().fetchall()
             return [dict(row) for row in rows]
@@ -231,37 +256,41 @@ def reprocess_dlq_entry(entry_id: int) -> Dict[str, Any]:
             # Get the entry
             result = session.execute(
                 text("SELECT * FROM dead_letter_queue WHERE id = :entry_id"),
-                {"entry_id": entry_id}
+                {"entry_id": entry_id},
             )
             entry = result.mappings().fetchone()
 
             if not entry:
-                return {'error': 'Entry not found'}
+                return {"error": "Entry not found"}
 
             # Mark as reprocessed
-            session.execute(text("""
+            session.execute(
+                text("""
                 UPDATE dead_letter_queue
                 SET status = 'reprocessed',
                     reprocessed_time = :reprocessed_time
                 WHERE id = :entry_id
-            """), {"reprocessed_time": datetime.now().isoformat(), "entry_id": entry_id})
+            """),
+                {"reprocessed_time": datetime.now().isoformat(), "entry_id": entry_id},
+            )
 
             session.commit()
 
             # Re-submit the task
             from backend.celery_app import celery
-            task_name = entry['task_name']
-            args = json.loads(entry['args'])
-            kwargs = json.loads(entry['kwargs'])
+
+            task_name = entry["task_name"]
+            args = json.loads(entry["args"])
+            kwargs = json.loads(entry["kwargs"])
 
             task = celery.send_task(task_name, args=args, kwargs=kwargs)
 
             logger.info(f"Reprocessed DLQ entry {entry_id} as task {task.id}")
 
             return {
-                'success': True,
-                'new_task_id': task.id,
-                'original_task_id': entry['task_id']
+                "success": True,
+                "new_task_id": task.id,
+                "original_task_id": entry["task_id"],
             }
 
         except Exception:
@@ -272,7 +301,7 @@ def reprocess_dlq_entry(entry_id: int) -> Dict[str, Any]:
 
     except Exception as e:
         logger.error(f"Failed to reprocess DLQ entry: {e}")
-        return {'error': str(e)}
+        return {"error": str(e)}
 
 
 def cleanup_old_dlq_entries(days: int = 30) -> int:
@@ -292,11 +321,14 @@ def cleanup_old_dlq_entries(days: int = 30) -> int:
         try:
             cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
 
-            result = session.execute(text("""
+            result = session.execute(
+                text("""
                 DELETE FROM dead_letter_queue
                 WHERE status = 'reprocessed'
                 AND created_at < :cutoff_date
-            """), {"cutoff_date": cutoff_date})
+            """),
+                {"cutoff_date": cutoff_date},
+            )
 
             deleted_count = result.rowcount
             session.commit()
@@ -319,7 +351,10 @@ def cleanup_old_dlq_entries(days: int = 30) -> int:
 # Enhanced Retry Logic
 # ============================================================================
 
-def exponential_backoff(retry_count: int, base_delay: int = 60, max_delay: int = 3600) -> int:
+
+def exponential_backoff(
+    retry_count: int, base_delay: int = 60, max_delay: int = 3600
+) -> int:
     """
     Calculate exponential backoff delay.
 
@@ -331,13 +366,17 @@ def exponential_backoff(retry_count: int, base_delay: int = 60, max_delay: int =
     Returns:
         Delay in seconds
     """
-    delay = min(base_delay * (2 ** retry_count), max_delay)
+    delay = min(base_delay * (2**retry_count), max_delay)
     return delay
 
 
-def smart_retry(max_retries: int = 3, base_delay: int = 60,
-                max_delay: int = 3600, autoretry_for: tuple = (Exception,),
-                dont_autoretry_for: tuple = ()):
+def smart_retry(
+    max_retries: int = 3,
+    base_delay: int = 60,
+    max_delay: int = 3600,
+    autoretry_for: tuple = (Exception,),
+    dont_autoretry_for: tuple = (),
+):
     """
     Decorator for smart task retry with exponential backoff.
 
@@ -355,6 +394,7 @@ def smart_retry(max_retries: int = 3, base_delay: int = 60,
             # task logic
             return result
     """
+
     def decorator(func):
         @wraps(func)
         def wrapper(self, *args, **kwargs):
@@ -377,6 +417,7 @@ def smart_retry(max_retries: int = 3, base_delay: int = 60,
 
                     # Add to DLQ
                     import traceback
+
                     add_to_dlq(
                         task_id=self.request.id,
                         task_name=task_name,
@@ -384,13 +425,15 @@ def smart_retry(max_retries: int = 3, base_delay: int = 60,
                         kwargs=kwargs,
                         exception=e,
                         traceback_str=traceback.format_exc(),
-                        retry_count=retry_count
+                        retry_count=retry_count,
                     )
 
                     # Send alert for critical failure
                     send_failure_alert(task_name, str(e), retry_count)
 
-                    raise MaxRetriesExceededError(f"Task {task_name} failed after {max_retries} retries")
+                    raise MaxRetriesExceededError(
+                        f"Task {task_name} failed after {max_retries} retries"
+                    )
 
                 # Calculate backoff delay
                 delay = exponential_backoff(retry_count, base_delay, max_delay)
@@ -404,12 +447,14 @@ def smart_retry(max_retries: int = 3, base_delay: int = 60,
                 raise self.retry(exc=e, countdown=delay, max_retries=max_retries)
 
         return wrapper
+
     return decorator
 
 
 # ============================================================================
 # Alerting System
 # ============================================================================
+
 
 def send_failure_alert(task_name: str, error_message: str, retry_count: int):
     """
@@ -435,7 +480,7 @@ def send_failure_alert(task_name: str, error_message: str, retry_count: int):
 
     # Store alert in database
     try:
-        _store_alert(task_name, error_message, retry_count, 'critical')
+        _store_alert(task_name, error_message, retry_count, "critical")
     except Exception as e:
         logger.error(f"Failed to store alert: {e}")
 
@@ -464,15 +509,18 @@ def _store_alert(task_name: str, error_message: str, retry_count: int, severity:
                 )
             """))
 
-            session.execute(text("""
+            session.execute(
+                text("""
                 INSERT INTO task_alerts (task_name, error_message, retry_count, severity)
                 VALUES (:task_name, :error_message, :retry_count, :severity)
-            """), {
-                "task_name": task_name,
-                "error_message": error_message,
-                "retry_count": retry_count,
-                "severity": severity
-            })
+            """),
+                {
+                    "task_name": task_name,
+                    "error_message": error_message,
+                    "retry_count": retry_count,
+                    "severity": severity,
+                },
+            )
 
             session.commit()
             logger.info(f"Alert stored for task {task_name}")
@@ -503,12 +551,15 @@ def get_alerts(acknowledged: bool = False, limit: int = 50) -> List[Dict[str, An
         session = get_db_session()
 
         try:
-            result = session.execute(text("""
+            result = session.execute(
+                text("""
                 SELECT * FROM task_alerts
                 WHERE acknowledged = :acknowledged
                 ORDER BY created_at DESC
                 LIMIT :limit
-            """), {"acknowledged": acknowledged, "limit": limit})
+            """),
+                {"acknowledged": acknowledged, "limit": limit},
+            )
 
             rows = result.mappings().fetchall()
             return [dict(row) for row in rows]
@@ -536,11 +587,14 @@ def acknowledge_alert(alert_id: int) -> bool:
         session = get_db_session()
 
         try:
-            session.execute(text("""
+            session.execute(
+                text("""
                 UPDATE task_alerts
                 SET acknowledged = TRUE
                 WHERE id = :alert_id
-            """), {"alert_id": alert_id})
+            """),
+                {"alert_id": alert_id},
+            )
 
             session.commit()
             logger.info(f"Acknowledged alert {alert_id}")
@@ -561,8 +615,10 @@ def acknowledge_alert(alert_id: int) -> bool:
 # Task Result Persistence
 # ============================================================================
 
-def persist_task_result(task_id: str, task_name: str, result: Any,
-                       duration: float, status: str = 'success'):
+
+def persist_task_result(
+    task_id: str, task_name: str, result: Any, duration: float, status: str = "success"
+):
     """
     Persist task result to database for long-term storage.
 
@@ -591,7 +647,8 @@ def persist_task_result(task_id: str, task_name: str, result: Any,
                 )
             """))
 
-            session.execute(text("""
+            session.execute(
+                text("""
                 INSERT INTO task_results
                 (task_id, task_name, result, duration, status)
                 VALUES (:task_id, :task_name, :result, :duration, :status)
@@ -600,13 +657,15 @@ def persist_task_result(task_id: str, task_name: str, result: Any,
                     result = EXCLUDED.result,
                     duration = EXCLUDED.duration,
                     status = EXCLUDED.status
-            """), {
-                "task_id": task_id,
-                "task_name": task_name,
-                "result": json.dumps(result),
-                "duration": duration,
-                "status": status
-            })
+            """),
+                {
+                    "task_id": task_id,
+                    "task_name": task_name,
+                    "result": json.dumps(result),
+                    "duration": duration,
+                    "status": status,
+                },
+            )
 
             session.commit()
             logger.info(f"Persisted result for task {task_id}")
@@ -636,15 +695,18 @@ def get_task_result(task_id: str) -> Optional[Dict[str, Any]]:
         session = get_db_session()
 
         try:
-            result = session.execute(text("""
+            result = session.execute(
+                text("""
                 SELECT * FROM task_results WHERE task_id = :task_id
-            """), {"task_id": task_id})
+            """),
+                {"task_id": task_id},
+            )
 
             row = result.mappings().fetchone()
 
             if row:
                 row_dict = dict(row)
-                row_dict['result'] = json.loads(row_dict['result'])
+                row_dict["result"] = json.loads(row_dict["result"])
                 return row_dict
 
             return None

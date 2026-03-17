@@ -23,7 +23,9 @@ def _alembic_config(migrations_dir: str = MIGRATIONS_DIR) -> Config:
     try:
         from backend.config import DATABASE_URL as DEFAULT_DATABASE_URL
     except Exception:
-        DEFAULT_DATABASE_URL = "postgresql://guaardvark:guaardvark@localhost:5432/guaardvark"
+        DEFAULT_DATABASE_URL = (
+            "postgresql://guaardvark:guaardvark@localhost:5432/guaardvark"
+        )
     database_url = os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
     cfg.set_main_option("sqlalchemy.url", database_url)
     return cfg
@@ -139,49 +141,87 @@ def detect_model_changes(migrations_dir: str = MIGRATIONS_DIR) -> dict:
                     change_type = change[0]
 
                     if change_type == "add_column":
-                        table_name = change[2].name if hasattr(change[2], 'name') else str(change[2])
-                        col_name = change[3].name if hasattr(change[3], 'name') else str(change[3])
+                        table_name = (
+                            change[2].name
+                            if hasattr(change[2], "name")
+                            else str(change[2])
+                        )
+                        col_name = (
+                            change[3].name
+                            if hasattr(change[3], "name")
+                            else str(change[3])
+                        )
                         add_columns.append(f"{table_name}.{col_name}")
-                        result["changes"].append({
-                            "type": "add_column",
-                            "table": table_name,
-                            "column": col_name,
-                        })
+                        result["changes"].append(
+                            {
+                                "type": "add_column",
+                                "table": table_name,
+                                "column": col_name,
+                            }
+                        )
                     elif change_type == "remove_column":
-                        table_name = change[2].name if hasattr(change[2], 'name') else str(change[2])
-                        col_name = change[3].name if hasattr(change[3], 'name') else str(change[3])
+                        table_name = (
+                            change[2].name
+                            if hasattr(change[2], "name")
+                            else str(change[2])
+                        )
+                        col_name = (
+                            change[3].name
+                            if hasattr(change[3], "name")
+                            else str(change[3])
+                        )
                         remove_columns.append(f"{table_name}.{col_name}")
-                        result["changes"].append({
-                            "type": "remove_column",
-                            "table": table_name,
-                            "column": col_name,
-                        })
+                        result["changes"].append(
+                            {
+                                "type": "remove_column",
+                                "table": table_name,
+                                "column": col_name,
+                            }
+                        )
                     elif change_type == "add_table":
-                        table_name = change[1].name if hasattr(change[1], 'name') else str(change[1])
+                        table_name = (
+                            change[1].name
+                            if hasattr(change[1], "name")
+                            else str(change[1])
+                        )
                         add_tables.append(table_name)
-                        result["changes"].append({
-                            "type": "add_table",
-                            "table": table_name,
-                        })
+                        result["changes"].append(
+                            {
+                                "type": "add_table",
+                                "table": table_name,
+                            }
+                        )
                     elif change_type == "remove_table":
-                        table_name = change[1].name if hasattr(change[1], 'name') else str(change[1])
+                        table_name = (
+                            change[1].name
+                            if hasattr(change[1], "name")
+                            else str(change[1])
+                        )
                         remove_tables.append(table_name)
-                        result["changes"].append({
-                            "type": "remove_table",
-                            "table": table_name,
-                        })
-                    elif change_type == "modify_type" or change_type == "modify_nullable":
+                        result["changes"].append(
+                            {
+                                "type": "remove_table",
+                                "table": table_name,
+                            }
+                        )
+                    elif (
+                        change_type == "modify_type" or change_type == "modify_nullable"
+                    ):
                         modify_columns.append(str(change))
-                        result["changes"].append({
-                            "type": change_type,
-                            "details": str(change),
-                        })
+                        result["changes"].append(
+                            {
+                                "type": change_type,
+                                "details": str(change),
+                            }
+                        )
                     else:
                         other_changes.append(str(change))
-                        result["changes"].append({
-                            "type": change_type,
-                            "details": str(change),
-                        })
+                        result["changes"].append(
+                            {
+                                "type": change_type,
+                                "details": str(change),
+                            }
+                        )
 
                 parts = []
                 if add_columns:
@@ -197,7 +237,9 @@ def detect_model_changes(migrations_dir: str = MIGRATIONS_DIR) -> dict:
                 if other_changes:
                     parts.append(f"other changes: {len(other_changes)}")
 
-                result["summary"] = "; ".join(parts) if parts else "Model changes detected"
+                result["summary"] = (
+                    "; ".join(parts) if parts else "Model changes detected"
+                )
 
     except ImportError as e:
         result["error"] = f"Could not import models: {e}"
@@ -256,7 +298,9 @@ def get_comprehensive_health(migrations_dir: str = MIGRATIONS_DIR) -> dict:
     return health
 
 
-def auto_migrate(migrations_dir: str = MIGRATIONS_DIR, message: str = "auto migration") -> dict:
+def auto_migrate(
+    migrations_dir: str = MIGRATIONS_DIR, message: str = "auto migration"
+) -> dict:
     model_diff = detect_model_changes(migrations_dir)
 
     if not model_diff.get("has_changes", False):

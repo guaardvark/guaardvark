@@ -27,13 +27,20 @@ def agents_list(
             output.print_json(agents)
             return
 
-        rows = [{
-            "id": a.get("id", ""),
-            "name": a.get("name", ""),
-            "enabled": "Yes" if a.get("enabled") else "No",
-            "tools": str(len(a.get("tools", []))),
-        } for a in agents]
-        output.print_table(rows, columns=["id", "name", "enabled", "tools"], title=f"Agents ({len(rows)})")
+        rows = [
+            {
+                "id": a.get("id", ""),
+                "name": a.get("name", ""),
+                "enabled": "Yes" if a.get("enabled") else "No",
+                "tools": str(len(a.get("tools", []))),
+            }
+            for a in agents
+        ]
+        output.print_table(
+            rows,
+            columns=["id", "name", "enabled", "tools"],
+            title=f"Agents ({len(rows)})",
+        )
 
     except (LlxConnectionError, LlxError) as e:
         output.print_error(str(e))
@@ -60,16 +67,22 @@ def agents_info(
             output.print_json(data)
             return
 
-        output.print_kv({
-            "ID": agent.get("id", ""),
-            "Name": agent.get("name", ""),
-            "Enabled": str(agent.get("enabled", False)),
-            "Description": agent.get("description", "—"),
-            "Max iterations": str(agent.get("max_iterations", "—")),
-        }, title="Agent")
+        output.print_kv(
+            {
+                "ID": agent.get("id", ""),
+                "Name": agent.get("name", ""),
+                "Enabled": str(agent.get("enabled", False)),
+                "Description": agent.get("description", "—"),
+                "Max iterations": str(agent.get("max_iterations", "—")),
+            },
+            title="Agent",
+        )
 
         if tools:
-            rows = [{"name": t.get("name", ""), "description": t.get("description", "")} for t in tools]
+            rows = [
+                {"name": t.get("name", ""), "description": t.get("description", "")}
+                for t in tools
+            ]
             output.print_table(rows, columns=["name", "description"], title="Tools")
 
     except (LlxConnectionError, LlxError) as e:
@@ -80,8 +93,12 @@ def agents_info(
 @agents_app.command("run")
 def run_agent(
     prompt: str = typer.Argument(..., help="Message/prompt to send to the agent"),
-    agent_id: str = typer.Option(None, "--agent", "-a", help="Agent ID (auto-matched if omitted)"),
-    max_iterations: int = typer.Option(10, "--max-iter", "-n", help="Max agent iterations"),
+    agent_id: str = typer.Option(
+        None, "--agent", "-a", help="Agent ID (auto-matched if omitted)"
+    ),
+    max_iterations: int = typer.Option(
+        10, "--max-iter", "-n", help="Max agent iterations"
+    ),
     server: str = typer.Option(None, "--server", "-s"),
     json_out: bool = typer.Option(False, "--json", "-j"),
 ):
@@ -97,18 +114,29 @@ def run_agent(
         if not json_out and not output.is_pipe():
             from rich.live import Live
             from rich.spinner import Spinner
-            with Live(Spinner("dots", text="[llx.dim]Agent working...[/llx.dim]"), console=console, transient=True):
-                data = client.post("/api/agents/execute", json={
+
+            with Live(
+                Spinner("dots", text="[llx.dim]Agent working...[/llx.dim]"),
+                console=console,
+                transient=True,
+            ):
+                data = client.post(
+                    "/api/agents/execute",
+                    json={
+                        "agent_id": agent_id,
+                        "message": prompt,
+                        "context": {"max_iterations": max_iterations},
+                    },
+                )
+        else:
+            data = client.post(
+                "/api/agents/execute",
+                json={
                     "agent_id": agent_id,
                     "message": prompt,
                     "context": {"max_iterations": max_iterations},
-                })
-        else:
-            data = client.post("/api/agents/execute", json={
-                "agent_id": agent_id,
-                "message": prompt,
-                "context": {"max_iterations": max_iterations},
-            })
+                },
+            )
 
         if json_out or output.is_pipe():
             output.print_json(data)
@@ -116,12 +144,17 @@ def run_agent(
 
         result = data.get("result", data)
         agent_used = data.get("agent_used", agent_id or "auto")
-        answer = result.get("final_answer", "") if isinstance(result, dict) else str(result)
+        answer = (
+            result.get("final_answer", "") if isinstance(result, dict) else str(result)
+        )
         iterations = result.get("iterations", "?") if isinstance(result, dict) else "?"
         steps = result.get("steps", []) if isinstance(result, dict) else []
 
         from rich.markdown import Markdown
-        console.print(f"\n[llx.accent]Agent:[/llx.accent] {agent_used}  [llx.dim]|[/llx.dim]  [llx.accent]Iterations:[/llx.accent] {iterations}")
+
+        console.print(
+            f"\n[llx.accent]Agent:[/llx.accent] {agent_used}  [llx.dim]|[/llx.dim]  [llx.accent]Iterations:[/llx.accent] {iterations}"
+        )
         if steps:
             tool_calls = sum(len(s.get("tool_calls", [])) for s in steps)
             console.print(f"[llx.accent]Tool calls:[/llx.accent] {tool_calls}")
@@ -140,9 +173,13 @@ def run_agent(
 @agents_app.command("update")
 def update_agent(
     agent_id: str = typer.Argument(..., help="Agent ID to update"),
-    enabled: bool = typer.Option(None, "--enabled/--disabled", help="Enable or disable agent"),
+    enabled: bool = typer.Option(
+        None, "--enabled/--disabled", help="Enable or disable agent"
+    ),
     max_iterations: int = typer.Option(None, "--max-iter", "-n", help="Max iterations"),
-    prompt_file: Path = typer.Option(None, "--prompt-file", "-f", help="System prompt from file"),
+    prompt_file: Path = typer.Option(
+        None, "--prompt-file", "-f", help="System prompt from file"
+    ),
     server: str = typer.Option(None, "--server", "-s"),
     json_out: bool = typer.Option(False, "--json", "-j"),
 ):
@@ -160,7 +197,9 @@ def update_agent(
         payload["system_prompt"] = prompt_file.read_text(encoding="utf-8")
 
     if not payload:
-        output.print_error("No updates specified. Use --enabled, --max-iter, or --prompt-file.")
+        output.print_error(
+            "No updates specified. Use --enabled, --max-iter, or --prompt-file."
+        )
         raise typer.Exit(1)
 
     try:

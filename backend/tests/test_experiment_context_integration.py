@@ -1,4 +1,5 @@
 """Test that experiment context overrides retrieval parameters."""
+
 import pytest
 from unittest.mock import patch, MagicMock
 
@@ -33,6 +34,7 @@ def test_search_uses_experiment_top_k(app):
         set_experiment_config({"top_k": 12, "context_window_chunks": 5})
         try:
             from backend.services.indexing_service import search_with_llamaindex
+
             with patch("backend.services.indexing_service.index") as mock_idx:
                 mock_retriever = MagicMock()
                 mock_retriever.retrieve.return_value = []
@@ -51,6 +53,7 @@ def test_search_uses_defaults_without_experiment(app):
     clear_experiment_config()
     with app.app_context():
         from backend.services.indexing_service import search_with_llamaindex
+
         with patch("backend.services.indexing_service.index") as mock_idx:
             mock_retriever = MagicMock()
             mock_retriever.retrieve.return_value = []
@@ -59,4 +62,6 @@ def test_search_uses_defaults_without_experiment(app):
             call_kwargs = mock_idx.as_retriever.call_args
             if call_kwargs:
                 top_k = call_kwargs[1].get("similarity_top_k", 3)
-                assert top_k == 3  # should be the passed max_chunks, not experiment value
+                assert (
+                    top_k == 3
+                )  # should be the passed max_chunks, not experiment value

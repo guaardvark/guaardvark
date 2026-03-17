@@ -63,15 +63,23 @@ class ImageGeneratorTool(BaseTool):
     def __init__(self):
         super().__init__()
 
-    def execute(self, prompt: str, style: str = "realistic",
-                width: int = 512, height: int = 512,
-                model: str = "sd-1.5") -> ToolResult:
-        logger.info(f"ImageGeneratorTool: Generating image for prompt: {prompt[:80]}...")
+    def execute(
+        self,
+        prompt: str,
+        style: str = "realistic",
+        width: int = 512,
+        height: int = 512,
+        model: str = "sd-1.5",
+    ) -> ToolResult:
+        logger.info(
+            f"ImageGeneratorTool: Generating image for prompt: {prompt[:80]}..."
+        )
 
         try:
             from backend.config import OUTPUT_DIR
             from backend.services.offline_image_generator import (
-                get_image_generator, ImageGenerationRequest
+                get_image_generator,
+                ImageGenerationRequest,
             )
 
             generator = get_image_generator()
@@ -97,7 +105,11 @@ class ImageGeneratorTool(BaseTool):
 
             result = generator.generate_image(request)
 
-            if result.success and result.image_path and os.path.exists(result.image_path):
+            if (
+                result.success
+                and result.image_path
+                and os.path.exists(result.image_path)
+            ):
                 # Copy generated image to the served output directory
                 output_dir = os.path.join(OUTPUT_DIR, "generated_images")
                 os.makedirs(output_dir, exist_ok=True)
@@ -133,7 +145,10 @@ class ImageGeneratorTool(BaseTool):
                     },
                 )
             else:
-                error_msg = result.error or "Image generation completed but no output file was created."
+                error_msg = (
+                    result.error
+                    or "Image generation completed but no output file was created."
+                )
                 return ToolResult(
                     success=False,
                     error=error_msg,
@@ -212,14 +227,23 @@ class AnimationGeneratorTool(BaseTool):
     def __init__(self):
         super().__init__()
 
-    def execute(self, prompt: str, motion: str, frames: int = 8,
-                strength: float = 0.20, format: str = "both",
-                vision_steering: bool = False) -> ToolResult:
-        logger.info(f"AnimationGeneratorTool: prompt={prompt[:60]}..., motion={motion}, frames={frames}")
+    def execute(
+        self,
+        prompt: str,
+        motion: str,
+        frames: int = 8,
+        strength: float = 0.20,
+        format: str = "both",
+        vision_steering: bool = False,
+    ) -> ToolResult:
+        logger.info(
+            f"AnimationGeneratorTool: prompt={prompt[:60]}..., motion={motion}, frames={frames}"
+        )
 
         try:
             from backend.services.animation_generator import (
-                get_animation_generator, AnimationRequest
+                get_animation_generator,
+                AnimationRequest,
             )
 
             anim_gen = get_animation_generator()

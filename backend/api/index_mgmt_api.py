@@ -20,8 +20,9 @@ except Exception:
 
 try:
     from backend.models import Document, db
-    from backend.services.indexing_service import \
-        get_or_create_index as initialize_llama_index_from_service
+    from backend.services.indexing_service import (
+        get_or_create_index as initialize_llama_index_from_service,
+    )
 except Exception:
     db = Document = initialize_llama_index_from_service = None
 
@@ -76,24 +77,25 @@ def get_index_info():
         embed_model = current_app.config.get("LLAMA_INDEX_EMBED_MODEL")
     except Exception:
         pass
-    
+
     if not embed_model:
         try:
             from llama_index.core import Settings as LISettings
+
             embed_model = getattr(LISettings, "embed_model", None)
         except Exception as e:
             logger.warning(f"Could not access Settings.embed_model: {e}")
-    
+
     model_name = "Unknown"
     if embed_model is not None:
         # Try multiple ways to get the model name from OllamaEmbedding
         try:
             class_name = type(embed_model).__name__
             logger.debug(f"Attempting to extract model name from {class_name}")
-            
+
             # OllamaEmbedding stores model_name as a direct attribute
             model_name = getattr(embed_model, "model_name", None)
-            
+
             # If not found, try private attribute or instance variables
             if not model_name:
                 # Check all attributes that might contain the model name
@@ -102,40 +104,67 @@ def get_index_info():
                     value = getattr(embed_model, attr, None)
                     if value and isinstance(value, str):
                         model_name = value
-                        logger.debug(f"Found model name in attribute '{attr}': {model_name}")
+                        logger.debug(
+                            f"Found model name in attribute '{attr}': {model_name}"
+                        )
                         break
-            
+
             # If still not found, inspect __dict__ for model-related keys
             if not model_name and hasattr(embed_model, "__dict__"):
                 for key, value in embed_model.__dict__.items():
-                    if ("model" in key.lower() and value and isinstance(value, str) and 
-                        key != "__class__" and not key.startswith("__")):
+                    if (
+                        "model" in key.lower()
+                        and value
+                        and isinstance(value, str)
+                        and key != "__class__"
+                        and not key.startswith("__")
+                    ):
                         model_name = value
-                        logger.debug(f"Found model name in __dict__['{key}']: {model_name}")
+                        logger.debug(
+                            f"Found model name in __dict__['{key}']: {model_name}"
+                        )
                         break
-            
+
             # If still not found and it's OllamaEmbedding or RouterEmbeddingAdapter, use VRAM-aware selection
             embedding_adapter_classes = ["OllamaEmbedding", "RouterEmbeddingAdapter"]
-            if (not model_name or model_name in ["OllamaEmbedding", "SimpleTextEmbedding", "FallbackEmbedding", "RouterEmbeddingAdapter"]) and class_name in embedding_adapter_classes:
+            if (
+                not model_name
+                or model_name
+                in [
+                    "OllamaEmbedding",
+                    "SimpleTextEmbedding",
+                    "FallbackEmbedding",
+                    "RouterEmbeddingAdapter",
+                ]
+            ) and class_name in embedding_adapter_classes:
                 try:
                     from backend.config import get_active_embedding_model
+
                     model_name = get_active_embedding_model()
-                    logger.info(f"Detected embedding model via VRAM-aware selection: {model_name}")
+                    logger.info(
+                        f"Detected embedding model via VRAM-aware selection: {model_name}"
+                    )
                 except Exception as api_error:
                     logger.debug(f"Could not determine embedding model: {api_error}")
-            
+
             # Final fallback
-            if not model_name or model_name in ["OllamaEmbedding", "SimpleTextEmbedding", "FallbackEmbedding", "RouterEmbeddingAdapter"]:
+            if not model_name or model_name in [
+                "OllamaEmbedding",
+                "SimpleTextEmbedding",
+                "FallbackEmbedding",
+                "RouterEmbeddingAdapter",
+            ]:
                 if class_name in ["OllamaEmbedding", "RouterEmbeddingAdapter"]:
                     # Try to get from config as last resort
                     try:
                         from backend.config import get_active_embedding_model
+
                         model_name = get_active_embedding_model()
                     except Exception:
                         model_name = f"{class_name} (model name unavailable)"
                 else:
                     model_name = class_name
-                    
+
             logger.info(f"Final embedding model name: {model_name} (from {class_name})")
         except Exception as e:
             logger.warning(f"Error extracting embedding model name: {e}", exc_info=True)
@@ -176,7 +205,7 @@ def reset_index():
     logger.warning(
         f"Reset Index: Attempting to clear only index files from: {abs_storage_dir}"
     )
-    
+
     # Define index-related files to delete (preserve database, uploads, outputs, cache, etc.)
     index_files_to_delete = [
         "docstore.json",
@@ -184,10 +213,10 @@ def reset_index():
         "graph_store.json",
         "default__vector_store.json",
     ]
-    
+
     deleted_files = []
     deleted_dirs = []
-    
+
     try:
         # Delete index files in the main storage directory
         for index_file in index_files_to_delete:
@@ -199,11 +228,12 @@ def reset_index():
                     logger.info(f"Reset Index: Deleted {index_file}")
                 except OSError as e:
                     logger.error(f"Reset Index: Failed to delete {index_file}: {e}")
-        
+
         # Delete per-project index directories if they exist
         projects_dir = os.path.join(abs_storage_dir, "projects")
         if os.path.isdir(projects_dir):
             import shutil
+
             for project_subdir in os.listdir(projects_dir):
                 project_path = os.path.join(projects_dir, project_subdir)
                 if os.path.isdir(project_path):
@@ -213,19 +243,27 @@ def reset_index():
                         if os.path.exists(proj_file_path):
                             try:
                                 os.remove(proj_file_path)
-                                deleted_files.append(f"projects/{project_subdir}/{index_file}")
-                                logger.info(f"Reset Index: Deleted projects/{project_subdir}/{index_file}")
+                                deleted_files.append(
+                                    f"projects/{project_subdir}/{index_file}"
+                                )
+                                logger.info(
+                                    f"Reset Index: Deleted projects/{project_subdir}/{index_file}"
+                                )
                             except OSError as e:
-                                logger.error(f"Reset Index: Failed to delete {proj_file_path}: {e}")
+                                logger.error(
+                                    f"Reset Index: Failed to delete {proj_file_path}: {e}"
+                                )
                     # If project directory is now empty (only had index files), remove it
                     try:
                         if not os.listdir(project_path):
                             os.rmdir(project_path)
                             deleted_dirs.append(f"projects/{project_subdir}")
-                            logger.info(f"Reset Index: Removed empty project directory: projects/{project_subdir}")
+                            logger.info(
+                                f"Reset Index: Removed empty project directory: projects/{project_subdir}"
+                            )
                     except OSError:
                         pass  # Directory not empty or other error, leave it
-        
+
         logger.info(
             f"Reset Index: Deleted {len(deleted_files)} index files and {len(deleted_dirs)} empty directories. "
             f"Preserved database, uploads, outputs, cache, context, and other data."
@@ -235,8 +273,9 @@ def reset_index():
         )
         initialize_llama_index_from_service()
         from backend.services.indexing_service import index as new_global_index
-        from backend.services.indexing_service import \
-            storage_context as new_global_storage_context
+        from backend.services.indexing_service import (
+            storage_context as new_global_storage_context,
+        )
 
         if new_global_index is None or new_global_storage_context is None:
             logger.error(
@@ -251,20 +290,21 @@ def reset_index():
 
         current_app.config["LLAMA_INDEX_INDEX"] = new_global_index
         current_app.config["LLAMA_INDEX_STORAGE_CONTEXT"] = new_global_storage_context
-        
+
         # Clear both cache systems to prevent stale index references
         try:
             # Clear indexing_service cache
             current_app.config.pop("INDEX_CACHE", None)
             logger.info("Reset Index: Cleared INDEX_CACHE from Flask app config")
-            
+
             # Clear index_manager cache
             from backend.utils.index_manager import clear_indexes
+
             clear_indexes()
             logger.info("Reset Index: Cleared _index_cache from index_manager")
         except Exception as cache_error:
             logger.warning(f"Reset Index: Cache clearing failed: {cache_error}")
-        
+
         logger.info(
             "Reset Index: LlamaIndex components re-initialized in app.config with an empty index."
         )
@@ -415,7 +455,9 @@ def optimize_index():
 
     # Fallback: try to load the index on-demand if not in app config
     if not index_instance or not hasattr(index_instance, "storage_context"):
-        logger.warning("Optimize Index: LLAMA_INDEX_INDEX not in app config, attempting on-demand load")
+        logger.warning(
+            "Optimize Index: LLAMA_INDEX_INDEX not in app config, attempting on-demand load"
+        )
         if initialize_llama_index_from_service:
             try:
                 result = initialize_llama_index_from_service()
@@ -430,7 +472,14 @@ def optimize_index():
                 logger.error(f"Optimize Index: On-demand index load failed: {e}")
 
     if not index_instance or not hasattr(index_instance, "storage_context"):
-        return jsonify({"error": "No index available. Index some documents first, then try again."}), 503
+        return (
+            jsonify(
+                {
+                    "error": "No index available. Index some documents first, then try again."
+                }
+            ),
+            503,
+        )
 
     if not (db and Document):
         return jsonify({"error": "Database not available"}), 503
@@ -448,7 +497,9 @@ def optimize_index():
             if ref_doc_id:
                 all_ref_doc_ids.add(ref_doc_id)
 
-        logger.info(f"Optimize Index: Found {len(all_ref_doc_ids)} unique ref_doc_ids in docstore")
+        logger.info(
+            f"Optimize Index: Found {len(all_ref_doc_ids)} unique ref_doc_ids in docstore"
+        )
 
         # Check which ones still exist in DB
         orphaned = []
@@ -470,24 +521,33 @@ def optimize_index():
                 removed += 1
                 logger.info(f"Optimize Index: Removed orphaned ref_doc_id={ref_id}")
             except Exception as e:
-                logger.warning(f"Optimize Index: Failed to remove ref_doc_id={ref_id}: {e}")
+                logger.warning(
+                    f"Optimize Index: Failed to remove ref_doc_id={ref_id}: {e}"
+                )
 
         # Persist changes
         if removed > 0:
             try:
                 index_instance.storage_context.persist(persist_dir=storage_dir)
-                logger.info(f"Optimize Index: Persisted index after removing {removed} orphans")
+                logger.info(
+                    f"Optimize Index: Persisted index after removing {removed} orphans"
+                )
             except Exception as e:
                 logger.warning(f"Optimize Index: Failed to persist after cleanup: {e}")
 
         msg = f"Optimization complete. Removed {removed} orphaned entries."
         logger.info(f"Optimize Index: {msg}")
-        return jsonify({
-            "message": msg,
-            "orphaned_removed": removed,
-            "total_checked": len(all_ref_doc_ids),
-            "remaining": len(all_ref_doc_ids) - removed
-        }), 200
+        return (
+            jsonify(
+                {
+                    "message": msg,
+                    "orphaned_removed": removed,
+                    "total_checked": len(all_ref_doc_ids),
+                    "remaining": len(all_ref_doc_ids) - removed,
+                }
+            ),
+            200,
+        )
 
     except Exception as e:
         logger.error(f"Optimize Index: Error during optimization: {e}", exc_info=True)

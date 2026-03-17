@@ -50,10 +50,10 @@ class QueryCache:
         normalized = query.lower().strip()
 
         # Remove punctuation but keep spaces
-        normalized = re.sub(r'[^\w\s]', '', normalized)
+        normalized = re.sub(r"[^\w\s]", "", normalized)
 
         # Collapse multiple spaces
-        normalized = re.sub(r'\s+', ' ', normalized)
+        normalized = re.sub(r"\s+", " ", normalized)
 
         return normalized
 
@@ -69,7 +69,7 @@ class QueryCache:
             MD5 hash hex string
         """
         normalized = QueryCache.normalize_query(query)
-        return hashlib.md5(normalized.encode('utf-8')).hexdigest()
+        return hashlib.md5(normalized.encode("utf-8")).hexdigest()
 
     # ========== Intent Caching ==========
 
@@ -85,7 +85,7 @@ class QueryCache:
         """
         query_hash = self.hash_query(query)
         cache_key = f"intent:{query_hash}"
-        return self.cache_manager.get(cache_key, cache_type='query')
+        return self.cache_manager.get(cache_key, cache_type="query")
 
     def set_cached_intent(self, query: str, intent: str, ttl: int = 3600) -> None:
         """
@@ -98,7 +98,7 @@ class QueryCache:
         """
         query_hash = self.hash_query(query)
         cache_key = f"intent:{query_hash}"
-        self.cache_manager.set(cache_key, intent, ttl=ttl, cache_type='query')
+        self.cache_manager.set(cache_key, intent, ttl=ttl, cache_type="query")
         logger.debug(f"Cached intent for query hash {query_hash[:8]}: {intent}")
 
     # ========== File Metadata Caching ==========
@@ -111,9 +111,11 @@ class QueryCache:
             List of file metadata dicts or None if not cached
         """
         cache_key = "file_metadata:all"
-        return self.cache_manager.get(cache_key, cache_type='query')
+        return self.cache_manager.get(cache_key, cache_type="query")
 
-    def set_cached_file_metadata(self, metadata: List[Dict[str, Any]], ttl: int = 900) -> None:
+    def set_cached_file_metadata(
+        self, metadata: List[Dict[str, Any]], ttl: int = 900
+    ) -> None:
         """
         Cache file metadata list.
 
@@ -122,18 +124,20 @@ class QueryCache:
             ttl: Time to live in seconds (default: 15 minutes)
         """
         cache_key = "file_metadata:all"
-        self.cache_manager.set(cache_key, metadata, ttl=ttl, cache_type='query')
+        self.cache_manager.set(cache_key, metadata, ttl=ttl, cache_type="query")
         logger.debug(f"Cached metadata for {len(metadata)} files")
 
     def invalidate_file_metadata(self) -> None:
         """Invalidate file metadata cache (call after file upload/deletion)."""
-        invalidated = invalidate_cache_pattern("file_metadata:", cache_type='query')
-        invalidated += invalidate_cache_pattern("file_scores:", cache_type='query')
+        invalidated = invalidate_cache_pattern("file_metadata:", cache_type="query")
+        invalidated += invalidate_cache_pattern("file_scores:", cache_type="query")
         logger.info(f"Invalidated {invalidated} file-related cache entries")
 
     # ========== File Scoring Caching ==========
 
-    def get_cached_file_scores(self, query: str, file_ids: List[int]) -> Optional[Dict[int, float]]:
+    def get_cached_file_scores(
+        self, query: str, file_ids: List[int]
+    ) -> Optional[Dict[int, float]]:
         """
         Get cached file matching scores.
 
@@ -148,14 +152,10 @@ class QueryCache:
         # Include file_ids in key for invalidation
         file_ids_hash = hashlib.md5(str(sorted(file_ids)).encode()).hexdigest()[:8]
         cache_key = f"file_scores:{query_hash}:{file_ids_hash}"
-        return self.cache_manager.get(cache_key, cache_type='query')
+        return self.cache_manager.get(cache_key, cache_type="query")
 
     def set_cached_file_scores(
-        self,
-        query: str,
-        file_ids: List[int],
-        scores: Dict[int, float],
-        ttl: int = 1800
+        self, query: str, file_ids: List[int], scores: Dict[int, float], ttl: int = 1800
     ) -> None:
         """
         Cache file matching scores.
@@ -169,7 +169,7 @@ class QueryCache:
         query_hash = self.hash_query(query)
         file_ids_hash = hashlib.md5(str(sorted(file_ids)).encode()).hexdigest()[:8]
         cache_key = f"file_scores:{query_hash}:{file_ids_hash}"
-        self.cache_manager.set(cache_key, scores, ttl=ttl, cache_type='query')
+        self.cache_manager.set(cache_key, scores, ttl=ttl, cache_type="query")
         logger.debug(f"Cached scores for {len(scores)} files (query: {query_hash[:8]})")
 
     # ========== Web Search Caching ==========
@@ -186,9 +186,11 @@ class QueryCache:
         """
         query_hash = self.hash_query(query)
         cache_key = f"web_search:{query_hash}"
-        return self.cache_manager.get(cache_key, cache_type='api')
+        return self.cache_manager.get(cache_key, cache_type="api")
 
-    def set_cached_web_search(self, query: str, results: Dict[str, Any], ttl: int = 7200) -> None:
+    def set_cached_web_search(
+        self, query: str, results: Dict[str, Any], ttl: int = 7200
+    ) -> None:
         """
         Cache web search results.
 
@@ -199,12 +201,14 @@ class QueryCache:
         """
         query_hash = self.hash_query(query)
         cache_key = f"web_search:{query_hash}"
-        self.cache_manager.set(cache_key, results, ttl=ttl, cache_type='api')
+        self.cache_manager.set(cache_key, results, ttl=ttl, cache_type="api")
         logger.debug(f"Cached web search results for query: {query[:50]}...")
 
     # ========== Pattern Matching Caching ==========
 
-    def get_cached_pattern_result(self, query: str, pattern_type: str) -> Optional[bool]:
+    def get_cached_pattern_result(
+        self, query: str, pattern_type: str
+    ) -> Optional[bool]:
         """
         Get cached pattern matching result.
 
@@ -217,14 +221,10 @@ class QueryCache:
         """
         query_hash = self.hash_query(query)
         cache_key = f"pattern:{pattern_type}:{query_hash}"
-        return self.cache_manager.get(cache_key, cache_type='query')
+        return self.cache_manager.get(cache_key, cache_type="query")
 
     def set_cached_pattern_result(
-        self,
-        query: str,
-        pattern_type: str,
-        result: bool,
-        ttl: int = 1800
+        self, query: str, pattern_type: str, result: bool, ttl: int = 1800
     ) -> None:
         """
         Cache pattern matching result.
@@ -237,8 +237,10 @@ class QueryCache:
         """
         query_hash = self.hash_query(query)
         cache_key = f"pattern:{pattern_type}:{query_hash}"
-        self.cache_manager.set(cache_key, result, ttl=ttl, cache_type='query')
-        logger.debug(f"Cached pattern result {pattern_type} for query: {query_hash[:8]}")
+        self.cache_manager.set(cache_key, result, ttl=ttl, cache_type="query")
+        logger.debug(
+            f"Cached pattern result {pattern_type} for query: {query_hash[:8]}"
+        )
 
     # ========== Entity Context Caching ==========
 
@@ -254,9 +256,11 @@ class QueryCache:
         """
         query_hash = self.hash_query(query)
         cache_key = f"entity_context:{query_hash}"
-        return self.cache_manager.get(cache_key, cache_type='query')
+        return self.cache_manager.get(cache_key, cache_type="query")
 
-    def set_cached_entity_context(self, query: str, context: str, ttl: int = 1800) -> None:
+    def set_cached_entity_context(
+        self, query: str, context: str, ttl: int = 1800
+    ) -> None:
         """
         Cache entity context retrieval result.
 
@@ -267,8 +271,10 @@ class QueryCache:
         """
         query_hash = self.hash_query(query)
         cache_key = f"entity_context:{query_hash}"
-        self.cache_manager.set(cache_key, context, ttl=ttl, cache_type='query')
-        logger.debug(f"Cached entity context ({len(context)} chars) for query: {query_hash[:8]}")
+        self.cache_manager.set(cache_key, context, ttl=ttl, cache_type="query")
+        logger.debug(
+            f"Cached entity context ({len(context)} chars) for query: {query_hash[:8]}"
+        )
 
     # ========== Statistics & Management ==========
 
@@ -302,6 +308,7 @@ query_cache = QueryCache()
 
 # ========== Decorator for Query Caching ==========
 
+
 def cache_query_result(ttl: int = 1800, key_prefix: Optional[str] = None):
     """
     Decorator for caching query-related function results.
@@ -316,11 +323,7 @@ def cache_query_result(ttl: int = 1800, key_prefix: Optional[str] = None):
             # ... expensive operation ...
             return result
     """
-    return cached(cache_type='query', ttl=ttl, key_prefix=key_prefix)
+    return cached(cache_type="query", ttl=ttl, key_prefix=key_prefix)
 
 
-__all__ = [
-    'QueryCache',
-    'query_cache',
-    'cache_query_result'
-]
+__all__ = ["QueryCache", "query_cache", "cache_query_result"]

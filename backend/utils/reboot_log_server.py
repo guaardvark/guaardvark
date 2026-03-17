@@ -18,7 +18,7 @@ import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
-ANSI_RE = re.compile(r'\x1b\[[0-9;]*[a-zA-Z]|\x1b\].*?\x07')
+ANSI_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]|\x1b\].*?\x07")
 
 
 class RebootLogHandler(BaseHTTPRequestHandler):
@@ -38,6 +38,7 @@ class RebootLogHandler(BaseHTTPRequestHandler):
         elif path == "/shutdown":
             self._json({"ok": True})
             import threading
+
             threading.Timer(0.3, self.server.shutdown).start()
         else:
             self.send_error(404)
@@ -49,7 +50,9 @@ class RebootLogHandler(BaseHTTPRequestHandler):
         offset = int(params.get("offset", ["0"])[0])
 
         if not os.path.isfile(self.log_file_path):
-            return self._json({"success": True, "content_lines": [], "offset": 0, "size": 0})
+            return self._json(
+                {"success": True, "content_lines": [], "offset": 0, "size": 0}
+            )
 
         try:
             file_size = os.path.getsize(self.log_file_path)
@@ -67,14 +70,24 @@ class RebootLogHandler(BaseHTTPRequestHandler):
             content = ANSI_RE.sub("", content)
             lines = [ln for ln in content.split("\n") if ln.strip()]
 
-            self._json({
-                "success": True,
-                "content_lines": lines,
-                "offset": file_size,
-                "size": file_size,
-            })
+            self._json(
+                {
+                    "success": True,
+                    "content_lines": lines,
+                    "offset": file_size,
+                    "size": file_size,
+                }
+            )
         except Exception as exc:
-            self._json({"success": False, "content_lines": [], "error": str(exc), "offset": 0, "size": 0})
+            self._json(
+                {
+                    "success": False,
+                    "content_lines": [],
+                    "error": str(exc),
+                    "offset": 0,
+                    "size": 0,
+                }
+            )
 
     # ---- helpers ----
 
@@ -115,7 +128,10 @@ def main():
 
     server.timeout = 1  # wake every second to check lifetime
 
-    print(f"Log server on :{args.port}  file={args.log_file}  timeout={args.timeout}s", flush=True)
+    print(
+        f"Log server on :{args.port}  file={args.log_file}  timeout={args.timeout}s",
+        flush=True,
+    )
 
     try:
         while time.time() - RebootLogHandler.server_start_time < args.timeout:

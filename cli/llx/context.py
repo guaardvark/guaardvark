@@ -18,13 +18,13 @@ _TTL_SECONDS = 30
 
 # The seven context sources and their endpoints.
 SOURCES: dict[str, str] = {
-    "health":   "/api/health",
-    "model":    "/api/model/status",
-    "celery":   "/api/health/celery",
-    "gpu":      "/api/gpu/status",
-    "jobs":     "/api/meta/active_jobs",
+    "health": "/api/health",
+    "model": "/api/model/status",
+    "celery": "/api/health/celery",
+    "gpu": "/api/gpu/status",
+    "jobs": "/api/meta/active_jobs",
     "projects": "/api/projects",
-    "agents":   "/api/agents",
+    "agents": "/api/agents",
 }
 
 
@@ -116,11 +116,7 @@ class ContextSnapshot:
         jobs = self.get_or_fetch("jobs", SOURCES["jobs"])
         if not jobs:
             return 0
-        active = (
-            _dig(jobs, "active_jobs")
-            or _dig(jobs, "data", "active_jobs")
-            or []
-        )
+        active = _dig(jobs, "active_jobs") or _dig(jobs, "data", "active_jobs") or []
         if isinstance(active, list):
             return len(active)
         return 0
@@ -158,17 +154,29 @@ class ContextSnapshot:
         # --- Model ---
         model = self.get_cached("model")
         if model:
-            msg = _dig(model, "message") if isinstance(_dig(model, "message"), dict) else model
+            msg = (
+                _dig(model, "message")
+                if isinstance(_dig(model, "message"), dict)
+                else model
+            )
             text = _dig(msg, "text_model") or _dig(model, "data", "text_model") or ""
-            vision = _dig(msg, "vision_model") or _dig(model, "data", "vision_model") or ""
-            image_gen = _dig(msg, "image_gen_model") or _dig(model, "data", "image_gen_model") or ""
+            vision = (
+                _dig(msg, "vision_model") or _dig(model, "data", "vision_model") or ""
+            )
+            image_gen = (
+                _dig(msg, "image_gen_model")
+                or _dig(model, "data", "image_gen_model")
+                or ""
+            )
             segments: list[str] = []
             if text:
                 segments.append(f"Model: {text}")
             if vision:
                 segments.append(f"Vision: {vision}")
             if image_gen:
-                segments.append(f"Image Gen: {image_gen.upper() if len(image_gen) <= 6 else image_gen}")
+                segments.append(
+                    f"Image Gen: {image_gen.upper() if len(image_gen) <= 6 else image_gen}"
+                )
             if segments:
                 lines.append(" | ".join(segments))
 
@@ -207,7 +215,9 @@ class ContextSnapshot:
         # --- Jobs ---
         jobs = self.get_cached("jobs")
         if jobs:
-            active_jobs = _dig(jobs, "active_jobs") or _dig(jobs, "data", "active_jobs") or []
+            active_jobs = (
+                _dig(jobs, "active_jobs") or _dig(jobs, "data", "active_jobs") or []
+            )
             if isinstance(active_jobs, list):
                 if active_jobs:
                     descriptions: list[str] = []
@@ -219,22 +229,39 @@ class ContextSnapshot:
                         if progress is not None:
                             desc += f" — {progress}%"
                         descriptions.append(desc)
-                    lines.append(f"Jobs: {len(active_jobs)} running ({', '.join(descriptions)})")
+                    lines.append(
+                        f"Jobs: {len(active_jobs)} running ({', '.join(descriptions)})"
+                    )
                 else:
                     lines.append("Jobs: none active")
 
         # --- Projects ---
         projects = self.get_cached("projects")
         if projects:
-            proj_list = projects if isinstance(projects, list) else (_dig(projects, "data") or _dig(projects, "projects") or [])
+            proj_list = (
+                projects
+                if isinstance(projects, list)
+                else (_dig(projects, "data") or _dig(projects, "projects") or [])
+            )
             if isinstance(proj_list, list) and proj_list:
-                names = [f"{p.get('name', '?')} (id:{p.get('id', '?')})" for p in proj_list[:8]]
+                names = [
+                    f"{p.get('name', '?')} (id:{p.get('id', '?')})"
+                    for p in proj_list[:8]
+                ]
                 lines.append(f"Projects: {', '.join(names)}")
 
         # --- Agents ---
         agents = self.get_cached("agents")
         if agents:
-            agent_list = _dig(agents, "agents") or (_dig(agents, "data") if isinstance(_dig(agents, "data"), list) else None) or (agents if isinstance(agents, list) else [])
+            agent_list = (
+                _dig(agents, "agents")
+                or (
+                    _dig(agents, "data")
+                    if isinstance(_dig(agents, "data"), list)
+                    else None
+                )
+                or (agents if isinstance(agents, list) else [])
+            )
             if isinstance(agent_list, list) and agent_list:
                 names = [a.get("name", a.get("id", "?")) for a in agent_list[:10]]
                 lines.append(f"Agents: {', '.join(names)}")
@@ -248,6 +275,7 @@ class ContextSnapshot:
 # ------------------------------------------------------------------
 # Internal helpers
 # ------------------------------------------------------------------
+
 
 def _dig(obj: Any, *keys: str) -> Any:
     """Safely traverse nested dicts. Returns ``None`` on any miss."""
