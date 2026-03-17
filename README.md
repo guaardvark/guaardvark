@@ -5,7 +5,7 @@
 A self-hosted AI platform that runs entirely on your hardware. No cloud. No API keys. Your data never leaves your machine.
 
 <p align="center">
-  <video src="https://github.com/guaardvark/guaardvark/raw/main/docs/screenshots/guaardvark-demo.mp4" autoplay loop muted playsinline width="100%"></video>
+  <img src="docs/screenshots/guaardvark-demo.gif" alt="Guaardvark Demo" width="100%">
 </p>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
