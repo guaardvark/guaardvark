@@ -1,22 +1,14 @@
+
 import logging
 from flask import Blueprint, jsonify, request
 from backend.utils.cache_manager import cache_manager, invalidate_cache_pattern
 from backend.utils.response_utils import success_response, error_response
 
-class CacheStatsBlueprint(Blueprint):
-    """Blueprint for cache statistics API endpoints."""
-    
-    def __init__(self, name: str, import_name: str, url_prefix: str = "/api/cache"):
-        super().__init__(name, import_name, url_prefix=url_prefix)
-
-cache_stats_bp = CacheStatsBlueprint("cache_stats", __name__)
-
+cache_stats_bp = Blueprint("cache_stats", __name__, url_prefix="/api/cache")
 logger = logging.getLogger(__name__)
 
 @cache_stats_bp.route("/stats", methods=["GET"])
-def get_cache_stats() -> dict:
-    """Return cache statistics."""
-    
+def get_cache_stats():
     try:
         stats = cache_manager.get_stats()
         return success_response(stats)
@@ -25,9 +17,7 @@ def get_cache_stats() -> dict:
         return error_response(str(e), 500)
 
 @cache_stats_bp.route("/clear", methods=["POST"])
-def clear_cache() -> dict:
-    """Clear cache by type or all."""
-    
+def clear_cache():
     try:
         data = request.get_json() or {}
         cache_type = data.get('cache_type', 'all')
@@ -49,9 +39,7 @@ def clear_cache() -> dict:
         return error_response(str(e), 500)
 
 @cache_stats_bp.route("/cleanup", methods=["POST"])
-def cleanup_expired() -> dict:
-    """Clean up expired cache entries."""
-    
+def cleanup_expired():
     try:
         expired_counts = cache_manager.cleanup_expired()
         total_expired = sum(expired_counts.values())
@@ -66,9 +54,7 @@ def cleanup_expired() -> dict:
         return error_response(str(e), 500)
 
 @cache_stats_bp.route("/invalidate", methods=["POST"])
-def invalidate_pattern() -> dict:
-    """Invalidate cache pattern."""
-    
+def invalidate_pattern():
     try:
         data = request.get_json()
         if not data or 'pattern' not in data:
@@ -93,9 +79,7 @@ def invalidate_pattern() -> dict:
         return error_response(str(e), 500)
 
 @cache_stats_bp.route("/health", methods=["GET"])
-def cache_health() -> dict:
-    """Return cache health status."""
-    
+def cache_health():
     try:
         stats = cache_manager.get_stats()
         health_issues = []
@@ -118,9 +102,7 @@ def cache_health() -> dict:
         logger.error(f"Failed to get cache health: {e}")
         return error_response(str(e), 500)
 
-def _get_cache_recommendations(stats: dict) -> list:
-    """Return cache recommendations based on statistics."""
-    
+def _get_cache_recommendations(stats):
     recommendations = []
     
     if stats['hit_rate'] < 0.5:
@@ -132,4 +114,4 @@ def _get_cache_recommendations(stats: dict) -> list:
     if any(size > 800 for size in stats['cache_sizes'].values()):
         recommendations.append("Consider implementing cache eviction policies")
     
-    return recommendations
+    return recommendations 
