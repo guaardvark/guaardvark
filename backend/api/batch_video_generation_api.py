@@ -120,7 +120,12 @@ def generate_text_to_video_batch():
             "interpolation_multiplier": int(data.get("interpolation_multiplier", 2)),
             "prompt_style": data.get("prompt_style", "cinematic"),
             "enhance_prompt": str(data.get("enhance_prompt", "true")).lower() != "false",
-            "metadata": data.get("metadata") or {},
+            "metadata": {
+                **(data.get("metadata") or {}),
+                "upscale": str(data.get("upscale", "false")).lower() == "true",
+                "teacache_threshold": float(data.get("teacache_threshold")) if data.get("teacache_threshold") else None,
+                "feta_weight": float(data.get("feta_weight")) if data.get("feta_weight") else None,
+            },
         }
 
         generator = get_batch_video_generator()
@@ -151,6 +156,7 @@ def generate_image_to_video_batch():
             return error_response("No image_paths provided", 400)
 
         params = {
+            "prompt": data.get("prompt", ""),
             "model": data.get("model", "svd"),
             "duration_frames": int(data.get("duration_frames", 25)),
             "fps": int(data.get("fps", 7)),
@@ -166,7 +172,12 @@ def generate_image_to_video_batch():
             "interpolation_multiplier": int(data.get("interpolation_multiplier", 2)),
             "prompt_style": data.get("prompt_style", "cinematic"),
             "enhance_prompt": str(data.get("enhance_prompt", "true")).lower() != "false",
-            "metadata": data.get("metadata") or {},
+            "metadata": {
+                **(data.get("metadata") or {}),
+                "upscale": str(data.get("upscale", "false")).lower() == "true",
+                "teacache_threshold": float(data.get("teacache_threshold")) if data.get("teacache_threshold") else None,
+                "feta_weight": float(data.get("feta_weight")) if data.get("feta_weight") else None,
+            },
         }
 
         generator = get_batch_video_generator()

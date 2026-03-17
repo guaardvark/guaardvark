@@ -272,6 +272,8 @@ const MODEL_OPTIONS = {
     maxFrames: 81,
     resolution: [832, 480],
     defaultSteps: 25,
+    supportsT2V: true,
+    supportsI2V: false,
   },
   // CogVideoX models
   "cogvideox-2b": {
@@ -281,6 +283,8 @@ const MODEL_OPTIONS = {
     maxFrames: 49,
     resolution: [720, 480],
     defaultSteps: 30,
+    supportsT2V: true,
+    supportsI2V: false,
   },
   "cogvideox-5b": {
     label: "CogVideoX 5B",
@@ -289,6 +293,8 @@ const MODEL_OPTIONS = {
     maxFrames: 49,
     resolution: [720, 480],
     defaultSteps: 50,
+    supportsT2V: true,
+    supportsI2V: false,
   },
   "cogvideox-5b-i2v": {
     label: "CogVideoX 5B I2V",
@@ -297,7 +303,8 @@ const MODEL_OPTIONS = {
     maxFrames: 49,
     resolution: [720, 480],
     defaultSteps: 50,
-    requiresImage: true,
+    supportsT2V: false,
+    supportsI2V: true,
   },
   // SVD models (legacy)
   svd: {
@@ -307,6 +314,8 @@ const MODEL_OPTIONS = {
     maxFrames: 14,
     resolution: [512, 512],
     defaultSteps: 25,
+    supportsT2V: false,
+    supportsI2V: true,
   },
   "svd-xt": {
     label: "SVD-XT (legacy)",
@@ -315,8 +324,14 @@ const MODEL_OPTIONS = {
     maxFrames: 25,
     resolution: [512, 512],
     defaultSteps: 25,
+    supportsT2V: false,
+    supportsI2V: true,
   },
 };
+
+// Default model per input mode
+const DEFAULT_T2V_MODEL = "wan22-14b";
+const DEFAULT_I2V_MODEL = "cogvideox-5b-i2v";
 
 // Helper to check model type
 const isCogVideoXModel = (model) => MODEL_OPTIONS[model]?.type === "cogvideox";
@@ -350,7 +365,7 @@ const VideoGeneratorPage = () => {
   const [qualityPreset, setQualityPreset] = useState("standard");
   const [durationPreset, setDurationPreset] = useState("short");
   const [motionPreset, setMotionPreset] = useState("normal");
-  const [model, setModel] = useState("cogvideox-2b"); // Default to CogVideoX for better quality
+  const [model, setModel] = useState(DEFAULT_T2V_MODEL);
   const [aspectRatio, setAspectRatio] = useState("16:9");
   const [videoSize, setVideoSize] = useState("large");
   const [qualityTier, setQualityTier] = useState("standard");
@@ -371,6 +386,12 @@ const VideoGeneratorPage = () => {
     combine_frames: false,
   });
 
+  // CogVideoX-specific power features
+  const [teaCacheEnabled, setTeaCacheEnabled] = useState(false);
+  const [teaCacheThreshold, setTeaCacheThreshold] = useState(0.3);
+  const [fetaEnabled, setFetaEnabled] = useState(false);
+  const [fetaWeight, setFetaWeight] = useState(1.0);
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -378,6 +399,24 @@ const VideoGeneratorPage = () => {
   const [batchStatus, setBatchStatus] = useState(null);
   const [batches, setBatches] = useState([]);
   const pollingRef = useRef(null);
+
+  // Filter models by current input mode
+  const availableModels = useMemo(() => {
+    return Object.entries(MODEL_OPTIONS).filter(([_, config]) =>
+      inputMode === "image" ? config.supportsI2V : config.supportsT2V
+    );
+  }, [inputMode]);
+
+  // Auto-select best model when input mode changes
+  useEffect(() => {
+    const currentConfig = MODEL_OPTIONS[model];
+    const isCompatible = inputMode === "image"
+      ? currentConfig?.supportsI2V
+      : currentConfig?.supportsT2V;
+    if (!isCompatible) {
+      setModel(inputMode === "image" ? DEFAULT_I2V_MODEL : DEFAULT_T2V_MODEL);
+    }
+  }, [inputMode]);
 
   // Get duration presets based on selected model
   const durationPresets = useMemo(() => {
@@ -443,8 +482,10 @@ const VideoGeneratorPage = () => {
     // Low VRAM safe preset for CogVideoX on 16GB GPUs
     // Very aggressive settings based on successful test: 8 frames, 15 steps, 480x320
     if (lowVramMode && isCogVideoXModel(model)) {
-      // Force to 2B (lighter model)
-      effectiveModel = "cogvideox-2b";
+      // Force to 2B for T2V models, but preserve I2V model identity
+      if (model !== "cogvideox-5b-i2v") {
+        effectiveModel = "cogvideox-2b";
+      }
 
       // Aggressively clamp frames - tested working with 8 frames
       if (effectiveDurationFrames > 12) {
@@ -527,8 +568,11 @@ const VideoGeneratorPage = () => {
       // Prompt enhancement
       prompt_style: promptStyle,
       enhance_prompt: enhancePrompt,
+      // CogVideoX power features
+      teacache_threshold: teaCacheEnabled && isCogVideoXModel(effectiveModel) ? teaCacheThreshold : null,
+      feta_weight: fetaEnabled && isCogVideoXModel(effectiveModel) ? fetaWeight : null,
     };
-  }, [qualityPreset, durationPreset, motionPreset, model, advancedParams, videoDimensions, lowVramMode, qualityTier, promptStyle, enhancePrompt]);
+  }, [qualityPreset, durationPreset, motionPreset, model, advancedParams, videoDimensions, lowVramMode, qualityTier, promptStyle, enhancePrompt, teaCacheEnabled, teaCacheThreshold, fetaEnabled, fetaWeight]);
 
   const parsedPrompts = useMemo(() => {
     return promptsText
@@ -968,7 +1012,6 @@ const VideoGeneratorPage = () => {
                 border: '1px solid',
                 borderColor: 'info.200'
               }}>
-                {/* Low VRAM safe preset for CogVideoX */}
                 <FormControlLabel
                   control={
                     <Switch
@@ -985,10 +1028,10 @@ const VideoGeneratorPage = () => {
                   label={
                     <Box>
                       <Typography variant="body2">
-                        Low VRAM Safe Preset (CogVideoX)
+                        Low VRAM Safe Preset
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        Recommended for 16GB GPUs: forces CogVideoX 2B, max 12 frames, reduced resolution (480px max), max 15 steps, and single-frame batching to minimize memory usage.
+                        Recommended for 16GB GPUs: reduces frames, resolution, and steps to minimize memory usage.
                       </Typography>
                     </Box>
                   }
@@ -1236,7 +1279,7 @@ const VideoGeneratorPage = () => {
                     onChange={(e) => setModel(e.target.value)}
                     label="Model"
                   >
-                    {Object.entries(MODEL_OPTIONS).map(([key, opt]) => (
+                    {availableModels.map(([key, opt]) => (
                       <MenuItem key={key} value={key}>
                         <Box>
                           <Typography variant="body2">{opt.label}</Typography>
@@ -1325,7 +1368,8 @@ const VideoGeneratorPage = () => {
 
             {/* Video Dimensions Row */}
             <Grid container spacing={2} sx={{ mb: 2 }}>
-              {/* Aspect Ratio */}
+              {/* Aspect Ratio — not applicable for SVD (fixed 512x512) */}
+              {!isSvdModel(model) && (
               <Grid item xs={12} sm={6} md={4}>
                 <FormControl fullWidth size="small">
                   <InputLabel>Aspect Ratio</InputLabel>
@@ -1347,8 +1391,10 @@ const VideoGeneratorPage = () => {
                   </Select>
                 </FormControl>
               </Grid>
+              )}
 
-              {/* Video Size */}
+              {/* Video Size — not applicable for SVD (fixed 512x512) */}
+              {!isSvdModel(model) && (
               <Grid item xs={12} sm={6} md={4}>
                 <FormControl fullWidth size="small">
                   <InputLabel>Video Size</InputLabel>
@@ -1370,6 +1416,7 @@ const VideoGeneratorPage = () => {
                   </Select>
                 </FormControl>
               </Grid>
+              )}
 
               {/* Motion Preset - only for SVD models */}
               {isSvdModel(model) && (
@@ -1428,7 +1475,8 @@ const VideoGeneratorPage = () => {
               </Grid>
             </Grid>
 
-            {/* Advanced Parameters Row */}
+            {/* Advanced Parameters Row — hidden for SVD (no text prompt controls) */}
+            {!isSvdModel(model) && (
             <Box sx={{ mt: 2.5, mb: 2 }}>
               <Typography variant="caption" color="text.secondary" sx={{ mb: 1.5, display: "block", fontWeight: 500 }}>
                 Advanced Parameters
@@ -1497,21 +1545,93 @@ const VideoGeneratorPage = () => {
                   sx={{ ml: 0 }}
                 />
               </Box>
-              {/* Low VRAM Mode Active Warning */}
-              {lowVramMode && (isCogVideoXModel(model) || isWanModel(model)) && (
-                <Alert
-                  severity="info"
-                  sx={{
-                    mt: 1.5,
-                    '& .MuiAlert-message': {
-                      py: 0.5,
-                    },
-                  }}
-                >
-                  Low VRAM mode is active: Max {computedParams.duration_frames} frames, max {computedParams.num_inference_steps} steps, and reduced resolution to minimize memory usage.
-                </Alert>
+              {/* CogVideoX Power Features */}
+              {isCogVideoXModel(model) && (
+              <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2, flexWrap: "wrap", mt: 2 }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={teaCacheEnabled}
+                      onChange={(e) => setTeaCacheEnabled(e.target.checked)}
+                      color="primary"
+                      size="small"
+                    />
+                  }
+                  label={
+                    <Box>
+                      <Typography variant="body2">Speed Boost (TeaCache)</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        ~1.5x faster generation
+                      </Typography>
+                    </Box>
+                  }
+                  sx={{ ml: 0 }}
+                />
+                {teaCacheEnabled && (
+                  <TextField
+                    size="small"
+                    label="Cache Threshold"
+                    type="number"
+                    inputProps={{ step: 0.1, min: 0.1, max: 1.0 }}
+                    value={teaCacheThreshold}
+                    onChange={(e) => setTeaCacheThreshold(Number(e.target.value))}
+                    helperText="Higher = faster, lower quality"
+                    sx={{ width: 160 }}
+                  />
+                )}
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={fetaEnabled}
+                      onChange={(e) => setFetaEnabled(e.target.checked)}
+                      color="primary"
+                      size="small"
+                    />
+                  }
+                  label={
+                    <Box>
+                      <Typography variant="body2">Enhance-A-Video</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Improved temporal coherence
+                      </Typography>
+                    </Box>
+                  }
+                  sx={{ ml: 0 }}
+                />
+                {fetaEnabled && (
+                  <TextField
+                    size="small"
+                    label="Enhancement Weight"
+                    type="number"
+                    inputProps={{ step: 0.1, min: 0.1, max: 3.0 }}
+                    value={fetaWeight}
+                    onChange={(e) => setFetaWeight(Number(e.target.value))}
+                    helperText="Higher = stronger effect"
+                    sx={{ width: 160 }}
+                  />
+                )}
+              </Box>
               )}
             </Box>
+            )}
+            {/* Low VRAM Mode Active Warning */}
+            {lowVramMode && (isCogVideoXModel(model) || isWanModel(model)) && (
+              <Alert
+                severity="info"
+                sx={{
+                  mt: 1.5,
+                  mb: 2,
+                  '& .MuiAlert-message': {
+                    py: 0.5,
+                  },
+                }}
+              >
+                {isCogVideoXModel(model) && model === "cogvideox-5b-i2v"
+                  ? `Low VRAM mode is active: Max ${computedParams.duration_frames} frames, max ${computedParams.num_inference_steps} steps, and reduced resolution (model preserved for I2V).`
+                  : `Low VRAM mode is active: Max ${computedParams.duration_frames} frames, max ${computedParams.num_inference_steps} steps, and reduced resolution to minimize memory usage.`
+                }
+              </Alert>
+            )}
           </Box>
 
           {/* Preview of computed settings */}
@@ -1606,23 +1726,26 @@ const VideoGeneratorPage = () => {
                   label={`${PROMPT_STYLES[computedParams.prompt_style]?.label || computedParams.prompt_style} style`}
                 />
               )}
+              {computedParams.teacache_threshold && (
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  color="success"
+                  label={`TeaCache ${computedParams.teacache_threshold}`}
+                />
+              )}
+              {computedParams.feta_weight && (
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  color="success"
+                  label={`FETA ${computedParams.feta_weight}`}
+                />
+              )}
             </Box>
           </Box>
 
-          {/* Model-specific warnings */}
-          {MODEL_OPTIONS[model]?.requiresImage && inputMode === "text" && (
-            <Alert 
-              severity="warning" 
-              sx={{ 
-                mb: 2,
-                '& .MuiAlert-message': {
-                  py: 0.5,
-                },
-              }}
-            >
-              {MODEL_OPTIONS[model]?.label} requires an image input. Switch to Image mode or select a different model.
-            </Alert>
-          )}
+          {/* Model-mode mismatch is now prevented by filtering — no warning needed */}
 
           <Divider />
 
