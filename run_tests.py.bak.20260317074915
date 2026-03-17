@@ -6,16 +6,13 @@ import subprocess
 import sys
 from datetime import datetime
 
-def _ensure_llama_index() -> None:
-    """
-    Ensure llama_index is installed.
 
-    If llama_index is missing, attempt to install it using pip.
-    """
+def _ensure_llama_index() -> None:
     try:
         import llama_index
+
         return
-    except ImportError:
+    except Exception:
         print("[preflight] llama_index missing; attempting install...")
         subprocess.run(
             [
@@ -31,7 +28,7 @@ def _ensure_llama_index() -> None:
         )
     try:
         import llama_index
-    except ImportError:
+    except Exception:
         print(
             "Codex environment setup failure; please re-run or contact OpenAI support."
         )
@@ -39,11 +36,6 @@ def _ensure_llama_index() -> None:
 
 
 def install_requirements(repo_root: str) -> None:
-    """
-    Install requirements from files in the backend directory.
-
-    :param repo_root: The root directory of the repository.
-    """
     test_req = os.path.join(repo_root, "backend", "requirements-test.txt")
     llm_req = os.path.join(repo_root, "backend", "requirements-llm.txt")
     default_req = os.path.join(repo_root, "backend", "requirements.txt")
@@ -64,37 +56,43 @@ def install_requirements(repo_root: str) -> None:
 
 
 def install_playwright_browsers() -> None:
-    """
-    Install playwright browsers.
-
-    Attempt to install chromium using playwright.__main__.main.
-    """
     try:
         import playwright.__main__
+
         playwright.__main__.main(["install", "chromium"])
     except Exception as e:
         print("Playwright install failed:", e)
 
 
 def install_node_modules(repo_root: str) -> None:
-    """
-    Install node modules in the frontend directory.
-
-    :param repo_root: The root directory of the repository.
-    """
     frontend_dir = os.path.join(repo_root, "frontend")
     node_modules = os.path.join(frontend_dir, "node_modules")
     if not os.path.exists(node_modules):
         subprocess.run(["npm", "install", "--silent"], cwd=frontend_dir, check=False)
 
 
-def _parse_pytest_output(output: str) -> dict:
-    """
-    Parse pytest output to extract counts and failures.
+def _print_summary(result: dict) -> None:
+    color_pass = "\033[32m"
+    color_fail = "\033[31m"
+    color_reset = "\033[0m"
+    rc = result.get("returncode", 1)
+    status = "PASSED" if rc == 0 else "FAILED"
+    color = color_pass if rc == 0 else color_fail
+    print(f"{color}Test run {status}{color_reset}")
+    summary = result.get("summary", {})
+    counts = summary.get("counts", {})
+    print(
+        f"Passed: {counts.get('passed',0)}  Failed: {counts.get('failed',0)}  Skipped: {counts.get('skipped',0)}  Errors: {counts.get('errors',0)}"
+    )
+    if summary.get("failures"):
+        print("\nFailure Details:")
+        for item in summary["failures"]:
+            print(item)
+    if rc != 0:
+        print("\nTests failed. Review output above and fix failing cases.")
 
-    :param output: The output of pytest.
-    :return: A dictionary containing counts and failures.
-    """
+
+def _parse_pytest_output(output: str) -> dict:
     summary_match = re.search(r"(\d+\s+passed).*", output.splitlines()[-1])
     counts = {"passed": 0, "failed": 0, "errors": 0, "skipped": 0}
     if summary_match:
@@ -126,38 +124,7 @@ def _parse_pytest_output(output: str) -> dict:
     return {"counts": counts, "failures": failures}
 
 
-def _print_summary(result: dict) -> None:
-    """
-    Print a summary of the test run.
-
-    :param result: The result of the test run.
-    """
-    color_pass = "\033[32m"
-    color_fail = "\033[31m"
-    color_reset = "\033[0m"
-    rc = result.get("returncode", 1)
-    status = "PASSED" if rc == 0 else "FAILED"
-    color = color_pass if rc == 0 else color_fail
-    print(f"{color}Test run {status}{color_reset}")
-    summary = result.get("summary", {})
-    counts = summary.get("counts", {})
-    print(
-        f"Passed: {counts.get('passed',0)}  Failed: {counts.get('failed',0)}  Skipped: {counts.get('skipped',0)}  Errors: {counts.get('errors',0)}"
-    )
-    if summary.get("failures"):
-        print("\nFailure Details:")
-        for item in summary["failures"]:
-            print(item)
-    if rc != 0:
-        print("\nTests failed. Review output above and fix failing cases.")
-
-
-def run_all() -> dict:
-    """
-    Run all phases of the test.
-
-    :return: The result of the test run.
-    """
+def run_all():
     repo_root = os.path.abspath(os.path.dirname(__file__))
     phases = {"install": [], "config": [], "run": [], "teardown": []}
 
@@ -206,12 +173,7 @@ def run_all() -> dict:
     }
 
 
-def main() -> int:
-    """
-    The main entry point of the script.
-
-    :return: The exit code of the script.
-    """
+def main():
     result = run_all()
     print(json.dumps(result))
     _print_summary(result)
