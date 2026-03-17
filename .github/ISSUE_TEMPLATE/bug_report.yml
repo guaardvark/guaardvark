@@ -57,7 +57,7 @@ body:
         - Voice
         - Agents / Tools
         - Plugin System
-        - CLI (llx)
+        - CLI
         - Interconnector
         - Self-Improvement
         - Dashboard / UI
