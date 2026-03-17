@@ -274,10 +274,11 @@ class BatchVideoGenerator:
         **params,
     ) -> BatchVideoStatus:
         batch_id = params.get("batch_id") or f"batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+        user_prompt = params.pop("prompt", "")
         items = [
             BatchVideoItem(
                 id=str(uuid.uuid4()),
-                prompt=f"Image-to-video: {Path(path).name}",
+                prompt=user_prompt or f"Image-to-video: {Path(path).name}",
                 image_path=path,
                 metadata={"source": "image", "image_path": path},
             )

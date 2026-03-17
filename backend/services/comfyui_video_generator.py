@@ -204,7 +204,7 @@ class ComfyUIVideoGenerator:
     COGVIDEOX_MODELS = {
         "cogvideox-2b": "THUDM/CogVideoX-2b",
         "cogvideox-5b": "THUDM/CogVideoX-5b",
-        "cogvideox-5b-i2v": "THUDM/CogVideoX-5b-I2V",
+        "cogvideox-5b-i2v": "kijai/CogVideoX-5b-1.5-I2V",
     }
 
     # ── Wan 2.2 model mapping ────────────────────────────────────────────────
@@ -217,6 +217,55 @@ class ComfyUIVideoGenerator:
             "vae": "wan_2.1_vae.safetensors",
         },
     }
+
+    def _add_cogvideox_optional_nodes(
+        self,
+        workflow: dict,
+        sampler_node_id: str,
+        teacache_threshold: Optional[float] = None,
+        feta_weight: Optional[float] = None,
+    ) -> dict:
+        """Add optional TeaCache and/or FETA nodes to a CogVideoX workflow.
+
+        Args:
+            workflow: The ComfyUI workflow dict (modified in-place).
+            sampler_node_id: Node ID of the CogVideoSampler.
+            teacache_threshold: If set, add TeaCache with this rel_l1_thresh (0.1-1.0).
+            feta_weight: If set, add Enhance-A-Video with this weight (0.1-3.0).
+
+        Returns:
+            The modified workflow dict.
+        """
+        existing_ids = [int(k) for k in workflow.keys() if k.isdigit()]
+        next_id = max(existing_ids) + 1
+
+        if teacache_threshold is not None:
+            tea_id = str(next_id)
+            next_id += 1
+            workflow[tea_id] = {
+                "class_type": "CogVideoXTeaCache",
+                "inputs": {
+                    "rel_l1_thresh": float(teacache_threshold),
+                }
+            }
+            workflow[sampler_node_id]["inputs"]["teacache_args"] = [tea_id, 0]
+            logger.info(f"Added TeaCache (threshold={teacache_threshold}) to CogVideoX workflow")
+
+        if feta_weight is not None:
+            feta_id = str(next_id)
+            next_id += 1
+            workflow[feta_id] = {
+                "class_type": "CogVideoEnhanceAVideo",
+                "inputs": {
+                    "weight": float(feta_weight),
+                    "start_percent": 0.0,
+                    "end_percent": 1.0,
+                }
+            }
+            workflow[sampler_node_id]["inputs"]["feta_args"] = [feta_id, 0]
+            logger.info(f"Added Enhance-A-Video (weight={feta_weight}) to CogVideoX workflow")
+
+        return workflow
 
     def _create_cogvideox_text2video_workflow(
         self,
@@ -348,7 +397,7 @@ class ComfyUIVideoGenerator:
         image_filename: str,
         prompt: str,
         negative_prompt: str = "",
-        model_name: str = "THUDM/CogVideoX-5b-I2V",
+        model_name: str = "kijai/CogVideoX-5b-1.5-I2V",
         num_frames: int = 49,
         num_inference_steps: int = 50,
         guidance_scale: float = 6.0,
@@ -404,13 +453,31 @@ class ComfyUIVideoGenerator:
                     "image": image_filename,
                 }
             },
+            "10": {
+                "class_type": "ImageResizeKJ",
+                "inputs": {
+                    "image": ["5", 0],
+                    "width_input": width,
+                    "height_input": height,
+                    "interpolation": "lanczos",
+                    "keep_proportion": False,
+                    "divisible_by": 16,
+                }
+            },
+            "9": {
+                "class_type": "CogVideoImageEncode",
+                "inputs": {
+                    "vae": ["4", 1],
+                    "start_image": ["10", 0],
+                }
+            },
             "6": {
                 "class_type": "CogVideoSampler",
                 "inputs": {
                     "model": ["4", 0],
                     "positive": ["2", 0],
                     "negative": ["3", 0],
-                    "samples": ["5", 0],
+                    "image_cond_latents": ["9", 0],
                     "num_frames": num_frames,
                     "steps": num_inference_steps,
                     "cfg": guidance_scale,
@@ -725,6 +792,53 @@ class ComfyUIVideoGenerator:
 
         return workflow
 
+    def _add_upscale_node(
+        self,
+        workflow: dict,
+        source_node_id: str,
+        video_combine_node_id: str,
+    ) -> dict:
+        """Insert Real-ESRGAN 2x upscale between a frame source and VHS_VideoCombine.
+
+        Args:
+            workflow: The ComfyUI workflow dict (modified in-place).
+            source_node_id: Node ID that outputs IMAGE frames (e.g. RIFE or VAEDecode).
+            video_combine_node_id: Node ID of VHS_VideoCombine to rewire.
+
+        Returns:
+            The modified workflow dict.
+        """
+        existing_ids = [int(k) for k in workflow.keys() if k.isdigit()]
+        loader_id = str(max(existing_ids) + 1)
+        upscale_id = str(max(existing_ids) + 2)
+
+        # Load the upscale model
+        workflow[loader_id] = {
+            "class_type": "UpscaleModelLoader",
+            "inputs": {
+                "model_name": "RealESRGAN_x2.pth",
+            }
+        }
+
+        # Apply upscaling to frames
+        workflow[upscale_id] = {
+            "class_type": "ImageUpscaleWithModel",
+            "inputs": {
+                "upscale_model": [loader_id, 0],
+                "image": [source_node_id, 0],
+            }
+        }
+
+        # Rewire VHS_VideoCombine to take frames from upscaler
+        workflow[video_combine_node_id]["inputs"]["images"] = [upscale_id, 0]
+
+        logger.info(
+            f"Added Real-ESRGAN 2x upscale: "
+            f"node {source_node_id} -> Upscale({upscale_id}) -> VHS_VideoCombine({video_combine_node_id})"
+        )
+
+        return workflow
+
     def _queue_prompt(self, workflow: dict) -> Optional[str]:
         try:
             payload = {"prompt": workflow}
@@ -910,6 +1024,9 @@ class ComfyUIVideoGenerator:
 
             # ── Route by model type ──────────────────────────────────
             if model in self.WAN22_MODELS or model in ("wan22", "wan2.2"):
+                if image_path:
+                    result.error = "Wan 2.2 is text-to-video only. Use CogVideoX 5B I2V or SVD for image-to-video."
+                    return result
                 # Text-to-video via Wan 2.2 GGUF
                 model_key = model if model in self.WAN22_MODELS else "wan22-14b"
                 workflow = self._create_wan22_t2v_workflow(
@@ -928,6 +1045,9 @@ class ComfyUIVideoGenerator:
                 logger.info(f"Using Wan 2.2 text-to-video ({model_key}) via ComfyUI GGUF")
 
             elif model in ("cogvideox-2b", "cogvideox-5b"):
+                if image_path:
+                    result.error = f"{model} is text-to-video only. Use cogvideox-5b-i2v for image-to-video."
+                    return result
                 # Text-to-video via CogVideoX
                 hf_model = self.COGVIDEOX_MODELS.get(model, "THUDM/CogVideoX-2b")
                 workflow = self._create_cogvideox_text2video_workflow(
@@ -941,6 +1061,13 @@ class ComfyUIVideoGenerator:
                     seed=seed,
                     fps=request.fps,
                     interpolation_multiplier=interpolation,
+                )
+                # Add optional TeaCache / FETA nodes for CogVideoX
+                meta = request.metadata or {}
+                self._add_cogvideox_optional_nodes(
+                    workflow, sampler_node_id="6",
+                    teacache_threshold=meta.get("teacache_threshold"),
+                    feta_weight=meta.get("feta_weight"),
                 )
                 logger.info(f"Using CogVideoX text-to-video ({model}) via ComfyUI")
 
@@ -967,6 +1094,13 @@ class ComfyUIVideoGenerator:
                     fps=request.fps,
                     interpolation_multiplier=interpolation,
                 )
+                # Add optional TeaCache / FETA nodes for CogVideoX I2V
+                meta = request.metadata or {}
+                self._add_cogvideox_optional_nodes(
+                    workflow, sampler_node_id="6",
+                    teacache_threshold=meta.get("teacache_threshold"),
+                    feta_weight=meta.get("feta_weight"),
+                )
                 logger.info(f"Using CogVideoX image-to-video via ComfyUI")
 
             else:
@@ -987,6 +1121,20 @@ class ComfyUIVideoGenerator:
                     seed=seed,
                 )
                 logger.info(f"Using SVD image-to-video via ComfyUI")
+
+            # Apply Real-ESRGAN 2x upscale if requested
+            upscale = request.metadata.get("upscale", False) if request.metadata else False
+            if upscale:
+                # Find VHS_VideoCombine and its current frame source
+                vhs_node_id = next(
+                    (nid for nid, node in workflow.items() if node.get("class_type") == "VHS_VideoCombine"),
+                    None
+                )
+                if vhs_node_id:
+                    # The node currently feeding images to VHS_VideoCombine
+                    source_ref = workflow[vhs_node_id]["inputs"].get("images", [None])[0]
+                    if source_ref:
+                        self._add_upscale_node(workflow, source_ref, vhs_node_id)
 
             logger.info("Sending workflow to ComfyUI...")
             prompt_id = self._queue_prompt(workflow)
