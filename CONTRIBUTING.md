@@ -71,7 +71,7 @@ frontend/          React/Vite app
   src/pages/       31 page components
   src/components/  129 UI components
   src/stores/      Zustand state management
-cli/               llx CLI tool
+cli/               Guaardvark CLI
 plugins/           GPU service plugins (Ollama, ComfyUI)
 scripts/           Utility and system scripts
 ```

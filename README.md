@@ -155,7 +155,7 @@ cd guaardvark
 - **Celery task system** — Background processing for long-running operations with live progress tracking
 - **Four built-in themes** — Default, Musk, Hacker, Vader (all dark) with accent-colored UI
 - **Profile customization** — Per-instance nickname and avatar image
-- **CLI (`llx`)** — Full platform access via terminal with interactive REPL
+- **CLI** — Full platform access via terminal with interactive REPL
 
 ---
 
@@ -219,7 +219,7 @@ The startup script handles everything on first run: Python venv, Node dependenci
 ## Architecture
 
 ```
-Browser UI / llx CLI
+Browser UI / guaardvark CLI
         | HTTP + WebSocket
         v
 Flask Application (port 5000)
@@ -273,7 +273,7 @@ guaardvark/
 |   |   |-- hooks/      # Custom React hooks
 |   |   \-- api/        # 39 API service modules
 |   \-- dist/           # Production build
-|-- cli/                # llx CLI tool
+|-- cli/                # Guaardvark CLI
 |-- plugins/            # GPU service plugins (ollama, comfyui, gpu_embedding)
 |-- scripts/            # Utilities and system manager
 |-- data/               # Runtime data (gitignored)
@@ -282,26 +282,21 @@ guaardvark/
 
 ---
 
-## CLI — `llx`
+## CLI
 
-Install and use the terminal client:
-
-```bash
-cd cli && pip install -e .
-llx init
-```
+The CLI is installed automatically by `./start.sh` and available as `guaardvark` (or `llx` for short):
 
 ```bash
-llx status                      # System dashboard
-llx chat "explain this codebase" # Chat with RAG streaming
-llx chat --no-rag "hello"       # Direct LLM, no document context
-llx search "query"              # Semantic search across documents
-llx files list                  # Browse files
-llx files upload report.pdf     # Upload and index a file
-llx generate csv "50 blog post ideas about AI" --output ideas.csv
-llx jobs watch JOB_ID           # Live job progress
-llx rules list                  # List system prompts
-llx                             # Interactive REPL
+guaardvark status                      # System dashboard
+guaardvark chat "explain this codebase" # Chat with RAG streaming
+guaardvark chat --no-rag "hello"       # Direct LLM, no document context
+guaardvark search "query"              # Semantic search across documents
+guaardvark files list                  # Browse files
+guaardvark files upload report.pdf     # Upload and index a file
+guaardvark generate csv "50 blog post ideas about AI" --output ideas.csv
+guaardvark jobs watch JOB_ID           # Live job progress
+guaardvark rules list                  # List system prompts
+guaardvark                             # Interactive REPL
 ```
 
 ---
