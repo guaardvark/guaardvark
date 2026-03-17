@@ -21,8 +21,73 @@ vader_info() { echo -e "  ${VADER_GRAY}·${VADER_RESET} ${VADER_WHITE_DIM}$1${VA
 vader_success() { echo -e "  ${VADER_RED}✔${VADER_RESET} ${VADER_WHITE}$1${VADER_RESET}"; }
 vader_warn() { echo -e "  ${VADER_RED_LIGHT}⚠${VADER_RESET} ${VADER_RED_LIGHT}$1${VADER_RESET}"; }
 vader_error() { echo -e "  ${VADER_RED_DARK}✖${VADER_RESET} ${VADER_RED}$1${VADER_RESET}"; }
+vader_warn() { echo -e "  ${VADER_RED_LIGHT}⚠${VADER_RESET} ${VADER_RED_LIGHT}$1${VADER_RESET}"; }
 
 command_exists() { command -v "$1" >/dev/null 2>&1; }
+
+# Check for --skip-postgres flag
+SKIP_POSTGRES=false
+for arg in "$@"; do
+  case "$arg" in
+    --skip-postgres|--skip-pg) SKIP_POSTGRES=true ;;
+  esac
+done
+
+# Allow environment variable override
+if [ "$GUAARDVARK_SKIP_POSTGRES" = "1" ] || [ "$GUAARDVARK_SKIP_POSTGRES" = "true" ]; then
+  SKIP_POSTGRES=true
+fi
+
+# Handle skip request early
+if [ "$SKIP_POSTGRES" = true ]; then
+  vader_warn "PostgreSQL setup skipped (--skip-postgres or GUAARDVARK_SKIP_POSTGRES=1)"
+  vader_info "Make sure GUAARDVARK_DB_HOST points to your external database"
+  vader_info "Or set DATABASE_URL directly in your .env file"
+  exit 0
+fi
+
+# Enhanced error diagnostics
+diagnose_postgres_error() {
+  local error_msg="$1"
+  
+  # Check for port conflict
+  if echo "$error_msg" | grep -qi "port"; then
+    if command_exists netstat; then
+      if netstat -tuln 2>/dev/null | grep -q ":${PG_PORT} "; then
+        vader_error "Port ${PG_PORT} is already in use!"
+        vader_info "Solutions:"
+        vader_info "  1. Check if PostgreSQL is already running: pg_isready"
+        vader_info "  2. Stop existing PostgreSQL: sudo systemctl stop postgresql"
+        vader_info "  3. Change port in postgresql.conf (port = 5433)"
+        vader_info "  4. Use --skip-postgres if you use external PostgreSQL"
+        return 0
+      fi
+    fi
+  fi
+  
+  # Check for permission issues
+  if echo "$error_msg" | grep -qiE "permission|denied|owner"; then
+    vader_error "PostgreSQL permission error detected!"
+    vader_info "Solutions:"
+    vader_info "  1. Check data directory: ls -la /var/lib/postgresql/"
+    vader_info "  2. Fix ownership: sudo chown -R postgres:postgres /var/lib/postgresql/"
+    vader_info "  3. Check pg_hba.conf for authentication settings"
+    return 0
+  fi
+  
+  # Check for service not running
+  if echo "$error_msg" | grep -qiE "failed|error|could not connect"; then
+    vader_error "PostgreSQL service failed to start!"
+    vader_info "Diagnostic steps:"
+    vader_info "  1. Check status: sudo systemctl status postgresql"
+    vader_info "  2. View logs: sudo journalctl -u postgresql -n 50"
+    vader_info "  3. Try manual start: pg_ctl -D /var/lib/postgresql/data start"
+    vader_info "  4. Initialize if new: pg_ctl -D /var/lib/postgresql/data initdb"
+    return 0
+  fi
+  
+  return 1
+}
 
 PG_USER="guaardvark"
 PG_DB="guaardvark"
@@ -88,6 +153,13 @@ if [ "$NEEDS_SUDO" = true ]; then
   fi
 fi
 
+# Capture error from pg_isready for diagnostics
+PG_ERROR_MSG=""
+if ! pg_is_running; then
+  PG_ERROR_MSG=$(pg_isready -h "$PG_HOST" -p "$PG_PORT" 2>&1 || true)
+  diagnose_postgres_error "$PG_ERROR_MSG"
+fi
+
 # ─── Step 1: Ensure psql is installed ─────────────────────────────────────────
 
 if ! command_exists psql; then
@@ -110,6 +182,7 @@ if command_exists systemctl; then
       vader_success "PostgreSQL service started."
     else
       vader_error "Failed to start PostgreSQL service."
+      diagnose_postgres_error "service failed to start"
       exit 1
     fi
   else
@@ -209,5 +282,6 @@ if PGPASSWORD="$PG_PASS" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$PG_
 else
   vader_error "PostgreSQL connection verification failed."
   vader_warn "Check pg_hba.conf allows md5/scram-sha-256 auth for local connections."
+  diagnose_postgres_error "connection failed"
   exit 1
 fi
