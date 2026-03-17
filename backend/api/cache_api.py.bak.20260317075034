@@ -1,3 +1,4 @@
+
 import logging
 import os
 import shutil
@@ -7,10 +8,11 @@ from typing import Dict, List, Tuple
 
 from flask import Blueprint, current_app, jsonify, request
 
+cache_bp = Blueprint("cache_api", __name__, url_prefix="/api/meta")
 logger = logging.getLogger(__name__)
 
+
 def get_project_root() -> Path:
-    """Get the project root directory."""
     try:
         from backend.config import GUAARDVARK_ROOT
         return Path(GUAARDVARK_ROOT)
@@ -20,7 +22,6 @@ def get_project_root() -> Path:
 
 
 def validate_path_is_in_project(path: Path, project_root: Path) -> bool:
-    """Check if a path is within the project root."""
     try:
         resolved_path = path.resolve()
         resolved_root = project_root.resolve()
@@ -30,7 +31,6 @@ def validate_path_is_in_project(path: Path, project_root: Path) -> bool:
 
 
 def get_directory_size(path: Path) -> int:
-    """Get the total size of a directory."""
     total_size = 0
     try:
         for dirpath, dirnames, filenames in os.walk(path):
@@ -46,7 +46,6 @@ def get_directory_size(path: Path) -> int:
 
 
 def count_pyc_files(path: Path) -> int:
-    """Count the number of .pyc files in a directory."""
     count = 0
     try:
         for filepath in path.rglob("*.pyc"):
@@ -59,7 +58,6 @@ def count_pyc_files(path: Path) -> int:
 def clean_pycache_directory(
     pycache_dir: Path, project_root: Path
 ) -> Tuple[bool, Dict, str]:
-    """Clean a __pycache__ directory."""
     stats = {
         "size_bytes": 0,
         "pyc_files": 0,
@@ -89,7 +87,6 @@ def clean_pycache_directory(
 
 
 def find_pycache_directories(root: Path) -> List[Path]:
-    """Find all __pycache__ directories in a directory."""
     pycache_dirs = []
     try:
         for path in root.rglob("__pycache__"):
@@ -101,7 +98,6 @@ def find_pycache_directories(root: Path) -> List[Path]:
 
 
 def purge_backend_modules() -> List[str]:
-    """Purge backend modules from sys.modules."""
     modules_to_purge = [
         m for m in list(sys.modules.keys()) if m.startswith("backend.")
     ]
@@ -115,29 +111,16 @@ def purge_backend_modules() -> List[str]:
     return purged
 
 
-def format_size(size_bytes: int) -> str:
-    """Format a size in bytes to a human-readable string."""
-    if size_bytes == 0:
-        return "0 B"
-    size = float(size_bytes)
-    for unit in ["B", "KB", "MB", "GB"]:
-        if size < 1024.0:
-            return f"{size:.2f} {unit}"
-        size /= 1024.0
-    return f"{size:.2f} TB"
-
-
-def clear_pycache_endpoint() -> Tuple[Dict, int]:
-    """Clear __pycache__ directories and purge backend modules."""
+@cache_bp.route("/clear-pycache", methods=["POST"])
+def clear_pycache_endpoint():
     try:
-        logger.info("Starting cleanup")
+        logger.info("clear_pycache_endpoint: Starting cleanup")
         project_root = get_project_root()
-        logger.info(f"Project root: {project_root}")
-
+        logger.info(f"clear_pycache_endpoint: Project root: {project_root}")
         backend_dir = project_root / "backend"
         plugins_dir = project_root / "plugins"
-        logger.info(f"Backend dir: {backend_dir}, exists: {backend_dir.exists()}")
-        logger.info(f"Plugins dir: {plugins_dir}, exists: {plugins_dir.exists()}")
+        logger.info(f"clear_pycache_endpoint: Backend dir: {backend_dir}, exists: {backend_dir.exists()}")
+        logger.info(f"clear_pycache_endpoint: Plugins dir: {plugins_dir}, exists: {plugins_dir.exists()}")
 
         total_dirs_found = 0
         total_dirs_cleaned = 0
@@ -185,6 +168,17 @@ def clear_pycache_endpoint() -> Tuple[Dict, int]:
 
         purged_modules = purge_backend_modules()
         logger.info(f"Purged {len(purged_modules)} modules from sys.modules")
+
+
+        def format_size(size_bytes: int) -> str:
+            if size_bytes == 0:
+                return "0 B"
+            size = float(size_bytes)
+            for unit in ["B", "KB", "MB", "GB"]:
+                if size < 1024.0:
+                    return f"{size:.2f} {unit}"
+                size /= 1024.0
+            return f"{size:.2f} TB"
 
         success = len(errors) == 0 or total_dirs_cleaned > 0
         message_parts = []
@@ -238,7 +232,3 @@ def clear_pycache_endpoint() -> Tuple[Dict, int]:
             ),
             500,
         )
-
-
-cache_bp = Blueprint("cache_api", __name__, url_prefix="/api/meta")
-cache_bp.route("/clear-pycache", methods=["POST"])(clear_pycache_endpoint)
