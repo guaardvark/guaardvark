@@ -5,13 +5,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def check_system_optimizations() -> dict:
-    """
-    Retrieves system optimizations via nvidia-smi.
 
-    Returns:
-        dict: A dictionary containing system optimizations.
-    """
+def check_system_optimizations():
     optimizations = {
         "persistence_mode": "Unknown",
         "power_limit_w": None,
@@ -20,7 +15,6 @@ def check_system_optimizations() -> dict:
     }
 
     try:
-        # Run nvidia-smi command to retrieve system optimizations
         result = subprocess.run(
             ["nvidia-smi", "--query-gpu=persistence_mode,power.limit,power.default_limit",
              "--format=csv,noheader,nounits"],
@@ -28,34 +22,24 @@ def check_system_optimizations() -> dict:
         )
 
         if result.returncode == 0:
-            # Parse output to extract system optimizations
             parts = result.stdout.strip().split(", ")
             if len(parts) >= 3:
                 optimizations["persistence_mode"] = parts[0]
                 try:
                     optimizations["power_limit_w"] = float(parts[1])
                     optimizations["default_power_limit_w"] = float(parts[2])
-                    # Check if power limit is high enough to enable high performance mode
                     if optimizations["power_limit_w"] >= 280:
                         optimizations["high_performance_mode"] = True
                 except (ValueError, IndexError):
                     pass
-    except subprocess.SubprocessError as e:
+    except Exception as e:
         logger.debug(f"Could not check system optimizations via nvidia-smi: {e}")
 
     return optimizations
 
 
-def configure_cuda_optimizations(verbose: bool = True) -> dict:
-    """
-    Configures CUDA optimizations for Guaardvark.
+def configure_cuda_optimizations(verbose=True):
 
-    Args:
-        verbose (bool, optional): Whether to print verbose output. Defaults to True.
-
-    Returns:
-        dict: A dictionary containing configuration status.
-    """
     if not torch.cuda.is_available():
         if verbose:
             print("CUDA not available - skipping GPU optimizations")
@@ -73,13 +57,11 @@ def configure_cuda_optimizations(verbose: bool = True) -> dict:
         "system_optimizations": check_system_optimizations()
     }
 
-    # Enable cuDNN benchmark mode
     torch.backends.cudnn.benchmark = True
     config_status["optimizations_applied"].append("cuDNN benchmark mode")
     if verbose:
         print("  ✓ cuDNN benchmark mode enabled")
 
-    # Enable TF32 precision for faster matrix operations
     if hasattr(torch.backends.cuda.matmul, 'allow_tf32'):
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
@@ -87,13 +69,11 @@ def configure_cuda_optimizations(verbose: bool = True) -> dict:
         if verbose:
             print("  ✓ TF32 precision enabled for faster matrix operations")
 
-    # Enable cuDNN
     torch.backends.cudnn.enabled = True
     config_status["optimizations_applied"].append("cuDNN enabled")
     if verbose:
         print("  ✓ cuDNN enabled")
 
-    # Retrieve GPU information
     gpu_info = {
         "name": torch.cuda.get_device_name(0),
         "memory_total_gb": round(torch.cuda.get_device_properties(0).total_memory / 1024**3, 2),
@@ -120,7 +100,6 @@ def configure_cuda_optimizations(verbose: bool = True) -> dict:
         if sys_opt['high_performance_mode']:
             print(f"  ✓ High Performance Mode Detected")
 
-    # Warm up GPU
     try:
         dummy = torch.zeros(1, device='cuda')
         _ = dummy + dummy
@@ -129,11 +108,10 @@ def configure_cuda_optimizations(verbose: bool = True) -> dict:
         config_status["optimizations_applied"].append("GPU warmup")
         if verbose:
             print("  ✓ GPU warmed up and ready")
-    except RuntimeError as e:
+    except Exception as e:
         if verbose:
             print(f"  ⚠ GPU warmup warning: {e}")
 
-    # Retrieve memory allocator configuration
     alloc_conf = os.environ.get('PYTORCH_CUDA_ALLOC_CONF', 'Not set')
     if verbose:
         print(f"\nMemory Allocator Config: {alloc_conf}")
@@ -148,13 +126,7 @@ def configure_cuda_optimizations(verbose: bool = True) -> dict:
     return config_status
 
 
-def get_gpu_memory_info() -> dict:
-    """
-    Retrieves GPU memory information.
-
-    Returns:
-        dict: A dictionary containing GPU memory information.
-    """
+def get_gpu_memory_info():
     if not torch.cuda.is_available():
         return None
 
@@ -165,13 +137,7 @@ def get_gpu_memory_info() -> dict:
     }
 
 
-def clear_gpu_cache() -> bool:
-    """
-    Clears GPU cache.
-
-    Returns:
-        bool: Whether the cache was cleared successfully.
-    """
+def clear_gpu_cache():
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
         torch.cuda.synchronize()
@@ -179,13 +145,7 @@ def clear_gpu_cache() -> bool:
     return False
 
 
-def enable_mixed_precision() -> tuple:
-    """
-    Enables mixed precision training.
-
-    Returns:
-        tuple: A tuple containing autocast and GradScaler objects.
-    """
+def enable_mixed_precision():
     if not torch.cuda.is_available():
         return None, None
 
@@ -193,17 +153,7 @@ def enable_mixed_precision() -> tuple:
     return autocast, GradScaler
 
 
-def get_optimal_batch_size(model_memory_gb: float, available_memory_gb: float = None) -> int:
-    """
-    Estimates optimal batch size based on model size and available memory.
-
-    Args:
-        model_memory_gb (float): Model memory size in GB.
-        available_memory_gb (float, optional): Available memory size in GB. Defaults to None.
-
-    Returns:
-        int: Optimal batch size.
-    """
+def get_optimal_batch_size(model_memory_gb, available_memory_gb=None):
     if not torch.cuda.is_available():
         return 1
 
