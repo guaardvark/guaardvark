@@ -63,7 +63,19 @@ app.add_typer(videos_app, name="videos")
 
 def version_callback(value: bool):
     if value:
-        print(f"guaardvark {__version__}")
+        import re
+        from pathlib import Path
+        version = __version__
+        try:
+            root_dir = Path(__file__).resolve().parents[2]
+            app_py = root_dir / "backend" / "app.py"
+            if app_py.exists():
+                match = re.search(r'__version__\s*=\s*["\']([^"\']+)["\']', app_py.read_text())
+                if match:
+                    version = match.group(1)
+        except Exception:
+            pass
+        print(f"guaardvark {version}")
         raise typer.Exit()
 
 
