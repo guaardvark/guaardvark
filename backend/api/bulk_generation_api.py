@@ -468,8 +468,8 @@ Output format: "ID","Title","Content","Excerpt","Category","Tags","slug"
 @bulk_gen_bp.route("/csv-proven", methods=["POST"])
 def generate_bulk_csv_proven():
     """
-    Generate bulk CSV content using the proven method that worked for albenzelaw.com
-    Uses the same approach as the successful 260-page generation
+    Generate bulk CSV content using the proven batch generation method.
+    Uses the same approach as the successful large-scale generation pipeline.
     """
     try:
         data = request.get_json()
@@ -1039,7 +1039,7 @@ def generate_bulk_csv_original():
     Expected payload (Legacy Support):
     {
         "output_filename": "my_content.csv",
-        "client": "Imperial Data Center",
+        "client": "Professional Services",
         "project": "Legal Services Marketing", 
         "website": "datacenterknowledge.com/business",
         "topics": ["topic1", "topic2", ...] or "auto",
@@ -1135,7 +1135,7 @@ def generate_bulk_csv_original():
         else:
             # LEGACY: Extract parameters directly (backward compatibility)
             logger.info("Using legacy parameter extraction")
-            client = data.get("client", "Professional Services")  # Removed hardcoded "Imperial Data Center"
+            client = data.get("client", "Professional Services")  # Removed hardcoded "Professional Services"
             project = data.get("project", "Content Generation")
             website = data.get("website", "professional-website.com")  # Removed hardcoded datacenter site
             topics_input = data.get("topics")
@@ -1299,7 +1299,7 @@ def generate_bulk_csv_original():
 @bulk_gen_bp.route("/demo", methods=["POST"])
 def generate_demo_csv():
     """
-    Generate a demonstration CSV file with Imperial Data Center content
+    Generate a demonstration CSV file with Professional Services content
     This is a simplified endpoint for testing and demonstrations
     
     Expected payload:
@@ -1515,7 +1515,7 @@ def generate_topic_list():
     Expected payload:
     {
         "domain": "data center legal services",
-        "client": "Imperial Data Center", 
+        "client": "Professional Services", 
         "count": 100,
         "base_topics": ["optional", "seed", "topics"]
     }
@@ -1523,7 +1523,7 @@ def generate_topic_list():
     try:
         data = request.get_json() or {}
         domain = data.get("domain", "data center legal services")
-        client = data.get("client", "Imperial Data Center")
+        client = data.get("client", "Professional Services")
         count = data.get("count", 100)
         base_topics = data.get("base_topics", [])
 

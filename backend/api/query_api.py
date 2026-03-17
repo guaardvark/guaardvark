@@ -316,7 +316,7 @@ def handle_createcsv_command(args_string: str, session_id: str):
         if not natural_language_instructions or len(natural_language_instructions.strip()) < 10:
             return (
                 jsonify({
-                    "error": "Please provide detailed instructions after the filename. Example: /createcsv filename=\"myfile.csv\" Generate 10 landing pages for Albenze Inc..."
+                    "error": "Please provide detailed instructions after the filename. Example: /createcsv filename=\"myfile.csv\" Generate 10 landing pages for Acme Corp..."
                 }),
                 400,
             )
@@ -451,7 +451,7 @@ def _should_use_bulk_generation(args_string: str, raw_user_specifications: str, 
     # Keywords that strongly suggest bulk generation
     bulk_keywords = [
         "100", "50", "pages", "articles", "posts", "items", "entries", "rows",
-        "imperial data center", "data center", "legal services", "seo", "wordpress",
+        "professional services", "data center", "legal services", "seo", "wordpress",
         "landing pages", "website content", "marketing content", "bulk",
         "many", "multiple", "several", "dozens", "scores", "hundreds"
     ]
@@ -497,11 +497,11 @@ def _should_use_bulk_generation(args_string: str, raw_user_specifications: str, 
         should_use_bulk = True
         reasons.append(f"Bulk keywords detected: {', '.join(keyword_matches[:3])}")
     
-    # Criterion 3: Imperial Data Center specific content (always use bulk)
-    if "imperial data center" in content_combined or "data center legal" in content_combined:
+    # Criterion 3: Professional Services specific content (always use bulk)
+    if "professional services" in content_combined or "data center legal" in content_combined:
         should_use_bulk = True
-        reasons.append("Imperial Data Center content detected")
-        # Default to 100 items for Imperial Data Center if no quantity specified
+        reasons.append("Professional Services content detected")
+        # Default to 100 items for Professional Services if no quantity specified
         if detected_quantity == 0:
             detected_quantity = 100
     
@@ -539,7 +539,7 @@ def _should_use_bulk_generation(args_string: str, raw_user_specifications: str, 
         "num_items": max(detected_quantity, 10) if should_use_bulk else detected_quantity,
         "target_word_count": detected_word_count,
         "concurrent_workers": min(15, max(5, detected_quantity // 10)) if detected_quantity > 0 else 10,
-        "client": "Imperial Data Center" if "imperial data center" in content_combined else "Professional Services",
+        "client": "Professional Services" if "professional services" in content_combined else "Professional Services",
         "website": "datacenterknowledge.com/business" if "data center" in content_combined else "professional-website.com",
         "project": "Content Generation via Chat",
         "reasons": reasons
@@ -963,7 +963,7 @@ def handle_batchcsv_command(args_string: str, session_id: str):
     if any(keyword in content_combined for keyword in ["data center", "datacenter", "imperial"]):
         detected_website = "datacenterknowledge.com/business"
         if "imperial" not in detected_client.lower():
-            detected_client = "Imperial Data Center"
+            detected_client = "Professional Services"
     elif any(keyword in content_combined for keyword in ["tech", "software", "cloud", "computing"]):
         detected_website = f"{detected_client.lower().replace(' ', '')}.com"
     else:

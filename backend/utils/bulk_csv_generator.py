@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Bulk CSV Generator for High-Volume Content Creation
-Optimized for generating 1,000+ pages per day based on specific prompts like the Imperial Data Center example
+Optimized for generating 1,000+ pages per day based on specific prompts like the Professional Services example
 """
 
 import argparse
@@ -1331,7 +1331,7 @@ Generate the CSV row now:"""
                         logger.warning(f"AUTO-CORRECT: Category '{category}' looks like a city name, regenerating...")
                         category_invalid = True
 
-                # Detect concatenated words without spaces (e.g., "AssetForfeitureDefenseStockton")
+                # Detect concatenated words without spaces (e.g., "DigitalMarketingServicesDenver")
                 if category and ' ' not in category and len(category) > 20:
                     # Likely concatenated, check for capital letters indicating word boundaries
                     capital_count = sum(1 for c in category if c.isupper())
@@ -2790,7 +2790,7 @@ def create_tasks_from_topics(topics: List[str],
     return tasks
 
 def create_data_center_topics(count: int = 100) -> List[str]:
-    """Generate data center related topics for Imperial Data Center"""
+    """Generate data center related topics for Professional Services"""
     base_topics = [
         "Data Center Site Selection Legal Requirements",
         "Construction Permits for Data Center Development",
@@ -2840,7 +2840,7 @@ def create_demonstration_csv(output_dir: str,
                            num_items: int = 20,
                            concurrent_workers: int = 5) -> Tuple[str, Dict]:
     """
-    Create a demonstration CSV file with Imperial Data Center content
+    Create a demonstration CSV file with Professional Services content
     
     This function demonstrates the high-volume capability by generating
     multiple pieces of content concurrently.
@@ -2859,14 +2859,14 @@ def create_demonstration_csv(output_dir: str,
     topics = create_data_center_topics(num_items)
     tasks = create_tasks_from_topics(
         topics=topics,
-        client="Imperial Data Center",
+        client="Professional Services",
         project="Legal Services Marketing",
         website="datacenterknowledge.com/business"
     )
     
     # Generate the CSV
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_filename = f"imperial_data_demo_{timestamp}.csv"
+    output_filename = f"demo_content_{timestamp}.csv"
     
     return generator.generate_bulk_csv(tasks, output_filename)
 

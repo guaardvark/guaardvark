@@ -615,10 +615,10 @@ Negative Prompt: {negative_prompt}""",
                     "style": "clean geometric forms, minimal shadows",
                     "color_palette": "muted palette of blues and grays with accent red",
                     "background": "legal courtroom background with courthouse columns",
-                    "elements": "scales of justice, stack of seized assets (pile of cash, car, house silhouette), legal documents stamped 'forfeiture', gavel, judge's bench silhouette",
+                    "elements": "scales of justice, legal documents, gavel, judge's bench silhouette, professional briefcase",
                     "mood": "serious tone",
-                    "element_list": "seized car, house outline, cash bundles, legal documents with seal, scale of justice",
-                    "style_keywords": "civil forfeiture, innocent owner defense, property rights, due process, government power, asset seizure, legal justice, legal reform",
+                    "element_list": "gavel, legal documents with seal, scale of justice, professional desk, law books",
+                    "style_keywords": "legal services, professional, corporate law, business consultation, justice, legal practice",
                     "negative_prompt": "no photorealism, no people faces, no over-saturation, no glitter or cartoon color, no watermarks"
                 }
             },

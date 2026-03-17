@@ -299,7 +299,7 @@ def finetune_model_task(self, job_id: str, config: dict, resume: bool = False):
         if not data_path:
             raise ValueError("data_path not found in job config")
         
-        output_name = job.output_model_name or f"llamax1-{base_model.replace('/', '-').replace(':', '-')}"
+        output_name = job.output_model_name or f"guaardvark-{base_model.replace('/', '-').replace(':', '-')}"
         max_steps = job_config.get("steps", 500)
         learning_rate = job_config.get("lr", 2e-4)
         batch_size = job_config.get("batch_size", device_profile.max_batch_size if device_profile else 2)
@@ -392,7 +392,7 @@ def finetune_model_task(self, job_id: str, config: dict, resume: bool = False):
         checkpoint_path = None
         is_resumable = False
         try:
-            output_name = config.get("output_name") or f"llamax1-{config.get('base_model', 'model').replace('/', '-')}"
+            output_name = config.get("output_name") or f"guaardvark-{config.get('base_model', 'model').replace('/', '-')}"
             checkpoint_dir = MODELS_DIR / output_name / "checkpoints"
             if checkpoint_dir.exists():
                 checkpoints = list(checkpoint_dir.glob("checkpoint-*"))
@@ -649,7 +649,7 @@ def full_training_pipeline_task(self, job_id: str, config: dict):
         
         model_name = job.output_model_name or job_config.get("ollama_model_name")
         if not model_name:
-            model_name = f"llamax1-{job.base_model.replace('/', '-').replace(':', '-')}"
+            model_name = f"guaardvark-{job.base_model.replace('/', '-').replace(':', '-')}"
         
         import_result = import_ollama_task(job_id, model_dir, model_name)
         

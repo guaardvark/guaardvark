@@ -186,7 +186,7 @@ class MCPClientService:
                     "protocolVersion": "2024-11-05",
                     "capabilities": {},
                     "clientInfo": {
-                        "name": "llamax1-mcp-client",
+                        "name": "guaardvark-mcp-client",
                         "version": "1.0.0"
                     }
                 }

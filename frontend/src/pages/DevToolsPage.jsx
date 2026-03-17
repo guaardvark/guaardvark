@@ -1,5 +1,4 @@
-// WARNING: Visual/UX changes to this file were originally restricted.
-// Permission to modify granted by owner Dean Albenze (2024-04).
+// v1.19.6 - System Dashboard (formerly Dev Tools)
 // v1.19.6 - Added progress jobs management and cleanup functionality
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { SOCKET_URL } from "../api/apiClient";

@@ -47,7 +47,7 @@ def generate_csv():
         "type": "single",
         "output_filename": "single_content.csv",
         "prompt": "Generate one CSV row about data center legal services",
-        "client": "Imperial Data Center",
+        "client": "Professional Services",
         "project": "Legal Services"
     }
     
@@ -55,7 +55,7 @@ def generate_csv():
     {
         "type": "bulk",
         "output_filename": "bulk_content.csv",
-        "client": "Imperial Data Center",
+        "client": "Professional Services",
         "project": "Legal Services Marketing",
         "website": "datacenterknowledge.com/business",
         "topics": ["topic1", "topic2", ...] or "auto",
@@ -69,7 +69,7 @@ def generate_csv():
     {
         "output_filename": "content.csv",
         "prompt": "Generate 50 CSV rows about legal services",
-        "client": "Imperial Data Center",
+        "client": "Professional Services",
         "project": "Legal Services"
     }
     """
@@ -287,7 +287,7 @@ def generate_large_scale_csv():
     Expected payload:
     {
         "output_filename": "large_dataset.csv",
-        "client": "Imperial Data Center",
+        "client": "Professional Services",
         "project": "Legal Services Marketing",
         "website": "datacenterknowledge.com/business",
         "topics": ["topic1", "topic2", ...] or "auto",

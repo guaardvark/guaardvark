@@ -48,7 +48,7 @@ def finetune(
     from trl import SFTTrainer
     from transformers import TrainingArguments
 
-    output_name = output_name or f"llamax1-vision-{base_model.replace('/', '-')}"
+    output_name = output_name or f"guaardvark-vision-{base_model.replace('/', '-')}"
     output_dir = MODELS_DIR / output_name
     output_dir.mkdir(parents=True, exist_ok=True)
 

@@ -1,5 +1,5 @@
 # backend/requirements.txt
-# Consolidated requirements for LlamaX1 System
+# Consolidated requirements for Guaardvark
 # Core Flask/Backend Dependencies
 Flask==3.0.0
 Flask-Executor==1.0.0
