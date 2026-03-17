@@ -117,10 +117,10 @@ import { updateAgentSettings } from "../api/agentsService";
 import { ragAutoresearchService } from "../api/ragAutoresearchService";
 
 // localStorage keys for persisting settings
-const WEB_SEARCH_ENABLED_KEY = "llamaX1_webSearchEnabled";
-const ADV_DEBUG_ENABLED_KEY = "llamaX1_advDebugEnabled";
-const BEHAVIOR_LEARNING_ENABLED_KEY = "llamaX1_behaviorLearningEnabled";
-const LLM_DEBUG_ENABLED_KEY = "llamaX1_llmDebugEnabled";
+const WEB_SEARCH_ENABLED_KEY = "guaardvark_webSearchEnabled";
+const ADV_DEBUG_ENABLED_KEY = "guaardvark_advDebugEnabled";
+const BEHAVIOR_LEARNING_ENABLED_KEY = "guaardvark_behaviorLearningEnabled";
+const LLM_DEBUG_ENABLED_KEY = "guaardvark_llmDebugEnabled";
 // Used by ChatPage to enable backend agent routing integration
 const AGENT_ROUTING_ENABLED_KEY = "use_agent_routing";
 // Used by ChatPage to enable unified agentic chat (LLM with tool access)
@@ -309,8 +309,8 @@ const SettingsPage = () => {
   // Voice settings
   const [voiceSettings, setVoiceSettings] = useState(() => {
     try {
-      // Migrate from old key if present (was "llamaX1_voiceSettings" before)
-      const oldKey = "llamaX1_voiceSettings";
+      // Migrate from old key if present (was "guaardvark_voiceSettings" before)
+      const oldKey = "guaardvark_voiceSettings";
       const oldSaved = localStorage.getItem(oldKey);
       if (oldSaved && !localStorage.getItem(VOICE_SETTINGS_KEY)) {
         localStorage.setItem(VOICE_SETTINGS_KEY, oldSaved);
@@ -1776,7 +1776,7 @@ const SettingsPage = () => {
       const a = document.createElement("a");
       a.href = url;
       const date = new Date().toISOString().slice(0, 19).replace(/:/g, "-");
-      a.download = `llamaX1_rules_export_${date}.json`;
+      a.download = `guaardvark_rules_export_${date}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

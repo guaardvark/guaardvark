@@ -30,7 +30,7 @@ import ContinuousVoiceChat from "../voice/ContinuousVoiceChat";
 import { useAppStore } from "../../stores/useAppStore";
 import { useVoiceSettings } from "../../hooks/useVoiceSettings";
 
-const WEB_SEARCH_ENABLED_KEY = "llamaX1_webSearchEnabled";
+const WEB_SEARCH_ENABLED_KEY = "guaardvark_webSearchEnabled";
 
 const fetchDuckDuckGoSnippet = async (query) => {
   try {

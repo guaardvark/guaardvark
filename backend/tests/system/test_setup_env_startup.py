@@ -12,7 +12,7 @@ def test_setup_env_and_start(tmp_path):
         pytest.skip("Optional slow test; set GUAARDVARK_FULL_TESTS=1 to run")
 
     repo_root = Path(__file__).resolve().parents[2]
-    work_dir = tmp_path / "llamax1"
+    work_dir = tmp_path / "guaardvark"
     shutil.copytree(repo_root, work_dir)
 
     setup_script = work_dir / "devtools" / "setup_env.sh"

@@ -87,7 +87,7 @@ const ENTITY_PATTERNS = [
   /(https?:\/\/|www\.)[\w\-.]+(\.com|\.org|\.net|\.io|\.ai|\.co)/i,
 
   // Specific entity references
-  /\b(albenze|techcorp|acme|smith & jones)\b/i,  // Examples - would be dynamic from DB
+  /\b(techcorp|acme|smith & jones)\b/i,  // Examples - would be dynamic from DB
 
   // Entity queries
   /\b(status of|details about|information on)\s+[A-Z]/,
@@ -138,7 +138,7 @@ function extractEntities(queryText) {
   const entities = [];
 
   // Extract URLs (websites)
-  const urlPattern = /(https?:\/\/|www\.)?([\w\-]+\.(com|org|net|io|ai|co|uk))/gi;
+  const urlPattern = /(https?:\/\/|www\.)?([\w-]+\.(com|org|net|io|ai|co|uk))/gi;
   const urlMatches = queryText.match(urlPattern);
   if (urlMatches) {
     urlMatches.forEach(url => {
@@ -162,7 +162,7 @@ function extractEntities(queryText) {
   }
 
   // Extract file references
-  const filePattern = /\b([a-zA-Z0-9_\-]+\.(csv|xlsx|json|xml|pdf|doc|txt))\b/gi;
+  const filePattern = /\b([a-zA-Z0-9_-]+\.(csv|xlsx|json|xml|pdf|doc|txt))\b/gi;
   const fileMatches = queryText.match(filePattern);
   if (fileMatches) {
     fileMatches.forEach(file => {

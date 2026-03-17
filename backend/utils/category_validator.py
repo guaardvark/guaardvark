@@ -113,7 +113,7 @@ def is_business_name(text: str, client_name: str = None) -> bool:
 def fix_concatenated_category(text: str) -> str:
     """
     Fix concatenated words in category by adding spaces between capital letters
-    Example: "AssetForfeitureDefenseStockton" → "Asset Forfeiture Defense Stockton"
+    Example: "DigitalMarketingServicesDenver" → "Digital Marketing Services Denver"
 
     Args:
         text: Concatenated category text
