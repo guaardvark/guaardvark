@@ -1,0 +1,38 @@
+name: Question
+description: Ask a question about setup, usage, or development
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have a question about Guaardvark? Ask away.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: What would you like to know?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Topic
+      options:
+        - Installation / Setup
+        - Configuration
+        - Chat / RAG usage
+        - Image / Video generation
+        - Plugin system
+        - CLI usage
+        - Development / Contributing
+        - Architecture / Internals
+        - Other
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Anything else that might help us answer your question — logs, screenshots, config, etc.

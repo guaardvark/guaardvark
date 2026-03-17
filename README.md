@@ -10,6 +10,10 @@ A self-hosted AI platform that runs entirely on your hardware. Chat with your do
   <video src="https://github.com/guaardvark/guaardvark/raw/master/docs/screenshots/guaardvark-demo.mp4" autoplay loop muted playsinline width="100%"></video>
 </p>
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/guaardvark/guaardvark/actions/workflows/ci.yml/badge.svg)](https://github.com/guaardvark/guaardvark/actions/workflows/ci.yml)
+[![GitHub stars](https://img.shields.io/github/stars/guaardvark/guaardvark?style=social)](https://github.com/guaardvark/guaardvark/stargazers)
+[![GitHub issues](https://img.shields.io/github/issues/guaardvark/guaardvark)](https://github.com/guaardvark/guaardvark/issues)
 [![Sponsor](https://img.shields.io/badge/Sponsor-Guaardvark-ff69b4?logo=github-sponsors)](https://github.com/sponsors/guaardvark)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buy-me-a-coffee)](https://buymeacoffee.com/guaardvark)
 
@@ -388,6 +392,14 @@ Star the repo if you find it interesting — it helps with visibility!
 
 ---
 
+## Contributing
+
+We welcome contributions! See the [Contributing Guide](CONTRIBUTING.md) to get started.
+
+Looking for something to work on? Check out issues labeled [`good first issue`](https://github.com/guaardvark/guaardvark/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
+
+---
+
 ## License
 
-License TBD — open-source release planned.
+[MIT License](LICENSE) — Copyright (c) 2025-2026 Albenze, Inc.

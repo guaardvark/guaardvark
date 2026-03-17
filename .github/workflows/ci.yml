@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  frontend:
+    name: Frontend Lint & Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+  backend:
+    name: Backend Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m venv backend/venv
+          source backend/venv/bin/activate
+          pip install -r backend/requirements.txt
+
+      - name: Check Python syntax
+        run: |
+          source backend/venv/bin/activate
+          python -m py_compile backend/app.py
+          python -m py_compile backend/config.py
+          python -m py_compile backend/models.py
+          python -c "
+          import pathlib, py_compile, sys
+          errors = []
+          for f in pathlib.Path('backend/api').glob('*.py'):
+              try:
+                  py_compile.compile(str(f), doraise=True)
+              except py_compile.PyCompileError as e:
+                  errors.append(str(e))
+          for f in pathlib.Path('backend/services').glob('*.py'):
+              try:
+                  py_compile.compile(str(f), doraise=True)
+              except py_compile.PyCompileError as e:
+                  errors.append(str(e))
+          if errors:
+              print('\n'.join(errors))
+              sys.exit(1)
+          print('All Python files compile successfully')
+          "

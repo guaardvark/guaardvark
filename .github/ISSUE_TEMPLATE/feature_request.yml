@@ -1,0 +1,64 @@
+name: Feature Request
+description: Suggest a new feature or improvement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Got an idea for Guaardvark? We'd love to hear it.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the use case or pain point. What are you trying to do that you can't do today?
+      placeholder: I'm trying to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How do you think this should work? Be as specific or high-level as you want.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Have you tried any workarounds? Are there other approaches you considered?
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of Guaardvark does this relate to?
+      options:
+        - Chat / RAG
+        - Image Generation
+        - Video Generation
+        - Document Manager
+        - Voice
+        - Agents / Tools
+        - Plugin System
+        - CLI (llx)
+        - Interconnector
+        - Self-Improvement
+        - Dashboard / UI
+        - New Feature Area
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Would you like to work on this?
+      description: Would you be interested in implementing this yourself?
+      options:
+        - "Yes, I'd like to submit a PR"
+        - "I could help with guidance"
+        - "No, just suggesting"

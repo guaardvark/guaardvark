@@ -1,0 +1,89 @@
+name: Bug Report
+description: Something isn't working as expected
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill in as much detail as you can.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+      placeholder: Describe the issue...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce the issue?
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste any relevant logs from `logs/backend.log`, `logs/celery.log`, or browser console.
+      render: shell
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of Guaardvark is affected?
+      options:
+        - Chat / RAG
+        - Image Generation
+        - Video Generation
+        - Document Manager
+        - Voice
+        - Agents / Tools
+        - Plugin System
+        - CLI (llx)
+        - Interconnector
+        - Self-Improvement
+        - Dashboard / UI
+        - Database / Migrations
+        - Startup / Installation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: |
+        Please provide your system info.
+      placeholder: |
+        - OS: Ubuntu 24.04
+        - GPU: NVIDIA RTX 4090 (24GB VRAM)
+        - RAM: 32GB
+        - Python: 3.12.3
+        - Node: 20.11.0
+        - Browser: Firefox 125
+      render: markdown
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: If applicable, add screenshots to help explain your problem.
