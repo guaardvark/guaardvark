@@ -53,6 +53,7 @@ for arg in "$@"; do
       echo "  --build-frontend   Enable automatic frontend rebuild"
       echo "  --no-auto-build    Disable automatic frontend rebuild"
       echo "  --skip-migrations  Skip database migration checks"
+      echo "  --skip-postgres    Skip PostgreSQL setup (for external DB users)"
       echo "  --app-mode         Launch browser on startup"
       echo "  --no-browser       Do not launch browser"
       echo "  --help, -h         Show this help"
@@ -68,6 +69,7 @@ for arg in "$@"; do
     --build-frontend) AUTO_BUILD_FRONTEND=1 ;;
     --no-auto-build) AUTO_BUILD_FRONTEND=0 ;;
     --skip-migrations) export GUAARDVARK_SKIP_MIGRATIONS=1 ;;
+    --skip-postgres) export GUAARDVARK_SKIP_POSTGRES=1 ;;
     --app-mode) LAUNCH_BROWSER=1 ;;
     --no-browser) LAUNCH_BROWSER=0 ;;
   esac
