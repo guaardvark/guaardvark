@@ -1,20 +1,11 @@
 import os
 import logging
-from typing import Dict, Any
 
 from celery import Celery
 from flask import Flask
 
-logger = logging.getLogger(__name__)
-
-def create_minimal_celery_flask_app() -> Flask:
-    """
-    Creates a minimal Flask app instance.
-
-    Returns:
-        Flask: A minimal Flask app instance.
-    """
-    app = Flask(__name__)
+def create_minimal_celery_flask_app():
+    minimal_app = Flask(__name__)
 
     # Use the same DATABASE_URL as the main app (PostgreSQL)
     database_url = os.environ.get(
@@ -22,23 +13,23 @@ def create_minimal_celery_flask_app() -> Flask:
         'postgresql://guaardvark:guaardvark@localhost:5432/guaardvark'
     )
 
-    app.config.update({
+    minimal_app.config.update({
         'SQLALCHEMY_DATABASE_URI': database_url,
         'SQLALCHEMY_TRACK_MODIFICATIONS': False,
         'SECRET_KEY': os.environ.get('SECRET_KEY', 'dev-secret-key'),
     })
 
     from backend.models import db
-    db.init_app(app)
+    db.init_app(minimal_app)
 
-    return app
+    return minimal_app
 
-def set_multiprocessing_start_method() -> None:
-    """
-    Sets the multiprocessing start method to 'spawn' if it's not already set.
-    """
+logger = logging.getLogger(__name__)
+
+def create_celery_app():
+    import multiprocessing
+    
     try:
-        import multiprocessing
         current_method = multiprocessing.get_start_method(allow_none=True)
         if current_method is None or current_method != 'spawn':
             multiprocessing.set_start_method('spawn', force=True)
@@ -47,16 +38,7 @@ def set_multiprocessing_start_method() -> None:
             logger.info(f"Multiprocessing start method already set to '{current_method}'")
     except RuntimeError as e:
         logger.warning(f"Could not set multiprocessing start method: {e}")
-
-def create_celery_app() -> Celery:
-    """
-    Creates a Celery app instance with enhanced performance settings and Beat schedule.
-
-    Returns:
-        Celery: A Celery app instance.
-    """
-    set_multiprocessing_start_method()
-
+    
     broker_url = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
     result_backend = os.environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
 
@@ -68,82 +50,95 @@ def create_celery_app() -> Celery:
 
     try:
         celery_app.conf.update(
-            broker_connection_retry_on_startup=True,
-            task_serializer='json',
-            accept_content=['json'],
-            result_serializer='json',
-            timezone='UTC',
-            enable_utc=True,
-            OUTPUT_DIR=os.environ.get('GUAARDVARK_OUTPUT_DIR', os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'outputs')),
-            task_routes={
-                'backend.celery_tasks_isolated.ping': {'queue': 'health'},
-                'backend.celery_tasks_isolated.index_document_task': {'queue': 'indexing'},
-                'backend.celery_tasks_isolated.bulk_import_documents_task': {'queue': 'indexing'},
-                'backend.celery_tasks_isolated.generate_bulk_csv_v2_task': {'queue': 'generation'},
-                'backend.tasks.proven_csv_generation.generate_proven_csv_task': {'queue': 'generation'},
-                'backend.tasks.unified_task_executor.execute_unified_task': {'queue': 'default'},
-                'backend.tasks.task_scheduler_celery.check_scheduled_tasks': {'queue': 'default'},
-                'backend.tasks.task_scheduler_celery.recover_stuck_tasks': {'queue': 'default'},
-                'backend.tasks.task_scheduler_celery.scheduler_health_check': {'queue': 'health'},
-                'training.finetune_model': {'queue': 'training_gpu'},
-                'training.export_gguf': {'queue': 'training_gpu'},
-                'training.parse_transcripts': {'queue': 'training'},
-                'training.filter_dataset': {'queue': 'training'},
-                'training.import_ollama': {'queue': 'training'},
-                'training.full_pipeline': {'queue': 'training_gpu'},
-                'training.*': {'queue': 'training'},
-                'maintenance.daily_backup': {'queue': 'default'},
-                'backend.celery_tasks_isolated.*': {'queue': 'default'},
-                'backend.tasks.*': {'queue': 'default'},
+        broker_connection_retry_on_startup=True,
+        
+        task_serializer='json',
+        accept_content=['json'],
+        result_serializer='json',
+        timezone='UTC',
+        enable_utc=True,
+        
+        OUTPUT_DIR=os.environ.get('GUAARDVARK_OUTPUT_DIR', os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'outputs')),
+        
+        task_routes={
+            'backend.celery_tasks_isolated.ping': {'queue': 'health'},
+            'backend.celery_tasks_isolated.index_document_task': {'queue': 'indexing'},
+            'backend.celery_tasks_isolated.bulk_import_documents_task': {'queue': 'indexing'},
+            'backend.celery_tasks_isolated.generate_bulk_csv_v2_task': {'queue': 'generation'},
+            'backend.tasks.proven_csv_generation.generate_proven_csv_task': {'queue': 'generation'},
+            'backend.tasks.unified_task_executor.execute_unified_task': {'queue': 'default'},
+            'backend.tasks.task_scheduler_celery.check_scheduled_tasks': {'queue': 'default'},
+            'backend.tasks.task_scheduler_celery.recover_stuck_tasks': {'queue': 'default'},
+            'backend.tasks.task_scheduler_celery.scheduler_health_check': {'queue': 'health'},
+            'training.finetune_model': {'queue': 'training_gpu'},
+            'training.export_gguf': {'queue': 'training_gpu'},
+            'training.parse_transcripts': {'queue': 'training'},
+            'training.filter_dataset': {'queue': 'training'},
+            'training.import_ollama': {'queue': 'training'},
+            'training.full_pipeline': {'queue': 'training_gpu'},
+            'training.*': {'queue': 'training'},
+            'maintenance.daily_backup': {'queue': 'default'},
+            'backend.celery_tasks_isolated.*': {'queue': 'default'},
+            'backend.tasks.*': {'queue': 'default'},
+        },
+
+        beat_schedule={
+            'check-scheduled-tasks': {
+                'task': 'backend.tasks.task_scheduler_celery.check_scheduled_tasks',
+                'schedule': 60.0,
+                'options': {'queue': 'default'},
             },
-            beat_schedule={
-                'check-scheduled-tasks': {
-                    'task': 'backend.tasks.task_scheduler_celery.check_scheduled_tasks',
-                    'schedule': 60.0,
-                    'options': {'queue': 'default'},
-                },
-                'recover-stuck-tasks': {
-                    'task': 'backend.tasks.task_scheduler_celery.recover_stuck_tasks',
-                    'schedule': 300.0,
-                    'options': {'queue': 'default'},
-                },
-                'scheduler-health-check': {
-                    'task': 'backend.tasks.task_scheduler_celery.scheduler_health_check',
-                    'schedule': 600.0,
-                    'options': {'queue': 'health'},
-                },
-                'daily-backup': {
-                    'task': 'maintenance.daily_backup',
-                    'schedule': 86400.0,  # 24 hours
-                    'options': {'queue': 'default'},
-                },
+            'recover-stuck-tasks': {
+                'task': 'backend.tasks.task_scheduler_celery.recover_stuck_tasks',
+                'schedule': 300.0,
+                'options': {'queue': 'default'},
             },
-            task_acks_late=True,
-            worker_prefetch_multiplier=1,
-            worker_pool_restarts=False,
-            task_soft_time_limit=1800,
-            task_time_limit=2400,
-            worker_disable_rate_limits=False,
-            worker_max_tasks_per_child=50,
-            worker_max_memory_per_child=1024000,
-            worker_pool='solo',
-            worker_concurrency=1,
-            worker_redirect_stdouts=False,
-            worker_redirect_stdouts_level='INFO',
-            worker_log_format='[%(asctime)s: %(levelname)s/%(processName)s] %(message)s',
-            worker_task_log_format='[%(asctime)s: %(levelname)s/%(processName)s][%(task_name)s(%(task_id)s)] %(message)s',
-            result_expires=259200,
-            result_backend_transport_options={
-                'master_name': 'mymaster',
-                'visibility_timeout': 172800,
+            'scheduler-health-check': {
+                'task': 'backend.tasks.task_scheduler_celery.scheduler_health_check',
+                'schedule': 600.0,
+                'options': {'queue': 'health'},
             },
-            task_reject_on_worker_lost=True,
-            task_ignore_result=False,
-            broker_transport_options={
-                'visibility_timeout': 172800,
-                'fanout_prefix': True,
-                'fanout_patterns': True,
+            'daily-backup': {
+                'task': 'maintenance.daily_backup',
+                'schedule': 86400.0,  # 24 hours
+                'options': {'queue': 'default'},
             },
+        },
+        
+        task_acks_late=True,
+        worker_prefetch_multiplier=1,
+        worker_pool_restarts=False,
+        
+        task_soft_time_limit=1800,
+        task_time_limit=2400,
+        worker_disable_rate_limits=False,
+        
+        worker_max_tasks_per_child=50,
+        worker_max_memory_per_child=1024000,
+        
+        worker_pool='solo',
+        worker_concurrency=1,
+        
+        worker_redirect_stdouts=False,
+        worker_redirect_stdouts_level='INFO',
+        worker_log_format='[%(asctime)s: %(levelname)s/%(processName)s] %(message)s',
+        worker_task_log_format='[%(asctime)s: %(levelname)s/%(processName)s][%(task_name)s(%(task_id)s)] %(message)s',
+        
+        result_expires=259200,
+        result_backend_transport_options={
+            'master_name': 'mymaster',
+            'visibility_timeout': 172800,
+        },
+        
+        task_reject_on_worker_lost=True,
+        task_ignore_result=False,
+        
+        broker_transport_options={
+            'visibility_timeout': 172800,
+            'fanout_prefix': True,
+            'fanout_patterns': True,
+        },
+        
             task_create_missing_queues=True,
             task_default_queue='default',
             task_default_exchange='default',
@@ -156,7 +151,7 @@ def create_celery_app() -> Celery:
         raise
 
     minimal_app = create_minimal_celery_flask_app()
-
+    
     TaskBase = celery_app.Task
 
     class ContextTask(TaskBase):
@@ -167,14 +162,9 @@ def create_celery_app() -> Celery:
                 return TaskBase.__call__(self, *args, **kwargs)
 
     celery_app.Task = ContextTask
-
+    
     try:
-        from backend.celery_tasks_isolated import (
-            ping,
-            index_document_task,
-            generate_bulk_csv_v2_task,
-            bulk_import_documents_task,
-        )
+        from backend.celery_tasks_isolated import ping, index_document_task, generate_bulk_csv_v2_task, bulk_import_documents_task
 
         ping_task = celery_app.task(ping, name='backend.celery_tasks_isolated.ping')
         index_document_task_registered = celery_app.task(index_document_task, name='backend.celery_tasks_isolated.index_document_task')
@@ -192,7 +182,7 @@ def create_celery_app() -> Celery:
         logger.error(f"Could not import isolated tasks: {e}", exc_info=True)
     except Exception as e:
         logger.error(f"Error registering isolated tasks: {e}", exc_info=True)
-
+    
     try:
         from backend.tasks.proven_csv_generation import generate_proven_csv_task
         logger.info("Proven CSV generation task imported successfully")
@@ -234,4 +224,17 @@ def create_celery_app() -> Celery:
 
     try:
         from backend.tasks.rag_autoresearch_tasks import (
-            create_autoresearch
+            create_autoresearch_tasks,
+            schedule_autoresearch_tasks,
+        )
+        create_autoresearch_tasks(celery_app)
+        schedule_autoresearch_tasks(celery_app)
+        logger.info("RAG Autoresearch Celery tasks registered successfully")
+    except ImportError as e:
+        logger.warning(f"Could not import autoresearch tasks: {e}")
+
+    logger.info("Celery app configured with enhanced performance settings and Beat schedule")
+    return celery_app
+
+
+celery = create_celery_app()
