@@ -117,7 +117,7 @@ export const deleteFile = async (filePath) => {
       body: JSON.stringify({ filePath }),
     });
 
-    const result = await handleResponse(response);
+    await handleResponse(response);
     return {
       success: true,
       message: "File deleted successfully"
@@ -179,7 +179,7 @@ export const createDirectory = async (dirPath) => {
       body: JSON.stringify({ dirPath }),
     });
 
-    const result = await handleResponse(response);
+    await handleResponse(response);
     return {
       success: true,
       message: "Directory created successfully"

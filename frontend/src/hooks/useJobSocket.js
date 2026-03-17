@@ -1,8 +1,7 @@
+/* global process */
 import { useEffect, useRef } from "react";
 import { io } from "socket.io-client";
-import { BASE_URL, SOCKET_URL } from "../api/apiClient";
-
-const API_BASE = BASE_URL;
+import { SOCKET_URL } from "../api/apiClient";
 
 /**
  * @deprecated Use UnifiedProgressContext instead for progress tracking.

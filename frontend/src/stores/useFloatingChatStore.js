@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 
 export const useFloatingChatStore = create(
   persist(
+    // eslint-disable-next-line no-unused-vars
     (set, get) => ({
       // Visibility
       isOpen: false,

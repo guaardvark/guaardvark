@@ -21,7 +21,7 @@ export const SocialLinkSchema = z.object({
 });
 
 // Phone number validation (E.164 or formatted)
-const phoneRegex = /^[\+]?[1-9][\d]{0,15}$|^[\(]?[\d\s\-\.\(\)]{10,}$/;
+const phoneRegex = /^[+]?[1-9][\d]{0,15}$|^[(]?[\d\s\-.()]{10,}$/;
 
 // Site metadata schema
 export const SiteMetaSchema = z.object({

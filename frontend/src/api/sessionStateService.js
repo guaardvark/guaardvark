@@ -2,9 +2,7 @@
 // CLAUDE-STYLE ENHANCEMENT: Advanced session state management for conversation continuity
 // Integrates with existing resource manager and state service
 
-import { BASE_URL, handleResponse } from "./apiClient";
 import { getResourceManager } from "../utils/resource_manager";
-import { getSystemMetrics } from "./stateService";
 
 /**
  * Enhanced Session State Service

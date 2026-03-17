@@ -115,7 +115,7 @@ export function checkForWakeWord(transcription, systemName) {
   // e.g. "Hey, Ducky." → "hey ducky", "Hey Ducky!" → "hey ducky"
   const text = transcription
     .toLowerCase()
-    .replace(/[,.:;!?'"()\[\]{}]/g, '')
+    .replace(/[,.:;!?'"()[\]{}]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
   const name = systemName.toLowerCase().trim();

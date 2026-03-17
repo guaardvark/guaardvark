@@ -30,9 +30,9 @@ function extractWebsiteEntities(queryText) {
   // Match various URL formats
   const urlPatterns = [
     // Full URLs with protocol
-    /(https?:\/\/)?(www\.)?([a-zA-Z0-9\-]+\.(com|org|net|io|ai|co|uk|edu|gov))(\/[^\s]*)?/gi,
+    /(https?:\/\/)?(www\.)?([a-zA-Z0-9-]+\.(com|org|net|io|ai|co|uk|edu|gov))(\/[^\s]*)?/gi,
     // Domain-only mentions
-    /\b([a-zA-Z0-9\-]+\.(com|org|net|io|ai|co|uk))\b/gi
+    /\b([a-zA-Z0-9-]+\.(com|org|net|io|ai|co|uk))\b/gi
   ];
 
   urlPatterns.forEach(pattern => {
@@ -65,9 +65,9 @@ function extractClientEntities(queryText) {
   // Patterns for client references
   const clientPatterns = [
     // Explicit client mentions
-    /\b(client|company)\s+(?:called\s+|named\s+)?['"]?([A-Z][a-zA-Z0-9\s&\-]+?)['"]?\b/gi,
+    /\b(client|company)\s+(?:called\s+|named\s+)?['"]?([A-Z][a-zA-Z0-9\s&-]+?)['"]?\b/gi,
     // Possessive form
-    /\b([A-Z][a-zA-Z0-9\s&\-]+?)'s?\s+(website|project|content|account)/gi,
+    /\b([A-Z][a-zA-Z0-9\s&-]+?)'s?\s+(website|project|content|account)/gi,
     // "for [Company]" pattern
     /\bfor\s+([A-Z][A-Z\s&]+)\b/g
   ];
@@ -101,7 +101,7 @@ function extractProjectEntities(queryText) {
   // Patterns for project references
   const projectPatterns = [
     // Explicit project mentions
-    /\b(project|initiative)\s+(?:called\s+|named\s+)?['"]?([A-Z][a-zA-Z0-9\s\-]+?)['"]?\b/gi,
+    /\b(project|initiative)\s+(?:called\s+|named\s+)?['"]?([A-Z][a-zA-Z0-9\s-]+?)['"]?\b/gi,
     // Project code patterns (e.g., PROJ-123, PRJ-2024-001)
     /\b([A-Z]{3,5}-\d{2,6})\b/g
   ];
@@ -135,11 +135,11 @@ function extractDocumentEntities(queryText) {
   // Patterns for document references
   const documentPatterns = [
     // File with extension
-    /\b([a-zA-Z0-9_\-]+\.(pdf|doc|docx|txt|csv|xlsx|json|xml|md))\b/gi,
+    /\b([a-zA-Z0-9_-]+\.(pdf|doc|docx|txt|csv|xlsx|json|xml|md))\b/gi,
     // Explicit document mentions
-    /\b(document|file)\s+['"]?([a-zA-Z0-9_\-\s]+?)['"]?\b/gi,
+    /\b(document|file)\s+['"]?([a-zA-Z0-9_\s-]+?)['"]?\b/gi,
     // Uploaded file references
-    /\b(uploaded|attached)\s+(file|document)\s+['"]?([a-zA-Z0-9_\-\s]+?)['"]?\b/gi
+    /\b(uploaded|attached)\s+(file|document)\s+['"]?([a-zA-Z0-9_\s-]+?)['"]?\b/gi
   ];
 
   documentPatterns.forEach(pattern => {
@@ -174,7 +174,7 @@ function extractTaskEntities(queryText) {
     /\b(TASK|T|TSK)-(\d{1,6})\b/gi,
     // Explicit task mentions
     /\b(task|ticket|issue)\s+#?(\d{1,6})\b/gi,
-    /\b(task|ticket|issue)\s+['"]?([a-zA-Z0-9\s\-]+?)['"]?\b/gi
+    /\b(task|ticket|issue)\s+['"]?([a-zA-Z0-9\s-]+?)['"]?\b/gi
   ];
 
   taskPatterns.forEach(pattern => {

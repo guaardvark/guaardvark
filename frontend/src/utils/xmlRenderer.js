@@ -51,7 +51,7 @@ export const formatXMLString = (xml) => {
 
     formatted += indent + '<' + node + '>\n';
 
-    if (node.match(/^<?\w[^>]*[^\/]$/) && !node.startsWith('?')) {
+    if (node.match(/^<?\w[^>]*[^/]$/) && !node.startsWith('?')) {
       // Opening tag
       indent += tab;
     }
@@ -75,7 +75,7 @@ export const highlightXML = (xml) => {
     .replace(/="([^"]*)"/g, '="<span style="color: #008000;">$1</span>"')
     .replace(/&lt;!--/g, '<span style="color: #808080;">&lt;!--')
     .replace(/--&gt;/g, '--&gt;</span>')
-    .replace(/&lt;\!\[CDATA\[/g, '<span style="color: #4a4a4a;">&lt;![CDATA[')
+    .replace(/&lt;!\[CDATA\[/g, '<span style="color: #4a4a4a;">&lt;![CDATA[')
     .replace(/\]\]&gt;/g, ']]&gt;</span>');
 };
 

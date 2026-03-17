@@ -1,6 +1,7 @@
 // frontend/src/utils/familyColors.js
 // Shared visual identity for Uncle Claude / Nephew / Family features.
 import React from "react";
+import PropTypes from "prop-types";
 import { Chip } from "@mui/material";
 import {
   Psychology as PsychologyIcon,
@@ -96,4 +97,11 @@ export const StatusChip = ({ source, status, label, sx, ...props }) => {
       {...props}
     />
   );
+};
+
+StatusChip.propTypes = {
+  source: PropTypes.string.isRequired,
+  status: PropTypes.string.isRequired,
+  label: PropTypes.string,
+  sx: PropTypes.object,
 };

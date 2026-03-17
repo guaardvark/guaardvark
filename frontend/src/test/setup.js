@@ -1,5 +1,6 @@
 // frontend/src/test/setup.js
 // Test setup file for vitest
+/* global global */
 
 import { expect, afterEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';

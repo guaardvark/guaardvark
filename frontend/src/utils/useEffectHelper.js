@@ -1,3 +1,4 @@
+/* global process */
 import React from 'react';
 
 // Development utility to help detect unsafe useEffect patterns
@@ -24,13 +25,6 @@ export const useEffectHelper = {
   // Check for potential infinite loops
   checkForInfiniteLoop: (effectName, dependencies) => {
     if (process.env.NODE_ENV !== 'development') return;
-    
-    const dangerousPatterns = [
-      'setInterval',
-      'setTimeout', 
-      'addEventListener',
-      'removeEventListener'
-    ];
     
     if (dependencies.length === 0) {
       console.warn(
@@ -95,7 +89,6 @@ export const useValidatedEffect = (effect, deps, debugName) => {
     }
   }
   
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   return React.useEffect(effect, deps);
 };
 
