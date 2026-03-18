@@ -232,6 +232,9 @@ class ToolRegistry:
             if agent_context:
                 tool.set_context(agent_context)
                 
+            # Pass agent_context as a dedicated kwarg — tools opt in to reading it
+            if agent_context:
+                kwargs["_agent_context"] = agent_context
             result = tool.execute(**kwargs)
             logger.info(f"Tool {tool_name} executed successfully: {result.success}")
             return result

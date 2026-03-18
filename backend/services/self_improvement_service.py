@@ -244,6 +244,8 @@ class SelfImprovementService:
                 f"then read the source code, then fix the bug."
             )
 
+            executor.set_tool_context(_self_improvement_context=True, _reasoning=message)
+
             result = executor.execute(message, session_context=agent_config.system_prompt)
 
             if result and result.final_answer:

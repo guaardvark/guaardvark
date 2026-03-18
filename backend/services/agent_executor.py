@@ -298,6 +298,7 @@ class AgentExecutor:
         self.max_iterations = max_iterations
         self.facts_registry = FactsRegistry()
         self.original_query = ""  # Store original query for synthesis
+        self._tool_context = {}
         
         # Try to get system coordinator if available
         try:
@@ -308,6 +309,10 @@ class AgentExecutor:
             self.coordinator = None
         
         logger.info(f"Agent executor initialized with {len(tool_registry)} tools")
+
+    def set_tool_context(self, **kwargs):
+        """Set extra kwargs that get forwarded to every tool execute() call."""
+        self._tool_context.update(kwargs)
     
     def execute(self, user_query: str, session_context: str = "", process_id: Optional[str] = None) -> AgentResult:
         """
@@ -581,7 +586,7 @@ What tool do you need to call next?"""
                     continue
 
             # Execute tool with normalized parameters
-            result = self.tool_registry.execute_tool(tool_call.tool_name, **normalized_params)
+            result = self.tool_registry.execute_tool(tool_call.tool_name, agent_context=self._tool_context, **normalized_params)
             
             # Register result as resource if coordinator available
             if self.coordinator and process_id and result.success and result.output:
