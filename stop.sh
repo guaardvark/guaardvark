@@ -303,6 +303,28 @@ if [ -n "$vite_pids" ]; then
     done
 fi
 
+# ── Stop enabled plugins (Discord bot, etc.) ──
+vader_info "Stopping enabled plugins..."
+for plugin_dir in "$SCRIPT_DIR"/plugins/*/; do
+    plugin_name=$(basename "$plugin_dir")
+    # Skip comfyui and ollama — already handled above
+    [ "$plugin_name" = "comfyui" ] && continue
+    [ "$plugin_name" = "ollama" ] && continue
+    [ "$plugin_name" = "gpu_embedding" ] && continue
+
+    stop_script="$plugin_dir/scripts/stop.sh"
+    pid_file="$PIDS_DIR/${plugin_name}_bot.pid"
+    [ ! -f "$pid_file" ] && pid_file="$PIDS_DIR/${plugin_name}.pid"
+
+    if [ -f "$stop_script" ] && [ -f "$pid_file" ]; then
+        vader_info "Stopping $plugin_name plugin..."
+        bash "$stop_script" 2>/dev/null
+        vader_success "$plugin_name stopped."
+    elif [ -f "$pid_file" ]; then
+        kill_and_cleanup "${plugin_name}_bot"
+    fi
+done
+
 rm -f "$PIDS_DIR"/*.pid
 
 # Remove runtime state file used by CLI auto-discovery

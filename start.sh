@@ -56,6 +56,8 @@ for arg in "$@"; do
       echo "  --skip-postgres    Skip PostgreSQL setup (for external DB users)"
       echo "  --app-mode         Launch browser on startup"
       echo "  --no-browser       Do not launch browser"
+      echo "  --discord          Also start the Discord bot plugin"
+      echo "  --plugins          Start all enabled plugins after backend is up"
       echo "  --help, -h         Show this help"
       exit 0
       ;;
@@ -72,6 +74,8 @@ for arg in "$@"; do
     --skip-postgres) export GUAARDVARK_SKIP_POSTGRES=1 ;;
     --app-mode) LAUNCH_BROWSER=1 ;;
     --no-browser) LAUNCH_BROWSER=0 ;;
+    --discord) START_DISCORD=1 ;;
+    --plugins) START_ALL_PLUGINS=1 ;;
   esac
 done
 
@@ -1730,6 +1734,48 @@ if [ "$LAUNCH_BROWSER" -eq 1 ] && [ "$TEST_MODE" -eq 0 ]; then
 fi
 
 vader_separator
+
+# ── Start plugins ──
+if [ "${START_DISCORD:-0}" -eq 1 ] || [ "${START_ALL_PLUGINS:-0}" -eq 1 ]; then
+    vader_info "Starting plugins..."
+
+    # Start Discord bot if --discord or --plugins
+    if [ "${START_DISCORD:-0}" -eq 1 ] || [ "${START_ALL_PLUGINS:-0}" -eq 1 ]; then
+        DISCORD_START="$SCRIPT_DIR/plugins/discord/scripts/start.sh"
+        if [ -f "$DISCORD_START" ]; then
+            vader_info "Starting Discord bot plugin..."
+            bash "$DISCORD_START" 2>&1 | while read line; do vader_info "$line"; done
+            if curl -sf --max-time 5 http://localhost:8200/health >/dev/null 2>&1; then
+                vader_success "Discord bot is online"
+            else
+                vader_warn "Discord bot started but health check pending"
+            fi
+        else
+            vader_warn "Discord bot plugin not found at plugins/discord/"
+        fi
+    fi
+
+    # Start other enabled plugins if --plugins
+    if [ "${START_ALL_PLUGINS:-0}" -eq 1 ]; then
+        for plugin_dir in "$SCRIPT_DIR"/plugins/*/; do
+            plugin_name=$(basename "$plugin_dir")
+            [ "$plugin_name" = "discord" ] && continue  # Already handled above
+            [ "$plugin_name" = "ollama" ] && continue    # Managed by start.sh directly
+            [ "$plugin_name" = "gpu_embedding" ] && continue
+
+            plugin_json="$plugin_dir/plugin.json"
+            start_script="$plugin_dir/scripts/start.sh"
+            if [ -f "$plugin_json" ] && [ -f "$start_script" ]; then
+                enabled=$(python3 -c "import json; print(json.load(open('$plugin_json')).get('config',{}).get('enabled',False))" 2>/dev/null)
+                if [ "$enabled" = "True" ]; then
+                    vader_info "Starting $plugin_name plugin..."
+                    bash "$start_script" 2>&1 | while read line; do vader_info "$line"; done
+                    vader_success "$plugin_name started"
+                fi
+            fi
+        done
+    fi
+fi
 
 # Write runtime state for CLI auto-discovery
 RUNTIME_DIR="$HOME/.guaardvark"
