@@ -38,6 +38,10 @@ image:
 conversation:
   max_history: 50
 
+channel_chat:
+  channel_ids: []  # Add channel IDs where the bot listens to all messages
+  respond_to_mentions: true  # Respond when @mentioned in any channel or when replying to bot messages
+
 vip:
   user_ids: []
   greeting: |

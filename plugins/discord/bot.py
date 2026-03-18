@@ -58,6 +58,7 @@ COG_MODULES = [
     "commands.system",
     "commands.video",
     "commands.cli_proxy",
+    "commands.channel_chat",
 ]
 
 
