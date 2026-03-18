@@ -1640,6 +1640,44 @@ class SelfImprovementRun(db.Model):
         }
 
 
+class PendingFix(db.Model):
+    """Staged code fixes awaiting review before application."""
+    __tablename__ = "pending_fixes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    run_id = db.Column(db.Integer, db.ForeignKey("self_improvement_runs.id", name="fk_pendingfix_run_id", ondelete="CASCADE"), nullable=True)
+    file_path = db.Column(db.String(1024), nullable=False)
+    original_content = db.Column(db.Text())  # old_text passed to edit_code
+    proposed_new_content = db.Column(db.Text())  # new_text passed to edit_code
+    proposed_diff = db.Column(db.Text(), nullable=False)  # unified diff for display
+    fix_description = db.Column(db.Text())
+    severity = db.Column(db.String(20), default="medium")  # critical, high, medium, low
+    status = db.Column(db.String(20), default="proposed")  # proposed, triaged, approved, applied, rejected
+    reviewed_by = db.Column(db.String(50))  # uncle_claude, user, or null
+    review_notes = db.Column(db.Text())
+    created_at = db.Column(db.DateTime(), default=lambda: datetime.now())
+    reviewed_at = db.Column(db.DateTime())
+    applied_at = db.Column(db.DateTime())
+
+    run = db.relationship("SelfImprovementRun", backref="pending_fixes", lazy="select")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "run_id": self.run_id,
+            "file_path": self.file_path,
+            "proposed_diff": self.proposed_diff,
+            "fix_description": self.fix_description,
+            "severity": self.severity,
+            "status": self.status,
+            "reviewed_by": self.reviewed_by,
+            "review_notes": self.review_notes,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "reviewed_at": self.reviewed_at.isoformat() if self.reviewed_at else None,
+            "applied_at": self.applied_at.isoformat() if self.applied_at else None,
+        }
+
+
 # --- WordPress Integration Models ---
 class WordPressSite(db.Model):
     """Track registered WordPress sites for content pull/push operations."""
