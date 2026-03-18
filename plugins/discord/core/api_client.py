@@ -85,6 +85,22 @@ class GuaardvarkClient:
         """POST /batch-image/enhance-prompt"""
         return await self._post("/batch-image/enhance-prompt", json={"prompt": prompt})
 
+    # --- Video Generation ---
+    async def generate_video(self, prompts: list[str], num_inference_steps: int = 20) -> dict:
+        """POST /batch-video/generate/text"""
+        return await self._post("/batch-video/generate/text", json={
+            "prompts": prompts,
+            "num_inference_steps": num_inference_steps,
+        })
+
+    async def get_video_status(self, batch_id: str) -> dict:
+        """GET /batch-video/status/<batch_id>"""
+        return await self._get(f"/batch-video/status/{batch_id}", params={"include_results": "true"})
+
+    async def get_video_bytes(self, batch_id: str, video_name: str) -> bytes:
+        """GET /batch-video/video/<batch_id>/<video_name>"""
+        return await self._get_raw(f"/batch-video/video/{batch_id}/{video_name}")
+
     # --- Search ---
     async def semantic_search(self, query: str) -> dict:
         """POST /search/semantic"""
