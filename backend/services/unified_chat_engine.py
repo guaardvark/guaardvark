@@ -422,7 +422,7 @@ class UnifiedChatEngine:
         # History messages
         for msg in history:
             role = "user" if msg["role"] == "user" else "assistant"
-            ollama_messages.append({"role": role, "content": msg["content"][:500]})
+            ollama_messages.append({"role": role, "content": msg["content"]})
 
         # Dynamic context as user message (RAG + web results)
         user_content = message
@@ -1184,12 +1184,12 @@ class UnifiedChatEngine:
         if len(messages) <= 6:
             return messages  # Too few to compact
 
-        # Keep last 5 messages, compact the rest
-        recent = messages[-5:]
-        old = messages[:-5]
+        # Keep last 8 messages, compact the rest
+        recent = messages[-8:]
+        old = messages[:-8]
 
         old_text = "\n".join(
-            f"{m.get('role', 'user')}: {m.get('content', '')[:300]}" for m in old
+            f"{m.get('role', 'user')}: {m.get('content', '')[:800]}" for m in old
         )
 
         try:
@@ -1200,7 +1200,7 @@ class UnifiedChatEngine:
                     "role": "user",
                     "content": f"Summarize the key facts, decisions, and context from this conversation in 200 words:\n\n{old_text}"
                 }],
-                options={"num_predict": 256, "temperature": 0.3},
+                options={"num_predict": 512, "temperature": 0.3},
             )
             summary = summary_response["message"]["content"]
             compacted = [{"role": "system", "content": f"Conversation summary: {summary}"}]
