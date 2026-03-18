@@ -300,8 +300,11 @@ class EditCodeTool(BaseTool):
                 metadata={"filepath": filepath}
             )
 
+        # Extract agent context (set by AgentExecutor.set_tool_context)
+        ctx = kwargs.pop("_agent_context", {})
+
         # Guardian review (Uncle Claude) — only during self-improvement
-        if kwargs.get("_self_improvement_context"):
+        if ctx.get("_self_improvement_context"):
             try:
                 from backend.services.claude_advisor_service import get_claude_advisor
                 advisor = get_claude_advisor()
@@ -311,7 +314,7 @@ class EditCodeTool(BaseTool):
                         file_path=filepath,
                         current_content=open(filepath).read()[:3000] if os.path.exists(filepath) else "",
                         proposed_diff=f"- {old_text[:500]}\n+ {new_text[:500]}",
-                        reasoning=kwargs.get("_reasoning", "Autonomous code change"),
+                        reasoning=ctx.get("_reasoning", "Autonomous code change"),
                     )
                     if not review.get("approved", True):
                         directive = review.get("directive", "reject")
@@ -325,6 +328,41 @@ class EditCodeTool(BaseTool):
                         )
             except Exception as e:
                 logger.warning(f"Guardian review failed, proceeding with caution: {e}")
+
+            # Stage diff to pending_fixes instead of applying directly
+            try:
+                from backend.models import db, PendingFix
+                import difflib
+                diff = ''.join(difflib.unified_diff(
+                    old_text.splitlines(keepends=True),
+                    new_text.splitlines(keepends=True),
+                    fromfile=filepath, tofile=filepath,
+                ))
+                pending = PendingFix(
+                    file_path=filepath,
+                    original_content=old_text,
+                    proposed_new_content=new_text,
+                    proposed_diff=diff,
+                    fix_description=ctx.get("_reasoning", "Autonomous fix"),
+                    status="proposed",
+                )
+                db.session.add(pending)
+                db.session.commit()
+                return ToolResult(
+                    success=True,
+                    output=f"Fix staged for review (pending_fix #{pending.id}). "
+                           f"File: {filepath}, diff: {len(diff)} chars. "
+                           f"The change will be applied after approval.",
+                    metadata={"staged": True, "pending_fix_id": pending.id, "filepath": filepath}
+                )
+            except Exception as e:
+                logger.error(f"Failed to stage fix: {e}", exc_info=True)
+                # FAIL HARD — never silently switch from reviewed to unreviewed
+                return ToolResult(
+                    success=False,
+                    error=f"Failed to stage fix for review: {e}. Fix NOT applied.",
+                    metadata={"staging_failed": True}
+                )
 
         try:
             result = edit_code(filepath, old_text, new_text)
