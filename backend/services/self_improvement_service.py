@@ -181,6 +181,18 @@ class SelfImprovementService:
                 if change:
                     changes.append(change)
 
+            # Verification: re-run tests to confirm fixes worked
+            if changes:
+                self._emit_progress("verifying", "Re-running tests to verify fixes", 0.9)
+                test_files = ["backend/tests/test_self_improvement.py", "backend/tests/test_code_tools.py"]
+                verify_results = self._verify_fix(test_files)
+                run_record.test_results_after = json.dumps(verify_results)
+                if not verify_results["all_passed"]:
+                    logger.warning(f"Verification failed: {verify_results['total_failures']} failures remain")
+                    run_record.status = "unverified"
+                else:
+                    logger.info("Verification passed: all tests passing after fixes")
+
             run_record.changes_made = json.dumps(changes)
             run_record.status = "success" if changes else "failed"
             run_record.duration_seconds = time.time() - start_time
@@ -260,6 +272,26 @@ class SelfImprovementService:
         except Exception as e:
             logger.error(f"Agent fix attempt failed for {failure['test_name']}: {e}", exc_info=True)
             return None
+
+    def _verify_fix(self, test_files):
+        """Re-run tests after agent fixes to verify they pass."""
+        try:
+            root = os.environ.get("GUAARDVARK_ROOT", ".")
+            result = subprocess.run(
+                ["python3", "-m", "pytest"] + test_files + ["-v", "--tb=short", "--no-header"],
+                capture_output=True, text=True, timeout=300, cwd=root,
+                env={**os.environ, "GUAARDVARK_MODE": "test"},
+            )
+            failures = self._parse_test_failures(result.stdout + result.stderr)
+            return {
+                "total_failures": len(failures),
+                "failures": failures,
+                "return_code": result.returncode,
+                "all_passed": result.returncode == 0 and len(failures) == 0,
+            }
+        except Exception as e:
+            logger.error(f"Verification run failed: {e}")
+            return {"total_failures": -1, "failures": [], "return_code": -1, "all_passed": False}
 
     def _broadcast_learnings(self, changes: List[Dict], run_record):
         """Create InterconnectorLearning records and broadcast to family."""
