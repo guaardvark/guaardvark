@@ -108,33 +108,108 @@ def get_runs():
 
 @self_improvement_bp.route("/task", methods=["POST"])
 def submit_task():
-    """Submit a directed improvement task."""
-    data = request.get_json()
-    if not data or "description" not in data:
-        return error_response("description is required", 400)
-
+    """Submit a directed improvement task (async via Celery)."""
+    data = request.get_json() or {}
+    description = data.get("description", "")
+    if not description:
+        return error_response("Task description is required", 400)
     try:
-        from backend.services.self_improvement_service import get_self_improvement_service
-        service = get_self_improvement_service()
-        result = service.submit_directed_task(
-            description=data["description"],
-            target_files=data.get("target_files", []),
-            priority=data.get("priority", "medium"),
-        )
-        return success_response(data=result)
+        from backend.celery_app import celery
+        task = celery.send_task("self_improvement.run_directed_async", args=[description])
+        return success_response(data={"task_id": task.id, "status": "dispatched"},
+                                message="Directed task dispatched")
     except Exception as e:
-        logger.error(f"Failed to submit improvement task: {e}", exc_info=True)
+        logger.error(f"Failed to dispatch directed task: {e}", exc_info=True)
         return error_response(str(e), 500)
 
 
 @self_improvement_bp.route("/trigger", methods=["POST"])
-def trigger_run():
-    """Manually trigger a self-improvement run."""
+def trigger_check():
+    """Trigger a self-improvement check (async via Celery)."""
     try:
-        from backend.services.self_improvement_service import get_self_improvement_service
-        service = get_self_improvement_service()
-        result = service.run_self_check()
-        return success_response(data=result)
+        from backend.celery_app import celery
+        task = celery.send_task("self_improvement.run_check_async")
+        return success_response(data={"task_id": task.id, "status": "dispatched"},
+                                message="Self-improvement check dispatched")
     except Exception as e:
-        logger.error(f"Failed to trigger self-improvement: {e}", exc_info=True)
+        logger.error(f"Failed to dispatch self-check: {e}", exc_info=True)
+        return error_response(str(e), 500)
+
+
+@self_improvement_bp.route("/pending-fixes", methods=["GET"])
+def list_pending_fixes():
+    """List all pending fixes, optionally filtered by status."""
+    from backend.models import db, PendingFix
+    status_filter = request.args.get("status")
+    query = db.session.query(PendingFix).order_by(PendingFix.created_at.desc())
+    if status_filter:
+        query = query.filter_by(status=status_filter)
+    limit = min(int(request.args.get("limit", 50)), 100)
+    fixes = query.limit(limit).all()
+    return success_response(data=[f.to_dict() for f in fixes])
+
+
+@self_improvement_bp.route("/pending-fixes/<int:fix_id>/approve", methods=["POST"])
+def approve_fix(fix_id):
+    """Approve a pending fix for application."""
+    from backend.models import db, PendingFix
+    from datetime import datetime
+    fix = db.session.get(PendingFix, fix_id)
+    if not fix:
+        return error_response("Fix not found", 404)
+    if fix.status not in ("proposed", "triaged"):
+        return error_response(f"Cannot approve fix in status: {fix.status}", 400)
+    data = request.get_json() or {}
+    fix.status = "approved"
+    fix.reviewed_by = data.get("reviewer", "user")
+    fix.review_notes = data.get("notes", "")
+    fix.reviewed_at = datetime.now()
+    db.session.commit()
+    return success_response(data=fix.to_dict(), message="Fix approved")
+
+
+@self_improvement_bp.route("/pending-fixes/<int:fix_id>/reject", methods=["POST"])
+def reject_fix(fix_id):
+    """Reject a pending fix."""
+    from backend.models import db, PendingFix
+    from datetime import datetime
+    fix = db.session.get(PendingFix, fix_id)
+    if not fix:
+        return error_response("Fix not found", 404)
+    data = request.get_json() or {}
+    fix.status = "rejected"
+    fix.reviewed_by = data.get("reviewer", "user")
+    fix.review_notes = data.get("notes", "")
+    fix.reviewed_at = datetime.now()
+    db.session.commit()
+    return success_response(data=fix.to_dict(), message="Fix rejected")
+
+
+@self_improvement_bp.route("/pending-fixes/<int:fix_id>/apply", methods=["POST"])
+def apply_fix(fix_id):
+    """Apply an approved fix to the filesystem."""
+    from backend.models import db, PendingFix
+    from datetime import datetime
+    fix = db.session.get(PendingFix, fix_id)
+    if not fix:
+        return error_response("Fix not found", 404)
+    if fix.status != "approved":
+        return error_response(f"Fix must be approved before applying (current: {fix.status})", 400)
+    try:
+        filepath = fix.file_path
+        if not os.path.exists(filepath):
+            return error_response(f"File not found: {filepath}", 404)
+        if fix.original_content and fix.proposed_new_content:
+            from backend.tools.llama_code_tools import edit_code
+            result = edit_code(filepath, fix.original_content, fix.proposed_new_content)
+            if result.startswith("ERROR"):
+                return error_response(f"Failed to apply: {result}", 500)
+        else:
+            return error_response("Fix is missing original or new content", 400)
+        fix.status = "applied"
+        fix.applied_at = datetime.now()
+        db.session.commit()
+        return success_response(data=fix.to_dict(), message="Fix applied successfully")
+    except Exception as e:
+        logger.error(f"Failed to apply fix {fix_id}: {e}", exc_info=True)
         return error_response(str(e), 500)

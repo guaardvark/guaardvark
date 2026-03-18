@@ -55,6 +55,42 @@ def create_self_improvement_tasks(celery_app: Celery):
             logger.error(f"Uncle advice task failed: {e}", exc_info=True)
             return {"error": str(e)}
 
+    @celery_app.task(name="self_improvement.run_check_async", bind=True)
+    def run_check_async(self):
+        """On-demand self-improvement check (dispatched from API)."""
+        try:
+            app = celery_app.flask_app if hasattr(celery_app, 'flask_app') else None
+            if not app:
+                from backend.app import create_app
+                app = create_app()
+            with app.app_context():
+                from backend.services.self_improvement_service import get_self_improvement_service
+                service = get_self_improvement_service()
+                result = service.run_self_check()
+                logger.info(f"Async self-check result: {result}")
+                return result
+        except Exception as e:
+            logger.error(f"Async self-check failed: {e}", exc_info=True)
+            return {"error": str(e)}
+
+    @celery_app.task(name="self_improvement.run_directed_async", bind=True)
+    def run_directed_async(self, task_description: str):
+        """On-demand directed improvement (dispatched from API)."""
+        try:
+            app = celery_app.flask_app if hasattr(celery_app, 'flask_app') else None
+            if not app:
+                from backend.app import create_app
+                app = create_app()
+            with app.app_context():
+                from backend.services.self_improvement_service import get_self_improvement_service
+                service = get_self_improvement_service()
+                result = service.submit_directed_task(task_description)
+                logger.info(f"Async directed task result: {result}")
+                return result
+        except Exception as e:
+            logger.error(f"Async directed task failed: {e}", exc_info=True)
+            return {"error": str(e)}
+
 
 def schedule_self_improvement_tasks(celery_app: Celery):
     from celery.schedules import crontab
