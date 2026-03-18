@@ -5,9 +5,11 @@ import os
 import re
 import signal
 import sys
+import time
 
 import discord
 from discord.ext import commands
+from aiohttp import web
 import yaml
 
 from core.api_client import GuaardvarkClient
@@ -95,9 +97,41 @@ class GuaardvarkBot(commands.Bot):
             await self.tree.sync()
             logger.info("Synced commands globally (may take up to 1 hour)")
 
+        # Start health server for plugin manager
+        await self._start_health_server()
+
     async def on_ready(self):
         logger.info("Bot is ready! Logged in as %s (ID: %s)", self.user, self.user.id)
         logger.info("Connected to %d guilds", len(self.guilds))
+
+    async def _start_health_server(self):
+        """Start a lightweight HTTP health server on port 8200."""
+        self._start_time = time.time()
+        app = web.Application()
+        app.router.add_get("/health", self._health_handler)
+        runner = web.AppRunner(app)
+        await runner.setup()
+        port = int(os.environ.get("DISCORD_HEALTH_PORT", "8200"))
+        try:
+            site = web.TCPSite(runner, "0.0.0.0", port)
+            await site.start()
+            logger.info("Health endpoint listening on port %d", port)
+        except OSError as e:
+            logger.warning("Could not start health server on port %d: %s", port, e)
+
+    async def _health_handler(self, request):
+        """Return bot health status."""
+        connected = self.is_ready() and not self.is_closed()
+        status = "healthy" if connected else "degraded"
+        return web.json_response({
+            "status": status,
+            "service": "discord-bot",
+            "version": "1.0.0",
+            "discord_connected": connected,
+            "guild_count": len(self.guilds) if connected else 0,
+            "uptime_seconds": int(time.time() - self._start_time),
+            "latency_ms": round(self.latency * 1000, 1) if connected else None,
+        })
 
     async def close(self):
         logger.info("Shutting down...")

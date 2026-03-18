@@ -263,6 +263,7 @@ def get_plugin_logs(plugin_id):
             'comfyui': 'comfyui.log',
             'ollama': 'ollama.log',
             'gpu_embedding': 'gpu_embedding_service.log',
+            'discord': 'discord_bot.log',
         }
 
         log_name = log_file_map.get(plugin_id)
