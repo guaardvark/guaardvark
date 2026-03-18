@@ -41,6 +41,19 @@ class ChatCog(commands.Cog):
         self.rate_limiter = RateLimiter(
             max_requests=config["rate_limits"]["ask"], window_seconds=60
         )
+        # In-memory conversation history per user
+        self._history: dict[int, list[dict]] = {}
+        self._max_history = 20
+
+    def _get_history(self, user_id: int) -> list[dict]:
+        return self._history.get(user_id, [])
+
+    def _add_to_history(self, user_id: int, role: str, content: str):
+        if user_id not in self._history:
+            self._history[user_id] = []
+        self._history[user_id].append({"role": role, "content": content})
+        if len(self._history[user_id]) > self._max_history:
+            self._history[user_id] = self._history[user_id][-self._max_history:]
 
     @app_commands.command(name="ask", description="Chat with Guaardvark AI")
     @app_commands.describe(prompt="Your message or question")
@@ -80,9 +93,13 @@ class ChatCog(commands.Cog):
         await interaction.response.defer()
 
         try:
-            session_id = f"discord_{interaction.user.id}"
-            result = await self.api.chat(cleaned, session_id)
+            history = self._get_history(interaction.user.id)
+            result = await self.api.chat_claude(cleaned, history=history)
             response_text = result.get("response", "No response received.")
+
+            # Update history
+            self._add_to_history(interaction.user.id, "user", cleaned)
+            self._add_to_history(interaction.user.id, "assistant", response_text)
 
             if len(response_text) > 4000:
                 file = discord.File(
