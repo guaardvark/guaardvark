@@ -11,6 +11,8 @@ import discord
 from discord.ext import commands
 from aiohttp import web
 import yaml
+import json
+from pathlib import Path
 
 from core.api_client import GuaardvarkClient
 
@@ -103,9 +105,49 @@ class GuaardvarkBot(commands.Bot):
         # Start health server for plugin manager
         await self._start_health_server()
 
+        # Register VIP greeting hook
+        @self.tree.interaction_check
+        async def vip_check(interaction: discord.Interaction) -> bool:
+            asyncio.create_task(self._check_vip_greeting(interaction))
+            return True
+
     async def on_ready(self):
         logger.info("Bot is ready! Logged in as %s (ID: %s)", self.user, self.user.id)
         logger.info("Connected to %d guilds", len(self.guilds))
+
+    async def _check_vip_greeting(self, interaction: discord.Interaction):
+        """Send one-time DM greeting to VIP users."""
+        vip_config = self.config.get("vip", {})
+        vip_ids = vip_config.get("user_ids", [])
+        if not vip_ids or interaction.user.id not in vip_ids:
+            return
+
+        greeted_file = Path(os.environ.get("GUAARDVARK_ROOT", ".")) / "data" / "context" / "vip_greeted.json"
+        greeted = set()
+        if greeted_file.exists():
+            try:
+                greeted = set(json.loads(greeted_file.read_text()).get("greeted", []))
+            except Exception:
+                pass
+
+        if interaction.user.id in greeted:
+            return
+
+        greeting = vip_config.get("greeting", "Welcome to Guaardvark.")
+        try:
+            await interaction.user.send(greeting)
+            logger.info("Sent VIP greeting to user %s", interaction.user.id)
+        except discord.Forbidden:
+            logger.warning("Cannot DM VIP user %s (DMs disabled)", interaction.user.id)
+        except Exception as e:
+            logger.warning("Failed to send VIP greeting: %s", e)
+
+        greeted.add(interaction.user.id)
+        try:
+            greeted_file.parent.mkdir(parents=True, exist_ok=True)
+            greeted_file.write_text(json.dumps({"greeted": list(greeted)}))
+        except Exception as e:
+            logger.warning("Failed to save VIP greeted state: %s", e)
 
     async def _start_health_server(self):
         """Start a lightweight HTTP health server on port 8200."""
