@@ -1,0 +1,25 @@
+{
+  "id": "discord",
+  "name": "Discord Bot",
+  "version": "1.0.0",
+  "author": "GUAARDVARK Team",
+  "description": "Discord bot integration for chat, image generation, and search via Guaardvark backend",
+  "type": "service",
+  "category": "integration",
+  "port": 8200,
+  "vram_estimate_mb": 0,
+  "dependencies": [],
+  "config": {
+    "enabled": false,
+    "service_url": "http://localhost:8200",
+    "timeout": 30,
+    "fallback_enabled": false
+  },
+  "endpoints": {
+    "health": "/health"
+  },
+  "requirements": {
+    "gpu": false,
+    "cuda": false
+  }
+}

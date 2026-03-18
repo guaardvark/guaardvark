@@ -1,0 +1,1 @@
+"""Guaardvark Discord Bot Plugin."""
