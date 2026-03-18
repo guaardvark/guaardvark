@@ -54,6 +54,8 @@ COG_MODULES = [
     "commands.image",
     "commands.generation",
     "commands.system",
+    "commands.video",
+    "commands.cli_proxy",
 ]
 
 

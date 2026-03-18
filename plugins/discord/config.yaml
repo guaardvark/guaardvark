@@ -21,6 +21,7 @@ rate_limits:
   search: 15
   enhance_prompt: 10
   claude: 5
+  video: 1
 
 voice:
   enabled: true
