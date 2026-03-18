@@ -49,6 +49,7 @@ def load_config(path: str = None) -> dict:
 
 COG_MODULES = [
     "commands.chat",
+    "commands.claude_chat",
     "commands.search",
     "commands.image",
     "commands.generation",

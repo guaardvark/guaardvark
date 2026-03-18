@@ -20,6 +20,7 @@ rate_limits:
   generate_csv: 2
   search: 15
   enhance_prompt: 10
+  claude: 5
 
 voice:
   enabled: true
