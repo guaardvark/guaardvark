@@ -1,0 +1,37 @@
+bot:
+  token: "${DISCORD_BOT_TOKEN}"
+  guild_id: null
+
+api:
+  base_url: "http://localhost:${FLASK_PORT:-5002}/api"
+  timeout: 120
+  health_check_interval: 60
+
+security:
+  admin_roles: ["Admin", "Bot Admin"]
+  allowed_channels: []
+  allow_dms: true
+  max_prompt_length: 2000
+  max_image_prompt_length: 500
+
+rate_limits:
+  ask: 10
+  imagine: 3
+  generate_csv: 2
+  search: 15
+  enhance_prompt: 10
+
+voice:
+  enabled: true
+  silence_threshold_ms: 1500
+  max_listen_duration_s: 30
+  tts_voice: "ryan"
+  interrupt_on_speech: true
+
+image:
+  max_queue_depth: 5
+  default_steps: 20
+  default_size: 512
+
+conversation:
+  max_history: 50
