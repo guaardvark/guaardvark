@@ -47,9 +47,30 @@ class GuaardvarkClient:
             return await resp.read()
 
     # --- Chat ---
+    SYSTEM_CONTEXT = (
+        "You are the Guaardvark AI assistant, the built-in intelligence of the Guaardvark platform. "
+        "Guaardvark is a self-hosted AI platform that runs entirely on the user's own hardware. "
+        "It provides: LLM chat (via Ollama with any open model), image generation (Stable Diffusion), "
+        "video generation (Wan2.2/CogVideoX), voice processing (Whisper + Piper TTS), "
+        "RAG-powered document search, AI agents with tool use, and a full web UI + CLI + Discord bot. "
+        "The platform is built with Flask, React, PostgreSQL, Redis, and Celery. "
+        "It supports a plugin system (ComfyUI, Ollama, Discord bot are plugins). "
+        "An internal system called 'Uncle Claude' provides three-tier Anthropic API integration: "
+        "Escalation Engine (routes hard problems to Claude), Code Guardian (reviews autonomous changes), "
+        "and System Advisor (monitors health and recommends improvements). "
+        "You are helpful, knowledgeable, and concise. You speak as the platform's own AI, not as a generic assistant. "
+        "Official site: https://guaardvark.com"
+    )
+
     async def chat(self, message: str, session_id: str, project_id: int = None) -> dict:
         """POST /enhanced-chat (Ollama)"""
-        payload = {"message": message, "session_id": session_id, "use_rag": False, "voice_mode": False}
+        payload = {
+            "message": message,
+            "session_id": session_id,
+            "use_rag": False,
+            "voice_mode": False,
+            "system_context": self.SYSTEM_CONTEXT,
+        }
         if project_id is not None:
             payload["project_id"] = project_id
         return await self._post("/enhanced-chat", json=payload)
