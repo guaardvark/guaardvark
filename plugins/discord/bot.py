@@ -16,19 +16,19 @@ from pathlib import Path
 
 from core.api_client import GuaardvarkClient
 
-# Setup logging
+# Setup logging — configure only our logger, prevent propagation to root to avoid duplicates
 log_dir = os.path.join(os.environ.get("GUAARDVARK_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "logs")
 os.makedirs(log_dir, exist_ok=True)
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[
-        logging.FileHandler(os.path.join(log_dir, "discord_bot.log")),
-        logging.StreamHandler(),
-    ],
-)
 logger = logging.getLogger("discord_bot")
+logger.setLevel(logging.INFO)
+logger.propagate = False
+if not logger.handlers:
+    _fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    # Only use FileHandler — start.sh already redirects stdout to the same log file
+    _fh = logging.FileHandler(os.path.join(log_dir, "discord_bot.log"))
+    _fh.setFormatter(_fmt)
+    logger.addHandler(_fh)
 
 
 def load_config(path: str = None) -> dict:
@@ -105,11 +105,10 @@ class GuaardvarkBot(commands.Bot):
         # Start health server for plugin manager
         await self._start_health_server()
 
-        # Register VIP greeting hook
-        @self.tree.interaction_check
-        async def vip_check(interaction: discord.Interaction) -> bool:
+        # VIP greeting — fires on every interaction without replacing default handler
+        @self.listen("on_interaction")
+        async def _vip_listener(interaction: discord.Interaction):
             asyncio.create_task(self._check_vip_greeting(interaction))
-            return True
 
     async def on_ready(self):
         logger.info("Bot is ready! Logged in as %s (ID: %s)", self.user, self.user.id)
