@@ -49,7 +49,7 @@ class GuaardvarkClient:
     # --- Chat ---
     async def chat(self, message: str, session_id: str, project_id: int = None) -> dict:
         """POST /enhanced-chat (Ollama)"""
-        payload = {"message": message, "session_id": session_id, "use_rag": True, "voice_mode": False}
+        payload = {"message": message, "session_id": session_id, "use_rag": False, "voice_mode": False}
         if project_id is not None:
             payload["project_id"] = project_id
         return await self._post("/enhanced-chat", json=payload)
