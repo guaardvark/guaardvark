@@ -28,7 +28,9 @@ from backend.models import (
     Setting, db,
     InterconnectorNode, InterconnectorSyncHistory, InterconnectorConflict, InterconnectorPendingChange,
     InterconnectorSyncProfile, InterconnectorBroadcast, InterconnectorBroadcastTarget,
-    InterconnectorPendingApproval
+    InterconnectorPendingApproval,
+    Client, Project, Rule, Website, Task, Document, LLMSession,
+    InterconnectorLearning, Image
 )
 from backend.services.interconnector_sync_service import get_sync_service
 from backend.services.interconnector_file_sync_service import get_file_sync_service
@@ -3414,4 +3416,76 @@ def list_sync_backups():
     """List pre-sync code backups."""
     from backend.services.interconnector_backup_service import list_backups
     return success_response(data=list_backups())
+
+
+# ---------------------------------------------------------------------------
+# Sync Preferences & Entity Counts
+# ---------------------------------------------------------------------------
+
+_SYNC_PREFS_KEY = "interconnector_sync_preferences"
+_DEFAULT_SYNC_PREFS = {
+    "entities": ["clients", "projects", "rules", "websites"],
+    "include_file_contents": False,
+}
+
+
+@interconnector_bp.route("/sync/preferences", methods=["GET"])
+def get_sync_preferences():
+    """Get saved sync preferences for this node."""
+    try:
+        setting = db.session.get(Setting, _SYNC_PREFS_KEY)
+        if setting and setting.value:
+            return success_response(data=json.loads(setting.value))
+        return success_response(data=_DEFAULT_SYNC_PREFS.copy())
+    except Exception as e:
+        logger.error(f"Error reading sync preferences: {e}")
+        return success_response(data=_DEFAULT_SYNC_PREFS.copy())
+
+
+@interconnector_bp.route("/sync/preferences", methods=["POST"])
+def save_sync_preferences():
+    """Save sync preferences for this node."""
+    data = request.get_json()
+    if not data:
+        return validation_error_response("Request body is required")
+    try:
+        setting = db.session.get(Setting, _SYNC_PREFS_KEY)
+        if setting:
+            setting.value = json.dumps(data)
+        else:
+            setting = Setting(
+                key=_SYNC_PREFS_KEY,
+                value=json.dumps(data),
+            )
+            db.session.add(setting)
+        db.session.commit()
+        return success_response(data=data, message="Sync preferences saved")
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error saving sync preferences: {e}")
+        return error_response(f"Failed to save sync preferences: {e}", 500)
+
+
+@interconnector_bp.route("/sync/entity-counts", methods=["GET"])
+def get_entity_counts():
+    """Get record counts per entity type for display in sync UI."""
+    entity_models = {
+        "clients": Client,
+        "projects": Project,
+        "rules": Rule,
+        "websites": Website,
+        "tasks": Task,
+        "documents": Document,
+        "chat_history": LLMSession,
+        "learnings": InterconnectorLearning,
+        "images": Image,
+    }
+    counts = {}
+    for entity_name, model_cls in entity_models.items():
+        try:
+            counts[entity_name] = db.session.query(model_cls).count()
+        except Exception as e:
+            logger.warning(f"Could not count {entity_name}: {e}")
+            counts[entity_name] = 0
+    return success_response(data=counts)
 
