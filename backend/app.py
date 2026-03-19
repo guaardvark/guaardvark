@@ -345,6 +345,13 @@ def _initialize_app_components(app):
         {
             "SQLALCHEMY_DATABASE_URI": DATABASE_URL,
             "SQLALCHEMY_TRACK_MODIFICATIONS": False,
+            "SQLALCHEMY_ENGINE_OPTIONS": {
+                "pool_size": 20,
+                "max_overflow": 30,
+                "pool_recycle": 300,
+                "pool_pre_ping": True,
+                "pool_timeout": 10,
+            },
             "SECRET_KEY": os.getenv("SECRET_KEY", "dev-secret-key"),
             "UPLOAD_FOLDER": config.UPLOAD_DIR,
             "CLIENT_LOGO_FOLDER": config.CLIENT_LOGO_FOLDER,
