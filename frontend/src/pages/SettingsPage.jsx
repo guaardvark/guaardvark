@@ -2268,6 +2268,7 @@ const SettingsPage = () => {
                             }
                           }}
                           disabled={isLoadingModel || isLoading || isTestingLLM}
+                          sx={{ minWidth: 80 }}
                         >
                           {isTestingLLM ? "Testing..." : "Test"}
                         </Button>
