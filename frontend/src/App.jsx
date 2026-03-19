@@ -63,6 +63,9 @@ function UncleNotificationListener() {
 }
 
 const AppLayout = ({ children }) => {
+  // Cancel pending API requests on navigation — prevents DB pool exhaustion
+  useNavigationCancel();
+
   const { showFooter } = useLayout();
   const sidebarExpanded = useAppStore((state) => state.sidebarExpanded);
   const drawerWidth = sidebarExpanded ? spacing.sidebarExpanded : spacing.sidebarCollapsed;
@@ -105,9 +108,6 @@ const AppLayout = ({ children }) => {
 };
 
 const AppContainer = () => {
-  // Cancel pending API requests on navigation — prevents DB pool exhaustion
-  useNavigationCancel();
-
   const themeName = useAppStore((state) => state.themeName);
   const theme = themes[themeName]?.theme || themes["guaardvark"].theme;
   const fetchSystemInfo = useAppStore((state) => state.fetchSystemInfo);
