@@ -18,6 +18,8 @@ from sqlalchemy.exc import SQLAlchemyError
 
 logger = logging.getLogger(__name__)
 
+from backend.utils.settings_utils import get_setting
+
 # Local imports
 try:
     from backend.utils.response_utils import error_response, success_response
@@ -110,9 +112,9 @@ class EnhancedChatManager:
         # Initialize context manager if available (with persistence)
         if ContextManager:
             try:
-                from backend.config import ENHANCED_CONTEXT_ENABLED, CONTEXT_PERSISTENCE_DIR
-                
-                if ENHANCED_CONTEXT_ENABLED:
+                from backend.config import CONTEXT_PERSISTENCE_DIR
+
+                if get_setting("enhanced_context_enabled", default=True, cast=bool):
                     self._context_manager = ContextManager(
                         max_tokens=16384,  # Doubled from 8192 for better context retention
                         compression_threshold=0.8,
@@ -513,9 +515,9 @@ class EnhancedChatManager:
         """Initialize context manager with configuration flags"""
         if self._context_manager is None and ContextManager:
             try:
-                from backend.config import ENHANCED_CONTEXT_ENABLED, CONTEXT_PERSISTENCE_DIR
+                from backend.config import CONTEXT_PERSISTENCE_DIR
 
-                if ENHANCED_CONTEXT_ENABLED:
+                if get_setting("enhanced_context_enabled", default=True, cast=bool):
                     self._context_manager = ContextManager(
                         max_tokens=16384,  # Doubled from 8192 for better context retention
                         compression_threshold=0.8,
@@ -535,9 +537,7 @@ class EnhancedChatManager:
         """Initialize index manager with configuration flags"""
         if self._index_manager is None and get_global_index_manager:
             try:
-                from backend.config import ADVANCED_RAG_ENABLED
-
-                if ADVANCED_RAG_ENABLED:
+                if get_setting("advanced_rag_enabled", default=True, cast=bool):
                     self._index_manager = get_global_index_manager()
                     logger.info("Advanced Index Manager activated")
                 else:
@@ -553,9 +553,7 @@ class EnhancedChatManager:
         """Initialize RAG chunker with configuration flags"""
         if self._rag_chunker is None and EnhancedRAGChunker:
             try:
-                from backend.config import ADVANCED_RAG_ENABLED
-
-                if ADVANCED_RAG_ENABLED:
+                if get_setting("advanced_rag_enabled", default=True, cast=bool):
                     self._rag_chunker = EnhancedRAGChunker()
                     logger.info("Enhanced RAG Chunker activated")
                 else:
