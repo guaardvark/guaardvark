@@ -4,10 +4,11 @@ import os
 from flask import current_app, has_app_context
 
 try:
-    from backend.models import Setting, db
+    from backend.models import Setting, SystemSetting, db
 except Exception:  # pragma: no cover - optional dependency
     db = None
     Setting = None
+    SystemSetting = None
 
 logger = logging.getLogger(__name__)
 
@@ -52,3 +53,91 @@ def get_llm_debug() -> bool:
     except Exception as e:
         logger.error(f"Failed to read llm_debug setting: {e}")
         return os.environ.get("GUAARDVARK_LLM_DEBUG", "").lower() == "true"
+
+
+# Keys that live in the system_settings table (Claude config).
+# All other keys use the settings table.
+SYSTEM_SETTING_KEYS = {
+    "claude_escalation_mode",
+    "claude_monthly_budget",
+    "claude_model",
+    "claude_token_usage",
+}
+
+# Maps DB keys to environment variable names for fallback.
+ENV_VAR_MAP = {
+    "enhanced_context_enabled": "GUAARDVARK_ENHANCED_CONTEXT",
+    "advanced_rag_enabled": "GUAARDVARK_ADVANCED_RAG",
+    "rag_debug_enabled": "GUAARDVARK_RAG_DEBUG",
+    "claude_escalation_mode": "GUAARDVARK_CLAUDE_ESCALATION_MODE",
+    "claude_monthly_budget": "GUAARDVARK_CLAUDE_TOKEN_BUDGET",
+}
+
+_BOOL_TRUTHY = {"true", "1", "yes"}
+
+
+def _cast_value(value: str, cast):
+    """Cast a string value to the desired type."""
+    if cast is bool:
+        return value.lower() in _BOOL_TRUTHY
+    return cast(value)
+
+
+def get_setting(key: str, default=None, cast=str):
+    """Read a setting: DB > env var > default.
+
+    Checks the correct table (settings or system_settings) based on key.
+    Safe to call outside Flask app context — returns env var or default.
+    """
+    # 1. Try DB
+    if db and has_app_context():
+        try:
+            model = SystemSetting if key in SYSTEM_SETTING_KEYS else Setting
+            if model:
+                row = db.session.get(model, key)
+                if row and row.value is not None:
+                    return _cast_value(row.value, cast) if cast != str else row.value
+        except Exception as e:
+            logger.warning(f"get_setting({key!r}) DB read failed: {e}")
+
+    # 2. Try env var
+    env_name = ENV_VAR_MAP.get(key)
+    if env_name:
+        env_val = os.environ.get(env_name)
+        if env_val is not None:
+            try:
+                return _cast_value(env_val, cast) if cast != str else env_val
+            except (ValueError, TypeError):
+                pass
+
+    # 3. Default
+    return default
+
+
+def save_setting(key: str, value: str):
+    """Persist a setting to the correct DB table.
+
+    Safe to call outside Flask app context — logs warning and returns.
+    """
+    if not db or not has_app_context():
+        logger.warning(f"save_setting({key!r}) called outside app context — skipped")
+        return
+
+    try:
+        model = SystemSetting if key in SYSTEM_SETTING_KEYS else Setting
+        if not model:
+            logger.warning(f"save_setting({key!r}): model not available")
+            return
+        row = db.session.get(model, key)
+        if row:
+            row.value = value
+        else:
+            row = model(key=key, value=value)
+            db.session.add(row)
+        db.session.commit()
+    except Exception as e:
+        logger.error(f"save_setting({key!r}) failed: {e}")
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
