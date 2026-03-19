@@ -194,11 +194,13 @@ class SelfImprovementService:
                     logger.info("Verification passed: all tests passing after fixes")
 
             run_record.changes_made = json.dumps(changes)
-            run_record.status = "success" if changes else "failed"
+            # Only set success if verification passed (or no changes to verify)
+            if run_record.status != "unverified":
+                run_record.status = "success" if changes else "failed"
             run_record.duration_seconds = time.time() - start_time
             db.session.commit()
 
-            if changes:
+            if changes and run_record.status != "unverified":
                 self._broadcast_learnings(changes, run_record)
 
             self._emit_progress("complete", f"{len(changes)} fix(es) applied", 1.0,

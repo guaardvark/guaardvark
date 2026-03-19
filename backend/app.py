@@ -978,37 +978,8 @@ except Exception as e_bp_reg_block:
         exc_info=True,
     )
 
-# Reactive self-healing: feed unhandled errors into the SI error tracker
-# Dedup cooldown: same file+line only tracked once per 5 minutes
+# Reactive self-healing: dedup cooldown for error tracker (used in the 500 handler below)
 _si_error_cooldown = {}
-
-@app.errorhandler(500)
-def _si_error_tracker(error):
-    try:
-        import traceback, sys, time as _time
-        exc_type, exc_value, exc_tb = sys.exc_info()
-        if exc_tb:
-            tb_frames = traceback.extract_tb(exc_tb)
-            if tb_frames:
-                last_frame = tb_frames[-1]
-                cooldown_key = f"{last_frame.filename}:{last_frame.lineno}"
-                now = _time.time()
-                if cooldown_key in _si_error_cooldown and (now - _si_error_cooldown[cooldown_key]) < 300:
-                    pass
-                else:
-                    _si_error_cooldown[cooldown_key] = now
-                    tb_str = ''.join(traceback.format_exception(exc_type, exc_value, exc_tb))
-                    from backend.services.self_improvement_service import get_self_improvement_service
-                    service = get_self_improvement_service()
-                    service.track_error(
-                        file=last_frame.filename,
-                        line=last_frame.lineno,
-                        error_type=exc_type.__name__ if exc_type else "Unknown",
-                        traceback_str=tb_str[-2000:],
-                    )
-    except Exception:
-        pass
-    return {"error": "Internal server error", "status_code": 500}, 500
 
 try:
     from backend import socketio_events
@@ -1433,6 +1404,28 @@ def handle_sqlalchemy_db_error(e):
 
 @app.errorhandler(500)
 def handle_internal_server_error(e):
+    # Reactive self-healing: feed error into SI tracker before rollback
+    try:
+        import traceback as _tb, sys, time as _time
+        exc_type, exc_value, exc_tb = sys.exc_info()
+        if exc_tb:
+            tb_frames = _tb.extract_tb(exc_tb)
+            if tb_frames:
+                last_frame = tb_frames[-1]
+                cooldown_key = f"{last_frame.filename}:{last_frame.lineno}"
+                now = _time.time()
+                if not (cooldown_key in _si_error_cooldown and (now - _si_error_cooldown[cooldown_key]) < 300):
+                    _si_error_cooldown[cooldown_key] = now
+                    tb_str = ''.join(_tb.format_exception(exc_type, exc_value, exc_tb))
+                    from backend.services.self_improvement_service import get_self_improvement_service
+                    get_self_improvement_service().track_error(
+                        file=last_frame.filename,
+                        line=last_frame.lineno,
+                        error_type=exc_type.__name__ if exc_type else "Unknown",
+                        traceback_str=tb_str[-2000:],
+                    )
+    except Exception:
+        pass  # Never let SI tracking break error handling
     app.logger.error(f"Internal Server Error (500): {e}", exc_info=True)
     try:
         if db and db.session:

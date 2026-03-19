@@ -12,6 +12,7 @@ These tools enable Claude Code-like behavior:
 """
 
 import logging
+import os
 from typing import Dict, Any
 
 from backend.services.agent_tools import BaseTool, ToolParameter, ToolResult, register_tool
@@ -268,6 +269,11 @@ class EditCodeTool(BaseTool):
                 success=False,
                 error="Missing required parameter: filepath"
             )
+        # Resolve relative paths against GUAARDVARK_ROOT for Celery worker compatibility
+        if not os.path.isabs(filepath):
+            root = os.environ.get("GUAARDVARK_ROOT", "")
+            if root:
+                filepath = os.path.join(root, filepath)
         if old_text is None:
             return ToolResult(
                 success=False,
