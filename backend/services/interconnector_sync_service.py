@@ -28,8 +28,8 @@ class InterconnectorSyncService:
             "rules": self._serialize_rule,
             "websites": self._serialize_website,
             "learnings": self._serialize_learning,
-            # "tasks": self._serialize_task,  # Optional - may be node-specific
-            # "documents": self._serialize_document,  # Large - may need special handling
+            "tasks": self._serialize_task,
+            "documents": self._serialize_document,
         }
 
     def _serialize_learning(self, learning):
@@ -124,6 +124,8 @@ class InterconnectorSyncService:
             "projects": self._deserialize_project,
             "rules": self._deserialize_rule,
             "websites": self._deserialize_website,
+            "tasks": self._deserialize_task,
+            "documents": self._deserialize_document,
         }
         
         deserializer = deserializers.get(entity_type)
@@ -181,7 +183,25 @@ class InterconnectorSyncService:
                     serialized = self._serialize_rule(rule)
                     if serialized:
                         entities.append(serialized)
-        
+
+            elif entity_type == "tasks":
+                query = db.session.query(Task)
+                if since:
+                    query = query.filter(Task.updated_at >= since)
+                for task in query.all():
+                    serialized = self._serialize_task(task)
+                    if serialized:
+                        entities.append(serialized)
+
+            elif entity_type == "documents":
+                query = db.session.query(Document)
+                if since:
+                    query = query.filter(Document.updated_at >= since)
+                for document in query.all():
+                    serialized = self._serialize_document(document)
+                    if serialized:
+                        entities.append(serialized)
+
         except Exception as e:
             logger.error(f"Error getting entities for sync ({entity_type}): {e}")
         
@@ -218,6 +238,10 @@ class InterconnectorSyncService:
                 return self._apply_rule(entity_data, conflict_strategy, stats, node_id)
             elif entity_type == "websites":
                 return self._apply_website(entity_data, conflict_strategy, stats, node_id)
+            elif entity_type == "tasks":
+                return self._apply_task(entity_data, conflict_strategy, stats, node_id)
+            elif entity_type == "documents":
+                return self._apply_document(entity_data, conflict_strategy, stats, node_id)
             else:
                 logger.warning(f"Unsupported entity type for apply: {entity_type}")
                 stats["skipped"] = True
@@ -329,6 +353,80 @@ class InterconnectorSyncService:
             }
         }
 
+    def _serialize_task(self, task: Task) -> Dict:
+        """Serialize a Task entity."""
+        return {
+            "id": task.id,
+            "name": task.name,
+            "description": task.description,
+            "status": task.status,
+            "priority": task.priority,
+            "due_date": task.due_date.isoformat() if task.due_date else None,
+            "type": task.type,
+            "job_id": task.job_id,
+            "output_filename": task.output_filename,
+            "prompt_text": task.prompt_text,
+            "model_name": task.model_name,
+            "workflow_config": task.workflow_config,
+            "client_name": task.client_name,
+            "target_website": task.target_website,
+            "competitor_url": task.competitor_url,
+            "project_id": task.project_id,
+            "client_id": task.client_id,
+            "website_id": task.website_id,
+            "schedule_type": task.schedule_type,
+            "cron_expression": task.cron_expression,
+            "next_run_at": task.next_run_at.isoformat() if task.next_run_at else None,
+            "last_run_at": task.last_run_at.isoformat() if task.last_run_at else None,
+            "parent_task_id": task.parent_task_id,
+            "retry_count": task.retry_count,
+            "max_retries": task.max_retries,
+            "retry_delay": task.retry_delay,
+            "error_message": task.error_message,
+            "task_handler": task.task_handler,
+            "handler_config": task.handler_config,
+            "progress": task.progress,
+            "created_at": task.created_at.isoformat() if task.created_at else None,
+            "updated_at": task.updated_at.isoformat() if task.updated_at else None,
+            "_sync_metadata": {
+                "entity_type": "tasks",
+                "sync_id": f"task_{task.id}",
+            }
+        }
+
+    def _serialize_document(self, document: Document) -> Dict:
+        """Serialize a Document entity."""
+        return {
+            "id": document.id,
+            "filename": document.filename,
+            "path": document.path,
+            "type": document.type,
+            "index_status": document.index_status,
+            "indexed_at": document.indexed_at.isoformat() if document.indexed_at else None,
+            "error_message": document.error_message,
+            "content": document.content,
+            "is_code_file": document.is_code_file,
+            "size": document.size,
+            "file_metadata": document.file_metadata,
+            "content_category": document.content_category,
+            "relevance_score": document.relevance_score,
+            "summary": document.summary,
+            "rag_context": document.rag_context,
+            "folder_id": document.folder_id,
+            "client_id": document.client_id,
+            "project_id": document.project_id,
+            "website_id": document.website_id,
+            "tags": document.tags,
+            "notes": document.notes,
+            "indexing_job_id": document.indexing_job_id,
+            "uploaded_at": document.uploaded_at.isoformat() if document.uploaded_at else None,
+            "updated_at": document.updated_at.isoformat() if document.updated_at else None,
+            "_sync_metadata": {
+                "entity_type": "documents",
+                "sync_id": f"document_{document.id}",
+            }
+        }
+
     # --- Deserialization Methods ---
 
     def _deserialize_client(self, data: Dict) -> Optional[Client]:
@@ -347,6 +445,14 @@ class InterconnectorSyncService:
 
     def _deserialize_website(self, data: Dict) -> Optional[Dict]:
         """Deserialize a Website from dictionary."""
+        return data
+
+    def _deserialize_task(self, data: Dict) -> Optional[Dict]:
+        """Deserialize a Task from dictionary."""
+        return data
+
+    def _deserialize_document(self, data: Dict) -> Optional[Dict]:
+        """Deserialize a Document from dictionary."""
         return data
 
     # --- Apply Methods ---
@@ -551,6 +657,94 @@ class InterconnectorSyncService:
             if linked_project_ids:
                 self._update_rule_project_associations(new_rule, linked_project_ids)
             
+            stats["created"] = True
+            return True, None, stats
+
+    def _apply_task(
+        self,
+        data: Dict,
+        conflict_strategy: str,
+        stats: Dict,
+        node_id: Optional[str] = None
+    ) -> Tuple[bool, Optional[str], Dict]:
+        """Apply a task entity to the database."""
+        task_id = data.get("id")
+        remote_updated = data.get("updated_at")
+
+        remote_updated_dt = None
+        if remote_updated:
+            try:
+                remote_updated_dt = datetime.fromisoformat(remote_updated.replace('Z', '+00:00'))
+            except Exception:
+                pass
+
+        existing_task = db.session.get(Task, task_id) if task_id else None
+
+        if existing_task:
+            local_updated = existing_task.updated_at
+            if local_updated and remote_updated_dt and local_updated != remote_updated_dt:
+                if conflict_strategy == "last_write_wins":
+                    if remote_updated_dt > local_updated:
+                        self._update_task(existing_task, data)
+                        stats["updated"] = True
+                        return True, None, stats
+                    else:
+                        stats["skipped"] = True
+                        return True, None, stats
+                else:
+                    conflict_id = self._create_conflict("tasks", task_id, existing_task, data, node_id)
+                    return False, conflict_id, stats
+            else:
+                self._update_task(existing_task, data)
+                stats["updated"] = True
+                return True, None, stats
+        else:
+            new_task = self._create_task(data)
+            db.session.add(new_task)
+            stats["created"] = True
+            return True, None, stats
+
+    def _apply_document(
+        self,
+        data: Dict,
+        conflict_strategy: str,
+        stats: Dict,
+        node_id: Optional[str] = None
+    ) -> Tuple[bool, Optional[str], Dict]:
+        """Apply a document entity to the database."""
+        document_id = data.get("id")
+        remote_updated = data.get("updated_at")
+
+        remote_updated_dt = None
+        if remote_updated:
+            try:
+                remote_updated_dt = datetime.fromisoformat(remote_updated.replace('Z', '+00:00'))
+            except Exception:
+                pass
+
+        existing_document = db.session.get(Document, document_id) if document_id else None
+
+        if existing_document:
+            local_updated = existing_document.updated_at
+            if local_updated and remote_updated_dt and local_updated != remote_updated_dt:
+                if conflict_strategy == "last_write_wins":
+                    if remote_updated_dt > local_updated:
+                        self._update_document(existing_document, data)
+                        stats["updated"] = True
+                        return True, None, stats
+                    else:
+                        stats["skipped"] = True
+                        return True, None, stats
+                else:
+                    conflict_id = self._create_conflict("documents", document_id, existing_document, data, node_id)
+                    return False, conflict_id, stats
+            else:
+                self._update_document(existing_document, data)
+                stats["updated"] = True
+                return True, None, stats
+        else:
+            new_document = self._create_document(data)
+            db.session.add(new_document)
             stats["created"] = True
             return True, None, stats
 
@@ -780,6 +974,193 @@ class InterconnectorSyncService:
         if data.get("updated_at"):
             try:
                 website.updated_at = datetime.fromisoformat(data["updated_at"].replace('Z', '+00:00'))
+            except Exception:
+                pass
+
+    def _create_task(self, data: Dict) -> Task:
+        """Create a new Task from data."""
+        task = Task(
+            id=data.get("id"),
+            name=data["name"],
+            description=data.get("description"),
+            status=data.get("status", "pending"),
+            priority=data.get("priority", 2),
+            type=data.get("type"),
+            job_id=data.get("job_id"),
+            output_filename=data.get("output_filename"),
+            prompt_text=data.get("prompt_text"),
+            model_name=data.get("model_name"),
+            workflow_config=data.get("workflow_config"),
+            client_name=data.get("client_name"),
+            target_website=data.get("target_website"),
+            competitor_url=data.get("competitor_url"),
+            project_id=data.get("project_id"),
+            client_id=data.get("client_id"),
+            website_id=data.get("website_id"),
+            schedule_type=data.get("schedule_type", "immediate"),
+            cron_expression=data.get("cron_expression"),
+            parent_task_id=data.get("parent_task_id"),
+            retry_count=data.get("retry_count", 0),
+            max_retries=data.get("max_retries", 3),
+            retry_delay=data.get("retry_delay", 60),
+            error_message=data.get("error_message"),
+            task_handler=data.get("task_handler"),
+            handler_config=data.get("handler_config"),
+            progress=data.get("progress", 0),
+        )
+        if data.get("due_date"):
+            try:
+                task.due_date = datetime.fromisoformat(data["due_date"].replace('Z', '+00:00'))
+            except Exception:
+                pass
+        if data.get("next_run_at"):
+            try:
+                task.next_run_at = datetime.fromisoformat(data["next_run_at"].replace('Z', '+00:00'))
+            except Exception:
+                pass
+        if data.get("last_run_at"):
+            try:
+                task.last_run_at = datetime.fromisoformat(data["last_run_at"].replace('Z', '+00:00'))
+            except Exception:
+                pass
+        if data.get("created_at"):
+            try:
+                task.created_at = datetime.fromisoformat(data["created_at"].replace('Z', '+00:00'))
+            except Exception:
+                pass
+        if data.get("updated_at"):
+            try:
+                task.updated_at = datetime.fromisoformat(data["updated_at"].replace('Z', '+00:00'))
+            except Exception:
+                pass
+        return task
+
+    def _update_task(self, task: Task, data: Dict):
+        """Update an existing Task with data."""
+        task.name = data.get("name", task.name)
+        task.description = data.get("description", task.description)
+        task.status = data.get("status", task.status)
+        task.priority = data.get("priority", task.priority)
+        task.type = data.get("type", task.type)
+        task.job_id = data.get("job_id", task.job_id)
+        task.output_filename = data.get("output_filename", task.output_filename)
+        task.prompt_text = data.get("prompt_text", task.prompt_text)
+        task.model_name = data.get("model_name", task.model_name)
+        task.workflow_config = data.get("workflow_config", task.workflow_config)
+        task.client_name = data.get("client_name", task.client_name)
+        task.target_website = data.get("target_website", task.target_website)
+        task.competitor_url = data.get("competitor_url", task.competitor_url)
+        task.project_id = data.get("project_id", task.project_id)
+        task.client_id = data.get("client_id", task.client_id)
+        task.website_id = data.get("website_id", task.website_id)
+        task.schedule_type = data.get("schedule_type", task.schedule_type)
+        task.cron_expression = data.get("cron_expression", task.cron_expression)
+        task.parent_task_id = data.get("parent_task_id", task.parent_task_id)
+        task.retry_count = data.get("retry_count", task.retry_count)
+        task.max_retries = data.get("max_retries", task.max_retries)
+        task.retry_delay = data.get("retry_delay", task.retry_delay)
+        task.error_message = data.get("error_message", task.error_message)
+        task.task_handler = data.get("task_handler", task.task_handler)
+        task.handler_config = data.get("handler_config", task.handler_config)
+        task.progress = data.get("progress", task.progress)
+        if data.get("due_date"):
+            try:
+                task.due_date = datetime.fromisoformat(data["due_date"].replace('Z', '+00:00'))
+            except Exception:
+                pass
+        if data.get("next_run_at"):
+            try:
+                task.next_run_at = datetime.fromisoformat(data["next_run_at"].replace('Z', '+00:00'))
+            except Exception:
+                pass
+        if data.get("last_run_at"):
+            try:
+                task.last_run_at = datetime.fromisoformat(data["last_run_at"].replace('Z', '+00:00'))
+            except Exception:
+                pass
+        if data.get("updated_at"):
+            try:
+                task.updated_at = datetime.fromisoformat(data["updated_at"].replace('Z', '+00:00'))
+            except Exception:
+                pass
+
+    def _create_document(self, data: Dict) -> Document:
+        """Create a new Document from data."""
+        document = Document(
+            id=data.get("id"),
+            filename=data["filename"],
+            path=data["path"],
+            type=data.get("type"),
+            index_status=data.get("index_status", "INDEXING"),
+            error_message=data.get("error_message"),
+            content=data.get("content"),
+            is_code_file=data.get("is_code_file", False),
+            size=data.get("size"),
+            file_metadata=data.get("file_metadata"),
+            content_category=data.get("content_category"),
+            relevance_score=data.get("relevance_score", 5.0),
+            summary=data.get("summary"),
+            rag_context=data.get("rag_context"),
+            folder_id=data.get("folder_id"),
+            client_id=data.get("client_id"),
+            project_id=data.get("project_id"),
+            website_id=data.get("website_id"),
+            tags=data.get("tags"),
+            notes=data.get("notes"),
+            indexing_job_id=data.get("indexing_job_id"),
+        )
+        if data.get("indexed_at"):
+            try:
+                document.indexed_at = datetime.fromisoformat(data["indexed_at"].replace('Z', '+00:00'))
+            except Exception:
+                pass
+        if data.get("uploaded_at"):
+            try:
+                document.uploaded_at = datetime.fromisoformat(data["uploaded_at"].replace('Z', '+00:00'))
+            except Exception:
+                pass
+        if data.get("updated_at"):
+            try:
+                document.updated_at = datetime.fromisoformat(data["updated_at"].replace('Z', '+00:00'))
+            except Exception:
+                pass
+        return document
+
+    def _update_document(self, document: Document, data: Dict):
+        """Update an existing Document with data."""
+        document.filename = data.get("filename", document.filename)
+        document.path = data.get("path", document.path)
+        document.type = data.get("type", document.type)
+        document.index_status = data.get("index_status", document.index_status)
+        document.error_message = data.get("error_message", document.error_message)
+        document.content = data.get("content", document.content)
+        document.is_code_file = data.get("is_code_file", document.is_code_file)
+        document.size = data.get("size", document.size)
+        document.file_metadata = data.get("file_metadata", document.file_metadata)
+        document.content_category = data.get("content_category", document.content_category)
+        document.relevance_score = data.get("relevance_score", document.relevance_score)
+        document.summary = data.get("summary", document.summary)
+        document.rag_context = data.get("rag_context", document.rag_context)
+        document.folder_id = data.get("folder_id", document.folder_id)
+        document.client_id = data.get("client_id", document.client_id)
+        document.project_id = data.get("project_id", document.project_id)
+        document.website_id = data.get("website_id", document.website_id)
+        document.tags = data.get("tags", document.tags)
+        document.notes = data.get("notes", document.notes)
+        document.indexing_job_id = data.get("indexing_job_id", document.indexing_job_id)
+        if data.get("indexed_at"):
+            try:
+                document.indexed_at = datetime.fromisoformat(data["indexed_at"].replace('Z', '+00:00'))
+            except Exception:
+                pass
+        if data.get("uploaded_at"):
+            try:
+                document.uploaded_at = datetime.fromisoformat(data["uploaded_at"].replace('Z', '+00:00'))
+            except Exception:
+                pass
+        if data.get("updated_at"):
+            try:
+                document.updated_at = datetime.fromisoformat(data["updated_at"].replace('Z', '+00:00'))
             except Exception:
                 pass
 
