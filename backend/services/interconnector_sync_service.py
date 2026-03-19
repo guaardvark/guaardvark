@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
 from backend.models import (
     db, Client, Project, Rule, Task, Document, Website,
+    Image, LLMSession, LLMMessage, InterconnectorLearning,
     InterconnectorSyncHistory, InterconnectorConflict, InterconnectorPendingChange,
     project_rules_association
 )
@@ -30,6 +31,8 @@ class InterconnectorSyncService:
             "learnings": self._serialize_learning,
             "tasks": self._serialize_task,
             "documents": self._serialize_document,
+            "images": self._serialize_image,
+            "chat_history": self._serialize_chat_history,
         }
 
     def _serialize_learning(self, learning):
@@ -46,6 +49,39 @@ class InterconnectorSyncService:
             "uncle_reviewed": learning.uncle_reviewed,
             "uncle_feedback": learning.uncle_feedback,
             "_sync_metadata": {"entity_type": "learnings", "sync_id": f"learning_{learning.id}"},
+        }
+
+    def _serialize_image(self, image):
+        """Serialize an Image entity (metadata only, no binary data)."""
+        return {
+            "id": image.id,
+            "hash": image.hash,
+            "file_name": image.file_name,
+            "file_path": image.file_path,
+            "file_size": image.file_size,
+            "mime_type": image.mime_type,
+            "tags": image.tags,
+            "created_at": image.created_at.isoformat() if image.created_at else None,
+            "last_used_at": image.last_used_at.isoformat() if image.last_used_at else None,
+            "_sync_metadata": {"entity_type": "images", "sync_id": f"image_{image.id}"},
+        }
+
+    def _serialize_chat_history(self, session):
+        """Serialize an LLMSession and its associated LLMMessage records."""
+        messages = LLMMessage.query.filter_by(session_id=session.id).order_by(LLMMessage.timestamp).all()
+        return {
+            "id": session.id,
+            "user": session.user,
+            "project_id": session.project_id,
+            "created_at": session.created_at.isoformat() if session.created_at else None,
+            "messages": [
+                {"id": m.id, "role": m.role, "content": m.content,
+                 "project_id": m.project_id,
+                 "timestamp": m.timestamp.isoformat() if m.timestamp else None,
+                 "extra_data": m.extra_data}
+                for m in messages
+            ],
+            "_sync_metadata": {"entity_type": "chat_history", "sync_id": f"chat_{session.id}"},
         }
 
     def broadcast_directive(self, directive: str, reason: str):
@@ -126,6 +162,9 @@ class InterconnectorSyncService:
             "websites": self._deserialize_website,
             "tasks": self._deserialize_task,
             "documents": self._deserialize_document,
+            "learnings": self._deserialize_learning,
+            "images": self._deserialize_image,
+            "chat_history": self._deserialize_chat_history,
         }
         
         deserializer = deserializers.get(entity_type)
@@ -202,6 +241,33 @@ class InterconnectorSyncService:
                     if serialized:
                         entities.append(serialized)
 
+            elif entity_type == "learnings":
+                query = db.session.query(InterconnectorLearning)
+                if since:
+                    query = query.filter(InterconnectorLearning.timestamp >= since)
+                for learning in query.all():
+                    serialized = self._serialize_learning(learning)
+                    if serialized:
+                        entities.append(serialized)
+
+            elif entity_type == "images":
+                query = db.session.query(Image)
+                if since:
+                    query = query.filter(Image.created_at >= since)
+                for image in query.all():
+                    serialized = self._serialize_image(image)
+                    if serialized:
+                        entities.append(serialized)
+
+            elif entity_type == "chat_history":
+                query = db.session.query(LLMSession)
+                if since:
+                    query = query.filter(LLMSession.created_at >= since)
+                for session in query.all():
+                    serialized = self._serialize_chat_history(session)
+                    if serialized:
+                        entities.append(serialized)
+
         except Exception as e:
             logger.error(f"Error getting entities for sync ({entity_type}): {e}")
         
@@ -242,6 +308,12 @@ class InterconnectorSyncService:
                 return self._apply_task(entity_data, conflict_strategy, stats, node_id)
             elif entity_type == "documents":
                 return self._apply_document(entity_data, conflict_strategy, stats, node_id)
+            elif entity_type == "learnings":
+                return self._apply_learning(entity_data, conflict_strategy, stats, node_id)
+            elif entity_type == "images":
+                return self._apply_image(entity_data, conflict_strategy, stats, node_id)
+            elif entity_type == "chat_history":
+                return self._apply_chat_history(entity_data, conflict_strategy, stats, node_id)
             else:
                 logger.warning(f"Unsupported entity type for apply: {entity_type}")
                 stats["skipped"] = True
@@ -453,6 +525,18 @@ class InterconnectorSyncService:
 
     def _deserialize_document(self, data: Dict) -> Optional[Dict]:
         """Deserialize a Document from dictionary."""
+        return data
+
+    def _deserialize_learning(self, data: Dict) -> Optional[Dict]:
+        """Deserialize a Learning from dictionary."""
+        return data
+
+    def _deserialize_image(self, data: Dict) -> Optional[Dict]:
+        """Deserialize an Image from dictionary."""
+        return data
+
+    def _deserialize_chat_history(self, data: Dict) -> Optional[Dict]:
+        """Deserialize a chat history (LLMSession + messages) from dictionary."""
         return data
 
     # --- Apply Methods ---
@@ -745,6 +829,100 @@ class InterconnectorSyncService:
         else:
             new_document = self._create_document(data)
             db.session.add(new_document)
+            stats["created"] = True
+            return True, None, stats
+
+    def _apply_learning(
+        self,
+        data: Dict,
+        conflict_strategy: str,
+        stats: Dict,
+        node_id: Optional[str] = None
+    ) -> Tuple[bool, Optional[str], Dict]:
+        """Apply a learning entity to the database."""
+        learning_id = data.get("id")
+
+        existing_learning = db.session.get(InterconnectorLearning, learning_id) if learning_id else None
+
+        if existing_learning:
+            # Learnings are append-only by nature; update review fields only
+            existing_learning.uncle_reviewed = data.get("uncle_reviewed", existing_learning.uncle_reviewed)
+            existing_learning.uncle_feedback = data.get("uncle_feedback", existing_learning.uncle_feedback)
+            existing_learning.applied_by = data.get("applied_by", existing_learning.applied_by)
+            stats["updated"] = True
+            return True, None, stats
+        else:
+            new_learning = self._create_learning(data)
+            db.session.add(new_learning)
+            stats["created"] = True
+            return True, None, stats
+
+    def _apply_image(
+        self,
+        data: Dict,
+        conflict_strategy: str,
+        stats: Dict,
+        node_id: Optional[str] = None
+    ) -> Tuple[bool, Optional[str], Dict]:
+        """Apply an image entity to the database (metadata only)."""
+        image_id = data.get("id")
+
+        existing_image = db.session.get(Image, image_id) if image_id else None
+
+        if existing_image:
+            self._update_image(existing_image, data)
+            stats["updated"] = True
+            return True, None, stats
+        else:
+            new_image = self._create_image(data)
+            db.session.add(new_image)
+            stats["created"] = True
+            return True, None, stats
+
+    def _apply_chat_history(
+        self,
+        data: Dict,
+        conflict_strategy: str,
+        stats: Dict,
+        node_id: Optional[str] = None
+    ) -> Tuple[bool, Optional[str], Dict]:
+        """Apply a chat history entity (LLMSession + messages) to the database."""
+        session_id = data.get("id")
+
+        existing_session = db.session.get(LLMSession, session_id) if session_id else None
+
+        if existing_session:
+            # Update session fields
+            existing_session.user = data.get("user", existing_session.user)
+            existing_session.project_id = data.get("project_id", existing_session.project_id)
+            if data.get("created_at"):
+                try:
+                    existing_session.created_at = datetime.fromisoformat(data["created_at"].replace('Z', '+00:00'))
+                except Exception:
+                    pass
+
+            # Replace messages: delete existing, bulk insert incoming
+            LLMMessage.query.filter_by(session_id=session_id).delete()
+            self._insert_messages(session_id, data.get("messages", []))
+
+            stats["updated"] = True
+            return True, None, stats
+        else:
+            new_session = LLMSession(
+                id=session_id,
+                user=data.get("user", "unknown"),
+                project_id=data.get("project_id"),
+            )
+            if data.get("created_at"):
+                try:
+                    new_session.created_at = datetime.fromisoformat(data["created_at"].replace('Z', '+00:00'))
+                except Exception:
+                    pass
+            db.session.add(new_session)
+            db.session.flush()  # Ensure session exists before inserting messages
+
+            self._insert_messages(session_id, data.get("messages", []))
+
             stats["created"] = True
             return True, None, stats
 
@@ -1164,9 +1342,83 @@ class InterconnectorSyncService:
             except Exception:
                 pass
 
+    def _create_learning(self, data: Dict) -> InterconnectorLearning:
+        """Create a new InterconnectorLearning from data."""
+        learning = InterconnectorLearning(
+            id=data.get("id"),
+            source_node_id=data.get("source_node_id", "unknown"),
+            learning_type=data.get("learning_type", "pattern"),
+            description=data.get("description", ""),
+            code_diff=data.get("code_diff"),
+            confidence=data.get("confidence", 0.5),
+            model_used=data.get("model_used"),
+            applied_by=data.get("applied_by", "[]"),
+            uncle_reviewed=data.get("uncle_reviewed", False),
+            uncle_feedback=data.get("uncle_feedback"),
+        )
+        if data.get("timestamp"):
+            try:
+                learning.timestamp = datetime.fromisoformat(data["timestamp"].replace('Z', '+00:00'))
+            except Exception:
+                pass
+        return learning
+
+    def _create_image(self, data: Dict) -> Image:
+        """Create a new Image from data (metadata only)."""
+        image = Image(
+            id=data.get("id"),
+            hash=data.get("hash", ""),
+            file_name=data.get("file_name", "unknown"),
+            file_path=data.get("file_path"),
+            file_size=data.get("file_size"),
+            mime_type=data.get("mime_type"),
+            tags=data.get("tags"),
+        )
+        if data.get("created_at"):
+            try:
+                image.created_at = datetime.fromisoformat(data["created_at"].replace('Z', '+00:00'))
+            except Exception:
+                pass
+        if data.get("last_used_at"):
+            try:
+                image.last_used_at = datetime.fromisoformat(data["last_used_at"].replace('Z', '+00:00'))
+            except Exception:
+                pass
+        return image
+
+    def _update_image(self, image: Image, data: Dict):
+        """Update an existing Image with data."""
+        image.file_name = data.get("file_name", image.file_name)
+        image.file_path = data.get("file_path", image.file_path)
+        image.file_size = data.get("file_size", image.file_size)
+        image.mime_type = data.get("mime_type", image.mime_type)
+        image.tags = data.get("tags", image.tags)
+        if data.get("last_used_at"):
+            try:
+                image.last_used_at = datetime.fromisoformat(data["last_used_at"].replace('Z', '+00:00'))
+            except Exception:
+                pass
+
+    def _insert_messages(self, session_id: str, messages: List[Dict]):
+        """Bulk insert LLMMessage records for a given session."""
+        for msg_data in messages:
+            msg = LLMMessage(
+                session_id=session_id,
+                project_id=msg_data.get("project_id"),
+                role=msg_data.get("role", "user"),
+                content=msg_data.get("content", ""),
+                extra_data=msg_data.get("extra_data"),
+            )
+            if msg_data.get("timestamp"):
+                try:
+                    msg.timestamp = datetime.fromisoformat(msg_data["timestamp"].replace('Z', '+00:00'))
+                except Exception:
+                    pass
+            db.session.add(msg)
+
     def _create_conflict(
-        self, 
-        entity_type: str, 
+        self,
+        entity_type: str,
         entity_id: Any,
         local_entity: Any,
         remote_data: Dict,
