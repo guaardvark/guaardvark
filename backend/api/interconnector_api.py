@@ -2376,7 +2376,16 @@ def trigger_manual_sync():
             # File sync (if enabled)
             if sync_files:
                 logger.info(f"[SYNC] Starting file sync (direction={direction})")
-                
+
+                # Create pre-sync backup before applying any files
+                try:
+                    from backend.services.interconnector_backup_service import create_pre_sync_backup
+                    backup_path = create_pre_sync_backup()
+                    logger.info(f"Pre-sync backup created: {backup_path}")
+                except Exception as e:
+                    logger.error(f"Pre-sync backup failed, aborting file sync: {e}")
+                    return error_response(f"Pre-sync backup failed: {e}", 500)
+
                 file_sync_service = get_file_sync_service()
                 file_summary = {
                     "total_processed": 0,
@@ -3398,4 +3407,11 @@ def ask_family():
         "handled_by": None,
         "message": "No family member could handle this request. Escalate to Uncle Claude.",
     })
+
+
+@interconnector_bp.route("/backups", methods=["GET"])
+def list_sync_backups():
+    """List pre-sync code backups."""
+    from backend.services.interconnector_backup_service import list_backups
+    return success_response(data=list_backups())
 
