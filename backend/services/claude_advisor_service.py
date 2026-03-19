@@ -13,6 +13,8 @@ import threading
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from backend.utils.settings_utils import get_setting, save_setting
+
 logger = logging.getLogger(__name__)
 
 VALID_DIRECTIVES = [
@@ -44,11 +46,11 @@ class ClaudeAdvisorService:
         self._model = os.environ.get("GUAARDVARK_CLAUDE_MODEL", "claude-sonnet-4-20250514")
         self._max_output_tokens = int(os.environ.get("GUAARDVARK_CLAUDE_MAX_TOKENS", "4096"))
         self._monthly_budget = int(os.environ.get("GUAARDVARK_CLAUDE_TOKEN_BUDGET", "1000000"))
-        from backend.utils.settings_utils import get_setting
         self._escalation_mode = get_setting("claude_escalation_mode", default="manual")
 
         self._usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
         self._usage_reset_date = datetime.now().replace(day=1, hour=0, minute=0, second=0)
+        self._usage_lock = threading.Lock()
 
         if self._api_key:
             try:
@@ -64,20 +66,45 @@ class ClaudeAdvisorService:
         else:
             logger.info("ClaudeAdvisorService initialized without API key (offline mode)")
 
+        self._load_persisted_usage()
+
+    def _load_persisted_usage(self):
+        """Load token usage from DB. Safe to call with corrupt/missing data."""
+        saved = get_setting("claude_token_usage", default=None)
+        if saved:
+            try:
+                data = json.loads(saved)
+                self._usage = data["usage"]
+                self._usage_reset_date = datetime.fromisoformat(data["reset_date"])
+            except (json.JSONDecodeError, KeyError, ValueError, TypeError) as e:
+                logger.warning(f"Corrupt claude_token_usage in DB, resetting: {e}")
+                self._usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+                self._usage_reset_date = datetime.now().replace(day=1, hour=0, minute=0, second=0)
+
     def is_available(self) -> bool:
         return self._api_key is not None and self._client is not None
 
     def _check_budget(self) -> bool:
-        now = datetime.now()
-        if now.month != self._usage_reset_date.month or now.year != self._usage_reset_date.year:
-            self._usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
-            self._usage_reset_date = now.replace(day=1, hour=0, minute=0, second=0)
-        return self._usage["total_tokens"] < self._monthly_budget
+        with self._usage_lock:
+            now = datetime.now()
+            if now.month != self._usage_reset_date.month or now.year != self._usage_reset_date.year:
+                self._usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+                self._usage_reset_date = now.replace(day=1, hour=0, minute=0, second=0)
+                save_setting("claude_token_usage", json.dumps({
+                    "usage": self._usage,
+                    "reset_date": self._usage_reset_date.isoformat()
+                }))
+            return self._usage["total_tokens"] < self._monthly_budget
 
     def _track_usage(self, input_tokens: int = 0, output_tokens: int = 0):
-        self._usage["input_tokens"] += input_tokens
-        self._usage["output_tokens"] += output_tokens
-        self._usage["total_tokens"] += (input_tokens + output_tokens)
+        with self._usage_lock:
+            self._usage["input_tokens"] += input_tokens
+            self._usage["output_tokens"] += output_tokens
+            self._usage["total_tokens"] += (input_tokens + output_tokens)
+            save_setting("claude_token_usage", json.dumps({
+                "usage": self._usage,
+                "reset_date": self._usage_reset_date.isoformat()
+            }))
 
     def get_usage(self) -> Dict[str, Any]:
         return {
