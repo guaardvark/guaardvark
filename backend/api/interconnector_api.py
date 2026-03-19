@@ -1371,6 +1371,7 @@ def push_entities():
             "total_created": 0,
             "total_updated": 0,
             "total_conflicts": 0,
+            "total_pending_approval": 0,
             "total_errors": 0,
         }
         details = {}
@@ -1380,12 +1381,12 @@ def push_entities():
             if entity_type not in sync_service.supported_entities:
                 continue
 
-            entity_stats = {"processed": 0, "created": 0, "updated": 0, "conflicts": 0, "errors": 0}
+            entity_stats = {"processed": 0, "created": 0, "updated": 0, "conflicts": 0, "pending_approval": 0, "errors": 0}
 
             for entity_data in entity_list:
                 try:
                     success, conflict_id, stats = sync_service.apply_entity(
-                        entity_type, entity_data, conflict_strategy, node_id
+                        entity_type, entity_data, conflict_strategy, node_id, push_mode=True
                     )
 
                     entity_stats["processed"] += 1
@@ -1399,6 +1400,10 @@ def push_entities():
                         summary["total_updated"] += 1
                     elif stats.get("skipped"):
                         pass  # Skipped but still processed
+
+                    if stats.get("pending_approval"):
+                        entity_stats["pending_approval"] = entity_stats.get("pending_approval", 0) + 1
+                        summary["total_pending_approval"] = summary.get("total_pending_approval", 0) + 1
 
                     if conflict_id:
                         entity_stats["conflicts"] += 1

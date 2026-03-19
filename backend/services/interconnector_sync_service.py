@@ -9,10 +9,12 @@ import logging
 import os
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
+import uuid
 from backend.models import (
     db, Client, Project, Rule, Task, Document, Website,
     Image, LLMSession, LLMMessage, InterconnectorLearning,
     InterconnectorSyncHistory, InterconnectorConflict, InterconnectorPendingChange,
+    InterconnectorPendingApproval,
     project_rules_association
 )
 
@@ -274,51 +276,54 @@ class InterconnectorSyncService:
         return entities
 
     def apply_entity(
-        self, 
-        entity_type: str, 
+        self,
+        entity_type: str,
         entity_data: Dict,
         conflict_strategy: str = "last_write_wins",
-        node_id: Optional[str] = None
+        node_id: Optional[str] = None,
+        push_mode: bool = False,
     ) -> Tuple[bool, Optional[str], Dict]:
         """
         Apply an entity to the local database.
-        
+
         Args:
             entity_type: Type of entity (clients, projects, rules)
             entity_data: Serialized entity data
             conflict_strategy: How to handle conflicts (last_write_wins, manual)
             node_id: ID of the node this entity came from (for conflict tracking)
-        
+            push_mode: When True, applies three-tier push safeguards:
+                       new entity -> add, master newer -> skip, client newer -> queue for approval
+
         Returns:
             Tuple of (success, conflict_id if conflict, stats dict)
         """
-        stats = {"created": False, "updated": False, "skipped": False}
+        stats = {"created": False, "updated": False, "skipped": False, "pending_approval": False}
         conflict_id = None
-        
+
         try:
             if entity_type == "clients":
-                return self._apply_client(entity_data, conflict_strategy, stats, node_id)
+                return self._apply_client(entity_data, conflict_strategy, stats, node_id, push_mode)
             elif entity_type == "projects":
-                return self._apply_project(entity_data, conflict_strategy, stats, node_id)
+                return self._apply_project(entity_data, conflict_strategy, stats, node_id, push_mode)
             elif entity_type == "rules":
-                return self._apply_rule(entity_data, conflict_strategy, stats, node_id)
+                return self._apply_rule(entity_data, conflict_strategy, stats, node_id, push_mode)
             elif entity_type == "websites":
-                return self._apply_website(entity_data, conflict_strategy, stats, node_id)
+                return self._apply_website(entity_data, conflict_strategy, stats, node_id, push_mode)
             elif entity_type == "tasks":
-                return self._apply_task(entity_data, conflict_strategy, stats, node_id)
+                return self._apply_task(entity_data, conflict_strategy, stats, node_id, push_mode)
             elif entity_type == "documents":
-                return self._apply_document(entity_data, conflict_strategy, stats, node_id)
+                return self._apply_document(entity_data, conflict_strategy, stats, node_id, push_mode)
             elif entity_type == "learnings":
-                return self._apply_learning(entity_data, conflict_strategy, stats, node_id)
+                return self._apply_learning(entity_data, conflict_strategy, stats, node_id, push_mode)
             elif entity_type == "images":
-                return self._apply_image(entity_data, conflict_strategy, stats, node_id)
+                return self._apply_image(entity_data, conflict_strategy, stats, node_id, push_mode)
             elif entity_type == "chat_history":
-                return self._apply_chat_history(entity_data, conflict_strategy, stats, node_id)
+                return self._apply_chat_history(entity_data, conflict_strategy, stats, node_id, push_mode)
             else:
                 logger.warning(f"Unsupported entity type for apply: {entity_type}")
                 stats["skipped"] = True
                 return False, None, stats
-        
+
         except Exception as e:
             logger.error(f"Error applying {entity_type}: {e}")
             return False, None, stats
@@ -542,16 +547,17 @@ class InterconnectorSyncService:
     # --- Apply Methods ---
 
     def _apply_client(
-        self, 
-        data: Dict, 
+        self,
+        data: Dict,
         conflict_strategy: str,
         stats: Dict,
-        node_id: Optional[str] = None
+        node_id: Optional[str] = None,
+        push_mode: bool = False,
     ) -> Tuple[bool, Optional[str], Dict]:
         """Apply a client entity to the database."""
         client_id = data.get("id")
         remote_updated = data.get("updated_at")
-        
+
         # Parse updated_at
         remote_updated_dt = None
         if remote_updated:
@@ -559,10 +565,17 @@ class InterconnectorSyncService:
                 remote_updated_dt = datetime.fromisoformat(remote_updated.replace('Z', '+00:00'))
             except Exception:
                 pass
-        
+
         existing_client = db.session.get(Client, client_id) if client_id else None
-        
+
         if existing_client:
+            # Push safeguard: compare timestamps before allowing update
+            if push_mode:
+                result = self._push_safeguard(
+                    "clients", data, existing_client, node_id, stats
+                )
+                if result is not None:
+                    return result
             # Check for conflicts
             local_updated = existing_client.updated_at
             if local_updated and remote_updated_dt and local_updated != remote_updated_dt:
@@ -599,7 +612,8 @@ class InterconnectorSyncService:
         data: Dict,
         conflict_strategy: str,
         stats: Dict,
-        node_id: Optional[str] = None
+        node_id: Optional[str] = None,
+        push_mode: bool = False,
     ) -> Tuple[bool, Optional[str], Dict]:
         """Apply a website entity to the database."""
         website_id = data.get("id")
@@ -615,6 +629,13 @@ class InterconnectorSyncService:
         existing_website = db.session.get(Website, website_id) if website_id else None
 
         if existing_website:
+            # Push safeguard: compare timestamps before allowing update
+            if push_mode:
+                result = self._push_safeguard(
+                    "websites", data, existing_website, node_id, stats
+                )
+                if result is not None:
+                    return result
             local_updated = existing_website.updated_at
             if local_updated and remote_updated_dt and local_updated != remote_updated_dt:
                 if conflict_strategy == "last_write_wins":
@@ -640,16 +661,17 @@ class InterconnectorSyncService:
             return True, None, stats
 
     def _apply_project(
-        self, 
-        data: Dict, 
+        self,
+        data: Dict,
         conflict_strategy: str,
         stats: Dict,
-        node_id: Optional[str] = None
+        node_id: Optional[str] = None,
+        push_mode: bool = False,
     ) -> Tuple[bool, Optional[str], Dict]:
         """Apply a project entity to the database."""
         project_id = data.get("id")
         remote_updated = data.get("updated_at")
-        
+
         # Parse updated_at
         remote_updated_dt = None
         if remote_updated:
@@ -657,10 +679,17 @@ class InterconnectorSyncService:
                 remote_updated_dt = datetime.fromisoformat(remote_updated.replace('Z', '+00:00'))
             except Exception:
                 pass
-        
+
         existing_project = db.session.get(Project, project_id) if project_id else None
-        
+
         if existing_project:
+            # Push safeguard: compare timestamps before allowing update
+            if push_mode:
+                result = self._push_safeguard(
+                    "projects", data, existing_project, node_id, stats
+                )
+                if result is not None:
+                    return result
             # Check for conflicts
             local_updated = existing_project.updated_at
             if local_updated and remote_updated_dt and local_updated != remote_updated_dt:
@@ -694,26 +723,34 @@ class InterconnectorSyncService:
             return True, None, stats
 
     def _apply_rule(
-        self, 
-        data: Dict, 
+        self,
+        data: Dict,
         conflict_strategy: str,
         stats: Dict,
-        node_id: Optional[str] = None
+        node_id: Optional[str] = None,
+        push_mode: bool = False,
     ) -> Tuple[bool, Optional[str], Dict]:
         """Apply a rule entity to the database."""
         rule_id = data.get("id")
         remote_updated = data.get("updated_at")
-        
+
         remote_updated_dt = None
         if remote_updated:
             try:
                 remote_updated_dt = datetime.fromisoformat(remote_updated.replace('Z', '+00:00'))
             except Exception:
                 pass
-        
+
         existing_rule = db.session.get(Rule, rule_id) if rule_id else None
-        
+
         if existing_rule:
+            # Push safeguard: compare timestamps before allowing update
+            if push_mode:
+                result = self._push_safeguard(
+                    "rules", data, existing_rule, node_id, stats
+                )
+                if result is not None:
+                    return result
             local_updated = existing_rule.updated_at
             if local_updated and remote_updated_dt and local_updated != remote_updated_dt:
                 if conflict_strategy == "last_write_wins":
@@ -749,7 +786,8 @@ class InterconnectorSyncService:
         data: Dict,
         conflict_strategy: str,
         stats: Dict,
-        node_id: Optional[str] = None
+        node_id: Optional[str] = None,
+        push_mode: bool = False,
     ) -> Tuple[bool, Optional[str], Dict]:
         """Apply a task entity to the database."""
         task_id = data.get("id")
@@ -765,6 +803,13 @@ class InterconnectorSyncService:
         existing_task = db.session.get(Task, task_id) if task_id else None
 
         if existing_task:
+            # Push safeguard: compare timestamps before allowing update
+            if push_mode:
+                result = self._push_safeguard(
+                    "tasks", data, existing_task, node_id, stats
+                )
+                if result is not None:
+                    return result
             local_updated = existing_task.updated_at
             if local_updated and remote_updated_dt and local_updated != remote_updated_dt:
                 if conflict_strategy == "last_write_wins":
@@ -793,7 +838,8 @@ class InterconnectorSyncService:
         data: Dict,
         conflict_strategy: str,
         stats: Dict,
-        node_id: Optional[str] = None
+        node_id: Optional[str] = None,
+        push_mode: bool = False,
     ) -> Tuple[bool, Optional[str], Dict]:
         """Apply a document entity to the database."""
         document_id = data.get("id")
@@ -809,6 +855,13 @@ class InterconnectorSyncService:
         existing_document = db.session.get(Document, document_id) if document_id else None
 
         if existing_document:
+            # Push safeguard: compare timestamps before allowing update
+            if push_mode:
+                result = self._push_safeguard(
+                    "documents", data, existing_document, node_id, stats
+                )
+                if result is not None:
+                    return result
             local_updated = existing_document.updated_at
             if local_updated and remote_updated_dt and local_updated != remote_updated_dt:
                 if conflict_strategy == "last_write_wins":
@@ -837,7 +890,8 @@ class InterconnectorSyncService:
         data: Dict,
         conflict_strategy: str,
         stats: Dict,
-        node_id: Optional[str] = None
+        node_id: Optional[str] = None,
+        push_mode: bool = False,
     ) -> Tuple[bool, Optional[str], Dict]:
         """Apply a learning entity to the database."""
         learning_id = data.get("id")
@@ -845,6 +899,13 @@ class InterconnectorSyncService:
         existing_learning = db.session.get(InterconnectorLearning, learning_id) if learning_id else None
 
         if existing_learning:
+            # Push safeguard: compare timestamps before allowing update
+            if push_mode:
+                result = self._push_safeguard(
+                    "learnings", data, existing_learning, node_id, stats
+                )
+                if result is not None:
+                    return result
             # Learnings are append-only by nature; update review fields only
             existing_learning.uncle_reviewed = data.get("uncle_reviewed", existing_learning.uncle_reviewed)
             existing_learning.uncle_feedback = data.get("uncle_feedback", existing_learning.uncle_feedback)
@@ -862,7 +923,8 @@ class InterconnectorSyncService:
         data: Dict,
         conflict_strategy: str,
         stats: Dict,
-        node_id: Optional[str] = None
+        node_id: Optional[str] = None,
+        push_mode: bool = False,
     ) -> Tuple[bool, Optional[str], Dict]:
         """Apply an image entity to the database (metadata only)."""
         image_id = data.get("id")
@@ -870,6 +932,13 @@ class InterconnectorSyncService:
         existing_image = db.session.get(Image, image_id) if image_id else None
 
         if existing_image:
+            # Push safeguard: compare timestamps before allowing update
+            if push_mode:
+                result = self._push_safeguard(
+                    "images", data, existing_image, node_id, stats
+                )
+                if result is not None:
+                    return result
             self._update_image(existing_image, data)
             stats["updated"] = True
             return True, None, stats
@@ -884,7 +953,8 @@ class InterconnectorSyncService:
         data: Dict,
         conflict_strategy: str,
         stats: Dict,
-        node_id: Optional[str] = None
+        node_id: Optional[str] = None,
+        push_mode: bool = False,
     ) -> Tuple[bool, Optional[str], Dict]:
         """Apply a chat history entity (LLMSession + messages) to the database."""
         session_id = data.get("id")
@@ -892,6 +962,13 @@ class InterconnectorSyncService:
         existing_session = db.session.get(LLMSession, session_id) if session_id else None
 
         if existing_session:
+            # Push safeguard: compare timestamps before allowing update
+            if push_mode:
+                result = self._push_safeguard(
+                    "chat_history", data, existing_session, node_id, stats
+                )
+                if result is not None:
+                    return result
             # Update session fields
             existing_session.user = data.get("user", existing_session.user)
             existing_session.project_id = data.get("project_id", existing_session.project_id)
@@ -1415,6 +1492,54 @@ class InterconnectorSyncService:
                 except Exception:
                     pass
             db.session.add(msg)
+
+    def _push_safeguard(
+        self,
+        entity_type: str,
+        entity_data: Dict,
+        existing: Any,
+        node_id: Optional[str],
+        stats: Dict,
+    ) -> Optional[Tuple[bool, Optional[str], Dict]]:
+        """
+        Three-tier push safeguard for client-to-master pushes.
+
+        Returns None if the normal update path should proceed (no safeguard action taken).
+        Returns a result tuple if the safeguard handled it (skip or queue for approval).
+        """
+        client_updated = entity_data.get("updated_at") or entity_data.get("created_at")
+        master_updated = getattr(existing, "updated_at", None) or getattr(existing, "created_at", None)
+
+        if client_updated and master_updated:
+            if isinstance(client_updated, str):
+                client_dt = datetime.fromisoformat(client_updated.replace('Z', '+00:00'))
+            else:
+                client_dt = client_updated
+
+            if master_updated > client_dt:
+                # Master is newer -- skip
+                stats["skipped"] = True
+                return True, None, stats
+            else:
+                # Client is newer -- queue for master approval
+                approval = InterconnectorPendingApproval(
+                    push_id=str(uuid.uuid4()),
+                    source_node=node_id or "unknown",
+                    sync_type="entities",
+                    entities_data=json.dumps({
+                        "entity_type": entity_type,
+                        "entity_id": entity_data.get("id"),
+                        "client_data": entity_data,
+                        "master_data": self.serialize_entity(entity_type, existing),
+                    }),
+                    status="pending",
+                )
+                db.session.add(approval)
+                stats["pending_approval"] = True
+                return True, None, stats
+
+        # No timestamps to compare -- fall through to normal update path
+        return None
 
     def _create_conflict(
         self,
