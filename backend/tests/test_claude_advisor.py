@@ -137,3 +137,15 @@ class TestClaudeAdvisorService:
         result = service.escalate("test", [])
         assert result["available"] is False
         assert "budget" in result.get("reason", "").lower()
+
+    def test_escalation_mode_loaded_from_db(self):
+        """Escalation mode should be loadable via get_setting."""
+        from backend.utils.settings_utils import get_setting
+        from unittest.mock import patch, MagicMock
+        mock_setting = MagicMock()
+        mock_setting.value = "always"
+        with patch("backend.utils.settings_utils.has_app_context", return_value=True):
+            with patch("backend.utils.settings_utils.db") as mock_db:
+                mock_db.session.get.return_value = mock_setting
+                result = get_setting("claude_escalation_mode", default="manual")
+                assert result == "always"

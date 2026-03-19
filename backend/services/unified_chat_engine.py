@@ -837,6 +837,22 @@ class UnifiedChatEngine:
                 )
             })
 
+        # 6b. Escalation "always" mode — replace local response with Claude
+        # NOTE: This modifies accumulated_response BEFORE chat:complete emits it.
+        from backend.utils.settings_utils import get_setting
+        escalation_mode = get_setting("claude_escalation_mode", default="manual")
+        if escalation_mode == "always" and accumulated_response.strip():
+            try:
+                from backend.services.claude_advisor_service import get_claude_advisor
+                advisor = get_claude_advisor()
+                if advisor.is_available():
+                    claude_result = advisor.escalate(message, history)
+                    if claude_result.get("available") and claude_result.get("response"):
+                        accumulated_response = claude_result["response"]
+                        logger.info("[UNIFIED_ENGINE] Escalation mode=always, routed through Claude")
+            except Exception as e:
+                logger.warning(f"[UNIFIED_ENGINE] Escalation always-mode failed, using local response: {e}")
+
         # 7. Emit complete
         emit_fn("chat:complete", {
             "response": accumulated_response,

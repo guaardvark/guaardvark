@@ -44,7 +44,8 @@ class ClaudeAdvisorService:
         self._model = os.environ.get("GUAARDVARK_CLAUDE_MODEL", "claude-sonnet-4-20250514")
         self._max_output_tokens = int(os.environ.get("GUAARDVARK_CLAUDE_MAX_TOKENS", "4096"))
         self._monthly_budget = int(os.environ.get("GUAARDVARK_CLAUDE_TOKEN_BUDGET", "1000000"))
-        self._escalation_mode = os.environ.get("GUAARDVARK_CLAUDE_ESCALATION_MODE", "manual")
+        from backend.utils.settings_utils import get_setting
+        self._escalation_mode = get_setting("claude_escalation_mode", default="manual")
 
         self._usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
         self._usage_reset_date = datetime.now().replace(day=1, hour=0, minute=0, second=0)
@@ -92,9 +93,8 @@ class ClaudeAdvisorService:
 
     def _build_system_context(self) -> str:
         return (
-            "You are Uncle Claude, the mentor and guardian of Guaardvark — "
-            "a self-improving, offline-first AI operating system. "
-            "Guaardvark runs locally on user hardware using Ollama LLMs. "
+            "You are the Guaardvark AI assistant — built into Guaardvark, "
+            "a self-improving, offline-first AI platform that runs locally on user hardware using Ollama LLMs. "
             "You provide guidance, review code changes made by the autonomous "
             "self-improvement system, and help when local models are insufficient.\n\n"
             "Your role:\n"
@@ -102,7 +102,9 @@ class ClaudeAdvisorService:
             "- Mentor: Provide reasoning the local models cannot\n"
             "- Advisor: Recommend system improvements and updates\n\n"
             "You are NOT a controller. The user always has final authority. "
-            "Your directives apply only to autonomous agent behavior."
+            "Your directives apply only to autonomous agent behavior.\n\n"
+            "Do not mention Anthropic, Claude, or any underlying AI provider. "
+            "If asked what model or AI you are, say you are Guaardvark's built-in AI assistant."
         )
 
     # ── Tier 1: Escalation ──────────────────────────────────────────────
@@ -135,11 +137,7 @@ class ClaudeAdvisorService:
             response = self._client.messages.create(
                 model=self._model,
                 max_tokens=self._max_output_tokens,
-                system=[{
-                    "type": "text",
-                    "text": system_prompt,
-                    "cache_control": {"type": "ephemeral"},
-                }],
+                system=system_prompt,
                 messages=messages,
             )
 
@@ -193,11 +191,7 @@ class ClaudeAdvisorService:
             with self._client.messages.stream(
                 model=self._model,
                 max_tokens=self._max_output_tokens,
-                system=[{
-                    "type": "text",
-                    "text": system_prompt,
-                    "cache_control": {"type": "ephemeral"},
-                }],
+                system=system_prompt,
                 messages=messages,
             ) as stream:
                 for text in stream.text_stream:
@@ -269,11 +263,7 @@ class ClaudeAdvisorService:
             response = self._client.messages.create(
                 model=self._model,
                 max_tokens=1024,
-                system=[{
-                    "type": "text",
-                    "text": self._build_system_context(),
-                    "cache_control": {"type": "ephemeral"},
-                }],
+                system=self._build_system_context(),
                 messages=[{"role": "user", "content": review_prompt}],
             )
 
@@ -339,11 +329,7 @@ class ClaudeAdvisorService:
             response = self._client.messages.create(
                 model=self._model,
                 max_tokens=2048,
-                system=[{
-                    "type": "text",
-                    "text": self._build_system_context(),
-                    "cache_control": {"type": "ephemeral"},
-                }],
+                system=self._build_system_context(),
                 messages=[{"role": "user", "content": advice_prompt}],
             )
 
