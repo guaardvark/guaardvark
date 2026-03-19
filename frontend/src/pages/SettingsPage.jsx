@@ -724,14 +724,20 @@ const SettingsPage = () => {
 
   // Fetch GPU resources and embedding model list
   const fetchResources = useCallback(async () => {
+    // Don't poll if page is hidden or component unmounted
+    if (document.hidden) return;
     try {
-      const r = await fetch("/api/model/resources");
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const r = await fetch("/api/model/resources", { signal: controller.signal });
+      clearTimeout(timeoutId);
       if (r.ok) {
         const d = await r.json();
         if (d.success) setGpuResources(d.data);
       }
     } catch (e) {
-      console.warn("Failed to fetch resources:", e);
+      if (e.name === 'AbortError') return; // Timeout or navigation — not an error
+      // Silently skip network errors during polling — don't spam console
     }
   }, []);
 
