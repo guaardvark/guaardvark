@@ -5,11 +5,14 @@
 import logging
 import time
 import json
+from functools import wraps
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timezone, timedelta
 from collections import defaultdict, deque
 from dataclasses import dataclass, asdict
 from flask import Blueprint, request, jsonify, current_app
+
+from backend.utils.settings_utils import get_setting
 
 from backend.utils.unified_index_manager import get_global_index_manager
 from backend.utils.enhanced_rag_chunking import EnhancedRAGChunker
@@ -533,7 +536,19 @@ class RAGDebugManager:
 # Global debug manager
 debug_manager = RAGDebugManager()
 
+
+def require_rag_debug(f):
+    """Gate endpoint behind rag_debug_enabled setting."""
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if not get_setting("rag_debug_enabled", default=True, cast=bool):
+            return jsonify({"error": "RAG Debug is disabled. Enable it in Settings."}), 403
+        return f(*args, **kwargs)
+    return wrapper
+
+
 @rag_debug_bp.route("/retrieve", methods=["POST"])
+@require_rag_debug
 def debug_retrieve():
     """Debug a retrieval operation"""
     try:
@@ -581,6 +596,7 @@ def debug_retrieve():
         return error_response(f"RAG debug retrieve failed: {str(e)}", 500)
 
 @rag_debug_bp.route("/context-quality", methods=["POST"])
+@require_rag_debug
 def analyze_context():
     """Analyze context quality for a session"""
     try:
@@ -603,6 +619,7 @@ def analyze_context():
         return error_response(str(e), 500)
 
 @rag_debug_bp.route("/performance", methods=["GET"])
+@require_rag_debug
 def get_performance():
     """Get performance summary"""
     try:
@@ -615,6 +632,7 @@ def get_performance():
         return error_response(str(e), 500)
 
 @rag_debug_bp.route("/query-patterns", methods=["GET"])
+@require_rag_debug
 def get_patterns():
     """Get query patterns analysis"""
     try:
@@ -626,6 +644,7 @@ def get_patterns():
         return error_response(str(e), 500)
 
 @rag_debug_bp.route("/system-health", methods=["GET"])
+@require_rag_debug
 def get_system_health():
     """Get overall system health metrics"""
     try:
