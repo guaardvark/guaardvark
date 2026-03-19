@@ -1,6 +1,7 @@
 
 import React, { Suspense, lazy, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
+import useNavigationCancel from "./hooks/useNavigationCancel";
 import {
   ThemeProvider as MuiThemeProvider,
   CssBaseline,
@@ -104,6 +105,9 @@ const AppLayout = ({ children }) => {
 };
 
 const AppContainer = () => {
+  // Cancel pending API requests on navigation — prevents DB pool exhaustion
+  useNavigationCancel();
+
   const themeName = useAppStore((state) => state.themeName);
   const theme = themes[themeName]?.theme || themes["guaardvark"].theme;
   const fetchSystemInfo = useAppStore((state) => state.fetchSystemInfo);
