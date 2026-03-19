@@ -34,6 +34,9 @@ const EXEMPT_PATTERNS = [
   '/api/self-improvement/trigger',  // SI run
   '/api/voice/',          // Voice processing
   '/health',              // Health checks
+  '/api/meta/',           // System status polling (UnifiedProgressContext)
+  '/api/model/',          // Model switching (long-running)
+  '/api/plugins/',        // Plugin management
 ];
 
 function isExempt(url) {

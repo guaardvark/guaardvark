@@ -241,6 +241,7 @@ export const UnifiedProgressProvider = ({ children }) => {
 
       return activeJobs.length;
     } catch (error) {
+      if (error.name === 'AbortError') return 0; // Navigation cancel — not an error
       console.error('UnifiedProgressContext: Failed to fetch active jobs:', error);
       return 0;
     }
