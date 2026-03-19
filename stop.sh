@@ -55,10 +55,33 @@ kill_and_cleanup() {
     fi
 }
 
+# ── Helper: check if a plugin is enabled in its plugin.json ──
+_plugin_enabled() {
+    local plugin_json="$SCRIPT_DIR/plugins/$1/plugin.json"
+    if [ -f "$plugin_json" ] && command -v python3 >/dev/null 2>&1; then
+        python3 -c "import json; print(json.load(open('$plugin_json')).get('config',{}).get('enabled',False))" 2>/dev/null
+    else
+        echo "False"
+    fi
+}
+
+# ── Helper: check if a plugin is actually running (PID file + process alive) ──
+_plugin_running() {
+    local pid_file="$PIDS_DIR/$1.pid"
+    [ -f "$pid_file" ] && kill -0 "$(cat "$pid_file" 2>/dev/null)" 2>/dev/null
+}
+
 # ── Stop ComfyUI first (free GPU memory before other shutdowns) ──
-vader_info "Checking for ComfyUI..."
+# Only check ComfyUI if it's enabled or actually running
+comfyui_enabled=$(_plugin_enabled "comfyui")
+comfyui_running=false
+_plugin_running "comfyui" && comfyui_running=true
 
 comfyui_stopped=false
+
+if [ "$comfyui_enabled" = "False" ] && [ "$comfyui_running" = false ]; then
+    vader_info "ComfyUI: not enabled, skipping."
+else
 
 # Check if a video generation is actively running before killing ComfyUI.
 # If the backend is reachable, query the video status endpoint.
@@ -134,6 +157,7 @@ else
         vader_info "ComfyUI was not running."
     fi
 fi
+fi  # end comfyui_enabled/running check
 
 # ── Stop Ollama (PID file → user processes → systemd → port cleanup) ──
 vader_info "Stopping Ollama..."

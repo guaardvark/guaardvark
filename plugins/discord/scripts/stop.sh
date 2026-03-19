@@ -8,7 +8,7 @@ PROJECT_ROOT="$(cd "$PLUGIN_ROOT/../.." && pwd)"
 PID_FILE="$PROJECT_ROOT/pids/discord_bot.pid"
 
 if [ ! -f "$PID_FILE" ]; then
-    echo "PID file not found. Discord Bot may not be running."
+    # Not an error — Discord Bot was simply not started. Enable it from the Plugins page.
     exit 0
 fi
 

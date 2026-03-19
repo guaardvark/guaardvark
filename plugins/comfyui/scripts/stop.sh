@@ -9,7 +9,7 @@ PROJECT_ROOT="$(cd "$PLUGIN_ROOT/../.." && pwd)"
 PID_FILE="$PROJECT_ROOT/pids/comfyui.pid"
 
 if [ ! -f "$PID_FILE" ]; then
-    echo "PID file not found. ComfyUI may not be running."
+    # Not an error — ComfyUI was simply not started. Enable it from the Plugins page.
     exit 0
 fi
 
