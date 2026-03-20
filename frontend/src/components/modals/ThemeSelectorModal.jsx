@@ -57,14 +57,14 @@ const RadioactiveIcon = ({ size = 40 }) => (
   </svg>
 );
 
-// Sith emblem for Vader theme — actual PNG with transparent background
+// Sith emblem for Vader theme — white version for visibility on red gradient
 const SithIcon = ({ size = 40 }) => (
   <img
-    src="/theme-icons/sith-emblem.png"
-    alt="Sith"
+    src="/theme-icons/sith-emblem-light.png"
+    alt=""
     width={size}
     height={size}
-    style={{ objectFit: "contain", filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.5))" }}
+    style={{ objectFit: "contain", filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.7))" }}
   />
 );
 
@@ -126,7 +126,7 @@ const ThemePreview = ({ themeKey, themeData, isSelected, onClick }) => {
         {/* Enlarged background emblem for Sith/Vader — rotated, translucent, color-dodge */}
         {icon === "sith" && (
           <img
-            src="/theme-icons/sith-emblem.png"
+            src="/theme-icons/sith-emblem-light.png"
             alt=""
             style={{
               position: "absolute",
@@ -135,7 +135,7 @@ const ThemePreview = ({ themeKey, themeData, isSelected, onClick }) => {
               top: "50%",
               left: "50%",
               transform: "translate(-50%, -50%) rotate(20deg)",
-              opacity: 0.5,
+              opacity: 0.15,
               mixBlendMode: "color-dodge",
               pointerEvents: "none",
               objectFit: "contain",
