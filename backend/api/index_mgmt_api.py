@@ -93,7 +93,10 @@ def get_index_info():
             
             # OllamaEmbedding stores model_name as a direct attribute
             model_name = getattr(embed_model, "model_name", None)
-            
+            # Guard against property descriptors or non-string values
+            if model_name is not None and not isinstance(model_name, str):
+                model_name = None
+
             # If not found, try private attribute or instance variables
             if not model_name:
                 # Check all attributes that might contain the model name

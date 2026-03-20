@@ -1529,10 +1529,17 @@ RULES:
                       extra_data: Optional[Dict] = None):
         """Save a message to the database (thread-safe with app context)."""
         try:
+            from flask import has_app_context
             from backend.models import LLMSession, LLMMessage, db
 
-            ctx = self.app.app_context() if self.app else None
-            if ctx:
+            # Only push a new app context if one isn't already active.
+            # chat() already creates an app context at line 369, so _save_message
+            # called from _run_chat should reuse that context — not create a nested
+            # one which forks db.session and loses commits.
+            has_context = has_app_context()
+            ctx = None
+            if not has_context and self.app:
+                ctx = self.app.app_context()
                 ctx.push()
             try:
                 # Ensure session exists
@@ -1554,6 +1561,7 @@ RULES:
                 )
                 db.session.add(msg)
                 db.session.commit()
+                logger.debug(f"Saved {role} message to session {session_id}")
             finally:
                 if ctx:
                     ctx.pop()
