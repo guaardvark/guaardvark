@@ -39,7 +39,10 @@ GLOBAL_IGNORE_PATTERNS = [
     '.claud', '.claude', 'claude.*', 'gemini.*', '*.code-workspace',
     '.cursorignore', '*__review__*', '*__tests__*', '*.zip',
     'compare-folders-tmp', '*.db', '*.sqlite', '*.sqlite3',
-    'whisper.cpp', 'piper', 'piper-models', 'whisper-models'
+    'whisper.cpp', 'piper', 'piper-models', 'whisper-models',
+    # AI model files — never include in backups (re-downloadable)
+    '*.safetensors', '*.ckpt', '*.pt', '*.pth', '*.bin', '*.onnx',
+    '*.gguf', '*.ggml', 'models', 'checkpoints', 'ComfyUI',
 ]
 
 # Same as GLOBAL_IGNORE_PATTERNS but WITHOUT database file exclusions (*.db, *.sqlite, *.sqlite3)
@@ -51,6 +54,9 @@ DATA_IGNORE_PATTERNS = [
     '.claud', '.claude', 'claude.*', 'gemini.*', '*.code-workspace',
     '.cursorignore', '*__review__*', '*__tests__*', '*.zip',
     'compare-folders-tmp',
+    # AI model files — never include in backups
+    '*.safetensors', '*.ckpt', '*.pt', '*.pth', '*.bin', '*.onnx',
+    '*.gguf', '*.ggml',
 ]
 
 
