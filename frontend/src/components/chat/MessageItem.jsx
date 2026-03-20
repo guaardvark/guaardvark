@@ -23,6 +23,7 @@ const UPLOAD_BASE_URL = BASE_URL + "/uploads";
 const MessageItem = ({ message }) => {
   const isUser = message.role === "user";
   const isCommand = message.type === "command";
+  const isProgress = message.type === "progress";
   const isAgentLoop = message.isAgentLoop;
   const logo = useAppStore((s) => s.systemLogo);
   const [lightbox, setLightbox] = useState(null);
@@ -110,6 +111,48 @@ const MessageItem = ({ message }) => {
               )}
             </>
           )}
+        </Paper>
+      </Box>
+    );
+  }
+
+  // Progress messages (e.g., "Generating image...") — styled like active streaming messages
+  if (isProgress) {
+    return (
+      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
+        <Avatar
+          src={logoUrl}
+          sx={{
+            bgcolor: "warning.main",
+            width: 32,
+            height: 32,
+            border: 1,
+            borderColor: "divider",
+          }}
+        >
+          {!logo && <GuaardvarkLogo size={20} variant="warning" animate />}
+        </Avatar>
+        <Paper
+          elevation={2}
+          sx={{
+            p: 1.5,
+            maxWidth: "85%",
+            bgcolor: "background.paper",
+            borderTopLeftRadius: 4,
+            borderTopRightRadius: 16,
+            borderBottomLeftRadius: 16,
+            borderBottomRightRadius: 16,
+            border: 1,
+            borderColor: "warning.main",
+            minWidth: 200,
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <CircularProgress size={14} color="warning" />
+            <Typography variant="body2" color="text.secondary">
+              {message.content || "Processing..."}
+            </Typography>
+          </Box>
         </Paper>
       </Box>
     );
