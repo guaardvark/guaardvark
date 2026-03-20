@@ -44,6 +44,7 @@ function handleHelp(args, { addMessage, allCommands }) {
     role: "system",
     content: `## Available Commands\n\n${lines.join("\n\n")}`,
     tempId: `help-${Date.now()}`,
+    type: "command",
   });
   return { handled: true };
 }
@@ -72,12 +73,14 @@ function handleVoice(args, { addMessage, chatState }) {
       role: "system",
       content: `Voice chat ${voice.isVoiceActive ? "disabled" : "enabled"}.`,
       tempId: `voice-${Date.now()}`,
+      type: "command",
     });
   } else {
     addMessage({
       role: "system",
       content: "Voice chat is not available in this context.",
       tempId: `voice-${Date.now()}`,
+      type: "command",
     });
   }
   return { handled: true };
@@ -92,6 +95,7 @@ function handleVision(args, { addMessage }) {
     role: "system",
     content: "Vision pipeline coming soon. Use the Plugins page to start the Vision Pipeline service.",
     tempId: `vision-${Date.now()}`,
+    type: "command",
   });
   return { handled: true };
 }
@@ -116,9 +120,10 @@ async function handleModel(args, { addMessage }) {
         role: "system",
         content: `**Current model:** ${active?.model || active?.data?.model || "Unknown"}\n\n**Available models:**\n${modelNames.map((n) => `- ${n}`).join("\n")}`,
         tempId: `model-${Date.now()}`,
+        type: "command",
       });
     } catch (err) {
-      addMessage({ role: "system", content: `Failed to get models: ${err.message}`, tempId: `model-${Date.now()}` });
+      addMessage({ role: "system", content: `Failed to get models: ${err.message}`, tempId: `model-${Date.now()}`, type: "command" });
     }
     return { handled: true };
   }
@@ -135,9 +140,10 @@ async function handleModel(args, { addMessage }) {
       role: "system",
       content: data.success !== false ? `Model switched to **${args.trim()}**.` : `Failed: ${data.error || data.message}`,
       tempId: `model-${Date.now()}`,
+      type: "command",
     });
   } catch (err) {
-    addMessage({ role: "system", content: `Model switch failed: ${err.message}`, tempId: `model-${Date.now()}` });
+    addMessage({ role: "system", content: `Model switch failed: ${err.message}`, tempId: `model-${Date.now()}`, type: "command" });
   }
   return { handled: true };
 }
@@ -152,25 +158,57 @@ async function handleImageModel(args, { addMessage }) {
       const res = await fetch("/api/batch-image/models");
       const data = await res.json();
       const models = data?.data?.models || data?.models || [];
-      const current = data?.data?.current || "sd-1.5";
+      const defaultModel = data?.data?.default_model || "sd-1.5";
+      const current = sessionStorage.getItem("slash_image_model") || defaultModel;
+      const downloaded = models.filter((m) => m.is_downloaded);
       addMessage({
         role: "system",
-        content: `**Current image model:** ${current}\n\n**Available:**\n${models.map((m) => `- ${m.id || m.name || m}`).join("\n")}`,
+        content: `**Current image model:** ${current}\n\n**Available (downloaded):**\n${downloaded.map((m) => `- \`${m.id}\` — ${m.name}`).join("\n")}\n\n**Not downloaded:**\n${models.filter((m) => !m.is_downloaded).map((m) => `- \`${m.id}\``).join("\n") || "_(none)_"}`,
         tempId: `imgmodel-${Date.now()}`,
+        type: "command",
       });
     } catch (err) {
-      addMessage({ role: "system", content: `Failed to get image models: ${err.message}`, tempId: `imgmodel-${Date.now()}` });
+      addMessage({ role: "system", content: `Failed to get image models: ${err.message}`, tempId: `imgmodel-${Date.now()}`, type: "command" });
     }
     return { handled: true };
   }
 
-  addMessage({
-    role: "system",
-    content: `Image model set to **${args.trim()}**. This will be used for the next /imagine command.`,
-    tempId: `imgmodel-${Date.now()}`,
-  });
-  // Store preference — the /imagine handler will read it
-  sessionStorage.setItem("slash_image_model", args.trim());
+  // Validate the model exists
+  const modelName = args.trim();
+  try {
+    const res = await fetch("/api/batch-image/models");
+    const data = await res.json();
+    const models = data?.data?.models || data?.models || [];
+    const match = models.find((m) => m.id === modelName || m.id.startsWith(modelName));
+    if (match) {
+      if (!match.is_downloaded) {
+        addMessage({
+          role: "system",
+          content: `Model \`${match.id}\` is not downloaded. Download it from the Images page first.`,
+          tempId: `imgmodel-${Date.now()}`,
+          type: "command",
+        });
+      } else {
+        sessionStorage.setItem("slash_image_model", match.id);
+        addMessage({
+          role: "system",
+          content: `Image model switched to **${match.id}** (${match.name}). Will be used for the next \`/imagine\` command.`,
+          tempId: `imgmodel-${Date.now()}`,
+          type: "command",
+        });
+      }
+    } else {
+      const available = models.filter((m) => m.is_downloaded).map((m) => m.id).join(", ");
+      addMessage({
+        role: "system",
+        content: `Model \`${modelName}\` not found. Available: ${available}`,
+        tempId: `imgmodel-${Date.now()}`,
+        type: "command",
+      });
+    }
+  } catch (err) {
+    addMessage({ role: "system", content: `Failed: ${err.message}`, tempId: `imgmodel-${Date.now()}`, type: "command" });
+  }
   return { handled: true };
 }
 

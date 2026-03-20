@@ -22,6 +22,7 @@ const UPLOAD_BASE_URL = BASE_URL + "/uploads";
 
 const MessageItem = ({ message }) => {
   const isUser = message.role === "user";
+  const isCommand = message.type === "command";
   const isAgentLoop = message.isAgentLoop;
   const logo = useAppStore((s) => s.systemLogo);
   const [lightbox, setLightbox] = useState(null);
@@ -140,20 +141,35 @@ const MessageItem = ({ message }) => {
         </Avatar>
       )}
       <Paper
-        elevation={2}
+        elevation={isCommand ? 0 : 2}
         sx={{
           p: 1.5,
           maxWidth: "80%",
-          bgcolor: isUser ? "primary.main" : "background.paper",
-          color: isUser ? "primary.contrastText" : "text.primary",
+          bgcolor: isCommand ? "action.hover" : isUser ? "primary.main" : "background.paper",
+          color: isCommand ? "text.secondary" : isUser ? "primary.contrastText" : "text.primary",
+          // Command messages get a colored left border and subtle styling
+          ...(isCommand && {
+            borderLeft: "3px solid",
+            borderLeftColor: "info.main",
+            borderRadius: 1,
+            fontSize: "0.85rem",
+            fontFamily: "monospace",
+          }),
           // Prevent theme-level Paper gradients (e.g. Musk) from covering user bubble bgcolor
-          ...(isUser && { backgroundImage: 'none' }),
-          borderTopLeftRadius: isUser ? 16 : 4,
-          borderTopRightRadius: isUser ? 4 : 16,
-          borderBottomLeftRadius: 16,
-          borderBottomRightRadius: 16,
+          ...(isUser && !isCommand && { backgroundImage: 'none' }),
+          ...(!isCommand && {
+            borderTopLeftRadius: isUser ? 16 : 4,
+            borderTopRightRadius: isUser ? 4 : 16,
+            borderBottomLeftRadius: 16,
+            borderBottomRightRadius: 16,
+          }),
         }}
       >
+        {/* Command badge */}
+        {isCommand && (
+          <Chip label="command" size="small" variant="outlined" color="info"
+            sx={{ height: 18, fontSize: "0.65rem", mb: 0.5, fontFamily: "monospace" }} />
+        )}
         {/* Display image if present */}
         {(message.imageUrl || message.relatedImageUrl) && (
           <Box sx={{ mb: 1 }}>
