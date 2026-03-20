@@ -132,8 +132,11 @@ const CodeEditorPage = () => {
         source: 'document',
         documentId: incoming.id,
       };
-      setOpenTabs(prev => [...prev, newTab]);
-      setActiveTabIndex(prev => prev + 1 || 0);
+      setOpenTabs(prev => {
+        const updated = [...prev, newTab];
+        setActiveTabIndex(updated.length - 1);
+        return updated;
+      });
     };
     // Delay slightly to let state restoration finish
     setTimeout(openIncoming, 500);
