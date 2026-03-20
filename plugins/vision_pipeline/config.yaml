@@ -1,0 +1,51 @@
+capture:
+  max_fps: 2.0
+  min_fps: 0.25
+  quality: 70
+  width: 512
+  format: "jpeg"
+
+models:
+  monitor: "moondream"
+  escalation: "llava:13b"
+  auto_select: true
+  fallback_order:
+    - "moondream"
+    - "llava:7b"
+    - "llava:latest"
+    - "bakllava"
+
+analysis:
+  change_threshold: 0.3
+  periodic_refresh_seconds: 10
+  monitor_prompt: "Describe what you see in one brief sentence."
+  escalation_prompt: "Describe this image in detail including objects, text, people, actions, and anything notable."
+
+context:
+  window_seconds: 30
+  max_entries: 60
+  compression_interval: 15
+  max_context_tokens: 500
+
+gpu:
+  utilization_pause_threshold: 90
+  utilization_throttle_threshold: 75
+  contention_behavior: "min_fps"
+
+streams:
+  max_concurrent: 2
+  stale_timeout_seconds: 60
+
+benchmark:
+  test_resolutions:
+    - [512, 512]
+    - [720, 480]
+    - [1280, 720]
+  frames_per_test: 5
+  results_file: "benchmark_results.json"
+
+logging:
+  file: "logs/vision_pipeline.log"
+  level: "INFO"
+  max_size_mb: 50
+  backup_count: 3

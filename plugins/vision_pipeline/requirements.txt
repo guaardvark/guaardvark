@@ -1,0 +1,9 @@
+fastapi==0.115.0
+uvicorn==0.30.0
+Pillow>=10.0.0
+imagehash>=4.3.0
+pynvml>=11.5.0
+requests>=2.31.0
+PyYAML>=6.0
+pytest>=8.0.0
+httpx>=0.27.0

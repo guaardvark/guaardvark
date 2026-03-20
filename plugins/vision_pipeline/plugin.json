@@ -1,0 +1,47 @@
+{
+  "id": "vision_pipeline",
+  "name": "Vision Pipeline",
+  "version": "1.0.0",
+  "description": "Real-time vision processing pipeline for video chat and screen share. Captures frames, analyzes via Ollama vision models, and provides scene context to the chat engine.",
+  "author": "Guaardvark",
+  "type": "service",
+  "category": "inference",
+  "port": 8201,
+  "vram_estimate_mb": 2000,
+  "dependencies": ["ollama"],
+  "config": {
+    "enabled": false,
+    "service_url": "http://localhost:8201",
+    "timeout": 30,
+    "fallback_enabled": false,
+    "monitor_model": "moondream",
+    "escalation_model": "llava:13b",
+    "max_fps": 2,
+    "min_fps": 0.25,
+    "frame_quality": 70,
+    "frame_width": 512,
+    "context_window_seconds": 30,
+    "change_threshold": 0.3
+  },
+  "requirements": {
+    "gpu": false,
+    "cuda": false,
+    "ollama": true
+  },
+  "endpoints": {
+    "health": "/health",
+    "analyze": "/analyze",
+    "frame": "/frame",
+    "frame_latest": "/frame/latest",
+    "stream_start": "/stream/start",
+    "stream_stop": "/stream/stop",
+    "stream_pause": "/stream/pause",
+    "stream_resume": "/stream/resume",
+    "context": "/context",
+    "gpu_contention": "/gpu/contention",
+    "benchmark": "/benchmark",
+    "benchmark_results": "/benchmark/results",
+    "config": "/config",
+    "status": "/status"
+  }
+}
