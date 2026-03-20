@@ -54,6 +54,7 @@ const CodeEditorCard = React.forwardRef(
       activeTabIndex,
       setActiveTabIndex,
       onEditorContextChange,
+      onChatAction,
       ...props
     },
     ref
@@ -303,30 +304,57 @@ ${currentTab.content}
         }
       });
 
-      // Register AI commands
+      // Register Chat context menu actions (appear in Monaco's right-click menu)
       editor.addAction({
-        id: 'ai.explain',
-        label: 'Explain Selected Code',
-        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyE],
-        run: async (editor) => {
-          const selection = editor.getSelection();
-          const selectedText = editor.getModel().getValueInRange(selection);
-          if (selectedText) {
-            await handleAICommand('explain', selectedText);
-          }
+        id: 'chat.ask',
+        label: 'Ask Chat',
+        contextMenuGroupId: '9_chat',
+        contextMenuOrder: 1,
+        precondition: 'editorHasSelection',
+        run: (ed) => {
+          const sel = ed.getSelection();
+          const text = ed.getModel().getValueInRange(sel);
+          if (text && onChatAction) onChatAction('ask', text, currentTab?.filePath);
         }
       });
 
       editor.addAction({
-        id: 'ai.optimize',
-        label: 'Optimize Selected Code',
-        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyO],
-        run: async (editor) => {
-          const selection = editor.getSelection();
-          const selectedText = editor.getModel().getValueInRange(selection);
-          if (selectedText) {
-            await handleAICommand('optimize', selectedText);
-          }
+        id: 'chat.fix',
+        label: 'Fix This',
+        contextMenuGroupId: '9_chat',
+        contextMenuOrder: 2,
+        precondition: 'editorHasSelection',
+        run: (ed) => {
+          const sel = ed.getSelection();
+          const text = ed.getModel().getValueInRange(sel);
+          if (text && onChatAction) onChatAction('fix', text, currentTab?.filePath);
+        }
+      });
+
+      editor.addAction({
+        id: 'chat.explain',
+        label: 'Explain',
+        contextMenuGroupId: '9_chat',
+        contextMenuOrder: 3,
+        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyE],
+        precondition: 'editorHasSelection',
+        run: (ed) => {
+          const sel = ed.getSelection();
+          const text = ed.getModel().getValueInRange(sel);
+          if (text && onChatAction) onChatAction('explain', text, currentTab?.filePath);
+        }
+      });
+
+      editor.addAction({
+        id: 'chat.addToChat',
+        label: 'Add to Chat',
+        contextMenuGroupId: '9_chat',
+        contextMenuOrder: 4,
+        precondition: 'editorHasSelection',
+        run: (ed) => {
+          const sel = ed.getSelection();
+          const text = ed.getModel().getValueInRange(sel);
+          if (text && onChatAction) onChatAction('add', text, currentTab?.filePath);
         }
       });
 
@@ -953,6 +981,7 @@ ${currentTab.content}
             <ListItemText>Rename Tab</ListItemText>
           </MenuItem>
         </Menu>
+
 
         {/* Preview Dialog */}
         <Dialog 

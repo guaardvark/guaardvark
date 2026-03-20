@@ -200,6 +200,66 @@ const CodeEditorPage = () => {
     setEditorContext(context);
   }, []);
 
+  // Handle right-click chat actions from the editor (Ask Chat, Add to Chat, etc.)
+  const handleEditorChatAction = useCallback((action, selectedText, filePath) => {
+    if (!selectedText?.trim()) return;
+
+    const codeBlock = "```" + (currentTab?.language || '') + "\n" + selectedText + "\n```";
+
+    switch (action) {
+      case 'ask': {
+        const msg = {
+          id: Date.now().toString(),
+          role: 'user',
+          content: `Regarding this code from ${filePath || 'the editor'}:\n\n${codeBlock}\n\nWhat does this do and are there any issues?`,
+          timestamp: new Date().toISOString(),
+          pending: true,
+          skipRag: true,
+        };
+        setChatMessages(prev => [...prev, msg]);
+        break;
+      }
+      case 'fix': {
+        const msg = {
+          id: Date.now().toString(),
+          role: 'user',
+          content: `Fix any issues in this code from ${filePath || 'the editor'}:\n\n${codeBlock}`,
+          timestamp: new Date().toISOString(),
+          pending: true,
+          skipRag: true,
+        };
+        setChatMessages(prev => [...prev, msg]);
+        break;
+      }
+      case 'explain': {
+        const msg = {
+          id: Date.now().toString(),
+          role: 'user',
+          content: `Explain this code from ${filePath || 'the editor'}:\n\n${codeBlock}`,
+          timestamp: new Date().toISOString(),
+          pending: true,
+          skipRag: true,
+        };
+        setChatMessages(prev => [...prev, msg]);
+        break;
+      }
+      case 'add': {
+        // Just add the code as context without asking a question
+        const msg = {
+          id: Date.now().toString(),
+          role: 'user',
+          content: `[Added code from ${filePath || 'the editor'}]\n\n${codeBlock}`,
+          timestamp: new Date().toISOString(),
+          context: true,
+        };
+        setChatMessages(prev => [...prev, msg]);
+        break;
+      }
+      default:
+        break;
+    }
+  }, [currentTab?.language, setChatMessages]);
+
   const metrics = useMemo(() => {
     if (!currentTab?.content) {
       return {
@@ -1332,6 +1392,7 @@ const CodeEditorPage = () => {
                       })}
                       {...(cardId === 'editor' && {
                         onEditorContextChange: handleEditorContextChange,
+                        onChatAction: handleEditorChatAction,
                       })}
                       {...(cardId === 'output' && {
                         currentTab: currentTab
