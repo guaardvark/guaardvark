@@ -494,6 +494,54 @@ def register_test_execution_tools() -> List[str]:
     return registered
 
 
+def register_agent_control_tools() -> List[str]:
+    """Register agent vision control tools"""
+    global _tool_categories
+    registered = []
+    category = "agent_control"
+
+    try:
+        from backend.tools.agent_control_tools import (
+            AgentModeStartTool,
+            AgentModeStopTool,
+            AgentTaskExecuteTool,
+            AgentScreenCaptureTool,
+            AgentStatusTool,
+        )
+
+        register_tool(AgentModeStartTool())
+        registered.append("agent_mode_start")
+        _tool_categories["agent_mode_start"] = category
+        logger.info("Registered: AgentModeStartTool")
+
+        register_tool(AgentModeStopTool())
+        registered.append("agent_mode_stop")
+        _tool_categories["agent_mode_stop"] = category
+        logger.info("Registered: AgentModeStopTool")
+
+        register_tool(AgentTaskExecuteTool())
+        registered.append("agent_task_execute")
+        _tool_categories["agent_task_execute"] = category
+        logger.info("Registered: AgentTaskExecuteTool")
+
+        register_tool(AgentScreenCaptureTool())
+        registered.append("agent_screen_capture")
+        _tool_categories["agent_screen_capture"] = category
+        logger.info("Registered: AgentScreenCaptureTool")
+
+        register_tool(AgentStatusTool())
+        registered.append("agent_status")
+        _tool_categories["agent_status"] = category
+        logger.info("Registered: AgentStatusTool")
+
+    except ImportError as e:
+        logger.error(f"Failed to import agent control tools: {e}")
+    except Exception as e:
+        logger.error(f"Failed to register agent control tools: {e}")
+
+    return registered
+
+
 def initialize_all_tools() -> ToolRegistry:
     """
     Initialize and register all available tools.
@@ -525,6 +573,7 @@ def initialize_all_tools() -> ToolRegistry:
     _registered_tools.extend(register_media_tools())
     _registered_tools.extend(register_image_tools())
     _registered_tools.extend(register_test_execution_tools())
+    _registered_tools.extend(register_agent_control_tools())
 
     # Get the registry for status reporting
     registry = get_tool_registry()
