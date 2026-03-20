@@ -20,6 +20,16 @@ def get_rules():
                 Project.id == project_id_filter
             )
 
+        # Filter by rule type (e.g., COMMAND_RULE)
+        rule_type = request.args.get("type")
+        if rule_type:
+            query = query.filter(Rule.type == rule_type)
+
+        # Filter by active status
+        is_active = request.args.get("is_active")
+        if is_active is not None:
+            query = query.filter(Rule.is_active == (is_active.lower() in ("true", "1", "yes")))
+
         # Optimize query with pagination and eager loading
         page = request.args.get('page', 1, type=int)
         per_page = min(request.args.get('per_page', 50, type=int), 100)  # Max 100 per page
