@@ -8,7 +8,9 @@
   "category": "inference",
   "port": 8201,
   "vram_estimate_mb": 2000,
-  "dependencies": ["ollama"],
+  "dependencies": [
+    "ollama"
+  ],
   "config": {
     "enabled": false,
     "service_url": "http://localhost:8201",
