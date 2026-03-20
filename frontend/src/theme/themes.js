@@ -565,6 +565,7 @@ export const themes = {
     label: "Vader",
     description: "Dark imposing theme with black and red accents inspired by Darth Vader",
     previewGradient: "linear-gradient(135deg, #d32f2f, #000000)",
+    icon: "imperial",
     theme: vaderTheme,
   },
 };
