@@ -57,34 +57,15 @@ const RadioactiveIcon = ({ size = 40 }) => (
   </svg>
 );
 
-// Sith emblem icon for Vader theme — hexagon with 6 pointed spokes
+// Sith emblem for Vader theme — actual PNG with transparent background
 const SithIcon = ({ size = 40 }) => (
-  <svg width={size} height={size} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-    {/* Outer hexagon ring with gaps */}
-    <path d="M32 3 L56 17 L56 47 L32 61 L8 47 L8 17 Z" fill="none" stroke="rgba(0,0,0,0.85)" strokeWidth="4" strokeLinejoin="round" />
-    {/* Gap notches on each edge */}
-    <line x1="44" y1="9" x2="47" y2="12" stroke="rgba(211,47,47,1)" strokeWidth="5" />
-    <line x1="57" y1="30" x2="57" y2="34" stroke="rgba(211,47,47,1)" strokeWidth="5" />
-    <line x1="44" y1="55" x2="47" y2="52" stroke="rgba(211,47,47,1)" strokeWidth="5" />
-    <line x1="20" y1="55" x2="17" y2="52" stroke="rgba(211,47,47,1)" strokeWidth="5" />
-    <line x1="7" y1="30" x2="7" y2="34" stroke="rgba(211,47,47,1)" strokeWidth="5" />
-    <line x1="20" y1="9" x2="17" y2="12" stroke="rgba(211,47,47,1)" strokeWidth="5" />
-    {/* 6 spokes radiating from center — pointed, tapered */}
-    {/* Top */}
-    <path d="M32 8 L29 20 L32 17 L35 20 Z" fill="rgba(0,0,0,0.85)" />
-    {/* Top-right */}
-    <path d="M52 19 L40 23 L40 20 L43 18 Z" fill="rgba(0,0,0,0.85)" />
-    {/* Bottom-right */}
-    <path d="M52 45 L43 46 L40 44 L40 41 Z" fill="rgba(0,0,0,0.85)" />
-    {/* Bottom */}
-    <path d="M32 56 L35 44 L32 47 L29 44 Z" fill="rgba(0,0,0,0.85)" />
-    {/* Bottom-left */}
-    <path d="M12 45 L21 46 L24 44 L24 41 Z" fill="rgba(0,0,0,0.85)" />
-    {/* Top-left */}
-    <path d="M12 19 L24 23 L24 20 L21 18 Z" fill="rgba(0,0,0,0.85)" />
-    {/* Center hexagon */}
-    <path d="M32 22 L40 27 L40 37 L32 42 L24 37 L24 27 Z" fill="rgba(0,0,0,0.85)" />
-  </svg>
+  <img
+    src="/theme-icons/sith-emblem.png"
+    alt="Sith"
+    width={size}
+    height={size}
+    style={{ objectFit: "contain", filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.5))" }}
+  />
 );
 
 const ThemePreview = ({ themeKey, themeData, isSelected, onClick }) => {
