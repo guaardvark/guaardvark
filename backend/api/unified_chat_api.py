@@ -102,6 +102,18 @@ def unified_chat():
         except Exception as img_err:
             logger.warning(f"Failed to save chat image: {img_err}")
 
+    # Vision pipeline: attach latest frame if active and no explicit image
+    if not image_data:
+        try:
+            from backend.utils.vision_context_utils import get_vision_context, get_latest_frame
+            vision_ctx = get_vision_context()
+            if vision_ctx:
+                latest_frame = get_latest_frame()
+                if latest_frame:
+                    image_data = latest_frame
+        except Exception:
+            pass
+
     def run_engine():
         try:
             engine.chat(session_id, message, options, emit_fn, app=app,

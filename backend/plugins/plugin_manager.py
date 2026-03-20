@@ -113,7 +113,21 @@ class PluginManager:
         
         if self._plugin_status.get(plugin_id) == PluginStatus.RUNNING:
             return {'success': True, 'message': 'Plugin already running'}
-        
+
+        # Check dependencies are running
+        for dep_id in getattr(metadata, 'dependencies', []):
+            if not self.registry.is_registered(dep_id):
+                return {
+                    'success': False,
+                    'error': f"Required dependency '{dep_id}' is not installed"
+                }
+            dep_status = self.get_status(dep_id)
+            if dep_status != PluginStatus.RUNNING:
+                return {
+                    'success': False,
+                    'error': f"Required dependency '{dep_id}' is not running (status: {dep_status.value})"
+                }
+
         plugin_dir = self.registry.get_plugin_dir(plugin_id)
         if not plugin_dir:
             return {'success': False, 'error': 'Plugin directory not found'}

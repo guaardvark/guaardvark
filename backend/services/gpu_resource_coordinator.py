@@ -225,6 +225,17 @@ class GPUResourceCoordinator:
             logger.warning(f"Error checking Ollama status: {e}")
             return False
 
+    def _notify_vision_pipeline(self, action: str, source: str):
+        """Best-effort notification to vision pipeline plugin. Fire and forget."""
+        try:
+            requests.post(
+                "http://localhost:8201/gpu/contention",
+                json={"source": source, "action": action},
+                timeout=1
+            )
+        except Exception:
+            pass  # Plugin not running — that's fine
+
     def _stop_ollama(self) -> bool:
         """Stop Ollama service to free GPU memory."""
         logger.info("Stopping Ollama service for video generation...")
@@ -387,6 +398,7 @@ class GPUResourceCoordinator:
             self._write_lock_file(lock_info)
 
             logger.info(f"GPU lock acquired for video generation (batch: {batch_id})")
+            self._notify_vision_pipeline("start", "video_gen")
 
             return {
                 "success": True,
@@ -431,6 +443,7 @@ class GPUResourceCoordinator:
             # Release the lock
             self._release_lock_file()
             logger.info("GPU lock released from video generation")
+            self._notify_vision_pipeline("stop", "video_gen")
 
             # Don't restart Ollama automatically - user controls it via UI
             return {

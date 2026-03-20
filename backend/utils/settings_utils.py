@@ -71,6 +71,13 @@ ENV_VAR_MAP = {
     "rag_debug_enabled": "GUAARDVARK_RAG_DEBUG",
     "claude_escalation_mode": "GUAARDVARK_CLAUDE_ESCALATION_MODE",
     "claude_monthly_budget": "GUAARDVARK_CLAUDE_TOKEN_BUDGET",
+    "vision_pipeline_enabled": "GUAARDVARK_VISION_PIPELINE",
+    "vision_pipeline_max_fps": "GUAARDVARK_VISION_MAX_FPS",
+    "vision_pipeline_quality": "GUAARDVARK_VISION_QUALITY",
+    "vision_pipeline_resolution": "GUAARDVARK_VISION_RESOLUTION",
+    "vision_pipeline_monitor_model": "GUAARDVARK_VISION_MONITOR_MODEL",
+    "vision_pipeline_escalation_model": "GUAARDVARK_VISION_ESCALATION_MODEL",
+    "vision_pipeline_auto_select": "GUAARDVARK_VISION_AUTO_SELECT",
 }
 
 _BOOL_TRUTHY = {"true", "1", "yes"}

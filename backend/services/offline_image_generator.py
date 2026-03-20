@@ -219,6 +219,10 @@ class OfflineImageGenerator:
         
         self._generation_lock = threading.Lock()
 
+        self._compile_failed = False
+        self._compile_unet_orig = None
+        self._compile_vae_orig = None
+
         self.service_available = diffusion_available
 
         logger.info(f"OfflineImageGenerator initialized - Device: {self._device}, Models dir: {self.models_dir}")
@@ -334,17 +338,21 @@ class OfflineImageGenerator:
                 logger.info("Enabled VAE tiling")
 
 
-            if hasattr(torch, 'compile') and self._device == "cuda":
+            if hasattr(torch, 'compile') and self._device == "cuda" and not self._compile_failed:
                 try:
                     if hasattr(self._pipeline, 'unet'):
+                        self._compile_unet_orig = self._pipeline.unet
                         self._pipeline.unet = torch.compile(self._pipeline.unet, mode="reduce-overhead")
                         logger.info("Enabled torch.compile for UNet")
-                    
+
                     if hasattr(self._pipeline, 'vae'):
+                        self._compile_vae_orig = self._pipeline.vae
                         self._pipeline.vae = torch.compile(self._pipeline.vae, mode="reduce-overhead")
                         logger.info("Enabled torch.compile for VAE")
                 except Exception as e:
                     logger.warning(f"Failed to enable torch.compile: {e}")
+                    self._compile_unet_orig = None
+                    self._compile_vae_orig = None
 
             self._current_model = model_id
             logger.info(f"Pipeline loaded successfully with model {model_id}")
@@ -667,6 +675,15 @@ Negative Prompt: {negative_prompt}""",
             }
         }
 
+    def _notify_vision_pipeline(self, action: str):
+        """Best-effort notification to vision pipeline. Fire and forget."""
+        try:
+            import requests as req
+            req.post("http://localhost:8201/gpu/contention",
+                     json={"source": "image_gen", "action": action}, timeout=1)
+        except Exception:
+            pass
+
     def generate_image(self, request: ImageGenerationRequest) -> ImageGenerationResult:
         start_time = time.time()
 
@@ -682,6 +699,7 @@ Negative Prompt: {negative_prompt}""",
             return result
 
         with self._generation_lock:
+            self._notify_vision_pipeline("start")
             try:
                 model_id = self.available_models.get(request.model, self.default_model)
                 logger.info(f"Using model: {request.model} -> {model_id}")
@@ -737,16 +755,49 @@ Negative Prompt: {negative_prompt}""",
                 logger.info(f"Generating image: {enhanced_prompt[:100]}...")
 
                 if self._device == "cuda":
-                    with torch.autocast("cuda"):
-                        output = self._pipeline(
-                            prompt=enhanced_prompt,
-                            negative_prompt=combined_negative,
-                            width=request.width,
-                            height=request.height,
-                            num_inference_steps=request.num_inference_steps,
-                            guidance_scale=request.guidance_scale,
-                            generator=generator
+                    try:
+                        with torch.autocast("cuda"):
+                            output = self._pipeline(
+                                prompt=enhanced_prompt,
+                                negative_prompt=combined_negative,
+                                width=request.width,
+                                height=request.height,
+                                num_inference_steps=request.num_inference_steps,
+                                guidance_scale=request.guidance_scale,
+                                generator=generator
+                            )
+                    except (AssertionError, RuntimeError) as compile_err:
+                        is_compile_failure = (
+                            (isinstance(compile_err, AssertionError) and not str(compile_err))
+                            or any(kw in str(compile_err).lower() for kw in
+                                   ('triton', 'dynamo', 'inductor', 'cuda graph', 'torch.compile'))
                         )
+                        has_compiled_modules = (
+                            self._compile_unet_orig is not None or self._compile_vae_orig is not None
+                        )
+                        if is_compile_failure and has_compiled_modules and not self._compile_failed:
+                            logger.warning(
+                                f"torch.compile first-pass failure "
+                                f"({type(compile_err).__name__}: {compile_err or 'no message'}) "
+                                f"— stripping compiled wrappers and retrying in eager mode"
+                            )
+                            if self._compile_unet_orig is not None:
+                                self._pipeline.unet = self._compile_unet_orig
+                            if self._compile_vae_orig is not None:
+                                self._pipeline.vae = self._compile_vae_orig
+                            self._compile_failed = True
+                            with torch.autocast("cuda"):
+                                output = self._pipeline(
+                                    prompt=enhanced_prompt,
+                                    negative_prompt=combined_negative,
+                                    width=request.width,
+                                    height=request.height,
+                                    num_inference_steps=request.num_inference_steps,
+                                    guidance_scale=request.guidance_scale,
+                                    generator=generator
+                                )
+                        else:
+                            raise
                 else:
                     output = self._pipeline(
                         prompt=enhanced_prompt,
@@ -842,6 +893,8 @@ Negative Prompt: {negative_prompt}""",
                 error_msg = str(e) or f"{type(e).__name__} (no message)"
                 result.error = f"Generation failed: {error_msg}"
                 result.generation_time = time.time() - start_time
+            finally:
+                self._notify_vision_pipeline("stop")
 
         return result
 
@@ -871,6 +924,7 @@ Negative Prompt: {negative_prompt}""",
             return result
 
         with self._generation_lock:
+            self._notify_vision_pipeline("start")
             try:
                 model_id = self.available_models.get(model, model)
                 is_sdxl = 'xl' in model_id.lower() or 'sdxl' in model_id.lower()
@@ -965,6 +1019,8 @@ Negative Prompt: {negative_prompt}""",
                 error_msg = str(e) or f"{type(e).__name__} (no message)"
                 result.error = f"img2img failed: {error_msg}"
                 result.generation_time = time.time() - start_time
+            finally:
+                self._notify_vision_pipeline("stop")
 
         return result
 

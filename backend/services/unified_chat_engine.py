@@ -429,6 +429,14 @@ class UnifiedChatEngine:
         context_parts = []
         if rag_context:
             context_parts.append(f"Relevant context from knowledge base:\n{rag_context}")
+        # Vision pipeline context (if active)
+        try:
+            from backend.utils.vision_context_utils import get_vision_context, format_vision_context
+            vision_ctx = get_vision_context()
+            if vision_ctx:
+                context_parts.append(format_vision_context(vision_ctx))
+        except Exception:
+            pass  # Vision pipeline not available — no impact on chat
         if context_parts:
             user_content = "\n\n".join(context_parts) + f"\n\nUser message: {message}"
 
