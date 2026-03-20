@@ -38,6 +38,25 @@ const CologneBottleIcon = ({ size = 40 }) => (
   </svg>
 );
 
+// Radioactive trefoil symbol for Fallout theme
+const RadioactiveIcon = ({ size = 40 }) => (
+  <svg width={size} height={size} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+    {/* Three fan blades */}
+    <path d="M32 12 C32 12 22 22 24 32 C18 30 8 30 8 30 C8 20 18 10 32 12Z" fill="rgba(240,192,64,0.85)" />
+    <path d="M52 42 C52 42 42 32 32 34 C34 28 32 18 32 18 C44 18 54 30 52 42Z" fill="rgba(240,192,64,0.85)" />
+    <path d="M22 50 C22 50 32 40 32 34 C28 38 20 44 20 44 C14 52 22 58 32 58 C30 58 22 56 22 50Z" fill="rgba(240,192,64,0.85)" />
+    {/* Simplified trefoil using circles and arcs */}
+    <circle cx="32" cy="32" r="6" fill="rgba(10,14,10,0.95)" stroke="rgba(240,192,64,0.9)" strokeWidth="1.5" />
+    <circle cx="32" cy="32" r="20" fill="none" stroke="rgba(24,255,109,0.4)" strokeWidth="1" strokeDasharray="4 3" />
+    {/* Three radiation wedges */}
+    <path d="M32 12 A20 20 0 0 1 49.3 42 L38 36 A8 8 0 0 0 34 24 Z" fill="rgba(24,255,109,0.6)" />
+    <path d="M49.3 42 A20 20 0 0 1 14.7 42 L26 36 A8 8 0 0 0 38 36 Z" fill="rgba(24,255,109,0.6)" />
+    <path d="M14.7 42 A20 20 0 0 1 32 12 L34 24 A8 8 0 0 0 26 36 Z" fill="rgba(24,255,109,0.6)" />
+    {/* Center dot */}
+    <circle cx="32" cy="32" r="4" fill="rgba(24,255,109,0.9)" />
+  </svg>
+);
+
 const ThemePreview = ({ themeKey, themeData, isSelected, onClick }) => {
   const { label, description, previewGradient, icon } = themeData;
   
@@ -55,6 +74,7 @@ const ThemePreview = ({ themeKey, themeData, isSelected, onClick }) => {
       light: "linear-gradient(135deg, #fafafa, #1976d2)",
       sunset: "linear-gradient(45deg, #ff7043, #ffb74d)",
       musk: "linear-gradient(45deg, #00e5ff, #ff1744)",
+      hacker: "linear-gradient(135deg, #18ff6d, #0a0e0a, #f0c040)",
     };
     
     return {
@@ -109,6 +129,7 @@ const ThemePreview = ({ themeKey, themeData, isSelected, onClick }) => {
         )}
         <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}>
           {icon === "cologne" && <CologneBottleIcon size={36} />}
+          {icon === "radioactive" && <RadioactiveIcon size={36} />}
           <Typography
             variant="h6"
             sx={{
@@ -116,7 +137,7 @@ const ThemePreview = ({ themeKey, themeData, isSelected, onClick }) => {
               fontWeight: "bold",
               textShadow: "0 2px 4px rgba(0,0,0,0.5)",
               textAlign: "center",
-              ...(icon === "cologne" && { fontSize: "0.9rem" }),
+              ...(icon && { fontSize: "0.9rem" }),
             }}
           >
             {label}

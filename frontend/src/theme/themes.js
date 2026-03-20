@@ -78,29 +78,29 @@ const muskTheme = createFullTheme({
   },
 });
 
-// ─── Hacker: Terminal green on black ─────────────────────────────────────────
+// ─── Fallout: Pip-Boy inspired green/amber on dark ──────────────────────────
 
 const hackerTheme = createFullTheme({
-  accent: "#00ff41",
-  accentDark: "#00b82f",
-  accentLight: "#33ff66",
-  secondary: "#39ff14",
-  secondaryDark: "#2eb80e",
-  secondaryLight: "#66ff47",
-  bg: "#000000",
-  bgPaper: "rgba(0, 20, 0, 0.9)",
-  textPrimary: "#00ff41",
-  textSecondary: "#39ff14",
-  divider: "rgba(0, 255, 65, 0.15)",
+  accent: "#18ff6d",
+  accentDark: "#10c050",
+  accentLight: "#55ff8a",
+  secondary: "#f0c040",
+  secondaryDark: "#c09a20",
+  secondaryLight: "#f5d060",
+  bg: "#0a0e0a",
+  bgPaper: "rgba(10, 20, 10, 0.92)",
+  textPrimary: "#18ff6d",
+  textSecondary: "#90c0a0",
+  divider: "rgba(24, 255, 109, 0.15)",
   fontFamily: '"Courier New", "Monaco", monospace',
   componentOverrides: {
     MuiPaper: {
       styleOverrides: {
         root: {
-          backgroundColor: "rgba(0, 20, 0, 0.9)",
+          backgroundColor: "rgba(10, 20, 10, 0.92)",
           backgroundImage: "none",
-          border: "1px solid #00ff41",
-          boxShadow: "0 0 15px rgba(0, 255, 65, 0.2)",
+          border: "1px solid rgba(24, 255, 109, 0.3)",
+          boxShadow: "0 0 12px rgba(24, 255, 109, 0.15)",
         },
       },
     },
@@ -108,9 +108,9 @@ const hackerTheme = createFullTheme({
       styleOverrides: {
         root: {
           backgroundImage: "none",
-          backgroundColor: "rgba(0, 20, 0, 0.9)",
-          border: "1px solid #00ff41",
-          boxShadow: "0 0 10px rgba(0, 255, 65, 0.15)",
+          backgroundColor: "rgba(10, 20, 10, 0.92)",
+          border: "1px solid rgba(24, 255, 109, 0.3)",
+          boxShadow: "0 0 8px rgba(24, 255, 109, 0.1)",
           borderRadius: "0",
         },
       },
@@ -555,9 +555,10 @@ export const themes = {
     theme: muskTheme,
   },
   hacker: {
-    label: "Matrix Hacker",
-    description: "Terminal-inspired green-on-black for the ultimate coding experience",
-    previewGradient: "linear-gradient(135deg, #00ff41, #001100)",
+    label: "Fallout",
+    description: "Pip-Boy inspired wasteland terminal with radiation green and amber",
+    previewGradient: "linear-gradient(135deg, #18ff6d, #0a0e0a, #f0c040)",
+    icon: "radioactive",
     theme: hackerTheme,
   },
   vader: {
