@@ -32,6 +32,8 @@ export default function UncleClaudeSection({ compact = false }) {
   const [loading, setLoading] = useState(true);
   const [testResult, setTestResult] = useState(null);
   const [testing, setTesting] = useState(false);
+  const [selfCheckRunning, setSelfCheckRunning] = useState(false);
+  const [selfCheckResult, setSelfCheckResult] = useState(null);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -93,11 +95,37 @@ export default function UncleClaudeSection({ compact = false }) {
   };
 
   const handleTriggerRun = async () => {
+    setSelfCheckRunning(true);
+    setSelfCheckResult(null);
     try {
-      await selfImprovementService.triggerRun();
-      setTimeout(fetchStatus, 3000);
+      const res = await selfImprovementService.triggerRun();
+      const taskId = res?.data?.task_id;
+      // Poll for completion by checking if a new run appears
+      const startTime = Date.now();
+      const pollInterval = setInterval(async () => {
+        try {
+          const runsRes = await selfImprovementService.getRuns(1, 0);
+          const latestRun = runsRes?.data?.runs?.[0];
+          if (latestRun && new Date(latestRun.timestamp).getTime() > startTime - 5000) {
+            // New run appeared — show results
+            clearInterval(pollInterval);
+            setSelfCheckRunning(false);
+            setSelfCheckResult(latestRun);
+            fetchStatus();
+          } else if (Date.now() - startTime > 120000) {
+            // Timeout after 2 minutes
+            clearInterval(pollInterval);
+            setSelfCheckRunning(false);
+            setSelfCheckResult({ status: "timeout", error_message: "Self-check timed out after 2 minutes. Check logs for details." });
+          }
+        } catch (pollErr) {
+          console.error("Poll error:", pollErr);
+        }
+      }, 3000);
     } catch (err) {
       console.error("Failed to trigger self-improvement:", err);
+      setSelfCheckRunning(false);
+      setSelfCheckResult({ status: "error", error_message: err.message || "Failed to dispatch self-check" });
     }
   };
 
@@ -240,12 +268,103 @@ export default function UncleClaudeSection({ compact = false }) {
               size="small"
               variant="outlined"
               onClick={handleTriggerRun}
-              startIcon={<PlayIcon />}
+              disabled={selfCheckRunning}
+              startIcon={selfCheckRunning ? <CircularProgress size={14} /> : <PlayIcon />}
             >
-              Run Self-Check
+              {selfCheckRunning ? "Running..." : "Run Self-Check"}
             </Button>
           )}
         </SettingsRow>
+
+        {/* Self-Check Output */}
+        {(selfCheckRunning || selfCheckResult) && (
+          <Box sx={{
+            mt: 1, mx: 1, p: 1.5,
+            bgcolor: "background.default",
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: 1,
+            fontFamily: "monospace",
+            fontSize: "0.8rem",
+            maxHeight: 300,
+            overflow: "auto",
+          }}>
+            {selfCheckRunning && (
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
+                <CircularProgress size={14} />
+                <Typography variant="body2" fontFamily="monospace" fontSize="0.8rem">
+                  Self-check in progress... Running tests and analyzing codebase.
+                </Typography>
+              </Box>
+            )}
+            {selfCheckResult && (
+              <Box>
+                <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
+                  <Typography variant="body2" fontFamily="monospace" fontSize="0.8rem" fontWeight="bold"
+                    color={selfCheckResult.status === "success" ? "success.main" : selfCheckResult.status === "error" || selfCheckResult.status === "timeout" ? "error.main" : "warning.main"}>
+                    Status: {selfCheckResult.status?.toUpperCase()}
+                  </Typography>
+                  {selfCheckResult.duration_seconds && (
+                    <Typography variant="body2" fontFamily="monospace" fontSize="0.8rem" color="text.secondary">
+                      {selfCheckResult.duration_seconds.toFixed(1)}s
+                    </Typography>
+                  )}
+                  <Button size="small" onClick={() => setSelfCheckResult(null)} sx={{ minWidth: 0, p: 0.5 }}>
+                    ✕
+                  </Button>
+                </Box>
+
+                {selfCheckResult.error_message && (
+                  <Typography variant="body2" fontFamily="monospace" fontSize="0.8rem" color="error.main" sx={{ mb: 1 }}>
+                    Error: {selfCheckResult.error_message}
+                  </Typography>
+                )}
+
+                {selfCheckResult.test_results_before && (
+                  <Box sx={{ mb: 1 }}>
+                    <Typography variant="body2" fontFamily="monospace" fontSize="0.8rem" color="text.secondary">
+                      Tests: {selfCheckResult.test_results_before.return_code === 0 ? "✓ PASSED" : `✗ FAILED (${selfCheckResult.test_results_before.total_failures} failures)`}
+                    </Typography>
+                    {selfCheckResult.test_results_before.failures?.length > 0 && (
+                      <Box sx={{ pl: 2, mt: 0.5 }}>
+                        {selfCheckResult.test_results_before.failures.map((f, i) => (
+                          <Typography key={i} variant="body2" fontFamily="monospace" fontSize="0.75rem" color="error.light">
+                            • {typeof f === "string" ? f : f.test || f.name || JSON.stringify(f)}
+                          </Typography>
+                        ))}
+                      </Box>
+                    )}
+                  </Box>
+                )}
+
+                {selfCheckResult.changes_made?.length > 0 ? (
+                  <Box sx={{ mb: 1 }}>
+                    <Typography variant="body2" fontFamily="monospace" fontSize="0.8rem" color="text.secondary">
+                      Changes ({selfCheckResult.changes_made.length}):
+                    </Typography>
+                    {selfCheckResult.changes_made.map((c, i) => (
+                      <Typography key={i} variant="body2" fontFamily="monospace" fontSize="0.75rem" color="info.light" sx={{ pl: 2 }}>
+                        • {typeof c === "string" ? c : c.file || c.description || JSON.stringify(c)}
+                      </Typography>
+                    ))}
+                  </Box>
+                ) : selfCheckResult.status === "success" ? (
+                  <Typography variant="body2" fontFamily="monospace" fontSize="0.8rem" color="text.secondary">
+                    No issues found. Codebase is healthy.
+                  </Typography>
+                ) : null}
+
+                {selfCheckResult.uncle_reviewed && selfCheckResult.uncle_feedback && (
+                  <Box sx={{ mt: 1, pt: 1, borderTop: "1px solid", borderColor: "divider" }}>
+                    <Typography variant="body2" fontFamily="monospace" fontSize="0.8rem" color={UNCLE_GOLD}>
+                      Uncle Claude: {selfCheckResult.uncle_feedback}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            )}
+          </Box>
+        )}
       </Wrapper>
 
       {siStatus?.codebase_locked && (
