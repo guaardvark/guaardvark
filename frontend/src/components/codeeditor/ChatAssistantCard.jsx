@@ -295,25 +295,23 @@ const ChatAssistantCard = React.forwardRef(
       }
     }, [editorContext]);
 
-    // Real-time code analysis function
+    // Real-time code analysis function — depends only on content/file, not cursor
     const performRealTimeAnalysis = useCallback(async () => {
-      if (!stableContext.content?.trim() || !realTimeAnalysis.enabled) return;
+      const content = currentTab?.content;
+      if (!content?.trim() || !realTimeAnalysis.enabled) return;
 
       // Skip automatic analysis for large files to prevent timeouts
       // Users can still request analysis manually via chat
       const MAX_AUTO_ANALYSIS_SIZE = 5000; // ~100-150 lines
-      if (stableContext.content.length > MAX_AUTO_ANALYSIS_SIZE) {
-        console.log(`Skipping auto-analysis: file size ${stableContext.content.length} exceeds limit ${MAX_AUTO_ANALYSIS_SIZE}`);
+      if (content.length > MAX_AUTO_ANALYSIS_SIZE) {
         return;
       }
 
       try {
         const context = {
-          filePath: stableContext.filePath || "untitled",
-          content: stableContext.content,
-          language: stableContext.language || "javascript",
-          selectedText: stableContext.selectedText,
-          cursorPosition: stableContext.cursorPosition
+          filePath: currentTab?.filePath || "untitled",
+          content: content,
+          language: currentTab?.language || "javascript",
         };
 
         // Perform comprehensive analysis
@@ -360,7 +358,7 @@ const ChatAssistantCard = React.forwardRef(
           lastUpdate: new Date(),
         }));
       }
-    }, [stableContext, realTimeAnalysis.enabled]);
+    }, [currentTab?.content, currentTab?.filePath, currentTab?.language, realTimeAnalysis.enabled]);
 
     // Debounced analysis trigger
     useEffect(() => {
@@ -424,8 +422,9 @@ const ChatAssistantCard = React.forwardRef(
     // Real-time editor context integration - editorContext prop provides real Monaco editor data
     // No simulation needed - editorContext comes from CodeEditorCard's Monaco editor events
 
-    const handleSendMessage = useCallback(async (userMessage) => {
+    const handleSendMessage = useCallback(async (userMessage, options = {}) => {
       if (!userMessage.trim() || isLoading) return;
+      const { skipRag = false } = options;
 
       const userMsg = {
         id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -688,8 +687,9 @@ Please provide a helpful, specific response about the selected code. Analyze the
           // General conversation with enhanced context using proper chat service
           if (currentTab && currentTab.content?.trim()) {
             // Search for relevant code context from indexed project documents (RAG)
+            // Skip RAG for right-click editor actions (code already provided inline)
             let projectContextText = '';
-            if (projectId) {
+            if (projectId && !skipRag) {
               updateLoadingProgress(20, "Searching project context...");
               const ragResults = await codeIntelligenceService.searchProjectCode(projectId, userMessage, 5);
               if (ragResults.success && ragResults.sources && ragResults.sources.length > 0) {
@@ -885,6 +885,23 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
         stopLoading();
       }
     }, [currentTab, setChatMessages, startProcess, completeProcess, errorProcess, setPendingCodeEdit, codeContext, realTimeAnalysis, rulesCutoffEnabled, openTabs, projectId]);
+
+    // Auto-send messages marked as pending (from editor right-click → Ask Chat / Fix / Explain)
+    const pendingProcessed = useRef(new Set());
+    useEffect(() => {
+      if (!chatMessages?.length || isLoading) return;
+      const last = chatMessages[chatMessages.length - 1];
+      if (last?.pending && last?.role === 'user' && !pendingProcessed.current.has(last.id)) {
+        pendingProcessed.current.add(last.id);
+        const msgSkipRag = last.skipRag || false;
+        // Clear the pending/skipRag flags so it renders as a normal user message
+        setChatMessages(prev => prev.map(m =>
+          m.id === last.id ? { ...m, pending: false, skipRag: undefined } : m
+        ));
+        // Send through the chat pipeline — skip RAG for editor right-click actions
+        handleSendMessage(last.content, { skipRag: msgSkipRag });
+      }
+    }, [chatMessages, isLoading, handleSendMessage, setChatMessages]);
 
     // Function to apply code changes to the current tab with support for selection-based edits
     const applyCodeToCurrentTab = useCallback((newCode, description = "AI-generated code", editRange = null) => {
@@ -1807,16 +1824,18 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
 
 ChatAssistantCard.displayName = "ChatAssistantCard";
 
-// Memoize component to prevent unnecessary re-renders
+// Memoize component — skip re-render when only content changes (keystrokes).
+// Content changes are handled internally via stableContext; the memo only
+// needs to track structural changes that affect the card's own rendering.
 const MemoizedChatAssistantCard = React.memo(ChatAssistantCard, (prevProps, nextProps) => {
-  // Custom comparison function for optimal performance
   return (
-    prevProps.chatMessages?.length === nextProps.chatMessages?.length &&
-    prevProps.currentTab?.content === nextProps.currentTab?.content &&
-    prevProps.currentTab?.filePath === nextProps.currentTab?.filePath &&
+    prevProps.chatMessages === nextProps.chatMessages &&
+    prevProps.currentTab === nextProps.currentTab &&
     prevProps.isMinimized === nextProps.isMinimized &&
     prevProps.rulesCutoffEnabled === nextProps.rulesCutoffEnabled &&
-    prevProps.openTabs?.length === nextProps.openTabs?.length
+    prevProps.openTabs === nextProps.openTabs &&
+    prevProps.editorContext === nextProps.editorContext &&
+    prevProps.cardColor === nextProps.cardColor
   );
 });
 
