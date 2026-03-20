@@ -281,6 +281,8 @@ const SettingsPage = () => {
   const [embeddingModels, setEmbeddingModels] = useState([]);
   const [selectedEmbeddingModel, setSelectedEmbeddingModel] = useState("");
   const [isSwitchingEmbedding, setIsSwitchingEmbedding] = useState(false);
+  const [embedDimFilter, setEmbedDimFilter] = useState(null); // null = all, or a number like 1024
+  const [chatSizeFilter, setChatSizeFilter] = useState(null); // null = all, or "small"/"medium"/"large"
 
   // RAG Autoresearch settings state
   const [autoresearchSettings, setAutoresearchSettings] = useState({});
@@ -747,8 +749,15 @@ const SettingsPage = () => {
       if (r.ok) {
         const d = await r.json();
         if (d.success) {
-          setEmbeddingModels(d.data.models || []);
-          if (d.data.active) setSelectedEmbeddingModel(d.data.active);
+          const models = d.data.models || [];
+          setEmbeddingModels(models);
+          if (d.data.active) {
+            // Match active name to model list (handles "mxbai-embed-large" vs "mxbai-embed-large:latest")
+            const active = d.data.active;
+            const exact = models.find((m) => m.name === active);
+            const partial = models.find((m) => m.name.split(":")[0] === active.split(":")[0]);
+            setSelectedEmbeddingModel(exact ? exact.name : partial ? partial.name : active);
+          }
         }
       }
     } catch (e) {
@@ -2222,7 +2231,38 @@ const SettingsPage = () => {
                 </SettingsRow>
               )}
               <SettingsRow label="Chat Model">
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 1, width: "100%", maxWidth: 320 }}>
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1, width: "100%", maxWidth: 420 }}>
+                  {/* Size filter chips */}
+                  {(() => {
+                    const getSize = (m) => {
+                      const ps = m.details?.parameter_size || "";
+                      const num = parseFloat(ps);
+                      if (isNaN(num)) return null;
+                      if (num <= 3) return "small";
+                      if (num <= 10) return "medium";
+                      return "large";
+                    };
+                    const sizes = [...new Set(availableModels.map(getSize).filter(Boolean))];
+                    const sizeOrder = ["small", "medium", "large"];
+                    const sizeLabels = { small: "≤3B", medium: "3-10B", large: ">10B" };
+                    return sizes.length > 1 ? (
+                      <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mb: 0.5 }}>
+                        <Chip label="All" size="small" variant={chatSizeFilter === null ? "filled" : "outlined"}
+                          color={chatSizeFilter === null ? "primary" : "default"}
+                          onClick={() => setChatSizeFilter(null)} sx={{ height: 24, fontSize: "0.75rem" }} />
+                        {sizeOrder.filter((s) => sizes.includes(s)).map((s) => {
+                          const count = availableModels.filter((m) => getSize(m) === s).length;
+                          return (
+                            <Chip key={s} label={`${sizeLabels[s]} (${count})`} size="small"
+                              variant={chatSizeFilter === s ? "filled" : "outlined"}
+                              color={chatSizeFilter === s ? "primary" : "default"}
+                              onClick={() => setChatSizeFilter(chatSizeFilter === s ? null : s)}
+                              sx={{ height: 24, fontSize: "0.75rem" }} />
+                          );
+                        })}
+                      </Box>
+                    ) : null;
+                  })()}
                   <FormControl fullWidth size="small" disabled={isLoading || isLoadingModel}>
                     <InputLabel>Select Model</InputLabel>
                     <Select
@@ -2234,9 +2274,25 @@ const SettingsPage = () => {
                       <MenuItem value="" disabled>
                         <em>{isLoadingModel ? "Loading..." : availableModels.length === 0 ? "No models" : "Select..."}</em>
                       </MenuItem>
-                      {availableModels.map((m) => (
-                        <MenuItem key={m.name} value={m.name}>{m.name}</MenuItem>
-                      ))}
+                      {availableModels
+                        .filter((m) => {
+                          if (chatSizeFilter === null) return true;
+                          const ps = m.details?.parameter_size || "";
+                          const num = parseFloat(ps);
+                          if (isNaN(num)) return chatSizeFilter === null;
+                          if (chatSizeFilter === "small") return num <= 3;
+                          if (chatSizeFilter === "medium") return num > 3 && num <= 10;
+                          return num > 10;
+                        })
+                        .map((m) => {
+                          const ps = m.details?.parameter_size;
+                          const sizeMb = m.size ? Math.round(m.size / (1024 * 1024)) : null;
+                          return (
+                            <MenuItem key={m.name} value={m.name}>
+                              {m.name}{ps ? ` (${ps}` : ""}{sizeMb ? `${ps ? ", " : " ("}${sizeMb >= 1024 ? (sizeMb / 1024).toFixed(1) + "GB" : sizeMb + "MB"}` : ""}{(ps || sizeMb) ? ")" : ""}
+                            </MenuItem>
+                          );
+                        })}
                     </Select>
                   </FormControl>
                   <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
@@ -2291,7 +2347,28 @@ const SettingsPage = () => {
               </SettingsRow>
               {/* Embedding Model Switcher */}
               <SettingsRow label="Embedding Model">
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 1, width: "100%", maxWidth: 320 }}>
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1, width: "100%", maxWidth: 420 }}>
+                  {/* Dimension filter chips */}
+                  {(() => {
+                    const dims = [...new Set(embeddingModels.map((m) => m.dimensions).filter(Boolean))].sort((a, b) => a - b);
+                    return dims.length > 1 ? (
+                      <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mb: 0.5 }}>
+                        <Chip label="All" size="small" variant={embedDimFilter === null ? "filled" : "outlined"}
+                          color={embedDimFilter === null ? "primary" : "default"}
+                          onClick={() => setEmbedDimFilter(null)} sx={{ height: 24, fontSize: "0.75rem" }} />
+                        {dims.map((d) => {
+                          const count = embeddingModels.filter((m) => m.dimensions === d).length;
+                          return (
+                            <Chip key={d} label={`${d}d (${count})`} size="small"
+                              variant={embedDimFilter === d ? "filled" : "outlined"}
+                              color={embedDimFilter === d ? "primary" : "default"}
+                              onClick={() => setEmbedDimFilter(embedDimFilter === d ? null : d)}
+                              sx={{ height: 24, fontSize: "0.75rem" }} />
+                          );
+                        })}
+                      </Box>
+                    ) : null;
+                  })()}
                   <FormControl fullWidth size="small" disabled={isSwitchingEmbedding}>
                     <InputLabel>Embedding Model</InputLabel>
                     <Select
@@ -2302,8 +2379,12 @@ const SettingsPage = () => {
                       {embeddingModels.length === 0 ? (
                         <MenuItem value="" disabled><em>No embedding models found</em></MenuItem>
                       ) : (
-                        embeddingModels.map((m) => (
-                          <MenuItem key={m.name} value={m.name}>{m.name} ({m.size_mb}MB)</MenuItem>
+                        embeddingModels
+                          .filter((m) => embedDimFilter === null || m.dimensions === embedDimFilter)
+                          .map((m) => (
+                          <MenuItem key={m.name} value={m.name}>
+                            {m.name} ({m.size_mb}MB{m.dimensions ? `, ${m.dimensions}d` : ""})
+                          </MenuItem>
                         ))
                       )}
                     </Select>
@@ -2317,8 +2398,9 @@ const SettingsPage = () => {
                           disabled={isSwitchingEmbedding || !selectedEmbeddingModel || selectedEmbeddingModel === embeddingModel}
                           onClick={async () => {
                             if (!window.confirm(
-                              "Switching embedding models will clear your vector index because the new model produces different-sized vectors.\n\n" +
-                              "You will need to re-index your documents after switching.\n\nContinue?"
+                              "Switching embedding models?\n\n" +
+                              "If the new model produces the same dimension vectors, your existing index will be preserved.\n\n" +
+                              "If the dimensions differ, the index will be cleared and you'll need to re-index.\n\nContinue?"
                             )) return;
                             setIsSwitchingEmbedding(true);
                             try {
@@ -2330,7 +2412,7 @@ const SettingsPage = () => {
                               const d = await r.json();
                               if (d.success) {
                                 setEmbeddingModel(selectedEmbeddingModel);
-                                showMessage(`Embedding switched to ${selectedEmbeddingModel} (${d.data.dimensions}d). Vector index cleared — please re-index your documents.`, "success");
+                                showMessage(`Embedding switched to ${selectedEmbeddingModel} (${d.data.dimensions}d).${d.data.index_cleared ? " Index cleared — please re-index your documents." : " Index preserved — same dimensions."}`, "success");
                                 fetchResources();
                               } else {
                                 showMessage(d.error || "Failed to switch embedding", "error");

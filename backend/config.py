@@ -294,6 +294,7 @@ def _get_gpu_vram_info() -> dict:
 
 def get_active_embedding_model() -> str:
     # Check if user has explicitly set an embedding model (via Settings UI)
+    # Try DB first, then fall back to env var, then auto-selection
     try:
         from backend.models import Setting, db
         if db and Setting:
@@ -301,8 +302,14 @@ def get_active_embedding_model() -> str:
             if setting and setting.value:
                 _config_logger.info(f"Using user-selected embedding model: {setting.value}")
                 return setting.value
-    except Exception:
-        pass  # DB not available yet (startup), fall through to auto-selection
+    except Exception as e:
+        _config_logger.debug(f"DB not available for embedding model lookup: {e}")
+
+    # Env var override (useful when DB is not ready at startup)
+    env_model = os.environ.get("GUAARDVARK_EMBEDDING_MODEL")
+    if env_model:
+        _config_logger.info(f"Using embedding model from env var: {env_model}")
+        return env_model
 
     try:
         import requests
@@ -323,16 +330,22 @@ def get_active_embedding_model() -> str:
         budget = 0
         has_gpu = False
 
+    # Candidate models ordered by quality. Includes 1024-dim group
+    # (mxbai, snowflake, bge) which are interchangeable without reindexing.
     candidate_models = [
+        "mxbai-embed-large",
+        "snowflake-arctic-embed:l",
+        "bge-m3",
+        "snowflake-arctic-embed2",
         "qwen3-embedding:4b",
         "qwen3-embedding-4b",
         "qwen3-embedding:8b",
         "qwen3-embedding-8b",
         "embeddinggemma:latest",
         "embeddinggemma",
+        "nomic-embed-text",
         "qwen3-embedding:0.6b",
         "qwen3-embedding-0.6b",
-        "nomic-embed-text",
         "all-minilm",
     ]
 

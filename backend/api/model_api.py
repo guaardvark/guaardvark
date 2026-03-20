@@ -547,9 +547,27 @@ def list_embedding_models():
     for m in all_models:
         name = m.get("name", "").lower()
         if any(p in name for p in embedding_patterns):
+            # Get embedding dimensions from model details
+            # The key is architecture-prefixed, e.g. "bert.embedding_length" or "qwen3.embedding_length"
+            dims = None
+            try:
+                detail_resp = requests.post(
+                    f"{OLLAMA_BASE_URL}/api/show",
+                    json={"name": m.get("name")}, timeout=5
+                )
+                if detail_resp.ok:
+                    show_data = detail_resp.json()
+                    model_info = show_data.get("model_info", {})
+                    for key, value in model_info.items():
+                        if key.endswith(".embedding_length"):
+                            dims = value
+                            break
+            except Exception:
+                pass
             embedding_models.append({
                 "name": m.get("name"),
                 "size_mb": round(m.get("size", 0) / (1024 * 1024)),
+                "dimensions": dims,
             })
 
     # Also get the currently active embedding model
@@ -624,28 +642,46 @@ def set_embedding_model():
         except Exception:
             pass
 
-        # Clear vector store to prevent mixed-dimension corruption
+        # Only clear vector store if embedding dimension actually changed
+        # Models with the same dimension are interchangeable without reindexing
+        prev_dim = None
         try:
-            import os
-            storage_dir = current_app.config.get("STORAGE_DIR",
-                os.path.join(os.environ.get("GUAARDVARK_ROOT", ""), "data"))
-            cleared_files = []
-            for fname in ("default__vector_store.json", "vector_store.json"):
-                fpath = os.path.join(storage_dir, fname)
-                if os.path.exists(fpath):
-                    os.remove(fpath)
-                    cleared_files.append(fname)
-            if cleared_files:
-                logger.info(f"Cleared vector store files after embedding switch: {cleared_files}")
-                # Reset in-memory index so it rebuilds fresh on next use
-                try:
-                    import backend.services.indexing_service as idx_svc
-                    idx_svc.index = None
-                    idx_svc.storage_context = None
-                except Exception:
-                    pass
-        except Exception as vs_err:
-            logger.warning(f"Failed to clear vector store: {vs_err}")
+            prev_embed = current_app.config.get("LLAMA_INDEX_EMBED_MODEL")
+            if prev_embed:
+                prev_dim = getattr(prev_embed, '_embed_dim', None)
+                if prev_dim is None:
+                    # Try to get from router
+                    router_obj = getattr(prev_embed, '_router', None)
+                    if router_obj:
+                        prev_dim = getattr(router_obj, '_embed_dim', None)
+        except Exception:
+            pass
+
+        dimension_changed = prev_dim is None or prev_dim != embed_dim
+        if dimension_changed:
+            try:
+                import os
+                storage_dir = current_app.config.get("STORAGE_DIR",
+                    os.path.join(os.environ.get("GUAARDVARK_ROOT", ""), "data"))
+                cleared_files = []
+                for fname in ("default__vector_store.json", "vector_store.json"):
+                    fpath = os.path.join(storage_dir, fname)
+                    if os.path.exists(fpath):
+                        os.remove(fpath)
+                        cleared_files.append(fname)
+                if cleared_files:
+                    logger.info(f"Cleared vector store files — dimension changed: {prev_dim} → {embed_dim}: {cleared_files}")
+                    # Reset in-memory index so it rebuilds fresh on next use
+                    try:
+                        import backend.services.indexing_service as idx_svc
+                        idx_svc.index = None
+                        idx_svc.storage_context = None
+                    except Exception:
+                        pass
+            except Exception as vs_err:
+                logger.warning(f"Failed to clear vector store: {vs_err}")
+        else:
+            logger.info(f"Embedding dimension unchanged ({embed_dim}d) — keeping existing index")
 
         # Persist choice to database
         try:
@@ -662,6 +698,7 @@ def set_embedding_model():
         return success_response(f"Embedding model switched to {model_name}", {
             "model": model_name,
             "dimensions": embed_dim,
+            "index_cleared": dimension_changed,
         })
 
     except Exception as e:
