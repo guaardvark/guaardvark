@@ -123,6 +123,25 @@ const ThemePreview = ({ themeKey, themeData, isSelected, onClick }) => {
           overflow: "hidden",
         }}
       >
+        {/* Enlarged background emblem for Sith/Vader — rotated, translucent, color-dodge */}
+        {icon === "sith" && (
+          <img
+            src="/theme-icons/sith-emblem.png"
+            alt=""
+            style={{
+              position: "absolute",
+              width: "500%",
+              height: "500%",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%) rotate(20deg)",
+              opacity: 0.5,
+              mixBlendMode: "color-dodge",
+              pointerEvents: "none",
+              objectFit: "contain",
+            }}
+          />
+        )}
         {isSelected && (
           <Chip
             label="Selected"
