@@ -213,97 +213,26 @@ async function handleImageModel(args, { addMessage }) {
 }
 
 // ============================================================
-// /imagine <prompt> — full implementation with batch polling
+// /imagine <prompt> — sends through the normal chat pipeline
 // ============================================================
+// The unified chat engine has an image_generation tool that the LLM calls.
+// /imagine is a shortcut: it rewrites the prompt to clearly request image
+// generation, then sends it through the normal onSendMessage flow.
+// The LLM calls the generate_image tool → offline_image_generator →
+// saves to data/outputs/generated_images/ → streams result inline.
 
-async function handleImagine(args, { addMessage, updateMessage }) {
+function handleImagine(args, { addMessage, onSendMessage }) {
   if (!args) {
-    addMessage({ role: "system", content: "Usage: `/imagine <prompt>`", tempId: `img-${Date.now()}` });
+    addMessage({ role: "system", content: "Usage: `/imagine <prompt>`", tempId: `img-${Date.now()}`, type: "command" });
     return { handled: true };
   }
 
-  const tempId = `imagine-${Date.now()}`;
-  const model = sessionStorage.getItem("slash_image_model") || "sd-1.5";
-  const isXl = model.includes("xl") || model.includes("sdxl");
+  const model = sessionStorage.getItem("slash_image_model") || "";
+  const modelHint = model ? ` Use the ${model} model.` : "";
 
-  // Show user message
-  addMessage({ role: "user", content: `/imagine ${args}`, tempId: `img-user-${Date.now()}` });
-
-  // Show progress message
-  addMessage({ role: "assistant", content: "Generating image...", tempId, type: "progress" });
-
-  try {
-    // Start generation
-    const genRes = await fetch("/api/batch-image/generate/prompts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        prompts: [args],
-        model,
-        count: 1,
-        steps: 20,
-        width: isXl ? 1024 : 512,
-        height: isXl ? 1024 : 512,
-      }),
-    });
-    const genData = await genRes.json();
-    const batchId = genData?.data?.batch_id || genData?.batch_id;
-
-    if (!batchId) {
-      updateMessage(tempId, { content: `Image generation failed: ${genData?.error || "No batch ID returned"}` });
-      return { handled: true };
-    }
-
-    // Poll for completion
-    const startTime = Date.now();
-    const pollInterval = setInterval(async () => {
-      try {
-        if (Date.now() - startTime > 120000) {
-          clearInterval(pollInterval);
-          updateMessage(tempId, { content: "Image generation timed out after 2 minutes." });
-          return;
-        }
-
-        const statusRes = await fetch(`/api/batch-image/status/${batchId}?include_results=true`);
-        const statusData = await statusRes.json();
-        const status = statusData?.data?.status || statusData?.status;
-
-        if (status === "completed" || status === "done") {
-          clearInterval(pollInterval);
-          const results = statusData?.data?.results || statusData?.results || [];
-          const firstResult = results[0];
-          const imagePath = firstResult?.output_path || firstResult?.image_path;
-
-          if (imagePath) {
-            // Convert file path to API URL
-            const imageUrl = imagePath.includes("/outputs/")
-              ? `/api/output/file/${imagePath.split("/outputs/").pop()}`
-              : imagePath;
-            updateMessage(tempId, {
-              content: `![Generated Image](${imageUrl})\n\n*Model: ${model} | Prompt: ${args}*`,
-              type: "image",
-            });
-          } else {
-            updateMessage(tempId, { content: "Image generated but no output path found." });
-          }
-        } else if (status === "failed" || status === "error") {
-          clearInterval(pollInterval);
-          const error = statusData?.data?.error || statusData?.error || "Unknown error";
-          updateMessage(tempId, { content: `Image generation failed: ${error}` });
-        } else {
-          // Still processing — update progress if step info available
-          const progress = statusData?.data?.progress;
-          if (progress) {
-            updateMessage(tempId, { content: `Generating image... ${progress}` });
-          }
-        }
-      } catch (pollErr) {
-        console.error("Image poll error:", pollErr);
-      }
-    }, 3000);
-  } catch (err) {
-    updateMessage(tempId, { content: `Image generation failed: ${err.message}` });
-  }
+  // Send as a normal chat message — the LLM will call the generate_image tool
+  const imagePrompt = `Generate an image: ${args}.${modelHint} Use the generate_image tool to create this image.`;
+  onSendMessage(imagePrompt, null);
 
   return { handled: true };
 }
