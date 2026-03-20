@@ -30,6 +30,8 @@ import VoiceChatButton from "../voice/VoiceChatButton";
 import ContinuousVoiceChat from "../voice/ContinuousVoiceChat";
 import { useAppStore } from "../../stores/useAppStore";
 import { useVoiceSettings } from "../../hooks/useVoiceSettings";
+import useSlashCommands from "../../hooks/useSlashCommands";
+import SlashCommandPopup from "./SlashCommandPopup";
 
 const MIN_WIDTH = 280;
 const MIN_HEIGHT = 300;
@@ -97,6 +99,7 @@ const FloatingChatCard = () => {
   const lastClickRef = useRef(0);
   const cardRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
 
   // Initialize default position (bottom-right) on first render
   useEffect(() => {
@@ -181,6 +184,22 @@ const FloatingChatCard = () => {
     }
   }, [inputText, isSending, sessionId, buildContextPrefix, addMessage, setIsSending, clearError, setError, unifiedChatService]);
 
+  // Slash command hook — popup state, filtering, keyboard nav, command execution
+  // Initialized after handleSendMessage so the reference is valid
+  const slashCmds = useSlashCommands({
+    inputRef,
+    addMessage: (msg) => addMessage({ ...msg, id: msg.tempId || `msg_${Date.now()}` }),
+    updateMessage: (tempId, updates) => updateMessage(tempId, updates),
+    onSendMessage: handleSendMessage,
+    setInputText,
+    chatState: {
+      sessionId,
+      projectId: null,
+      clearMessages,
+      onPlanCreated: () => {}, // no-op — floating chat doesn't support plan view
+    },
+  });
+
   // Handle streaming completion — add final message to store and recreate service
   const handleStreamingComplete = useCallback((result) => {
     setIsStreamingMessage(false);
@@ -212,11 +231,26 @@ const FloatingChatCard = () => {
     setIsSending(false);
   }, [unifiedChatService, sessionId, setIsSending]);
 
-  const handleKeyPress = (e) => {
+  const handleKeyDown = (e) => {
+    // Slash command popup navigation intercepts first
+    slashCmds.handleKeyDown(e);
+    if (e.defaultPrevented) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSendMessage();
+      handleFloatingSend();
     }
+  };
+
+  // Send with slash command interception
+  const handleFloatingSend = async () => {
+    if (slashCmds.isCommand) {
+      const result = await slashCmds.executeCommand(inputText);
+      if (result?.handled) {
+        setInputText("");
+        return;
+      }
+    }
+    handleSendMessage();
   };
 
   // Voice transcription handler
@@ -606,15 +640,26 @@ const FloatingChatCard = () => {
                   size="small"
                 />
               )}
+              <SlashCommandPopup
+                commands={slashCmds.filteredCommands}
+                selectedIndex={slashCmds.selectedIndex}
+                onSelect={slashCmds.selectCommand}
+                anchorEl={inputRef?.current}
+                open={slashCmds.popupVisible}
+              />
               <TextField
                 size="small"
                 placeholder="Type your message, paste an image, or use voice..."
                 value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                onKeyDown={handleKeyPress}
+                onChange={(e) => {
+                  setInputText(e.target.value);
+                  slashCmds.handleInputChange(e.target.value);
+                }}
+                onKeyDown={handleKeyDown}
                 disabled={isSending}
                 multiline
                 maxRows={3}
+                inputRef={inputRef}
                 sx={{
                   flexGrow: 1,
                   "& .MuiOutlinedInput-root": {
@@ -624,7 +669,7 @@ const FloatingChatCard = () => {
                 }}
               />
               <IconButton
-                onClick={isSending ? handleStop : () => handleSendMessage()}
+                onClick={isSending ? handleStop : handleFloatingSend}
                 disabled={!inputText.trim() && !isSending}
                 size="small"
                 color="primary"

@@ -1839,8 +1839,18 @@ const ChatPage = () => {
         onStop={handleStop}
         disabled={isSending}
         sessionId={sessionId}
+        projectId={projectId}
         ref={chatInputRef}
         onVoiceStateChange={handleVoiceStateChange}
+        onAddMessage={(msg) => setMessages((prev) => [...prev, { ...msg, id: msg.tempId || `msg_${Date.now()}` }])}
+        onUpdateMessage={(tempId, updates) => setMessages((prev) =>
+          prev.map((m) => (m.tempId === tempId || m.id === tempId) ? { ...m, ...updates } : m)
+        )}
+        onClearMessages={() => setMessages([])}
+        onPlanCreated={(plan, planId) => {
+          setOrchestratorPlan(plan);
+          setOrchestratorPlanId(planId);
+        }}
       />
       <FileGenPopup
         open={fileGenPopup.open}

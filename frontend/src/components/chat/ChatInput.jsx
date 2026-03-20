@@ -13,6 +13,7 @@ import {
   IconButton,
   TextField,
   Tooltip,
+  Typography,
 } from "@mui/material";
 import React, {
   forwardRef,
@@ -29,6 +30,8 @@ import VoiceChatButton from "../voice/VoiceChatButton";
 import ContinuousVoiceChat from "../voice/ContinuousVoiceChat";
 import { useAppStore } from "../../stores/useAppStore";
 import { useVoiceSettings } from "../../hooks/useVoiceSettings";
+import useSlashCommands from "../../hooks/useSlashCommands";
+import SlashCommandPopup from "./SlashCommandPopup";
 
 const WEB_SEARCH_ENABLED_KEY = "guaardvark_webSearchEnabled";
 
@@ -213,7 +216,7 @@ const analyzeSitemap = async (url) => {
 };
 
 const ChatInput = forwardRef(
-  ({ onSendMessage, onStop, disabled = false, sessionId = "default", codeGenMode = false, onVoiceStateChange = () => { } }, ref) => {
+  ({ onSendMessage, onStop, disabled = false, sessionId = "default", codeGenMode = false, onVoiceStateChange = () => { }, onAddMessage, onUpdateMessage, onClearMessages, onPlanCreated, projectId }, ref) => {
     const [inputText, setInputText] = useState("");
     const fileRef = useRef(null);
     const inputRef = useRef(null);
@@ -221,6 +224,21 @@ const ChatInput = forwardRef(
     const systemName = useAppStore((s) => s.systemName);
     const voiceSettings = useVoiceSettings();
     const wakeWordEnabled = voiceSettings.wakeWordEnabled || false;
+
+    // Slash command hook — popup state, filtering, keyboard nav, command execution
+    const slashCmds = useSlashCommands({
+      inputRef,
+      addMessage: onAddMessage || ((msg) => onSendMessage?.(msg.content, null)),
+      updateMessage: onUpdateMessage || (() => {}),
+      onSendMessage,
+      setInputText,
+      chatState: {
+        sessionId,
+        projectId,
+        clearMessages: onClearMessages,
+        onPlanCreated,
+      },
+    });
 
     // Voice state for parent component
     const [voiceState, setVoiceState] = useState({
@@ -933,6 +951,19 @@ Please try a different image or check if the vision model is properly loaded.`;
         return;
       }
 
+      // Slash command interception — handled before any other logic
+      if (slashCmds.isCommand) {
+        const result = await slashCmds.executeCommand(inputText);
+        if (result?.handled) {
+          setInputText("");
+          if (inputRef.current) {
+            inputRef.current.value = "";
+            inputRef.current.focus();
+          }
+          return;
+        }
+      }
+
       // Fallback: If programmatic input bypassed React state, grab from DOM
       let currentText = inputText;
       if (!currentText && inputRef.current && inputRef.current.value) {
@@ -1243,6 +1274,15 @@ Total URLs: ${analysis.totalUrls}`;
             />
           )}
 
+          {/* Slash command autocomplete popup */}
+          <SlashCommandPopup
+            commands={slashCmds.filteredCommands}
+            selectedIndex={slashCmds.selectedIndex}
+            onSelect={slashCmds.selectCommand}
+            anchorEl={inputRef?.current}
+            open={slashCmds.popupVisible}
+          />
+
           {/* Text input field */}
           <TextField
             fullWidth
@@ -1253,7 +1293,14 @@ Total URLs: ${analysis.totalUrls}`;
                 : "Type your message, paste an image, or use voice..."
             }
             value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
+            onChange={(e) => {
+              setInputText(e.target.value);
+              slashCmds.handleInputChange(e.target.value);
+            }}
+            onKeyDown={(e) => {
+              slashCmds.handleKeyDown(e);
+              // handleKeyPress uses onKeyPress but we mirror Enter logic here for safety
+            }}
             onKeyPress={handleKeyPress}
             inputRef={inputRef}
             multiline
