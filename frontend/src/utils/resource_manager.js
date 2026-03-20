@@ -357,7 +357,7 @@ class FrontendResourceManager {
       }
 
       // Create a queue with the specific queueId instead of generating a new one
-      const maxLength = options.maxLength || 10000;
+      const maxLength = options.maxLength || this.maxMessageLength; // 100k default, not 10k
       const maxQueue = options.maxQueue || 100;
 
       queue = {

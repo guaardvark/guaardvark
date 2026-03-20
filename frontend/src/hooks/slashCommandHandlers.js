@@ -238,7 +238,7 @@ async function handleImagine(args, { addMessage, updateMessage }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        prompts: [{ text: args }],
+        prompts: [args],
         model,
         count: 1,
         steps: 20,
