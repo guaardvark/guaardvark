@@ -98,8 +98,7 @@ export default function UncleClaudeSection({ compact = false }) {
     setSelfCheckRunning(true);
     setSelfCheckResult(null);
     try {
-      const res = await selfImprovementService.triggerRun();
-      const taskId = res?.data?.task_id;
+      await selfImprovementService.triggerRun();
       // Poll for completion by checking if a new run appears
       const startTime = Date.now();
       const pollInterval = setInterval(async () => {
