@@ -57,71 +57,33 @@ const RadioactiveIcon = ({ size = 40 }) => (
   </svg>
 );
 
-// Imperial crest banner for Vader theme — fills the entire preview area
-const ImperialBanner = () => (
-  <svg
-    width="100%" height="100%"
-    viewBox="0 0 400 100"
-    preserveAspectRatio="xMidYMid slice"
-    xmlns="http://www.w3.org/2000/svg"
-    style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
-  >
-    <defs>
-      {/* Grungy texture filter */}
-      <filter id="imperial-grain">
-        <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" result="noise" />
-        <feColorMatrix type="saturate" values="0" in="noise" result="grayNoise" />
-        <feBlend in="SourceGraphic" in2="grayNoise" mode="multiply" />
-      </filter>
-      {/* Radial glow */}
-      <radialGradient id="imperial-glow" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stopColor="#ff1744" stopOpacity="0.3" />
-        <stop offset="100%" stopColor="#000000" stopOpacity="0" />
-      </radialGradient>
-    </defs>
-
-    {/* Background */}
-    <rect width="400" height="100" fill="#0a0000" />
-    <rect width="400" height="100" fill="url(#imperial-glow)" />
-
-    {/* Imperial Crest centered — 6 spoked gear with rings */}
-    <g transform="translate(200, 50)" filter="url(#imperial-grain)">
-      {/* Outer ring */}
-      <circle cx="0" cy="0" r="42" fill="none" stroke="#d32f2f" strokeWidth="5" opacity="0.85" />
-      <circle cx="0" cy="0" r="36" fill="none" stroke="#d32f2f" strokeWidth="2" opacity="0.6" />
-
-      {/* 6 spokes — tapered wedges pointing inward */}
-      {[0, 60, 120, 180, 240, 300].map((angle) => (
-        <g key={angle} transform={`rotate(${angle})`}>
-          <path
-            d="M-7 -12 L0 -34 L7 -12 Z"
-            fill="#d32f2f"
-            opacity="0.9"
-          />
-          {/* Outer cap connecting spoke to ring */}
-          <rect x="-6" y="-38" width="12" height="5" rx="1" fill="#d32f2f" opacity="0.8" />
-        </g>
-      ))}
-
-      {/* Inner ring */}
-      <circle cx="0" cy="0" r="13" fill="none" stroke="#d32f2f" strokeWidth="2.5" opacity="0.75" />
-
-      {/* Center void */}
-      <circle cx="0" cy="0" r="8" fill="#0a0000" />
-
-      {/* Subtle spatter dots for grunge texture */}
-      <circle cx="15" cy="-20" r="1.5" fill="#8b0000" opacity="0.5" />
-      <circle cx="-22" cy="10" r="2" fill="#8b0000" opacity="0.4" />
-      <circle cx="8" cy="25" r="1" fill="#8b0000" opacity="0.6" />
-      <circle cx="-10" cy="-28" r="1.8" fill="#8b0000" opacity="0.3" />
-      <circle cx="28" cy="5" r="1.2" fill="#8b0000" opacity="0.5" />
-      <circle cx="-30" cy="-15" r="2.2" fill="#8b0000" opacity="0.35" />
-      <circle cx="20" cy="18" r="1.5" fill="#8b0000" opacity="0.45" />
-    </g>
-
-    {/* Atmospheric red fog at edges */}
-    <rect x="0" y="0" width="60" height="100" fill="url(#imperial-glow)" opacity="0.3" />
-    <rect x="340" y="0" width="60" height="100" fill="url(#imperial-glow)" opacity="0.3" />
+// Sith emblem icon for Vader theme — hexagon with 6 pointed spokes
+const SithIcon = ({ size = 40 }) => (
+  <svg width={size} height={size} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+    {/* Outer hexagon ring with gaps */}
+    <path d="M32 3 L56 17 L56 47 L32 61 L8 47 L8 17 Z" fill="none" stroke="rgba(0,0,0,0.85)" strokeWidth="4" strokeLinejoin="round" />
+    {/* Gap notches on each edge */}
+    <line x1="44" y1="9" x2="47" y2="12" stroke="rgba(211,47,47,1)" strokeWidth="5" />
+    <line x1="57" y1="30" x2="57" y2="34" stroke="rgba(211,47,47,1)" strokeWidth="5" />
+    <line x1="44" y1="55" x2="47" y2="52" stroke="rgba(211,47,47,1)" strokeWidth="5" />
+    <line x1="20" y1="55" x2="17" y2="52" stroke="rgba(211,47,47,1)" strokeWidth="5" />
+    <line x1="7" y1="30" x2="7" y2="34" stroke="rgba(211,47,47,1)" strokeWidth="5" />
+    <line x1="20" y1="9" x2="17" y2="12" stroke="rgba(211,47,47,1)" strokeWidth="5" />
+    {/* 6 spokes radiating from center — pointed, tapered */}
+    {/* Top */}
+    <path d="M32 8 L29 20 L32 17 L35 20 Z" fill="rgba(0,0,0,0.85)" />
+    {/* Top-right */}
+    <path d="M52 19 L40 23 L40 20 L43 18 Z" fill="rgba(0,0,0,0.85)" />
+    {/* Bottom-right */}
+    <path d="M52 45 L43 46 L40 44 L40 41 Z" fill="rgba(0,0,0,0.85)" />
+    {/* Bottom */}
+    <path d="M32 56 L35 44 L32 47 L29 44 Z" fill="rgba(0,0,0,0.85)" />
+    {/* Bottom-left */}
+    <path d="M12 45 L21 46 L24 44 L24 41 Z" fill="rgba(0,0,0,0.85)" />
+    {/* Top-left */}
+    <path d="M12 19 L24 23 L24 20 L21 18 Z" fill="rgba(0,0,0,0.85)" />
+    {/* Center hexagon */}
+    <path d="M32 22 L40 27 L40 37 L32 42 L24 37 L24 27 Z" fill="rgba(0,0,0,0.85)" />
   </svg>
 );
 
@@ -195,20 +157,18 @@ const ThemePreview = ({ themeKey, themeData, isSelected, onClick }) => {
             }}
           />
         )}
-        {/* Imperial banner fills the entire preview area */}
-        {icon === "imperial" && <ImperialBanner />}
-        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5, zIndex: 1 }}>
+        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}>
           {icon === "cologne" && <CologneBottleIcon size={36} />}
           {icon === "radioactive" && <RadioactiveIcon size={36} />}
+          {icon === "sith" && <SithIcon size={40} />}
           <Typography
             variant="h6"
             sx={{
               color: "white",
               fontWeight: "bold",
-              textShadow: "0 2px 8px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.7)",
+              textShadow: "0 2px 4px rgba(0,0,0,0.5)",
               textAlign: "center",
               ...(icon && { fontSize: "0.9rem" }),
-              ...(icon === "imperial" && { fontSize: "1rem", letterSpacing: "0.15em", textTransform: "uppercase" }),
             }}
           >
             {label}
