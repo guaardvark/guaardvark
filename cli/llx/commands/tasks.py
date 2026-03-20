@@ -89,7 +89,7 @@ def tasks_create(
         if auto_start and task_id != "?":
             try:
                 api_client.post(f"/api/tasks/{task_id}/start")
-                console.print(f"  [llx.accent]Task started.[/llx.accent] Watch with: [bold]llx tasks info {task_id}[/bold]")
+                console.print(f"  [llx.accent]Task started.[/llx.accent] Watch with: [bold]guaardvark tasks info {task_id}[/bold]")
             except LlxError as start_err:
                 console.print(f"  [llx.warning]Auto-start failed: {start_err.message}[/llx.warning]")
 
@@ -145,7 +145,7 @@ def tasks_start(
         data = api_client.post(f"/api/tasks/{task_id}/start")
         msg = data.get("message", f"Task {task_id} started.")
         output.print_success(msg)
-        console.print(f"  Watch progress: [bold]llx jobs watch {task_id}[/bold]")
+        console.print(f"  Watch progress: [bold]guaardvark jobs watch {task_id}[/bold]")
     except (LlxConnectionError, LlxError) as e:
         output.print_error(str(e))
         raise typer.Exit(1)

@@ -284,7 +284,7 @@ guaardvark/
 
 ## CLI
 
-The CLI is installed automatically by `./start.sh` and available as `guaardvark` (or `llx` for short):
+The CLI is installed automatically by `./start.sh` and available as `guaardvark`:
 
 ```bash
 guaardvark status                      # System dashboard

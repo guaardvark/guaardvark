@@ -77,7 +77,7 @@ def generate_image(
         else:
             job_id = result.get("job_id", "")
             output.print_success(f"Image generation started (job: {job_id})")
-            console.print(f"  Track with: [llx.accent]llx jobs watch {job_id}[/llx.accent]")
+            console.print(f"  Track with: [llx.accent]guaardvark jobs watch {job_id}[/llx.accent]")
 
     except (LlxConnectionError, LlxError) as e:
         output.print_error(str(e))

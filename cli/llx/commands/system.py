@@ -164,7 +164,7 @@ def status(
 
 
 def init():
-    console.print("[llx.brand]LLX Setup[/llx.brand]\n")
+    console.print("[llx.brand]Guaardvark Setup[/llx.brand]\n")
 
     config = load_config()
     server = typer.prompt("Server URL", default=config["server"])
@@ -196,7 +196,7 @@ def init():
     save_config(config)
 
     console.print(f"\n[llx.success]Config saved to {CONFIG_FILE}[/llx.success]")
-    console.print("Run [bold]llx --install-completion[/bold] for tab completions.")
+    console.print("Run [bold]guaardvark --install-completion[/bold] for tab completions.")
 
 
 @models_app.command("list")

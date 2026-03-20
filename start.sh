@@ -1010,7 +1010,7 @@ if [ -d "$CLI_DIR" ] && [ -f "$CLI_DIR/setup.py" ]; then
     if [ -d "$CLI_VENV_DIR" ]; then
         source "$CLI_VENV_DIR/bin/activate"
         if [ ! -f "$CLI_VENV_DIR/.deps_installed" ] && [ "$FAST_START" -ne 1 ]; then
-            vader_info "Installing CLI tool (guaardvark/llx)..."
+            vader_info "Installing CLI tool (guaardvark)..."
             pip install --upgrade pip setuptools >> "$SETUP_LOG" 2>&1
             pip install -e "$CLI_DIR" >> "$SETUP_LOG" 2>&1
             if [ $? -eq 0 ]; then
@@ -1033,7 +1033,7 @@ if [ -d "$CLI_DIR" ] && [ -f "$CLI_DIR/setup.py" ]; then
         # Symlink CLI commands into ~/.local/bin so they work system-wide
         LOCAL_BIN="$HOME/.local/bin"
         mkdir -p "$LOCAL_BIN"
-        for cmd in guaardvark llx; do
+        for cmd in guaardvark; do
             CLI_BIN="$CLI_VENV_DIR/bin/$cmd"
             if [ -f "$CLI_BIN" ]; then
                 ln -sf "$CLI_BIN" "$LOCAL_BIN/$cmd"
@@ -1041,7 +1041,7 @@ if [ -d "$CLI_DIR" ] && [ -f "$CLI_DIR/setup.py" ]; then
         done
         # Verify PATH includes ~/.local/bin
         if echo "$PATH" | tr ':' '\n' | grep -qx "$LOCAL_BIN"; then
-            vader_success "Commands 'guaardvark' and 'llx' are available globally"
+            vader_success "Command 'guaardvark' is available globally"
         else
             vader_success "CLI installed to $LOCAL_BIN"
             vader_warn "$LOCAL_BIN is not in PATH. Add to ~/.bashrc:  export PATH=\"\$HOME/.local/bin:\$PATH\""

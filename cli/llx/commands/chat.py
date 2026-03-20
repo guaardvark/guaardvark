@@ -80,7 +80,7 @@ def chat(
     elif message:
         full_message = message
     else:
-        output.print_error("No message provided. Usage: llx chat \"your message\"")
+        output.print_error("No message provided. Usage: guaardvark chat \"your message\"")
         raise typer.Exit(1)
 
     if stream:
