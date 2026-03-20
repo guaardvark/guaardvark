@@ -1,6 +1,6 @@
 # Guaardvark
 
-**Version 2.5.1** · [guaardvark.com](https://guaardvark.com)
+**Version 2.5.2** · [guaardvark.com](https://guaardvark.com)
 
 A self-hosted AI platform that runs entirely on your hardware. No cloud. No API keys. Your data never leaves your machine.
 
