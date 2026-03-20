@@ -122,12 +122,7 @@ export const generateSingleCSV = async (params, options = {}) => {
  */
 export const generateBulkCSV = async (params, options = {}) => {
   const {
-    prompt,
-    filename,
     quantity,
-    client = "Professional Services",
-    project = "Content Generation",
-    website = "professional-website.com",
     concurrent_workers = Math.min(quantity, 10),
     target_word_count = DEFAULT_WORD_COUNT
   } = params;

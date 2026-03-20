@@ -267,7 +267,7 @@ async function handlePlan(args, { addMessage }) {
 // DB rule commands
 // ============================================================
 
-async function handleDbRule(name, args, { addMessage }, cmd) {
+async function handleDbRule(name, args, { addMessage }) {
   addMessage({ role: "user", content: `${name} ${args}`, tempId: `rule-user-${Date.now()}` });
   try {
     const res = await fetch("/api/generation/from_command", {

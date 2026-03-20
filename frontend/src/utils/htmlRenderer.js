@@ -13,11 +13,8 @@ import { HTML_STRUCTURE_DEFAULTS } from '../config/defaults.js';
  * @returns {string} - Structured HTML content
  */
 export const renderStructuredHTML = (content, siteMeta = {}, options = {}) => {
-  const {
-    includeH1 = true,
-    useSemanticTags = true,
-    allowedTags = HTML_STRUCTURE_DEFAULTS.allowedTags,
-  } = { ...HTML_STRUCTURE_DEFAULTS, ...options };
+  const merged = { ...HTML_STRUCTURE_DEFAULTS, ...options };
+  const { includeH1, allowedTags } = merged;
 
   if (!content || typeof content !== 'string') {
     return '';
@@ -48,7 +45,7 @@ export const renderStructuredHTML = (content, siteMeta = {}, options = {}) => {
  * @returns {string} - HTML content
  */
 const convertOutlineToHTML = (text, options = {}) => {
-  const { includeH1, siteMeta, allowedTags } = options;
+  const { includeH1 } = options;
   const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
 
   if (lines.length === 0) {

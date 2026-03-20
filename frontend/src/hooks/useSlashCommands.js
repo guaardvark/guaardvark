@@ -12,7 +12,7 @@ import { getAllCommands, getBuiltInCommands, filterCommands, parseCommand } from
  * @param {Function} config.setInputText — set the input text (for command insertion)
  * @param {Object} config.chatState — { sessionId, projectId, onPlanCreated, voiceContext }
  */
-export default function useSlashCommands({ inputRef, addMessage, updateMessage, onSendMessage, setInputText, chatState }) {
+export default function useSlashCommands({ addMessage, updateMessage, onSendMessage, setInputText, chatState }) {
   const [allCommands, setAllCommands] = useState(getBuiltInCommands());
   const [filteredCommands, setFilteredCommands] = useState([]);
   const [popupVisible, setPopupVisible] = useState(false);

@@ -61,7 +61,7 @@ function patchFetch() {
 
     // Don't track if caller already has persistent flag
     if (init._persistent) {
-      const { _persistent, ...cleanInit } = init;
+      const { _persistent: _, ...cleanInit } = init;
       return originalFetch.call(this, input, cleanInit);
     }
 
