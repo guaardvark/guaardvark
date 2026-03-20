@@ -10,8 +10,10 @@ import React, { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import { Box, Typography, Card, CardActionArea, CardContent, IconButton, Tooltip, Stack, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, useTheme, CircularProgress } from "@mui/material";
 import { GuaardvarkLogo } from "../components/branding";
 import { Apps as AppsIcon, GridView as GridViewIcon, FolderOutlined, Code, UploadFile as UploadFileIcon } from "@mui/icons-material";
-import { getFileIcon, getItemKey, FolderIndexIndicator, isImageFile } from "../components/documents/fileUtils.jsx";
+import { useNavigate } from "react-router-dom";
+import { getFileIcon, getItemKey, FolderIndexIndicator, isImageFile, isCodeFile } from "../components/documents/fileUtils.jsx";
 import ImageLightbox from "../components/images/ImageLightbox";
+import CodeViewerModal from "../components/documents/CodeViewerModal";
 import ReactGridLayoutLib, { WidthProvider } from 'react-grid-layout';
 import FolderWindow from "../components/documents/FolderWindow";
 import DocumentsContextMenu from "../components/documents/DocumentsContextMenu";
@@ -130,6 +132,8 @@ const DocumentsPage = () => {
   const [uploadProgress, setUploadProgress] = useState(null); // { current: N, total: M } or null
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [lightbox, setLightbox] = useState(null); // { url, name, documentId, editMode }
+  const [codeViewer, setCodeViewer] = useState(null); // { file } for CodeViewerModal
+  const navigate = useNavigate();
   const [dragOverFolderId, setDragOverFolderId] = useState(null); // Folder ID being dragged over
   const fileInputRef = useRef(null);
   const dragDropHandledRef = useRef(false); // Track if drop was handled to prevent repositioning
@@ -1371,6 +1375,23 @@ const DocumentsPage = () => {
     });
   }, [contextMenuItem, contextMenuType]);
 
+  // Open file in Code Editor page — navigates with file data in router state
+  const handleOpenInCodeEditor = useCallback((file, content = null) => {
+    setContextMenu(null);
+    const targetFile = file || contextMenuItem;
+    if (!targetFile) return;
+    navigate('/code-editor', {
+      state: {
+        openFile: {
+          id: targetFile.id,
+          filename: targetFile.filename || targetFile.name,
+          content: content,
+          source: 'document',
+        }
+      }
+    });
+  }, [contextMenuItem, navigate]);
+
   const handleProperties = useCallback(async () => {
     setContextMenu(null);
     const item = contextMenuItem;
@@ -2100,11 +2121,11 @@ const DocumentsPage = () => {
                       e.stopPropagation();
                       const filename = file.filename || file.name || '';
                       if (isImageFile(filename)) {
-                        // Open image in viewer/editor
                         const imageUrl = `${API_BASE}/document/${file.id}/download?v=${file.updated_at || Date.now()}`;
                         setLightbox({ url: imageUrl, name: filename, documentId: file.id, editMode: false });
+                      } else if (isCodeFile(filename)) {
+                        setCodeViewer({ file });
                       } else {
-                        // Download non-image files
                         window.open(`${API_BASE}/document/${file.id}/download`, '_blank');
                       }
                     }}
@@ -2290,6 +2311,8 @@ const DocumentsPage = () => {
           setContextMenuItem(null);
         } : undefined}
         isImage={contextMenuItem && contextMenuType === 'file' && isImageFile(contextMenuItem.filename || contextMenuItem.name || '')}
+        isCode={contextMenuItem && contextMenuType === 'file' && isCodeFile(contextMenuItem.filename || contextMenuItem.name || '')}
+        onOpenInCodeEditor={() => handleOpenInCodeEditor()}
         hasClipboard={Boolean(clipboard)}
         hasSelection={selectedItems.size > 0}
         contextType={contextMenuType}
@@ -2447,6 +2470,14 @@ const DocumentsPage = () => {
           initialEditMode={lightbox.editMode || false}
         />
       )}
+
+      {/* Code Viewer Modal */}
+      <CodeViewerModal
+        open={!!codeViewer}
+        onClose={() => setCodeViewer(null)}
+        file={codeViewer?.file}
+        onOpenInCodeEditor={handleOpenInCodeEditor}
+      />
 
       {/* Upload Progress Overlay */}
       {uploadProgress && (

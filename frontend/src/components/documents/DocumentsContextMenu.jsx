@@ -23,12 +23,14 @@ const DocumentsContextMenu = ({
   onColorChange,
   onIndex,
   onOpenWindow,
+  onOpenInCodeEditor,
   hasClipboard = false,
   hasSelection = false,
   contextType = 'desktop', // 'desktop', 'folder', 'file'
   selectedItem = null,
   folderColor = null,
   isImage = false,
+  isCode = false,
 }) => {
   const theme = useTheme();
   const open = Boolean(anchorPosition);
@@ -173,6 +175,7 @@ const DocumentsContextMenu = ({
           </>
         )}
         {isImage && onEdit && <MenuItem onClick={onEdit}>Edit</MenuItem>}
+        {isCode && onOpenInCodeEditor && <MenuItem onClick={onOpenInCodeEditor}>Open in Code Editor</MenuItem>}
         {onRename && <MenuItem onClick={onRename}>Rename</MenuItem>}
         {onProperties && <MenuItem onClick={onProperties}>Properties</MenuItem>}
         {onIndex && (

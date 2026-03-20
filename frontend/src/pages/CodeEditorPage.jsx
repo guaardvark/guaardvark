@@ -17,7 +17,7 @@ import {
   Chip,
 } from "@mui/material";
 import ReactGridLayout, { WidthProvider } from "react-grid-layout";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
@@ -72,6 +72,7 @@ const CodeEditorPage = () => {
   const theme = useTheme();
   const { projectId } = useParams();
   const codeNavHistory = useNavigate();
+  const location = useLocation();
   const { gridSettings } = useLayout();
   const { activeModel, isLoadingModel, modelError } = useStatus();
   const systemName = useAppStore((state) => state.systemName);
@@ -101,6 +102,42 @@ const CodeEditorPage = () => {
 
   const { startProcess, completeProcess, errorProcess } = useUnifiedProgress();
   const gridContainerRef = useRef(null);
+
+  // Handle file opened from Documents page via router state
+  useEffect(() => {
+    const incoming = location.state?.openFile;
+    if (!incoming) return;
+    // Clear the state so refreshing doesn't re-open
+    window.history.replaceState({}, document.title);
+
+    const openIncoming = async () => {
+      let content = incoming.content;
+      // Fetch content if not provided
+      if (content === null || content === undefined) {
+        try {
+          const { getDocumentContent } = await import("../api/documentService");
+          const result = await getDocumentContent(incoming.id);
+          content = typeof result === "string" ? result : result.content || result.data || "";
+        } catch {
+          content = "";
+        }
+      }
+      const { getLanguageFromFilename } = await import("../utils/languageDetector");
+      const newTab = {
+        id: `doc-${incoming.id}-${Date.now()}`,
+        filePath: incoming.filename,
+        content: content,
+        language: getLanguageFromFilename(incoming.filename),
+        isModified: false,
+        source: 'document',
+        documentId: incoming.id,
+      };
+      setOpenTabs(prev => [...prev, newTab]);
+      setActiveTabIndex(prev => prev + 1 || 0);
+    };
+    // Delay slightly to let state restoration finish
+    setTimeout(openIncoming, 500);
+  }, [location.state]);
 
   useEffect(() => {
     const loadModels = async () => {

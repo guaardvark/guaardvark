@@ -30,11 +30,21 @@ export const INVALID_FILENAME_CHARS = /[<>:"/\\|?*\x00-\x1f]/;
 // Image file extensions that should show thumbnails
 const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tiff'];
 
+// Code file extensions
+const CODE_EXTENSIONS = ['js', 'jsx', 'ts', 'tsx', 'py', 'java', 'c', 'cpp', 'h', 'cs', 'go', 'rs', 'rb', 'php', 'swift', 'kt', 'scala', 'html', 'css', 'scss', 'less', 'vue', 'sh', 'bash', 'zsh', 'sql', 'json', 'yaml', 'yml', 'toml', 'xml', 'ini', 'env', 'config', 'md', 'txt', 'csv', 'log'];
+
 // Check if a filename is an image
 export const isImageFile = (filename) => {
   if (!filename) return false;
   const ext = filename.split('.').pop()?.toLowerCase() || '';
   return IMAGE_EXTENSIONS.includes(ext);
+};
+
+// Check if a filename is a code/text file that can be opened in an editor
+export const isCodeFile = (filename) => {
+  if (!filename) return false;
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  return CODE_EXTENSIONS.includes(ext);
 };
 
 // Helper component for index status indicator dot
