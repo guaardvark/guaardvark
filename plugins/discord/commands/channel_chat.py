@@ -9,7 +9,7 @@ from core.api_client import GuaardvarkClient, APIError
 from core.rate_limiter import RateLimiter
 from core.security import sanitize_input
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("discord_bot")
 DISCORD_MAX_LENGTH = 2000
 
 
@@ -96,6 +96,8 @@ class ChannelChatCog(commands.Cog):
         cleaned = sanitize_input(content, max_length=self.config["security"]["max_prompt_length"])
         if not cleaned:
             return
+
+        logger.info("[channel] user=%s msg=%r", message.author, cleaned[:100])
 
         # Show typing indicator while generating
         async with message.channel.typing():

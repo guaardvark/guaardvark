@@ -10,7 +10,7 @@ from core.api_client import GuaardvarkClient, APIError
 from core.rate_limiter import RateLimiter
 from core.security import sanitize_input, is_channel_allowed
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("discord_bot")
 DISCORD_MAX_LENGTH = 2000
 
 
@@ -93,9 +93,11 @@ class ChatCog(commands.Cog):
         await interaction.response.defer()
 
         try:
+            logger.info("[/ask] user=%s msg=%r", interaction.user, cleaned[:100])
             history = self._get_history(interaction.user.id)
             result = await self.api.chat_claude(cleaned, history=history)
             response_text = result.get("response", "No response received.")
+            logger.info("[/ask] response=%r", response_text[:100])
 
             # Update history
             self._add_to_history(interaction.user.id, "user", cleaned)

@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 class GuaardvarkClient:
     """Async HTTP client for communicating with the Guaardvark backend API."""
 
-    def __init__(self, base_url: str = "http://localhost:5002/api"):
+    def __init__(self, base_url: str = "http://localhost:5000/api"):
         self.base_url = base_url.rstrip("/")
         self.session: Optional[aiohttp.ClientSession] = None
 

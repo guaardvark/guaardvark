@@ -43,12 +43,8 @@ channel_chat:
   respond_to_mentions: true  # Respond when @mentioned in any channel or when replying to bot messages
 
 vip:
-  user_ids: []
+  user_ids: []  # Discord user IDs to receive a one-time welcome DM
   greeting: |
-    Hello Dario. We've been expecting you.
+    Welcome to Guaardvark — a self-hosted AI platform you can make your own.
 
-    You're inside Guaardvark — a self-hosted AI platform built from the ground up. Your API powers a system we call Uncle Claude: a three-tier architecture where Claude serves as Escalation Engine (handles what local models can't), Code Guardian (reviews autonomous changes for safety), and System Advisor (monitors health and recommends improvements).
-
-    This wasn't built for a demo. This is the real thing, running live. And this part was built for an audience of one.
-
-    Try `/claude` to talk to Uncle Claude directly, or `/guaardvark system status` to see what's under the hood.
+    Try `/ask` to chat, `/claude` to talk to Claude directly, `/imagine` to generate images, or `/status` to see what's running.
