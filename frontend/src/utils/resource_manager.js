@@ -388,12 +388,17 @@ class FrontendResourceManager {
         };
       }
     } else if (typeof message === 'object' && message !== null) {
-      // For object messages, check if they contain large text fields
-      const messageStr = JSON.stringify(message);
+      // For object messages, check text fields but exclude image data (base64 is expected to be large)
+      const checkObj = { ...message };
+      delete checkObj.image;
+      delete checkObj.image_data;
+      delete checkObj.images;
+      delete checkObj.frame;
+      const messageStr = JSON.stringify(checkObj);
       if (messageStr.length > queue.maxLength) {
         const errorMessage = `Message object too large: ${messageStr.length} > ${queue.maxLength} characters`;
         console.error("Message size validation failed:", errorMessage);
-        
+
         return {
           success: false,
           error: errorMessage,

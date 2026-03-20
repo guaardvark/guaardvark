@@ -15,14 +15,12 @@ import {
   Chip,
   CircularProgress,
 } from "@mui/material";
-import DeleteIcon from "@mui/icons-material/Delete";
+import CloseIcon from "@mui/icons-material/Close";
 import { listChatSessions, deleteChatSession } from "../../api/chatService";
 
 const PreviousChatsModal = ({ open, onClose, projectId, currentSessionId, onSelectSession }) => {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
-
   useEffect(() => {
     if (open) {
       loadSessions();
@@ -43,14 +41,9 @@ const PreviousChatsModal = ({ open, onClose, projectId, currentSessionId, onSele
 
   const handleDelete = async (sessionId, e) => {
     e.stopPropagation();
-    if (deleteConfirm !== sessionId) {
-      setDeleteConfirm(sessionId);
-      return;
-    }
     try {
       await deleteChatSession(sessionId);
       setSessions((prev) => prev.filter((s) => s.session_id !== sessionId));
-      setDeleteConfirm(null);
       if (sessionId === currentSessionId) {
         onSelectSession(null); // Signal to start a new chat
       }
@@ -101,10 +94,13 @@ const PreviousChatsModal = ({ open, onClose, projectId, currentSessionId, onSele
                     edge="end"
                     size="small"
                     onClick={(e) => handleDelete(session.session_id, e)}
-                    color={deleteConfirm === session.session_id ? "error" : "default"}
-                    title={deleteConfirm === session.session_id ? "Click again to confirm" : "Delete"}
+                    title="Remove chat"
+                    sx={{
+                      color: "text.disabled",
+                      "&:hover": { color: "text.secondary" },
+                    }}
                   >
-                    <DeleteIcon fontSize="small" />
+                    <CloseIcon fontSize="small" />
                   </IconButton>
                 }
               >
