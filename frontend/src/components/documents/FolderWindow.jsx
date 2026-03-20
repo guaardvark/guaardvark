@@ -24,6 +24,7 @@ const FolderWindow = React.forwardRef(({
   onDragStart,
   onDrop,
   onFolderOpen,
+  onFileOpen,
   onFocusContext,
   refreshKey = 0,
   folderColors = {},
@@ -114,6 +115,7 @@ const FolderWindow = React.forwardRef(({
           onDragStart={onDragStart}
           onDrop={onDrop}
           onFolderOpen={onFolderOpen}
+          onFileOpen={onFileOpen}
           onFocusContext={onFocusContext}
           refreshKey={refreshKey}
           folderColors={folderColors}

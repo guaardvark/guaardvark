@@ -175,6 +175,7 @@ const DocumentsContextMenu = ({
           </>
         )}
         {isImage && onEdit && <MenuItem onClick={onEdit}>Edit</MenuItem>}
+        {isCode && onEdit && <MenuItem onClick={onEdit}>Edit</MenuItem>}
         {isCode && onOpenInCodeEditor && <MenuItem onClick={onOpenInCodeEditor}>Open in Code Editor</MenuItem>}
         {onRename && <MenuItem onClick={onRename}>Rename</MenuItem>}
         {onProperties && <MenuItem onClick={onProperties}>Properties</MenuItem>}

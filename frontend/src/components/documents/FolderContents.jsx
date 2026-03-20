@@ -51,6 +51,7 @@ const FolderContents = ({
   onContextMenu,
   onDragStart,
   onFolderOpen,
+  onFileOpen,
   onDrop,
   onFocusContext,
   refreshKey = 0, // Refresh trigger - incrementing this will refresh contents
@@ -443,6 +444,7 @@ const FolderContents = ({
           onClick={(e) => h.handleItemClick(e, item, item.itemType)}
           onDoubleClick={(e) => {
             if (isFolder) h.handleFolderDoubleClick(e, item);
+            else if (onFileOpen) onFileOpen(e, item);
           }}
           draggable
           onDragStart={(e) => h.handleDragStart(e, item, item.itemType)}
@@ -786,7 +788,7 @@ const FolderContents = ({
             >
               <CardActionArea
                 onClick={(e) => handleItemClick(e, item, type)}
-                onDoubleClick={(e) => { if (isFolder) handleFolderDoubleClick(e, item); }}
+                onDoubleClick={(e) => { if (isFolder) handleFolderDoubleClick(e, item); else if (onFileOpen) onFileOpen(e, item); }}
                 draggable
                 onDragStart={(e) => handleDragStart(e, item, type)}
                 onDragOver={(e) => e.preventDefault()}

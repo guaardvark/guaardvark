@@ -1365,14 +1365,17 @@ const DocumentsPage = () => {
     const item = contextMenuItem;
     if (!item || contextMenuType !== 'file') return;
     const filename = item.filename || item.name || '';
-    if (!isImageFile(filename)) return;
-    const imageUrl = `${API_BASE}/document/${item.id}/download?v=${item.updated_at || Date.now()}`;
-    setLightbox({
-      url: imageUrl,
-      name: filename,
-      documentId: item.id,
-      editMode: true,
-    });
+    if (isImageFile(filename)) {
+      const imageUrl = `${API_BASE}/document/${item.id}/download?v=${item.updated_at || Date.now()}`;
+      setLightbox({
+        url: imageUrl,
+        name: filename,
+        documentId: item.id,
+        editMode: true,
+      });
+    } else if (isCodeFile(filename)) {
+      setCodeViewer({ file: item });
+    }
   }, [contextMenuItem, contextMenuType]);
 
   // Open file in Code Editor page — navigates with file data in router state
@@ -2268,6 +2271,18 @@ const DocumentsPage = () => {
                       onDragStart={handleDragStart}
                       onDrop={handleDrop}
                       onFolderOpen={handleFolderExpand}
+                      onFileOpen={(e, file) => {
+                        e.stopPropagation();
+                        const filename = file.filename || file.name || '';
+                        if (isImageFile(filename)) {
+                          const imageUrl = `${API_BASE}/document/${file.id}/download?v=${file.updated_at || Date.now()}`;
+                          setLightbox({ url: imageUrl, name: filename, documentId: file.id, editMode: false });
+                        } else if (isCodeFile(filename)) {
+                          setCodeViewer({ file });
+                        } else {
+                          window.open(`${API_BASE}/document/${file.id}/download`, '_blank');
+                        }
+                      }}
                       onContextMenu={handleContextMenu}
                       onFocusContext={setActiveContext}
                       refreshKey={folderRefreshKeys[window.folderId] || 0}
