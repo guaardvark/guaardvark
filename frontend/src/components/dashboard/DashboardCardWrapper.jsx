@@ -21,9 +21,7 @@ import { useNavigate } from "react-router-dom";
 const DashboardCardWrapper = React.forwardRef(
   ({ title, children, cardColor, onCardColorChange, isMinimized, onToggleMinimize, titleBarActions, ...props }, ref) => {
     const routerNavigate = useNavigate();
-    const [clickTimeout, setClickTimeout] = useState(null);
-    const [lastClickTime, setLastClickTime] = useState(0);
-    const [clickCount, setClickCount] = useState(0);
+    const clickState = useRef({ timeout: null, lastTime: 0, count: 0 });
     // Destructure known react-grid-layout props AND custom props
     // to prevent them from being spread onto the Paper component.
     const {
@@ -100,46 +98,40 @@ const DashboardCardWrapper = React.forwardRef(
 
 
     // Handle mouse down to implement custom double-click detection
+    // Uses refs instead of state to avoid stale closures on rapid clicks
     const handleMouseDown = useCallback((e) => {
-      const currentTime = Date.now();
-      const timeDiff = currentTime - lastClickTime;
+      const cs = clickState.current;
+      const now = Date.now();
+      const timeDiff = now - cs.lastTime;
 
-      // console.log('MouseDown on card:', title, 'timeDiff:', timeDiff, 'clickCount:', clickCount);
-
-      // Clear any existing timeout
-      if (clickTimeout) {
-        clearTimeout(clickTimeout);
-        setClickTimeout(null);
+      if (cs.timeout) {
+        clearTimeout(cs.timeout);
+        cs.timeout = null;
       }
 
-      if (timeDiff < 500 && clickCount === 1) {
-        // This is a double-click (second click within 500ms)
-        // console.log('Double-click detected via mousedown on card:', title);
-        setClickCount(0);
-        setLastClickTime(0);
-
+      if (timeDiff < 400 && cs.count === 1) {
+        // Double-click detected
+        cs.count = 0;
+        cs.lastTime = 0;
         if (onToggleMinimize) {
           onToggleMinimize();
         }
       } else {
-        // This is a single click, start the timer
-        setLastClickTime(currentTime);
-        setClickCount(1);
-
-        // Set timeout to reset if no second click comes
-        const newTimeout = setTimeout(() => {
-          setClickCount(0);
-          setLastClickTime(0);
-        }, 500);
-        setClickTimeout(newTimeout);
+        // First click — wait for potential second
+        cs.lastTime = now;
+        cs.count = 1;
+        cs.timeout = setTimeout(() => {
+          cs.count = 0;
+          cs.lastTime = 0;
+        }, 400);
       }
-    }, [clickTimeout, lastClickTime, clickCount, onToggleMinimize, title]);
+    }, [onToggleMinimize]);
 
     // Cleanup timeout on unmount
     useEffect(() => {
       return () => {
-        if (clickTimeout) {
-          clearTimeout(clickTimeout);
+        if (clickState.current.timeout) {
+          clearTimeout(clickState.current.timeout);
         }
       };
     }, []);
