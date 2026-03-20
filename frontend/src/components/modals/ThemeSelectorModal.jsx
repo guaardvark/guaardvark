@@ -18,8 +18,28 @@ import {
 import { themes } from "../../theme";
 import { useAppStore } from "../../stores/useAppStore";
 
+// Inline SVG cologne bottle icon for Elon's Musk theme
+const CologneBottleIcon = ({ size = 40 }) => (
+  <svg width={size} height={size} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+    {/* Cap */}
+    <rect x="24" y="4" width="16" height="8" rx="2" fill="rgba(255,255,255,0.9)" />
+    {/* Neck */}
+    <rect x="27" y="12" width="10" height="6" fill="rgba(255,255,255,0.7)" />
+    {/* Shoulders */}
+    <path d="M27 18 L20 26 L20 54 C20 56.2 21.8 58 24 58 L40 58 C42.2 58 44 56.2 44 54 L44 26 L37 18 Z" fill="rgba(0,229,255,0.35)" stroke="rgba(255,255,255,0.8)" strokeWidth="1.5" />
+    {/* Liquid level */}
+    <path d="M20 32 L44 32 L44 54 C44 56.2 42.2 58 40 58 L24 58 C21.8 58 20 56.2 20 54 Z" fill="rgba(0,229,255,0.5)" />
+    {/* Sprayer nozzle */}
+    <rect x="30" y="1" width="4" height="4" rx="1" fill="rgba(255,255,255,0.6)" />
+    {/* Label */}
+    <text x="32" y="47" textAnchor="middle" fill="rgba(255,255,255,0.85)" fontSize="7" fontWeight="bold" fontFamily="monospace">EM</text>
+    {/* Shine */}
+    <line x1="23" y1="28" x2="23" y2="50" stroke="rgba(255,255,255,0.3)" strokeWidth="1" strokeLinecap="round" />
+  </svg>
+);
+
 const ThemePreview = ({ themeKey, themeData, isSelected, onClick }) => {
-  const { label, description, previewGradient } = themeData;
+  const { label, description, previewGradient, icon } = themeData;
   
   const getPreviewStyle = () => {
     if (previewGradient) {
@@ -87,17 +107,21 @@ const ThemePreview = ({ themeKey, themeData, isSelected, onClick }) => {
             }}
           />
         )}
-        <Typography
-          variant="h6"
-          sx={{
-            color: "white",
-            fontWeight: "bold",
-            textShadow: "0 2px 4px rgba(0,0,0,0.5)",
-            textAlign: "center",
-          }}
-        >
-          {label}
-        </Typography>
+        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}>
+          {icon === "cologne" && <CologneBottleIcon size={36} />}
+          <Typography
+            variant="h6"
+            sx={{
+              color: "white",
+              fontWeight: "bold",
+              textShadow: "0 2px 4px rgba(0,0,0,0.5)",
+              textAlign: "center",
+              ...(icon === "cologne" && { fontSize: "0.9rem" }),
+            }}
+          >
+            {label}
+          </Typography>
+        </Box>
       </Box>
       <CardContent sx={{ p: 2, bgcolor: "background.paper" }}>
         <Typography

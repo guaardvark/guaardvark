@@ -16,7 +16,7 @@ const defaultTheme = createFullTheme({
   divider: "rgba(255, 255, 255, 0.08)",
 });
 
-// ─── Musk: Futuristic dark with neon cyan + red ─────────────────────────────
+// ─── Elon's Musk: Futuristic dark with neon cyan + red ──────────────────────
 
 const muskTheme = createFullTheme({
   accent: "#00e5ff",
@@ -548,9 +548,10 @@ export const themes = {
     theme: defaultTheme,
   },
   musk: {
-    label: "Musk",
+    label: "Elon's Musk",
     description: "Futuristic dark theme with neon cyan and red accents",
     previewGradient: "linear-gradient(45deg, #00e5ff, #ff1744)",
+    icon: "cologne",
     theme: muskTheme,
   },
   hacker: {
