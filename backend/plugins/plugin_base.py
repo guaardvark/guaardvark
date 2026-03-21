@@ -30,23 +30,21 @@ class PluginType(Enum):
 @dataclass
 class PluginConfig:
     enabled: bool = False
-    auto_start: bool = False
     service_url: Optional[str] = None
     timeout: int = 30
     fallback_enabled: bool = True
     extra: Dict[str, Any] = field(default_factory=dict)
-
+    
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'PluginConfig':
-        known_fields = {'enabled', 'auto_start', 'service_url', 'timeout', 'fallback_enabled'}
+        known_fields = {'enabled', 'service_url', 'timeout', 'fallback_enabled'}
         known_data = {k: v for k, v in data.items() if k in known_fields}
         extra_data = {k: v for k, v in data.items() if k not in known_fields}
         return cls(**known_data, extra=extra_data)
-
+    
     def to_dict(self) -> Dict[str, Any]:
         result = {
             'enabled': self.enabled,
-            'auto_start': self.auto_start,
             'service_url': self.service_url,
             'timeout': self.timeout,
             'fallback_enabled': self.fallback_enabled,

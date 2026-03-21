@@ -14,7 +14,6 @@ export async function executeBuiltinCommand(name, args, context) {
     "/clear": handleClear,
     "/voice": handleVoice,
     "/vision": handleVision,
-    "/agent": handleAgent,
     "/model": handleModel,
     "/imagemodel": handleImageModel,
     "/imagine": handleImagine,
@@ -91,47 +90,13 @@ function handleVoice(args, { addMessage, chatState }) {
 // /vision
 // ============================================================
 
-async function handleVision(args, { addMessage, onSendMessage }) {
-  const prompt = args?.trim() || "Describe what you see on the virtual screen. List all visible UI elements, text, and buttons.";
-  const tempId = `vision-${Date.now()}`;
-
+function handleVision(args, { addMessage }) {
   addMessage({
     role: "system",
-    content: "Capturing virtual screen...",
-    tempId,
+    content: "Vision pipeline coming soon. Use the Plugins page to start the Vision Pipeline service.",
+    tempId: `vision-${Date.now()}`,
     type: "command",
   });
-
-  // Send through the chat pipeline so the model uses agent_screen_capture
-  onSendMessage?.(`Use agent_screen_capture to analyze the virtual screen. Prompt: "${prompt}". Show me the screenshot and describe what you see.`);
-  return { handled: true };
-}
-
-// ============================================================
-// /agent <task>
-// ============================================================
-
-async function handleAgent(args, { addMessage, onSendMessage }) {
-  if (!args?.trim()) {
-    addMessage({
-      role: "system",
-      content: "Usage: /agent <task>\nExample: /agent search YouTube for self hosted AI videos\nExample: /agent click the Reply button under the first comment\nExample: /agent scroll down slowly and describe what you see",
-      tempId: `agent-help-${Date.now()}`,
-      type: "command",
-    });
-    return { handled: true };
-  }
-
-  const task = args.trim();
-  addMessage({
-    role: "system",
-    content: `Agent task: ${task}`,
-    tempId: `agent-${Date.now()}`,
-    type: "command",
-  });
-
-  // Send through the chat pipeline — the model will use agent_task_execute or agent_screen_capture
-  onSendMessage?.(`Execute this task on the virtual screen using the agent tools (agent_task_execute or agent_screen_capture): ${task}`);
   return { handled: true };
 }
 

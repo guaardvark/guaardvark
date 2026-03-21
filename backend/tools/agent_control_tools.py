@@ -7,18 +7,9 @@ vision-based automation tasks.
 """
 
 import logging
-import os
 from backend.services.agent_tools import BaseTool, ToolParameter, ToolResult
 
 logger = logging.getLogger(__name__)
-
-# Virtual display for agent operations (set by start script or manually)
-AGENT_DISPLAY = os.environ.get("GUAARDVARK_AGENT_DISPLAY", ":99")
-
-
-def _ensure_agent_display():
-    """Set DISPLAY to the agent's virtual display for pyautogui/mss operations."""
-    os.environ["DISPLAY"] = AGENT_DISPLAY
 
 
 class AgentModeStartTool(BaseTool):
@@ -28,13 +19,12 @@ class AgentModeStartTool(BaseTool):
 
     def execute(self, **kwargs) -> ToolResult:
         try:
-            _ensure_agent_display()
             from backend.services.agent_control_service import get_agent_control_service
             service = get_agent_control_service()
             if service.is_active:
                 return ToolResult(success=False, error="Agent mode already active with a running task")
             service.start()
-            return ToolResult(success=True, output=f"Agent mode activated on display {AGENT_DISPLAY}. Use agent_task_execute to run a task.")
+            return ToolResult(success=True, output="Agent mode activated. Use agent_task_execute to run a task.")
         except Exception as e:
             return ToolResult(success=False, error=str(e))
 
@@ -74,7 +64,6 @@ class AgentTaskExecuteTool(BaseTool):
             return ToolResult(success=False, error="Task description is required")
 
         try:
-            _ensure_agent_display()
             from backend.services.agent_control_service import get_agent_control_service
             from backend.services.local_screen_backend import LocalScreenBackend
 
@@ -112,19 +101,11 @@ class AgentScreenCaptureTool(BaseTool):
         prompt = kwargs.get("prompt", "Describe what is currently on the screen.")
 
         try:
-            _ensure_agent_display()
             from backend.services.local_screen_backend import LocalScreenBackend
             from backend.utils.vision_analyzer import VisionAnalyzer
-            import base64
-            from io import BytesIO
 
             screen = LocalScreenBackend()
             screenshot, cursor_pos = screen.capture()
-
-            # Encode screenshot as base64 for inline display in chat
-            buf = BytesIO()
-            screenshot.save(buf, format="PNG")
-            image_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
 
             analyzer = VisionAnalyzer()
             result = analyzer.analyze(screenshot, prompt=prompt)
@@ -137,8 +118,6 @@ class AgentScreenCaptureTool(BaseTool):
                         "cursor": cursor_pos,
                         "model": result.model_used,
                         "inference_ms": result.inference_ms,
-                        "image_base64": image_b64,
-                        "format": "png",
                     }
                 )
             else:

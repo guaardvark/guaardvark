@@ -37,32 +37,18 @@ class PluginManager:
         
         # Initialize status for all plugins
         self._init_plugin_status()
-
+    
     def _init_plugin_status(self):
-        """Initialize status for all registered plugins and auto-start those configured to do so."""
-        auto_start_queue = []
+        """Initialize status for all registered plugins"""
         for plugin_id, metadata in self.registry.get_all_plugins().items():
             if metadata.config.enabled:
+                # Check if already running
                 if self._check_service_running(metadata):
                     self._plugin_status[plugin_id] = PluginStatus.RUNNING
                 else:
                     self._plugin_status[plugin_id] = PluginStatus.STOPPED
-                    if metadata.config.auto_start:
-                        auto_start_queue.append(plugin_id)
             else:
                 self._plugin_status[plugin_id] = PluginStatus.DISABLED
-
-        # Auto-start plugins that have auto_start: true and aren't already running
-        for plugin_id in auto_start_queue:
-            logger.info(f"Auto-starting plugin: {plugin_id}")
-            try:
-                result = self.start_plugin(plugin_id)
-                if result.get('success'):
-                    logger.info(f"Auto-started plugin: {plugin_id}")
-                else:
-                    logger.warning(f"Failed to auto-start {plugin_id}: {result.get('error', 'unknown')}")
-            except Exception as e:
-                logger.warning(f"Error auto-starting {plugin_id}: {e}")
     
     def _check_service_running(self, metadata: PluginMetadata) -> bool:
         """Check if a service plugin is running by hitting its health endpoint"""

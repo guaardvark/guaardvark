@@ -43,7 +43,7 @@ class VisionAnalyzer:
     def __init__(
         self,
         ollama_url: str = None,
-        default_model: str = "moondream",
+        default_model: str = "qwen3-vl:2b-instruct",
         max_width: int = 1024,
         timeout: int = 30,
     ):

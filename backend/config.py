@@ -210,50 +210,35 @@ OLLAMA_BASE_URL = "http://localhost:11434"
 
 def get_default_llm():
     try:
-        import json
+        import re
         import requests
         from backend.utils.ollama_resource_manager import is_text_chat_model
 
-        # Get available models from Ollama
         response = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
-        available = []
         if response.status_code == 200:
-            available = [m.get('name', '') for m in response.json().get('models', [])]
+            models = response.json().get('models', [])
 
-        # Check user's saved model first (active_model.json)
-        active_model_path = os.path.join(STORAGE_DIR, "active_model.json")
-        try:
-            if os.path.exists(active_model_path):
-                with open(active_model_path) as f:
-                    saved = json.load(f).get('active_model')
-                if saved and saved in available:
-                    logging.info(f"Using saved active model: {saved}")
-                    return saved
-                elif saved:
-                    logging.warning(f"Saved model '{saved}' not available in Ollama, falling back to preference list")
-        except Exception:
-            pass
+            preferred_patterns = [
+                'llama3.1',
+                'llama3',
+                'gemma',
+                'phi',
+                'mistral',
+                'qwen',
+            ]
 
-        # Fallback: pick from preference list
-        preferred_patterns = [
-            'llama3.1',
-            'llama3',
-            'gemma',
-            'phi',
-            'mistral',
-            'qwen',
-        ]
+            for pattern in preferred_patterns:
+                for model in models:
+                    name = model.get('name', '').lower()
+                    if not is_text_chat_model(name):
+                        continue
+                    if pattern in name and ':' in name:
+                        return model.get('name')
 
-        for pattern in preferred_patterns:
-            for name in available:
-                if not is_text_chat_model(name.lower()):
-                    continue
-                if pattern in name.lower() and ':' in name:
-                    return name
-
-        for name in available:
-            if is_text_chat_model(name.lower()):
-                return name
+            for model in models:
+                name = model.get('name', '').lower()
+                if is_text_chat_model(name):
+                    return model.get('name')
 
     except Exception:
         pass
