@@ -651,13 +651,20 @@ class UnifiedChatEngine:
                 _, t_name, _ = tool_jobs[job_i]
                 out = _output_str(res)
                 with _emit_lock:
+                    result_payload = {
+                        "success": res.success,
+                        "output": out[:2000] if res.success else None,
+                        "error": res.error if not res.success else None,
+                    }
+                    # Pass through metadata (image_base64, etc.) for inline display
+                    if res.metadata:
+                        result_payload["metadata"] = {
+                            k: v for k, v in res.metadata.items()
+                            if k in ("image_base64", "format", "image_url", "cursor", "model", "inference_ms")
+                        }
                     emit_fn("chat:tool_result", {
                         "tool": t_name,
-                        "result": {
-                            "success": res.success,
-                            "output": out[:2000] if res.success else None,
-                            "error": res.error if not res.success else None,
-                        },
+                        "result": result_payload,
                         "duration_ms": dur_ms,
                     })
                     # Emit image event if tool result contains an image URL

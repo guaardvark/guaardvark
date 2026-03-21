@@ -115,9 +115,16 @@ class AgentScreenCaptureTool(BaseTool):
             _ensure_agent_display()
             from backend.services.local_screen_backend import LocalScreenBackend
             from backend.utils.vision_analyzer import VisionAnalyzer
+            import base64
+            from io import BytesIO
 
             screen = LocalScreenBackend()
             screenshot, cursor_pos = screen.capture()
+
+            # Encode screenshot as base64 for inline display in chat
+            buf = BytesIO()
+            screenshot.save(buf, format="PNG")
+            image_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
 
             analyzer = VisionAnalyzer()
             result = analyzer.analyze(screenshot, prompt=prompt)
@@ -130,6 +137,8 @@ class AgentScreenCaptureTool(BaseTool):
                         "cursor": cursor_pos,
                         "model": result.model_used,
                         "inference_ms": result.inference_ms,
+                        "image_base64": image_b64,
+                        "format": "png",
                     }
                 )
             else:
