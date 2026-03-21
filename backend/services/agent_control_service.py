@@ -41,8 +41,8 @@ class AgentControlConfig:
     grid_cols: int = 8
     grid_rows: int = 8
     bullseye_size: int = 48
-    vision_model: str = "qwen3-vl:2b-instruct"
-    escalation_model: str = "qwen3-vl:8b"
+    vision_model: str = "moondream"
+    escalation_model: str = "moondream"
     escalation_threshold: int = 3  # failures before escalating
 
 
