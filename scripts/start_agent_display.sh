@@ -1,0 +1,109 @@
+#!/bin/bash
+# Start the Agent Vision Control virtual display
+# Usage: ./scripts/start_agent_display.sh [start|stop|status]
+
+DISPLAY_NUM=99
+RESOLUTION="1280x720x24"
+VNC_PORT=5999
+AGENT_PROFILE="/tmp/agent_firefox_profile2"
+PID_DIR="${GUAARDVARK_ROOT:-$(dirname $(dirname $(readlink -f $0)))}/pids"
+LOG_DIR="${GUAARDVARK_ROOT:-$(dirname $(dirname $(readlink -f $0)))}/logs"
+
+mkdir -p "$PID_DIR" "$LOG_DIR" "$AGENT_PROFILE"
+
+start() {
+    echo "Starting Agent Virtual Display (:$DISPLAY_NUM @ ${RESOLUTION%x*})..."
+    
+    # Xvfb
+    if pgrep -f "Xvfb :$DISPLAY_NUM" > /dev/null 2>&1; then
+        echo "  Xvfb already running"
+    else
+        Xvfb :$DISPLAY_NUM -screen 0 $RESOLUTION -ac &
+        echo $! > "$PID_DIR/xvfb.pid"
+        sleep 1
+        echo "  Xvfb started (PID $(cat $PID_DIR/xvfb.pid))"
+    fi
+    
+    # Window manager
+    if pgrep -f "matchbox-window-manager" > /dev/null 2>&1; then
+        echo "  Matchbox WM already running"
+    else
+        DISPLAY=:$DISPLAY_NUM matchbox-window-manager -use_titlebar no &
+        echo $! > "$PID_DIR/matchbox.pid"
+        sleep 1
+        echo "  Matchbox WM started"
+    fi
+    
+    # Firefox (with user's cookies, forced X11)
+    if pgrep -f "firefox.*agent_firefox_profile" > /dev/null 2>&1; then
+        echo "  Agent Firefox already running"
+    else
+        env DISPLAY=:$DISPLAY_NUM \
+            MOZ_ENABLE_WAYLAND=0 \
+            WAYLAND_DISPLAY= \
+            GDK_BACKEND=x11 \
+            firefox --no-remote --profile "$AGENT_PROFILE" \
+            --width 1280 --height 720 \
+            "about:blank" \
+            > "$LOG_DIR/agent_firefox.log" 2>&1 &
+        echo $! > "$PID_DIR/agent_firefox.pid"
+        sleep 3
+        echo "  Agent Firefox started (PID $(cat $PID_DIR/agent_firefox.pid))"
+    fi
+    
+    # VNC server (for watching the agent)
+    if pgrep -f "x11vnc.*:$DISPLAY_NUM" > /dev/null 2>&1; then
+        echo "  x11vnc already running"
+    else
+        env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE \
+            DISPLAY=:$DISPLAY_NUM \
+            x11vnc -nopw -forever -shared -rfbport $VNC_PORT \
+            -bg -o "$LOG_DIR/x11vnc_agent.log" 2>&1
+        sleep 1
+        echo "  x11vnc started on port $VNC_PORT"
+    fi
+    
+    echo ""
+    echo "Agent Virtual Display ready!"
+    echo "  Display:  :$DISPLAY_NUM"
+    echo "  VNC:      localhost:$VNC_PORT"
+    echo "  Firefox:  with your session cookies"
+    echo ""
+    echo "Connect TigerVNC to localhost:$VNC_PORT to watch the agent."
+}
+
+stop() {
+    echo "Stopping Agent Virtual Display..."
+    
+    for proc in agent_firefox matchbox xvfb; do
+        pid_file="$PID_DIR/${proc}.pid"
+        if [ -f "$pid_file" ]; then
+            pid=$(cat "$pid_file")
+            kill $pid 2>/dev/null && echo "  Stopped $proc (PID $pid)" || echo "  $proc not running"
+            rm -f "$pid_file"
+        fi
+    done
+    
+    # Kill x11vnc for our display
+    pkill -f "x11vnc.*:$DISPLAY_NUM" 2>/dev/null && echo "  Stopped x11vnc" || echo "  x11vnc not running"
+    # Kill any remaining Firefox on agent profile
+    pkill -f "firefox.*agent_firefox_profile" 2>/dev/null
+    
+    echo "Agent Virtual Display stopped."
+}
+
+status() {
+    echo "Agent Virtual Display Status:"
+    pgrep -f "Xvfb :$DISPLAY_NUM" > /dev/null 2>&1 && echo "  Xvfb:     RUNNING" || echo "  Xvfb:     STOPPED"
+    pgrep -f "matchbox-window-manager" > /dev/null 2>&1 && echo "  Matchbox: RUNNING" || echo "  Matchbox: STOPPED"
+    pgrep -f "firefox.*agent_firefox_profile" > /dev/null 2>&1 && echo "  Firefox:  RUNNING" || echo "  Firefox:  STOPPED"
+    pgrep -f "x11vnc.*:$DISPLAY_NUM" > /dev/null 2>&1 && echo "  x11vnc:   RUNNING (port $VNC_PORT)" || echo "  x11vnc:   STOPPED"
+}
+
+case "${1:-start}" in
+    start)  start ;;
+    stop)   stop ;;
+    status) status ;;
+    restart) stop; sleep 2; start ;;
+    *) echo "Usage: $0 {start|stop|status|restart}" ;;
+esac
