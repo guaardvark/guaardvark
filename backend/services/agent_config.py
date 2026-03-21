@@ -483,6 +483,11 @@ Do NOT call the same tool again. One successful tool call = task complete = set 
         tools=[
             "generate_file",
             "analyze_code",
+            "agent_mode_start",
+            "agent_mode_stop",
+            "agent_task_execute",
+            "agent_screen_capture",
+            "agent_status",
         ],
         system_prompt="""You are a General Assistant agent that helps with various tasks.
 
