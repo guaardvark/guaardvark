@@ -11,6 +11,7 @@
   "dependencies": [],
   "config": {
     "enabled": false,
+    "auto_start": false,
     "service_url": "http://localhost:8200",
     "timeout": 30,
     "fallback_enabled": false
