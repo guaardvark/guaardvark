@@ -50,13 +50,13 @@ class TestVisionAnalyzer(unittest.TestCase):
         result = analyzer.analyze(img, prompt="What do you see?")
 
         self.assertEqual(result.description, "A red square on white background")
-        self.assertEqual(result.model_used, "moondream")
+        self.assertEqual(result.model_used, "qwen3-vl:2b-instruct")
 
         # Verify Ollama was called with correct structure
         call_args = mock_post.call_args
         self.assertEqual(call_args[0][0], "http://localhost:11434/api/chat")
         payload = call_args[1]["json"]
-        self.assertEqual(payload["model"], "moondream")
+        self.assertEqual(payload["model"], "qwen3-vl:2b-instruct")
         self.assertEqual(len(payload["messages"]), 1)
         self.assertIn("images", payload["messages"][0])
 

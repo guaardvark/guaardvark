@@ -34,7 +34,7 @@ class TestAgentControlConfig(unittest.TestCase):
         self.assertEqual(config.verify_actions, True)
         self.assertEqual(config.grid_cols, 8)
         self.assertEqual(config.grid_rows, 8)
-        self.assertEqual(config.vision_model, "moondream")
+        self.assertEqual(config.vision_model, "qwen3-vl:2b-instruct")
         self.assertEqual(config.max_consecutive_failures, 5)
 
 
