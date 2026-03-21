@@ -7,8 +7,12 @@ Blueprint auto-discovered by blueprint_discovery.py.
 """
 
 import logging
+import os
 import threading
 from flask import Blueprint, jsonify, request
+
+# Agent operations use the virtual display
+AGENT_DISPLAY = os.environ.get("GUAARDVARK_AGENT_DISPLAY", ":99")
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +65,7 @@ def execute_task():
 
         # Run in background thread so the API doesn't block
         def run_task():
+            os.environ["DISPLAY"] = AGENT_DISPLAY
             result = service.execute_task(task, screen)
             logger.info(f"Task completed: success={result.success}, reason={result.reason}, "
                        f"steps={len(result.steps)}, time={result.total_time_seconds:.1f}s")
@@ -86,6 +91,7 @@ def capture_and_analyze():
         data = request.get_json() or {}
         prompt = data.get("prompt", "Describe what is currently on the screen.")
 
+        os.environ["DISPLAY"] = AGENT_DISPLAY
         from backend.services.local_screen_backend import LocalScreenBackend
         from backend.utils.vision_analyzer import VisionAnalyzer
 
