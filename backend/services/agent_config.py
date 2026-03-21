@@ -532,14 +532,17 @@ WORKFLOW:
 Be clear about what you're doing and report results back to the user.""",
         max_iterations=10,
         enabled=True,
-        priority=10,
+        priority=15,
         trigger_patterns=[
+            r'(?i)virtual\s+(?:display|screen|computer|machine|browser)',
+            r'(?i)(?:on|from|using|via|through)\s+(?:the\s+)?virtual',
             r'(?i)agent\s+(?:vision|control|screen|virtual)',
-            r'(?i)virtual\s+(?:display|screen)',
-            r'(?i)(?:search|browse|post|navigate)\s+.*(?:for\s+me|on\s+(?:the\s+)?(?:virtual|agent))',
-            r'(?i)what.*(?:on|see).*(?:agent|virtual)\s+screen',
-            r'(?i)capture.*screen',
             r'(?i)agent\s+mode',
+            r'(?i)what.{0,20}(?:on|see).{0,20}(?:virtual|agent)',
+            r'(?i)(?:open|go|navigate|browse|visit|search|click|type|scroll).{0,30}(?:virtual|agent\s+screen)',
+            r'(?i)(?:show|tell|describe).{0,20}(?:virtual|agent).{0,10}screen',
+            r'(?i)/vision',
+            r'(?i)/agent\s',
         ]
     ),
 }

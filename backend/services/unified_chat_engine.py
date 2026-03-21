@@ -96,8 +96,10 @@ TOOL_CONTEXT_KEYWORDS = {
                "image of", "photo of", "animate", "animation", "gif", "moving image",
                "video of", "make a video", "create a video", "generate video",
                "generate a gif", "animated"], IMAGE_TOOLS),
-    "agent_control": (["agent", "virtual screen", "agent_screen", "capture screen",
-                       "agent mode", "agent vision", "virtual display", "/vision", "/agent"],
+    "agent_control": (["virtual screen", "virtual display", "virtual computer", "virtual browser",
+                       "virtual machine", "agent screen", "agent mode", "agent vision",
+                       "on the virtual", "from the virtual", "using the virtual",
+                       "/vision", "/agent"],
                       AGENT_CONTROL_TOOLS),
 }
 
