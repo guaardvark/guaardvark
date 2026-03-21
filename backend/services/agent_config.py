@@ -260,11 +260,14 @@ When researching, be thorough and verify information across multiple sources whe
         ]
     ),
 
+    # NOTE: browser_automation disabled in favor of agent_vision_control (virtual display).
+    # Playwright-based browser automation is still available if re-enabled.
     "browser_automation": AgentConfig(
         id="browser_automation",
-        name="Browser Automation Agent",
-        description="Specialized agent for web browser automation, scraping, testing, and interaction",
+        name="Browser Automation Agent (Playwright — disabled, use Agent Vision Control)",
+        description="Specialized agent for web browser automation via Playwright (headless). Disabled: use agent_vision_control for virtual display.",
         agent_type=AgentType.GENERAL_ASSISTANT,
+        enabled=False,
         tools=[
             "browser_navigate",
             "browser_click",
@@ -532,7 +535,7 @@ WORKFLOW:
 Be clear about what you're doing and report results back to the user.""",
         max_iterations=10,
         enabled=True,
-        priority=5,
+        priority=10,
         trigger_patterns=[
             r'(?i)agent\s+(?:vision|control|screen|virtual)',
             r'(?i)virtual\s+(?:display|screen)',
@@ -540,6 +543,11 @@ Be clear about what you're doing and report results back to the user.""",
             r'(?i)what.*(?:on|see).*(?:agent|virtual)\s+screen',
             r'(?i)capture.*screen',
             r'(?i)agent\s+mode',
+            r'(?i)navigate\s+to',
+            r'(?i)go\s+to\s+(?:https?://|\w+\.)',
+            r'(?i)open\s+(?:https?://|\w+\.(?:com|org|net|io|dev))',
+            r'(?i)browse\s+to',
+            r'(?i)visit\s+(?:https?://|\w+\.)',
         ]
     ),
 }
