@@ -74,7 +74,7 @@ const PreviousChatsModal = ({ open, onClose, projectId, currentSessionId, onSele
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Previous Chats</DialogTitle>
-      <DialogContent dividers sx={{ p: 0, minHeight: 200 }}>
+      <DialogContent dividers sx={{ p: 0, height: 400, overflowY: "auto", display: "flex", flexDirection: "column", justifyContent: "flex-start" }}>
         {loading ? (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
             <CircularProgress size={32} />
