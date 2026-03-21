@@ -34,6 +34,25 @@ start() {
         echo "  Matchbox WM started"
     fi
     
+    # Ensure Firefox profile has safe settings (light mode, no fullscreen)
+    mkdir -p "$AGENT_PROFILE"
+    cat > "$AGENT_PROFILE/user.js" << 'USERJS'
+// Force light theme (vision models read light UIs better)
+user_pref("extensions.activeThemeID", "default-theme@mozilla.org");
+user_pref("browser.theme.content-theme", 1);
+user_pref("ui.systemUsesDarkTheme", 0);
+user_pref("layout.css.prefers-color-scheme.content-override", 1);
+// Show bookmarks toolbar
+user_pref("browser.toolbars.bookmarks.visibility", "always");
+// Disable fullscreen API (prevents black screen on videos)
+user_pref("full-screen-api.enabled", false);
+// Disable autoplay (videos auto-playing interferes with agent)
+user_pref("media.autoplay.default", 5);
+// Restore previous session (keep logins)
+user_pref("browser.startup.page", 3);
+user_pref("browser.sessionstore.resume_from_crash", true);
+USERJS
+
     # Firefox (with user's cookies, forced X11)
     if pgrep -f "firefox.*agent_firefox_profile" > /dev/null 2>&1; then
         echo "  Agent Firefox already running"

@@ -194,8 +194,8 @@ class AgentControlService:
 
                 self._current_iteration = iteration
 
-                # 1. SEE — Capture and annotate
-                screenshot, cursor_pos = screen.capture()
+                # 1. SEE — Capture and annotate (with black frame detection)
+                screenshot, cursor_pos = self._capture_with_retry(screen)
                 annotated = composite_bullseye(screenshot, cursor_pos, self.config.bullseye_size)
                 gridded, grid_spec = overlay_grid(
                     annotated, cols=self.config.grid_cols, rows=self.config.grid_rows
@@ -313,6 +313,24 @@ class AgentControlService:
         """Store result for status reporting and return it."""
         self._last_result = result
         return result
+
+    def _is_black_frame(self, image: Image.Image) -> bool:
+        """Check if frame is mostly black (display went dark)."""
+        import numpy as np
+        arr = np.array(image)
+        return arr.mean() < 10  # Average pixel value below 10 = effectively black
+
+    def _capture_with_retry(self, screen, max_retries: int = 3) -> Tuple[Image.Image, Tuple[int, int]]:
+        """Capture screenshot with black frame detection and retry."""
+        for attempt in range(max_retries):
+            screenshot, cursor_pos = screen.capture()
+            if not self._is_black_frame(screenshot):
+                return screenshot, cursor_pos
+            logger.warning(f"Black frame detected (attempt {attempt + 1}/{max_retries}), retrying...")
+            time.sleep(1.5)
+        # Still black after retries — return it anyway, let the vision model deal with it
+        logger.error("Display appears black after retries — virtual screen may need restart")
+        return screenshot, cursor_pos
 
     def _execute_action(self, action: AgentAction, screen) -> Dict[str, Any]:
         """Execute a single agent action via the screen interface."""

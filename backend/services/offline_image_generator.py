@@ -701,10 +701,34 @@ Negative Prompt: {negative_prompt}""",
         with self._generation_lock:
             self._notify_vision_pipeline("start")
             try:
+                # Free GPU memory: unload Ollama models before image generation
+                try:
+                    import requests as req
+                    ps_resp = req.get("http://localhost:11434/api/ps", timeout=2)
+                    if ps_resp.status_code == 200:
+                        for m in ps_resp.json().get("models", []):
+                            model_name = m.get("name", "")
+                            req.post("http://localhost:11434/api/generate",
+                                     json={"model": model_name, "keep_alive": 0}, timeout=5)
+                            logger.info(f"Unloaded Ollama model '{model_name}' to free GPU for image generation")
+                except Exception as e:
+                    logger.debug(f"Could not unload Ollama models (non-critical): {e}")
+
                 model_id = self.available_models.get(request.model, self.default_model)
                 logger.info(f"Using model: {request.model} -> {model_id}")
 
                 is_sdxl = 'xl' in model_id.lower() or 'sdxl' in model_id.lower()
+
+                # Clamp dimensions to safe maximums (prevents CUDA OOM)
+                max_dim = 1536 if is_sdxl else 768
+                if request.width > max_dim or request.height > max_dim:
+                    logger.warning(f"Resolution {request.width}x{request.height} exceeds safe max {max_dim}x{max_dim}, clamping")
+                    request.width = min(request.width, max_dim)
+                    request.height = min(request.height, max_dim)
+                # Ensure minimum dimensions
+                request.width = max(request.width, 256)
+                request.height = max(request.height, 256)
+                result.image_size = (request.width, request.height)
 
                 if is_sdxl and request.guidance_scale > 9.0:
                     logger.warning(f"Guidance scale {request.guidance_scale} is too high for SDXL (causes black images). Auto-correcting to 7.5")
