@@ -76,6 +76,8 @@ DESKTOP_TOOLS = ["app_launch", "app_list", "app_focus", "gui_click", "gui_type",
 WEB_TOOLS = ["analyze_website"]
 MEDIA_TOOLS = ["media_play", "media_control", "media_volume", "media_status"]
 IMAGE_TOOLS = ["generate_image", "generate_animation"]
+AGENT_CONTROL_TOOLS = ["agent_mode_start", "agent_mode_stop", "agent_task_execute",
+                       "agent_screen_capture", "agent_status"]
 
 # Keyword triggers for contextual tool selection
 TOOL_CONTEXT_KEYWORDS = {
@@ -94,6 +96,9 @@ TOOL_CONTEXT_KEYWORDS = {
                "image of", "photo of", "animate", "animation", "gif", "moving image",
                "video of", "make a video", "create a video", "generate video",
                "generate a gif", "animated"], IMAGE_TOOLS),
+    "agent_control": (["agent", "virtual screen", "agent_screen", "capture screen",
+                       "agent mode", "agent vision", "virtual display", "/vision", "/agent"],
+                      AGENT_CONTROL_TOOLS),
 }
 
 

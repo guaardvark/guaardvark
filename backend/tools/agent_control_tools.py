@@ -7,9 +7,17 @@ vision-based automation tasks.
 """
 
 import logging
+import os
 from backend.services.agent_tools import BaseTool, ToolParameter, ToolResult
 
 logger = logging.getLogger(__name__)
+
+AGENT_DISPLAY = os.environ.get("GUAARDVARK_AGENT_DISPLAY", ":99")
+
+
+def _ensure_agent_display():
+    """Set DISPLAY to the agent's virtual display for pyautogui/mss operations."""
+    os.environ["DISPLAY"] = AGENT_DISPLAY
 
 
 class AgentModeStartTool(BaseTool):
@@ -64,6 +72,7 @@ class AgentTaskExecuteTool(BaseTool):
             return ToolResult(success=False, error="Task description is required")
 
         try:
+            _ensure_agent_display()
             from backend.services.agent_control_service import get_agent_control_service
             from backend.services.local_screen_backend import LocalScreenBackend
 
@@ -101,6 +110,7 @@ class AgentScreenCaptureTool(BaseTool):
         prompt = kwargs.get("prompt", "Describe what is currently on the screen.")
 
         try:
+            _ensure_agent_display()
             from backend.services.local_screen_backend import LocalScreenBackend
             from backend.utils.vision_analyzer import VisionAnalyzer
 

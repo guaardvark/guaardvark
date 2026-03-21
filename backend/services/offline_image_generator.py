@@ -704,11 +704,12 @@ Negative Prompt: {negative_prompt}""",
                 # Free GPU memory: unload Ollama models before image generation
                 try:
                     import requests as req
-                    ps_resp = req.get("http://localhost:11434/api/ps", timeout=2)
+                    from backend.config import OLLAMA_BASE_URL
+                    ps_resp = req.get(f"{OLLAMA_BASE_URL}/api/ps", timeout=2)
                     if ps_resp.status_code == 200:
                         for m in ps_resp.json().get("models", []):
                             model_name = m.get("name", "")
-                            req.post("http://localhost:11434/api/generate",
+                            req.post(f"{OLLAMA_BASE_URL}/api/generate",
                                      json={"model": model_name, "keep_alive": 0}, timeout=5)
                             logger.info(f"Unloaded Ollama model '{model_name}' to free GPU for image generation")
                 except Exception as e:

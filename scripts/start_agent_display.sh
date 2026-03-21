@@ -76,7 +76,7 @@ USERJS
     else
         env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE \
             DISPLAY=:$DISPLAY_NUM \
-            x11vnc -nopw -forever -shared -rfbport $VNC_PORT \
+            x11vnc -nopw -localhost -forever -shared -rfbport $VNC_PORT \
             -bg -o "$LOG_DIR/x11vnc_agent.log" 2>&1
         sleep 1
         echo "  x11vnc started on port $VNC_PORT"

@@ -238,21 +238,25 @@ class AgentControlService:
 
                 # 3b. REFINE — Sub-cell refinement for clicks
                 if decision.action.action_type == "click" and decision.action.target_cell:
-                    cell_crop = crop_grid_cell(screenshot, decision.action.target_cell, grid_spec)
-                    refine_prompt = (
-                        f"Where exactly within this cropped area is '{decision.action.target_description}'? "
-                        f"Respond with ONLY one of: top-left, top-center, top-right, "
-                        f"center-left, center, center-right, bottom-left, bottom-center, bottom-right."
-                    )
-                    refine_result = analyzer.analyze(cell_crop, prompt=refine_prompt)
-                    if refine_result.success:
-                        position = refine_result.description.strip().lower()
-                        decision.action.coordinates = refine_coordinates(
-                            decision.action.target_cell, position, grid_spec
-                        )
+                    if decision.action.target_cell not in grid_spec:
+                        logger.warning(f"Invalid grid cell '{decision.action.target_cell}', using screen center")
+                        w, h = screenshot.size
+                        decision.action.coordinates = (w // 2, h // 2)
                     else:
-                        # Fallback to cell center
-                        decision.action.coordinates = grid_spec[decision.action.target_cell]["center"]
+                        cell_crop = crop_grid_cell(screenshot, decision.action.target_cell, grid_spec)
+                        refine_prompt = (
+                            f"Where exactly within this cropped area is '{decision.action.target_description}'? "
+                            f"Respond with ONLY one of: top-left, top-center, top-right, "
+                            f"center-left, center, center-right, bottom-left, bottom-center, bottom-right."
+                        )
+                        refine_result = analyzer.analyze(cell_crop, prompt=refine_prompt)
+                        if refine_result.success:
+                            position = refine_result.description.strip().lower()
+                            decision.action.coordinates = refine_coordinates(
+                                decision.action.target_cell, position, grid_spec
+                            )
+                        else:
+                            decision.action.coordinates = grid_spec[decision.action.target_cell]["center"]
 
                 # 4. ACT — Execute the decided action
                 result = self._execute_action(decision.action, screen)
@@ -429,12 +433,11 @@ If you cannot determine what to do, use "action": "done" with reasoning explaini
         try:
             # Try to extract JSON from the output
             text = llm_output.strip()
-            # Handle markdown code blocks
-            if "```" in text:
-                start = text.find("{")
-                end = text.rfind("}") + 1
-                if start >= 0 and end > start:
-                    text = text[start:end]
+            # Extract outermost JSON object (handles markdown fences, leading prose, etc.)
+            start = text.find("{")
+            end = text.rfind("}") + 1
+            if start >= 0 and end > start:
+                text = text[start:end]
 
             data = json.loads(text)
             action_type = data.get("action", "").lower().strip()
