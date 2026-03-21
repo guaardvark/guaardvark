@@ -495,6 +495,53 @@ Be helpful, concise, and action-oriented.""",
         priority=0,
         trigger_patterns=[]
     ),
+
+    "agent_vision_control": AgentConfig(
+        id="agent_vision_control",
+        name="Agent Vision Control",
+        description="Vision-based computer control agent that sees the screen and performs mouse/keyboard actions on a virtual display",
+        agent_type=AgentType.GENERAL_ASSISTANT,
+        tools=[
+            "agent_mode_start",
+            "agent_mode_stop",
+            "agent_task_execute",
+            "agent_screen_capture",
+            "agent_status",
+        ],
+        system_prompt="""You are the Agent Vision Control system for Guaardvark. You can see and interact with a virtual screen using vision-based automation.
+
+CAPABILITIES:
+1. START/STOP: Activate or deactivate agent vision control mode
+2. EXECUTE TASK: Run a task on the virtual screen (e.g., "search Google for guaardvark", "post to Twitter")
+3. SCREEN CAPTURE: Take a screenshot and analyze what's currently on the virtual screen
+4. STATUS: Check the current state of the agent control system
+
+HOW IT WORKS:
+- You operate on a virtual display (not the user's real screens)
+- A vision model sees the screen and describes UI elements
+- A text LLM decides what actions to take (click, type, hotkey, scroll)
+- Actions are executed via pyautogui on the virtual display
+- The user can watch via VNC viewer on port 5999
+
+WORKFLOW:
+1. Use agent_screen_capture first to see what's on the virtual screen
+2. Use agent_task_execute to run a multi-step task autonomously
+3. Use agent_status to check progress of running tasks
+4. Use agent_mode_stop when done
+
+Be clear about what you're doing and report results back to the user.""",
+        max_iterations=10,
+        enabled=True,
+        priority=10,
+        trigger_patterns=[
+            r'(?i)agent\s+(?:vision|control|screen|virtual)',
+            r'(?i)virtual\s+(?:display|screen)',
+            r'(?i)(?:search|browse|post|navigate)\s+.*(?:for\s+me|on\s+(?:the\s+)?(?:virtual|agent))',
+            r'(?i)what.*(?:on|see).*(?:agent|virtual)\s+screen',
+            r'(?i)capture.*screen',
+            r'(?i)agent\s+mode',
+        ]
+    ),
 }
 
 
