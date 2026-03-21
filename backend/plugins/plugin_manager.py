@@ -3,7 +3,9 @@ Plugin Manager
 Manages plugin lifecycle and operations.
 """
 
+import json
 import logging
+import os
 import subprocess
 import time
 import requests
@@ -14,6 +16,10 @@ from .plugin_base import PluginStatus, PluginMetadata
 from .plugin_registry import PluginRegistry, get_plugin_registry
 
 logger = logging.getLogger(__name__)
+
+# Where we save which plugins were running (survives reboots)
+GUAARDVARK_ROOT = os.environ.get("GUAARDVARK_ROOT", str(Path(__file__).resolve().parents[2]))
+PLUGIN_STATE_FILE = os.path.join(GUAARDVARK_ROOT, "data", "plugin_state.json")
 
 
 class PluginManager:
@@ -39,29 +45,51 @@ class PluginManager:
         self._init_plugin_status()
     
     def _init_plugin_status(self):
-        """Initialize status for all registered plugins and auto-start those configured to do so."""
-        auto_start_queue = []
+        """Initialize plugin status and restore previously running plugins."""
+        # First pass: detect what's already running
         for plugin_id, metadata in self.registry.get_all_plugins().items():
             if metadata.config.enabled:
                 if self._check_service_running(metadata):
                     self._plugin_status[plugin_id] = PluginStatus.RUNNING
                 else:
                     self._plugin_status[plugin_id] = PluginStatus.STOPPED
-                    if metadata.config.auto_start:
-                        auto_start_queue.append(plugin_id)
             else:
                 self._plugin_status[plugin_id] = PluginStatus.DISABLED
 
-        for plugin_id in auto_start_queue:
-            logger.info(f"Auto-starting plugin: {plugin_id}")
-            try:
-                result = self.start_plugin(plugin_id)
-                if result.get('success'):
-                    logger.info(f"Auto-started plugin: {plugin_id}")
-                else:
-                    logger.warning(f"Failed to auto-start {plugin_id}: {result.get('error', 'unknown')}")
-            except Exception as e:
-                logger.warning(f"Error auto-starting {plugin_id}: {e}")
+        # Second pass: start plugins that were running last time
+        saved = self._load_state()
+        for plugin_id in saved.get("running", []):
+            if self._plugin_status.get(plugin_id) == PluginStatus.STOPPED:
+                logger.info(f"Restoring plugin: {plugin_id} (was running before shutdown)")
+                try:
+                    result = self.start_plugin(plugin_id)
+                    if result.get('success'):
+                        logger.info(f"Restored plugin: {plugin_id}")
+                    else:
+                        logger.warning(f"Failed to restore {plugin_id}: {result.get('error', 'unknown')}")
+                except Exception as e:
+                    logger.warning(f"Error restoring {plugin_id}: {e}")
+
+    def _save_state(self):
+        """Save which plugins are currently running to disk."""
+        running = [pid for pid, status in self._plugin_status.items()
+                   if status == PluginStatus.RUNNING]
+        try:
+            os.makedirs(os.path.dirname(PLUGIN_STATE_FILE), exist_ok=True)
+            with open(PLUGIN_STATE_FILE, 'w') as f:
+                json.dump({"running": running}, f)
+        except Exception as e:
+            logger.warning(f"Could not save plugin state: {e}")
+
+    def _load_state(self) -> dict:
+        """Load saved plugin state from disk."""
+        try:
+            if os.path.exists(PLUGIN_STATE_FILE):
+                with open(PLUGIN_STATE_FILE) as f:
+                    return json.load(f)
+        except Exception as e:
+            logger.warning(f"Could not load plugin state: {e}")
+        return {"running": []}
     
     def _check_service_running(self, metadata: PluginMetadata) -> bool:
         """Check if a service plugin is running by hitting its health endpoint"""
@@ -173,6 +201,7 @@ class PluginManager:
                 for i in range(max_retries):
                     if self._check_service_running(metadata):
                         self._plugin_status[plugin_id] = PluginStatus.RUNNING
+                        self._save_state()
                         logger.info(f"Plugin started: {plugin_id}")
                         return {
                             'success': True,
@@ -245,6 +274,7 @@ class PluginManager:
                 
                 if not self._check_service_running(metadata):
                     self._plugin_status[plugin_id] = PluginStatus.STOPPED
+                    self._save_state()
                     logger.info(f"Plugin stopped: {plugin_id}")
                     return {
                         'success': True,
