@@ -314,7 +314,6 @@ FALLBACK STRATEGY:
 
 When asked to automate browser tasks, plan the sequence of actions carefully.""",
         max_iterations=10,
-        enabled=True,
         priority=9,
         trigger_patterns=[
             r"(?i)screenshot",
