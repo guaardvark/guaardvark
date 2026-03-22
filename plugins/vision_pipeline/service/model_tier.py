@@ -27,13 +27,15 @@ class ModelTier:
 
     def __init__(self, monitor_model: str, escalation_model: str,
                  fallback_order: List[str], ollama_url: str,
-                 monitor_prompt: str, escalation_prompt: str):
+                 monitor_prompt: str, escalation_prompt: str,
+                 change_detected_prompt: str):
         self.monitor_model = monitor_model
         self.escalation_model = escalation_model
         self.fallback_order = fallback_order
         self.ollama_url = ollama_url
         self.monitor_prompt = monitor_prompt
         self.escalation_prompt = escalation_prompt
+        self.change_detected_prompt = change_detected_prompt
         self._available_vision_models: List[str] = []
         self._cache_time: float = 0
 
@@ -44,7 +46,7 @@ class ModelTier:
             return model, self.escalation_prompt
         elif trigger == "change_detected":
             model = self._resolve_model(self.monitor_model)
-            return model, "Describe what changed compared to the previous scene."
+            return model, self.change_detected_prompt
         else:  # background
             model = self._resolve_model(self.monitor_model)
             return model, self.monitor_prompt

@@ -9,6 +9,7 @@ models:
   monitor: "moondream"
   escalation: "llava:13b"
   auto_select: true
+  max_parallel: 1
   fallback_order:
     - "moondream"
     - "llava:7b"
@@ -20,6 +21,7 @@ analysis:
   periodic_refresh_seconds: 10
   monitor_prompt: "Describe what you see in one brief sentence."
   escalation_prompt: "Describe this image in detail including objects, text, people, actions, and anything notable."
+  change_detected_prompt: "Describe what changed compared to the previous scene."
 
 context:
   window_seconds: 30

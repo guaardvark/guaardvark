@@ -26,10 +26,12 @@ YAML_TO_CANONICAL = {
     "models.escalation": "escalation_model",
     "models.auto_select": "auto_select",
     "models.fallback_order": "fallback_order",
+    "models.max_parallel": "max_parallel",
     "analysis.change_threshold": "change_threshold",
     "analysis.periodic_refresh_seconds": "periodic_refresh_seconds",
     "analysis.monitor_prompt": "monitor_prompt",
     "analysis.escalation_prompt": "escalation_prompt",
+    "analysis.change_detected_prompt": "change_detected_prompt",
     "context.window_seconds": "context_window_seconds",
     "context.max_entries": "max_entries",
     "context.compression_interval": "compression_interval",
@@ -65,11 +67,13 @@ class PipelineConfig:
     escalation_model: str = "llava:13b"
     auto_select: bool = True
     fallback_order: List[str] = field(default_factory=lambda: ["moondream", "llava:7b", "llava:latest", "bakllava"])
+    max_parallel: int = 1
     # Analysis
     change_threshold: float = 0.3
     periodic_refresh_seconds: int = 10
     monitor_prompt: str = "Describe what you see in one brief sentence."
     escalation_prompt: str = "Describe this image in detail including objects, text, people, actions, and anything notable."
+    change_detected_prompt: str = "Describe what changed compared to the previous scene."
     # Context
     context_window_seconds: int = 30
     max_entries: int = 60

@@ -150,6 +150,10 @@ class StreamManager:
 
     def _analysis_loop(self, stream_id: str):
         """Worker thread main loop for a stream."""
+        import io
+        import base64
+        from PIL import Image
+
         shutdown = self._shutdown_events[stream_id]
         frame_queue = self._frame_queues[stream_id]
 
@@ -169,8 +173,17 @@ class StreamManager:
                 stream.skipped_count += 1
                 continue
 
-            # 3. Change detection
-            should_process, reason = self.change_detector.should_process(frame_base64)
+            # 3. Decode frame once
+            try:
+                img_bytes = base64.b64decode(frame_base64)
+                img = Image.open(io.BytesIO(img_bytes))
+            except Exception as e:
+                logger.warning(f"Failed to decode frame for stream {stream_id}: {e}")
+                stream.skipped_count += 1
+                continue
+
+            # 4. Change detection
+            should_process, reason = self.change_detector.should_process(img)
             if not should_process:
                 stream.skipped_count += 1
                 self.adaptive_throttle.record_scene_state(changed=False)
@@ -178,25 +191,25 @@ class StreamManager:
 
             self.adaptive_throttle.record_scene_state(changed=True)
 
-            # 4. Model selection
+            # 5. Model selection
             trigger = "change_detected" if reason == "visual_change" else "background"
             model, prompt = self.model_tier.select_model(trigger)
 
-            # 5. Vision inference
-            result = self.frame_analyzer.analyze(frame_base64, model, prompt)
+            # 6. Vision inference
+            result = self.frame_analyzer.analyze(img, model, prompt)
             self.adaptive_throttle.record_inference(result.inference_ms)
 
-            # 6. Update context buffer
+            # 7. Update context buffer
             if result.description:
                 self.context_buffer.add(result)
                 self.change_detector.update_last_description(result.description)
 
-            # 7. Update stats
+            # 8. Update stats
             stream.analyzed_count += 1
             elapsed = time.time() - stream.started_at
             stream.current_fps = stream.analyzed_count / elapsed if elapsed > 0 else 0
 
-            # 8. Sleep per throttle interval
+            # 9. Sleep per throttle interval
             interval = self.adaptive_throttle.get_interval()
             if interval < float('inf'):
                 shutdown.wait(timeout=interval)

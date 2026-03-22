@@ -584,8 +584,32 @@ class VoiceService {
     }
   }
 
+
+  /**
+   * Stop current TTS playback immediately
+   */
+  stopPlayback() {
+    if (this.ttsAudioElement) {
+      this.ttsAudioElement.pause();
+      this.ttsAudioElement.currentTime = 0;
+      this.ttsAudioElement.removeAttribute('src'); // Release the resource
+      this.ttsAudioElement.load();
+    }
+    this.isTTSPlaying = false;
+    if (this.ttsAnalyzer) {
+      try {
+        this.ttsAnalyzer.source.disconnect();
+      } catch (e) {
+        console.warn('VoiceService: Error disconnecting TTS analyzer:', e);
+      }
+      this.ttsAnalyzer = null;
+    }
+    console.log('VoiceService: Playback stopped manually');
+  }
+
   /**
    * Check if TTS is currently playing
+
    */
   getIsTTSPlaying() {
     return this.isTTSPlaying || false;
@@ -1167,6 +1191,7 @@ export const speechToText = (audioBlob) => voiceService.speechToText(audioBlob);
 export const textToSpeech = (text, voice = 'libritts') => voiceService.textToSpeech(text, voice);
 export const getAvailableVoices = () => voiceService.getVoices();
 export const getVoiceStatus = () => voiceService.getStatus();
+export const stopPlayback = () => voiceService.stopPlayback();
 export const playAudio = (audioUrl, options = {}) => voiceService.playAudio(audioUrl, options);
 export const getVoiceModelsStatus = () => voiceService.getVoiceModelsStatus();
 export const installVoiceModel = (voiceId) => voiceService.installVoiceModel(voiceId);
