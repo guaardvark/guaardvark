@@ -1829,11 +1829,39 @@ const ChatPage = () => {
                 };
                 setMessages((prev) => [...prev, completedMessage]);
 
-                // TTS for voice-initiated messages
+                // TTS for voice-initiated messages — speak a concise version
                 if (pendingVoiceMessageRef.current && ttsEnabled && result.content.trim()) {
                   pendingVoiceMessageRef.current = false;
                   try {
-                    speak(result.content);
+                    // Clean verbose tool output for speech — keep only the human-friendly part
+                    let ttsText = result.content;
+                    // Remove URLs and file paths
+                    ttsText = ttsText.replace(/https?:\/\/\S+/g, '');
+                    ttsText = ttsText.replace(/\/api\/\S+/g, '');
+                    ttsText = ttsText.replace(/\/home\/\S+/g, '');
+                    // Remove technical details (model names, seeds, sizes, filenames)
+                    ttsText = ttsText.replace(/\b(runwayml|stable-diffusion|sd-1\.5|sdxl|gen_\w+\.png)\b/gi, '');
+                    ttsText = ttsText.replace(/\b\d+x\d+\s*(pixel)?\b/gi, '');
+                    ttsText = ttsText.replace(/\bseed[:\s]*\d+/gi, '');
+                    // Remove lines that are just metadata
+                    ttsText = ttsText.split('\n').filter(line => {
+                      const l = line.trim().toLowerCase();
+                      return l && !l.startsWith('image url:') && !l.startsWith('the image url') &&
+                             !l.startsWith('size:') && !l.startsWith('model:') && !l.startsWith('seed') &&
+                             !l.startsWith('prompt:') && !l.startsWith('style:');
+                    }).join('. ');
+                    // Collapse whitespace
+                    ttsText = ttsText.replace(/\s+/g, ' ').trim();
+                    // If the cleaned text is too long (>200 chars), truncate to first 2 sentences
+                    if (ttsText.length > 200) {
+                      const sentences = ttsText.match(/[^.!?]+[.!?]+/g) || [ttsText];
+                      ttsText = sentences.slice(0, 2).join(' ').trim();
+                    }
+                    // If nothing meaningful left, use a simple acknowledgment
+                    if (!ttsText || ttsText.length < 5) {
+                      ttsText = result.generatedImages?.length ? "Here you go." : "Done.";
+                    }
+                    speak(ttsText);
                   } catch (ttsError) {
                     console.warn("Voice TTS playback failed:", ttsError);
                   }
