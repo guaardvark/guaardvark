@@ -130,7 +130,7 @@ const ContinuousVoiceChat = React.forwardRef(({
   compact = true,
   // Wake word props
   wakeWordEnabled = false,
-  systemName = 'Guaardvark',
+  systemName = 'Guaardvark',  // Wake word is always "Hey Guaardvark"
   onWakeWordDetected = () => {},
 }, ref) => {
   // --- Voice settings loader ---
@@ -155,16 +155,16 @@ const ContinuousVoiceChat = React.forwardRef(({
   const buildVadConfig = useCallback(() => {
     const settings = getVoiceSettings();
     return {
-      energyThreshold: settings.silenceThreshold || 0.015,
+      energyThreshold: settings.silenceThreshold || 0.02,
       hysteresisRatio: 0.5,
-      silenceConfirmationFrames: 3,
+      silenceConfirmationFrames: 2,
       speechConfirmationFrames: 2,
       thresholdDecayTimeout: 5000,
-      minAdaptiveThreshold: 0.005,
-      minSpeechDuration: 800,
-      silenceDuration: settings.silenceTimeout || 1200,
-      maxSegmentDuration: settings.maxSegmentDuration || 15000,
-      minPauseBetweenSegments: 1500,
+      minAdaptiveThreshold: 0.008,
+      minSpeechDuration: 500,
+      silenceDuration: settings.silenceTimeout || 800,
+      maxSegmentDuration: settings.maxSegmentDuration || 10000,
+      minPauseBetweenSegments: 1000,
       smoothingWindow: 5,
       adaptiveRate: 0.05,
       minChunkSize: 1000,
@@ -233,12 +233,8 @@ const ContinuousVoiceChat = React.forwardRef(({
   const listeningModeRef = useRef('active');
   const activeListeningTimeoutRef = useRef(null);
   const activeListeningDurationRef = useRef(30000);
-  const systemNameRef = useRef(systemName);
-
-  // Keep systemName ref current
-  useEffect(() => {
-    systemNameRef.current = systemName;
-  }, [systemName]);
+  // Wake word is always "Guaardvark" regardless of systemName prop
+  const systemNameRef = useRef('Guaardvark');
 
   // Initialize active listening duration from settings
   useEffect(() => {
