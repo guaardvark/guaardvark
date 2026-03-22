@@ -670,7 +670,7 @@ WHISPER_MODEL_PATH = "tools/voice/whisper.cpp/models/ggml-base.bin"
 PIPER_MODEL_PATH = "tools/voice/piper-models/en_US-lessac-medium.onnx"
 
 # PERFORMANCE OPTIMIZATION: Voice configuration constants
-DEFAULT_VOICE = "lessac"
+DEFAULT_VOICE = "libritts"
 PIPER_VOICES = {
     "lessac": {
         "name": "Lessac (English US)",
@@ -779,7 +779,7 @@ PIPER_VOICES = {
     }
     # Can add more voices here as we download them
 }
-DEFAULT_VOICE = "ryan"
+DEFAULT_VOICE = "libritts"
 
 # Supported audio formats
 SUPPORTED_AUDIO_FORMATS = {
