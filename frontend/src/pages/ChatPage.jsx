@@ -1789,11 +1789,11 @@ const ChatPage = () => {
               setIsStreamingMessage(false);
               setIsSending(false);
 
-              if (result.content) {
+              if (result.content || (result.generatedImages && result.generatedImages.length > 0)) {
                 const completedMessage = {
                   id: `asst_unified_${Date.now()}`,
                   role: "assistant",
-                  content: result.content,
+                  content: result.content || "",
                   toolCalls: result.toolCalls || [],
                   isUnifiedChat: true,
                   timestamp: new Date().toISOString(),
