@@ -45,6 +45,17 @@ LOG_DIR="$PROJECT_ROOT/logs"
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/vision_pipeline.log"
 
+# Start agent virtual display if not already running
+AGENT_DISPLAY_SCRIPT="$PROJECT_ROOT/scripts/start_agent_display.sh"
+if [ -x "$AGENT_DISPLAY_SCRIPT" ]; then
+    if ! pgrep -f "Xvfb :99" > /dev/null 2>&1; then
+        echo "Starting agent virtual display..."
+        bash "$AGENT_DISPLAY_SCRIPT" start 2>&1 | tail -5
+    else
+        echo "Agent virtual display already running"
+    fi
+fi
+
 echo "Starting Vision Pipeline..."
 echo "Plugin dir: $PLUGIN_ROOT"
 echo "Service port: $SERVICE_PORT"
