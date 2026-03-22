@@ -84,16 +84,19 @@ OBMENUX
     fi
     if [ -n "$USER_FF_PROFILE" ] && [ -d "$USER_FF_PROFILE" ]; then
         echo "  Syncing session from: $USER_FF_PROFILE"
-        for f in cookies.sqlite logins.json key4.db cert9.db permissions.sqlite; do
+        # Core auth: cookies, saved passwords, certificates, permissions
+        for f in cookies.sqlite logins.json key4.db cert9.db permissions.sqlite \
+                 formhistory.sqlite places.sqlite webappsstore.sqlite; do
             if [ -f "$USER_FF_PROFILE/$f" ]; then
                 cp "$USER_FF_PROFILE/$f" "$AGENT_PROFILE/$f" 2>/dev/null
             fi
         done
-        # Copy bookmarks if agent profile doesn't have any yet
-        if [ ! -f "$AGENT_PROFILE/places.sqlite" ] && [ -f "$USER_FF_PROFILE/places.sqlite" ]; then
-            cp "$USER_FF_PROFILE/places.sqlite" "$AGENT_PROFILE/places.sqlite" 2>/dev/null
-            echo "  Copied bookmarks and history"
+        # localStorage & sessionStorage (Discord, YouTube, Twitter store auth tokens here)
+        if [ -d "$USER_FF_PROFILE/storage" ]; then
+            rsync -a --quiet "$USER_FF_PROFILE/storage/" "$AGENT_PROFILE/storage/" 2>/dev/null
+            echo "  Synced localStorage (auth tokens for all sites)"
         fi
+        echo "  Session data synced (cookies, logins, bookmarks, localStorage)"
     else
         echo "  Warning: No Firefox profile found to sync cookies from"
     fi
