@@ -1113,8 +1113,12 @@ def speech_to_text():
             start_time = time.time()
             
             try:
-                # Strip ggml- and .bin from model name (e.g. ggml-tiny.en.bin -> tiny.en)
-                model_name = selected_model['name'].replace('.bin', '').replace('ggml-', '')
+                # Derive faster-whisper model ID from the ggml path
+                # e.g. "tools/voice/whisper.cpp/models/ggml-tiny.en.bin" -> "tiny.en"
+                model_name = os.path.basename(selected_model.get('path', 'ggml-tiny.en.bin'))
+                model_name = model_name.replace('ggml-', '').replace('.bin', '')
+                if not model_name or model_name == selected_model.get('name', ''):
+                    model_name = 'tiny.en'  # Safe fallback
                 final_text, processing_time = transcribe_audio_faster(audio_file_for_whisper, model_size=model_name)
                 logger.info(f"Voice API: Processing completed in {processing_time:.2f} seconds (expected: {expected_processing_time:.2f})")
             except Exception as e:
