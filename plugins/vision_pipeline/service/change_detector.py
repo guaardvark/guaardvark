@@ -28,10 +28,12 @@ class ChangeDetector:
         self.last_description: str | None = None
         self._last_analysis_time: float = 0
 
-    def has_visual_change(self, img: Image.Image) -> bool:
+    def has_visual_change(self, frame_base64: str) -> bool:
         """Compare perceptual hash of frame to previous frame.
         Returns True if frames differ beyond threshold."""
         try:
+            img_bytes = base64.b64decode(frame_base64)
+            img = Image.open(io.BytesIO(img_bytes))
             current_hash = imagehash.phash(img)
 
             if self.last_frame_hash is None:
@@ -61,7 +63,7 @@ class ChangeDetector:
 
         return overlap < self.semantic_threshold
 
-    def should_process(self, img: Image.Image) -> Tuple[bool, str]:
+    def should_process(self, frame_base64: str) -> Tuple[bool, str]:
         """Decide whether to run vision inference on this frame.
 
         Returns (should_process, reason):
@@ -74,19 +76,19 @@ class ChangeDetector:
 
         # First frame
         if self.last_frame_hash is None:
-            self._update_hash(img)
+            self._update_hash(frame_base64)
             self._last_analysis_time = now
             return True, "new_scene"
 
         # Periodic refresh
         if now - self._last_analysis_time >= self.periodic_refresh_seconds:
-            self._update_hash(img)
+            self._update_hash(frame_base64)
             self._last_analysis_time = now
             return True, "periodic_refresh"
 
         # Visual change
-        if self.has_visual_change(img):
-            self._update_hash(img)
+        if self.has_visual_change(frame_base64):
+            self._update_hash(frame_base64)
             self._last_analysis_time = now
             return True, "visual_change"
 
@@ -96,9 +98,11 @@ class ChangeDetector:
         """Called after vision inference completes — stores for semantic comparison."""
         self.last_description = description
 
-    def _update_hash(self, img: Image.Image):
+    def _update_hash(self, frame_base64: str):
         """Update stored hash for next comparison."""
         try:
+            img_bytes = base64.b64decode(frame_base64)
+            img = Image.open(io.BytesIO(img_bytes))
             self.last_frame_hash = imagehash.phash(img)
         except Exception as e:
             logger.warning(f"Hash update failed: {e}")

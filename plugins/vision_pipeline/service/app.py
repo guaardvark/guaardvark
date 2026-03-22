@@ -89,12 +89,8 @@ def startup():
         ollama_url=_config.ollama_url,
         monitor_prompt=_config.monitor_prompt,
         escalation_prompt=_config.escalation_prompt,
-        change_detected_prompt=_config.change_detected_prompt,
     )
-    _frame_analyzer = FrameAnalyzer(
-        ollama_url=_config.ollama_url,
-        max_parallel=_config.max_parallel
-    )
+    _frame_analyzer = FrameAnalyzer(ollama_url=_config.ollama_url)
     _frame_analyzer.escalation_model = _config.escalation_model
     _adaptive_throttle = AdaptiveThrottle(_config)
     _stream_manager = StreamManager(
@@ -224,19 +220,10 @@ def frame_latest():
 @app.post("/analyze")
 def analyze(req: AnalyzeRequest, request: Request):
     _verify_token(request)
-    import io
-    import base64
-    from PIL import Image
-    try:
-        img_bytes = base64.b64decode(req.frame)
-        img = Image.open(io.BytesIO(img_bytes))
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid frame data: {e}")
-
     if req.model:
-        result = _frame_analyzer.analyze(img, req.model, req.prompt)
+        result = _frame_analyzer.analyze(req.frame, req.model, req.prompt)
     else:
-        result = _frame_analyzer.analyze_direct(img, req.prompt)
+        result = _frame_analyzer.analyze_direct(req.frame, req.prompt)
     return {"description": result.description, "model_used": result.model_used,
             "inference_ms": result.inference_ms}
 

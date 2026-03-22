@@ -584,32 +584,8 @@ class VoiceService {
     }
   }
 
-
-  /**
-   * Stop current TTS playback immediately
-   */
-  stopPlayback() {
-    if (this.ttsAudioElement) {
-      this.ttsAudioElement.pause();
-      this.ttsAudioElement.currentTime = 0;
-      this.ttsAudioElement.removeAttribute('src'); // Release the resource
-      this.ttsAudioElement.load();
-    }
-    this.isTTSPlaying = false;
-    if (this.ttsAnalyzer) {
-      try {
-        this.ttsAnalyzer.source.disconnect();
-      } catch (e) {
-        console.warn('VoiceService: Error disconnecting TTS analyzer:', e);
-      }
-      this.ttsAnalyzer = null;
-    }
-    console.log('VoiceService: Playback stopped manually');
-  }
-
   /**
    * Check if TTS is currently playing
-
    */
   getIsTTSPlaying() {
     return this.isTTSPlaying || false;
@@ -906,21 +882,22 @@ class VoiceService {
       const hasTimeData = timeArray.some(value => value !== 128); // 128 is silence in time domain
       
       if (!hasFrequencyData && !hasTimeData) {
-        // Throttle this warning — only log once per 5 seconds
-        const now = Date.now();
-        if (!this._lastNoDataWarn || now - this._lastNoDataWarn > 5000) {
-          this._lastNoDataWarn = now;
-          const audioContext = this.getAudioContext();
-          console.warn('VoiceService: No audio data detected in analyzer', {
-            audioContextState: audioContext?.state,
-            streamActive: this.audioAnalyzer?.stream?.active
-          });
-
-          if (audioContext && audioContext.state === 'suspended') {
-            audioContext.resume().catch(() => {});
-          }
+        // This suggests audio context issues or microphone permissions
+        const audioContext = this.getAudioContext();
+        console.warn('VoiceService: No audio data detected in analyzer - check stream connection', {
+          audioContextState: audioContext?.state,
+          analyzerExists: !!this.audioAnalyzer,
+          streamActive: this.audioAnalyzer?.stream?.active
+        });
+        
+        // Try to resume audio context if suspended
+        if (audioContext && audioContext.state === 'suspended') {
+          console.log('VoiceService: Attempting to resume suspended audio context');
+          audioContext.resume().catch(err => 
+            console.warn('VoiceService: Failed to resume audio context:', err)
+          );
         }
-
+        
         return 0;
       }
       
@@ -1190,7 +1167,6 @@ export const speechToText = (audioBlob) => voiceService.speechToText(audioBlob);
 export const textToSpeech = (text, voice = 'libritts') => voiceService.textToSpeech(text, voice);
 export const getAvailableVoices = () => voiceService.getVoices();
 export const getVoiceStatus = () => voiceService.getStatus();
-export const stopPlayback = () => voiceService.stopPlayback();
 export const playAudio = (audioUrl, options = {}) => voiceService.playAudio(audioUrl, options);
 export const getVoiceModelsStatus = () => voiceService.getVoiceModelsStatus();
 export const installVoiceModel = (voiceId) => voiceService.installVoiceModel(voiceId);

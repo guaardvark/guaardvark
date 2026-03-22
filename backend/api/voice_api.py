@@ -16,12 +16,6 @@ import json
 import psutil
 
 from flask import Blueprint, current_app, jsonify, request, send_file
-try:
-    from backend.utils.faster_whisper_utils import transcribe_audio_faster
-    FASTER_WHISPER_AVAILABLE = True
-except ImportError:
-    FASTER_WHISPER_AVAILABLE = False
-    transcribe_audio_faster = None
 from werkzeug.utils import secure_filename
 from backend.utils.response_utils import success_response, error_response
 
@@ -1108,22 +1102,81 @@ def speech_to_text():
             # PERFORMANCE OPTIMIZATION: Adjust timeout based on audio duration and model
             timeout_seconds = max(30, int(expected_processing_time * 3))  # 3x expected time as timeout
             
-            # PERFORMANCE OPTIMIZATION: Use faster-whisper for transcription
-            logger.info(f"Running faster-whisper with model: {selected_model['name']}")
+            # ENHANCED: Run Whisper.cpp for transcription with optimized parameters
+            cmd = [
+                whisper_cli,
+                "-m", model_path,
+                "-f", audio_file_for_whisper,
+                "--no-timestamps",
+                "--threads", "4",  # Use 4 threads for better performance
+                "--language", "en" if ".en" in selected_model["path"] else "auto",
+                "--no-fallback",
+                "--temperature", str(WHISPER_ENHANCED_PARAMS["temperature"]),
+                "--temperature-inc", str(WHISPER_ENHANCED_PARAMS["temperature_inc"]),
+                "--no-speech-thold", str(WHISPER_ENHANCED_PARAMS["no_speech_thold"]),
+                "--entropy-thold", str(WHISPER_ENHANCED_PARAMS["entropy_thold"]),
+                "--logprob-thold", str(WHISPER_ENHANCED_PARAMS["logprob_thold"]),
+                "--best-of", str(WHISPER_ENHANCED_PARAMS["best_of"]),
+                "--beam-size", str(WHISPER_ENHANCED_PARAMS["beam_size"]),
+                "--word-thold", str(WHISPER_ENHANCED_PARAMS["word_thold"]),
+            ]
+            
+            # FIX: Set library path for whisper-cli to find libwhisper.so.1 and libggml.so
+            whisper_lib_path = os.path.join(backend_path, "tools/voice/whisper.cpp/build/src")
+            ggml_lib_path = os.path.join(backend_path, "tools/voice/whisper.cpp/build/ggml/src")
+            # FIX: Ensure we're using the correct path from project root
+            if not os.path.exists(whisper_lib_path):
+                project_root = os.path.dirname(backend_path)
+                whisper_lib_path = os.path.join(project_root, "tools/voice/whisper.cpp/build/src")
+                ggml_lib_path = os.path.join(project_root, "tools/voice/whisper.cpp/build/ggml/src")
+            
+            env = os.environ.copy()
+            # Include both whisper and ggml library paths
+            lib_paths = [whisper_lib_path, ggml_lib_path]
+            if "LD_LIBRARY_PATH" in env:
+                env["LD_LIBRARY_PATH"] = f"{':'.join(lib_paths)}:{env['LD_LIBRARY_PATH']}"
+            else:
+                env["LD_LIBRARY_PATH"] = ":".join(lib_paths)
+            
+            logger.info(f"Running optimized Whisper.cpp with LD_LIBRARY_PATH={whisper_lib_path}: {' '.join(cmd)}")
             start_time = time.time()
             
+            # PERFORMANCE OPTIMIZATION: Register process for monitoring
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                cwd=backend_path,
+                env=env
+            )
+            
+            # Register the process for monitoring
+            process_monitor.register_process(
+                process.pid, 
+                "whisper_stt", 
+                {"audio_file": audio_file.filename, "model": selected_model["name"]}
+            )
+            
             try:
-                # Derive faster-whisper model ID from the ggml path
-                # e.g. "tools/voice/whisper.cpp/models/ggml-tiny.en.bin" -> "tiny.en"
-                model_name = os.path.basename(selected_model.get('path', 'ggml-tiny.en.bin'))
-                model_name = model_name.replace('ggml-', '').replace('.bin', '')
-                if not model_name or model_name == selected_model.get('name', ''):
-                    model_name = 'tiny.en'  # Safe fallback
-                final_text, processing_time = transcribe_audio_faster(audio_file_for_whisper, model_size=model_name)
-                logger.info(f"Voice API: Processing completed in {processing_time:.2f} seconds (expected: {expected_processing_time:.2f})")
-            except Exception as e:
-                logger.error(f"faster-whisper failed: {e}")
-                return jsonify({"error": f"Speech recognition failed: {e}"}), 500
+                # Wait for process completion with timeout
+                stdout, stderr = process.communicate(timeout=timeout_seconds)
+                result = subprocess.CompletedProcess(
+                    process.args, process.returncode, stdout, stderr
+                )
+            finally:
+                # Always unregister the process
+                process_monitor.unregister_process(process.pid)
+            
+            processing_time = time.time() - start_time
+            logger.info(f"Voice API: Processing completed in {processing_time:.2f} seconds (expected: {expected_processing_time:.2f})")
+            
+            if result.returncode != 0:
+                logger.error(f"Whisper.cpp failed: {result.stderr}")
+                return jsonify({"error": f"Speech recognition failed: {result.stderr}"}), 500
+            
+            # ENHANCED: Parse Whisper output using enhanced parsing function
+            final_text = parse_whisper_output(result.stdout)
             
             if not final_text:
                 # DEBUG: Save failed audio file for analysis

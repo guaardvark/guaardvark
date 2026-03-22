@@ -9,7 +9,7 @@ import time
 import threading
 import logging
 from dataclasses import dataclass
-from typing import Tuple, Optional
+from typing import Tuple
 
 import requests
 from PIL import Image
@@ -27,22 +27,17 @@ class FrameAnalysis:
 
 
 class FrameAnalyzer:
-    def __init__(self, ollama_url: str = "http://localhost:11434", max_parallel: int = 1):
+    def __init__(self, ollama_url: str = "http://localhost:11434"):
         self.ollama_url = ollama_url
         self.escalation_model: str = "llava:13b"
-        self._inference_semaphore = threading.Semaphore(max_parallel)
+        self._inference_lock = threading.Lock()
 
-    def analyze(self, image: Image.Image, model: str, prompt: str) -> FrameAnalysis:
-        """Run vision inference via Ollama. Thread-safe using semaphore."""
-        dims = image.size
+    def analyze(self, frame_base64: str, model: str, prompt: str) -> FrameAnalysis:
+        """Run vision inference via Ollama. Thread-safe."""
+        dims = self._get_dimensions(frame_base64)
         start = time.time()
 
-        # Encode to base64 JPEG for Ollama
-        buffer = io.BytesIO()
-        image.convert("RGB").save(buffer, format="JPEG", quality=75)
-        frame_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
-
-        with self._inference_semaphore:
+        with self._inference_lock:
             try:
                 resp = requests.post(
                     f"{self.ollama_url}/api/chat",
@@ -82,6 +77,14 @@ class FrameAnalyzer:
             frame_dimensions=dims
         )
 
-    def analyze_direct(self, image: Image.Image, user_message: str) -> FrameAnalysis:
+    def analyze_direct(self, frame_base64: str, user_message: str) -> FrameAnalysis:
         """Direct analysis with user's question as prompt. Uses escalation model."""
-        return self.analyze(image, self.escalation_model, user_message)
+        return self.analyze(frame_base64, self.escalation_model, user_message)
+
+    def _get_dimensions(self, frame_base64: str) -> Tuple[int, int]:
+        """Extract frame dimensions without full decode."""
+        try:
+            img = Image.open(io.BytesIO(base64.b64decode(frame_base64)))
+            return img.size
+        except Exception:
+            return (0, 0)
