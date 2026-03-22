@@ -66,7 +66,7 @@ const FloatingChatCard = () => {
   const toggleListenerMode = useAppStore((s) => s.toggleListenerMode);
   const systemName = useAppStore((s) => s.systemName);
   const voiceSettings = useVoiceSettings();
-  const wakeWordEnabled = voiceSettings.wakeWordEnabled || false;
+  const wakeWordEnabled = voiceSettings.wakeWordEnabled !== false;  // Default ON
 
   // Unified Chat Service (Socket.IO streaming)
   const { socketRef, connectionState } = useUnifiedProgress();

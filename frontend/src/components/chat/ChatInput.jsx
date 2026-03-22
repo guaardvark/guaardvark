@@ -223,7 +223,7 @@ const ChatInput = forwardRef(
 
     const systemName = useAppStore((s) => s.systemName);
     const voiceSettings = useVoiceSettings();
-    const wakeWordEnabled = voiceSettings.wakeWordEnabled || false;
+    const wakeWordEnabled = voiceSettings.wakeWordEnabled !== false;  // Default ON
 
     // Slash command hook — popup state, filtering, keyboard nav, command execution
     const slashCmds = useSlashCommands({
