@@ -197,6 +197,34 @@ const ChatPage = () => {
     service.joinSession(sessionId);
     setUnifiedChatService(service);
 
+    // Listen for image events at the page level — catches images that arrive
+    // after StreamingMessage unmounts (e.g., slow image generation)
+    service.onImage((data) => {
+      if (data.session_id !== sessionId) return;
+      const newImg = {
+        url: data.image_url,
+        alt: data.alt || "Generated image",
+        caption: data.caption || "",
+      };
+      // Update the most recent assistant message with the image
+      setMessages((prev) => {
+        const updated = [...prev];
+        for (let i = updated.length - 1; i >= 0; i--) {
+          if (updated[i].role === "assistant") {
+            const existing = updated[i].generatedImages || [];
+            if (!existing.some(img => img.url === newImg.url)) {
+              updated[i] = {
+                ...updated[i],
+                generatedImages: [...existing, newImg],
+              };
+            }
+            break;
+          }
+        }
+        return updated;
+      });
+    });
+
     return () => {
       service.cleanup();
       setUnifiedChatService(null);
