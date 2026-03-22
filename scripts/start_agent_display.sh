@@ -34,6 +34,28 @@ start() {
         echo "  Matchbox WM started"
     fi
     
+    # Sync cookies and logins from user's real Firefox profile
+    # This makes the virtual screen act like a third monitor with the user's session
+    USER_FF_PROFILE=$(find "$HOME/.mozilla/firefox" -maxdepth 1 -name "*.default-release" -type d 2>/dev/null | head -1)
+    if [ -z "$USER_FF_PROFILE" ]; then
+        USER_FF_PROFILE=$(find "$HOME/.mozilla/firefox" -maxdepth 1 -name "*.default" -type d 2>/dev/null | head -1)
+    fi
+    if [ -n "$USER_FF_PROFILE" ] && [ -d "$USER_FF_PROFILE" ]; then
+        echo "  Syncing session from: $USER_FF_PROFILE"
+        for f in cookies.sqlite logins.json key4.db cert9.db permissions.sqlite; do
+            if [ -f "$USER_FF_PROFILE/$f" ]; then
+                cp "$USER_FF_PROFILE/$f" "$AGENT_PROFILE/$f" 2>/dev/null
+            fi
+        done
+        # Copy bookmarks if agent profile doesn't have any yet
+        if [ ! -f "$AGENT_PROFILE/places.sqlite" ] && [ -f "$USER_FF_PROFILE/places.sqlite" ]; then
+            cp "$USER_FF_PROFILE/places.sqlite" "$AGENT_PROFILE/places.sqlite" 2>/dev/null
+            echo "  Copied bookmarks and history"
+        fi
+    else
+        echo "  Warning: No Firefox profile found to sync cookies from"
+    fi
+
     # Ensure Firefox profile has safe settings (light mode, no fullscreen)
     mkdir -p "$AGENT_PROFILE"
     cat > "$AGENT_PROFILE/user.js" << 'USERJS'
