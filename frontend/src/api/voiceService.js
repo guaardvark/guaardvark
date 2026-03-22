@@ -906,22 +906,21 @@ class VoiceService {
       const hasTimeData = timeArray.some(value => value !== 128); // 128 is silence in time domain
       
       if (!hasFrequencyData && !hasTimeData) {
-        // This suggests audio context issues or microphone permissions
-        const audioContext = this.getAudioContext();
-        console.warn('VoiceService: No audio data detected in analyzer - check stream connection', {
-          audioContextState: audioContext?.state,
-          analyzerExists: !!this.audioAnalyzer,
-          streamActive: this.audioAnalyzer?.stream?.active
-        });
-        
-        // Try to resume audio context if suspended
-        if (audioContext && audioContext.state === 'suspended') {
-          console.log('VoiceService: Attempting to resume suspended audio context');
-          audioContext.resume().catch(err => 
-            console.warn('VoiceService: Failed to resume audio context:', err)
-          );
+        // Throttle this warning — only log once per 5 seconds
+        const now = Date.now();
+        if (!this._lastNoDataWarn || now - this._lastNoDataWarn > 5000) {
+          this._lastNoDataWarn = now;
+          const audioContext = this.getAudioContext();
+          console.warn('VoiceService: No audio data detected in analyzer', {
+            audioContextState: audioContext?.state,
+            streamActive: this.audioAnalyzer?.stream?.active
+          });
+
+          if (audioContext && audioContext.state === 'suspended') {
+            audioContext.resume().catch(() => {});
+          }
         }
-        
+
         return 0;
       }
       
