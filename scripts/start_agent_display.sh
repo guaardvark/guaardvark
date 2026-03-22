@@ -24,14 +24,56 @@ start() {
         echo "  Xvfb started (PID $(cat $PID_DIR/xvfb.pid))"
     fi
     
-    # Window manager
-    if pgrep -f "matchbox-window-manager" > /dev/null 2>&1; then
-        echo "  Matchbox WM already running"
+    # Desktop environment (openbox + tint2 = real desktop with taskbar and right-click menu)
+    if pgrep -f "openbox" > /dev/null 2>&1; then
+        echo "  Openbox already running"
     else
-        DISPLAY=:$DISPLAY_NUM matchbox-window-manager -use_titlebar no &
-        echo $! > "$PID_DIR/matchbox.pid"
+        # Configure openbox right-click menu
+        mkdir -p "$HOME/.config/openbox"
+        cat > "$HOME/.config/openbox/menu.xml" << 'OBMENUX'
+<?xml version="1.0" encoding="utf-8"?>
+<openbox_menu xmlns="http://openbox.org/3.4/menu">
+  <menu id="root-menu" label="Guaardvark Agent">
+    <item label="Firefox">
+      <action name="Execute">
+        <execute>env MOZ_ENABLE_WAYLAND=0 GDK_BACKEND=x11 firefox --no-remote --profile /tmp/agent_firefox_profile2</execute>
+      </action>
+    </item>
+    <item label="Google Chrome">
+      <action name="Execute">
+        <execute>google-chrome-stable --no-sandbox --user-data-dir=/tmp/agent_chrome_profile</execute>
+      </action>
+    </item>
+    <item label="File Manager">
+      <action name="Execute">
+        <execute>pcmanfm --new-win</execute>
+      </action>
+    </item>
+    <item label="Terminal">
+      <action name="Execute">
+        <execute>xterm -fa Monospace -fs 12</execute>
+      </action>
+    </item>
+    <separator/>
+    <item label="Guaardvark">
+      <action name="Execute">
+        <execute>env MOZ_ENABLE_WAYLAND=0 GDK_BACKEND=x11 firefox --no-remote --profile /tmp/agent_firefox_profile2 http://localhost:5175</execute>
+      </action>
+    </item>
+  </menu>
+</openbox_menu>
+OBMENUX
+
+        DISPLAY=:$DISPLAY_NUM openbox &
+        echo $! > "$PID_DIR/openbox.pid"
         sleep 1
-        echo "  Matchbox WM started"
+        echo "  Openbox desktop started"
+
+        # Taskbar
+        DISPLAY=:$DISPLAY_NUM tint2 &>/dev/null &
+        echo $! > "$PID_DIR/tint2.pid"
+        sleep 1
+        echo "  Tint2 taskbar started"
     fi
     
     # Sync cookies and logins from user's real Firefox profile
@@ -116,7 +158,7 @@ USERJS
 stop() {
     echo "Stopping Agent Virtual Display..."
     
-    for proc in agent_firefox matchbox xvfb; do
+    for proc in agent_firefox tint2 openbox matchbox xvfb; do
         pid_file="$PID_DIR/${proc}.pid"
         if [ -f "$pid_file" ]; then
             pid=$(cat "$pid_file")
@@ -136,7 +178,8 @@ stop() {
 status() {
     echo "Agent Virtual Display Status:"
     pgrep -f "Xvfb :$DISPLAY_NUM" > /dev/null 2>&1 && echo "  Xvfb:     RUNNING" || echo "  Xvfb:     STOPPED"
-    pgrep -f "matchbox-window-manager" > /dev/null 2>&1 && echo "  Matchbox: RUNNING" || echo "  Matchbox: STOPPED"
+    pgrep -f "openbox" > /dev/null 2>&1 && echo "  Openbox:  RUNNING" || echo "  Openbox:  STOPPED"
+    pgrep -f "tint2" > /dev/null 2>&1 && echo "  Tint2:    RUNNING" || echo "  Tint2:    STOPPED"
     pgrep -f "firefox.*agent_firefox_profile" > /dev/null 2>&1 && echo "  Firefox:  RUNNING" || echo "  Firefox:  STOPPED"
     pgrep -f "x11vnc.*:$DISPLAY_NUM" > /dev/null 2>&1 && echo "  x11vnc:   RUNNING (port $VNC_PORT)" || echo "  x11vnc:   STOPPED"
 }
