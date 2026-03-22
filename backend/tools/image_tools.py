@@ -66,7 +66,19 @@ class ImageGeneratorTool(BaseTool):
     def execute(self, prompt: str, style: str = "realistic",
                 width: int = 512, height: int = 512,
                 model: str = "sd-1.5") -> ToolResult:
-        logger.info(f"ImageGeneratorTool: Generating image for prompt: {prompt[:80]}...")
+        # If the LLM guessed dimensions that aren't standard sizes, force 512x512
+        # Standard sizes the user would intentionally pick: 512, 768, 1024, or custom like 1500x300
+        # LLM hallucinated sizes (800, 1080, 1920) get reset to fast defaults
+        STANDARD_SIZES = {256, 384, 512, 640, 768, 896, 1024, 1280, 1536}
+        if width not in STANDARD_SIZES or height not in STANDARD_SIZES:
+            # Check if the prompt itself contains these dimensions (user explicitly asked)
+            import re
+            dim_pattern = re.compile(rf'(?:^|\D){width}\s*[xX×]\s*{height}(?:\D|$)')
+            if not dim_pattern.search(prompt):
+                logger.info(f"ImageGeneratorTool: LLM guessed {width}x{height}, resetting to 512x512 (fast default)")
+                width, height = 512, 512
+
+        logger.info(f"ImageGeneratorTool: Generating image {width}x{height} for prompt: {prompt[:80]}...")
 
         try:
             from backend.config import OUTPUT_DIR
