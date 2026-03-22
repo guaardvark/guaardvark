@@ -404,13 +404,29 @@ class UnifiedChatEngine:
         if options.get("use_rag", True) and not conversational and not self._should_skip_rag(message):
             rag_context = self._retrieve_rag_context(message)
 
-        # 3. System prompt with rules + tools
+        # 3. Route-aware tool selection
+        #    All interfaces (ChatPage, FloatingChat, Voice, CLI) get the same
+        #    routing logic — the router boosts relevant tools based on message intent.
         model_name = getattr(self.llm, "model", "unknown")
         rules_persona = self._load_rules(model_name)
+
+        # Ask the router what this message needs (if available)
+        routed_tools = self._get_routed_tools(message)
+
         try:
             selected_tools = self._semantic_selector.select(message, self.registry)
         except Exception:
             selected_tools = select_tools_for_context(message, self.registry.list_tools())
+
+        # Merge router's tool suggestions with semantic selection (router takes priority)
+        if routed_tools:
+            # Put routed tools first, then fill with semantic selection up to max
+            merged = list(routed_tools)
+            for t in selected_tools:
+                if t not in merged and len(merged) < 15:
+                    merged.append(t)
+            selected_tools = merged
+
         tool_list = build_concise_tool_list(self.registry, selected_tools)
         system_prompt = self._build_system_prompt(rules_persona, tool_list)
 
@@ -1307,6 +1323,48 @@ class UnifiedChatEngine:
         """Return True if the message is action-oriented and unlikely to benefit from RAG."""
         msg_lower = message.lower()
         return any(kw in msg_lower for kw in UnifiedChatEngine._ACTION_KEYWORDS)
+
+    def _get_routed_tools(self, message: str) -> List[str]:
+        """Use the AgentRouter to boost relevant tools based on message intent.
+
+        This ensures ALL interfaces (ChatPage, FloatingChat, Voice, CLI)
+        get the same routing logic — not just ChatPage.
+        """
+        try:
+            from backend.services.agent_router import AgentRouter, RouteType
+            router = AgentRouter()
+            decision = router.route(message)
+
+            if decision.route_type == RouteType.CHAT_ONLY:
+                return []  # No special tools needed
+
+            # Map route types to tool categories
+            route_tool_map = {
+                RouteType.TOOL_DIRECT: [],  # Single tool — let the LLM pick from semantic selection
+                RouteType.AGENT_LOOP: [],   # Agent loop tools based on the matched tool_name
+                RouteType.FILE_GENERATION: ["generate_file", "generate_bulk_csv", "generate_csv",
+                                            "generate_wordpress_content", "generate_enhanced_wordpress_content"],
+                RouteType.ORCHESTRATOR: [],
+            }
+
+            # If the router identified a specific tool, boost it
+            boosted = list(route_tool_map.get(decision.route_type, []))
+            if decision.tool_name and decision.tool_name in (self.registry.list_tools() if self.registry else []):
+                boosted.insert(0, decision.tool_name)
+
+            # Also add CORE_TOOLS so the LLM always has basics
+            for t in CORE_TOOLS:
+                if t not in boosted:
+                    boosted.append(t)
+
+            if boosted:
+                logger.info(f"[UNIFIED_ENGINE] Router boosted tools: {boosted[:5]}... (route={decision.route_type.value})")
+
+            return boosted
+
+        except Exception as e:
+            logger.debug(f"Router unavailable, using default tool selection: {e}")
+            return []
 
     # Keywords that indicate a real-time/current-data query requiring web search
     _REALTIME_KEYWORDS = (
