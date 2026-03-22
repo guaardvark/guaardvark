@@ -409,7 +409,10 @@ const ChatInput = forwardRef(
         });
       } else {
         // Transcription only — send through normal chat pipeline for streaming
-        onSendMessage(transcription.trim(), null);
+        // Mark as voice message so TTS fires when the response completes
+        onSendMessage(transcription.trim(), null, {
+          isVoiceMessage: true,
+        });
       }
     }, [onSendMessage]);
 
