@@ -195,6 +195,12 @@ class WebAnalysisTool(BaseTool):
 
     def execute(self, **kwargs) -> ToolResult:
         """Analyze website and return comprehensive report"""
+        if not _is_web_access_allowed():
+            return ToolResult(
+                success=False,
+                error="Web access is disabled. Enable it in Settings to analyze websites."
+            )
+
         url = kwargs.get("url", "").strip()
         analysis_type = kwargs.get("analysis_type", "full")
         include_metadata = kwargs.get("include_metadata", True)
@@ -334,6 +340,18 @@ class WebAnalysisTool(BaseTool):
         }
 
 
+def _is_web_access_allowed() -> bool:
+    """Check if web access is enabled in settings."""
+    try:
+        from flask import has_app_context
+        from backend.utils.settings_utils import get_web_access
+        if has_app_context():
+            return get_web_access()
+    except Exception:
+        pass
+    return False
+
+
 class WebSearchTool(BaseTool):
     """
     Perform web search and return results.
@@ -364,6 +382,12 @@ class WebSearchTool(BaseTool):
 
     def execute(self, **kwargs) -> ToolResult:
         """Perform web search"""
+        if not _is_web_access_allowed():
+            return ToolResult(
+                success=False,
+                error="Web access is disabled. Enable it in Settings to use web search."
+            )
+
         query = kwargs.get("query", "").strip()
         max_results = kwargs.get("max_results", 5)
 

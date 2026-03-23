@@ -63,15 +63,33 @@ class BrowserNavigateTool(BaseTool):
                 success=False,
                 error="Browser not available. Use 'analyze_website' or 'web_search' instead."
             )
-        
+
         url = kwargs.get("url")
         wait_for = kwargs.get("wait_for", "load")
-        
+
         if not url:
             return ToolResult(success=False, error="URL is required")
-        
+
         if not url.startswith(("http://", "https://")):
             url = "https://" + url
+
+        # Check web access setting — allow localhost/local network even when web access is off
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        is_local = parsed.hostname in ("localhost", "127.0.0.1", "0.0.0.0") or \
+                   (parsed.hostname and (parsed.hostname.startswith("192.168.") or
+                    parsed.hostname.startswith("10.") or parsed.hostname.startswith("172.")))
+        if not is_local:
+            try:
+                from flask import has_app_context
+                from backend.utils.settings_utils import get_web_access
+                if has_app_context() and not get_web_access():
+                    return ToolResult(
+                        success=False,
+                        error="Web access is disabled. Enable it in Settings to browse external sites."
+                    )
+            except Exception:
+                pass
         
         try:
             service = get_browser_service()
