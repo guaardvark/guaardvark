@@ -350,8 +350,17 @@ def format_tool_result_for_llm(tool_name: str, result, format: str = 'json') -> 
         import json
         obs = {"tool": tool_name, "status": "success" if result.success else "failed"}
         if result.success:
-            obs["output"] = str(result.output) if result.output is not None else ""
-            if result.metadata:
+            output_str = str(result.output) if result.output is not None else ""
+            # Sanitize tool output for LLM — strip URLs and paths that the LLM
+            # would learn to hallucinate in future turns
+            if tool_name in ("generate_image", "generate_animation", "agent_screen_capture"):
+                import re
+                output_str = re.sub(r'/api/\S+', '[image delivered to user]', output_str)
+                output_str = re.sub(r'/home/\S+', '', output_str)
+                output_str = re.sub(r'gen_\w+\.png', '', output_str)
+            obs["output"] = output_str
+            # Don't pass metadata with URLs/paths to the LLM
+            if result.metadata and tool_name not in ("generate_image", "generate_animation"):
                 obs["metadata"] = result.metadata
         else:
             obs["error"] = result.error
@@ -361,8 +370,14 @@ def format_tool_result_for_llm(tool_name: str, result, format: str = 'json') -> 
     if result.success:
         output = f"<observation tool='{tool_name}'>\n"
         output += f"Status: Success\n"
-        output += f"Output:\n{result.output}\n"
-        if result.metadata:
+        out_text = str(result.output) if result.output else ""
+        if tool_name in ("generate_image", "generate_animation", "agent_screen_capture"):
+            import re
+            out_text = re.sub(r'/api/\S+', '[image delivered to user]', out_text)
+            out_text = re.sub(r'/home/\S+', '', out_text)
+            out_text = re.sub(r'gen_\w+\.png', '', out_text)
+        output += f"Output:\n{out_text}\n"
+        if result.metadata and tool_name not in ("generate_image", "generate_animation"):
             output += f"\nMetadata: {result.metadata}\n"
         output += "</observation>"
     else:
