@@ -865,7 +865,18 @@ const ContinuousVoiceChat = React.forwardRef(({
               const index = Math.min(i * step, levels.length - 1);
               sampledLevels.push(levels[index] || 0);
             }
-            setAudioLevels(sampledLevels);
+            // Smooth levels to prevent glitchy pulsing
+            setAudioLevels(prev => {
+              const smoothed = [];
+              for (let i = 0; i < 20; i++) {
+                const target = sampledLevels[i] || 0;
+                const current = prev[i] || 0;
+                // Rise fast (0.4), fall slow (0.15) for natural feel
+                const factor = target > current ? 0.4 : 0.15;
+                smoothed.push(current + (target - current) * factor);
+              }
+              return smoothed;
+            });
 
             const hasActiveData = sampledLevels.some(level => level > 0);
             if (hasActiveData && !waveformActive) {
@@ -1197,28 +1208,28 @@ const ContinuousVoiceChat = React.forwardRef(({
         position: 'relative'
       }}
     >
-      {audioLevels.map((level, index) => (
-        <Box
-          key={index}
-          sx={{
-            width: 2,
-            height: `${Math.max(4, level * 100)}%`,
-            maxHeight: '100%',
-            backgroundColor: speechDetected
-              ? 'error.main'
-              : waveformActive
-              ? 'primary.main'
-              : 'grey.400',
-            borderRadius: 1,
-            transition: 'height 0.1s ease-out',
-            opacity: 0.7 + (level * 0.3),
-            animation: speechDetected && level > 0.1
-              ? `${waveformAnimation} ${0.5 + Math.random() * 0.5}s ease-in-out infinite`
-              : 'none',
-            animationDelay: `${index * 0.05}s`
-          }}
-        />
-      ))}
+      {audioLevels.map((level, index) => {
+        const barHeight = Math.max(4, Math.pow(level, 0.6) * 90);
+        return (
+          <Box
+            key={index}
+            sx={{
+              width: 2,
+              height: `${barHeight}%`,
+              maxHeight: '95%',
+              alignSelf: 'center',
+              backgroundColor: speechDetected
+                ? 'error.main'
+                : waveformActive
+                ? 'primary.main'
+                : 'grey.400',
+              borderRadius: 1,
+              transition: 'height 0.15s ease-out',
+              opacity: 0.6 + (level * 0.4),
+            }}
+          />
+        );
+      })}
       {!waveformActive && (
         <Box
           sx={{
