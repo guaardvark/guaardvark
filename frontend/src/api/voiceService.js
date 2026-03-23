@@ -592,6 +592,26 @@ class VoiceService {
   }
 
   /**
+   * Stop current TTS playback immediately.
+   * Used for talk-over interruption — when the user starts speaking
+   * while the AI is still talking, silence the AI instantly.
+   */
+  stopPlayback() {
+    if (this.ttsAudioElement) {
+      try {
+        this.ttsAudioElement.pause();
+        this.ttsAudioElement.currentTime = 0;
+        this.ttsAudioElement.removeAttribute('src');
+        this.ttsAudioElement.load();
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+      this.ttsAudioElement = null;
+      this.isTTSPlaying = false;
+    }
+  }
+
+  /**
    * Create audio URL from blob
    */
   createAudioUrl(audioBlob) {

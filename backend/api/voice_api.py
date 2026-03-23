@@ -1101,8 +1101,32 @@ def speech_to_text():
             
             # PERFORMANCE OPTIMIZATION: Adjust timeout based on audio duration and model
             timeout_seconds = max(30, int(expected_processing_time * 3))  # 3x expected time as timeout
-            
-            # ENHANCED: Run Whisper.cpp for transcription with optimized parameters
+
+            # Try faster-whisper first (~4x faster than whisper.cpp)
+            try:
+                from backend.utils.faster_whisper_utils import transcribe_audio_faster, FASTER_WHISPER_AVAILABLE
+                if FASTER_WHISPER_AVAILABLE:
+                    model_id = os.path.basename(selected_model.get('path', 'ggml-tiny.en.bin'))
+                    model_id = model_id.replace('ggml-', '').replace('.bin', '') or 'tiny.en'
+                    logger.info(f"Voice API: Using faster-whisper (model={model_id})")
+                    start_time = time.time()
+                    final_text, processing_time = transcribe_audio_faster(audio_file_for_whisper, model_size=model_id)
+                    logger.info(f"Voice API: faster-whisper completed in {processing_time:.2f}s")
+
+                    if final_text:
+                        return jsonify({
+                            "text": final_text,
+                            "transcribed_text": final_text,
+                            "processing_time": round(processing_time, 3),
+                            "model_used": model_id,
+                            "engine": "faster-whisper",
+                        })
+                    # Empty result — fall through to whisper.cpp
+                    logger.warning("Voice API: faster-whisper returned empty, falling back to whisper.cpp")
+            except Exception as fw_err:
+                logger.debug(f"Voice API: faster-whisper unavailable ({fw_err}), using whisper.cpp")
+
+            # Fallback: Run Whisper.cpp for transcription
             cmd = [
                 whisper_cli,
                 "-m", model_path,

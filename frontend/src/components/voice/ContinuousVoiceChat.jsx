@@ -411,6 +411,11 @@ const ContinuousVoiceChat = React.forwardRef(({
       if (consecutiveSpeechFramesRef.current >= vad.speechConfirmationFrames) {
         confirmedSpeakingRef.current = true;
         isSpeaking = true;
+        // Talk-over interruption: if AI is speaking, silence it immediately
+        if (voiceService.getIsTTSPlaying()) {
+          console.log('ContinuousVoiceChat: Interrupting AI playback (user started speaking)');
+          voiceService.stopPlayback();
+        }
         console.log('ContinuousVoiceChat: Speech confirmed (hysteresis start)', {
           smoothedVolume: smoothedVolume.toFixed(4),
           speechThreshold: speechStartThreshold.toFixed(4),
