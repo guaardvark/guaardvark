@@ -121,7 +121,7 @@ class ServoController:
             # 6. VERIFY — did the screen change?
             time.sleep(0.5)
             verify_shot, _ = self.screen.capture()
-            screen_changed = self._screen_changed(screenshot, verify_shot)
+            screen_changed = self._screen_changed(screenshot, verify_shot, click_pos=(current_x, current_y))
 
             elapsed_ms = int((time.time() - start) * 1000)
 
@@ -154,12 +154,35 @@ class ServoController:
         }
 
     @staticmethod
-    def _screen_changed(before: Image.Image, after: Image.Image, threshold: float = 0.02) -> bool:
+    def _screen_changed(before: Image.Image, after: Image.Image,
+                        click_pos: Tuple[int, int] = None, threshold: float = 0.005) -> bool:
+        """Check if the screen changed. Uses both global and local comparison.
+
+        Global: any 0.5% mean pixel change across the whole screen.
+        Local (if click_pos given): any 2% change in a 200x200 area around the click.
+        Either passing means the screen changed.
+        """
         import numpy as np
+        # Global check (lowered threshold — subtle changes matter)
         arr_before = np.array(before.resize((320, 180))).astype(float)
         arr_after = np.array(after.resize((320, 180))).astype(float)
-        diff = np.abs(arr_before - arr_after).mean() / 255.0
-        return bool(diff > threshold)
+        global_diff = np.abs(arr_before - arr_after).mean() / 255.0
+        if global_diff > threshold:
+            return True
+
+        # Local check around click position (catches cursor blinks, button highlights)
+        if click_pos:
+            x, y = click_pos
+            r = 100  # 100px radius
+            box = (max(0, x - r), max(0, y - r),
+                   min(before.width, x + r), min(before.height, y + r))
+            local_before = np.array(before.crop(box)).astype(float)
+            local_after = np.array(after.crop(box)).astype(float)
+            local_diff = np.abs(local_before - local_after).mean() / 255.0
+            if local_diff > 0.02:
+                return True
+
+        return False
 
     def _estimate_coordinates(self, screenshot: Image.Image, target: str) -> Optional[Tuple[int, int]]:
         prompt = (
