@@ -47,7 +47,8 @@ diffusers>=0.37.0
 transformers>=4.50.3,<5.0  # ComfyUI needs >=4.50.3, diffusers incompatible with 5.x
 accelerate==1.2.1
 safetensors>=0.4.0
-Pillow==10.2.0
+Pillow>=10.2.0
+pillow-heif>=1.3.0  # AVIF/HEIF image support for vision analysis
 
 # ComfyUI / Video Generation Dependencies
 torchsde>=0.2.6

@@ -65,7 +65,7 @@ class ImageGeneratorTool(BaseTool):
 
     def execute(self, prompt: str, style: str = "realistic",
                 width: int = 512, height: int = 512,
-                model: str = "sd-1.5") -> ToolResult:
+                model: str = "sd-1.5", **kwargs) -> ToolResult:
         # If the LLM guessed dimensions that aren't standard sizes, force 512x512
         # Standard sizes the user would intentionally pick: 512, 768, 1024, or custom like 1500x300
         # LLM hallucinated sizes (800, 1080, 1920) get reset to fast defaults
@@ -226,7 +226,7 @@ class AnimationGeneratorTool(BaseTool):
 
     def execute(self, prompt: str, motion: str, frames: int = 8,
                 strength: float = 0.20, format: str = "both",
-                vision_steering: bool = False) -> ToolResult:
+                vision_steering: bool = False, **kwargs) -> ToolResult:
         logger.info(f"AnimationGeneratorTool: prompt={prompt[:60]}..., motion={motion}, frames={frames}")
 
         try:

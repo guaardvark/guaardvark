@@ -38,6 +38,7 @@ def unified_chat():
 
     session_id = data.get("session_id") or str(uuid.uuid4())
     options = data.get("options", {})
+    is_voice_message = bool(data.get("is_voice_message", False))
     request_id = str(uuid.uuid4())
     project_id = data.get("project_id")
 
@@ -81,7 +82,13 @@ def unified_chat():
 
     def emit_fn(event, data_payload):
         data_payload["session_id"] = session_id
-        socketio.emit(event, data_payload, room=session_id)
+        if socketio.server is None:
+            logger.warning(f"SocketIO server not initialized, dropping event {event} for session {session_id}")
+            return
+        try:
+            socketio.emit(event, data_payload, room=session_id)
+        except Exception as emit_err:
+            logger.warning(f"Failed to emit {event}: {emit_err}")
 
     # Run in background thread with app context
     app = current_app._get_current_object()
@@ -90,15 +97,28 @@ def unified_chat():
     image_url = None
     if image_data:
         try:
-            import os, base64 as b64mod
+            import os, base64 as b64mod, imghdr
             from backend.config import UPLOAD_DIR
             img_dir = os.path.join(UPLOAD_DIR, "chat_images")
             os.makedirs(img_dir, exist_ok=True)
-            fname = f"chat_image_{uuid.uuid4().hex[:12]}.png"
+            raw_bytes = b64mod.b64decode(image_data)
+            # Detect actual image format from magic bytes
+            ext = "png"  # default
+            if raw_bytes[:4] == b"\x89PNG":
+                ext = "png"
+            elif raw_bytes[:3] == b"\xff\xd8\xff":
+                ext = "jpg"
+            elif raw_bytes[:4] == b"RIFF" and raw_bytes[8:12] == b"WEBP":
+                ext = "webp"
+            elif b"ftypavif" in raw_bytes[:32] or b"ftypavis" in raw_bytes[:32]:
+                ext = "avif"
+            elif b"ftypheic" in raw_bytes[:32] or b"ftypheix" in raw_bytes[:32]:
+                ext = "heic"
+            fname = f"chat_image_{uuid.uuid4().hex[:12]}.{ext}"
             with open(os.path.join(img_dir, fname), "wb") as f:
-                f.write(b64mod.b64decode(image_data))
+                f.write(raw_bytes)
             image_url = f"/api/enhanced-chat/vision/image/{fname}"
-            logger.info(f"Saved unified chat image: {fname}")
+            logger.info(f"Saved unified chat image: {fname} ({ext})")
         except Exception as img_err:
             logger.warning(f"Failed to save chat image: {img_err}")
 
@@ -117,7 +137,8 @@ def unified_chat():
     def run_engine():
         try:
             engine.chat(session_id, message, options, emit_fn, app=app,
-                       project_id=project_id, image_data=image_data, image_url=image_url)
+                       project_id=project_id, image_data=image_data, image_url=image_url,
+                       is_voice_message=is_voice_message)
         except Exception as e:
             logger.error(f"Unified chat engine thread error: {e}", exc_info=True)
             emit_fn("chat:error", {"error": str(e)})

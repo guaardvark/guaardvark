@@ -248,8 +248,14 @@ class OfflineImageGenerator:
 
             pipeline_class = StableDiffusionXLPipeline if is_sdxl else StableDiffusionPipeline
 
+            # Use bf16 on Ada Lovelace+, fp16 otherwise
+            if self._device == "cuda":
+                gpu_dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+            else:
+                gpu_dtype = torch.float32
+
             load_kwargs = {
-                "torch_dtype": torch.float16 if self._device == "cuda" else torch.float32,
+                "torch_dtype": gpu_dtype,
             }
 
             if not is_sdxl:
@@ -300,8 +306,19 @@ class OfflineImageGenerator:
             pipeline_class = StableDiffusionXLPipeline if is_sdxl else StableDiffusionPipeline
             logger.info(f"Loading model with {pipeline_class.__name__} (SDXL: {is_sdxl})")
 
+            # Use bf16 on Ada Lovelace+ (SM 8.x), fall back to fp16, then fp32
+            if self._device == "cuda":
+                if torch.cuda.is_bf16_supported():
+                    gpu_dtype = torch.bfloat16
+                    logger.info("Using bfloat16 (native Ada Lovelace support)")
+                else:
+                    gpu_dtype = torch.float16
+                    logger.info("Using float16")
+            else:
+                gpu_dtype = torch.float32
+
             load_kwargs = {
-                "torch_dtype": torch.float16 if self._device == "cuda" else torch.float32,
+                "torch_dtype": gpu_dtype,
             }
 
             if not is_sdxl:
@@ -319,6 +336,11 @@ class OfflineImageGenerator:
 
             self._pipeline = self._pipeline.to(self._device)
 
+            # channels_last (NHWC) memory format — 10-20% speedup on Ada Lovelace
+            if self._device == "cuda" and hasattr(self._pipeline, 'unet'):
+                self._pipeline.unet = self._pipeline.unet.to(memory_format=torch.channels_last)
+                logger.info("Enabled channels_last (NHWC) memory format for UNet")
+
             if hasattr(self._pipeline, "enable_attention_slicing"):
                 self._pipeline.enable_attention_slicing()
 
@@ -333,22 +355,21 @@ class OfflineImageGenerator:
                 self._pipeline.enable_vae_slicing()
                 logger.info("Enabled VAE slicing")
 
-            if hasattr(self._pipeline, "enable_vae_tiling"):
-                self._pipeline.enable_vae_tiling()
-                logger.info("Enabled VAE tiling")
-
+            # VAE tiling only at high resolutions (>1024px) — avoids quality loss at normal sizes
+            self._vae_tiling_available = hasattr(self._pipeline, "enable_vae_tiling")
+            logger.info(f"VAE tiling available (will activate for resolutions > 1024px)")
 
             if hasattr(torch, 'compile') and self._device == "cuda" and not self._compile_failed:
                 try:
                     if hasattr(self._pipeline, 'unet'):
                         self._compile_unet_orig = self._pipeline.unet
                         self._pipeline.unet = torch.compile(self._pipeline.unet, mode="reduce-overhead")
-                        logger.info("Enabled torch.compile for UNet")
+                        logger.info("Enabled torch.compile(mode='reduce-overhead') for UNet")
 
                     if hasattr(self._pipeline, 'vae'):
                         self._compile_vae_orig = self._pipeline.vae
                         self._pipeline.vae = torch.compile(self._pipeline.vae, mode="reduce-overhead")
-                        logger.info("Enabled torch.compile for VAE")
+                        logger.info("Enabled torch.compile(mode='reduce-overhead') for VAE")
                 except Exception as e:
                     logger.warning(f"Failed to enable torch.compile: {e}")
                     self._compile_unet_orig = None
@@ -701,19 +722,13 @@ Negative Prompt: {negative_prompt}""",
         with self._generation_lock:
             self._notify_vision_pipeline("start")
             try:
-                # Free GPU memory: unload Ollama models before image generation
+                # Free GPU memory via orchestrator (evicts Ollama models if needed)
                 try:
-                    import requests as req
-                    from backend.config import OLLAMA_BASE_URL
-                    ps_resp = req.get(f"{OLLAMA_BASE_URL}/api/ps", timeout=2)
-                    if ps_resp.status_code == 200:
-                        for m in ps_resp.json().get("models", []):
-                            model_name = m.get("name", "")
-                            req.post(f"{OLLAMA_BASE_URL}/api/generate",
-                                     json={"model": model_name, "keep_alive": 0}, timeout=5)
-                            logger.info(f"Unloaded Ollama model '{model_name}' to free GPU for image generation")
+                    from backend.services.gpu_memory_orchestrator import get_orchestrator
+                    _orch = get_orchestrator()
+                    _orch.request_model("sd:pipeline", vram_estimate_mb=3500, priority=85)
                 except Exception as e:
-                    logger.debug(f"Could not unload Ollama models (non-critical): {e}")
+                    logger.debug(f"GPU orchestrator unavailable (non-critical): {e}")
 
                 model_id = self.available_models.get(request.model, self.default_model)
                 logger.info(f"Using model: {request.model} -> {model_id}")
@@ -778,6 +793,14 @@ Negative Prompt: {negative_prompt}""",
                 logger.info(f"--- DEBUG: FINAL PROMPT SENT TO MODEL: '{enhanced_prompt}' ---")
                 logger.info(f"--- DEBUG: FINAL NEGATIVE PROMPT: '{combined_negative}' ---")
                 logger.info(f"Generating image: {enhanced_prompt[:100]}...")
+
+                # Dynamic VAE tiling: only at high res to preserve quality at normal sizes
+                if getattr(self, '_vae_tiling_available', False):
+                    if request.width > 1024 or request.height > 1024:
+                        self._pipeline.enable_vae_tiling()
+                        logger.info(f"VAE tiling enabled ({request.width}x{request.height} > 1024px)")
+                    elif hasattr(self._pipeline, 'disable_vae_tiling'):
+                        self._pipeline.disable_vae_tiling()
 
                 if self._device == "cuda":
                     try:
@@ -920,8 +943,36 @@ Negative Prompt: {negative_prompt}""",
                 result.generation_time = time.time() - start_time
             finally:
                 self._notify_vision_pipeline("stop")
+                # Immediately free VRAM — don't wait for the 300s idle timer.
+                # The LLM needs the GPU back for the next chat turn.
+                self._unload_pipeline()
+                try:
+                    from backend.services.gpu_memory_orchestrator import get_orchestrator
+                    get_orchestrator().release_model("sd:pipeline")
+                except Exception:
+                    pass
 
         return result
+
+    def _unload_pipeline(self):
+        """Fully unload the SD pipeline from GPU and free VRAM immediately."""
+        if self._pipeline is None:
+            return
+        try:
+            self._pipeline.to("cpu")
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            logger.info("SD pipeline moved to CPU, CUDA cache cleared")
+        except Exception as e:
+            logger.warning(f"Failed to unload SD pipeline from GPU: {e}")
+        # Discard the pipeline entirely — compiled CUDA graphs aren't
+        # portable between devices, so _load_pipeline must do a full
+        # GPU reload on the next request.
+        self._pipeline = None
+        self._img2img_pipeline = None
+        self._current_model = None
+        self._compile_unet_orig = None
+        self._compile_vae_orig = None
 
     def generate_image_from_image(
         self, prompt: str, init_image, strength: float = 0.20,
@@ -1046,6 +1097,7 @@ Negative Prompt: {negative_prompt}""",
                 result.generation_time = time.time() - start_time
             finally:
                 self._notify_vision_pipeline("stop")
+                self._unload_pipeline()
 
         return result
 

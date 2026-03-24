@@ -40,17 +40,39 @@ class VisionAnalyzer:
     access without blocking video chat or other vision consumers.
     """
 
+    # Vision models to try in order — fast/small first
+    _VISION_MODEL_PRIORITY = [
+        "moondream:latest",
+        "qwen3-vl:2b-instruct",
+        "qwen3-vl:8b",
+        "llava:latest",
+    ]
+
     def __init__(
         self,
         ollama_url: str = None,
-        default_model: str = "qwen3-vl:2b-instruct",
+        default_model: str = None,
         max_width: int = 1024,
         timeout: int = 30,
     ):
         self.ollama_url = ollama_url or OLLAMA_BASE_URL
-        self.default_model = default_model
+        self.default_model = default_model or self._detect_vision_model()
         self.max_width = max_width
         self.timeout = timeout
+
+    def _detect_vision_model(self) -> str:
+        """Auto-detect best available vision model from Ollama."""
+        try:
+            response = requests.get(f"{self.ollama_url}/api/tags", timeout=5)
+            if response.status_code == 200:
+                available = {m["name"] for m in response.json().get("models", [])}
+                for model in self._VISION_MODEL_PRIORITY:
+                    if model in available:
+                        logger.info(f"[VISION] Auto-detected vision model: {model}")
+                        return model
+        except Exception:
+            pass
+        return "moondream:latest"  # Final fallback
 
     def text_query(self, prompt: str, model: str = None) -> VisionResult:
         """
@@ -94,7 +116,7 @@ class VisionAnalyzer:
                     inference_ms=elapsed_ms,
                 )
 
-            content = response.json().get("message", {}).get("content", "")
+            content = response.json().get("message", {}).get("content", "").strip()
             return VisionResult(
                 description=content,
                 model_used=model,
@@ -184,6 +206,10 @@ class VisionAnalyzer:
                         "images": [image_b64],
                     }],
                     "stream": False,
+                    "options": {
+                        "num_predict": 256,
+                        "temperature": 0.3,
+                    },
                 },
                 timeout=self.timeout,
             )
@@ -198,7 +224,7 @@ class VisionAnalyzer:
                     inference_ms=elapsed_ms,
                 )
 
-            content = response.json().get("message", {}).get("content", "")
+            content = response.json().get("message", {}).get("content", "").strip()
             return VisionResult(
                 description=content,
                 model_used=model,
@@ -220,6 +246,89 @@ class VisionAnalyzer:
             )
         except Exception as e:
             logger.error(f"Vision analysis error: {e}", exc_info=True)
+            return VisionResult(
+                success=False,
+                error=str(e),
+                model_used=model,
+            )
+
+    def analyze_base64(
+        self,
+        image_b64: str,
+        prompt: str,
+        model: str = None,
+    ) -> VisionResult:
+        """
+        Analyze an image from raw base64 — bypasses PIL entirely.
+
+        Use this when the image bytes may be in a format Pillow cannot decode
+        (e.g., AVIF without pillow-heif, or exotic browser-supplied formats).
+        Ollama/moondream can often handle formats that Pillow cannot.
+
+        Args:
+            image_b64: Base64-encoded image bytes (no data URI prefix)
+            prompt: Text prompt for the vision model
+            model: Ollama model name (default: self.default_model)
+
+        Returns:
+            VisionResult with description or error
+        """
+        model = model or self.default_model
+
+        try:
+            import time
+            start = time.time()
+
+            response = requests.post(
+                f"{self.ollama_url}/api/chat",
+                json={
+                    "model": model,
+                    "messages": [{
+                        "role": "user",
+                        "content": prompt,
+                        "images": [image_b64],
+                    }],
+                    "stream": False,
+                    "options": {
+                        "num_predict": 256,
+                        "temperature": 0.3,
+                    },
+                },
+                timeout=self.timeout,
+            )
+
+            elapsed_ms = int((time.time() - start) * 1000)
+
+            if response.status_code != 200:
+                return VisionResult(
+                    success=False,
+                    error=f"Ollama returned {response.status_code}: {response.text[:200]}",
+                    model_used=model,
+                    inference_ms=elapsed_ms,
+                )
+
+            content = response.json().get("message", {}).get("content", "").strip()
+            return VisionResult(
+                description=content,
+                model_used=model,
+                success=True,
+                inference_ms=elapsed_ms,
+            )
+
+        except requests.Timeout:
+            return VisionResult(
+                success=False,
+                error=f"Ollama timed out after {self.timeout}s",
+                model_used=model,
+            )
+        except requests.ConnectionError:
+            return VisionResult(
+                success=False,
+                error=f"Connection error — is Ollama running at {self.ollama_url}?",
+                model_used=model,
+            )
+        except Exception as e:
+            logger.error(f"Vision analyze_base64 error: {e}", exc_info=True)
             return VisionResult(
                 success=False,
                 error=str(e),

@@ -166,8 +166,12 @@ def clear_pycache_endpoint():
                     errors.append(f"{pycache_dir}: {error_msg}")
                     logger.warning(f"Failed to clean {pycache_dir}: {error_msg}")
 
-        purged_modules = purge_backend_modules()
-        logger.info(f"Purged {len(purged_modules)} modules from sys.modules")
+        # NOTE: purge_backend_modules() was removed — it destroyed the
+        # initialized SQLAlchemy db instance by wiping backend.models from
+        # sys.modules, causing "Flask app not registered" 500s on every
+        # endpoint that uses deferred imports.  Clearing __pycache__ files
+        # is sufficient; hot-reloading modules requires a process restart.
+        logger.info("Skipping module purge (destroys live Flask/SQLAlchemy state)")
 
 
         def format_size(size_bytes: int) -> str:
