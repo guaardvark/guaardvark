@@ -192,8 +192,15 @@ class ServoController:
             end = text.rfind("}") + 1
             if start >= 0 and end > start:
                 data = json.loads(text[start:end])
-                x = int(data.get("x", 0))
-                y = int(data.get("y", 0))
+                raw_x = data.get("x", 0)
+                raw_y = data.get("y", 0)
+                # Handle model returning lists like {"x": [531, 544], "y": 544}
+                if isinstance(raw_x, list):
+                    raw_x = raw_x[0] if raw_x else 0
+                if isinstance(raw_y, list):
+                    raw_y = raw_y[0] if raw_y else 0
+                x = int(raw_x)
+                y = int(raw_y)
                 return (max(0, min(SCREEN_W, x)), max(0, min(SCREEN_H, y)))
         except (json.JSONDecodeError, ValueError, TypeError) as e:
             logger.warning(f"Failed to parse coordinates: {e} — raw: {text[:100]}")
