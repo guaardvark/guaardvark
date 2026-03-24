@@ -1,6 +1,6 @@
 # Guaardvark
 
-**版本 2.5.2** · [guaardvark.com](https://guaardvark.com)
+**版本 2.4.1** · [guaardvark.com](https://guaardvark.com)
 
 一个完全运行在您自己硬件上的自托管 AI 平台。通过 RAG 与您的文档对话，生成图像和视频，通过桌面风格的 UI 管理文件，使用智能体助手自动化代码，并通过语音与您的 AI 交流——所有这些都通过一个由本地 LLM（通过 Ollama）支持的统一界面完成。
 
