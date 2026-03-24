@@ -163,8 +163,9 @@ class ServoController:
 
     def _estimate_coordinates(self, screenshot: Image.Image, target: str) -> Optional[Tuple[int, int]]:
         prompt = (
-            f"Screen is {SCREEN_W}x{SCREEN_H}. Top-left is (0,0). Bottom-right is ({SCREEN_W},{SCREEN_H}). "
-            f"Where is the {target}? Respond with ONLY a JSON object: {{\"x\": 123, \"y\": 456}}"
+            f"Image size: {SCREEN_W}x{SCREEN_H}. "
+            f"Find the {target}. "
+            f"Output only: {{\"x\": CENTER_X, \"y\": CENTER_Y}}"
         )
         result = self.analyzer.analyze(screenshot, prompt=prompt, num_predict=128, temperature=0.3)
         if not result.success:
