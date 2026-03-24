@@ -95,20 +95,29 @@ def finetune(
         return ds
 
     dataset = load_and_format_data()
-    
-    def format_vision_data(examples):
-        conversations = examples["conversations"]
-        images = examples["image"]
-        
-        texts = []
-        for conversation in conversations:
-             text = tokenizer.apply_chat_template(conversation, tokenize=False, add_generation_prompt=False)
-             texts.append(text)
-             
-        return {"text": texts, "image": images}
 
-    
+    # Format conversations with image tokens for Qwen2-VL + UnslothVisionDataCollator
+    # The collator expects: "messages" (with {"type": "image"} in user content) + "images" (list of PIL)
+    def format_vision_data(example):
+        convo = example["conversations"]
+        image = example["image"]  # PIL Image from datasets.Image()
+
+        messages = []
+        for msg in convo:
+            content = []
+            # Add image reference on first user message
+            if msg["role"] == "user" and not messages:
+                content.append({"type": "image"})
+            content.append({"type": "text", "text": msg["content"]})
+            messages.append({"role": msg["role"], "content": content})
+
+        return {"messages": messages, "images": [image]}
+
+    dataset = dataset.map(format_vision_data)
+
     print(f"Training examples: {len(dataset)}")
+
+    from unsloth import UnslothVisionDataCollator
 
     training_args = TrainingArguments(
         per_device_train_batch_size = batch_size,
@@ -131,8 +140,8 @@ def finetune(
     trainer = SFTTrainer(
         model = model,
         tokenizer = tokenizer,
+        data_collator = UnslothVisionDataCollator(model, tokenizer),
         train_dataset = dataset,
-        dataset_text_field = "text",
         max_seq_length = max_seq_length,
         dataset_num_proc = 2,
         args = training_args,
