@@ -81,8 +81,15 @@ def evaluate(model: str, data_path: str, ollama_url: str = OLLAMA_URL):
                 continue
 
             if "x" in expected_data and "x" in actual_data:
-                dx = actual_data["x"] - expected_data["x"]
-                dy = actual_data["y"] - expected_data["y"]
+                ax = actual_data["x"]
+                ay = actual_data["y"]
+                # Handle model returning lists
+                if isinstance(ax, list):
+                    ax = ax[0] if ax else 0
+                if isinstance(ay, list):
+                    ay = ay[0] if ay else 0
+                dx = ax - expected_data["x"]
+                dy = ay - expected_data["y"]
                 error = math.sqrt(dx * dx + dy * dy)
                 coord_errors.append(error)
 
