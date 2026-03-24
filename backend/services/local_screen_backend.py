@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-Local Screen Backend — pyautogui/mss implementation of ScreenInterface.
+Local Screen Backend — xdotool/mss implementation of ScreenInterface.
 
-Uses mss for fast screenshots (Wayland-compatible) and pyautogui for
-mouse/keyboard input injection.
+Uses mss for fast screenshots and xdotool for mouse/keyboard input injection.
+All operations target a specific X11 display (default :99 virtual display)
+so they never leak to the user's real screen.
 """
 
 import logging
 import os
-import sys
-import types
+import subprocess
 from typing import Any, Dict, Tuple
 
 import mss
@@ -19,152 +19,181 @@ from backend.services.screen_interface import ScreenInterface
 
 logger = logging.getLogger(__name__)
 
-# Import pyautogui, gracefully handling environments where tkinter is absent
-# (e.g., headless CI or test runs). In test mode everything is mocked anyway.
-try:
-    import pyautogui
-except SystemExit:
-    # mouseinfo calls sys.exit() when tkinter is unavailable on Linux.
-    # Provide a minimal stub so the module loads; tests patch this name.
-    pyautogui = types.ModuleType("pyautogui")  # type: ignore[assignment]
-    pyautogui.FAILSAFE = True
-    pyautogui.PAUSE = 0.0
-
-# Only configure pyautogui if not in test mode
-if os.environ.get("GUAARDVARK_MODE") != "test":
-    pyautogui.FAILSAFE = False  # We have our own kill switch
-    pyautogui.PAUSE = 0.1  # 100ms pause between actions
-
 
 class LocalScreenBackend(ScreenInterface):
-    """Screen control via pyautogui (input) and mss (capture) on the local machine."""
+    """Screen control via xdotool (input) and mss (capture) targeting a virtual display."""
 
-    def _crop_to_active_monitor(self, image: Image.Image, cursor_pos: Tuple[int, int]) -> Tuple[Image.Image, Tuple[int, int]]:
-        """Crop a multi-monitor screenshot to the monitor containing the cursor.
+    def __init__(self, display: str = None):
+        self.display = display or os.environ.get("GUAARDVARK_AGENT_DISPLAY", ":99")
+        self._env = {**os.environ, "DISPLAY": self.display}
+        self._window_id = None
 
-        Detects multi-monitor by aspect ratio: if wider than 21:9 (2.4:1),
-        it's likely side-by-side monitors. pyautogui.size() returns the full
-        virtual screen on multi-monitor setups, so we can't rely on it.
-        """
-        w, h = image.size
-        aspect = w / h if h > 0 else 1
+    def _get_window_id(self) -> str:
+        """Get the active window ID on the target display, cached after first call."""
+        if self._window_id:
+            # Verify window still exists
+            try:
+                r = subprocess.run(
+                    ["xdotool", "getwindowname", self._window_id],
+                    env=self._env, capture_output=True, text=True, timeout=5
+                )
+                if r.returncode == 0:
+                    return self._window_id
+            except Exception:
+                pass
+            self._window_id = None
 
-        # Single monitor if aspect ratio is reasonable (up to ultrawide 21:9 = 2.33)
-        if aspect <= 2.5:
-            return image, cursor_pos
+        # Find the Firefox window on the virtual display
+        try:
+            r = subprocess.run(
+                ["xdotool", "search", "--name", "Mozilla Firefox"],
+                env=self._env, capture_output=True, text=True, timeout=5
+            )
+            if r.returncode == 0 and r.stdout.strip():
+                # Take the last window (most recently mapped)
+                windows = r.stdout.strip().split("\n")
+                self._window_id = windows[-1]
+                logger.info(f"Found Firefox window {self._window_id} on {self.display}")
+                return self._window_id
+        except Exception as e:
+            logger.warning(f"xdotool search failed: {e}")
 
-        # Estimate number of monitors assuming ~16:9 each
-        single_monitor_w = round(h * 16 / 9)
-        num_monitors = max(1, round(w / single_monitor_w))
-        if num_monitors <= 1:
-            return image, cursor_pos
+        # Fall back to active window
+        try:
+            r = subprocess.run(
+                ["xdotool", "getactivewindow"],
+                env=self._env, capture_output=True, text=True, timeout=5
+            )
+            if r.returncode == 0:
+                self._window_id = r.stdout.strip()
+                return self._window_id
+        except Exception as e:
+            logger.warning(f"xdotool getactivewindow failed: {e}")
 
-        monitor_w = w // num_monitors
-        monitor_idx = min(cursor_pos[0] // monitor_w, num_monitors - 1)
-        x_offset = monitor_idx * monitor_w
+        return ""
 
-        cropped = image.crop((x_offset, 0, x_offset + monitor_w, h))
-        adjusted_cursor = (cursor_pos[0] - x_offset, cursor_pos[1])
-        logger.debug(f"Cropped to monitor {monitor_idx + 1}/{num_monitors}: {cropped.size}")
-        return cropped, adjusted_cursor
+    def _xdotool(self, *args) -> subprocess.CompletedProcess:
+        """Run xdotool command targeting the virtual display."""
+        cmd = ["xdotool"] + list(args)
+        logger.debug(f"xdotool: {' '.join(cmd)}")
+        return subprocess.run(cmd, env=self._env, capture_output=True, text=True, timeout=10)
 
     def capture(self) -> Tuple[Image.Image, Tuple[int, int]]:
-        """Capture screenshot and return with cursor position.
-
-        Tries mss first (fast, X11), falls back to pyautogui (uses scrot/Pillow,
-        works on Wayland with tkinter), then gnome-screenshot as last resort.
-        """
-        image = None
-
-        # Try PipeWire first (VNC-style framebuffer capture, silent, Wayland-native)
+        """Capture screenshot from the virtual display via mss."""
+        # mss respects the DISPLAY env var when constructed with it
+        env_backup = os.environ.get("DISPLAY")
+        os.environ["DISPLAY"] = self.display
         try:
-            from backend.services.pipewire_capture import get_pipewire_capture
-            pw = get_pipewire_capture()
-            if pw.is_running:
-                frame = pw.grab()
-                if frame is not None:
-                    image = frame
-        except Exception as e:
-            logger.debug(f"PipeWire capture unavailable: {e}")
+            with mss.mss() as sct:
+                monitor = sct.monitors[1]
+                sct_img = sct.grab(monitor)
+                image = Image.frombytes("RGB", sct_img.size, sct_img.rgb)
+        finally:
+            if env_backup:
+                os.environ["DISPLAY"] = env_backup
+            elif "DISPLAY" in os.environ:
+                del os.environ["DISPLAY"]
 
-        # Fallback: mss (fastest, but fails on Wayland)
-        if image is None:
-            try:
-                with mss.mss() as sct:
-                    monitor = sct.monitors[1]
-                    sct_img = sct.grab(monitor)
-                    image = Image.frombytes("RGB", sct_img.size, sct_img.rgb)
-            except Exception:
-                pass
-
-        # Last resort: pyautogui (Pillow ImageGrab → gnome-screenshot on Wayland = flash)
-        if image is None:
-            try:
-                image = pyautogui.screenshot()
-                logger.warning("Using pyautogui screenshot fallback (may flash on Wayland)")
-            except Exception:
-                pass
-
-        if image is None:
-            raise RuntimeError("All screenshot methods failed (pipewire, mss, pyautogui)")
-
-        cursor_pos = pyautogui.position()
-        cursor_xy = (cursor_pos[0], cursor_pos[1])
-
-        # Crop to the monitor the cursor is on (avoids sending both monitors to vision model)
-        image, cursor_xy = self._crop_to_active_monitor(image, cursor_xy)
-        return image, cursor_xy
+        cursor_pos = self.cursor_position()
+        return image, cursor_pos
 
     def click(self, x: int, y: int, button: str = "left", clicks: int = 1) -> Dict[str, Any]:
-        """Click at coordinates using pyautogui."""
+        """Click at coordinates on the virtual display."""
         try:
-            pyautogui.click(x=x, y=y, button=button, clicks=clicks)
+            # Move mouse to position
+            self._xdotool("mousemove", "--screen", "0", str(x), str(y))
+
+            # Map button name to xdotool button number
+            btn_map = {"left": "1", "middle": "2", "right": "3"}
+            btn = btn_map.get(button, "1")
+
+            for _ in range(clicks):
+                self._xdotool("click", btn)
+
             return {"success": True, "action": "click", "x": x, "y": y}
         except Exception as e:
             logger.error(f"Click failed at ({x}, {y}): {e}")
             return {"success": False, "error": str(e)}
 
     def move(self, x: int, y: int) -> Dict[str, Any]:
-        """Move cursor to coordinates."""
+        """Move cursor on the virtual display."""
         try:
-            pyautogui.moveTo(x, y)
+            self._xdotool("mousemove", "--screen", "0", str(x), str(y))
             return {"success": True, "action": "move", "x": x, "y": y}
         except Exception as e:
             logger.error(f"Move failed to ({x}, {y}): {e}")
             return {"success": False, "error": str(e)}
 
     def type_text(self, text: str, interval: float = 0.05) -> Dict[str, Any]:
-        """Type text using pyautogui."""
+        """Type text on the virtual display using xdotool."""
         try:
-            pyautogui.write(text, interval=interval)
+            wid = self._get_window_id()
+            delay_ms = str(int(interval * 1000))
+            if wid:
+                self._xdotool("type", "--window", wid, "--clearmodifiers", "--delay", delay_ms, text)
+            else:
+                self._xdotool("type", "--clearmodifiers", "--delay", delay_ms, text)
             return {"success": True, "action": "type", "length": len(text)}
         except Exception as e:
             logger.error(f"Type failed: {e}")
             return {"success": False, "error": str(e)}
 
     def hotkey(self, *keys: str) -> Dict[str, Any]:
-        """Press keyboard shortcut."""
+        """Press keyboard shortcut on the virtual display."""
         try:
-            pyautogui.hotkey(*keys)
+            wid = self._get_window_id()
+            # xdotool uses '+' to join combo keys: ctrl+l, ctrl+a, etc.
+            combo = "+".join(keys)
+            if wid:
+                self._xdotool("key", "--window", wid, combo)
+            else:
+                self._xdotool("key", combo)
             return {"success": True, "action": "hotkey", "keys": list(keys)}
         except Exception as e:
             logger.error(f"Hotkey failed {keys}: {e}")
             return {"success": False, "error": str(e)}
 
     def scroll(self, x: int, y: int, amount: int = -3) -> Dict[str, Any]:
-        """Scroll wheel at position."""
+        """Scroll at position on the virtual display."""
         try:
-            pyautogui.scroll(amount, x=x, y=y)
+            # Move to position first
+            self._xdotool("mousemove", "--screen", "0", str(x), str(y))
+
+            # xdotool: button 4 = scroll up, button 5 = scroll down
+            if amount < 0:
+                btn, count = "5", abs(amount)  # scroll down
+            else:
+                btn, count = "4", abs(amount)  # scroll up
+
+            for _ in range(count):
+                self._xdotool("click", btn)
+
             return {"success": True, "action": "scroll", "amount": amount}
         except Exception as e:
             logger.error(f"Scroll failed: {e}")
             return {"success": False, "error": str(e)}
 
     def screen_size(self) -> Tuple[int, int]:
-        """Return screen dimensions."""
-        return pyautogui.size()
+        """Return virtual display dimensions."""
+        try:
+            r = self._xdotool("getdisplaygeometry")
+            if r.returncode == 0:
+                parts = r.stdout.strip().split()
+                return (int(parts[0]), int(parts[1]))
+        except Exception:
+            pass
+        return (1280, 720)  # Default to what start_agent_display.sh creates
 
     def cursor_position(self) -> Tuple[int, int]:
-        """Return current cursor position."""
-        pos = pyautogui.position()
-        return (pos[0], pos[1])
+        """Return cursor position on the virtual display."""
+        try:
+            r = self._xdotool("getmouselocation")
+            if r.returncode == 0:
+                # Output: x:123 y:456 screen:0 window:789
+                parts = r.stdout.strip().split()
+                x = int(parts[0].split(":")[1])
+                y = int(parts[1].split(":")[1])
+                return (x, y)
+        except Exception:
+            pass
+        return (0, 0)

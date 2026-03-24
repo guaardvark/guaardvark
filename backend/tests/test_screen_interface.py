@@ -32,83 +32,146 @@ class TestScreenInterface(unittest.TestCase):
 class TestLocalBackend(unittest.TestCase):
 
     @patch("backend.services.local_screen_backend.mss")
-    @patch("backend.services.local_screen_backend.pyautogui")
-    def test_capture_returns_image_and_cursor(self, mock_pyautogui, mock_mss):
+    def test_capture_returns_image_and_cursor(self, mock_mss):
         from backend.services.local_screen_backend import LocalScreenBackend
         from PIL import Image
 
         # Mock mss screenshot
-        mock_monitor = {"left": 0, "top": 0, "width": 1920, "height": 1080}
+        mock_monitor = {"left": 0, "top": 0, "width": 1280, "height": 720}
         mock_sct_instance = MagicMock()
         mock_sct_instance.monitors = [{}, mock_monitor]
         mock_sct_instance.grab.return_value = MagicMock()
-        mock_sct_instance.grab.return_value.size = (1920, 1080)
-        mock_sct_instance.grab.return_value.rgb = b'\x00' * (1920 * 1080 * 3)
+        mock_sct_instance.grab.return_value.size = (1280, 720)
+        mock_sct_instance.grab.return_value.rgb = b'\x00' * (1280 * 720 * 3)
         mock_mss.mss.return_value.__enter__ = MagicMock(return_value=mock_sct_instance)
         mock_mss.mss.return_value.__exit__ = MagicMock(return_value=False)
 
-        # Mock cursor position
-        mock_pyautogui.position.return_value = (500, 300)
-
         backend = LocalScreenBackend()
-        image, cursor_pos = backend.capture()
+
+        # Mock cursor_position (calls _xdotool internally)
+        mock_cursor_result = MagicMock()
+        mock_cursor_result.returncode = 0
+        mock_cursor_result.stdout = "x:500 y:300 screen:0 window:123\n"
+
+        with patch.object(backend, '_xdotool', return_value=mock_cursor_result):
+            image, cursor_pos = backend.capture()
 
         self.assertIsInstance(image, Image.Image)
         self.assertEqual(cursor_pos, (500, 300))
 
-    @patch("backend.services.local_screen_backend.pyautogui")
-    def test_click_calls_pyautogui(self, mock_pyautogui):
+    def test_click_calls_xdotool(self):
         from backend.services.local_screen_backend import LocalScreenBackend
         backend = LocalScreenBackend()
-        result = backend.click(400, 300, button="left", clicks=1)
-        mock_pyautogui.click.assert_called_once_with(x=400, y=300, button="left", clicks=1)
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+
+        with patch.object(backend, '_xdotool', return_value=mock_result) as mock_xdotool:
+            result = backend.click(400, 300, button="left", clicks=1)
+
         self.assertTrue(result["success"])
+        self.assertEqual(result["x"], 400)
+        self.assertEqual(result["y"], 300)
+        # First call should be mousemove
+        first_call_args = mock_xdotool.call_args_list[0][0]
+        self.assertIn("mousemove", first_call_args)
+        self.assertIn("400", first_call_args)
+        self.assertIn("300", first_call_args)
 
-    @patch("backend.services.local_screen_backend.pyautogui")
-    def test_type_text_calls_pyautogui(self, mock_pyautogui):
+    def test_type_text_calls_xdotool(self):
         from backend.services.local_screen_backend import LocalScreenBackend
         backend = LocalScreenBackend()
-        result = backend.type_text("hello world", interval=0.05)
-        mock_pyautogui.write.assert_called_once_with("hello world", interval=0.05)
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = ""
+
+        with patch.object(backend, '_xdotool', return_value=mock_result):
+            with patch.object(backend, '_get_window_id', return_value=""):
+                result = backend.type_text("hello world", interval=0.05)
+
         self.assertTrue(result["success"])
+        self.assertEqual(result["length"], len("hello world"))
 
-    @patch("backend.services.local_screen_backend.pyautogui")
-    def test_hotkey_calls_pyautogui(self, mock_pyautogui):
+    def test_hotkey_calls_xdotool(self):
         from backend.services.local_screen_backend import LocalScreenBackend
         backend = LocalScreenBackend()
-        result = backend.hotkey("ctrl", "c")
-        mock_pyautogui.hotkey.assert_called_once_with("ctrl", "c")
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = ""
+
+        with patch.object(backend, '_xdotool', return_value=mock_result) as mock_xdotool:
+            with patch.object(backend, '_get_window_id', return_value=""):
+                result = backend.hotkey("ctrl", "c")
+
         self.assertTrue(result["success"])
+        self.assertEqual(result["keys"], ["ctrl", "c"])
+        call_args = mock_xdotool.call_args[0]
+        self.assertIn("key", call_args)
+        self.assertIn("ctrl+c", call_args)
 
-    @patch("backend.services.local_screen_backend.pyautogui")
-    def test_scroll_calls_pyautogui(self, mock_pyautogui):
+    def test_scroll_calls_xdotool(self):
         from backend.services.local_screen_backend import LocalScreenBackend
         backend = LocalScreenBackend()
-        result = backend.scroll(400, 300, amount=-3)
-        mock_pyautogui.scroll.assert_called_once_with(-3, x=400, y=300)
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+
+        with patch.object(backend, '_xdotool', return_value=mock_result):
+            result = backend.scroll(400, 300, amount=-3)
+
         self.assertTrue(result["success"])
+        self.assertEqual(result["amount"], -3)
 
-    @patch("backend.services.local_screen_backend.pyautogui")
-    def test_screen_size(self, mock_pyautogui):
-        from backend.services.local_screen_backend import LocalScreenBackend
-        mock_pyautogui.size.return_value = (1920, 1080)
-        backend = LocalScreenBackend()
-        self.assertEqual(backend.screen_size(), (1920, 1080))
-
-    @patch("backend.services.local_screen_backend.pyautogui")
-    def test_cursor_position(self, mock_pyautogui):
-        from backend.services.local_screen_backend import LocalScreenBackend
-        mock_pyautogui.position.return_value = (123, 456)
-        backend = LocalScreenBackend()
-        self.assertEqual(backend.cursor_position(), (123, 456))
-
-    @patch("backend.services.local_screen_backend.pyautogui")
-    def test_move_calls_pyautogui(self, mock_pyautogui):
+    def test_screen_size(self):
         from backend.services.local_screen_backend import LocalScreenBackend
         backend = LocalScreenBackend()
-        result = backend.move(800, 600)
-        mock_pyautogui.moveTo.assert_called_once_with(800, 600)
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "1280 720\n"
+
+        with patch.object(backend, '_xdotool', return_value=mock_result):
+            size = backend.screen_size()
+
+        self.assertEqual(size, (1280, 720))
+
+    def test_screen_size_fallback(self):
+        from backend.services.local_screen_backend import LocalScreenBackend
+        backend = LocalScreenBackend()
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stdout = ""
+
+        with patch.object(backend, '_xdotool', return_value=mock_result):
+            size = backend.screen_size()
+
+        self.assertEqual(size, (1280, 720))
+
+    def test_cursor_position(self):
+        from backend.services.local_screen_backend import LocalScreenBackend
+        backend = LocalScreenBackend()
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "x:123 y:456 screen:0 window:789\n"
+
+        with patch.object(backend, '_xdotool', return_value=mock_result):
+            pos = backend.cursor_position()
+
+        self.assertEqual(pos, (123, 456))
+
+    def test_move_calls_xdotool(self):
+        from backend.services.local_screen_backend import LocalScreenBackend
+        backend = LocalScreenBackend()
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+
+        with patch.object(backend, '_xdotool', return_value=mock_result) as mock_xdotool:
+            result = backend.move(800, 600)
+
         self.assertTrue(result["success"])
+        self.assertEqual(result["x"], 800)
+        self.assertEqual(result["y"], 600)
+        call_args = mock_xdotool.call_args[0]
+        self.assertIn("mousemove", call_args)
+        self.assertIn("800", call_args)
+        self.assertIn("600", call_args)
 
 
 if __name__ == "__main__":

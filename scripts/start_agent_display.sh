@@ -3,7 +3,7 @@
 # Usage: ./scripts/start_agent_display.sh [start|stop|status]
 
 DISPLAY_NUM=99
-RESOLUTION="1920x1080x24"
+RESOLUTION="1280x720x24"
 VNC_PORT=5999
 AGENT_PROFILE="/tmp/agent_firefox_profile2"
 PID_DIR="${GUAARDVARK_ROOT:-$(dirname $(dirname $(readlink -f $0)))}/pids"
@@ -129,7 +129,7 @@ USERJS
             WAYLAND_DISPLAY= \
             GDK_BACKEND=x11 \
             firefox --no-remote --profile "$AGENT_PROFILE" \
-            --width 1920 --height 1080 \
+            --width 1280 --height 720 \
             "about:blank" \
             > "$LOG_DIR/agent_firefox.log" 2>&1 &
         echo $! > "$PID_DIR/agent_firefox.pid"
