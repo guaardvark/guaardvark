@@ -2,6 +2,7 @@
 import React, { Suspense, lazy, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import useNavigationCancel from "./hooks/useNavigationCancel";
+import useGpuIntent from "./hooks/useGpuIntent";
 import {
   ThemeProvider as MuiThemeProvider,
   CssBaseline,
@@ -65,6 +66,8 @@ function UncleNotificationListener() {
 const AppLayout = ({ children }) => {
   // Cancel pending API requests on navigation — prevents DB pool exhaustion
   useNavigationCancel();
+  // Signal GPU orchestrator on page navigation for predictive model loading
+  useGpuIntent();
 
   const { showFooter } = useLayout();
   const sidebarExpanded = useAppStore((state) => state.sidebarExpanded);

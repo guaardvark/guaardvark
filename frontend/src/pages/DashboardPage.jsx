@@ -48,6 +48,7 @@ import ImageGenerationCard from "../components/dashboard/ImageGenerationCard";
 import FileManagerCard from "../components/dashboard/FileManagerCard";
 import FamilySelfImprovementCard from "../components/dashboard/FamilySelfImprovementCard";
 import RAGAutoresearchCard from "../components/dashboard/RAGAutoresearchCard";
+import GpuStatusCard from "../components/dashboard/GpuStatusCard";
 import { useLayout, useDashboardWidth } from "../contexts/LayoutContext";
 import { ContextualLoader } from "../components/common/LoadingStates";
 
@@ -63,6 +64,7 @@ const cardComponents = {
   files: FileManagerCard,
   family: FamilySelfImprovementCard,
   autoresearch: RAGAutoresearchCard,
+  gpu: GpuStatusCard,
 };
 
 // Layout mode cycle: normal -> compact -> layered -> modex -> normal
@@ -142,6 +144,7 @@ const DashboardPage = () => {
       { i: "files", x: cardGridW * 3, y: cardGridH, w: cardGridW * 2, h: cardGridH * 1.5 },
       { i: "family", x: 0, y: cardGridH * 2, w: cardGridW * 2, h: cardGridH },
       { i: "autoresearch", x: cardGridW * 2, y: cardGridH * 2, w: cardGridW, h: cardGridH },
+      { i: "gpu", x: cardGridW * 3, y: cardGridH * 2, w: cardGridW, h: cardGridH },
     ];
     items.forEach((it) => {
       it.minW = cardMinGridW;

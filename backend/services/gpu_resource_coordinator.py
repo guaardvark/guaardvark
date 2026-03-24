@@ -445,6 +445,13 @@ class GPUResourceCoordinator:
             logger.info("GPU lock released from video generation")
             self._notify_vision_pipeline("stop", "video_gen")
 
+            # Notify GPU orchestrator so it can re-sync and preload models
+            try:
+                from backend.services.gpu_memory_orchestrator import get_orchestrator
+                get_orchestrator().on_exclusive_lock_released()
+            except Exception:
+                pass
+
             # Don't restart Ollama automatically - user controls it via UI
             return {
                 "success": True,

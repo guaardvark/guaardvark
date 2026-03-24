@@ -143,3 +143,40 @@ def emit_family_learning(learning_data: dict):
         **learning_data,
     })
     logger.info(f"Emitted family:learning")
+
+
+# --- GPU Memory Orchestrator Events ---
+@socketio.on("subscribe_gpu")
+def handle_subscribe_gpu():
+    """Allow clients to subscribe to GPU VRAM status updates."""
+    join_room("gpu_status")
+    logger.info("Client subscribed to GPU status updates")
+    # Send immediate snapshot
+    try:
+        from backend.services.gpu_memory_orchestrator import get_orchestrator
+        snapshot = get_orchestrator().get_registry_snapshot()
+        emit("gpu:status", snapshot)
+    except Exception as e:
+        logger.debug(f"Could not send initial GPU status: {e}")
+
+
+@socketio.on("gpu:intent")
+def handle_gpu_intent(data):
+    """Frontend signals navigation intent for predictive GPU model management."""
+    route = data.get("route", "/") if isinstance(data, dict) else "/"
+    try:
+        from backend.services.gpu_memory_orchestrator import get_orchestrator
+        result = get_orchestrator().prepare_for_route(route)
+        emit("gpu:intent_ack", result)
+    except Exception as e:
+        logger.debug(f"GPU intent handling failed: {e}")
+
+
+def emit_gpu_status():
+    """Emit GPU status snapshot to all subscribed clients."""
+    try:
+        from backend.services.gpu_memory_orchestrator import get_orchestrator
+        snapshot = get_orchestrator().get_registry_snapshot()
+        socketio.emit("gpu:status", snapshot, room="gpu_status")
+    except Exception as e:
+        logger.debug(f"GPU status emission failed: {e}")

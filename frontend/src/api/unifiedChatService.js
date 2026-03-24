@@ -25,12 +25,13 @@ class UnifiedChatService {
   /**
    * Send a message via HTTP. Response arrives via Socket.IO events.
    */
-  async sendMessage(sessionId, message, options = {}, imageBase64 = null) {
+  async sendMessage(sessionId, message, options = {}, imageBase64 = null, isVoiceMessage = false) {
     const body = {
       session_id: sessionId,
       message,
       options,
       project_id: options.project_id,
+      is_voice_message: isVoiceMessage,
     };
     if (imageBase64) {
       body.image = imageBase64;

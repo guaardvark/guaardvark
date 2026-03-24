@@ -232,6 +232,32 @@ def parse_tool_calls_xml(llm_response: str) -> ToolCallResponse:
                 reasoning=reasoning
             ))
 
+        # Fallback: try function-call syntax like  tool_name(param=value, ...)
+        # Some models (llama3) output this instead of XML.
+        if not tool_calls:
+            func_call_pattern = r'(\w+)\s*\(\s*([\w_]+=.+?)\s*\)'
+            func_matches = re.finditer(func_call_pattern, llm_response, re.DOTALL)
+            for fm in func_matches:
+                func_name = fm.group(1).strip()
+                args_str = fm.group(2).strip()
+                # Only match known tool-like names (has underscore or is a registered name)
+                if '_' not in func_name and func_name not in ('search', 'generate', 'analyze'):
+                    continue
+                params = {}
+                # Parse key=value pairs (handling commas inside quoted strings)
+                for kv_match in re.finditer(r'(\w+)\s*=\s*(?:"((?:[^"\\]|\\.)*)"|\'((?:[^\'\\]|\\.)*)\'|([^,\)]+))', args_str):
+                    key = kv_match.group(1)
+                    val = kv_match.group(2) or kv_match.group(3) or kv_match.group(4)
+                    if val:
+                        params[key] = val.strip()
+                if params:
+                    tool_calls.append(ToolCall(
+                        tool_name=func_name,
+                        parameters=params,
+                        reasoning=None,
+                    ))
+                    logger.info(f"Func-call fallback parsed: {func_name}({list(params.keys())})")
+
         # If no tool calls found, check if this looks like a final answer
         if not tool_calls:
             # Check if response contains explicit answer indicators

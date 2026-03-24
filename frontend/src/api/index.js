@@ -46,3 +46,4 @@ export {
 // Export WordPress service
 export * from "./wordpressService";
 export * from "./orchestratorService";
+export * from "./gpuService";

@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 
+import copy
+import json
 import logging
+import os
+from pathlib import Path
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
 from enum import Enum
 
 logger = logging.getLogger(__name__)
+
+AGENT_STATE_FILE = Path(os.environ.get("GUAARDVARK_ROOT", ".")) / "data" / "agent_state.json"
 
 
 class AgentType(Enum):
@@ -553,10 +559,59 @@ class AgentConfigManager:
     def __init__(self):
         self._agents: Dict[str, AgentConfig] = {}
         self._load_default_agents()
+        self._load_saved_state()
         logger.info(f"AgentConfigManager initialized with {len(self._agents)} agents")
 
     def _load_default_agents(self):
-        self._agents = DEFAULT_AGENTS.copy()
+        self._agents = {k: copy.deepcopy(v) for k, v in DEFAULT_AGENTS.items()}
+
+    def _load_saved_state(self):
+        """Load persisted agent overrides (enabled, max_iterations, system_prompt) from disk."""
+        try:
+            if not AGENT_STATE_FILE.exists():
+                return
+            with open(AGENT_STATE_FILE, "r") as f:
+                saved = json.load(f)
+            for agent_id, overrides in saved.items():
+                agent = self._agents.get(agent_id)
+                if not agent:
+                    continue
+                for key in ("enabled", "max_iterations", "system_prompt"):
+                    if key in overrides:
+                        setattr(agent, key, overrides[key])
+            logger.info(f"Loaded agent state from {AGENT_STATE_FILE} ({len(saved)} agents)")
+        except Exception as e:
+            logger.warning(f"Failed to load agent state: {e}")
+
+    def _save_state(self):
+        """Persist user-modified agent fields to disk so they survive restarts."""
+        try:
+            state = {}
+            for agent_id, agent in self._agents.items():
+                default = DEFAULT_AGENTS.get(agent_id)
+                overrides = {}
+                if default is None:
+                    # Non-default agent — save everything mutable
+                    overrides = {
+                        "enabled": agent.enabled,
+                        "max_iterations": agent.max_iterations,
+                        "system_prompt": agent.system_prompt,
+                    }
+                else:
+                    # Only save fields that differ from defaults
+                    if agent.enabled != default.enabled:
+                        overrides["enabled"] = agent.enabled
+                    if agent.max_iterations != default.max_iterations:
+                        overrides["max_iterations"] = agent.max_iterations
+                    if agent.system_prompt != default.system_prompt:
+                        overrides["system_prompt"] = agent.system_prompt
+                if overrides:
+                    state[agent_id] = overrides
+            AGENT_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+            with open(AGENT_STATE_FILE, "w") as f:
+                json.dump(state, f, indent=2)
+        except Exception as e:
+            logger.error(f"Failed to save agent state: {e}")
 
     def get_agent(self, agent_id: str) -> Optional[AgentConfig]:
         return self._agents.get(agent_id)
@@ -580,6 +635,7 @@ class AgentConfigManager:
                 setattr(agent, key, value)
 
         logger.info(f"Updated agent: {agent_id}")
+        self._save_state()
         return True
 
     def set_agent_enabled(self, agent_id: str, enabled: bool) -> bool:

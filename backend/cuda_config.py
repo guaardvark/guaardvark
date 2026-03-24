@@ -69,10 +69,24 @@ def configure_cuda_optimizations(verbose=True):
         if verbose:
             print("  ✓ TF32 precision enabled for faster matrix operations")
 
+    torch.set_float32_matmul_precision('high')
+    config_status["optimizations_applied"].append("float32 matmul precision: high")
+    if verbose:
+        print("  ✓ float32 matmul precision set to 'high' (enables TF32 globally)")
+
     torch.backends.cudnn.enabled = True
     config_status["optimizations_applied"].append("cuDNN enabled")
     if verbose:
         print("  ✓ cuDNN enabled")
+
+    # Check bf16 support for Ada Lovelace / Ampere+ GPUs
+    compute_cap = torch.cuda.get_device_capability(0)
+    if compute_cap[0] >= 8:
+        config_status["optimizations_applied"].append(f"bf16 capable (SM {compute_cap[0]}.{compute_cap[1]})")
+        if verbose:
+            print(f"  ✓ GPU supports bf16 (compute capability {compute_cap[0]}.{compute_cap[1]})")
+    if verbose:
+        print("  ✓ channels_last (NHWC) recommended for conv-heavy models on Ada Lovelace")
 
     gpu_info = {
         "name": torch.cuda.get_device_name(0),

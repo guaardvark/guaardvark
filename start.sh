@@ -1433,7 +1433,7 @@ export GUAARDVARK_ROOT="$SCRIPT_DIR"
 export TZ="America/New_York"
 export CUDA_DEVICE_ORDER="PCI_BUS_ID"
 export TORCH_CUDNN_V8_API_ENABLED=1
-export OLLAMA_NUM_PARALLEL=4
+export OLLAMA_NUM_PARALLEL=2
 
 export OLLAMA_NUM_CTX=8192
 
@@ -1450,6 +1450,17 @@ else
 fi
 
 export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True,max_split_size_mb:512,garbage_collection_threshold:0.8"
+
+# Raise GPU power limit to max for higher sustained boost clocks
+if command -v nvidia-smi &>/dev/null; then
+    MAX_PL=$(nvidia-smi --query-gpu=power.max_limit --format=csv,noheader,nounits 2>/dev/null | head -1 | cut -d. -f1)
+    CUR_PL=$(nvidia-smi --query-gpu=power.limit --format=csv,noheader,nounits 2>/dev/null | head -1 | cut -d. -f1)
+    if [ -n "$MAX_PL" ] && [ -n "$CUR_PL" ] && [ "$MAX_PL" -gt "$CUR_PL" ]; then
+        sudo nvidia-smi -pl "$MAX_PL" 2>/dev/null && \
+            vader_info "GPU power limit raised: ${CUR_PL}W → ${MAX_PL}W" || \
+            vader_warn "Could not raise GPU power limit (needs sudo)"
+    fi
+fi
 export REDIS_URL="${REDIS_URL:-redis://localhost:6379/0}"
 export CELERY_BROKER_URL="${CELERY_BROKER_URL:-redis://localhost:6379/0}"
 export CELERY_RESULT_BACKEND="${CELERY_RESULT_BACKEND:-redis://localhost:6379/0}"

@@ -11,8 +11,8 @@ from typing import Dict, List, Optional, Tuple
 logger = logging.getLogger(__name__)
 
 if "PYTORCH_CUDA_ALLOC_CONF" not in os.environ:
-    os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:False,max_split_size_mb:512"
-    logger.info("Set PYTORCH_CUDA_ALLOC_CONF to prevent CUDA memory allocation errors")
+    os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True,max_split_size_mb:512,garbage_collection_threshold:0.8"
+    logger.info("Set PYTORCH_CUDA_ALLOC_CONF (expandable_segments:True, gc_threshold:0.8)")
 
 try:
     import imageio
@@ -540,6 +540,14 @@ class OfflineVideoGenerator:
 
         try:
             logger.info("Aggressively freeing GPU memory before CogVideoX generation...")
+            # Notify GPU orchestrator — evict ALL other models for exclusive video gen
+            try:
+                from backend.services.gpu_memory_orchestrator import get_orchestrator
+                get_orchestrator().request_model(
+                    "video:pipeline", vram_estimate_mb=14000, priority=95, exclusive=True
+                )
+            except Exception as _orch_err:
+                logger.debug(f"GPU orchestrator unavailable (non-critical): {_orch_err}")
             self._unload_all_pipelines()
 
             cleanup_result = force_clear_gpu_memory()

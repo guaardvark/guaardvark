@@ -2,13 +2,13 @@
  * useNavigationCancel — Global navigation-aware request cancellation.
  *
  * Mount this ONCE in App.jsx. It watches for route changes and aborts
- * all pending API requests from the previous page. This prevents DB
- * connection pool exhaustion when users click through sidebar items quickly.
+ * stale API requests from the previous page. This prevents DB connection
+ * pool exhaustion when users click through sidebar items quickly.
  *
  * How it works:
- * 1. Monkey-patches window.fetch to track all in-flight requests
- * 2. On route change, aborts all tracked requests
- * 3. Exempt requests: Socket.IO, persistent flag, health checks
+ * 1. Monkey-patches window.fetch to track all in-flight requests with timestamps
+ * 2. On route change, aborts requests older than GRACE_MS (new page's fetches survive)
+ * 3. Exempt requests: Socket.IO, persistent flag, long-running operations
  *
  * Usage in App.jsx:
  *   import useNavigationCancel from './hooks/useNavigationCancel';
@@ -22,10 +22,14 @@
 import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 
-// Global tracking of in-flight AbortControllers
-const activeControllers = new Set();
+// Global tracking of in-flight AbortControllers → creation timestamp
+const activeControllers = new Map();
 
-// Paths that should NOT be cancelled on navigation
+// Requests younger than this won't be aborted — protects new page fetches
+// that fire in the same React render cycle as the route change.
+const GRACE_MS = 150;
+
+// Paths that should NEVER be cancelled on navigation
 const EXEMPT_PATTERNS = [
   '/socket.io',
   '/api/batch-image/',    // Image generation in progress
@@ -37,6 +41,10 @@ const EXEMPT_PATTERNS = [
   '/api/meta/',           // System status polling (UnifiedProgressContext)
   '/api/model/',          // Model switching (long-running)
   '/api/plugins/',        // Plugin management
+  '/api/gpu/',            // GPU orchestrator + coordinator signals
+  '/api/rules',           // Slash command registry (persistent config)
+  '/api/chat/',           // Chat messages + history (must not abort mid-conversation)
+  '/api/settings/',       // Settings reads (lightweight, needed everywhere)
 ];
 
 function isExempt(url) {
@@ -84,7 +92,7 @@ function patchFetch() {
       init = { ...init, signal: controller.signal };
     }
 
-    activeControllers.add(controller);
+    activeControllers.set(controller, Date.now());
 
     const promise = originalFetch.call(this, input, init);
 
@@ -99,20 +107,22 @@ function patchFetch() {
 }
 
 /**
- * Cancel all in-flight non-exempt requests.
+ * Cancel stale in-flight requests (older than GRACE_MS).
+ * Requests from the new page are younger than GRACE_MS and survive.
  * Called automatically on route change, or manually if needed.
  */
 export function cancelAllPendingRequests() {
-  const count = activeControllers.size;
-  if (count > 0) {
-    for (const controller of activeControllers) {
+  const now = Date.now();
+  let aborted = 0;
+  for (const [controller, timestamp] of activeControllers) {
+    if (now - timestamp > GRACE_MS) {
       try { controller.abort(); } catch (_) { /* ignore */ }
+      activeControllers.delete(controller);
+      aborted++;
     }
-    activeControllers.clear();
-    if (count > 2) {
-      // Only log if we cancelled more than trivial background polls
-      console.debug(`[NavigationCancel] Aborted ${count} pending requests`);
-    }
+  }
+  if (aborted > 2) {
+    console.debug(`[NavigationCancel] Aborted ${aborted} stale requests (kept ${activeControllers.size} recent)`);
   }
 }
 
@@ -124,7 +134,7 @@ export function getPendingRequestCount() {
 }
 
 /**
- * React hook — mount in App.jsx. Cancels requests on every route change.
+ * React hook — mount in App.jsx. Cancels stale requests on every route change.
  */
 export default function useNavigationCancel() {
   const location = useLocation();
@@ -135,7 +145,7 @@ export default function useNavigationCancel() {
     patchFetch();
   }, []);
 
-  // Cancel pending requests when route changes
+  // Cancel stale requests when route changes
   useEffect(() => {
     if (previousPath.current !== location.pathname) {
       cancelAllPendingRequests();

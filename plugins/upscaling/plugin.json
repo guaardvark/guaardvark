@@ -1,0 +1,46 @@
+{
+  "id": "upscaling",
+  "name": "Upscaling Service",
+  "version": "1.0.0",
+  "description": "GPU-accelerated image and video upscaling using spandrel with torch.compile optimization. Supports Real-ESRGAN, SwinIR, HAT, and other architectures.",
+  "author": "Guaardvark",
+  "type": "service",
+  "category": "enhancement",
+  "port": 8202,
+  "vram_estimate_mb": 1500,
+  "dependencies": [],
+  "config": {
+    "enabled": false,
+    "auto_start": false,
+    "service_url": "http://localhost:8202",
+    "timeout": 30,
+    "fallback_enabled": false,
+    "default_model": "RealESRGAN_x4plus",
+    "precision": "bf16",
+    "compile_model": true,
+    "max_tile_size": "auto",
+    "batch_size": "auto",
+    "job_timeout_minutes": 30,
+    "watch_folder_enabled": false,
+    "watch_input_dir": "",
+    "watch_output_dir": "",
+    "target_width": 3840,
+    "callback_url": ""
+  },
+  "requirements": {
+    "gpu": true,
+    "cuda": true,
+    "ollama": false
+  },
+  "endpoints": {
+    "health": "/health",
+    "models": "/models",
+    "models_download": "/models/download",
+    "upscale_image": "/upscale/image",
+    "upscale_image_upload": "/upscale/image/upload",
+    "upscale_video": "/upscale/video",
+    "jobs": "/jobs",
+    "job_status": "/jobs/{job_id}",
+    "config": "/config"
+  }
+}

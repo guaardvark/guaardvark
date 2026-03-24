@@ -211,10 +211,50 @@ class ToolRegistry:
                 error=f"Tool '{tool_name}' not found in registry"
             )
         
+        # Parameter recovery: fix common LLM mistakes before validation.
+        # 1. If LLM sent param_name/value pairs instead of direct params, remap.
+        # 2. If LLM sent synonyms (content_description, image_description, text, etc.), map to first required param.
+        if not tool.can_execute(**kwargs) and kwargs:
+            expected_required = [name for name, param in tool.parameters.items() if param.required]
+            received = set(kwargs.keys()) - {"_agent_context"}
+
+            # Strategy 1: param_name=X, value=Y → X=Y
+            if "param_name" in received and "value" in received:
+                pname_val = kwargs.pop("param_name")
+                pval = kwargs.pop("value")
+                kwargs[pname_val] = pval
+                logger.info(f"Param recovery: remapped param_name={pname_val} to direct kwarg")
+
+            # Strategy 2: Unrecognised param(s) → map to missing required param(s)
+            if not tool.can_execute(**kwargs) and expected_required:
+                known_params = set(tool.parameters.keys())
+                current_keys = set(kwargs.keys()) - {"_agent_context"}
+                unknown = current_keys - known_params
+                missing = set(expected_required) - current_keys
+
+                if len(unknown) == 1 and len(missing) == 1:
+                    # Simple 1:1 remap
+                    wrong_name = unknown.pop()
+                    right_name = missing.pop()
+                    kwargs[right_name] = kwargs.pop(wrong_name)
+                    logger.info(f"Param recovery: remapped '{wrong_name}' → '{right_name}' for {tool_name}")
+                elif len(missing) == 1 and len(unknown) > 1:
+                    # Multiple unknown params, one missing required — pick the best match.
+                    # Prefer params whose name contains "description", "prompt", "content", "text", "query".
+                    right_name = missing.pop()
+                    _hint_words = ("description", "prompt", "content", "text", "query", "value")
+                    best = next((u for u in unknown if any(h in u.lower() for h in _hint_words)), None)
+                    if best:
+                        kwargs[right_name] = kwargs.pop(best)
+                        # Drop remaining unknown params (LLM hallucinated extras)
+                        for leftover in unknown - {best}:
+                            kwargs.pop(leftover, None)
+                        logger.info(f"Param recovery: remapped '{best}' → '{right_name}', dropped extras for {tool_name}")
+
         if not tool.can_execute(**kwargs):
             # Get expected parameters for better error message
             expected_params = [name for name, param in tool.parameters.items() if param.required]
-            received_params = list(kwargs.keys())
+            received_params = [k for k in kwargs.keys() if k != "_agent_context"]
             logger.error(
                 f"Tool {tool_name} validation failed. "
                 f"Expected required parameters: {expected_params}, "

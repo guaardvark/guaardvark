@@ -206,44 +206,80 @@ else:
 DEFAULT_LLM = None
 DEFAULT_EMBEDDING_MODEL = None
 OLLAMA_BASE_URL = "http://localhost:11434"
+ACTIVE_MODEL_FILE = os.path.join(STORAGE_DIR, "active_model.json")
+
+# GPU Memory Orchestrator settings
+GPU_QUALITY_TIER = os.environ.get("GUAARDVARK_GPU_QUALITY_TIER", "balanced")
+GPU_EVICTION_GRACE_SECONDS = int(os.environ.get("GUAARDVARK_GPU_EVICTION_GRACE", "30"))
+GPU_IDLE_TIMEOUT_SECONDS = int(os.environ.get("GUAARDVARK_GPU_IDLE_TIMEOUT", "300"))
+
+
+def _read_saved_model_name():
+    """Read the user's saved model choice from active_model.json (no DB, no Flask context needed)."""
+    import json
+    try:
+        if os.path.isfile(ACTIVE_MODEL_FILE):
+            with open(ACTIVE_MODEL_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                name = data.get("active_model", "").strip() if isinstance(data, dict) else ""
+                if name:
+                    return name
+    except Exception:
+        pass
+    return None
 
 
 def get_default_llm():
+    """Return the active LLM model name.
+
+    Priority: saved user choice (if model still available) > preference list > first text model.
+    """
     try:
-        import re
         import requests
         from backend.utils.ollama_resource_manager import is_text_chat_model
 
         response = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
-        if response.status_code == 200:
-            models = response.json().get('models', [])
+        if response.status_code != 200:
+            saved = _read_saved_model_name()
+            return saved or "llama3.1:latest"
 
-            preferred_patterns = [
-                'llama3.1',
-                'llama3',
-                'gemma',
-                'phi',
-                'mistral',
-                'qwen',
-            ]
+        models = response.json().get('models', [])
+        available_names = {m.get('name', '') for m in models}
 
-            for pattern in preferred_patterns:
-                for model in models:
-                    name = model.get('name', '').lower()
-                    if not is_text_chat_model(name):
-                        continue
-                    if pattern in name and ':' in name:
-                        return model.get('name')
+        # 1. Prefer the user's saved model if it's still available in Ollama
+        saved = _read_saved_model_name()
+        if saved and saved in available_names:
+            return saved
 
+        # 2. Fall back to preference list
+        preferred_patterns = [
+            'llama3.1',
+            'llama3',
+            'gemma',
+            'phi',
+            'mistral',
+            'qwen',
+        ]
+
+        for pattern in preferred_patterns:
             for model in models:
                 name = model.get('name', '').lower()
-                if is_text_chat_model(name):
+                if not is_text_chat_model(name):
+                    continue
+                if pattern in name and ':' in name:
                     return model.get('name')
+
+        # 3. Any text chat model
+        for model in models:
+            name = model.get('name', '').lower()
+            if is_text_chat_model(name):
+                return model.get('name')
 
     except Exception:
         pass
 
-    return "llama3.1:latest"
+    saved = _read_saved_model_name()
+    return saved or "llama3.1:latest"
 
 
 def get_embedding_vram_estimates() -> dict:
@@ -414,8 +450,6 @@ if DEFAULT_EMBEDDING_MODEL is None:
     except Exception as _embed_err:
         logging.warning("Could not initialize default embedding model: %s", _embed_err)
         DEFAULT_EMBEDDING_MODEL = None
-
-ACTIVE_MODEL_FILE = os.path.join(STORAGE_DIR, "active_model.json")
 
 _llm_timeout_env = os.getenv("GUAARDVARK_LLM_REQUEST_TIMEOUT")
 LLM_REQUEST_TIMEOUT = float(_llm_timeout_env) if _llm_timeout_env else 7200.0

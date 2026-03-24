@@ -386,17 +386,16 @@ User Context: {str(context)}"""
 @agents_bp.route("/settings", methods=["GET"])
 def get_agent_settings():
     """
-    Get global agent system settings.
+    Get global agent system settings (persisted to DB).
     """
     try:
-        # Read settings from various sources
-        import os
+        from backend.utils.settings_utils import get_setting
 
         settings = {
-            "agent_routing_enabled": os.getenv("AGENT_ROUTING_ENABLED", "false").lower() == "true",
+            "agent_routing_enabled": get_setting("agent_routing_enabled", default=False, cast=bool),
             "default_max_iterations": 10,
             "fallback_to_chat": True,
-            "log_agent_actions": os.getenv("LOG_AGENT_ACTIONS", "true").lower() == "true",
+            "log_agent_actions": get_setting("log_agent_actions", default=True, cast=bool),
         }
 
         return jsonify({
@@ -415,7 +414,7 @@ def get_agent_settings():
 @agents_bp.route("/settings", methods=["PATCH"])
 def update_agent_settings():
     """
-    Update global agent system settings.
+    Update global agent system settings (persisted to DB).
     """
     try:
         data = request.get_json()
@@ -425,15 +424,13 @@ def update_agent_settings():
                 "error": "Request body required"
             }), 400
 
-        # For now, settings are stored in environment/memory
-        # In production, these would be persisted to database
-        import os
+        from backend.utils.settings_utils import save_setting
 
         if "agent_routing_enabled" in data:
-            os.environ["AGENT_ROUTING_ENABLED"] = str(data["agent_routing_enabled"]).lower()
+            save_setting("agent_routing_enabled", str(data["agent_routing_enabled"]).lower())
 
         if "log_agent_actions" in data:
-            os.environ["LOG_AGENT_ACTIONS"] = str(data["log_agent_actions"]).lower()
+            save_setting("log_agent_actions", str(data["log_agent_actions"]).lower())
 
         return jsonify({
             "success": True,

@@ -78,6 +78,11 @@ ENV_VAR_MAP = {
     "vision_pipeline_monitor_model": "GUAARDVARK_VISION_MONITOR_MODEL",
     "vision_pipeline_escalation_model": "GUAARDVARK_VISION_ESCALATION_MODEL",
     "vision_pipeline_auto_select": "GUAARDVARK_VISION_AUTO_SELECT",
+    "gpu_quality_tier": "GUAARDVARK_GPU_QUALITY_TIER",
+    "gpu_eviction_grace": "GUAARDVARK_GPU_EVICTION_GRACE",
+    "gpu_idle_timeout": "GUAARDVARK_GPU_IDLE_TIMEOUT",
+    "agent_routing_enabled": "AGENT_ROUTING_ENABLED",
+    "log_agent_actions": "LOG_AGENT_ACTIONS",
 }
 
 _BOOL_TRUTHY = {"true", "1", "yes"}

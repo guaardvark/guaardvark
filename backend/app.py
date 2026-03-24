@@ -832,8 +832,14 @@ def initialize_llm_and_index_async():
             app.config["LLAMA_INDEX_QUERY_ENGINE"] = None
             app.config["LLAMA_INDEX_CHAT_ENGINE"] = None
 
+            # Only persist if there's no saved choice yet — never overwrite
+            # the user's saved model on startup (would silently revert their selection
+            # if get_llm_for_startup() fell back to the preference list).
             try:
-                llm_service.persist_active_model_name(getattr(llm, "model", DEFAULT_LLM))
+                loaded_model = getattr(llm, "model", None)
+                saved_model = llm_service.get_saved_active_model_name()
+                if loaded_model and not saved_model:
+                    llm_service.persist_active_model_name(loaded_model)
             except Exception as e:
                 app.logger.warning(f"[LLM-Init] Failed to persist active model on startup: {e}")
 

@@ -66,36 +66,20 @@ def force_local_llama_index_config():
         # Use local embeddings instead of HuggingFace
         from llama_index.core.embeddings import BaseEmbedding
 
-        # Configure Ollama with active model using system logic
+        # Configure Ollama with active model (checks saved model first, then preference list)
         try:
             from llama_index.llms.ollama import Ollama
 
-            # Use the system's model detection logic
             try:
-                from backend.config import get_default_llm, ACTIVE_MODEL_FILE
+                from backend.config import get_default_llm
 
-                # First try to get model from active_model.json
-                active_model = None
-                try:
-                    import json
-                    with open(ACTIVE_MODEL_FILE, 'r') as f:
-                        data = json.load(f)
-                        active_model = data.get("active_model", "").strip() if isinstance(data, dict) else None
-                    logger.info(f"Using active model from file: {active_model}")
-                except (OSError, ValueError, KeyError):
-                    logger.info("Could not read active model file, using system detection")
+                active_model = get_default_llm()
+                logger.info(f"Using active model from file: {active_model}")
 
-                # Fallback to system's dynamic model detection
-                if not active_model:
-                    active_model = get_default_llm()
-                    logger.info(f"Using system-detected model: {active_model}")
-
-                # Configure Ollama with the detected model
                 local_llm = Ollama(model=active_model, request_timeout=60.0)
                 logger.info(f" Configured Ollama with real model: {active_model}")
 
             except ImportError as e:
-                # Fallback if config imports fail
                 logger.warning(f"Could not import config, using fallback: {e}")
                 active_model = "llama3:latest"
                 local_llm = Ollama(model=active_model, request_timeout=60.0)
@@ -197,28 +181,11 @@ def get_local_llm():
     try:
         from llama_index.llms.ollama import Ollama
 
-        # Use the same logic as force_local_llama_index_config
         try:
-            from backend.config import get_default_llm, ACTIVE_MODEL_FILE
-
-            # Try active model file first
-            active_model = None
-            try:
-                import json
-                with open(ACTIVE_MODEL_FILE, 'r') as f:
-                    data = json.load(f)
-                    active_model = data.get("active_model", "").strip() if isinstance(data, dict) else None
-            except (OSError, ValueError, KeyError):
-                pass
-
-            # Fallback to system detection
-            if not active_model:
-                active_model = get_default_llm()
-
+            from backend.config import get_default_llm
+            active_model = get_default_llm()
             return Ollama(model=active_model, request_timeout=60.0)
-
         except ImportError:
-            # Final fallback
             return Ollama(model="llama3:latest", request_timeout=60.0)
 
     except ImportError:

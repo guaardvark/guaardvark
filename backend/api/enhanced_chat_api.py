@@ -14,7 +14,6 @@ import threading
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timezone
 from flask import Blueprint, current_app, request, jsonify, Response, stream_with_context, send_file
-from sqlalchemy.exc import SQLAlchemyError
 
 logger = logging.getLogger(__name__)
 
