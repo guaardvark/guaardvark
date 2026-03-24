@@ -40,11 +40,11 @@ class VisionAnalyzer:
     access without blocking video chat or other vision consumers.
     """
 
-    # Vision models to try in order — fast/small first
+    # Vision models to try in order — qwen3-vl first (moondream fails on dark UIs)
     _VISION_MODEL_PRIORITY = [
-        "moondream:latest",
         "qwen3-vl:2b-instruct",
         "qwen3-vl:8b",
+        "moondream:latest",
         "llava:latest",
     ]
 
@@ -138,9 +138,9 @@ class VisionAnalyzer:
             response = requests.get(f"{self.ollama_url}/api/tags", timeout=5)
             if response.status_code == 200:
                 models = [m["name"] for m in response.json().get("models", [])]
-                # Prefer these text models in order
-                for preferred in ["qwen3:8b", "qwen3:latest", "llama3.1:8b", "llama3:8b",
-                                  "llama3:latest", "mistral:latest", "gemma2:latest"]:
+                # Prefer these text models in order (smarter models first for planning)
+                for preferred in ["qwen3.5:9b", "qwen3:8b", "qwen3:latest", "llama3.1:8b",
+                                  "llama3:8b", "llama3:latest", "mistral:latest", "gemma2:latest"]:
                     if preferred in models:
                         return preferred
                 # Fall back to any non-vision model
@@ -177,6 +177,8 @@ class VisionAnalyzer:
         image: Image.Image,
         prompt: str,
         model: str = None,
+        num_predict: int = 256,
+        temperature: float = 0.3,
     ) -> VisionResult:
         """
         Analyze an image using an Ollama vision model.
@@ -185,6 +187,8 @@ class VisionAnalyzer:
             image: PIL Image to analyze
             prompt: Text prompt for the vision model
             model: Ollama model name (default: self.default_model)
+            num_predict: Max tokens to generate (default: 256)
+            temperature: Sampling temperature (default: 0.3)
 
         Returns:
             VisionResult with description or error
@@ -207,8 +211,8 @@ class VisionAnalyzer:
                     }],
                     "stream": False,
                     "options": {
-                        "num_predict": 256,
-                        "temperature": 0.3,
+                        "num_predict": num_predict,
+                        "temperature": temperature,
                     },
                 },
                 timeout=self.timeout,
@@ -257,6 +261,8 @@ class VisionAnalyzer:
         image_b64: str,
         prompt: str,
         model: str = None,
+        num_predict: int = 256,
+        temperature: float = 0.3,
     ) -> VisionResult:
         """
         Analyze an image from raw base64 — bypasses PIL entirely.
@@ -269,6 +275,8 @@ class VisionAnalyzer:
             image_b64: Base64-encoded image bytes (no data URI prefix)
             prompt: Text prompt for the vision model
             model: Ollama model name (default: self.default_model)
+            num_predict: Max tokens to generate (default: 256)
+            temperature: Sampling temperature (default: 0.3)
 
         Returns:
             VisionResult with description or error
@@ -290,8 +298,8 @@ class VisionAnalyzer:
                     }],
                     "stream": False,
                     "options": {
-                        "num_predict": 256,
-                        "temperature": 0.3,
+                        "num_predict": num_predict,
+                        "temperature": temperature,
                     },
                 },
                 timeout=self.timeout,
