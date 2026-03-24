@@ -90,7 +90,7 @@ def update_document_status(document_id, status, error_message=None):
         session.close()
 
 def enhanced_code_aware_indexing(file_path, document, document_id, update_progress):
-    """Enhanced indexing that leverages LLM009's existing CodeChunker system"""
+    """Enhanced indexing that leverages Guaardvark's existing CodeChunker system"""
     try:
         logger.info(f"Starting enhanced code-aware indexing for document {document_id}")
         update_progress(75, f'Analyzing file type and content for {document["filename"]}')
@@ -113,7 +113,7 @@ def enhanced_code_aware_indexing(file_path, document, document_id, update_progre
         # Update database with enhanced content and metadata
         session = get_db_session()
         try:
-            # Create rich metadata that aligns with LLM009's CodeChunker system
+            # Create rich metadata that aligns with Guaardvark's CodeChunker system
             metadata = {
                 'file_type': 'code' if is_code_file else 'text',
                 'language': file_ext[1:] if file_ext else 'unknown',

@@ -1,6 +1,6 @@
 // frontend/src/components/code/CodeEditor.jsx
 // Monaco Editor wrapper component for Cursor-like coding experience
-// Integrates with existing LLM009.2 infrastructure
+// Integrates with existing Guaardvark infrastructure
 
 import React, { useRef, useCallback, useEffect, useState } from "react";
 import { Box, Paper, Typography, IconButton, Tooltip, Alert } from "@mui/material";

@@ -15,7 +15,7 @@ CROSS_MARK="${RED}✗${NC}"
 WARNING="${YELLOW}⚠${NC}"
 
 echo -e "${BLUE}╔════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║   LLM Installation Health Check            ║${NC}"
+echo -e "${BLUE}║   Guaardvark Installation Health Check            ║${NC}"
 echo -e "${BLUE}╔════════════════════════════════════════════╗${NC}"
 echo ""
 

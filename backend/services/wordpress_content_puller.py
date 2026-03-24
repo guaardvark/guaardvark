@@ -563,7 +563,7 @@ class WordPressContentPuller:
             self.wp_site.last_pull_at = datetime.now()
             db.session.commit()
             
-            logger.info(f"{action.capitalize()} WordPress page: {post_id} from site {self.site_id} (LLM010.3 ID: {wp_page.id})")
+            logger.info(f"{action.capitalize()} WordPress page: {post_id} from site {self.site_id} (Guaardvark ID: {wp_page.id})")
             
             return {
                 "success": True,

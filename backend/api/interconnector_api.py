@@ -1,7 +1,7 @@
 # backend/api/interconnector_api.py
 """
 Network Interconnector API endpoints.
-Manages configuration and synchronization between LLM010 instances.
+Manages configuration and synchronization between Guaardvark instances.
 """
 
 import json

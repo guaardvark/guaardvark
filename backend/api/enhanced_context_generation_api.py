@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Enhanced Context Generation API
-Leverages full LLM009 ecosystem for intelligent content generation
+Leverages full Guaardvark ecosystem for intelligent content generation
 """
 
 import asyncio

@@ -90,7 +90,7 @@ def get_weather_info(location: str) -> Dict[str, Any]:
         
         for api_url in weather_apis:
             try:
-                headers = {'User-Agent': 'LLM003-Weather/1.0'}
+                headers = {'User-Agent': 'Guaardvark-Weather/1.0'}
                 response = requests.get(api_url, headers=headers, timeout=10)
                 
                 if response.ok:

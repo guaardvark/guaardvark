@@ -37,7 +37,7 @@ class LlamanatorAPIService:
             "X-LLAMANATOR-API-KEY": api_key,
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": "LLM010.3-Llamanator-Client/1.0"
+            "User-Agent": "Guaardvark-Llamanator-Client/1.0"
         }
     
     def _make_request(self, method: str, endpoint: str, params: Optional[Dict] = None, 
@@ -162,7 +162,7 @@ class LlamanatorAPIService:
             elif error_code == "missing_api_key" or "API key is required" in error_msg:
                 return False, "API key is required. Please provide the LLAMANATOR2 API key."
             elif error_code == "api_key_not_configured":
-                return False, "API key not configured on WordPress site. Please generate one in LLAMANATOR2 plugin settings (Settings → LLAMANATOR2 → LLM010.3 Integration)."
+                return False, "API key not configured on WordPress site. Please generate one in LLAMANATOR2 plugin settings (Settings → LLAMANATOR2 → Guaardvark Integration)."
             elif "Connection error" in error_msg:
                 return False, f"Cannot connect to WordPress site: {error_msg}. Please check the site URL and ensure it's accessible."
             return False, error_msg

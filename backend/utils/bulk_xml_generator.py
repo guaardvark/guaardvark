@@ -151,7 +151,7 @@ class BulkXMLGenerator(BulkCSVGenerator):
         # Create root element
         root = ET.Element('llamanator_export')
         root.set('version', '3.02')
-        root.set('generator', 'LLM009.2 Bulk Generator')
+        root.set('generator', 'Guaardvark Bulk Generator')
         from datetime import timezone
         root.set('date', datetime.now(timezone.utc).isoformat())
 

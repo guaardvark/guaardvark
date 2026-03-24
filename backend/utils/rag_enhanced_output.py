@@ -264,7 +264,7 @@ class RAGEnhancedXMLWriter:
         root = ET.Element('llamanator_export')
         root.set('version', self.schema_version)
         root.set('rag_enhanced', 'true')
-        root.set('generator', 'LLM010.1 RAG-Enhanced Generator')
+        root.set('generator', 'Guaardvark RAG-Enhanced Generator')
         root.set('date', datetime.now().isoformat())
 
         # Add global RAG statistics

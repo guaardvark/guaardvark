@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Enhanced Context-Aware CSV Generator
-Integrates all LLM009 ecosystem capabilities for intelligent content generation
+Integrates all Guaardvark ecosystem capabilities for intelligent content generation
 """
 
 import logging
@@ -36,7 +36,7 @@ class EnhancedGenerationContext:
 
 class EnhancedContextCSVGenerator:
     """
-    Advanced CSV generator that leverages the full LLM009 ecosystem:
+    Advanced CSV generator that leverages the full Guaardvark ecosystem:
     - Entity relationships and client context
     - Document intelligence and uploaded files
     - Web scraping and competitor analysis

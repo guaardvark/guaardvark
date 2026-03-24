@@ -1,5 +1,5 @@
 # backend/utils/code_storage_bridge.py
-# Bridge between database-stored code files and LLM009's unified index manager
+# Bridge between database-stored code files and Guaardvark's unified index manager
 # Enables RAG retrieval of stored code without duplicating content
 
 # Force local LlamaIndex configuration BEFORE any LlamaIndex imports
@@ -18,12 +18,12 @@ from sqlalchemy.orm import sessionmaker
 from llama_index.core import Document as LlamaDocument
 from llama_index.core.schema import BaseNode
 
-# LLM009 imports
+# Guaardvark imports
 try:
     from backend.utils.enhanced_rag_chunking import EnhancedRAGChunker
     from backend.utils.unified_index_manager import UnifiedIndexManager
 except ImportError as e:
-    logging.warning(f"Could not import LLM009 components: {e}")
+    logging.warning(f"Could not import Guaardvark components: {e}")
     EnhancedRAGChunker = None
     UnifiedIndexManager = None
 
@@ -52,14 +52,14 @@ def _get_db_session():
 
 
 class CodeStorageBridge:
-    """Bridge between database-stored code files and LLM009's indexing system"""
+    """Bridge between database-stored code files and Guaardvark's indexing system"""
 
     def __init__(self, db_path: str, storage_dir: str):
         # db_path is kept for logging/compatibility but database access goes through SQLAlchemy
         self.db_path = db_path
         self.storage_dir = Path(storage_dir)
 
-        # Initialize LLM009 components
+        # Initialize Guaardvark components
         if EnhancedRAGChunker:
             self.chunker = EnhancedRAGChunker()
         else:
@@ -139,7 +139,7 @@ class CodeStorageBridge:
             return []
 
     def chunk_stored_documents(self, documents: List[LlamaDocument]) -> List[BaseNode]:
-        """Chunk stored documents using LLM009's CodeChunker"""
+        """Chunk stored documents using Guaardvark's CodeChunker"""
 
         if not self.chunker:
             logger.warning("CodeChunker not available")
