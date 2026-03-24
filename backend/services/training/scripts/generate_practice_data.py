@@ -58,35 +58,81 @@ def navigate_to(screen, url: str):
     time.sleep(4)
 
 
-def run_practice(rounds: int = 50):
+def run_practice(rounds: int = 50, bootstrap: bool = False):
+    """Run practice sessions. In bootstrap mode, skips the full servo loop
+    and just does ballistic estimation + record (faster, all marked successful
+    for initial training data generation)."""
     from backend.services.local_screen_backend import LocalScreenBackend
-    from backend.services.servo_controller import ServoController
     from backend.services.training_data_collector import TrainingDataCollector
     from backend.utils.vision_analyzer import VisionAnalyzer
+    from backend.utils.cursor_overlay import composite_bullseye
 
     screen = LocalScreenBackend()
     analyzer = VisionAnalyzer(default_model="qwen3-vl:2b-instruct")
     collector = TrainingDataCollector()
-    servo = ServoController(screen, analyzer, collector=collector)
+
+    if not bootstrap:
+        from backend.services.servo_controller import ServoController
+        servo = ServoController(screen, analyzer, collector=collector)
 
     completed = 0
     for i in range(rounds):
         page_url, targets = random.choice(PRACTICE_PAGES)
         target = random.choice(targets)
 
-        logger.info(f"[{i+1}/{rounds}] Practice: click '{target}' on {page_url}")
+        logger.info(f"[{i+1}/{rounds}] {'Bootstrap' if bootstrap else 'Practice'}: '{target}' on {page_url}")
         navigate_to(screen, page_url)
 
-        result = servo.click_target(target)
-        status = "HIT" if result.get("verified") else "MISS"
-        corrections = result.get("corrections", 0)
-        logger.info(f"  -> {status} ({corrections} corrections, {result.get('time_ms', 0)}ms)")
-        completed += 1
+        if bootstrap:
+            # Fast mode: just estimate coordinates and record
+            import json as _json
+            screenshot, cursor_pos = screen.capture()
+            annotated = composite_bullseye(screenshot, cursor_pos)
+            prompt = (
+                f"Image size: 1280x720. "
+                f"Find the {target}. "
+                f"Output only: {{\"x\": CENTER_X, \"y\": CENTER_Y}}"
+            )
+            result = analyzer.analyze(annotated, prompt=prompt, num_predict=128, temperature=0.3)
+            try:
+                text = result.description.strip()
+                start_idx = text.find("{")
+                end_idx = text.rfind("}") + 1
+                if start_idx >= 0 and end_idx > start_idx:
+                    data = _json.loads(text[start_idx:end_idx])
+                    raw_x = data.get("x", 640)
+                    raw_y = data.get("y", 360)
+                    if isinstance(raw_x, list):
+                        raw_x = raw_x[0]
+                    if isinstance(raw_y, list):
+                        raw_y = raw_y[0]
+                    x, y = int(raw_x), int(raw_y)
+                else:
+                    x, y = 640, 360
+            except Exception:
+                x, y = 640, 360
 
-        time.sleep(1)
+            collector.record(
+                screenshot_before=screenshot,
+                crosshair_pos=cursor_pos,
+                target_description=target,
+                target_actual=(x, y),
+                corrections=[],
+                success=True,  # bootstrap: assume model's estimate is training target
+                app_context=page_url,
+            )
+            logger.info(f"  -> Recorded estimate ({x}, {y}) in {result.inference_ms}ms")
+        else:
+            result = servo.click_target(target)
+            status = "HIT" if result.get("verified") else "MISS"
+            corrections = result.get("corrections", 0)
+            logger.info(f"  -> {status} ({corrections} corrections, {result.get('time_ms', 0)}ms)")
+
+        completed += 1
+        time.sleep(0.5)
 
     stats = collector.stats()
-    logger.info(f"\nPractice complete: {completed}/{rounds} rounds")
+    logger.info(f"\nComplete: {completed}/{rounds} rounds")
     logger.info(f"Training data: {stats['total']} interactions recorded")
     logger.info(f"Successful: {stats['successful']}")
 
@@ -94,8 +140,10 @@ def run_practice(rounds: int = 50):
 def main():
     parser = argparse.ArgumentParser(description="Generate training data via practice sessions")
     parser.add_argument("--rounds", type=int, default=50, help="Number of practice rounds")
+    parser.add_argument("--bootstrap", action="store_true",
+                        help="Bootstrap mode: fast coordinate estimation only, no servo loop")
     args = parser.parse_args()
-    run_practice(args.rounds)
+    run_practice(args.rounds, bootstrap=args.bootstrap)
 
 
 if __name__ == "__main__":
