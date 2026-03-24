@@ -4,13 +4,11 @@ Agent Control Service — The brain of the Agent Vision Control system.
 
 Orchestrates the see-think-act loop:
 1. Capture screenshot (via ScreenInterface)
-2. Composite bullseye at cursor position
-3. Overlay grid for coordinate identification
-4. Analyze with vision model (direct Ollama call)
-5. LLM decides next action
-6. Execute action via ScreenInterface
-7. Optionally verify result
-8. Repeat until task complete or limits hit
+2. Analyze with vision model (direct Ollama call)
+3. LLM decides next action
+4. Execute action — clicks via ServoController (closed-loop motor control),
+   type/hotkey/scroll via direct ScreenInterface calls
+5. Record step and repeat until task complete or limits hit
 """
 
 import json
@@ -157,15 +155,13 @@ class AgentControlService:
         Returns:
             AgentResult with success status and action history
         """
-        from backend.utils.cursor_overlay import composite_bullseye
-        from backend.utils.grid_overlay import (
-            overlay_grid, create_grid_spec, crop_grid_cell, refine_coordinates
-        )
+        from backend.services.servo_controller import ServoController
+        from backend.services.training_data_collector import TrainingDataCollector
         from backend.utils.vision_analyzer import VisionAnalyzer
 
         with self._lock:
             if self._active:
-                return AgentResult(success=False, reason="Agent already active")
+                return self._store_and_return(AgentResult(success=False, reason="Agent already active"))
             self._active = True
             self._killed = False
             self._current_task = task
@@ -173,50 +169,43 @@ class AgentControlService:
             self._action_history = []
 
         analyzer = VisionAnalyzer(default_model=self.config.vision_model)
+        collector = TrainingDataCollector()
+        servo = ServoController(screen, analyzer, collector=collector)
         consecutive_failures = 0
         start_time = time.time()
 
         try:
             for iteration in range(self.config.max_iterations):
                 if self._killed:
-                    return AgentResult(
+                    return self._store_and_return(AgentResult(
                         success=False, reason="killed",
                         steps=self._action_history,
                         total_time_seconds=time.time() - start_time
-                    )
+                    ))
 
                 if time.time() - start_time > self.config.task_timeout_seconds:
-                    return AgentResult(
+                    return self._store_and_return(AgentResult(
                         success=False, reason="timeout",
                         steps=self._action_history,
                         total_time_seconds=time.time() - start_time
-                    )
+                    ))
 
                 self._current_iteration = iteration
 
-                # 1. SEE — Capture and annotate (with black frame detection)
+                # 1. SEE — Capture screenshot
                 screenshot, cursor_pos = self._capture_with_retry(screen)
-                annotated = composite_bullseye(screenshot, cursor_pos, self.config.bullseye_size)
-                gridded, grid_spec = overlay_grid(
-                    annotated, cols=self.config.grid_cols, rows=self.config.grid_rows
-                )
 
                 # 2. ANALYZE — Vision model describes the screen
                 vision_prompt = self._build_vision_prompt(task, self._action_history)
-                current_model = self.config.vision_model
-                if consecutive_failures >= self.config.escalation_threshold:
-                    current_model = self.config.escalation_model
-                    logger.info(f"Escalating to {current_model} after {consecutive_failures} failures")
-
-                scene = analyzer.analyze(gridded, prompt=vision_prompt, model=current_model)
+                scene = analyzer.analyze(screenshot, prompt=vision_prompt)
                 if not scene.success:
                     logger.error(f"Vision analysis failed: {scene.error}")
                     consecutive_failures += 1
                     continue
 
-                # 3. THINK — Text LLM decides next action (NOT the vision model)
+                # 3. THINK — Text LLM decides next action
                 decision_prompt = self._build_decision_prompt(
-                    task, scene.description, self._action_history, grid_spec
+                    task, scene.description, self._action_history
                 )
                 decision_result = analyzer.text_query(decision_prompt)
                 if not decision_result.success:
@@ -226,88 +215,62 @@ class AgentControlService:
                 decision = self._parse_decision(decision_result.description)
 
                 if decision.task_complete:
-                    return AgentResult(
+                    return self._store_and_return(AgentResult(
                         success=True, reason="completed",
                         steps=self._action_history,
                         total_time_seconds=time.time() - start_time
-                    )
+                    ))
 
                 if decision.stuck:
                     consecutive_failures += 1
                     continue
 
-                # 3b. REFINE — Sub-cell refinement for clicks
-                if decision.action.action_type == "click" and decision.action.target_cell:
-                    if decision.action.target_cell not in grid_spec:
-                        logger.warning(f"Invalid grid cell '{decision.action.target_cell}', using screen center")
-                        w, h = screenshot.size
-                        decision.action.coordinates = (w // 2, h // 2)
-                    else:
-                        cell_crop = crop_grid_cell(screenshot, decision.action.target_cell, grid_spec)
-                        refine_prompt = (
-                            f"Where exactly within this cropped area is '{decision.action.target_description}'? "
-                            f"Respond with ONLY one of: top-left, top-center, top-right, "
-                            f"center-left, center, center-right, bottom-left, bottom-center, bottom-right."
-                        )
-                        refine_result = analyzer.analyze(cell_crop, prompt=refine_prompt)
-                        if refine_result.success:
-                            position = refine_result.description.strip().lower()
-                            decision.action.coordinates = refine_coordinates(
-                                decision.action.target_cell, position, grid_spec
-                            )
-                        else:
-                            decision.action.coordinates = grid_spec[decision.action.target_cell]["center"]
+                # 4. ACT — Execute via servo (for clicks) or direct (for type/hotkey/scroll)
+                if decision.action.action_type == "click":
+                    servo_result = servo.click_target(decision.action.target_description)
+                    decision.action.coordinates = (servo_result.get("x", 0), servo_result.get("y", 0))
+                    result = {"success": servo_result.get("success", False)}
+                    failed = not servo_result.get("verified", False)
+                else:
+                    result = self._execute_action(decision.action, screen)
+                    failed = not result.get("success", False)
 
-                # 4. ACT — Execute the decided action
-                result = self._execute_action(decision.action, screen)
-
-                # 5. VERIFY — Confirm action worked
-                verification = None
-                if self.config.verify_actions:
-                    verify_shot, _ = screen.capture()
-                    verify_result = analyzer.analyze(
-                        verify_shot,
-                        prompt=f"Did the action '{decision.action.action_type}' succeed? What changed on screen?"
-                    )
-                    if verify_result.success:
-                        verification = verify_result.description
-
+                # 5. RECORD step
                 step = ActionStep(
                     iteration=iteration,
                     scene_description=scene.description,
                     action=decision.action,
                     result=result,
-                    verification=verification,
-                    failed=not result.get("success", False),
+                    failed=failed,
                 )
                 self._action_history.append(step)
 
-                if step.failed:
+                if failed:
                     consecutive_failures += 1
                     if consecutive_failures >= self.config.max_consecutive_failures:
                         logger.warning(f"Kill switch: {consecutive_failures} consecutive failures")
                         self.kill()
-                        return AgentResult(
+                        return self._store_and_return(AgentResult(
                             success=False, reason="max_failures",
                             steps=self._action_history,
                             total_time_seconds=time.time() - start_time
-                        )
+                        ))
                 else:
                     consecutive_failures = 0
 
-            return AgentResult(
+            return self._store_and_return(AgentResult(
                 success=False, reason="max_iterations",
                 steps=self._action_history,
                 total_time_seconds=time.time() - start_time
-            )
+            ))
 
         except Exception as e:
             logger.error(f"Task execution error: {e}", exc_info=True)
-            return AgentResult(
+            return self._store_and_return(AgentResult(
                 success=False, reason=f"error: {e}",
                 steps=self._action_history,
                 total_time_seconds=time.time() - start_time
-            )
+            ))
 
         finally:
             self._active = False
@@ -371,37 +334,41 @@ class AgentControlService:
         """Build the prompt for scene analysis."""
         prompt = (
             f"Task: {task}\n\n"
-            "Describe the current screen state. For each interactive element you can identify "
-            "(buttons, text fields, links, menus, tabs), state which grid cell(s) it occupies.\n"
-            "Format each element as: [element description] -> [cell(s)]\n"
+            "Describe what is currently on screen. Include:\n"
+            "1. What website/app is showing\n"
+            "2. Key interactive elements (buttons, text fields, links) and which grid cell they are in\n"
+            "3. Whether the task appears COMPLETE (e.g., the target website has loaded)\n"
+            "Format elements as: [description] -> [cell]\n"
         )
         if history:
             last = history[-1]
             prompt += f"\nLast action: {last.action.action_type}"
             if last.action.target_description:
                 prompt += f" on '{last.action.target_description}'"
+            if last.action.text:
+                prompt += f" text='{last.action.text}'"
             if last.failed:
                 prompt += " (FAILED)"
         return prompt
 
-    def _build_decision_prompt(
-        self,
-        task: str,
-        scene: str,
-        history: List[ActionStep],
-        grid_spec: Dict,
-    ) -> str:
+    def _build_decision_prompt(self, task, scene, history):
         """Build the prompt for the LLM to decide the next action."""
-        available_cells = ", ".join(sorted(grid_spec.keys()))
-
         history_text = ""
         if history:
             recent = history[-5:]  # Last 5 actions
             lines = []
             for step in recent:
                 status = "FAILED" if step.failed else "OK"
-                lines.append(f"  - {step.action.action_type}: {step.action.target_description} [{status}]")
+                desc = step.action.target_description or step.action.text or str(step.action.keys)
+                lines.append(f"  - {step.action.action_type}: {desc} [{status}]")
             history_text = "Recent actions:\n" + "\n".join(lines)
+
+        # Detect repeated actions
+        loop_warning = ""
+        if len(history) >= 2:
+            last_actions = [(s.action.action_type, s.action.text, s.action.target_description) for s in history[-3:]]
+            if len(set(last_actions)) == 1:
+                loop_warning = "\nWARNING: You are repeating the same action. This is NOT working. Try a DIFFERENT approach.\n"
 
         return f"""Task: {task}
 
@@ -409,22 +376,32 @@ Current screen:
 {scene}
 
 {history_text}
+{loop_warning}
+BROWSER SHORTCUTS (use hotkey action for these):
+- Navigate to URL: hotkey ["ctrl", "l"] then type URL then hotkey ["Return"]
+- New tab: hotkey ["ctrl", "t"]
+- Close tab: hotkey ["ctrl", "w"]
+- Back: hotkey ["alt", "Left"]
+- Search on page: hotkey ["ctrl", "f"]
+- Submit/confirm: hotkey ["Return"]
+- Cancel/escape: hotkey ["Escape"]
 
-Available grid cells: {available_cells}
+RULES:
+- To navigate to a website: FIRST use hotkey ctrl+l, THEN type the URL, THEN press Return
+- To type text: FIRST click the text field, THEN use type action
+- To search: click search box, type query, press Return
+- Each action is ONE step. Do hotkey, type, and click as separate actions.
+- If the screen shows the task is done (e.g., the target website loaded), use "done"
 
-Decide the next action. Respond with ONLY a JSON object (no other text):
+Respond with ONLY a JSON object:
 {{
     "action": "click" | "type" | "hotkey" | "scroll" | "done",
-    "target_cell": "D4",          // for click: which grid cell to click
-    "target_description": "...",  // for click: what you're clicking
-    "text": "...",                // for type: text to type
-    "keys": ["ctrl", "a"],       // for hotkey: keys to press
-    "scroll_amount": -3,         // for scroll: positive=up, negative=down
-    "reasoning": "..."           // why you chose this action
-}}
-
-If the task is complete, use "action": "done".
-If you cannot determine what to do, use "action": "done" with reasoning explaining why."""
+    "target_description": "what you are clicking (servo will find it precisely)",
+    "text": "text to type",
+    "keys": ["ctrl", "l"],
+    "scroll_amount": -3,
+    "reasoning": "why"
+}}"""
 
     def _parse_decision(self, llm_output: str) -> AgentDecision:
         """Parse the LLM's JSON decision into an AgentDecision."""
