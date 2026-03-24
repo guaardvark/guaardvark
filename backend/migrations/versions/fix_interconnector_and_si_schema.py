@@ -16,21 +16,38 @@ branch_labels = None
 depends_on = None
 
 
-def upgrade():
-    # --- interconnector_nodes: add GPU orchestration columns ---
-    op.add_column('interconnector_nodes',
-                  sa.Column('model_name', sa.String(100), nullable=True))
-    op.add_column('interconnector_nodes',
-                  sa.Column('vram_total', sa.Integer(), nullable=True))
-    op.add_column('interconnector_nodes',
-                  sa.Column('vram_free', sa.Integer(), nullable=True))
-    op.add_column('interconnector_nodes',
-                  sa.Column('specialties', sa.Text(), server_default='[]', nullable=True))
-    op.add_column('interconnector_nodes',
-                  sa.Column('current_load', sa.Float(), server_default='0.0', nullable=True))
+def _column_exists(conn, table, column):
+    """Check if a column exists in a table via information_schema."""
+    result = conn.execute(sa.text(
+        "SELECT 1 FROM information_schema.columns "
+        "WHERE table_name = :table AND column_name = :column"
+    ), {"table": table, "column": column})
+    return result.fetchone() is not None
 
-    # Drop stale column that no longer exists in the model
-    op.drop_column('interconnector_nodes', 'hardware_profile')
+
+def upgrade():
+    conn = op.get_bind()
+
+    # --- interconnector_nodes: add GPU orchestration columns ---
+    if not _column_exists(conn, 'interconnector_nodes', 'model_name'):
+        op.add_column('interconnector_nodes',
+                      sa.Column('model_name', sa.String(100), nullable=True))
+    if not _column_exists(conn, 'interconnector_nodes', 'vram_total'):
+        op.add_column('interconnector_nodes',
+                      sa.Column('vram_total', sa.Integer(), nullable=True))
+    if not _column_exists(conn, 'interconnector_nodes', 'vram_free'):
+        op.add_column('interconnector_nodes',
+                      sa.Column('vram_free', sa.Integer(), nullable=True))
+    if not _column_exists(conn, 'interconnector_nodes', 'specialties'):
+        op.add_column('interconnector_nodes',
+                      sa.Column('specialties', sa.Text(), server_default='[]', nullable=True))
+    if not _column_exists(conn, 'interconnector_nodes', 'current_load'):
+        op.add_column('interconnector_nodes',
+                      sa.Column('current_load', sa.Float(), server_default='0.0', nullable=True))
+
+    # Drop stale column only if it actually exists
+    if _column_exists(conn, 'interconnector_nodes', 'hardware_profile'):
+        op.drop_column('interconnector_nodes', 'hardware_profile')
 
     # --- self_improvement_runs: fix id autoincrement ---
     # Sequence exists but was never linked to the column default
