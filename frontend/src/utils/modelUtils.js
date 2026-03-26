@@ -28,7 +28,11 @@ async function getAvailableModels() {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     const data = await response.json();
-    return Array.isArray(data) ? data : data?.models || [];
+    // Handle non-standard envelope: {data: "string", message: {models: [...]}}
+    // Also handle: {data: {models: [...]}} or {models: [...]} or [...]
+    if (data?.message?.models) return data.message.models;
+    const actualData = data?.data || data;
+    return Array.isArray(actualData) ? actualData : actualData?.models || [];
   } catch (error) {
     console.warn('Failed to fetch available models:', error);
     return [];

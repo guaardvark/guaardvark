@@ -10,7 +10,7 @@
   "vram_estimate_mb": 0,
   "dependencies": [],
   "config": {
-    "enabled": false,
+    "enabled": true,
     "auto_start": false,
     "service_url": "http://localhost:8200",
     "timeout": 30,

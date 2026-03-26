@@ -1,0 +1,101 @@
+###############################################################################
+# Guaardvark — Self-Hosted AI Workstation
+# docker compose up — that's it.
+###############################################################################
+
+services:
+  # ── PostgreSQL ─────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: guaardvark
+      POSTGRES_PASSWORD: guaardvark
+      POSTGRES_DB: guaardvark
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U guaardvark"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ──────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Ollama (Local LLM) ────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    # Uncomment for GPU support:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  # ── Backend (Flask + Celery) ───────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    environment:
+      GUAARDVARK_ROOT: /app
+      DATABASE_URL: postgresql://guaardvark:guaardvark@postgres:5432/guaardvark
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      OLLAMA_HOST: http://ollama:11434
+      FLASK_PORT: "5000"
+      # Optional — set your Anthropic key for Uncle Claude:
+      # ANTHROPIC_API_KEY: sk-ant-...
+    ports:
+      - "5000:5000"
+    volumes:
+      - app_data:/app/data
+      - app_logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    command: >
+      sh -c "
+        cd /app &&
+        flask db upgrade 2>/dev/null;
+        python -m flask run --host 0.0.0.0 --port 5000 &
+        celery -A backend.celery_app.celery worker --loglevel=info --concurrency=2 &
+        wait
+      "
+
+  # ── Frontend (React/Vite via nginx) ────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  ollama_models:
+  app_data:
+  app_logs:

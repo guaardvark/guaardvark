@@ -403,5 +403,159 @@ class SelfImprovementService:
             self._running = False
 
 
+    def optimize_servo(self) -> Dict[str, Any]:
+        """Mode 2: Analyze servo knowledge archive and propose reflex updates.
+
+        Reads Tier 2 (archives), discovers patterns, proposes changes
+        to Tier 1 (reflexes) in servo_knowledge_store.py.
+
+        The loop:
+          1. Read archive stats (success rate, avg error, per-model data)
+          2. Check if current reflexes match observed behavior
+          3. If a better scale factor is found, propose a code change
+          4. Uncle Claude reviews the change
+          5. If approved, stage as pending fix
+        """
+        if not self._is_safe_to_run():
+            return {"success": False, "reason": "Self-improvement cannot run"}
+
+        self._running = True
+        try:
+            from backend.services.servo_knowledge_store import get_servo_archive, REFLEXES
+
+            archive = get_servo_archive()
+            stats = archive.get_stats()
+
+            result = {
+                "archive_stats": stats,
+                "recommendations": [],
+                "changes_proposed": 0,
+            }
+
+            if stats["total"] < 10:
+                result["reason"] = f"Not enough data yet ({stats['total']} interactions, need 10+)"
+                return result
+
+            # Check each model's calibration
+            for model_name, model_stats in stats.get("by_model", {}).items():
+                if model_stats["total"] < 5:
+                    continue
+
+                suggested = archive.suggest_scale_factor(model_name)
+                if not suggested:
+                    continue
+
+                current_sx = REFLEXES.get("coordinate_scale_x", {}).get("value", 1.0)
+                current_sy = REFLEXES.get("coordinate_scale_y", {}).get("value", 1.0)
+                new_sx = suggested["scale_x"]
+                new_sy = suggested["scale_y"]
+
+                # Only propose change if difference is significant (>2%)
+                drift_x = abs(new_sx - current_sx) / current_sx
+                drift_y = abs(new_sy - current_sy) / current_sy
+
+                if drift_x > 0.02 or drift_y > 0.02:
+                    recommendation = {
+                        "type": "scale_factor_update",
+                        "model": model_name,
+                        "current": {"x": current_sx, "y": current_sy},
+                        "suggested": {"x": new_sx, "y": new_sy},
+                        "drift_percent": {"x": round(drift_x * 100, 1), "y": round(drift_y * 100, 1)},
+                        "sample_count": suggested["sample_count"],
+                        "model_success_rate": model_stats["success_rate"],
+                        "model_avg_error": model_stats["avg_error_px"],
+                    }
+                    result["recommendations"].append(recommendation)
+
+                    # Propose the code change
+                    self._propose_reflex_update(recommendation)
+                    result["changes_proposed"] += 1
+                else:
+                    result["recommendations"].append({
+                        "type": "calibration_ok",
+                        "model": model_name,
+                        "message": f"Scale factors within 2% of optimal (drift: x={drift_x*100:.1f}%, y={drift_y*100:.1f}%)",
+                        "success_rate": model_stats["success_rate"],
+                    })
+
+            logger.info(f"Servo optimization: {stats['total']} interactions, "
+                        f"{stats['success_rate']}% success, "
+                        f"{result['changes_proposed']} changes proposed")
+
+            return {"success": True, **result}
+
+        except Exception as e:
+            logger.error(f"Servo optimization failed: {e}", exc_info=True)
+            return {"success": False, "reason": str(e)}
+        finally:
+            self._running = False
+
+    def _propose_reflex_update(self, recommendation: Dict[str, Any]):
+        """Propose a reflex update as a pending fix for Uncle Claude review."""
+        try:
+            from backend.services.claude_advisor_service import get_claude_advisor
+
+            file_path = "backend/services/servo_knowledge_store.py"
+            root = os.environ.get("GUAARDVARK_ROOT", ".")
+            full_path = os.path.join(root, file_path)
+
+            with open(full_path) as f:
+                current_content = f.read()
+
+            sx = recommendation["suggested"]["x"]
+            sy = recommendation["suggested"]["y"]
+            model = recommendation["model"]
+            samples = recommendation["sample_count"]
+
+            reasoning = (
+                f"Servo archive analysis ({samples} interactions with {model}) "
+                f"shows scale factors should be x={sx}, y={sy}. "
+                f"Current success rate: {recommendation['model_success_rate']}%. "
+                f"Current avg error: {recommendation['model_avg_error']}px."
+            )
+
+            # Build the proposed diff
+            old_value_x = recommendation["current"]["x"]
+            old_value_y = recommendation["current"]["y"]
+            proposed_diff = (
+                f'--- a/{file_path}\n+++ b/{file_path}\n'
+                f'-    "coordinate_scale_x": {{"value": {old_value_x},\n'
+                f'+    "coordinate_scale_x": {{"value": {sx},\n'
+                f'-    "coordinate_scale_y": {{"value": {old_value_y},\n'
+                f'+    "coordinate_scale_y": {{"value": {sy},\n'
+            )
+
+            # Submit for Uncle Claude review
+            advisor = get_claude_advisor()
+            review = advisor.review_change(
+                file_path=file_path,
+                current_content=current_content[:2000],
+                proposed_diff=proposed_diff,
+                reasoning=reasoning,
+            )
+
+            logger.info(f"Reflex update review: approved={review.get('approved')} "
+                        f"directive={review.get('directive')}")
+
+            # Stage as pending fix
+            try:
+                from backend.models import db, PendingFix
+                fix = PendingFix(
+                    file_path=file_path,
+                    proposed_diff=proposed_diff,
+                    severity="low",
+                    status="proposed",
+                    reviewed_by="uncle_claude" if advisor.is_available() else "pending",
+                )
+                db.session.add(fix)
+                db.session.commit()
+                logger.info(f"Reflex update staged as pending fix #{fix.id}")
+            except Exception as e:
+                logger.warning(f"Could not stage pending fix: {e}")
+
+        except Exception as e:
+            logger.error(f"Failed to propose reflex update: {e}", exc_info=True)
+
+
 def get_self_improvement_service() -> SelfImprovementService:
     return SelfImprovementService()

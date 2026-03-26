@@ -51,8 +51,10 @@ const RAGDebugSection = ({ ragDebugEnabled }) => {
   const [queryPatternsModalOpen, setQueryPatternsModalOpen] = useState(false);
   const [contextQualityModalOpen, setContextQualityModalOpen] = useState(false);
 
-  // Fetch RAG data — always fetch basic stats regardless of ragDebugEnabled
+  // Fetch RAG data — only when RAG debug is enabled
   const fetchRAGData = useCallback(async () => {
+    if (!ragDebugEnabled) return;
+
     setLoading(true);
     setError(null);
 
@@ -71,14 +73,20 @@ const RAGDebugSection = ({ ragDebugEnabled }) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [ragDebugEnabled]);
 
-  // Initial data fetch and auto-refresh
+  // Fetch when enabled, clear polling when disabled
   useEffect(() => {
+    if (!ragDebugEnabled) {
+      setSystemHealth(null);
+      setPerformanceMetrics(null);
+      setError(null);
+      return;
+    }
     fetchRAGData();
     const interval = setInterval(fetchRAGData, 30000);
     return () => clearInterval(interval);
-  }, [fetchRAGData]);
+  }, [fetchRAGData, ragDebugEnabled]);
 
   return (
     <Box>

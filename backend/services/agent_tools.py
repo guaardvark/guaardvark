@@ -156,25 +156,40 @@ class ToolRegistry:
         """Get list of all registered tool names"""
         return list(self.tools.keys())
     
-    def get_tool_schemas(self, format: str = 'xml') -> str:
+    def get_tool_schemas(self, format: str = 'xml', tool_filter: str = None) -> str:
         """
         Generate tool schemas for LLM prompt
 
         Args:
             format: 'xml', 'json', or 'json_prompt'
+            tool_filter: Optional filter mode:
+                'vision' — only agent control + screen tools (for vision/screen tasks)
+                None — all tools (default)
         """
+        tools = self.tools.values()
+
+        if tool_filter == 'vision':
+            # Only tools relevant to vision-based screen automation
+            VISION_TOOL_PREFIXES = ('agent_', 'web_search')
+            VISION_TOOL_NAMES = {
+                'agent_mode_start', 'agent_mode_stop', 'agent_task_execute',
+                'agent_screen_capture', 'agent_status', 'web_search',
+            }
+            tools = [t for t in tools if t.name in VISION_TOOL_NAMES
+                     or t.name.startswith('agent_')]
+
         if format == 'xml':
             schemas = []
-            for tool in self.tools.values():
+            for tool in tools:
                 schemas.append(tool.get_schema())
             return "\n\n".join(schemas)
         elif format == 'json':
             import json
-            schemas = [tool.get_json_schema() for tool in self.tools.values()]
+            schemas = [tool.get_json_schema() for tool in tools]
             return json.dumps(schemas, indent=2)
         elif format == 'json_prompt':
             lines = []
-            for tool in self.tools.values():
+            for tool in tools:
                 schema = tool.get_json_schema()
                 params_desc = []
                 for pname, pinfo in schema['parameters'].items():

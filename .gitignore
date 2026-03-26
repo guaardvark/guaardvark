@@ -142,3 +142,21 @@ docs/release-notes-*.md
 docs/*.png
 docs/*.txt
 docs/*.zip
+
+# Training model weights (too large for git)
+training/models/*/checkpoints/
+training/models/*/gguf/
+training/models/*/merged/
+training/models/*/lora/*.safetensors
+unsloth_compiled_cache/
+
+# Upscaling models (large binaries)
+plugins/upscaling/models/*.pth
+
+# Confidential
+docs/classified_area_52/
+
+# Training data (generated, not source)
+data/training/knowledge/
+data/training/screenshots/
+data/training/servo_logs/

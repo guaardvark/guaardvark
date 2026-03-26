@@ -17,6 +17,7 @@ import AgentResultDisplay from "./AgentResultDisplay";
 import { StatusChip } from "../../utils/familyColors";
 import ToolCallCard from "./ToolCallCard";
 import ImageLightbox from "../images/ImageLightbox";
+import NarrateButton from "../common/NarrateButton";
 
 const UPLOAD_BASE_URL = BASE_URL + "/uploads";
 
@@ -392,6 +393,12 @@ const MessageItem = ({ message }) => {
             {typeof message.content === 'string' ? message.content : JSON.stringify(message.content, null, 2)}
           </ReactMarkdown>
         </Box>
+        {/* Narrate button for assistant messages with text content */}
+        {!isUser && message.content && typeof message.content === 'string' && message.content.length > 20 && (
+          <Box sx={{ mt: 0.5, display: 'flex', justifyContent: 'flex-end' }}>
+            <NarrateButton text={message.content} size="small" />
+          </Box>
+        )}
         {/* Source badge for Uncle Claude / Family / Self-Improvement responses */}
         {message.badge && (
           <Box sx={{ mt: 1, display: "flex", justifyContent: "flex-end" }}>
