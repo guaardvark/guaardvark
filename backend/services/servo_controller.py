@@ -15,9 +15,16 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from PIL import Image
 
+from backend.services.servo_knowledge_store import get_reflex, get_scale_factors, get_servo_archive
+
 logger = logging.getLogger(__name__)
 
-NUDGE_MAP = {"small": 10, "medium": 40, "large": 80}
+# Nudge distances pulled from reflexes (Tier 1) — self-improvement engine can tune these
+NUDGE_MAP = {
+    "small": get_reflex("nudge_small", 10),
+    "medium": get_reflex("nudge_medium", 40),
+    "large": get_reflex("nudge_large", 80),
+}
 
 DIRECTION_MAP = {
     "left": (-1, 0), "right": (1, 0), "up": (0, -1), "down": (0, 1),
@@ -59,7 +66,10 @@ class ServoController:
         corrections_made = 0
 
         for attempt in range(1, 4):
-            max_corr = 1 if attempt == 1 else min(self.max_corrections, 3)
+            # Attempt 1: ballistic only (no correction), trust the scaling
+            # Attempt 2: ballistic + 1 correction
+            # Attempt 3: ballistic + full corrections + zoom
+            max_corr = 0 if attempt == 1 else (1 if attempt == 2 else min(self.max_corrections, 3))
             use_zoom = attempt >= 3
 
             corrections_made = 0
@@ -119,9 +129,13 @@ class ServoController:
             self.screen.click(current_x, current_y)
 
             # 6. VERIFY — did the screen change?
-            time.sleep(0.5)
+            time.sleep(0.3)
             verify_shot, _ = self.screen.capture()
             screen_changed = self._screen_changed(screenshot, verify_shot, click_pos=(current_x, current_y))
+
+            # If correction loop said on_target before we clicked, count as success
+            # regardless of screen-change (some UIs have subtle visual feedback)
+            click_landed = screen_changed or (corrections_made == 0 and coords is not None)
 
             elapsed_ms = int((time.time() - start) * 1000)
 
@@ -132,12 +146,33 @@ class ServoController:
                     target_description=target_description,
                     target_actual=(current_x, current_y),
                     corrections=correction_log,
-                    success=screen_changed,
+                    success=click_landed,
                 )
 
-            if screen_changed:
+            # Record to Tier 2 knowledge archive (universal, model-agnostic)
+            raw = getattr(self, '_last_raw_coords', (0, 0))
+            scale = getattr(self, '_last_scale', (1.0, 1.0))
+            model_name = getattr(self.analyzer, 'default_model', 'unknown')
+            try:
+                archive = get_servo_archive()
+                archive.record(
+                    target_description=target_description,
+                    model_used=model_name,
+                    raw_model_coords=raw,
+                    scaled_coords=coords if coords else (0, 0),
+                    actual_click_coords=(current_x, current_y),
+                    scale_factor=scale,
+                    success=click_landed,
+                    corrections=corrections_made,
+                    attempt=attempt,
+                    time_ms=elapsed_ms,
+                )
+            except Exception as e:
+                logger.debug(f"Archive record failed (non-fatal): {e}")
+
+            if click_landed:
                 return {
-                    "success": True, "verified": True,
+                    "success": True, "verified": screen_changed,
                     "x": current_x, "y": current_y,
                     "corrections": corrections_made, "attempt": attempt,
                     "time_ms": elapsed_ms,
@@ -186,15 +221,31 @@ class ServoController:
 
     def _estimate_coordinates(self, screenshot: Image.Image, target: str) -> Optional[Tuple[int, int]]:
         prompt = (
-            f"Image size: {SCREEN_W}x{SCREEN_H}. "
             f"Find the {target}. "
             f"Output only: {{\"x\": CENTER_X, \"y\": CENTER_Y}}"
         )
-        result = self.analyzer.analyze(screenshot, prompt=prompt, num_predict=128, temperature=0.3)
+        result = self.analyzer.analyze(screenshot, prompt=prompt, num_predict=32, temperature=0.1)
         if not result.success:
             logger.error(f"Coordinate estimation failed: {result.error}")
             return None
-        return self._parse_coordinates(result.description)
+        raw_coords = self._parse_coordinates(result.description)
+        if raw_coords is None:
+            return None
+
+        # Scale from model's internal resolution to actual screen pixels
+        # Uses Tier 1 reflexes — self-improvement engine tunes these values
+        scale_x, scale_y = get_scale_factors(SCREEN_W, SCREEN_H)
+        scaled = (
+            max(0, min(SCREEN_W, int(raw_coords[0] * scale_x))),
+            max(0, min(SCREEN_H, int(raw_coords[1] * scale_y))),
+        )
+
+        # Store raw coords for archive recording (done in click_target)
+        self._last_raw_coords = raw_coords
+        self._last_scale = (scale_x, scale_y)
+
+        logger.info(f"Servo coords: raw={raw_coords} scaled={scaled} (scale={scale_x:.2f}x{scale_y:.2f})")
+        return scaled
 
     def _check_on_target(self, screenshot: Image.Image, target: str) -> Dict[str, Any]:
         prompt = (

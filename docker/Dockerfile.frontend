@@ -1,0 +1,21 @@
+FROM node:20-slim AS build
+
+WORKDIR /app/frontend
+
+# Install dependencies (cached layer)
+COPY frontend/package.json frontend/package-lock.json* ./
+RUN npm ci --no-audit --no-fund 2>/dev/null || npm install --no-audit --no-fund
+
+# Copy source and build
+COPY frontend/ ./
+RUN npm run build
+
+# Serve with lightweight nginx
+FROM nginx:alpine
+COPY --from=build /app/frontend/dist /usr/share/nginx/html
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 5173
+
+HEALTHCHECK --interval=30s --timeout=5s \
+    CMD wget -q --spider http://localhost:5173/ || exit 1

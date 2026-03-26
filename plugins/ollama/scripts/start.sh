@@ -2,7 +2,9 @@
 # Start Ollama service
 # Tries: already running → sudo systemctl (fast if sudoers rule exists) → direct ollama serve
 
-set -euo pipefail
+set -uo pipefail
+# NOTE: intentionally NOT using set -e — we need graceful fallthrough
+# when sudo/systemctl fails (expected in non-root plugin manager context)
 
 HEALTH_URL="http://localhost:11434/"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

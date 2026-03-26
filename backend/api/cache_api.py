@@ -195,8 +195,8 @@ def clear_pycache_endpoint():
         else:
             message_parts.append("No __pycache__ directories found to clean")
 
-        if purged_modules:
-            message_parts.append(f"Purged {len(purged_modules)} modules from memory")
+        # Module purging disabled (destroys SQLAlchemy in running Flask)
+        purged_modules = []
 
         if errors:
             message_parts.append(f"{len(errors)} error(s) encountered")

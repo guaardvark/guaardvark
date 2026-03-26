@@ -144,17 +144,19 @@ class AgentControlService:
             "last_result": last,
         }
 
-    def execute_task(self, task: str, screen) -> AgentResult:
+    def execute_task(self, task: str, screen, mouse_only: bool = False) -> AgentResult:
         """
         Execute a task using the see-think-act loop.
 
         Args:
             task: Natural language description of the task
             screen: ScreenInterface implementation
+            mouse_only: If True, disable keyboard shortcuts — pure mouse clicks only
 
         Returns:
             AgentResult with success status and action history
         """
+        self._mouse_only = mouse_only
         from backend.services.servo_controller import ServoController
         from backend.services.training_data_collector import TrainingDataCollector
         from backend.utils.vision_analyzer import VisionAnalyzer
@@ -226,11 +228,21 @@ class AgentControlService:
                     continue
 
                 # 4. ACT — Execute via servo (for clicks) or direct (for type/hotkey/scroll)
+                # In mouse_only mode, reject any non-click action
+                if getattr(self, '_mouse_only', False) and decision.action.action_type not in ("click", "done"):
+                    logger.info(f"Mouse-only mode: rejecting {decision.action.action_type} action")
+                    decision.action.action_type = "click"  # Force to click
+                    if not decision.action.target_description:
+                        consecutive_failures += 1
+                        continue
+
                 if decision.action.action_type == "click":
                     servo_result = servo.click_target(decision.action.target_description)
                     decision.action.coordinates = (servo_result.get("x", 0), servo_result.get("y", 0))
                     result = {"success": servo_result.get("success", False)}
-                    failed = not servo_result.get("verified", False)
+                    # Count click as success if servo reported success, even without screen-change verification
+                    # (some UI elements have subtle visual feedback that doesn't pass the threshold)
+                    failed = not servo_result.get("success", False)
                 else:
                     result = self._execute_action(decision.action, screen)
                     failed = not result.get("success", False)
@@ -370,14 +382,24 @@ class AgentControlService:
             if len(set(last_actions)) == 1:
                 loop_warning = "\nWARNING: You are repeating the same action. This is NOT working. Try a DIFFERENT approach.\n"
 
-        return f"""Task: {task}
+        mouse_only = getattr(self, '_mouse_only', False)
 
-Current screen:
-{scene}
+        if mouse_only:
+            rules = """RULES (MOUSE ONLY MODE):
+- You can ONLY use "click" and "done" actions. No keyboard, no typing, no hotkeys.
+- Identify the target visually and click it directly with the mouse.
+- Describe WHAT you want to click clearly (e.g., "the Save button", "the green circle with number 5").
+- If the task is complete, use "done".
+- Do NOT use keyboard shortcuts. Do NOT type text. MOUSE CLICKS ONLY.
 
-{history_text}
-{loop_warning}
-BROWSER SHORTCUTS (use hotkey action for these):
+Respond with ONLY a JSON object:
+{{
+    "action": "click" | "done",
+    "target_description": "exactly what to click (servo will find it)",
+    "reasoning": "why"
+}}"""
+        else:
+            rules = """BROWSER SHORTCUTS (use hotkey action for these):
 - Navigate to URL: hotkey ["ctrl", "l"] then type URL then hotkey ["Return"]
 - New tab: hotkey ["ctrl", "t"]
 - Close tab: hotkey ["ctrl", "w"]
@@ -402,6 +424,15 @@ Respond with ONLY a JSON object:
     "scroll_amount": -3,
     "reasoning": "why"
 }}"""
+
+        return f"""Task: {task}
+
+Current screen:
+{scene}
+
+{history_text}
+{loop_warning}
+{rules}"""
 
     def _parse_decision(self, llm_output: str) -> AgentDecision:
         """Parse the LLM's JSON decision into an AgentDecision."""

@@ -68,6 +68,36 @@ class VoiceService {
   }
 
   /**
+   * Generate narration audio from a multi-section script.
+   * @param {string|string[]} script - Full script text or array of sections
+   * @param {Object} options - Optional settings
+   * @param {string} options.voice - Voice model name (default: 'libritts')
+   * @param {number} options.speed - Playback speed (default: 1.0)
+   * @param {number} options.pause_between_sections - Silence gap in seconds (default: 1.0)
+   * @param {string} options.output_format - 'wav' or 'mp3' (default: 'wav')
+   * @returns {Promise<{audio_url, filename, duration_seconds, sections, voice}>}
+   */
+  async narrate(script, options = {}) {
+    try {
+      const response = await fetch(`${BASE_URL}/voice/narrate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          script,
+          voice: options.voice || 'libritts',
+          speed: options.speed || 1.0,
+          pause_between_sections: options.pause_between_sections || 1.0,
+          output_format: options.output_format || 'wav',
+        }),
+      });
+      return await handleResponse(response);
+    } catch (error) {
+      console.error('Failed to generate narration:', error);
+      throw error;
+    }
+  }
+
+  /**
    * PERFORMANCE MONITORING: Get system status
    */
   async getSystemStatus() {

@@ -1,0 +1,49 @@
+# Git
+.git
+.gitignore
+
+# Python
+backend/venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Data (mounted as volumes)
+data/
+logs/
+pids/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+libs/guaardvark-guardian/dist/
+libs/guaardvark-guardian/build/
+
+# Sensitive
+.env
+*.key
+*.pem
+
+# Large models (pulled at runtime)
+backend/tools/voice/whisper.cpp/models/
+backend/tools/voice/piper-models/*.onnx
+
+# Docs & specs (not needed in container)
+docs/superpowers/specs/
+docs/prompts/
+
+# Training data
+training/
+unsloth_compiled_cache/

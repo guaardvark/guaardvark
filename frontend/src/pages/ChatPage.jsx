@@ -174,18 +174,13 @@ const ChatPage = () => {
       lastActivity: Date.now()
     }));
 
-    registerSession(newSessionId, {
-      autoBackup: true,
-      preserveContext: true,
-      maxHistoryItems: 1000,
-      fileGenerationCapable: true
-    });
-
+    // Registration happens in useEffect below — don't duplicate here
     return newSessionId;
   });
   const [isSending, setIsSending] = useState(false);
   const chatInputRef = useRef(null);
   const historyLoadedRef = useRef(false); // Track if we've already loaded history
+  const historyLoadingRef = useRef(false); // Prevent concurrent history fetches
   const lastMessageRef = useRef(null);
   const processMessageRef = useRef(null);
 
@@ -516,11 +511,12 @@ const ChatPage = () => {
     const loadHistory = async () => {
       const currentKey = `${sessionId}_${projectId}`;
       if (
-        historyLoadedRef.current === currentKey
+        historyLoadedRef.current === currentKey || historyLoadingRef.current
       ) {
         return;
       }
 
+      historyLoadingRef.current = true;
       try {
         const history = await getChatHistory(sessionId, null, 100);
         if (history && Array.isArray(history.messages)) {
@@ -595,6 +591,8 @@ const ChatPage = () => {
       } catch (error) {
         console.error("ChatPage: Failed to load chat history:", error);
         // Keep existing messages rather than clearing on error
+      } finally {
+        historyLoadingRef.current = false;
       }
     };
 

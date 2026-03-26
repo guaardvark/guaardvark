@@ -1,0 +1,2 @@
+FROM qwen2-vl:2b-instruct
+ADAPTER /home/llamax1/LLAMAX7/training/models/gvk-eye-v1/lora

@@ -1409,6 +1409,179 @@ def text_to_speech():
         logger.error(f"Voice API: Text-to-speech request failed: {e}", exc_info=True)
         return jsonify({"error": f"Text-to-speech request failed: {str(e)}"}), 500
 
+@voice_bp.route("/narrate", methods=["POST"])
+def narrate():
+    """Generate narration audio from a multi-section script.
+
+    Splits script into sections, generates TTS per section via Piper,
+    inserts silence between sections, concatenates into a single audio file.
+    """
+    logger.info("Voice API: Received narration request")
+
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Request must be JSON"}), 400
+
+        script = data.get("script")
+        voice = data.get("voice", DEFAULT_VOICE)
+        pause_between = float(data.get("pause_between_sections", 1.0))
+        output_format = data.get("output_format", "wav").lower()
+
+        if not script:
+            return jsonify({"error": "Script is required"}), 400
+
+        # Accept string (split on double-newline) or array of sections
+        if isinstance(script, str):
+            sections = [s.strip() for s in re.split(r'\n\s*\n', script) if s.strip()]
+        elif isinstance(script, list):
+            sections = [s.strip() for s in script if isinstance(s, str) and s.strip()]
+        else:
+            return jsonify({"error": "Script must be a string or array of strings"}), 400
+
+        if not sections:
+            return jsonify({"error": "Script contains no non-empty sections"}), 400
+
+        # Validate voice
+        if voice not in PIPER_VOICES:
+            return jsonify({
+                "error": f"Invalid voice. Must be one of: {list(PIPER_VOICES.keys())}"
+            }), 400
+
+        backend_path = get_backend_path()
+        voice_config = PIPER_VOICES[voice]
+        piper_model = os.path.join(backend_path, voice_config["model"])
+
+        if not os.path.exists(piper_model):
+            return jsonify({"error": f"Piper model not found: {voice}. Download it first."}), 503
+
+        # Validate output format
+        if output_format not in ("wav", "mp3"):
+            output_format = "wav"
+
+        # Ensure narrations output directory exists
+        guaardvark_root = os.environ.get("GUAARDVARK_ROOT", os.path.dirname(backend_path))
+        narrations_dir = os.path.join(guaardvark_root, "data", "outputs", "narrations")
+        os.makedirs(narrations_dir, exist_ok=True)
+
+        # Clean text helper (same logic as text_to_speech)
+        def clean_section(text):
+            cleaned = text
+            cleaned = re.sub(r'\*{1,3}([^*]+)\*{1,3}', r'\1', cleaned)
+            cleaned = re.sub(r'_{1,3}([^_]+)_{1,3}', r'\1', cleaned)
+            cleaned = re.sub(r'#{1,6}\s*([^\n]+)', r'\1', cleaned)
+            cleaned = re.sub(r'```[^`]*```', '', cleaned)
+            cleaned = re.sub(r'`([^`]+)`', r'\1', cleaned)
+            cleaned = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', cleaned)
+            cleaned = re.sub(r'<[^>]*>', '', cleaned)
+            cleaned = re.sub(r'[•\-\*]\s*', '', cleaned)
+            cleaned = re.sub(r'\n', ' ', cleaned)
+            cleaned = re.sub(r'\s+', ' ', cleaned)
+            cleaned = cleaned.strip()
+            if cleaned and cleaned[-1] not in '.!?':
+                cleaned += '.'
+            return cleaned
+
+        # Generate audio for each section
+        try:
+            from pydub import AudioSegment
+        except ImportError:
+            return jsonify({"error": "pydub is required for narration. Install with: pip install pydub"}), 503
+
+        temp_files = []
+        combined = AudioSegment.empty()
+        silence = AudioSegment.silent(duration=int(pause_between * 1000))
+        sections_generated = 0
+
+        try:
+            for i, section in enumerate(sections):
+                cleaned = clean_section(section)
+                if not cleaned or len(cleaned) < 2:
+                    logger.warning(f"Narration: Skipping empty section {i+1}")
+                    continue
+
+                # Generate temp WAV for this section
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav", prefix=f"narr_s{i}_") as tf:
+                    section_path = tf.name
+                    temp_files.append(section_path)
+
+                cmd = [
+                    "python", "-m", "piper",
+                    "--model", piper_model,
+                    "--output_file", section_path
+                ]
+
+                process = subprocess.run(
+                    cmd,
+                    input=cleaned,
+                    text=True,
+                    capture_output=True,
+                    timeout=60,
+                    cwd=backend_path
+                )
+
+                if process.returncode != 0:
+                    logger.warning(f"Narration: Piper failed on section {i+1}: {process.stderr}")
+                    continue
+
+                if not os.path.exists(section_path) or os.path.getsize(section_path) == 0:
+                    logger.warning(f"Narration: Empty output for section {i+1}")
+                    continue
+
+                # Append to combined audio
+                section_audio = AudioSegment.from_wav(section_path)
+                if sections_generated > 0:
+                    combined += silence
+                combined += section_audio
+                sections_generated += 1
+                logger.info(f"Narration: Generated section {i+1}/{len(sections)} ({len(cleaned)} chars)")
+
+            if sections_generated == 0:
+                return jsonify({"error": "All sections failed to generate"}), 500
+
+            # Export combined narration
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            ext = output_format
+            out_filename = f"narration_{timestamp}.{ext}"
+            out_path = os.path.join(narrations_dir, out_filename)
+
+            if output_format == "mp3":
+                combined.export(out_path, format="mp3", bitrate="192k")
+            else:
+                combined.export(out_path, format="wav")
+
+            duration_seconds = round(len(combined) / 1000.0, 2)
+
+            logger.info(f"Narration: Complete - {sections_generated} sections, {duration_seconds}s, saved to {out_path}")
+
+            return jsonify({
+                "audio_url": f"/api/voice/audio/{out_filename}",
+                "filename": out_filename,
+                "duration_seconds": duration_seconds,
+                "sections": sections_generated,
+                "total_sections": len(sections),
+                "voice": voice,
+                "output_format": output_format,
+                "engine": "piper-tts"
+            })
+
+        finally:
+            # Clean up temp section files
+            for tf in temp_files:
+                try:
+                    if os.path.exists(tf):
+                        os.unlink(tf)
+                except (OSError, IOError):
+                    pass
+
+    except subprocess.TimeoutExpired:
+        logger.error("Narration: Piper TTS timeout")
+        return jsonify({"error": "Narration timeout - script may be too long"}), 500
+    except Exception as e:
+        logger.error(f"Narration failed: {e}", exc_info=True)
+        return jsonify({"error": f"Narration failed: {str(e)}"}), 500
+
+
 @voice_bp.route("/audio/<filename>", methods=["GET"])
 def get_audio_file(filename):
     """Serve generated audio files."""
@@ -1422,28 +1595,37 @@ def get_audio_file(filename):
         # Check filename pattern
         starts_with_tts = filename.startswith("tts_")
         starts_with_voice_chat = filename.startswith("voice_chat_")
+        starts_with_narration = filename.startswith("narration_")
         ends_with_wav = filename.endswith(".wav")
         ends_with_mp3 = filename.endswith(".mp3")
-        
-        logger.info(f"VOICE API: Filename validation - starts_with_tts: {starts_with_tts}, starts_with_voice_chat: {starts_with_voice_chat}, ends_with_wav: {ends_with_wav}, ends_with_mp3: {ends_with_mp3}")
-        
-        if not filename or not (starts_with_tts or starts_with_voice_chat) or not (ends_with_wav or ends_with_mp3):
+
+        valid_prefix = starts_with_tts or starts_with_voice_chat or starts_with_narration
+        valid_ext = ends_with_wav or ends_with_mp3
+
+        if not filename or not valid_prefix or not valid_ext:
             logger.error(f"VOICE API: Invalid filename rejected: {filename}")
             return jsonify({"error": "Invalid filename"}), 400
-        
+
         # SECURITY FIX: Validate filename doesn't contain path traversal
         if '/' in filename or '\\' in filename or '..' in filename:
             return jsonify({"error": "Invalid filename"}), 400
-        
-        temp_dir = current_app.config.get("TEMP_DIR", tempfile.gettempdir())
-        file_path = os.path.join(temp_dir, filename)
-        
-        # SECURITY FIX: Validate that final path is within temp directory
-        temp_dir_real = os.path.realpath(temp_dir)
+
+        # Narration files are stored persistently in data/outputs/narrations/
+        if starts_with_narration:
+            backend_path = get_backend_path()
+            guaardvark_root = os.environ.get("GUAARDVARK_ROOT", os.path.dirname(backend_path))
+            search_dir = os.path.join(guaardvark_root, "data", "outputs", "narrations")
+        else:
+            search_dir = current_app.config.get("TEMP_DIR", tempfile.gettempdir())
+
+        file_path = os.path.join(search_dir, filename)
+
+        # SECURITY FIX: Validate that final path is within expected directory
+        search_dir_real = os.path.realpath(search_dir)
         file_path_real = os.path.realpath(file_path)
-        if not file_path_real.startswith(temp_dir_real + os.sep):
+        if not file_path_real.startswith(search_dir_real + os.sep):
             return jsonify({"error": "Invalid file path"}), 400
-        
+
         if not os.path.exists(file_path):
             return jsonify({"error": "Audio file not found"}), 404
         

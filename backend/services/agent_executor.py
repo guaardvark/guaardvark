@@ -361,9 +361,11 @@ class AgentExecutor:
             if memory_context:
                 session_context = (session_context or "") + memory_context
 
-            # Build system prompt with available tools
-            tool_schemas = self.tool_registry.get_tool_schemas(format='json_prompt')
-            system_prompt = self._build_system_prompt(tool_schemas, session_context)
+            # Detect vision/screen tasks and filter tools accordingly
+            is_vision_task = self._is_vision_task(user_query, session_context)
+            tool_filter = 'vision' if is_vision_task else None
+            tool_schemas = self.tool_registry.get_tool_schemas(format='json_prompt', tool_filter=tool_filter)
+            system_prompt = self._build_system_prompt(tool_schemas, session_context, is_vision_task=is_vision_task)
 
             # Apply honesty steering to prevent hallucinated fixes
             try:
@@ -666,8 +668,45 @@ Otherwise, call the next tool needed. Do NOT repeat a tool you already called wi
             'next_prompt': next_prompt
         }
     
-    def _build_system_prompt(self, tool_schemas: str, session_context: str = "") -> str:
+    @staticmethod
+    def _is_vision_task(user_query: str, session_context: str = "") -> bool:
+        """Detect if this is a vision/screen automation task."""
+        combined = (user_query + " " + (session_context or "")).lower()
+        vision_keywords = [
+            'virtual screen', 'virtual display', 'agent mode',
+            'open firefox', 'open browser', 'open chrome',
+            'click on', 'type into', 'search youtube', 'search google',
+            'navigate to', 'go to website', 'use the screen',
+            'screen capture', 'screenshot', 'using your screen',
+            'vnc', 'display :99', 'xdotool',
+        ]
+        return any(kw in combined for kw in vision_keywords)
+
+    def _build_system_prompt(self, tool_schemas: str, session_context: str = "", is_vision_task: bool = False) -> str:
         """Build system prompt with tool descriptions for JSON output"""
+
+        if is_vision_task:
+            rules_section = """RULES:
+- You are controlling a virtual screen (DISPLAY=:99) with Firefox and a desktop environment.
+- Use agent_mode_start first, then agent_task_execute to perform screen tasks.
+- Use agent_screen_capture to see what is currently on screen.
+- Do NOT use browser_navigate, browser_execute_js, app_launch, or analyze_website — those tools cannot interact with your virtual screen.
+- If you need to search the web as a fallback, use web_search.
+- Describe tasks in plain language for agent_task_execute (e.g., "Click the search box on YouTube and type Local LLM Systems, then press Enter").
+- Break complex tasks into small steps: first capture the screen, then execute one action at a time.
+- NEVER fabricate information. Only state facts found in tool results.
+- If you cannot complete the task, say so honestly."""
+        else:
+            rules_section = """RULES:
+- Use exact parameter names from the tool descriptions
+- Include ALL required parameters
+- After tool results, use them to formulate your answer
+- Only state facts found in tool results
+- When you have enough information, set final_answer
+- If a tool fails, try a DIFFERENT tool or different parameters. Never retry the same call.
+- NEVER fabricate information. Only state facts found in tool results.
+- If you cannot find the answer, say so honestly."""
+
         base_prompt = f"""You are an AI assistant with access to tools. Help the user by using tools when needed.
 
 Available Tools:
@@ -684,22 +723,10 @@ Each tool call object has: "tool_name" (string), "parameters" (object), and opti
 EXAMPLE - Using a tool:
 {{"thoughts": "I need to read the file first", "tool_calls": [{{"tool_name": "read_code", "parameters": {{"filepath": "config.py"}}, "reasoning": "Need to see current config"}}], "final_answer": null}}
 
-EXAMPLE - Editing a file:
-{{"thoughts": "I need to fix the bug", "tool_calls": [{{"tool_name": "edit_code", "parameters": {{"filepath": "config.py", "old_text": "DEBUG = True", "new_text": "DEBUG = False"}}}}], "final_answer": null}}
-
 EXAMPLE - Final answer (no tools needed):
 {{"thoughts": "I have all the information", "tool_calls": [], "final_answer": "The config file sets DEBUG to True on line 1."}}
 
-RULES:
-- Use exact parameter names from the tool descriptions
-- Include ALL required parameters
-- After tool results, use them to formulate your answer
-- Only state facts found in tool results
-- When you have enough information, set final_answer
-- If a tool fails, try a DIFFERENT tool or different parameters. Never retry the same call.
-- NEVER fabricate information. Only state facts found in tool results.
-- If you cannot find the answer, say so honestly.
-- If browser tools fail, use analyze_website or web_search as lighter alternatives."""
+{rules_section}"""
 
         # Append session context if it contains agent-specific instructions
         if session_context and "Agent:" in session_context:

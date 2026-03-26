@@ -1,0 +1,56 @@
+FROM python:3.12-slim
+
+# System dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    ffmpeg \
+    git \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install Python dependencies (cached layer)
+COPY backend/requirements.txt /app/backend/requirements.txt
+RUN pip install --no-cache-dir -r backend/requirements.txt 2>/dev/null || \
+    pip install --no-cache-dir \
+    Flask==3.0.0 Flask-Executor==1.0.0 Flask-Migrate==4.0.7 \
+    Flask-SQLAlchemy==3.1.1 Flask-SocketIO==5.3.6 flask-cors==4.0.0 \
+    alembic==1.13.1 anthropic python-dotenv==1.0.1 \
+    celery==5.4.0 redis==5.0.4 eventlet==0.35.1 \
+    numpy pandas psutil requests beautifulsoup4 lxml pypdf \
+    psycopg2-binary python-slugify loguru \
+    llama-index-core llama-index-llms-ollama llama-index-embeddings-ollama \
+    llama-index-readers-file \
+    piper-tts onnxruntime pydub Pillow \
+    pydantic pydantic-settings PyYAML \
+    ariadne \
+    pytest
+
+# Copy application code
+COPY backend/ /app/backend/
+COPY scripts/ /app/scripts/
+COPY libs/ /app/libs/
+
+# Install guardian library
+RUN if [ -d /app/libs/guaardvark-guardian ]; then \
+    pip install --no-cache-dir /app/libs/guaardvark-guardian; \
+    fi
+
+# Create data directories
+RUN mkdir -p /app/data/uploads /app/data/outputs/narrations /app/data/cache \
+    /app/data/context /app/data/database /app/logs /app/pids
+
+ENV GUAARDVARK_ROOT=/app
+ENV FLASK_APP=backend.app
+ENV PYTHONUNBUFFERED=1
+
+EXPOSE 5000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s \
+    CMD curl -f http://localhost:5000/api/health || exit 1
+
+CMD ["python", "-m", "flask", "run", "--host", "0.0.0.0", "--port", "5000"]
