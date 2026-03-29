@@ -40,7 +40,6 @@ import {
   PlayArrow as PlayIcon,
   Refresh as RefreshIcon,
   Download as DownloadIcon,
-  Delete as DeleteIcon,
   VideoLibrary as VideoIcon,
   Image as ImageIcon,
   MovieCreation as MovieCreationIcon,
@@ -59,9 +58,32 @@ import {
   OpenInNew as OpenInNewIcon,
   HighQuality as HighQualityIcon,
   AutoFixHigh as EnhanceIcon,
+  NavigateBefore as PrevIcon,
+  NavigateNext as NextIcon,
+  Pause as PauseIcon,
+  VolumeUp as VolumeUpIcon,
+  VolumeOff as VolumeOffIcon,
+  Fullscreen as FullscreenIcon,
 } from "@mui/icons-material";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
+
+const formatVideoDate = (isoStr) => {
+  if (!isoStr) return null;
+  try {
+    const d = new Date(isoStr);
+    const now = new Date();
+    const diffMs = now - d;
+    const diffMin = Math.floor(diffMs / 60000);
+    const diffHr = Math.floor(diffMs / 3600000);
+    const diffDay = Math.floor(diffMs / 86400000);
+    if (diffMin < 1) return "Just now";
+    if (diffMin < 60) return `${diffMin}m ago`;
+    if (diffHr < 24) return `${diffHr}h ago`;
+    if (diffDay < 7) return `${diffDay}d ago`;
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: d.getFullYear() !== now.getFullYear() ? "numeric" : undefined });
+  } catch { return null; }
+};
 
 // Preset configurations for easy selection
 const QUALITY_PRESETS = {
@@ -398,6 +420,7 @@ const VideoGeneratorPage = () => {
   const [activeBatchId, setActiveBatchId] = useState(null);
   const [batchStatus, setBatchStatus] = useState(null);
   const [batches, setBatches] = useState([]);
+  const [videoPlayer, setVideoPlayer] = useState(null); // { url, title, batchId, results, currentIndex }
   const pollingRef = useRef(null);
 
   // Filter models by current input mode
@@ -626,7 +649,12 @@ const VideoGeneratorPage = () => {
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
-          setBatches(data.data.batches || []);
+          const sorted = (data.data.batches || []).sort((a, b) => {
+            const ta = a.start_time || a.end_time || "";
+            const tb = b.start_time || b.end_time || "";
+            return tb.localeCompare(ta); // newest first
+          });
+          setBatches(sorted);
         }
       }
     } catch (e) {
@@ -917,6 +945,22 @@ const VideoGeneratorPage = () => {
         if (activeBatchId === batchId) {
           setBatchStatus(null);
           stopPolling();
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  const handleCancelBatch = async (batchId) => {
+    try {
+      const res = await fetch(`${API_BASE}/batch-video/batch/${batchId}/cancel`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        await fetchBatches();
+        if (activeBatchId === batchId) {
+          startPollingStatus(batchId);
         }
       }
     } catch (e) {
@@ -1794,14 +1838,26 @@ const VideoGeneratorPage = () => {
                   <Typography variant="body2" color="text.secondary">
                     Batch ID: {batchStatus.batch_id}
                   </Typography>
-                  <Chip
-                    label={batchStatus.status.toUpperCase()}
-                    color={batchStatus.status === 'running' ? 'primary' :
-                           batchStatus.status === 'completed' ? 'success' : 
-                           batchStatus.status === 'error' ? 'error' : 'default'}
-                    size="small"
-                    sx={{ mt: 1 }}
-                  />
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
+                    <Chip
+                      label={batchStatus.status.toUpperCase()}
+                      color={batchStatus.status === 'running' ? 'primary' :
+                             batchStatus.status === 'completed' ? 'success' :
+                             batchStatus.status === 'error' ? 'error' :
+                             batchStatus.status === 'cancelled' ? 'warning' : 'default'}
+                      size="small"
+                    />
+                    {(batchStatus.status === 'running' || batchStatus.status === 'pending') && (
+                      <Button
+                        size="small"
+                        color="warning"
+                        variant="outlined"
+                        onClick={() => handleCancelBatch(batchStatus.batch_id)}
+                      >
+                        Cancel
+                      </Button>
+                    )}
+                  </Stack>
                 </Box>
 
                 <Box sx={{ mb: 2 }}>
@@ -1834,41 +1890,64 @@ const VideoGeneratorPage = () => {
                 <Divider sx={{ my: 2 }} />
 
                 <Grid container spacing={2}>
-                  {currentResults.map((res) => (
+                  {currentResults.map((res, idx) => {
+                    const videoUrl = res.video_path
+                      ? `${API_BASE}/batch-video/video/${batchStatus.batch_id}/${encodePathSegments(PathFromUrl(res.video_path))}`
+                      : null;
+                    const thumbUrl = res.thumbnail_path
+                      ? `${API_BASE}/batch-video/video/${batchStatus.batch_id}/${encodePathSegments(PathFromUrl(res.thumbnail_path))}`
+                      : null;
+                    return (
                     <Grid item xs={12} sm={6} key={res.item_id}>
                       <Card variant="outlined">
                         <CardContent sx={{ pb: 1 }}>
-                          {res.thumbnail_path ? (
-                            <Box
-                              component="img"
-                              src={`${API_BASE}/batch-video/video/${batchStatus.batch_id}/${encodePathSegments(
-                                PathFromUrl(res.thumbnail_path)
-                              )}`}
-                              alt="thumb"
-                              sx={{
-                                width: "100%",
-                                height: 140,
-                                objectFit: "cover",
-                                borderRadius: 1,
-                                mb: 1,
-                              }}
-                            />
-                          ) : (
-                            <Box
-                              sx={{
-                                width: "100%",
-                                height: 140,
-                                bgcolor: "grey.100",
-                                borderRadius: 1,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                mb: 1,
-                              }}
-                            >
-                              <VideoIcon color="action" sx={{ fontSize: 40 }} />
-                            </Box>
-                          )}
+                          <Box
+                            sx={{
+                              position: "relative",
+                              width: "100%",
+                              aspectRatio: "16/9",
+                              borderRadius: 1,
+                              overflow: "hidden",
+                              mb: 1,
+                              bgcolor: "grey.900",
+                              cursor: videoUrl ? "pointer" : "default",
+                            }}
+                            onClick={() => {
+                              if (!videoUrl) return;
+                              const playable = currentResults.filter(r => r.video_path);
+                              const playIdx = playable.findIndex(r => r.item_id === res.item_id);
+                              setVideoPlayer({
+                                url: videoUrl,
+                                title: res.video_path?.split("/").pop() || `Video ${idx + 1}`,
+                                batchId: batchStatus.batch_id,
+                                results: playable,
+                                currentIndex: playIdx >= 0 ? playIdx : 0,
+                              });
+                            }}
+                          >
+                            {thumbUrl ? (
+                              <Box
+                                component="img"
+                                src={thumbUrl}
+                                alt="thumb"
+                                sx={{ width: "100%", height: "100%", objectFit: "cover" }}
+                              />
+                            ) : (
+                              <Box sx={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                <VideoIcon color="action" sx={{ fontSize: 40 }} />
+                              </Box>
+                            )}
+                            {videoUrl && (
+                              <Box sx={{
+                                position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                bgcolor: "rgba(0,0,0,0.3)", opacity: 0, transition: "opacity 0.2s",
+                                "&:hover": { opacity: 1 },
+                              }}>
+                                <PlayIcon sx={{ fontSize: 48, color: "white" }} />
+                              </Box>
+                            )}
+                          </Box>
                           <Stack direction="row" spacing={0.5} alignItems="center">
                             <Chip
                               label={res.success ? "Ready" : "Error"}
@@ -1886,21 +1965,32 @@ const VideoGeneratorPage = () => {
                           )}
                         </CardContent>
                         <CardActions sx={{ pt: 0 }}>
-                          {res.video_path && (
+                          {videoUrl && (
                             <Button
                               size="small"
                               variant="contained"
-                              onClick={() =>
-                                window.open(
-                                  `${API_BASE}/batch-video/video/${batchStatus.batch_id}/${encodePathSegments(
-                                    PathFromUrl(res.video_path)
-                                  )}`,
-                                  "_blank"
-                                )
-                              }
+                              startIcon={<PlayIcon />}
+                              onClick={() => {
+                                const playable = currentResults.filter(r => r.video_path);
+                                const playIdx = playable.findIndex(r => r.item_id === res.item_id);
+                                setVideoPlayer({
+                                  url: videoUrl,
+                                  title: res.video_path?.split("/").pop() || `Video ${idx + 1}`,
+                                  batchId: batchStatus.batch_id,
+                                  results: playable,
+                                  currentIndex: playIdx >= 0 ? playIdx : 0,
+                                });
+                              }}
                             >
                               Play
                             </Button>
+                          )}
+                          {videoUrl && (
+                            <Tooltip title="Open in new tab">
+                              <IconButton size="small" onClick={() => window.open(videoUrl, "_blank")}>
+                                <OpenInNewIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
                           )}
                           {res.video_path && (
                             <>
@@ -1914,7 +2004,7 @@ const VideoGeneratorPage = () => {
                                 size="small"
                                 onClick={() => handleDeleteVideo(batchStatus.batch_id, PathFromUrl(res.video_path))}
                               >
-                                <DeleteIcon fontSize="small" />
+                                <CloseIcon fontSize="small" />
                               </IconButton>
                             </>
                           )}
@@ -1929,7 +2019,8 @@ const VideoGeneratorPage = () => {
                         </CardActions>
                       </Card>
                     </Grid>
-                  ))}
+                    );
+                  })}
                 </Grid>
               </CardContent>
             </Card>
@@ -1972,13 +2063,39 @@ const VideoGeneratorPage = () => {
                 </IconButton>
               </Stack>
               <Grid container spacing={2}>
-                {batches.map((b) => (
+                {batches.map((b) => {
+                  const dateStr = formatVideoDate(b.start_time || b.end_time);
+                  return (
                   <Grid item xs={12} sm={6} key={b.batch_id}>
                     <Card variant="outlined">
+                      {(b.completed_videos ?? 0) > 0 && (
+                        <Box
+                          component="img"
+                          src={`${API_BASE}/batch-video/preview/${b.batch_id}`}
+                          alt="Preview"
+                          sx={{
+                            width: "100%",
+                            height: 100,
+                            objectFit: "cover",
+                          }}
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                          }}
+                        />
+                      )}
                       <CardContent sx={{ pb: 1 }}>
-                        <Typography variant="subtitle2" noWrap>
-                          {b.display_name || b.batch_id}
-                        </Typography>
+                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                          <Typography variant="subtitle2" noWrap sx={{ flex: 1, mr: 1 }}>
+                            {b.display_name || b.batch_id}
+                          </Typography>
+                          {dateStr && (
+                            <Tooltip title={b.start_time ? new Date(b.start_time).toLocaleString() : ""}>
+                              <Typography variant="caption" color="text.secondary" noWrap sx={{ flexShrink: 0 }}>
+                                {dateStr}
+                              </Typography>
+                            </Tooltip>
+                          )}
+                        </Stack>
                         <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
                           <Chip
                             label={b.status}
@@ -1988,6 +2105,8 @@ const VideoGeneratorPage = () => {
                                 ? "success"
                                 : b.status === "error"
                                 ? "error"
+                                : b.status === "cancelled"
+                                ? "warning"
                                 : "default"
                             }
                           />
@@ -1996,6 +2115,17 @@ const VideoGeneratorPage = () => {
                             size="small"
                             variant="outlined"
                           />
+                          {b.end_time && b.start_time && (
+                            <Chip
+                              icon={<TimerIcon sx={{ fontSize: 14 }} />}
+                              label={(() => {
+                                const secs = Math.round((new Date(b.end_time) - new Date(b.start_time)) / 1000);
+                                return secs >= 3600 ? `${Math.floor(secs/3600)}h ${Math.floor((secs%3600)/60)}m` : secs >= 60 ? `${Math.floor(secs/60)}m ${secs%60}s` : `${secs}s`;
+                              })()}
+                              size="small"
+                              variant="outlined"
+                            />
+                          )}
                         </Stack>
                       </CardContent>
                       <CardActions sx={{ pt: 0 }}>
@@ -2008,16 +2138,26 @@ const VideoGeneratorPage = () => {
                         >
                           View
                         </Button>
+                        {(b.status === "running" || b.status === "pending" || b.status === "processing") && (
+                          <Button
+                            size="small"
+                            color="warning"
+                            onClick={() => handleCancelBatch(b.batch_id)}
+                          >
+                            Cancel
+                          </Button>
+                        )}
                         <IconButton size="small" onClick={() => handleDownloadBatch(b.batch_id)}>
-                          <DownloadIcon fontSize="small" />
+                          <DownloadIcon fontSize="small" sx={{ color: 'primary.main' }} />
                         </IconButton>
                         <IconButton size="small" onClick={() => handleDeleteBatch(b.batch_id)}>
-                          <DeleteIcon fontSize="small" />
+                          <CloseIcon fontSize="small" />
                         </IconButton>
                       </CardActions>
                     </Card>
                   </Grid>
-                ))}
+                  );
+                })}
                 {batches.length === 0 && (
                   <Grid item xs={12}>
                     <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center", py: 3 }}>
@@ -2195,6 +2335,99 @@ const VideoGeneratorPage = () => {
           }}
         />
       </React.Suspense>
+
+      {/* Inline Video Player Dialog */}
+      <Dialog
+        open={!!videoPlayer}
+        onClose={() => setVideoPlayer(null)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{ sx: { bgcolor: "grey.900", borderRadius: 2 } }}
+      >
+        {videoPlayer && (() => {
+          const { results, currentIndex, batchId } = videoPlayer;
+          const hasPrev = currentIndex > 0;
+          const hasNext = currentIndex < results.length - 1;
+          const navigateTo = (idx) => {
+            const r = results[idx];
+            const url = `${API_BASE}/batch-video/video/${batchId}/${encodePathSegments(PathFromUrl(r.video_path))}`;
+            setVideoPlayer(prev => ({ ...prev, url, currentIndex: idx, title: r.video_path?.split("/").pop() || `Video ${idx + 1}` }));
+          };
+          return (
+            <>
+              <DialogTitle sx={{ color: "grey.300", display: "flex", justifyContent: "space-between", alignItems: "center", pb: 1 }}>
+                <Typography variant="subtitle2" noWrap sx={{ flex: 1, mr: 2, color: "grey.400" }}>
+                  {videoPlayer.title}
+                  <Typography component="span" variant="caption" sx={{ ml: 1, color: "grey.600" }}>
+                    {currentIndex + 1} / {results.length}
+                  </Typography>
+                </Typography>
+                <IconButton size="small" onClick={() => setVideoPlayer(null)} sx={{ color: "grey.400" }}>
+                  <CloseIcon />
+                </IconButton>
+              </DialogTitle>
+              <DialogContent sx={{ p: 0, position: "relative" }}>
+                <Box sx={{ position: "relative", bgcolor: "black" }}>
+                  <video
+                    key={videoPlayer.url}
+                    src={videoPlayer.url}
+                    controls
+                    autoPlay
+                    loop
+                    style={{ width: "100%", display: "block", maxHeight: "70vh" }}
+                  />
+                  {/* Prev/Next overlays */}
+                  {hasPrev && (
+                    <IconButton
+                      onClick={() => navigateTo(currentIndex - 1)}
+                      sx={{
+                        position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)",
+                        bgcolor: "rgba(0,0,0,0.5)", color: "white", "&:hover": { bgcolor: "rgba(0,0,0,0.7)" },
+                      }}
+                    >
+                      <PrevIcon />
+                    </IconButton>
+                  )}
+                  {hasNext && (
+                    <IconButton
+                      onClick={() => navigateTo(currentIndex + 1)}
+                      sx={{
+                        position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+                        bgcolor: "rgba(0,0,0,0.5)", color: "white", "&:hover": { bgcolor: "rgba(0,0,0,0.7)" },
+                      }}
+                    >
+                      <NextIcon />
+                    </IconButton>
+                  )}
+                </Box>
+              </DialogContent>
+              <DialogActions sx={{ justifyContent: "space-between", px: 2, py: 1 }}>
+                <Stack direction="row" spacing={1}>
+                  <Button size="small" disabled={!hasPrev} onClick={() => navigateTo(currentIndex - 1)} startIcon={<PrevIcon />}>
+                    Prev
+                  </Button>
+                  <Button size="small" disabled={!hasNext} onClick={() => navigateTo(currentIndex + 1)} endIcon={<NextIcon />}>
+                    Next
+                  </Button>
+                </Stack>
+                <Stack direction="row" spacing={1}>
+                  <Button size="small" onClick={() => window.open(videoPlayer.url, "_blank")} startIcon={<OpenInNewIcon />}>
+                    Open
+                  </Button>
+                  <Button size="small" onClick={() => {
+                    const a = document.createElement("a");
+                    a.href = videoPlayer.url;
+                    a.download = videoPlayer.title;
+                    a.click();
+                  }} startIcon={<DownloadIcon />}>
+                    Download
+                  </Button>
+                </Stack>
+              </DialogActions>
+            </>
+          );
+        })()}
+      </Dialog>
     </PageLayout>
   );
 };

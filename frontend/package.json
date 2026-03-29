@@ -18,6 +18,7 @@
     "@monaco-editor/react": "^4.7.0",
     "@mui/icons-material": "^5.15.0",
     "@mui/material": "^5.15.0",
+    "@novnc/novnc": "^1.6.0",
     "@popperjs/core": "^2.11.8",
     "axios": "^1.6.0",
     "dompurify": "^3.2.7",

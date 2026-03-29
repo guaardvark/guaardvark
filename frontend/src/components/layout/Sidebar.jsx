@@ -32,6 +32,7 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import AccountBoxIcon from "@mui/icons-material/AccountBox";
 import { GuaardvarkLogo } from "../branding";
 import BarChartIcon from "@mui/icons-material/BarChart";
+import DesktopWindowsIcon from "@mui/icons-material/DesktopWindows";
 import PetsIcon from "@mui/icons-material/Pets";
 import ImageIcon from "@mui/icons-material/Image";
 import CodeIcon from "@mui/icons-material/Code";
@@ -45,6 +46,7 @@ import MovieCreationIcon from "@mui/icons-material/MovieCreation";
 import ExtensionIcon from "@mui/icons-material/Extension";
 
 import SystemMetricsModal from "../modals/SystemMetricsModal";
+import AgentScreenViewer from "../agent/AgentScreenViewer";
 
 const COLLAPSED_WIDTH = spacing.sidebarCollapsed;
 const EXPANDED_WIDTH = spacing.sidebarExpanded;
@@ -94,6 +96,7 @@ const Sidebar = () => {
   const toggleSidebar = useAppStore((state) => state.toggleSidebar);
   const setSidebarExpanded = useAppStore((state) => state.setSidebarExpanded);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
+  const [agentScreenOpen, setAgentScreenOpen] = useState(false);
   const isBelowMd = useMediaQuery(theme.breakpoints.down("md"));
 
   useEffect(() => {
@@ -300,6 +303,36 @@ const Sidebar = () => {
               </IconButton>
             </Tooltip>
 
+            {/* Agent Screen toggle */}
+            <Tooltip title={isExpanded ? "" : "Agent Screen"} placement="right" arrow>
+              <IconButton
+                onClick={() => setAgentScreenOpen(!agentScreenOpen)}
+                sx={{
+                  width: "100%",
+                  height: 36,
+                  borderRadius: "6px",
+                  justifyContent: isExpanded ? "flex-start" : "center",
+                  px: isExpanded ? 2 : 0,
+                  gap: 1.5,
+                  color: agentScreenOpen ? theme.palette.success.main : theme.palette.text.secondary,
+                  backgroundColor: agentScreenOpen ? theme.palette.action.selected : "transparent",
+                  "&:hover": {
+                    backgroundColor: agentScreenOpen
+                      ? theme.palette.action.selected
+                      : theme.palette.action.hover,
+                    color: theme.palette.success.main,
+                  },
+                }}
+              >
+                <DesktopWindowsIcon sx={{ fontSize: 22 }} />
+                {isExpanded && (
+                  <Typography variant="body2" sx={{ fontSize: "0.825rem" }}>
+                    Agent Screen
+                  </Typography>
+                )}
+              </IconButton>
+            </Tooltip>
+
             {}
             <IconButton
               onClick={toggleSidebar}
@@ -336,6 +369,11 @@ const Sidebar = () => {
       <SystemMetricsModal
         open={metricsModalOpen}
         onClose={() => setMetricsModalOpen(false)}
+      />
+
+      <AgentScreenViewer
+        open={agentScreenOpen}
+        onClose={() => setAgentScreenOpen(false)}
       />
     </>
   );

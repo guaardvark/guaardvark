@@ -42,7 +42,7 @@ import {
   FolderOutlined,
   PlayArrow as PlayArrowIcon,
   Download as DownloadIcon,
-  Delete as DeleteIcon,
+  Close as CloseIcon,
   Refresh as RefreshIcon,
   Videocam as VideocamIcon,
 } from '@mui/icons-material';
@@ -2267,16 +2267,15 @@ const ImagesPage = () => {
                               size="small"
                               onClick={() => handleDownloadVideoBatch(batch.batch_id)}
                             >
-                              <DownloadIcon fontSize="small" />
+                              <DownloadIcon fontSize="small" sx={{ color: 'primary.main' }} />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Delete batch">
                             <IconButton
                               size="small"
                               onClick={() => setVideoDeleteConfirm(batch.batch_id)}
-                              sx={{ color: 'error.main' }}
                             >
-                              <DeleteIcon fontSize="small" />
+                              <CloseIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
                         </Box>

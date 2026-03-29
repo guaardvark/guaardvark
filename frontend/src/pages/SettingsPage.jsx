@@ -1892,10 +1892,10 @@ const SettingsPage = () => {
   };
   const closeManageBackups = () => setManageBackupsOpen(false);
 
-  const handleCreateBackupConfirm = async ({ type, components, name }) => {
+  const handleCreateBackupConfirm = async ({ type, components, name, include_plugins }) => {
     setIsProcessingBackup(true);
     try {
-      const res = await apiService.createServerBackup(type, components, name);
+      const res = await apiService.createServerBackup(type, components, name, include_plugins);
       showMessage(`Backup created: ${res.file}`, "success");
     } catch (e) {
       showMessage(e.message, "error");
