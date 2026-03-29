@@ -176,6 +176,12 @@ class AgentControlService:
         consecutive_failures = 0
         start_time = time.time()
 
+        # Check for recipe match — skip see-think-act loop for known patterns
+        recipe_result = self._try_recipe(task, screen)
+        if recipe_result is not None:
+            self._active = False
+            return self._store_and_return(recipe_result)
+
         try:
             for iteration in range(self.config.max_iterations):
                 if self._killed:
@@ -196,27 +202,67 @@ class AgentControlService:
 
                 # 1. SEE — Capture screenshot
                 screenshot, cursor_pos = self._capture_with_retry(screen)
+                logger.warning(f"[AGENT][STEP {iteration+1}][SEE] Capturing screen, cursor at {cursor_pos}")
 
-                # 2. ANALYZE — Vision model describes the screen
-                vision_prompt = self._build_vision_prompt(task, self._action_history)
-                scene = analyzer.analyze(screenshot, prompt=vision_prompt)
-                if not scene.success:
-                    logger.error(f"Vision analysis failed: {scene.error}")
-                    consecutive_failures += 1
-                    continue
+                scene_desc = ""  # Will be populated by either unified or split path
 
-                # 3. THINK — Text LLM decides next action
-                decision_prompt = self._build_decision_prompt(
-                    task, scene.description, self._action_history
-                )
-                decision_result = analyzer.text_query(decision_prompt)
-                if not decision_result.success:
-                    consecutive_failures += 1
-                    continue
+                # Check for unified vision+decision model (qwen3-vl:4b+)
+                unified_model = self._get_unified_model()
 
-                decision = self._parse_decision(decision_result.description)
+                if unified_model:
+                    # UNIFIED MODE: Compact prompt — vision model sees screenshot + short context
+                    unified_prompt = self._build_unified_prompt(task, self._action_history)
+                    result = analyzer.analyze(
+                        screenshot, prompt=unified_prompt,
+                        model=unified_model, num_predict=256, temperature=0.1
+                    )
+                    if not result.success:
+                        logger.error(f"[AGENT][STEP {iteration+1}][UNIFIED] Vision+decision failed: {result.error}")
+                        consecutive_failures += 1
+                        continue
+                    scene_desc = result.description[:200]
+                    logger.warning(f"[AGENT][STEP {iteration+1}][UNIFIED] {scene_desc}")
+                    decision = self._parse_decision(result.description)
+                else:
+                    # SPLIT MODE: Separate SEE → ASSESS → THINK pipeline
+                    # 2. ANALYZE — Vision model describes the screen
+                    vision_prompt = self._build_vision_prompt(task, self._action_history)
+                    scene = analyzer.analyze(screenshot, prompt=vision_prompt)
+                    if not scene.success:
+                        logger.error(f"[AGENT][STEP {iteration+1}][SEE] Vision failed: {scene.error}")
+                        consecutive_failures += 1
+                        continue
+                    scene_desc = scene.description[:200].replace('\n', ' ')
+                    logger.warning(f"[AGENT][STEP {iteration+1}][SEE] {scene_desc}")
+
+                    # 2b. ASSESS — Check for obstacles before proceeding
+                    obstacle = self._assess_obstacles(scene.description, analyzer, screen, iteration)
+                    if obstacle == "handled":
+                        logger.warning(f"[AGENT][STEP {iteration+1}][ASSESS] Obstacle handled, re-scanning")
+                        continue
+                    elif obstacle == "escalated":
+                        logger.warning(f"[AGENT][STEP {iteration+1}][ASSESS] Escalated to thinking model")
+                        continue
+
+                    # 3. THINK — Text LLM decides next action
+                    decision_prompt = self._build_decision_prompt(
+                        task, scene.description, self._action_history
+                    )
+                    decision_result = analyzer.text_query(decision_prompt)
+                    if not decision_result.success:
+                        logger.error(f"[AGENT][STEP {iteration+1}][THINK] Decision failed")
+                        consecutive_failures += 1
+                        continue
+                    decision = self._parse_decision(decision_result.description)
+                logger.warning(f"[AGENT][STEP {iteration+1}][THINK] action={decision.action.action_type} "
+                              f"target=\"{decision.action.target_description or ''}\" "
+                              f"text=\"{decision.action.text or ''}\" "
+                              f"keys={decision.action.keys or ''} "
+                              f"reasoning=\"{decision.action.reasoning or ''}\"")
 
                 if decision.task_complete:
+                    logger.warning(f"[AGENT][DONE] Task complete after {iteration+1} steps, "
+                                  f"{time.time() - start_time:.1f}s")
                     return self._store_and_return(AgentResult(
                         success=True, reason="completed",
                         steps=self._action_history,
@@ -224,14 +270,15 @@ class AgentControlService:
                     ))
 
                 if decision.stuck:
+                    logger.warning(f"[AGENT][STEP {iteration+1}][THINK] Agent reports stuck")
                     consecutive_failures += 1
                     continue
 
                 # 4. ACT — Execute via servo (for clicks) or direct (for type/hotkey/scroll)
                 # In mouse_only mode, reject any non-click action
                 if getattr(self, '_mouse_only', False) and decision.action.action_type not in ("click", "done"):
-                    logger.info(f"Mouse-only mode: rejecting {decision.action.action_type} action")
-                    decision.action.action_type = "click"  # Force to click
+                    logger.info(f"[AGENT][STEP {iteration+1}][ACT] Mouse-only: rejecting {decision.action.action_type}")
+                    decision.action.action_type = "click"
                     if not decision.action.target_description:
                         consecutive_failures += 1
                         continue
@@ -240,17 +287,22 @@ class AgentControlService:
                     servo_result = servo.click_target(decision.action.target_description)
                     decision.action.coordinates = (servo_result.get("x", 0), servo_result.get("y", 0))
                     result = {"success": servo_result.get("success", False)}
-                    # Count click as success if servo reported success, even without screen-change verification
-                    # (some UI elements have subtle visual feedback that doesn't pass the threshold)
                     failed = not servo_result.get("success", False)
+                    status_icon = "OK" if not failed else "FAIL"
+                    logger.warning(f"[AGENT][STEP {iteration+1}][ACT] click \"{decision.action.target_description}\" "
+                                  f"at ({servo_result.get('x', '?')},{servo_result.get('y', '?')}) [{status_icon}]")
                 else:
                     result = self._execute_action(decision.action, screen)
                     failed = not result.get("success", False)
+                    status_icon = "OK" if not failed else "FAIL"
+                    detail = decision.action.text or str(decision.action.keys) or ""
+                    logger.warning(f"[AGENT][STEP {iteration+1}][ACT] {decision.action.action_type} "
+                                  f"\"{detail}\" [{status_icon}]")
 
                 # 5. RECORD step
                 step = ActionStep(
                     iteration=iteration,
-                    scene_description=scene.description,
+                    scene_description=scene_desc or "no scene",
                     action=decision.action,
                     result=result,
                     failed=failed,
@@ -342,15 +394,390 @@ class AgentControlService:
             logger.error(f"Action execution error: {e}", exc_info=True)
             return {"success": False, "error": str(e)}
 
+    def _assess_obstacles(self, scene_description: str, analyzer, screen, iteration: int) -> str:
+        """
+        ASSESS phase: detect and handle obstacles before the main THINK step.
+
+        Returns:
+            "clear"     — no obstacles, proceed with normal THINK
+            "handled"   — obstacle dismissed by fast model, re-scan needed
+            "escalated" — obstacle required thinking model, re-scan needed
+        """
+        import time as _time
+        scene_lower = scene_description.lower()
+
+        # Fast detection: known obstacle patterns (no LLM needed)
+        obstacle_patterns = {
+            "permission": ["allow microphone", "allow camera", "block this", "permission request",
+                          "wants to use your microphone", "wants to use your camera",
+                          "notification permission", "allow notifications"],
+            "popup": ["popup is blocking", "popup appeared", "popup is visible",
+                      "dialog is blocking", "dialog is covering", "modal is open",
+                      "are you sure you want to"],
+            "restore": ["restore session", "restore previous", "open previous tabs", "previous session"],
+            "cookie": ["cookie", "accept cookies", "cookie consent", "gdpr"],
+            "error": ["page not found", "404", "server error", "500", "connection refused"],
+        }
+
+        detected_type = None
+        for obs_type, keywords in obstacle_patterns.items():
+            if any(kw in scene_lower for kw in keywords):
+                detected_type = obs_type
+                break
+
+        if not detected_type:
+            return "clear"
+
+        logger.warning(f"[AGENT][STEP {iteration+1}][ASSESS] Obstacle detected: {detected_type}")
+
+        # Stage 1: Fast model handles known obstacles with simple actions
+        if detected_type == "permission":
+            # Permission dialogs: try Escape, then look for Block/Deny button
+            screen.hotkey("Escape")
+            _time.sleep(0.5)
+            logger.warning(f"[AGENT][STEP {iteration+1}][ASSESS] Tried Escape for permission dialog")
+            return "handled"
+
+        elif detected_type == "restore":
+            # Restore session bars: click the X dismiss button (far right)
+            screen.hotkey("Escape")
+            _time.sleep(0.3)
+            # The X is typically at the far right of the notification bar
+            screen.click(1290, 127)
+            _time.sleep(0.5)
+            logger.warning(f"[AGENT][STEP {iteration+1}][ASSESS] Dismissed restore session bar")
+            return "handled"
+
+        elif detected_type == "cookie":
+            screen.hotkey("Escape")
+            _time.sleep(0.5)
+            logger.warning(f"[AGENT][STEP {iteration+1}][ASSESS] Tried Escape for cookie banner")
+            return "handled"
+
+        elif detected_type == "error":
+            # 404 or connection error — this is informational, not blocking
+            # Let the THINK step handle it (might need to navigate elsewhere)
+            logger.warning(f"[AGENT][STEP {iteration+1}][ASSESS] Error page detected, letting THINK handle")
+            return "clear"
+
+        # Stage 2: Unknown popup — escalate to thinking model
+        logger.warning(f"[AGENT][STEP {iteration+1}][ASSESS] Unknown obstacle, escalating to thinking model")
+
+        thinking_model = self._get_thinking_model()
+        if not thinking_model:
+            # No thinking model available, try Escape as fallback
+            screen.hotkey("Escape")
+            _time.sleep(0.5)
+            return "handled"
+
+        # Ask the thinking model to reason about the obstacle
+        escalation_prompt = (
+            f"An unexpected popup or dialog appeared while performing a screen automation task.\n\n"
+            f"Scene description: {scene_description}\n\n"
+            f"What is this popup about? What is the safest action to dismiss it?\n"
+            f"Respond with ONLY a JSON object:\n"
+            f'{{"analysis": "what this popup is", "action": "click" | "hotkey", '
+            f'"target_description": "what to click", "keys": ["Escape"], '
+            f'"reasoning": "why this is safe"}}'
+        )
+
+        thinking_result = analyzer.text_query(escalation_prompt, model=thinking_model)
+        if thinking_result.success:
+            logger.warning(f"[AGENT][STEP {iteration+1}][ASSESS][THINKING] {thinking_result.description[:200]}")
+            decision = self._parse_decision(thinking_result.description)
+            if decision.action.action_type == "click" and decision.action.target_description:
+                from backend.services.servo_controller import ServoController
+                from backend.services.training_data_collector import TrainingDataCollector
+                servo = ServoController(screen, analyzer, collector=TrainingDataCollector())
+                servo.click_target(decision.action.target_description)
+            elif decision.action.action_type == "hotkey" and decision.action.keys:
+                screen.hotkey(*decision.action.keys)
+            else:
+                screen.hotkey("Escape")
+            _time.sleep(0.5)
+            return "escalated"
+
+        # Thinking model also failed — last resort Escape
+        screen.hotkey("Escape")
+        _time.sleep(0.5)
+        return "handled"
+
+    @staticmethod
+    def _build_unified_prompt(task: str, history) -> str:
+        """Build a compact prompt for unified vision+decision models.
+
+        Keep it SHORT — the model is also processing an image.
+        """
+        # Compact history: last 5 actions only
+        done_lines = ""
+        loop_warning = ""
+        if history:
+            recent = history[-5:]
+            steps = []
+            for h in recent:
+                status = "FAIL" if h.failed else "OK"
+                desc = h.action.text or h.action.target_description or str(h.action.keys or "")
+                steps.append(f"  {h.action.action_type}: {desc} [{status}]")
+            done_lines = "Last actions:\n" + "\n".join(steps) + "\n"
+
+            # Detect loops — if last 3 actions are the same, warn strongly
+            if len(history) >= 3:
+                last3 = [(h.action.action_type, h.action.text) for h in history[-3:]]
+                if len(set(last3)) == 1:
+                    loop_warning = (
+                        "\nSTOP REPEATING! You did the same action 3 times. "
+                        "The screen has not changed. Do something DIFFERENT.\n"
+                        "If you typed text, now press Return. If you clicked, try a different target.\n"
+                    )
+
+        return f"""Task: {task}
+
+{done_lines}{loop_warning}Step {len(history) + 1}. Look at the screenshot. What is the ONE next action?
+
+IMPORTANT RULES:
+- After typing a URL, you MUST press Return (hotkey ["Return"]) to navigate
+- Do NOT type the same text twice
+- If the task is complete, use "done"
+
+Reply with ONLY JSON:
+{{"action": "click|type|hotkey|scroll|done", "target_description": "what to click", "text": "text to type", "keys": ["ctrl", "t"], "reasoning": "why"}}"""
+
+    @staticmethod
+    def _get_unified_model() -> str:
+        """Find a vision model capable of both seeing and deciding (4b+ VLM)."""
+        try:
+            import requests as _requests
+            response = _requests.get("http://localhost:11434/api/tags", timeout=5)
+            if response.status_code == 200:
+                models = [m["name"] for m in response.json().get("models", [])]
+                # Prefer larger instruct VLMs that can reason + see
+                for preferred in ["qwen3-vl:4b-instruct", "qwen3-vl:8b-instruct"]:
+                    if preferred in models:
+                        return preferred
+        except Exception:
+            pass
+        return ""
+
+    @staticmethod
+    def _get_thinking_model() -> str:
+        """Find the best available thinking model for obstacle escalation."""
+        try:
+            import requests as _requests
+            response = _requests.get("http://localhost:11434/api/tags", timeout=5)
+            if response.status_code == 200:
+                models = [m["name"] for m in response.json().get("models", [])]
+                for preferred in ["lfm2.5-thinking:1.2b-bf16", "qwen3.5:9b", "deepseek-r1:8b"]:
+                    if preferred in models:
+                        return preferred
+        except Exception:
+            pass
+        return ""
+
+    _recipe_cache = None
+
+    @classmethod
+    def _load_recipes(cls):
+        """Load recipe library from JSON file."""
+        if cls._recipe_cache is not None:
+            return cls._recipe_cache
+        import os, json
+        from backend.config import GUAARDVARK_ROOT
+        path = os.path.join(GUAARDVARK_ROOT, "data", "agent", "recipes.json")
+        try:
+            with open(path, "r") as f:
+                data = json.load(f)
+            # Remove metadata key
+            cls._recipe_cache = {k: v for k, v in data.items() if not k.startswith("_")}
+            logger.info(f"Loaded {len(cls._recipe_cache)} recipes from {path}")
+            return cls._recipe_cache
+        except Exception as e:
+            logger.warning(f"Failed to load recipes: {e}")
+            cls._recipe_cache = {}
+            return {}
+
+    def _try_recipe(self, task: str, screen) -> 'AgentResult | None':
+        """Match task against recipe library and execute deterministically."""
+        import re
+        task_lower = task.lower().strip()
+
+        # Skip recipes for multi-step or compound tasks
+        if re.search(r'step\s*\d|^\d+\.\s|\n\d+\.|then\s+(?:type|press|click|open|navigate)', task_lower):
+            return None
+        if re.search(r'(?:go to|navigate to)\s+\S+.*\b(?:and|then)\b.*\b(?:click|check|find|look|tell|scroll|type|search|read|describe|suggest)', task_lower):
+            return None
+        if len(task_lower) > 200:
+            return None
+
+        # Also handle "go to X page" → localhost:5175/X
+        page_match = re.search(
+            r'(?:go\s+to|open|navigate\s+to)\s+(?:the\s+)?(\w+)\s+page', task_lower
+        )
+        if page_match:
+            page_routes = {
+                'chat': '/chat', 'dashboard': '/', 'settings': '/settings',
+                'images': '/images', 'media': '/images', 'video': '/video',
+                'documents': '/documents', 'notes': '/notes', 'projects': '/projects',
+                'clients': '/clients', 'rules': '/rules', 'agents': '/agents',
+                'tools': '/tools', 'plugins': '/plugins', 'code': '/code-editor',
+            }
+            page = page_match.group(1)
+            if page in page_routes:
+                task_lower = f"navigate to localhost:5175{page_routes[page]}"
+
+        recipes = self._load_recipes()
+        for recipe_name, recipe in recipes.items():
+            for pattern in recipe.get("triggers", []):
+                match = re.search(pattern, task_lower, re.IGNORECASE)
+                if match:
+                    logger.warning(f"[AGENT][RECIPE] Matched '{recipe_name}': {recipe['description']}")
+                    return self._execute_recipe(recipe_name, recipe, match, screen)
+
+        return None
+
+    def _execute_recipe(self, name: str, recipe: dict, match, screen) -> 'AgentResult':
+        """Execute a matched recipe — deterministic sequence of actions."""
+        import time as _time
+        start = _time.time()
+        action_steps = []
+        step_num = 0
+
+        for step in recipe.get("steps", []):
+            action_type = step.get("action")
+
+            if action_type == "wait":
+                _time.sleep(step.get("seconds", 0.5))
+                continue
+
+            # Substitute capture groups: {1}, {2}, etc.
+            def substitute(text):
+                if not text:
+                    return text
+                for i in range(1, 10):
+                    placeholder = f"{{{i}}}"
+                    if placeholder in text:
+                        try:
+                            text = text.replace(placeholder, match.group(i) or "")
+                        except IndexError:
+                            pass
+                return text
+
+            if action_type == "hotkey":
+                keys = [substitute(k) for k in step.get("keys", [])]
+                result = screen.hotkey(*keys)
+                action_steps.append(ActionStep(
+                    iteration=step_num, scene_description=f"recipe:{name}",
+                    action=AgentAction(action_type="hotkey", keys=keys),
+                    result=result, failed=not result.get("success", False)
+                ))
+            elif action_type == "type":
+                text = substitute(step.get("text", ""))
+                result = screen.type_text(text)
+                action_steps.append(ActionStep(
+                    iteration=step_num, scene_description=f"recipe:{name}",
+                    action=AgentAction(action_type="type", text=text),
+                    result=result, failed=not result.get("success", False)
+                ))
+            elif action_type == "click":
+                x, y = step.get("x", 0), step.get("y", 0)
+                result = screen.click(x, y)
+                action_steps.append(ActionStep(
+                    iteration=step_num, scene_description=f"recipe:{name}",
+                    action=AgentAction(action_type="click", coordinates=(x, y)),
+                    result=result, failed=not result.get("success", False)
+                ))
+            step_num += 1
+
+        elapsed = _time.time() - start
+        logger.warning(f"[AGENT][RECIPE] {name} complete in {elapsed:.1f}s ({len(action_steps)} actions)")
+
+        self._action_history = action_steps
+        return AgentResult(
+            success=True, reason=f"recipe:{name}",
+            steps=action_steps, total_time_seconds=elapsed
+        )
+
+    @staticmethod
+    def _load_self_knowledge() -> str:
+        """Load the Guaardvark self-knowledge map for agent context."""
+        import os
+        from backend.config import GUAARDVARK_ROOT
+        path = os.path.join(GUAARDVARK_ROOT, "data", "agent", "self_knowledge.md")
+        try:
+            if os.path.exists(path):
+                with open(path, "r") as f:
+                    return f.read().strip() + "\n\n"
+        except Exception as e:
+            logger.warning(f"Failed to load self-knowledge: {e}")
+        return ""
+
+    @staticmethod
+    def _load_example_traces(task: str) -> str:
+        """Load relevant example traces for the task to use as few-shot examples."""
+        import os, json, re
+        from backend.config import GUAARDVARK_ROOT
+        path = os.path.join(GUAARDVARK_ROOT, "data", "agent", "example_traces.json")
+        try:
+            if not os.path.exists(path):
+                return ""
+            with open(path, "r") as f:
+                traces = json.load(f)
+        except Exception as e:
+            logger.warning(f"Failed to load example traces: {e}")
+            return ""
+
+        task_lower = task.lower()
+        matched = []
+
+        # Match traces to task by keyword detection
+        match_rules = {
+            "navigate_to_page": ["navigate", "go to", "open", "localhost", "page"],
+            "send_chat_message": ["chat", "type", "send", "message", "hello", "test"],
+            "open_past_chats": ["past chat", "history", "previous chat", "old chat"],
+            "check_narration": ["narrat", "voice", "speak", "audio", "tts"],
+            "navigate_to_settings": ["setting"],
+            "close_popup": ["popup", "modal", "close", "dismiss"],
+            "youtube_search_and_watch": ["youtube", "video", "watch", "search youtube"],
+            "youtube_add_comment": ["comment", "add a comment", "leave a comment", "post a comment"],
+        }
+
+        for trace_name, keywords in match_rules.items():
+            if any(kw in task_lower for kw in keywords):
+                trace = traces.get(trace_name)
+                if trace:
+                    matched.append((trace_name, trace))
+
+        if not matched:
+            return ""
+
+        lines = ["EXAMPLE INTERACTIONS (follow these patterns):"]
+        for name, trace in matched[:2]:  # Max 2 examples
+            lines.append(f"\n--- {trace['description']} ---")
+            if trace.get("prerequisite"):
+                lines.append(f"Prerequisite: {trace['prerequisite']}")
+            for i, step in enumerate(trace["steps"], 1):
+                action = step["action"]
+                detail = ""
+                if step.get("target_description"):
+                    detail = f' target="{step["target_description"]}"'
+                if step.get("text"):
+                    detail += f' text="{step["text"]}"'
+                if step.get("keys"):
+                    detail += f' keys={step["keys"]}'
+                lines.append(f"  Step {i}: {action}{detail} — {step['reasoning']}")
+
+        return "\n".join(lines) + "\n\n"
+
     def _build_vision_prompt(self, task: str, history: List[ActionStep]) -> str:
         """Build the prompt for scene analysis."""
         prompt = (
             f"Task: {task}\n\n"
-            "Describe what is currently on screen. Include:\n"
-            "1. What website/app is showing\n"
-            "2. Key interactive elements (buttons, text fields, links) and which grid cell they are in\n"
-            "3. Whether the task appears COMPLETE (e.g., the target website has loaded)\n"
-            "Format elements as: [description] -> [cell]\n"
+            "Describe what is on screen right now. Be specific and concise:\n"
+            "1. What website or application is showing? Read the URL if visible.\n"
+            "2. How many browser tabs are open? What are their titles?\n"
+            "3. What is the main content on the page? (text, images, forms, videos)\n"
+            "4. What interactive elements are visible? (buttons, text fields, links, search boxes)\n"
+            "5. Is anything blocking the main page content? (only mention if something IS blocking)\n"
+            "6. Does the screen show that the current task step is complete?\n"
         )
         if history:
             last = history[-1]
@@ -367,13 +794,17 @@ class AgentControlService:
         """Build the prompt for the LLM to decide the next action."""
         history_text = ""
         if history:
-            recent = history[-5:]  # Last 5 actions
             lines = []
-            for step in recent:
+            # Show ALL completed actions as a numbered progress log
+            for i, step in enumerate(history):
                 status = "FAILED" if step.failed else "OK"
                 desc = step.action.target_description or step.action.text or str(step.action.keys)
-                lines.append(f"  - {step.action.action_type}: {desc} [{status}]")
-            history_text = "Recent actions:\n" + "\n".join(lines)
+                lines.append(f"  {i+1}. {step.action.action_type}: {desc} [{status}]")
+            # Show full history up to 10, then truncate older entries
+            if len(lines) > 10:
+                lines = lines[:3] + [f"  ... ({len(lines) - 6} more steps) ..."] + lines[-3:]
+            history_text = f"Completed actions ({len(history)} total):\n" + "\n".join(lines)
+            history_text += f"\n\nYou are now on step {len(history) + 1}. What is the NEXT action?"
 
         # Detect repeated actions
         loop_warning = ""
@@ -425,7 +856,16 @@ Respond with ONLY a JSON object:
     "reasoning": "why"
 }}"""
 
-        return f"""Task: {task}
+        # Inject self-knowledge and example traces when working on the Guaardvark UI
+        self_knowledge = ""
+        example_traces = ""
+        task_lower = task.lower()
+        if any(kw in task_lower for kw in ['guaardvark', 'localhost:5175', 'localhost:5002', 'our app', 'our ui', 'this app', 'self-test']):
+            self_knowledge = self._load_self_knowledge()
+        # Always load example traces — they help with any UI interaction task
+        example_traces = self._load_example_traces(task)
+
+        return f"""{self_knowledge}{example_traces}Task: {task}
 
 Current screen:
 {scene}

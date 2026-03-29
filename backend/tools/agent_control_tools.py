@@ -75,17 +75,48 @@ class AgentTaskExecuteTool(BaseTool):
             _ensure_agent_display()
             from backend.services.agent_control_service import get_agent_control_service
             from backend.services.local_screen_backend import LocalScreenBackend
+            from backend.utils.vision_analyzer import VisionAnalyzer
 
             service = get_agent_control_service()
             screen = LocalScreenBackend()
             result = service.execute_task(task, screen)
 
+            # Post-task analysis: capture what the screen shows now
+            # This bridges the gap between "doing" and "thinking about what you did"
+            post_analysis = ""
+            if result.success:
+                try:
+                    import time as _time
+                    _time.sleep(2)  # Let the page settle
+                    analyzer = VisionAnalyzer()
+                    screenshot, _ = screen.capture()
+                    analysis = analyzer.analyze(
+                        screenshot,
+                        prompt=f"The task was: {task}\n\nDescribe what the screen shows now. "
+                               f"Include any relevant text, data, or content visible on the page. "
+                               f"Be detailed and factual.",
+                        num_predict=512,
+                    )
+                    if analysis.success:
+                        post_analysis = analysis.description
+                except Exception as e:
+                    logger.warning(f"Post-task analysis failed: {e}")
+
+            output_parts = []
+            if result.success:
+                output_parts.append(f"Task completed successfully in {len(result.steps)} steps ({round(result.total_time_seconds, 1)}s).")
+            else:
+                output_parts.append(f"Task failed: {result.reason}")
+            if post_analysis:
+                output_parts.append(f"\nWhat I see on screen now:\n{post_analysis}")
+
             return ToolResult(
                 success=result.success,
-                output=result.reason,
+                output="\n".join(output_parts),
                 metadata={
                     "steps": len(result.steps),
                     "time_seconds": round(result.total_time_seconds, 1),
+                    "screen_analysis": post_analysis[:500] if post_analysis else None,
                 }
             )
         except Exception as e:

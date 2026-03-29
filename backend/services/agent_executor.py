@@ -671,7 +671,9 @@ Otherwise, call the next tool needed. Do NOT repeat a tool you already called wi
     @staticmethod
     def _is_vision_task(user_query: str, session_context: str = "") -> bool:
         """Detect if this is a vision/screen automation task."""
+        import re
         combined = (user_query + " " + (session_context or "")).lower()
+        # Exact substring keywords
         vision_keywords = [
             'virtual screen', 'virtual display', 'agent mode',
             'open firefox', 'open browser', 'open chrome',
@@ -679,8 +681,26 @@ Otherwise, call the next tool needed. Do NOT repeat a tool you already called wi
             'navigate to', 'go to website', 'use the screen',
             'screen capture', 'screenshot', 'using your screen',
             'vnc', 'display :99', 'xdotool',
+            'your screen', 'the screen', 'agent screen',
+            'open a tab', 'open tab', 'new tab', 'close tab',
+            'firefox tab', 'browser tab',
+            'use your agent', 'agent tool',
         ]
-        return any(kw in combined for kw in vision_keywords)
+        if any(kw in combined for kw in vision_keywords):
+            return True
+        # Regex patterns for flexible matching
+        vision_patterns = [
+            r'open\s+(?:a\s+)?(?:new\s+)?(?:firefox|browser|chrome|tab)',
+            r'(?:use|launch|start|control)\s+(?:the\s+|your\s+)?(?:virtual|screen|firefox|browser|agent)',
+            r'(?:on|from|using|via|through)\s+(?:the\s+)?(?:virtual|agent)',
+            r'(?:click|type|scroll|drag|hover)\s+(?:on|in|into|at)',
+            r'(?:go|visit|browse)\s+(?:to\s+)?(?:a\s+)?(?:website|webpage|url|page)',
+            r'(?:show|tell|describe)\s+(?:me\s+)?what.{0,15}(?:on|see).{0,10}screen',
+            r'agent\s+(?:vision|control|screen|virtual|execute|task)',
+            r'/vision\b',
+            r'/agent\b',
+        ]
+        return any(re.search(p, combined) for p in vision_patterns)
 
     def _build_system_prompt(self, tool_schemas: str, session_context: str = "", is_vision_task: bool = False) -> str:
         """Build system prompt with tool descriptions for JSON output"""

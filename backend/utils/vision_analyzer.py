@@ -9,6 +9,7 @@ Calls Ollama's /api/chat endpoint directly with image attachments.
 
 import base64
 import logging
+import os
 from dataclasses import dataclass, field
 from io import BytesIO
 from typing import Optional
@@ -139,6 +140,10 @@ class VisionAnalyzer:
             if response.status_code == 200:
                 models = [m["name"] for m in response.json().get("models", [])]
                 # Prefer these text models in order (smarter models first for planning)
+                # Check for override from environment
+                override = os.environ.get("GUAARDVARK_DECISION_MODEL")
+                if override and override in models:
+                    return override
                 for preferred in ["qwen3.5:9b", "qwen3:8b", "qwen3:latest", "llama3.1:8b",
                                   "llama3:8b", "llama3:latest", "mistral:latest", "gemma2:latest"]:
                     if preferred in models:

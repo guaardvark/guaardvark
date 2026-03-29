@@ -1,0 +1,310 @@
+{
+  "_meta": {
+    "description": "Deterministic action recipes for the Guaardvark agent. These skip the see-think-act loop entirely.",
+    "format": "Each recipe has trigger patterns (regex) and a sequence of steps (hotkey/type/click/wait).",
+    "timing": "wait values are in seconds"
+  },
+
+  "navigate_url": {
+    "description": "Navigate to any URL in the current tab",
+    "triggers": [
+      "^(?:navigate|go)\\s+to\\s+(?:https?://)?([\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*$",
+      "^open\\s+(?:https?://)?([\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*$",
+      "^visit\\s+(?:https?://)?([\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["Escape"]},
+      {"action": "wait", "seconds": 0.3},
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "wait", "seconds": 0.5},
+      {"action": "hotkey", "keys": ["ctrl", "a"]},
+      {"action": "wait", "seconds": 0.2},
+      {"action": "type", "text": "http://{1}"},
+      {"action": "wait", "seconds": 0.3},
+      {"action": "hotkey", "keys": ["Delete"]},
+      {"action": "wait", "seconds": 0.2},
+      {"action": "hotkey", "keys": ["Return"]},
+      {"action": "wait", "seconds": 3}
+    ]
+  },
+
+  "new_tab": {
+    "description": "Open a new blank tab",
+    "triggers": ["^open\\s+(?:a\\s+)?new\\s+tab\\s*$", "^new\\s+tab\\s*$"],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "t"]},
+      {"action": "wait", "seconds": 0.5}
+    ]
+  },
+
+  "new_tab_to_url": {
+    "description": "Open a new tab and navigate to a URL",
+    "triggers": [
+      "^open\\s+(?:a\\s+)?new\\s+tab\\s+(?:to|with|at|for)\\s+(?:https?://)?([\\w.-]+\\.[\\w]+\\S*?)\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "t"]},
+      {"action": "wait", "seconds": 0.8},
+      {"action": "type", "text": "http://{1}"},
+      {"action": "wait", "seconds": 0.3},
+      {"action": "hotkey", "keys": ["Delete"]},
+      {"action": "wait", "seconds": 0.2},
+      {"action": "hotkey", "keys": ["Return"]},
+      {"action": "wait", "seconds": 3}
+    ]
+  },
+
+  "close_all_tabs": {
+    "description": "Close all tabs except the current one",
+    "triggers": ["close\\s+all\\s+(?:the\\s+)?(?:other\\s+)?tabs", "close\\s+(?:the\\s+)?other\\s+tabs"],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "shift", "w"]},
+      {"action": "wait", "seconds": 2}
+    ]
+  },
+
+  "close_tab": {
+    "description": "Close the current browser tab",
+    "triggers": ["close\\s+(?:the\\s+)?(?:current\\s+)?tab"],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "w"]},
+      {"action": "wait", "seconds": 0.5}
+    ]
+  },
+
+  "switch_tab": {
+    "description": "Switch to a specific tab by number",
+    "triggers": ["switch\\s+to\\s+tab\\s+(\\d)"],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "{1}"]},
+      {"action": "wait", "seconds": 0.3}
+    ]
+  },
+
+  "next_tab": {
+    "description": "Switch to the next tab",
+    "triggers": ["(?:next|right)\\s+tab"],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "Tab"]},
+      {"action": "wait", "seconds": 0.3}
+    ]
+  },
+
+  "prev_tab": {
+    "description": "Switch to the previous tab",
+    "triggers": ["(?:prev|previous|left)\\s+tab"],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "shift", "Tab"]},
+      {"action": "wait", "seconds": 0.3}
+    ]
+  },
+
+  "reopen_tab": {
+    "description": "Reopen the last closed tab",
+    "triggers": ["reopen\\s+(?:the\\s+)?(?:last\\s+)?(?:closed\\s+)?tab", "undo\\s+close\\s+tab"],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "shift", "t"]},
+      {"action": "wait", "seconds": 1}
+    ]
+  },
+
+  "go_back": {
+    "description": "Go back one page in browser history",
+    "triggers": ["^go\\s+back\\s*$", "^back\\s*$", "^previous\\s+page\\s*$"],
+    "steps": [
+      {"action": "hotkey", "keys": ["alt", "Left"]},
+      {"action": "wait", "seconds": 1}
+    ]
+  },
+
+  "go_forward": {
+    "description": "Go forward one page in browser history",
+    "triggers": ["^go\\s+forward\\s*$", "^forward\\s*$"],
+    "steps": [
+      {"action": "hotkey", "keys": ["alt", "Right"]},
+      {"action": "wait", "seconds": 1}
+    ]
+  },
+
+  "refresh_page": {
+    "description": "Refresh the current page",
+    "triggers": ["refresh\\s+(?:the\\s+)?page", "^reload\\s*$", "^refresh\\s*$"],
+    "steps": [
+      {"action": "hotkey", "keys": ["F5"]},
+      {"action": "wait", "seconds": 2}
+    ]
+  },
+
+  "scroll_down": {
+    "description": "Scroll down the page",
+    "triggers": ["scroll\\s+down", "page\\s+down"],
+    "steps": [
+      {"action": "hotkey", "keys": ["Page_Down"]},
+      {"action": "wait", "seconds": 0.5}
+    ]
+  },
+
+  "scroll_up": {
+    "description": "Scroll up the page",
+    "triggers": ["scroll\\s+up", "page\\s+up"],
+    "steps": [
+      {"action": "hotkey", "keys": ["Page_Up"]},
+      {"action": "wait", "seconds": 0.5}
+    ]
+  },
+
+  "scroll_to_top": {
+    "description": "Scroll to the top of the page",
+    "triggers": ["scroll\\s+to\\s+(?:the\\s+)?top", "^top\\s+of\\s+page$"],
+    "steps": [
+      {"action": "hotkey", "keys": ["Home"]},
+      {"action": "wait", "seconds": 0.5}
+    ]
+  },
+
+  "scroll_to_bottom": {
+    "description": "Scroll to the bottom of the page",
+    "triggers": ["scroll\\s+to\\s+(?:the\\s+)?bottom", "^bottom\\s+of\\s+page$"],
+    "steps": [
+      {"action": "hotkey", "keys": ["End"]},
+      {"action": "wait", "seconds": 0.5}
+    ]
+  },
+
+  "find_on_page": {
+    "description": "Open find bar and search for text on the page",
+    "triggers": ["find\\s+[\"']?(.+?)[\"']?\\s+on\\s+(?:the\\s+)?page", "search\\s+(?:for\\s+)?[\"']?(.+?)[\"']?\\s+on\\s+(?:the\\s+)?page"],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "f"]},
+      {"action": "wait", "seconds": 0.5},
+      {"action": "type", "text": "{1}"},
+      {"action": "wait", "seconds": 0.3},
+      {"action": "hotkey", "keys": ["Return"]},
+      {"action": "wait", "seconds": 0.5}
+    ]
+  },
+
+  "close_find_bar": {
+    "description": "Close the find bar",
+    "triggers": ["close\\s+(?:the\\s+)?find", "close\\s+(?:the\\s+)?search\\s+bar"],
+    "steps": [
+      {"action": "hotkey", "keys": ["Escape"]},
+      {"action": "wait", "seconds": 0.3}
+    ]
+  },
+
+  "fullscreen": {
+    "description": "Toggle fullscreen mode",
+    "triggers": ["toggle\\s+full\\s*screen", "^full\\s*screen\\s*$", "enter\\s+full\\s*screen", "exit\\s+full\\s*screen"],
+    "steps": [
+      {"action": "hotkey", "keys": ["F11"]},
+      {"action": "wait", "seconds": 0.5}
+    ]
+  },
+
+  "zoom_in": {
+    "description": "Zoom in on the page",
+    "triggers": ["zoom\\s+in"],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "plus"]},
+      {"action": "wait", "seconds": 0.3}
+    ]
+  },
+
+  "zoom_out": {
+    "description": "Zoom out on the page",
+    "triggers": ["zoom\\s+out"],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "minus"]},
+      {"action": "wait", "seconds": 0.3}
+    ]
+  },
+
+  "zoom_reset": {
+    "description": "Reset zoom to 100%",
+    "triggers": ["reset\\s+zoom", "zoom\\s+reset", "zoom\\s+100"],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "0"]},
+      {"action": "wait", "seconds": 0.3}
+    ]
+  },
+
+  "select_all": {
+    "description": "Select all text on the page or in a field",
+    "triggers": ["select\\s+all"],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "a"]},
+      {"action": "wait", "seconds": 0.2}
+    ]
+  },
+
+  "copy": {
+    "description": "Copy selected text",
+    "triggers": ["^copy\\s*$", "copy\\s+(?:the\\s+)?(?:selected\\s+)?text"],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "c"]},
+      {"action": "wait", "seconds": 0.2}
+    ]
+  },
+
+  "paste": {
+    "description": "Paste clipboard contents",
+    "triggers": ["^paste\\s*$", "paste\\s+(?:the\\s+)?text"],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "v"]},
+      {"action": "wait", "seconds": 0.2}
+    ]
+  },
+
+  "undo": {
+    "description": "Undo last action",
+    "triggers": ["^undo\\s*$"],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "z"]},
+      {"action": "wait", "seconds": 0.2}
+    ]
+  },
+
+  "dismiss_popup": {
+    "description": "Dismiss a popup, dialog, or notification",
+    "triggers": ["dismiss\\s+(?:the\\s+)?popup", "close\\s+(?:the\\s+)?popup", "close\\s+(?:the\\s+)?dialog", "dismiss\\s+(?:the\\s+)?notification"],
+    "steps": [
+      {"action": "hotkey", "keys": ["Escape"]},
+      {"action": "wait", "seconds": 0.5}
+    ]
+  },
+
+  "google_search": {
+    "description": "Navigate to Google and search for something",
+    "triggers": ["(?:google|search\\s+(?:for|google))\\s+[\"']?(.+?)[\"']?\\s*$"],
+    "steps": [
+      {"action": "hotkey", "keys": ["Escape"]},
+      {"action": "wait", "seconds": 0.3},
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "wait", "seconds": 0.5},
+      {"action": "hotkey", "keys": ["ctrl", "a"]},
+      {"action": "wait", "seconds": 0.2},
+      {"action": "type", "text": "https://www.google.com/search?q={1}"},
+      {"action": "wait", "seconds": 0.3},
+      {"action": "hotkey", "keys": ["Return"]},
+      {"action": "wait", "seconds": 3}
+    ]
+  },
+
+  "youtube_search": {
+    "description": "Navigate to YouTube and search for something",
+    "triggers": ["(?:youtube|search\\s+youtube)\\s+(?:for\\s+)?[\"']?(.+?)[\"']?\\s*$"],
+    "steps": [
+      {"action": "hotkey", "keys": ["Escape"]},
+      {"action": "wait", "seconds": 0.3},
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "wait", "seconds": 0.5},
+      {"action": "hotkey", "keys": ["ctrl", "a"]},
+      {"action": "wait", "seconds": 0.2},
+      {"action": "type", "text": "https://www.youtube.com/results?search_query={1}"},
+      {"action": "wait", "seconds": 0.3},
+      {"action": "hotkey", "keys": ["Return"]},
+      {"action": "wait", "seconds": 3}
+    ]
+  }
+}
