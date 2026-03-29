@@ -1,0 +1,78 @@
+{
+  "navigate_to_page": {
+    "description": "Navigate to any Guaardvark page by URL",
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "l"], "reasoning": "Focus the address bar"},
+      {"action": "type", "text": "localhost:5175/{page}", "reasoning": "Type the page URL"},
+      {"action": "hotkey", "keys": ["Return"], "reasoning": "Navigate to the page"},
+      {"action": "done", "reasoning": "Page loaded successfully"}
+    ]
+  },
+  "send_chat_message": {
+    "description": "Type and send a message in the chat",
+    "prerequisite": "Must be on localhost:5175/chat",
+    "steps": [
+      {"action": "click", "target_description": "the text input field at the bottom of the chat page", "reasoning": "Click to focus the chat input field at y=660"},
+      {"action": "type", "text": "{message}", "reasoning": "Type the message"},
+      {"action": "hotkey", "keys": ["Return"], "reasoning": "Send the message"},
+      {"action": "done", "reasoning": "Message sent, response should appear"}
+    ]
+  },
+  "open_past_chats": {
+    "description": "Open the past chats modal and select a chat",
+    "prerequisite": "Must be on localhost:5175/chat",
+    "steps": [
+      {"action": "click", "target_description": "the clock/history icon in the top bar of the chat page", "reasoning": "Open the past chats modal"},
+      {"action": "click", "target_description": "a chat session in the modal list", "reasoning": "Select a past chat"},
+      {"action": "done", "reasoning": "Chat history loaded"}
+    ]
+  },
+  "check_narration": {
+    "description": "Test the narration feature on a chat message",
+    "prerequisite": "Must be on localhost:5175/chat with at least one assistant message visible",
+    "steps": [
+      {"action": "click", "target_description": "the speaker/narrate icon on an assistant message", "reasoning": "Click narrate to generate audio"},
+      {"action": "done", "reasoning": "Audio player should appear below the message"}
+    ]
+  },
+  "navigate_to_settings": {
+    "description": "Go to the settings page",
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "l"], "reasoning": "Focus address bar"},
+      {"action": "type", "text": "localhost:5175/settings", "reasoning": "Type settings URL"},
+      {"action": "hotkey", "keys": ["Return"], "reasoning": "Navigate"},
+      {"action": "done", "reasoning": "Settings page loaded with configuration cards"}
+    ]
+  },
+  "close_popup": {
+    "description": "Close a popup or modal dialog",
+    "steps": [
+      {"action": "hotkey", "keys": ["Escape"], "reasoning": "Press Escape to close the popup/modal"},
+      {"action": "done", "reasoning": "Popup closed"}
+    ]
+  },
+  "youtube_search_and_watch": {
+    "description": "Search YouTube and watch a video",
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "l"], "reasoning": "Focus address bar"},
+      {"action": "type", "text": "youtube.com", "reasoning": "Type YouTube URL"},
+      {"action": "hotkey", "keys": ["Return"], "reasoning": "Navigate to YouTube"},
+      {"action": "click", "target_description": "the search box at the top center of the YouTube page", "reasoning": "Click the search box to type a query"},
+      {"action": "type", "text": "{search_query}", "reasoning": "Type the search query"},
+      {"action": "hotkey", "keys": ["Return"], "reasoning": "Submit the search"},
+      {"action": "click", "target_description": "the video thumbnail or title matching the desired video", "reasoning": "Click on the video to watch it"},
+      {"action": "done", "reasoning": "Video is now playing"}
+    ]
+  },
+  "youtube_add_comment": {
+    "description": "Add a comment to a YouTube video",
+    "prerequisite": "Must be on a YouTube video page, signed in",
+    "steps": [
+      {"action": "scroll", "scroll_amount": 5, "reasoning": "Scroll down to reach the comments section below the video"},
+      {"action": "click", "target_description": "the Add a comment text field in the comments section", "reasoning": "Click the comment input box"},
+      {"action": "type", "text": "{comment_text}", "reasoning": "Type the comment"},
+      {"action": "click", "target_description": "the Comment button to submit the comment", "reasoning": "Click the Comment button to post"},
+      {"action": "done", "reasoning": "Comment posted successfully"}
+    ]
+  }
+}

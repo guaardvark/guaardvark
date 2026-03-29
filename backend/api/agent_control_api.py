@@ -107,3 +107,28 @@ def capture_and_analyze():
     except Exception as e:
         logger.error(f"Error in capture/analyze: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@agent_control_bp.route("/capture/raw", methods=["POST"])
+def capture_raw():
+    """Return a raw JPEG screenshot of the virtual display — no vision analysis."""
+    try:
+        from backend.services.local_screen_backend import LocalScreenBackend
+        from io import BytesIO
+
+        data = request.get_json() or {}
+        quality = data.get("quality", 70)
+
+        screen = LocalScreenBackend()
+        screenshot, _ = screen.capture()
+
+        buf = BytesIO()
+        screenshot.save(buf, format="JPEG", quality=quality)
+        buf.seek(0)
+
+        from flask import send_file
+        return send_file(buf, mimetype="image/jpeg")
+
+    except Exception as e:
+        logger.error(f"Error in raw capture: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
