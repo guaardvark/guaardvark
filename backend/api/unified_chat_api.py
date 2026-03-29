@@ -194,4 +194,12 @@ def abort_chat(session_id):
     """
     from backend.services.unified_chat_engine import set_abort_flag
     set_abort_flag(session_id)
+    # Also kill any running agent task
+    try:
+        from backend.services.agent_control_service import get_agent_control_service
+        service = get_agent_control_service()
+        if service._active:
+            service.kill()
+    except Exception:
+        pass
     return jsonify({"success": True, "message": f"Abort requested for {session_id}"})

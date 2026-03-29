@@ -1379,7 +1379,7 @@ def text_to_speech():
             logger.info(f"Voice API: Successfully generated speech for text: '{text[:100]}...'")
             
             return jsonify({
-                "audio_url": f"/api/voice/audio/{filename}",
+                "audio_url": f"/voice/audio/{filename}",
                 "filename": filename,
                 "text": text,
                 "voice": voice,
@@ -1555,7 +1555,7 @@ def narrate():
             logger.info(f"Narration: Complete - {sections_generated} sections, {duration_seconds}s, saved to {out_path}")
 
             return jsonify({
-                "audio_url": f"/api/voice/audio/{out_filename}",
+                "audio_url": f"/voice/audio/{out_filename}",
                 "filename": out_filename,
                 "duration_seconds": duration_seconds,
                 "sections": sections_generated,
