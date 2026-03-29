@@ -160,3 +160,5 @@ docs/classified_area_52/
 data/training/knowledge/
 data/training/screenshots/
 data/training/servo_logs/
+docs/ROADMAP.md
+data/agent/qa_sweep_report.json

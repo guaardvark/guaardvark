@@ -398,7 +398,78 @@ class BatchVideoGenerator:
                 return None
         return None
 
+    def cancel_batch(self, batch_id: str) -> bool:
+        """Cancel a running or stale batch by updating its status."""
+        # Check in-memory active batches first
+        with self.batch_lock:
+            status = self.active_batches.get(batch_id)
+            if status and status.status in ("running", "pending", "processing"):
+                status.status = "cancelled"
+                status.end_time = datetime.now()
+                self._save_metadata(status)
+                logger.info(f"Cancelled active batch {batch_id}")
+                return True
+
+        # Fall back to on-disk metadata
+        batch_dir = self._get_batch_dir(batch_id)
+        metadata_file = batch_dir / "batch_metadata.json"
+        if metadata_file.exists():
+            try:
+                with open(metadata_file, "r") as f:
+                    data = json.load(f)
+                if data.get("status") in ("running", "pending", "processing"):
+                    data["status"] = "cancelled"
+                    data["end_time"] = datetime.now().isoformat()
+                    if not data.get("error"):
+                        data["error"] = "Cancelled by user"
+                    with open(metadata_file, "w") as f:
+                        json.dump(data, f, indent=2)
+                    logger.info(f"Cancelled on-disk batch {batch_id}")
+                    return True
+            except Exception as e:
+                logger.error(f"Failed to cancel batch {batch_id}: {e}")
+                return False
+        return False
+
+    def _cleanup_stale_batches(self) -> None:
+        """Mark batches stuck in running/pending/processing as cancelled.
+
+        Called during list_batches to auto-recover from crashes/restarts.
+        Only affects batches that are NOT actively tracked in memory.
+        """
+        try:
+            for batch_dir in self.base_output_dir.iterdir():
+                if not batch_dir.is_dir():
+                    continue
+                metadata_file = batch_dir / "batch_metadata.json"
+                if not metadata_file.exists():
+                    continue
+                batch_id = batch_dir.name
+
+                # Skip batches that are actively tracked in memory
+                with self.batch_lock:
+                    if batch_id in self.active_batches:
+                        continue
+
+                try:
+                    with open(metadata_file, "r") as f:
+                        data = json.load(f)
+                    if data.get("status") in ("running", "pending", "processing"):
+                        data["status"] = "cancelled"
+                        data["end_time"] = datetime.now().isoformat()
+                        data["error"] = "Interrupted by system restart"
+                        with open(metadata_file, "w") as f:
+                            json.dump(data, f, indent=2)
+                        logger.info(f"Auto-cancelled stale batch {batch_id}")
+                except Exception as e:
+                    logger.warning(f"Failed to cleanup stale batch {batch_id}: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to scan for stale batches: {e}")
+
     def list_batches(self) -> List[Dict]:
+        # Auto-cleanup stale batches from previous runs
+        self._cleanup_stale_batches()
+
         batches = []
         try:
             for batch_dir in self.base_output_dir.iterdir():

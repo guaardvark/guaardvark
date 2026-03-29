@@ -984,7 +984,12 @@ class ComfyUIVideoGenerator:
         if request.enhance_prompt and request.prompt:
             try:
                 from backend.utils.prompt_enhancer import enhance_video_prompt, get_default_negative_prompt
-                request.prompt = enhance_video_prompt(request.prompt, style=request.prompt_style)
+                request.prompt = enhance_video_prompt(
+                    request.prompt,
+                    style=request.prompt_style,
+                    width=request.width,
+                    height=request.height,
+                )
                 if not request.negative_prompt:
                     request.negative_prompt = get_default_negative_prompt(style=request.prompt_style)
                 logger.info(f"Prompt enhanced (style={request.prompt_style}): {request.prompt[:120]}...")

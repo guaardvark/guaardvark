@@ -395,7 +395,7 @@ def _generate_backup_filename(backup_type: str, name: str | None = None) -> str:
     return backup_name
 
 
-def create_data_backup(components: List[str] | None = None, name: str | None = None) -> str:
+def create_data_backup(components: List[str] | None = None, name: str | None = None, include_plugins: bool = False) -> str:
     """Create a data backup ZIP file and return its path.
 
     Backs up database components, uploaded files, state files, and context data.
@@ -405,6 +405,7 @@ def create_data_backup(components: List[str] | None = None, name: str | None = N
     Args:
         components: Optional list of components to include (None = all)
         name: Optional custom name for the backup file
+        include_plugins: If True, include the plugins/ directory (excluding models, datasets, etc.)
     """
     if components is None:
         components = list(_ALL_COMPONENTS)
@@ -523,6 +524,21 @@ def create_data_backup(components: List[str] | None = None, name: str | None = N
                     except Exception as e:
                         logger.warning("Failed to copy data directory %s: %s", data_dir, e)
 
+            # Copy plugins directory if requested
+            if include_plugins:
+                plugins_src = project_root / "plugins"
+                if plugins_src.exists() and plugins_src.is_dir():
+                    plugins_dest = tmp / "plugins"
+                    try:
+                        shutil.copytree(
+                            plugins_src, plugins_dest,
+                            ignore=_create_plugin_ignore_function(),
+                        )
+                        data["plugins_included"] = True
+                        logger.info("Plugins directory included in data backup")
+                    except Exception as e:
+                        logger.warning("Failed to copy plugins directory: %s", e)
+
             # Create PostgreSQL database dump
             pg_dump_path = tmp / "data" / "database" / "guaardvark.pgdump"
             if _create_pg_dump(pg_dump_path):
@@ -544,6 +560,10 @@ def create_data_backup(components: List[str] | None = None, name: str | None = N
         return str(zip_path)
     finally:
         if app_created:
+            try:
+                models.db.session.remove()
+            except Exception:
+                pass
             ctx.pop()
 
 
@@ -955,6 +975,10 @@ The startup script handles everything: dependencies, database, frontend build, a
         
     finally:
         if app_created:
+            try:
+                models.db.session.remove()
+            except Exception:
+                pass
             ctx.pop()
 
 
@@ -1334,6 +1358,10 @@ To restore existing data, use a separate Guaardvark data backup.
         
     finally:
         if app_created:
+            try:
+                models.db.session.remove()
+            except Exception:
+                pass
             ctx.pop()
 
 
@@ -1757,6 +1785,10 @@ def restore_backup(zip_file: str) -> Dict[str, int]:
                 )
     finally:
         if app_created:
+            try:
+                models.db.session.remove()
+            except Exception:
+                pass
             ctx.pop()
     return summary
 
