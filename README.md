@@ -2,7 +2,7 @@
 
 **Version 2.5.2** · [guaardvark.com](https://guaardvark.com)
 
-A self-hosted AI platform that runs entirely on your hardware. No cloud. No API keys. Your data never leaves your machine.
+The self-hosted AI workstation. Agents that see your screen and use your apps. RAG that reads your documents. Image and video generation on your GPU. Voice interface. Self-improving code. All running locally — your data never leaves your machine.
 
 <p align="center">
   <img src="docs/screenshots/guaardvark-demo.gif" alt="Guaardvark Demo" width="100%">
@@ -13,149 +13,140 @@ A self-hosted AI platform that runs entirely on your hardware. No cloud. No API 
 [![GitHub stars](https://img.shields.io/github/stars/guaardvark/guaardvark?style=social)](https://github.com/guaardvark/guaardvark/stargazers)
 [![GitHub issues](https://img.shields.io/github/issues/guaardvark/guaardvark)](https://github.com/guaardvark/guaardvark/issues)
 [![Sponsor](https://img.shields.io/badge/Sponsor-Guaardvark-ff69b4?logo=github-sponsors)](https://github.com/sponsors/guaardvark)
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buy-me-a-coffee)](https://buymeacoffee.com/guaardvark)
-
-Chat with your documents using RAG. Generate images and video with state-of-the-art models. Manage files in a desktop-style UI. Run autonomous code agents. Talk to your AI with voice. Self-improve with automated testing. Sync across machines. All through one interface, backed by local LLMs via Ollama.
 
 ```bash
-git clone https://github.com/guaardvark/guaardvark.git
-cd guaardvark
-./start.sh
+git clone https://github.com/guaardvark/guaardvark.git && cd guaardvark && ./start.sh
 ```
 
-> That's it. One command installs dependencies, provisions the database, builds the frontend, and starts all services.
+One command. Installs everything. Starts all services. Done.
+
+### AI-Generated Film — Made Entirely with Guaardvark
+
+Every frame generated on a single desktop GPU. No cloud. No stock footage. No API keys.
+
+[![Gotham Rising — AI-Generated Short Film](https://img.youtube.com/vi/8MdtM3HurJo/maxresdefault.jpg)](https://www.youtube.com/watch?v=8MdtM3HurJo)
 
 ---
 
-## Why Guaardvark
+## What Makes This Different
 
-- **Fully local** — All AI processing runs on your hardware via Ollama. No cloud, no API keys, no data leaving your machine.
-- **One-command launch** — `./start.sh` handles everything: PostgreSQL, Redis, Python, Node, migrations, builds. First run takes a few minutes; after that, it's instant.
-- **Self-improving** — Runs its own test suite, identifies failures, and dispatches an AI agent to fix them autonomously.
-- **Multi-machine sync** — The Interconnector links instances into a family that shares learnings, syncs code, and coordinates models.
-- **Desktop-style file manager** — Drag-and-drop, folder windows, right-click menus, properties panels — feels like a native OS in the browser.
-- **Swap models at runtime** — Switch LLMs and embedding models on the fly through the UI. GPU memory is managed automatically.
+### Agents That Can See and Act
+
+Guaardvark agents don't just generate text — they control a real virtual desktop. They see the screen through vision models, move the mouse, click buttons, type text, navigate browsers, and report what they find. 25+ deterministic action recipes for instant browser control, with a unified vision brain that sees and decides in a single inference call.
+
+| Agent Control | Agent Tools |
+|:-:|:-:|
+| ![Agents](docs/screenshots/agents-v2.jpg) | ![Tools](docs/screenshots/tools-v2.jpg) |
+
+- **Unified vision brain** — qwen3-vl sees the screen and decides the next action in one call (0.5s per step)
+- **Recipe engine** — 25 deterministic browser actions (navigate, tabs, scroll, search, find) execute instantly from a JSON library
+- **Obstacle detection** — automatically handles popups, permission dialogs, and notification bars with thinking model escalation
+- **Self-QA sweep** — agent navigates every page of its own UI and reports what's working and what's broken
+- **Live agent monitor** — real-time SEE/THINK/ACT transcript of every decision the agent makes
+- **Integrated screen viewer** — watch the agent's virtual display live from any page, with popup window mode
+
+### Self-Improving AI
+
+The system runs its own test suite, identifies failures, dispatches an AI agent to read the code and fix the bugs, verifies the fix, and broadcasts the learning to other instances. No human in the loop.
+
+- **Three modes** — Scheduled (every 6 hours), Reactive (triggered by repeated 500 errors), Directed (manual tasks)
+- **Guardian review** — code changes are reviewed before applying
+- **Verification loop** — re-runs tests after every fix to confirm it worked
+- **Pending fixes queue** — stage, review, approve, or reject proposed changes
+- **Cross-machine learning** — fixes propagate to all connected instances via the Interconnector
+
+### Video Generation Pipeline
+
+State-of-the-art video generation running entirely on your GPU. No cloud APIs, no per-minute billing, no content restrictions.
+
+| Video Generation | Plugin System |
+|:-:|:-:|
+| ![Video Gen](docs/screenshots/video-gen-v2.jpg) | ![Plugins](docs/screenshots/plugins-v2.jpg) |
+
+- **Wan2.2 14B MoE** — two-pass HighNoise/LowNoise pipeline for cinematic quality
+- **CogVideoX** — 2B and 5B parameter models for fast generation
+- **Quality tiers** — Draft (raw), Standard (2x FPS via RIFE 4.9), Cinema (2x FPS + 2x Real-ESRGAN upscale)
+- **Text-to-Video and Image-to-Video** — generate from prompts or animate still images
+- **Prompt enhancement** — five styles (Cinematic, Realistic, Artistic, Anime, None)
+- **Batch processing** — queue multiple videos with background Celery workers
+- **ComfyUI integration** — one-click launch to the node editor for custom workflows
+
+### RAG That Actually Works
+
+Chat grounded in your documents. Upload files, build a knowledge base, and ask questions. The AI reads and understands your content — not just keyword matching.
+
+| Chat with RAG | Document Manager |
+|:-:|:-:|
+| ![Chat](docs/screenshots/chat-v2.jpg) | ![Documents](docs/screenshots/documents-v2.jpg) |
+
+- **Hybrid retrieval** — BM25 keyword + vector semantic search combined
+- **Smart chunking** — code files get AST-informed chunking, prose gets semantic splitting
+- **Multiple embedding models** — switch between lightweight (300M) and high-quality (4B+) via UI
+- **RAG Autoresearch** — autonomous optimization loop that experiments with parameters, keeps improvements, reverts regressions
+- **Entity extraction** — automatic entity and relationship indexing
+- **Per-project isolation** — each project has its own knowledge base and chat context
+
+---
+
+## Full Feature Set
+
+### AI & Chat
+- Runtime model switching — swap LLMs through the UI, GPU memory managed automatically
+- Streaming responses via Socket.IO with conversational fast-path (~700ms)
+- Voice interface — Whisper.cpp STT + Piper TTS with narration and voiceover
+- Tool call transparency — see every tool call, parameters, results, and timing inline in chat
+- Session history with search, grouping, previews, and persistent tool call data
+
+### Image Generation
+- Stable Diffusion via Diffusers library — batch queue, auto-registration to file system
+- Image library with thumbnail grid, lightbox preview, keyboard navigation, batch operations
+
+### Agent & Code Tools
+- **50 registered tools** across 10 categories — web search, browser automation, code execution, file management, media control, MCP integration
+- **9 specialized agents** — code assistant, content creator, research agent, browser automation, vision control, and more
+- **ReACT agent loop** — iterative reasoning, action, observation with tool execution guard and circuit breaker
+- **Monaco code editor** — built-in IDE with AI-powered explain, fix, and generate via right-click context menu
+- **Self-demo system** — automated feature tour with screen recording and TTS narration
+
+### File & Document Management
+- Desktop-style UI — draggable folder icons, resizable windows, right-click context menus
+- Drag-and-drop upload preserving folder structures
+- Folder properties linked to clients, projects, and websites
+
+### Multi-Machine Sync (Interconnector)
+- Connect multiple instances into a family that shares code, learnings, and model configs
+- Master/client architecture with approval workflows and pre-sync backups
+
+### Plugin System & GPU Management
+- Ollama, ComfyUI, GPU Embedding run as managed plugins with health checks and log viewers
+- Live VRAM monitoring with GPU conflict detection
+- Model download management from HuggingFace with progress tracking
+
+### System
+- Dashboard with live status cards for model health, GPU, self-improvement, RAG
+- Celery background task system with live progress
+- Six built-in themes
+- CLI with interactive REPL — `guaardvark status`, `guaardvark chat`, `guaardvark search`
 
 ---
 
 ## Screenshots
 
-| Dashboard | Chat with RAG |
+| Dashboard | Image Generation |
 |:-:|:-:|
-| ![Dashboard](docs/screenshots/dashboard-layout-a.png) | ![Chat](docs/screenshots/dashboard-cards-chat.png) |
+| ![Dashboard](docs/screenshots/dashboard-v2.jpg) | ![Images](docs/screenshots/images-v2.jpg) |
 
-| Video Generation | Plugin System |
+| Code Editor | Projects |
 |:-:|:-:|
-| ![Video Gen](docs/screenshots/video-gen-page.png) | ![Plugins](docs/screenshots/plugins-page.png) |
+| ![Code Editor](docs/screenshots/code-editor-v2.jpg) | ![Projects](docs/screenshots/projects-v2.jpg) |
 
-| Document Manager | Image Editor |
+| Rules & Prompts | Settings |
 |:-:|:-:|
-| ![Documents](docs/screenshots/documents-page-001.png) | ![Image Editor](docs/screenshots/image-editor.png) |
+| ![Rules](docs/screenshots/rules-v2.jpg) | ![Settings](docs/screenshots/settings-v2.jpg) |
 
-| Image Generation | Media Gallery |
+| Clients | Notes |
 |:-:|:-:|
-| ![Image Gen](docs/screenshots/image-gen-page.png) | ![Gallery](docs/screenshots/image-gallery-page.png) |
-
-| Agents & Chat | Agent Tools |
-|:-:|:-:|
-| ![Agents](docs/screenshots/agents-page-duck-chat.png) | ![Tools](docs/screenshots/agent-tools-page.png) |
-
-| Rules & Prompts | Settings & Models |
-|:-:|:-:|
-| ![Rules](docs/screenshots/rules-page.png) | ![Settings](docs/screenshots/settings-page-models.png) |
-
-| Websites | Voice Settings |
-|:-:|:-:|
-| ![Websites](docs/screenshots/websites-page.png) | ![Voice](docs/screenshots/voice-settings.png) |
-
-| Job Scheduler | System Dashboard |
-|:-:|:-:|
-| ![Jobs](docs/screenshots/job-scheduler-page.png) | ![System](docs/screenshots/system-dashboard.png) |
-
-| Interconnector | Video Settings |
-|:-:|:-:|
-| ![Interconnector](docs/screenshots/interconnector-001.png) | ![Video Settings](docs/screenshots/video-settings.png) |
-
-| Hacker Theme | Vader Theme |
-|:-:|:-:|
-| ![Hacker](docs/screenshots/hacker-theme.png) | ![Vader](docs/screenshots/vader-theme.png) |
-
----
-
-## Features
-
-### AI & Chat
-- **Conversational AI with RAG** — Chat grounded in your documents via hybrid BM25 + vector retrieval with per-project context isolation
-- **Runtime model switching** — Change LLMs and embedding models through the UI without restarting. Old model unloaded before new one loads (no OOM crashes)
-- **Streaming responses** — Real-time token streaming via Socket.IO with conversational fast-path (~700ms for simple messages)
-- **KV cache optimization** — System prompt locked in Ollama KV cache between turns for faster follow-up responses
-- **Voice interface** — Speech-to-text (Whisper.cpp) + text-to-speech (Piper TTS) with real-time streaming
-- **Session isolation** — Per-project chat sessions with persistent history
-
-### RAG & Indexing
-- **Hybrid retrieval** — BM25 keyword + vector semantic search combined for best-of-both retrieval
-- **Multiple embedding models** — Switch between lightweight (300M) and high-quality (4B+) embedding models via UI
-- **Smart chunking** — Content-aware strategies: code files get AST-informed chunking, prose gets semantic splitting
-- **Entity extraction** — Automatic entity and relationship indexing for structured knowledge
-- **RAG Autoresearch** — Autonomous RAG optimization loop: evaluates retrieval quality with LLM-as-judge scoring, runs experiments to improve parameters, keeps improvements and reverts regressions
-
-### Self-Improvement
-- **Automated self-check** — Runs test suite, parses failures, dispatches AI agent to read code and fix bugs
-- **Three modes** — Scheduled (periodic), Reactive (error-triggered), Directed (user-submitted tasks)
-- **Live progress** — Real-time Socket.IO progress events with stage tracking (testing, analyzing, fixing, complete)
-- **Codebase protection** — Lock switch prevents self-improvement from modifying code during development
-- **Cross-machine learning** — Fixes are broadcast to other Guaardvark instances via the Interconnector
-
-### Video Generation
-- **State-of-the-art models** — Wan2.2 14B MoE (two-pass HighNoise/LowNoise), CogVideoX 2B/5B, Stable Video Diffusion — all running locally via ComfyUI
-- **Text-to-Video and Image-to-Video** — generate video from text prompts or animate still images with motion direction control
-- **Quality tiers** — Draft (raw output), Standard (2x FPS interpolation via RIFE 4.9), Cinema (2x FPS + 2x Real-ESRGAN upscaling)
-- **Prompt enhancement** — five styles (Cinematic, Realistic, Artistic, Anime, None) automatically enrich prompts for better output
-- **Advanced Editor** — one-click launch to ComfyUI's node editor, themed to match the Guaardvark UI, for full workflow customization
-- **Model management** — download Wan2.2 GGUF checkpoints, CogVideoX weights, RIFE, and Real-ESRGAN models from HuggingFace with real-time progress bars
-
-### Image Generation
-- **Stable Diffusion** via Diffusers library — runs directly on your GPU with batch queue management
-- **Auto-registration** — generated images are automatically added to the Documents/Files system under `/Images/`
-- **Image library** — dedicated page with thumbnail grid, lightbox preview, keyboard navigation, batch operations
-
-### Content Pipelines
-- **Bulk content pipelines** — CSV/XML generation for content at scale
-- **WordPress integration** — Pull content from WordPress sites, generate at scale, sync back
-
-### Agent & Code Tools
-- **ReACT agent loop** — Reads, writes, executes, and verifies code autonomously with iterative refinement
-- **Tool execution guard** — Circuit breaker (2 failures blocks tool), duplicate call detection, fallback suggestions
-- **Code editor** — Monaco Editor integration with syntax highlighting, multi-file editing
-- **Browser automation** — Playwright-powered: navigate, click, fill forms, screenshot, extract content
-- **Desktop automation** — pyautogui for mouse, keyboard, screen capture (opt-in, disabled by default)
-- **MCP integration** — Connect to any MCP-compatible tool server
-
-### File & Document Management
-- **Desktop-metaphor UI** — Draggable folder icons, resizable windows, snap-to-grid, right-click context menus
-- **Folder properties** — Link folders to clients, projects, and websites with cascading properties to all children
-- **Code repository detection** — Mark folders as code repos with automatic language/framework detection
-- **Drag-and-drop upload** — Drop files or entire folder trees; nested folder structures are preserved
-- **Image library** — Thumbnail grids, lightbox preview with keyboard navigation, batch operations
-
-### Multi-Machine (Interconnector)
-- **Family sync** — Connect multiple Guaardvark instances running on different machines
-- **Code sync** — Push/pull codebase changes between instances
-- **Learning broadcast** — Self-improvement fixes propagate to all family members
-- **Node management** — Master/client architecture with approval workflows
-
-### Plugin System & GPU Management
-- **Plugin-managed GPU services** — Ollama, ComfyUI, and GPU Embedding run as managed plugins with start/stop controls, health checks, and per-plugin log viewers
-- **VRAM budget bar** — live nvidia-smi monitoring shows real-time VRAM usage, GPU utilization %, temperature, and per-plugin estimated allocation
-- **GPU conflict detection** — exclusive-access plugins (Ollama vs ComfyUI) are auto-switched to prevent VRAM collisions
-- **Model download management** — VideoModelsModal, ImageModelsModal, and VoiceModelsModal let you download models from HuggingFace with real-time progress tracking, accessible from Settings
-
-### System
-- **Dashboard** — Live status cards for model health, self-improvement, RAG autoresearch, GPU resources
-- **Celery task system** — Background processing for long-running operations with live progress tracking
-- **Four built-in themes** — Default, Musk, Hacker, Vader (all dark) with accent-colored UI
-- **Profile customization** — Per-instance nickname and avatar image
-- **CLI** — Full platform access via terminal with interactive REPL
+| ![Clients](docs/screenshots/clients-v2.jpg) | ![Notes](docs/screenshots/notes-v2.jpg) |
 
 ---
 
@@ -167,7 +158,7 @@ cd guaardvark
 ./start.sh
 ```
 
-The startup script handles everything on first run: Python venv, Node dependencies, PostgreSQL, Redis, Whisper.cpp, database migrations, frontend build, and all services. First run requires your system password once (to set up PostgreSQL). After that, launches are instant.
+First run handles everything: Python venv, Node dependencies, PostgreSQL, Redis, Whisper.cpp, database migrations, frontend build, and all services. Requires your system password once for PostgreSQL setup.
 
 | Service | URL |
 |---------|-----|
@@ -177,10 +168,8 @@ The startup script handles everything on first run: Python venv, Node dependenci
 
 ```bash
 ./start.sh                    # Full startup with health checks
-./start.sh --fast             # Skip dependency checks and builds
-./start.sh --test             # Comprehensive health diagnostics
-./start.sh --skip-migrations  # Skip migration pre-flight
-./start.sh --no-voice         # Skip voice API health check
+./start.sh --fast             # Skip dependency checks
+./start.sh --test             # Health diagnostics
 ./stop.sh                     # Stop all services
 ```
 
@@ -190,196 +179,62 @@ The startup script handles everything on first run: Python venv, Node dependenci
 
 | Dependency | Version | Notes |
 |-----------|---------|-------|
-| Python | 3.12+ | Backend runtime |
+| Python | 3.12+ | Backend |
 | Node.js | 20+ | Frontend build |
-| PostgreSQL | 14+ | Auto-installed by `start.sh` |
-| Redis | 5.0+ | Auto-installed by `start.sh` |
-| FFmpeg | any | Auto-installed for voice processing |
+| PostgreSQL | 14+ | Auto-installed |
+| Redis | 5.0+ | Auto-installed |
 | Ollama | latest | Local LLM inference |
-| CUDA GPU | — | Optional; accelerates generation and embeddings |
-| ComfyUI | latest | Auto-managed plugin for video/image generation |
-
-**Recommended hardware:**
-- 16GB+ RAM
-- NVIDIA GPU with 16GB VRAM (recommended for Wan2.2 video generation; 8GB minimum for image generation and smaller models)
-- SSD for vector store performance
-
----
-
-## Technology Stack
-
-**Backend:** Flask 3.0 · SQLAlchemy + PostgreSQL · Celery + Redis · LlamaIndex + Ollama · PyTorch · Diffusers · ComfyUI (Wan2.2, CogVideoX, RIFE, Real-ESRGAN) · Whisper.cpp · Piper TTS · Ariadne (GraphQL)
-
-**Frontend:** React 18 · Vite · Material-UI v5 · Zustand · Apollo Client · Monaco Editor · Socket.IO
-
-**CLI:** Typer · Rich · httpx · python-socketio
+| CUDA GPU | 8GB+ VRAM | 16GB recommended for video generation |
 
 ---
 
 ## Architecture
 
 ```
-Browser UI / guaardvark CLI
-        | HTTP + WebSocket
-        v
-Flask Application (port 5000)
-  |-- 68 REST API blueprints
-  |-- GraphQL (Ariadne)
-  \-- Socket.IO (real-time streaming)
-        |
-  Service Layer (48 modules)
-  |-- Agent Executor (ReACT loop)
-  |-- RAG Pipeline (LlamaIndex)
-  |-- Self-Improvement Engine
-  |-- Generation Services
-  \-- Interconnector Sync
-        |
-  +-----+----------------+
-  v     v                v
-PostgreSQL  Celery+Redis  Ollama/GPU
+Browser / CLI
+    | HTTP + WebSocket
+    v
+Flask (68 REST blueprints + GraphQL + Socket.IO)
+    |
+Service Layer (48 modules)
+|-- Agent Executor (ReACT loop + 50 tools + vision brain)
+|-- RAG Pipeline (LlamaIndex + hybrid retrieval)
+|-- Self-Improvement Engine (detect → fix → verify → broadcast)
+|-- Generation Services (image, video, voice, content)
+|-- Interconnector (multi-machine sync)
+\-- Agent Control (virtual screen + servo controller + recipes)
+    |
++---+---+---+
+v   v   v   v
+PostgreSQL  Redis/Celery  Ollama  Virtual Display
 ```
 
-**Key flows:**
-
-- **Chat + RAG:** Message -> intent routing -> hybrid retrieval (BM25 + vector) -> Ollama completion -> Socket.IO stream
-- **Agent task:** Message -> ReACT loop -> tool calls (read/edit/execute code) -> iterative refinement -> verification
-- **Self-check:** Trigger -> pytest run -> parse failures -> agent fix attempts -> broadcast learnings
-- **Image generation:** Prompt -> Celery job -> Diffusers GPU pipeline -> auto-register to file system
-- **Video generation:** Prompt -> enhance (style suffix) -> ComfyUI workflow (Wan2.2/CogVideoX) -> RIFE interpolation -> Real-ESRGAN upscale -> output
-- **File indexing:** Upload -> parse -> chunk (content-aware) -> embed -> LlamaIndex vector store
-
----
-
-## Project Structure
-
-```
-guaardvark/
-|-- backend/
-|   |-- api/            # 68 Flask blueprint modules
-|   |-- services/       # 48 business logic modules
-|   |-- tools/          # Agent-callable tools (code, browser, voice, web)
-|   |-- utils/          # 76 helpers (RAG, context, progress, CSV)
-|   |-- tasks/          # Celery background tasks
-|   |-- migrations/     # Alembic database migrations
-|   |-- tests/          # 60 tests (unit / integration / system)
-|   |-- app.py          # Flask application factory
-|   |-- models.py       # SQLAlchemy ORM models
-|   \-- config.py       # Configuration + path resolution
-|-- frontend/
-|   |-- src/
-|   |   |-- pages/      # 31 page components
-|   |   |-- components/ # 129 UI components
-|   |   |-- stores/     # Zustand state management
-|   |   |-- hooks/      # Custom React hooks
-|   |   \-- api/        # 39 API service modules
-|   \-- dist/           # Production build
-|-- cli/                # Guaardvark CLI
-|-- plugins/            # GPU service plugins (ollama, comfyui, gpu_embedding)
-|-- scripts/            # Utilities and system manager
-|-- data/               # Runtime data (gitignored)
-\-- start.sh / stop.sh  # Service management
-```
+**Frontend:** React 18 · Vite · Material-UI v5 · Zustand · Apollo Client · Monaco Editor · Socket.IO
 
 ---
 
 ## CLI
 
-The CLI is installed automatically by `./start.sh` and available as `guaardvark`:
-
 ```bash
-guaardvark status                      # System dashboard
-guaardvark chat "explain this codebase" # Chat with RAG streaming
-guaardvark chat --no-rag "hello"       # Direct LLM, no document context
-guaardvark search "query"              # Semantic search across documents
-guaardvark files list                  # Browse files
-guaardvark files upload report.pdf     # Upload and index a file
-guaardvark generate csv "50 blog post ideas about AI" --output ideas.csv
-guaardvark jobs watch JOB_ID           # Live job progress
-guaardvark rules list                  # List system prompts
+guaardvark status                       # System dashboard
+guaardvark chat "explain this codebase" # Chat with RAG
+guaardvark search "query"              # Semantic search
+guaardvark files upload report.pdf     # Upload and index
+guaardvark generate csv "50 blog ideas" --output ideas.csv
 guaardvark                             # Interactive REPL
 ```
 
 ---
 
-## Configuration
-
-All paths resolve relative to `GUAARDVARK_ROOT`. Key environment variables (`.env`):
-
-```bash
-GUAARDVARK_ROOT=/path/to/guaardvark   # Project root (auto-detected)
-FLASK_PORT=5000
-VITE_PORT=5173
-DATABASE_URL=postgresql://...          # Auto-generated by start.sh
-REDIS_URL=redis://localhost:6379/0
-GUAARDVARK_ENHANCED_MODE=true          # Enhanced context features
-GUAARDVARK_RAG_DEBUG=false             # RAG debug endpoints
-GUAARDVARK_SKIP_MIGRATIONS=0
-GUAARDVARK_BROWSER_AUTOMATION=true
-GUAARDVARK_DESKTOP_AUTOMATION=false    # Disabled by default (security)
-GUAARDVARK_MCP_ENABLED=true            # MCP tool server integration
-```
-
----
-
-## Database Migrations
-
-```bash
-python3 scripts/check_migrations.py          # Check status
-
-cd backend && source venv/bin/activate
-flask db migrate -m "description"            # Create migration
-flask db upgrade                             # Apply migration
-
-flask db merge heads -m "merge heads"        # Fix multiple heads
-```
-
-The startup script automatically applies pending migrations. Set `GUAARDVARK_SKIP_MIGRATIONS=1` to bypass.
-
----
-
-## Testing
-
-```bash
-python3 run_tests.py                            # All tests
-python3 -m pytest backend/tests/unit -vv       # Unit only
-python3 -m pytest backend/tests/integration -vv # Integration only
-GUAARDVARK_MODE=test python3 -m pytest backend/tests -vv
-```
-
-Results are saved to `logs/test_results/`.
-
-Test layers:
-- **Unit** — Isolated, no external dependencies
-- **Integration** — Flask test client with real database
-- **System** — Full server + Playwright end-to-end
-- **Agent** — ReACT loop and code tool validation
-
----
-
-## Logs
-
-| File | Contents |
-|------|---------|
-| `logs/backend.log` | Flask application |
-| `logs/celery_main.log` | Main Celery worker |
-| `logs/celery_training.log` | Training/GPU worker |
-| `logs/frontend.log` | Vite dev server |
-| `logs/setup.log` | Dependency installation |
-| `logs/test_results/` | Test execution output |
-
----
-
 ## Support the Project
 
-Guaardvark is built with love by a solo developer. If it's useful to you, consider supporting continued development:
+Guaardvark is built with love by a solo developer. If it's useful to you:
 
 - [Ko-fi](https://ko-fi.com/albenze) (zero fees!)
 - [GitHub Sponsors](https://github.com/sponsors/guaardvark)
 - [PayPal](https://paypal.me/albenze)
-- [Venmo](https://venmo.com/albenze)
-- [Cash App](https://cash.app/$DeanAlbenze)
 
-Star the repo if you find it interesting — it helps with visibility!
+Star the repo if you find it interesting — it helps with visibility.
 
 ---
 
