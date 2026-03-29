@@ -1,10 +1,11 @@
 
-import { Alert, Box, Paper, Typography, Tooltip, IconButton } from "@mui/material";
+import { Alert, Box, Chip, Paper, Typography, Tooltip, IconButton } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import HistoryIcon from "@mui/icons-material/History";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
-import PreviousChatsModal from "../components/chat/PreviousChatsModal";
+import ChatSessionDrawer from "../components/chat/ChatSessionDrawer";
+// AgentScreenViewer is now global in Sidebar — available on all pages
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getChatHistory, sendChatMessage } from "../api";
@@ -616,7 +617,11 @@ const ChatPage = () => {
   const handleStop = useCallback(() => {
     resourceManager.cleanupProcess(processId);
     setIsSending(false);
-  }, [resourceManager, processId]);
+    setIsStreamingMessage(false);
+    // Abort the backend chat + kill any running agent task
+    fetch(`/api/chat/unified/${sessionId}/abort`, { method: 'POST' }).catch(() => {});
+    fetch('/api/agent-control/kill', { method: 'POST' }).catch(() => {});
+  }, [resourceManager, processId, sessionId]);
 
   const handleFileGenConfirm = useCallback(async () => {
     if (!fileGenPopup.fileData || !fileGenPopup.originalMessage) return;
@@ -1714,14 +1719,22 @@ const ChatPage = () => {
           <IconButton size="small" onClick={() => navHistory(1)} sx={{ opacity: 0.5, "&:hover": { opacity: 1 }, mr: 1.5 }}>
             <ChevronRightIcon fontSize="small" />
           </IconButton>
-          <Typography variant="h5" component="h1">
+          <Typography variant="h5" component="h1" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             Chat
+            {messages.length > 0 && (
+              <Chip
+                label={`${messages.length} msg${messages.length !== 1 ? 's' : ''}`}
+                size="small"
+                variant="outlined"
+                sx={{ height: 20, fontSize: '0.7rem' }}
+              />
+            )}
           </Typography>
         </Box>
 
         {}
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <Tooltip title="Previous chats">
+          <Tooltip title="All chats">
             <span>
               <IconButton
                 onClick={() => setPreviousChatsOpen(true)}
@@ -1777,6 +1790,8 @@ const ChatPage = () => {
           Model is loading into GPU memory... Chat will be ready in a moment.
         </Alert>
       )}
+
+      {/* Agent screen floating panel renders via portal from the chip in the header */}
       {error && <Alert severity="error" sx={{ mx: 2, mb: 1 }}>{error}</Alert>}
 
       {}
@@ -1898,14 +1913,14 @@ const ChatPage = () => {
         mode="chat"
       />
 
-      <PreviousChatsModal
+      <ChatSessionDrawer
         open={previousChatsOpen}
         onClose={() => setPreviousChatsOpen(false)}
         projectId={projectId}
         currentSessionId={sessionId}
+        onNewChat={handleNewChat}
         onSelectSession={(selectedSessionId) => {
           if (selectedSessionId === null) {
-            // Deleted active session — start new chat
             handleNewChat();
             return;
           }
@@ -1913,6 +1928,8 @@ const ChatPage = () => {
           localStorage.setItem(storageKey, selectedSessionId);
           setMessages([]);
           historyLoadedRef.current = false;
+          historyLoadingRef.current = false;
+          sessionStorage.removeItem(`recent_messages_${selectedSessionId}`);
           _setSessionId(selectedSessionId);
         }}
       />

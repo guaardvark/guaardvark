@@ -4711,13 +4711,17 @@ def get_chat_history(session_id: str):
                 "content": msg.content,
                 "timestamp": msg.timestamp.isoformat() if msg.timestamp else None
             }
-            # Flatten extra_data image fields into message for frontend rendering
+            # Flatten extra_data fields into message for frontend rendering
             if msg.extra_data and isinstance(msg.extra_data, dict):
                 for key in ('imageUrl', 'imageFileName', 'messageType',
                             'relatedImageUrl', 'imageAnalysis', 'analysisDetails',
                             'generatedImages'):
                     if key in msg.extra_data:
                         msg_data[key] = msg.extra_data[key]
+                # Restore tool call steps for unified chat rendering
+                if 'steps' in msg.extra_data:
+                    msg_data['toolCalls'] = msg.extra_data['steps']
+                    msg_data['isUnifiedChat'] = True
             formatted_messages.append(msg_data)
 
         # Check if there are more messages
@@ -4888,12 +4892,37 @@ def list_chat_sessions():
                 if len(first_msg[0]) > 100:
                     preview += "..."
 
+            # Get first assistant response as secondary preview
+            first_response = db.session.query(LLMMessage.content).filter(
+                LLMMessage.session_id == session.id,
+                LLMMessage.role == "assistant"
+            ).order_by(LLMMessage.timestamp.asc()).first()
+
+            response_preview = ""
+            if first_response and first_response[0]:
+                response_preview = first_response[0][:80]
+                if len(first_response[0]) > 80:
+                    response_preview += "..."
+
+            # Get last activity timestamp
+            last_msg = db.session.query(func.max(LLMMessage.timestamp)).filter(
+                LLMMessage.session_id == session.id
+            ).scalar()
+
+            # Get total content size (approximate)
+            total_size = db.session.query(func.sum(func.length(LLMMessage.content))).filter(
+                LLMMessage.session_id == session.id
+            ).scalar() or 0
+
             results.append({
                 "session_id": session.id,
                 "project_id": session.project_id,
                 "created_at": session.created_at.isoformat() if session.created_at else None,
+                "last_activity": last_msg.isoformat() if last_msg else None,
                 "message_count": msg_count,
-                "preview": preview
+                "preview": preview,
+                "response_preview": response_preview,
+                "total_chars": total_size,
             })
 
         return jsonify({"sessions": results, "total": total})
