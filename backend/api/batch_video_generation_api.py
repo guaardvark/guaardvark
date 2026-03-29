@@ -376,6 +376,19 @@ def get_preview(batch_id: str):
         return error_response(str(e), 500)
 
 
+@batch_video_bp.route("/batch/<batch_id>/cancel", methods=["POST"])
+def cancel_batch(batch_id: str):
+    """Cancel a running or stale batch."""
+    try:
+        generator = get_batch_video_generator()
+        if generator.cancel_batch(batch_id):
+            return success_response({"batch_id": batch_id, "message": "Batch cancelled"})
+        return error_response("Batch not found or not in a cancellable state", 404)
+    except Exception as e:
+        logger.error(f"Failed to cancel batch: {e}")
+        return error_response(str(e), 500)
+
+
 @batch_video_bp.route("/delete/<batch_id>", methods=["DELETE"])
 def delete_batch(batch_id: str):
     try:

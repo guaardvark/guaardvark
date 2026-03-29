@@ -548,21 +548,21 @@ class InterconnectorFileSyncService:
                 except Exception as e:
                     logger.warning(f"[FILE_SYNC] Could not parse remote modified_at '{remote_modified_str}': {e}")
                     remote_modified = datetime.now()
-                
+
                 logger.debug(f"[FILE_SYNC] Timestamp comparison: local={local_modified}, remote={remote_modified}")
-                
+
                 if local_modified > remote_modified:
                     time_diff = (local_modified - remote_modified).total_seconds()
                     logger.info(f"[FILE_SYNC] Local file is newer by {time_diff:.0f} seconds - "
                               f"may have been manually modified or copied: {relative_path}")
-                
+
                 if remote_modified > local_modified:
                     logger.info(f"[FILE_SYNC] Remote file is newer, updating: {relative_path}")
                     if create_backup:
                         logger.info(f"[FILE_SYNC] Creating backup before overwriting manually modified file: {relative_path}")
                         self._create_backup(file_path)
                         stats["backed_up"] = True
-                    
+
                     self._write_file(file_path, self._get_file_content(file_data))
                     stats["updated"] = True
                     return True, None, stats
@@ -644,7 +644,7 @@ class InterconnectorFileSyncService:
                             except Exception:
                                 remote_modified = datetime.now()
                             local_modified = datetime.fromtimestamp(file_path.stat().st_mtime)
-                            
+
                             if remote_modified > local_modified and create_backup:
                                 backup_path = self._create_backup_return_path(file_path)
                                 if backup_path:

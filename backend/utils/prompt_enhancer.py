@@ -59,15 +59,25 @@ NEGATIVE_PROMPTS = {
 }
 
 
-def enhance_video_prompt(prompt: str, style: str = "cinematic") -> str:
+def enhance_video_prompt(
+    prompt: str,
+    style: str = "cinematic",
+    width: int = 0,
+    height: int = 0,
+) -> str:
     """Enhance a user prompt with quality descriptors for better video generation.
 
     Preserves the user's original intent and appends style-specific
     quality descriptors.  The ``"none"`` style returns the prompt unchanged.
 
+    When portrait/vertical dimensions are detected (height > width), adds
+    composition guidance so the model frames content for vertical viewing.
+
     Args:
         prompt: The user's original prompt text.
         style: One of "cinematic", "realistic", "artistic", "anime", or "none".
+        width: Video width in pixels (used for orientation detection).
+        height: Video height in pixels (used for orientation detection).
 
     Returns:
         The enhanced prompt string.
@@ -89,6 +99,15 @@ def enhance_video_prompt(prompt: str, style: str = "cinematic") -> str:
     trimmed = prompt.rstrip()
     if trimmed and trimmed[-1] not in ".!?":
         trimmed += "."
+
+    # Portrait/vertical orientation — guide the model to compose for vertical
+    if height > width and width > 0:
+        portrait_hint = (
+            "Vertical portrait composition, tall framing, subject centered "
+            "in frame, close-up or medium shot, no important content at "
+            "the left or right edges."
+        )
+        return f"{trimmed} {portrait_hint} {suffix}"
 
     return f"{trimmed} {suffix}"
 

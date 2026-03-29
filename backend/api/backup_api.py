@@ -19,10 +19,11 @@ def create_backup_endpoint():
     backup_type = payload.get("type", "full")
     components = payload.get("components")
     name = payload.get("name")  # Extract custom backup name
-    
+    include_plugins = payload.get("include_plugins", False)
+
     try:
         if backup_type == "data":
-            zip_path = backup_service.create_data_backup(components=components, name=name)
+            zip_path = backup_service.create_data_backup(components=components, name=name, include_plugins=include_plugins)
         elif backup_type in ("full", "full_system"):
             zip_path = backup_service.create_full_backup(name=name)
         elif backup_type in ("code_release", "code_only"):

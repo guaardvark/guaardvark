@@ -516,13 +516,17 @@ class BatchImageGenerator:
                             from backend.app import create_app
                             app = create_app()
                         with app.app_context():
-                            batch_name = getattr(request, 'batch_name', None) or batch_id
-                            register_batch_images(
-                                batch_id=batch_id,
-                                batch_output_dir=str(output_dir),
-                                batch_name=batch_name,
-                            )
-                            logger.info(f"Registered batch {batch_id} images into Documents system")
+                            try:
+                                batch_name = getattr(request, 'batch_name', None) or batch_id
+                                register_batch_images(
+                                    batch_id=batch_id,
+                                    batch_output_dir=str(output_dir),
+                                    batch_name=batch_name,
+                                )
+                                logger.info(f"Registered batch {batch_id} images into Documents system")
+                            finally:
+                                from backend.models import db as _db
+                                _db.session.remove()
                     except Exception as reg_err:
                         logger.error(f"Failed to register batch images into Documents system: {reg_err}")
                         # Don't fail the batch if registration fails

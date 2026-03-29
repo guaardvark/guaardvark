@@ -23,204 +23,207 @@ logger = logging.getLogger(__name__)
 def _execute_task(app, task_id: int) -> None:
     """Execute a task by ID, updating its status and progress."""
     logger.info("Executing task %s", task_id)
-    
+
     with app.app_context():
-        task = db.session.get(Task, task_id)
-        if not task:
-            logger.warning("Task %s not found", task_id)
-            return
-
-        # Update task status to in-progress
-        task.status = "in-progress"
-        task.updated_at = datetime.datetime.now(datetime.timezone.utc)
-        db.session.commit()
-
-        # Create progress tracking job
-        job_id = f"task_{task_id}"
-        
-        # Assign job_id to task
-        task.job_id = job_id
-        db.session.commit()
-        
-        process_id = None
         try:
-            unified_progress = get_unified_progress()
-            process_id = unified_progress.create_process(
-                ProcessType.TASK_PROCESSING,
-                f"Processing task: {task.name}",
-                process_id=job_id
-            )
-        except Exception as e:
-            logger.warning(f"Failed to create progress tracking for task {task_id}: {e}")
-            # Continue without progress tracking if it fails
+            task = db.session.get(Task, task_id)
+            if not task:
+                logger.warning("Task %s not found", task_id)
+                return
 
-        try:
-            # Get the model to use (task-specific or default)
-            model_name = task.model_name
-            if not model_name:
-                # Try to get default task model from settings
-                try:
-                    from backend.api.tasks_api import get_default_task_model
-                    default_model = get_default_task_model()
-                    if default_model:
-                        model_name = default_model
-                except Exception as e:
-                    logger.warning(f"Could not get default task model: {e}")
+            # Update task status to in-progress
+            task.status = "in-progress"
+            task.updated_at = datetime.datetime.now(datetime.timezone.utc)
+            db.session.commit()
 
-            if not model_name:
-                # Try the active model
-                try:
-                    from backend.models import get_active_model_name
-                    model_name = get_active_model_name()
-                except Exception:
-                    pass
+            # Create progress tracking job
+            job_id = f"task_{task_id}"
 
-            if not model_name:
-                # Query Ollama directly for any available model
-                try:
-                    import requests as _requests
-                    ollama_base_url = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
-                    resp = _requests.get(f"{ollama_base_url}/api/tags", timeout=5)
-                    if resp.ok:
-                        models = resp.json().get('models', [])
-                        if models:
-                            model_name = models[0]['name']
-                            logger.info(f"Using first available Ollama model: {model_name}")
-                except Exception as e:
-                    logger.warning(f"Could not query Ollama for models: {e}")
+            # Assign job_id to task
+            task.job_id = job_id
+            db.session.commit()
 
-            if not model_name:
-                raise ValueError("No LLM model available. Pull a model with 'ollama pull <model>' or set DEFAULT_LLM_MODEL env var.")
+            process_id = None
+            try:
+                unified_progress = get_unified_progress()
+                process_id = unified_progress.create_process(
+                    ProcessType.TASK_PROCESSING,
+                    f"Processing task: {task.name}",
+                    process_id=job_id
+                )
+            except Exception as e:
+                logger.warning(f"Failed to create progress tracking for task {task_id}: {e}")
+                # Continue without progress tracking if it fails
 
-            # Validate model name with single database query
-            if model_name and model_name != "default":
-                try:
-                    from backend.models import Model
-                    # Single query to check if model exists and get fallback
-                    models = db.session.query(Model).all()
-                    model_names = [m.name for m in models]
+            try:
+                # Get the model to use (task-specific or default)
+                model_name = task.model_name
+                if not model_name:
+                    # Try to get default task model from settings
+                    try:
+                        from backend.api.tasks_api import get_default_task_model
+                        default_model = get_default_task_model()
+                        if default_model:
+                            model_name = default_model
+                    except Exception as e:
+                        logger.warning(f"Could not get default task model: {e}")
 
-                    if model_name not in model_names:
-                        if model_names:
-                            fallback_model = model_names[0]
-                            logger.warning(f"Model '{model_name}' not found, using '{fallback_model}'")
-                            model_name = fallback_model
+                if not model_name:
+                    # Try the active model
+                    try:
+                        from backend.models import get_active_model_name
+                        model_name = get_active_model_name()
+                    except Exception:
+                        pass
+
+                if not model_name:
+                    # Query Ollama directly for any available model
+                    try:
+                        import requests as _requests
+                        ollama_base_url = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
+                        resp = _requests.get(f"{ollama_base_url}/api/tags", timeout=5)
+                        if resp.ok:
+                            models = resp.json().get('models', [])
+                            if models:
+                                model_name = models[0]['name']
+                                logger.info(f"Using first available Ollama model: {model_name}")
+                    except Exception as e:
+                        logger.warning(f"Could not query Ollama for models: {e}")
+
+                if not model_name:
+                    raise ValueError("No LLM model available. Pull a model with 'ollama pull <model>' or set DEFAULT_LLM_MODEL env var.")
+
+                # Validate model name with single database query
+                if model_name and model_name != "default":
+                    try:
+                        from backend.models import Model
+                        # Single query to check if model exists and get fallback
+                        models = db.session.query(Model).all()
+                        model_names = [m.name for m in models]
+
+                        if model_name not in model_names:
+                            if model_names:
+                                fallback_model = model_names[0]
+                                logger.warning(f"Model '{model_name}' not found, using '{fallback_model}'")
+                                model_name = fallback_model
+                            else:
+                                logger.warning("No models found in database, using 'default'")
+                                model_name = "default"
                         else:
-                            logger.warning("No models found in database, using 'default'")
-                            model_name = "default"
-                    else:
-                        logger.info(f"Using validated model: {model_name}")
+                            logger.info(f"Using validated model: {model_name}")
 
-                except Exception as e:
-                    logger.warning(f"Could not validate model '{model_name}': {e}, using 'default'")
-                    model_name = "default"
+                    except Exception as e:
+                        logger.warning(f"Could not validate model '{model_name}': {e}, using 'default'")
+                        model_name = "default"
 
-            prompt = task.prompt_text or task.name
+                prompt = task.prompt_text or task.name
 
-            # Update progress to 25%
-            if process_id:
-                try:
-                    unified_progress.update_process(
-                        process_id,
-                        25,
-                        f"Generating content for: {task.name}"
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to update progress for task {task_id}: {e}")
+                # Update progress to 25%
+                if process_id:
+                    try:
+                        unified_progress.update_process(
+                            process_id,
+                            25,
+                            f"Generating content for: {task.name}"
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to update progress for task {task_id}: {e}")
 
-            # Check if this is a code file generation request
-            is_code_request = _detect_code_file_request(task)
+                # Check if this is a code file generation request
+                is_code_request = _detect_code_file_request(task)
 
-            if is_code_request:
-                logger.info(f"Task {task_id} detected as code file generation request, using specialized file generation API")
-                # Use the file generation API for code requests
-                try:
-                    output = _generate_code_file(task, model_name)
-                except Exception as file_gen_error:
-                    logger.error(f"File generation failed for task {task_id}: {file_gen_error}")
-                    output = f"Error generating file: {str(file_gen_error)}"
-            else:
-                # Generate content using basic LLM for non-code requests
-                try:
-                    # Create LLM instance with the specified model
-                    from llama_index.llms.ollama import Ollama
-                    from backend.config import OLLAMA_BASE_URL, LLM_REQUEST_TIMEOUT
+                if is_code_request:
+                    logger.info(f"Task {task_id} detected as code file generation request, using specialized file generation API")
+                    # Use the file generation API for code requests
+                    try:
+                        output = _generate_code_file(task, model_name)
+                    except Exception as file_gen_error:
+                        logger.error(f"File generation failed for task {task_id}: {file_gen_error}")
+                        output = f"Error generating file: {str(file_gen_error)}"
+                else:
+                    # Generate content using basic LLM for non-code requests
+                    try:
+                        # Create LLM instance with the specified model
+                        from llama_index.llms.ollama import Ollama
+                        from backend.config import OLLAMA_BASE_URL, LLM_REQUEST_TIMEOUT
 
-                    timeout_value = min(LLM_REQUEST_TIMEOUT, 300.0)  # Cap at 5 minutes for tasks
-                    task_llm = Ollama(model=model_name, base_url=OLLAMA_BASE_URL, request_timeout=timeout_value)
+                        timeout_value = min(LLM_REQUEST_TIMEOUT, 300.0)  # Cap at 5 minutes for tasks
+                        task_llm = Ollama(model=model_name, base_url=OLLAMA_BASE_URL, request_timeout=timeout_value)
 
-                    output = llm_service.generate_text_basic(prompt=prompt, llm=task_llm)
-                except Exception as llm_error:
-                    logger.error(f"LLM generation failed for task {task_id}: {llm_error}")
-                    output = f"Error generating content: {str(llm_error)}"
-            
-            # Validate output content
-            if output is None or not str(output).strip():
-                logger.warning("LLM produced no output for task %s", task_id)
-                task.status = "failed"
-                task.error_message = "LLM generated empty or invalid content"
+                        output = llm_service.generate_text_basic(prompt=prompt, llm=task_llm)
+                    except Exception as llm_error:
+                        logger.error(f"LLM generation failed for task {task_id}: {llm_error}")
+                        output = f"Error generating content: {str(llm_error)}"
+
+                # Validate output content
+                if output is None or not str(output).strip():
+                    logger.warning("LLM produced no output for task %s", task_id)
+                    task.status = "failed"
+                    task.error_message = "LLM generated empty or invalid content"
+                    task.updated_at = datetime.datetime.now(datetime.timezone.utc)
+                    db.session.commit()
+
+                    if process_id:
+                        try:
+                            unified_progress.complete_process(
+                                process_id,
+                                message=f"Task {task_id}: Empty output generated"
+                            )
+                        except Exception as e:
+                            logger.warning(f"Failed to update error progress: {e}")
+                    return
+
+                output = str(output).strip()
+
+                # Update progress to 75%
+                if process_id:
+                    try:
+                        unified_progress.update_process(
+                            process_id,
+                            75,
+                            f"Saving output for: {task.name}"
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to update progress for task {task_id}: {e}")
+
+                # Save output if filename specified
+                if task.output_filename:
+                    _write_output(app, task.output_filename, output)
+
+                # Mark task as completed
+                task.status = "completed"
                 task.updated_at = datetime.datetime.now(datetime.timezone.utc)
                 db.session.commit()
 
+                # Update progress to 100%
                 if process_id:
                     try:
                         unified_progress.complete_process(
                             process_id,
-                            message=f"Task {task_id}: Empty output generated"
+                            message=f"Completed: {task.name}"
                         )
                     except Exception as e:
-                        logger.warning(f"Failed to update error progress: {e}")
-                return
+                        logger.warning(f"Failed to complete progress for task {task_id}: {e}")
 
-            output = str(output).strip()
+                logger.info("Task %s completed successfully", task_id)
 
-            # Update progress to 75%
-            if process_id:
-                try:
-                    unified_progress.update_process(
-                        process_id,
-                        75,
-                        f"Saving output for: {task.name}"
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to update progress for task {task_id}: {e}")
+            except Exception as e:
+                logger.error("Task execution failed: %s", e, exc_info=True)
+                task.status = "failed"
+                task.updated_at = datetime.datetime.now(datetime.timezone.utc)
+                db.session.commit()
 
-            # Save output if filename specified
-            if task.output_filename:
-                _write_output(app, task.output_filename, output)
-
-            # Mark task as completed
-            task.status = "completed"
-            task.updated_at = datetime.datetime.now(datetime.timezone.utc)
-            db.session.commit()
-
-            # Update progress to 100%
-            if process_id:
-                try:
-                    unified_progress.complete_process(
-                        process_id,
-                        message=f"Completed: {task.name}"
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to complete progress for task {task_id}: {e}")
-
-            logger.info("Task %s completed successfully", task_id)
-
-        except Exception as e:
-            logger.error("Task execution failed: %s", e, exc_info=True)
-            task.status = "failed"
-            task.updated_at = datetime.datetime.now(datetime.timezone.utc)
-            db.session.commit()
-
-            # Update progress with error
-            if process_id:
-                try:
-                    unified_progress.complete_process(
-                        process_id,
-                        message=f"Failed: {task.name} - {str(e)}"
-                    )
-                except Exception as progress_error:
-                    logger.warning(f"Failed to update error progress for task {task_id}: {progress_error}")
+                # Update progress with error
+                if process_id:
+                    try:
+                        unified_progress.complete_process(
+                            process_id,
+                            message=f"Failed: {task.name} - {str(e)}"
+                        )
+                    except Exception as progress_error:
+                        logger.warning(f"Failed to update error progress for task {task_id}: {progress_error}")
+        finally:
+            db.session.remove()
 
 
 def _write_output(app, filename: str, content: str) -> None:
@@ -243,28 +246,31 @@ def _write_output(app, filename: str, content: str) -> None:
 def process_pending_tasks(app) -> None:
     """Process all tasks in the pending state that are due."""
     with app.app_context():
-        now = datetime.datetime.now(datetime.timezone.utc)
-        tasks = (
-            db.session.query(Task)
-            .filter(Task.status == "pending")
-            .order_by(Task.priority, Task.due_date)
-            .all()
-        )
-        
-        if not tasks:
-            return
-            
-        logger.info(f"Processing {len(tasks)} pending tasks")
-        
-        for i, task in enumerate(tasks):
-            task_due = task.due_date
-            if task_due and task_due.tzinfo is None:
-                task_due = task_due.replace(tzinfo=datetime.timezone.utc)
-            if task_due and task_due > now:
-                continue
-                
-            logger.info(f"Processing task {task.id}: {task.name}")
-            _execute_task(app, task.id)
+        try:
+            now = datetime.datetime.now(datetime.timezone.utc)
+            tasks = (
+                db.session.query(Task)
+                .filter(Task.status == "pending")
+                .order_by(Task.priority, Task.due_date)
+                .all()
+            )
+
+            if not tasks:
+                return
+
+            logger.info(f"Processing {len(tasks)} pending tasks")
+
+            for i, task in enumerate(tasks):
+                task_due = task.due_date
+                if task_due and task_due.tzinfo is None:
+                    task_due = task_due.replace(tzinfo=datetime.timezone.utc)
+                if task_due and task_due > now:
+                    continue
+
+                logger.info(f"Processing task {task.id}: {task.name}")
+                _execute_task(app, task.id)
+        finally:
+            db.session.remove()
 
 
 class TaskScheduler:

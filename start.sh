@@ -1695,8 +1695,8 @@ fi
 
 export FLASK_PORT
 export VITE_PORT
-vader_info "Launching Vite frontend in background..."
-nohup $NPM_CMD run dev -- --host --port=$VITE_PORT >> "$FRONTEND_LOG_FILE" 2>&1 &
+vader_info "Launching frontend (production build) in background..."
+nohup $NPM_CMD run preview -- --host --port=$VITE_PORT >> "$FRONTEND_LOG_FILE" 2>&1 &
 FRONTEND_PID=$!
 echo "$FRONTEND_PID" > "$SCRIPT_DIR/pids/frontend.pid"
 sleep 3
