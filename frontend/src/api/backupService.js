@@ -1,10 +1,10 @@
 import { BASE_URL, handleResponse } from "./apiClient";
 
-export const createServerBackup = async (type, components = [], name = null) => {
+export const createServerBackup = async (type, components = [], name = null, include_plugins = false) => {
   const response = await fetch(`${BASE_URL}/backups/create`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ type, components, name }),
+    body: JSON.stringify({ type, components, name, include_plugins }),
   });
   return handleResponse(response);
 };

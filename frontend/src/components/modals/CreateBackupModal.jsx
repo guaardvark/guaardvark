@@ -48,6 +48,7 @@ const CreateBackupModal = ({ open, onClose, onCreate, isProcessing }) => {
   const [selected, setSelected] = useState([]);
   const [backupName, setBackupName] = useState("");
   const [selectedType, setSelectedType] = useState(null);
+  const [includePlugins, setIncludePlugins] = useState(false);
 
   const handleChange = (e) => {
     const { name, checked } = e.target;
@@ -59,7 +60,7 @@ const CreateBackupModal = ({ open, onClose, onCreate, isProcessing }) => {
   const handleCreate = () => {
     if (!selectedType || !onCreate) return;
     if (selectedType === "data") {
-      onCreate({ type: "data", components: selected.length > 0 ? selected : null, name: backupName });
+      onCreate({ type: "data", components: selected.length > 0 ? selected : null, name: backupName, include_plugins: includePlugins });
     } else {
       onCreate({ type: selectedType, name: backupName });
     }
@@ -72,6 +73,7 @@ const CreateBackupModal = ({ open, onClose, onCreate, isProcessing }) => {
     setSelectedType(null);
     setSelected([]);
     setBackupName("");
+    setIncludePlugins(false);
     onClose();
   };
 
@@ -185,6 +187,21 @@ const CreateBackupModal = ({ open, onClose, onCreate, isProcessing }) => {
                 />
               ))}
             </FormGroup>
+            <Divider sx={{ my: 2 }} />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  size="small"
+                  checked={includePlugins}
+                  onChange={(e) => setIncludePlugins(e.target.checked)}
+                />
+              }
+              label={
+                <Typography variant="body2">
+                  Include Plugins (scripts, configs — excludes models and datasets)
+                </Typography>
+              }
+            />
           </>
         )}
       </DialogContent>
