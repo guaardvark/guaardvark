@@ -279,8 +279,8 @@ def learn_input():
     """Forward user input to the virtual display during training.
 
     Accepts: {action: "click"|"type"|"hotkey"|"scroll", x, y, text, keys}
-    Executes the action on display :99 via LocalScreenBackend so xinput
-    picks it up and DemoRecorder records it.
+    Executes the action on display :99 via LocalScreenBackend and feeds
+    the event directly to DemoRecorder for step capture.
     """
     try:
         data = request.get_json() or {}
@@ -314,6 +314,22 @@ def learn_input():
             result = screen.scroll(x, y, amount=amount)
         else:
             return jsonify({"success": False, "error": f"Unknown action: {action}"}), 400
+
+        # Feed the event to DemoRecorder if recording is active
+        if result.get("success"):
+            try:
+                from backend.services.agent_control_service import get_agent_control_service
+                service = get_agent_control_service()
+                if service.is_learning and service._demo_recorder:
+                    service._demo_recorder.record_event(
+                        action=action,
+                        x=int(data.get("x", 0)),
+                        y=int(data.get("y", 0)),
+                        text=data.get("text", ""),
+                        keys=data.get("keys", ""),
+                    )
+            except Exception as e:
+                logger.warning(f"DemoRecorder event capture failed (non-fatal): {e}")
 
         return jsonify({"success": result.get("success", False), "result": result})
     except Exception as e:

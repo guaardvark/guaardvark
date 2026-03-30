@@ -107,14 +107,19 @@ class DemoRecorder:
         self._pending_keystrokes = []
         self._capture_initial_screenshot()
 
-        # Start xinput listener thread
-        self._listener_thread = threading.Thread(
-            target=self._xinput_listener,
-            daemon=True,
-            name=f"demo-recorder-{self._demo_id[:8]}",
-        )
-        self._listener_thread.start()
-        logger.info(f"[DEMO] Recording started: {self._demo_id}")
+        # Start xinput listener thread (optional — may fail on some X servers)
+        # The primary recording path is via record_event() called from /learn/input
+        try:
+            self._listener_thread = threading.Thread(
+                target=self._xinput_listener,
+                daemon=True,
+                name=f"demo-recorder-{self._demo_id[:8]}",
+            )
+            self._listener_thread.start()
+            logger.info(f"[DEMO] Recording started: {self._demo_id} (xinput listener active)")
+        except Exception as e:
+            logger.warning(f"[DEMO] xinput listener failed to start (non-critical): {e}")
+            logger.info(f"[DEMO] Recording started: {self._demo_id} (API-only mode)")
 
     def stop(self):
         """Stop recording and clean up."""
@@ -138,6 +143,41 @@ class DemoRecorder:
             self._xinput_proc = None
 
         logger.info(f"[DEMO] Recording stopped: {self._demo_id}, {len(self._steps)} steps captured")
+
+    def record_event(self, action: str, x: int = 0, y: int = 0,
+                     text: str = "", keys: str = "", button: int = 1) -> Optional[Dict[str, Any]]:
+        """
+        Record an externally-supplied input event (from /learn/input API).
+
+        This bypasses xinput entirely — the API endpoint already knows
+        exactly what the user did, so we just need to capture screenshots
+        and run VisionAnalyzer.
+        """
+        if not self._recording:
+            return None
+
+        evt = InputEvent(
+            event_type=action,
+            x=x, y=y,
+            button=button,
+            key=text if action == "type" else keys,
+            timestamp=time.time(),
+        )
+
+        if action == "type" and text:
+            # For type events, create keystroke events and collapse them
+            key_events = [
+                InputEvent(event_type="key", key=ch, timestamp=time.time())
+                for ch in text
+            ]
+            step = self._collapse_keystrokes(key_events)
+        else:
+            step = self._process_event(evt)
+
+        if step:
+            with self._lock:
+                self._steps.append(step)
+        return step
 
     def get_steps(self) -> List[Dict[str, Any]]:
         """Return all recorded steps in order."""
