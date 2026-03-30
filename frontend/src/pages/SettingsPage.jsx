@@ -87,8 +87,6 @@ import InterconnectorSettingsModal from "../components/modals/InterconnectorSett
 import VoiceSettingsModal from "../components/modals/VoiceSettingsModal";
 import SettingsRow from "../components/settings/SettingsRow";
 import SettingsCardWrapper from "../components/settings/SettingsCardWrapper";
-import TrainingFloater from "../components/agent/TrainingFloater";
-
 import { SOCKET_URL } from "../api/apiClient";
 import PaletteIcon from "@mui/icons-material/Palette";
 import SchoolIcon from "@mui/icons-material/School";
@@ -275,7 +273,7 @@ const SettingsPage = () => {
   const [imageModelsModalOpen, setImageModelsModalOpen] = useState(false);
   const [videoModelsModalOpen, setVideoModelsModalOpen] = useState(false);
   const [voiceModelsModalOpen, setVoiceModelsModalOpen] = useState(false);
-  const [trainerOpen, setTrainerOpen] = useState(false);
+  const setTrainerOpen = useAppStore((state) => state.setTrainerOpen);
   const [imageGenStatus, setImageGenStatus] = useState(null);
 
   // Resource monitor and embedding model state
@@ -2898,7 +2896,6 @@ const SettingsPage = () => {
         onClose={() => setVoiceModelsModalOpen(false)}
         showMessage={showMessage}
       />
-      <TrainingFloater open={trainerOpen} onClose={() => setTrainerOpen(false)} />
     </PageLayout>
   );
 };

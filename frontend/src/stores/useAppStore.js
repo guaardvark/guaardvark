@@ -16,6 +16,9 @@ const createUISlice = (set, get) => ({
   listenerModeEnabled: false,
   toggleListenerMode: () => set((state) => ({ listenerModeEnabled: !state.listenerModeEnabled })),
 
+  trainerOpen: false,
+  setTrainerOpen: (open) => set({ trainerOpen: open }),
+
   isLoading: false,
   setIsLoading: (loading) => set({ isLoading: loading }),
   

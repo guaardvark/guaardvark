@@ -14,6 +14,8 @@ import { spacing } from "./theme/tokens";
 import { useAppStore } from "./stores/useAppStore";
 import { GuaardvarkLogo } from "./components/branding";
 
+import TrainingFloater from "./components/agent/TrainingFloater";
+
 // Eagerly loaded — core navigation targets
 import DashboardPage from "./pages/DashboardPage";
 import ChatPage from "./pages/ChatPage";
@@ -108,6 +110,12 @@ const AppLayout = ({ children }) => {
       </Box>
     </Box>
   );
+};
+
+const GlobalTrainer = () => {
+  const trainerOpen = useAppStore((state) => state.trainerOpen);
+  const setTrainerOpen = useAppStore((state) => state.setTrainerOpen);
+  return <TrainingFloater open={trainerOpen} onClose={() => setTrainerOpen(false)} />;
 };
 
 const AppContainer = () => {
@@ -438,6 +446,7 @@ const AppContainer = () => {
                     </Routes>
                     </Suspense>
                     <FloatingChatProvider />
+                    <GlobalTrainer />
                   </ErrorProvider>
                 </SnackbarProvider>
               </VoiceProvider>
