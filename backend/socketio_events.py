@@ -180,3 +180,102 @@ def emit_gpu_status():
         socketio.emit("gpu:status", snapshot, room="gpu_status")
     except Exception as e:
         logger.debug(f"GPU status emission failed: {e}")
+
+
+# --- Interactive Learning Events ---
+
+def emit_learning_mode_started(demonstration_id: int, name: str = None):
+    """Notify clients that learning mode has started."""
+    socketio.emit("agent:learning_mode_started", {
+        "demonstration_id": demonstration_id,
+        "name": name,
+    })
+
+
+def emit_learning_mode_stopped(demonstration_id: int, step_count: int):
+    """Notify clients that recording has finished."""
+    socketio.emit("agent:learning_mode_stopped", {
+        "demonstration_id": demonstration_id,
+        "step_count": step_count,
+    })
+
+
+def emit_learning_question(question_id: str, question_type: str, text: str,
+                           demonstration_id: int, step_index: int = None,
+                           options: list = None):
+    """Ask the user a learning question."""
+    socketio.emit("agent:learning_question", {
+        "question_id": question_id,
+        "question_type": question_type,
+        "text": text,
+        "demonstration_id": demonstration_id,
+        "step_index": step_index,
+        "options": options,
+    })
+
+
+def emit_step_preview(demonstration_id: int, step_index: int,
+                      target_description: str, action_type: str,
+                      confidence: float):
+    """Preview the next action for GUIDED mode confirmation."""
+    socketio.emit("agent:step_preview", {
+        "demonstration_id": demonstration_id,
+        "step_index": step_index,
+        "target_description": target_description,
+        "action_type": action_type,
+        "confidence": confidence,
+    })
+
+
+def emit_step_executed(demonstration_id: int, step_index: int,
+                       success: bool, action_type: str):
+    """Notify that a step was executed during an attempt."""
+    socketio.emit("agent:step_executed", {
+        "demonstration_id": demonstration_id,
+        "step_index": step_index,
+        "success": success,
+        "action_type": action_type,
+    })
+
+
+def emit_attempt_complete(demonstration_id: int, success: bool,
+                          steps_completed: int, total_steps: int):
+    """Notify that an attempt has finished."""
+    socketio.emit("agent:attempt_complete", {
+        "demonstration_id": demonstration_id,
+        "success": success,
+        "steps_completed": steps_completed,
+        "total_steps": total_steps,
+    })
+
+
+@socketio.on("agent:learning_answer")
+def handle_learning_answer(data):
+    """Receive answer to a learning question from the user."""
+    from backend.services.agent_control_service import get_agent_control_service
+    service = get_agent_control_service()
+    if hasattr(service, '_learning_answer_queue'):
+        service._learning_answer_queue.put(data)
+    logger.info(f"Learning answer received: question_id={data.get('question_id')}")
+
+
+@socketio.on("agent:step_confirm")
+def handle_step_confirm(data):
+    """User confirms a previewed step in GUIDED mode."""
+    from backend.services.agent_control_service import get_agent_control_service
+    service = get_agent_control_service()
+    if hasattr(service, '_step_confirm_event'):
+        service._step_confirm_data = data
+        service._step_confirm_event.set()
+    logger.info(f"Step confirmed: step_index={data.get('step_index')}")
+
+
+@socketio.on("agent:step_correct")
+def handle_step_correct(data):
+    """User corrects a previewed step in GUIDED mode."""
+    from backend.services.agent_control_service import get_agent_control_service
+    service = get_agent_control_service()
+    if hasattr(service, '_step_confirm_event'):
+        service._step_confirm_data = data
+        service._step_confirm_event.set()
+    logger.info(f"Step corrected: step_index={data.get('step_index')}, correction={data.get('correction')}")
