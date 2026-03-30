@@ -87,6 +87,7 @@ import InterconnectorSettingsModal from "../components/modals/InterconnectorSett
 import VoiceSettingsModal from "../components/modals/VoiceSettingsModal";
 import SettingsRow from "../components/settings/SettingsRow";
 import SettingsCardWrapper from "../components/settings/SettingsCardWrapper";
+import TrainingFloater from "../components/agent/TrainingFloater";
 
 import { SOCKET_URL } from "../api/apiClient";
 import PaletteIcon from "@mui/icons-material/Palette";
@@ -274,6 +275,7 @@ const SettingsPage = () => {
   const [imageModelsModalOpen, setImageModelsModalOpen] = useState(false);
   const [videoModelsModalOpen, setVideoModelsModalOpen] = useState(false);
   const [voiceModelsModalOpen, setVoiceModelsModalOpen] = useState(false);
+  const [trainerOpen, setTrainerOpen] = useState(false);
   const [imageGenStatus, setImageGenStatus] = useState(null);
 
   // Resource monitor and embedding model state
@@ -2738,6 +2740,26 @@ const SettingsPage = () => {
                 </Box>
               </Box>
           </SettingsCardWrapper>
+
+          {/* Training */}
+          <SettingsCardWrapper title="Training" icon={<SchoolIcon sx={{ fontSize: 18 }} />}>
+            <SettingsRow label="Interactive Trainer">
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<SchoolIcon sx={{ fontSize: 14 }} />}
+                onClick={() => setTrainerOpen(true)}
+                sx={{ fontSize: '0.75rem', textTransform: 'none' }}
+              >
+                Launch Trainer
+              </Button>
+            </SettingsRow>
+            <SettingsRow label="Description">
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                Record demonstrations on the virtual display, then watch the agent learn to replicate them with graduated autonomy.
+              </Typography>
+            </SettingsRow>
+          </SettingsCardWrapper>
         </Box>
       </Box>
 
@@ -2876,6 +2898,7 @@ const SettingsPage = () => {
         onClose={() => setVoiceModelsModalOpen(false)}
         showMessage={showMessage}
       />
+      <TrainingFloater open={trainerOpen} onClose={() => setTrainerOpen(false)} />
     </PageLayout>
   );
 };
