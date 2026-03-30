@@ -150,10 +150,17 @@ def learn_status():
     try:
         from backend.services.agent_control_service import get_agent_control_service
         service = get_agent_control_service()
+        steps_count = 0
+        if service.is_learning and service._demo_recorder:
+            try:
+                steps_count = len(service._demo_recorder.get_steps())
+            except Exception:
+                pass
         return jsonify({
             "success": True,
             "learning": service.is_learning,
             "demonstration_id": service._current_demonstration_id,
+            "steps_count": steps_count,
         })
     except Exception as e:
         logger.error(f"Error getting learning status: {e}")

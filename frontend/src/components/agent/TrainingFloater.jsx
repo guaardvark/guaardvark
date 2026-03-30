@@ -149,6 +149,9 @@ export default function TrainingFloater({ open, onClose }) {
         } else if (!data.learning && mode === 'recording') {
           setMode('idle');
         }
+        if (data.steps_count !== undefined) {
+          setStepsRecorded(data.steps_count);
+        }
       } catch {}
     };
     poll();
