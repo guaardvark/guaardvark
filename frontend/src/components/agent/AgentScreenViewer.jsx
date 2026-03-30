@@ -16,6 +16,7 @@ import PauseIcon from '@mui/icons-material/Pause';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import CloseIcon from '@mui/icons-material/Close';
 import CircleIcon from '@mui/icons-material/Circle';
+import axios from 'axios';
 
 const API_BASE = '/api';
 const STORAGE_KEY = 'guaardvark_agent_screen_state';
@@ -72,9 +73,11 @@ export default function AgentScreenViewer({ open, onClose }) {
   const [isResizing, setIsResizing] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, w: 0, h: 0 });
+  const [isTraining, setIsTraining] = useState(false);
   const intervalRef = useRef(null);
   const popupIntervalRef = useRef(null);
   const lastClickRef = useRef(0);
+  const imgRef = useRef(null);
 
   // Persist state
   useEffect(() => {
@@ -177,6 +180,38 @@ export default function AgentScreenViewer({ open, onClose }) {
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
   }, [isResizing, resizeStart]);
 
+  // --- Training mode: poll learning status ---
+  useEffect(() => {
+    if (!open) return;
+    const checkTraining = async () => {
+      try {
+        const res = await axios.get(`${API_BASE}/agent-control/learn/status`);
+        setIsTraining(res.data?.learning === true);
+      } catch { setIsTraining(false); }
+    };
+    checkTraining();
+    const id = setInterval(checkTraining, 2000);
+    return () => clearInterval(id);
+  }, [open]);
+
+  // --- Training mode: handle clicks on the screen image ---
+  const handleScreenClick = useCallback((e) => {
+    if (!isTraining || !imgRef.current) return;
+    const img = imgRef.current;
+    const rect = img.getBoundingClientRect();
+    // Translate browser coords to 1280x720 virtual display coords
+    const scaleX = 1280 / rect.width;
+    const scaleY = 720 / rect.height;
+    const x = Math.round((e.clientX - rect.left) * scaleX);
+    const y = Math.round((e.clientY - rect.top) * scaleY);
+    // Clamp to display bounds
+    const cx = Math.max(0, Math.min(1280, x));
+    const cy = Math.max(0, Math.min(720, y));
+    axios.post(`${API_BASE}/agent-control/learn/input`, {
+      action: 'click', x: cx, y: cy,
+    }).catch((err) => console.error('Training click failed:', err));
+  }, [isTraining]);
+
   const openPopup = useCallback(() => {
     if (popupWindow && !popupWindow.closed) { popupWindow.focus(); return; }
     const w = 1300, h = 760;
@@ -218,7 +253,7 @@ export default function AgentScreenViewer({ open, onClose }) {
         borderRadius: 1.5,
         overflow: 'hidden',
         border: 1,
-        borderColor: streaming || isInPopup ? 'success.dark' : 'divider',
+        borderColor: isTraining ? 'error.dark' : streaming || isInPopup ? 'success.dark' : 'divider',
         userSelect: isDragging || isResizing ? 'none' : 'auto',
       }}
     >
@@ -242,7 +277,16 @@ export default function AgentScreenViewer({ open, onClose }) {
           <Typography variant="caption" sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.7rem' }}>
             Agent Screen
           </Typography>
-          {(streaming || isInPopup) && (
+          {isTraining && (
+            <Chip
+              icon={<CircleIcon sx={{ fontSize: '5px !important', animation: 'pulse 1.5s ease-in-out infinite', '@keyframes pulse': { '0%, 100%': { opacity: 1 }, '50%': { opacity: 0.3 } } }} />}
+              label="Training"
+              size="small"
+              color="error"
+              sx={{ height: 16, fontSize: '0.55rem', '& .MuiChip-icon': { ml: 0.25 }, '& .MuiChip-label': { px: 0.5 } }}
+            />
+          )}
+          {!isTraining && (streaming || isInPopup) && (
             <Chip
               icon={<CircleIcon sx={{ fontSize: '5px !important' }} />}
               label={isInPopup ? 'Popup' : `${fps}fps`}
@@ -272,7 +316,18 @@ export default function AgentScreenViewer({ open, onClose }) {
             {isInPopup ? (
               <Typography variant="caption" color="grey.600">In popup</Typography>
             ) : imageSrc ? (
-              <img src={imageSrc} alt="Agent screen" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+              <img
+                ref={imgRef}
+                src={imageSrc}
+                alt="Agent screen"
+                onClick={handleScreenClick}
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  objectFit: 'contain',
+                  cursor: isTraining ? 'crosshair' : 'default',
+                }}
+              />
             ) : (
               <Typography variant="caption" color="grey.600">{streaming ? 'Connecting...' : 'Paused'}</Typography>
             )}
