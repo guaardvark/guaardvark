@@ -2127,6 +2127,134 @@ class ResearchConfig(db.Model):
         }
 
 
+# --- Demonstration / Learning Models ---
+
+class Demonstration(db.Model):
+    __tablename__ = "demonstrations"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=True, index=True)
+    description = db.Column(db.Text, nullable=False)
+    context_url = db.Column(db.String(1024), nullable=True)
+    context_app = db.Column(db.String(255), nullable=True)
+    tags = db.Column(db.JSON, nullable=True, default=list)
+    autonomy_level = db.Column(
+        db.String(20),
+        nullable=False,
+        default="guided",
+        index=True,
+    )
+    success_count = db.Column(db.Integer, nullable=False, default=0)
+    attempt_count = db.Column(db.Integer, nullable=False, default=0)
+    parent_demonstration_id = db.Column(
+        db.Integer,
+        db.ForeignKey("demonstrations.id", name="fk_demo_parent_id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    is_complete = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now())
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(), onupdate=lambda: datetime.now())
+
+    steps = db.relationship(
+        "DemoStep",
+        backref="demonstration",
+        lazy="dynamic",
+        order_by="DemoStep.step_index",
+        cascade="all, delete-orphan",
+    )
+    attempts = db.relationship(
+        "Demonstration",
+        backref=db.backref("parent", remote_side="Demonstration.id"),
+        lazy="dynamic",
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            autonomy_level.in_(["guided", "supervised", "autonomous"]),
+            name="ck_demo_autonomy_level",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<Demonstration {self.id}: {self.name or self.description[:40]}>"
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "context_url": self.context_url,
+            "context_app": self.context_app,
+            "tags": self.tags or [],
+            "autonomy_level": self.autonomy_level,
+            "success_count": self.success_count,
+            "attempt_count": self.attempt_count,
+            "parent_demonstration_id": self.parent_demonstration_id,
+            "is_complete": self.is_complete,
+            "steps": [s.to_dict() for s in self.steps],
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class DemoStep(db.Model):
+    __tablename__ = "demo_steps"
+
+    id = db.Column(db.Integer, primary_key=True)
+    demonstration_id = db.Column(
+        db.Integer,
+        db.ForeignKey("demonstrations.id", name="fk_demostep_demo_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    step_index = db.Column(db.Integer, nullable=False)
+    action_type = db.Column(db.String(20), nullable=False)
+    target_description = db.Column(db.Text, nullable=False)
+    element_context = db.Column(db.Text, nullable=True)
+    coordinates_x = db.Column(db.Integer, nullable=True)
+    coordinates_y = db.Column(db.Integer, nullable=True)
+    text = db.Column(db.Text, nullable=True)
+    keys = db.Column(db.String(255), nullable=True)
+    intent = db.Column(db.Text, nullable=True)
+    precondition = db.Column(db.Text, nullable=True)
+    variability = db.Column(db.Boolean, nullable=False, default=False)
+    wait_condition = db.Column(db.Text, nullable=True)
+    is_mistake = db.Column(db.Boolean, nullable=False, default=False)
+    screenshot_before = db.Column(db.String(1024), nullable=True)
+    screenshot_after = db.Column(db.String(1024), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            action_type.in_(["click", "type", "hotkey", "scroll"]),
+            name="ck_demostep_action_type",
+        ),
+        db.UniqueConstraint("demonstration_id", "step_index", name="uq_demo_step_index"),
+    )
+
+    def __repr__(self):
+        return f"<DemoStep {self.demonstration_id}:{self.step_index} {self.action_type}>"
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "step_index": self.step_index,
+            "action_type": self.action_type,
+            "target_description": self.target_description,
+            "element_context": self.element_context,
+            "coordinates": [self.coordinates_x, self.coordinates_y] if self.coordinates_x is not None else None,
+            "text": self.text,
+            "keys": self.keys,
+            "intent": self.intent,
+            "precondition": self.precondition,
+            "variability": self.variability,
+            "wait_condition": self.wait_condition,
+            "is_mistake": self.is_mistake,
+            "screenshot_before": self.screenshot_before,
+            "screenshot_after": self.screenshot_after,
+        }
+
+
 # --- Helper Functions ---
 def get_model_by_name(name: str) -> Model | None:
     if not db:
