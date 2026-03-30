@@ -13,6 +13,7 @@ Orchestrates the see-think-act loop:
 
 import json
 import logging
+import queue
 import threading
 import time
 from dataclasses import dataclass, field
@@ -98,6 +99,12 @@ class AgentControlService:
         self._active = False
         self._ready = False
         self._killed = False
+        self._learning = False
+        self._demo_recorder = None
+        self._current_demonstration_id = None
+        self._learning_answer_queue = queue.Queue()
+        self._step_confirm_event = threading.Event()
+        self._step_confirm_data = None
         self._current_task: Optional[str] = None
         self._current_iteration: int = 0
         self._action_history: List[ActionStep] = []
@@ -108,6 +115,10 @@ class AgentControlService:
     @property
     def is_active(self) -> bool:
         return self._active
+
+    @property
+    def is_learning(self) -> bool:
+        return self._learning
 
     def start(self):
         """Activate agent mode — ready to accept tasks."""
@@ -138,6 +149,8 @@ class AgentControlService:
             "active": self._active,
             "ready": self._ready,
             "killed": self._killed,
+            "learning": self._learning,
+            "current_demonstration_id": self._current_demonstration_id,
             "current_task": self._current_task,
             "iteration": self._current_iteration,
             "history_length": len(self._action_history),
@@ -339,6 +352,190 @@ class AgentControlService:
         finally:
             self._active = False
             self._current_task = None
+
+    def start_learning(self, name=None, description="", tags=None):
+        """Enter LEARNING state and start recording human demonstration."""
+        if self._active:
+            return {"success": False, "error": "Agent is currently executing a task. Kill it first."}
+        if self._learning:
+            return {"success": False, "error": "Already in learning mode."}
+
+        from backend.models import db, Demonstration
+        from flask import current_app
+
+        with current_app.app_context():
+            demo = Demonstration(
+                name=name,
+                description=description or "Untitled demonstration",
+                tags=tags or [],
+                is_complete=False,
+            )
+            db.session.add(demo)
+            db.session.commit()
+            demo_id = demo.id
+
+        self._current_demonstration_id = demo_id
+
+        from backend.services.local_screen_backend import LocalScreenBackend
+        from backend.utils.vision_analyzer import VisionAnalyzer
+        screen = LocalScreenBackend()
+        analyzer = VisionAnalyzer()
+
+        from backend.services.demo_recorder import DemoRecorder
+        self._demo_recorder = DemoRecorder(
+            screen=screen,
+            analyzer=analyzer,
+        )
+        self._demo_recorder.start(demo_id=str(demo_id))
+        self._learning = True
+
+        from backend.socketio_events import emit_learning_mode_started
+        emit_learning_mode_started(demo_id, name)
+
+        logger.info(f"Learning mode started: demo_id={demo_id}, name={name}")
+        return {"success": True, "demonstration_id": demo_id}
+
+    def stop_learning(self):
+        """Stop recording and save the demonstration."""
+        if not self._learning or not self._demo_recorder:
+            return {"success": False, "error": "Not in learning mode."}
+
+        self._demo_recorder.stop()
+        steps = self._demo_recorder.get_steps()
+
+        from backend.models import db, Demonstration, DemoStep
+        from flask import current_app
+
+        demo_id = self._current_demonstration_id
+
+        with current_app.app_context():
+            demo = db.session.get(Demonstration, demo_id)
+            if demo:
+                for step_data in steps:
+                    step = DemoStep(
+                        demonstration_id=demo_id,
+                        step_index=step_data["step_index"],
+                        action_type=step_data["action_type"],
+                        target_description=step_data.get("target_description", ""),
+                        element_context=step_data.get("element_context", ""),
+                        coordinates_x=step_data.get("coordinates_x"),
+                        coordinates_y=step_data.get("coordinates_y"),
+                        text=step_data.get("text"),
+                        keys=step_data.get("keys"),
+                        intent=step_data.get("intent"),
+                        precondition=step_data.get("precondition", ""),
+                        variability=step_data.get("variability", False),
+                        wait_condition=step_data.get("wait_condition"),
+                        is_mistake=step_data.get("is_potential_mistake", False),
+                        screenshot_before=step_data.get("screenshot_before"),
+                        screenshot_after=step_data.get("screenshot_after"),
+                    )
+                    db.session.add(step)
+                demo.is_complete = True
+                db.session.commit()
+
+        self._learning = False
+        self._demo_recorder = None
+
+        from backend.socketio_events import emit_learning_mode_stopped
+        emit_learning_mode_stopped(demo_id, len(steps))
+
+        logger.info(f"Learning mode stopped: demo_id={demo_id}, {len(steps)} steps recorded")
+        return {"success": True, "demonstration_id": demo_id, "steps_recorded": len(steps)}
+
+    def attempt_demonstration(self, demonstration_id):
+        """Start an attempt to execute a saved demonstration."""
+        if self._active or self._learning:
+            return {"success": False, "error": "Agent is busy."}
+
+        from backend.models import db, Demonstration
+        from flask import current_app
+
+        with current_app.app_context():
+            demo = db.session.get(Demonstration, demonstration_id)
+            if not demo:
+                return {"success": False, "error": f"Demonstration {demonstration_id} not found."}
+            steps = [s.to_dict() for s in demo.steps]
+            level = demo.autonomy_level
+
+        if not steps:
+            return {"success": False, "error": "Demonstration has no steps."}
+
+        # Capture app reference for use in background thread
+        app = current_app._get_current_object()
+
+        def _run():
+            self._active = True
+            try:
+                from backend.services.local_screen_backend import LocalScreenBackend
+                from backend.utils.vision_analyzer import VisionAnalyzer
+                from backend.services.servo_controller import ServoController
+                from backend.services.training_data_collector import TrainingDataCollector
+                from backend.socketio_events import (
+                    emit_learning_question, emit_step_preview,
+                    emit_step_executed, emit_attempt_complete,
+                )
+                from backend.services.apprentice_engine import ApprenticeEngine
+
+                screen = LocalScreenBackend()
+                analyzer = VisionAnalyzer()
+                collector = TrainingDataCollector()
+                servo = ServoController(screen=screen, analyzer=analyzer, collector=collector)
+
+                engine = ApprenticeEngine(
+                    screen=screen,
+                    analyzer=analyzer,
+                    servo=servo,
+                    collector=collector,
+                )
+                engine._step_confirm_event = self._step_confirm_event
+                engine._answer_queue = self._learning_answer_queue
+
+                result = engine.execute(
+                    steps=steps,
+                    autonomy_level=level,
+                    demonstration_id=demonstration_id,
+                    emit_fn={
+                        "learning_question": emit_learning_question,
+                        "step_preview": emit_step_preview,
+                        "step_executed": emit_step_executed,
+                    },
+                )
+
+                emit_attempt_complete(
+                    demonstration_id=demonstration_id,
+                    success=result.success,
+                    steps_completed=result.steps_completed,
+                    total_steps=result.total_steps,
+                )
+
+                # Update graduation
+                with app.app_context():
+                    demo = db.session.get(Demonstration, demonstration_id)
+                    if demo:
+                        demo.attempt_count += 1
+                        if result.success:
+                            demo.success_count += 1
+                            if ApprenticeEngine._should_promote(demo.autonomy_level, demo.success_count):
+                                demo.autonomy_level = ApprenticeEngine._promote(demo.autonomy_level)
+                                demo.success_count = 0
+                                logger.info(f"Demo {demonstration_id} promoted to {demo.autonomy_level}")
+                        else:
+                            demo.success_count = 0
+                            old_level = demo.autonomy_level
+                            demo.autonomy_level = ApprenticeEngine._demote(demo.autonomy_level)
+                            if old_level != demo.autonomy_level:
+                                logger.info(f"Demo {demonstration_id} demoted to {demo.autonomy_level}")
+                        db.session.commit()
+
+            except Exception as e:
+                logger.error(f"Attempt failed: {e}", exc_info=True)
+            finally:
+                self._active = False
+
+        thread = threading.Thread(target=_run, daemon=True)
+        thread.start()
+        return {"success": True, "message": f"Attempt started at level '{level}'", "autonomy_level": level}
 
     def _store_and_return(self, result: AgentResult) -> AgentResult:
         """Store result for status reporting and return it."""
