@@ -40,6 +40,7 @@ class TrainingDataCollector:
         corrections: List[Dict[str, Any]],
         success: bool,
         app_context: str = "",
+        source: str = "servo",
     ):
         self._counter += 1
         img_name = f"{self._session_id}_{self._counter:05d}.jpg"
@@ -55,6 +56,7 @@ class TrainingDataCollector:
             "corrections": corrections,
             "success": success,
             "app_context": app_context,
+            "source": source,
         }
 
         with open(self._log_path, "a") as f:
