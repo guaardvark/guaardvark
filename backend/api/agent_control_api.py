@@ -109,6 +109,171 @@ def capture_and_analyze():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+# ---------------------------------------------------------------------------
+# Learning endpoints
+# ---------------------------------------------------------------------------
+
+@agent_control_bp.route("/learn/start", methods=["POST"])
+def learn_start():
+    """Start learning mode — begin recording a demonstration."""
+    try:
+        data = request.get_json() or {}
+        from backend.services.agent_control_service import get_agent_control_service
+        service = get_agent_control_service()
+        result = service.start_learning(
+            name=data.get("name"),
+            description=data.get("description", ""),
+            tags=data.get("tags"),
+        )
+        return jsonify(result), 200 if result["success"] else 409
+    except Exception as e:
+        logger.error(f"Error starting learning mode: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@agent_control_bp.route("/learn/stop", methods=["POST"])
+def learn_stop():
+    """Stop learning mode — finish recording and trigger clarification pass."""
+    try:
+        from backend.services.agent_control_service import get_agent_control_service
+        service = get_agent_control_service()
+        result = service.stop_learning()
+        return jsonify(result), 200 if result["success"] else 409
+    except Exception as e:
+        logger.error(f"Error stopping learning mode: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@agent_control_bp.route("/learn/status", methods=["GET"])
+def learn_status():
+    """Get current learning mode state."""
+    try:
+        from backend.services.agent_control_service import get_agent_control_service
+        service = get_agent_control_service()
+        return jsonify({
+            "success": True,
+            "learning": service.is_learning,
+            "demonstration_id": service._current_demonstration_id,
+        })
+    except Exception as e:
+        logger.error(f"Error getting learning status: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@agent_control_bp.route("/learn/demonstrations", methods=["GET"])
+def learn_list_demonstrations():
+    """List all completed demonstrations."""
+    try:
+        from backend.models import Demonstration
+        demos = Demonstration.query.filter_by(is_complete=True).order_by(
+            Demonstration.created_at.desc()
+        ).all()
+        return jsonify({"success": True, "demonstrations": [d.to_dict() for d in demos]})
+    except Exception as e:
+        logger.error(f"Error listing demonstrations: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@agent_control_bp.route("/learn/demonstrations/<int:demo_id>", methods=["GET"])
+def learn_get_demonstration(demo_id):
+    """Get a single demonstration with its steps."""
+    try:
+        from backend.models import db, Demonstration
+        demo = db.session.get(Demonstration, demo_id)
+        if not demo:
+            return jsonify({"success": False, "error": "Not found"}), 404
+        return jsonify({"success": True, "demonstration": demo.to_dict()})
+    except Exception as e:
+        logger.error(f"Error getting demonstration {demo_id}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@agent_control_bp.route("/learn/demonstrations/<int:demo_id>", methods=["DELETE"])
+def learn_delete_demonstration(demo_id):
+    """Delete a demonstration."""
+    try:
+        from backend.models import db, Demonstration
+        demo = db.session.get(Demonstration, demo_id)
+        if not demo:
+            return jsonify({"success": False, "error": "Not found"}), 404
+        db.session.delete(demo)
+        db.session.commit()
+        return jsonify({"success": True, "message": f"Demonstration {demo_id} deleted"})
+    except Exception as e:
+        logger.error(f"Error deleting demonstration {demo_id}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@agent_control_bp.route("/learn/demonstrations/<int:demo_id>", methods=["PATCH"])
+def learn_update_demonstration(demo_id):
+    """Update a demonstration's name, description, or tags."""
+    try:
+        from backend.models import db, Demonstration
+        demo = db.session.get(Demonstration, demo_id)
+        if not demo:
+            return jsonify({"success": False, "error": "Not found"}), 404
+        data = request.get_json() or {}
+        if "name" in data:
+            demo.name = data["name"]
+        if "description" in data:
+            demo.description = data["description"]
+        if "tags" in data:
+            demo.tags = data["tags"]
+        db.session.commit()
+        return jsonify({"success": True, "demonstration": demo.to_dict()})
+    except Exception as e:
+        logger.error(f"Error updating demonstration {demo_id}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@agent_control_bp.route("/learn/demonstrations/<int:demo_id>/attempt", methods=["POST"])
+def learn_attempt_demonstration(demo_id):
+    """Start an agent attempt of a demonstration."""
+    try:
+        from backend.services.agent_control_service import get_agent_control_service
+        service = get_agent_control_service()
+        result = service.attempt_demonstration(demo_id)
+        return jsonify(result), 200 if result["success"] else 409
+    except Exception as e:
+        logger.error(f"Error attempting demonstration {demo_id}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@agent_control_bp.route("/learn/demonstrations/<int:demo_id>/feedback", methods=["POST"])
+def learn_demonstration_feedback(demo_id):
+    """Submit success/failure feedback for a demonstration attempt."""
+    try:
+        from backend.models import db, Demonstration
+        demo = db.session.get(Demonstration, demo_id)
+        if not demo:
+            return jsonify({"success": False, "error": "Not found"}), 404
+        data = request.get_json() or {}
+        if data.get("success"):
+            demo.success_count += 1
+        else:
+            demo.success_count = 0
+        demo.attempt_count += 1
+        db.session.commit()
+        return jsonify({"success": True, "demonstration": demo.to_dict()})
+    except Exception as e:
+        logger.error(f"Error recording feedback for demonstration {demo_id}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@agent_control_bp.route("/learn/answer", methods=["POST"])
+def learn_answer():
+    """Answer a learning clarification question."""
+    try:
+        data = request.get_json() or {}
+        from backend.services.agent_control_service import get_agent_control_service
+        service = get_agent_control_service()
+        service._learning_answer_queue.put(data)
+        return jsonify({"success": True})
+    except Exception as e:
+        logger.error(f"Error submitting learning answer: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @agent_control_bp.route("/capture/raw", methods=["POST"])
 def capture_raw():
     """Return a raw JPEG screenshot of the virtual display — no vision analysis."""
