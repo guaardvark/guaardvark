@@ -274,6 +274,53 @@ def learn_answer():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@agent_control_bp.route("/learn/input", methods=["POST"])
+def learn_input():
+    """Forward user input to the virtual display during training.
+
+    Accepts: {action: "click"|"type"|"hotkey"|"scroll", x, y, text, keys}
+    Executes the action on display :99 via LocalScreenBackend so xinput
+    picks it up and DemoRecorder records it.
+    """
+    try:
+        data = request.get_json() or {}
+        action = data.get("action")
+        if not action:
+            return jsonify({"success": False, "error": "Missing 'action' field"}), 400
+
+        from backend.services.local_screen_backend import LocalScreenBackend
+        screen = LocalScreenBackend()
+
+        if action == "click":
+            x = int(data.get("x", 0))
+            y = int(data.get("y", 0))
+            button = data.get("button", "left")
+            result = screen.click(x, y, button=button)
+        elif action == "type":
+            text = data.get("text", "")
+            if not text:
+                return jsonify({"success": False, "error": "Missing 'text' for type action"}), 400
+            result = screen.type_text(text)
+        elif action == "hotkey":
+            keys = data.get("keys", "")
+            if not keys:
+                return jsonify({"success": False, "error": "Missing 'keys' for hotkey action"}), 400
+            key_list = keys.split("+")
+            result = screen.hotkey(*key_list)
+        elif action == "scroll":
+            x = int(data.get("x", 640))
+            y = int(data.get("y", 360))
+            amount = int(data.get("amount", -3))
+            result = screen.scroll(x, y, amount=amount)
+        else:
+            return jsonify({"success": False, "error": f"Unknown action: {action}"}), 400
+
+        return jsonify({"success": result.get("success", False), "result": result})
+    except Exception as e:
+        logger.error(f"Error forwarding input: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @agent_control_bp.route("/capture/raw", methods=["POST"])
 def capture_raw():
     """Return a raw JPEG screenshot of the virtual display — no vision analysis."""
