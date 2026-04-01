@@ -91,10 +91,16 @@ except ImportError as e:
 except Exception as e:
     print(f"Warning: CUDA optimization failed (non-critical): {e}")
 
-__version__ = "2.5.2"
-
 backend_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = str(config.GUAARDVARK_ROOT)
+
+# Read version from single source of truth (VERSION file in project root)
+_version_file = os.path.join(project_root, "VERSION")
+if os.path.exists(_version_file):
+    with open(_version_file, "r") as f:
+        __version__ = f.read().strip()
+else:
+    __version__ = "2.5.2"  # Fallback if VERSION file missing
 load_dotenv(os.path.join(project_root, ".env"), override=False)
 PROJECT_CONFIG = load_config()
 
