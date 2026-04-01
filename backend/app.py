@@ -1272,6 +1272,59 @@ def test_llm():
         }), 503
 
 
+@app.route("/api/health/frontend")
+def health_frontend():
+    """
+    Check frontend build status and return build metadata.
+    
+    Returns:
+        - status: 'built' if frontend is built, 'not_built' if not
+        - version: frontend version from package.json
+        - build_timestamp: modification time of dist directory
+    
+    Errors:
+        503: Frontend not built or error reading metadata
+    """
+    try:
+        from backend.config import GUAARDVARK_ROOT
+        import json
+        
+        frontend_dist = os.path.join(GUAARDVARK_ROOT, "frontend", "dist")
+        
+        if not os.path.exists(frontend_dist):
+            return jsonify({
+                "status": "not_built",
+                "error": "Frontend has not been built. Run 'npm run build' in the frontend directory."
+            }), 503
+        
+        # Read version from frontend/package.json
+        package_json_path = os.path.join(GUAARDVARK_ROOT, "frontend", "package.json")
+        version = "unknown"
+        if os.path.exists(package_json_path):
+            try:
+                with open(package_json_path, "r") as f:
+                    package_data = json.load(f)
+                    version = package_data.get("version", "unknown")
+            except Exception:
+                version = "unknown"
+        
+        # Get build timestamp from dist directory modification time
+        build_timestamp = os.path.getmtime(frontend_dist)
+        
+        return jsonify({
+            "status": "built",
+            "version": version,
+            "build_timestamp": build_timestamp,
+            "build_time_str": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(build_timestamp))
+        }), 200
+        
+    except Exception as exc:
+        return jsonify({
+            "status": "down",
+            "error": str(exc)
+        }), 503
+
+
 @app.route("/api/health/redis")
 def health_redis():
     try:
