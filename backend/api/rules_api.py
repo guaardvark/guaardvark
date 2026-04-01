@@ -12,6 +12,22 @@ rules_bp = Blueprint("rules_api", __name__, url_prefix="/api/rules")
 
 @rules_bp.route("", methods=["GET"])
 def get_rules():
+    """
+    Retrieve a paginated list of rules with optional filtering.
+    
+    Query Parameters:
+        project_id (int, optional): Filter rules linked to a specific project.
+        type (str, optional): Filter by rule type (e.g., 'COMMAND_RULE').
+        is_active (str, optional): Filter by active status ('true', '1', 'yes').
+        page (int, optional): Page number for pagination (default: 1).
+        per_page (int, optional): Items per page, max 100 (default: 50).
+    
+    Returns:
+        JSON array of rule objects, each containing rule details.
+    
+    Errors:
+        500 DATABASE_ERROR: Database query failed.
+    """
     try:
         project_id_filter = request.args.get("project_id", type=int)
         query = db.session.query(Rule)
@@ -46,6 +62,18 @@ def get_rules():
 
 @rules_bp.route("/<int:rule_id>", methods=["GET"])
 def get_rule(rule_id):
+    """
+    Retrieve a single rule by its ID.
+    
+    Path Parameters:
+        rule_id (int): The unique identifier of the rule.
+    
+    Returns:
+        JSON response with rule details on success.
+    
+    Errors:
+        404 NOT_FOUND: Rule with given ID does not exist.
+    """
     rule = db.session.get(Rule, rule_id)
     if not rule:
         return error_response("Rule not found", 404, "NOT_FOUND")
@@ -54,6 +82,35 @@ def get_rule(rule_id):
 
 @rules_bp.route("", methods=["POST"])
 def create_rule():
+    """
+    Create a new rule in the system.
+    
+    Request Body (JSON):
+        name (str, required): Name of the rule.
+        rule_text (str, required): The content/text of the rule.
+        level (str, optional): Rule level - one of 'SYSTEM', 'PROJECT', 'CLIENT',
+            'USER_GLOBAL', 'USER_SPECIFIC', 'PROMPT', 'LEARNED' (default: 'PROMPT').
+        type (str, optional): Rule type (default: 'PROMPT_TEMPLATE').
+        command_label (str, optional): Unique command label for the rule.
+        reference_id (str, optional): Reference identifier.
+        description (str, optional): Description of the rule.
+        target_models (str, optional): JSON array of target models (default: '["__ALL__"]').
+        is_active (bool, optional): Whether rule is active (default: True).
+        project_id (int, optional): Associated project ID.
+    
+    Returns:
+        JSON response with created rule ID on success (status 201).
+    
+    Errors:
+        400 INVALID_REQUEST: Request body is not JSON.
+        400 EMPTY_DATA: JSON body is empty.
+        400 INVALID_NAME: Missing or invalid 'name' field.
+        400 INVALID_RULE_TEXT: Missing or invalid 'rule_text' field.
+        400 INVALID_LEVEL: Invalid 'level' value.
+        409 DUPLICATE_COMMAND_LABEL: command_label must be unique.
+        500 DATABASE_ERROR: Database operation failed.
+        500 CREATE_FAILED: Unexpected error during creation.
+    """
     # Input validation
     if not request.is_json:
         return error_response("Request must be JSON", 400, "INVALID_REQUEST")
@@ -122,6 +179,33 @@ def create_rule():
 
 @rules_bp.route("/<int:rule_id>", methods=["PUT"])
 def update_rule(rule_id):
+    """
+    Update an existing rule by its ID.
+    
+    Path Parameters:
+        rule_id (int): The unique identifier of the rule to update.
+    
+    Request Body (JSON):
+        Any of the following optional fields:
+        name (str): New name for the rule.
+        level (str): New rule level.
+        type (str): New rule type.
+        command_label (str): New unique command label.
+        reference_id (str): New reference identifier.
+        rule_text (str): New rule content.
+        description (str): New description.
+        target_models (str): New JSON array of target models.
+        is_active (bool): New active status.
+        project_id (int): New associated project ID.
+    
+    Returns:
+        JSON success message on update completion.
+    
+    Errors:
+        404 NOT_FOUND: Rule with given ID does not exist.
+        409 CONFLICT: Duplicate command_label (must be unique).
+        500 DATABASE_ERROR: Database operation failed.
+    """
     data = request.get_json()
     rule = db.session.get(Rule, rule_id)
     if not rule:
@@ -167,6 +251,19 @@ def update_rule(rule_id):
 
 @rules_bp.route("/<int:rule_id>", methods=["DELETE"])
 def delete_rule(rule_id):
+    """
+    Delete a rule by its ID.
+    
+    Path Parameters:
+        rule_id (int): The unique identifier of the rule to delete.
+    
+    Returns:
+        JSON success message on deletion.
+    
+    Errors:
+        404 NOT_FOUND: Rule with given ID does not exist.
+        500 DATABASE_ERROR: Database operation failed.
+    """
     rule = db.session.get(Rule, rule_id)
     if not rule:
         return error_response("Rule not found", 404)
