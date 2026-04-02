@@ -205,8 +205,12 @@ class AppLaunchTool(BaseTool):
                 if wait:
                     output = f"App '{app_name}' completed with exit code {result.get('exit_code')}"
                 else:
-                    output = f"Launched '{app_name}' (PID: {result.get('pid')})"
-                
+                    display = result.get("display")
+                    if display:
+                        output = f"Launched '{app_name}' on agent display {display} (PID: {result.get('pid')})"
+                    else:
+                        output = f"Launched '{app_name}' (PID: {result.get('pid')})"
+
                 return ToolResult(success=True, output=output, metadata=result)
             else:
                 return ToolResult(success=False, error=result.get("error"))

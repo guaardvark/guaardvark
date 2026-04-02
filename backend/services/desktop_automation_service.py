@@ -392,19 +392,34 @@ class DesktopAutomationService:
     ) -> Dict[str, Any]:
         if not DESKTOP_AUTOMATION_ENABLED:
             return {"success": False, "error": "Desktop automation disabled"}
-        
+
         if not self._check_rate_limit():
             return {"success": False, "error": "Rate limit exceeded"}
-        
+
         if not self._check_app_allowed(app_name):
             self._audit("app_launch", {"app": app_name}, False)
             return {"success": False, "error": f"App not allowed: {app_name}"}
-        
+
         try:
+            from backend.utils.agent_display_utils import (
+                is_agent_display_active, get_agent_display_env, get_firefox_profile_path
+            )
+
             cmd = [app_name] + (args or [])
-            
+            env = None  # inherit parent env by default
+
+            # Route to agent virtual display when active
+            if is_agent_display_active():
+                env = get_agent_display_env()
+                # Firefox needs profile and no-remote flags for the agent display
+                if app_name in ("firefox", "firefox-esr"):
+                    profile_path = get_firefox_profile_path()
+                    if "--profile" not in cmd and "--no-remote" not in cmd:
+                        cmd = [app_name, "--no-remote", "--profile", profile_path] + (args or [])
+                    logger.info(f"Launching {app_name} on agent display with profile {profile_path}")
+
             if wait:
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+                result = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=300)
                 return {
                     "success": result.returncode == 0,
                     "app": app_name,
@@ -415,6 +430,7 @@ class DesktopAutomationService:
             else:
                 process = subprocess.Popen(
                     cmd,
+                    env=env,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     start_new_session=True
@@ -423,9 +439,10 @@ class DesktopAutomationService:
                 return {
                     "success": True,
                     "app": app_name,
-                    "pid": process.pid
+                    "pid": process.pid,
+                    "display": env.get("DISPLAY") if env else None
                 }
-                
+
         except FileNotFoundError:
             return {"success": False, "error": f"App not found: {app_name}"}
         except Exception as e:

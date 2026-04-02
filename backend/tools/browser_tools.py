@@ -58,12 +58,6 @@ class BrowserNavigateTool(BaseTool):
     }
     
     def execute(self, **kwargs) -> ToolResult:
-        if not BROWSER_AUTOMATION_ENABLED:
-            return ToolResult(
-                success=False,
-                error="Browser not available. Use 'analyze_website' or 'web_search' instead."
-            )
-
         url = kwargs.get("url")
         wait_for = kwargs.get("wait_for", "load")
 
@@ -72,6 +66,20 @@ class BrowserNavigateTool(BaseTool):
 
         if not url.startswith(("http://", "https://")):
             url = "https://" + url
+
+        # If agent virtual display is active, navigate via xdotool on :99
+        try:
+            from backend.utils.agent_display_utils import is_agent_display_active
+            if is_agent_display_active():
+                return self._navigate_on_agent_display(url)
+        except Exception as e:
+            logger.debug(f"Agent display check failed, using headless: {e}")
+
+        if not BROWSER_AUTOMATION_ENABLED:
+            return ToolResult(
+                success=False,
+                error="Browser not available. Use 'analyze_website' or 'web_search' instead."
+            )
 
         # Check web access setting — allow localhost/local network even when web access is off
         from urllib.parse import urlparse
@@ -90,11 +98,11 @@ class BrowserNavigateTool(BaseTool):
                     )
             except Exception:
                 pass
-        
+
         try:
             service = get_browser_service()
             result = _run_async(service.navigate(url, wait_for=wait_for))
-            
+
             if result.get("success"):
                 return ToolResult(
                     success=True,
@@ -107,10 +115,66 @@ class BrowserNavigateTool(BaseTool):
                     error=result.get("error", "Navigation failed"),
                     metadata=result
                 )
-                
+
         except Exception as e:
             logger.error(f"Browser navigate error: {e}")
             return ToolResult(success=False, error=str(e))
+
+    def _navigate_on_agent_display(self, url: str) -> ToolResult:
+        """Navigate via keyboard shortcuts on the agent's virtual display (:99).
+
+        Uses the same proven sequence as the navigate_url recipe:
+        Escape → Ctrl+L → Ctrl+A → type URL → Enter
+        """
+        import time
+
+        from backend.utils.agent_display_utils import (
+            is_firefox_on_agent_display, wait_for_firefox_on_display
+        )
+        from backend.services.local_screen_backend import LocalScreenBackend
+
+        screen = LocalScreenBackend()
+
+        # If Firefox isn't running on :99, launch it first
+        if not is_firefox_on_agent_display():
+            logger.info("Firefox not on agent display, launching...")
+            try:
+                from backend.services.desktop_automation_service import get_desktop_service
+                service = get_desktop_service()
+                launch_result = service.app_launch("firefox")
+                if not launch_result.get("success"):
+                    return ToolResult(
+                        success=False,
+                        error=f"Failed to launch Firefox: {launch_result.get('error')}"
+                    )
+            except Exception as e:
+                return ToolResult(success=False, error=f"Failed to launch Firefox: {e}")
+
+            if not wait_for_firefox_on_display(timeout=8.0):
+                return ToolResult(
+                    success=False,
+                    error="Firefox launched but did not appear on agent display within 8 seconds"
+                )
+            time.sleep(1)  # Let Firefox finish initializing
+
+        # Navigate using keyboard shortcuts (proven recipe pattern)
+        screen.hotkey("Escape")
+        time.sleep(0.3)
+        screen.hotkey("ctrl", "l")
+        time.sleep(0.5)
+        screen.hotkey("ctrl", "a")
+        time.sleep(0.2)
+        screen.type_text(url)
+        time.sleep(0.3)
+        screen.hotkey("Return")
+        time.sleep(2)
+
+        logger.info(f"Navigated to {url} on agent display")
+        return ToolResult(
+            success=True,
+            output=f"Navigated to {url} on agent display (:99)",
+            metadata={"url": url, "display": ":99", "method": "xdotool"}
+        )
 
 
 class BrowserClickTool(BaseTool):

@@ -85,8 +85,16 @@ class LocalScreenBackend(ScreenInterface):
         os.environ["DISPLAY"] = self.display
         try:
             with mss.mss() as sct:
+                if len(sct.monitors) < 2:
+                    raise IndexError(
+                        f"No monitors found on display {self.display} — is Xvfb running?"
+                    )
                 monitor = sct.monitors[1]
                 sct_img = sct.grab(monitor)
+                if sct_img.size.width == 0 or sct_img.size.height == 0:
+                    raise RuntimeError(
+                        f"Captured empty frame ({sct_img.size.width}x{sct_img.size.height})"
+                    )
                 image = Image.frombytes("RGB", sct_img.size, sct_img.rgb)
         finally:
             if env_backup:
