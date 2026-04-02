@@ -43,11 +43,17 @@ def _patch_chatmessage_content_setter():
         logger.warning(f"Could not patch ChatMessage.content setter: {e}")
 
 
+_local_config_applied = False
+
 def force_local_llama_index_config():
     """
     Forcibly configure LlamaIndex to use local models
     This must be called before any LlamaIndex imports that use Settings
     """
+    global _local_config_applied
+    if _local_config_applied:
+        logger.debug("LlamaIndex local config already applied, skipping")
+        return True
     try:
         # Configure CUDA for optimal performance
         # Only disable CUDA for Celery workers to prevent multiprocessing issues
@@ -132,6 +138,7 @@ def force_local_llama_index_config():
         os.environ.pop('OPENAI_API_KEY', None)
         os.environ.pop('OPENAI_API_BASE', None)
 
+        _local_config_applied = True
         logger.info(" LlamaIndex configured to use local models only")
         return True
 

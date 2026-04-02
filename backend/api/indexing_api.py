@@ -1,6 +1,7 @@
 # backend/api/indexing_api.py
 # Version Updated: Use Celery task for indexing instead of Flask-Executor
 
+import json
 import logging
 import os
 
@@ -243,21 +244,68 @@ def trigger_bulk_indexing():
             logger.error(f"Failed to import Celery task: {e}")
             return jsonify({"error": "Indexing service unavailable"}), 500
 
+        import hashlib
+
         dispatched = 0
+        skipped = 0
         for doc_id in all_doc_ids:
             doc = db.session.get(DBDocument, doc_id)
             if not doc:
                 continue
+
+            # Check content hash for incremental re-indexing
+            if doc.index_status == "INDEXED" and doc.file_metadata:
+                try:
+                    existing_meta = json.loads(doc.file_metadata)
+                    stored_hash = existing_meta.get("content_hash")
+                    if stored_hash:
+                        upload_dir = os.environ.get(
+                            'GUAARDVARK_UPLOAD_DIR',
+                            os.path.join(os.environ.get('GUAARDVARK_STORAGE_DIR', 'data'), 'uploads')
+                        )
+                        full_path = os.path.join(upload_dir, doc.path)
+                        if os.path.exists(full_path):
+                            with open(full_path, 'r', encoding='utf-8', errors='replace') as f:
+                                current_hash = hashlib.sha256(f.read().encode('utf-8', errors='replace')).hexdigest()
+                            if current_hash == stored_hash:
+                                skipped += 1
+                                continue  # File unchanged, skip re-indexing
+                except Exception as e:
+                    logger.debug(f"Hash check failed for doc {doc_id}, will re-index: {e}")
+
             update_document_status(doc.id, "INDEXING")
             index_document_task.apply_async((doc.id, job_id), queue='indexing')
             dispatched += 1
 
-        logger.info(f"Bulk indexing: dispatched {dispatched} tasks under job {job_id}")
+        logger.info(f"Bulk indexing: dispatched {dispatched} tasks, skipped {skipped} unchanged, under job {job_id}")
+
+        # Auto-trigger repository analysis for folders with enough code files
+        from backend.utils.code_chunker import CODE_LANGUAGE_MAP
+
+        min_code_files = int(os.environ.get("GUAARDVARK_REPO_ANALYSIS_MIN_FILES", "5"))
+
+        for fid in folder_ids:
+            try:
+                folder = db.session.get(Folder, fid)
+                if not folder:
+                    continue
+                all_docs = list(folder.documents.all())
+                code_count = sum(
+                    1 for d in all_docs
+                    if os.path.splitext(d.filename)[1].lower() in CODE_LANGUAGE_MAP
+                )
+                if code_count >= min_code_files:
+                    logger.info(f"Folder {folder.name} has {code_count} code files, triggering repo analysis")
+                    from backend.services.repository_analysis_service import RepositoryAnalysisService
+                    RepositoryAnalysisService.analyze_repository(fid)
+            except Exception as e:
+                logger.warning(f"Repository analysis failed for folder {fid}: {e}")
 
         return jsonify({
-            "message": f"Bulk indexing started for {dispatched} documents.",
+            "message": f"Bulk indexing started: {dispatched} dispatched, {skipped} unchanged (skipped).",
             "job_id": job_id,
             "total_documents": dispatched,
+            "skipped": skipped,
         }), 202
 
     except Exception as e:

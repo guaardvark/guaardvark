@@ -39,6 +39,7 @@ llama-index-core>=0.13.0,<0.15.0  # Compatible with llama-index-embeddings-ollam
 llama-index-llms-ollama>=0.7.0  # Updated for llama-index-core 0.14.x
 llama-index-embeddings-ollama>=0.8.0
 llama-index-readers-file>=0.5.0  # Updated for llama-index-core 0.14.x
+llama-index-retrievers-bm25>=0.5.0  # Hybrid search: BM25 keyword retrieval
 # PyTorch is installed by scripts/install_pytorch.sh (smart installer) - do not pin versions here
 # torch, torchvision, torchaudio versions are auto-detected based on GPU hardware
 
@@ -49,6 +50,7 @@ accelerate==1.2.1
 safetensors>=0.4.0
 Pillow>=10.2.0
 pillow-heif>=1.3.0  # AVIF/HEIF image support for vision analysis
+mss>=10.0.0  # Fast screenshot capture for agent virtual display
 
 # ComfyUI / Video Generation Dependencies
 torchsde>=0.2.6
@@ -102,3 +104,19 @@ plyer>=2.1.0           # Native notifications
 # mypy==1.16.1
 # ruff==0.11.13
 faster-whisper>=1.0.0
+
+# Code Intelligence Dependencies
+tree-sitter>=0.22.0
+tree-sitter-python>=0.23.0
+tree-sitter-javascript>=0.23.0
+tree-sitter-typescript>=0.23.0
+tree-sitter-java>=0.23.0
+tree-sitter-go>=0.23.0
+tree-sitter-rust>=0.23.0
+tree-sitter-c>=0.23.0
+tree-sitter-cpp>=0.23.0
+tree-sitter-ruby>=0.23.0
+tree-sitter-php>=0.23.0
+tree-sitter-c-sharp>=0.23.0
+pathspec>=0.12.0
+networkx>=3.2

@@ -667,11 +667,16 @@ def convert_audio_to_wav_ffmpeg(input_path, output_path):
 # Local tool paths (relative to backend directory)
 WHISPER_CLI_PATH = "tools/voice/whisper.cpp/build/bin/whisper-cli"
 WHISPER_MODEL_PATH = "tools/voice/whisper.cpp/models/ggml-base.bin"
-PIPER_MODEL_PATH = "tools/voice/piper-models/en_US-lessac-medium.onnx"
+PIPER_MODEL_PATH = "tools/voice/piper-models/en_US-libritts-high.onnx"
 
 # PERFORMANCE OPTIMIZATION: Voice configuration constants
 DEFAULT_VOICE = "libritts"
 PIPER_VOICES = {
+    "libritts": {
+        "name": "LibriTTS (English US)",
+        "description": "High quality multi-speaker English voice",
+        "model": "tools/voice/piper-models/en_US-libritts-high.onnx"
+    },
     "lessac": {
         "name": "Lessac (English US)",
         "description": "Clear American English voice",
@@ -1379,7 +1384,7 @@ def text_to_speech():
             logger.info(f"Voice API: Successfully generated speech for text: '{text[:100]}...'")
             
             return jsonify({
-                "audio_url": f"/voice/audio/{filename}",
+                "audio_url": f"/api/voice/audio/{filename}",
                 "filename": filename,
                 "text": text,
                 "voice": voice,

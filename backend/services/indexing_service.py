@@ -481,6 +481,31 @@ def search_with_llamaindex(query: str, max_chunks: int = 5, project_id: Optional
                 base_retriever = local_index.as_retriever(similarity_top_k=effective_top_k)
         else:
             base_retriever = local_index.as_retriever(similarity_top_k=effective_top_k)
+        # Hybrid search: add BM25 retrieval alongside vector search
+        hybrid_alpha = float(os.environ.get("GUAARDVARK_HYBRID_SEARCH_ALPHA", "0.3"))
+        retriever = base_retriever  # Default to vector-only
+
+        if hybrid_alpha > 0.0 and storage_context is not None:
+            try:
+                from llama_index.retrievers.bm25 import BM25Retriever
+                from llama_index.core.retrievers import QueryFusionRetriever
+
+                bm25_retriever = BM25Retriever.from_defaults(
+                    docstore=storage_context.docstore,
+                    similarity_top_k=effective_top_k,
+                )
+                retriever = QueryFusionRetriever(
+                    retrievers=[base_retriever, bm25_retriever],
+                    similarity_top_k=effective_top_k,
+                    num_queries=1,
+                    mode="reciprocal_rerank",
+                )
+                logger.info(f"Using hybrid search (BM25 + vector, alpha={hybrid_alpha})")
+            except ImportError:
+                logger.debug("BM25Retriever not available, using vector-only search")
+            except Exception as e:
+                logger.debug(f"Hybrid search setup failed, using vector-only: {e}")
+
         from llama_index.core.schema import QueryBundle
 
         if isinstance(query, str):
@@ -488,7 +513,7 @@ def search_with_llamaindex(query: str, max_chunks: int = 5, project_id: Optional
         else:
             query_bundle = query
 
-        nodes = base_retriever.retrieve(query_bundle)
+        nodes = retriever.retrieve(query_bundle)
         
         results = []
         for node_with_score in nodes:
@@ -511,6 +536,13 @@ def search_with_llamaindex(query: str, max_chunks: int = 5, project_id: Optional
 
         # Deduplicate near-identical chunks
         results = deduplicate_chunks(results)
+
+        # Expand results with cross-file dependency context
+        try:
+            from backend.utils.context_expander import expand_with_dependencies
+            results = expand_with_dependencies(results)
+        except Exception as e:
+            logger.debug(f"Context expansion skipped: {e}")
 
         # Fallback: if project-scoped search returned 0 results, retry with global scope
         if not results and project_id is not None:
@@ -1106,16 +1138,78 @@ def add_file_to_index(file_path: str, db_document: DBDocument, progress_callback
             progress_callback(70, f"Adding to vector index: {db_document.filename}")
         
         try:
-            from backend.utils.enhanced_rag_chunking import EnhancedRAGChunker
-            rag_chunker = EnhancedRAGChunker()
+            # Determine if this is a code file and route to appropriate chunker
+            from backend.utils.code_chunker import CodeAwareChunker
+            from backend.utils.contextual_prepender import prepend_context_to_nodes
 
-            nodes = rag_chunker.chunk_documents(documents, strategy_name='auto')
+            code_chunker = CodeAwareChunker()
+            language = code_chunker.get_language(db_document.filename)
 
-            logger.info(f"Enhanced RAG chunking produced {len(nodes)} nodes from {len(documents)} documents")
+            if language and documents:
+                # AST-aware chunking for code files
+                logger.info(f"Using AST code chunker for {db_document.filename} (language: {language})")
+                nodes = []
+                for doc in documents:
+                    doc_nodes = code_chunker.chunk_code(doc.text, language, file_path)
+                    # Carry over document-level metadata to each node
+                    for node in doc_nodes:
+                        node.metadata.update(doc.metadata or {})
+                        node.metadata["language"] = language
+                        node.metadata["content_type"] = "code"
+                        node.metadata["is_code_file"] = True
+                    nodes.extend(doc_nodes)
 
-            stats = rag_chunker.get_chunking_stats()
-            logger.info(f"Chunking stats: {stats}")
-            
+                # Extract symbols for the entire file
+                from backend.utils.code_symbol_extractor import extract_symbols
+                file_text = documents[0].text if documents else ""
+                file_symbols = extract_symbols(file_text, language)
+
+                # Attach per-file symbol summary to each node
+                symbol_names = [s["name"] for s in file_symbols if s["type"] in ("function", "class", "method")]
+                import_names = [s["name"] for s in file_symbols if s["type"] == "import"]
+
+                for node in nodes:
+                    node.metadata["file_symbols"] = ",".join(symbol_names[:50])
+                    node.metadata["file_imports"] = ",".join(import_names[:50])
+
+                    # Try to identify which symbol this specific chunk belongs to
+                    chunk_text = node.metadata.get("original_text", node.text)
+                    for sym in file_symbols:
+                        if sym["type"] in ("function", "class", "method"):
+                            if (f"def {sym['name']}" in chunk_text or
+                                f"function {sym['name']}" in chunk_text or
+                                f"class {sym['name']}" in chunk_text or
+                                f"func {sym['name']}" in chunk_text or
+                                f"fn {sym['name']}" in chunk_text):
+                                node.metadata["symbol_name"] = sym["name"]
+                                node.metadata["symbol_type"] = sym["type"]
+                                break
+
+                # Determine repo name from folder hierarchy
+                repo_name = None
+                try:
+                    if db_document.folder and db_document.folder.is_repository:
+                        repo_name = db_document.folder.name
+                    elif db_document.folder and db_document.folder.parent and getattr(db_document.folder.parent, 'is_repository', False):
+                        repo_name = db_document.folder.parent.name
+                except Exception:
+                    pass  # Folder relationship may not be loaded
+
+                prepend_context_to_nodes(nodes, repo_name=repo_name)
+                logger.info(f"AST code chunking produced {len(nodes)} nodes from {db_document.filename}")
+            else:
+                # Standard chunking for non-code files
+                from backend.utils.enhanced_rag_chunking import EnhancedRAGChunker
+                rag_chunker = EnhancedRAGChunker()
+                nodes = rag_chunker.chunk_documents(documents, strategy_name='auto')
+                logger.info(f"Enhanced RAG chunking produced {len(nodes)} nodes from {len(documents)} documents")
+
+                try:
+                    stats = rag_chunker.get_chunking_stats()
+                    logger.info(f"Chunking stats: {stats}")
+                except Exception:
+                    pass
+
             logger.info(f"Generated {len(nodes)} nodes from {len(documents)} documents")
             
             with _index_operation_lock:
@@ -1159,6 +1253,27 @@ def add_file_to_index(file_path: str, db_document: DBDocument, progress_callback
 
         if progress_callback:
             progress_callback(100, f"Indexing complete: {len(nodes)} nodes created")
+
+        # Store file-level symbol data in Document.file_metadata
+        if language and 'file_symbols' in dir() and file_symbols:
+            try:
+                import json as _json
+                existing_metadata = {}
+                if db_document.file_metadata:
+                    try:
+                        existing_metadata = _json.loads(db_document.file_metadata)
+                    except (ValueError, TypeError):
+                        pass
+                existing_metadata["symbols"] = file_symbols
+                existing_metadata["language"] = language
+                existing_metadata["imports"] = import_names if 'import_names' in dir() else []
+                existing_metadata["ast_chunked"] = True
+                existing_metadata["indexing_method"] = "code_intelligence_v1"
+                db_document.file_metadata = _json.dumps(existing_metadata)
+                db.session.commit()
+                logger.info(f"Stored {len(file_symbols)} symbols in metadata for {db_document.filename}")
+            except Exception as e:
+                logger.warning(f"Failed to store symbol metadata: {e}")
 
         gc.collect()
 

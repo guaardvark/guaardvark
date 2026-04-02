@@ -33,6 +33,7 @@ DIRECTION_MAP = {
 }
 
 SCREEN_W, SCREEN_H = 1280, 720
+TASKBAR_H = 30  # tint2 taskbar at the bottom — never click here
 
 
 class ServoController:
@@ -50,7 +51,7 @@ class ServoController:
         self.max_corrections = max_corrections
         self.collector = collector
 
-    def click_target(self, target_description: str) -> Dict[str, Any]:
+    def click_target(self, target_description: str, button: str = "left") -> Dict[str, Any]:
         """
         Click on a described target element using the adaptive servo loop.
 
@@ -114,7 +115,7 @@ class ServoController:
 
                 dx, dy = self._direction_to_delta(direction, pixels)
                 new_x = max(0, min(SCREEN_W, current_x + dx))
-                new_y = max(0, min(SCREEN_H, current_y + dy))
+                new_y = max(0, min(SCREEN_H - TASKBAR_H, current_y + dy))
 
                 self.screen.move(new_x, new_y)
                 correction_log.append({
@@ -126,7 +127,7 @@ class ServoController:
                 corrections_made += 1
 
             # 5. CLICK
-            self.screen.click(current_x, current_y)
+            self.screen.click(current_x, current_y, button=button)
 
             # 6. VERIFY — did the screen change?
             time.sleep(0.3)
@@ -221,6 +222,7 @@ class ServoController:
 
     def _estimate_coordinates(self, screenshot: Image.Image, target: str) -> Optional[Tuple[int, int]]:
         prompt = (
+            f"Screen is {SCREEN_W}x{SCREEN_H}. The taskbar is at the very bottom (y>{SCREEN_H - TASKBAR_H}) — ignore it. "
             f"Find the {target}. "
             f"Output only: {{\"x\": CENTER_X, \"y\": CENTER_Y}}"
         )
@@ -235,9 +237,10 @@ class ServoController:
         # Scale from model's internal resolution to actual screen pixels
         # Uses Tier 1 reflexes — self-improvement engine tunes these values
         scale_x, scale_y = get_scale_factors(SCREEN_W, SCREEN_H)
+        safe_max_y = SCREEN_H - TASKBAR_H  # Clamp to avoid taskbar
         scaled = (
             max(0, min(SCREEN_W, int(raw_coords[0] * scale_x))),
-            max(0, min(SCREEN_H, int(raw_coords[1] * scale_y))),
+            max(0, min(safe_max_y, int(raw_coords[1] * scale_y))),
         )
 
         # Store raw coords for archive recording (done in click_target)

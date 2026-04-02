@@ -1042,7 +1042,6 @@ def create_code_release(name: str | None = None) -> str:
                 "system_info": {
                     "python_version": str(sys.version),
                     "platform": os.name,
-                    "project_root": str(project_root)
                 },
                 "note": "This backup contains source code and configuration files only. No database, uploads, or user data is included.",
                 "symlinks": {
@@ -1144,8 +1143,23 @@ def create_code_release(name: str | None = None) -> str:
 
                 # CLI tool (llx command)
                 "cli/",
+
+                # Agent recipes (deterministic action library — not user data)
+                "data/agent/recipes.json",
+
+                # Project documentation
+                "CONTRIBUTING.md",
+                "CAPABILITIES.md",
+                "KNOWN_BUGS.md",
+                "README_zh.md",
+                "docker-compose.yml",
+                ".dockerignore",
+                "killswitch.sh",
+
+                # GitHub configuration
+                ".github/",
             ]
-            
+
             # Empty directories to create (for runtime use on new machine)
             empty_dirs = [
                 "logs",        # Empty logs directory (will be populated at runtime)

@@ -9,6 +9,7 @@ import logging
 import json
 import time
 import datetime
+import hashlib
 from pathlib import Path
 from celery import current_task
 from sqlalchemy import create_engine, text
@@ -119,6 +120,7 @@ def enhanced_code_aware_indexing(file_path, document, document_id, update_progre
                 'language': file_ext[1:] if file_ext else 'unknown',
                 'line_count': len(content.splitlines()),
                 'char_count': len(content),
+                'content_hash': hashlib.sha256(content.encode('utf-8', errors='replace')).hexdigest(),
                 'processing_strategy': 'code_preserving' if is_code_file else 'standard',
                 'chunking_method': 'complete_file' if len(content) <= 50000 else 'logical_sections',
                 'processed_at': datetime.datetime.now().isoformat(),

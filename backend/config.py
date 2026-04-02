@@ -74,6 +74,7 @@ BROWSER_TIMEOUT = int(os.environ.get("GUAARDVARK_BROWSER_TIMEOUT", "30000"))
 
 DESKTOP_AUTOMATION_ENABLED = os.environ.get("GUAARDVARK_DESKTOP_AUTOMATION", "false").lower() == "true"
 GUI_AUTOMATION_ENABLED = os.environ.get("GUAARDVARK_GUI_AUTOMATION", "false").lower() == "true"
+AGENT_BROWSER = os.environ.get("GUAARDVARK_AGENT_BROWSER", "")  # firefox|chromium|chrome (auto-detected if empty)
 
 ALLOWED_AUTOMATION_PATHS = [
     str(GUAARDVARK_ROOT / "data"),

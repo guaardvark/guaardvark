@@ -467,50 +467,29 @@ def get_default_embed_model():
 
     Both paths use the same model and produce identical vectors.
     """
-    logger.info("Initializing embedding model via EmbeddingRouter")
+    logger.info("Initializing embedding model")
 
     try:
-        from backend.utils.embedding_router import get_embedding_router, RouterEmbeddingAdapter
+        from backend.config import get_active_embedding_model
+        from llama_index.embeddings.ollama import OllamaEmbedding
 
-        # Get the global embedding router (singleton)
-        router = get_embedding_router()
+        model_name = get_active_embedding_model()
+        logger.info(f"Using Ollama embedding model: {model_name}")
 
-        # Wrap in LlamaIndex-compatible adapter
-        adapter = RouterEmbeddingAdapter(router)
-
-        # Log the active model
-        stats = router.get_stats()
-        logger.info(
-            f"EmbeddingRouter initialized - profile: {stats['hardware_profile']}, "
-            f"model: {stats.get('active_model', 'unknown')}, "
-            f"GPU available: {stats.get('gpu_available', False)}"
+        embed_model = OllamaEmbedding(
+            model_name=model_name,
+            base_url="http://localhost:11434",
+            ollama_additional_kwargs={"mirostat": 0},
+            keep_alive=0,  # Unload after use to free VRAM for chat
         )
-
-        return adapter
+        return embed_model
 
     except Exception as e:
-        logger.warning(f"EmbeddingRouter initialization failed: {e}, falling back to direct Ollama")
-
-        # Direct Ollama fallback (no hash-based embedding)
-        try:
-            from backend.config import get_active_embedding_model
-            from llama_index.embeddings.ollama import OllamaEmbedding
-
-            model_name = get_active_embedding_model()
-            logger.info(f"Using direct Ollama embedding model: {model_name}")
-
-            return OllamaEmbedding(
-                model_name=model_name,
-                base_url="http://localhost:11434",
-            )
-        except Exception as fallback_error:
-            logger.error(f"Failed to initialize any embedding model: {fallback_error}")
-            raise RuntimeError(
-                f"Cannot initialize embedding model. "
-                f"EmbeddingRouter failed: {e}. "
-                f"Ollama fallback failed: {fallback_error}. "
-                f"Please ensure Ollama is running with an embedding model available."
-            ) from fallback_error
+        logger.error(f"Failed to initialize embedding model: {e}")
+        raise RuntimeError(
+            f"Cannot initialize embedding model: {e}. "
+            f"Please ensure Ollama is running with an embedding model available."
+        ) from e
 
 
 def persist_active_model_name(model_name: str) -> None:

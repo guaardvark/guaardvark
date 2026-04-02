@@ -455,28 +455,31 @@ class EmbeddingRouter:
 class RouterEmbeddingAdapter(BaseEmbedding if LLAMAINDEX_AVAILABLE else object):
     """LlamaIndex-compatible adapter wrapping EmbeddingRouter."""
 
-    def __init__(self, router: EmbeddingRouter):
-        if LLAMAINDEX_AVAILABLE:
-            super().__init__()
-        self._router = router
-        self._embed_dim = router.embed_dim
-        self._model_name = router._active_model_name
+    # Pydantic V2 model config — allow arbitrary attributes for _router etc.
+    model_config = {"arbitrary_types_allowed": True} if LLAMAINDEX_AVAILABLE else {}
 
-    @property
-    def model_name(self) -> str:
-        if self._model_name:
-            return self._model_name
-        if self._router and self._router._active_model_name:
-            return self._router._active_model_name
-        try:
-            from backend.config import get_active_embedding_model
-            return get_active_embedding_model()
-        except Exception:
-            return "Unknown"
+    # Use PrivateAttr for Pydantic V2 compatibility (BaseEmbedding is a Pydantic model)
+    if LLAMAINDEX_AVAILABLE:
+        from pydantic import PrivateAttr
+        _router: Any = PrivateAttr(default=None)
+        _cached_embed_dim: Optional[int] = PrivateAttr(default=None)
+        _cached_model_name: Optional[str] = PrivateAttr(default=None)
+    else:
+        _router = None
+        _cached_embed_dim = None
+        _cached_model_name = None
+
+    def __init__(self, router: EmbeddingRouter):
+        model_name = router._active_model_name or "mxbai-embed-large"
+        if LLAMAINDEX_AVAILABLE:
+            super().__init__(model_name=model_name)
+        self._router = router
+        self._cached_embed_dim = router.embed_dim
+        self._cached_model_name = model_name
 
     @property
     def embed_dim(self) -> int:
-        return self._embed_dim
+        return self._cached_embed_dim or 4096
 
     def _get_query_embedding(self, query: str) -> List[float]:
         return self._router.get_embedding(query)

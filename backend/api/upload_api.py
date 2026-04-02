@@ -10,6 +10,7 @@ from flask import Blueprint, current_app, jsonify, request
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.utils import secure_filename
 from backend.utils.response_utils import success_response, error_response
+from backend.utils.gitignore_filter import GitignoreFilter
 
 # Use absolute imports
 try:
@@ -414,6 +415,14 @@ def upload_file_endpoint():
             os.path.splitext(filename)[1].lower().lstrip(".")
         )  # Get extension without dot
         # --- END MODIFICATION ---
+
+        # Gitignore-based upload filtering
+        # Check if file should be ignored (e.g., node_modules, __pycache__, .pyc, etc.)
+        original_filename = file.filename  # Use original path before secure_filename stripped it
+        _gitignore_filter = GitignoreFilter()
+        if _gitignore_filter.should_ignore(original_filename) or _gitignore_filter.should_ignore(filename):
+            logger.info(f"Skipping ignored file: {original_filename}")
+            return jsonify({"message": "File skipped (ignored by filter)", "skipped": True}), 200
 
         # --- Get project_id and tags from form data ---
         project_id_str = request.form.get("project_id")

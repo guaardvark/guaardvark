@@ -51,6 +51,8 @@ def create_celery_app():
     try:
         celery_app.conf.update(
         broker_connection_retry_on_startup=True,
+        broker_connection_retry=True,
+        broker_connection_max_retries=None,  # retry forever
         
         task_serializer='json',
         accept_content=['json'],
