@@ -31,6 +31,11 @@ import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StorageIcon from "@mui/icons-material/Storage";
 import WorkIcon from "@mui/icons-material/Work";
 import ComputerIcon from "@mui/icons-material/Computer";
+import SchoolIcon from "@mui/icons-material/School";
+import SaveIcon from "@mui/icons-material/Save";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
+import Collapse from "@mui/material/Collapse";
 
 import {
   getTrainingDatasets,
@@ -51,6 +56,10 @@ import {
 } from "../api";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import Editor from "@monaco-editor/react";
+import { useSearchParams } from "react-router-dom";
+import { useTheme } from "@mui/material/styles";
+import axios from "axios";
 import TrainingDatasetModal from "../components/modals/TrainingDatasetModal";
 import NewTrainingJobModal from "../components/modals/NewTrainingJobModal";
 import DeviceProfileModal from "../components/modals/DeviceProfileModal";
@@ -65,12 +74,148 @@ const AlertSnackbar = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
 });
 
+const LEARN_API = "/api/agent-control/learn";
+
+const DemoRow = ({ demo, expanded, onToggle, onDelete, onAttempt, showMessage, theme }) => {
+  const [editorValue, setEditorValue] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    if (expanded && demo.steps) {
+      const stepsJson = JSON.stringify(
+        demo.steps.map(({ id, ...rest }) => rest),
+        null,
+        2
+      );
+      setEditorValue(stepsJson);
+      setDirty(false);
+    }
+  }, [expanded, demo.steps]);
+
+  const handleSaveSteps = async () => {
+    setSaving(true);
+    try {
+      const parsed = JSON.parse(editorValue);
+      if (!Array.isArray(parsed)) throw new Error("Steps must be a JSON array");
+      await axios.put(`${LEARN_API}/demonstrations/${demo.id}/steps`, { steps: parsed });
+      showMessage("Steps saved", "success");
+      setDirty(false);
+    } catch (err) {
+      showMessage(`Save failed: ${err.message}`, "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <TableRow hover onClick={onToggle} sx={{ cursor: "pointer", "& > *": { borderBottom: expanded ? 0 : undefined } }}>
+        <TableCell sx={{ width: 40, p: 0.5 }}>
+          <IconButton size="small">
+            {expanded ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+          </IconButton>
+        </TableCell>
+        <TableCell>
+          <Typography variant="body2" fontWeight="medium">
+            {demo.name || "Untitled"}
+          </Typography>
+        </TableCell>
+        <TableCell align="center">{demo.steps?.length ?? 0}</TableCell>
+        <TableCell>
+          <Chip
+            label={demo.autonomy_level}
+            size="small"
+            color={
+              demo.autonomy_level === "guided" ? "warning" :
+              demo.autonomy_level === "supervised" ? "info" :
+              demo.autonomy_level === "autonomous" ? "success" : "default"
+            }
+            sx={{ height: 22 }}
+          />
+        </TableCell>
+        <TableCell align="center">
+          {demo.success_count}/{demo.attempt_count}
+        </TableCell>
+        <TableCell>
+          <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.8rem" }}>
+            {demo.created_at ? new Date(demo.created_at).toLocaleDateString() : "-"}
+          </Typography>
+        </TableCell>
+        <TableCell align="right">
+          <Box sx={{ display: "flex", gap: 0.5, justifyContent: "flex-end" }}>
+            <Tooltip title="Agent attempts this demo">
+              <IconButton size="small" onClick={(e) => { e.stopPropagation(); onAttempt(demo); }} color="primary">
+                <PlayArrowIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Delete demonstration">
+              <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDelete(demo); }} color="error">
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </TableCell>
+      </TableRow>
+      <TableRow>
+        <TableCell colSpan={7} sx={{ py: 0, px: 0 }}>
+          <Collapse in={expanded} timeout="auto" unmountOnExit>
+            <Box sx={{ p: 2, bgcolor: "action.hover" }}>
+              <Typography variant="subtitle2" gutterBottom>
+                Steps (JSON) — edit, reorder, or paste new instructions
+              </Typography>
+              <Editor
+                height="300px"
+                language="json"
+                theme={theme.palette.mode === "dark" ? "vs-dark" : "vs-light"}
+                value={editorValue}
+                onChange={(val) => { setEditorValue(val || ""); setDirty(true); }}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 13,
+                  lineNumbers: "on",
+                  scrollBeyondLastLine: false,
+                  wordWrap: "on",
+                  tabSize: 2,
+                }}
+              />
+              <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<SaveIcon />}
+                  onClick={handleSaveSteps}
+                  disabled={saving || !dirty}
+                >
+                  {saving ? "Saving..." : "Save Steps"}
+                </Button>
+              </Box>
+            </Box>
+          </Collapse>
+        </TableCell>
+      </TableRow>
+    </>
+  );
+};
+
 const TrainingPage = () => {
   const { showMessage } = useSnackbar();
   const { activeProcesses } = useUnifiedProgress();
   const { activeModel, isLoadingModel, modelError } = useStatus();
-  const [activeTab, setActiveTab] = useState(0);
-  
+  const theme = useTheme();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => {
+    return searchParams.get("tab") === "demonstrations" ? 0 : 0;
+  });
+
+  // Demonstrations state
+  const [demonstrations, setDemonstrations] = useState([]);
+  const [demosLoading, setDemosLoading] = useState(true);
+  const [expandedDemoId, setExpandedDemoId] = useState(() => {
+    const demoParam = searchParams.get("demo");
+    return demoParam ? parseInt(demoParam, 10) : null;
+  });
+
   // Datasets state
   const [datasets, setDatasets] = useState([]);
   const [datasetsLoading, setDatasetsLoading] = useState(true);
@@ -153,16 +298,64 @@ const TrainingPage = () => {
     }
   }, []);
 
+  const fetchDemonstrations = useCallback(async () => {
+    setDemosLoading(true);
+    try {
+      const res = await axios.get(`${LEARN_API}/demonstrations`);
+      setDemonstrations(res.data.demonstrations || []);
+    } catch (err) {
+      console.error("Error fetching demonstrations:", err);
+      showMessage("Failed to fetch demonstrations", "error");
+      setDemonstrations([]);
+    } finally {
+      setDemosLoading(false);
+    }
+  }, [showMessage]);
+
+  const handleDeleteDemo = async (demo) => {
+    try {
+      await axios.delete(`${LEARN_API}/demonstrations/${demo.id}`);
+      showMessage(`Demonstration "${demo.name || "Untitled"}" deleted`, "success");
+      setDemonstrations((prev) => prev.filter((d) => d.id !== demo.id));
+      if (expandedDemoId === demo.id) setExpandedDemoId(null);
+    } catch (err) {
+      showMessage(`Failed to delete: ${err.message}`, "error");
+    }
+  };
+
+  const handleAttemptDemo = async (demo) => {
+    try {
+      const res = await axios.post(`${LEARN_API}/demonstrations/${demo.id}/attempt`);
+      if (res.data.success) {
+        showMessage(`Attempt started (${res.data.autonomy_level} mode)`, "info");
+      }
+    } catch (err) {
+      showMessage(`Failed to start attempt: ${err.message}`, "error");
+    }
+  };
+
   useEffect(() => {
+    fetchDemonstrations();
     fetchDatasets();
     fetchJobs();
     fetchDeviceProfiles();
     fetchBaseModels();
-  }, [fetchDatasets, fetchJobs, fetchDeviceProfiles, fetchBaseModels]);
+  }, [fetchDemonstrations, fetchDatasets, fetchJobs, fetchDeviceProfiles, fetchBaseModels]);
+
+  // Handle URL params for deep-linking from TrainingFloater
+  useEffect(() => {
+    if (searchParams.get("tab") === "demonstrations") {
+      setActiveTab(0);
+      const demoId = searchParams.get("demo");
+      if (demoId) setExpandedDemoId(parseInt(demoId, 10));
+      // Clear params after applying
+      setSearchParams({}, { replace: true });
+    }
+  }, []);
 
   // Refresh jobs periodically when on jobs tab
   useEffect(() => {
-    if (activeTab === 1) {
+    if (activeTab === 2) {
       const interval = setInterval(() => {
         fetchJobs();
       }, 5000); // Refresh every 5 seconds
@@ -373,14 +566,79 @@ const TrainingPage = () => {
       <Paper elevation={2}>
         <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
           <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
+            <Tab icon={<SchoolIcon />} iconPosition="start" label="Demonstrations" />
             <Tab icon={<StorageIcon />} iconPosition="start" label="Datasets" />
             <Tab icon={<WorkIcon />} iconPosition="start" label="Jobs" />
             <Tab icon={<ComputerIcon />} iconPosition="start" label="Devices" />
           </Tabs>
         </Box>
 
-        {/* Datasets Tab */}
+        {/* Demonstrations Tab */}
         {activeTab === 0 && (
+          <Box sx={{ p: 2 }}>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+              <Typography variant="h6">
+                Demonstrations
+                {demonstrations.length > 0 && (
+                  <Chip label={demonstrations.length} size="small" sx={{ ml: 1, height: 20, fontSize: "0.75rem" }} />
+                )}
+              </Typography>
+              <Tooltip title="Refresh">
+                <IconButton onClick={fetchDemonstrations} disabled={demosLoading}>
+                  <RefreshIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
+            {demosLoading ? (
+              <Box display="flex" justifyContent="center" my={3}>
+                <CircularProgress />
+              </Box>
+            ) : (
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ width: 40 }} />
+                      <TableCell>Name</TableCell>
+                      <TableCell align="center">Steps</TableCell>
+                      <TableCell>Autonomy</TableCell>
+                      <TableCell align="center">Attempts</TableCell>
+                      <TableCell>Created</TableCell>
+                      <TableCell align="right">Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {demonstrations.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            No demonstrations yet. Use the Interactive Trainer on the Settings page to record one.
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      demonstrations.map((demo) => (
+                        <DemoRow
+                          key={demo.id}
+                          demo={demo}
+                          expanded={expandedDemoId === demo.id}
+                          onToggle={() => setExpandedDemoId(expandedDemoId === demo.id ? null : demo.id)}
+                          onDelete={handleDeleteDemo}
+                          onAttempt={handleAttemptDemo}
+                          showMessage={showMessage}
+                          theme={theme}
+                        />
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </Box>
+        )}
+
+        {/* Datasets Tab */}
+        {activeTab === 1 && (
           <Box sx={{ p: 2 }}>
             <Box
               display="flex"
@@ -483,7 +741,7 @@ const TrainingPage = () => {
         )}
 
         {/* Jobs Tab */}
-        {activeTab === 1 && (
+        {activeTab === 2 && (
           <Box sx={{ p: 2 }}>
             <Box
               display="flex"
@@ -634,7 +892,7 @@ const TrainingPage = () => {
         )}
 
         {/* Devices Tab */}
-        {activeTab === 2 && (
+        {activeTab === 3 && (
           <Box sx={{ p: 2 }}>
             <Box
               display="flex"

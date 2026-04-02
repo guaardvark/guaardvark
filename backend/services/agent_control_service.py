@@ -48,7 +48,7 @@ class AgentControlConfig:
 @dataclass
 class AgentAction:
     """A single action the agent wants to perform."""
-    action_type: str = ""  # click, type, hotkey, scroll, move, done
+    action_type: str = ""  # click, right_click, type, hotkey, scroll, move, done
     target_cell: str = ""  # Grid cell (e.g., "D4") — for clicks
     target_description: str = ""  # What the agent thinks it's clicking
     coordinates: Optional[Tuple[int, int]] = None  # Refined pixel coords
@@ -289,21 +289,35 @@ class AgentControlService:
 
                 # 4. ACT — Execute via servo (for clicks) or direct (for type/hotkey/scroll)
                 # In mouse_only mode, reject any non-click action
-                if getattr(self, '_mouse_only', False) and decision.action.action_type not in ("click", "done"):
+                if getattr(self, '_mouse_only', False) and decision.action.action_type not in ("click", "right_click", "done"):
                     logger.info(f"[AGENT][STEP {iteration+1}][ACT] Mouse-only: rejecting {decision.action.action_type}")
                     decision.action.action_type = "click"
                     if not decision.action.target_description:
                         consecutive_failures += 1
                         continue
 
-                if decision.action.action_type == "click":
-                    servo_result = servo.click_target(decision.action.target_description)
-                    decision.action.coordinates = (servo_result.get("x", 0), servo_result.get("y", 0))
-                    result = {"success": servo_result.get("success", False)}
-                    failed = not servo_result.get("success", False)
+                if decision.action.action_type in ("click", "right_click"):
+                    button = "right" if decision.action.action_type == "right_click" else "left"
+                    target = decision.action.target_description
+
+                    # For generic area targets (desktop, empty space), click center-screen
+                    # instead of asking the vision model to locate "the desktop"
+                    import re as _re
+                    if _re.search(r'(?:desktop|empty|blank|background|open area|center|middle)\s*(?:area|space|screen)?', target, _re.IGNORECASE):
+                        cx, cy = 640, 360  # Center of 1280x720
+                        screen.click(cx, cy, button=button)
+                        decision.action.coordinates = (cx, cy)
+                        result = {"success": True}
+                        failed = False
+                    else:
+                        servo_result = servo.click_target(target, button=button)
+                        decision.action.coordinates = (servo_result.get("x", 0), servo_result.get("y", 0))
+                        result = {"success": servo_result.get("success", False)}
+                        failed = not servo_result.get("success", False)
+
                     status_icon = "OK" if not failed else "FAIL"
-                    logger.warning(f"[AGENT][STEP {iteration+1}][ACT] click \"{decision.action.target_description}\" "
-                                  f"at ({servo_result.get('x', '?')},{servo_result.get('y', '?')}) [{status_icon}]")
+                    logger.warning(f"[AGENT][STEP {iteration+1}][ACT] {decision.action.action_type} \"{target}\" "
+                                  f"at ({decision.action.coordinates[0]},{decision.action.coordinates[1]}) [{status_icon}]")
                 else:
                     result = self._execute_action(decision.action, screen)
                     failed = not result.get("success", False)
@@ -563,9 +577,10 @@ class AgentControlService:
     def _execute_action(self, action: AgentAction, screen) -> Dict[str, Any]:
         """Execute a single agent action via the screen interface."""
         try:
-            if action.action_type == "click":
+            if action.action_type in ("click", "right_click"):
                 if action.coordinates:
-                    return screen.click(action.coordinates[0], action.coordinates[1])
+                    button = "right" if action.action_type == "right_click" else "left"
+                    return screen.click(action.coordinates[0], action.coordinates[1], button=button)
                 else:
                     return {"success": False, "error": "No coordinates for click"}
 
@@ -737,7 +752,9 @@ IMPORTANT RULES:
 - If the task is complete, use "done"
 
 Reply with ONLY JSON:
-{{"action": "click|type|hotkey|scroll|done", "target_description": "what to click", "text": "text to type", "keys": ["ctrl", "t"], "reasoning": "why"}}"""
+{{"action": "click|right_click|type|hotkey|scroll|done", "target_description": "what to click", "text": "text to type", "keys": ["ctrl", "t"], "reasoning": "why"}}
+
+Use "right_click" to open context menus (e.g., right-click the desktop to open the application menu)."""
 
     @staticmethod
     def _get_unified_model() -> str:
@@ -771,20 +788,25 @@ Reply with ONLY JSON:
         return ""
 
     _recipe_cache = None
+    _recipe_mtime = 0.0
 
     @classmethod
     def _load_recipes(cls):
-        """Load recipe library from JSON file."""
-        if cls._recipe_cache is not None:
-            return cls._recipe_cache
+        """Load recipe library from JSON file, auto-reloading on file change."""
         import os, json
         from backend.config import GUAARDVARK_ROOT
         path = os.path.join(GUAARDVARK_ROOT, "data", "agent", "recipes.json")
         try:
+            mtime = os.path.getmtime(path)
+        except OSError:
+            mtime = 0.0
+        if cls._recipe_cache is not None and mtime <= cls._recipe_mtime:
+            return cls._recipe_cache
+        try:
             with open(path, "r") as f:
                 data = json.load(f)
-            # Remove metadata key
             cls._recipe_cache = {k: v for k, v in data.items() if not k.startswith("_")}
+            cls._recipe_mtime = mtime
             logger.info(f"Loaded {len(cls._recipe_cache)} recipes from {path}")
             return cls._recipe_cache
         except Exception as e:
@@ -876,10 +898,11 @@ Reply with ONLY JSON:
                 ))
             elif action_type == "click":
                 x, y = step.get("x", 0), step.get("y", 0)
-                result = screen.click(x, y)
+                button = step.get("button", "left")
+                result = screen.click(x, y, button=button)
                 action_steps.append(ActionStep(
                     iteration=step_num, scene_description=f"recipe:{name}",
-                    action=AgentAction(action_type="click", coordinates=(x, y)),
+                    action=AgentAction(action_type="click" if button == "left" else "right_click", coordinates=(x, y)),
                     result=result, failed=not result.get("success", False)
                 ))
             step_num += 1
@@ -927,6 +950,7 @@ Reply with ONLY JSON:
 
         # Match traces to task by keyword detection
         match_rules = {
+            "open_firefox_from_desktop": ["firefox", "browser", "launch browser", "start browser"],
             "navigate_to_page": ["navigate", "go to", "open", "localhost", "page"],
             "send_chat_message": ["chat", "type", "send", "message", "hello", "test"],
             "open_past_chats": ["past chat", "history", "previous chat", "old chat"],
@@ -1014,15 +1038,16 @@ Reply with ONLY JSON:
 
         if mouse_only:
             rules = """RULES (MOUSE ONLY MODE):
-- You can ONLY use "click" and "done" actions. No keyboard, no typing, no hotkeys.
+- You can ONLY use "click", "right_click", and "done" actions. No keyboard, no typing, no hotkeys.
 - Identify the target visually and click it directly with the mouse.
 - Describe WHAT you want to click clearly (e.g., "the Save button", "the green circle with number 5").
+- Use "right_click" to open context menus (e.g., right-click the desktop to open the application menu).
 - If the task is complete, use "done".
 - Do NOT use keyboard shortcuts. Do NOT type text. MOUSE CLICKS ONLY.
 
 Respond with ONLY a JSON object:
 {{
-    "action": "click" | "done",
+    "action": "click" | "right_click" | "done",
     "target_description": "exactly what to click (servo will find it)",
     "reasoning": "why"
 }}"""
@@ -1045,13 +1070,15 @@ RULES:
 
 Respond with ONLY a JSON object:
 {{
-    "action": "click" | "type" | "hotkey" | "scroll" | "done",
+    "action": "click" | "right_click" | "type" | "hotkey" | "scroll" | "done",
     "target_description": "what you are clicking (servo will find it precisely)",
     "text": "text to type",
     "keys": ["ctrl", "l"],
     "scroll_amount": -3,
     "reasoning": "why"
-}}"""
+}}
+
+Use "right_click" to open context menus (e.g., right-click the desktop to open application menu)."""
 
         # Inject self-knowledge and example traces when working on the Guaardvark UI
         self_knowledge = ""

@@ -233,6 +233,52 @@ def learn_update_demonstration(demo_id):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@agent_control_bp.route("/learn/demonstrations/<int:demo_id>/steps", methods=["PUT"])
+def learn_replace_steps(demo_id):
+    """Replace all steps for a demonstration with the provided JSON array."""
+    try:
+        from backend.models import db, Demonstration, DemoStep
+        demo = db.session.get(Demonstration, demo_id)
+        if not demo:
+            return jsonify({"success": False, "error": "Not found"}), 404
+        data = request.get_json() or {}
+        steps = data.get("steps")
+        if not isinstance(steps, list):
+            return jsonify({"success": False, "error": "'steps' must be a list"}), 400
+        valid_actions = {"click", "type", "hotkey", "scroll"}
+        for i, s in enumerate(steps):
+            if s.get("action_type") not in valid_actions:
+                return jsonify({"success": False, "error": f"Step {i}: invalid action_type '{s.get('action_type')}'"}), 400
+        # Delete existing steps
+        DemoStep.query.filter_by(demonstration_id=demo_id).delete()
+        # Create new steps with enforced sequential indexing
+        for i, step_data in enumerate(steps):
+            step = DemoStep(
+                demonstration_id=demo_id,
+                step_index=i,
+                action_type=step_data["action_type"],
+                target_description=step_data.get("target_description", ""),
+                element_context=step_data.get("element_context", ""),
+                coordinates_x=step_data.get("coordinates_x"),
+                coordinates_y=step_data.get("coordinates_y"),
+                text=step_data.get("text"),
+                keys=step_data.get("keys"),
+                intent=step_data.get("intent"),
+                precondition=step_data.get("precondition", ""),
+                variability=step_data.get("variability", False),
+                wait_condition=step_data.get("wait_condition"),
+                is_mistake=step_data.get("is_mistake", False),
+                screenshot_before=step_data.get("screenshot_before"),
+                screenshot_after=step_data.get("screenshot_after"),
+            )
+            db.session.add(step)
+        db.session.commit()
+        return jsonify({"success": True, "demonstration": demo.to_dict()})
+    except Exception as e:
+        logger.error(f"Error replacing steps for demonstration {demo_id}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @agent_control_bp.route("/learn/demonstrations/<int:demo_id>/attempt", methods=["POST"])
 def learn_attempt_demonstration(demo_id):
     """Start an agent attempt of a demonstration."""
@@ -352,7 +398,11 @@ def capture_raw():
         from io import BytesIO
 
         data = request.get_json() or {}
-        quality = data.get("quality", 70)
+        try:
+            quality = int(data.get("quality", 70))
+        except (TypeError, ValueError):
+            quality = 70
+        quality = max(1, min(100, quality))
 
         screen = LocalScreenBackend()
         screenshot, _ = screen.capture()
@@ -361,9 +411,19 @@ def capture_raw():
         screenshot.save(buf, format="JPEG", quality=quality)
         buf.seek(0)
 
+        # Validate the JPEG is non-empty and has valid header
+        jpeg_bytes = buf.getvalue()
+        if len(jpeg_bytes) < 100 or jpeg_bytes[:2] != b'\xff\xd8':
+            logger.error(f"Capture produced invalid JPEG ({len(jpeg_bytes)} bytes)")
+            return jsonify({"success": False, "error": "Capture produced invalid image"}), 500
+        buf.seek(0)
+
         from flask import send_file
         return send_file(buf, mimetype="image/jpeg")
 
+    except IndexError:
+        logger.error("No monitors available on agent display — is Xvfb running?")
+        return jsonify({"success": False, "error": "Agent display not running"}), 503
     except Exception as e:
-        logger.error(f"Error in raw capture: {e}")
+        logger.error(f"Error in raw capture: {e}", exc_info=True)
         return jsonify({"success": False, "error": str(e)}), 500

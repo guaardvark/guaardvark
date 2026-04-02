@@ -21,8 +21,11 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CheckIcon from '@mui/icons-material/Check';
 import EditIcon from '@mui/icons-material/Edit';
 import SkipNextIcon from '@mui/icons-material/SkipNext';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import axios from 'axios';
 import { io } from 'socket.io-client';
+import { useNavigate } from 'react-router-dom';
 
 const API_BASE = '/api/agent-control/learn';
 const STORAGE_KEY = 'guaardvark_training_floater_state';
@@ -53,7 +56,8 @@ function saveState(state) {
   } catch {}
 }
 
-export default function TrainingFloater({ open, onClose }) {
+export default function TrainingFloater({ open, onClose, onNavigateAway }) {
+  const navigate = useNavigate();
   // --- Persisted window state ---
   const saved = loadState();
   const [collapsed, setCollapsed] = useState(saved.collapsed ?? false);
@@ -324,6 +328,22 @@ export default function TrainingFloater({ open, onClose }) {
     setAttemptInfo((prev) => ({ ...prev, awaitingConfirm: false }));
   };
 
+  const handleDeleteDemo = async (demo, e) => {
+    e.stopPropagation();
+    try {
+      await axios.delete(`${API_BASE}/demonstrations/${demo.id}`);
+      setDemonstrations((prev) => prev.filter((d) => d.id !== demo.id));
+    } catch (err) {
+      console.error('Failed to delete demonstration:', err);
+    }
+  };
+
+  const handleSaveDemo = (demo, e) => {
+    e.stopPropagation();
+    navigate(`/training?tab=demonstrations&demo=${demo.id}`);
+    if (onClose) onClose();
+  };
+
   // --- Render helpers ---
   const levelColor = (level) => {
     switch (level) {
@@ -372,16 +392,37 @@ export default function TrainingFloater({ open, onClose }) {
                   </Typography>
                 </Box>
               </Box>
-              <Tooltip title="Agent attempts this demo">
-                <IconButton
-                  size="small"
-                  onClick={() => handleAttempt(demo)}
-                  disabled={loading || mode !== 'idle'}
-                  sx={{ p: 0.5 }}
-                >
-                  <PlayArrowIcon sx={{ fontSize: 18 }} />
-                </IconButton>
-              </Tooltip>
+              <Box sx={{ display: 'flex', gap: 0.25, alignItems: 'center' }}>
+                <Tooltip title="Delete demo">
+                  <IconButton
+                    size="small"
+                    onClick={(e) => handleDeleteDemo(demo, e)}
+                    disabled={loading}
+                    sx={{ p: 0.25 }}
+                  >
+                    <DeleteOutlineIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Save & edit in Training page">
+                  <IconButton
+                    size="small"
+                    onClick={(e) => handleSaveDemo(demo, e)}
+                    sx={{ p: 0.25 }}
+                  >
+                    <BookmarkBorderIcon sx={{ fontSize: 16, color: 'info.main' }} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Agent attempts this demo">
+                  <IconButton
+                    size="small"
+                    onClick={() => handleAttempt(demo)}
+                    disabled={loading || mode !== 'idle'}
+                    sx={{ p: 0.25 }}
+                  >
+                    <PlayArrowIcon sx={{ fontSize: 18 }} />
+                  </IconButton>
+                </Tooltip>
+              </Box>
             </Box>
           ))}
         </Box>

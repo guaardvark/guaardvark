@@ -304,10 +304,6 @@ class DemoRecorder:
 
         self._last_event_timestamp = evt.timestamp
 
-        # --- Store and return ---
-        with self._lock:
-            self._steps.append(step)
-
         return step
 
     def _collapse_keystrokes(self, events: List[InputEvent]) -> Optional[Dict[str, Any]]:
@@ -498,7 +494,10 @@ class DemoRecorder:
                     self._pending_keystrokes = []
 
                 # Process the non-key event
-                self._process_event(evt)
+                step = self._process_event(evt)
+                if step:
+                    with self._lock:
+                        self._steps.append(step)
 
         except Exception as e:
             if self._recording:
