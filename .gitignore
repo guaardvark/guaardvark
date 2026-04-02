@@ -1,7 +1,7 @@
+# Python
 backend/venv/
 cli/venv/
 cli/llx.egg-info/
-node_modules/
 __pycache__/
 *.pyc
 *.pyo
@@ -12,6 +12,10 @@ dist/
 build/
 *.egg
 
+# Node
+node_modules/
+
+# Application data (generated at runtime)
 data/uploads/
 data/outputs/
 data/cache/
@@ -22,158 +26,70 @@ data/docstore.json
 data/index_store.json
 data/default__vector_store.json
 data/graph_store.json
-data/code_editor_session.json
-data/code_editor_state.json
-data/dashboard_state.json
-data/documents_windows_v2_state.json
-data/images_windows_state.json
 data/conversations/sessions/
-data/active_model.json
-data/folder_state.json
-data/sticky_notes_state.json
+data/training/screenshots/*.jpg
+data/training/servo_logs/*.jsonl
+data/training/datasets/*.jsonl
+data/training/models/
+data/training/knowledge/
 
+# Logs, backups, PIDs
 logs/
 backups/
 pids/
 
+# Environment
 .env
-.env.automation.example
 
+# Frontend build
 frontend/dist/
 frontend/.vite/
 
+# Databases
 *.db
 *.sqlite
 *.sqlite3
-:memory:
-:memory:-shm
-:memory:-wal
 
+# Native libraries (built from source)
 backend/tools/voice/whisper.cpp/build/
 backend/tools/voice/whisper.cpp/models/
 *.so
 *.dylib
 *.dll
 
+# OS files
 .DS_Store
 Thumbs.db
 *.swp
 *.swo
 *~
 
+# Testing
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 htmlcov/
 .coverage
 coverage.xml
-.worktrees/
 
-# Private / AI assistant config — not part of system
-.claude/
-.start_cache/
-.playwright-mcp/
-CLAUDE.md
-GEMINI.md
-KNOWN_BUGS.md
-AGENT_SESSION_SAVE.md
-guaardvark.code-workspace
-*.code-workspace
-SESSION_HANDOFF*.md
-guaardvark_backup.json
-
-# Internal docs — not for public repo
-docs/prompts/
-docs/local-workspace-only/
-
-# Agent internal knowledge (contains instance-specific config)
-data/agent/self_knowledge.md
-
-# Security hardening scripts (one-time, machine-specific)
-scripts/phase3_security.sh
-
-# Backup / archive files
+# Backup files
 *.BACK
 *.BACKUP
 *.backup
 *.bak
 *.orig
-backend/api/_archive/
-backend/api/backs/
 
-# Debug artifacts
-backend/debug_audio/
-scripts/debug_*.py
-scripts/repro_output*.txt
-
-# (docs/ excluded globally below)
-
-# Plugins — external installs, not tracked
-plugins/Comprehensive Architectural.md
+# Plugin dependencies (installed at runtime)
 plugins/comfyui/ComfyUI/
+plugins/*/venv/
 backend/tools/voice/piper-models/*.onnx
 
-# ONNX/WASM runtime files (downloaded at build time, not committed)
+# ONNX/WASM runtime files (downloaded at build time)
 frontend/public/ort-*
 frontend/public/*.wasm
 frontend/public/*.onnx
 
-# Plugin virtual environments
-plugins/*/venv/
-
-# Training data (large, generated locally)
-data/training/screenshots/*.jpg
-data/training/servo_logs/*.jsonl
-data/training/datasets/*.jsonl
-data/training/models/
-
-# Runtime state (instance-specific)
-data/plugin_state.json
-data/agent_state.json
-data/toggle_test_results/
-data/backup_*/
-data/agent_playbooks/
-data/research_program.md
-
-# Agent display (instance-specific, contains credentials)
-data/.vnc_passwd
-data/agent/firefox_profile/
-data/agent/firefox_extension/
-
-# Debug/test scripts
-scripts/reproduce_500.py
-scripts/test_colors.sh
-
-# System manager (machine-specific, not part of the product)
-scripts/system-manager/
-
-# Legacy discord bot (moved to plugins/discord/)
-discord_bot/
-
-# Training model artifacts (tokenizer configs, adapters — generated locally)
-training/models/
-
-# Docs — private development work, except README and screenshots for GitHub
-docs/*
-!docs/README.md
-!docs/screenshots/
-
 # Training model weights (too large for git)
-training/models/*/checkpoints/
-training/models/*/gguf/
-training/models/*/merged/
-training/models/*/lora/*.safetensors
+training/models/
 unsloth_compiled_cache/
-
-# Upscaling models (large binaries)
 plugins/upscaling/models/*.pth
-
-# Confidential
-docs/classified_area_52/
-
-# Training data (generated, not source)
-data/training/knowledge/
-data/training/screenshots/
-data/training/servo_logs/
-docs/ROADMAP.md
-data/agent/qa_sweep_report.json
