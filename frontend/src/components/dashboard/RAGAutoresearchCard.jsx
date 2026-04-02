@@ -12,7 +12,7 @@ import { ragAutoresearchService } from '../../api/ragAutoresearchService';
 import DashboardCardWrapper from './DashboardCardWrapper';
 
 const RAGAutoresearchCard = React.forwardRef(
-  ({ isMinimized, onToggleMinimize, cardColor, onCardColorChange, ...props }, ref) => {
+  ({ style, isMinimized, onToggleMinimize, cardColor, onCardColorChange, ...props }, ref) => {
   const [status, setStatus] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -57,6 +57,7 @@ const RAGAutoresearchCard = React.forwardRef(
   return (
     <DashboardCardWrapper
       ref={ref}
+      style={style}
       isMinimized={isMinimized}
       onToggleMinimize={onToggleMinimize}
       cardColor={cardColor}

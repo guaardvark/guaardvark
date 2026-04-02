@@ -5,6 +5,42 @@
     "timing": "wait values are in seconds"
   },
 
+  "open_firefox": {
+    "description": "Open browser via Openbox desktop right-click menu",
+    "triggers": [
+      "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s*$",
+      "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s+(?:browser)?\\s*$"
+    ],
+    "steps": [
+      {"action": "click", "x": 640, "y": 360, "button": "right", "_comment": "Right-click desktop center"},
+      {"action": "wait", "seconds": 0.5},
+      {"action": "click", "x": 680, "y": 372, "_comment": "Click Firefox (first menu item)"},
+      {"action": "wait", "seconds": 3}
+    ]
+  },
+
+  "open_firefox_and_navigate": {
+    "description": "Open browser and navigate to a URL",
+    "triggers": [
+      "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s+(?:and\\s+)?(?:go|navigate)\\s+(?:to\\s+)?(?:https?://)?([\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*$",
+      "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s+(?:to|at|on)\\s+(?:https?://)?([\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*$"
+    ],
+    "steps": [
+      {"action": "click", "x": 640, "y": 360, "button": "right", "_comment": "Right-click desktop center"},
+      {"action": "wait", "seconds": 0.5},
+      {"action": "click", "x": 680, "y": 372, "_comment": "Click Firefox (first menu item)"},
+      {"action": "wait", "seconds": 4},
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "wait", "seconds": 0.5},
+      {"action": "hotkey", "keys": ["ctrl", "a"]},
+      {"action": "wait", "seconds": 0.2},
+      {"action": "type", "text": "{1}"},
+      {"action": "wait", "seconds": 0.3},
+      {"action": "hotkey", "keys": ["Return"]},
+      {"action": "wait", "seconds": 3}
+    ]
+  },
+
   "navigate_url": {
     "description": "Navigate to any URL in the current tab",
     "triggers": [
@@ -65,7 +101,7 @@
 
   "close_tab": {
     "description": "Close the current browser tab",
-    "triggers": ["close\\s+(?:the\\s+)?(?:current\\s+)?tab"],
+    "triggers": ["close\\s+(?:the\\s+|this\\s+|that\\s+)?(?:current\\s+)?tab", "^close\\s+(?:this|it)\\s*$"],
     "steps": [
       {"action": "hotkey", "keys": ["ctrl", "w"]},
       {"action": "wait", "seconds": 0.5}
@@ -305,6 +341,130 @@
       {"action": "wait", "seconds": 0.3},
       {"action": "hotkey", "keys": ["Return"]},
       {"action": "wait", "seconds": 3}
+    ]
+  },
+
+  "open_guaardvark": {
+    "description": "Open the Guaardvark frontend application",
+    "triggers": [
+      "^(?:open|go\\s+to|navigate\\s+to|launch)\\s+(?:the\\s+)?(?:guaardvark|app|application|dashboard|frontend)\\s*$",
+      "^(?:open|go\\s+to)\\s+(?:the\\s+)?(?:guaardvark\\s+)?(?:dashboard|app|ui)\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["Escape"]},
+      {"action": "wait", "seconds": 0.3},
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "wait", "seconds": 0.5},
+      {"action": "hotkey", "keys": ["ctrl", "a"]},
+      {"action": "wait", "seconds": 0.2},
+      {"action": "type", "text": "http://localhost:5175"},
+      {"action": "wait", "seconds": 0.3},
+      {"action": "hotkey", "keys": ["Return"]},
+      {"action": "wait", "seconds": 3}
+    ]
+  },
+
+  "open_guaardvark_page": {
+    "description": "Open a specific Guaardvark page (chat, settings, images, etc.)",
+    "triggers": [
+      "^(?:open|go\\s+to|navigate\\s+to)\\s+(?:the\\s+)?(?:guaardvark\\s+)?(chat|settings|images|video|documents|notes|clients|projects|websites|rules|tools|agents|plugins|tasks)(?:\\s+page)?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["Escape"]},
+      {"action": "wait", "seconds": 0.3},
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "wait", "seconds": 0.5},
+      {"action": "hotkey", "keys": ["ctrl", "a"]},
+      {"action": "wait", "seconds": 0.2},
+      {"action": "type", "text": "http://localhost:5175/{1}"},
+      {"action": "wait", "seconds": 0.3},
+      {"action": "hotkey", "keys": ["Return"]},
+      {"action": "wait", "seconds": 3}
+    ]
+  },
+
+  "type_in_chat": {
+    "description": "Type a message in the Guaardvark chat input and send it",
+    "triggers": [
+      "^(?:type|send|write|say)\\s+(?:in\\s+chat\\s+)?[\"'](.+?)[\"']\\s*$",
+      "^(?:send|type)\\s+(?:the\\s+)?message\\s+[\"'](.+?)[\"']\\s*$"
+    ],
+    "steps": [
+      {"action": "click", "x": 640, "y": 660, "_comment": "Click chat input field"},
+      {"action": "wait", "seconds": 0.5},
+      {"action": "type", "text": "{1}"},
+      {"action": "wait", "seconds": 0.3},
+      {"action": "hotkey", "keys": ["Return"]},
+      {"action": "wait", "seconds": 2}
+    ]
+  },
+
+  "take_screenshot": {
+    "description": "Take a screenshot (no-op — the capture endpoint handles this)",
+    "triggers": [
+      "^(?:take|capture|grab)\\s+(?:a\\s+)?screenshot\\s*$",
+      "^screenshot\\s*$",
+      "^what(?:'s|\\s+is)\\s+on\\s+(?:the\\s+)?screen\\s*$"
+    ],
+    "steps": [
+      {"action": "wait", "seconds": 0.1, "_comment": "No-op — screenshot taken by capture endpoint"}
+    ]
+  },
+
+  "open_new_tab_and_go_to_guaardvark": {
+    "description": "Open a new tab to the Guaardvark app",
+    "triggers": [
+      "^(?:open\\s+)?(?:a\\s+)?new\\s+tab\\s+(?:to|with|for)\\s+(?:the\\s+)?(?:guaardvark|app|dashboard)\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "t"]},
+      {"action": "wait", "seconds": 0.8},
+      {"action": "type", "text": "http://localhost:5175"},
+      {"action": "wait", "seconds": 0.3},
+      {"action": "hotkey", "keys": ["Return"]},
+      {"action": "wait", "seconds": 3}
+    ]
+  },
+
+  "click_coordinates": {
+    "description": "Click at specific x,y coordinates on screen",
+    "triggers": [
+      "^click\\s+(?:at\\s+)?(?:\\()?\\s*(\\d+)\\s*[,x]\\s*(\\d+)\\s*(?:\\))?\\s*$",
+      "^click\\s+(\\d+)\\s+(\\d+)\\s*$"
+    ],
+    "steps": [
+      {"action": "click", "x": "{1}", "y": "{2}"},
+      {"action": "wait", "seconds": 0.5}
+    ]
+  },
+
+  "right_click": {
+    "description": "Right-click at center of screen (opens desktop/context menu)",
+    "triggers": [
+      "^right\\s*click\\s*$",
+      "^right\\s*click\\s+(?:the\\s+)?(?:desktop|screen|background)\\s*$"
+    ],
+    "steps": [
+      {"action": "click", "x": 640, "y": 360, "button": "right"},
+      {"action": "wait", "seconds": 0.5}
+    ]
+  },
+
+  "press_enter": {
+    "description": "Press Enter key",
+    "triggers": ["^(?:press|hit)\\s+(?:the\\s+)?enter\\s*$", "^enter\\s*$"],
+    "steps": [
+      {"action": "hotkey", "keys": ["Return"]},
+      {"action": "wait", "seconds": 0.3}
+    ]
+  },
+
+  "press_escape": {
+    "description": "Press Escape key",
+    "triggers": ["^(?:press|hit)\\s+(?:the\\s+)?escape\\s*$", "^escape\\s*$", "^cancel\\s*$"],
+    "steps": [
+      {"action": "hotkey", "keys": ["Escape"]},
+      {"action": "wait", "seconds": 0.3}
     ]
   }
 }

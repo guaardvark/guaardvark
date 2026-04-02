@@ -100,3 +100,46 @@ export const getAllJobs = async (queryParams = {}) => {
     return { error: err.message || "Failed to fetch jobs." };
   }
 };
+
+/**
+ * Search for code symbols (functions, classes, methods) by name.
+ */
+export const searchSymbols = async (query, { language, type, folderId } = {}) => {
+  const params = new URLSearchParams({ q: query });
+  if (language) params.append('language', language);
+  if (type) params.append('type', type);
+  if (folderId) params.append('folder_id', folderId);
+
+  const response = await fetch(`${BASE_URL}/search/symbols?${params}`);
+  return handleResponse(response);
+};
+
+/**
+ * Semantic search scoped to code files.
+ */
+export const searchCode = async (query, { folderId, language, topK = 10 } = {}) => {
+  const response = await fetch(`${BASE_URL}/search/code`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      query,
+      folder_id: folderId,
+      language,
+      top_k: topK,
+    }),
+  });
+  return handleResponse(response);
+};
+
+/**
+ * Search for files by path pattern.
+ */
+export const searchFiles = async (pattern, { folderId, language } = {}) => {
+  const params = new URLSearchParams();
+  if (pattern) params.append('pattern', pattern);
+  if (folderId) params.append('folder_id', folderId);
+  if (language) params.append('language', language);
+
+  const response = await fetch(`${BASE_URL}/search/files?${params}`);
+  return handleResponse(response);
+};

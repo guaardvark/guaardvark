@@ -6,7 +6,7 @@ import AlertSnackbar from "../common/AlertSnackbar";
 import DashboardCardWrapper from "./DashboardCardWrapper";
 
 const SystemStatusCard = React.forwardRef(
-  ({ style, isMinimized, onToggleMinimize, ...props }, ref) => {
+  ({ style, isMinimized, onToggleMinimize, cardColor, onCardColorChange, ...props }, ref) => {
     const [status, setStatus] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -61,6 +61,8 @@ const SystemStatusCard = React.forwardRef(
         style={style}
         isMinimized={isMinimized}
         onToggleMinimize={onToggleMinimize}
+        cardColor={cardColor}
+        onCardColorChange={onCardColorChange}
         title="System Diagnostics"
         {...props}
       >

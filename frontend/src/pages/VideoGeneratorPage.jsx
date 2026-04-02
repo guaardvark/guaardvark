@@ -2048,15 +2048,15 @@ const VideoGeneratorPage = () => {
             </Card>
           )}
 
-          {/* Batch History */}
-          <Card sx={{ 
+          {/* Batch History — Stacked Thumbnail Gallery */}
+          <Card sx={{
             boxShadow: 2,
             borderRadius: 2
           }}>
             <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                  History
+                  Video Library
                 </Typography>
                 <IconButton size="small" onClick={fetchBatches}>
                   <RefreshIcon />
@@ -2065,109 +2065,129 @@ const VideoGeneratorPage = () => {
               <Grid container spacing={2}>
                 {batches.map((b) => {
                   const dateStr = formatVideoDate(b.start_time || b.end_time);
+                  const videoCount = b.completed_videos ?? 0;
+                  const totalCount = b.total_videos ?? 0;
                   return (
-                  <Grid item xs={12} sm={6} key={b.batch_id}>
-                    <Card variant="outlined">
-                      {(b.completed_videos ?? 0) > 0 && (
-                        <Box
-                          component="img"
-                          src={`${API_BASE}/batch-video/preview/${b.batch_id}`}
-                          alt="Preview"
-                          sx={{
-                            width: "100%",
-                            height: 100,
-                            objectFit: "cover",
-                          }}
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                          }}
-                        />
-                      )}
-                      <CardContent sx={{ pb: 1 }}>
-                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                          <Typography variant="subtitle2" noWrap sx={{ flex: 1, mr: 1 }}>
-                            {b.display_name || b.batch_id}
-                          </Typography>
-                          {dateStr && (
-                            <Tooltip title={b.start_time ? new Date(b.start_time).toLocaleString() : ""}>
-                              <Typography variant="caption" color="text.secondary" noWrap sx={{ flexShrink: 0 }}>
-                                {dateStr}
-                              </Typography>
-                            </Tooltip>
+                  <Grid item xs={6} sm={4} md={3} key={b.batch_id}>
+                    <Box
+                      onClick={() => {
+                        setActiveBatchId(b.batch_id);
+                        startPollingStatus(b.batch_id);
+                      }}
+                      sx={{
+                        cursor: 'pointer',
+                        position: 'relative',
+                        borderRadius: 2,
+                        overflow: 'hidden',
+                        transition: 'transform 0.2s, box-shadow 0.2s',
+                        '&:hover': {
+                          transform: 'translateY(-4px)',
+                          boxShadow: 6,
+                          '& .batch-overlay': { opacity: 1 },
+                        },
+                      }}
+                    >
+                      {/* Stacked thumbnail effect */}
+                      <Box sx={{ position: 'relative', aspectRatio: '16/9' }}>
+                        {/* Background layers for stack effect */}
+                        {videoCount > 2 && (
+                          <Box sx={{
+                            position: 'absolute', top: -6, left: 6, right: -6, bottom: 6,
+                            bgcolor: 'grey.800', borderRadius: 1.5, border: 1, borderColor: 'grey.700',
+                          }} />
+                        )}
+                        {videoCount > 1 && (
+                          <Box sx={{
+                            position: 'absolute', top: -3, left: 3, right: -3, bottom: 3,
+                            bgcolor: 'grey.850', borderRadius: 1.5, border: 1, borderColor: 'grey.700',
+                          }} />
+                        )}
+                        {/* Main thumbnail */}
+                        <Box sx={{
+                          position: 'relative', width: '100%', height: '100%',
+                          bgcolor: 'grey.900', borderRadius: 1.5, overflow: 'hidden',
+                          border: 1, borderColor: 'grey.700',
+                        }}>
+                          {videoCount > 0 ? (
+                            <Box
+                              component="img"
+                              src={`${API_BASE}/batch-video/preview/${b.batch_id}`}
+                              alt="Preview"
+                              sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                          ) : (
+                            <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <VideoIcon sx={{ fontSize: 36, color: 'grey.600' }} />
+                            </Box>
                           )}
-                        </Stack>
-                        <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
+                          {/* Hover overlay */}
+                          <Box className="batch-overlay" sx={{
+                            position: 'absolute', inset: 0,
+                            bgcolor: 'rgba(0,0,0,0.5)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            opacity: 0, transition: 'opacity 0.2s',
+                          }}>
+                            <PlayIcon sx={{ fontSize: 40, color: 'white' }} />
+                          </Box>
+                          {/* Video count badge */}
                           <Chip
-                            label={b.status}
+                            label={`${videoCount} video${videoCount !== 1 ? 's' : ''}`}
                             size="small"
-                            color={
-                              b.status === "completed"
-                                ? "success"
-                                : b.status === "error"
-                                ? "error"
-                                : b.status === "cancelled"
-                                ? "warning"
-                                : "default"
-                            }
+                            sx={{
+                              position: 'absolute', top: 6, right: 6,
+                              height: 20, fontSize: '0.65rem',
+                              bgcolor: 'rgba(0,0,0,0.7)', color: 'white',
+                              '& .MuiChip-label': { px: 0.75 },
+                            }}
                           />
-                          <Chip
-                            label={`${b.completed_videos ?? 0}/${b.total_videos ?? 0}`}
-                            size="small"
-                            variant="outlined"
-                          />
-                          {b.end_time && b.start_time && (
+                          {/* Status indicator */}
+                          {b.status !== 'completed' && (
                             <Chip
-                              icon={<TimerIcon sx={{ fontSize: 14 }} />}
-                              label={(() => {
-                                const secs = Math.round((new Date(b.end_time) - new Date(b.start_time)) / 1000);
-                                return secs >= 3600 ? `${Math.floor(secs/3600)}h ${Math.floor((secs%3600)/60)}m` : secs >= 60 ? `${Math.floor(secs/60)}m ${secs%60}s` : `${secs}s`;
-                              })()}
+                              label={b.status}
                               size="small"
-                              variant="outlined"
+                              color={b.status === 'error' ? 'error' : b.status === 'cancelled' ? 'warning' : 'info'}
+                              sx={{
+                                position: 'absolute', bottom: 6, left: 6,
+                                height: 18, fontSize: '0.6rem',
+                              }}
                             />
                           )}
-                        </Stack>
-                      </CardContent>
-                      <CardActions sx={{ pt: 0 }}>
-                        <Button
-                          size="small"
-                          onClick={() => {
-                            setActiveBatchId(b.batch_id);
-                            startPollingStatus(b.batch_id);
-                          }}
-                        >
-                          View
-                        </Button>
-                        {(b.status === "running" || b.status === "pending" || b.status === "processing") && (
-                          <Button
-                            size="small"
-                            color="warning"
-                            onClick={() => handleCancelBatch(b.batch_id)}
-                          >
-                            Cancel
-                          </Button>
-                        )}
-                        <IconButton size="small" onClick={() => handleDownloadBatch(b.batch_id)}>
-                          <DownloadIcon fontSize="small" sx={{ color: 'primary.main' }} />
-                        </IconButton>
-                        <IconButton size="small" onClick={() => handleDeleteBatch(b.batch_id)}>
-                          <CloseIcon fontSize="small" />
-                        </IconButton>
-                      </CardActions>
-                    </Card>
+                        </Box>
+                      </Box>
+                      {/* Batch label */}
+                      <Box sx={{ pt: 0.75, px: 0.5 }}>
+                        <Typography variant="caption" noWrap sx={{ fontWeight: 500, display: 'block' }}>
+                          {b.display_name || `Batch ${b.batch_id.slice(0, 8)}`}
+                        </Typography>
+                        <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.65rem' }}>
+                          {dateStr}
+                        </Typography>
+                      </Box>
+                    </Box>
                   </Grid>
                   );
                 })}
-                {batches.length === 0 && (
-                  <Grid item xs={12}>
-                    <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center", py: 3 }}>
-                      No videos generated yet. Create your first video above!
-                    </Typography>
-                  </Grid>
-                )}
               </Grid>
+              {batches.length === 0 && (
+                <Box sx={{ textAlign: 'center', py: 4 }}>
+                  <VideoIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
+                  <Typography variant="body2" color="text.secondary">
+                    No videos generated yet
+                  </Typography>
+                </Box>
+              )}
             </CardContent>
           </Card>
+
+          {/* Legacy batch controls — keep for running/pending batches */}
+          {batches.filter(b => b.status === "running" || b.status === "pending" || b.status === "processing").map((b) => (
+            <Box key={`ctrl-${b.batch_id}`} sx={{ mt: 1 }}>
+              <Button size="small" color="warning" variant="outlined" onClick={() => handleCancelBatch(b.batch_id)}>
+                Cancel {b.display_name || b.batch_id.slice(0, 8)}
+              </Button>
+            </Box>
+          ))}
         </Grid>
       </Grid>
 

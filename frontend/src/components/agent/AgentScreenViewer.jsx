@@ -84,6 +84,9 @@ export default function AgentScreenViewer({ open, onClose }) {
     saveState({ streaming, fps, collapsed, x: position.x, y: position.y, w: size.w, h: size.h });
   }, [streaming, fps, collapsed, position, size]);
 
+  const [captureError, setCaptureError] = useState(null);
+  const consecutiveFailures = useRef(0);
+
   const captureFrame = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE}/agent-control/capture/raw`, {
@@ -93,13 +96,29 @@ export default function AgentScreenViewer({ open, onClose }) {
       });
       if (response.ok) {
         const blob = await response.blob();
+        if (blob.size < 100) {
+          consecutiveFailures.current++;
+          setCaptureError('Empty frame received');
+          return;
+        }
+        consecutiveFailures.current = 0;
+        setCaptureError(null);
         const url = URL.createObjectURL(blob);
         setImageSrc((prev) => {
           if (prev) URL.revokeObjectURL(prev);
           return url;
         });
+      } else if (response.status === 503) {
+        consecutiveFailures.current++;
+        setCaptureError('Agent display not running');
+      } else {
+        consecutiveFailures.current++;
+        setCaptureError(`Capture failed (${response.status})`);
       }
-    } catch {}
+    } catch (err) {
+      consecutiveFailures.current++;
+      setCaptureError('Connection lost');
+    }
   }, []);
 
   useEffect(() => {
@@ -329,7 +348,7 @@ export default function AgentScreenViewer({ open, onClose }) {
                 }}
               />
             ) : (
-              <Typography variant="caption" color="grey.600">{streaming ? 'Connecting...' : 'Paused'}</Typography>
+              <Typography variant="caption" color={captureError ? 'error.main' : 'grey.600'}>{captureError || (streaming ? 'Connecting...' : 'Paused')}</Typography>
             )}
           </Box>
 

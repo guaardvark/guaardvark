@@ -51,6 +51,15 @@
       {"action": "done", "reasoning": "Popup closed"}
     ]
   },
+  "open_firefox_from_desktop": {
+    "description": "Open Firefox browser from the Openbox desktop",
+    "prerequisite": "No browser visible — you see a dark/black desktop with a taskbar at the bottom",
+    "steps": [
+      {"action": "right_click", "target_description": "the center of the empty desktop background", "reasoning": "Right-click the desktop to open the Openbox application menu"},
+      {"action": "click", "target_description": "Firefox in the context menu that appeared", "reasoning": "Click Firefox to launch the browser"},
+      {"action": "done", "reasoning": "Firefox is now opening, wait for it to load"}
+    ]
+  },
   "youtube_search_and_watch": {
     "description": "Search YouTube and watch a video",
     "steps": [

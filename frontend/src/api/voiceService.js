@@ -79,20 +79,36 @@ class VoiceService {
    */
   async narrate(script, options = {}) {
     try {
+      const body = {
+        script,
+        voice: options.voice || 'libritts',
+        speed: options.speed || 1.0,
+        pause_between_sections: options.pause_between_sections || 1.0,
+        output_format: options.output_format || 'wav',
+      };
+      if (options.engine) body.engine = options.engine;
+
       const response = await fetch(`${BASE_URL}/voice/narrate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          script,
-          voice: options.voice || 'libritts',
-          speed: options.speed || 1.0,
-          pause_between_sections: options.pause_between_sections || 1.0,
-          output_format: options.output_format || 'wav',
-        }),
+        body: JSON.stringify(body),
       });
       return await handleResponse(response);
     } catch (error) {
       console.error('Failed to generate narration:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get available Bark TTS voices (expressive engine)
+   */
+  async getBarkVoices() {
+    try {
+      const response = await fetch(`${BASE_URL}/voice/bark-voices`);
+      return await handleResponse(response);
+    } catch (error) {
+      console.error('Failed to get Bark voices:', error);
       throw error;
     }
   }
@@ -171,17 +187,17 @@ class VoiceService {
   /**
    * Convert text to speech
    */
-  async textToSpeech(text, voice = 'libritts') {
+  async textToSpeech(text, voice = 'libritts', engine = null) {
     try {
+      const body = { text, voice };
+      if (engine) body.engine = engine;
+
       const response = await fetch(`${BASE_URL}/voice/text-to-speech`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          text,
-          voice,
-        }),
+        body: JSON.stringify(body),
       });
 
       return await handleResponse(response);

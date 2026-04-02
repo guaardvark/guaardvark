@@ -350,8 +350,22 @@ const DashboardPage = () => {
       setMinimizedCards(allMinimized);
       setOriginalDimensions(dims);
     } else if (layoutMode === "modex") {
-      setLayout(layeredLayout);
-      // All cards NOT minimized — content visible inside bars
+      // Content-visible bars: taller than layered so content is readable
+      const mxCardIds = Object.keys(cardComponents);
+      const mxColWidthPx = gridWidth / COLS_COUNT;
+      const mxBarW = Math.round(300 / mxColWidthPx);
+      const mxBarH = Math.round(150 / ROW_HEIGHT_PX);
+      const mxBarX = Math.max(0, COLS_COUNT - mxBarW);
+      setLayout(mxCardIds.map((id, idx) => ({
+        i: id,
+        x: mxBarX,
+        y: idx * mxBarH,
+        w: mxBarW,
+        h: mxBarH,
+        minW: cardMinGridW,
+        isDraggable: true,
+        isResizable: true,
+      })));
       setMinimizedCards({});
       setOriginalDimensions({});
     }
@@ -491,7 +505,11 @@ const DashboardPage = () => {
 
       setOriginalDimensions(newOriginalDimensions);
       setLayout(adjustedLayout);
-      normalLayoutRef.current = adjustedLayout;
+      // Only update normalLayoutRef in normal mode — dragging/minimizing in
+      // compact/layered/modex modes must NOT pollute the normal layout.
+      if (layoutMode === "normal") {
+        normalLayoutRef.current = adjustedLayout;
+      }
       saveDashboardState(adjustedLayout, cardColors, newMinimizedCards, undefined, newOriginalDimensions);
     },
     [minimizedCards, layout, cardColors, saveDashboardState, cardMinGridH, originalDimensions],
@@ -567,11 +585,11 @@ const DashboardPage = () => {
         break;
       }
       case "modex": {
-        // Identical to layered — duplicate preset
+        // Content-visible bars: taller than layered so card content is readable
         const mxCardIds = Object.keys(cardComponents);
         const mxColWidthPx = gridWidth / COLS_COUNT;
         const mxBarW = Math.round(300 / mxColWidthPx);
-        const mxBarH = Math.round(50 / ROW_HEIGHT_PX);
+        const mxBarH = Math.round(150 / ROW_HEIGHT_PX);
         const mxBarX = Math.max(0, COLS_COUNT - mxBarW);
         newLayout = mxCardIds.map((id, idx) => ({
           i: id,
@@ -583,14 +601,7 @@ const DashboardPage = () => {
           isDraggable: true,
           isResizable: true,
         }));
-        const mxAllMinimized = {};
-        const mxDims = {};
-        Object.keys(cardComponents).forEach((id) => {
-          mxAllMinimized[id] = true;
-          const item = defaultFixedLayout.find((l) => l.i === id);
-          if (item) mxDims[id] = { w: item.w, h: item.h };
-        });
-        // All cards NOT minimized — content visible inside the bars
+        // All cards NOT minimized — content visible inside the taller bars
         newMinimizedCards = {};
         newOriginalDimensions = {};
         break;
@@ -610,7 +621,7 @@ const DashboardPage = () => {
       newOriginalDimensions,
     );
 
-  }, [layoutMode, layout, cardColors, minimizedCards, originalDimensions, defaultFixedLayout, compactLayout, layeredLayout, saveDashboardState]);
+  }, [layoutMode, layout, cardColors, minimizedCards, originalDimensions, defaultFixedLayout, compactLayout, layeredLayout, saveDashboardState, gridWidth, COLS_COUNT, ROW_HEIGHT_PX, cardMinGridW]);
 
   const LayoutModeIcon = LAYOUT_MODE_ICONS[layoutMode];
 
@@ -735,7 +746,9 @@ const DashboardPage = () => {
                     data-card-id={cardId}
                     style={{
                       transition: "transform 0.2s ease-out, box-shadow 0.2s ease-out",
-                      height: "100%",
+                      height: isMinimized ? "auto" : "100%",
+                      maxHeight: "100%",
+                      overflow: "hidden",
                     }}
                     onMouseDown={() => handleCardClick(cardId)}
                     onMouseUp={() => { applyZIndexToDOM(cardId, cardZIndex[cardId] || 0); applyAllZIndices(); }}

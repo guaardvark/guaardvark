@@ -3,8 +3,8 @@
 
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { ToggleButtonGroup, ToggleButton, Tooltip, IconButton, Box } from '@mui/material';
-import { ViewList as ViewListIcon, ViewModule as ViewModuleIcon } from '@mui/icons-material';
+import { ToggleButtonGroup, ToggleButton, Tooltip, IconButton, Box, Accordion, AccordionSummary, AccordionDetails, Chip, Typography } from '@mui/material';
+import { ViewList as ViewListIcon, ViewModule as ViewModuleIcon, ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 import FolderWindowWrapper from './FolderWindowWrapper';
 import FolderContents from './FolderContents';
 import BreadcrumbNav from '../filesystem/BreadcrumbNav';
@@ -90,6 +90,41 @@ const FolderWindow = React.forwardRef(({
             currentPath={currentPath}
             onNavigate={handleNavigateToPath}
           />
+        </Box>
+      )}
+
+      {!isMinimized && folder.is_repository && folder.repo_metadata && (
+        <Box sx={{ px: 1, pb: 1 }}>
+          <Accordion defaultExpanded={false} sx={{ boxShadow: 'none', '&:before': { display: 'none' } }}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 32, '& .MuiAccordionSummary-content': { my: 0.5 } }}>
+              <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontWeight: 'bold' }}>
+                Repository Analysis
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails sx={{ pt: 0 }}>
+              {folder.repo_metadata.frameworks?.length > 0 && (
+                <Box sx={{ mb: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                  {folder.repo_metadata.frameworks.map(fw => (
+                    <Chip key={fw} label={fw} size="small" color="primary" variant="outlined" />
+                  ))}
+                </Box>
+              )}
+              {folder.repo_metadata.languages && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                  Languages: {Object.entries(folder.repo_metadata.languages)
+                    .sort(([,a], [,b]) => b - a)
+                    .slice(0, 5)
+                    .map(([ext, count]) => `${ext} (${count})`)
+                    .join(', ')}
+                </Typography>
+              )}
+              {folder.description && (
+                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'auto', fontSize: '0.75rem' }}>
+                  {folder.description}
+                </Typography>
+              )}
+            </AccordionDetails>
+          </Accordion>
         </Box>
       )}
 

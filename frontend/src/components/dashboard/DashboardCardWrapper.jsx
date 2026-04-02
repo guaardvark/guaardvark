@@ -16,10 +16,11 @@ import {
   Tooltip,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
+import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import { useNavigate } from "react-router-dom";
 
 const DashboardCardWrapper = React.forwardRef(
-  ({ title, children, cardColor, onCardColorChange, isMinimized, onToggleMinimize, titleBarActions, ...props }, ref) => {
+  ({ title, children, cardColor, onCardColorChange, isMinimized, onToggleMinimize, titleBarActions, minimizedContent, ...props }, ref) => {
     const routerNavigate = useNavigate();
     const clickState = useRef({ timeout: null, lastTime: 0, count: 0 });
     // Destructure known react-grid-layout props AND custom props
@@ -224,7 +225,8 @@ const DashboardCardWrapper = React.forwardRef(
             display: "flex",
             flexDirection: "column",
             height: isMinimized ? "auto" : "100%",
-            minHeight: isMinimized ? "50px" : "200px",
+            maxHeight: "100%",
+            minHeight: isMinimized ? "unset" : "200px",
             p: 0.5, // Reduced base padding from 1 to 0.5
             overflow: "hidden", // Hide overflow
             cursor: isDraggable !== false ? "grab" : "default",
@@ -234,6 +236,7 @@ const DashboardCardWrapper = React.forwardRef(
               duration: theme.transitions.duration.standard,
             }),
             '&.minimized': {
+              cursor: 'pointer',
               '& .card-header-buttons': {
                 cursor: 'pointer',
                 '&:hover': {
@@ -315,6 +318,11 @@ const DashboardCardWrapper = React.forwardRef(
               </Box>
             )}
 
+            {/* Drag grip — visible affordance for the draggable area */}
+            <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', minWidth: '24px' }}>
+              <DragIndicatorIcon sx={{ fontSize: '0.75rem', opacity: 0.25, color: getOppositeColor }} />
+            </Box>
+
             <Box sx={{ position: "relative" }}>
               {/* Color Picker Button - smaller */}
               <Tooltip title="Change card color">
@@ -365,6 +373,11 @@ const DashboardCardWrapper = React.forwardRef(
             </Box>
           </Box>
 
+          {/* Compact summary shown in header area when minimized */}
+          {isMinimized && minimizedContent && (
+            <Box sx={{ px: 1, py: 0.5 }}>{minimizedContent}</Box>
+          )}
+
           {/* Card Content */}
           {cardContent}
         </Paper>
@@ -382,6 +395,7 @@ DashboardCardWrapper.propTypes = {
   onCardColorChange: PropTypes.func,
   isMinimized: PropTypes.bool,
   onToggleMinimize: PropTypes.func,
+  minimizedContent: PropTypes.node,
 };
 
 export default DashboardCardWrapper;

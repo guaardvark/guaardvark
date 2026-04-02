@@ -45,6 +45,7 @@ import {
   Close as CloseIcon,
   Refresh as RefreshIcon,
   Videocam as VideocamIcon,
+  OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
 import { GuaardvarkLogo } from "../components/branding";
 import ReactGridLayoutLib, { WidthProvider } from 'react-grid-layout';
@@ -141,9 +142,7 @@ const ImagesPage = () => {
   const [videoBatches, setVideoBatches] = useState([]);
   const [videoBatchDetails, setVideoBatchDetails] = useState({});
   const [videoLoading, setVideoLoading] = useState(false);
-  const [videoPlayerOpen, setVideoPlayerOpen] = useState(false);
-  const [videoPlayerUrl, setVideoPlayerUrl] = useState('');
-  const [videoPlayerTitle, setVideoPlayerTitle] = useState('');
+  const [videoPlayer, setVideoPlayer] = useState(null); // { url, title, batchId, playlist, currentIndex }
   const [videoDeleteConfirm, setVideoDeleteConfirm] = useState(null);
 
   // Per-window refresh
@@ -427,16 +426,24 @@ const ImagesPage = () => {
 
   // Load video batches when switching to Video Library tab
   useEffect(() => {
-    if (activeTab === 2) {
+    if (activeTab === 0) {
       fetchVideoBatches();
     }
   }, [activeTab, fetchVideoBatches]);
 
-  const handlePlayVideo = useCallback((batchId, videoPath) => {
-    setVideoPlayerUrl(`${VIDEO_API_BASE}/video/${batchId}/${videoPath}`);
-    setVideoPlayerTitle(videoPath.split('/').pop() || 'Video');
-    setVideoPlayerOpen(true);
-  }, []);
+  const handlePlayVideo = useCallback((batchId, videoPath, startIndex) => {
+    const details = videoBatchDetails[batchId];
+    const playlist = (details?.results || []).filter(r => r.success && r.video_path);
+    const idx = startIndex ?? playlist.findIndex(r => r.video_path === videoPath);
+    const target = playlist[Math.max(0, idx)] || { video_path: videoPath };
+    setVideoPlayer({
+      url: `${VIDEO_API_BASE}/video/${batchId}/${target.video_path}`,
+      title: target.video_path?.split('/').pop() || 'Video',
+      batchId,
+      playlist,
+      currentIndex: Math.max(0, idx),
+    });
+  }, [videoBatchDetails]);
 
   const handleDownloadVideoBatch = useCallback((batchId) => {
     window.open(`${VIDEO_API_BASE}/download/${batchId}`, '_blank');
@@ -1519,14 +1526,13 @@ const ImagesPage = () => {
       {/* Tab bar */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
         <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
-          <Tab label="Image Library" />
+          <Tab label="Media Library" />
           <Tab label="Image Gen" />
-          <Tab label="Video Library" icon={<VideocamIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
         </Tabs>
       </Box>
 
-      {/* Image Library Tab */}
-      {activeTab === 0 && (
+      {/* Media Library Tab */}
+      {activeTab === 0 && (<>
         <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
           {/* Toolbar */}
           <Box sx={{
@@ -2050,7 +2056,150 @@ const ImagesPage = () => {
             )}
           </Box>
         </Box>
-      )}
+
+        {/* Video Batches Section — stacked thumbnails within Media Library */}
+        {/* (still inside activeTab === 0 conditional) */}
+        {videoBatches.length > 0 && (
+          <Box sx={{ px: 2, pb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <VideocamIcon sx={{ fontSize: 20 }} />
+                Videos
+                <Chip label={videoBatches.length} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 0.5 }}>
+                <Button size="small" variant="outlined" startIcon={<VideoIcon />} onClick={() => window.open('/video', '_self')}>
+                  Generate
+                </Button>
+                <IconButton size="small" onClick={fetchVideoBatches} disabled={videoLoading}>
+                  <RefreshIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            </Box>
+            <Grid container spacing={2}>
+              {videoBatches.map((batch) => {
+                const details = videoBatchDetails[batch.batch_id];
+                const results = details?.results?.filter(r => r.success && r.video_path) || [];
+                const firstResult = results[0];
+                const videoCount = batch.completed_videos ?? 0;
+                const displayName = batch.display_name || batch.batch_id.slice(0, 12);
+
+                return (
+                  <Grid item xs={6} sm={4} md={3} lg={2} key={batch.batch_id}>
+                    <Box
+                      onClick={() => {
+                        if (firstResult) {
+                          handlePlayVideo(batch.batch_id, firstResult.video_path);
+                        }
+                      }}
+                      sx={{
+                        cursor: firstResult ? 'pointer' : 'default',
+                        position: 'relative',
+                        borderRadius: 2,
+                        overflow: 'visible',
+                        transition: 'transform 0.2s, box-shadow 0.2s',
+                        '&:hover': {
+                          transform: 'translateY(-3px)',
+                          boxShadow: 4,
+                          '& .batch-play': { opacity: 1 },
+                        },
+                      }}
+                    >
+                      <Box sx={{ position: 'relative', aspectRatio: '16/9' }}>
+                        {/* Stack layers */}
+                        {videoCount > 2 && (
+                          <Box sx={{
+                            position: 'absolute', top: -5, left: 5, right: -5, bottom: 5,
+                            bgcolor: 'grey.800', borderRadius: 1.5, border: 1, borderColor: 'grey.700',
+                          }} />
+                        )}
+                        {videoCount > 1 && (
+                          <Box sx={{
+                            position: 'absolute', top: -2, left: 2, right: -2, bottom: 2,
+                            bgcolor: 'grey.850', borderRadius: 1.5, border: 1, borderColor: 'grey.700',
+                          }} />
+                        )}
+                        {/* Main thumbnail */}
+                        <Box sx={{
+                          position: 'relative', width: '100%', height: '100%',
+                          bgcolor: 'grey.900', borderRadius: 1.5, overflow: 'hidden',
+                          border: 1, borderColor: 'grey.700',
+                        }}>
+                          {firstResult?.thumbnail_path ? (
+                            <Box
+                              component="img"
+                              src={`${VIDEO_API_BASE}/video/${batch.batch_id}/${firstResult.thumbnail_path}`}
+                              alt={displayName}
+                              sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                          ) : (
+                            <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <VideocamIcon sx={{ fontSize: 32, color: 'grey.600' }} />
+                            </Box>
+                          )}
+                          {/* Hover overlay */}
+                          <Box className="batch-play" sx={{
+                            position: 'absolute', inset: 0,
+                            bgcolor: 'rgba(0,0,0,0.45)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            opacity: 0, transition: 'opacity 0.2s',
+                          }}>
+                            <PlayArrowIcon sx={{ fontSize: 36, color: 'white' }} />
+                          </Box>
+                          {/* Count badge */}
+                          <Chip
+                            label={`${videoCount}`}
+                            size="small"
+                            sx={{
+                              position: 'absolute', top: 4, right: 4,
+                              height: 18, fontSize: '0.6rem', minWidth: 24,
+                              bgcolor: 'rgba(0,0,0,0.7)', color: 'white',
+                              '& .MuiChip-label': { px: 0.5 },
+                            }}
+                          />
+                          {batch.status !== 'completed' && (
+                            <Chip label={batch.status} size="small"
+                              color={batch.status === 'error' ? 'error' : 'info'}
+                              sx={{ position: 'absolute', bottom: 4, left: 4, height: 16, fontSize: '0.55rem' }}
+                            />
+                          )}
+                        </Box>
+                      </Box>
+                      <Box sx={{ pt: 0.5, px: 0.25 }}>
+                        <Typography variant="caption" noWrap sx={{ fontWeight: 500, display: 'block', fontSize: '0.7rem' }}>
+                          {displayName}
+                        </Typography>
+                        {batch.start_time && (
+                          <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.6rem' }}>
+                            {formatVideoTime(batch.start_time)}
+                          </Typography>
+                        )}
+                      </Box>
+                      {/* Action icons on hover */}
+                      <Box sx={{
+                        position: 'absolute', top: -8, right: -8,
+                        display: 'flex', gap: 0.25,
+                        opacity: 0, transition: 'opacity 0.2s',
+                        '.MuiBox-root:hover > &': { opacity: 1 },
+                      }}>
+                        <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleDownloadVideoBatch(batch.batch_id); }}
+                          sx={{ bgcolor: 'background.paper', boxShadow: 2, p: 0.25, '&:hover': { bgcolor: 'primary.dark' } }}>
+                          <DownloadIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                        <IconButton size="small" onClick={(e) => { e.stopPropagation(); setVideoDeleteConfirm(batch.batch_id); }}
+                          sx={{ bgcolor: 'background.paper', boxShadow: 2, p: 0.25, '&:hover': { bgcolor: 'error.dark' } }}>
+                          <CloseIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                      </Box>
+                    </Box>
+                  </Grid>
+                );
+              })}
+            </Grid>
+          </Box>
+        )}
+      </>)}
 
       {/* Image Gen Tab */}
       {activeTab === 1 && (
@@ -2065,227 +2214,6 @@ const ImagesPage = () => {
             </Button>
           </Box>
           <BatchImageGeneratorPage embedded />
-        </Box>
-      )}
-
-      {/* Video Library Tab */}
-      {activeTab === 2 && (
-        <Box sx={{ flexGrow: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', p: 2, gap: 2 }}>
-          {/* Toolbar */}
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>
-              {videoBatches.length} video batch{videoBatches.length !== 1 ? 'es' : ''}
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<VideoIcon />}
-                onClick={() => window.open('/video', '_self')}
-              >
-                Generate Videos
-              </Button>
-              <Tooltip title="Refresh">
-                <IconButton size="small" onClick={fetchVideoBatches} disabled={videoLoading}>
-                  <RefreshIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </Box>
-          </Box>
-
-          {/* Loading state */}
-          {videoLoading && videoBatches.length === 0 && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
-              <CircularProgress size={40} />
-            </Box>
-          )}
-
-          {/* Empty state */}
-          {!videoLoading && videoBatches.length === 0 && (
-            <Box sx={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center',
-              justifyContent: 'center', py: 8, gap: 2, color: 'text.secondary',
-            }}>
-              <VideocamIcon sx={{ fontSize: 64, opacity: 0.3 }} />
-              <Typography variant="h6" sx={{ opacity: 0.5 }}>No video batches yet</Typography>
-              <Button
-                variant="contained"
-                startIcon={<VideoIcon />}
-                onClick={() => window.open('/video', '_self')}
-              >
-                Generate Your First Video
-              </Button>
-            </Box>
-          )}
-
-          {/* Video batch cards */}
-          {videoBatches.length > 0 && (
-            <Grid container spacing={2}>
-              {videoBatches.map((batch) => {
-                const details = videoBatchDetails[batch.batch_id];
-                const results = details?.results?.filter(r => r.success && r.video_path) || [];
-                const firstResult = results[0];
-                const thumbnailUrl = firstResult?.thumbnail_path
-                  ? `${VIDEO_API_BASE}/video/${batch.batch_id}/${firstResult.thumbnail_path}`
-                  : null;
-                const displayName = batch.display_name || batch.batch_id.slice(0, 12);
-
-                return (
-                  <Grid item xs={12} sm={6} md={4} lg={3} key={batch.batch_id}>
-                    <Card
-                      sx={{
-                        height: '100%',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        bgcolor: 'background.paper',
-                        border: 1,
-                        borderColor: 'divider',
-                        transition: 'border-color 0.2s, box-shadow 0.2s',
-                        '&:hover': {
-                          borderColor: 'primary.main',
-                          boxShadow: (t) => `0 0 12px ${t.palette.primary.main}33`,
-                        },
-                      }}
-                    >
-                      {/* Thumbnail / Preview area */}
-                      <CardActionArea
-                        onClick={() => {
-                          if (firstResult) {
-                            handlePlayVideo(batch.batch_id, firstResult.video_path);
-                          }
-                        }}
-                        disabled={!firstResult}
-                        sx={{ position: 'relative', flexShrink: 0 }}
-                      >
-                        {thumbnailUrl ? (
-                          <CardMedia
-                            component="img"
-                            image={thumbnailUrl}
-                            alt={displayName}
-                            sx={{
-                              height: 180,
-                              objectFit: 'cover',
-                              bgcolor: '#000',
-                            }}
-                            onError={(e) => { e.target.style.display = 'none'; }}
-                          />
-                        ) : (
-                          <Box sx={{
-                            height: 180,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            bgcolor: 'action.hover',
-                          }}>
-                            <VideocamIcon sx={{ fontSize: 48, opacity: 0.2 }} />
-                          </Box>
-                        )}
-                        {/* Play button overlay */}
-                        {firstResult && (
-                          <Box sx={{
-                            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            bgcolor: 'rgba(0,0,0,0.3)',
-                            opacity: 0,
-                            transition: 'opacity 0.2s',
-                            '&:hover': { opacity: 1 },
-                          }}>
-                            <PlayArrowIcon sx={{ fontSize: 56, color: '#fff', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} />
-                          </Box>
-                        )}
-                      </CardActionArea>
-
-                      {/* Info */}
-                      <CardContent sx={{ flexGrow: 1, py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
-                        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 0.5 }}>
-                          <Typography
-                            variant="subtitle2"
-                            noWrap
-                            sx={{ fontWeight: 600, flex: 1, mr: 1 }}
-                            title={displayName}
-                          >
-                            {displayName}
-                          </Typography>
-                          <Chip
-                            label={batch.status}
-                            size="small"
-                            color={getVideoStatusColor(batch.status)}
-                            sx={{ height: 22, fontSize: '0.7rem' }}
-                          />
-                        </Box>
-
-                        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-                          {batch.completed_videos ?? 0}/{batch.total_videos ?? 0} videos
-                          {batch.failed_videos > 0 && (
-                            <span style={{ color: theme.palette.error.main }}> ({batch.failed_videos} failed)</span>
-                          )}
-                        </Typography>
-                        {batch.start_time && (
-                          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-                            {formatVideoTime(batch.start_time)}
-                          </Typography>
-                        )}
-
-                        {/* Individual video results */}
-                        {results.length > 1 && (
-                          <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                            {results.slice(0, 4).map((r, idx) => (
-                              <Tooltip key={r.item_id || idx} title={`Play video ${idx + 1}`}>
-                                <IconButton
-                                  size="small"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handlePlayVideo(batch.batch_id, r.video_path);
-                                  }}
-                                  sx={{ bgcolor: 'action.hover', width: 28, height: 28 }}
-                                >
-                                  <PlayArrowIcon sx={{ fontSize: 16 }} />
-                                </IconButton>
-                              </Tooltip>
-                            ))}
-                            {results.length > 4 && (
-                              <Typography variant="caption" sx={{ color: 'text.secondary', alignSelf: 'center', ml: 0.5 }}>
-                                +{results.length - 4} more
-                              </Typography>
-                            )}
-                          </Box>
-                        )}
-
-                        {/* Action buttons */}
-                        <Box sx={{ display: 'flex', gap: 0.5, mt: 1, justifyContent: 'flex-end' }}>
-                          {firstResult && (
-                            <Tooltip title="Play">
-                              <IconButton
-                                size="small"
-                                onClick={() => handlePlayVideo(batch.batch_id, firstResult.video_path)}
-                                sx={{ color: 'primary.main' }}
-                              >
-                                <PlayArrowIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          <Tooltip title="Download ZIP">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleDownloadVideoBatch(batch.batch_id)}
-                            >
-                              <DownloadIcon fontSize="small" sx={{ color: 'primary.main' }} />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Delete batch">
-                            <IconButton
-                              size="small"
-                              onClick={() => setVideoDeleteConfirm(batch.batch_id)}
-                            >
-                              <CloseIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                );
-              })}
-            </Grid>
-          )}
         </Box>
       )}
 
@@ -2443,28 +2371,144 @@ const ImagesPage = () => {
         </MuiAlert>
       </Snackbar>
 
-      {/* Video Player Dialog */}
+      {/* Video Player Dialog with Prev/Next + Thumbnail Strip */}
       <Dialog
-        open={videoPlayerOpen}
-        onClose={() => setVideoPlayerOpen(false)}
+        open={!!videoPlayer}
+        onClose={() => setVideoPlayer(null)}
         maxWidth="md"
         fullWidth
-        PaperProps={{ sx: { bgcolor: '#000', overflow: 'hidden' } }}
+        PaperProps={{ sx: { bgcolor: 'grey.900', borderRadius: 2, overflow: 'hidden' } }}
       >
-        <DialogTitle sx={{ color: '#fff', py: 1, px: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography variant="subtitle2" noWrap sx={{ color: '#fff' }}>{videoPlayerTitle}</Typography>
-          <IconButton size="small" onClick={() => setVideoPlayerOpen(false)} sx={{ color: '#fff' }}>
-            &times;
-          </IconButton>
-        </DialogTitle>
-        <DialogContent sx={{ p: 0, bgcolor: '#000' }}>
-          <video
-            src={videoPlayerUrl}
-            controls
-            autoPlay
-            style={{ width: '100%', maxHeight: '80vh', display: 'block' }}
-          />
-        </DialogContent>
+        {videoPlayer && (() => {
+          const { playlist, currentIndex, batchId } = videoPlayer;
+          const hasPrev = currentIndex > 0;
+          const hasNext = currentIndex < playlist.length - 1;
+          const navigateTo = (idx) => {
+            const r = playlist[idx];
+            setVideoPlayer(prev => ({
+              ...prev,
+              url: `${VIDEO_API_BASE}/video/${batchId}/${r.video_path}`,
+              currentIndex: idx,
+              title: r.video_path?.split('/').pop() || `Video ${idx + 1}`,
+            }));
+          };
+          return (
+            <>
+              <DialogTitle sx={{ color: 'grey.300', display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1, px: 2 }}>
+                <Typography variant="subtitle2" noWrap sx={{ flex: 1, mr: 2, color: 'grey.400' }}>
+                  {videoPlayer.title}
+                  <Typography component="span" variant="caption" sx={{ ml: 1, color: 'grey.600' }}>
+                    {currentIndex + 1} / {playlist.length}
+                  </Typography>
+                </Typography>
+                <IconButton size="small" onClick={() => setVideoPlayer(null)} sx={{ color: 'grey.400' }}>
+                  <CloseIcon />
+                </IconButton>
+              </DialogTitle>
+              <DialogContent sx={{ p: 0, position: 'relative' }}>
+                <Box sx={{ position: 'relative', bgcolor: 'black' }}>
+                  <video
+                    key={videoPlayer.url}
+                    src={videoPlayer.url}
+                    controls
+                    autoPlay
+                    loop
+                    style={{ width: '100%', display: 'block', maxHeight: '65vh' }}
+                  />
+                  {/* Prev overlay */}
+                  {hasPrev && (
+                    <IconButton
+                      onClick={() => navigateTo(currentIndex - 1)}
+                      sx={{
+                        position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
+                        bgcolor: 'rgba(0,0,0,0.5)', color: 'white', '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' },
+                      }}
+                    >
+                      <PlayArrowIcon sx={{ transform: 'rotate(180deg)' }} />
+                    </IconButton>
+                  )}
+                  {/* Next overlay */}
+                  {hasNext && (
+                    <IconButton
+                      onClick={() => navigateTo(currentIndex + 1)}
+                      sx={{
+                        position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                        bgcolor: 'rgba(0,0,0,0.5)', color: 'white', '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' },
+                      }}
+                    >
+                      <PlayArrowIcon />
+                    </IconButton>
+                  )}
+                </Box>
+
+                {/* Thumbnail strip */}
+                {playlist.length > 1 && (
+                  <Box sx={{
+                    display: 'flex', gap: 0.5, px: 1, py: 1,
+                    overflowX: 'auto', bgcolor: 'grey.900',
+                    '&::-webkit-scrollbar': { height: 4 },
+                    '&::-webkit-scrollbar-thumb': { bgcolor: 'grey.700', borderRadius: 2 },
+                  }}>
+                    {playlist.map((r, idx) => {
+                      const thumbUrl = r.thumbnail_path
+                        ? `${VIDEO_API_BASE}/video/${batchId}/${r.thumbnail_path}`
+                        : null;
+                      return (
+                        <Box
+                          key={r.item_id || idx}
+                          onClick={() => navigateTo(idx)}
+                          sx={{
+                            flexShrink: 0, width: 80, height: 45,
+                            borderRadius: 1, overflow: 'hidden', cursor: 'pointer',
+                            border: 2, borderColor: idx === currentIndex ? 'primary.main' : 'transparent',
+                            opacity: idx === currentIndex ? 1 : 0.6,
+                            transition: 'opacity 0.2s, border-color 0.2s',
+                            '&:hover': { opacity: 1 },
+                            bgcolor: 'grey.800',
+                          }}
+                        >
+                          {thumbUrl ? (
+                            <Box component="img" src={thumbUrl} alt={`Video ${idx + 1}`}
+                              sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                          ) : (
+                            <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <VideocamIcon sx={{ fontSize: 16, color: 'grey.500' }} />
+                            </Box>
+                          )}
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                )}
+              </DialogContent>
+              <DialogActions sx={{ justifyContent: 'space-between', px: 2, py: 1 }}>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button size="small" disabled={!hasPrev} onClick={() => navigateTo(currentIndex - 1)}>
+                    Previous
+                  </Button>
+                  <Button size="small" disabled={!hasNext} onClick={() => navigateTo(currentIndex + 1)}>
+                    Next
+                  </Button>
+                </Box>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button size="small" onClick={() => window.open(videoPlayer.url, '_blank')} startIcon={<OpenInNewIcon />}>
+                    Open
+                  </Button>
+                  <Button size="small" onClick={() => {
+                    const a = document.createElement('a');
+                    a.href = videoPlayer.url;
+                    a.download = videoPlayer.title;
+                    a.click();
+                  }} startIcon={<DownloadIcon />}>
+                    Download
+                  </Button>
+                </Box>
+              </DialogActions>
+            </>
+          );
+        })()}
       </Dialog>
 
       {/* Video Delete Confirmation Dialog */}

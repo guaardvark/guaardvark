@@ -76,10 +76,21 @@ coverage.xml
 CLAUDE.md
 GEMINI.md
 KNOWN_BUGS.md
+AGENT_SESSION_SAVE.md
 guaardvark.code-workspace
 *.code-workspace
 SESSION_HANDOFF*.md
 guaardvark_backup.json
+
+# Internal docs — not for public repo
+docs/prompts/
+docs/local-workspace-only/
+
+# Agent internal knowledge (contains instance-specific config)
+data/agent/self_knowledge.md
+
+# Security hardening scripts (one-time, machine-specific)
+scripts/phase3_security.sh
 
 # Backup / archive files
 *.BACK
@@ -95,11 +106,7 @@ backend/debug_audio/
 scripts/debug_*.py
 scripts/repro_output*.txt
 
-# Docs — keep README screenshots, ignore debug/test screenshots
-docs/test-screenshots/
-docs/superpowers/
-docs/SESSION_HANDOFF.md
-docs/documents_page_snapshot.md
+# (docs/ excluded globally below)
 
 # Plugins — external installs, not tracked
 plugins/Comprehensive Architectural.md
@@ -128,20 +135,28 @@ data/backup_*/
 data/agent_playbooks/
 data/research_program.md
 
-# Docs — only README.md and screenshots/ are public
-docs/launch/
-docs/plans/
-docs/research/
-docs/specs/
-docs/superpowers/
-docs/insanity/
-docs/b-roll/
-docs/archive/
-docs/SESSION_*.md
-docs/release-notes-*.md
-docs/*.png
-docs/*.txt
-docs/*.zip
+# Agent display (instance-specific, contains credentials)
+data/.vnc_passwd
+data/agent/firefox_profile/
+data/agent/firefox_extension/
+
+# Debug/test scripts
+scripts/reproduce_500.py
+scripts/test_colors.sh
+
+# System manager (machine-specific, not part of the product)
+scripts/system-manager/
+
+# Legacy discord bot (moved to plugins/discord/)
+discord_bot/
+
+# Training model artifacts (tokenizer configs, adapters — generated locally)
+training/models/
+
+# Docs — private development work, except README and screenshots for GitHub
+docs/*
+!docs/README.md
+!docs/screenshots/
 
 # Training model weights (too large for git)
 training/models/*/checkpoints/

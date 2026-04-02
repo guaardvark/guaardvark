@@ -356,27 +356,16 @@ const SemanticSearchCard = React.forwardRef(
         cardColor={cardColor}
         onCardColorChange={onCardColorChange}
         title="Chat"
-        {...props}
-      >
-        {isMinimized ? (
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              p: 1,
-            }}
-          >
-            <ChatIcon sx={{ mr: 1 }} />
+        minimizedContent={
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", p: 0.5 }}>
+            <ChatIcon sx={{ mr: 1, fontSize: "1rem" }} />
             <Typography variant="body2">
-              {messages.length > 0
-                ? `${messages.length} messages`
-                : "No messages"}
+              {messages.length > 0 ? `${messages.length} messages` : "No messages"}
             </Typography>
           </Box>
-        ) : (
-          <>
-            {}
+        }
+        {...props}
+      >
             {error && (
               <Alert severity="error" sx={{ mb: 1 }}>
                 {error}
@@ -536,8 +525,6 @@ const SemanticSearchCard = React.forwardRef(
                 {isSending ? <StopIcon /> : <SendIcon />}
               </IconButton>
             </Box>
-          </>
-        )}
         <FileGenPopup
           open={fileGenPopup.open}
           onConfirm={handleFileGenConfirm}

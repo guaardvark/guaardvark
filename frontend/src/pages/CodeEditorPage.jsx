@@ -15,6 +15,14 @@ import {
   FormControl,
   InputLabel,
   Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  TextField,
+  List,
+  ListItemButton,
+  ListItemText,
+  CircularProgress,
 } from "@mui/material";
 import ReactGridLayout, { WidthProvider } from "react-grid-layout";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
@@ -100,6 +108,12 @@ const CodeEditorPage = () => {
   const [showFloatingActions, setShowFloatingActions] = useState(false);
   const [showFloatingMetrics, setShowFloatingMetrics] = useState(false);
 
+  const [symbolSearchOpen, setSymbolSearchOpen] = useState(false);
+  const [symbolQuery, setSymbolQuery] = useState('');
+  const [symbolResults, setSymbolResults] = useState([]);
+  const [symbolLoading, setSymbolLoading] = useState(false);
+  const [relatedFiles, setRelatedFiles] = useState([]);
+
   const { startProcess, completeProcess, errorProcess } = useUnifiedProgress();
   const gridContainerRef = useRef(null);
 
@@ -163,6 +177,50 @@ const CodeEditorPage = () => {
       }
     }
   }, [activeModel, availableModels]);
+
+  useEffect(() => {
+    const handleSymbolShortcut = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'o' || e.key === 'O')) {
+        e.preventDefault();
+        setSymbolSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleSymbolShortcut);
+    return () => window.removeEventListener('keydown', handleSymbolShortcut);
+  }, []);
+
+  const handleSymbolSearch = useCallback(async (query) => {
+    if (!query || query.length < 2) {
+      setSymbolResults([]);
+      return;
+    }
+    setSymbolLoading(true);
+    try {
+      const { searchSymbols } = await import('../api/indexingService');
+      const data = await searchSymbols(query);
+      setSymbolResults(data.symbols || []);
+    } catch (err) {
+      console.error('Symbol search failed:', err);
+      setSymbolResults([]);
+    } finally {
+      setSymbolLoading(false);
+    }
+  }, []);
+
+  const fetchRelatedFiles = useCallback(async (folderId) => {
+    if (!folderId) {
+      setRelatedFiles([]);
+      return;
+    }
+    try {
+      const { searchFiles } = await import('../api/indexingService');
+      const data = await searchFiles('', { folderId });
+      setRelatedFiles((data.files || []).filter(f => f.is_code_file).slice(0, 10));
+    } catch (err) {
+      console.error('Failed to fetch related files:', err);
+      setRelatedFiles([]);
+    }
+  }, []);
 
   const handleModelChange = async (modelName) => {
     if (!modelName || modelName === activeModel) return;
@@ -1466,7 +1524,69 @@ const CodeEditorPage = () => {
           </FixedGridLayout>
         </Box>
       </Box>
+      {relatedFiles.length > 0 && (
+        <Box sx={{ p: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
+            Related Files
+          </Typography>
+          <List dense disablePadding sx={{ maxHeight: 200, overflow: 'auto' }}>
+            {relatedFiles.map(f => (
+              <ListItemButton key={f.id} dense sx={{ py: 0.25 }}>
+                <ListItemText
+                  primary={f.filename}
+                  secondary={f.path}
+                  primaryTypographyProps={{ variant: 'caption' }}
+                  secondaryTypographyProps={{ variant: 'caption', noWrap: true }}
+                />
+              </ListItemButton>
+            ))}
+          </List>
+        </Box>
+      )}
       </Box>
+      <Dialog
+        open={symbolSearchOpen}
+        onClose={() => { setSymbolSearchOpen(false); setSymbolQuery(''); setSymbolResults([]); }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Find Symbol (Ctrl+Shift+O)</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            placeholder="Search functions, classes, methods..."
+            value={symbolQuery}
+            onChange={(e) => {
+              setSymbolQuery(e.target.value);
+              handleSymbolSearch(e.target.value);
+            }}
+            sx={{ mb: 2, mt: 1 }}
+            size="small"
+          />
+          {symbolLoading && <CircularProgress size={20} sx={{ display: 'block', mx: 'auto', mb: 1 }} />}
+          <List dense sx={{ maxHeight: 400, overflow: 'auto' }}>
+            {symbolResults.slice(0, 20).map((sym, i) => (
+              <ListItemButton
+                key={`${sym.document_id}-${sym.name}-${i}`}
+                onClick={() => {
+                  setSymbolSearchOpen(false);
+                  setSymbolQuery('');
+                  setSymbolResults([]);
+                }}
+              >
+                <ListItemText
+                  primary={`${sym.type}: ${sym.name}`}
+                  secondary={`${sym.file_path || sym.filename}${sym.line ? `:${sym.line}` : ''}`}
+                />
+              </ListItemButton>
+            ))}
+            {symbolResults.length === 0 && symbolQuery.length >= 2 && !symbolLoading && (
+              <ListItemText secondary="No symbols found" sx={{ textAlign: 'center', py: 2 }} />
+            )}
+          </List>
+        </DialogContent>
+      </Dialog>
     </PageLayout>
   );
 };

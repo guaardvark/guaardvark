@@ -1131,8 +1131,13 @@ const DocumentsPage = () => {
         return response.data;
       });
 
-      await Promise.all(uploadPromises);
-      showMessage?.(`Uploaded ${files.length} file(s)`, 'success');
+      const results = await Promise.all(uploadPromises);
+      const uploaded = results.filter(r => !r?.skipped).length;
+      const skipped = results.filter(r => r?.skipped).length;
+      const msg = skipped > 0
+        ? `Uploaded ${uploaded} file(s) (${skipped} ignored by filter)`
+        : `Uploaded ${uploaded} file(s)`;
+      showMessage?.(msg, 'success');
 
       // Refresh data after upload
       await refreshData();
