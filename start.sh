@@ -122,11 +122,35 @@ if [ -n "$GUAARDVARK_ROOT" ] && [ "$GUAARDVARK_ROOT" != "$SCRIPT_DIR" ]; then
 fi
 export GUAARDVARK_ROOT="$SCRIPT_DIR"
 
+# Harden .env permissions — secrets should not be group/world-readable
+for _envfile in "$SCRIPT_DIR/.env" "$SCRIPT_DIR/OLD.env"; do
+  if [ -f "$_envfile" ]; then
+    _perms=$(stat -c '%a' "$_envfile")
+    if [ "$_perms" != "600" ]; then
+      vader_warn "$(basename $_envfile) has insecure permissions ($_perms), fixing to 600..."
+      chmod 600 "$_envfile"
+    fi
+  fi
+done
+
 if [ -f "$SCRIPT_DIR/.env" ]; then
   set -a
   . "$SCRIPT_DIR/.env"
   set +a
   export GUAARDVARK_ROOT="$SCRIPT_DIR"
+fi
+
+# Generate SECRET_KEY if not set — prevents "Using default SECRET_KEY" warning
+if [ -z "$SECRET_KEY" ]; then
+  if grep -q '^SECRET_KEY=' "$SCRIPT_DIR/.env" 2>/dev/null; then
+    : # Already in .env but empty — will be sourced above
+  else
+    _generated_key=$(python3 -c "import secrets; print(secrets.token_hex(32))" 2>/dev/null)
+    if [ -n "$_generated_key" ]; then
+      echo "SECRET_KEY=$_generated_key" >> "$SCRIPT_DIR/.env"
+      export SECRET_KEY="$_generated_key"
+    fi
+  fi
 fi
 
 # Remove TMOUT auto-logout if present (causes terminal windows to close after idle)
@@ -506,90 +530,35 @@ migration_fingerprint_matches() {
 }
 
 check_migrations_preflight() {
-    local check_script="$GUAARDVARK_ROOT/scripts/check_migrations.py"
+    local sync_script="$GUAARDVARK_ROOT/scripts/schema_sync.py"
 
     if [ -n "$GUAARDVARK_SKIP_MIGRATIONS" ]; then
-        vader_info "Migration check skipped (GUAARDVARK_SKIP_MIGRATIONS set)"
+        vader_info "Schema check skipped (GUAARDVARK_SKIP_MIGRATIONS set)"
         return 0
     fi
 
-    if [ ! -d "$BACKEND_DIR/migrations" ]; then
-        vader_info "No migrations directory found - skipping check"
+    if [ ! -f "$sync_script" ]; then
+        vader_warn "Schema sync script not found — skipping"
         return 0
     fi
 
     if migration_fingerprint_matches; then
-        vader_success "Migration check: up to date (no changes since last check)"
+        vader_success "Schema check: up to date (no changes since last check)"
         return 0
     fi
 
-    if [ ! -f "$check_script" ]; then
-        vader_warn "Migration check script not found - skipping"
-        return 0
-    fi
-
-    local output
-    local exit_code
-    output=$("$VENV_DIR/bin/python" "$check_script" 2>&1)
+    local output exit_code
+    output=$("$VENV_DIR/bin/python" "$sync_script" 2>&1)
     exit_code=$?
 
-    case $exit_code in
-        0)
-            local msg
-            msg=$(echo "$output" | python3 -c "import sys,json; print(json.load(sys.stdin).get('message','OK'))" 2>/dev/null || echo "OK")
-            vader_success "Migration check: $msg"
-            save_migration_fingerprint
-            return 0
-            ;;
-        1)
-            local err_msg fix_msg
-            err_msg=$(echo "$output" | python3 -c "import sys,json; print(json.load(sys.stdin).get('message','Multiple heads'))" 2>/dev/null || echo "Multiple migration heads detected")
-            fix_msg=$(echo "$output" | python3 -c "import sys,json; print(json.load(sys.stdin).get('fix',''))" 2>/dev/null || echo "")
-            vader_error "Migration check failed: $err_msg"
-            [ -n "$fix_msg" ] && vader_error "Fix: $fix_msg"
-            return 1
-            ;;
-        2)
-            vader_warn "Pending migrations detected - attempting auto-upgrade..."
-            if "$VENV_DIR/bin/python" -c "
-import sys
-sys.path.insert(0, '$SCRIPT_DIR')
-from backend.utils.migration_utils import auto_upgrade
-result = auto_upgrade('$BACKEND_DIR/migrations')
-if not result['success']:
-    print(result['message'], file=sys.stderr)
-    sys.exit(1)
-print(result['message'])
-" >> "$SETUP_LOG" 2>&1; then
-                vader_success "Migrations applied successfully"
-                save_migration_fingerprint
-                return 0
-            else
-                vader_error "Migration auto-upgrade failed."
-                vader_error "Your data is preserved — NOT deleting the database."
-                vader_error "Manual fix options:"
-                vader_error "  1. cd backend && source venv/bin/activate && flask db upgrade"
-                vader_error "  2. Restore from backup via the Guaardvark UI"
-                vader_error "  3. Set GUAARDVARK_SKIP_MIGRATIONS=1 to bypass (risky)"
-                vader_error "Check $SETUP_LOG for details."
-                return 1
-            fi
-            ;;
-        5)
-            # Model changes detected by Alembic autogenerate. Since db.create_all()
-            # already creates the schema from models.py, these are typically phantom
-            # differences (column ordering, defaults, etc.) — safe to ignore.
-            vader_info "Minor model metadata differences detected (safe to ignore)."
-            save_migration_fingerprint
-            return 0
-            ;;
-        *)
-            local err_msg
-            err_msg=$(echo "$output" | python3 -c "import sys,json; print(json.load(sys.stdin).get('message','Unknown error'))" 2>/dev/null || echo "$output")
-            vader_error "Migration check failed: $err_msg"
-            return 1
-            ;;
-    esac
+    if [ $exit_code -eq 0 ]; then
+        vader_success "Schema sync: OK"
+        save_migration_fingerprint
+        return 0
+    else
+        vader_error "Schema sync failed: $output"
+        return 1
+    fi
 }
 
 is_port_listening() {
@@ -1088,9 +1057,11 @@ vader_separator
 
 vader_step 4 "Ensuring Ollama service is running..."
 
-# Set up passwordless Ollama control (one-time, during first-run setup)
+# Set up passwordless Ollama + nvidia-smi control (one-time, during first-run setup)
 # This runs alongside the first-run setup phase so sudo is already expected
 OLLAMA_SUDOERS="/etc/sudoers.d/ollama-guaardvark"
+GPU_SUDOERS="/etc/sudoers.d/gpu-guaardvark"
+
 if [ "$OLLAMA_AVAILABLE" -eq 1 ] && [ ! -f "$OLLAMA_SUDOERS" ]; then
     OLLAMA_BIN=$(command -v ollama 2>/dev/null)
     SYSTEMCTL_BIN=$(command -v systemctl 2>/dev/null)
@@ -1101,7 +1072,6 @@ if [ "$OLLAMA_AVAILABLE" -eq 1 ] && [ ! -f "$OLLAMA_SUDOERS" ]; then
         echo "$SUDOERS_LINE" | sudo tee "$OLLAMA_SUDOERS" > /dev/null 2>&1
         if [ -f "$OLLAMA_SUDOERS" ]; then
             sudo chmod 440 "$OLLAMA_SUDOERS" 2>/dev/null
-            # Validate the sudoers file syntax
             if sudo visudo -c -f "$OLLAMA_SUDOERS" >/dev/null 2>&1; then
                 vader_success "Ollama passwordless control configured"
             else
@@ -1110,6 +1080,28 @@ if [ "$OLLAMA_AVAILABLE" -eq 1 ] && [ ! -f "$OLLAMA_SUDOERS" ]; then
             fi
         else
             vader_info "Could not set up passwordless Ollama (non-critical, will use direct process)"
+        fi
+    fi
+fi
+
+# Set up passwordless nvidia-smi for GPU power management (one-time)
+if command_exists nvidia-smi && [ ! -f "$GPU_SUDOERS" ]; then
+    NVIDIA_SMI_BIN=$(command -v nvidia-smi 2>/dev/null)
+    if [ -n "$NVIDIA_SMI_BIN" ]; then
+        vader_info "Setting up passwordless GPU power management (one-time)..."
+        CURRENT_USER=$(whoami)
+        GPU_SUDOERS_LINE="$CURRENT_USER ALL=(ALL) NOPASSWD: $NVIDIA_SMI_BIN -pl *, $NVIDIA_SMI_BIN -pm *"
+        echo "$GPU_SUDOERS_LINE" | sudo tee "$GPU_SUDOERS" > /dev/null 2>&1
+        if [ -f "$GPU_SUDOERS" ]; then
+            sudo chmod 440 "$GPU_SUDOERS" 2>/dev/null
+            if sudo visudo -c -f "$GPU_SUDOERS" >/dev/null 2>&1; then
+                vader_success "GPU passwordless power management configured"
+            else
+                vader_warn "GPU sudoers syntax invalid, removing..."
+                sudo rm -f "$GPU_SUDOERS" 2>/dev/null
+            fi
+        else
+            vader_info "Could not set up passwordless GPU control (non-critical)"
         fi
     fi
 fi
@@ -1258,9 +1250,10 @@ vader_step 8 "Setting up backend..."
 cd "$BACKEND_DIR" || { vader_error "Failed to cd to $BACKEND_DIR"; exit 1; }
 
 # Clear stale Python bytecode cache (prevents import errors after file sync)
-PYCACHE_COUNT=$(find "$BACKEND_DIR" -path "*/venv" -prune -o -type d -name "__pycache__" -print 2>/dev/null | wc -l)
+# Scan entire project (not just backend/) — scripts/, plugins/, cli/ also have Python
+PYCACHE_COUNT=$(find "$GUAARDVARK_ROOT" -path "*/venv" -prune -o -path "*/node_modules" -prune -o -type d -name "__pycache__" -print 2>/dev/null | wc -l)
 if [ "$PYCACHE_COUNT" -gt 0 ]; then
-    find "$BACKEND_DIR" -path "*/venv" -prune -o -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null
+    find "$GUAARDVARK_ROOT" -path "*/venv" -prune -o -path "*/node_modules" -prune -o -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null
     vader_info "Cleared $PYCACHE_COUNT __pycache__ directories"
 fi
 
@@ -1456,9 +1449,11 @@ if command -v nvidia-smi &>/dev/null; then
     MAX_PL=$(nvidia-smi --query-gpu=power.max_limit --format=csv,noheader,nounits 2>/dev/null | head -1 | cut -d. -f1)
     CUR_PL=$(nvidia-smi --query-gpu=power.limit --format=csv,noheader,nounits 2>/dev/null | head -1 | cut -d. -f1)
     if [ -n "$MAX_PL" ] && [ -n "$CUR_PL" ] && [ "$MAX_PL" -gt "$CUR_PL" ]; then
-        sudo nvidia-smi -pl "$MAX_PL" 2>/dev/null && \
-            vader_info "GPU power limit raised: ${CUR_PL}W → ${MAX_PL}W" || \
-            vader_warn "Could not raise GPU power limit (needs sudo)"
+        if sudo -n nvidia-smi -pl "$MAX_PL" 2>/dev/null; then
+            vader_info "GPU power limit raised: ${CUR_PL}W → ${MAX_PL}W"
+        else
+            vader_warn "GPU power limit ${CUR_PL}W < max ${MAX_PL}W (needs sudo nvidia-smi -pl ${MAX_PL})"
+        fi
     fi
 fi
 export REDIS_URL="${REDIS_URL:-redis://localhost:6379/0}"
@@ -1480,7 +1475,7 @@ except Exception:
     pass
 EOF
 
-vader_info "Running pre-flight migration check..."
+vader_info "Syncing database schema..."
 
 # Re-source .env to pick up the DATABASE_URL that start_postgres.sh may have written/updated.
 # The initial source at the top of start.sh may have had a stale or missing DATABASE_URL.
@@ -1491,118 +1486,30 @@ if [ -f "$SCRIPT_DIR/.env" ]; then
     fi
 fi
 
-# Migration shortcut: handles fresh installs and post-squash re-stamps.
-# Uses SQLAlchemy to connect to PostgreSQL (no sqlite3).
-# Returns: 0 = fresh install (no tables), 2 = stale revision (needs re-stamp), 1 = normal flow
-if migration_fingerprint_matches; then
-    vader_success "Database migrations: up to date (fingerprint match)"
-    MIGRATION_CHECK=1  # normal flow, skip re-stamp/fresh-install paths
-else
-"$VENV_DIR/bin/python" -c "
-import os, sys
-sys.path.insert(0, '$SCRIPT_DIR')
-os.environ.setdefault('GUAARDVARK_ROOT', '$SCRIPT_DIR')
-from sqlalchemy import create_engine, inspect, text
-from backend.config import DATABASE_URL
+# Schema-first approach: db.create_all() is the schema manager.
+# This script just ensures the DB matches models.py and stamps Alembic.
+SCHEMA_SYNC_SCRIPT="$GUAARDVARK_ROOT/scripts/schema_sync.py"
 
-try:
-    engine = create_engine(DATABASE_URL)
-    with engine.connect() as conn:
-        inspector = inspect(engine)
-        tables = set(inspector.get_table_names())
-        if not tables or 'clients' not in tables:
-            sys.exit(0)  # Fresh install — no core tables
-        if 'alembic_version' not in tables:
-            sys.exit(2)  # Tables exist but no alembic tracking — re-stamp
-        rows = conn.execute(text('SELECT version_num FROM alembic_version')).fetchall()
-        if not rows:
-            sys.exit(2)  # Empty alembic_version — re-stamp
-        # Check if current revision exists in migration files
-        from pathlib import Path
-        versions_dir = Path('$BACKEND_DIR/migrations/versions')
-        known_revisions = set()
-        for py_file in versions_dir.glob('*.py'):
-            content = py_file.read_text()
-            for line in content.splitlines():
-                if line.strip().startswith('revision'):
-                    rev = line.split('=')[1].strip().strip(\"'\").strip('\"')
-                    known_revisions.add(rev)
-        if rows[0][0] not in known_revisions:
-            sys.exit(2)  # Stale revision
-        sys.exit(1)  # Normal flow
-except Exception:
-    sys.exit(1)  # Fall through to normal migration check
-" 2>/dev/null
-MIGRATION_CHECK=$?
-fi
-
-if [ "$MIGRATION_CHECK" = "0" ]; then
-    vader_info "Fresh install detected — creating database from models..."
-    if "$VENV_DIR/bin/python" -c "
-import sys, os
-sys.path.insert(0, '$SCRIPT_DIR')
-os.environ.setdefault('GUAARDVARK_ROOT', '$SCRIPT_DIR')
-from backend.app import create_app
-from backend.models import db
-from alembic.config import Config
-from alembic import command
-
-app = create_app()
-with app.app_context():
-    db.create_all()
-    cfg = Config('$BACKEND_DIR/migrations/alembic.ini')
-    cfg.set_main_option('script_location', '$BACKEND_DIR/migrations')
-    from backend.config import DATABASE_URL
-    cfg.set_main_option('sqlalchemy.url', DATABASE_URL)
-    command.stamp(cfg, 'head')
-    print('Database created and stamped to head')
-" >> "$SETUP_LOG" 2>&1; then
-        vader_success "Fresh database created successfully"
-        save_migration_fingerprint
+if [ -f "$SCHEMA_SYNC_SCRIPT" ]; then
+    if migration_fingerprint_matches; then
+        vader_success "Database schema: up to date (fingerprint match)"
     else
-        vader_error "Failed to create fresh database. Check $SETUP_LOG for details."
-        deactivate
-        cd "$SCRIPT_DIR"
-        exit 1
-    fi
-elif [ "$MIGRATION_CHECK" = "2" ]; then
-    vader_info "Existing database with stale migration revision — re-stamping to current head..."
-    if "$VENV_DIR/bin/python" -c "
-import sys, os
-sys.path.insert(0, '$SCRIPT_DIR')
-os.environ.setdefault('GUAARDVARK_ROOT', '$SCRIPT_DIR')
-from sqlalchemy import create_engine, text
-from alembic.config import Config
-from alembic import command
-from backend.config import DATABASE_URL
-
-cfg = Config('$BACKEND_DIR/migrations/alembic.ini')
-cfg.set_main_option('script_location', '$BACKEND_DIR/migrations')
-cfg.set_main_option('sqlalchemy.url', DATABASE_URL)
-# Purge stale revision via SQLAlchemy and stamp to current head
-engine = create_engine(DATABASE_URL)
-with engine.connect() as conn:
-    conn.execute(text('DELETE FROM alembic_version'))
-    conn.commit()
-command.stamp(cfg, 'head')
-print('Database re-stamped to current head after migration squash')
-" >> "$SETUP_LOG" 2>&1; then
-        vader_success "Database re-stamped to current migration head"
-        save_migration_fingerprint
-    else
-        vader_error "Failed to re-stamp database. Check $SETUP_LOG for details."
-        deactivate
-        cd "$SCRIPT_DIR"
-        exit 1
+        sync_output=$("$VENV_DIR/bin/python" "$SCHEMA_SYNC_SCRIPT" 2>&1)
+        sync_exit=$?
+        if [ $sync_exit -eq 0 ]; then
+            sync_msg=$(echo "$sync_output" | python3 -c "import sys,json; print(json.load(sys.stdin).get('message','OK'))" 2>/dev/null || echo "OK")
+            vader_success "Database schema: $sync_msg"
+            save_migration_fingerprint
+        else
+            vader_error "Schema sync failed: $sync_output"
+            vader_error "Check $SETUP_LOG for details."
+            deactivate
+            cd "$SCRIPT_DIR"
+            exit 1
+        fi
     fi
 else
-    if ! check_migrations_preflight; then
-        vader_error "Migration pre-flight check failed. Cannot start backend safely."
-        vader_error "Fix migration issues and re-run start.sh"
-        deactivate
-        cd "$SCRIPT_DIR"
-        exit 1
-    fi
+    vader_warn "Schema sync script not found — falling back to db.create_all() in app.py"
 fi
 
 # Tell app.py that start.sh has already verified migrations
@@ -1747,45 +1654,145 @@ fi
 vader_separator
 
 # ── Start plugins ──
-if [ "${START_DISCORD:-0}" -eq 1 ] || [ "${START_ALL_PLUGINS:-0}" -eq 1 ]; then
-    vader_info "Starting plugins..."
+# Plugins with auto_start:true + enabled:true always start.
+# --discord forces Discord bot. --plugins forces ALL enabled plugins.
 
-    # Start Discord bot if --discord or --plugins
-    if [ "${START_DISCORD:-0}" -eq 1 ] || [ "${START_ALL_PLUGINS:-0}" -eq 1 ]; then
-        DISCORD_START="$SCRIPT_DIR/plugins/discord/scripts/start.sh"
-        if [ -f "$DISCORD_START" ]; then
-            vader_info "Starting Discord bot plugin..."
-            bash "$DISCORD_START" 2>&1 | while read line; do vader_info "$line"; done
-            if curl -sf --max-time 5 http://localhost:8200/health >/dev/null 2>&1; then
-                vader_success "Discord bot is online"
-            else
-                vader_warn "Discord bot started but health check pending"
-            fi
-        else
-            vader_warn "Discord bot plugin not found at plugins/discord/"
+# Plugins that require the agent virtual display (Xvfb + VNC)
+DISPLAY_PLUGINS="vision_pipeline"
+# Plugins managed elsewhere in start.sh (skip in the loop)
+SKIP_PLUGINS="ollama gpu_embedding"
+
+AGENT_DISPLAY_STARTED=0
+
+ensure_agent_display() {
+    # Start the agent virtual display if not already running
+    if [ "$AGENT_DISPLAY_STARTED" -eq 1 ]; then return 0; fi
+    AGENT_DISPLAY_SCRIPT="$SCRIPT_DIR/scripts/start_agent_display.sh"
+    if [ -x "$AGENT_DISPLAY_SCRIPT" ]; then
+        if pgrep -f "Xvfb :${GUAARDVARK_AGENT_DISPLAY:-99}" > /dev/null 2>&1; then
+            vader_success "Agent virtual display already running (:${GUAARDVARK_AGENT_DISPLAY:-99})"
+            AGENT_DISPLAY_STARTED=1
+            return 0
         fi
+        vader_info "Starting agent virtual display (Xvfb + VNC)..."
+        bash "$AGENT_DISPLAY_SCRIPT" start 2>&1 | while read line; do vader_info "  $line"; done
+        if pgrep -f "Xvfb :${GUAARDVARK_AGENT_DISPLAY:-99}" > /dev/null 2>&1; then
+            vader_success "Agent virtual display active on :${GUAARDVARK_AGENT_DISPLAY:-99} (VNC port ${GUAARDVARK_AGENT_VNC_PORT:-5999})"
+            AGENT_DISPLAY_STARTED=1
+        else
+            vader_warn "Agent virtual display failed to start"
+        fi
+    else
+        vader_warn "Agent display script not found: scripts/start_agent_display.sh"
+    fi
+}
+
+plugin_needs_display() {
+    local name="$1"
+    for dp in $DISPLAY_PLUGINS; do
+        [ "$name" = "$dp" ] && return 0
+    done
+    return 1
+}
+
+plugin_should_skip() {
+    local name="$1"
+    for sp in $SKIP_PLUGINS; do
+        [ "$name" = "$sp" ] && return 0
+    done
+    return 1
+}
+
+start_plugin() {
+    local plugin_dir="$1"
+    local plugin_name=$(basename "$plugin_dir")
+    local start_script="$plugin_dir/scripts/start.sh"
+
+    if [ ! -f "$start_script" ]; then
+        vader_warn "$plugin_name plugin has no start script"
+        return 1
     fi
 
-    # Start other enabled plugins if --plugins
-    if [ "${START_ALL_PLUGINS:-0}" -eq 1 ]; then
-        for plugin_dir in "$SCRIPT_DIR"/plugins/*/; do
-            plugin_name=$(basename "$plugin_dir")
-            [ "$plugin_name" = "discord" ] && continue  # Already handled above
-            [ "$plugin_name" = "ollama" ] && continue    # Managed by start.sh directly
-            [ "$plugin_name" = "gpu_embedding" ] && continue
-
-            plugin_json="$plugin_dir/plugin.json"
-            start_script="$plugin_dir/scripts/start.sh"
-            if [ -f "$plugin_json" ] && [ -f "$start_script" ]; then
-                enabled=$(python3 -c "import json; print(json.load(open('$plugin_json')).get('config',{}).get('enabled',False))" 2>/dev/null)
-                if [ "$enabled" = "True" ]; then
-                    vader_info "Starting $plugin_name plugin..."
-                    bash "$start_script" 2>&1 | while read line; do vader_info "$line"; done
-                    vader_success "$plugin_name started"
-                fi
-            fi
-        done
+    # If this plugin needs the display, ensure it's running first
+    if plugin_needs_display "$plugin_name"; then
+        ensure_agent_display
     fi
+
+    vader_info "Starting $plugin_name plugin..."
+    bash "$start_script" 2>&1 | while read line; do vader_info "  $line"; done
+
+    # Health check if plugin has a port
+    local port=$(python3 -c "import json; print(json.load(open('$plugin_dir/plugin.json')).get('port',''))" 2>/dev/null)
+    if [ -n "$port" ] && [ "$port" != "None" ]; then
+        if curl -sf --max-time 5 "http://localhost:$port/health" >/dev/null 2>&1; then
+            vader_success "$plugin_name is online (port $port)"
+        else
+            vader_warn "$plugin_name started but health check pending (port $port)"
+        fi
+    else
+        vader_success "$plugin_name started"
+    fi
+}
+
+PLUGINS_STARTED=0
+
+# Pass 1: Start auto_start plugins (always, no flag needed)
+for plugin_dir in "$SCRIPT_DIR"/plugins/*/; do
+    plugin_name=$(basename "$plugin_dir")
+    plugin_json="$plugin_dir/plugin.json"
+
+    plugin_should_skip "$plugin_name" && continue
+    [ ! -f "$plugin_json" ] && continue
+
+    # Check auto_start AND enabled
+    auto_start=$(python3 -c "import json; c=json.load(open('$plugin_json')).get('config',{}); print(c.get('auto_start',False) and c.get('enabled',False))" 2>/dev/null)
+    if [ "$auto_start" = "True" ]; then
+        start_plugin "$plugin_dir"
+        PLUGINS_STARTED=$((PLUGINS_STARTED + 1))
+    fi
+done
+
+# Pass 2: Start Discord if --discord flag (even if not auto_start)
+if [ "${START_DISCORD:-0}" -eq 1 ]; then
+    DISCORD_DIR="$SCRIPT_DIR/plugins/discord"
+    if [ -d "$DISCORD_DIR" ] && [ -f "$DISCORD_DIR/scripts/start.sh" ]; then
+        # Only start if not already started in pass 1
+        DISCORD_AUTO=$(python3 -c "import json; c=json.load(open('$DISCORD_DIR/plugin.json')).get('config',{}); print(c.get('auto_start',False) and c.get('enabled',False))" 2>/dev/null)
+        if [ "$DISCORD_AUTO" != "True" ]; then
+            start_plugin "$DISCORD_DIR"
+            PLUGINS_STARTED=$((PLUGINS_STARTED + 1))
+        fi
+    else
+        vader_warn "Discord bot plugin not found at plugins/discord/"
+    fi
+fi
+
+# Pass 3: Start ALL enabled plugins if --plugins (skip already-started auto_start ones)
+if [ "${START_ALL_PLUGINS:-0}" -eq 1 ]; then
+    for plugin_dir in "$SCRIPT_DIR"/plugins/*/; do
+        plugin_name=$(basename "$plugin_dir")
+        plugin_json="$plugin_dir/plugin.json"
+
+        plugin_should_skip "$plugin_name" && continue
+        [ ! -f "$plugin_json" ] && continue
+
+        enabled=$(python3 -c "import json; print(json.load(open('$plugin_json')).get('config',{}).get('enabled',False))" 2>/dev/null)
+        auto_start=$(python3 -c "import json; print(json.load(open('$plugin_json')).get('config',{}).get('auto_start',False))" 2>/dev/null)
+
+        # Skip if already started in pass 1 (auto_start + enabled)
+        if [ "$auto_start" = "True" ] && [ "$enabled" = "True" ]; then
+            continue
+        fi
+
+        if [ "$enabled" = "True" ]; then
+            start_plugin "$plugin_dir"
+            PLUGINS_STARTED=$((PLUGINS_STARTED + 1))
+        fi
+    done
+fi
+
+if [ "$PLUGINS_STARTED" -gt 0 ]; then
+    vader_success "$PLUGINS_STARTED plugin(s) started"
 fi
 
 # Write runtime state for CLI auto-discovery

@@ -28,6 +28,17 @@ if [ ! -f "$VENV_PYTHON" ]; then
     exit 1
 fi
 
+# Install/update ComfyUI requirements
+COMFYUI_REQS="$COMFYUI_DIR/requirements.txt"
+REQS_STAMP="$PLUGIN_ROOT/.requirements_installed"
+if [ -f "$COMFYUI_REQS" ]; then
+    if [ ! -f "$REQS_STAMP" ] || [ "$COMFYUI_REQS" -nt "$REQS_STAMP" ]; then
+        echo "Installing ComfyUI requirements..."
+        "$VENV_PYTHON" -m pip install -r "$COMFYUI_REQS" --quiet 2>&1 | tail -5
+        touch "$REQS_STAMP"
+    fi
+fi
+
 # Log file
 LOG_DIR="$PROJECT_ROOT/logs"
 mkdir -p "$LOG_DIR"

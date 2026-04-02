@@ -63,11 +63,12 @@ class ServicePlugin(PluginBase):
             return False
         
         try:
+            start_timeout = getattr(self.metadata.config, 'timeout', 30) + 30 if self.metadata else 60
             result = subprocess.run(
                 ['bash', str(start_script)],
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=start_timeout,
                 cwd=str(self.plugin_dir)
             )
             

@@ -180,11 +180,12 @@ class PluginManager:
         start_script = plugin_dir / 'scripts' / 'start.sh'
         if start_script.exists():
             try:
+                plugin_timeout = getattr(getattr(metadata, 'config', None), 'timeout', 30) + 30
                 result = subprocess.run(
                     ['bash', str(start_script)],
                     capture_output=True,
                     text=True,
-                    timeout=30,
+                    timeout=plugin_timeout,
                     cwd=str(plugin_dir)
                 )
                 

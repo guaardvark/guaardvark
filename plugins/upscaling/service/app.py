@@ -71,6 +71,11 @@ async def lifespan(app):
     plugin_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     _config = load_config(plugin_root)
 
+    # Enable TF32 tensor cores for fp32 matmul — ~3x faster on Ampere+ GPUs
+    # with negligible quality impact (same fp32 storage, TF32 only for matmul)
+    if torch.cuda.is_available():
+        torch.set_float32_matmul_precision("high")
+
     models_dir = os.path.join(plugin_root, "models")
     _model_manager = ModelManager(
         models_dir=models_dir,

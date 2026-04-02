@@ -103,12 +103,12 @@ def process_video(
         "loglevel": "error",
     }
     if vcodec == "h264_nvenc":
-        writer_args["preset"] = "p4"
+        writer_args["preset"] = "p7"
         writer_args["rc"] = "vbr"
-        writer_args["cq"] = "18"
+        writer_args["cq"] = "14"
     else:
-        writer_args["crf"] = "18"
-        writer_args["preset"] = "slow"
+        writer_args["crf"] = "14"
+        writer_args["preset"] = "veryslow"
 
     writer_process = (
         ffmpeg.input(

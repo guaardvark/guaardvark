@@ -14,6 +14,12 @@ logger = logging.getLogger("upscaling.model_manager")
 
 MODEL_REGISTRY: List[Dict[str, Any]] = [
     {
+        "name": "HAT-L_SRx4",
+        "scale": 4,
+        "size_mb": 159,
+        "url": "https://huggingface.co/jaideepsingh/upscale_models/resolve/main/HAT/HAT-L_SRx4_ImageNet-pretrain.pth",
+    },
+    {
         "name": "RealESRGAN_x4plus",
         "scale": 4,
         "size_mb": 64,
@@ -156,8 +162,8 @@ class ModelManager:
 
         # torch.compile
         if self.compile_enabled and hasattr(torch, "compile"):
-            logger.info(f"Compiling model {name} with torch.compile(mode='reduce-overhead')...")
-            model = torch.compile(model, mode="reduce-overhead")
+            logger.info(f"Compiling model {name} with torch.compile(mode='default')...")
+            model = torch.compile(model, mode="default")
 
         self._model = model
         self.current_model_name = name

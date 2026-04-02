@@ -86,6 +86,20 @@ def _tile_process(
     return output
 
 
+def _sharpen(img: np.ndarray, amount: float = 0.3, radius: int = 1) -> np.ndarray:
+    """Apply a mild unsharp mask to restore micro-contrast after upscaling.
+
+    Args:
+        img: HWC uint8 BGR image.
+        amount: Sharpening strength (0.0 = none, 1.0 = full).
+        radius: Gaussian blur kernel radius (1 = 3x3, 2 = 5x5).
+    """
+    ksize = radius * 2 + 1
+    blurred = cv2.GaussianBlur(img, (ksize, ksize), 0)
+    sharpened = cv2.addWeighted(img, 1.0 + amount, blurred, -amount, 0)
+    return sharpened
+
+
 @torch.no_grad()
 def upscale_image(
     img: np.ndarray,
@@ -95,6 +109,7 @@ def upscale_image(
     tile_size: int = 0,
     device: str = "cuda",
     precision: str = "bf16",
+    sharpen: float = 0.3,
 ) -> np.ndarray:
     """Upscale a single image (HWC uint8 numpy).
 
@@ -107,6 +122,7 @@ def upscale_image(
         tile_size: Tile size for processing. 0 = no tiling.
         device: torch device string.
         precision: "bf16", "fp16", or "fp32".
+        sharpen: Post-upscale unsharp mask strength (0.0 to disable).
 
     Returns:
         Upscaled image as HWC uint8 numpy array (BGR).
@@ -125,5 +141,8 @@ def upscale_image(
         target_w = int(w_in * outscale)
         target_h = int(h_in * outscale)
         output = cv2.resize(output, (target_w, target_h), interpolation=cv2.INTER_LANCZOS4)
+
+    if sharpen > 0:
+        output = _sharpen(output, amount=sharpen)
 
     return output

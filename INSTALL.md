@@ -1,10 +1,14 @@
-# Guaardvark — Installation
+# Guaardvark Code Release
+
+## Backup Information
+- **Date:** 2026-03-31 20:41:49
+- **Type:** Code Release (no data — database and files are created fresh on first run)
 
 ## Install
 
-1. **Extract the release:**
+1. **Extract:**
    ```bash
-   unzip guaardvark.v2.5.1.zip
+   unzip for_fresh_install_03-31-2026___20260331_204149.zip
    cd guaardvark
    ```
 
@@ -13,9 +17,7 @@
    ./start.sh
    ```
 
-That's it. The startup script handles everything: Python venv, Node dependencies, PostgreSQL, Redis, database migrations, frontend build, and all services. First run requires your system password once (to provision PostgreSQL).
-
-## Access
+The startup script handles everything: dependencies, database, frontend build, and all services.
 
 | Service | URL |
 |---------|-----|
@@ -23,19 +25,12 @@ That's it. The startup script handles everything: Python venv, Node dependencies
 | API | http://localhost:5000 |
 | Health Check | http://localhost:5000/api/health |
 
-## Requirements
-
-- Python 3.12+
-- Node.js 20+
-- Linux (Ubuntu/Debian recommended)
-- NVIDIA GPU with 16GB VRAM recommended (not required for chat/RAG)
-
 ## Troubleshooting
 
-- If you encounter permission issues: `chmod +x *.sh`
-- Check logs in the `logs/` directory
-- Run `./start.sh --test` for comprehensive health diagnostics
+- Permission issues: `chmod +x *.sh`
+- Health diagnostics: `./start.sh --test`
+- Check logs in `logs/`
 
 ## Data
 
-This release contains source code and configuration only. Database and user data are created fresh on first run. To restore existing data, use a Guaardvark data backup.
+To restore existing data, use a separate Guaardvark data backup.

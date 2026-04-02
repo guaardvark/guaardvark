@@ -56,6 +56,7 @@ echo "Log: $LOG_FILE"
 cd "$PLUGIN_ROOT"
 PYTHONPATH="$PLUGIN_ROOT:$PYTHONPATH" \
 CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0} \
+PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True" \
 python -m uvicorn service.app:app --host 0.0.0.0 --port $SERVICE_PORT --workers 1 \
     >> "$LOG_FILE" 2>&1 &
 
