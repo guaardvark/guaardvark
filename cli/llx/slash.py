@@ -86,6 +86,12 @@ class SlashRouter:
         self._commands["help"] = self._cmd_help
         self._commands["quit"] = self._cmd_quit
         self._commands["exit"] = self._cmd_quit
+        self._commands["imagine"] = self._cmd_imagine
+        self._commands["video"] = self._cmd_video
+        self._commands["voice"] = self._cmd_voice
+        self._commands["index"] = self._cmd_index
+        self._commands["agent"] = self._cmd_agent
+        self._commands["web"] = self._cmd_web
 
     # ── Typer-backed command registration ─────────────────────────
 
@@ -434,6 +440,14 @@ class SlashRouter:
   [llx.accent]/index[/llx.accent] <sub>           Index management
   [llx.accent]/rag[/llx.accent] <sub>             RAG debugging
 
+[llx.brand_bright]Multi-Modal Commands:[/llx.brand_bright]
+  [llx.accent]/imagine[/llx.accent] <prompt>       Generate an image from text
+  [llx.accent]/video[/llx.accent] <prompt>         Generate a video from text
+  [llx.accent]/voice[/llx.accent] <text>           Convert text to speech
+  [llx.accent]/index[/llx.accent] <path>           Index files/directory for RAG
+  [llx.accent]/agent[/llx.accent]                  Toggle agent mode (tool-using)
+  [llx.accent]/web[/llx.accent]                    Open web UI in browser
+
 [llx.brand_bright]Admin Commands:[/llx.brand_bright]
   [llx.accent]/jobs[/llx.accent] <sub>            Background job management
   [llx.accent]/logs[/llx.accent] <sub>            Log viewing
@@ -450,6 +464,124 @@ class SlashRouter:
   [llx.accent]/quit[/llx.accent]                  Exit the REPL
   [llx.accent]/exit[/llx.accent]                  Exit the REPL
 """)
+
+    def _cmd_imagine(self, args: list[str]):
+        """Generate an image from a text prompt."""
+        if not args:
+            self._console.print("[llx.error]Usage: /imagine <prompt>[/llx.error]")
+            self._console.print("[llx.dim]Example: /imagine a sunset over mountains[/llx.dim]")
+            return
+
+        prompt = " ".join(args)
+        server = self._state.get("server")
+
+        try:
+            from llx.client import get_client, LlxError, LlxConnectionError
+            client = get_client(server)
+            data = client.post("/api/batch-image/generate/prompts", json={
+                "prompts": [prompt],
+                "steps": 20,
+                "width": 512,
+                "height": 512,
+            })
+            result = data.get("data", data)
+            batch_id = result.get("batch_id", "unknown")
+            self._console.print(f"[llx.success]Image generation started[/llx.success]")
+            self._console.print(f"[llx.dim]Batch: {batch_id}[/llx.dim]")
+            self._console.print(f"[llx.dim]Track: /images status {batch_id}[/llx.dim]")
+        except Exception as e:
+            self._console.print(f"[llx.error]Image generation failed: {e}[/llx.error]")
+
+    def _cmd_video(self, args: list[str]):
+        """Generate a video from a text prompt."""
+        if not args:
+            self._console.print("[llx.error]Usage: /video <prompt>[/llx.error]")
+            self._console.print("[llx.dim]Example: /video a cat playing piano[/llx.dim]")
+            return
+
+        prompt = " ".join(args)
+        server = self._state.get("server")
+
+        try:
+            from llx.client import get_client, LlxError, LlxConnectionError
+            client = get_client(server)
+            data = client.post("/api/batch-video/generate/text", json={
+                "prompts": [prompt],
+            })
+            result = data.get("data", data)
+            batch_id = result.get("batch_id", "unknown")
+            self._console.print(f"[llx.success]Video generation started[/llx.success]")
+            self._console.print(f"[llx.dim]Batch: {batch_id}[/llx.dim]")
+            self._console.print(f"[llx.dim]Track: /videos status {batch_id}[/llx.dim]")
+        except Exception as e:
+            self._console.print(f"[llx.error]Video generation failed: {e}[/llx.error]")
+
+    def _cmd_voice(self, args: list[str]):
+        """Convert text to speech."""
+        if not args:
+            self._console.print("[llx.error]Usage: /voice <text>[/llx.error]")
+            self._console.print("[llx.dim]Example: /voice Hello world[/llx.dim]")
+            return
+
+        text = " ".join(args)
+        server = self._state.get("server")
+
+        try:
+            from llx.client import get_client, LlxError, LlxConnectionError
+            client = get_client(server)
+            data = client.post("/api/voice/text-to-speech", json={
+                "text": text,
+            })
+            audio_url = data.get("audio_url", "")
+            filename = data.get("filename", "output.wav")
+            self._console.print(f"[llx.success]Audio generated: {filename}[/llx.success]")
+            if audio_url:
+                self._console.print(f"[llx.dim]{server}{audio_url}[/llx.dim]")
+        except Exception as e:
+            self._console.print(f"[llx.error]TTS failed: {e}[/llx.error]")
+
+    def _cmd_index(self, args: list[str]):
+        """Index files or a directory for RAG-enhanced chat."""
+        if not args:
+            self._console.print("[llx.error]Usage: /index <path>[/llx.error]")
+            self._console.print("[llx.dim]Example: /index ~/Documents/research[/llx.dim]")
+            return
+
+        path = " ".join(args)
+        server = self._state.get("server")
+
+        try:
+            from llx.client import get_client, LlxError, LlxConnectionError
+            client = get_client(server)
+            data = client.post("/api/index/bulk", json={
+                "paths": [path],
+            })
+            result = data.get("data", data)
+            total = result.get("total_documents", 0)
+            job_id = result.get("job_id", "")
+            self._console.print(f"[llx.success]Indexing started: {total} documents[/llx.success]")
+            if job_id:
+                self._console.print(f"[llx.dim]Job: {job_id}[/llx.dim]")
+        except Exception as e:
+            self._console.print(f"[llx.error]Indexing failed: {e}[/llx.error]")
+
+    def _cmd_agent(self, args: list[str]):
+        """Toggle agent mode (tool-using autonomous agent)."""
+        current = self._state.get("agent_mode", False)
+        self._state["agent_mode"] = not current
+
+        if self._state["agent_mode"]:
+            self._console.print("[llx.success]Agent mode ON[/llx.success]")
+            self._console.print("[llx.dim]Chat messages will use tool-calling agent.[/llx.dim]")
+        else:
+            self._console.print("[llx.dim]Agent mode OFF — back to standard chat.[/llx.dim]")
+
+    def _cmd_web(self, args: list[str]):
+        """Open the Guaardvark web UI in the default browser."""
+        import webbrowser
+        url = "http://localhost:5173"
+        webbrowser.open(url)
+        self._console.print(f"[llx.success]Opening {url}[/llx.success]")
 
     def _cmd_quit(self, args: list[str]):
         """Exit the REPL."""
