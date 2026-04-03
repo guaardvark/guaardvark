@@ -189,12 +189,15 @@ def launch_repl():
     config = load_config()
     server = get_server_url()
 
-    # Detect lite mode from launch config
+    # Detect lite mode — only if the config file actually exists and says lite.
+    # No config file = user is running the full stack directly, not via launch.
     _lite_mode = False
     try:
-        from llx.launch_config import load_launch_config
-        _lcfg = load_launch_config()
-        _lite_mode = _lcfg.get("mode") == "lite"
+        from llx.launch_config import _config_path
+        if _config_path().exists():
+            from llx.launch_config import load_launch_config
+            _lcfg = load_launch_config()
+            _lite_mode = _lcfg.get("mode") == "lite"
     except Exception:
         pass
 
