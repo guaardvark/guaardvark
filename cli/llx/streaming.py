@@ -131,6 +131,9 @@ class LlxStreamer:
 
 # ── Chat Renderer ─────────────────────────────────────────────
 
+import sys
+import threading
+
 from rich.live import Live
 from rich.markdown import Markdown
 from rich.text import Text
@@ -138,8 +141,18 @@ from rich.console import Group
 
 from llx.theme import make_console
 
-_ICON_TOOL = "\u27e1"   # ⟡
-_ICON_OK   = "\u2713"   # ✓
+_ICON_TOOL  = "\u27e1"   # ⟡
+_ICON_OK    = "\u2713"   # ✓
+_ICON_LLAMA = "\U0001f999"  # 🦙
+
+# 8-step "shining cursor" spinner — edge sweeps clockwise around a block
+_SPINNER_FRAMES = ["▀", "▜", "▐", "▟", "▄", "▙", "▌", "▛"]
+
+
+def _set_title(title: str):
+    """Set the terminal tab title via ANSI escape."""
+    sys.stdout.write(f"\033]0;{title}\007")
+    sys.stdout.flush()
 
 
 class ChatRenderer:
@@ -152,15 +165,20 @@ class ChatRenderer:
         self._complete_data: dict | None = None
         self._error: str | None = None
         self._live: Live | None = None
+        self._thinking = False
+        self._spinner_thread: threading.Thread | None = None
+        self._spinner_stop = threading.Event()
 
     # ── Lifecycle ─────────────────────────────────────────────
 
     def start(self):
-        """Clear state and begin a Live display."""
+        """Clear state and begin a Live display with thinking spinner."""
         self._tokens = []
         self._tool_lines = []
         self._complete_data = None
         self._error = None
+        self._thinking = True
+        self._spinner_stop.clear()
         self._live = Live(
             Text(""),
             console=self._console,
@@ -168,20 +186,27 @@ class ChatRenderer:
             transient=True,
         )
         self._live.start()
+        self._start_spinner()
 
     def stop(self):
         """Stop the Live display and print final pretty output."""
+        self._stop_spinner()
+
         if self._live is not None:
             self._live.stop()
             self._live = None
+
+        # Reset terminal title
+        _set_title("guaardvark")
 
         # Print tool call lines
         for line in self._tool_lines:
             self._console.print(line)
 
-        # Print final accumulated text as rich Markdown
+        # Print final accumulated text as rich Markdown with llama prefix
         full_text = "".join(self._tokens)
         if full_text.strip():
+            self._console.print(Text(f"{_ICON_LLAMA} ", style="bold"), end="")
             self._console.print(Markdown(full_text))
 
         # Print error if any
@@ -194,11 +219,17 @@ class ChatRenderer:
 
     def on_token(self, content: str):
         """Append a token and refresh the live display."""
+        if self._thinking:
+            self._thinking = False
+            self._stop_spinner()
         self._tokens.append(content)
         self._refresh()
 
     def on_tool_call(self, data: dict):
         """Record a tool call and refresh the live display."""
+        if self._thinking:
+            self._thinking = False
+            self._stop_spinner()
         name = data.get("name") or data.get("tool", "unknown")
         args = data.get("arguments") or data.get("args", "")
         line = f"[dim]{_ICON_TOOL} Calling: {name}({args})[/dim]"
@@ -212,6 +243,32 @@ class ChatRenderer:
     def on_error(self, message: str):
         """Store an error message."""
         self._error = message
+
+    # ── Spinner ───────────────────────────────────────────────
+
+    def _start_spinner(self):
+        """Start the thinking spinner in a background thread."""
+        def spin():
+            frame_idx = 0
+            while not self._spinner_stop.is_set():
+                f = _SPINNER_FRAMES[frame_idx % len(_SPINNER_FRAMES)]
+                # Update title bar
+                _set_title(f"{f} guaardvark — thinking...")
+                # Update inline display
+                if self._live is not None and self._thinking:
+                    self._live.update(Text(f" {f} ", style="bold cyan"))
+                frame_idx += 1
+                self._spinner_stop.wait(0.1)
+
+        self._spinner_thread = threading.Thread(target=spin, daemon=True)
+        self._spinner_thread.start()
+
+    def _stop_spinner(self):
+        """Stop the thinking spinner."""
+        self._spinner_stop.set()
+        if self._spinner_thread is not None:
+            self._spinner_thread.join(timeout=1)
+            self._spinner_thread = None
 
     # ── Internal ──────────────────────────────────────────────
 
@@ -229,5 +286,8 @@ class ChatRenderer:
         # Streaming text shown as plain text with block cursor (not Markdown)
         streaming_text = "".join(self._tokens) + "\u2588"
         parts.append(Text(streaming_text))
+
+        # Update title bar with progress
+        _set_title(f"{_ICON_LLAMA} guaardvark — responding...")
 
         self._live.update(Group(*parts))
