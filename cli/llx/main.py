@@ -24,6 +24,7 @@ from llx.commands.websites import websites_app
 from llx.commands.tasks import tasks_app
 from llx.commands.images import images_app
 from llx.commands.videos import videos_app
+from llx.commands.launch import launch
 
 app = typer.Typer(
     name="guaardvark",
@@ -41,6 +42,7 @@ app.command("stop")(stop)
 app.command("chat")(chat)
 app.command("search")(search)
 app.command("dashboard")(dashboard)
+app.command("launch")(launch)
 
 app.add_typer(models_app, name="models")
 app.add_typer(files_app, name="files")
