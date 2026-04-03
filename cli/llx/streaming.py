@@ -150,9 +150,18 @@ _SPINNER_FRAMES = ["▀", "▜", "▐", "▟", "▄", "▙", "▌", "▛"]
 
 
 def _set_title(title: str):
-    """Set the terminal tab title via ANSI escape."""
-    sys.stdout.write(f"\033]0;{title}\007")
-    sys.stdout.flush()
+    """Set the terminal tab title via ANSI escape.
+
+    Writes to /dev/tty directly to bypass Rich's Live display capture.
+    Falls back to stderr if /dev/tty is unavailable.
+    """
+    try:
+        with open("/dev/tty", "w") as tty:
+            tty.write(f"\033]0;{title}\007")
+            tty.flush()
+    except OSError:
+        sys.stderr.write(f"\033]0;{title}\007")
+        sys.stderr.flush()
 
 
 class ChatRenderer:
