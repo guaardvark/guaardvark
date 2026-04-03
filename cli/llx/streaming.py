@@ -165,7 +165,7 @@ class ChatRenderer:
             Text(""),
             console=self._console,
             refresh_per_second=12,
-            transient=False,
+            transient=True,
         )
         self._live.start()
 
