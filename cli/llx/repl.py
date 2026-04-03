@@ -96,56 +96,84 @@ def _dynamic_completions(command: str, sub_text: str):
 
 
 def _handle_chat(state: dict, ctx: ContextSnapshot, message: str):
-    """Send a chat message with streaming response."""
+    """Send a chat message with streaming or synchronous response."""
     console = make_console()
     server = state["server"]
     session_id = state["session_id"]
+    agent_mode = state.get("agent_mode", False)
+    lite_mode = state.get("lite_mode", False)
 
     # Freshen context in background
     ctx.refresh_async()
 
-    # Build context block for LLM injection
-    context_block = ctx.format_context_block()
+    if agent_mode:
+        # Agent mode: synchronous API call
+        try:
+            client = get_client(server)
+            response = client.post("/api/agent/chat", json={
+                "message": message,
+                "session_id": session_id,
+                "max_iterations": 10,
+            })
+            result = response.get("data", response)
+            answer = result.get("final_answer", str(result))
+            from rich.markdown import Markdown
+            console.print()
+            console.print(Markdown(answer))
+            console.print()
+        except (LlxConnectionError, LlxError, Exception) as e:
+            console.print(f"[llx.error]Agent error: {e}[/llx.error]")
+    elif lite_mode:
+        # Lite mode: synchronous chat (no Socket.IO)
+        try:
+            client = get_client(server)
+            response = client.post("/api/chat/unified", json={
+                "session_id": session_id,
+                "message": message,
+                "options": {"use_rag": False},
+            })
+            result = response.get("data", response)
+            content = result.get("response", str(result))
+            from rich.markdown import Markdown
+            console.print()
+            console.print(Markdown(content))
+            console.print()
+        except (LlxConnectionError, LlxError, Exception) as e:
+            console.print(f"[llx.error]Chat error: {e}[/llx.error]")
+    else:
+        # Full mode: streaming via Socket.IO
+        context_block = ctx.format_context_block()
+        renderer = ChatRenderer()
+        streamer = LlxStreamer(server)
 
-    # Set up streaming
-    renderer = ChatRenderer()
-    streamer = LlxStreamer(server)
+        streamer.stream_chat(
+            session_id,
+            on_token=renderer.on_token,
+            on_tool_call=renderer.on_tool_call,
+            on_complete=renderer.on_complete,
+            on_error=renderer.on_error,
+        )
+        renderer.start()
 
-    # Connect to Socket.IO and join session BEFORE posting
-    streamer.stream_chat(
-        session_id,
-        on_token=renderer.on_token,
-        on_tool_call=renderer.on_tool_call,
-        on_complete=renderer.on_complete,
-        on_error=renderer.on_error,
-    )
+        try:
+            client = get_client(server)
+            client.post("/api/chat/unified", json={
+                "session_id": session_id,
+                "message": message,
+                "options": {
+                    "use_rag": True,
+                    "context": context_block,
+                },
+            })
+        except (LlxConnectionError, LlxError, Exception) as e:
+            renderer.stop()
+            console.print(f"[llx.error]Chat error: {e}[/llx.error]")
+            streamer.disconnect()
+            return
 
-    # Start the live renderer
-    renderer.start()
-
-    # POST the chat message
-    try:
-        client = get_client(server)
-        client.post("/api/chat/unified", json={
-            "session_id": session_id,
-            "message": message,
-            "options": {
-                "use_rag": True,
-                "context": context_block,
-            },
-        })
-    except (LlxConnectionError, LlxError, Exception) as e:
+        streamer.wait(timeout=300)
         renderer.stop()
-        console.print(f"[llx.error]Chat error: {e}[/llx.error]")
         streamer.disconnect()
-        return
-
-    # Wait for the streaming response to finish
-    streamer.wait(timeout=300)
-
-    # Clean up
-    renderer.stop()
-    streamer.disconnect()
 
     # Track session
     state["message_count"] = state.get("message_count", 0) + 1
@@ -161,16 +189,40 @@ def launch_repl():
     config = load_config()
     server = get_server_url()
 
+    # Detect lite mode from launch config
+    _lite_mode = False
+    try:
+        from llx.launch_config import load_launch_config
+        _lcfg = load_launch_config()
+        _lite_mode = _lcfg.get("mode") == "lite"
+    except Exception:
+        pass
+
     # Shared state dict
     state = {
         "session_id": str(uuid.uuid4()),
         "server": server,
         "message_count": 0,
+        "agent_mode": False,
+        "lite_mode": _lite_mode,
     }
 
     # Create context snapshot and start background population
     ctx = ContextSnapshot(server)
     ctx.refresh_async()
+
+    # Auto-start lite server if backend is offline and config says to
+    if not ctx.is_online():
+        try:
+            from llx.launch_config import load_launch_config
+            lcfg = load_launch_config()
+            if lcfg.get("auto_start_services") and lcfg.get("mode") == "lite":
+                from llx.commands.launch import _start_lite_mode
+                _start_lite_mode(console, port=5000)
+                time.sleep(0.5)
+                ctx.refresh_async()
+        except Exception:
+            pass
 
     # Create slash router
     router = SlashRouter(state)
