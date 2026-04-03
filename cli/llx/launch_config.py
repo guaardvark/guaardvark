@@ -62,13 +62,20 @@ def is_first_launch() -> bool:
     return not cfg.get("onboarded", False)
 
 
+def _normalize_url(url: str) -> str:
+    """Ensure URL has a scheme (Ollama's OLLAMA_HOST may omit it)."""
+    if url and not url.startswith("http"):
+        return f"http://{url}"
+    return url
+
+
 def resolve_ollama_url() -> str:
     """Resolve Ollama URL: OLLAMA_HOST env > config > default."""
     env = os.environ.get("OLLAMA_HOST")
     if env:
-        return env
+        return _normalize_url(env)
     cfg = load_launch_config()
-    return cfg.get("ollama_base_url", _DEFAULTS["ollama_base_url"])
+    return _normalize_url(cfg.get("ollama_base_url", _DEFAULTS["ollama_base_url"]))
 
 
 def resolve_guaardvark_root() -> Path | None:

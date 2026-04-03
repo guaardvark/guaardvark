@@ -10,8 +10,12 @@ from llx import __version__
 from llx.launch_config import load_launch_config, save_launch_config, resolve_ollama_url
 
 
-def create_lite_app(db_path: str | None = None) -> Flask:
-    """Create a minimal Flask app for lite mode."""
+def create_lite_app() -> Flask:
+    """Create a minimal Flask app for lite mode.
+
+    Lite mode is stateless — config lives in JSON, chat is proxied to Ollama.
+    No database is used.
+    """
     app = Flask(__name__)
 
     @app.route("/api/health")

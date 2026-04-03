@@ -20,7 +20,7 @@ def patch_config(monkeypatch, config_dir):
 @pytest.fixture
 def lite_app(patch_config, tmp_path):
     from llx.lite_server import create_lite_app
-    app = create_lite_app(db_path=str(tmp_path / "test.db"))
+    app = create_lite_app()
     app.config["TESTING"] = True
     return app
 

@@ -117,15 +117,28 @@ def _start_full_stack(console, cfg: dict):
 
     console.print(f"[llx.dim]Starting full stack from {root}...[/llx.dim]")
 
-    result = subprocess.run(
+    # start.sh runs in the foreground — launch it in a background process
+    subprocess.Popen(
         ["bash", str(start_script)],
         cwd=str(root),
         env={**os.environ, "GUAARDVARK_ROOT": str(root)},
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
 
-    if result.returncode != 0:
-        console.print("[llx.error]Failed to start services.[/llx.error]")
-        raise typer.Exit(1)
+    # Wait for the backend to come up
+    import httpx
+    server_url = cfg.get("server_url", "http://localhost:5000")
+    for _ in range(60):
+        try:
+            resp = httpx.get(f"{server_url}/api/health", timeout=2)
+            if resp.status_code == 200:
+                console.print(f"[llx.success]Full stack ready[/llx.success]")
+                break
+        except Exception:
+            time.sleep(1)
+    else:
+        console.print("[llx.warning]Backend may still be starting...[/llx.warning]")
 
     cfg["guaardvark_root"] = str(root)
     cfg["mode"] = "full"

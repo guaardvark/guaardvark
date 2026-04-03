@@ -58,9 +58,9 @@ class TestVoiceCommand:
         assert "voice" in router.get_command_names()
 
 
-class TestIndexCommand:
-    def test_index_registered(self, router):
-        assert "index" in router.get_command_names()
+class TestIngestCommand:
+    def test_ingest_registered(self, router):
+        assert "ingest" in router.get_command_names()
 
 
 class TestAgentCommand:

@@ -89,7 +89,7 @@ class SlashRouter:
         self._commands["imagine"] = self._cmd_imagine
         self._commands["video"] = self._cmd_video
         self._commands["voice"] = self._cmd_voice
-        self._commands["index"] = self._cmd_index
+        self._commands["ingest"] = self._cmd_ingest
         self._commands["agent"] = self._cmd_agent
         self._commands["web"] = self._cmd_web
 
@@ -444,7 +444,7 @@ class SlashRouter:
   [llx.accent]/imagine[/llx.accent] <prompt>       Generate an image from text
   [llx.accent]/video[/llx.accent] <prompt>         Generate a video from text
   [llx.accent]/voice[/llx.accent] <text>           Convert text to speech
-  [llx.accent]/index[/llx.accent] <path>           Index files/directory for RAG
+  [llx.accent]/ingest[/llx.accent] <path>          Index files/directory for RAG
   [llx.accent]/agent[/llx.accent]                  Toggle agent mode (tool-using)
   [llx.accent]/web[/llx.accent]                    Open web UI in browser
 
@@ -540,11 +540,11 @@ class SlashRouter:
         except Exception as e:
             self._console.print(f"[llx.error]TTS failed: {e}[/llx.error]")
 
-    def _cmd_index(self, args: list[str]):
+    def _cmd_ingest(self, args: list[str]):
         """Index files or a directory for RAG-enhanced chat."""
         if not args:
-            self._console.print("[llx.error]Usage: /index <path>[/llx.error]")
-            self._console.print("[llx.dim]Example: /index ~/Documents/research[/llx.dim]")
+            self._console.print("[llx.error]Usage: /ingest <path>[/llx.error]")
+            self._console.print("[llx.dim]Example: /ingest ~/Documents/research[/llx.dim]")
             return
 
         path = " ".join(args)
