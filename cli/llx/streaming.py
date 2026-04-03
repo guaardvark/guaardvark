@@ -228,6 +228,13 @@ class ChatRenderer:
 
     def on_token(self, content: str):
         """Append a token and refresh the live display."""
+        # Filter out raw tool-call markup leaked by the LLM
+        if content.startswith("<tool") or content.startswith("</tool"):
+            return
+        if self._tokens and self._tokens[-1].startswith("<tool"):
+            # Previous token was a partial tool marker — drop both
+            self._tokens.pop()
+            return
         if self._thinking:
             self._thinking = False
             self._stop_spinner()
@@ -246,8 +253,14 @@ class ChatRenderer:
         self._refresh()
 
     def on_complete(self, data: dict):
-        """Store completion data."""
+        """Store completion data. If no tokens were streamed, use the response."""
         self._complete_data = data
+        # If no tokens arrived via streaming (e.g. tool call consumed the
+        # response), pull the final text from the complete event
+        if not self._tokens and isinstance(data, dict):
+            response = data.get("response", "")
+            if response:
+                self._tokens.append(response)
 
     def on_error(self, message: str):
         """Store an error message."""
