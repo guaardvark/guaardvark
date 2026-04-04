@@ -91,8 +91,7 @@ except ImportError as e:
 except Exception as e:
     print(f"Warning: CUDA optimization failed (non-critical): {e}")
 
-_project_root = str(config.GUAARDVARK_ROOT)
-with open(os.path.join(_project_root, "VERSION")) as _f:
+with open(os.path.join(config.GUAARDVARK_ROOT, "VERSION")) as _f:
     __version__ = _f.read().strip()
 
 backend_dir = os.path.dirname(os.path.abspath(__file__))
