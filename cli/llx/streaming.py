@@ -246,6 +246,9 @@ class ChatRenderer:
         if self._thinking:
             self._thinking = False
             self._stop_spinner()
+        # Tokens before a tool call are the model's reasoning, not the
+        # response. Clear them so the final answer comes through clean.
+        self._tokens.clear()
         name = data.get("name") or data.get("tool", "unknown")
         args = data.get("arguments") or data.get("args", "")
         line = f"[dim]{_ICON_TOOL} Calling: {name}({args})[/dim]"
