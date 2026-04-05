@@ -73,7 +73,7 @@ def get_rule(rule_id):
 
         Errors:
             404: Rule not found
-"""
+    """
     rule = db.session.get(Rule, rule_id)
     if not rule:
         return error_response("Rule not found", 404, "NOT_FOUND")
