@@ -44,6 +44,7 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import StickyNote2Icon from "@mui/icons-material/StickyNote2";
 import MovieCreationIcon from "@mui/icons-material/MovieCreation";
 import ExtensionIcon from "@mui/icons-material/Extension";
+import HiveIcon from "@mui/icons-material/Hive";
 
 import SystemMetricsModal from "../modals/SystemMetricsModal";
 import AgentScreenViewer from "../agent/AgentScreenViewer";
@@ -58,7 +59,8 @@ const navGroups = [
       { text: "Dashboard", icon: <DashboardIcon />, path: "/" },
       { text: "Chat", icon: <ChatBubbleOutlineIcon />, path: "/chat" },
       { text: "Code Editor", icon: <CodeIcon />, path: "/code-editor" },
-      { text: "Documents", icon: <ArticleIcon />, path: "/documents" },
+      { text: "Files", icon: <ArticleIcon />, path: "/documents" },
+      { text: "Media", icon: <ImageIcon />, path: "/images" },
       { text: "Notes", icon: <StickyNote2Icon />, path: "/notes" },
     ],
   },
@@ -68,8 +70,6 @@ const navGroups = [
       { text: "Clients", icon: <AccountBoxIcon />, path: "/clients" },
       { text: "Projects", icon: <FolderIcon />, path: "/projects" },
       { text: "Websites", icon: <LanguageIcon />, path: "/websites" },
-      { text: "Media", icon: <ImageIcon />, path: "/images" },
-      { text: "Video", icon: <MovieCreationIcon />, path: "/video" },
       { text: "Job Scheduler", icon: <TaskAltIcon />, path: "/tasks" },
     ],
   },
@@ -80,7 +80,8 @@ const navGroups = [
       { text: "Agent Tools", icon: <BuildIcon />, path: "/tools" },
       { text: "Agents", icon: <SmartToyIcon />, path: "/agents" },
       { text: "FileGen", icon: <PetsIcon />, path: "/file-generation" },
-      { text: "Content Library", icon: <LibraryBooksIcon />, path: "/content-library" },
+      { text: "CSVGen", icon: <LibraryBooksIcon />, path: "/content-library" },
+      { text: "Swarm", icon: <HiveIcon />, path: "/swarm" },
       { text: "Plugins", icon: <ExtensionIcon />, path: "/plugins" },
       { text: "Settings", icon: <SettingsIcon />, path: "/settings" },
     ],

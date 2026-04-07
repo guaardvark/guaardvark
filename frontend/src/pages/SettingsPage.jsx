@@ -259,6 +259,8 @@ const SettingsPage = () => {
   const [interconnectorModalOpen, setInterconnectorModalOpen] = useState(false);
   const [interconnectorEnabled, setInterconnectorEnabled] = useState(false);
   const [interconnectorPendingCount, setInterconnectorPendingCount] = useState(0);
+  const [interconnectorIsClient, setInterconnectorIsClient] = useState(false);
+  const [interconnectorUpdateStatus, setInterconnectorUpdateStatus] = useState(null);
   const [voiceChatEnabled, setVoiceChatEnabled] = useState(() => {
     try {
       return localStorage.getItem(VOICE_CHAT_ENABLED_KEY) !== "false";
@@ -590,6 +592,8 @@ const SettingsPage = () => {
       const enabled = res?.data?.config?.is_enabled || res?.config?.is_enabled;
       if (enabled) {
         setInterconnectorEnabled(true);
+        const nodeMode = res?.data?.config?.node_mode || res?.config?.node_mode;
+        setInterconnectorIsClient(nodeMode === "client");
         // Check for pending approvals
         interconnectorApi.getPendingApprovals?.().then((approvals) => {
           setInterconnectorPendingCount(Array.isArray(approvals) ? approvals.length : 0);
@@ -597,9 +601,32 @@ const SettingsPage = () => {
       } else if (!res?.error) {
         setInterconnectorEnabled(false);
         setInterconnectorPendingCount(0);
+        setInterconnectorIsClient(false);
+        setInterconnectorUpdateStatus(null);
       }
     }).catch(() => {});
   }, [interconnectorModalOpen]);
+
+  // One-shot check for code updates when in client mode
+  useEffect(() => {
+    if (!interconnectorEnabled || !interconnectorIsClient) {
+      setInterconnectorUpdateStatus(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      interconnectorApi.checkForUpdates().then((res) => {
+        const data = res?.data || res;
+        if (!data?.error) {
+          setInterconnectorUpdateStatus({
+            available: data.available || false,
+            count: data.count || 0,
+            summary: data.summary || { backend: 0, frontend: 0, other: 0 },
+          });
+        }
+      }).catch(() => {});
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [interconnectorEnabled, interconnectorIsClient, interconnectorModalOpen]);
 
   useEffect(() => {
     try {
@@ -2074,6 +2101,72 @@ const SettingsPage = () => {
           >
             Updates Available — {interconnectorPendingCount} Interconnector update{interconnectorPendingCount !== 1 ? "s" : ""} pending — click to review
           </MuiAlert>
+        )}
+        {interconnectorUpdateStatus?.available && (
+          <Box
+            onClick={() => setInterconnectorModalOpen(true)}
+            sx={{
+              bgcolor: "#FFD700",
+              borderRadius: 1,
+              px: 2,
+              py: 1,
+              mb: 2,
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
+              cursor: "pointer",
+              "&:hover": { bgcolor: "#E6C200" },
+            }}
+          >
+            <FileDownloadIcon sx={{ fontSize: 22, color: "#000" }} />
+            <Typography variant="body2" sx={{ color: "#000", fontWeight: 600 }}>
+              {interconnectorUpdateStatus.count} Code Update{interconnectorUpdateStatus.count !== 1 ? "s" : ""} Available
+            </Typography>
+            <Box display="flex" gap={0.5} ml={0.5}>
+              {interconnectorUpdateStatus.summary?.backend > 0 && (
+                <Chip
+                  label={`${interconnectorUpdateStatus.summary.backend} backend`}
+                  size="small"
+                  sx={{
+                    bgcolor: "rgba(0,0,0,0.15)",
+                    color: "#000",
+                    borderRadius: 1,
+                    height: 20,
+                    "& .MuiChip-label": { px: 0.75, fontSize: "0.7rem" },
+                  }}
+                />
+              )}
+              {interconnectorUpdateStatus.summary?.frontend > 0 && (
+                <Chip
+                  label={`${interconnectorUpdateStatus.summary.frontend} frontend`}
+                  size="small"
+                  sx={{
+                    bgcolor: "rgba(0,0,0,0.15)",
+                    color: "#000",
+                    borderRadius: 1,
+                    height: 20,
+                    "& .MuiChip-label": { px: 0.75, fontSize: "0.7rem" },
+                  }}
+                />
+              )}
+              {interconnectorUpdateStatus.summary?.other > 0 && (
+                <Chip
+                  label={`${interconnectorUpdateStatus.summary.other} other`}
+                  size="small"
+                  sx={{
+                    bgcolor: "rgba(0,0,0,0.15)",
+                    color: "#000",
+                    borderRadius: 1,
+                    height: 20,
+                    "& .MuiChip-label": { px: 0.75, fontSize: "0.7rem" },
+                  }}
+                />
+              )}
+            </Box>
+            <Typography variant="caption" sx={{ color: "rgba(0,0,0,0.6)", ml: "auto" }}>
+              Click to review
+            </Typography>
+          </Box>
         )}
         <Box sx={{ display: "flex", flexWrap: "wrap", gap: "20px", "& > *": { width: 840, flexShrink: 0 } }}>
           <SettingsCardWrapper title="System">

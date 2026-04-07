@@ -161,6 +161,18 @@ const VoiceSettingsContent = ({
                 }
               }}
             />
+            <Chip
+              label="Narrate Buttons"
+              color={voiceSettings.showNarrateButtons !== false ? 'primary' : 'default'}
+              onClick={() => handleVoiceSettingChange('showNarrateButtons', voiceSettings.showNarrateButtons === false)}
+              variant={voiceSettings.showNarrateButtons !== false ? 'filled' : 'outlined'}
+              size="small"
+              sx={{
+                '& .MuiChip-label': {
+                  color: voiceSettings.showNarrateButtons !== false ? 'inherit' : 'text.secondary'
+                }
+              }}
+            />
           </Box>
 
           {/* Voice, Quality, and Audio in Grid */}

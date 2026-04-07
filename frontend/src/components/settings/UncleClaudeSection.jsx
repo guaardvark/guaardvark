@@ -145,14 +145,22 @@ export default function UncleClaudeSection({ compact = false }) {
   return (
     <Box sx={compact ? {} : { mt: 3 }}>
       <Wrapper {...wrapperProps("UNCLE CLAUDE (MENTOR API)")}>
-        {/* Connection Status */}
+        {/* Connection Status — honest indicator, no placebo */}
         <SettingsRow label="Connection" icon={<PsychologyIcon />}>
           <Stack direction="row" spacing={1} alignItems="center">
-            <StatusChip
-              source="uncle_claude"
-              status={status?.available ? "connected" : "offline"}
-              label={status?.available ? "Connected" : "Offline"}
-            />
+            {status?.available ? (
+              <StatusChip
+                source="uncle_claude"
+                status={testResult === null ? "enabled" : testResult.success ? "connected" : "offline"}
+                label={testResult === null ? "API Key Set" : testResult.success ? "Verified" : "Connection Failed"}
+              />
+            ) : (
+              <StatusChip
+                source="uncle_claude"
+                status="offline"
+                label="Not Configured"
+              />
+            )}
             {status?.model && (
               <Typography variant="caption" color="text.secondary">
                 {status.model}
@@ -162,11 +170,11 @@ export default function UncleClaudeSection({ compact = false }) {
               size="small"
               variant="outlined"
               onClick={handleTestConnection}
-              disabled={testing}
+              disabled={testing || !status?.available}
               startIcon={testing ? <CircularProgress size={14} /> : <PlayIcon />}
               sx={{ ml: 1 }}
             >
-              Test
+              {testing ? "Testing..." : "Test Connection"}
             </Button>
           </Stack>
         </SettingsRow>

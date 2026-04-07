@@ -21,7 +21,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CheckIcon from '@mui/icons-material/Check';
 import EditIcon from '@mui/icons-material/Edit';
 import SkipNextIcon from '@mui/icons-material/SkipNext';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+// No trash icons — system uses X/close for all remove actions
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import axios from 'axios';
 import { io } from 'socket.io-client';
@@ -400,7 +400,7 @@ export default function TrainingFloater({ open, onClose, onNavigateAway }) {
                     disabled={loading}
                     sx={{ p: 0.25 }}
                   >
-                    <DeleteOutlineIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                    <CloseIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Save & edit in Training page">
@@ -707,6 +707,20 @@ export default function TrainingFloater({ open, onClose, onNavigateAway }) {
             }),
           }}
         />
+        {/* Stop button always visible in header when recording — even when collapsed */}
+        {mode === 'recording' && (
+          <Tooltip title="Stop Recording">
+            <IconButton
+              className="header-btn"
+              size="small"
+              onClick={handleStopRecording}
+              disabled={loading}
+              sx={{ p: 0.25, mr: 0.25 }}
+            >
+              <StopIcon sx={{ fontSize: 16, color: 'error.main' }} />
+            </IconButton>
+          </Tooltip>
+        )}
         <IconButton
           className="header-btn"
           size="small"

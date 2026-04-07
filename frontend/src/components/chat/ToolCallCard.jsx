@@ -18,6 +18,15 @@ import BuildIcon from "@mui/icons-material/Build";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ErrorIcon from "@mui/icons-material/Error";
 import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
+import ThumbUpIcon from "@mui/icons-material/ThumbUp";
+import ThumbDownIcon from "@mui/icons-material/ThumbDown";
+import ThumbUpOutlinedIcon from "@mui/icons-material/ThumbUpOutlined";
+import ThumbDownOutlinedIcon from "@mui/icons-material/ThumbDownOutlined";
+import Tooltip from "@mui/material/Tooltip";
+import { BASE_URL } from "../../api/apiClient";
+
+// Tools that get thumbs up/down feedback — agent actions the user can judge
+const FEEDBACK_TOOLS = new Set(["agent_task_execute", "agent_screen_capture"]);
 
 const ToolCallCard = ({
   toolName,
@@ -25,8 +34,38 @@ const ToolCallCard = ({
   result,
   durationMs,
   isPending,
+  sessionId,
 }) => {
   const [expanded, setExpanded] = useState(false);
+  const [feedback, setFeedback] = useState(null); // null | "up" | "down"
+
+  const showFeedback = FEEDBACK_TOOLS.has(toolName) && result && !isPending;
+
+  const handleFeedback = async (positive) => {
+    const newFeedback = positive ? "up" : "down";
+    // Toggle off if same button clicked again
+    if (feedback === newFeedback) {
+      setFeedback(null);
+      return;
+    }
+    setFeedback(newFeedback);
+    try {
+      await fetch(`${BASE_URL}/agent-control/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          positive,
+          task: params?.task || toolName,
+          session_id: sessionId || null,
+          steps: result?.metadata?.steps || null,
+          time_seconds: result?.metadata?.time_seconds || (durationMs ? durationMs / 1000 : null),
+          model: "",
+        }),
+      });
+    } catch (err) {
+      console.error("Feedback submit failed:", err);
+    }
+  };
 
   const isSuccess = result?.success;
   const isError = result && !result.success;
@@ -196,6 +235,41 @@ const ToolCallCard = ({
               </Box>
             </Box>
           )}
+
+          {/* Thumbs up/down feedback for agent tasks */}
+          {showFeedback && (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5, justifyContent: "flex-end" }}>
+              <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
+                Did this work?
+              </Typography>
+              <Tooltip title="Yes, it worked">
+                <IconButton
+                  size="small"
+                  onClick={() => handleFeedback(true)}
+                  sx={{ p: 0.25 }}
+                >
+                  {feedback === "up" ? (
+                    <ThumbUpIcon sx={{ fontSize: 16, color: "success.main" }} />
+                  ) : (
+                    <ThumbUpOutlinedIcon sx={{ fontSize: 16, opacity: 0.5 }} />
+                  )}
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="No, it missed">
+                <IconButton
+                  size="small"
+                  onClick={() => handleFeedback(false)}
+                  sx={{ p: 0.25 }}
+                >
+                  {feedback === "down" ? (
+                    <ThumbDownIcon sx={{ fontSize: 16, color: "error.main" }} />
+                  ) : (
+                    <ThumbDownOutlinedIcon sx={{ fontSize: 16, opacity: 0.5 }} />
+                  )}
+                </IconButton>
+              </Tooltip>
+            </Box>
+          )}
         </Box>
       </Collapse>
     </Box>
@@ -212,6 +286,7 @@ ToolCallCard.propTypes = {
   }),
   durationMs: PropTypes.number,
   isPending: PropTypes.bool,
+  sessionId: PropTypes.string,
 };
 
 export default ToolCallCard;

@@ -47,6 +47,7 @@ const WordPressPagesPage = lazy(() => import("./pages/WordPressPagesPage"));
 const StickyNotesPage = lazy(() => import("./pages/StickyNotesPage"));
 const DevToolsPage = lazy(() => import("./pages/DevToolsPage"));
 const PluginsPage = lazy(() => import("./pages/PluginsPage"));
+const SwarmPage = lazy(() => import("./pages/SwarmPage"));
 const VoiceChatPage = lazy(() => import("./pages/VoiceChatPage"));
 import Sidebar from "./components/layout/Sidebar";
 import ProgressFooterBar from "./components/layout/ProgressFooterBar";
@@ -379,6 +380,16 @@ const AppContainer = () => {
                           <AppLayout>
                             <ErrorBoundary>
                               <PluginsPage />
+                            </ErrorBoundary>
+                          </AppLayout>
+                        }
+                      />
+                      <Route
+                        path="/swarm"
+                        element={
+                          <AppLayout>
+                            <ErrorBoundary>
+                              <SwarmPage />
                             </ErrorBoundary>
                           </AppLayout>
                         }

@@ -23,7 +23,8 @@ import { Folder, Code } from 'lucide-react';
 import axios from 'axios';
 import { TableVirtuoso, VirtuosoGrid } from 'react-virtuoso';
 import { useSnackbar } from '../common/SnackbarProvider';
-import { API_BASE, getFileIcon, getFileIconSmall, FolderIndexIndicator, formatBytes, formatDate, getItemKey } from './fileUtils.jsx';
+import { API_BASE, getFileIcon, getFileIconSmall, FolderIndexIndicator, formatBytes, formatDate, getItemKey, isMediaFile } from './fileUtils.jsx';
+import MediaView from './MediaView';
 
 // Stable grid components (must be defined outside render to avoid Virtuoso remounts)
 const GridItemWrapper = React.forwardRef(({ children, ...props }, ref) => (
@@ -56,6 +57,7 @@ const FolderContents = ({
   onFocusContext,
   refreshKey = 0, // Refresh trigger - incrementing this will refresh contents
   folderColors = {}, // Folder ID → color map for nested color coding
+  onMediaDetected, // Callback: fires true/false when folder contents are loaded
 }) => {
   const theme = useTheme();
   const { showMessage } = useSnackbar();
@@ -166,12 +168,19 @@ const FolderContents = ({
       const response = await axios.get(`${API_BASE}/browse?${params.toString()}`);
       const data = response.data.data;
 
+      const newFiles = (data.documents || []).map(f => ({ ...f, filename: f.filename || f.name, itemType: 'file' }));
       setItems({
         folders: (data.folders || []).map(f => ({ ...f, itemType: 'folder' })),
-        files: (data.documents || []).map(f => ({ ...f, filename: f.filename || f.name, itemType: 'file' })),
+        files: newFiles,
       });
       setHasMore(data.has_more ?? false);
       setTotalItems((data.total_folders ?? 0) + (data.total_documents ?? 0));
+
+      // Let parent know whether this folder has media content
+      if (onMediaDetected) {
+        const hasMedia = newFiles.some(f => isMediaFile(f.filename));
+        onMediaDetected(hasMedia);
+      }
     } catch (err) {
       setError('Failed to load folder contents');
       showMessage?.('Failed to load folder contents', 'error');
@@ -685,6 +694,18 @@ const FolderContents = ({
           </Box>
         )}
       </Box>
+    );
+  }
+
+  // Media view — large preview + thumbnail strip
+  if (viewMode === 'media') {
+    return (
+      <MediaView
+        items={items}
+        folder={folder}
+        onContextMenu={onContextMenu}
+        onFileOpen={onFileOpen}
+      />
     );
   }
 

@@ -32,7 +32,7 @@ import PageLayout from "../components/layout/PageLayout";
 import {
   Upload as UploadIcon,
   AutoFixHigh as EnhanceIcon,
-  Delete as DeleteIcon,
+  Close as CloseIcon,
   PlayArrow as PlayIcon,
   Download as DownloadIcon,
   Refresh as RefreshIcon,
@@ -53,7 +53,7 @@ const TARGET_PRESETS = {
   "8k": { label: "8K (7680px)", width: 7680 },
 };
 
-const UpscalingPage = () => {
+const UpscalingPage = ({ embedded = false }) => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const pollingRef = useRef(null);
@@ -240,25 +240,24 @@ const UpscalingPage = () => {
   const vramTotal = serviceHealth?.vram_total_mb || 0;
   const modelLoaded = serviceHealth?.model_loaded;
 
+  const Wrapper = embedded ? React.Fragment : PageLayout;
+  const wrapperProps = embedded ? {} : {
+    title: "Video Upscaling",
+    variant: "standard",
+    actions: (
+      <Stack direction="row" spacing={1} alignItems="center">
+        <Button size="small" startIcon={<BackIcon />} onClick={() => navigate("/video")}>
+          Video Gen
+        </Button>
+        <IconButton size="small" onClick={() => { checkService(); fetchJobs(); }}>
+          <RefreshIcon />
+        </IconButton>
+      </Stack>
+    ),
+  };
+
   return (
-    <PageLayout
-      title="Video Upscaling"
-      variant="standard"
-      actions={
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Button
-            size="small"
-            startIcon={<BackIcon />}
-            onClick={() => navigate("/video")}
-          >
-            Video Gen
-          </Button>
-          <IconButton size="small" onClick={() => { checkService(); fetchJobs(); }}>
-            <RefreshIcon />
-          </IconButton>
-        </Stack>
-      }
-    >
+    <Wrapper {...wrapperProps}>
       {/* Service Status */}
       {serviceAvailable === false && (
         <Alert severity="warning" sx={{ mb: 3 }}>
@@ -554,7 +553,7 @@ const UpscalingPage = () => {
           </Card>
         </Grid>
       </Grid>
-    </PageLayout>
+    </Wrapper>
   );
 };
 

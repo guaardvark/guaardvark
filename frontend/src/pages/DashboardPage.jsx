@@ -703,9 +703,13 @@ const DashboardPage = () => {
               },
               "&.react-draggable-dragging": {
                 transition: "none !important",
-                outline: `2px solid ${theme.palette.primary.main}`,
-                borderRadius: "4px",
                 opacity: 0.9,
+                // Outline the child div, not the grid item — so minimized
+                // cards show a bar-sized outline instead of the full grid cell
+                "& > div": {
+                  outline: `2px solid ${theme.palette.primary.main}`,
+                  borderRadius: "4px",
+                },
               },
             },
           }}

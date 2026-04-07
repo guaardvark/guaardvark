@@ -25,7 +25,7 @@ import {
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
+import CloseIcon from "@mui/icons-material/Close";
 import CancelIcon from "@mui/icons-material/Cancel";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StorageIcon from "@mui/icons-material/Storage";
@@ -151,7 +151,7 @@ const DemoRow = ({ demo, expanded, onToggle, onDelete, onAttempt, showMessage, t
             </Tooltip>
             <Tooltip title="Delete demonstration">
               <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDelete(demo); }} color="error">
-                <DeleteIcon fontSize="small" />
+                <CloseIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           </Box>
@@ -725,7 +725,7 @@ const TrainingPage = () => {
                                   onClick={() => handleDeleteDataset(ds)}
                                   color="error"
                                 >
-                                  <DeleteIcon fontSize="small" />
+                                  <CloseIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
                             </Box>
@@ -839,7 +839,7 @@ const TrainingPage = () => {
                             )}
                             <Tooltip title="Delete">
                               <IconButton size="small" onClick={() => handleDeleteJob(job.id)}>
-                                <DeleteIcon fontSize="small" />
+                                <CloseIcon fontSize="small" />
                               </IconButton>
                             </Tooltip>
                           </Box>
@@ -954,7 +954,7 @@ const TrainingPage = () => {
                                 onClick={() => handleDeleteDeviceProfile(profile.id)}
                                 sx={{ ml: 1 }}
                               >
-                                <DeleteIcon fontSize="small" />
+                                <CloseIcon fontSize="small" />
                               </IconButton>
                             </span>
                           </Tooltip>

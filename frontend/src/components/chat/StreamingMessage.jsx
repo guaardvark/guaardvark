@@ -2,7 +2,7 @@
  * StreamingMessage - Builds up a message from Socket.IO streaming events.
  * Shows thinking indicator, tool call cards, and final text as they arrive.
  */
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
 import PropTypes from "prop-types";
 import {
   Box,
@@ -24,7 +24,7 @@ import ImageLightbox from "../images/ImageLightbox";
 
 const UPLOAD_BASE_URL = BASE_URL + "/uploads";
 
-const StreamingMessage = ({ chatService, sessionId, onComplete }) => {
+const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref) => {
   const [status, setStatus] = useState("idle"); // idle | thinking | streaming | complete | error
   const [thinkingText, setThinkingText] = useState("");
   const [toolCalls, setToolCalls] = useState([]); // [{tool, params, result, durationMs, isPending}]
@@ -41,8 +41,21 @@ const StreamingMessage = ({ chatService, sessionId, onComplete }) => {
   // Use refs for values that change but shouldn't trigger listener re-registration
   const sessionIdRef = useRef(sessionId);
   const onCompleteRef = useRef(onComplete);
+  const contentRef = useRef(content);
+  const toolCallsRef = useRef(toolCalls);
+
   useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
   useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
+  useEffect(() => { contentRef.current = content; }, [content]);
+  useEffect(() => { toolCallsRef.current = toolCalls; }, [toolCalls]);
+
+  useImperativeHandle(ref, () => ({
+    getPartialState: () => ({
+      content: contentRef.current,
+      toolCalls: toolCallsRef.current,
+      images: imagesRef.current || []
+    })
+  }));
 
   // Register socket listeners ONCE per chatService instance.
   // Callbacks read from refs so they always have current values
@@ -121,9 +134,25 @@ const StreamingMessage = ({ chatService, sessionId, onComplete }) => {
           ...socketImages,
           ...backendImages.filter((i) => !seenUrls.has(i.url)),
         ];
+        // Use backend steps if available; fall back to streaming tool calls
+        // (converted to steps format) so cards survive the StreamingMessage → MessageItem handoff.
+        const backendSteps = data.steps && data.steps.length > 0 ? data.steps : null;
+        const streamingSteps = toolCallsRef.current.length > 0
+          ? [{
+              iteration: 1,
+              thoughts: "",
+              tool_calls: toolCallsRef.current.map((tc) => ({
+                tool_name: tc.tool,
+                params: tc.params,
+                success: tc.result?.success,
+                duration_ms: tc.durationMs,
+                output_preview: tc.result?.success ? tc.result.output : tc.result?.error,
+              })),
+            }]
+          : [];
         onCompleteRef.current({
           content: data.response || "",
-          toolCalls: data.steps || [],
+          toolCalls: backendSteps || streamingSteps,
           iterations: data.iterations || 0,
           aborted: data.aborted || false,
           sessionId: data.session_id,
@@ -279,6 +308,7 @@ const StreamingMessage = ({ chatService, sessionId, onComplete }) => {
             result={tc.result}
             durationMs={tc.durationMs}
             isPending={tc.isPending}
+            sessionId={sessionId}
           />
         ))}
 
@@ -427,7 +457,8 @@ const StreamingMessage = ({ chatService, sessionId, onComplete }) => {
     )}
     </>
   );
-};
+});
+StreamingMessage.displayName = "StreamingMessage";
 
 StreamingMessage.propTypes = {
   chatService: PropTypes.object.isRequired,

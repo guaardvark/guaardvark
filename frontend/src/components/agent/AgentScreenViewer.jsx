@@ -67,7 +67,14 @@ export default function AgentScreenViewer({ open, onClose }) {
   const [collapsed, setCollapsed] = useState(saved.collapsed ?? false);
   const [imageSrc, setImageSrc] = useState(null);
   const [popupWindow, setPopupWindow] = useState(null);
-  const [position, setPosition] = useState({ x: saved.x ?? window.innerWidth - DEFAULT_WIDTH - 20, y: saved.y ?? 60 });
+  const [position, setPosition] = useState(() => {
+    const x = saved.x ?? window.innerWidth - DEFAULT_WIDTH - 20;
+    const y = saved.y ?? 60;
+    return {
+      x: Math.max(0, Math.min(x, window.innerWidth - 100)),
+      y: Math.max(0, Math.min(y, window.innerHeight - 40)),
+    };
+  });
   const [size, setSize] = useState({ w: saved.w ?? DEFAULT_WIDTH, h: saved.h ?? DEFAULT_HEIGHT });
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -168,7 +175,11 @@ export default function AgentScreenViewer({ open, onClose }) {
 
   useEffect(() => {
     if (!isDragging) return;
-    const onMove = (e) => setPosition({ x: e.clientX - dragOffset.x, y: e.clientY - dragOffset.y });
+    const onMove = (e) => {
+      const newX = Math.max(0, Math.min(e.clientX - dragOffset.x, window.innerWidth - 100));
+      const newY = Math.max(0, Math.min(e.clientY - dragOffset.y, window.innerHeight - 40));
+      setPosition({ x: newX, y: newY });
+    };
     const onUp = () => setIsDragging(false);
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);

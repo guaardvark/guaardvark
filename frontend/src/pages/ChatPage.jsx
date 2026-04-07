@@ -184,6 +184,7 @@ const ChatPage = () => {
   const historyLoadingRef = useRef(false); // Prevent concurrent history fetches
   const lastMessageRef = useRef(null);
   const processMessageRef = useRef(null);
+  const streamingMessageRef = useRef(null);
 
   useEffect(() => {
     if (!useUnifiedChat || connectionState !== 'connected' || !socketRef?.current) {
@@ -616,12 +617,35 @@ const ChatPage = () => {
 
   const handleStop = useCallback(() => {
     resourceManager.cleanupProcess(processId);
+    
+    // Attempt to salvage any partial text/images generated so far before hiding the stream
+    if (isStreamingMessage && streamingMessageRef.current) {
+      const partial = streamingMessageRef.current.getPartialState();
+      if (partial && (partial.content || (partial.images && partial.images.length > 0))) {
+        const completedMessage = {
+          id: `asst_unified_${Date.now()}_partial`,
+          role: "assistant",
+          content: partial.content || "",
+          toolCalls: partial.toolCalls || [],
+          isUnifiedChat: true,
+          timestamp: new Date().toISOString(),
+          generatedImages: partial.images || [],
+          status: "aborted"
+        };
+        // Clean up socket listener for the aborted message so it doesn't fire late
+        if (unifiedChatService) {
+          unifiedChatService.cleanup();
+        }
+        setMessages((prev) => [...prev, completedMessage]);
+      }
+    }
+
     setIsSending(false);
     setIsStreamingMessage(false);
     // Abort the backend chat + kill any running agent task
     fetch(`/api/chat/unified/${sessionId}/abort`, { method: 'POST' }).catch(() => {});
     fetch('/api/agent-control/kill', { method: 'POST' }).catch(() => {});
-  }, [resourceManager, processId, sessionId]);
+  }, [resourceManager, processId, sessionId, isStreamingMessage, unifiedChatService]);
 
   const handleFileGenConfirm = useCallback(async () => {
     if (!fileGenPopup.fileData || !fileGenPopup.originalMessage) return;
@@ -1826,13 +1850,14 @@ const ChatPage = () => {
       {isStreamingMessage && unifiedChatService && (
         <Box sx={{ px: 2, py: 1 }}>
           <StreamingMessage
+            ref={streamingMessageRef}
             chatService={unifiedChatService}
             sessionId={sessionId}
             onComplete={(result) => {
               setIsStreamingMessage(false);
               setIsSending(false);
 
-              if (result.content || (result.generatedImages && result.generatedImages.length > 0)) {
+              if (result.content || result.generatedImages?.length > 0 || result.toolCalls?.length > 0) {
                 const completedMessage = {
                   id: `asst_unified_${Date.now()}`,
                   role: "assistant",

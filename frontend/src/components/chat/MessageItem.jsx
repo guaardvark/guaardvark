@@ -2,7 +2,7 @@
 // Version 1.1: Renders a single message bubble with appropriate styling.
 // Added support for agent loop messages with step-by-step visualization.
 /* eslint-env browser */
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import PropTypes from "prop-types";
 import { Box, Paper, Avatar, CardMedia, Chip, CircularProgress, Typography } from "@mui/material";
 import ReactMarkdown from "react-markdown";
@@ -10,6 +10,12 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { a11yDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 // No user avatar icon — user messages are clean right-aligned bubbles
 import ImageIcon from "@mui/icons-material/Image";
+import ThumbUpOutlinedIcon from "@mui/icons-material/ThumbUpOutlined";
+import ThumbDownOutlinedIcon from "@mui/icons-material/ThumbDownOutlined";
+import ThumbUpIcon from "@mui/icons-material/ThumbUp";
+import ThumbDownIcon from "@mui/icons-material/ThumbDown";
+import Tooltip from "@mui/material/Tooltip";
+import IconButton from "@mui/material/IconButton";
 import { GuaardvarkLogo } from "../branding";
 import { useAppStore } from "../../stores/useAppStore";
 import { BASE_URL } from "../../api/apiClient";
@@ -23,11 +29,63 @@ const UPLOAD_BASE_URL = BASE_URL + "/uploads";
 
 const MessageItem = ({ message }) => {
   const isUser = message.role === "user";
+
+  // Read narrate button visibility from voice settings (localStorage)
+  const [showNarrate, setShowNarrate] = useState(() => {
+    try {
+      const vs = localStorage.getItem('guaardvark_voiceSettings');
+      if (vs) {
+        const parsed = JSON.parse(vs);
+        return parsed.showNarrateButtons !== false;
+      }
+    } catch {}
+    return true;
+  });
+
+  useEffect(() => {
+    const handler = () => {
+      try {
+        const vs = localStorage.getItem('guaardvark_voiceSettings');
+        if (vs) {
+          const parsed = JSON.parse(vs);
+          setShowNarrate(parsed.showNarrateButtons !== false);
+        }
+      } catch {}
+    };
+    window.addEventListener('voiceSettingsChanged', handler);
+    window.addEventListener('storage', handler);
+    return () => {
+      window.removeEventListener('voiceSettingsChanged', handler);
+      window.removeEventListener('storage', handler);
+    };
+  }, []);
   const isCommand = message.type === "command";
   const isProgress = message.type === "progress";
   const isAgentLoop = message.isAgentLoop;
   const logo = useAppStore((s) => s.systemLogo);
   const [lightbox, setLightbox] = useState(null);
+  const [feedback, setFeedback] = useState(null); // null | "up" | "down"
+
+  const handleFeedback = useCallback(async (positive) => {
+    const newVal = positive ? "up" : "down";
+    if (feedback === newVal) { setFeedback(null); return; }
+    setFeedback(newVal);
+    try {
+      const content = typeof message.content === "string" ? message.content : "";
+      await fetch(`${BASE_URL}/agent-control/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          positive,
+          task: content.slice(0, 200),
+          session_id: message.sessionId || null,
+          type: "response",
+        }),
+      });
+    } catch (err) {
+      console.error("Feedback failed:", err);
+    }
+  }, [feedback, message.content, message.sessionId]);
 
   const openLightbox = useCallback((url, name, images, index) => {
     setLightbox({ url, name, images: images || [{ url, name }], index: index || 0 });
@@ -322,6 +380,7 @@ const MessageItem = ({ message }) => {
                   } : null}
                   durationMs={tc.duration_ms}
                   isPending={false}
+                  sessionId={message.sessionId}
                 />
               ))
             )}
@@ -393,10 +452,28 @@ const MessageItem = ({ message }) => {
             {typeof message.content === 'string' ? message.content : JSON.stringify(message.content, null, 2)}
           </ReactMarkdown>
         </Box>
-        {/* Narrate button for assistant messages with text content */}
-        {!isUser && message.content && typeof message.content === 'string' && message.content.length > 20 && (
-          <Box sx={{ mt: 0.5, display: 'flex', justifyContent: 'flex-end' }}>
-            <NarrateButton text={message.content} size="small" />
+        {/* Feedback + narrate for assistant messages */}
+        {!isUser && message.content && typeof message.content === 'string' && message.content.length > 10 && (
+          <Box sx={{ mt: 0.5, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.25 }}>
+            <Tooltip title="Good response">
+              <IconButton size="small" onClick={() => handleFeedback(true)} sx={{ p: 0.25 }}>
+                {feedback === "up" ? (
+                  <ThumbUpIcon sx={{ fontSize: 14, color: "success.main" }} />
+                ) : (
+                  <ThumbUpOutlinedIcon sx={{ fontSize: 14, opacity: 0.4 }} />
+                )}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Bad response">
+              <IconButton size="small" onClick={() => handleFeedback(false)} sx={{ p: 0.25 }}>
+                {feedback === "down" ? (
+                  <ThumbDownIcon sx={{ fontSize: 14, color: "error.main" }} />
+                ) : (
+                  <ThumbDownOutlinedIcon sx={{ fontSize: 14, opacity: 0.4 }} />
+                )}
+              </IconButton>
+            </Tooltip>
+            {showNarrate && <NarrateButton text={message.content} size="small" />}
           </Box>
         )}
         {/* Source badge for Uncle Claude / Family / Self-Improvement responses */}

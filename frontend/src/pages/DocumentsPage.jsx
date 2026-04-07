@@ -1796,7 +1796,7 @@ const DocumentsPage = () => {
   if (loading) {
     return (
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2, height: "100%", p: 2 }}>
-        <Typography variant="h5">Documents</Typography>
+        <Typography variant="h5">Files</Typography>
         <Typography>Loading folders...</Typography>
       </Box>
     );
@@ -1804,7 +1804,7 @@ const DocumentsPage = () => {
 
   return (
     <PageLayout
-      title="Documents"
+      title="Files"
       variant="grid"
       actions={
         <>

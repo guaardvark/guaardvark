@@ -50,6 +50,8 @@ import {
 import { GuaardvarkLogo } from "../components/branding";
 import ReactGridLayoutLib, { WidthProvider } from 'react-grid-layout';
 import BatchImageGeneratorPage from './BatchImageGeneratorPage';
+import VideoGeneratorPage from './VideoGeneratorPage';
+import UpscalingPage from './UpscalingPage';
 import FolderWindowWrapper from '../components/documents/FolderWindowWrapper';
 import BreadcrumbNav from '../components/filesystem/BreadcrumbNav';
 import ImageThumbnailGrid from '../components/images/ImageThumbnailGrid';
@@ -1528,6 +1530,8 @@ const ImagesPage = () => {
         <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
           <Tab label="Media Library" />
           <Tab label="Image Gen" />
+          <Tab label="Video Gen" />
+          <Tab label="Upscaling" />
         </Tabs>
       </Box>
 
@@ -2204,16 +2208,20 @@ const ImagesPage = () => {
       {/* Image Gen Tab */}
       {activeTab === 1 && (
         <Box sx={{ flexGrow: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 2, p: 1 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Button
-              variant="outlined"
-              startIcon={<VideoIcon />}
-              onClick={() => window.open('/video', '_self')}
-            >
-              Go to Video Generation
-            </Button>
-          </Box>
           <BatchImageGeneratorPage embedded />
+        </Box>
+      )}
+
+      {/* Video Gen Tab */}
+      {activeTab === 2 && (
+        <Box sx={{ flexGrow: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <VideoGeneratorPage embedded />
+        </Box>
+      )}
+
+      {activeTab === 3 && (
+        <Box sx={{ flexGrow: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <UpscalingPage embedded />
         </Box>
       )}
 

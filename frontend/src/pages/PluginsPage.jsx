@@ -43,6 +43,8 @@ import {
   Memory as GpuIcon,
   Extension as PluginIcon,
   Terminal as LogIcon,
+  Videocam as CameraOnIcon,
+  VideocamOff as CameraOffIcon,
 } from '@mui/icons-material';
 import { useSnackbar } from '../components/common/SnackbarProvider';
 import PageLayout from '../components/layout/PageLayout';
@@ -57,6 +59,9 @@ import {
   updatePluginConfig,
   getPluginLogs,
   getLiveGpuStats,
+  startVisionCamera,
+  stopVisionCamera,
+  getVisionCameraStatus,
 } from '../api/pluginsService';
 
 // ── Constants ──────────────────────────────────────────────────────────
@@ -282,10 +287,51 @@ const LogViewer = ({ pluginId, open }) => {
 };
 
 // ── Plugin Card ────────────────────────────────────────────────────────
-const PluginCard = ({ plugin, onAction, onConfigOpen }) => {
+const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
   const [expanded, setExpanded] = useState(false);
   const [logsOpen, setLogsOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
+
+  // Camera state (vision_pipeline only)
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraLoading, setCameraLoading] = useState(false);
+
+  useEffect(() => {
+    if (plugin.id !== 'vision_pipeline' || plugin.status !== 'running') {
+      setCameraActive(false);
+      return;
+    }
+    const fetchStatus = async () => {
+      try {
+        const resp = await getVisionCameraStatus();
+        setCameraActive(resp?.active || false);
+      } catch {
+        setCameraActive(false);
+      }
+    };
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 5000);
+    return () => clearInterval(interval);
+  }, [plugin.id, plugin.status]);
+
+  const handleCameraToggle = async () => {
+    setCameraLoading(true);
+    try {
+      if (cameraActive) {
+        await stopVisionCamera();
+        setCameraActive(false);
+        if (showMessage) showMessage('Camera stopped', 'info');
+      } else {
+        await startVisionCamera(0);
+        setCameraActive(true);
+        if (showMessage) showMessage('Camera started', 'success');
+      }
+    } catch (err) {
+      if (showMessage) showMessage(err.message || 'Camera action failed', 'error');
+    } finally {
+      setCameraLoading(false);
+    }
+  };
 
   const statusConfig = STATUS_CONFIG[plugin.status] || STATUS_CONFIG.unknown;
   const StatusIcon = statusConfig.icon;
@@ -414,6 +460,25 @@ const PluginCard = ({ plugin, onAction, onConfigOpen }) => {
                 disabled={isLoading}
               >
                 {actionLoading === 'stop' ? <CircularProgress size={20} /> : <StopIcon />}
+              </IconButton>
+            </Tooltip>
+          )}
+
+          {plugin.id === 'vision_pipeline' && canStop && (
+            <Tooltip title={cameraActive ? 'Stop Camera' : 'Start Camera'}>
+              <IconButton
+                size="small"
+                color={cameraActive ? 'primary' : 'default'}
+                onClick={handleCameraToggle}
+                disabled={cameraLoading}
+              >
+                {cameraLoading ? (
+                  <CircularProgress size={20} />
+                ) : cameraActive ? (
+                  <CameraOnIcon />
+                ) : (
+                  <CameraOffIcon />
+                )}
               </IconButton>
             </Tooltip>
           )}
@@ -801,6 +866,7 @@ const PluginsPage = () => {
                 plugin={plugin}
                 onAction={handlePluginAction}
                 onConfigOpen={setConfigPlugin}
+                showMessage={showMessage}
               />
             </Grid>
           ))}

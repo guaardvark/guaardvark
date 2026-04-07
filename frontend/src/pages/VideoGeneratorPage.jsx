@@ -283,6 +283,16 @@ const VIDEO_SIZE_PRESETS = {
     description: "720px (CogVideoX native)",
     baseSize: 720,
   },
+  hd: {
+    label: "HD",
+    description: "1280px (CPU offload, slower)",
+    baseSize: 1280,
+  },
+  fullhd: {
+    label: "Full HD",
+    description: "1920px (CPU offload, much slower)",
+    baseSize: 1920,
+  },
 };
 
 const MODEL_OPTIONS = {
@@ -363,7 +373,7 @@ const isSvdModel = (model) => MODEL_OPTIONS[model]?.type === "svd";
 // Lazy import for VideoModelsModal
 const VideoModelsModal = React.lazy(() => import("../components/modals/VideoModelsModal"));
 
-const VideoGeneratorPage = () => {
+const VideoGeneratorPage = ({ embedded = false }) => {
   const [inputMode, setInputMode] = useState("text");
   const [promptsText, setPromptsText] = useState("");
   const [videoModelsModalOpen, setVideoModelsModalOpen] = useState(false);
@@ -561,6 +571,24 @@ const VideoGeneratorPage = () => {
       // Moderate step reduction
       if (effectiveSteps > 20) {
         effectiveSteps = 20;
+      }
+    }
+
+    // High resolution mode — trade steps/frames for pixels.
+    // At 1280+ the model needs breathing room, so we cap steps and frames
+    // unless the user explicitly overrode them in advanced settings.
+    const isHighRes = Math.max(width, height) >= 1280;
+    if (isHighRes && !lowVramMode) {
+      // Cap steps — more pixels per step means fewer steps needed for quality
+      const userOverrodeSteps = advancedParams.num_inference_steps !== null && advancedParams.num_inference_steps !== undefined;
+      if (!userOverrodeSteps && effectiveSteps > 30) {
+        effectiveSteps = 30;
+      }
+      // Cap frames to keep VRAM in check on 16GB cards
+      if (Math.max(width, height) >= 1920 && effectiveDurationFrames > 33) {
+        effectiveDurationFrames = 33; // ~2s at 16fps — still looks great at 1080p
+      } else if (effectiveDurationFrames > 49) {
+        effectiveDurationFrames = 49; // ~3s at 16fps for 720p HD
       }
     }
 
@@ -1012,7 +1040,7 @@ const VideoGeneratorPage = () => {
   const controlsDisabled = isGenerating;
 
   return (
-    <PageLayout title="Video Generation" variant="standard">
+    <PageLayout title={embedded ? undefined : "Video Generation"} variant={embedded ? "fullscreen" : "standard"} noPadding={embedded}>
 
       {/* Error/Success Messages */}
       {error && (
