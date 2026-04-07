@@ -75,7 +75,7 @@ class VisionAnalyzer:
             pass
         return "moondream:latest"  # Final fallback
 
-    def text_query(self, prompt: str, model: str = None) -> VisionResult:
+    def text_query(self, prompt: str, model: str = None, think: bool = False) -> VisionResult:
         """
         Query a text LLM (no image) for reasoning/decision-making.
 
@@ -87,6 +87,7 @@ class VisionAnalyzer:
         Args:
             prompt: Text prompt (includes scene description from vision model)
             model: Ollama text model name (default: auto-detect from active models)
+            think: Allow thinking tokens (default: False)
 
         Returns:
             VisionResult with the LLM's text response
@@ -97,13 +98,17 @@ class VisionAnalyzer:
             import time
             start = time.time()
 
+            request_body = {
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+                "stream": False,
+            }
+            if not think:
+                request_body["think"] = False
+
             response = requests.post(
                 f"{self.ollama_url}/api/chat",
-                json={
-                    "model": model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "stream": False,
-                },
+                json=request_body,
                 timeout=self.timeout,
             )
 
@@ -184,6 +189,7 @@ class VisionAnalyzer:
         model: str = None,
         num_predict: int = 256,
         temperature: float = 0.3,
+        think: bool = False,
     ) -> VisionResult:
         """
         Analyze an image using an Ollama vision model.
@@ -194,6 +200,9 @@ class VisionAnalyzer:
             model: Ollama model name (default: self.default_model)
             num_predict: Max tokens to generate (default: 256)
             temperature: Sampling temperature (default: 0.3)
+            think: Allow thinking tokens (default: False — thinking models
+                   like Gemma4 burn through num_predict on hidden reasoning,
+                   returning empty content)
 
         Returns:
             VisionResult with description or error
@@ -205,21 +214,25 @@ class VisionAnalyzer:
             import time
             start = time.time()
 
+            request_body = {
+                "model": model,
+                "messages": [{
+                    "role": "user",
+                    "content": prompt,
+                    "images": [image_b64],
+                }],
+                "stream": False,
+                "options": {
+                    "num_predict": num_predict,
+                    "temperature": temperature,
+                },
+            }
+            if not think:
+                request_body["think"] = False
+
             response = requests.post(
                 f"{self.ollama_url}/api/chat",
-                json={
-                    "model": model,
-                    "messages": [{
-                        "role": "user",
-                        "content": prompt,
-                        "images": [image_b64],
-                    }],
-                    "stream": False,
-                    "options": {
-                        "num_predict": num_predict,
-                        "temperature": temperature,
-                    },
-                },
+                json=request_body,
                 timeout=self.timeout,
             )
 
@@ -268,6 +281,7 @@ class VisionAnalyzer:
         model: str = None,
         num_predict: int = 256,
         temperature: float = 0.3,
+        think: bool = False,
     ) -> VisionResult:
         """
         Analyze an image from raw base64 — bypasses PIL entirely.
@@ -282,6 +296,7 @@ class VisionAnalyzer:
             model: Ollama model name (default: self.default_model)
             num_predict: Max tokens to generate (default: 256)
             temperature: Sampling temperature (default: 0.3)
+            think: Allow thinking tokens (default: False)
 
         Returns:
             VisionResult with description or error
@@ -292,21 +307,25 @@ class VisionAnalyzer:
             import time
             start = time.time()
 
+            request_body = {
+                "model": model,
+                "messages": [{
+                    "role": "user",
+                    "content": prompt,
+                    "images": [image_b64],
+                }],
+                "stream": False,
+                "options": {
+                    "num_predict": num_predict,
+                    "temperature": temperature,
+                },
+            }
+            if not think:
+                request_body["think"] = False
+
             response = requests.post(
                 f"{self.ollama_url}/api/chat",
-                json={
-                    "model": model,
-                    "messages": [{
-                        "role": "user",
-                        "content": prompt,
-                        "images": [image_b64],
-                    }],
-                    "stream": False,
-                    "options": {
-                        "num_predict": num_predict,
-                        "temperature": temperature,
-                    },
-                },
+                json=request_body,
                 timeout=self.timeout,
             )
 

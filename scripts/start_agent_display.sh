@@ -16,7 +16,8 @@ PID_DIR="$GUAARDVARK_ROOT/pids"
 LOG_DIR="$GUAARDVARK_ROOT/logs"
 DATA_DIR="$GUAARDVARK_ROOT/data/agent"
 
-mkdir -p "$PID_DIR" "$LOG_DIR" "$DATA_DIR"
+AGENT_FILES_DIR="$GUAARDVARK_ROOT/data/agent/files"
+mkdir -p "$PID_DIR" "$LOG_DIR" "$DATA_DIR" "$AGENT_FILES_DIR"
 
 # ---------------------------------------------------------------------------
 # Browser detection & configuration
@@ -286,7 +287,7 @@ start() {
     if pgrep -f "Xvfb :$DISPLAY_NUM" > /dev/null 2>&1; then
         echo "  Xvfb already running"
     else
-        Xvfb :$DISPLAY_NUM -screen 0 $RESOLUTION -ac &
+        Xvfb :$DISPLAY_NUM -screen 0 $RESOLUTION -ac >/dev/null 2>&1 &
         echo $! > "$PID_DIR/xvfb.pid"
         sleep 1
         echo "  Xvfb started (PID $(cat $PID_DIR/xvfb.pid))"
@@ -312,6 +313,11 @@ start() {
       </action>
     </item>
     <separator label="Tools"/>
+    <item label="Agent Files">
+      <action name="Execute">
+        <execute>pcmanfm $AGENT_FILES_DIR</execute>
+      </action>
+    </item>
     <item label="File Manager">
       <action name="Execute">
         <execute>pcmanfm --new-win</execute>
@@ -332,7 +338,7 @@ start() {
 </openbox_menu>
 OBMENUX
 
-        DISPLAY=:$DISPLAY_NUM openbox &
+        DISPLAY=:$DISPLAY_NUM openbox >/dev/null 2>&1 &
         echo $! > "$PID_DIR/openbox.pid"
         sleep 1
         echo "  Openbox desktop started"
@@ -342,6 +348,14 @@ OBMENUX
         echo $! > "$PID_DIR/tint2.pid"
         sleep 1
         echo "  Tint2 taskbar started"
+
+        # Desktop shortcut launcher — visible buttons for Firefox, Agent Files, Terminal
+        if [ -f "$GUAARDVARK_ROOT/scripts/agent_desktop_launcher.py" ]; then
+            DISPLAY=:$DISPLAY_NUM GUAARDVARK_ROOT="$GUAARDVARK_ROOT" python3 "$GUAARDVARK_ROOT/scripts/agent_desktop_launcher.py" &>/dev/null &
+            echo $! > "$PID_DIR/agent_launcher.pid"
+            sleep 1
+            echo "  Desktop launcher started"
+        fi
     fi
 
     # Browser profile setup
@@ -356,33 +370,29 @@ OBMENUX
             *) browser_pattern="$BROWSER.*$(basename $PROFILE_DIR)" ;;
         esac
 
-        if pgrep -f "$browser_pattern" > /dev/null 2>&1; then
-            echo "  $BROWSER_NAME already running on :$DISPLAY_NUM"
-        else
-            local launch_cmd=$(browser_launch_cmd "$BROWSER" "$PROFILE_DIR")
-            env $ENV_PREFIX $launch_cmd > /dev/null 2>&1 &
-            echo $! > "$PID_DIR/agent_browser.pid"
-            sleep 3
-            echo "  $BROWSER_NAME launched on :$DISPLAY_NUM"
-        fi
+        # Browser is NOT auto-launched — the agent opens it when needed
+        # via the Shortcuts panel or right-click menu. Profile is still
+        # synced so it's ready when the agent decides to open it.
+        echo "  $BROWSER_NAME profile ready (agent launches on demand)"
     fi
 
     # VNC server (for watching the agent)
-    if pgrep -f "x11vnc.*:$DISPLAY_NUM" > /dev/null 2>&1; then
+    if pgrep -f "x11vnc.*-rfbport $VNC_PORT" > /dev/null 2>&1; then
         echo "  x11vnc already running"
     else
         # Auto-generate VNC password on first run
         VNC_PASSWD_FILE="$GUAARDVARK_ROOT/data/.vnc_passwd"
         if [ ! -f "$VNC_PASSWD_FILE" ]; then
-            x11vnc -storepasswd "$(openssl rand -base64 12)" "$VNC_PASSWD_FILE" 2>/dev/null
+            VNC_PASS="guaardvark"
+            x11vnc -storepasswd "$VNC_PASS" "$VNC_PASSWD_FILE" 2>/dev/null
             chmod 600 "$VNC_PASSWD_FILE"
-            echo "  VNC password generated: $VNC_PASSWD_FILE"
+            echo "  VNC password set to: $VNC_PASS"
         fi
 
         env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE \
             DISPLAY=:$DISPLAY_NUM \
             x11vnc -rfbauth "$VNC_PASSWD_FILE" -localhost -forever -shared -rfbport $VNC_PORT \
-            -bg -o "$LOG_DIR/x11vnc_agent.log" 2>&1
+            -bg -o "$LOG_DIR/x11vnc_agent.log" >/dev/null 2>&1
         sleep 1
         echo "  x11vnc started on port $VNC_PORT (password-protected)"
     fi
@@ -399,20 +409,40 @@ OBMENUX
 stop() {
     echo "Stopping Agent Virtual Display..."
 
+    # 1. Kill by PID files first
     for proc in agent_browser agent_firefox tint2 openbox matchbox xvfb; do
         pid_file="$PID_DIR/${proc}.pid"
         if [ -f "$pid_file" ]; then
             pid=$(cat "$pid_file")
-            kill $pid 2>/dev/null && echo "  Stopped $proc (PID $pid)" || echo "  $proc not running"
+            kill $pid 2>/dev/null && echo "  Stopped $proc (PID $pid)" || true
             rm -f "$pid_file"
         fi
     done
 
-    # Kill x11vnc for our display
-    pkill -f "x11vnc.*:$DISPLAY_NUM" 2>/dev/null && echo "  Stopped x11vnc" || echo "  x11vnc not running"
-    # Kill any remaining browser on agent profile
+    # 2. Fallback: kill by process pattern (catches orphans from stale PID files)
+    pkill -f "Xvfb :$DISPLAY_NUM" 2>/dev/null && echo "  Killed orphan Xvfb" || true
+    pkill -f "x11vnc.*-rfbport $VNC_PORT" 2>/dev/null && echo "  Stopped x11vnc" || echo "  x11vnc not running"
     pkill -f "firefox.*firefox_profile" 2>/dev/null
     pkill -f "chrom.*chromium_profile" 2>/dev/null
+
+    # 3. Kill window manager/taskbar on agent display (catches processes started without PID files)
+    for pid in $(pgrep -f "openbox" 2>/dev/null); do
+        # Only kill openbox running on our display
+        if grep -qz "DISPLAY=:$DISPLAY_NUM" /proc/$pid/environ 2>/dev/null; then
+            kill $pid 2>/dev/null && echo "  Killed orphan openbox (PID $pid)"
+        fi
+    done
+    for pid in $(pgrep -f "tint2" 2>/dev/null); do
+        if grep -qz "DISPLAY=:$DISPLAY_NUM" /proc/$pid/environ 2>/dev/null; then
+            kill $pid 2>/dev/null && echo "  Killed orphan tint2 (PID $pid)"
+        fi
+    done
+
+    # 4. Last resort: kill anything still holding the VNC port
+    local port_holder=$(lsof -ti :$VNC_PORT 2>/dev/null)
+    if [ -n "$port_holder" ]; then
+        kill $port_holder 2>/dev/null && echo "  Killed process holding port $VNC_PORT (PID $port_holder)"
+    fi
 
     echo "Agent Virtual Display stopped."
 }
@@ -431,7 +461,7 @@ status() {
     esac
     $browser_running && echo "  Browser:  RUNNING" || echo "  Browser:  STOPPED"
 
-    pgrep -f "x11vnc.*:$DISPLAY_NUM" > /dev/null 2>&1 && echo "  x11vnc:   RUNNING (port $VNC_PORT)" || echo "  x11vnc:   STOPPED"
+    pgrep -f "x11vnc.*-rfbport $VNC_PORT" > /dev/null 2>&1 && echo "  x11vnc:   RUNNING (port $VNC_PORT)" || echo "  x11vnc:   STOPPED"
 }
 
 case "${1:-start}" in

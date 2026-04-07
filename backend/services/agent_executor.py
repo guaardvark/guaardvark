@@ -299,7 +299,8 @@ class AgentExecutor:
         self.facts_registry = FactsRegistry()
         self.original_query = ""  # Store original query for synthesis
         self._tool_context = {}
-        
+        self._native_tools_supported = False  # set in execute() after model check
+
         # Try to get system coordinator if available
         try:
             from backend.utils.system_coordinator import get_system_coordinator
@@ -307,7 +308,7 @@ class AgentExecutor:
         except ImportError:
             logger.warning("System coordinator not available - running without it")
             self.coordinator = None
-        
+
         logger.info(f"Agent executor initialized with {len(tool_registry)} tools")
 
     def set_tool_context(self, **kwargs):
@@ -364,8 +365,27 @@ class AgentExecutor:
             # Detect vision/screen tasks and filter tools accordingly
             is_vision_task = self._is_vision_task(user_query, session_context)
             tool_filter = 'vision' if is_vision_task else None
+
+            # Check if active model supports native function calling (Gemma 4, etc.)
+            self._native_tools_supported = False
+            self._li_tools = []
+            try:
+                model_name = getattr(self.llm, 'model', '')
+                if model_name:
+                    from backend.utils.ollama_resource_manager import model_supports_tools
+                    if model_supports_tools(model_name):
+                        self._li_tools = self.tool_registry.as_llama_index_tools(tool_filter=tool_filter)
+                        if self._li_tools:
+                            self._native_tools_supported = True
+                            logger.info(f"Native function calling enabled for {model_name} ({len(self._li_tools)} tools)")
+            except Exception as e:
+                logger.debug(f"Native tool detection failed, using prompt injection: {e}")
+
             tool_schemas = self.tool_registry.get_tool_schemas(format='json_prompt', tool_filter=tool_filter)
-            system_prompt = self._build_system_prompt(tool_schemas, session_context, is_vision_task=is_vision_task)
+            if self._native_tools_supported:
+                system_prompt = self._build_system_prompt_native(session_context, is_vision_task=is_vision_task)
+            else:
+                system_prompt = self._build_system_prompt(tool_schemas, session_context, is_vision_task=is_vision_task)
 
             # Apply honesty steering to prevent hallucinated fixes
             try:
@@ -389,16 +409,19 @@ class AgentExecutor:
                 iteration += 1
                 logger.info(f"Agent iteration {iteration}/{self.max_iterations}")
                 
+                # Choose iteration method based on native tool support
+                _iter_fn = self._execute_iteration_native if self._native_tools_supported else self._execute_iteration
+
                 # Use error boundary if coordinator available
                 if self.coordinator:
                     with self.coordinator.error_manager.error_boundary(
                         process_id, f"agent_iteration_{iteration}"
                     ):
-                        step_result = self._execute_iteration(
+                        step_result = _iter_fn(
                             current_prompt, system_prompt, iteration, process_id
                         )
                 else:
-                    step_result = self._execute_iteration(
+                    step_result = _iter_fn(
                         current_prompt, system_prompt, iteration, process_id
                     )
                 
@@ -753,7 +776,224 @@ EXAMPLE - Final answer (no tools needed):
             base_prompt += f"\n\n{session_context}"
 
         return base_prompt
-    
+
+    def _build_system_prompt_native(self, session_context: str = "", is_vision_task: bool = False) -> str:
+        """Build system prompt for native function calling models (Gemma 4, etc.).
+
+        Tool schemas are NOT included in the prompt — they're passed via the
+        API's tools parameter.  This keeps the context window clean.
+        """
+        if is_vision_task:
+            rules = (
+                "You are controlling a virtual screen (DISPLAY=:99) with Firefox and a desktop environment.\n"
+                "Use agent_mode_start first, then agent_task_execute to perform screen tasks.\n"
+                "Use agent_screen_capture to see what is currently on screen.\n"
+                "Break complex tasks into small steps: first capture the screen, then one action at a time.\n"
+                "NEVER fabricate information. Only state facts found in tool results.\n"
+                "If you cannot complete the task, say so honestly."
+            )
+        else:
+            rules = (
+                "Use tools when you need information or need to perform actions.\n"
+                "After tool results, use them to formulate your answer.\n"
+                "If a tool fails, try a DIFFERENT tool or different parameters.\n"
+                "NEVER fabricate information. Only state facts found in tool results.\n"
+                "If you cannot find the answer, say so honestly."
+            )
+
+        prompt = f"You are an AI assistant with access to tools. Help the user by calling tools when needed.\n\n{rules}"
+
+        if session_context and "Agent:" in session_context:
+            prompt += f"\n\n{session_context}"
+
+        return prompt
+
+    def _execute_iteration_native(self, prompt: str, system_prompt: str, iteration: int, process_id: Optional[str]) -> Dict[str, Any]:
+        """Execute a single iteration using native function calling (Gemma 4, etc.).
+
+        Instead of injecting tool schemas into the prompt and parsing JSON
+        from raw text, this uses LlamaIndex's chat_with_tools() which passes
+        tools via the Ollama API's tools parameter and returns structured
+        ToolCallBlock objects.
+        """
+        from datetime import datetime
+        from backend.utils.llm_service import ChatMessage, MessageRole
+
+        messages = [
+            ChatMessage(role=MessageRole.SYSTEM, content=system_prompt),
+        ]
+        # Attach conversation history for multi-turn (the prompt contains observations)
+        messages.append(ChatMessage(role=MessageRole.USER, content=prompt))
+
+        try:
+            llm_response = self.llm.chat_with_tools(
+                self._li_tools,
+                chat_history=[messages[0]],
+                user_msg=messages[1],
+                allow_parallel_tool_calls=True,
+            )
+        except Exception as e:
+            # Fall back to prompt-injection path on any failure
+            logger.warning(f"Native tool calling failed, falling back to prompt injection: {e}")
+            self._native_tools_supported = False
+            # Rebuild system prompt with tool schemas for fallback
+            is_vision = self._is_vision_task(self.original_query, "")
+            tool_filter = 'vision' if is_vision else None
+            tool_schemas = self.tool_registry.get_tool_schemas(format='json_prompt', tool_filter=tool_filter)
+            fallback_system = self._build_system_prompt(tool_schemas, "", is_vision_task=is_vision)
+            return self._execute_iteration(prompt, fallback_system, iteration, process_id)
+
+        response_text = _safe_content(llm_response.message)
+        logger.info(f"Native LLM response (length: {len(response_text)}): {response_text[:200]}...")
+        log_llm_response("agent_executor", response_text, iteration=iteration)
+
+        # Extract tool calls from native response
+        tool_selections = self.llm.get_tool_calls_from_response(llm_response, error_on_no_tool_call=False)
+
+        if not tool_selections:
+            # No tools called — treat as final answer or nudge
+            if response_text and response_text.strip():
+                log_decision("agent_executor", "FINAL_ANSWER", {
+                    "iteration": iteration,
+                    "answer_preview": response_text[:200],
+                    "mode": "native",
+                })
+                return {
+                    'is_final': True,
+                    'final_answer': response_text,
+                    'step': AgentStep(
+                        iteration=iteration,
+                        thoughts=response_text,
+                        tool_calls=[],
+                        observations=[],
+                        timestamp=datetime.now().isoformat()
+                    )
+                }
+            # Empty response, nudge
+            all_facts_text = self.facts_registry.format_facts_for_prompt()
+            return {
+                'is_final': False,
+                'step': AgentStep(
+                    iteration=iteration,
+                    thoughts="(no response)",
+                    tool_calls=[],
+                    observations=[],
+                    timestamp=datetime.now().isoformat()
+                ),
+                'next_prompt': (
+                    f"You didn't call any tools or provide an answer.\n"
+                    f"CUMULATIVE FACTS:\n{all_facts_text}\n\n"
+                    f"Original question: {self.original_query}\n"
+                    f"What tool do you need to call next, or what is your final answer?"
+                ),
+            }
+
+        # Execute each tool call
+        observations = []
+        observation_texts = []
+        executed_tool_calls = []
+
+        for sel in tool_selections:
+            logger.info(f"[native] Executing tool: {sel.tool_name}")
+            normalized_params = self._normalize_tool_parameters(sel.tool_kwargs)
+            logger.debug(f"[native] Tool {sel.tool_name} parameters: {normalized_params}")
+
+            log_tool_call("agent_executor", sel.tool_name, normalized_params,
+                          reasoning="(native function call)", iteration=iteration)
+
+            executed_tool_calls.append(ToolCallResponse(
+                thoughts=response_text,
+                tool_calls=[],  # logged separately
+            ))
+
+            # Guard check
+            allowed, block_reason = self._guard.check_call(sel.tool_name, normalized_params)
+            if not allowed:
+                logger.info(f"Guard blocked tool call: {sel.tool_name} — {block_reason}")
+                log_guard_event("agent_executor", "BLOCKED", sel.tool_name, details=block_reason)
+                result = ToolResult(success=False, error=block_reason)
+                observations.append({'tool': sel.tool_name, 'parameters': normalized_params, 'result': result.to_dict()})
+                observation_texts.append(format_tool_result_for_llm(sel.tool_name, result))
+                continue
+
+            # Security validation
+            if self.coordinator and sel.tool_name == "execute_python":
+                code = normalized_params.get("code", "")
+                if not self.coordinator.validate_security("llm_prompt", prompt=code):
+                    result = ToolResult(success=False, error="Security validation failed for code execution")
+                    observations.append({'tool': sel.tool_name, 'parameters': normalized_params, 'result': result.to_dict()})
+                    observation_texts.append(format_tool_result_for_llm(sel.tool_name, result))
+                    continue
+
+            # Execute
+            result = self.tool_registry.execute_tool(sel.tool_name, agent_context=self._tool_context, **normalized_params)
+
+            if self.coordinator and process_id and result.success and result.output:
+                from backend.utils.system_coordinator import ResourceType
+                self.coordinator.register_resource(result.output, ResourceType.MEMORY_BUFFER, process_id)
+
+            self._guard.record_result(sel.tool_name, normalized_params, result.success, result.error, iteration)
+            log_tool_result("agent_executor", sel.tool_name, result.success,
+                            str(result.output) if result.success else (result.error or ""),
+                            iteration=iteration)
+
+            observations.append({'tool': sel.tool_name, 'parameters': normalized_params, 'result': result.to_dict()})
+            observation_texts.append(format_tool_result_for_llm(sel.tool_name, result))
+            self._tool_history.append(f"{sel.tool_name}({', '.join(f'{k}={v!r}' for k, v in normalized_params.items())})")
+
+            # Extract facts
+            extracted_facts = self.facts_registry.extract_facts_from_observation(sel.tool_name, result, iteration)
+            if extracted_facts:
+                logger.info(f"Extracted {len(extracted_facts)} facts from {sel.tool_name}")
+
+        # Build next prompt with observations
+        observations_combined = "\n\n".join(observation_texts)
+        iteration_facts = [f for f in self.facts_registry.facts if f.iteration == iteration]
+        extracted_facts_text = ""
+        if iteration_facts:
+            extracted_facts_text = "\n".join([f"[Fact {f.fact_id}] {f.content}" for f in iteration_facts])
+
+        all_facts_text = self.facts_registry.format_facts_for_prompt()
+
+        # Build compact tool call representations for step recording
+        tc_records = [
+            ToolCallResponse(thoughts=response_text, tool_calls=[]).tool_calls
+            for _ in tool_selections
+        ]
+
+        # Get guard blocked tools for next prompt
+        blocked_tools = self._guard.get_blocked_tools()
+        blocked_msg = ""
+        if blocked_tools:
+            blocked_msg = f"\nBLOCKED TOOLS (do not retry): {', '.join(blocked_tools)}"
+
+        next_prompt = f"""Tool Results:
+{observations_combined}
+
+{f"NEW FACTS EXTRACTED:{chr(10)}{extracted_facts_text}" if extracted_facts_text else ""}
+
+CUMULATIVE FACTS REGISTRY:
+{all_facts_text}
+{blocked_msg}
+
+Previous tools used: {', '.join(self._tool_history[-10:])}
+
+Original question: {self.original_query}
+
+Based on the tool results, either call another tool or provide your final answer."""
+
+        return {
+            'is_final': False,
+            'step': AgentStep(
+                iteration=iteration,
+                thoughts=response_text,
+                tool_calls=[{'tool_name': s.tool_name, 'parameters': s.tool_kwargs} for s in tool_selections],
+                observations=observations,
+                timestamp=datetime.now().isoformat()
+            ),
+            'next_prompt': next_prompt,
+        }
+
     def _build_initial_prompt(self, user_query: str, session_context: str) -> str:
         """Build the initial prompt for the agent"""
         if session_context:

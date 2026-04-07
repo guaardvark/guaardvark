@@ -67,7 +67,15 @@ class AgentTaskExecuteTool(BaseTool):
     }
 
     def execute(self, **kwargs) -> ToolResult:
-        task = kwargs.get("task", "")
+        # LLMs sometimes use the wrong parameter name (args, param_name, etc.)
+        # Accept anything that looks like it contains the task description.
+        task = kwargs.get("task", "") or kwargs.get("args", "") or kwargs.get("param_name", "")
+        if not task:
+            # Last resort: grab the first string value from whatever was passed
+            for v in kwargs.values():
+                if isinstance(v, str) and v.strip():
+                    task = v
+                    break
         if not task:
             return ToolResult(success=False, error="Task description is required")
 
@@ -81,24 +89,27 @@ class AgentTaskExecuteTool(BaseTool):
             screen = LocalScreenBackend()
             result = service.execute_task(task, screen)
 
-            # Post-task analysis: capture what the screen shows now
-            # This bridges the gap between "doing" and "thinking about what you did"
+            # Post-task analysis: quick snapshot of what the screen shows now.
+            # Keep it fast — users shouldn't wait 5s after the task is already done.
             post_analysis = ""
             if result.success:
                 try:
                     import time as _time
-                    _time.sleep(2)  # Let the page settle
+                    import numpy as np
+                    _time.sleep(0.5)  # Brief settle — enough for UI repaints
                     analyzer = VisionAnalyzer()
                     screenshot, _ = screen.capture()
-                    analysis = analyzer.analyze(
-                        screenshot,
-                        prompt=f"The task was: {task}\n\nDescribe what the screen shows now. "
-                               f"Include any relevant text, data, or content visible on the page. "
-                               f"Be detailed and factual.",
-                        num_predict=512,
-                    )
-                    if analysis.success:
-                        post_analysis = analysis.description
+                    if np.array(screenshot).mean() < 10:
+                        post_analysis = "Screen appears black — display may need attention."
+                    else:
+                        analysis = analyzer.analyze(
+                            screenshot,
+                            prompt=f"The task was: {task}\n\nBriefly describe what the screen shows now.",
+                            num_predict=128,
+                            temperature=0.1,
+                        )
+                        if analysis.success:
+                            post_analysis = analysis.description
                 except Exception as e:
                     logger.warning(f"Post-task analysis failed: {e}")
 
@@ -138,7 +149,8 @@ class AgentScreenCaptureTool(BaseTool):
     }
 
     def execute(self, **kwargs) -> ToolResult:
-        prompt = kwargs.get("prompt", "Describe what is currently on the screen.")
+        prompt = (kwargs.get("prompt", "") or kwargs.get("args", "") or kwargs.get("param_name", "")
+                  or "Describe what is currently on the screen.")
 
         try:
             _ensure_agent_display()

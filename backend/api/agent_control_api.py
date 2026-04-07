@@ -390,6 +390,118 @@ def learn_input():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+# ---------------------------------------------------------------------------
+# Task feedback — thumbs up/down from the user after any agent task
+# ---------------------------------------------------------------------------
+
+@agent_control_bp.route("/feedback", methods=["POST"])
+def submit_feedback():
+    """Record thumbs up/down feedback for an agent task.
+
+    Body: {
+        positive: bool,         # true = thumbs up, false = thumbs down
+        task: str,              # the task description
+        session_id: str?,       # chat session that triggered the task
+        steps: int?,            # number of steps the task took
+        time_seconds: float?,   # total execution time
+        comment: str?,          # optional user comment
+    }
+
+    Writes to data/training/knowledge/feedback.jsonl — same dir as servo_archive.
+    Each entry carries the human verdict so the learning loop has ground truth.
+    """
+    data = request.get_json(silent=True)
+    if not data or "positive" not in data:
+        return jsonify({"success": False, "error": "'positive' field required (true/false)"}), 400
+
+    import json
+    import time
+    from datetime import datetime
+    from pathlib import Path
+    from backend.config import GUAARDVARK_ROOT
+
+    entry = {
+        "timestamp": datetime.now().isoformat(),
+        "epoch": time.time(),
+        "positive": bool(data["positive"]),
+        "task": data.get("task", ""),
+        "type": data.get("type", "tool_action"),  # "tool_action" or "response"
+        "session_id": data.get("session_id"),
+        "steps": data.get("steps"),
+        "time_seconds": data.get("time_seconds"),
+        "comment": data.get("comment", ""),
+        "model": data.get("model", ""),
+    }
+
+    feedback_file = Path(GUAARDVARK_ROOT) / "data" / "training" / "knowledge" / "feedback.jsonl"
+    try:
+        feedback_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(feedback_file, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+        logger.info(f"[FEEDBACK] {'👍' if entry['positive'] else '👎'} task=\"{entry['task'][:60]}\"")
+        return jsonify({"success": True, "feedback": entry}), 201
+    except Exception as e:
+        logger.error(f"Failed to write feedback: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@agent_control_bp.route("/feedback", methods=["GET"])
+def list_feedback():
+    """List feedback entries. ?limit=50&positive=true"""
+    import json
+    from pathlib import Path
+    from backend.config import GUAARDVARK_ROOT
+
+    feedback_file = Path(GUAARDVARK_ROOT) / "data" / "training" / "knowledge" / "feedback.jsonl"
+    if not feedback_file.exists():
+        return jsonify({"success": True, "feedback": [], "total": 0})
+
+    entries = []
+    for line in open(feedback_file, encoding="utf-8"):
+        line = line.strip()
+        if line:
+            try:
+                entries.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+
+    # Filter
+    pos_filter = request.args.get("positive")
+    if pos_filter is not None:
+        want = pos_filter.lower() == "true"
+        entries = [e for e in entries if e.get("positive") == want]
+
+    # Sort newest first
+    entries.sort(key=lambda e: e.get("epoch", 0), reverse=True)
+
+    limit = request.args.get("limit", 50, type=int)
+    total = len(entries)
+    entries = entries[:limit]
+
+    return jsonify({"success": True, "feedback": entries, "total": total})
+
+
+# ---------------------------------------------------------------------------
+# Learning analysis — cross-reference servo data with human feedback
+# ---------------------------------------------------------------------------
+
+@agent_control_bp.route("/learning/summary", methods=["GET"])
+def learning_summary():
+    """Get learning summary — servo stats + feedback cross-reference.
+
+    ?model=gemma4:e4b to filter by model.
+    """
+    model = request.args.get("model", "")
+    try:
+        from backend.services.servo_knowledge_store import get_servo_archive
+        archive = get_servo_archive()
+        summary = archive.get_learning_summary(model=model)
+        return jsonify({"success": True, **summary})
+    except Exception as e:
+        logger.error(f"Learning summary failed: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @agent_control_bp.route("/capture/raw", methods=["POST"])
 def capture_raw():
     """Return a raw JPEG screenshot of the virtual display — no vision analysis."""

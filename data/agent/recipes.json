@@ -90,6 +90,18 @@
     ]
   },
 
+  "close_firefox": {
+    "description": "Close the Firefox browser entirely",
+    "triggers": [
+      "^(?:close|quit|exit|kill|shut\\s*down|stop)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s*$",
+      "^(?:close|quit|exit|kill)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s+(?:browser|window)?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "q"], "_comment": "Ctrl+Q quits Firefox entirely"},
+      {"action": "wait", "seconds": 1}
+    ]
+  },
+
   "close_all_tabs": {
     "description": "Close all tabs except the current one",
     "triggers": ["close\\s+all\\s+(?:the\\s+)?(?:other\\s+)?tabs", "close\\s+(?:the\\s+)?other\\s+tabs"],

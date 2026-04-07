@@ -43,9 +43,9 @@ class TrainingDataCollector:
         source: str = "servo",
     ):
         self._counter += 1
-        img_name = f"{self._session_id}_{self._counter:05d}.jpg"
+        img_name = f"{self._session_id}_{self._counter:05d}.webp"
         img_path = self.screenshots_dir / img_name
-        screenshot_before.save(str(img_path), format="JPEG", quality=80)
+        screenshot_before.save(str(img_path), format="WEBP", quality=75)
 
         entry = {
             "timestamp": datetime.now().isoformat(),

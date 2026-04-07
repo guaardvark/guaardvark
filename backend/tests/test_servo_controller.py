@@ -30,15 +30,15 @@ class TestServoController(unittest.TestCase):
     def test_on_target_first_try_clicks_immediately(self, mock_sleep):
         from backend.services.servo_controller import ServoController
         screen = self._make_screen(cursor_pos=(400, 250))
-        screenshots = [
-            (Image.new("RGB", (1280, 720), color=(50, 50, 50)), (400, 250)),
-            (Image.new("RGB", (1280, 720), color=(50, 50, 50)), (400, 250)),
-            (Image.new("RGB", (1280, 720), color=(200, 200, 200)), (400, 250)),
+        same_img = Image.new("RGB", (1280, 720), color=(50, 50, 50))
+        diff_img = Image.new("RGB", (1280, 720), color=(200, 200, 200))
+        # attempt 1: ballistic → click → verify (screen changed = success)
+        screen.capture.side_effect = [
+            (same_img, (400, 250)),  # ballistic capture
+            (diff_img, (400, 250)),  # verify (changed)
         ]
-        screen.capture.side_effect = screenshots
         analyzer = self._make_analyzer([
             '{"x": 400, "y": 250}',
-            '{"on_target": true}',
         ])
         servo = ServoController(screen, analyzer)
         result = servo.click_target("Reply button")
@@ -52,17 +52,14 @@ class TestServoController(unittest.TestCase):
         same_img = Image.new("RGB", (1280, 720), color=(50, 50, 50))
         diff_img = Image.new("RGB", (1280, 720), color=(200, 200, 200))
         screen.capture.side_effect = [
-            (same_img, (400, 250)),  # ballistic capture
-            (same_img, (400, 250)),  # on-target check (miss)
-            # attempt 1 only gets 1 correction, so it clicks and verifies
-            (same_img, (400, 250)),  # verify (no change) → retry attempt 2
+            (same_img, (400, 250)),  # attempt 1 ballistic
+            (same_img, (400, 250)),  # attempt 1 verify (no change → retry)
             (same_img, (400, 250)),  # attempt 2 ballistic
-            (same_img, (400, 250)),  # on-target check
-            (diff_img, (400, 250)),  # verify (changed)
+            (same_img, (400, 250)),  # attempt 2 correction 1 (on_target)
+            (diff_img, (400, 250)),  # attempt 2 verify (changed)
         ]
         analyzer = self._make_analyzer([
             '{"x": 400, "y": 250}',
-            '{"on_target": false, "direction": "right", "distance": "small"}',
             '{"x": 410, "y": 250}',
             '{"on_target": true}',
         ])
@@ -85,8 +82,8 @@ class TestServoController(unittest.TestCase):
         analyzer = self._make_analyzer(responses)
         servo = ServoController(screen, analyzer, max_corrections=4)
         result = servo.click_target("Reply button")
-        # All attempts exhausted but still returns success=True (best effort)
-        assert result["success"] is True
+        # All attempts exhausted with no screen change — honest failure
+        assert result["success"] is False
         assert result["verified"] is False
 
     @patch("time.sleep")
@@ -95,19 +92,23 @@ class TestServoController(unittest.TestCase):
         screen = self._make_screen(cursor_pos=(400, 250))
         same_img = Image.new("RGB", (1280, 720), color=(50, 50, 50))
         diff_img = Image.new("RGB", (1280, 720), color=(200, 200, 200))
-        # attempt 1: ballistic + 1 correction (max for attempt 1) → verify miss
-        # attempt 2: ballistic + corrections with direction reversal → verify hit
+        # attempt 1: ballistic (no corrections) → verify miss
+        # attempt 2: ballistic + 1 correction → verify miss
+        # attempt 3: ballistic + corrections with direction reversal → verify hit
         screen.capture.side_effect = [
             (same_img, (400, 250)),  # attempt 1 ballistic
-            (same_img, (400, 250)),  # attempt 1 correction 1 (right)
             (same_img, (400, 250)),  # attempt 1 verify (no change)
             (same_img, (400, 250)),  # attempt 2 ballistic
             (same_img, (400, 250)),  # attempt 2 correction 1 (right)
-            (same_img, (400, 250)),  # attempt 2 correction 2 (left = reversal)
-            (same_img, (400, 250)),  # attempt 2 correction 3 (on_target)
-            (diff_img, (400, 250)),  # attempt 2 verify (changed)
+            (same_img, (400, 250)),  # attempt 2 verify (no change)
+            (same_img, (400, 250)),  # attempt 3 ballistic
+            (same_img, (400, 250)),  # attempt 3 correction 1 (right)
+            (same_img, (400, 250)),  # attempt 3 correction 2 (left = reversal)
+            (same_img, (400, 250)),  # attempt 3 correction 3 (on_target)
+            (diff_img, (400, 250)),  # attempt 3 verify (changed)
         ]
         analyzer = self._make_analyzer([
+            '{"x": 400, "y": 250}',
             '{"x": 400, "y": 250}',
             '{"on_target": false, "direction": "right", "distance": "large"}',
             '{"x": 400, "y": 250}',
@@ -124,18 +125,18 @@ class TestServoController(unittest.TestCase):
     def test_verification_detects_screen_change(self, mock_sleep):
         from backend.services.servo_controller import ServoController
         screen = self._make_screen()
-        screenshots = [
-            (Image.new("RGB", (1280, 720), color=(50, 50, 50)), (400, 250)),
-            (Image.new("RGB", (1280, 720), color=(50, 50, 50)), (400, 250)),
-            (Image.new("RGB", (1280, 720), color=(200, 200, 200)), (400, 250)),
+        same_img = Image.new("RGB", (1280, 720), color=(50, 50, 50))
+        diff_img = Image.new("RGB", (1280, 720), color=(200, 200, 200))
+        screen.capture.side_effect = [
+            (same_img, (400, 250)),  # ballistic capture
+            (diff_img, (400, 250)),  # verify (changed)
         ]
-        screen.capture.side_effect = screenshots
         analyzer = self._make_analyzer([
             '{"x": 400, "y": 250}',
-            '{"on_target": true}',
         ])
         servo = ServoController(screen, analyzer)
         result = servo.click_target("Reply button")
+        assert result["success"] is True
         assert result["verified"] is True
 
     def test_nudge_distances(self):

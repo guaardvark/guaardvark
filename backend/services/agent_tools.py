@@ -204,7 +204,69 @@ class ToolRegistry:
             return '\n'.join(lines)
         else:
             raise ValueError(f"Unsupported format: {format}")
-    
+
+    def as_llama_index_tools(self, tool_filter: str = None) -> List[Any]:
+        """Convert registered tools to LlamaIndex FunctionTool objects for native function calling.
+
+        Returns a list of llama_index.core.tools.FunctionTool instances whose
+        metadata (name, description, parameter schema) mirrors our BaseTool
+        definitions.  The actual execution still goes through ToolRegistry.execute_tool().
+        """
+        from pydantic import BaseModel, Field as PydanticField, create_model
+        from llama_index.core.tools import FunctionTool
+
+        TYPE_MAP = {
+            'string': str, 'str': str,
+            'int': int, 'integer': int,
+            'float': float, 'number': float,
+            'bool': bool, 'boolean': bool,
+            'list': list, 'array': list,
+            'dict': dict, 'object': dict,
+        }
+
+        tools = list(self.tools.values())
+        if tool_filter == 'vision':
+            VISION_TOOL_NAMES = {
+                'agent_mode_start', 'agent_mode_stop', 'agent_task_execute',
+                'agent_screen_capture', 'agent_status', 'web_search',
+            }
+            tools = [t for t in tools if t.name in VISION_TOOL_NAMES
+                     or t.name.startswith('agent_')]
+
+        li_tools = []
+        for tool in tools:
+            # Build a Pydantic model for the parameter schema
+            fields = {}
+            for pname, param in tool.parameters.items():
+                py_type = TYPE_MAP.get(param.type, str)
+                if param.required:
+                    if param.default is not None:
+                        fields[pname] = (py_type, PydanticField(default=param.default, description=param.description))
+                    else:
+                        fields[pname] = (py_type, PydanticField(description=param.description))
+                else:
+                    from typing import Optional as Opt
+                    if param.default is not None:
+                        fields[pname] = (Opt[py_type], PydanticField(default=param.default, description=param.description))
+                    else:
+                        fields[pname] = (Opt[py_type], PydanticField(default=None, description=param.description))
+
+            schema_model = create_model(f"{tool.name}_Schema", **fields) if fields else None
+
+            # Stub function — actual execution happens via execute_tool()
+            def _stub(**kwargs):
+                return ""
+
+            li_tool = FunctionTool.from_defaults(
+                fn=_stub,
+                name=tool.name,
+                description=tool.description,
+                fn_schema=schema_model,
+            )
+            li_tools.append(li_tool)
+
+        return li_tools
+
     def execute_tool(self, tool_name: str, agent_context: Optional[Dict[str, Any]] = None, **kwargs) -> ToolResult:
         """
         Execute a tool by name with given parameters and context

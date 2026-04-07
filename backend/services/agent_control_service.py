@@ -13,6 +13,7 @@ Orchestrates the see-think-act loop:
 
 import json
 import logging
+import os
 import queue
 import threading
 import time
@@ -32,9 +33,9 @@ _service_lock = threading.Lock()
 @dataclass
 class AgentControlConfig:
     """Configuration for the agent control loop."""
-    max_iterations: int = 50
-    max_consecutive_failures: int = 5
-    task_timeout_seconds: int = 300  # 5 minutes
+    max_iterations: int = 15
+    max_consecutive_failures: int = 3
+    task_timeout_seconds: int = 60  # 1 minute — good tasks finish in <10s
     action_timeout_seconds: int = 60
     verify_actions: bool = True
     grid_cols: int = 8
@@ -176,14 +177,47 @@ class AgentControlService:
 
         with self._lock:
             if self._active:
-                return self._store_and_return(AgentResult(success=False, reason="Agent already active"))
+                # New task supersedes old one — kill the stale task so its
+                # see-think-act loop exits on the next _killed check.
+                old_task = self._current_task
+                logger.warning(f"[AGENT] Killing stale task \"{old_task}\" to start new task \"{task}\"")
+                self._killed = True
+
+        # Give the old task's loop time to see the kill flag and exit.
+        # Each iteration checks _killed before doing work, so one iteration
+        # cycle (~2-3s for vision call) is the worst case.
+        if self._killed:
+            for _ in range(10):
+                time.sleep(0.3)
+                if not self._active:
+                    break
+            # If it's STILL active after 3s, force-clear — the old thread's
+            # finally block will harmlessly set _active=False again later.
+            if self._active:
+                logger.warning("[AGENT] Force-clearing stale active flag after kill timeout")
+
+        with self._lock:
             self._active = True
             self._killed = False
             self._current_task = task
             self._current_iteration = 0
             self._action_history = []
 
-        analyzer = VisionAnalyzer(default_model=self.config.vision_model)
+        # Pick the vision model for servo coordinate estimation.
+        # If vision_model is None, the model does its own coords — no middleman.
+        from backend.services.servo_knowledge_store import get_vision_config
+        vision_config = get_vision_config()
+        servo_vision_model = vision_config.get("vision_model")  # None = model does its own coords
+
+        if servo_vision_model:
+            logger.info(f"[AGENT] Servo eyes: {servo_vision_model} (external)")
+        else:
+            # Auto-detect — use the same model that's doing the unified see+decide
+            servo_vision_model = self._get_unified_model() or self.config.vision_model
+            logger.info(f"[AGENT] Servo eyes: {servo_vision_model} (same model sees, decides, AND clicks)")
+
+        logger.info(f"[AGENT] Vision config: servo_eyes={servo_vision_model} scale=({vision_config['scale_x']}, {vision_config['scale_y']})")
+        analyzer = VisionAnalyzer(default_model=servo_vision_model)
         collector = TrainingDataCollector()
         servo = ServoController(screen, analyzer, collector=collector)
         consecutive_failures = 0
@@ -274,6 +308,21 @@ class AgentControlService:
                               f"reasoning=\"{decision.action.reasoning or ''}\"")
 
                 if decision.task_complete:
+                    # Guard: "done" on step 1 with no actions taken is suspicious.
+                    # If the screen is black or no actions were executed, this is
+                    # likely the model giving up, not genuine completion.
+                    if iteration == 0 and not self._action_history:
+                        # Check if screen is actually showing something
+                        check_shot, _ = screen.capture()
+                        if self._is_black_frame(check_shot):
+                            logger.warning(f"[AGENT][DONE] Rejected — model said 'done' on black screen with 0 actions")
+                            return self._store_and_return(AgentResult(
+                                success=False,
+                                reason="Screen is black — virtual display may need restart. No actions were taken.",
+                                steps=self._action_history,
+                                total_time_seconds=time.time() - start_time
+                            ))
+
                     logger.warning(f"[AGENT][DONE] Task complete after {iteration+1} steps, "
                                   f"{time.time() - start_time:.1f}s")
                     return self._store_and_return(AgentResult(
@@ -321,6 +370,29 @@ class AgentControlService:
                 else:
                     result = self._execute_action(decision.action, screen)
                     failed = not result.get("success", False)
+
+                    # Post-action observation: wait for the UI to update, then
+                    # take a verification screenshot so the NEXT iteration's
+                    # SEE step reflects the actual outcome of this action.
+                    if not failed and decision.action.action_type in ("type", "hotkey", "scroll"):
+                        time.sleep(0.5)
+                        post_shot, _ = self._capture_with_retry(screen)
+                        # Compare before/after to detect if the action had any visible effect
+                        if screenshot is not None and post_shot is not None:
+                            import numpy as np
+                            before_mean = np.array(screenshot).mean()
+                            after_mean = np.array(post_shot).mean()
+                            pixel_diff = abs(after_mean - before_mean)
+                            if pixel_diff < 0.05 and decision.action.action_type == "type":
+                                # Screen didn't change at all after typing — likely typed into nothing
+                                logger.warning(f"[AGENT][STEP {iteration+1}][VERIFY] Screen unchanged after type — "
+                                              f"text may not have landed in a field")
+                                result["verified"] = False
+                            else:
+                                result["verified"] = True
+                                logger.warning(f"[AGENT][STEP {iteration+1}][VERIFY] Screen changed after "
+                                              f"{decision.action.action_type} (delta={pixel_diff:.2f})")
+
                     status_icon = "OK" if not failed else "FAIL"
                     detail = decision.action.text or str(decision.action.keys) or ""
                     logger.warning(f"[AGENT][STEP {iteration+1}][ACT] {decision.action.action_type} "
@@ -335,6 +407,41 @@ class AgentControlService:
                     failed=failed,
                 )
                 self._action_history.append(step)
+
+                # 5b. EARLY DONE — after a successful action, check if the
+                # task goal is obviously met based on desktop state. Saves
+                # an entire LLM round-trip (~3-5s) when the answer is clear.
+                if not failed and len(self._action_history) >= 1:
+                    early_done = self._check_early_done(task)
+                    if early_done:
+                        logger.warning(
+                            f"[AGENT][EARLY_DONE] Task goal met after step {iteration+1}: {early_done}"
+                        )
+                        return self._store_and_return(AgentResult(
+                            success=True, reason=f"completed ({early_done})",
+                            steps=self._action_history,
+                            total_time_seconds=time.time() - start_time
+                        ))
+
+                # 5c. LOOP BREAKER — if last 3 actions are identical, the LLM
+                # is stuck in a loop. Force-complete instead of burning iterations.
+                if len(self._action_history) >= 3:
+                    last3 = [
+                        (h.action.action_type, h.action.target_description, h.action.text)
+                        for h in self._action_history[-3:]
+                    ]
+                    if len(set(last3)) == 1:
+                        logger.warning(
+                            f"[AGENT][LOOP] Same action repeated 3x: "
+                            f"{last3[0][0]} \"{last3[0][1] or last3[0][2]}\". "
+                            f"Forcing task complete."
+                        )
+                        return self._store_and_return(AgentResult(
+                            success=True,
+                            reason="completed (loop detected — action repeated 3 times)",
+                            steps=self._action_history,
+                            total_time_seconds=time.time() - start_time
+                        ))
 
                 if failed:
                     consecutive_failures += 1
@@ -551,10 +658,192 @@ class AgentControlService:
         thread.start()
         return {"success": True, "message": f"Attempt started at level '{level}'", "autonomy_level": level}
 
+    @staticmethod
+    def _get_desktop_state() -> str:
+        """Query the actual state of the virtual desktop (DISPLAY=:99).
+
+        Returns a compact text summary of what's running — ground truth
+        from the window manager, not a vision model guess.  Takes <10ms.
+        """
+        import subprocess
+        # Always query the agent's virtual display, not the user's desktop
+        display = ":99"
+        env = {**os.environ, "DISPLAY": display}
+
+        try:
+            import re as _re
+
+            # Search for known application windows by name
+            app_searches = ["Firefox", "Chromium", "Chrome", "Terminal",
+                            "Files", "Text Editor", "LibreOffice"]
+            all_wids = set()
+            for app in app_searches:
+                result = subprocess.run(
+                    ["xdotool", "search", "--name", app],
+                    capture_output=True, text=True, timeout=2, env=env,
+                )
+                for wid in result.stdout.strip().split("\n"):
+                    if wid.strip():
+                        all_wids.add(wid.strip())
+
+            # Also get the active window
+            active = subprocess.run(
+                ["xdotool", "getactivewindow"],
+                capture_output=True, text=True, timeout=2, env=env,
+            )
+            if active.stdout.strip():
+                all_wids.add(active.stdout.strip())
+
+            windows = []
+            seen_names = set()
+            for wid in all_wids:
+                try:
+                    name_result = subprocess.run(
+                        ["xdotool", "getwindowname", wid],
+                        capture_output=True, text=True, timeout=2, env=env,
+                    )
+                    name = name_result.stdout.strip()
+                    if not name or name in ("Desktop", "xfdesktop-desktop",
+                                            "Panel", "xfce4-panel"):
+                        continue
+
+                    geo_result = subprocess.run(
+                        ["xdotool", "getwindowgeometry", wid],
+                        capture_output=True, text=True, timeout=2, env=env,
+                    )
+                    geo_text = geo_result.stdout.strip()
+                    geo_match = _re.search(r"Geometry:\s*(\d+)x(\d+)", geo_text)
+                    if not geo_match:
+                        continue
+                    w, h = int(geo_match.group(1)), int(geo_match.group(2))
+                    if w < 50 or h < 50:
+                        continue
+
+                    # Deduplicate by name (Firefox has multiple internal windows)
+                    short_name = name.split(" — ")[-1] if " — " in name else name
+                    short_name = name.split(" - ")[-1] if " - " in name else short_name
+                    if short_name in seen_names:
+                        continue
+                    seen_names.add(short_name)
+
+                    pos_match = _re.search(r"Position:\s*(-?\d+),(-?\d+)", geo_text)
+                    pos = f" at ({pos_match.group(1)},{pos_match.group(2)})" if pos_match else ""
+                    windows.append(f"  - {name} ({w}x{h}{pos})")
+                except Exception:
+                    continue
+
+            if not windows:
+                return "Desktop state: No application windows open. Desktop is empty."
+
+            return "Desktop state — currently open:\n" + "\n".join(windows)
+
+        except Exception as e:
+            logger.debug(f"Desktop state query failed: {e}")
+            return "Desktop state: unknown (query failed)"
+
+    @staticmethod
+    def _check_early_done(task: str) -> str:
+        """Check if the task goal is obviously met based on desktop state.
+
+        Returns a reason string if done, empty string if not.
+        Fast check (<20ms) — no vision model, just xdotool queries.
+        """
+        import re as _re
+        task_lower = task.lower()
+        desktop = AgentControlService._get_desktop_state()
+
+        # "Close X" tasks: if no windows are open, we're done
+        if _re.search(r'\b(?:close|quit|exit|kill|shut\s*down|stop)\b', task_lower):
+            if "No application windows open" in desktop:
+                return "no windows open — target closed"
+
+            # If closing a specific app, check if that app is gone
+            for app in ("firefox", "chrome", "chromium", "browser", "terminal"):
+                if app in task_lower and app.capitalize() not in desktop.lower():
+                    return f"{app} no longer visible"
+
+        # "Open X" tasks: if the target app is now visible
+        if _re.search(r'\b(?:open|start|launch)\b', task_lower):
+            for app in ("firefox", "chrome", "chromium", "terminal"):
+                if app in task_lower and app.lower() in desktop.lower():
+                    return f"{app} is now open"
+
+        return ""
+
     def _store_and_return(self, result: AgentResult) -> AgentResult:
         """Store result for status reporting and return it."""
         self._last_result = result
+        # Enforce window boundaries so windows don't escape the virtual display
+        self._enforce_window_boundaries()
         return result
+
+    def _enforce_window_boundaries(self):
+        """Clamp all windows to fit within the virtual display (1280x720).
+
+        Runs after every task to prevent windows from drifting off-screen
+        where the agent can't see or interact with them.
+        """
+        import subprocess
+        display = os.environ.get("DISPLAY", ":99")
+        screen_w, screen_h = 1280, 720
+        try:
+            result = subprocess.run(
+                ["xdotool", "search", "--onlyvisible", "--name", ""],
+                capture_output=True, text=True, timeout=3,
+                env={**os.environ, "DISPLAY": display},
+            )
+            for wid in result.stdout.strip().split("\n"):
+                wid = wid.strip()
+                if not wid:
+                    continue
+                try:
+                    geo = subprocess.run(
+                        ["xdotool", "getwindowgeometry", wid],
+                        capture_output=True, text=True, timeout=2,
+                        env={**os.environ, "DISPLAY": display},
+                    )
+                    # Parse "Position: X,Y" and "Geometry: WxH"
+                    lines = geo.stdout.strip().split("\n")
+                    pos_line = [l for l in lines if "Position:" in l]
+                    geo_line = [l for l in lines if "Geometry:" in l]
+                    if not pos_line or not geo_line:
+                        continue
+                    import re
+                    pos_match = re.search(r"Position:\s*(-?\d+),(-?\d+)", pos_line[0])
+                    geo_match = re.search(r"Geometry:\s*(\d+)x(\d+)", geo_line[0])
+                    if not pos_match or not geo_match:
+                        continue
+                    x, y = int(pos_match.group(1)), int(pos_match.group(2))
+                    w, h = int(geo_match.group(1)), int(geo_match.group(2))
+                    # Skip tiny windows (tooltips, hidden frames)
+                    if w < 50 or h < 50:
+                        continue
+                    # Check if out of bounds
+                    needs_fix = False
+                    new_x, new_y = x, y
+                    if x < 0:
+                        new_x = 0
+                        needs_fix = True
+                    if y < 0:
+                        new_y = 0
+                        needs_fix = True
+                    if x + w > screen_w:
+                        new_x = max(0, screen_w - w)
+                        needs_fix = True
+                    if y + h > screen_h:
+                        new_y = max(0, screen_h - h)
+                        needs_fix = True
+                    if needs_fix:
+                        subprocess.run(
+                            ["xdotool", "windowmove", wid, str(new_x), str(new_y)],
+                            capture_output=True, timeout=2,
+                            env={**os.environ, "DISPLAY": display},
+                        )
+                        logger.info(f"Clamped window {wid} from ({x},{y}) to ({new_x},{new_y})")
+                except Exception:
+                    pass
+        except Exception as e:
+            logger.debug(f"Window boundary enforcement skipped: {e}")
 
     def _is_black_frame(self, image: Image.Image) -> bool:
         """Check if frame is mostly black (display went dark)."""
@@ -727,7 +1016,12 @@ class AgentControlService:
             recent = history[-5:]
             steps = []
             for h in recent:
-                status = "FAIL" if h.failed else "OK"
+                if h.failed:
+                    status = "FAIL"
+                elif h.result and h.result.get("verified") is False:
+                    status = "UNVERIFIED — screen did not change, text may not have landed"
+                else:
+                    status = "OK"
                 desc = h.action.text or h.action.target_description or str(h.action.keys or "")
                 steps.append(f"  {h.action.action_type}: {desc} [{status}]")
             done_lines = "Last actions:\n" + "\n".join(steps) + "\n"
@@ -742,7 +1036,11 @@ class AgentControlService:
                         "If you typed text, now press Return. If you clicked, try a different target.\n"
                     )
 
+        desktop_state = AgentControlService._get_desktop_state()
+
         return f"""Task: {task}
+
+{desktop_state}
 
 {done_lines}{loop_warning}Step {len(history) + 1}. Look at the screenshot. What is the ONE next action?
 
@@ -752,7 +1050,11 @@ IMPORTANT RULES:
 - If the task is complete, use "done"
 
 Reply with ONLY JSON:
-{{"action": "click|right_click|type|hotkey|scroll|done", "target_description": "what to click", "text": "text to type", "keys": ["ctrl", "t"], "reasoning": "why"}}
+{{"action": "click|right_click|type|hotkey|scroll|done", "target_description": "what to click", "text": "the EXACT literal text to type (NOT instructions, just the value)", "keys": ["ctrl", "t"], "reasoning": "why"}}
+
+EXAMPLE — if the task says "type guaardvark in the search box":
+{{"action": "type", "text": "guaardvark", "reasoning": "typing the search query"}}
+WRONG: {{"text": "type guaardvark in the search box"}} — do NOT include instructions in text, only the value.
 
 Use "right_click" to open context menus (e.g., right-click the desktop to open the application menu)."""
 
@@ -764,8 +1066,8 @@ Use "right_click" to open context menus (e.g., right-click the desktop to open t
             response = _requests.get("http://localhost:11434/api/tags", timeout=5)
             if response.status_code == 200:
                 models = [m["name"] for m in response.json().get("models", [])]
-                # Prefer larger instruct VLMs that can reason + see
-                for preferred in ["qwen3-vl:4b-instruct", "qwen3-vl:8b-instruct"]:
+                # Prefer larger VLMs that can reason + see
+                for preferred in ["gemma4:e4b", "qwen3-vl:8b-instruct", "qwen3-vl:4b-instruct"]:
                     if preferred in models:
                         return preferred
         except Exception:
@@ -848,10 +1150,58 @@ Use "right_click" to open context menus (e.g., right-click the desktop to open t
             for pattern in recipe.get("triggers", []):
                 match = re.search(pattern, task_lower, re.IGNORECASE)
                 if match:
+                    # If the recipe wants to LAUNCH Firefox but it's already running,
+                    # just focus the existing window instead of the desktop-menu dance.
+                    if recipe_name in ("open_firefox",) and self._is_firefox_running(screen):
+                        logger.warning(f"[AGENT][RECIPE] Skipping '{recipe_name}' — Firefox already running, focusing it")
+                        return self._focus_firefox(screen)
                     logger.warning(f"[AGENT][RECIPE] Matched '{recipe_name}': {recipe['description']}")
                     return self._execute_recipe(recipe_name, recipe, match, screen)
 
         return None
+
+    def _is_firefox_running(self, screen) -> bool:
+        """Check if Firefox has a window on the virtual display."""
+        import subprocess
+        display = getattr(screen, 'display', os.environ.get('DISPLAY', ':99'))
+        try:
+            result = subprocess.run(
+                ["xdotool", "search", "--name", "Mozilla Firefox"],
+                capture_output=True, text=True, timeout=3,
+                env={**os.environ, "DISPLAY": display},
+            )
+            return bool(result.stdout.strip())
+        except Exception:
+            return False
+
+    def _focus_firefox(self, screen) -> 'AgentResult':
+        """Focus the existing Firefox window instead of launching a new one."""
+        import subprocess, time as _time
+        display = getattr(screen, 'display', os.environ.get('DISPLAY', ':99'))
+        env = {**os.environ, "DISPLAY": display}
+        start = _time.time()
+        try:
+            # Get Firefox window ID and activate it
+            result = subprocess.run(
+                ["xdotool", "search", "--name", "Mozilla Firefox"],
+                capture_output=True, text=True, timeout=3, env=env,
+            )
+            wids = result.stdout.strip().split()
+            if wids:
+                subprocess.run(
+                    ["xdotool", "windowactivate", "--sync", wids[0]],
+                    capture_output=True, timeout=3, env=env,
+                )
+                _time.sleep(0.5)
+                logger.warning("[AGENT][RECIPE] Focused existing Firefox window")
+        except Exception as e:
+            logger.warning(f"[AGENT][RECIPE] Firefox focus failed: {e}")
+
+        elapsed = _time.time() - start
+        return AgentResult(
+            success=True, reason="recipe:focus_firefox",
+            steps=[], total_time_seconds=elapsed,
+        )
 
     def _execute_recipe(self, name: str, recipe: dict, match, screen) -> 'AgentResult':
         """Execute a matched recipe — deterministic sequence of actions."""
@@ -908,11 +1258,17 @@ Use "right_click" to open context menus (e.g., right-click the desktop to open t
             step_num += 1
 
         elapsed = _time.time() - start
-        logger.warning(f"[AGENT][RECIPE] {name} complete in {elapsed:.1f}s ({len(action_steps)} actions)")
+        failed_steps = [s for s in action_steps if s.failed]
+        all_succeeded = len(failed_steps) == 0
+
+        if failed_steps:
+            logger.warning(f"[AGENT][RECIPE] {name} had {len(failed_steps)} failed step(s)")
+        logger.info(f"[AGENT][RECIPE] {name} complete in {elapsed:.1f}s ({len(action_steps)} actions, success={all_succeeded})")
 
         self._action_history = action_steps
         return AgentResult(
-            success=True, reason=f"recipe:{name}",
+            success=all_succeeded,
+            reason=f"recipe:{name}" if all_succeeded else f"recipe:{name} — {len(failed_steps)} step(s) failed",
             steps=action_steps, total_time_seconds=elapsed
         )
 
@@ -990,8 +1346,10 @@ Use "right_click" to open context menus (e.g., right-click the desktop to open t
 
     def _build_vision_prompt(self, task: str, history: List[ActionStep]) -> str:
         """Build the prompt for scene analysis."""
+        desktop_state = self._get_desktop_state()
         prompt = (
             f"Task: {task}\n\n"
+            f"{desktop_state}\n\n"
             "Describe what is on screen right now. Be specific and concise:\n"
             "1. What website or application is showing? Read the URL if visible.\n"
             "2. How many browser tabs are open? What are their titles?\n"
@@ -1089,7 +1447,11 @@ Use "right_click" to open context menus (e.g., right-click the desktop to open a
         # Always load example traces — they help with any UI interaction task
         example_traces = self._load_example_traces(task)
 
+        desktop_state = self._get_desktop_state()
+
         return f"""{self_knowledge}{example_traces}Task: {task}
+
+{desktop_state}
 
 Current screen:
 {scene}
@@ -1119,11 +1481,26 @@ Current screen:
                 decision.action.reasoning = data.get("reasoning", "")
                 return decision
 
+            # Sanitize text field — models sometimes parrot instruction text
+            # instead of just the value. Strip common instruction prefixes.
+            raw_text = data.get("text", "") or ""
+            if action_type == "type" and raw_text:
+                import re as _re
+                # If text contains quoted content, extract just the quoted part
+                # e.g. "type 'guaardvark' in search" → "guaardvark"
+                quoted = _re.search(r"['\"]([^'\"]+)['\"]", raw_text)
+                if quoted and len(raw_text) > len(quoted.group(1)) + 10:
+                    raw_text = quoted.group(1)
+                # Strip instruction-like prefixes
+                raw_text = _re.sub(
+                    r'^(?:type|enter|search|input|write|put)\s+', '', raw_text, flags=_re.IGNORECASE
+                ).strip().strip("'\"")
+
             action = AgentAction(
                 action_type=action_type,
                 target_cell=data.get("target_cell", ""),
                 target_description=data.get("target_description", ""),
-                text=data.get("text", ""),
+                text=raw_text,
                 keys=data.get("keys", []),
                 scroll_amount=data.get("scroll_amount", 0),
                 reasoning=data.get("reasoning", ""),

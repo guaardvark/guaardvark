@@ -134,9 +134,10 @@ class ServoController:
             verify_shot, _ = self.screen.capture()
             screen_changed = self._screen_changed(screenshot, verify_shot, click_pos=(current_x, current_y))
 
-            # If correction loop said on_target before we clicked, count as success
-            # regardless of screen-change (some UIs have subtle visual feedback)
-            click_landed = screen_changed or (corrections_made == 0 and coords is not None)
+            # Success = the screen actually changed after we clicked.
+            # Previously this also counted "ballistic with no corrections" as success,
+            # which poisoned training data — clicks that hit nothing were recorded as hits.
+            click_landed = screen_changed
 
             elapsed_ms = int((time.time() - start) * 1000)
 
@@ -181,9 +182,42 @@ class ServoController:
 
             logger.info(f"Servo attempt {attempt} missed (screen unchanged), retrying...")
 
+        # All 3 attempts exhausted without screen change — this is a failure.
+        # Recording it honestly is critical for training data quality.
         elapsed_ms = int((time.time() - start) * 1000)
+
+        if self.collector:
+            self.collector.record(
+                screenshot_before=screenshot,
+                crosshair_pos=(current_x, current_y),
+                target_description=target_description,
+                target_actual=(current_x, current_y),
+                corrections=[],
+                success=False,
+            )
+
+        raw = getattr(self, '_last_raw_coords', (0, 0))
+        scale = getattr(self, '_last_scale', (1.0, 1.0))
+        model_name = getattr(self.analyzer, 'default_model', 'unknown')
+        try:
+            archive = get_servo_archive()
+            archive.record(
+                target_description=target_description,
+                model_used=model_name,
+                raw_model_coords=raw,
+                scaled_coords=(current_x, current_y),
+                actual_click_coords=(current_x, current_y),
+                scale_factor=scale,
+                success=False,
+                corrections=corrections_made,
+                attempt=3,
+                time_ms=elapsed_ms,
+            )
+        except Exception as e:
+            logger.debug(f"Archive record failed (non-fatal): {e}")
+
         return {
-            "success": True, "verified": False,
+            "success": False, "verified": False,
             "x": current_x, "y": current_y,
             "corrections": corrections_made, "attempt": 3,
             "time_ms": elapsed_ms,
@@ -221,34 +255,41 @@ class ServoController:
         return False
 
     def _estimate_coordinates(self, screenshot: Image.Image, target: str) -> Optional[Tuple[int, int]]:
+        """Ask the vision model where the target is. No descaling, no format
+        conversion — just tell the model the screen size and let it answer
+        in pixel coordinates directly."""
         prompt = (
-            f"Screen is {SCREEN_W}x{SCREEN_H}. The taskbar is at the very bottom (y>{SCREEN_H - TASKBAR_H}) — ignore it. "
-            f"Find the {target}. "
-            f"Output only: {{\"x\": CENTER_X, \"y\": CENTER_Y}}"
+            f"The screen is {SCREEN_W}x{SCREEN_H} pixels. "
+            f"Where is the center of the {target}? "
+            f"Reply with ONLY: {{\"x\": <pixels from left>, \"y\": <pixels from top>}}"
         )
         result = self.analyzer.analyze(screenshot, prompt=prompt, num_predict=32, temperature=0.1)
         if not result.success:
             logger.error(f"Coordinate estimation failed: {result.error}")
             return None
-        raw_coords = self._parse_coordinates(result.description)
-        if raw_coords is None:
+
+        coords = self._parse_coordinates(result.description)
+        if coords is None:
             return None
 
-        # Scale from model's internal resolution to actual screen pixels
-        # Uses Tier 1 reflexes — self-improvement engine tunes these values
-        scale_x, scale_y = get_scale_factors(SCREEN_W, SCREEN_H)
-        safe_max_y = SCREEN_H - TASKBAR_H  # Clamp to avoid taskbar
-        scaled = (
-            max(0, min(SCREEN_W, int(raw_coords[0] * scale_x))),
-            max(0, min(safe_max_y, int(raw_coords[1] * scale_y))),
-        )
+        x, y = coords
 
-        # Store raw coords for archive recording (done in click_target)
-        self._last_raw_coords = raw_coords
-        self._last_scale = (scale_x, scale_y)
+        # Gemma4 sometimes returns coords in its internal 1024-grid space
+        # instead of real pixels. Detect and rescale when values exceed screen bounds.
+        if x > SCREEN_W or y > SCREEN_H:
+            logger.info(f"Servo: coords ({x},{y}) exceed screen — rescaling from 1024 grid")
+            x = round((x / 1024) * SCREEN_W)
+            y = round((y / 1024) * SCREEN_H)
 
-        logger.info(f"Servo coords: raw={raw_coords} scaled={scaled} (scale={scale_x:.2f}x{scale_y:.2f})")
-        return scaled
+        # Clamp to screen bounds
+        x = max(0, min(SCREEN_W, x))
+        y = max(0, min(SCREEN_H - TASKBAR_H, y))
+
+        self._last_raw_coords = coords
+        self._last_scale = (1.0, 1.0)
+
+        logger.info(f"Servo coords: ({x}, {y}) model={getattr(self.analyzer, 'default_model', '?')}")
+        return (x, y)
 
     def _check_on_target(self, screenshot: Image.Image, target: str) -> Dict[str, Any]:
         prompt = (
