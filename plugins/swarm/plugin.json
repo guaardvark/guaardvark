@@ -1,0 +1,38 @@
+{
+  "id": "swarm",
+  "name": "Swarm Orchestrator",
+  "version": "0.1.0",
+  "description": "Parallel AI agent orchestration \u2014 launch swarms of coding agents across isolated git worktrees. Supports Claude Code, Cline/OpenClaw, and local Ollama models. Flight Mode for fully offline operation.",
+  "author": "Guaardvark",
+  "type": "service",
+  "category": "orchestration",
+  "port": 8210,
+  "vram_estimate_mb": 0,
+  "dependencies": [],
+  "config": {
+    "enabled": false,
+    "auto_start": false,
+    "service_url": "http://localhost:8210",
+    "timeout": 30,
+    "fallback_enabled": false,
+    "max_concurrent_agents": 5,
+    "flight_mode": false,
+    "auto_merge": false,
+    "run_tests_before_merge": true
+  },
+  "requirements": {
+    "gpu": false,
+    "cuda": false,
+    "ollama": false
+  },
+  "endpoints": {
+    "health": "/health",
+    "launch": "/swarm/launch",
+    "status": "/swarm/status",
+    "cancel": "/swarm/cancel",
+    "merge": "/swarm/merge",
+    "cleanup": "/swarm/cleanup",
+    "templates": "/swarm/templates",
+    "logs": "/swarm/{swarm_id}/logs/{task_id}"
+  }
+}

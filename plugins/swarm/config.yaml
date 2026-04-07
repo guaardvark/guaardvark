@@ -1,0 +1,34 @@
+defaults:
+  max_concurrent_agents: 5
+  worktree_base: ".swarm-worktrees"
+  auto_merge: false
+  run_tests_before_merge: true
+  test_command: "python3 -m pytest"
+  flight_mode: false
+
+backends:
+  claude:
+    command: "claude"
+    args: ["--print", "--output-file", "completion.md"]
+    requires_internet: true
+    priority: 1
+    cost_per_1k_input_tokens: 0.015
+    cost_per_1k_output_tokens: 0.075
+  cline:
+    command: "cline"
+    args: []
+    model: "ollama/qwen2.5-coder:14b"
+    requires_internet: false
+    priority: 2
+    cost_per_1k_input_tokens: 0.0
+    cost_per_1k_output_tokens: 0.0
+
+offline_detection:
+  method: "ping"
+  target: "api.anthropic.com"
+  timeout_seconds: 2
+  auto_fallback: true
+
+cost_tracking:
+  enabled: true
+  currency: "USD"
