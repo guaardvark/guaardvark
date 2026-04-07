@@ -28,11 +28,12 @@ except ImportError as e:
     offline_gen_available = False
 
 try:
-    from backend.config import CACHE_DIR
+    from backend.config import CACHE_DIR, UPLOAD_DIR
     config_available = True
 except ImportError:
     config_available = False
     CACHE_DIR = "/tmp/guaardvark_cache"
+    UPLOAD_DIR = "/tmp/guaardvark_uploads"
 
 @dataclass
 class BatchPrompt:
@@ -102,8 +103,8 @@ class BatchGenerationStatus:
 class BatchImageGenerator:
 
     def __init__(self):
-        project_root = Path(__file__).parent.parent.parent
-        self.base_output_dir = project_root / "data" / "outputs" / "batch_images"
+        # Images land directly in data/uploads/Images/ so DocumentsPage sees them
+        self.base_output_dir = Path(UPLOAD_DIR) / "Images"
         self.cache_dir = Path(CACHE_DIR) / "batch_generation"
 
         self.base_output_dir.mkdir(parents=True, exist_ok=True)
@@ -130,9 +131,9 @@ class BatchImageGenerator:
         logger.info(f"BatchImageGenerator initialized - Service available: {self.service_available}")
 
     def _generate_batch_id(self) -> str:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        unique_id = str(uuid.uuid4())[:8]
-        return f"batch_{timestamp}_{unique_id}"
+        from backend.services.output_registration import bates_name
+        # Bates-stamped batch folder: ImageBatch_04-02-2026_001
+        return bates_name("image_batch", "", self.base_output_dir)
 
     def _create_output_directory(self, batch_id: str) -> Path:
         output_dir = self.base_output_dir / batch_id
@@ -275,7 +276,9 @@ class BatchImageGenerator:
 
             if result.success and result.image_path:
                 image_ext = Path(result.image_path).suffix or ".png"
-                image_filename = f"{prompt.id}{image_ext}"
+                # Bates-stamped filename: ImageGen_04-02-2026_001.png
+                from backend.services.output_registration import bates_name
+                image_filename = bates_name("image", image_ext, output_dir / "images")
                 target_path = output_dir / "images" / image_filename
 
                 import shutil
@@ -504,12 +507,12 @@ class BatchImageGenerator:
                 if request.save_metadata:
                     self._save_batch_metadata(batch_status, output_dir)
 
-                # Register images into Documents/Files system
+                # Register images into Documents/Files system — files are already
+                # in data/uploads/Images/ so just create the DB records
                 if batch_status.status == "completed" and batch_status.completed_images > 0:
                     try:
                         from flask import current_app
-                        from backend.services.image_registration_service import register_batch_images
-                        # Get app for context - try current_app first, fall back to import
+                        from backend.services.output_registration import ensure_subfolder, register_file
                         try:
                             app = current_app._get_current_object()
                         except RuntimeError:
@@ -517,18 +520,28 @@ class BatchImageGenerator:
                             app = create_app()
                         with app.app_context():
                             try:
-                                batch_name = getattr(request, 'batch_name', None) or batch_id
-                                register_batch_images(
-                                    batch_id=batch_id,
-                                    batch_output_dir=str(output_dir),
-                                    batch_name=batch_name,
-                                )
+                                ensure_subfolder("Images", batch_id)
+                                images_dir = output_dir / "images"
+                                for img_file in sorted(images_dir.glob("*")):
+                                    if img_file.is_file():
+                                        # Find matching prompt metadata for this image
+                                        img_meta = {}
+                                        for r in batch_status.results:
+                                            if r.success and r.image_path and Path(r.image_path).name == img_file.name:
+                                                img_meta = r.metadata or {}
+                                                break
+                                        register_file(
+                                            physical_path=str(img_file),
+                                            folder_name="Images",
+                                            subfolder_name=batch_id,
+                                            file_metadata={"source": "batch_generation", "batch_id": batch_id, **img_meta},
+                                        )
                                 logger.info(f"Registered batch {batch_id} images into Documents system")
                             finally:
                                 from backend.models import db as _db
                                 _db.session.remove()
                     except Exception as reg_err:
-                        logger.error(f"Failed to register batch images into Documents system: {reg_err}")
+                        logger.error(f"Failed to register batch images: {reg_err}")
                         # Don't fail the batch if registration fails
 
                 if self.progress_system:

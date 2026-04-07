@@ -39,6 +39,9 @@ YAML_TO_CANONICAL = {
     "gpu.contention_behavior": "contention_behavior",
     "streams.max_concurrent": "max_concurrent_streams",
     "streams.stale_timeout_seconds": "stale_timeout_seconds",
+    "camera.device_index": "camera_device_index",
+    "camera.reconnect_attempts": "camera_reconnect_attempts",
+    "camera.reconnect_delay_seconds": "camera_reconnect_delay_seconds",
 }
 
 # Settings DB key → canonical key
@@ -82,6 +85,10 @@ class PipelineConfig:
     # Streams
     max_concurrent_streams: int = 2
     stale_timeout_seconds: int = 60
+    # Camera
+    camera_device_index: int = 0
+    camera_reconnect_attempts: int = 3
+    camera_reconnect_delay_seconds: int = 2
     # Service
     service_url: str = "http://localhost:8201"
     ollama_url: str = "http://localhost:11434"

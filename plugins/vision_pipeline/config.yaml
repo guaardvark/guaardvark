@@ -36,6 +36,11 @@ streams:
   max_concurrent: 2
   stale_timeout_seconds: 60
 
+camera:
+  device_index: 0
+  reconnect_attempts: 3
+  reconnect_delay_seconds: 2
+
 benchmark:
   test_resolutions:
     - [512, 512]

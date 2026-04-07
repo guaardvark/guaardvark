@@ -21,7 +21,8 @@ from backend.models import Folder, Document as DBDocument, db
 logger = logging.getLogger(__name__)
 
 IMAGES_ROOT_FOLDER_NAME = "Images"
-IMAGES_ROOT_PATH = f"/{IMAGES_ROOT_FOLDER_NAME}"
+# Path without leading slash — matches Folder model convention
+IMAGES_ROOT_PATH = IMAGES_ROOT_FOLDER_NAME
 
 
 def _get_upload_base() -> Path:

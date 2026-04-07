@@ -25,6 +25,11 @@ from backend.services.video_generation_router import (
 )
 from backend.services.gpu_resource_coordinator import get_gpu_coordinator
 
+try:
+    from backend.config import UPLOAD_DIR
+except ImportError:
+    UPLOAD_DIR = "/tmp/guaardvark_uploads"
+
 logger = logging.getLogger(__name__)
 
 # Dedicated video generation log file
@@ -107,8 +112,8 @@ class BatchVideoGenerator:
     """Service for generating multiple videos in batch with basic progress tracking."""
 
     def __init__(self):
-        project_root = Path(__file__).parent.parent.parent
-        self.base_output_dir = project_root / "data" / "outputs" / "batch_videos"
+        # Videos land directly in data/uploads/Videos/ so DocumentsPage sees them
+        self.base_output_dir = Path(UPLOAD_DIR) / "Videos"
         self.base_output_dir.mkdir(parents=True, exist_ok=True)
 
         self.active_batches: Dict[str, BatchVideoStatus] = {}
@@ -251,6 +256,36 @@ class BatchVideoGenerator:
             status.end_time = datetime.now()
             self._save_metadata(status)
 
+            # Register videos into Documents/Files system
+            if status.completed_videos > 0:
+                try:
+                    from flask import current_app
+                    from backend.services.output_registration import ensure_subfolder, register_file
+                    try:
+                        app = current_app._get_current_object()
+                    except RuntimeError:
+                        from backend.app import create_app
+                        app = create_app()
+                    with app.app_context():
+                        try:
+                            batch_id = batch_request.batch_id
+                            ensure_subfolder("Videos", batch_id)
+                            batch_dir = Path(batch_request.output_dir)
+                            # Register all video files found in the batch directory
+                            for vid_file in sorted(batch_dir.rglob("*.mp4")):
+                                register_file(
+                                    physical_path=str(vid_file),
+                                    folder_name="Videos",
+                                    subfolder_name=batch_id,
+                                    file_metadata={"source": "batch_generation", "batch_id": batch_id},
+                                )
+                            logger.info(f"Registered batch {batch_id} videos into Documents system")
+                        finally:
+                            from backend.models import db as _db
+                            _db.session.remove()
+                except Exception as reg_err:
+                    logger.error(f"Failed to register batch videos: {reg_err}")
+
         finally:
             # Always release GPU lock when batch completes (success or failure)
             gpu_coordinator.release_video_generation_lock(restart_ollama=True)
@@ -261,7 +296,8 @@ class BatchVideoGenerator:
         prompts: List[str],
         **params,
     ) -> BatchVideoStatus:
-        batch_id = params.get("batch_id") or f"batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+        from backend.services.output_registration import bates_name
+        batch_id = params.get("batch_id") or bates_name("video_batch", "", self.base_output_dir)
         items = [
             BatchVideoItem(id=str(uuid.uuid4()), prompt=p, metadata={"source": "prompt"})
             for p in prompts
@@ -273,7 +309,8 @@ class BatchVideoGenerator:
         image_paths: List[str],
         **params,
     ) -> BatchVideoStatus:
-        batch_id = params.get("batch_id") or f"batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+        from backend.services.output_registration import bates_name
+        batch_id = params.get("batch_id") or bates_name("video_batch", "", self.base_output_dir)
         user_prompt = params.pop("prompt", "")
         items = [
             BatchVideoItem(

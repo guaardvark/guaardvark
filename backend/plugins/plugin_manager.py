@@ -6,6 +6,7 @@ Manages plugin lifecycle and operations.
 import json
 import logging
 import os
+import signal
 import subprocess
 import time
 import requests
@@ -46,7 +47,7 @@ class PluginManager:
     
     def _init_plugin_status(self):
         """Initialize plugin status and restore previously running plugins."""
-        # First pass: detect what's already running
+        # First pass: detect what's already running and kill orphans
         for plugin_id, metadata in self.registry.get_all_plugins().items():
             if metadata.config.enabled:
                 if self._check_service_running(metadata):
@@ -54,6 +55,10 @@ class PluginManager:
                 else:
                     self._plugin_status[plugin_id] = PluginStatus.STOPPED
             else:
+                # Plugin is disabled — kill any orphan process on its port
+                if metadata.type == 'service' and self._check_service_running(metadata):
+                    logger.warning(f"Disabled plugin '{plugin_id}' has orphan process on port {metadata.port} — killing it")
+                    self._kill_by_port(metadata.port)
                 self._plugin_status[plugin_id] = PluginStatus.DISABLED
 
         # Second pass: start plugins that were running last time
@@ -69,6 +74,12 @@ class PluginManager:
                         logger.warning(f"Failed to restore {plugin_id}: {result.get('error', 'unknown')}")
                 except Exception as e:
                     logger.warning(f"Error restoring {plugin_id}: {e}")
+            elif self._plugin_status.get(plugin_id) == PluginStatus.DISABLED:
+                logger.info(f"Skipping restore of '{plugin_id}' — plugin was disabled since last run")
+
+        # Clean up: sync state file to match reality (removes stale entries
+        # from plugins that were disabled or stopped between reboots)
+        self._save_state()
 
     def _save_state(self):
         """Save which plugins are currently running to disk."""
@@ -112,6 +123,30 @@ class PluginManager:
         except Exception:
             return False
     
+    def _kill_by_port(self, port: int):
+        """Kill any process listening on the given port (orphan cleanup)."""
+        if not port:
+            return
+        try:
+            result = subprocess.run(
+                ['lsof', '-ti', f':{port}'],
+                capture_output=True, text=True, timeout=5
+            )
+            pids = result.stdout.strip().split('\n')
+            for pid_str in pids:
+                pid_str = pid_str.strip()
+                if pid_str and pid_str.isdigit():
+                    pid = int(pid_str)
+                    try:
+                        os.kill(pid, signal.SIGTERM)
+                        logger.info(f"Killed orphan process on port {port} (PID {pid})")
+                    except ProcessLookupError:
+                        pass
+                    except PermissionError:
+                        logger.warning(f"No permission to kill PID {pid} on port {port}")
+        except Exception as e:
+            logger.debug(f"Port kill failed for port {port}: {e}")
+
     def get_status(self, plugin_id: str) -> PluginStatus:
         """Get current status of a plugin"""
         if plugin_id not in self._plugin_status:
@@ -269,10 +304,10 @@ class PluginManager:
                     timeout=30,
                     cwd=str(plugin_dir)
                 )
-                
+
                 # Even if stop script has issues, check if service is actually stopped
                 time.sleep(1)
-                
+
                 if not self._check_service_running(metadata):
                     self._plugin_status[plugin_id] = PluginStatus.STOPPED
                     self._save_state()
@@ -282,20 +317,26 @@ class PluginManager:
                         'message': 'Plugin stopped successfully',
                         'output': result.stdout
                     }
-                else:
-                    self._plugin_status[plugin_id] = PluginStatus.RUNNING
-                    return {
-                        'success': False,
-                        'error': 'Stop script ran but service still running'
-                    }
-                    
+
             except subprocess.TimeoutExpired:
-                return {'success': False, 'error': 'Stop script timed out'}
+                logger.warning(f"Stop script timed out for {plugin_id}, trying port kill")
             except Exception as e:
-                logger.error(f"Error stopping plugin {plugin_id}: {e}")
-                return {'success': False, 'error': str(e)}
-        else:
-            return {'success': False, 'error': 'No stop script found'}
+                logger.warning(f"Stop script failed for {plugin_id}: {e}, trying port kill")
+
+        # Fallback: kill by port if stop script failed or doesn't exist
+        if self._check_service_running(metadata) and metadata.port:
+            logger.info(f"Killing {plugin_id} by port {metadata.port}")
+            self._kill_by_port(metadata.port)
+            time.sleep(1)
+
+        if not self._check_service_running(metadata):
+            self._plugin_status[plugin_id] = PluginStatus.STOPPED
+            self._save_state()
+            logger.info(f"Plugin stopped: {plugin_id}")
+            return {'success': True, 'message': 'Plugin stopped successfully'}
+
+        self._plugin_status[plugin_id] = PluginStatus.RUNNING
+        return {'success': False, 'error': 'Failed to stop plugin — process still running'}
     
     def restart_plugin(self, plugin_id: str) -> Dict[str, Any]:
         """Restart a plugin by stopping and starting it"""

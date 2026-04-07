@@ -27,6 +27,10 @@ from service.upscaler import upscale_image
 from service.video_pipeline import get_video_info, process_video
 from service.watcher import FolderWatcher
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(name)s %(levelname)s %(message)s",
+)
 logger = logging.getLogger("upscaling.app")
 
 # Re-export for test access

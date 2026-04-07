@@ -12,7 +12,7 @@
     "ollama"
   ],
   "config": {
-    "enabled": true,
+    "enabled": false,
     "auto_start": true,
     "service_url": "http://localhost:8201",
     "timeout": 30,
@@ -45,6 +45,9 @@
     "benchmark": "/benchmark",
     "benchmark_results": "/benchmark/results",
     "config": "/config",
-    "status": "/status"
+    "status": "/status",
+    "camera_start": "/camera/start",
+    "camera_stop": "/camera/stop",
+    "camera_status": "/camera/status"
   }
 }

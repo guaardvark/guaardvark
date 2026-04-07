@@ -71,6 +71,14 @@ class ComfyUIVideoGenerator:
         self.cache_dir = Path(CACHE_DIR) / "generated_videos"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
+        # Default output dir for standalone (non-batch) video generation
+        try:
+            from backend.config import UPLOAD_DIR as _upload_dir
+            self.default_output_dir = Path(_upload_dir) / "Videos"
+        except ImportError:
+            self.default_output_dir = self.cache_dir
+        self.default_output_dir.mkdir(parents=True, exist_ok=True)
+
         self.comfy_output_dir = Path(COMFYUI_OUTPUT_DIR if config_available else os.environ.get('COMFYUI_OUTPUT_DIR', os.path.join(os.environ.get('GUAARDVARK_ROOT', '.'), 'data', 'outputs', 'video')))
 
         self.service_available = self._check_comfyui_connection()
@@ -696,14 +704,8 @@ class ComfyUIVideoGenerator:
             },
 
             # ── Decode + Output ────────────────────────────────────────────
-            # Node 12: VAE Decode
-            "12": {
-                "class_type": "VAEDecode",
-                "inputs": {
-                    "samples": ["11", 0],
-                    "vae": ["4", 0],
-                }
-            },
+            # Node 12: VAE Decode — tiled for HD+ so your GPU doesn't rage-quit
+            "12": self._build_vae_decode_node("11", "4", width, height),
             # Node 13: Create video from frames
             "13": {
                 "class_type": "VHS_VideoCombine",
@@ -738,6 +740,33 @@ class ComfyUIVideoGenerator:
             )
 
         return workflow
+
+    def _build_vae_decode_node(self, samples_node: str, vae_node: str, width: int, height: int) -> dict:
+        """Pick the right VAE decode strategy based on resolution.
+
+        Standard VAEDecode works fine up to 720p. Above that, tiled decoding
+        saves your VRAM from a very bad day.
+        """
+        use_tiled = width >= 1280 or height >= 1280
+        if use_tiled:
+            return {
+                "class_type": "VAEDecodeTiled",
+                "inputs": {
+                    "samples": [samples_node, 0],
+                    "vae": [vae_node, 0],
+                    "tile_size": 480,
+                    "overlap": 64,
+                    "temporal_size": 64,
+                    "temporal_overlap": 8,
+                }
+            }
+        return {
+            "class_type": "VAEDecode",
+            "inputs": {
+                "samples": [samples_node, 0],
+                "vae": [vae_node, 0],
+            }
+        }
 
     def _add_rife_interpolation(
         self,
@@ -996,12 +1025,26 @@ class ComfyUIVideoGenerator:
             except Exception as e:
                 logger.warning(f"Prompt enhancement failed, using original prompt: {e}")
 
-        batch_dir = request.output_dir or (self.cache_dir / f"batch_{uuid.uuid4().hex}")
+        if request.output_dir:
+            batch_dir = Path(request.output_dir)
+        else:
+            # Standalone generation — Bates-stamped folder in Videos/
+            try:
+                from backend.services.output_registration import bates_name
+                folder_name = bates_name("video_batch", "", self.default_output_dir)
+            except Exception:
+                folder_name = f"batch_{uuid.uuid4().hex}"
+            batch_dir = self.default_output_dir / folder_name
         batch_dir = Path(batch_dir)
 
         item_id = request.metadata.get("item_id") if request.metadata else None
         if not item_id:
-            item_id = f"item_{uuid.uuid4().hex}"
+            # Bates-stamped item ID instead of UUID soup
+            try:
+                from backend.services.output_registration import bates_name
+                item_id = bates_name("video", "", batch_dir)
+            except Exception:
+                item_id = f"item_{uuid.uuid4().hex}"
             if request.metadata:
                 request.metadata["item_id"] = item_id
 
@@ -1148,9 +1191,21 @@ class ComfyUIVideoGenerator:
                 result.error = "Failed to queue workflow in ComfyUI"
                 return result
 
-            # Wan2.2 MoE runs two passes (~5min each), needs longer timeout
-            gen_timeout = 1200 if model in self.WAN22_MODELS or model in ("wan22", "wan2.2") else 600
-            logger.info(f"Waiting for ComfyUI to complete generation (prompt_id: {prompt_id}, timeout: {gen_timeout}s)...")
+            # Timeouts scaled to what the GPU actually needs. If you're rendering
+            # 1080p at 50 steps with upscaling, go make a sandwich. Or two.
+            is_wan = model in self.WAN22_MODELS or model in ("wan22", "wan2.2")
+            steps = request.num_inference_steps or 30
+            has_upscale = request.metadata.get("upscale", False) if request.metadata else False
+            is_high_res = max(request.width or 0, request.height or 0) >= 1280
+            if is_wan and is_high_res:
+                gen_timeout = 7200  # 2 hours — HD/1080p with CPU offloading takes a while
+            elif is_wan and (steps >= 50 or has_upscale):
+                gen_timeout = 2400  # 40 min — max quality + cinema upscale
+            elif is_wan:
+                gen_timeout = 1200  # 20 min — standard Wan generations
+            else:
+                gen_timeout = 600   # 10 min — lighter models
+            logger.info(f"Waiting for ComfyUI to complete generation (prompt_id: {prompt_id}, timeout: {gen_timeout}s, steps: {steps}, upscale: {has_upscale}, high_res: {is_high_res})...")
             outputs = self._wait_for_completion(prompt_id, timeout=gen_timeout)
 
             if not outputs:
@@ -1177,6 +1232,25 @@ class ComfyUIVideoGenerator:
                     result.thumbnail_path = str(thumb_path.relative_to(batch_dir))
 
             logger.info(f"Video generation successful: {result.video_path}")
+
+            # Register into Documents/Files system if not batch-controlled
+            # (batch-controlled videos get registered by the batch_video_generator)
+            is_batch_controlled = (request.metadata or {}).get("batch_controlled", False)
+            if not is_batch_controlled and result.success:
+                try:
+                    from backend.services.output_registration import register_file, ensure_subfolder
+                    batch_folder_name = batch_dir.name
+                    ensure_subfolder("Videos", batch_folder_name)
+                    for vid_file in videos_dir.glob("*.mp4"):
+                        register_file(
+                            physical_path=str(vid_file),
+                            folder_name="Videos",
+                            subfolder_name=batch_folder_name,
+                            file_metadata={"source": "comfyui", "prompt": request.prompt[:200]},
+                        )
+                except Exception as reg_err:
+                    logger.warning(f"Video registration into Documents failed (non-critical): {reg_err}")
+
             return result
 
         except Exception as e:

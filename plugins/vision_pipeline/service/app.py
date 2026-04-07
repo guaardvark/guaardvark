@@ -24,6 +24,9 @@ from service.frame_analyzer import FrameAnalyzer
 from service.adaptive_throttle import AdaptiveThrottle
 from service.stream_manager import StreamManager
 from service.benchmarker import Benchmarker
+from service.camera_capture import (
+    CameraCapture, CameraError, CameraNotFoundError, CameraInUseError,
+)
 
 logger = logging.getLogger("vision_pipeline.app")
 
@@ -57,6 +60,7 @@ _frame_analyzer = None
 _adaptive_throttle = None
 _stream_manager = None
 _benchmarker = None
+_camera_capture = None
 _start_time = time.time()
 _health_status = "starting"
 
@@ -65,7 +69,7 @@ _health_status = "starting"
 def startup():
     global _config, _change_detector, _context_buffer, _model_tier
     global _frame_analyzer, _adaptive_throttle, _stream_manager, _benchmarker
-    global _health_status, _start_time
+    global _camera_capture, _health_status, _start_time
 
     _start_time = time.time()
     plugin_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -99,6 +103,8 @@ def startup():
     )
     _benchmarker = Benchmarker(ollama_url=_config.ollama_url)
 
+    _camera_capture = CameraCapture(_stream_manager, _config)
+
     # Check vision model availability
     if _model_tier.get_any_available_model():
         _health_status = "healthy"
@@ -106,6 +112,13 @@ def startup():
     else:
         _health_status = "error"
         logger.warning("Vision Pipeline started — NO vision models available")
+
+
+@app.on_event("shutdown")
+def shutdown():
+    if _camera_capture:
+        _camera_capture.stop()
+    logger.info("Vision Pipeline shutting down")
 
 
 # --- Pydantic models for request bodies ---
@@ -167,7 +180,37 @@ def status():
             "entries_count": len(_context_buffer.entries) if _context_buffer else 0,
             "compressed_summary_length": len(_context_buffer.compressed_summary) if _context_buffer else 0,
         },
+        "camera": _camera_capture.status() if _camera_capture else {"active": False},
     }
+
+# --- Camera capture endpoints ---
+
+class CameraStartRequest(BaseModel):
+    device_index: int = 0
+
+@app.post("/camera/start")
+def camera_start(req: CameraStartRequest):
+    """Start capturing from a local camera device."""
+    try:
+        return _camera_capture.start(device_index=req.device_index)
+    except CameraNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except CameraInUseError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except CameraError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/camera/stop")
+def camera_stop():
+    """Stop the camera capture."""
+    return _camera_capture.stop()
+
+@app.get("/camera/status")
+def camera_status():
+    """Get camera capture status."""
+    return _camera_capture.status()
+
+# --- Stream endpoints ---
 
 @app.post("/stream/start")
 def stream_start(req: StreamStartRequest):

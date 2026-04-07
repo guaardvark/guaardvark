@@ -479,12 +479,19 @@ def create_data_backup(components: List[str] | None = None, name: str | None = N
             "data/graph_store.json",
             "data/index_store.json",
             "data/docstore.json",
+            "data/plugin_state.json",
         ]
 
         # Data directories always included
         data_directories = [
+            "data/uploads/",
+            "data/logos/",
             "data/context/",
             "data/conversations/",
+            "data/training/knowledge/",
+            "data/training/servo_logs/",
+            "data/memory/",
+            "data/agent/",
         ]
 
         with TemporaryDirectory() as tmpdir:
@@ -782,7 +789,12 @@ def create_full_backup(name: str | None = None) -> str:
                 "data/uploads/",       # User uploaded files
                 "data/context/",       # Conversation context JSON files
                 "data/conversations/", # Conversation session JSON files
+                "data/training/knowledge/",   # Learned calibration data, feedback, servo archive
+                "data/training/servo_logs/",  # Interaction logs for future fine-tuning
+                "data/memory/",        # User-saved memories (memories.jsonl)
+                "data/agent/",         # Agent self-knowledge, recipes, files
                 # NOTE: data/models/ excluded - models can be downloaded on new machine
+                # NOTE: data/training/screenshots/ excluded - ephemeral, regenerated at runtime
             ]
             
             # State JSON files in data root (explicit list to avoid temporary files)

@@ -5,6 +5,7 @@ import collections
 import logging
 from pathlib import Path
 
+import requests as http_requests
 from flask import Blueprint, request
 from backend.utils.response_utils import success_response, error_response
 from ..plugins import get_plugin_manager
@@ -264,6 +265,9 @@ def get_plugin_logs(plugin_id):
             'ollama': 'ollama.log',
             'gpu_embedding': 'gpu_embedding_service.log',
             'discord': 'discord_bot.log',
+            'swarm': 'swarm.log',
+            'vision_pipeline': 'vision_pipeline.log',
+            'upscaling': 'upscaling.log',
         }
 
         log_name = log_file_map.get(plugin_id)
@@ -322,3 +326,50 @@ def get_live_gpu_stats():
     except Exception as e:
         logger.error(f"Error getting live GPU stats: {e}", exc_info=True)
         return error_response(str(e), 500, "GPU_STATS_ERROR")
+
+
+# --- Vision Pipeline camera proxy routes ---
+
+VISION_PIPELINE_URL = "http://localhost:8201"
+
+@plugins_bp.route("/vision_pipeline/camera/start", methods=["POST"])
+def vision_camera_start():
+    """Proxy camera start to the Vision Pipeline plugin."""
+    try:
+        data = request.get_json(silent=True) or {}
+        resp = http_requests.post(
+            f"{VISION_PIPELINE_URL}/camera/start", json=data, timeout=5
+        )
+        return resp.json(), resp.status_code
+    except http_requests.ConnectionError:
+        return error_response("Vision Pipeline not running", 503, "PLUGIN_OFFLINE")
+    except Exception as e:
+        return error_response(str(e), 500, "CAMERA_START_ERROR")
+
+
+@plugins_bp.route("/vision_pipeline/camera/stop", methods=["POST"])
+def vision_camera_stop():
+    """Proxy camera stop to the Vision Pipeline plugin."""
+    try:
+        resp = http_requests.post(
+            f"{VISION_PIPELINE_URL}/camera/stop", timeout=5
+        )
+        return resp.json(), resp.status_code
+    except http_requests.ConnectionError:
+        return error_response("Vision Pipeline not running", 503, "PLUGIN_OFFLINE")
+    except Exception as e:
+        return error_response(str(e), 500, "CAMERA_STOP_ERROR")
+
+
+@plugins_bp.route("/vision_pipeline/camera/status", methods=["GET"])
+def vision_camera_status():
+    """Proxy camera status from the Vision Pipeline plugin."""
+    try:
+        resp = http_requests.get(
+            f"{VISION_PIPELINE_URL}/camera/status", timeout=5
+        )
+        return resp.json(), resp.status_code
+    except http_requests.ConnectionError:
+        return error_response("Vision Pipeline not running", 503, "PLUGIN_OFFLINE")
+    except Exception as e:
+        return error_response(str(e), 500, "CAMERA_STATUS_ERROR")
