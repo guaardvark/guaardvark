@@ -622,6 +622,12 @@ def _initialize_app_components(app):
 
     @app.after_request
     def set_security_headers_flask(response):
+        # Skip header injection on Socket.IO requests — they use websocket
+        # upgrade responses that are already finalized; modifying them causes
+        # werkzeug "write() before start_response" assertion failures.
+        if request.path.startswith('/socket.io'):
+            return response
+
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
@@ -636,6 +642,8 @@ def _initialize_app_components(app):
 
     @app.after_request
     def log_response_info(response):
+        if request.path.startswith('/socket.io'):
+            return response
         app.logger.debug(
             f"Response {response.status_code} for {request.method} {request.path}"
         )
@@ -643,6 +651,8 @@ def _initialize_app_components(app):
 
     @app.after_request
     def cleanup_database_session(response):
+        if request.path.startswith('/socket.io'):
+            return response
         try:
             if hasattr(db, 'session') and db.session:
                 try:
@@ -705,6 +715,23 @@ def _initialize_app_components(app):
     except Exception as e:
         app.logger.warning(f"Tool Registry initialization failed (non-critical): {e}")
         app.tool_registry = None
+
+    # Initialize AgentBrain's BrainState singleton (pre-computes tool schemas,
+    # system prompts, model capabilities, reflex table, and warm-up ping).
+    try:
+        from backend.config import AGENT_BRAIN_ENABLED
+        if AGENT_BRAIN_ENABLED:
+            from backend.services.brain_state import BrainState
+            brain_state = BrainState.get_instance()
+            brain_state.initialize(lite_mode=False)
+            app.brain_state = brain_state
+            app.logger.info(f"AgentBrain initialized | health={brain_state.health.to_dict()}")
+        else:
+            app.brain_state = None
+            app.logger.info("AgentBrain disabled (GUAARDVARK_AGENT_BRAIN=false)")
+    except Exception as e:
+        app.logger.warning(f"AgentBrain initialization failed (non-critical, falling back to legacy): {e}")
+        app.brain_state = None
 
     try:
         from backend.plugins import get_plugin_manager, get_plugin_registry
@@ -772,6 +799,15 @@ try:
             app.logger.info("Creating/verifying database tables...")
             db.create_all()
             app.logger.info("Database tables created/verified successfully.")
+
+            # Create default OS-style folders (Images/, Videos/, Code/) so
+            # generated outputs land somewhere DocumentsPage can see them
+            try:
+                from backend.services.output_registration import ensure_default_folders
+                ensure_default_folders()
+                app.logger.info("Default folders verified (Images, Videos, Code)")
+            except Exception as folder_err:
+                app.logger.warning(f"Default folder setup skipped: {folder_err}")
 
             # Stamp Alembic to head (so health checks pass)
             if not os.environ.get("GUAARDVARK_SKIP_MIGRATIONS") and not migrations_already_verified:
