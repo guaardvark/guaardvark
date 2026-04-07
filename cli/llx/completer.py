@@ -48,6 +48,9 @@ SLASH_TREE: dict[str, list[str]] = {
         "list", "generate", "from-image", "status",
         "models", "delete", "download", "combine",
     ],
+    # Memory
+    "remember": [],
+    "memory": ["list", "search", "delete", "clear"],
     # REPL-only
     "new": [],
     "clear": [],
@@ -89,6 +92,8 @@ _META: dict[str, str] = {
     "tasks": "Task management",
     "images": "Image generation",
     "videos": "Video generation",
+    "remember": "Save to memory",
+    "memory": "Manage saved memories",
     "new": "New conversation",
     "clear": "Clear screen",
     "history": "Command history",
