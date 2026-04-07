@@ -30,6 +30,8 @@ VISION_MODEL_PATTERNS = [
     "llama.*vision", "granite.*vision", "gemma.*vision",
     "cogvlm", "internvl", "phi.*vision", "deepseek.*vl",
     "pixtral", "molmo",
+    # Gemma 4 integrates vision natively — match even without "vision" suffix
+    "gemma4", "gemma-4",
 ]
 
 # Cache for dynamic model detection (5 minute cache)

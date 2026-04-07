@@ -327,6 +327,14 @@ if [ -n "$vite_pids" ]; then
     done
 fi
 
+# ── Stop agent virtual display (Xvfb + VNC + window manager) ──
+AGENT_DISPLAY_SCRIPT="$SCRIPT_DIR/scripts/start_agent_display.sh"
+if [ -x "$AGENT_DISPLAY_SCRIPT" ]; then
+    vader_info "Stopping agent virtual display..."
+    bash "$AGENT_DISPLAY_SCRIPT" stop 2>&1 | while read line; do vader_info "  $line"; done
+    vader_success "Agent virtual display stopped."
+fi
+
 # ── Stop enabled plugins (Discord bot, etc.) ──
 vader_info "Stopping enabled plugins..."
 for plugin_dir in "$SCRIPT_DIR"/plugins/*/; do

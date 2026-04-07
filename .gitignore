@@ -27,11 +27,16 @@ data/index_store.json
 data/default__vector_store.json
 data/graph_store.json
 data/conversations/sessions/
-data/training/screenshots/*.jpg
-data/training/servo_logs/*.jsonl
+data/training/screenshots/
 data/training/datasets/*.jsonl
 data/training/models/
-data/training/knowledge/
+# Servo calibration data — knowledge is clean, logs contain local paths
+# data/training/knowledge/   ← INCLUDED (servo_archive.jsonl = learned calibration)
+data/training/servo_logs/
+data/training/knowledge/*.pre_purge
+
+# Agent desktop shortcuts (generated with local paths at runtime)
+data/agent/desktop/
 
 # Logs, backups, PIDs
 logs/

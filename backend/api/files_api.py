@@ -202,7 +202,10 @@ def browse_folder():
             breadcrumbs = [{"name": "Root", "path": "/"}]
             resp_path = "/"
         else:
+            # Try exact path first, then without leading slash (folder paths are stored without it)
             folder = Folder.query.filter_by(path=folder_path).first()
+            if not folder and folder_path.startswith("/"):
+                folder = Folder.query.filter_by(path=folder_path.lstrip("/")).first()
             if not folder:
                 return error_response("Folder not found", 404, "FOLDER_NOT_FOUND")
             folder_q = folder.subfolders
@@ -1074,7 +1077,11 @@ def download_document(doc_id):
         physical_path = get_physical_path(document.path)
         if not physical_path.exists():
             return error_response("File not found on disk", 404, "FILE_NOT_FOUND")
-        response = send_file(physical_path, as_attachment=True, download_name=document.filename)
+        # Serve inline for media files so <video> and <img> tags can play them,
+        # fall back to attachment for everything else (triggers browser download)
+        media_exts = {'.mp4', '.webm', '.avi', '.mov', '.mkv', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'}
+        as_attachment = physical_path.suffix.lower() not in media_exts
+        response = send_file(physical_path, as_attachment=as_attachment, download_name=document.filename)
         # Disable long-term caching so edited images are served fresh
         response.headers["Cache-Control"] = "no-cache, must-revalidate"
         return response
@@ -1115,7 +1122,23 @@ def get_thumbnail():
     if thumb_png.exists():
         return send_file(str(thumb_png), mimetype="image/png")
 
-    # Fallback: serve the original image
+    # For video files, try to generate a thumbnail on the fly via ffmpeg
+    video_exts = {'.mp4', '.webm', '.avi', '.mov', '.mkv', '.flv', '.wmv', '.m4v'}
+    if doc_physical.suffix.lower() in video_exts:
+        try:
+            import subprocess
+            thumb_dir.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                ["ffmpeg", "-i", str(doc_physical), "-vf", "select=eq(n\\,0)",
+                 "-frames:v", "1", "-q:v", "2", "-y", str(thumb_path)],
+                capture_output=True, timeout=15,
+            )
+            if thumb_path.exists() and thumb_path.stat().st_size > 0:
+                return send_file(str(thumb_path), mimetype="image/jpeg")
+        except Exception as e:
+            logger.warning(f"Failed to generate video thumbnail: {e}")
+
+    # Fallback: serve the original file (works for images, not ideal for video)
     return send_file(str(doc_physical))
 
 

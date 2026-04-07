@@ -67,6 +67,8 @@ ADVANCED_RAG_ENABLED = os.environ.get("GUAARDVARK_ADVANCED_RAG", "true").lower()
 RAG_DEBUG_ENABLED = os.environ.get("GUAARDVARK_RAG_DEBUG", "true").lower() == "true"
 CONTEXT_PERSISTENCE_DIR = _resolve_path("GUAARDVARK_CONTEXT_DIR", "data/context")
 
+AGENT_BRAIN_ENABLED = os.environ.get("GUAARDVARK_AGENT_BRAIN", "true").lower() == "true"
+
 BROWSER_AUTOMATION_ENABLED = os.environ.get("GUAARDVARK_BROWSER_AUTOMATION", "true").lower() == "true"
 BROWSER_HEADLESS = os.environ.get("GUAARDVARK_BROWSER_HEADLESS", "true").lower() == "true"
 BROWSER_MAX_PAGES = int(os.environ.get("GUAARDVARK_BROWSER_MAX_PAGES", "5"))

@@ -1734,6 +1734,9 @@ start_plugin() {
     fi
 }
 
+# Always start the agent virtual display — it's a core feature, not plugin-dependent
+ensure_agent_display
+
 PLUGINS_STARTED=0
 
 # Pass 1: Start auto_start plugins (always, no flag needed)

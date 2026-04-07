@@ -300,19 +300,9 @@ def _initialize_index(storage_path: str):
         if not should_create_new:
             ref_doc_info = docstore_data.get('docstore/ref_doc_info', {})
             if not ref_doc_info:
-                logger.warning(
-                    f"Storage directory {abs_storage_path} exists and 'docstore.json' is present, but appears to be empty. Will create new empty index."
-                )
-                should_create_new = True
-                import shutil
-                try:
-                    for filename in ['docstore.json', 'index_store.json', 'graph_store.json']:
-                        file_path = os.path.join(abs_storage_path, filename)
-                        if os.path.exists(file_path):
-                            os.remove(file_path)
-                            logger.info(f"Removed empty index file: {filename}")
-                except Exception as cleanup_e:
-                    logger.warning(f"Failed to cleanup empty index files: {cleanup_e}")
+                # Empty docstore is normal — no documents have been indexed yet.
+                # Load it as-is instead of deleting and recreating every restart.
+                logger.info(f"Index at {abs_storage_path} exists with no documents yet. Loading as-is.")
 
     if should_create_new:
             logger.info(f"Creating new empty LlamaIndex structure at: {abs_storage_path}")

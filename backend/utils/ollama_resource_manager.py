@@ -19,10 +19,15 @@ logger = logging.getLogger(__name__)
 VISION_MODEL_PATTERNS = [
     r'vl\b', r'vision', r'llava', r'moondream', r'bakllava',
     r'minicpm-v', r'llama.*vision', r'granite.*vision', r'gemma.*vision',
+    # Gemma 4 integrates vision natively — match even without "vision" suffix
+    r'gemma[\-_]?4',
 ]
 
-# Models that should never be auto-selected as default text LLM
-NON_TEXT_MODEL_PATTERNS = VISION_MODEL_PATTERNS + [
+# Models that are vision-only (not suitable as default text LLM).
+# Omits natively multimodal models (Gemma 4) that handle both text and vision.
+NON_TEXT_MODEL_PATTERNS = [
+    r'vl\b', r'vision', r'llava', r'moondream', r'bakllava',
+    r'minicpm-v', r'llama.*vision', r'granite.*vision', r'gemma.*vision',
     r'embed', r'retrieval', r'minilm',
 ]
 
@@ -200,6 +205,8 @@ def get_model_info(model_name: str) -> Optional[dict]:
             bpp = 0.5 if "q4" in (details.get("quantization_level", "")).lower() else 0.75
             size_bytes = int(parameter_count * bpp)
 
+        capabilities = data.get("capabilities", [])
+
         info = {
             "size_mb": size_bytes / (1024 * 1024) if size_bytes else 0,
             "parameter_count": parameter_count,
@@ -208,6 +215,7 @@ def get_model_info(model_name: str) -> Optional[dict]:
             "families": details.get("families", []),
             "quantization": details.get("quantization_level", "unknown"),
             "is_vision": is_vision_model(model_name) or "clip" in str(details.get("families", [])).lower(),
+            "capabilities": capabilities,
             "_cached_at": time.time(),
         }
 
@@ -220,6 +228,14 @@ def get_model_info(model_name: str) -> Optional[dict]:
     except Exception as e:
         logger.warning("Error parsing model info for '%s': %s", model_name, e)
         return None
+
+
+def model_supports_tools(model_name: str) -> bool:
+    """Check if a model supports native function calling via Ollama's capabilities API."""
+    info = get_model_info(model_name)
+    if not info:
+        return False
+    return "tools" in info.get("capabilities", [])
 
 
 def _estimate_total_overhead_mb(parameter_count: int, num_ctx: int) -> float:

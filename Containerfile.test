@@ -1,0 +1,44 @@
+# Guaardvark Test Environment
+# Build once, test releases by mounting backup zips.
+#
+# Build:   podman build -t gvark-test -f Containerfile.test .
+# Run:     ./test-container.sh backups/your-release.zip
+# Run+GPU: ./test-container.sh backups/your-release.zip --gpu
+
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
+# System packages that start.sh expects to find (or would install via apt)
+RUN apt-get update && apt-get install -y \
+    python3 python3-venv python3-pip python3-dev \
+    postgresql postgresql-contrib \
+    redis-server \
+    cmake build-essential pkg-config \
+    ffmpeg \
+    curl wget git unzip \
+    sudo lsb-release gnupg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Node 20 — Ubuntu 24.04 ships 18, we need 20+
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
+# Test user with passwordless sudo (simulates a real user account)
+RUN useradd -m -s /bin/bash testuser && \
+    echo "testuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Entrypoint starts PostgreSQL + Redis, then drops to shell
+COPY scripts/container-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+USER testuser
+WORKDIR /home/testuser
+
+EXPOSE 5000 5173
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["bash"]

@@ -1742,6 +1742,9 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
 
         try:
             # ── Media command shortcut: bypass LLM for play/pause/volume/status ──
+            # NOTE: AgentBrain integration lives in unified_chat_api.py (Socket.IO path).
+            # This REST endpoint uses synchronous LlamaIndex streaming, so AgentBrain
+            # is not wired here to avoid response path mismatch.
             media_result = self._try_media_command(session_id, message, project_id)
             if media_result is not None:
                 return media_result

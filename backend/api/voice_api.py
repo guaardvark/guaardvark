@@ -671,18 +671,6 @@ PIPER_MODEL_PATH = "tools/voice/piper-models/en_US-libritts-high.onnx"
 
 # PERFORMANCE OPTIMIZATION: Voice configuration constants
 DEFAULT_VOICE = "libritts"
-PIPER_VOICES = {
-    "libritts": {
-        "name": "LibriTTS (English US)",
-        "description": "High quality multi-speaker English voice",
-        "model": "tools/voice/piper-models/en_US-libritts-high.onnx"
-    },
-    "lessac": {
-        "name": "Lessac (English US)",
-        "description": "Clear American English voice",
-        "model": "tools/voice/piper-models/en_US-lessac-medium.onnx"
-    }
-}
 
 # PERFORMANCE OPTIMIZATION: Whisper enhanced parameters for better accuracy
 WHISPER_ENHANCED_PARAMS = {
@@ -1429,9 +1417,15 @@ def narrate():
             return jsonify({"error": "Request must be JSON"}), 400
 
         script = data.get("script")
+        engine = data.get("engine", "piper")
         voice = data.get("voice", DEFAULT_VOICE)
         pause_between = float(data.get("pause_between_sections", 1.0))
         output_format = data.get("output_format", "wav").lower()
+
+        # Narration only supports Piper — if Bark was requested, fall back to Piper default voice
+        if engine == "bark":
+            logger.info("Voice API: Bark engine not supported for narration, falling back to Piper")
+            voice = DEFAULT_VOICE
 
         if not script:
             return jsonify({"error": "Script is required"}), 400
