@@ -2267,3 +2267,62 @@ def get_active_model_name() -> str:
         return "default_model_name"
     setting = db.session.get(Setting, "active_model_name")
     return setting.value if setting else "default_model_name"
+
+
+class ToolFeedback(db.Model):
+    """Store user feedback on tool calls for future performance analysis and routing improvements."""
+    __tablename__ = "tool_feedback"
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.String(36), index=True)
+    tool_name = db.Column(db.String(100), nullable=False, index=True)
+    task = db.Column(db.Text, nullable=True) # The user's original task or tool parameter
+    positive = db.Column(db.Boolean, nullable=False)
+    steps = db.Column(db.Integer, nullable=True) # For agent tasks: number of steps taken
+    time_seconds = db.Column(db.Float, nullable=True) # Execution time
+    model = db.Column(db.String(100), nullable=True) # Model name used for the tool
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now())
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "session_id": self.session_id,
+            "tool_name": self.tool_name,
+            "task": self.task,
+            "positive": self.positive,
+            "steps": self.steps,
+            "time_seconds": self.time_seconds,
+            "model": self.model,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+class AgentMemory(db.Model):
+    """Long-term memory for the agent to store user preferences, facts, and instructions."""
+    __tablename__ = "agent_memories"
+    id = db.Column(db.String(36), primary_key=True)
+    content = db.Column(db.Text, nullable=False)
+    source = db.Column(db.String(50), default="manual", index=True)  # manual, chat, cli, auto
+    session_id = db.Column(db.String(36), nullable=True, index=True)
+    tags = db.Column(db.Text, nullable=True)  # JSON array
+    type = db.Column(db.String(50), default="note", index=True)  # note, fact, instruction, snippet
+    importance = db.Column(db.Float, default=0.5, index=True)  # 0.0 to 1.0
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now())
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(), onupdate=lambda: datetime.now())
+
+    def to_dict(self):
+        tags = []
+        if self.tags:
+            try:
+                tags = json.loads(self.tags)
+            except (json.JSONDecodeError, TypeError):
+                tags = []
+        return {
+            "id": self.id,
+            "content": self.content,
+            "source": self.source,
+            "session_id": self.session_id,
+            "tags": tags,
+            "type": self.type,
+            "importance": self.importance,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
