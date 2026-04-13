@@ -37,7 +37,7 @@ Every message is routed through a three-tier decision engine that picks the fast
 
 | Agent Control | Agent Tools |
 |:-:|:-:|
-| ![Agents](docs/screenshots/agents-v2.jpg) | ![Tools](docs/screenshots/tools-v2.jpg) |
+| ![Agents](docs/screenshots/agents-page.png) | ![Tools](docs/screenshots/agent-tools-page.png) |
 
 | Tier | Name | Latency | LLM Calls | When It Fires |
 |------|------|---------|-----------|---------------|
@@ -46,6 +46,7 @@ Every message is routed through a three-tier decision engine that picks the fast
 | 3 | **Deliberation** | 5–30s | 3–10 | Multi-step research, analysis chains, complex agent tasks |
 
 - **Automatic escalation** — Tier 2 can signal complexity and hand off to Tier 3 mid-response
+- **Agent-screen gating** — when the virtual screen isn't being viewed, vision models fall through to the normal ReACT loop with the full tool registry instead of always trying to drive the screen. Click and type tools only appear when a user actually has the agent screen open.
 - **BrainState singleton** — pre-computes tool schemas, model capabilities, system prompts, and reflex tables at startup so routing adds zero overhead
 - **Warm-up** — background thread loads the active model into VRAM before the first request arrives
 
@@ -88,7 +89,7 @@ State-of-the-art video generation running entirely on your GPU. No cloud APIs, n
 
 | Video Generation | Plugin System |
 |:-:|:-:|
-| ![Video Gen](docs/screenshots/video-gen-v2.jpg) | ![Plugins](docs/screenshots/plugins-v2.jpg) |
+| ![Video Gen](docs/screenshots/video-generation-page.png) | ![Plugins](docs/screenshots/plugins-page.png) |
 
 | Model | Type | Max Duration | Native Resolution | VRAM |
 |-------|------|-------------|-------------------|------|
@@ -130,9 +131,9 @@ Upscale images and video frames to 4K (3840px) or 8K (7680px) resolution using G
 
 Chat grounded in your documents. Upload files, build a knowledge base, and ask questions. The AI reads and understands your content — not just keyword matching.
 
-| Chat with RAG | Document Manager |
+| Chat with Agent Screen | Agent YouTube Search |
 |:-:|:-:|
-| ![Chat](docs/screenshots/chat-v2.jpg) | ![Documents](docs/screenshots/documents-v2.jpg) |
+| ![Chat](docs/screenshots/chat-agent-youtube-search.png) | ![Agent YouTube](docs/screenshots/chat-agent-youtube-search-wide.png) |
 
 - **Hybrid retrieval** — BM25 keyword + vector semantic search combined
 - **Smart chunking** — code files get AST-informed chunking, prose gets semantic splitting
@@ -156,7 +157,8 @@ The system runs its own test suite, identifies failures, dispatches an AI agent 
 ## Full Feature Set
 
 ### AI & Chat
-- **57 registered tools** across 12 categories — web search, browser automation, code execution, file management, media control, desktop automation, MCP integration, knowledge base, image generation, agent control
+- **60+ registered tools** across 13 categories — web search, direct URL fetch, browser automation, code execution, file management, media control, desktop automation, MCP integration, knowledge base, image generation, agent control, memory management
+- **`fetch_url` primitive** — single-purpose URL fetcher separate from `web_search`, so the model picks the right tool on the first try when you name a specific domain
 - **9 specialized agents** — code assistant, content creator, research agent, browser automation, vision control, and more
 - **ReACT agent loop** — iterative reasoning, action, observation with tool execution guard and circuit breaker
 - **Streaming responses** via Socket.IO with conversational fast-path (~700ms)
@@ -210,21 +212,21 @@ The system runs its own test suite, identifies failures, dispatches an AI agent 
 
 ## Screenshots
 
-| Dashboard | Image Generation |
+| Dashboard | Code Editor |
 |:-:|:-:|
-| ![Dashboard](docs/screenshots/dashboard-v2.jpg) | ![Images](docs/screenshots/images-v2.jpg) |
+| ![Dashboard](docs/screenshots/dashboard-page.png) | ![Code Editor](docs/screenshots/code-editor-page.png) |
 
-| Code Editor | Projects |
+| Media Library | Video Generation |
 |:-:|:-:|
-| ![Code Editor](docs/screenshots/code-editor-v2.jpg) | ![Projects](docs/screenshots/projects-v2.jpg) |
+| ![Media](docs/screenshots/media-library-page.png) | ![Video Gen](docs/screenshots/video-generation-page.png) |
 
-| Rules & Prompts | Settings |
+| Plugins | Swarm Plan Editor |
 |:-:|:-:|
-| ![Rules](docs/screenshots/rules-v2.jpg) | ![Settings](docs/screenshots/settings-v2.jpg) |
+| ![Plugins](docs/screenshots/plugins-page.png) | ![Swarm](docs/screenshots/swarm-plan-editor.png) |
 
-| Clients | Notes |
+| Settings — RAG | Settings — Memory |
 |:-:|:-:|
-| ![Clients](docs/screenshots/clients-v2.jpg) | ![Notes](docs/screenshots/notes-v2.jpg) |
+| ![Settings RAG](docs/screenshots/settings-page-rag.png) | ![Settings Memory](docs/screenshots/settings-page-memory.png) |
 
 ---
 
