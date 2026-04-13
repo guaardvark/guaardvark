@@ -10,8 +10,8 @@ def create_self_improvement_tasks(celery_app: Celery):
     def scheduled_self_check():
         """Periodic self-improvement check."""
         try:
-            from backend.app import create_app
-            app = create_app()
+            from backend.app import get_or_create_app
+            app = get_or_create_app()
             with app.app_context():
                 from backend.services.self_improvement_service import get_self_improvement_service
                 service = get_self_improvement_service()
@@ -26,8 +26,8 @@ def create_self_improvement_tasks(celery_app: Celery):
     def scheduled_uncle_advice():
         """Periodic Uncle Claude advice check."""
         try:
-            from backend.app import create_app
-            app = create_app()
+            from backend.app import get_or_create_app
+            app = get_or_create_app()
             with app.app_context():
                 from backend.services.claude_advisor_service import get_claude_advisor
                 advisor = get_claude_advisor()
@@ -61,8 +61,8 @@ def create_self_improvement_tasks(celery_app: Celery):
         try:
             app = celery_app.flask_app if hasattr(celery_app, 'flask_app') else None
             if not app:
-                from backend.app import create_app
-                app = create_app()
+                from backend.app import get_or_create_app
+                app = get_or_create_app()
             with app.app_context():
                 from backend.services.self_improvement_service import get_self_improvement_service
                 service = get_self_improvement_service()
@@ -79,8 +79,8 @@ def create_self_improvement_tasks(celery_app: Celery):
         try:
             app = celery_app.flask_app if hasattr(celery_app, 'flask_app') else None
             if not app:
-                from backend.app import create_app
-                app = create_app()
+                from backend.app import get_or_create_app
+                app = get_or_create_app()
             with app.app_context():
                 from backend.services.self_improvement_service import get_self_improvement_service
                 service = get_self_improvement_service()
@@ -90,6 +90,44 @@ def create_self_improvement_tasks(celery_app: Celery):
         except Exception as e:
             logger.error(f"Async directed task failed: {e}", exc_info=True)
             return {"error": str(e)}
+
+    @celery_app.task(name="self_improvement.optimize_servo_async", bind=True)
+    def optimize_servo_async(self):
+        """Periodic servo optimization — check if click calibration has drifted."""
+        try:
+            app = celery_app.flask_app if hasattr(celery_app, 'flask_app') else None
+            if not app:
+                from backend.app import get_or_create_app
+                app = get_or_create_app()
+            with app.app_context():
+                from backend.services.self_improvement_service import get_self_improvement_service
+                service = get_self_improvement_service()
+                result = service.optimize_servo()
+                logger.info(f"Servo optimization result: {result}")
+                return result
+        except Exception as e:
+            logger.error(f"Servo optimization failed: {e}", exc_info=True)
+            return {"error": str(e)}
+
+
+    @celery_app.task(name="self_improvement.distill_task_learning", ignore_result=True)
+    def distill_task_learning_task(task: str, steps: list, model_name: str = ""):
+        """Distill a successful multi-step task into a self_knowledge.md entry.
+
+        Fired async after agent tasks that succeeded with retries — turns
+        one-session learning into persistent memory.
+        """
+        try:
+            app = celery_app.flask_app if hasattr(celery_app, 'flask_app') else None
+            if not app:
+                from backend.app import get_or_create_app
+                app = get_or_create_app()
+            with app.app_context():
+                from backend.services.self_improvement_service import get_self_improvement_service
+                service = get_self_improvement_service()
+                service.distill_task_learning(task, steps, model_name)
+        except Exception as e:
+            logger.error(f"Task learning distillation failed: {e}", exc_info=True)
 
 
 def schedule_self_improvement_tasks(celery_app: Celery):
@@ -106,5 +144,9 @@ def schedule_self_improvement_tasks(celery_app: Celery):
         "uncle-claude-advice": {
             "task": "self_improvement.uncle_advice",
             "schedule": crontab(minute=30, hour="*/12"),  # Twice daily
+        },
+        "servo-optimization": {
+            "task": "self_improvement.optimize_servo_async",
+            "schedule": crontab(minute=15, hour="*/3"),  # Every 3 hours — are we clicking straight?
         },
     }

@@ -213,3 +213,81 @@ def apply_fix(fix_id):
     except Exception as e:
         logger.error(f"Failed to apply fix {fix_id}: {e}", exc_info=True)
         return error_response(str(e), 500)
+
+
+@self_improvement_bp.route("/servo/rotate-archive", methods=["POST"])
+def rotate_servo_archive():
+    """Rotate the servo archive — move poisoned data to backup, start clean."""
+    try:
+        from backend.services.servo_knowledge_store import get_servo_archive
+        archive = get_servo_archive()
+        data = request.get_json() or {}
+        reason = data.get("reason", "manual_cleanup")
+        backup_path = archive.rotate_archive(reason=reason)
+        if backup_path:
+            return success_response(
+                data={"backup_path": backup_path},
+                message="Archive rotated — fresh start. Go click some stuff."
+            )
+        return success_response(data={}, message="No archive to rotate (already clean)")
+    except Exception as e:
+        logger.error(f"Archive rotation failed: {e}")
+        return error_response(str(e), 500)
+
+
+@self_improvement_bp.route("/servo/optimize", methods=["POST"])
+def trigger_servo_optimization():
+    """Trigger servo optimization — analyze archive and propose scale corrections."""
+    try:
+        from backend.services.self_improvement_service import get_self_improvement_service
+        service = get_self_improvement_service()
+        result = service.optimize_servo()
+        return success_response(data=result)
+    except Exception as e:
+        logger.error(f"Servo optimization failed: {e}")
+        return error_response(str(e), 500)
+
+
+@self_improvement_bp.route("/distill", methods=["POST"])
+def trigger_distillation():
+    """Manually trigger learning distillation.
+
+    Body (optional):
+        task: str — task description to distill
+        steps: list — step dicts [{action_type, target, text, keys, failed, ...}]
+
+    If no body provided, distills the most recent successful agent task.
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        task = data.get("task", "")
+        steps = data.get("steps", [])
+
+        if not task or not steps:
+            # Pull from the most recent agent task
+            from backend.services.agent_control_service import get_agent_control_service
+            service = get_agent_control_service()
+            last_result = getattr(service, '_last_result', None)
+            if not last_result or not last_result.success:
+                return error_response("No recent successful task to distill", 404)
+            task = getattr(service, '_current_task', '') or "unknown task"
+            steps = [
+                {
+                    "iteration": s.iteration,
+                    "action_type": s.action.action_type,
+                    "target": s.action.target_description,
+                    "text": s.action.text,
+                    "keys": s.action.keys,
+                    "failed": s.failed,
+                    "result_success": s.result.get("success", False),
+                }
+                for s in last_result.steps
+            ]
+
+        from backend.services.self_improvement_service import get_self_improvement_service
+        service = get_self_improvement_service()
+        service.distill_task_learning(task, steps, data.get("model_name", ""))
+        return success_response(message="Distillation complete", data={"task": task, "steps_count": len(steps)})
+    except Exception as e:
+        logger.error(f"Manual distillation failed: {e}", exc_info=True)
+        return error_response(str(e), 500)

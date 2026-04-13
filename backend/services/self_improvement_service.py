@@ -5,6 +5,15 @@ Three modes:
   1. Scheduled: periodic test suite runs with auto-fix
   2. Reactive: error-triggered self-healing
   3. Directed: user/Claude-submitted improvement tasks
+
+Plus: servo optimization (periodic click calibration analysis)
+
+TO RE-ENABLE SELF-IMPROVEMENT:
+  1. POST /api/self-improvement/toggle {"enabled": true}
+  2. POST /api/self-improvement/lock-codebase {"locked": false}
+  3. Ensure Celery beat is running (start.sh handles this)
+  4. Servo optimization runs every 3 hours (or POST /api/self-improvement/servo/optimize)
+  5. General self-check runs every N hours (GUAARDVARK_SELF_IMPROVEMENT_INTERVAL, default 6)
 """
 import hashlib
 import json
@@ -421,7 +430,7 @@ class SelfImprovementService:
 
         self._running = True
         try:
-            from backend.services.servo_knowledge_store import get_servo_archive, REFLEXES
+            from backend.services.servo_knowledge_store import get_servo_archive, get_vision_config
 
             archive = get_servo_archive()
             stats = archive.get_stats()
@@ -445,8 +454,10 @@ class SelfImprovementService:
                 if not suggested:
                     continue
 
-                current_sx = REFLEXES.get("coordinate_scale_x", {}).get("value", 1.0)
-                current_sy = REFLEXES.get("coordinate_scale_y", {}).get("value", 1.0)
+                # Get current config for this model — the actual source of truth
+                model_config = get_vision_config(model_name)
+                current_sx = model_config.get("scale_x", 1.0)
+                current_sy = model_config.get("scale_y", 1.0)
                 new_sx = suggested["scale_x"]
                 new_sy = suggested["scale_y"]
 
@@ -478,6 +489,13 @@ class SelfImprovementService:
                         "success_rate": model_stats["success_rate"],
                     })
 
+            # Analyze correction directions for systematic bias
+            # If the model consistently needs corrections in the same direction,
+            # that reveals a spatial estimation bias we can compensate for
+            bias = self._analyze_correction_bias(archive)
+            if bias:
+                result["correction_bias"] = bias
+
             logger.info(f"Servo optimization: {stats['total']} interactions, "
                         f"{stats['success_rate']}% success, "
                         f"{result['changes_proposed']} changes proposed")
@@ -490,8 +508,63 @@ class SelfImprovementService:
         finally:
             self._running = False
 
+    @staticmethod
+    def _analyze_correction_bias(archive) -> Optional[Dict[str, Any]]:
+        """Mine correction logs for systematic directional bias.
+
+        If the model consistently needs nudging in the same direction,
+        that's a learnable offset the self-improvement engine can fix.
+        No ground truth needed — just "which way did we have to correct?"
+        """
+        if not archive._archive_path.exists():
+            return None
+
+        direction_counts = {}
+        total_corrections = 0
+
+        with open(archive._archive_path) as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                try:
+                    entry = json.loads(line)
+                    for corr in entry.get("correction_log", []):
+                        d = corr.get("direction", "")
+                        if d:
+                            direction_counts[d] = direction_counts.get(d, 0) + 1
+                            total_corrections += 1
+                except (json.JSONDecodeError, KeyError):
+                    continue
+
+        if total_corrections < 10:
+            return None
+
+        # Find dominant correction direction
+        sorted_dirs = sorted(direction_counts.items(), key=lambda x: -x[1])
+        top_dir, top_count = sorted_dirs[0]
+        top_pct = round(top_count / total_corrections * 100, 1)
+
+        return {
+            "total_corrections": total_corrections,
+            "dominant_direction": top_dir,
+            "dominant_pct": top_pct,
+            "all_directions": {k: round(v / total_corrections * 100, 1) for k, v in sorted_dirs},
+            "interpretation": (
+                f"Model needs '{top_dir}' correction {top_pct}% of the time — "
+                f"consider adding a {top_dir} offset to raw coordinates"
+                if top_pct > 40 else
+                "No strong directional bias detected"
+            ),
+        }
+
     def _propose_reflex_update(self, recommendation: Dict[str, Any]):
-        """Propose a reflex update as a pending fix for Uncle Claude review."""
+        """Propose a scale factor update for Uncle Claude review.
+
+        Targets the MODEL_VISION_CONFIGS dict in servo_knowledge_store.py —
+        that's where per-model scale factors actually live. Previous version
+        targeted non-existent REFLEXES keys (coordinate_scale_x/y) which was
+        like mailing a letter to a house that doesn't exist.
+        """
         try:
             from backend.services.claude_advisor_service import get_claude_advisor
 
@@ -506,23 +579,26 @@ class SelfImprovementService:
             sy = recommendation["suggested"]["y"]
             model = recommendation["model"]
             samples = recommendation["sample_count"]
+            old_sx = recommendation["current"]["x"]
+            old_sy = recommendation["current"]["y"]
 
             reasoning = (
                 f"Servo archive analysis ({samples} interactions with {model}) "
-                f"shows scale factors should be x={sx}, y={sy}. "
-                f"Current success rate: {recommendation['model_success_rate']}%. "
-                f"Current avg error: {recommendation['model_avg_error']}px."
+                f"suggests scale factors should be x={sx}, y={sy} "
+                f"(currently x={old_sx}, y={old_sy}). "
+                f"Success rate: {recommendation['model_success_rate']}%. "
+                f"Avg error: {recommendation['model_avg_error']}px."
             )
 
-            # Build the proposed diff
-            old_value_x = recommendation["current"]["x"]
-            old_value_y = recommendation["current"]["y"]
+            # Build a proposed diff targeting the model's entry in MODEL_VISION_CONFIGS
+            # We search for the model key and its scale_x/scale_y lines
             proposed_diff = (
                 f'--- a/{file_path}\n+++ b/{file_path}\n'
-                f'-    "coordinate_scale_x": {{"value": {old_value_x},\n'
-                f'+    "coordinate_scale_x": {{"value": {sx},\n'
-                f'-    "coordinate_scale_y": {{"value": {old_value_y},\n'
-                f'+    "coordinate_scale_y": {{"value": {sy},\n'
+                f'@@ MODEL_VISION_CONFIGS["{model}"] @@\n'
+                f'-        "scale_x": {old_sx},\n'
+                f'+        "scale_x": {sx},\n'
+                f'-        "scale_y": {old_sy},\n'
+                f'+        "scale_y": {sy},\n'
             )
 
             # Submit for Uncle Claude review
@@ -534,10 +610,11 @@ class SelfImprovementService:
                 reasoning=reasoning,
             )
 
-            logger.info(f"Reflex update review: approved={review.get('approved')} "
+            logger.info(f"Scale factor review: approved={review.get('approved')} "
                         f"directive={review.get('directive')}")
 
-            # Stage as pending fix
+            # Stage as pending fix regardless of review outcome —
+            # human can always approve/reject from the Settings UI
             try:
                 from backend.models import db, PendingFix
                 fix = PendingFix(
@@ -549,12 +626,139 @@ class SelfImprovementService:
                 )
                 db.session.add(fix)
                 db.session.commit()
-                logger.info(f"Reflex update staged as pending fix #{fix.id}")
+                logger.info(f"Scale factor update staged as pending fix #{fix.id}")
             except Exception as e:
                 logger.warning(f"Could not stage pending fix: {e}")
 
         except Exception as e:
-            logger.error(f"Failed to propose reflex update: {e}", exc_info=True)
+            logger.error(f"Failed to propose scale factor update: {e}", exc_info=True)
+
+
+    # ── Distillation: extract learned strategies from successful tasks ──
+
+    _DISTILL_PROMPT = (
+        "You are analyzing an agent's task execution that succeeded after initial failures.\n"
+        "Extract ONLY the key insight or strategy that made it work.\n"
+        "Write a single concise bullet point — focus on the STRATEGY, not specific coordinates or UI state.\n"
+        "Keep it under 2 sentences. Do not include markdown formatting, just plain text.\n\n"
+        "Task: {task}\n"
+        "Steps taken:\n{steps}\n"
+    )
+
+    _DISTILL_MARKERS = ("<!-- AUTO-DISTILLED START -->", "<!-- AUTO-DISTILLED END -->")
+    _DISTILL_MAX_ENTRIES = 20
+
+    def distill_task_learning(self, task: str, steps: list, model_name: str = ""):
+        """
+        Extract the winning strategy from a multi-step task and append to
+        self_knowledge.md under the auto-managed section.
+
+        Called async via Celery after tasks that succeeded with retries.
+        """
+        from backend.config import GUAARDVARK_ROOT
+
+        sk_path = os.path.join(GUAARDVARK_ROOT, "data", "agent", "self_knowledge.md")
+        if not os.path.isfile(sk_path):
+            logger.warning("self_knowledge.md not found, skipping distillation")
+            return
+
+        # Format steps into a readable trace
+        step_lines = []
+        for i, s in enumerate(steps, 1):
+            status = "FAILED" if s.get("failed") else "OK"
+            action = s.get("action_type", "?")
+            target = s.get("target", "")
+            text = s.get("text", "")
+            keys = s.get("keys", "")
+            detail = target or text or (str(keys) if keys else "")
+            step_lines.append(f"  {i}. {action}: {detail} [{status}]")
+        formatted_steps = "\n".join(step_lines)
+
+        # Count failures — only distill if there were actual failures to learn from
+        failure_count = sum(1 for s in steps if s.get("failed"))
+        if failure_count == 0:
+            logger.debug("No failures in trace, skipping distillation (nothing to learn)")
+            return
+
+        # Call LLM to extract the insight
+        try:
+            from backend.utils.llm_service import run_llm_chat_prompt
+            prompt = self._DISTILL_PROMPT.format(task=task, steps=formatted_steps)
+            insight = run_llm_chat_prompt(prompt)
+            if not insight or len(insight.strip()) < 10:
+                logger.warning("Distillation returned empty/short result, skipping")
+                return
+            insight = insight.strip()
+            # Clean up any markdown the model might add
+            insight = re.sub(r'^[-*•]\s*', '', insight)
+            insight = re.sub(r'^\*\*.*?\*\*\s*', '', insight)
+        except Exception as e:
+            logger.error(f"Distillation LLM call failed: {e}")
+            return
+
+        # Read existing file and find markers
+        try:
+            with open(sk_path, "r", encoding="utf-8") as f:
+                content = f.read()
+        except Exception as e:
+            logger.error(f"Failed to read self_knowledge.md: {e}")
+            return
+
+        start_marker, end_marker = self._DISTILL_MARKERS
+        start_idx = content.find(start_marker)
+        end_idx = content.find(end_marker)
+
+        if start_idx == -1 or end_idx == -1:
+            logger.warning("Auto-distilled markers not found in self_knowledge.md, skipping")
+            return
+
+        # Parse existing entries
+        section_start = start_idx + len(start_marker)
+        existing_section = content[section_start:end_idx]
+        existing_entries = [
+            line.strip() for line in existing_section.strip().split("\n")
+            if line.strip().startswith("- ")
+        ]
+
+        # Deduplicate: skip if >60% word overlap with any existing entry
+        insight_words = set(insight.lower().split())
+        for entry in existing_entries:
+            entry_text = re.sub(r'^\- \*\*\[.*?\]\*\*\s*', '', entry)
+            entry_words = set(entry_text.lower().split())
+            if insight_words and entry_words:
+                overlap = len(insight_words & entry_words) / max(len(insight_words), 1)
+                if overlap > 0.6:
+                    logger.info(f"Distillation skipped — similar entry exists: {entry[:60]}...")
+                    return
+
+        # Build new entry with metadata
+        today = datetime.now().strftime("%Y-%m-%d")
+        model_tag = model_name or "unknown"
+        new_entry = f"- **[{today}, {model_tag}]** {insight}"
+
+        # Prune if over max entries (remove oldest, which are at the bottom)
+        if len(existing_entries) >= self._DISTILL_MAX_ENTRIES:
+            existing_entries = existing_entries[:self._DISTILL_MAX_ENTRIES - 1]
+
+        # Rebuild the section: heading + new entry at top + existing entries
+        heading = "### Learned Strategies (auto-distilled from successful sessions)\n"
+        all_entries = [new_entry] + existing_entries
+        new_section = f"\n{heading}\n" + "\n".join(all_entries) + "\n\n"
+
+        # Write atomically
+        new_content = content[:start_idx + len(start_marker)] + new_section + content[end_idx:]
+        tmp_path = sk_path + ".tmp"
+        try:
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                f.write(new_content)
+            os.replace(tmp_path, sk_path)
+            logger.info(f"Distilled learning appended to self_knowledge.md: {insight[:80]}...")
+        except Exception as e:
+            logger.error(f"Failed to write self_knowledge.md: {e}")
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
 
 
 def get_self_improvement_service() -> SelfImprovementService:
