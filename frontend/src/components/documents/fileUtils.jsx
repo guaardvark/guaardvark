@@ -60,6 +60,13 @@ export const isCodeFile = (filename) => {
   return CODE_EXTENSIONS.includes(ext);
 };
 
+// Check if a filename is a PDF
+export const isPdfFile = (filename) => {
+  if (!filename) return false;
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  return ext === 'pdf';
+};
+
 // Helper component for index status indicator dot
 const IndexStatusIndicator = ({ indexStatus, theme }) => {
   if (!indexStatus) return null;
