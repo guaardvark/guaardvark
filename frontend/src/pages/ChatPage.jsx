@@ -1866,6 +1866,8 @@ const ChatPage = () => {
                   isUnifiedChat: true,
                   timestamp: new Date().toISOString(),
                   generatedImages: result.generatedImages || [],
+                  thinkingText: result.thinkingText || "",
+                  iterations: result.iterations || 0,
                 };
                 setMessages((prev) => [...prev, completedMessage]);
 

@@ -11,6 +11,15 @@ import {
   IconButton,
   Chip,
   CircularProgress,
+  Button,
+  ButtonGroup,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
@@ -22,11 +31,46 @@ import ThumbUpIcon from "@mui/icons-material/ThumbUp";
 import ThumbDownIcon from "@mui/icons-material/ThumbDown";
 import ThumbUpOutlinedIcon from "@mui/icons-material/ThumbUpOutlined";
 import ThumbDownOutlinedIcon from "@mui/icons-material/ThumbDownOutlined";
+import SecurityIcon from "@mui/icons-material/Security";
 import Tooltip from "@mui/material/Tooltip";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { a11yDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { BASE_URL } from "../../api/apiClient";
 
 // Tools that get thumbs up/down feedback — agent actions the user can judge
 const FEEDBACK_TOOLS = new Set(["agent_task_execute", "agent_screen_capture"]);
+
+const CSVTable = ({ csvString }) => {
+  if (!csvString || !csvString.includes(",")) return null;
+  const lines = csvString.trim().split("\n");
+  if (lines.length < 1) return null;
+  
+  const headers = lines[0].split(",").map(h => h.trim());
+  const rows = lines.slice(1).map(line => line.split(",").map(c => c.trim()));
+  
+  return (
+    <TableContainer component={Paper} variant="outlined" sx={{ my: 0.5, maxHeight: 200, overflow: "auto" }}>
+      <Table size="small" stickyHeader>
+        <TableHead>
+          <TableRow sx={{ bgcolor: "action.hover" }}>
+            {headers.map((h, i) => (
+              <TableCell key={i} sx={{ py: 0.25, px: 0.5, fontSize: "0.6rem", fontWeight: "bold" }}>{h}</TableCell>
+            ))}
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {rows.map((row, i) => (
+            <TableRow key={i}>
+              {row.map((cell, j) => (
+                <TableCell key={j} sx={{ py: 0.25, px: 0.5, fontSize: "0.6rem" }}>{cell}</TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+};
 
 const ToolCallCard = ({
   toolName,
@@ -35,11 +79,20 @@ const ToolCallCard = ({
   durationMs,
   isPending,
   sessionId,
+  outputChunks,
+  requiresApproval,
+  onApproval,
 }) => {
   const [expanded, setExpanded] = useState(false);
   const [feedback, setFeedback] = useState(null); // null | "up" | "down"
+  const [responded, setResponded] = useState(false);
 
   const showFeedback = FEEDBACK_TOOLS.has(toolName) && result && !isPending;
+
+  const handleApproval = (approved) => {
+    setResponded(true);
+    if (onApproval) onApproval(approved);
+  };
 
   const handleFeedback = async (positive) => {
     const newFeedback = positive ? "up" : "down";
@@ -55,6 +108,7 @@ const ToolCallCard = ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           positive,
+          tool_name: toolName,
           task: params?.task || toolName,
           session_id: sessionId || null,
           steps: result?.metadata?.steps || null,
@@ -63,13 +117,16 @@ const ToolCallCard = ({
         }),
       });
     } catch (err) {
+
       console.error("Feedback submit failed:", err);
     }
   };
 
   const isSuccess = result?.success;
   const isError = result && !result.success;
-  const borderColor = isPending
+  const borderColor = requiresApproval && !responded
+    ? "error.main"
+    : isPending
     ? "warning.main"
     : isSuccess
     ? "success.main"
@@ -94,8 +151,9 @@ const ToolCallCard = ({
         borderLeft: 3,
         borderColor,
         borderRadius: 1,
-        bgcolor: "action.hover",
+        bgcolor: requiresApproval && !responded ? "error.light" : "action.hover",
         overflow: "hidden",
+        opacity: requiresApproval && !responded ? 1 : 0.9,
       }}
     >
       {/* Collapsed header */}
@@ -111,7 +169,9 @@ const ToolCallCard = ({
         }}
         onClick={() => setExpanded((prev) => !prev)}
       >
-        {isPending ? (
+        {requiresApproval && !responded ? (
+          <SecurityIcon sx={{ fontSize: 14, color: "error.main" }} />
+        ) : isPending ? (
           <CircularProgress size={14} color="warning" />
         ) : (
           <BuildIcon sx={{ fontSize: 14, color: borderColor }} />
@@ -119,9 +179,13 @@ const ToolCallCard = ({
 
         <Typography
           variant="caption"
-          sx={{ fontWeight: 600, fontFamily: "monospace" }}
+          sx={{ 
+            fontWeight: 600, 
+            fontFamily: "monospace",
+            color: requiresApproval && !responded ? "error.main" : "text.primary"
+          }}
         >
-          {toolName}
+          {toolName} {requiresApproval && !responded && "(Needs Approval)"}
         </Typography>
 
         {paramSummary && (
@@ -150,7 +214,7 @@ const ToolCallCard = ({
           />
         )}
 
-        {!isPending && (
+        {!isPending && !requiresApproval && (
           isSuccess ? (
             <CheckCircleIcon sx={{ fontSize: 14, color: "success.main" }} />
           ) : isError ? (
@@ -170,8 +234,25 @@ const ToolCallCard = ({
       </Box>
 
       {/* Expanded details */}
-      <Collapse in={expanded}>
+      <Collapse in={expanded || (requiresApproval && !responded)}>
         <Box sx={{ px: 1.5, pb: 1, fontSize: "0.7rem" }}>
+          {/* Approval UI */}
+          {requiresApproval && !responded && (
+            <Box sx={{ mb: 1, p: 1, bgcolor: "background.paper", borderRadius: 1, border: "1px solid", borderColor: "error.main" }}>
+              <Typography variant="caption" sx={{ fontWeight: 600, color: "error.main", display: "block", mb: 1 }}>
+                This action requires your approval. Do you want to proceed?
+              </Typography>
+              <ButtonGroup size="small" fullWidth variant="contained">
+                <Button color="success" startIcon={<CheckCircleIcon />} onClick={() => handleApproval(true)}>
+                  Approve
+                </Button>
+                <Button color="error" startIcon={<ErrorIcon />} onClick={() => handleApproval(false)}>
+                  Reject
+                </Button>
+              </ButtonGroup>
+            </Box>
+          )}
+
           {/* Parameters */}
           {params && Object.keys(params).length > 0 && (
             <Box sx={{ mb: 0.5 }}>
@@ -201,38 +282,52 @@ const ToolCallCard = ({
             </Box>
           )}
 
-          {/* Result */}
-          {result && (
+          {/* Streaming/Final Result */}
+          {(outputChunks || result) && (
             <Box>
               <Typography
                 variant="caption"
                 sx={{ fontWeight: 600, display: "block", mb: 0.25 }}
               >
-                Result:
+                {isPending ? "Output (streaming):" : "Result:"}
               </Typography>
-              <Box
-                component="pre"
-                sx={{
-                  m: 0,
-                  p: 0.5,
-                  bgcolor: isSuccess
-                    ? "success.main"
-                    : "error.main",
-                  color: "white",
-                  borderRadius: 0.5,
-                  fontSize: "0.65rem",
-                  fontFamily: "monospace",
-                  overflow: "auto",
-                  maxHeight: 200,
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                  opacity: 0.9,
-                }}
-              >
-                {isSuccess
-                  ? result.output || "Success (no output)"
-                  : result.error || "Unknown error"}
-              </Box>
+              
+              {/* Specialized Renderers */}
+              {toolName.includes("execute_python") && (result?.output || outputChunks) ? (
+                <SyntaxHighlighter
+                  language="python"
+                  style={a11yDark}
+                  customStyle={{ fontSize: "0.6rem", margin: 0, borderRadius: 4 }}
+                >
+                  {result?.output || outputChunks}
+                </SyntaxHighlighter>
+              ) : toolName.includes("csv") && result?.output ? (
+                <CSVTable csvString={result.output} />
+              ) : (
+                <Box
+                  component="pre"
+                  sx={{
+                    m: 0,
+                    p: 0.5,
+                    bgcolor: isPending ? "action.disabledBackground" : isSuccess ? "success.main" : "error.main",
+                    color: isPending ? "text.primary" : "white",
+                    borderRadius: 0.5,
+                    fontSize: "0.65rem",
+                    fontFamily: "monospace",
+                    overflow: "auto",
+                    maxHeight: 200,
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                    opacity: 0.9,
+                  }}
+                >
+                  {isPending 
+                    ? (outputChunks || "Waiting for output...")
+                    : isSuccess
+                    ? result.output || "Success (no output)"
+                    : result.error || "Unknown error"}
+                </Box>
+              )}
             </Box>
           )}
 
@@ -287,6 +382,9 @@ ToolCallCard.propTypes = {
   durationMs: PropTypes.number,
   isPending: PropTypes.bool,
   sessionId: PropTypes.string,
+  outputChunks: PropTypes.string,
+  requiresApproval: PropTypes.bool,
+  onApproval: PropTypes.func,
 };
 
 export default ToolCallCard;

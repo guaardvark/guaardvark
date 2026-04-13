@@ -4,6 +4,7 @@
  */
 
 import { BASE_URL } from "./apiClient";
+import { useAppStore } from "../stores/useAppStore";
 
 const API_BASE = BASE_URL.replace(/\/api$/, "");
 
@@ -26,10 +27,14 @@ class UnifiedChatService {
    * Send a message via HTTP. Response arrives via Socket.IO events.
    */
   async sendMessage(sessionId, message, options = {}, imageBase64 = null, isVoiceMessage = false) {
+    // Read the live AgentScreenViewer state from Zustand without subscribing
+    // — getState() is the official escape hatch for non-component code. The
+    // backend gates Gemma4 direct path and screen tools on this flag.
+    const agentScreenActive = useAppStore.getState().agentScreenOpen === true;
     const body = {
       session_id: sessionId,
       message,
-      options,
+      options: { ...options, agent_screen_active: agentScreenActive },
       project_id: options.project_id,
       is_voice_message: isVoiceMessage,
     };
@@ -93,6 +98,21 @@ class UnifiedChatService {
   }
   onVideo(callback) {
     this._on("chat:video", callback);
+  }
+  onToolOutputChunk(callback) {
+    this._on("chat:tool_output_chunk", callback);
+  }
+  onToolApprovalRequest(callback) {
+    this._on("chat:tool_approval_request", callback);
+  }
+
+  /**
+   * Send tool approval response.
+   */
+  sendToolApproval(sessionId, approved) {
+    if (this.socket?.connected) {
+      this.socket.emit("chat:tool_approval_response", { session_id: sessionId, approved });
+    }
   }
 
   /**

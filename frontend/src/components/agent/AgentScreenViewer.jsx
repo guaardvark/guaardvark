@@ -17,6 +17,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import CloseIcon from '@mui/icons-material/Close';
 import CircleIcon from '@mui/icons-material/Circle';
 import axios from 'axios';
+import { useAppStore } from '../../stores/useAppStore';
 
 const API_BASE = '/api';
 const STORAGE_KEY = 'guaardvark_agent_screen_state';
@@ -90,6 +91,16 @@ export default function AgentScreenViewer({ open, onClose }) {
   useEffect(() => {
     saveState({ streaming, fps, collapsed, x: position.x, y: position.y, w: size.w, h: size.h });
   }, [streaming, fps, collapsed, position, size]);
+
+  // Announce viewer visibility to the Zustand store so the chat sender knows
+  // whether to flip agent_screen_active on its POST. When `open` is false the
+  // viewer is hidden — backend should treat the screen as idle and route
+  // models through the normal tool path.
+  const setAgentScreenOpen = useAppStore((s) => s.setAgentScreenOpen);
+  useEffect(() => {
+    setAgentScreenOpen(!!open);
+    return () => setAgentScreenOpen(false);
+  }, [open, setAgentScreenOpen]);
 
   const [captureError, setCaptureError] = useState(null);
   const consecutiveFailures = useRef(0);
@@ -229,14 +240,14 @@ export default function AgentScreenViewer({ open, onClose }) {
     if (!isTraining || !imgRef.current) return;
     const img = imgRef.current;
     const rect = img.getBoundingClientRect();
-    // Translate browser coords to 1280x720 virtual display coords
-    const scaleX = 1280 / rect.width;
-    const scaleY = 720 / rect.height;
+    // Translate browser coords to 1024x1024 virtual display coords
+    const scaleX = 1024 / rect.width;
+    const scaleY = 1024 / rect.height;
     const x = Math.round((e.clientX - rect.left) * scaleX);
     const y = Math.round((e.clientY - rect.top) * scaleY);
     // Clamp to display bounds
-    const cx = Math.max(0, Math.min(1280, x));
-    const cy = Math.max(0, Math.min(720, y));
+    const cx = Math.max(0, Math.min(1024, x));
+    const cy = Math.max(0, Math.min(1024, y));
     axios.post(`${API_BASE}/agent-control/learn/input`, {
       action: 'click', x: cx, y: cy,
     }).catch((err) => console.error('Training click failed:', err));
@@ -244,7 +255,7 @@ export default function AgentScreenViewer({ open, onClose }) {
 
   const openPopup = useCallback(() => {
     if (popupWindow && !popupWindow.closed) { popupWindow.focus(); return; }
-    const w = 1300, h = 760;
+    const w = 1064, h = 1064;
     const left = (window.screen.width - w) / 2, top = (window.screen.height - h) / 2;
     const win = window.open('', 'agent_screen',
       `width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=no,toolbar=no,menubar=no,location=no,status=no`);

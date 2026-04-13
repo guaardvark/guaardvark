@@ -27,12 +27,13 @@ const UPLOAD_BASE_URL = BASE_URL + "/uploads";
 const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref) => {
   const [status, setStatus] = useState("idle"); // idle | thinking | streaming | complete | error
   const [thinkingText, setThinkingText] = useState("");
-  const [toolCalls, setToolCalls] = useState([]); // [{tool, params, result, durationMs, isPending}]
+  const [toolCalls, setToolCalls] = useState([]); // [{tool, params, result, durationMs, isPending, outputChunks, requiresApproval}]
   const [content, setContent] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [tokenUsage, setTokenUsage] = useState(null); // {input_tokens, output_tokens} or null
   const [images, setImages] = useState([]); // [{url, alt, caption}]
   const [lightbox, setLightbox] = useState(null);
+  const [pendingApproval, setPendingApproval] = useState(false);
   const mountedRef = useRef(true);
   const imagesRef = useRef([]); // Keep a ref for images to avoid stale closure in onComplete
   const logo = useAppStore((s) => s.systemLogo);
@@ -43,6 +44,7 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
   const onCompleteRef = useRef(onComplete);
   const contentRef = useRef(content);
   const toolCallsRef = useRef(toolCalls);
+  const thinkingTextRef = useRef("");
 
   useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
   useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
@@ -67,7 +69,9 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
     chatService.onThinking((data) => {
       if (!mountedRef.current || data.session_id !== sessionIdRef.current) return;
       setStatus("thinking");
-      setThinkingText(data.status || `Iteration ${data.iteration}...`);
+      const text = data.status || `Iteration ${data.iteration}...`;
+      setThinkingText(text);
+      thinkingTextRef.current = text;
     });
 
     chatService.onToolCall((data) => {
@@ -97,11 +101,46 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
               result: data.result,
               durationMs: data.duration_ms,
               isPending: false,
+              requiresApproval: false, // Clear approval state on result
             };
             break;
           }
         }
         return updated;
+      });
+      // If we were waiting for approval and got a result, clear global pending state
+      setPendingApproval(false);
+    });
+
+    chatService.onToolOutputChunk((data) => {
+      if (!mountedRef.current || data.session_id !== sessionIdRef.current) return;
+      setToolCalls((prev) => {
+        const updated = [...prev];
+        for (let i = updated.length - 1; i >= 0; i--) {
+          if (updated[i].tool === data.tool && updated[i].isPending) {
+            updated[i] = {
+              ...updated[i],
+              outputChunks: (updated[i].outputChunks || "") + data.chunk,
+            };
+            break;
+          }
+        }
+        return updated;
+      });
+    });
+
+    chatService.onToolApprovalRequest((data) => {
+      if (!mountedRef.current || data.session_id !== sessionIdRef.current) return;
+      setPendingApproval(true);
+      setToolCalls((prev) => {
+        const updated = [...prev];
+        const approvalTools = new Set(data.tools || []);
+        return updated.map(tc => {
+          if (tc.isPending && approvalTools.has(tc.tool)) {
+            return { ...tc, requiresApproval: true };
+          }
+          return tc;
+        });
       });
     });
 
@@ -158,6 +197,10 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
           sessionId: data.session_id,
           tokenUsage: data.token_usage || null,
           generatedImages: mergedImages,
+          // Cleared on completion — persisting the last "Calling LLM..."
+          // status into history caused MessageItem's live spinner to never
+          // stop, because its only guard is thinkingText && toolCalls.length.
+          thinkingText: "",
         });
       }
     });
@@ -290,12 +333,25 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
         }}
       >
         {/* Thinking indicator */}
-        {status === "thinking" && (
+        {(status === "thinking" || pendingApproval) && (
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: toolCalls.length > 0 ? 1 : 0 }}>
-            <CircularProgress size={14} color="warning" />
+            <CircularProgress size={14} color={pendingApproval ? "error" : "warning"} />
             <Typography variant="body2" color="text.secondary">
-              {thinkingText}
+              {pendingApproval ? "Waiting for your approval..." : thinkingText}
             </Typography>
+          </Box>
+        )}
+
+        {/* Parallel execution indicator */}
+        {isActive && toolCalls.filter(tc => tc.isPending).length > 1 && (
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
+            <Chip 
+              label={`Executing ${toolCalls.filter(tc => tc.isPending).length} tools in parallel`}
+              size="small"
+              color="info"
+              variant="outlined"
+              sx={{ height: 18, fontSize: "0.6rem" }}
+            />
           </Box>
         )}
 
@@ -309,6 +365,9 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
             durationMs={tc.durationMs}
             isPending={tc.isPending}
             sessionId={sessionId}
+            outputChunks={tc.outputChunks}
+            requiresApproval={tc.requiresApproval}
+            onApproval={(approved) => chatService.sendToolApproval(sessionId, approved)}
           />
         ))}
 

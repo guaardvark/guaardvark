@@ -14,6 +14,9 @@ import ThumbUpOutlinedIcon from "@mui/icons-material/ThumbUpOutlined";
 import ThumbDownOutlinedIcon from "@mui/icons-material/ThumbDownOutlined";
 import ThumbUpIcon from "@mui/icons-material/ThumbUp";
 import ThumbDownIcon from "@mui/icons-material/ThumbDown";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import CheckIcon from "@mui/icons-material/Check";
+import MemoryIcon from "@mui/icons-material/Memory";
 import Tooltip from "@mui/material/Tooltip";
 import IconButton from "@mui/material/IconButton";
 import { GuaardvarkLogo } from "../branding";
@@ -65,6 +68,26 @@ const MessageItem = ({ message }) => {
   const logo = useAppStore((s) => s.systemLogo);
   const [lightbox, setLightbox] = useState(null);
   const [feedback, setFeedback] = useState(null); // null | "up" | "down"
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    const text = typeof message.content === "string" ? message.content : JSON.stringify(message.content, null, 2);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // fallback for non-HTTPS contexts
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
+  }, [message.content]);
 
   const handleFeedback = useCallback(async (positive) => {
     const newVal = positive ? "up" : "down";
@@ -364,6 +387,16 @@ const MessageItem = ({ message }) => {
           </Box>
         )}
 
+        {/* Thinking context — persisted from the streaming phase */}
+        {message.thinkingText && message.toolCalls?.length > 0 && (
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1, mt: 0.5 }}>
+            <CircularProgress size={14} color="warning" sx={{ opacity: 0.6 }} />
+            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
+              {message.thinkingText}
+            </Typography>
+          </Box>
+        )}
+
         {/* Unified chat tool call cards (displayed inline before the response text) */}
         {message.isUnifiedChat && message.toolCalls && message.toolCalls.length > 0 && (
           <Box sx={{ mb: 1 }}>
@@ -455,6 +488,36 @@ const MessageItem = ({ message }) => {
         {/* Feedback + narrate for assistant messages */}
         {!isUser && message.content && typeof message.content === 'string' && message.content.length > 10 && (
           <Box sx={{ mt: 0.5, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.25 }}>
+            {message.toolCalls && message.toolCalls.some(tc => tc.tool_name === "search_memory") && (
+              <Tooltip title="Recalled from memory">
+                <Box sx={{ 
+                  display: "flex", 
+                  alignItems: "center", 
+                  gap: 0.5, 
+                  mr: 1, 
+                  px: 0.75, 
+                  py: 0.25, 
+                  borderRadius: 1, 
+                  bgcolor: "background.paper",
+                  border: "1px solid",
+                  borderColor: "divider"
+                }}>
+                  <MemoryIcon sx={{ fontSize: 12, color: "primary.main" }} />
+                  <Typography variant="caption" sx={{ fontSize: "0.65rem", color: "text.secondary" }}>
+                    Recalled
+                  </Typography>
+                </Box>
+              </Tooltip>
+            )}
+            <Tooltip title={copied ? "Copied" : "Copy"}>
+              <IconButton size="small" onClick={handleCopy} sx={{ p: 0.25 }}>
+                {copied ? (
+                  <CheckIcon sx={{ fontSize: 14, color: "success.main" }} />
+                ) : (
+                  <ContentCopyIcon sx={{ fontSize: 14, opacity: 0.4 }} />
+                )}
+              </IconButton>
+            </Tooltip>
             <Tooltip title="Good response">
               <IconButton size="small" onClick={() => handleFeedback(true)} sx={{ p: 0.25 }}>
                 {feedback === "up" ? (

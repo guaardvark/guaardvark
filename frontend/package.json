@@ -24,6 +24,7 @@
     "dompurify": "^3.2.7",
     "lucide-react": "^0.562.0",
     "monaco-editor": "^0.53.0",
+    "prop-types": "^15.8.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-grid-layout": "^1.4.4",
@@ -32,6 +33,7 @@
     "react-router-dom": "^6.20.0",
     "react-syntax-highlighter": "^15.6.1",
     "react-virtuoso": "^4.18.1",
+    "reactflow": "^11.11.4",
     "socket.io-client": "^4.7.0",
     "zod": "^4.1.11",
     "zustand": "^4.4.0"

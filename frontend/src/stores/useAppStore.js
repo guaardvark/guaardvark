@@ -19,6 +19,13 @@ const createUISlice = (set, get) => ({
   trainerOpen: false,
   setTrainerOpen: (open) => set({ trainerOpen: open }),
 
+  // True when the AgentScreenViewer is mounted/visible. The chat sender reads
+  // this to decide whether to flip `agent_screen_active` in the chat POST
+  // options. When false, the backend routes vision models through the normal
+  // ReACT path instead of the screen-action direct path.
+  agentScreenOpen: false,
+  setAgentScreenOpen: (open) => set({ agentScreenOpen: open }),
+
   isLoading: false,
   setIsLoading: (loading) => set({ isLoading: loading }),
   
