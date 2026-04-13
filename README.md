@@ -1,6 +1,6 @@
 # Guaardvark
 
-**Version 2.5.2** · [guaardvark.com](https://guaardvark.com)
+**Version 2.6.0** · [guaardvark.com](https://guaardvark.com)
 
 The self-hosted AI workstation. Autonomous agents that see your screen and control your apps. A three-tier neural routing engine. Parallel agent swarms across isolated git worktrees. Video generation, image upscaling to 4K/8K, RAG over your documents, voice interface, and a 57-tool execution engine — all running locally on your hardware. Your machine. Your data. Your rules.
 

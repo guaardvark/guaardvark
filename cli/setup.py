@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="guaardvark",
-    version="2.5.2",
+    version="2.6.0",
     description="Guaardvark CLI — full-stack AI platform with RAG, image/video generation, and agents",
     author="Guaardvark",
     url="https://guaardvark.com",
