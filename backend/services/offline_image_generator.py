@@ -359,7 +359,22 @@ class OfflineImageGenerator:
             self._vae_tiling_available = hasattr(self._pipeline, "enable_vae_tiling")
             logger.info(f"VAE tiling available (will activate for resolutions > 1024px)")
 
-            if hasattr(torch, 'compile') and self._device == "cuda" and not self._compile_failed:
+            # torch.compile(mode='reduce-overhead') uses CUDA graphs which allocate
+            # persistent IPC semaphores. When the pipeline is later moved to CPU and
+            # torch.cuda.empty_cache() is called, those semaphores leak — leaving the
+            # process in a state where Python's interpreter shutdown fires
+            # `resource_tracker: leaked semaphore` warnings and the process eventually
+            # aborts. This is a known PyTorch issue. Observed killing the backend on
+            # 2026-04-11 (PIDs 3047360, 3065470, 3074584).
+            #
+            # DISABLED BY DEFAULT. Set GUAARDVARK_ENABLE_TORCH_COMPILE=1 to re-enable
+            # if/when PyTorch fixes the underlying CUDA graph cleanup bug.
+            if (
+                os.environ.get("GUAARDVARK_ENABLE_TORCH_COMPILE") == "1"
+                and hasattr(torch, 'compile')
+                and self._device == "cuda"
+                and not self._compile_failed
+            ):
                 try:
                     if hasattr(self._pipeline, 'unet'):
                         self._compile_unet_orig = self._pipeline.unet

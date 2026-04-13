@@ -8,9 +8,10 @@
   "category": "integration",
   "port": 8200,
   "vram_estimate_mb": 0,
+  "core": false,
   "dependencies": [],
   "config": {
-    "enabled": false,
+    "enabled": true,
     "auto_start": false,
     "service_url": "http://localhost:8200",
     "timeout": 30,

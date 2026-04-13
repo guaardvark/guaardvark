@@ -8,6 +8,7 @@
   "category": "inference",
   "port": 11434,
   "vram_estimate_mb": 8000,
+  "core": true,
   "dependencies": [],
   "config": {
     "enabled": true,

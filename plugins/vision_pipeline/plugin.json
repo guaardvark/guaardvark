@@ -8,11 +8,12 @@
   "category": "inference",
   "port": 8201,
   "vram_estimate_mb": 2000,
+  "core": false,
   "dependencies": [
     "ollama"
   ],
   "config": {
-    "enabled": false,
+    "enabled": true,
     "auto_start": true,
     "service_url": "http://localhost:8201",
     "timeout": 30,

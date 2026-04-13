@@ -347,8 +347,6 @@ const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
   };
 
   const isLoading = actionLoading !== null;
-  const canStart = plugin.enabled && plugin.status === 'stopped';
-  const canStop = plugin.status === 'running';
 
   return (
     <Card
@@ -356,7 +354,10 @@ const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        opacity: plugin.enabled ? 1 : 0.6,
+        // Opacity reflects the actual running state, not the enabled config flag.
+        // Stopped plugins look dim regardless of whether they're "enabled" — what
+        // matters to the user is whether the plugin is actually doing anything.
+        opacity: plugin.status === 'running' ? 1 : 0.6,
         borderLeft: `4px solid ${plugin.status === 'running' ? accentColor : 'transparent'}`,
       }}
     >
@@ -426,45 +427,40 @@ const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
       <Divider />
 
       <CardActions sx={{ justifyContent: 'space-between', px: 2 }}>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={plugin.enabled}
-              onChange={() => handleAction(plugin.enabled ? 'disable' : 'enable')}
-              disabled={isLoading}
-              size="small"
-            />
+        <Tooltip
+          title={
+            (plugin.cooldown_remaining || 0) > 0
+              ? `Cooling down — wait ${Math.ceil(plugin.cooldown_remaining)}s before toggling again`
+              : ''
           }
-          label="Enabled"
-        />
-
-        <Box sx={{ display: 'flex', gap: 0.5 }}>
-          {canStart && (
-            <Tooltip title="Start">
-              <IconButton
+          arrow
+        >
+          <FormControlLabel
+            control={
+              <Switch
+                checked={plugin.status === 'running'}
+                onChange={() => handleAction(plugin.status === 'running' ? 'stop' : 'start')}
+                disabled={
+                  isLoading
+                  || plugin.status === 'starting'
+                  || plugin.status === 'stopping'
+                  || (plugin.cooldown_remaining || 0) > 0
+                }
                 size="small"
                 color="success"
-                onClick={() => handleAction('start')}
-                disabled={isLoading}
-              >
-                {actionLoading === 'start' ? <CircularProgress size={20} /> : <StartIcon />}
-              </IconButton>
-            </Tooltip>
-          )}
-          {canStop && (
-            <Tooltip title="Stop">
-              <IconButton
-                size="small"
-                color="error"
-                onClick={() => handleAction('stop')}
-                disabled={isLoading}
-              >
-                {actionLoading === 'stop' ? <CircularProgress size={20} /> : <StopIcon />}
-              </IconButton>
-            </Tooltip>
-          )}
+              />
+            }
+            label={
+              (plugin.cooldown_remaining || 0) > 0
+                ? `${plugin.status === 'running' ? 'On' : 'Off'} (cooling ${Math.ceil(plugin.cooldown_remaining)}s)`
+                : (plugin.status === 'running' ? 'On' : 'Off')
+            }
+          />
+        </Tooltip>
 
-          {plugin.id === 'vision_pipeline' && canStop && (
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+
+          {plugin.id === 'vision_pipeline' && plugin.status === 'running' && (
             <Tooltip title={cameraActive ? 'Stop Camera' : 'Start Camera'}>
               <IconButton
                 size="small"
@@ -695,13 +691,31 @@ const PluginsPage = () => {
     try {
       let response;
       switch (action) {
-        case 'start': response = await startPlugin(pluginId); break;
+        case 'start':
+          // Auto-enable if plugin is disabled so start doesn't get rejected
+          if (!plugins.find((p) => p.id === pluginId)?.enabled) {
+            await enablePlugin(pluginId);
+          }
+          response = await startPlugin(pluginId);
+          break;
         case 'stop': response = await stopPlugin(pluginId); break;
         case 'enable': response = await enablePlugin(pluginId); break;
         case 'disable': response = await disablePlugin(pluginId); break;
         default: throw new Error(`Unknown action: ${action}`);
       }
       if (response.success) {
+        // Backend returned 200. Two sub-cases:
+        //  1. Operation succeeded → data.success === true
+        //  2. Operation was rate-limited by the traffic light → data.gated === true
+        const data = response.data || {};
+        if (data.gated) {
+          // Friendly cooldown notice, not an error
+          const cd = data.cooldown_remaining ? Math.ceil(data.cooldown_remaining) : null;
+          const suffix = cd ? ` (wait ${cd}s)` : '';
+          showMessage(`${data.error || 'Cooling down'}${suffix}`, 'warning');
+          await fetchPlugins(); // refresh to pick up the cooldown_remaining
+          return;
+        }
         showMessage(response.message || `Plugin ${action} successful`, 'success');
         await fetchPlugins();
 

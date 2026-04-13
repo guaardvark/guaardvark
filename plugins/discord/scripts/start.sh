@@ -44,11 +44,7 @@ if ! curl -sf "http://localhost:${FLASK_PORT}/api/health" >/dev/null 2>&1; then
 fi
 
 # Setup venv if needed
-if [ -d "$PLUGIN_ROOT/venv" ]; then
-    source "$PLUGIN_ROOT/venv/bin/activate"
-elif [ -d "$PROJECT_ROOT/backend/venv" ]; then
-    source "$PROJECT_ROOT/backend/venv/bin/activate"
-fi
+source "$PROJECT_ROOT/backend/venv/bin/activate"
 
 # Install requirements
 pip install -q -r "$PLUGIN_ROOT/requirements.txt" 2>/dev/null || true

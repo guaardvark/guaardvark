@@ -8,9 +8,10 @@
   "category": "enhancement",
   "port": 8202,
   "vram_estimate_mb": 1500,
+  "core": false,
   "dependencies": [],
   "config": {
-    "enabled": false,
+    "enabled": true,
     "auto_start": false,
     "service_url": "http://localhost:8202",
     "timeout": 30,

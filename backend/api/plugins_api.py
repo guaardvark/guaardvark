@@ -74,18 +74,25 @@ def start_plugin(plugin_id):
     try:
         manager = get_plugin_manager()
         result = manager.start_plugin(plugin_id)
-        
+
         if result.get('success'):
             return success_response(
                 data=result,
                 message=result.get('message', 'Plugin started')
             )
-        else:
-            return error_response(
-                result.get('error', 'Failed to start plugin'),
-                400,
-                "PLUGIN_START_ERROR"
+        # Gate rejections (cooldown / GPU exclusivity) are NOT errors — they're
+        # expected backpressure. Return 200 with success=false so the frontend
+        # can show a friendly snackbar instead of an error toast.
+        if result.get('gated'):
+            return success_response(
+                data=result,
+                message=result.get('error', 'Plugin operation rate-limited')
             )
+        return error_response(
+            result.get('error', 'Failed to start plugin'),
+            400,
+            "PLUGIN_START_ERROR"
+        )
     except Exception as e:
         logger.error(f"Error starting plugin: {e}", exc_info=True)
         return error_response(str(e), 500, "PLUGIN_START_ERROR")
@@ -97,18 +104,22 @@ def stop_plugin(plugin_id):
     try:
         manager = get_plugin_manager()
         result = manager.stop_plugin(plugin_id)
-        
+
         if result.get('success'):
             return success_response(
                 data=result,
                 message=result.get('message', 'Plugin stopped')
             )
-        else:
-            return error_response(
-                result.get('error', 'Failed to stop plugin'),
-                400,
-                "PLUGIN_STOP_ERROR"
+        if result.get('gated'):
+            return success_response(
+                data=result,
+                message=result.get('error', 'Plugin operation rate-limited')
             )
+        return error_response(
+            result.get('error', 'Failed to stop plugin'),
+            400,
+            "PLUGIN_STOP_ERROR"
+        )
     except Exception as e:
         logger.error(f"Error stopping plugin: {e}", exc_info=True)
         return error_response(str(e), 500, "PLUGIN_STOP_ERROR")

@@ -28,14 +28,17 @@ if [ ! -f "$VENV_PYTHON" ]; then
     exit 1
 fi
 
-# Install/update ComfyUI requirements
+# Install/update ComfyUI requirements (hash-based — catches submodule updates)
 COMFYUI_REQS="$COMFYUI_DIR/requirements.txt"
 REQS_STAMP="$PLUGIN_ROOT/.requirements_installed"
 if [ -f "$COMFYUI_REQS" ]; then
-    if [ ! -f "$REQS_STAMP" ] || [ "$COMFYUI_REQS" -nt "$REQS_STAMP" ]; then
+    REQS_HASH=$(md5sum "$COMFYUI_REQS" 2>/dev/null | cut -d' ' -f1)
+    STAMP_HASH=""
+    [ -f "$REQS_STAMP" ] && STAMP_HASH=$(cat "$REQS_STAMP" 2>/dev/null)
+    if [ "$REQS_HASH" != "$STAMP_HASH" ]; then
         echo "Installing ComfyUI requirements..."
         "$VENV_PYTHON" -m pip install -r "$COMFYUI_REQS" --quiet 2>&1 | tail -5
-        touch "$REQS_STAMP"
+        echo "$REQS_HASH" > "$REQS_STAMP"
     fi
 fi
 
