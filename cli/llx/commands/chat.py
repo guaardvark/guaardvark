@@ -73,6 +73,8 @@ def chat(
         piped_input = sys.stdin.read()
 
     # Build final message
+    from llx.utils import parse_file_mentions
+    
     if piped_input and message:
         full_message = f"{message}\n\n---\n{piped_input}"
     elif piped_input:
@@ -82,6 +84,8 @@ def chat(
     else:
         output.print_error("No message provided. Usage: guaardvark chat \"your message\"")
         raise typer.Exit(1)
+
+    full_message = parse_file_mentions(full_message)
 
     if stream:
         _chat_streaming(session_id, full_message, no_rag, server, json_out, project_id=project)
@@ -208,10 +212,18 @@ def _chat_streaming(session_id: str, message: str, no_rag: bool, server: str | N
         def on_error(msg):
             response_parts.append(f"\n[ERROR] {msg}")
 
-        # Connect streaming first
+        def on_tool_output_chunk(data):
+            chunk = data.get("chunk", "")
+            if not json_out and not output.is_pipe():
+                console.print(chunk, end="")
+
+        # Connect streaming first. Approval requests are pulled from the
+        # streamer in the main render loop below — never from the socketio
+        # receive thread, which would deadlock the event stream.
         streamer.stream_chat(
             session_id=session_id,
             on_token=on_token,
+            on_tool_output_chunk=on_tool_output_chunk,
             on_complete=on_complete,
             on_error=on_error,
         )
@@ -228,11 +240,14 @@ def _chat_streaming(session_id: str, message: str, no_rag: bool, server: str | N
 
         signal.signal(signal.SIGINT, sigint_handler)
 
-        # Post the message to unified chat (streaming endpoint)
+        # Post the message to unified chat (streaming endpoint).
+        # One-shot `guaardvark chat` has no persistent /agent toggle context,
+        # so agent_screen_active defaults to False — backend routes through
+        # the normal ReACT path with web/tool access, not screen actions.
         body = {
             "session_id": session_id,
             "message": message,
-            "options": {"use_rag": not no_rag},
+            "options": {"use_rag": not no_rag, "agent_screen_active": False},
         }
         if project_id:
             body["project_id"] = project_id
@@ -240,7 +255,8 @@ def _chat_streaming(session_id: str, message: str, no_rag: bool, server: str | N
 
         # Stream output
         if json_out or output.is_pipe():
-            streamer.wait(timeout=300)
+            # Non-interactive mode: auto-reject any approval requests
+            streamer.wait_for_completion(approval_handler=None, timeout=300)
             full_response = "".join(response_parts)
             if json_out:
                 output.print_json({
@@ -251,12 +267,41 @@ def _chat_streaming(session_id: str, message: str, no_rag: bool, server: str | N
             else:
                 print(full_response)
         else:
+            deadline = time.time() + 300
             with Live("", console=console, refresh_per_second=15, transient=False) as live:
-                while not streamer._done.is_set():
+                last_render_time = 0.0
+                while not streamer._done.is_set() and time.time() < deadline:
+                    # Approval prompts must run in the main thread, not the
+                    # socketio receive thread. Drain any pending request
+                    # before doing the next render tick.
+                    pending = streamer.pop_pending_approval()
+                    if pending is not None:
+                        live.stop()
+                        tools_str = ", ".join(pending.get("tools", [])) or "(unknown tools)"
+                        console.print(f"\n[bold yellow]\u26a0 Approval Required[/bold yellow]")
+                        console.print(f"  Tool(s): [bold]{tools_str}[/bold]")
+                        try:
+                            approved = typer.confirm("Allow execution?", default=False)
+                        except (KeyboardInterrupt, EOFError, typer.Abort):
+                            streamer.send_approval_response(session_id, False)
+                            streamer.abort(session_id)
+                            console.print("[red]\u2717 Aborted.[/red]\n")
+                            live.start()
+                            break
+                        streamer.send_approval_response(session_id, approved)
+                        console.print(
+                            "[green]\u2713 Approved.[/green]\n" if approved
+                            else "[red]\u2717 Rejected.[/red]\n"
+                        )
+                        live.start()
+                        continue
+
                     current = "".join(response_parts)
-                    if current:
+                    now = time.time()
+                    if current and now - last_render_time > 0.05:
                         live.update(Markdown(current))
-                    streamer._done.wait(timeout=0.07)
+                        last_render_time = now
+                    streamer._done.wait(timeout=0.05)
                 current = "".join(response_parts)
                 if current:
                     live.update(Markdown(current))

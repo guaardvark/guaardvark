@@ -578,6 +578,10 @@ class SlashRouter:
         """Toggle agent mode (tool-using autonomous agent)."""
         current = self._state.get("agent_mode", False)
         self._state["agent_mode"] = not current
+        # Mirror to agent_screen_active so chat POSTs flip the backend gate.
+        # This tells the backend to route Gemma4 through its screen-action
+        # direct path and to expose desktop/agent-control tools to every model.
+        self._state["agent_screen_active"] = self._state["agent_mode"]
 
         if self._state["agent_mode"]:
             self._console.print("[llx.success]Agent mode ON[/llx.success]")

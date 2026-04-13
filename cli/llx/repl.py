@@ -5,6 +5,7 @@ import uuid
 from pathlib import Path
 
 from prompt_toolkit import PromptSession
+from prompt_toolkit.application import run_in_terminal
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
@@ -107,30 +108,25 @@ def _handle_chat(state: dict, ctx: ContextSnapshot, message: str):
     ctx.refresh_async()
 
     if agent_mode:
-        # Agent mode: synchronous API call
-        try:
-            client = get_client(server)
-            response = client.post("/api/agent/chat", json={
-                "message": message,
-                "session_id": session_id,
-                "max_iterations": 10,
-            })
-            result = response.get("data", response)
-            answer = result.get("final_answer", str(result))
-            from rich.markdown import Markdown
-            console.print()
-            console.print(Markdown(answer))
-            console.print()
-        except (LlxConnectionError, LlxError, Exception) as e:
-            console.print(f"[llx.error]Agent error: {e}[/llx.error]")
-    elif lite_mode:
+        message = f"[AGENT MODE: You are an autonomous agent. Use your tools to fulfill this request.]\n\n{message}"
+
+    # The /agent slash command toggles this. Tells the backend whether to
+    # route Gemma4 through its screen-action direct path and to expose
+    # desktop/agent-control tools. Defaults False — CLI users aren't watching
+    # the agent screen unless they explicitly opted in.
+    screen_active = bool(state.get("agent_screen_active", False))
+
+    if lite_mode:
         # Lite mode: synchronous chat (no Socket.IO)
         try:
             client = get_client(server)
             response = client.post("/api/chat/unified", json={
                 "session_id": session_id,
                 "message": message,
-                "options": {"use_rag": False},
+                "options": {
+                    "use_rag": False,
+                    "agent_screen_active": screen_active,
+                },
             })
             result = response.get("data", response)
             content = result.get("response", str(result))
@@ -150,6 +146,7 @@ def _handle_chat(state: dict, ctx: ContextSnapshot, message: str):
             session_id,
             on_token=renderer.on_token,
             on_tool_call=renderer.on_tool_call,
+            on_tool_output_chunk=renderer.on_tool_output_chunk,
             on_complete=renderer.on_complete,
             on_error=renderer.on_error,
         )
@@ -163,6 +160,7 @@ def _handle_chat(state: dict, ctx: ContextSnapshot, message: str):
                 "options": {
                     "use_rag": True,
                     "context": context_block,
+                    "agent_screen_active": screen_active,
                 },
             })
         except (LlxConnectionError, LlxError, Exception) as e:
@@ -171,9 +169,25 @@ def _handle_chat(state: dict, ctx: ContextSnapshot, message: str):
             streamer.disconnect()
             return
 
-        streamer.wait(timeout=300)
-        renderer.stop()
-        streamer.disconnect()
+        completed = False
+        try:
+            completed = streamer.wait_for_completion(
+                approval_handler=renderer.prompt_for_approval,
+                timeout=300,
+            )
+        except KeyboardInterrupt:
+            # User hit Ctrl+C at the approval prompt — chat already aborted
+            completed = True
+            console.print("[llx.dim]Chat aborted.[/llx.dim]")
+        finally:
+            renderer.stop()
+            streamer.disconnect()
+
+        if not completed:
+            console.print(
+                "[llx.error]No response after 5 minutes — server may be stalled "
+                "(check backend log / Ollama). Returning to prompt.[/llx.error]"
+            )
 
     # Track session
     state["message_count"] = state.get("message_count", 0) + 1
@@ -281,7 +295,12 @@ def launch_repl():
         if now - _last_ctrl_c["time"] < 2.0:
             raise EOFError()
         _last_ctrl_c["time"] = now
-        console.print("\n[llx.dim]Press Ctrl+C again to exit.[/llx.dim]")
+        # Rich's console.print() from inside a prompt_toolkit key handler
+        # crashes the event loop because prompt_toolkit owns the terminal.
+        # run_in_terminal pauses rendering, runs the callable, then resumes.
+        run_in_terminal(
+            lambda: console.print("\n[llx.dim]Press Ctrl+C again to exit.[/llx.dim]")
+        )
 
     # Create prompt session
     history_file = Path.home() / ".llx" / "history"
@@ -328,4 +347,6 @@ def launch_repl():
                 break
         else:
             # Chat message
+            from llx.utils import parse_file_mentions
+            line = parse_file_mentions(line)
             _handle_chat(state, ctx, line)
