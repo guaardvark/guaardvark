@@ -32,7 +32,6 @@ DIRECTION_MAP = {
     "left_and_down": (-1, 1), "right_and_down": (1, 1),
 }
 
-SCREEN_W, SCREEN_H = 1280, 720
 TASKBAR_H = 30  # tint2 taskbar at the bottom — never click here
 
 
@@ -45,13 +44,22 @@ class ServoController:
         result = servo.click_target("Reply button under first comment")
     """
 
-    def __init__(self, screen, analyzer, max_corrections: int = 4, collector=None):
+    def __init__(self, screen, analyzer, max_corrections: int = 4, collector=None, vision_config: Dict = None):
         self.screen = screen
         self.analyzer = analyzer
         self.max_corrections = max_corrections
         self.collector = collector
+        # The vision config tells us what scale factors the model *theoretically* needs.
+        # We record these honestly in the archive — the self-improvement engine
+        # decides when (if ever) to actually apply scaling.
+        self._vision_config = vision_config or {}
 
-    def click_target(self, target_description: str, button: str = "left") -> Dict[str, Any]:
+        # Get the actual screen size from the backend — no more hardcoded 1024x1024!
+        # This fixes the "horizontally stretched vision" bug on 1280x720 screens.
+        self.screen_w, self.screen_h = self.screen.screen_size()
+        logger.info(f"Servo initialized for {self.screen_w}x{self.screen_h} screen")
+
+    def click_target(self, target_description: str, button: str = "left", single_attempt: bool = False) -> Dict[str, Any]:
         """
         Click on a described target element using the adaptive servo loop.
 
@@ -65,21 +73,28 @@ class ServoController:
         start = time.time()
         current_x, current_y = 0, 0
         corrections_made = 0
+        all_corrections = []  # accumulate across all attempts for the archive
 
-        for attempt in range(1, 4):
+        max_attempts = 1 if single_attempt else 3
+        for attempt in range(1, max_attempts + 1):
             # Attempt 1: ballistic only (no correction), trust the scaling
             # Attempt 2: ballistic + 1 correction
             # Attempt 3: ballistic + full corrections + zoom
             max_corr = 0 if attempt == 1 else (1 if attempt == 2 else min(self.max_corrections, 3))
             use_zoom = attempt >= 3
 
+            # Pause between attempts — gives time to re-observe and think
+            if attempt > 1:
+                time.sleep(5.0)
+
             corrections_made = 0
             correction_log = []
 
-            # 1. BALLISTIC MOVE — full screenshot for absolute coordinate estimation
+            # 1. BALLISTIC MOVE — fresh screenshot for coordinate estimation
             screenshot, cursor_pos = self.screen.capture()
-            annotated = composite_bullseye(screenshot, cursor_pos)
-            coords = self._estimate_coordinates(annotated, target_description)
+            # Send CLEAN screenshot for detection — the bullseye overlay can confuse
+            # the model into thinking the crosshair is the target
+            coords = self._estimate_coordinates(screenshot, target_description)
             if coords is None:
                 continue
 
@@ -97,7 +112,7 @@ class ServoController:
                 if use_zoom:
                     cx, cy = cursor_pos
                     crop_box = (max(0, cx - 160), max(0, cy - 160),
-                                min(SCREEN_W, cx + 160), min(SCREEN_H, cy + 160))
+                                min(self.screen_w, cx + 160), min(self.screen_h, cy + 160))
                     annotated = annotated.crop(crop_box)
 
                 correction = self._check_on_target(annotated, target_description)
@@ -114,14 +129,16 @@ class ServoController:
                     pixels = max(5, int(self._nudge_pixels(distance) * nudge_scale))
 
                 dx, dy = self._direction_to_delta(direction, pixels)
-                new_x = max(0, min(SCREEN_W, current_x + dx))
-                new_y = max(0, min(SCREEN_H - TASKBAR_H, current_y + dy))
+                new_x = max(0, min(self.screen_w, current_x + dx))
+                new_y = max(0, min(self.screen_h - TASKBAR_H, current_y + dy))
 
                 self.screen.move(new_x, new_y)
-                correction_log.append({
+                corr_entry = {
                     "direction": direction, "distance": distance,
                     "pixels": pixels, "from": (current_x, current_y), "to": (new_x, new_y)
-                })
+                }
+                correction_log.append(corr_entry)
+                all_corrections.append(corr_entry)
                 current_x, current_y = new_x, new_y
                 prev_direction = direction
                 corrections_made += 1
@@ -168,6 +185,7 @@ class ServoController:
                     corrections=corrections_made,
                     attempt=attempt,
                     time_ms=elapsed_ms,
+                    correction_log=correction_log,
                 )
             except Exception as e:
                 logger.debug(f"Archive record failed (non-fatal): {e}")
@@ -212,6 +230,7 @@ class ServoController:
                 corrections=corrections_made,
                 attempt=3,
                 time_ms=elapsed_ms,
+                correction_log=all_corrections,
             )
         except Exception as e:
             logger.debug(f"Archive record failed (non-fatal): {e}")
@@ -254,56 +273,198 @@ class ServoController:
 
         return False
 
+    def _lookup_dom_coordinates(self, target: str) -> Optional[Tuple[int, int]]:
+        """Try to find target coordinates from DOM metadata — no vision call needed.
+
+        Fuzzy-matches the target description against interactive elements
+        extracted from Firefox's DOM. Returns center coords if confident match found.
+        """
+        try:
+            from backend.services.dom_metadata_extractor import DOMMetadataExtractor
+            snapshot = DOMMetadataExtractor.get_instance().extract()
+            if not snapshot.success or not snapshot.elements:
+                return None
+
+            target_lower = target.lower()
+            best_match = None
+            best_score = 0
+
+            for el in snapshot.elements:
+                score = 0
+                el_text = (el.text or "").lower()
+
+                # Text content match
+                if el_text and el_text in target_lower:
+                    score = len(el_text) / max(len(target_lower), 1)
+                elif el_text and target_lower in el_text:
+                    score = len(target_lower) / max(len(el_text), 1)
+
+                # ID or name match
+                if el.id and el.id.lower() in target_lower:
+                    score = max(score, 0.8)
+                if el.name and el.name.lower() in target_lower:
+                    score = max(score, 0.7)
+
+                # Element type match (e.g., "search box" matches input[text])
+                if el.element_type:
+                    et = el.element_type.lower()
+                    if et in target_lower or (et == "text" and "search" in target_lower):
+                        score = max(score, 0.5)
+
+                # Tag match (e.g., "button" in target and el is a button)
+                if el.tag in target_lower:
+                    score = max(score, 0.3)
+
+                if score > best_score and score >= 0.4:
+                    best_score = score
+                    best_match = el
+
+            if best_match:
+                logger.info(
+                    f"Servo DOM shortcut: \"{target}\" → \"{best_match.text[:30]}\" "
+                    f"at ({best_match.cx},{best_match.cy}) score={best_score:.2f}"
+                )
+                return (best_match.cx, best_match.cy)
+
+        except Exception as e:
+            logger.debug(f"DOM lookup failed (non-fatal): {e}")
+
+        return None
+
     def _estimate_coordinates(self, screenshot: Image.Image, target: str) -> Optional[Tuple[int, int]]:
-        """Ask the vision model where the target is. No descaling, no format
-        conversion — just tell the model the screen size and let it answer
-        in pixel coordinates directly."""
-        prompt = (
-            f"The screen is {SCREEN_W}x{SCREEN_H} pixels. "
-            f"Where is the center of the {target}? "
-            f"Reply with ONLY: {{\"x\": <pixels from left>, \"y\": <pixels from top>}}"
+        """Find where the target is on screen.
+
+        Priority: DOM metadata → native detection (full-size image) → legacy fallback.
+
+        CRITICAL: The image must be sent at FULL resolution (1024x1024).
+        Through Ollama with think:false, Gemma4 returns box_2d coordinates
+        normalized to 1024. With a 1024x1024 screen, coord/1024*1024 = identity.
+        Empirically verified 2026-04-10: full-size → 35px error (HIT),
+        resized → 263px error (MISS).
+        """
+        # Try DOM shortcut first — instant if Firefox has the element
+        dom_coords = self._lookup_dom_coordinates(target)
+        if dom_coords:
+            self._last_raw_coords = dom_coords
+            self._last_scale = (1.0, 1.0)
+            return dom_coords
+
+        # Hallucination guard — ask if the target actually exists
+        check = self.analyzer.analyze(
+            screenshot,
+            prompt=f"Is there a {target} visible in this image? Answer ONLY yes or no.",
+            num_predict=32, temperature=0.1,
         )
-        result = self.analyzer.analyze(screenshot, prompt=prompt, num_predict=32, temperature=0.1)
+        if check.success:
+            answer = check.description.strip().lower()
+            if answer.startswith("no") or "not visible" in answer or "don't see" in answer:
+                logger.info(f"Servo: target not visible (\"{target}\"), skipping click")
+                return None
+
+        # Full-size image — resize destroys coordinate accuracy
+        prompt = f"detect {target}"
+        result = self.analyzer.analyze_fullsize(
+            screenshot, prompt=prompt, num_predict=256, temperature=0.1
+        )
         if not result.success:
             logger.error(f"Coordinate estimation failed: {result.error}")
             return None
 
-        coords = self._parse_coordinates(result.description)
+        # Parse detection response — handles both "point" and "box_2d" formats
+        coords = self._parse_detection_response(result.description)
+        if coords is None:
+            # Fall back to legacy {"x","y"} format
+            coords = self._parse_coordinates(result.description)
+
         if coords is None:
             return None
 
-        x, y = coords
-
-        # Gemma4 sometimes returns coords in its internal 1024-grid space
-        # instead of real pixels. Detect and rescale when values exceed screen bounds.
-        if x > SCREEN_W or y > SCREEN_H:
-            logger.info(f"Servo: coords ({x},{y}) exceed screen — rescaling from 1024 grid")
-            x = round((x / 1024) * SCREEN_W)
-            y = round((y / 1024) * SCREEN_H)
+        raw_x, raw_y = coords
+        self._last_raw_coords = coords
+        self._last_scale = (1.0, 1.0)  # raw pixels, no scaling needed
 
         # Clamp to screen bounds
-        x = max(0, min(SCREEN_W, x))
-        y = max(0, min(SCREEN_H - TASKBAR_H, y))
+        x = max(0, min(self.screen_w, int(raw_x)))
+        y = max(0, min(self.screen_h - TASKBAR_H, int(raw_y)))
 
-        self._last_raw_coords = coords
-        self._last_scale = (1.0, 1.0)
-
-        logger.info(f"Servo coords: ({x}, {y}) model={getattr(self.analyzer, 'default_model', '?')}")
+        logger.info(f"Servo coords: ({x}, {y}) raw=({raw_x},{raw_y}) model={getattr(self.analyzer, 'default_model', '?')}")
         return (x, y)
 
     def _check_on_target(self, screenshot: Image.Image, target: str) -> Dict[str, Any]:
         prompt = (
-            f"The crosshair (bullseye) is visible on screen. Is it directly on the {target}? "
-            f"Respond with ONLY a JSON object: "
-            f"{{\"on_target\": true}} or "
-            f"{{\"on_target\": false, \"direction\": \"left|right|up|down|left_and_up|right_and_up|left_and_down|right_and_down\", \"distance\": \"small|medium|large\"}}"
+            f'Is the crosshair on the {target}? Reply ONLY JSON: '
+            f'{{"on_target": true}} or '
+            f'{{"on_target": false, "direction": "left|right|up|down", "distance": "small|medium|large"}}'
         )
-        result = self.analyzer.analyze(screenshot, prompt=prompt, num_predict=64, temperature=0.1)
+        result = self.analyzer.analyze(screenshot, prompt=prompt, num_predict=128, temperature=0.1)
         if not result.success:
             return {"on_target": False, "direction": "down", "distance": "small"}
         return self._parse_correction(result.description)
 
-    def _parse_coordinates(self, text: str) -> Optional[Tuple[int, int]]:
+    def _parse_detection_response(self, text: str) -> Optional[Tuple[int, int]]:
+        """Parse detection response — handles both point and box_2d formats.
+
+        box_2d coordinates are normalized to the model's internal grid:
+          Gemma4: 1000 (confirmed by Google docs)
+          qwen3-vl: 1024
+        The divisor comes from vision_config["internal_width"].
+        """
+        try:
+            text = text.strip()
+            if "```json" in text:
+                start = text.index("```json") + 7
+                end = text.index("```", start)
+                text = text[start:end].strip()
+            elif "```" in text:
+                start = text.index("```") + 3
+                end = text.index("```", start)
+                text = text[start:end].strip()
+
+            arr_start = text.find("[")
+            arr_end = text.rfind("]") + 1
+            if arr_start < 0 or arr_end <= arr_start:
+                return None
+
+            data = json.loads(text[arr_start:arr_end])
+            if not data or not isinstance(data, list):
+                return None
+
+            entry = data[0]
+
+            # Format 1: "point" — raw pixel coordinates [x, y]
+            point = entry.get("point")
+            if point and len(point) == 2:
+                x, y = int(point[0]), int(point[1])
+                logger.info(f"Servo: point [{point[0]},{point[1]}] → ({x},{y}) label=\"{entry.get('label', '?')}\"")
+                return (x, y)
+
+            # Format 2: bounding box normalized to model's internal grid
+            # Gemma4 via Ollama: [x1,y1,x2,y2] (empirically verified, not y-first like Google HF spec)
+            box = entry.get("box_2d") or entry.get("bbox_2d")
+            if box and len(box) == 4:
+                grid = self._vision_config.get("internal_width", 1000)
+                if grid > 0:
+                    norm = [int(c) / grid for c in box]
+                    cx = int(((norm[0] + norm[2]) / 2) * self.screen_w)
+                    cy = int(((norm[1] + norm[3]) / 2) * self.screen_h)
+                else:
+                    # Raw pixel mode (internal_width: 0)
+                    cx = int((int(box[0]) + int(box[2])) / 2)
+                    cy = int((int(box[1]) + int(box[3])) / 2)
+                
+                logger.info(
+                    f"Servo: box {box} (grid={grid}) → center ({cx},{cy}) "
+                    f"label=\"{entry.get('label', '?')}\""
+                )
+                return (cx, cy)
+
+            return None
+
+        except (json.JSONDecodeError, ValueError, TypeError, KeyError, IndexError) as e:
+            logger.debug(f"box_2d parse failed (will try legacy): {e}")
+            return None
+
+    def _parse_coordinates(self, text: str) -> Optional[Tuple[float, float]]:
         try:
             text = text.strip()
             start = text.find("{")
@@ -317,9 +478,9 @@ class ServoController:
                     raw_x = raw_x[0] if raw_x else 0
                 if isinstance(raw_y, list):
                     raw_y = raw_y[0] if raw_y else 0
-                x = int(raw_x)
-                y = int(raw_y)
-                return (max(0, min(SCREEN_W, x)), max(0, min(SCREEN_H, y)))
+                x = float(raw_x)
+                y = float(raw_y)
+                return (x, y)
         except (json.JSONDecodeError, ValueError, TypeError) as e:
             logger.warning(f"Failed to parse coordinates: {e} — raw: {text[:100]}")
         return None

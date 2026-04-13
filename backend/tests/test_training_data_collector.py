@@ -11,7 +11,7 @@ class TestTrainingDataCollector(unittest.TestCase):
         from backend.services.training_data_collector import TrainingDataCollector
         with tempfile.TemporaryDirectory() as tmpdir:
             collector = TrainingDataCollector(base_dir=tmpdir)
-            img = Image.new("RGB", (1280, 720))
+            img = Image.new("RGB", (1024, 1024))
             collector.record(
                 screenshot_before=img,
                 crosshair_pos=(400, 300),
@@ -32,7 +32,7 @@ class TestTrainingDataCollector(unittest.TestCase):
         from backend.services.training_data_collector import TrainingDataCollector
         with tempfile.TemporaryDirectory() as tmpdir:
             collector = TrainingDataCollector(base_dir=tmpdir)
-            img = Image.new("RGB", (1280, 720), color=(255, 0, 0))
+            img = Image.new("RGB", (1024, 1024), color=(255, 0, 0))
             collector.record(
                 screenshot_before=img,
                 crosshair_pos=(100, 100),
@@ -49,7 +49,7 @@ class TestTrainingDataCollector(unittest.TestCase):
         from backend.services.training_data_collector import TrainingDataCollector
         with tempfile.TemporaryDirectory() as tmpdir:
             collector = TrainingDataCollector(base_dir=tmpdir)
-            img = Image.new("RGB", (1280, 720))
+            img = Image.new("RGB", (1024, 1024))
             collector.record(
                 screenshot_before=img,
                 crosshair_pos=(400, 300),
@@ -67,7 +67,7 @@ class TestTrainingDataCollector(unittest.TestCase):
         from backend.services.training_data_collector import TrainingDataCollector
         with tempfile.TemporaryDirectory() as tmpdir:
             collector = TrainingDataCollector(base_dir=tmpdir)
-            img = Image.new("RGB", (1280, 720))
+            img = Image.new("RGB", (1024, 1024))
             for i in range(3):
                 collector.record(
                     screenshot_before=img,

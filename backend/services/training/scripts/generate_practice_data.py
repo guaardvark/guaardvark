@@ -89,7 +89,7 @@ def run_practice(rounds: int = 50, bootstrap: bool = False):
             screenshot, cursor_pos = screen.capture()
             annotated = composite_bullseye(screenshot, cursor_pos)
             prompt = (
-                f"Image size: 1280x720. "
+                f"Image size: 1024x1024. "
                 f"Find the {target}. "
                 f"Output only: {{\"x\": CENTER_X, \"y\": CENTER_Y}}"
             )

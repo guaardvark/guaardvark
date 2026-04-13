@@ -74,30 +74,32 @@ MODEL_VISION_CONFIGS = {
     "gemma4:e4b": {
         "has_vision": True,
         "vision_model": None,            # gemma4 does its own coordinate estimation — no middleman
-        "internal_width": 1024,          # Gemma4 uses 1024x1024 normalized grid
-        "scale_x": 1.25,                 # 1280 / 1024 = 1.25
-        "scale_y": 0.703125,             # 720 / 1024 = 0.703125
-        "native_pointing": True,         # uses box_2d [y1, x1, y2, x2] format natively
-        "coord_order": "yx",             # Gemma4 returns Y first, then X
-        "source": "google_docs_2026_04_06",
-        "notes": "Gemma4 1024x1024 normalized grid. box_2d format [y1,x1,y2,x2]. Descale: px = round((coord/1024) * screen_dim)",
+        "internal_width": 0,             # Gemma4 via Ollama returns raw pixel coords (no normalization)
+        "scale_x": 1.0,                  # Identity scale for raw pixel mode
+        "scale_y": 1.0,                  # Identity scale for raw pixel mode
+        "offset_x": 0,
+        "offset_y": 0,
+        "native_pointing": True,         # uses box_2d [x1, y1, x2, y2] format natively
+        "coord_order": "xy",             # Ollama's gemma4 runner: [x1,y1,x2,y2]
+        "source": "raw_pixel_mode_2026_04_10",
+        "notes": "1280x720 16:9 screen. Verified that Gemma4 via Ollama returns raw pixels, so we bypass normalization to avoid horizontal stretching.",
     },
     "qwen3-vl:4b-instruct": {
         "has_vision": True,
         "vision_model": None,
         "internal_width": 1024,
-        "scale_x": 1.25,
-        "scale_y": 1.25,
-        "source": "calibration_2026_03_25",
-        "notes": "Qwen3-VL internally resizes to ~1024px wide",
+        "scale_x": 1.0,
+        "scale_y": 1.0,
+        "source": "square_unification_2026_04_10",
+        "notes": "1024x1024 square screen. Identity scaling (1.0) for perfect 1:1 vision mapping.",
     },
     "qwen3-vl:8b-instruct": {
         "has_vision": True,
         "vision_model": None,
         "internal_width": 1024,
         "scale_x": 1.25,
-        "scale_y": 1.25,
-        "source": "calibration_2026_03_25",
+        "scale_y": 0.7031,
+        "source": "16_9_screen_calibration_2026_04_10",
         "notes": "Same internal resolution as 4b variant",
     },
     "qwen3-vl:2b-instruct": {
@@ -105,27 +107,27 @@ MODEL_VISION_CONFIGS = {
         "vision_model": None,
         "internal_width": 1024,
         "scale_x": 1.25,
-        "scale_y": 1.25,
-        "source": "calibration_2026_03_25",
-        "notes": "Small vision model, used as servo eyes",
+        "scale_y": 0.7031,
+        "source": "16_9_screen_calibration_2026_04_10",
+        "notes": "Small vision model, used as servo eyes. 1280x720 screen / 1024 internal = 1.25x scale.",
     },
     "qwen2.5vl:7b-q4_K_M": {
         "has_vision": True,
         "vision_model": None,
         "internal_width": 1024,
-        "scale_x": 1.25,
-        "scale_y": 1.25,
-        "source": "manual_calibration_2026_03_25",
-        "notes": "Original calibration model. 1280/1024 = 1.25",
+        "scale_x": 1.0,
+        "scale_y": 1.0,
+        "source": "square_unification_2026_04_10",
+        "notes": "1024x1024 square screen. Identity scaling (1.0) for perfect 1:1 vision mapping.",
     },
     "moondream:latest": {
         "has_vision": True,
         "vision_model": None,
         "internal_width": 1024,
         "scale_x": 1.25,
-        "scale_y": 1.25,
-        "source": "initial_design",
-        "notes": "Moondream uses ~1024px internal width",
+        "scale_y": 0.7031,
+        "source": "16_9_screen_calibration_2026_04_10",
+        "notes": "Moondream uses ~1024px internal width. 1280x720 screen / 1024 internal = 1.25x scale.",
     },
 
     # -- Text-only models (need an external vision model for eyes) --
@@ -134,27 +136,27 @@ MODEL_VISION_CONFIGS = {
         "vision_model": "moondream:latest",
         "internal_width": 1024,
         "scale_x": 1.25,
-        "scale_y": 1.25,
-        "source": "initial_design",
-        "notes": "Llama3 has no vision — uses moondream as eyes",
+        "scale_y": 0.7031,
+        "source": "16_9_screen_calibration_2026_04_10",
+        "notes": "Llama3 has no vision — uses moondream as eyes. 1280x720 screen / 1024 internal = 1.25x scale.",
     },
     "qwen3.5:9b": {
         "has_vision": False,
         "vision_model": "qwen3-vl:2b-instruct",
         "internal_width": 1024,
         "scale_x": 1.25,
-        "scale_y": 1.25,
-        "source": "initial_design",
-        "notes": "Text-only, uses qwen3-vl:2b as eyes",
+        "scale_y": 0.7031,
+        "source": "16_9_screen_calibration_2026_04_10",
+        "notes": "Text-only, uses qwen3-vl:2b as eyes. 1280x720 screen / 1024 internal = 1.25x scale.",
     },
     "ministral-3:latest": {
         "has_vision": False,
         "vision_model": "qwen3-vl:2b-instruct",
         "internal_width": 1024,
         "scale_x": 1.25,
-        "scale_y": 1.25,
-        "source": "initial_design",
-        "notes": "Text-only, uses qwen3-vl:2b as eyes",
+        "scale_y": 0.7031,
+        "source": "16_9_screen_calibration_2026_04_10",
+        "notes": "Text-only, uses qwen3-vl:2b as eyes. 1280x720 screen / 1024 internal = 1.25x scale.",
     },
 }
 
@@ -163,10 +165,10 @@ _DEFAULT_VISION_CONFIG = {
     "has_vision": False,
     "vision_model": "qwen3-vl:2b-instruct",
     "internal_width": 1024,
-    "scale_x": 1.25,
-    "scale_y": 1.25,
-    "source": "default_fallback",
-    "notes": "Model not calibrated yet — using safe defaults",
+    "scale_x": 1.0,
+    "scale_y": 1.0,
+    "source": "square_screen_2026_04_10",
+    "notes": "1024x1024 square screen — no scaling needed",
 }
 
 
@@ -215,7 +217,7 @@ def _detect_active_model() -> str:
     return ""
 
 
-def get_scale_factors(screen_w: int = 1280, screen_h: int = 720, model_name: str = "") -> Tuple[float, float]:
+def get_scale_factors(screen_w: int = 1024, screen_h: int = 1024, model_name: str = "") -> Tuple[float, float]:
     """Get coordinate scaling factors for a specific model.
 
     Uses per-model calibration from MODEL_VISION_CONFIGS.
@@ -274,6 +276,7 @@ class ServoArchive:
         time_ms: int = 0,
         screen_size: Tuple[int, int] = (1280, 720),
         ui_element_type: str = "",
+        correction_log: Optional[List[Dict]] = None,
     ):
         """Record a servo interaction to the universal archive."""
         entry = {
@@ -296,6 +299,11 @@ class ServoArchive:
                  (scaled_coords[1] - actual_click_coords[1]) ** 2) ** 0.5, 1
             ),
         }
+
+        # Include correction directions so the self-improvement engine
+        # can see which way the model was consistently off
+        if correction_log:
+            entry["correction_log"] = correction_log
 
         with self._write_lock:
             with open(self._archive_path, "a") as f:
@@ -488,6 +496,26 @@ class ServoArchive:
                 "scale_factor": scale_suggestion,
             },
         }
+
+
+    def rotate_archive(self, reason: str = "manual") -> str:
+        """Move current archive to a dated backup and start fresh.
+
+        We never delete — old data might be useful for forensics even if
+        it was recorded with busted scale factors. Rotate and move on.
+        """
+        if not self._archive_path.exists():
+            return ""
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_name = f"servo_archive_{timestamp}_{reason}.jsonl"
+        backup_path = self._archive_dir / backup_name
+
+        with self._write_lock:
+            self._archive_path.rename(backup_path)
+
+        logger.info(f"Archive rotated → {backup_path} (fresh start, let's do better this time)")
+        return str(backup_path)
 
 
 def get_servo_archive() -> ServoArchive:

@@ -30,9 +30,9 @@ class TestDemoRecorder:
     @pytest.fixture
     def mock_screen(self):
         screen = MagicMock()
-        img = Image.new("RGB", (1280, 720), color="white")
+        img = Image.new("RGB", (1024, 1024), color="white")
         screen.capture.return_value = (img, (640, 360))
-        screen.screen_size.return_value = (1280, 720)
+        screen.screen_size.return_value = (1024, 1024)
         return screen
 
     @pytest.fixture
@@ -90,8 +90,8 @@ class TestDemoRecorder:
         assert Path(step["screenshot_before"]).suffix == ".jpg"
 
     def test_screen_settle_detection(self, recorder, mock_screen):
-        img1 = Image.new("RGB", (1280, 720), color="white")
-        img2 = Image.new("RGB", (1280, 720), color="blue")
+        img1 = Image.new("RGB", (1024, 1024), color="white")
+        img2 = Image.new("RGB", (1024, 1024), color="blue")
         mock_screen.capture.side_effect = [
             (img1, (640, 360)),  # before (initial)
             (img2, (640, 360)),  # settle check 1 (changed)

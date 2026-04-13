@@ -30,10 +30,12 @@ data/conversations/sessions/
 data/training/screenshots/
 data/training/datasets/*.jsonl
 data/training/models/
-# Servo calibration data — knowledge is clean, logs contain local paths
-# data/training/knowledge/   ← INCLUDED (servo_archive.jsonl = learned calibration)
+# Servo calibration data — runtime-generated, regenerated per calibration run
 data/training/servo_logs/
+data/training/knowledge/servo_archive*.jsonl
 data/training/knowledge/*.pre_purge
+data/training/knowledge/feedback.jsonl
+data/training/poisoned_data_backup/
 
 # Agent desktop shortcuts (generated with local paths at runtime)
 data/agent/desktop/

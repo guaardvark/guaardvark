@@ -20,7 +20,7 @@ GUAARDVARK_ROOT = Path(os.environ.get("GUAARDVARK_ROOT", "."))
 SERVO_LOGS = GUAARDVARK_ROOT / "data" / "training" / "servo_logs"
 DATASETS_DIR = GUAARDVARK_ROOT / "data" / "training" / "datasets"
 
-SCREEN_W, SCREEN_H = 1280, 720
+SCREEN_W, SCREEN_H = 1024, 1024
 
 
 def load_servo_logs():
