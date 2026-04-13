@@ -358,9 +358,20 @@ class GUIClickTool(BaseTool):
         
         x = kwargs.get("x")
         y = kwargs.get("y")
+
+        # Normalize LLM coord format: "x, y" → separate x, y
+        if x is None and y is None:
+            coord = kwargs.get("coord") or kwargs.get("coordinates") or kwargs.get("position")
+            if coord and isinstance(coord, str) and "," in coord:
+                try:
+                    parts = [p.strip() for p in coord.split(",")]
+                    x, y = int(parts[0]), int(parts[1])
+                except (ValueError, IndexError):
+                    pass
+
         button = kwargs.get("button", "left")
         clicks = kwargs.get("clicks", 1)
-        
+
         if x is None or y is None:
             return ToolResult(success=False, error="x and y coordinates required")
         

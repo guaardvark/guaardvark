@@ -516,8 +516,10 @@ class BatchImageGenerator:
                         try:
                             app = current_app._get_current_object()
                         except RuntimeError:
-                            from backend.app import create_app
-                            app = create_app()
+                            # Worker thread has no request context — grab the singleton
+                            # instead of rebuilding the entire Flask app from scratch.
+                            from backend.app import get_or_create_app
+                            app = get_or_create_app()
                         with app.app_context():
                             try:
                                 ensure_subfolder("Images", batch_id)

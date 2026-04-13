@@ -76,6 +76,7 @@ import ManageBackupsModal from "../components/modals/ManageBackupsModal";
 import PurgeIndexModal from "../components/modals/PurgeIndexModal";
 import ThemeSelectorModal from "../components/modals/ThemeSelectorModal";
 import UncleClaudeSection from "../components/settings/UncleClaudeSection";
+import MemoryManagementSection from "../components/settings/MemoryManagementSection";
 import KillSwitchModal from "../components/modals/KillSwitchModal";
 import RebootProgressModal from "../components/modals/RebootProgressModal";
 import RAGDebugSection from "../components/settings/RAGDebugSection";
@@ -2651,6 +2652,10 @@ const SettingsPage = () => {
 
           <SettingsCardWrapper title="Uncle Claude">
               <UncleClaudeSection compact />
+          </SettingsCardWrapper>
+
+          <SettingsCardWrapper title="Agent Memory">
+              <MemoryManagementSection />
           </SettingsCardWrapper>
 
           <SettingsCardWrapper title="Data">

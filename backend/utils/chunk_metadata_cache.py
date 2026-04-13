@@ -5,6 +5,7 @@
 import json
 import hashlib
 import logging
+import os
 from typing import Optional, Dict, Any
 from datetime import datetime
 
@@ -15,7 +16,7 @@ try:
     import redis
     _redis_client = None
     try:
-        _redis_client = redis.Redis(host='localhost', port=6379, db=1, decode_responses=True)
+        _redis_client = redis.Redis.from_url(os.environ.get('REDIS_URL', 'redis://localhost:6379/0'), db=1, decode_responses=True)
         _redis_client.ping()
         USE_REDIS = True
         logger.info("Chunk metadata cache: Using Redis")

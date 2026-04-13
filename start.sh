@@ -970,31 +970,27 @@ deactivate
 
 # --- CLI tool setup ---
 CLI_DIR="$SCRIPT_DIR/cli"
-CLI_VENV_DIR="$CLI_DIR/venv"
+CLI_VENV_DIR="$VENV_DIR"
 if [ -d "$CLI_DIR" ] && [ -f "$CLI_DIR/setup.py" ]; then
-    if [ ! -d "$CLI_VENV_DIR" ]; then
-        vader_info "Creating CLI venv..."
-        $PYTHON_CMD -m venv "$CLI_VENV_DIR" || vader_warn "Failed to create CLI venv"
-    fi
     if [ -d "$CLI_VENV_DIR" ]; then
         source "$CLI_VENV_DIR/bin/activate"
-        if [ ! -f "$CLI_VENV_DIR/.deps_installed" ] && [ "$FAST_START" -ne 1 ]; then
+        if [ ! -f "$CLI_VENV_DIR/.cli_deps_installed" ] && [ "$FAST_START" -ne 1 ]; then
             vader_info "Installing CLI tool (guaardvark)..."
             pip install --upgrade pip setuptools >> "$SETUP_LOG" 2>&1
             pip install -e "$CLI_DIR" >> "$SETUP_LOG" 2>&1
             if [ $? -eq 0 ]; then
-                touch "$CLI_VENV_DIR/.deps_installed"
+                touch "$CLI_VENV_DIR/.cli_deps_installed"
                 vader_success "CLI tool installed"
             else
                 vader_warn "CLI tool installation failed - check $SETUP_LOG"
             fi
         elif [ "$FAST_START" -ne 1 ]; then
             # Re-check if requirements changed
-            if [ "$CLI_DIR/requirements.txt" -nt "$CLI_VENV_DIR/.deps_installed" ] || \
-               [ "$CLI_DIR/setup.py" -nt "$CLI_VENV_DIR/.deps_installed" ]; then
+            if [ "$CLI_DIR/requirements.txt" -nt "$CLI_VENV_DIR/.cli_deps_installed" ] || \
+               [ "$CLI_DIR/setup.py" -nt "$CLI_VENV_DIR/.cli_deps_installed" ]; then
                 vader_info "CLI dependencies changed - reinstalling..."
                 pip install -e "$CLI_DIR" >> "$SETUP_LOG" 2>&1
-                touch "$CLI_VENV_DIR/.deps_installed"
+                touch "$CLI_VENV_DIR/.cli_deps_installed"
             fi
         fi
         deactivate
@@ -1106,7 +1102,11 @@ if command_exists nvidia-smi && [ ! -f "$GPU_SUDOERS" ]; then
     fi
 fi
 
-if [ "$OLLAMA_AVAILABLE" -eq 1 ]; then
+# Check if Ollama plugin is enabled (defaults to true if file missing or unreadable)
+OLLAMA_PLUGIN_JSON="$SCRIPT_DIR/plugins/ollama/plugin.json"
+OLLAMA_ENABLED=$(python3 -c "import json; print(json.load(open('$OLLAMA_PLUGIN_JSON')).get('config',{}).get('enabled', True))" 2>/dev/null || echo "True")
+
+if [ "$OLLAMA_AVAILABLE" -eq 1 ] && [ "$OLLAMA_ENABLED" != "False" ]; then
     # Step 1: Check if already running
     if curl -sf --max-time 3 http://localhost:11434/ >/dev/null 2>&1; then
         vader_success "Ollama service is already active"
@@ -1159,6 +1159,8 @@ if [ "$OLLAMA_AVAILABLE" -eq 1 ]; then
             rm -f "$SCRIPT_DIR/pids/ollama.pid" 2>/dev/null
         fi
     fi
+elif [ "$OLLAMA_ENABLED" = "False" ]; then
+    vader_info "Ollama plugin is disabled — skipping startup"
 else
     vader_warn "Ollama CLI not available; skipping service check."
 fi

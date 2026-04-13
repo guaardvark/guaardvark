@@ -776,13 +776,15 @@ class BulkCSVGenerator:
             # Ensure we're within application context
             if not current_app:
                 try:
-                    from backend.app import create_app
-                    app = create_app()
+                    # Worker thread has no request context — grab the singleton
+                    # instead of rebuilding the entire Flask app from scratch.
+                    from backend.app import get_or_create_app
+                    app = get_or_create_app()
                     with app.app_context():
                         self._update_task_status_with_context(status, message)
                         return
                 except Exception as ctx_error:
-                    logger.warning(f"Failed to create application context: {ctx_error}")
+                    logger.warning(f"Failed to get application context: {ctx_error}")
                     return
 
             # Find task by job_id

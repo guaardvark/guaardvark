@@ -14,6 +14,11 @@ try:
     from PIL import Image
     import cv2
     import torch
+    # basicsr 1.4.2 still imports torchvision.transforms.functional_tensor, which
+    # torchvision 0.17+ removed. Alias it back to functional so the old API resolves.
+    import sys as _sys
+    from torchvision.transforms import functional as _tv_functional
+    _sys.modules.setdefault("torchvision.transforms.functional_tensor", _tv_functional)
     try:
         from gfpgan import GFPGANer
         from realesrgan import RealESRGANer

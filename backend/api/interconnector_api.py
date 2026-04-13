@@ -2486,32 +2486,57 @@ def trigger_manual_sync():
                             logger.info(f"[SYNC] File pull: Received {len(files_list)} files from master")
                             
                             if config.get("require_file_approval", True) and files_list:
-                                # Queue approval instead of applying immediately
-                                approval = InterconnectorPendingApproval(
-                                    push_id=str(uuid.uuid4()),
-                                    source_node="master",
-                                    sync_type="files",
-                                    files_data=json.dumps(files_list),
-                                    entities_data=json.dumps({}),
-                                    status="pending",
-                                )
-                                db.session.add(approval)
-                                db.session.commit()
-                                logger.info(f"[SYNC] Queued {len(files_list)} files for approval (id={approval.id})")
-                                
-                                summary["files"] = {
-                                    "summary": {
-                                        "total_processed": 0,
-                                        "total_created": 0,
-                                        "total_updated": 0,
-                                        "total_conflicts": 0,
-                                        "total_errors": 0,
-                                        "total_backed_up": 0,
-                                    },
-                                    "details": [],
-                                    "pending_approval_id": approval.id,
-                                }
-                                # Skip applying files; continue to history recording
+                                # Split: new files auto-apply, modified files need approval
+                                project_root = file_sync_service.get_project_root()
+                                new_files = []
+                                modified_files = []
+                                for f in files_list:
+                                    local_path = project_root / f.get("path", "")
+                                    if local_path.exists():
+                                        modified_files.append(f)
+                                    else:
+                                        new_files.append(f)
+
+                                # New files are purely additive — apply immediately
+                                if new_files:
+                                    logger.info(f"[SYNC] Auto-applying {len(new_files)} new files (no local conflicts)")
+                                    auto_ok, auto_result = file_sync_service.apply_files_atomic(
+                                        new_files, conflict_strategy, create_backup=False
+                                    )
+                                    asum = auto_result.get("summary", {})
+                                    file_summary["total_processed"] += asum.get("total_processed", 0)
+                                    file_summary["total_created"] += asum.get("total_created", 0)
+                                    file_summary["total_errors"] += asum.get("total_errors", 0)
+                                    file_details.extend(auto_result.get("details", []))
+                                    logger.info(f"[SYNC] Auto-applied: created={asum.get('total_created', 0)}, "
+                                                f"errors={asum.get('total_errors', 0)}")
+
+                                # Modified files go through approval
+                                if modified_files:
+                                    approval = InterconnectorPendingApproval(
+                                        push_id=str(uuid.uuid4()),
+                                        source_node="master",
+                                        sync_type="files",
+                                        files_data=json.dumps(modified_files),
+                                        entities_data=json.dumps({}),
+                                        status="pending",
+                                    )
+                                    db.session.add(approval)
+                                    db.session.commit()
+                                    logger.info(f"[SYNC] Queued {len(modified_files)} modified files for approval (id={approval.id})")
+                                    summary["files"] = {
+                                        "summary": dict(file_summary),
+                                        "details": file_details,
+                                        "pending_approval_id": approval.id,
+                                        "auto_applied_new_files": len(new_files),
+                                    }
+                                else:
+                                    summary["files"] = {
+                                        "summary": dict(file_summary),
+                                        "details": file_details,
+                                        "auto_applied_new_files": len(new_files),
+                                    }
+                                # Prevent double-apply below
                                 files_list = []
                             
                             # Log sample of files received

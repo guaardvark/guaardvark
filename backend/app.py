@@ -50,6 +50,24 @@ import requests
 import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
 
+# ── Spawn the plugin-runner sidecar BEFORE any backend.* import ──
+# Some backend modules (notably backend.api.voice_api) transitively import
+# torch, and we MUST spawn the sidecar in a process where torch has not yet
+# been loaded. The sidecar runs all future plugin start.sh / stop.sh scripts,
+# so the main backend never has to fork() after CUDA is initialized — fork()
+# while CUDA is loaded silently corrupts the parent's CUDA state and eventually
+# crashes the interpreter (observed on 2026-04-11, two PIDs killed this way).
+#
+# This is the EARLIEST safe point: stdlib + third-party (sqlalchemy, requests,
+# flask) are loaded, but no backend.* code has run yet.
+try:
+    from backend.services.plugin_runner import PluginRunnerClient as _PluginRunnerClient
+    _PluginRunnerClient.get().start()
+    print("Plugin-runner sidecar started (clean fork environment, no torch)")
+except Exception as _e:
+    print(f"WARNING: Plugin-runner sidecar failed to start: {_e}", file=sys.stderr)
+    # Non-fatal — plugin_manager will fall back to direct subprocess.run
+
 from backend.utils.chat_utils import (
     DEFAULT_FALLBACK_SYSTEM_PROMPT,
     GLOBAL_DEFAULT_SYSTEM_PROMPT_RULE_NAME,
@@ -316,13 +334,49 @@ except ImportError as e:
     )
 
 
+# Re-entry guard. create_app() must run exactly once per Python process.
+# A second call would re-register all 80 blueprints, re-init BrainState, re-discover
+# plugins, and spawn duplicate background threads — corrupting all the singletons
+# and eventually crashing the interpreter (this exact bug killed PID 3047360 on
+# 2026-04-11 after 5 accumulated re-inits left orphaned multiprocessing semaphores).
+_create_app_called = False
+
+
 def create_app():
+    global _create_app_called
+    if _create_app_called:
+        existing = globals().get("app")
+        if existing is not None:
+            import traceback
+            logging.getLogger(__name__).error(
+                "create_app() called more than once! Returning existing singleton "
+                "instead of corrupting state. Caller stack:\n"
+                + "".join(traceback.format_stack(limit=10))
+            )
+            return existing
+    _create_app_called = True
+
     app = Flask(__name__)
     app.url_map.strict_slashes = False
 
     _initialize_app_components(app)
 
     return app
+
+
+def get_or_create_app():
+    """Return the existing Flask app singleton.
+
+    Use this from worker threads that don't have request context but need
+    `app.app_context()` for DB/config access. NEVER call `create_app()` directly
+    from worker code — it rebuilds the entire app from scratch and corrupts state.
+
+    Works in:
+    - The main Flask process: returns the singleton created at module load (line 759).
+    - Celery worker processes: returns the singleton created when Celery imports
+      backend.app (also at line 759, but in a fresh process).
+    """
+    return globals()["app"]
 
 def _initialize_app_components(app):
     global start_time, executor, socketio, celery
@@ -537,7 +591,7 @@ def _initialize_app_components(app):
 
             def relay_redis_progress():
                 try:
-                    r = redis.Redis(host='localhost', port=6379, db=0)
+                    r = redis.Redis.from_url(os.environ.get('REDIS_URL', 'redis://localhost:6379/0'))
                     pubsub = r.pubsub()
                     pubsub.subscribe('guaardvark:progress')
                     app.logger.info("Redis progress relay subscribed to guaardvark:progress")
@@ -629,7 +683,7 @@ def _initialize_app_components(app):
             return response
 
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
@@ -723,7 +777,10 @@ def _initialize_app_components(app):
         if AGENT_BRAIN_ENABLED:
             from backend.services.brain_state import BrainState
             brain_state = BrainState.get_instance()
-            brain_state.initialize(lite_mode=False)
+            # BrainState init touches the DB (active model lookup, memory context),
+            # so it needs an app context — create_app() doesn't push one for us.
+            with app.app_context():
+                brain_state.initialize(lite_mode=False)
             app.brain_state = brain_state
             app.logger.info(f"AgentBrain initialized | health={brain_state.health.to_dict()}")
         else:
@@ -836,7 +893,7 @@ def initialize_llm_and_index_async():
 
     try:
         with app.app_context():
-            app.logger.warning("[LLM-Init] Setting up LLM and index (background thread)...")
+            app.logger.info("[LLM-Init] Setting up LLM and index (background thread)...")
 
             app.logger.info("[LLM-Init] Step 1/6: Loading LLM...")
             llm = llm_service.get_llm_for_startup()
@@ -883,16 +940,16 @@ def initialize_llm_and_index_async():
             app.logger.info("[LLM-Init] Step 5/6: Warming up model...")
             try:
                 model_name = getattr(llm, "model", "unknown")
-                app.logger.warning(f"[LLM-Init] Warming up model '{model_name}' (loading into GPU)...")
+                app.logger.info(f"[LLM-Init] Warming up model '{model_name}' (loading into GPU)...")
                 warmup_start = time.time()
                 llm.complete("warmup")
                 warmup_duration = time.time() - warmup_start
-                app.logger.warning(f"[LLM-Init] Model warmup completed in {warmup_duration:.1f}s — ready for chat")
+                app.logger.info(f"[LLM-Init] Model warmup completed in {warmup_duration:.1f}s — ready for chat")
             except Exception as e:
                 app.logger.error(f"[LLM-Init] Model warmup FAILED: {e} — first chat will be slow", exc_info=True)
 
             app.config["LLM_READY"] = True
-            app.logger.warning("[LLM-Init] Step 6/6: LLM and index initialization completed successfully")
+            app.logger.info("[LLM-Init] Step 6/6: LLM and index initialization completed successfully")
     except Exception as e:
         app.config["LLM_READY"] = True  # Mark ready even on failure so chat isn't blocked forever
         app.logger.error(f"[LLM-Init] FAILED to initialize LLM and index: {e}", exc_info=True)

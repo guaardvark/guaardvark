@@ -4,6 +4,7 @@
 
 import json
 import logging
+import os
 import uuid
 import subprocess
 import shutil
@@ -474,7 +475,7 @@ class UnifiedProgressSystem:
         # but no connected clients — direct SocketIO emit goes nowhere in Celery context.
         try:
             import redis as _redis
-            r = _redis.Redis(host='localhost', port=6379, db=0)
+            r = _redis.Redis.from_url(os.environ.get('REDIS_URL', 'redis://localhost:6379/0'))
             r.publish('guaardvark:progress', json.dumps(event_data))
         except Exception:
             pass  # Redis unavailable — fall through to direct SocketIO

@@ -239,6 +239,10 @@ kill_and_cleanup "backend"
 kill_and_cleanup "frontend"
 kill_and_cleanup "celery"
 
+# Clear Python bytecode cache so stale .pyc files never load old code
+find "$SCRIPT_DIR/backend" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null
+find "$SCRIPT_DIR/backend" -name "*.pyc" -delete 2>/dev/null
+
 vader_info "Cleaning up any remaining processes from this environment..."
 
 flask_pids=$(pgrep -f "(python.*backend[./]app|flask run)" 2>/dev/null)

@@ -494,7 +494,9 @@ class GPUResourceCoordinator:
             }
 
         except ImportError:
-            logger.warning("pynvml not installed, falling back to nvidia-smi")
+            if not getattr(GPUResourceCoordinator, '_pynvml_warned', False):
+                logger.warning("pynvml not installed, falling back to nvidia-smi")
+                GPUResourceCoordinator._pynvml_warned = True
             return self._get_vram_via_nvidia_smi()
         except Exception as e:
             logger.error(f"Error getting VRAM via pynvml: {e}")
