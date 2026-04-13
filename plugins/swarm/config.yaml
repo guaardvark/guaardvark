@@ -9,7 +9,15 @@ defaults:
 backends:
   claude:
     command: "claude"
-    args: ["--print", "--output-file", "completion.md"]
+    # --output-file does not exist in Claude Code 2.x. Claude writes to stdout
+    # in --print mode and the backend wrapper script captures that into
+    # completion.md. --bare skips hooks, CLAUDE.md auto-discovery, keychain
+    # reads, and auto-memory for clean sandboxed worktree execution.
+    # --dangerously-skip-permissions bypasses the interactive permission
+    # prompts Claude otherwise requires for Bash/Edit/Write tools. Without
+    # it, non-interactive agents return a refusal instead of doing the work.
+    # The git worktree is the sandbox.
+    args: ["--print", "--bare", "--dangerously-skip-permissions"]
     requires_internet: true
     priority: 1
     cost_per_1k_input_tokens: 0.015

@@ -25,9 +25,17 @@ LOG_FILE = ".swarm-agent.log"
 WRAPPER_SCRIPT = """#!/bin/bash
 cd "{worktree_path}"
 
-# the actual claude invocation — stdout/stderr go to the log file
-{claude_command} >> "{log_file}" 2>&1
+# Claude Code 2.x writes its response to stdout in --print mode. Route
+# stdout into completion.md (so estimate_cost and the dashboard have a
+# preview of the response), stderr into the log file (so crashes are
+# captured), and mirror both to the log for debugging.
+{claude_command} > "{completion_file}" 2>> "{log_file}"
 EXIT_CODE=$?
+
+# Append the response to the log too so the dashboard tails it.
+if [ -s "{completion_file}" ]; then
+    cat "{completion_file}" >> "{log_file}"
+fi
 
 if [ $EXIT_CODE -eq 0 ]; then
     echo "SWARM_AGENT_DONE" > .swarm-status
@@ -46,9 +54,20 @@ class ClaudeBackend(BaseBackend):
     def spawn(self, worktree_path: str, task: SwarmTask, config: dict[str, Any]) -> AgentProcess:
         wt = Path(worktree_path)
         log_file = wt / LOG_FILE
+        completion_file = wt / COMPLETION_MARKER
 
         command = config.get("command", "claude")
-        args = config.get("args", ["--print", "--output-file", COMPLETION_MARKER])
+        # Claude Code 2.x does not have --output-file. It writes to stdout in
+        # --print mode and the wrapper script captures that into completion.md.
+        # --bare skips hooks, CLAUDE.md auto-discovery, keychain reads, and
+        # auto-memory, which is what we want for a sandboxed worktree agent
+        # that should stand on its own without parent-session pollution.
+        # --dangerously-skip-permissions is required for non-interactive
+        # execution — without it Claude refuses to use Bash/Edit/Write in
+        # "don't ask mode" and the agent returns a text-only refusal instead
+        # of actually creating files. The worktree is the sandbox; that's
+        # exactly the case this flag is designed for.
+        args = config.get("args", ["--print", "--bare", "--dangerously-skip-permissions"])
 
         prompt = self._build_prompt(task)
 
@@ -62,6 +81,7 @@ class ClaudeBackend(BaseBackend):
                 worktree_path=worktree_path,
                 claude_command=claude_cmd,
                 log_file=str(log_file),
+                completion_file=str(completion_file),
             )
         )
         wrapper_path.chmod(0o755)
@@ -100,9 +120,12 @@ class ClaudeBackend(BaseBackend):
                 process.status = AgentStatus.CRASHED
                 return AgentStatus.CRASHED
 
-        # check if the completion marker exists (claude's --output-file)
+        # Check if the completion marker has content. The wrapper script
+        # redirects stdout to completion.md via shell `>` which creates the
+        # file at fork time — so existence alone doesn't mean anything. Only
+        # a non-empty file indicates Claude actually produced a response.
         completion_file = wt / COMPLETION_MARKER
-        if completion_file.exists():
+        if completion_file.exists() and completion_file.stat().st_size > 0:
             process.status = AgentStatus.FINISHED
             return AgentStatus.FINISHED
 
