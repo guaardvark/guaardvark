@@ -21,6 +21,7 @@ class SystemCommandTool(BaseTool):
     name = "system_command"
     description = "Inspect local project files and directories (ls, grep, cat, find). Only for filesystem operations, NOT for looking up general information — use web_search for that."
     is_dangerous = False # Explicitly safe because of whitelist
+    requires_approval = True
     
     # Whitelist of allowed commands
     ALLOWED_COMMANDS = [

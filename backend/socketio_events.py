@@ -1,5 +1,7 @@
 import logging
 import time
+import io
+import numpy as np
 
 from flask_socketio import emit, join_room
 
@@ -8,6 +10,75 @@ from backend.socketio_instance import socketio
 
 logger = logging.getLogger(__name__)
 
+# --- Voice Streaming Events ---
+# In-memory buffer for continuous voice streaming
+voice_stream_buffers = {}
+
+@socketio.on("voice:stream_start")
+def handle_voice_stream_start(data):
+    """Initialize a new voice stream session."""
+    session_id = data.get("session_id", "default")
+    voice_stream_buffers[session_id] = bytearray()
+    join_room(f"voice_{session_id}")
+    logger.info(f"Voice stream started for session: {session_id}")
+    emit("voice:stream_ack", {"status": "started", "session_id": session_id})
+
+@socketio.on("voice:stream_chunk")
+def handle_voice_stream_chunk(data):
+    """Receive a chunk of audio data and perform partial STT."""
+    session_id = data.get("session_id", "default")
+    chunk = data.get("audio") # Expected to be bytes (WebM or PCM)
+    
+    if not chunk:
+        return
+        
+    if session_id not in voice_stream_buffers:
+        voice_stream_buffers[session_id] = bytearray()
+        
+    voice_stream_buffers[session_id].extend(chunk)
+    
+    # We can perform partial STT here if the buffer is large enough
+    # For simplicity and performance, we'll wait for stream_end or process every N bytes
+    # A full real-time sliding window would decode the accumulated WebM bytes to PCM
+    # and run faster-whisper.
+    
+    # Just acknowledge receipt for now to keep it lightweight
+    # Real-time partials would require decoding the incomplete WebM stream, which is complex.
+    pass
+
+@socketio.on("voice:stream_end")
+def handle_voice_stream_end(data):
+    """Process the complete audio buffer and return final transcript."""
+    session_id = data.get("session_id", "default")
+    
+    if session_id not in voice_stream_buffers or not voice_stream_buffers[session_id]:
+        emit("voice:final_transcript", {"text": "", "session_id": session_id})
+        return
+        
+    audio_bytes = voice_stream_buffers.pop(session_id)
+    logger.info(f"Voice stream ended for session: {session_id}, processing {len(audio_bytes)} bytes")
+    
+    try:
+        from faster_whisper.audio import decode_audio
+        from backend.utils.faster_whisper_utils import transcribe_audio_faster, FASTER_WHISPER_AVAILABLE
+        
+        if FASTER_WHISPER_AVAILABLE:
+            audio_io = io.BytesIO(audio_bytes)
+            audio_array = decode_audio(audio_io)
+            
+            # Use tiny.en for fastest streaming response
+            final_text, processing_time = transcribe_audio_faster(audio_array, model_size="tiny.en")
+            
+            emit("voice:final_transcript", {
+                "text": final_text,
+                "session_id": session_id,
+                "processing_time": processing_time
+            }, room=f"voice_{session_id}")
+        else:
+            emit("voice:error", {"message": "faster-whisper not available"}, room=f"voice_{session_id}")
+    except Exception as e:
+        logger.error(f"Voice stream processing failed: {e}")
+        emit("voice:error", {"message": str(e)}, room=f"voice_{session_id}")
 
 @socketio.on("subscribe")
 def handle_subscribe(data):
@@ -103,6 +174,23 @@ def handle_chat_abort(data):
     except Exception as e:
         logger.error(f"Failed to abort chat session {session_id}: {e}")
         emit("error", {"message": f"Abort failed: {str(e)}"})
+
+
+@socketio.on("chat:tool_approval_response")
+def handle_tool_approval_response(data):
+    """User approves or rejects a tool execution."""
+    session_id = data.get("session_id")
+    approved = data.get("approved", False)
+    if not session_id:
+        emit("error", {"message": "session_id required"})
+        return
+    try:
+        from backend.services.unified_chat_engine import set_approval_response
+        set_approval_response(session_id, approved)
+        logger.info(f"Tool approval response received for session {session_id}: approved={approved}")
+    except Exception as e:
+        logger.error(f"Failed to set tool approval response for session {session_id}: {e}")
+        emit("error", {"message": f"Approval response failed: {str(e)}"})
 
 
 def emit_celery_worker_event(event_type, worker_info=None):
@@ -279,3 +367,25 @@ def handle_step_correct(data):
         service._step_confirm_data = data
         service._step_confirm_event.set()
     logger.info(f"Step corrected: step_index={data.get('step_index')}, correction={data.get('correction')}")
+
+
+# --- Swarm Events ---
+
+@socketio.on("subscribe_swarm")
+def handle_subscribe_swarm(data=None):
+    """Allow clients to subscribe to real-time agent swarm updates."""
+    join_room("swarm_updates")
+    logger.info("Client subscribed to swarm updates")
+    emit("status", {"message": "Subscribed to swarm updates"}, room="swarm_updates")
+
+
+def emit_swarm_event(event_type: str, task_id: str, data: dict):
+    """Emit a swarm event to all subscribed clients."""
+    event_data = {
+        "event_type": event_type,
+        "task_id": task_id,
+        "timestamp": time.time(),
+        "data": data,
+    }
+    socketio.emit("swarm:event", event_data, room="swarm_updates")
+    logger.debug(f"Emitted swarm event: {event_type} for {task_id}")

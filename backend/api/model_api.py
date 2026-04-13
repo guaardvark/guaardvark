@@ -736,14 +736,7 @@ def switch_active_model(new_model_name: str):
             f"Model '{new_model_name}' not found or available via Ollama API."
         )
 
-    # Unload old model FIRST to free VRAM before loading new one
-    if old_model_name and old_model_name.lower() != new_model_name.lower():
-        logger.info(f"Unloading old model '{old_model_name}' to free VRAM")
-        unload_model_from_ollama(old_model_name)
-        gc.collect()
-        time.sleep(1)
-
-    # Adaptive context window based on available resources (computed AFTER unload)
+    # Compute context window
     try:
         from backend.utils.ollama_resource_manager import compute_optimal_num_ctx
         num_ctx = compute_optimal_num_ctx(new_model_name)
@@ -751,6 +744,7 @@ def switch_active_model(new_model_name: str):
         logger.warning(f"Failed to compute adaptive num_ctx: {e}, using 8192")
         num_ctx = 8192
 
+    # Load NEW model FIRST — old model stays as fallback until new one is confirmed
     logger.info(f"Creating new Ollama instance for model: {new_model_name} (num_ctx={num_ctx})")
     new_llm = Ollama(
         model=new_model_name,
@@ -762,6 +756,12 @@ def switch_active_model(new_model_name: str):
     )
     new_llm.complete("Test.")
     logger.info(f"Successfully created and tested Ollama instance for {new_model_name}")
+
+    # New model confirmed — now unload the old one
+    if old_model_name and old_model_name.lower() != new_model_name.lower():
+        logger.info(f"Unloading old model '{old_model_name}' after new model confirmed")
+        unload_model_from_ollama(old_model_name)
+        gc.collect()
 
     logger.info("Updating global LlamaIndex Settings.llm...")
     Settings.llm = new_llm
@@ -874,13 +874,14 @@ def switch_active_model(new_model_name: str):
 def _switch_model_background(app, new_model_name: str):
     """Background task to switch the active LLM model with SocketIO notifications.
 
-    Strategy: unload the OLD model FIRST to free VRAM before loading the new one.
-    If the new model fails to load, attempt to reload the old model as rollback.
+    Strategy: load the NEW model FIRST, verify it works, THEN unload the old one.
+    This way the old model stays available as a fallback if the new one fails to load.
+    Trades brief higher VRAM usage for reliability.
     """
     with app.app_context():
         old_model_name = None
         try:
-            # Get current model name for unloading
+            # Get current model name for later unloading
             current_llm = Settings.llm or current_app.config.get("LLAMA_INDEX_LLM")
             if current_llm and hasattr(current_llm, "model"):
                 old_model_name = getattr(current_llm, "model", None)
@@ -907,26 +908,13 @@ def _switch_model_background(app, new_model_name: str):
             ):
                 raise ValueError(f"Model '{new_model_name}' not found in Ollama.")
 
-            # --- Unload old model FIRST to free VRAM ---
-            if old_model_name and old_model_name.lower() != new_model_name.lower():
-                socketio.emit("model_switch", {
-                    "status": "loading",
-                    "model": new_model_name,
-                    "message": f"Unloading {old_model_name} to free resources..."
-                }, namespace="/")
-                unload_model_from_ollama(old_model_name)
-                gc.collect()
-                logger.info(f"Unloaded old model '{old_model_name}' before loading new one")
-                # Brief pause to let Ollama release memory
-                time.sleep(1)
-
             socketio.emit("model_switch", {
                 "status": "loading",
                 "model": new_model_name,
                 "message": f"Creating LLM instance for {new_model_name}..."
             }, namespace="/")
 
-            # Adaptive context window based on available resources (computed AFTER unload)
+            # Compute context window while old model is still loaded
             try:
                 from backend.utils.ollama_resource_manager import compute_optimal_num_ctx
                 num_ctx = compute_optimal_num_ctx(new_model_name)
@@ -934,7 +922,7 @@ def _switch_model_background(app, new_model_name: str):
                 logger.warning(f"Failed to compute adaptive num_ctx: {e}, using 8192")
                 num_ctx = 8192
 
-            # Create new LLM instance
+            # --- Load NEW model FIRST (old model stays as fallback) ---
             logger.info(f"Creating new Ollama instance for model: {new_model_name} (num_ctx={num_ctx})")
             new_llm = Ollama(
                 model=new_model_name,
@@ -954,6 +942,17 @@ def _switch_model_background(app, new_model_name: str):
             # Test the model — this triggers Ollama to actually load it into VRAM
             new_llm.complete("Hello")
             logger.info(f"Successfully created and tested Ollama instance for {new_model_name}")
+
+            # --- New model confirmed working — NOW unload the old one ---
+            if old_model_name and old_model_name.lower() != new_model_name.lower():
+                socketio.emit("model_switch", {
+                    "status": "loading",
+                    "model": new_model_name,
+                    "message": f"Unloading {old_model_name}..."
+                }, namespace="/")
+                unload_model_from_ollama(old_model_name)
+                gc.collect()
+                logger.info(f"Unloaded old model '{old_model_name}' after new model confirmed")
 
             # Update global settings
             Settings.llm = new_llm
@@ -1018,6 +1017,18 @@ def _switch_model_background(app, new_model_name: str):
             # Force garbage collection
             gc.collect()
 
+            # Kick BrainState so active_model and model_caps reflect the new
+            # model. Without this, AgentBrain.process() keeps routing through
+            # the OLD model's tier (e.g. firing _gemma4_direct after the user
+            # switches to llama3) because self.state.active_model is cached.
+            try:
+                brain_state = getattr(current_app, "brain_state", None)
+                if brain_state and getattr(brain_state, "_initialized", False):
+                    brain_state.refresh()
+                    logger.info("BrainState refreshed after model switch")
+            except Exception as refresh_err:
+                logger.warning(f"BrainState refresh failed (non-critical): {refresh_err}")
+
             # Emit success
             socketio.emit("model_switch", {
                 "status": "complete",
@@ -1029,29 +1040,40 @@ def _switch_model_background(app, new_model_name: str):
         except Exception as e:
             logger.error(f"Background model switch failed: {e}", exc_info=True)
 
-            # Rollback: try to reload the old model if the new one failed
+            # Old model was never unloaded (load-first strategy), so it should still
+            # be available. Only attempt rollback if we somehow lost it.
             if old_model_name and old_model_name.lower() != new_model_name.lower():
-                logger.info(f"Attempting rollback to previous model: {old_model_name}")
-                socketio.emit("model_switch", {
-                    "status": "loading",
-                    "model": new_model_name,
-                    "message": f"Failed — rolling back to {old_model_name}..."
-                }, namespace="/")
-                try:
-                    rollback_llm = Ollama(
-                        model=old_model_name,
-                        base_url=OLLAMA_BASE_URL,
-                        request_timeout=300.0,
-                        temperature=0.4,
-                        context_window=8192,
-                        additional_kwargs={"num_ctx": 8192, "top_p": 0.8, "top_k": 30}
-                    )
-                    rollback_llm.complete("Hello")
-                    Settings.llm = rollback_llm
-                    current_app.config["LLAMA_INDEX_LLM"] = rollback_llm
-                    logger.info(f"Rollback to {old_model_name} succeeded")
-                except Exception as rollback_err:
-                    logger.error(f"Rollback to {old_model_name} also failed: {rollback_err}")
+                current_llm = current_app.config.get("LLAMA_INDEX_LLM")
+                current_model = getattr(current_llm, "model", None) if current_llm else None
+                if current_model != old_model_name:
+                    logger.info(f"Attempting rollback to previous model: {old_model_name}")
+                    socketio.emit("model_switch", {
+                        "status": "loading",
+                        "model": new_model_name,
+                        "message": f"Failed — rolling back to {old_model_name}..."
+                    }, namespace="/")
+                    # Retry with brief waits in case Ollama is recovering
+                    for attempt in range(3):
+                        try:
+                            rollback_llm = Ollama(
+                                model=old_model_name,
+                                base_url=OLLAMA_BASE_URL,
+                                request_timeout=300.0,
+                                temperature=0.4,
+                                context_window=8192,
+                                additional_kwargs={"num_ctx": 8192, "top_p": 0.8, "top_k": 30}
+                            )
+                            rollback_llm.complete("Hello")
+                            Settings.llm = rollback_llm
+                            current_app.config["LLAMA_INDEX_LLM"] = rollback_llm
+                            logger.info(f"Rollback to {old_model_name} succeeded (attempt {attempt + 1})")
+                            break
+                        except Exception as rollback_err:
+                            if attempt < 2:
+                                logger.warning(f"Rollback attempt {attempt + 1} failed: {rollback_err}, retrying...")
+                                time.sleep(3)
+                            else:
+                                logger.error(f"Rollback to {old_model_name} failed after 3 attempts: {rollback_err}")
 
             socketio.emit("model_switch", {
                 "status": "error",

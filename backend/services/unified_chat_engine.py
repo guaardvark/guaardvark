@@ -5,6 +5,8 @@ The LLM always has tool access and decides itself whether to use tools.
 Uses Ollama client directly for token-by-token streaming (bypasses LlamaIndex PromptHelper).
 """
 
+import os
+import json
 import logging
 import re
 import time
@@ -20,10 +22,25 @@ from backend.utils.llm_debug_logger import (
 
 logger = logging.getLogger(__name__)
 
+# Cache path for tool embeddings
+from backend.config import CACHE_DIR
+TOOL_EMBEDDING_CACHE = os.path.join(CACHE_DIR, "tool_embeddings.json")
+
 # Abort flags for in-progress sessions
 _abort_flags: Dict[str, bool] = {}
 _abort_lock = threading.Lock()
 
+# Approval events for human-in-the-loop
+_approval_events: Dict[str, threading.Event] = {}
+_approval_responses: Dict[str, bool] = {} # session_id -> approved (bool)
+_approval_lock = threading.Lock()
+
+def set_approval_response(session_id: str, approved: bool):
+    """Set the response for a pending tool approval."""
+    with _approval_lock:
+        _approval_responses[session_id] = approved
+        if session_id in _approval_events:
+            _approval_events[session_id].set()
 
 def set_abort_flag(session_id: str):
     """Signal that a session should abort its current generation."""
@@ -79,6 +96,31 @@ IMAGE_TOOLS = ["generate_image", "generate_animation"]
 # For chat context, only expose the tools the LLM should actually call
 # agent_mode_start/stop are internal — the LLM should use agent_task_execute directly
 AGENT_CONTROL_TOOLS = ["agent_task_execute", "agent_screen_capture"]
+
+# URL / bare-domain detection — matches explicit URLs, www-prefixed hosts, and
+# bare domains with common TLDs. Deliberately does NOT match dotted identifiers
+# like node.js, next.config.js, or README.md — those suffixes aren't TLDs. When
+# this fires on a user message, fetch_url is prepended to the tool list so the
+# LLM doesn't have to guess whether "albenze.ai" is a search term or a URL.
+_URL_OR_DOMAIN_PATTERN = re.compile(
+    r"""
+    (?:https?://\S+)                               # explicit URL
+    |
+    (?:\bwww\.[a-z0-9][a-z0-9\-]*\.[a-z]{2,}\b)    # www.something.tld
+    |
+    (?:\b[a-z0-9][a-z0-9\-]*\.
+        (?:com|ai|io|org|net|co|dev|app|xyz|tech|so|me|us|uk|ca|gov|edu|info|biz|cloud|tv|news)
+        (?:/[^\s]*)?                               # optional path
+        \b)
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+def _message_mentions_url(message: str) -> bool:
+    """True if the message contains a URL or bare-domain reference."""
+    return bool(_URL_OR_DOMAIN_PATTERN.search(message or ""))
+
 
 # Keyword triggers for contextual tool selection
 TOOL_CONTEXT_KEYWORDS = {
@@ -231,24 +273,59 @@ class SemanticToolSelector:
     # ------------------------------------------------------------------
 
     def _lazy_init(self, registry) -> None:
-        """Embed all tools once, thread-safely."""
+        """Embed all tools once, thread-safely with persistent cache."""
         if self._initialized:
             return
         with self._lock:
             if self._initialized:   # double-checked locking
                 return
+            
+            # 1. Try to load from persistent cache
+            cached_data = {}
+            if os.path.exists(TOOL_EMBEDDING_CACHE):
+                try:
+                    with open(TOOL_EMBEDDING_CACHE, "r") as f:
+                        cached_data = json.load(f)
+                    logger.info(f"Loaded {len(cached_data)} tool embeddings from cache")
+                except Exception as e:
+                    logger.warning(f"Failed to load tool embedding cache: {e}")
+
             all_tool_names = registry.list_tools()
             embeddings: Dict[str, List[float]] = {}
+            needs_update = False
+
             for name in all_tool_names:
                 tool = registry.get_tool(name)
                 if not tool:
                     continue
+                
                 doc = self._build_tool_doc(name, tool)
+                doc_hash = str(hash(doc)) # Simple hash to detect changes
+                
+                # Check cache (and hash matches)
+                if name in cached_data and cached_data[name].get("hash") == doc_hash:
+                    embeddings[name] = cached_data[name]["embedding"]
+                else:
+                    try:
+                        logger.info(f"Embedding tool '{name}'...")
+                        # Use default keep_alive during batch init (model stays warm)
+                        emb = self._embed(doc, keep_alive=None)
+                        embeddings[name] = emb
+                        cached_data[name] = {"embedding": emb, "hash": doc_hash}
+                        needs_update = True
+                    except Exception as exc:
+                        logger.debug(f"Could not embed tool '{name}': {exc}")
+
+            # 2. Save back to cache if updated
+            if needs_update:
                 try:
-                    # Use default keep_alive during batch init (model stays warm)
-                    embeddings[name] = self._embed(doc, keep_alive=None)
-                except Exception as exc:
-                    logger.debug(f"Could not embed tool '{name}': {exc}")
+                    os.makedirs(os.path.dirname(TOOL_EMBEDDING_CACHE), exist_ok=True)
+                    with open(TOOL_EMBEDDING_CACHE, "w") as f:
+                        json.dump(cached_data, f)
+                    logger.info("Saved tool embeddings to persistent cache")
+                except Exception as e:
+                    logger.warning(f"Failed to save tool embedding cache: {e}")
+
             # Explicitly unload the embedding model after batch init
             try:
                 import ollama
@@ -259,6 +336,7 @@ class SemanticToolSelector:
                 )
             except Exception:
                 pass
+
             if not embeddings:
                 # All embed calls failed (Ollama likely unavailable).
                 # Do NOT mark as initialized so the next call retries.
@@ -267,10 +345,11 @@ class SemanticToolSelector:
                     "will retry on next call"
                 )
                 return
+
             self._tool_embeddings = embeddings
             self._initialized = True
             logger.info(
-                f"SemanticToolSelector: embedded {len(embeddings)} tools"
+                f"SemanticToolSelector: initialized with {len(embeddings)} tools"
             )
 
     @staticmethod
@@ -465,6 +544,22 @@ class UnifiedChatEngine:
                     merged.append(t)
             selected_tools = merged
 
+        # Agent screen gate — when the user isn't actively watching the virtual
+        # screen, hide the tools that drive it so the LLM can't decide to click
+        # or screenshot its way through a text query. analyze_website and the
+        # browser_* tools stay available since they drive headless browsing,
+        # not the visible agent display.
+        _screen_active = bool(options and options.get("agent_screen_active", False))
+        if not _screen_active:
+            _SCREEN_ONLY_TOOLS = set(DESKTOP_TOOLS) | set(AGENT_CONTROL_TOOLS)
+            filtered_before = len(selected_tools)
+            selected_tools = [t for t in selected_tools if t not in _SCREEN_ONLY_TOOLS]
+            if filtered_before != len(selected_tools):
+                logger.info(
+                    f"[UNIFIED_ENGINE] Screen inactive — dropped "
+                    f"{filtered_before - len(selected_tools)} screen-only tool(s)"
+                )
+
         tool_list = build_concise_tool_list(self.registry, selected_tools)
         system_prompt = self._build_system_prompt(rules_persona, tool_list)
 
@@ -490,14 +585,24 @@ class UnifiedChatEngine:
         context_parts = []
         if rag_context:
             context_parts.append(f"Relevant context from knowledge base:\n{rag_context}")
-        # Vision pipeline context (if active)
+        # Vision pipeline context (if active). Ask the plugin manager first so
+        # we skip a 2-second HTTP probe on every chat when the plugin is off.
         try:
-            from backend.utils.vision_context_utils import get_vision_context, format_vision_context
-            vision_ctx = get_vision_context()
-            if vision_ctx:
-                context_parts.append(format_vision_context(vision_ctx))
+            from backend.plugins.plugin_manager import get_plugin_manager
+            from backend.plugins.plugin_base import PluginStatus
+            _vp_running = (
+                get_plugin_manager().get_status("vision_pipeline") == PluginStatus.RUNNING
+            )
         except Exception:
-            pass  # Vision pipeline not available — no impact on chat
+            _vp_running = False
+        if _vp_running:
+            try:
+                from backend.utils.vision_context_utils import get_vision_context, format_vision_context
+                vision_ctx = get_vision_context()
+                if vision_ctx:
+                    context_parts.append(format_vision_context(vision_ctx))
+            except Exception:
+                pass  # Vision pipeline probe failed — no impact on chat
         if context_parts:
             user_content = "\n\n".join(context_parts) + f"\n\nUser message: {message}"
 
@@ -708,6 +813,80 @@ class UnifiedChatEngine:
                     "reasoning": tc.reasoning,
                 })
 
+            # --- 2a. Human-in-the-loop Approval -----------------------------------
+            # If any tool in this iteration requires approval, pause and wait.
+            approval_jobs = []
+            for tc, tool_name, params in tool_jobs:
+                tool = self.registry.get_tool(tool_name)
+                if tool and tool.requires_approval:
+                    approval_jobs.append(tool_name)
+
+            if approval_jobs and not is_aborted(session_id):
+                logger.info(f"Session {session_id} waiting for approval of: {approval_jobs}")
+                emit_fn("chat:thinking", {
+                    "iteration": iteration, 
+                    "status": f"Waiting for approval to run: {', '.join(approval_jobs)}..."
+                })
+                emit_fn("chat:tool_approval_request", {
+                    "tools": approval_jobs,
+                    "iteration": iteration
+                })
+                
+                # Create and wait on event
+                event = threading.Event()
+                with _approval_lock:
+                    _approval_events[session_id] = event
+                    _approval_responses.pop(session_id, None)
+                
+                # Wait for up to 5 minutes for user response
+                event.wait(timeout=300)
+                
+                with _approval_lock:
+                    _approval_events.pop(session_id, None)
+                    approved = _approval_responses.pop(session_id, False)
+                
+                if not approved:
+                    logger.warning(f"Session {session_id} tool approval REJECTED or TIMED OUT")
+                    # Synthetic rejection results for all approval-required tools
+                    rejected_observations = []
+                    for tc, tool_name, params in tool_jobs:
+                        tool = self.registry.get_tool(tool_name)
+                        if tool and tool.requires_approval:
+                            emit_fn("chat:tool_result", {
+                                "tool": tool_name,
+                                "result": {"success": False, "error": "USER REJECTED: This action was not approved by the user."},
+                                "duration_ms": 0,
+                            })
+                            # Record result with guard
+                            guard.record_result(tool_name, params, False, "USER REJECTED", iteration)
+                            
+                            # Add to steps
+                            step_info["tool_calls"].append({
+                                "tool_name": tool_name,
+                                "params": params,
+                                "success": False,
+                                "duration_ms": 0,
+                                "output_preview": "USER REJECTED",
+                            })
+                    
+                    # Remove rejected jobs from tool_jobs so they aren't executed
+                    tool_jobs = [(tc, tn, p) for tc, tn, p in tool_jobs 
+                                 if not (self.registry.get_tool(tn) and self.registry.get_tool(tn).requires_approval)]
+                    
+                    if not tool_jobs:
+                        # All tools in this iteration were rejected
+                        steps.append(step_info)
+                        ollama_messages.append({"role": "assistant", "content": llm_response[:800]})
+                        ollama_messages.append({
+                            "role": "user",
+                            "content": (
+                                "Tool results:\n[USER REJECTED: The user did not approve these actions. "
+                                "Please explain why they were needed or suggest an alternative that doesn't "
+                                "require these permissions.]"
+                            )
+                        })
+                        continue # Next ReACT iteration
+
             # --- 2b. Evict Ollama LLM from VRAM before GPU-heavy tools -----------
             # Image/video generation needs ~3.5GB+ VRAM. The Ollama LLM stays
             # resident for its default 5-min keep_alive, competing for the GPU.
@@ -783,9 +962,18 @@ class UnifiedChatEngine:
             def _exec_one(job_index: int):
                 """Worker: run one tool call, return (index, result, duration_ms)."""
                 _, t_name, t_params = tool_jobs[job_index]
+                
+                def on_output(chunk: str):
+                    with _emit_lock:
+                        emit_fn("chat:tool_output_chunk", {
+                            "tool": t_name,
+                            "chunk": chunk,
+                            "iteration": iteration
+                        })
+
                 t0 = time.time()
                 try:
-                    res = self.registry.execute_tool(t_name, **t_params)
+                    res = self.registry.execute_tool(t_name, on_output=on_output, **t_params)
                 except Exception as exc:
                     logger.error(
                         f"Tool '{t_name}' raised unexpected exception: {exc}",
@@ -1484,12 +1672,29 @@ class UnifiedChatEngine:
         This ensures ALL interfaces (ChatPage, FloatingChat, Voice, CLI)
         get the same routing logic — not just ChatPage.
         """
+        # URL / bare-domain boost runs regardless of router classification.
+        # "Check out albenze.ai" is easy to mis-classify as CHAT_ONLY, but a
+        # specific URL/domain in the message is a strong signal for fetch_url.
+        has_url = _message_mentions_url(message)
+
         try:
             from backend.services.agent_router import AgentRouter, RouteType
             router = AgentRouter()
             decision = router.route(message)
 
             if decision.route_type == RouteType.CHAT_ONLY:
+                # Conversational question — but if there's a URL in there,
+                # fetch_url should still be offered.
+                if has_url:
+                    boosted = ["fetch_url"]
+                    for t in CORE_TOOLS:
+                        if t not in boosted:
+                            boosted.append(t)
+                    logger.info(
+                        f"[UNIFIED_ENGINE] URL detected in CHAT_ONLY message — "
+                        f"boosted fetch_url: {boosted[:5]}..."
+                    )
+                    return boosted
                 return []  # No special tools needed
 
             # Map route types to tool categories
@@ -1506,18 +1711,25 @@ class UnifiedChatEngine:
             if decision.tool_name and decision.tool_name in (self.registry.list_tools() if self.registry else []):
                 boosted.insert(0, decision.tool_name)
 
+            # URL/domain boost — fetch_url at the top whenever a URL is present
+            if has_url and "fetch_url" not in boosted:
+                boosted.insert(0, "fetch_url")
+
             # Also add CORE_TOOLS so the LLM always has basics
             for t in CORE_TOOLS:
                 if t not in boosted:
                     boosted.append(t)
 
             if boosted:
-                logger.info(f"[UNIFIED_ENGINE] Router boosted tools: {boosted[:5]}... (route={decision.route_type.value})")
+                logger.info(f"[UNIFIED_ENGINE] Router boosted tools: {boosted[:5]}... (route={decision.route_type.value}, url={has_url})")
 
             return boosted
 
         except Exception as e:
             logger.debug(f"Router unavailable, using default tool selection: {e}")
+            # Even on router failure, honor the URL boost so fetch_url lands.
+            if has_url:
+                return ["fetch_url"] + [t for t in CORE_TOOLS if t != "fetch_url"]
             return []
 
     # Keywords that indicate a real-time/current-data query requiring web search.

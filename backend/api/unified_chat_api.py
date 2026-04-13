@@ -14,6 +14,13 @@ logger = logging.getLogger(__name__)
 
 unified_chat_bp = Blueprint("unified_chat", __name__, url_prefix="/api/chat/unified")
 
+# Per-session in-flight chat threads. Without this, a stuck Ollama vision call
+# would let retries pile up forever — every retry spawned a fresh thread that
+# also hit Ollama, compounding the wedge. New requests for a session that's
+# already running get a 409 instead.
+_inflight: dict = {}
+_inflight_lock = threading.Lock()
+
 
 @unified_chat_bp.route("", methods=["POST"])
 def unified_chat():
@@ -175,9 +182,46 @@ def unified_chat():
         except Exception as e:
             logger.error(f"Chat engine thread error: {e}", exc_info=True)
             emit_fn("chat:error", {"error": str(e)})
+        finally:
+            # Drop ourselves from the in-flight map so the next request can
+            # take this slot. Guarded by identity check so a (defensive) race
+            # with a replacement entry doesn't clobber it.
+            with _inflight_lock:
+                if _inflight.get(session_id) is threading.current_thread():
+                    _inflight.pop(session_id, None)
 
-    thread = threading.Thread(target=run_engine, daemon=True, name=f"unified-chat-{request_id[:8]}")
-    thread.start()
+    # Snapshot the existing thread (if any) so we can wait for it to unwind
+    # outside the lock — we already set the abort flag above, the old thread
+    # just needs a moment to notice and exit. Without this grace period, the
+    # new request races the abort signal and almost always loses with 409,
+    # even though we explicitly asked the old thread to step aside.
+    with _inflight_lock:
+        existing = _inflight.get(session_id)
+
+    if existing is not None and existing.is_alive():
+        existing.join(timeout=1.5)
+
+    # Now claim the slot. If the old thread is *still* alive after the grace
+    # period, it's genuinely wedged (stuck Ollama call, frozen tool, etc.) —
+    # reject and tell the user to hit /abort for a hard kill.
+    with _inflight_lock:
+        existing = _inflight.get(session_id)
+        if existing is not None and existing.is_alive():
+            logger.warning(
+                f"[UNIFIED_CHAT] Rejecting request {request_id[:8]} — session "
+                f"{session_id} has a wedged chat thread that didn't unwind "
+                f"after abort signal"
+            )
+            return jsonify({
+                "success": False,
+                "error": "A previous request for this session is still running "
+                         "and didn't respond to the abort signal. "
+                         "POST to /abort for a hard kill.",
+                "request_id": request_id,
+            }), 409
+        thread = threading.Thread(target=run_engine, daemon=True, name=f"unified-chat-{request_id[:8]}")
+        _inflight[session_id] = thread
+        thread.start()
 
     return jsonify({
         "success": True,
