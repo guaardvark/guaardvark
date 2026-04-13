@@ -45,6 +45,7 @@ import {
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import * as upscalingService from "../api/upscalingService";
+import { listPlugins } from "../api/pluginsService";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -81,17 +82,27 @@ const UpscalingPage = ({ embedded = false }) => {
   // --- Init ---
   useEffect(() => {
     checkService();
-    fetchJobs();
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
   }, []);
 
+  // Check the plugin manager first — if upscaling isn't running, we skip the
+  // direct plugin calls entirely. Calling a disabled plugin's endpoints just
+  // spams the console with 503s, even though the page handles them silently.
   const checkService = async () => {
     try {
+      const pluginsRes = await listPlugins();
+      const plugins = pluginsRes?.data?.plugins || [];
+      const upscaling = plugins.find((p) => p.id === "upscaling");
+      if (!upscaling || upscaling.status !== "running") {
+        setServiceAvailable(false);
+        return;
+      }
       const res = await upscalingService.getHealth();
       setServiceAvailable(true);
       setServiceHealth(res.data || res);
+      fetchJobs();
     } catch {
       setServiceAvailable(false);
     }
@@ -115,7 +126,10 @@ const UpscalingPage = ({ embedded = false }) => {
   }, [serviceAvailable]);
 
   // --- Job polling ---
+  // Bail out if the plugin isn't up — otherwise we'd pelt /api/upscaling/jobs
+  // with requests that will just 503 and clutter the console.
   const fetchJobs = useCallback(async () => {
+    if (serviceAvailable === false) return;
     try {
       const res = await upscalingService.listJobs();
       const data = res.data || res;
@@ -123,7 +137,7 @@ const UpscalingPage = ({ embedded = false }) => {
     } catch {
       // ignore
     }
-  }, []);
+  }, [serviceAvailable]);
 
   const startPolling = useCallback(() => {
     if (pollingRef.current) return;

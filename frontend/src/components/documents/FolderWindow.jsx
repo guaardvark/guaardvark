@@ -15,8 +15,6 @@ const FolderWindow = React.forwardRef(({
   isMinimized,
   onToggleMinimize,
   onClose,
-  viewMode = 'list',
-  onViewModeChange,
   selectedItems,
   onSelectionChange,
   onItemsMove,
@@ -35,6 +33,11 @@ const FolderWindow = React.forwardRef(({
   // Whether this folder's contents contain media files (images/videos)
   const [hasMedia, setHasMedia] = useState(false);
   const autoSwitchedRef = useRef(false);
+  // Per-window view mode — seeded from the last user-toggled default in localStorage.
+  // Keeping this local is what stops one window from hijacking every other window's view.
+  const [viewMode, setViewMode] = useState(() =>
+    localStorage.getItem('documentsPageViewMode') || 'list'
+  );
 
   // Reset currentPath when folder changes
   useEffect(() => {
@@ -42,18 +45,22 @@ const FolderWindow = React.forwardRef(({
     autoSwitchedRef.current = false;
   }, [folder.id, folder.path]);
 
-  // Auto-switch to media view when media is detected (only once per folder open)
+  // Auto-switch to media view when media is detected (only once per folder open).
+  // Does NOT persist to localStorage — auto-switches are content-driven, not a preference.
   const handleMediaDetected = useCallback((detected) => {
     setHasMedia(detected);
-    if (detected && !autoSwitchedRef.current && viewMode !== 'media') {
+    if (detected && !autoSwitchedRef.current) {
       autoSwitchedRef.current = true;
-      if (onViewModeChange) onViewModeChange('media');
+      setViewMode((prev) => (prev === 'media' ? prev : 'media'));
     }
-  }, [viewMode, onViewModeChange]);
+  }, []);
 
+  // User toggle — update this window only, and remember the choice as the new
+  // default for future folder windows via localStorage.
   const handleViewModeToggle = (event, newViewMode) => {
-    if (newViewMode !== null && onViewModeChange) {
-      onViewModeChange(newViewMode);
+    if (newViewMode !== null) {
+      setViewMode(newViewMode);
+      localStorage.setItem('documentsPageViewMode', newViewMode);
     }
   };
 
@@ -194,8 +201,6 @@ FolderWindow.propTypes = {
   isMinimized: PropTypes.bool,
   onToggleMinimize: PropTypes.func,
   onClose: PropTypes.func.isRequired,
-  viewMode: PropTypes.oneOf(['list', 'grid']),
-  onViewModeChange: PropTypes.func,
   selectedItems: PropTypes.instanceOf(Set),
   onSelectionChange: PropTypes.func,
   onItemsMove: PropTypes.func,
