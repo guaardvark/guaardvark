@@ -60,11 +60,11 @@ def get_faster_whisper_model(
     return model
 
 
-def transcribe_audio_faster(audio_path: str, model_size: str = "tiny.en") -> Tuple[str, float]:
-    """Transcribe an audio file using faster-whisper.
+def transcribe_audio_faster(audio_input, model_size: str = "tiny.en") -> Tuple[str, float]:
+    """Transcribe an audio file or numpy array using faster-whisper.
 
     Args:
-        audio_path: Path to audio file (WAV, MP3, etc.)
+        audio_input: Path to audio file (WAV, MP3, etc.) or numpy array of audio data
         model_size: Whisper model size (tiny.en, base, small, etc.)
 
     Returns:
@@ -74,7 +74,7 @@ def transcribe_audio_faster(audio_path: str, model_size: str = "tiny.en") -> Tup
     start = time.time()
 
     segments, info = model.transcribe(
-        audio_path,
+        audio_input,
         beam_size=5,
         vad_filter=True,
         vad_parameters=dict(min_silence_duration_ms=500),

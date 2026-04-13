@@ -1,7 +1,8 @@
 // frontend/src/api/voiceService.js
 // Version 1.0: Voice chat API service
 
-import { BASE_URL, handleResponse } from './apiClient';
+import { BASE_URL, SOCKET_URL, handleResponse } from './apiClient';
+import { io } from 'socket.io-client';
 
 /**
  * Voice API Service - Handles all voice-related API interactions
@@ -20,12 +21,80 @@ class VoiceService {
     this.audioAnalyzer = null;
     this.lastError = null;
     this.userInteractionAdded = false;
-    this.isCleaningUp = false; // Flag to prevent duplicate cleanup calls
+    this.isCleaningUp = false;
 
     // TTS visualization state
     this.isTTSPlaying = false;
     this.ttsAudioElement = null;
     this.ttsAnalyzer = null;
+    
+    // WebSocket for audio streaming
+    this.socket = null;
+    this.streamSessionId = null;
+    this.onTranscriptCallback = null;
+  }
+
+  /**
+   * Initialize WebSocket connection for voice streaming
+   */
+  initSocket() {
+    if (!this.socket) {
+      this.socket = io(SOCKET_URL, {
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+      });
+      
+      this.socket.on('connect', () => {
+        console.log('VoiceService: WebSocket connected');
+      });
+      
+      this.socket.on('voice:final_transcript', (data) => {
+        if (this.onTranscriptCallback && data.session_id === this.streamSessionId) {
+          this.onTranscriptCallback(data.text);
+        }
+      });
+      
+      this.socket.on('voice:error', (error) => {
+        console.error('VoiceService: WebSocket error:', error);
+        if (this.onErrorCallback) {
+          this.onErrorCallback(new Error(error.message || 'Streaming error'));
+        }
+      });
+    }
+    return this.socket;
+  }
+
+  /**
+   * Start a new voice streaming session over WebSocket
+   */
+  startVoiceStream(sessionId, onTranscript) {
+    this.initSocket();
+    this.streamSessionId = `${sessionId || 'voice'}_${Date.now()}`;
+    this.onTranscriptCallback = onTranscript;
+    
+    this.socket.emit('voice:stream_start', { session_id: this.streamSessionId });
+    return this.streamSessionId;
+  }
+
+  /**
+   * Send an audio chunk over WebSocket
+   */
+  sendVoiceChunk(chunkBlob) {
+    if (this.socket && this.socket.connected && this.streamSessionId) {
+      this.socket.emit('voice:stream_chunk', {
+        session_id: this.streamSessionId,
+        audio: chunkBlob
+      });
+    }
+  }
+
+  /**
+   * End the current voice streaming session
+   */
+  stopVoiceStream() {
+    if (this.socket && this.socket.connected && this.streamSessionId) {
+      this.socket.emit('voice:stream_end', { session_id: this.streamSessionId });
+    }
   }
 
   /**
@@ -755,7 +824,7 @@ class VoiceService {
   }
 
   /**
-   * Create audio analyzer for visualization - unified method with proper stream connection
+   * Create audio analyzer and VAD worklet for visualization and volume detection
    */
   async createAudioAnalyzer(stream) {
     try {
@@ -783,13 +852,6 @@ class VoiceService {
         return null;
       }
       
-      console.log('VoiceService: Stream validation passed - active audio track found:', {
-        trackId: activeTrack.id,
-        label: activeTrack.label,
-        readyState: activeTrack.readyState,
-        enabled: activeTrack.enabled
-      });
-      
       const audioContext = this.getAudioContext();
       
       if (!audioContext) {
@@ -801,16 +863,12 @@ class VoiceService {
         return null;
       }
       
-      // ENHANCED: Validate audio context state and ensure it's running
       if (audioContext.state !== 'running') {
         console.warn('VoiceService: Audio context not running:', audioContext.state);
-        // Try to resume it synchronously to ensure analyzer gets proper data
         try {
           await audioContext.resume();
-          console.log('VoiceService: Audio context resumed successfully');
         } catch (err) {
           console.error('VoiceService: Failed to resume audio context:', err);
-          // Return null if we can't get the audio context running
           return null;
         }
       }
@@ -819,83 +877,61 @@ class VoiceService {
       if (this.audioAnalyzer) {
         try {
           this.audioAnalyzer.source.disconnect();
-          console.log('VoiceService: Cleaned up existing audio analyzer');
+          if (this.audioAnalyzer.vadNode) {
+            this.audioAnalyzer.vadNode.disconnect();
+          }
         } catch (e) {
           console.warn('VoiceService: Failed to disconnect existing analyzer:', e);
         }
       }
       
-      // Create new analyzer with optimized settings for volume detection
       const analyzer = audioContext.createAnalyser();
-      analyzer.fftSize = 512; // Better resolution for volume detection
-      analyzer.smoothingTimeConstant = 0.3; // More responsive for real-time volume
+      analyzer.fftSize = 512;
+      analyzer.smoothingTimeConstant = 0.3;
       analyzer.minDecibels = -90;
       analyzer.maxDecibels = -10;
       
-      // ENHANCED: Validate analyzer creation
-      if (!analyzer || analyzer.fftSize === 0) {
-        console.error('VoiceService: Failed to create valid audio analyzer');
-        return null;
-      }
-      
-      // Connect stream to analyzer with validation
-      console.log('VoiceService: Connecting stream to analyzer');
       const source = audioContext.createMediaStreamSource(stream);
-      
-      // ENHANCED: Validate stream connection
-      if (!source) {
-        throw new Error('VoiceService: Failed to create media stream source');
-      }
-      
-      // ENHANCED: Add connection validation
-      console.log('VoiceService: Created media stream source, connecting to analyzer...');
       source.connect(analyzer);
-      console.log('VoiceService: Stream connected to analyzer successfully');
       
-      // ENHANCED: Test the connection with proper timing
-      const testDataArray = new Uint8Array(analyzer.frequencyBinCount);
-      const testTimeArray = new Uint8Array(analyzer.fftSize);
-      
-      // Give the analyzer more time to start receiving data and wait for audio context to be fully running
-      setTimeout(() => {
-        analyzer.getByteFrequencyData(testDataArray);
-        analyzer.getByteTimeDomainData(testTimeArray);
-        
-        const hasFrequencyData = testDataArray.some(value => value > 0);
-        const hasTimeData = testTimeArray.some(value => value !== 128);
-        const hasData = hasFrequencyData || hasTimeData;
-        
-        console.log('VoiceService: Audio analyzer validation:', {
-          audioContextState: audioContext.state,
-          hasFrequencyData,
-          hasTimeData,
-          hasData,
-          fftSize: analyzer.fftSize,
-          frequencyBinCount: analyzer.frequencyBinCount,
-          streamActive: stream.active,
-          trackCount: stream.getAudioTracks().length
+      // Load and connect VAD AudioWorklet
+      let vadNode = null;
+      try {
+        await audioContext.audioWorklet.addModule('/vad-processor.js');
+        vadNode = new AudioWorkletNode(audioContext, 'vad-processor', {
+          processorOptions: {
+            energyThreshold: 0.02,
+            smoothingWindow: 5
+          }
         });
+        source.connect(vadNode);
+        // Connect to destination with zero gain to ensure processing in some browsers
+        const zeroGain = audioContext.createGain();
+        zeroGain.gain.value = 0;
+        vadNode.connect(zeroGain);
+        zeroGain.connect(audioContext.destination);
         
-        if (!hasData) {
-          console.warn('VoiceService: Audio analyzer not receiving data - volume detection may not work');
-          console.log('VoiceService: Troubleshooting - Check microphone permissions and user interaction');
-        } else {
-          console.log('VoiceService: Audio analyzer receiving data successfully');
-        }
-      }, 300);
+        vadNode.port.onmessage = (event) => {
+          this.currentVolume = event.data.volume;
+          this.isSpeaking = event.data.isSpeaking;
+        };
+        console.log('VoiceService: VAD AudioWorklet connected successfully');
+      } catch (workletError) {
+        console.warn('VoiceService: Failed to load VAD AudioWorklet, falling back to AnalyserNode:', workletError);
+      }
       
       this.audioAnalyzer = {
         analyzer,
         source,
+        vadNode,
         bufferLength: analyzer.frequencyBinCount,
         dataArray: new Uint8Array(analyzer.frequencyBinCount),
         timeArray: new Uint8Array(analyzer.fftSize),
-        stream: stream // Store reference to stream
+        stream: stream
       };
       
-      console.log('VoiceService: Audio analyzer created successfully');
-      console.log('VoiceService: FFT Size:', analyzer.fftSize);
-      console.log('VoiceService: Frequency bin count:', analyzer.frequencyBinCount);
+      this.currentVolume = 0;
+      this.isSpeaking = false;
       
       return this.audioAnalyzer;
     } catch (error) {
@@ -915,77 +951,42 @@ class VoiceService {
   }
 
   /**
-   * Calculate volume from audio analyzer
+   * Calculate volume from audio analyzer or return VAD worklet volume
    */
   calculateVolume() {
     if (!this.audioAnalyzer) {
-      console.warn('VoiceService: No audio analyzer available for volume calculation');
       return 0;
+    }
+    
+    // Use VAD AudioWorklet volume if available (more accurate, less jitter)
+    if (this.audioAnalyzer.vadNode && this.currentVolume !== undefined) {
+      return this.currentVolume;
     }
 
     try {
       const { analyzer, dataArray, timeArray } = this.audioAnalyzer;
       
-      if (!analyzer || !dataArray || !timeArray) {
-        console.warn('VoiceService: Invalid audio analyzer components');
+      if (!analyzer || !dataArray || !timeArray || analyzer.fftSize === 0) {
         return 0;
       }
       
-      // ENHANCED: Add analyzer state checking
-      if (analyzer.fftSize === 0) {
-        console.warn('VoiceService: Audio analyzer not properly initialized (fftSize = 0)');
-        return 0;
-      }
-      
-      // Get frequency data for visualization
       analyzer.getByteFrequencyData(dataArray);
-      
-      // Get time domain data for volume calculation
       analyzer.getByteTimeDomainData(timeArray);
       
-      // ENHANCED: Validate data arrays have content
-      const hasFrequencyData = dataArray.some(value => value > 0);
-      const hasTimeData = timeArray.some(value => value !== 128); // 128 is silence in time domain
-      
-      if (!hasFrequencyData && !hasTimeData) {
-        // This suggests audio context issues or microphone permissions
-        const audioContext = this.getAudioContext();
-        console.warn('VoiceService: No audio data detected in analyzer - check stream connection', {
-          audioContextState: audioContext?.state,
-          analyzerExists: !!this.audioAnalyzer,
-          streamActive: this.audioAnalyzer?.stream?.active
-        });
-        
-        // Try to resume audio context if suspended
-        if (audioContext && audioContext.state === 'suspended') {
-          console.log('VoiceService: Attempting to resume suspended audio context');
-          audioContext.resume().catch(err => 
-            console.warn('VoiceService: Failed to resume audio context:', err)
-          );
-        }
-        
-        return 0;
-      }
-      
-      // Method 1: RMS of time domain data (more reliable for volume)
       let sum = 0;
       let validSamples = 0;
       for (let i = 0; i < timeArray.length; i++) {
-        const sample = (timeArray[i] - 128) / 128; // Convert to -1 to 1 range
+        const sample = (timeArray[i] - 128) / 128;
         if (!isNaN(sample) && isFinite(sample)) {
           sum += sample * sample;
           validSamples++;
         }
       }
       
-      if (validSamples === 0) {
-        console.warn('VoiceService: No valid audio samples in time domain data');
-        return 0;
-      }
+      if (validSamples === 0) return 0;
       
       const rms = Math.sqrt(sum / validSamples);
       
-      // Method 2: Average frequency magnitude (backup method)
       let freqSum = 0;
       let validFreqSamples = 0;
       for (let i = 0; i < dataArray.length; i++) {
@@ -996,46 +997,10 @@ class VoiceService {
       }
       
       const avgFreq = validFreqSamples > 0 ? freqSum / validFreqSamples / 255 : 0;
+      const combinedVolume = Math.max(rms * 1.5, avgFreq * 0.8);
       
-      // ENHANCED: Combine both methods with better weighting
-      const combinedVolume = Math.max(rms * 1.5, avgFreq * 0.8); // Favor RMS method
-      const volumeLevel = Math.min(1, Math.max(0, combinedVolume));
-      
-      // ENHANCED: Better validation and logging
-      if (isNaN(volumeLevel) || volumeLevel < 0 || volumeLevel > 1) {
-        console.warn('VoiceService: Invalid volume level calculated:', {
-          volumeLevel,
-          rms,
-          avgFreq,
-          combinedVolume,
-          validSamples,
-          validFreqSamples
-        });
-        return 0;
-      }
-      
-      // ENHANCED: Add periodic detailed logging for debugging
-      if (Math.random() < 0.05) { // 5% chance for detailed logging
-        console.log('VoiceService: Volume calculation details:', {
-          volumeLevel: (volumeLevel || 0).toFixed(4),
-          rms: (rms || 0).toFixed(4),
-          avgFreq: (avgFreq || 0).toFixed(4),
-          combinedVolume: (combinedVolume || 0).toFixed(4),
-          hasFrequencyData,
-          hasTimeData,
-          validSamples,
-          validFreqSamples,
-          fftSize: analyzer.fftSize,
-          frequencyBinCount: analyzer.frequencyBinCount
-        });
-      }
-      
-      return volumeLevel;
+      return Math.min(1, Math.max(0, combinedVolume));
     } catch (error) {
-      console.error('VoiceService: Volume calculation error:', error);
-      if (this.onErrorCallback) {
-        this.onErrorCallback(error);
-      }
       return 0;
     }
   }

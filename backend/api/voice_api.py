@@ -992,285 +992,59 @@ def speech_to_text():
         # Get optional model preference from request
         preferred_model = request.form.get('model', DEFAULT_WHISPER_MODEL)
         
-        backend_path = get_backend_path()
-        whisper_cli = os.path.join(backend_path, WHISPER_CLI_PATH)
-        
-        # FIX: Ensure we're using the correct path from project root
-        if not os.path.exists(whisper_cli):
-            # Try alternative path from project root
-            project_root = os.path.dirname(backend_path)
-            whisper_cli = os.path.join(project_root, WHISPER_CLI_PATH)
-        
-        # Check if Whisper CLI exists
-        if not os.path.exists(whisper_cli):
-            return jsonify({"error": "Whisper.cpp not found. Please install it first."}), 500
-        
-        # SECURITY FIX: Save uploaded file temporarily with secure file creation
-        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{secure_filename(audio_file.filename.rsplit('.', 1)[1])}") as temp_file:
-            audio_file.save(temp_file.name)
-            temp_file_path = temp_file.name
-
-        # PERFORMANCE OPTIMIZATION: Check cache first (must use temp_file_path, not filename)
+        # PERFORMANCE OPTIMIZATION: In-memory audio decoding & STT
         try:
-            cached_result = audio_cache.get_cached_result(temp_file_path, "speech_to_text")
-            if cached_result:
-                logger.info(f"Voice API: Using cached result for {audio_file.filename}")
-                try:
-                    with open(cached_result, 'r') as f:
-                        cached_text = f.read().strip()
-                    # Clean up temp file before returning cached result
-                    os.unlink(temp_file_path)
+            from faster_whisper.audio import decode_audio
+            from backend.utils.faster_whisper_utils import transcribe_audio_faster, FASTER_WHISPER_AVAILABLE
+            
+            if FASTER_WHISPER_AVAILABLE:
+                logger.info("Voice API: Using faster-whisper with in-memory audio decoding")
+                # Read audio file into memory
+                audio_bytes = audio_file.read()
+                import io
+                audio_io = io.BytesIO(audio_bytes)
+                
+                # Decode audio in memory
+                audio_array = decode_audio(audio_io)
+                audio_duration = len(audio_array) / 16000.0
+                
+                # Select optimal model based on audio duration
+                selected_model = select_optimal_whisper_model(audio_duration, preferred_model)
+                model_id = os.path.basename(selected_model.get('path', 'ggml-tiny.en.bin'))
+                model_id = model_id.replace('ggml-', '').replace('.bin', '') or 'tiny.en'
+                
+                logger.info(f"Voice API: Using faster-whisper (model={model_id}), duration={audio_duration:.2f}s")
+                start_time = time.time()
+                final_text, processing_time = transcribe_audio_faster(audio_array, model_size=model_id)
+                logger.info(f"Voice API: faster-whisper completed in {processing_time:.2f}s")
+                
+                if final_text:
+                    release_rate_limit(request)
                     return jsonify({
-                        "text": cached_text,
-                        "cached": True,
-                        "processing_time": 0.0
+                        "text": final_text,
+                        "transcribed_text": final_text,
+                        "duration": audio_duration,
+                        "processing_time": round(processing_time, 3),
+                        "model_used": model_id,
+                        "engine": "faster-whisper",
                     })
-                except (OSError, IOError, json.JSONDecodeError) as e:
-                    logger.warning(f"Voice API: Failed to read cached result: {e}")
-        except (OSError, IOError) as e:
-            logger.warning(f"Voice API: Cache check failed: {e}")
-        
-        # DEBUG: Add audio file analysis
-        audio_size = os.path.getsize(temp_file_path)
-        logger.info(f"Voice API: Audio file analysis - Size: {audio_size} bytes, Format: {audio_file.filename}")
-        
-        # PERFORMANCE OPTIMIZATION: Audio format conversion with caching
-        logger.info("Voice API: Starting audio format conversion...")
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as wav_temp_file:
-            wav_temp_path = wav_temp_file.name
-        
-        # Check if we have a cached conversion
-        cached_wav = audio_cache.get_cached_result(temp_file_path, "audio_conversion")
-        if cached_wav and os.path.exists(cached_wav):
-            logger.info(f"Voice API: Using cached audio conversion")
-            wav_temp_path = cached_wav
-            conversion_success = True
-        else:
-            conversion_success, conversion_message = convert_audio_to_wav(temp_file_path, wav_temp_path)
-            if conversion_success:
-                # Cache the conversion result
-                audio_cache.cache_result(temp_file_path, "audio_conversion", wav_temp_path)
-        
-        if not conversion_success:
-            logger.error(f"Voice API: Audio conversion failed: {conversion_message}")
-            # Clean up temp files
-            try:
-                os.unlink(temp_file_path)
-                if os.path.exists(wav_temp_path) and wav_temp_path != cached_wav:
-                    os.unlink(wav_temp_path)
-            except (OSError, IOError):
-                pass
-            return jsonify({"error": f"Audio conversion failed: {conversion_message}"}), 500
-        
-        logger.info(f"Voice API: Audio conversion successful, converted file: {wav_temp_path}")
-        
-        # Use the converted WAV file for Whisper processing
-        audio_file_for_whisper = wav_temp_path
-        
-        try:
-            # PERFORMANCE OPTIMIZATION: Get audio duration for intelligent model selection
-            audio_duration = get_audio_duration(audio_file_for_whisper)
-            logger.info(f"Voice API: Audio duration estimated at {audio_duration:.2f} seconds")
+                else:
+                    logger.warning("Voice API: faster-whisper returned empty text")
+                    return jsonify({"error": "No speech detected in audio"}), 400
+        except Exception as fw_err:
+            logger.error(f"Voice API: faster-whisper unavailable or failed ({fw_err})")
+            return jsonify({"error": f"Speech recognition failed: {str(fw_err)}"}), 500
             
-            # PERFORMANCE OPTIMIZATION: Select optimal model based on audio duration
-            selected_model = select_optimal_whisper_model(audio_duration, preferred_model)
-            logger.info(f"Voice API: Selected model '{selected_model['name']}' for optimal performance")
-            
-            # PERFORMANCE OPTIMIZATION: Ensure model is downloaded
-            model_available, model_path, error_msg = ensure_whisper_model_downloaded(selected_model)
-            if not model_available:
-                logger.warning(f"Voice API: Preferred model unavailable: {error_msg}")
-                # Fallback to base model if available
-                fallback_model = WHISPER_MODELS["base"]
-                model_available, model_path, error_msg = ensure_whisper_model_downloaded(fallback_model)
-                if not model_available:
-                    return jsonify({"error": f"No Whisper model available: {error_msg}"}), 500
-                selected_model = fallback_model
-                logger.info(f"Voice API: Falling back to model '{selected_model['name']}'")
-            
-            # Calculate expected processing time for user feedback
-            expected_processing_time = audio_duration * selected_model["avg_processing_ratio"]
-            logger.info(f"Voice API: Expected processing time: {expected_processing_time:.2f} seconds")
-            
-            # PERFORMANCE OPTIMIZATION: Adjust timeout based on audio duration and model
-            timeout_seconds = max(30, int(expected_processing_time * 3))  # 3x expected time as timeout
-
-            # Try faster-whisper first (~4x faster than whisper.cpp)
-            try:
-                from backend.utils.faster_whisper_utils import transcribe_audio_faster, FASTER_WHISPER_AVAILABLE
-                if FASTER_WHISPER_AVAILABLE:
-                    model_id = os.path.basename(selected_model.get('path', 'ggml-tiny.en.bin'))
-                    model_id = model_id.replace('ggml-', '').replace('.bin', '') or 'tiny.en'
-                    logger.info(f"Voice API: Using faster-whisper (model={model_id})")
-                    start_time = time.time()
-                    final_text, processing_time = transcribe_audio_faster(audio_file_for_whisper, model_size=model_id)
-                    logger.info(f"Voice API: faster-whisper completed in {processing_time:.2f}s")
-
-                    if final_text:
-                        return jsonify({
-                            "text": final_text,
-                            "transcribed_text": final_text,
-                            "processing_time": round(processing_time, 3),
-                            "model_used": model_id,
-                            "engine": "faster-whisper",
-                        })
-                    # Empty result — fall through to whisper.cpp
-                    logger.warning("Voice API: faster-whisper returned empty, falling back to whisper.cpp")
-            except Exception as fw_err:
-                logger.debug(f"Voice API: faster-whisper unavailable ({fw_err}), using whisper.cpp")
-
-            # Fallback: Run Whisper.cpp for transcription
-            cmd = [
-                whisper_cli,
-                "-m", model_path,
-                "-f", audio_file_for_whisper,
-                "--no-timestamps",
-                "--threads", "4",  # Use 4 threads for better performance
-                "--language", "en" if ".en" in selected_model["path"] else "auto",
-                "--no-fallback",
-                "--temperature", str(WHISPER_ENHANCED_PARAMS["temperature"]),
-                "--temperature-inc", str(WHISPER_ENHANCED_PARAMS["temperature_inc"]),
-                "--no-speech-thold", str(WHISPER_ENHANCED_PARAMS["no_speech_thold"]),
-                "--entropy-thold", str(WHISPER_ENHANCED_PARAMS["entropy_thold"]),
-                "--logprob-thold", str(WHISPER_ENHANCED_PARAMS["logprob_thold"]),
-                "--best-of", str(WHISPER_ENHANCED_PARAMS["best_of"]),
-                "--beam-size", str(WHISPER_ENHANCED_PARAMS["beam_size"]),
-                "--word-thold", str(WHISPER_ENHANCED_PARAMS["word_thold"]),
-            ]
-            
-            # FIX: Set library path for whisper-cli to find libwhisper.so.1 and libggml.so
-            whisper_lib_path = os.path.join(backend_path, "tools/voice/whisper.cpp/build/src")
-            ggml_lib_path = os.path.join(backend_path, "tools/voice/whisper.cpp/build/ggml/src")
-            # FIX: Ensure we're using the correct path from project root
-            if not os.path.exists(whisper_lib_path):
-                project_root = os.path.dirname(backend_path)
-                whisper_lib_path = os.path.join(project_root, "tools/voice/whisper.cpp/build/src")
-                ggml_lib_path = os.path.join(project_root, "tools/voice/whisper.cpp/build/ggml/src")
-            
-            env = os.environ.copy()
-            # Include both whisper and ggml library paths
-            lib_paths = [whisper_lib_path, ggml_lib_path]
-            if "LD_LIBRARY_PATH" in env:
-                env["LD_LIBRARY_PATH"] = f"{':'.join(lib_paths)}:{env['LD_LIBRARY_PATH']}"
-            else:
-                env["LD_LIBRARY_PATH"] = ":".join(lib_paths)
-            
-            logger.info(f"Running optimized Whisper.cpp with LD_LIBRARY_PATH={whisper_lib_path}: {' '.join(cmd)}")
-            start_time = time.time()
-            
-            # PERFORMANCE OPTIMIZATION: Register process for monitoring
-            process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                cwd=backend_path,
-                env=env
-            )
-            
-            # Register the process for monitoring
-            process_monitor.register_process(
-                process.pid, 
-                "whisper_stt", 
-                {"audio_file": audio_file.filename, "model": selected_model["name"]}
-            )
-            
-            try:
-                # Wait for process completion with timeout
-                stdout, stderr = process.communicate(timeout=timeout_seconds)
-                result = subprocess.CompletedProcess(
-                    process.args, process.returncode, stdout, stderr
-                )
-            finally:
-                # Always unregister the process
-                process_monitor.unregister_process(process.pid)
-            
-            processing_time = time.time() - start_time
-            logger.info(f"Voice API: Processing completed in {processing_time:.2f} seconds (expected: {expected_processing_time:.2f})")
-            
-            if result.returncode != 0:
-                logger.error(f"Whisper.cpp failed: {result.stderr}")
-                return jsonify({"error": f"Speech recognition failed: {result.stderr}"}), 500
-            
-            # ENHANCED: Parse Whisper output using enhanced parsing function
-            final_text = parse_whisper_output(result.stdout)
-            
-            if not final_text:
-                # DEBUG: Save failed audio file for analysis
-                debug_dir = os.path.join(backend_path, "debug_audio")
-                if not os.path.exists(debug_dir):
-                    os.makedirs(debug_dir)
-                
-                debug_filename = f"failed_audio_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{secure_filename(audio_file.filename.rsplit('.', 1)[1])}"
-                debug_path = os.path.join(debug_dir, debug_filename)
-                
-                try:
-                    import shutil
-                    shutil.copy2(temp_file_path, debug_path)
-                    logger.warning(f"Voice API: Saved failed audio file for analysis: {debug_path}")
-                except Exception as debug_error:
-                    logger.warning(f"Voice API: Could not save debug audio file: {debug_error}")
-                
-                return jsonify({"error": "No speech detected in audio"}), 400
-            
-            logger.info(f"Voice API: Successfully transcribed audio to text: '{final_text[:100]}...'")
-            
-            # PERFORMANCE OPTIMIZATION: Cache the result
-            try:
-                with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as cache_file:
-                    cache_file.write(final_text)
-                    cache_file_path = cache_file.name
-                
-                audio_cache.cache_result(temp_file_path, "speech_to_text", cache_file_path)
-                logger.info(f"Voice API: Cached transcription result")
-            except Exception as cache_error:
-                logger.warning(f"Voice API: Failed to cache result: {cache_error}")
-            
-            # PERFORMANCE OPTIMIZATION: Release rate limit slot
-            release_rate_limit(request)
-            
-            return jsonify({
-                "text": final_text,
-                "language": "en" if ".en" in selected_model["path"] else "auto",
-                "duration": audio_duration,
-                "processing_time": processing_time,
-                "model_used": selected_model["name"],
-                "engine": "whisper.cpp-optimized",
-                "cached": False
-            })
-            
-        finally:
-            # SECURITY FIX: Ensure temporary file is always cleaned up
-            try:
-                if os.path.exists(temp_file_path):
-                    os.unlink(temp_file_path)
-                if os.path.exists(wav_temp_path):
-                    os.unlink(wav_temp_path)
-            except (OSError, IOError) as e:
-                logger.warning(f"Failed to clean up temp file {temp_file_path}: {e}")
-    
-    except subprocess.TimeoutExpired:
-        logger.error("Voice API: Whisper.cpp timeout")
-        # SECURITY FIX: Clean up temp file on timeout
-        try:
-            if 'temp_file_path' in locals() and os.path.exists(temp_file_path):
-                os.unlink(temp_file_path)
-            if 'wav_temp_path' in locals() and os.path.exists(wav_temp_path):
-                os.unlink(wav_temp_path)
-        except OSError:
-            pass
-        return jsonify({"error": "Speech recognition timeout"}), 500
-    except (subprocess.CalledProcessError, OSError, RuntimeError) as e:
+    except Exception as e:
         logger.error(f"Voice API: Speech-to-text failed: {e}", exc_info=True)
-        # SECURITY FIX: Clean up temp file on error
-        try:
-            if 'temp_file_path' in locals() and os.path.exists(temp_file_path):
-                os.unlink(temp_file_path)
-            if 'wav_temp_path' in locals() and os.path.exists(wav_temp_path):
-                os.unlink(wav_temp_path)
-        except (OSError, IOError):
-            pass
         return jsonify({"error": f"Speech recognition failed: {str(e)}"}), 500
+
+import uuid
+import struct
+
+# In-memory queue for TTS streaming requests
+# Maps stream_id -> {"text": "...", "voice": "..."}
+tts_stream_queue = {}
 
 @voice_bp.route("/text-to-speech", methods=["POST"])
 def text_to_speech():
@@ -1289,118 +1063,128 @@ def text_to_speech():
             return jsonify({"error": "Text is required"}), 400
         
         # Clean text for better speech synthesis
-        # Remove markdown formatting and special characters that don't sound natural
         cleaned_text = text
-        # Remove markdown bold/italic formatting
         cleaned_text = re.sub(r'\*{1,3}([^*]+)\*{1,3}', r'\1', cleaned_text)
         cleaned_text = re.sub(r'_{1,3}([^_]+)_{1,3}', r'\1', cleaned_text)
-        # Remove markdown headers
         cleaned_text = re.sub(r'#{1,6}\s*([^\n]+)', r'\1', cleaned_text)
-        # Remove markdown code blocks and inline code
         cleaned_text = re.sub(r'```[^`]*```', '', cleaned_text)
         cleaned_text = re.sub(r'`([^`]+)`', r'\1', cleaned_text)
-        # Remove markdown links but keep the text
         cleaned_text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', cleaned_text)
-        # Remove HTML tags
         cleaned_text = re.sub(r'<[^>]*>', '', cleaned_text)
-        # Replace multiple spaces/newlines with single space
         cleaned_text = re.sub(r'\s+', ' ', cleaned_text)
-        # Remove bullet points and special characters
         cleaned_text = re.sub(r'[•\-\*]\s*', '', cleaned_text)
         cleaned_text = re.sub(r'\n\s*\n', '. ', cleaned_text)
         cleaned_text = re.sub(r'\n', ', ', cleaned_text)
-        # Clean up punctuation
         cleaned_text = re.sub(r'\s*\.\s*\.\s*\.', '. ', cleaned_text)
         cleaned_text = re.sub(r'[!]{2,}', '!', cleaned_text)
         cleaned_text = re.sub(r'[?]{2,}', '?', cleaned_text)
-        # Trim and ensure proper sentence ending
         cleaned_text = cleaned_text.strip()
         if cleaned_text and not cleaned_text[-1] in '.!?':
             cleaned_text += '.'
         
-        # Use cleaned text for TTS
         text_for_tts = cleaned_text if cleaned_text else text
         
-        logger.info(f"Voice API: Original text: '{text[:100]}...'")
-        logger.info(f"Voice API: Cleaned text: '{text_for_tts[:100]}...')")
-        
-        # Validate voice parameter
         if voice not in PIPER_VOICES:
-            return jsonify({
-                "error": f"Invalid voice. Must be one of: {list(PIPER_VOICES.keys())}"
-            }), 400
+            return jsonify({"error": f"Invalid voice. Must be one of: {list(PIPER_VOICES.keys())}"}), 400
+            
+        # Generate a unique stream ID
+        stream_id = str(uuid.uuid4())
+        tts_stream_queue[stream_id] = {
+            "text": text_for_tts,
+            "voice": voice,
+            "created_at": time.time()
+        }
         
-        backend_path = get_backend_path()
-        voice_config = PIPER_VOICES[voice]
-        piper_model = os.path.join(backend_path, voice_config["model"])
-        
-        # Check if Piper model exists
-        if not os.path.exists(piper_model):
-            return jsonify({"error": f"Piper model not found: {voice}"}), 500
-        
-        # SECURITY FIX: Generate output filename with secure temp file creation
-        with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{voice}.wav", prefix="tts_") as temp_file:
-            temp_path = temp_file.name
-            filename = os.path.basename(temp_path)
-        
-        try:
-            # Run Piper TTS
-            cmd = [
-                "python", "-m", "piper",
-                "--model", piper_model,
-                "--output_file", temp_path
-            ]
+        # Clean up old stream requests (older than 5 minutes)
+        current_time = time.time()
+        keys_to_delete = [k for k, v in tts_stream_queue.items() if current_time - v.get("created_at", 0) > 300]
+        for k in keys_to_delete:
+            del tts_stream_queue[k]
             
-            logger.info(f"Running Piper TTS: {' '.join(cmd)}")
-            process = subprocess.run(
-                cmd,
-                input=text_for_tts,
-                text=True,
-                capture_output=True,
-                timeout=30,
-                cwd=backend_path
-            )
-            
-            if process.returncode != 0:
-                logger.error(f"Piper TTS failed: {process.stderr}")
-                return jsonify({"error": f"Text-to-speech failed: {process.stderr}"}), 500
-            
-            # Check if output file was created
-            if not os.path.exists(temp_path):
-                return jsonify({"error": "TTS output file was not created"}), 500
-            
-            logger.info(f"Voice API: Successfully generated speech for text: '{text[:100]}...'")
-            
-            return jsonify({
-                "audio_url": f"/api/voice/audio/{filename}",
-                "filename": filename,
-                "text": text,
-                "voice": voice,
-                "engine": "piper-tts"
-            })
-            
-        except subprocess.TimeoutExpired:
-            logger.error("Voice API: Piper TTS timeout")
-            # SECURITY FIX: Clean up temp file on timeout
-            try:
-                if os.path.exists(temp_path):
-                    os.unlink(temp_path)
-            except (OSError, IOError):
-                pass
-            return jsonify({"error": "Text-to-speech timeout"}), 500
-        except (subprocess.CalledProcessError, OSError, RuntimeError) as e:
-            logger.error(f"Voice API: Text-to-speech failed: {e}", exc_info=True)
-            # SECURITY FIX: Clean up temp file on error
-            try:
-                if os.path.exists(temp_path):
-                    os.unlink(temp_path)
-            except (OSError, IOError):
-                pass
-            return jsonify({"error": f"Text-to-speech failed: {str(e)}"}), 500
-            
-    except (ValueError, OSError) as e:
+        return jsonify({
+            "audio_url": f"/api/voice/stream-tts/{stream_id}",
+            "text": text,
+            "voice": voice,
+            "engine": "piper-tts-stream"
+        })
+    except Exception as e:
         logger.error(f"Voice API: Text-to-speech request failed: {e}", exc_info=True)
         return jsonify({"error": f"Text-to-speech request failed: {str(e)}"}), 500
+
+@voice_bp.route("/stream-tts/<stream_id>", methods=["GET"])
+def stream_tts(stream_id):
+    """Stream TTS audio for a given stream ID."""
+    if stream_id not in tts_stream_queue:
+        return jsonify({"error": "Stream ID not found or expired"}), 404
+        
+    request_data = tts_stream_queue.get(stream_id)
+    text = request_data["text"]
+    voice = request_data["voice"]
+    
+    backend_path = get_backend_path()
+    voice_config = PIPER_VOICES[voice]
+    piper_model = os.path.join(backend_path, voice_config["model"])
+    
+    if not os.path.exists(piper_model):
+        return jsonify({"error": f"Piper model not found: {voice}"}), 500
+
+    # Get sample rate from config
+    sample_rate = 22050
+    config_path = piper_model + ".json"
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, 'r') as f:
+                config_data = json.load(f)
+                sample_rate = config_data.get("audio", {}).get("sample_rate", 22050)
+        except Exception:
+            pass
+
+    def generate_audio():
+        channels = 1
+        bits_per_sample = 16
+        byte_rate = sample_rate * channels * (bits_per_sample // 8)
+        block_align = channels * (bits_per_sample // 8)
+
+        # WAV header with 0xFFFFFFFF for unknown size
+        header = b'RIFF' + struct.pack('<I', 0xFFFFFFFF) + b'WAVE'
+        header += b'fmt ' + struct.pack('<I', 16) + struct.pack('<H', 1) + struct.pack('<H', channels)
+        header += struct.pack('<I', sample_rate) + struct.pack('<I', byte_rate)
+        header += struct.pack('<H', block_align) + struct.pack('<H', bits_per_sample)
+        header += b'data' + struct.pack('<I', 0xFFFFFFFF)
+        
+        yield header
+
+        import sys
+        cmd = [
+            sys.executable, "-m", "piper",
+            "--model", piper_model,
+            "--output-raw"
+        ]
+        
+        process = subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=backend_path
+        )
+        
+        try:
+            process.stdin.write(text.encode('utf-8'))
+            process.stdin.close()
+            
+            while True:
+                chunk = process.stdout.read(4096)
+                if not chunk:
+                    break
+                yield chunk
+        finally:
+            if process.poll() is None:
+                process.terminate()
+                process.wait(timeout=2)
+
+    from flask import Response
+    return Response(generate_audio(), mimetype="audio/wav")
 
 @voice_bp.route("/narrate", methods=["POST"])
 def narrate():

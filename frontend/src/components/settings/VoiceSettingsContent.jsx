@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Typography,
   Box,
@@ -9,9 +9,70 @@ import {
   Chip,
   Switch,
   FormControlLabel,
+  Divider,
+  LinearProgress,
 } from "@mui/material";
 import MuiAlert from "@mui/material/Alert";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import voiceService from "../../api/voiceService";
+
+const LiveVolumeMeter = ({ threshold }) => {
+  const [volume, setVolume] = useState(0);
+  const [isTesting, setIsTesting] = useState(false);
+  const [startedByUs, setStartedByUs] = useState(false);
+  const animationRef = useRef(null);
+
+  const startTest = async () => {
+    try {
+      if (!voiceService.getIsRecording()) {
+        await voiceService.startRecording({ timeslice: 1000 });
+        setStartedByUs(true);
+      } else {
+        setStartedByUs(false);
+      }
+      setIsTesting(true);
+      
+      const updateVolume = () => {
+        setVolume(voiceService.calculateVolume());
+        animationRef.current = requestAnimationFrame(updateVolume);
+      };
+      updateVolume();
+    } catch (e) {
+      console.error("Failed to start mic test", e);
+    }
+  };
+
+  const stopTest = async () => {
+    setIsTesting(false);
+    if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    if (startedByUs && voiceService.getIsRecording()) {
+      await voiceService.stopRecording();
+    }
+    setStartedByUs(false);
+    setVolume(0);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (isTesting) stopTest();
+    };
+  }, [isTesting]);
+
+  return (
+    <Box sx={{ mt: 1, mb: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, alignItems: 'center' }}>
+        <Typography variant="caption" color="text.secondary">Live Microphone Volume</Typography>
+        <Button size="small" variant="outlined" onClick={isTesting ? stopTest : startTest}>
+          {isTesting ? "Stop Test" : "Test Mic"}
+        </Button>
+      </Box>
+      <Box sx={{ position: 'relative', height: 20, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+        <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.min(100, volume * 100)}%`, bgcolor: volume > threshold ? 'success.main' : 'primary.main', transition: 'width 0.1s linear, background-color 0.2s' }} />
+        <Box sx={{ position: 'absolute', left: `${Math.min(100, threshold * 100)}%`, top: 0, bottom: 0, width: 2, bgcolor: 'error.main', zIndex: 1 }} />
+      </Box>
+    </Box>
+  );
+};
 
 const VoiceSettingsContent = ({
   voiceSettings,
@@ -302,13 +363,13 @@ const VoiceSettingsContent = ({
 
           {/* Continuous Listening Settings */}
           <Typography variant="subtitle2" sx={{ mb: 1, fontSize: '0.85rem' }}>
-            Listening
+            Voice Activity Detection (VAD)
           </Typography>
 
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12}>
               <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', mb: 0.5 }}>
-                Threshold: {(voiceSettings.silenceThreshold || 0.05).toFixed(2)}
+                Silence Threshold (Sensitivity): {(voiceSettings.silenceThreshold || 0.05).toFixed(2)}
               </Typography>
               <Slider
                 value={voiceSettings.silenceThreshold || 0.05}
@@ -320,11 +381,12 @@ const VoiceSettingsContent = ({
                 valueLabelFormat={(value) => value.toFixed(2)}
                 size="small"
               />
+              <LiveVolumeMeter threshold={voiceSettings.silenceThreshold || 0.05} />
             </Grid>
 
             <Grid item xs={12} sm={6}>
               <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', mb: 0.5 }}>
-                Timeout: {((voiceSettings.silenceTimeout || 2000) / 1000).toFixed(1)}s
+                Silence Timeout: {((voiceSettings.silenceTimeout || 2000) / 1000).toFixed(1)}s
               </Typography>
               <Slider
                 value={voiceSettings.silenceTimeout || 2000}
