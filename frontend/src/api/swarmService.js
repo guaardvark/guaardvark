@@ -1,7 +1,8 @@
 // frontend/src/api/swarmService.js
 // API service for the Swarm Orchestrator plugin
 
-import { BASE_URL as API_BASE_URL, handleResponse } from "./apiClient";
+import { BASE_URL as API_BASE_URL, SOCKET_URL, handleResponse } from "./apiClient";
+import { io } from "socket.io-client";
 
 const BASE_URL = `${API_BASE_URL}/swarm`;
 
@@ -127,6 +128,18 @@ export const getTemplateContent = async (filename) => {
 };
 
 /**
+ * Save a new or existing plan template
+ */
+export const saveTemplate = async (filename, content) => {
+  const response = await fetch(`${BASE_URL}/templates/save`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ filename, content }),
+  });
+  return handleResponse(response);
+};
+
+/**
  * Check internet connectivity and available backends
  */
 export const getConnectivity = async () => {
@@ -144,6 +157,59 @@ export const getHistory = async (limit = 20) => {
   return handleResponse(response);
 };
 
+/**
+ * Real-time Swarm Service via Socket.IO
+ */
+class SwarmService {
+  constructor() {
+    this.socket = null;
+    this._listeners = [];
+  }
+
+  connect() {
+    if (this.socket?.connected) return this.socket;
+
+    this.socket = io(SOCKET_URL, {
+      path: "/socket.io",
+      transports: ["websocket", "polling"],
+      reconnectionAttempts: 5,
+    });
+
+    this.socket.on("connect", () => {
+      console.log("SwarmService connected to Socket.IO");
+      this.socket.emit("subscribe_swarm");
+    });
+
+    this.socket.on("connect_error", (err) => {
+      console.error("SwarmService connection error:", err);
+    });
+
+    return this.socket;
+  }
+
+  onEvent(callback) {
+    if (!this.socket) this.connect();
+    
+    // Cleanup existing listener for swarm:event if any
+    this.socket.off("swarm:event");
+    
+    this.socket.on("swarm:event", (event) => {
+      console.log("Swarm event received:", event.event_type, event.task_id);
+      callback(event);
+    });
+  }
+
+  disconnect() {
+    if (this.socket) {
+      this.socket.off("swarm:event");
+      this.socket.disconnect();
+      this.socket = null;
+    }
+  }
+}
+
+export const swarmService = new SwarmService();
+
 export default {
   getHealth,
   launchSwarm,
@@ -157,4 +223,5 @@ export default {
   getTemplateContent,
   getConnectivity,
   getHistory,
+  swarmService,
 };

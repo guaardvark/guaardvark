@@ -31,11 +31,7 @@ if lsof -Pi :$SERVICE_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
 fi
 
 # Setup venv
-if [ ! -d "$PLUGIN_ROOT/venv" ]; then
-    echo "Creating virtual environment..."
-    python3 -m venv "$PLUGIN_ROOT/venv"
-fi
-source "$PLUGIN_ROOT/venv/bin/activate"
+source "$PROJECT_ROOT/backend/venv/bin/activate"
 pip install -q -r "$PLUGIN_ROOT/requirements.txt" 2>/dev/null || true
 pip install -q fastapi uvicorn 2>/dev/null || true
 

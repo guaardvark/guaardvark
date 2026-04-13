@@ -63,6 +63,11 @@ class CancelRequest(BaseModel):
     swarm_id: str
 
 
+class SavePlanRequest(BaseModel):
+    filename: str
+    content: str
+
+
 # --- Lifespan ---
 
 @asynccontextmanager
@@ -130,6 +135,19 @@ def launch_swarm(req: LaunchRequest):
     repo_path = Path(req.repo_path) if req.repo_path else _get_default_repo()
     if not repo_path or not (repo_path / ".git").exists():
         raise HTTPException(400, f"Not a git repository: {repo_path}")
+
+    # Pre-flight check: is the repo clean?
+    import subprocess
+    try:
+        status = subprocess.run(
+            ["git", "-C", str(repo_path), "status", "--porcelain"],
+            capture_output=True, text=True, timeout=5
+        )
+        if status.stdout.strip():
+            logger.warning(f"Launching swarm on dirty repository: {repo_path}")
+            # we don't block launch, but we log it. In a stricter setup we might return 400.
+    except Exception as e:
+        logger.debug(f"Git status check failed: {e}")
 
     # dry run — parse and return without launching
     if req.dry_run:
@@ -369,6 +387,29 @@ def get_template(filename: str):
         "filename": filename,
         "content": template_path.read_text(),
     }
+
+
+@app.post("/swarm/templates/save")
+def save_template(req: SavePlanRequest):
+    """Save a new or existing plan template."""
+    template_dir = Path(__file__).parent.parent / "templates"
+    template_dir.mkdir(parents=True, exist_ok=True)
+    
+    filename = req.filename
+    if not filename.endswith(".md"):
+        filename += ".md"
+        
+    # sanitize filename
+    import re
+    filename = re.sub(r"[^a-zA-Z0-9._-]", "_", filename)
+    
+    template_path = template_dir / filename
+    
+    try:
+        template_path.write_text(req.content)
+        return {"success": True, "message": f"Template saved: {filename}", "filename": filename}
+    except Exception as e:
+        raise HTTPException(500, f"Failed to save template: {e}")
 
 
 # --- Connectivity ---

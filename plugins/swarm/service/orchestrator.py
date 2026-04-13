@@ -19,10 +19,13 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 import time
 from pathlib import Path
 from typing import Any, Callable
+
+import requests
 
 from .config import SwarmConfig, check_internet
 from .merge_manager import MergeManager
@@ -37,6 +40,7 @@ from .models import (
 )
 from .plan_parser import auto_serialize_conflicts, parse_plan, predict_conflicts
 from .worktree_manager import WorktreeManager
+from .resource_monitor import get_resource_monitor
 
 logger = logging.getLogger("swarm.orchestrator")
 
@@ -68,6 +72,10 @@ class SwarmOrchestrator:
 
         # running agent processes, keyed by task_id
         self._processes: dict[str, Any] = {}
+
+        # retry tracking
+        self._retries: dict[str, int] = {}
+        self.max_retries = 2
 
         # threading for async operation
         self._thread: threading.Thread | None = None
@@ -320,6 +328,13 @@ class SwarmOrchestrator:
             running_count = sum(1 for t in tasks if t.status == SwarmStatus.RUNNING)
             available_slots = max_agents - running_count
 
+            # Check system health before launching new agents
+            monitor = get_resource_monitor()
+            if available_slots > 0 and not monitor.is_healthy():
+                logger.warning(f"Swarm throttling: skipping spawn due to high system load")
+                available_slots = 0 # force throttle this tick
+                self._emit_event("swarm_throttled", "swarm", monitor.get_system_stats())
+
             # launch tasks to fill available slots
             for task in ready[:available_slots]:
                 try:
@@ -437,15 +452,31 @@ class SwarmOrchestrator:
                 })
 
             elif new_status == AgentStatus.CRASHED:
-                task.status = SwarmStatus.FAILED
-                task.completed_at = time.time()
-                task.error = "Agent process crashed"
+                # Check for retries
+                retry_count = self._retries.get(task_id, 0)
+                if retry_count < self.max_retries:
+                    self._retries[task_id] = retry_count + 1
+                    task.status = SwarmStatus.PENDING
+                    logger.warning(
+                        f"Task '{task_id}' crashed — retrying ({retry_count + 1}/{self.max_retries})"
+                    )
+                    self._emit_event("task_retrying", task_id, {
+                        "attempt": retry_count + 1,
+                        "max_attempts": self.max_retries,
+                        "reason": "Agent process crashed"
+                    })
+                else:
+                    task.status = SwarmStatus.FAILED
+                    task.completed_at = time.time()
+                    task.error = "Agent process crashed (all retries exhausted)"
+                    logger.error(f"Task '{task_id}' failed after {retry_count} retries")
+                    self._emit_event("task_failed", task_id, {
+                        "error": "Agent process crashed (all retries exhausted)",
+                        "elapsed": task.elapsed_human,
+                    })
 
-                logger.warning(f"Task '{task_id}' crashed after {task.elapsed_human}")
-                self._emit_event("task_failed", task_id, {
-                    "error": "Agent process crashed",
-                    "elapsed": task.elapsed_human,
-                })
+                # Cleanup the crashed process record
+                self._processes.pop(task_id, None)
 
     def _run_merge_phase(self, tasks: list[SwarmTask]) -> None:
         """Merge completed branches in dependency order."""
@@ -539,11 +570,26 @@ class SwarmOrchestrator:
         if self.result:
             self.result.timeline.append(event)
 
+        # 1. Internal callback (CLI/local)
         if self._on_event:
             try:
                 self._on_event(event)
             except Exception as e:
                 logger.warning(f"Event callback error: {e}")
+
+        # 2. Push to main backend for WebSocket broadcast
+        try:
+            # Main backend is on 5002 by default
+            port = os.environ.get("FLASK_PORT", "5002")
+            url = f"http://localhost:{port}/api/swarm/event"
+            requests.post(url, json={
+                "event_type": event_type,
+                "task_id": task_id,
+                "data": data,
+            }, timeout=1)
+        except Exception as e:
+            # Don't let broadcast failure kill the swarm
+            logger.debug(f"Failed to push swarm event to main backend: {e}")
 
     def _save_result(self) -> None:
         """Save the swarm result to disk for later inspection/replay."""

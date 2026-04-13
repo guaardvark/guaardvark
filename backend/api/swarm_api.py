@@ -154,11 +154,21 @@ def templates():
 
 
 @swarm_bp.route("/templates/<filename>", methods=["GET"])
-def template_content(filename):
+def template_content(filename: str):
     data, status = _proxy_get(f"/swarm/templates/{filename}")
     if status >= 400:
         return error_response(_extract_error(data, "Template not found"), status)
     return success_response(data=data, message="Template retrieved")
+
+
+@swarm_bp.route("/templates/save", methods=["POST"])
+def save_template():
+    body = flask_request.get_json() or {}
+    data, status = _proxy_post("/swarm/templates/save", body)
+    if status >= 400:
+        return error_response(_extract_error(data, "Save failed"), status)
+    return success_response(data=data, message="Template saved")
+
 
 
 # --- Connectivity ---
@@ -183,3 +193,29 @@ def history():
     if status == 503:
         return success_response(data={"swarms": [], "count": 0}, message="Swarm service offline")
     return success_response(data=data, message="History retrieved")
+
+
+# --- Event Hook (Internal) ---
+
+@swarm_bp.route("/event", methods=["POST"])
+def swarm_event():
+    """Receive an event from the swarm service and broadcast via Socket.IO."""
+    # check that it's local (for safety)
+    if flask_request.remote_addr not in ("127.0.0.1", "localhost"):
+        return error_response("Internal only", 403)
+
+    body = flask_request.get_json() or {}
+    event_type = body.get("event_type")
+    task_id = body.get("task_id", "swarm")
+    data = body.get("data", {})
+
+    if not event_type:
+        return error_response("event_type required", 400)
+
+    try:
+        from backend.socketio_events import emit_swarm_event
+        emit_swarm_event(event_type, task_id, data)
+        return success_response(message="Event broadcasted")
+    except Exception as e:
+        logger.error(f"Failed to broadcast swarm event: {e}")
+        return error_response(str(e), 500)

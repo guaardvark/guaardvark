@@ -43,6 +43,7 @@ import {
   CloudOff as OfflineIcon,
   Terminal as LogsIcon,
   Description as TemplateIcon,
+  Edit as EditIcon,
   ExpandMore as ExpandIcon,
   ExpandLess as CollapseIcon,
   Speed as SpeedIcon,
@@ -56,11 +57,13 @@ import {
   Sync as RunningIcon,
   RateReview as ReviewIcon,
   Close as CloseIcon,
+  Add as AddIcon,
 } from "@mui/icons-material";
 import { useTheme } from "@mui/material/styles";
 
 import PageLayout from "../components/layout/PageLayout";
 import { useSnackbar } from "../components/common/SnackbarProvider";
+import SwarmGraph from "../components/swarm/SwarmGraph";
 import {
   getHealth,
   getAllStatus,
@@ -70,13 +73,15 @@ import {
   cleanupSwarm,
   getTemplates,
   getTemplateContent,
+  saveTemplate,
   getTaskLogs,
   getConnectivity,
   getHistory,
+  swarmService,
 } from "../api/swarmService";
 
-// poll interval in ms — fast enough to feel real-time, slow enough to not hammer the API
-const POLL_INTERVAL = 3000;
+// poll interval in ms — fallback if Socket.IO fails or for initial sync
+const POLL_INTERVAL = 10000;
 
 // status -> color/icon mapping
 const STATUS_CONFIG = {
@@ -109,9 +114,17 @@ const SwarmPage = () => {
 
   // dialogs
   const [launchOpen, setLaunchOpen] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
   const [logsOpen, setLogsOpen] = useState(false);
   const [logsData, setLogsData] = useState({ taskId: "", logs: "" });
   const [expandedSwarm, setExpandedSwarm] = useState(null);
+
+  // editor state
+  const [editorFilename, setEditorFilename] = useState("new_plan.md");
+  const [editorContent, setEditorContent] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
 
   // launch form
   const [planPath, setPlanPath] = useState("");
@@ -180,16 +193,30 @@ const SwarmPage = () => {
       setLoading(false);
     };
     init();
+
+    // Socket.IO real-time updates
+    swarmService.connect();
+    swarmService.onEvent((event) => {
+      console.log("Real-time swarm event:", event);
+      // Refresh status when any event happens
+      fetchStatus();
+      
+      // If it's a completion event, also refresh history
+      if (event.event_type === "swarm_completed" || event.event_type === "swarm_cancelled") {
+        fetchHistory();
+      }
+    });
+
+    return () => {
+      swarmService.disconnect();
+    };
   }, [fetchStatus, fetchConnectivity, fetchTemplates, fetchHistory]);
 
-  // polling for active swarms
+  // polling as fallback/safety only
   useEffect(() => {
-    const hasActive = swarms.some((s) => s.status === "running");
-    if (!hasActive && !loading) return;
-
     const interval = setInterval(fetchStatus, POLL_INTERVAL);
     return () => clearInterval(interval);
-  }, [swarms, loading, fetchStatus]);
+  }, [fetchStatus]);
 
   // ─── Actions ───────────────────────────────────────────────────
 
@@ -274,15 +301,93 @@ const SwarmPage = () => {
     }
   };
 
-  const handleTemplateSelect = async (filename) => {
-    setSelectedTemplate(filename);
+  const handleOpenEditor = async (filename = "") => {
+    if (filename) {
+      try {
+        const res = await getTemplateContent(filename);
+        const data = res.data || res;
+        setEditorFilename(filename);
+        setEditorContent(data.content || "");
+      } catch (err) {
+        showMessage("Failed to load template", "error");
+        return;
+      }
+    } else {
+      setEditorFilename("new_plan.md");
+      setEditorContent("# New Swarm Plan\n\n## Task 1\nAssign to: any\nFiles: []\nDeps: []\nDescription: Do something...");
+    }
+    setEditorOpen(true);
+  };
+
+  const handleSavePlan = async () => {
+    if (!editorFilename.trim() || !editorContent.trim()) {
+      showMessage("Filename and content are required", "warning");
+      return;
+    }
+    
+    setIsSaving(true);
     try {
-      const res = await getTemplateContent(filename);
-      const data = res.data || res;
-      // set the full path for launching
-      setPlanPath(data.filename ? `plugins/swarm/templates/${data.filename}` : "");
-    } catch {
-      // silent
+      const res = await saveTemplate(editorFilename, editorContent);
+      if (res.success !== false) {
+        showMessage("Plan saved to templates", "success");
+        await fetchTemplates();
+        setPlanPath(`plugins/swarm/templates/${res.filename || editorFilename}`);
+        setEditorOpen(false);
+      } else {
+        showMessage(res.message || "Save failed", "error");
+      }
+    } catch (err) {
+      showMessage(err.message || "Save failed", "error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAiPlanBuilder = async () => {
+    if (!aiPrompt.trim()) {
+      showMessage("Enter what you want to achieve", "warning");
+      return;
+    }
+
+    setIsAiGenerating(true);
+    try {
+      // Use the main chat API to generate a plan.md structure
+      const sessionId = `swarm_builder_${Math.random().toString(36).substring(7)}`;
+      const response = await fetch("/api/enhanced-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: sessionId,
+          message: `Generate a swarm plan.md file for the following request: ${aiPrompt}. 
+          The format must be markdown with ## headers for each task. 
+          Each task should have:
+          - Assign to: (research_agent, code_agent, or any)
+          - Files: (list of files)
+          - Deps: (IDs of tasks it depends on)
+          - Description: (what to do)
+          
+          Provide ONLY the markdown content, no extra talk.`,
+          chat_mode: "instinct"
+        }),
+      });
+
+      const result = await response.json();
+      // The enhanced-chat API returns success_response which wraps data in a 'data' field
+      const responseData = result.data || result;
+      
+      if (responseData.response) {
+        // Strip markdown code fences if present
+        let content = responseData.response.trim();
+        if (content.startsWith("```markdown")) content = content.split("```markdown")[1].split("```")[0];
+        else if (content.startsWith("```")) content = content.split("```")[1].split("```")[0];
+        
+        setEditorContent(content);
+        showMessage("Plan generated by AI!", "success");
+      }
+    } catch (err) {
+      showMessage("AI generation failed", "error");
+    } finally {
+      setIsAiGenerating(false);
     }
   };
 
@@ -317,6 +422,15 @@ const SwarmPage = () => {
             }}
           >
             Refresh
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenEditor()}
+            disabled={!serviceOnline}
+          >
+            Create New Plan
           </Button>
           <Button
             variant="contained"
@@ -599,6 +713,87 @@ const SwarmPage = () => {
         </DialogActions>
       </Dialog>
 
+      {/* ─── Plan Editor Dialog ──────────────────────────────────── */}
+      <Dialog
+        open={editorOpen}
+        onClose={() => !isSaving && setEditorOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>Swarm Plan Editor</span>
+          <Chip label={editorFilename} size="small" variant="outlined" />
+        </DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} sx={{ mb: 3 }}>
+            <Typography variant="body2" color="text.secondary">
+              Describe your task, and AI will generate the plan.md structure for you.
+            </Typography>
+            <Stack direction="row" spacing={1}>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="e.g., 'Refactor all API endpoints to use the new Response model'"
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                disabled={isAiGenerating}
+              />
+              <Button 
+                variant="outlined" 
+                onClick={handleAiPlanBuilder}
+                disabled={isAiGenerating || !aiPrompt.trim()}
+                startIcon={isAiGenerating ? <CircularProgress size={16} /> : <SpeedIcon />}
+                sx={{ whiteSpace: "nowrap" }}
+              >
+                AI Suggest Plan
+              </Button>
+            </Stack>
+          </Stack>
+
+          <TextField
+            label="Filename (e.g. migrate_api.md)"
+            value={editorFilename}
+            onChange={(e) => setEditorFilename(e.target.value)}
+            fullWidth
+            size="small"
+            sx={{ mb: 2 }}
+          />
+          
+          <TextField
+            label="Plan Content (Markdown)"
+            value={editorContent}
+            onChange={(e) => setEditorContent(e.target.value)}
+            fullWidth
+            multiline
+            rows={15}
+            placeholder="# Title\n\n## Task 1..."
+            sx={{ 
+              fontFamily: "monospace",
+              "& .MuiInputBase-input": { fontFamily: "monospace", fontSize: "0.85rem" }
+            }}
+          />
+          
+          <Box sx={{ mt: 1 }}>
+            <Typography variant="caption" color="text.secondary">
+              Format: Use <b>## Task Name</b> for each task. Add <b>Deps: [1]</b> for dependencies.
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditorOpen(false)} disabled={isSaving}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSavePlan}
+            variant="contained"
+            disabled={isSaving || !editorContent.trim()}
+            startIcon={isSaving ? <CircularProgress size={18} /> : <EditIcon />}
+          >
+            Save to Templates
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* ─── Logs Dialog ────────────────────────────────────────── */}
       <Dialog
         open={logsOpen}
@@ -763,6 +958,14 @@ const SwarmCard = ({
       <Collapse in={expanded}>
         <Divider />
         <Box sx={{ p: 2 }}>
+          {/* Visual DAG */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 1, display: "block" }}>
+              DEPENDENCY GRAPH
+            </Typography>
+            <SwarmGraph tasks={tasks} height={300} />
+          </Box>
+
           {/* Actions */}
           <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
             {isRunning && (
