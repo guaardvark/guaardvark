@@ -241,11 +241,16 @@ class AgentBrain:
                     escalated_from = 1
                     escalation_reason = f"reflex '{reflex_action.name}' failed"
 
-            # -- Vision routing — only when the agent screen is being watched.
-            # Otherwise vision-sounding messages like "click the Firefox button"
-            # route through normal Instinct so the model can explain that the
-            # screen isn't being viewed, rather than silently attempting clicks.
-            if self._is_vision_task(message, image_data) and _screen_active:
+            # -- Vision routing. Two triggers:
+            #    (1) image_data present — user pasted an image. ALWAYS use the
+            #        vision prompt regardless of agent-screen state, because
+            #        the user explicitly wants the model to look at the image.
+            #    (2) vision-sounding text ("click the Firefox button") AND the
+            #        agent screen is being watched. Without the screen, those
+            #        requests route through normal Instinct so the model can
+            #        explain that nothing is being viewed, rather than
+            #        silently attempting clicks on a screen nobody sees.
+            if self._is_vision_task(message, image_data) and (image_data or _screen_active):
                 tier_used = 2  # Vision goes through Tier 2 with vision prompt
                 return self._instinct(
                     session_id, message, options, emit_fn, app,
