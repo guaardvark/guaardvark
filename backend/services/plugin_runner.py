@@ -59,11 +59,14 @@ to run as a standalone script with no torch in sys.modules.
 """
 
 import json
+import logging
 import os
 import subprocess
 import sys
 import threading
 from typing import List, Optional
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -155,6 +158,7 @@ class PluginRunnerClient:
         self._proc: Optional[subprocess.Popen] = None
         self._lock = threading.Lock()
         self._next_id = 1
+        self._stderr_thread: Optional[threading.Thread] = None
 
     @classmethod
     def get(cls) -> "PluginRunnerClient":
@@ -175,15 +179,41 @@ class PluginRunnerClient:
             [sys.executable, sidecar_path, "--sidecar"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,  # captured but not currently read
+            stderr=subprocess.PIPE,
             text=True,
             bufsize=1,  # line-buffered
         )
+
+        # Drain sidecar stderr in a background thread so the 64KB pipe buffer
+        # can't fill up and deadlock subprocess.run inside the sidecar. In
+        # normal operation the sidecar writes nothing to stderr, but any
+        # unexpected Python warning, traceback, or resource notice would
+        # silently wedge the whole plugin subsystem without this drain.
+        self._stderr_thread = threading.Thread(
+            target=self._drain_stderr,
+            daemon=True,
+            name="plugin_runner-stderr-drain",
+        )
+        self._stderr_thread.start()
 
         # Sanity check with a ping
         result = self._send({"cmd": "ping"})
         if not result.get("ok"):
             raise RuntimeError(f"Plugin runner sidecar failed ping: {result}")
+
+    def _drain_stderr(self) -> None:
+        """Continuously read the sidecar's stderr stream so the pipe buffer
+        never fills. Anything the sidecar writes to stderr is logged as debug
+        (it's noise for normal ops but useful when debugging crashes)."""
+        if not self._proc or not self._proc.stderr:
+            return
+        try:
+            for line in self._proc.stderr:
+                stripped = line.rstrip()
+                if stripped:
+                    logger.debug(f"plugin_runner sidecar stderr: {stripped}")
+        except Exception as e:
+            logger.debug(f"plugin_runner stderr drain exited: {e}")
 
     def run(self, argv: List[str], cwd: Optional[str] = None, timeout: int = 60) -> dict:
         """Run a command in the sidecar. Returns a dict with keys:
