@@ -127,9 +127,15 @@ def register_web_tools() -> List[str]:
 
     try:
         from backend.tools.web_tools import (
+            FetchUrlTool,
             WebAnalysisTool,
             WebSearchTool
         )
+
+        register_tool(FetchUrlTool())
+        registered.append("fetch_url")
+        _tool_categories["fetch_url"] = category
+        logger.info("Registered: FetchUrlTool")
 
         register_tool(WebAnalysisTool())
         registered.append("analyze_website")
@@ -387,6 +393,42 @@ def register_system_tools() -> List[str]:
     return registered
 
 
+def register_memory_tools() -> List[str]:
+    """Register agent memory management tools"""
+    global _tool_categories
+    registered = []
+    category = "memory"
+
+    try:
+        from backend.tools.memory_tools import (
+            SaveMemoryTool,
+            SearchMemoryTool,
+            DeleteMemoryTool
+        )
+
+        register_tool(SaveMemoryTool())
+        registered.append("save_memory")
+        _tool_categories["save_memory"] = category
+        logger.info("Registered: SaveMemoryTool")
+
+        register_tool(SearchMemoryTool())
+        registered.append("search_memory")
+        _tool_categories["search_memory"] = category
+        logger.info("Registered: SearchMemoryTool")
+        
+        register_tool(DeleteMemoryTool())
+        registered.append("delete_memory")
+        _tool_categories["delete_memory"] = category
+        logger.info("Registered: DeleteMemoryTool")
+
+    except ImportError as e:
+        logger.error(f"Failed to import memory tools: {e}")
+    except Exception as e:
+        logger.error(f"Failed to register memory tools: {e}")
+
+    return registered
+
+
 def register_rag_tools() -> List[str]:
     """Register RAG/Knowledge tools"""
     global _tool_categories
@@ -569,6 +611,7 @@ def initialize_all_tools() -> ToolRegistry:
     _registered_tools.extend(register_desktop_tools())
     _registered_tools.extend(register_mcp_tools())
     _registered_tools.extend(register_system_tools())
+    _registered_tools.extend(register_memory_tools())
     _registered_tools.extend(register_rag_tools())
     _registered_tools.extend(register_media_tools())
     _registered_tools.extend(register_image_tools())

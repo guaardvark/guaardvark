@@ -352,6 +352,86 @@ def _is_web_access_allowed() -> bool:
     return False
 
 
+class FetchUrlTool(BaseTool):
+    """
+    Fetch a specific URL and return its text content. Single-purpose primitive —
+    use this whenever the user asks about a specific webpage or domain. Distinct
+    from web_search (which runs a DuckDuckGo query) and from analyze_website
+    (which produces a structured SEO/metadata report).
+    """
+
+    name = "fetch_url"
+    description = (
+        "Fetch a specific URL and return its page title, meta description, and "
+        "main text content (up to ~2000 chars). Use this for ANY question about "
+        "a specific webpage or domain — e.g. 'what's on example.com', 'read "
+        "https://site.com/page', 'tell me about albenze.ai'. For open-ended "
+        "searches without a specific URL, use web_search instead."
+    )
+
+    parameters = {
+        "url": ToolParameter(
+            name="url",
+            type="string",
+            required=True,
+            description=(
+                "URL or bare domain to fetch (e.g. 'https://example.com', "
+                "'example.com', 'www.example.com'). Protocol is optional — "
+                "https:// will be added automatically if missing."
+            ),
+        ),
+    }
+
+    def __init__(self):
+        super().__init__()
+
+    def execute(self, **kwargs) -> ToolResult:
+        """Fetch the URL and return its text content."""
+        if not _is_web_access_allowed():
+            return ToolResult(
+                success=False,
+                error="Web access is disabled. Enable it in Settings to fetch URLs.",
+            )
+
+        url = (kwargs.get("url") or "").strip()
+        if not url:
+            return ToolResult(
+                success=False,
+                error="url parameter is required",
+            )
+
+        try:
+            from backend.api.web_search_api import extract_website_content
+
+            result = extract_website_content(url)
+            if not result.get("success"):
+                return ToolResult(
+                    success=False,
+                    error=result.get("error", "Failed to fetch URL"),
+                    output={"url": url, "raw_error": result},
+                )
+
+            # Return a flat, LLM-friendly shape. No SEO layers, no nested metadata —
+            # the single-purpose framing is the whole point of this tool.
+            return ToolResult(
+                success=True,
+                output={
+                    "url": result.get("url", url),
+                    "title": result.get("title", ""),
+                    "description": result.get("description", ""),
+                    "content": result.get("content", ""),
+                    "content_length": result.get("content_length", 0),
+                },
+            )
+        except Exception as e:
+            logger.error(f"fetch_url failed for {url}: {e}", exc_info=True)
+            return ToolResult(
+                success=False,
+                error=f"Failed to fetch URL: {str(e)}",
+                output={"url": url},
+            )
+
+
 class WebSearchTool(BaseTool):
     """
     Perform web search and return results.
@@ -359,7 +439,13 @@ class WebSearchTool(BaseTool):
     """
 
     name = "web_search"
-    description = "Search the web for information and return relevant results"
+    description = (
+        "Search the web via DuckDuckGo — returns a ranked list of titles, "
+        "snippets, and URLs for a query. Use this for open-ended research or "
+        "when you need to discover pages about a topic. For fetching a SPECIFIC "
+        "URL or domain the user already named, use fetch_url instead (it's a "
+        "direct fetch, no search ranking in between)."
+    )
 
     parameters = {
         "query": ToolParameter(
