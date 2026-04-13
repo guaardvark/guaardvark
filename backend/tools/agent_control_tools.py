@@ -6,13 +6,34 @@ These tools allow the agent system to start/stop agent mode and execute
 vision-based automation tasks.
 """
 
+import glob
 import logging
 import os
+import time
+
 from backend.services.agent_tools import BaseTool, ToolParameter, ToolResult
 
 logger = logging.getLogger(__name__)
 
 AGENT_DISPLAY = os.environ.get("GUAARDVARK_AGENT_DISPLAY", ":99")
+GUAARDVARK_ROOT = os.environ.get(
+    "GUAARDVARK_ROOT",
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
+SCREENSHOTS_DIR = os.path.join(GUAARDVARK_ROOT, "data", "outputs", "screenshots")
+MAX_SCREENSHOTS = 200  # FIFO bloat guard
+
+
+def _prune_old_screenshots(directory: str, max_keep: int = MAX_SCREENSHOTS):
+    """Remove oldest screenshots if the directory exceeds max_keep files."""
+    try:
+        files = sorted(glob.glob(os.path.join(directory, "*.webp")), key=os.path.getmtime)
+        excess = len(files) - max_keep
+        if excess > 0:
+            for f in files[:excess]:
+                os.remove(f)
+    except Exception:
+        pass  # non-critical housekeeping
 
 
 def _ensure_agent_display():
@@ -87,7 +108,11 @@ class AgentTaskExecuteTool(BaseTool):
 
             service = get_agent_control_service()
             screen = LocalScreenBackend()
-            result = service.execute_task(task, screen)
+
+            # Auto-detect training mode — keeps the agent clicking instead of stopping after one hit
+            import re as _re
+            training_mode = bool(_re.search(r'\b(?:training|practice|keep clicking|vision trainer)\b', task, _re.IGNORECASE))
+            result = service.execute_task(task, screen, training_mode=training_mode)
 
             # Post-task analysis: quick snapshot of what the screen shows now.
             # Keep it fast — users shouldn't wait 5s after the task is already done.
@@ -137,13 +162,13 @@ class AgentTaskExecuteTool(BaseTool):
 
 class AgentScreenCaptureTool(BaseTool):
     name = "agent_screen_capture"
-    description = "Take a screenshot of the local screen and analyze it with a vision model."
+    description = "Take a screenshot of the local screen and analyze it with a vision model. Always pass a prompt that describes what you are looking for or verifying — the vision model will answer your specific question about the screen."
     parameters = {
         "prompt": ToolParameter(
             name="prompt",
             type="string",
             required=False,
-            description="Custom prompt for vision analysis (default: describe the screen)",
+            description="What to look for or verify on screen (e.g., 'Is the word guaardvark visible in the search bar?' or 'What page is currently loaded?'). Be specific — the vision model answers this question.",
             default="Describe what is currently on the screen."
         ),
     }
@@ -160,18 +185,37 @@ class AgentScreenCaptureTool(BaseTool):
             screen = LocalScreenBackend()
             screenshot, cursor_pos = screen.capture()
 
+            # Save screenshot so it appears in chat — the unified engine's
+            # chat:image emission triggers automatically on metadata["image_url"]
+            image_url = None
+            try:
+                os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
+                filename = f"agent_capture_{int(time.time() * 1000)}.webp"
+                filepath = os.path.join(SCREENSHOTS_DIR, filename)
+                screenshot.save(filepath, format="WEBP", quality=80)
+                image_url = f"/api/tools/screenshots/{filename}"
+                _prune_old_screenshots(SCREENSHOTS_DIR)
+            except Exception as e:
+                logger.warning(f"Failed to save screenshot for chat: {e}")
+
             analyzer = VisionAnalyzer()
             result = analyzer.analyze(screenshot, prompt=prompt)
 
             if result.success:
+                metadata = {
+                    "cursor": cursor_pos,
+                    "model": result.model_used,
+                    "inference_ms": result.inference_ms,
+                }
+                if image_url:
+                    metadata["image_url"] = image_url
+                    # Use the actual vision analysis as the caption so the
+                    # user sees the model's real observation under the screenshot
+                    metadata["prompt"] = result.description[:200] if result.description else "Agent screen capture"
                 return ToolResult(
                     success=True,
                     output=result.description,
-                    metadata={
-                        "cursor": cursor_pos,
-                        "model": result.model_used,
-                        "inference_ms": result.inference_ms,
-                    }
+                    metadata=metadata,
                 )
             else:
                 return ToolResult(success=False, error=result.error)

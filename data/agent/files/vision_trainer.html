@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Guaardvark Vision Trainer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: Arial, sans-serif;
+    background: #f0f0f0;
+    width: 1280px;
+    height: 720px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  #header {
+    background: #1a1a2e;
+    color: #e0e0e0;
+    padding: 6px 16px;
+    font-size: 13px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .score { color: #4caf50; font-weight: bold; }
+  .misses { color: #f44336; font-weight: bold; }
+  .failed { color: #ff9800; font-weight: bold; }
+
+  .target {
+    position: absolute;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: white;
+    cursor: pointer;
+    user-select: none;
+  }
+  .target.hit {
+    background: #4caf50 !important;
+    animation: pulse 0.3s ease-out;
+  }
+  .target.miss {
+    background: #f44336 !important;
+    animation: pulse 0.3s ease-out;
+  }
+
+  .click-marker {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 1;
+    transition: opacity 3s ease-out;
+  }
+  .click-marker.fading { opacity: 0; }
+  .click-marker::before, .click-marker::after {
+    content: '';
+    position: absolute;
+    background: #f44336;
+  }
+  .click-marker::before {
+    width: 16px; height: 2px;
+    top: 7px; left: 0;
+    transform: rotate(45deg);
+  }
+  .click-marker::after {
+    width: 16px; height: 2px;
+    top: 7px; left: 0;
+    transform: rotate(-45deg);
+  }
+  .click-marker.was-hit::before, .click-marker.was-hit::after {
+    background: #4caf50;
+  }
+
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(76,175,80,0.7); }
+    100% { box-shadow: 0 0 0 20px rgba(76,175,80,0); }
+  }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <span>Vision Trainer</span>
+  <span>
+    Hits: <span class="score" id="hits">0</span> |
+    Miss: <span class="misses" id="misses">0</span> |
+    Failed: <span class="failed" id="failed">0</span> |
+    Accuracy: <span id="accuracy">0%</span>
+  </span>
+</div>
+
+<div id="arena" style="position:relative;width:100%;height:calc(100% - 28px)"></div>
+
+<script>
+  var hits = 0, misses = 0, failed = 0;
+  var targetMisses = 0;
+  var lastX = -999, lastY = -999;
+
+  function stats() {
+    document.getElementById('hits').textContent = hits;
+    document.getElementById('misses').textContent = misses;
+    document.getElementById('failed').textContent = failed;
+    var t = hits + misses;
+    document.getElementById('accuracy').textContent = t > 0 ? Math.round(hits / t * 100) + '%' : '0%';
+  }
+
+  function marker(x, y, hit) {
+    var m = document.createElement('div');
+    m.className = 'click-marker' + (hit ? ' was-hit' : '');
+    m.style.left = (x - 8) + 'px';
+    m.style.top = (y - 8) + 'px';
+    document.getElementById('arena').appendChild(m);
+    setTimeout(function() { m.classList.add('fading'); }, 4000);
+    setTimeout(function() { if (m.parentNode) m.remove(); }, 6000);
+  }
+
+  function spawn() {
+    var arena = document.getElementById('arena');
+    targetMisses = 0;
+    var size = 70 + Math.random() * 30;
+    var colors = ['#f44336','#e91e63','#9c27b0','#673ab7','#3f51b5','#2196f3','#00bcd4','#009688','#4caf50','#ff9800'];
+    var color = colors[Math.floor(Math.random() * colors.length)];
+
+    var x, y, tries = 0;
+    do {
+      x = 80 + Math.random() * (1100 - size);
+      y = 40 + Math.random() * (580 - size);
+      tries++;
+    } while (tries < 30 && Math.sqrt(Math.pow(x + size/2 - lastX, 2) + Math.pow(y + size/2 - lastY, 2)) < 250);
+    lastX = Math.round(x + size/2);
+    lastY = Math.round(y + size/2);
+
+    var dot = document.createElement('div');
+    dot.className = 'target';
+    dot.style.cssText = 'width:'+size+'px;height:'+size+'px;left:'+x+'px;top:'+y+'px;background:'+color+';font-size:'+(size/3)+'px';
+    dot.textContent = Math.floor(Math.random() * 9) + 1;
+
+    dot.addEventListener('click', function(e) {
+      hits++;
+      dot.classList.add('hit');
+      marker(e.clientX, e.clientY - 28, true);
+      stats();
+      setTimeout(function() { if (dot.parentNode) dot.remove(); setTimeout(spawn, 1000); }, 300);
+    });
+
+    arena.appendChild(dot);
+  }
+
+  document.getElementById('arena').addEventListener('click', function(e) {
+    if (e.target === this) {
+      misses++;
+      targetMisses++;
+      marker(e.clientX, e.clientY - 28, false);
+      stats();
+      if (targetMisses >= 3) {
+        failed++;
+        var dot = this.querySelector('.target');
+        if (dot) {
+          dot.classList.add('miss');
+          setTimeout(function() { if (dot.parentNode) dot.remove(); setTimeout(spawn, 1000); }, 300);
+        }
+        stats();
+      }
+    }
+  });
+
+  spawn();
+</script>
+</body>
+</html>

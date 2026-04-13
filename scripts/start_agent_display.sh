@@ -6,11 +6,11 @@
 #   GUAARDVARK_AGENT_BROWSER   - Browser to use: firefox|chromium|chrome (auto-detected if unset)
 #   GUAARDVARK_AGENT_DISPLAY   - X display number (default: 99)
 #   GUAARDVARK_AGENT_VNC_PORT  - VNC port (default: 5999)
-#   GUAARDVARK_AGENT_RESOLUTION - Display resolution (default: 1280x720x24)
+#   GUAARDVARK_AGENT_RESOLUTION - Display resolution (default: 1024x1024x24)
 
 GUAARDVARK_ROOT="${GUAARDVARK_ROOT:-$(dirname $(dirname $(readlink -f $0)))}"
 DISPLAY_NUM="${GUAARDVARK_AGENT_DISPLAY:-99}"
-RESOLUTION="${GUAARDVARK_AGENT_RESOLUTION:-1280x720x24}"
+RESOLUTION="${GUAARDVARK_AGENT_RESOLUTION:-1024x1024x24}"
 VNC_PORT="${GUAARDVARK_AGENT_VNC_PORT:-5999}"
 PID_DIR="$GUAARDVARK_ROOT/pids"
 LOG_DIR="$GUAARDVARK_ROOT/logs"
@@ -89,7 +89,7 @@ browser_launch_cmd() {
 
     case "$browser" in
         firefox|firefox-esr)
-            echo "$browser --no-remote --profile $profile_dir $url"
+            echo "$browser --no-remote --remote-debugging-port 9222 --profile $profile_dir $url"
             ;;
         chromium*|google-chrome*)
             echo "$browser --no-first-run --no-default-browser-check --user-data-dir=$profile_dir $url"
@@ -321,6 +321,11 @@ start() {
     <item label="File Manager">
       <action name="Execute">
         <execute>pcmanfm --new-win</execute>
+      </action>
+    </item>
+    <item label="Drawing">
+      <action name="Execute">
+        <execute>$menu_env drawing</execute>
       </action>
     </item>
     <item label="Terminal">

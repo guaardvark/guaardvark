@@ -57,6 +57,7 @@ class AgentAction:
     keys: List[str] = field(default_factory=list)  # For hotkey actions
     scroll_amount: int = 0  # For scroll actions
     reasoning: str = ""  # Why the agent chose this action
+    confidence: float = 1.0  # Confidence score (0.0 to 1.0)
 
 
 @dataclass
@@ -65,6 +66,7 @@ class AgentDecision:
     action: AgentAction = field(default_factory=AgentAction)
     task_complete: bool = False
     stuck: bool = False
+    confidence: float = 1.0  # Overall decision confidence
     raw_output: str = ""
 
 
@@ -158,7 +160,7 @@ class AgentControlService:
             "last_result": last,
         }
 
-    def execute_task(self, task: str, screen, mouse_only: bool = False) -> AgentResult:
+    def execute_task(self, task: str, screen, mouse_only: bool = False, training_mode: bool = False) -> AgentResult:
         """
         Execute a task using the see-think-act loop.
 
@@ -166,11 +168,14 @@ class AgentControlService:
             task: Natural language description of the task
             screen: ScreenInterface implementation
             mouse_only: If True, disable keyboard shortcuts — pure mouse clicks only
+            training_mode: If True, keep clicking forever — no early done, no loop breaker,
+                          extended iterations and timeout. For vision trainer practice.
 
         Returns:
             AgentResult with success status and action history
         """
         self._mouse_only = mouse_only
+        self._training_mode = training_mode
         from backend.services.servo_controller import ServoController
         from backend.services.training_data_collector import TrainingDataCollector
         from backend.utils.vision_analyzer import VisionAnalyzer
@@ -219,7 +224,7 @@ class AgentControlService:
         logger.info(f"[AGENT] Vision config: servo_eyes={servo_vision_model} scale=({vision_config['scale_x']}, {vision_config['scale_y']})")
         analyzer = VisionAnalyzer(default_model=servo_vision_model)
         collector = TrainingDataCollector()
-        servo = ServoController(screen, analyzer, collector=collector)
+        servo = ServoController(screen, analyzer, collector=collector, vision_config=vision_config)
         consecutive_failures = 0
         start_time = time.time()
 
@@ -229,8 +234,12 @@ class AgentControlService:
             self._active = False
             return self._store_and_return(recipe_result)
 
+        # Training mode: crank up limits so the agent keeps practicing
+        max_iters = 1000 if training_mode else self.config.max_iterations
+        task_timeout = 3600 if training_mode else self.config.task_timeout_seconds  # 1 hour for training
+
         try:
-            for iteration in range(self.config.max_iterations):
+            for iteration in range(max_iters):
                 if self._killed:
                     return self._store_and_return(AgentResult(
                         success=False, reason="killed",
@@ -238,7 +247,7 @@ class AgentControlService:
                         total_time_seconds=time.time() - start_time
                     ))
 
-                if time.time() - start_time > self.config.task_timeout_seconds:
+                if time.time() - start_time > task_timeout:
                     return self._store_and_return(AgentResult(
                         success=False, reason="timeout",
                         steps=self._action_history,
@@ -246,6 +255,10 @@ class AgentControlService:
                     ))
 
                 self._current_iteration = iteration
+
+                # Training mode: 5s pause between iterations so the agent doesn't rush
+                if training_mode and iteration > 0:
+                    time.sleep(5.0)
 
                 # 1. SEE — Capture screenshot
                 screenshot, cursor_pos = self._capture_with_retry(screen)
@@ -258,7 +271,7 @@ class AgentControlService:
 
                 if unified_model:
                     # UNIFIED MODE: Compact prompt — vision model sees screenshot + short context
-                    unified_prompt = self._build_unified_prompt(task, self._action_history)
+                    unified_prompt = self._build_unified_prompt(task, self._action_history, training_mode=training_mode)
                     result = analyzer.analyze(
                         screenshot, prompt=unified_prompt,
                         model=unified_model, num_predict=256, temperature=0.1
@@ -307,6 +320,13 @@ class AgentControlService:
                               f"keys={decision.action.keys or ''} "
                               f"reasoning=\"{decision.action.reasoning or ''}\"")
 
+                if decision.task_complete and training_mode:
+                    # Training mode: ignore "done" — force the model to keep clicking
+                    logger.info(f"[AGENT][STEP {iteration+1}][TRAINING] Ignoring 'done' — keep practicing")
+                    decision.task_complete = False
+                    decision.action.action_type = "click"
+                    decision.action.target_description = "colored circle"
+
                 if decision.task_complete:
                     # Guard: "done" on step 1 with no actions taken is suspicious.
                     # If the screen is black or no actions were executed, this is
@@ -353,13 +373,14 @@ class AgentControlService:
                     # instead of asking the vision model to locate "the desktop"
                     import re as _re
                     if _re.search(r'(?:desktop|empty|blank|background|open area|center|middle)\s*(?:area|space|screen)?', target, _re.IGNORECASE):
-                        cx, cy = 640, 360  # Center of 1280x720
+                        sw, sh = screen.screen_size()
+                        cx, cy = sw // 2, sh // 2
                         screen.click(cx, cy, button=button)
                         decision.action.coordinates = (cx, cy)
                         result = {"success": True}
                         failed = False
                     else:
-                        servo_result = servo.click_target(target, button=button)
+                        servo_result = servo.click_target(target, button=button, single_attempt=training_mode)
                         decision.action.coordinates = (servo_result.get("x", 0), servo_result.get("y", 0))
                         result = {"success": servo_result.get("success", False)}
                         failed = not servo_result.get("success", False)
@@ -411,7 +432,8 @@ class AgentControlService:
                 # 5b. EARLY DONE — after a successful action, check if the
                 # task goal is obviously met based on desktop state. Saves
                 # an entire LLM round-trip (~3-5s) when the answer is clear.
-                if not failed and len(self._action_history) >= 1:
+                # Disabled in training mode — keep clicking targets forever.
+                if not failed and len(self._action_history) >= 1 and not getattr(self, '_training_mode', False):
                     early_done = self._check_early_done(task)
                     if early_done:
                         logger.warning(
@@ -425,7 +447,8 @@ class AgentControlService:
 
                 # 5c. LOOP BREAKER — if last 3 actions are identical, the LLM
                 # is stuck in a loop. Force-complete instead of burning iterations.
-                if len(self._action_history) >= 3:
+                # Disabled in training mode — repeating clicks is the whole point.
+                if len(self._action_history) >= 3 and not getattr(self, '_training_mode', False):
                     last3 = [
                         (h.action.action_type, h.action.target_description, h.action.text)
                         for h in self._action_history[-3:]
@@ -445,7 +468,9 @@ class AgentControlService:
 
                 if failed:
                     consecutive_failures += 1
-                    if consecutive_failures >= self.config.max_consecutive_failures:
+                    # Training mode: never kill on consecutive failures — missing targets is learning
+                    max_failures = 999 if training_mode else self.config.max_consecutive_failures
+                    if consecutive_failures >= max_failures:
                         logger.warning(f"Kill switch: {consecutive_failures} consecutive failures")
                         self.kill()
                         return self._store_and_return(AgentResult(
@@ -601,7 +626,8 @@ class AgentControlService:
                 screen = LocalScreenBackend()
                 analyzer = VisionAnalyzer()
                 collector = TrainingDataCollector()
-                servo = ServoController(screen=screen, analyzer=analyzer, collector=collector)
+                from backend.services.servo_knowledge_store import get_vision_config as _gvc
+                servo = ServoController(screen=screen, analyzer=analyzer, collector=collector, vision_config=_gvc())
 
                 engine = ApprenticeEngine(
                     screen=screen,
@@ -775,17 +801,68 @@ class AgentControlService:
         self._last_result = result
         # Enforce window boundaries so windows don't escape the virtual display
         self._enforce_window_boundaries()
+
+        # Distill learning from tasks that succeeded after retries —
+        # turns one-session learning into persistent memory
+        if (result.success
+                and len(result.steps) > 1
+                and "recipe:" not in result.reason):
+            any_failures = any(s.failed for s in result.steps)
+            if any_failures:
+                try:
+                    from backend.celery_app import celery_app
+                    step_dicts = [
+                        {
+                            "iteration": s.iteration,
+                            "action_type": s.action.action_type,
+                            "target": s.action.target_description,
+                            "text": s.action.text,
+                            "keys": s.action.keys,
+                            "failed": s.failed,
+                            "result_success": s.result.get("success", False),
+                        }
+                        for s in result.steps
+                    ]
+                    celery_app.send_task(
+                        "self_improvement.distill_task_learning",
+                        kwargs={
+                            "task": getattr(self, '_current_task', '') or '',
+                            "steps": step_dicts,
+                            "model_name": getattr(self, '_model_name', ''),
+                        },
+                    )
+                    logger.info("[DISTILL] Dispatched learning distillation for successful retry task")
+                except Exception as e:
+                    logger.debug(f"Distillation dispatch skipped: {e}")
+
         return result
 
-    def _enforce_window_boundaries(self):
-        """Clamp all windows to fit within the virtual display (1280x720).
+    def _enforce_window_boundaries(self, screen=None):
+        """Clamp all windows to fit within the virtual display.
 
         Runs after every task to prevent windows from drifting off-screen
         where the agent can't see or interact with them.
         """
         import subprocess
         display = os.environ.get("DISPLAY", ":99")
-        screen_w, screen_h = 1280, 720
+
+        # Get actual screen size from the backend or direct xdotool call
+        if screen:
+            screen_w, screen_h = screen.screen_size()
+        else:
+            try:
+                r = subprocess.run(
+                    ["xdotool", "getdisplaygeometry"],
+                    capture_output=True, text=True, timeout=2,
+                    env={**os.environ, "DISPLAY": display},
+                )
+                if r.returncode == 0:
+                    parts = r.stdout.strip().split()
+                    screen_w, screen_h = int(parts[0]), int(parts[1])
+                else:
+                    screen_w, screen_h = 1024, 1024
+            except Exception:
+                screen_w, screen_h = 1024, 1024
         try:
             result = subprocess.run(
                 ["xdotool", "search", "--onlyvisible", "--name", ""],
@@ -944,7 +1021,8 @@ class AgentControlService:
             screen.hotkey("Escape")
             _time.sleep(0.3)
             # The X is typically at the far right of the notification bar
-            screen.click(1290, 127)
+            # (1000, 100) is a safe bet for a 1024px screen
+            screen.click(1000, 100)
             _time.sleep(0.5)
             logger.warning(f"[AGENT][STEP {iteration+1}][ASSESS] Dismissed restore session bar")
             return "handled"
@@ -989,7 +1067,8 @@ class AgentControlService:
             if decision.action.action_type == "click" and decision.action.target_description:
                 from backend.services.servo_controller import ServoController
                 from backend.services.training_data_collector import TrainingDataCollector
-                servo = ServoController(screen, analyzer, collector=TrainingDataCollector())
+                from backend.services.servo_knowledge_store import get_vision_config as _gvc2
+                servo = ServoController(screen, analyzer, collector=TrainingDataCollector(), vision_config=_gvc2())
                 servo.click_target(decision.action.target_description)
             elif decision.action.action_type == "hotkey" and decision.action.keys:
                 screen.hotkey(*decision.action.keys)
@@ -1004,59 +1083,54 @@ class AgentControlService:
         return "handled"
 
     @staticmethod
-    def _build_unified_prompt(task: str, history) -> str:
+    def _build_unified_prompt(task: str, history, training_mode: bool = False) -> str:
         """Build a compact prompt for unified vision+decision models.
 
-        Keep it SHORT — the model is also processing an image.
+        Shorter prompts = better detection accuracy. Only include what the model
+        needs to pick the next action.
         """
-        # Compact history: last 5 actions only
+        # Last 3 actions only — enough for context, not enough to overwhelm
         done_lines = ""
         loop_warning = ""
         if history:
-            recent = history[-5:]
+            recent = history[-3:]
             steps = []
             for h in recent:
-                if h.failed:
-                    status = "FAIL"
-                elif h.result and h.result.get("verified") is False:
-                    status = "UNVERIFIED — screen did not change, text may not have landed"
-                else:
-                    status = "OK"
+                status = "FAIL" if h.failed else "OK"
                 desc = h.action.text or h.action.target_description or str(h.action.keys or "")
                 steps.append(f"  {h.action.action_type}: {desc} [{status}]")
-            done_lines = "Last actions:\n" + "\n".join(steps) + "\n"
+            done_lines = "Done:\n" + "\n".join(steps) + "\n"
 
-            # Detect loops — if last 3 actions are the same, warn strongly
             if len(history) >= 3:
                 last3 = [(h.action.action_type, h.action.text) for h in history[-3:]]
                 if len(set(last3)) == 1:
-                    loop_warning = (
-                        "\nSTOP REPEATING! You did the same action 3 times. "
-                        "The screen has not changed. Do something DIFFERENT.\n"
-                        "If you typed text, now press Return. If you clicked, try a different target.\n"
-                    )
+                    loop_warning = "\nYou repeated the same action 3 times. Do something DIFFERENT.\n"
 
         desktop_state = AgentControlService._get_desktop_state()
+
+        # DOM metadata — interactive elements with screen coordinates
+        dom_block = ""
+        try:
+            unified_model = AgentControlService._get_unified_model()
+            if unified_model and "gemma4" in unified_model.lower():
+                from backend.services.dom_metadata_extractor import DOMMetadataExtractor
+                snapshot = DOMMetadataExtractor.get_instance().extract()
+                if snapshot.success and snapshot.elements:
+                    dom_block = DOMMetadataExtractor.format_for_prompt(snapshot) + "\n\n"
+        except Exception:
+            pass
+
+        training_override = ""
+        if training_mode:
+            training_override = "\nTRAINING MODE: NEVER say done. Click the next target.\n"
 
         return f"""Task: {task}
 
 {desktop_state}
+{dom_block}{done_lines}{loop_warning}{training_override}Step {len(history) + 1}. ONE next action.
 
-{done_lines}{loop_warning}Step {len(history) + 1}. Look at the screenshot. What is the ONE next action?
-
-IMPORTANT RULES:
-- After typing a URL, you MUST press Return (hotkey ["Return"]) to navigate
-- Do NOT type the same text twice
-- If the task is complete, use "done"
-
-Reply with ONLY JSON:
-{{"action": "click|right_click|type|hotkey|scroll|done", "target_description": "what to click", "text": "the EXACT literal text to type (NOT instructions, just the value)", "keys": ["ctrl", "t"], "reasoning": "why"}}
-
-EXAMPLE — if the task says "type guaardvark in the search box":
-{{"action": "type", "text": "guaardvark", "reasoning": "typing the search query"}}
-WRONG: {{"text": "type guaardvark in the search box"}} — do NOT include instructions in text, only the value.
-
-Use "right_click" to open context menus (e.g., right-click the desktop to open the application menu)."""
+Reply ONLY with JSON:
+{{"action": "click|right_click|type|hotkey|scroll|done", "target_description": "...", "text": "literal value only", "keys": ["ctrl","t"], "reasoning": "why"}}"""
 
     @staticmethod
     def _get_unified_model() -> str:
@@ -1350,23 +1424,14 @@ Use "right_click" to open context menus (e.g., right-click the desktop to open t
         prompt = (
             f"Task: {task}\n\n"
             f"{desktop_state}\n\n"
-            "Describe what is on screen right now. Be specific and concise:\n"
-            "1. What website or application is showing? Read the URL if visible.\n"
-            "2. How many browser tabs are open? What are their titles?\n"
-            "3. What is the main content on the page? (text, images, forms, videos)\n"
-            "4. What interactive elements are visible? (buttons, text fields, links, search boxes)\n"
-            "5. Is anything blocking the main page content? (only mention if something IS blocking)\n"
-            "6. Does the screen show that the current task step is complete?\n"
+            "Describe the screen: what app/URL is showing, what interactive elements are visible, "
+            "and whether the task looks complete."
         )
         if history:
             last = history[-1]
-            prompt += f"\nLast action: {last.action.action_type}"
-            if last.action.target_description:
-                prompt += f" on '{last.action.target_description}'"
-            if last.action.text:
-                prompt += f" text='{last.action.text}'"
-            if last.failed:
-                prompt += " (FAILED)"
+            status = "FAIL" if last.failed else "OK"
+            desc = last.action.target_description or last.action.text or ""
+            prompt += f"\nLast: {last.action.action_type} {desc} [{status}]"
         return prompt
 
     def _build_decision_prompt(self, task, scene, history):
@@ -1374,87 +1439,40 @@ Use "right_click" to open context menus (e.g., right-click the desktop to open t
         history_text = ""
         if history:
             lines = []
-            # Show ALL completed actions as a numbered progress log
-            for i, step in enumerate(history):
-                status = "FAILED" if step.failed else "OK"
+            recent = history[-5:]
+            for i, step in enumerate(recent):
+                status = "FAIL" if step.failed else "OK"
                 desc = step.action.target_description or step.action.text or str(step.action.keys)
-                lines.append(f"  {i+1}. {step.action.action_type}: {desc} [{status}]")
-            # Show full history up to 10, then truncate older entries
-            if len(lines) > 10:
-                lines = lines[:3] + [f"  ... ({len(lines) - 6} more steps) ..."] + lines[-3:]
-            history_text = f"Completed actions ({len(history)} total):\n" + "\n".join(lines)
-            history_text += f"\n\nYou are now on step {len(history) + 1}. What is the NEXT action?"
+                lines.append(f"  {step.action.action_type}: {desc} [{status}]")
+            history_text = "Done:\n" + "\n".join(lines)
+            history_text += f"\n\nStep {len(history) + 1}."
 
-        # Detect repeated actions
         loop_warning = ""
-        if len(history) >= 2:
+        if len(history) >= 3:
             last_actions = [(s.action.action_type, s.action.text, s.action.target_description) for s in history[-3:]]
             if len(set(last_actions)) == 1:
-                loop_warning = "\nWARNING: You are repeating the same action. This is NOT working. Try a DIFFERENT approach.\n"
+                loop_warning = "\nYou repeated the same action 3 times. Do something DIFFERENT.\n"
 
         mouse_only = getattr(self, '_mouse_only', False)
 
         if mouse_only:
-            rules = """RULES (MOUSE ONLY MODE):
-- You can ONLY use "click", "right_click", and "done" actions. No keyboard, no typing, no hotkeys.
-- Identify the target visually and click it directly with the mouse.
-- Describe WHAT you want to click clearly (e.g., "the Save button", "the green circle with number 5").
-- Use "right_click" to open context menus (e.g., right-click the desktop to open the application menu).
-- If the task is complete, use "done".
-- Do NOT use keyboard shortcuts. Do NOT type text. MOUSE CLICKS ONLY.
+            rules = """MOUSE ONLY. Actions: click, right_click, done.
 
-Respond with ONLY a JSON object:
-{{
-    "action": "click" | "right_click" | "done",
-    "target_description": "exactly what to click (servo will find it)",
-    "reasoning": "why"
-}}"""
+Reply ONLY with JSON:
+{{"action": "click|right_click|done", "target_description": "...", "reasoning": "why"}}"""
         else:
-            rules = """BROWSER SHORTCUTS (use hotkey action for these):
-- Navigate to URL: hotkey ["ctrl", "l"] then type URL then hotkey ["Return"]
-- New tab: hotkey ["ctrl", "t"]
-- Close tab: hotkey ["ctrl", "w"]
-- Back: hotkey ["alt", "Left"]
-- Search on page: hotkey ["ctrl", "f"]
-- Submit/confirm: hotkey ["Return"]
-- Cancel/escape: hotkey ["Escape"]
+            rules = """One action per step. After typing a URL, press Return.
 
-RULES:
-- To navigate to a website: FIRST use hotkey ctrl+l, THEN type the URL, THEN press Return
-- To type text: FIRST click the text field, THEN use type action
-- To search: click search box, type query, press Return
-- Each action is ONE step. Do hotkey, type, and click as separate actions.
-- If the screen shows the task is done (e.g., the target website loaded), use "done"
-
-Respond with ONLY a JSON object:
-{{
-    "action": "click" | "right_click" | "type" | "hotkey" | "scroll" | "done",
-    "target_description": "what you are clicking (servo will find it precisely)",
-    "text": "text to type",
-    "keys": ["ctrl", "l"],
-    "scroll_amount": -3,
-    "reasoning": "why"
-}}
-
-Use "right_click" to open context menus (e.g., right-click the desktop to open application menu)."""
-
-        # Inject self-knowledge and example traces when working on the Guaardvark UI
-        self_knowledge = ""
-        example_traces = ""
-        task_lower = task.lower()
-        if any(kw in task_lower for kw in ['guaardvark', 'localhost:5175', 'localhost:5002', 'our app', 'our ui', 'this app', 'self-test']):
-            self_knowledge = self._load_self_knowledge()
-        # Always load example traces — they help with any UI interaction task
-        example_traces = self._load_example_traces(task)
+Reply ONLY with JSON:
+{{"action": "click|right_click|type|hotkey|scroll|done", "target_description": "...", "text": "literal value only", "keys": ["ctrl","l"], "reasoning": "why"}}"""
 
         desktop_state = self._get_desktop_state()
 
-        return f"""{self_knowledge}{example_traces}Task: {task}
+        return f"""Task: {task}
 
 {desktop_state}
 
-Current screen:
-{scene}
+Screen: {scene}
 
 {history_text}
 {loop_warning}

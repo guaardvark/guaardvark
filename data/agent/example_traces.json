@@ -52,12 +52,11 @@
     ]
   },
   "open_firefox_from_desktop": {
-    "description": "Open Firefox browser from the Openbox desktop",
-    "prerequisite": "No browser visible — you see a dark/black desktop with a taskbar at the bottom",
+    "description": "Open Firefox browser from the Shortcuts panel",
+    "prerequisite": "No browser visible — you see a dark desktop with a Shortcuts panel at the top-left",
     "steps": [
-      {"action": "right_click", "target_description": "the center of the empty desktop background", "reasoning": "Right-click the desktop to open the Openbox application menu"},
-      {"action": "click", "target_description": "Firefox in the context menu that appeared", "reasoning": "Click Firefox to launch the browser"},
-      {"action": "done", "reasoning": "Firefox is now opening, wait for it to load"}
+      {"action": "click", "target_description": "the big orange Firefox button in the Shortcuts panel at top-left", "reasoning": "Click the orange Firefox button — it's the largest, most visible button"},
+      {"action": "done", "reasoning": "Firefox is now opening with CDP enabled, wait for it to load"}
     ]
   },
   "youtube_search_and_watch": {

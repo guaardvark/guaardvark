@@ -109,14 +109,22 @@ class LocalScreenBackend(ScreenInterface):
         """Click at coordinates on the virtual display."""
         try:
             # Move mouse to position
-            self._xdotool("mousemove", "--screen", "0", str(x), str(y))
+            r = self._xdotool("mousemove", "--screen", "0", str(x), str(y))
+            if r.returncode != 0:
+                err = r.stderr.strip() or f"mousemove failed (rc={r.returncode})"
+                logger.error(f"Click move failed at ({x}, {y}): {err}")
+                return {"success": False, "error": err}
 
             # Map button name to xdotool button number
             btn_map = {"left": "1", "middle": "2", "right": "3"}
             btn = btn_map.get(button, "1")
 
             for _ in range(clicks):
-                self._xdotool("click", btn)
+                r = self._xdotool("click", btn)
+                if r.returncode != 0:
+                    err = r.stderr.strip() or f"click failed (rc={r.returncode})"
+                    logger.error(f"Click failed at ({x}, {y}): {err}")
+                    return {"success": False, "error": err}
 
             return {"success": True, "action": "click", "x": x, "y": y}
         except Exception as e:
@@ -132,30 +140,63 @@ class LocalScreenBackend(ScreenInterface):
             logger.error(f"Move failed to ({x}, {y}): {e}")
             return {"success": False, "error": str(e)}
 
-    def type_text(self, text: str, interval: float = 0.05) -> Dict[str, Any]:
+    def type_text(self, text: str, interval: float = 0.08) -> Dict[str, Any]:
         """Type text on the virtual display using xdotool."""
         try:
             wid = self._get_window_id()
             delay_ms = str(int(interval * 1000))
             if wid:
-                self._xdotool("type", "--window", wid, "--clearmodifiers", "--delay", delay_ms, text)
+                r = self._xdotool("type", "--window", wid, "--clearmodifiers", "--delay", delay_ms, text)
             else:
-                self._xdotool("type", "--clearmodifiers", "--delay", delay_ms, text)
+                r = self._xdotool("type", "--clearmodifiers", "--delay", delay_ms, text)
+            if r.returncode != 0:
+                err = r.stderr.strip() or f"xdotool type exited with code {r.returncode}"
+                logger.error(f"Type failed (rc={r.returncode}): {err}")
+                return {"success": False, "error": err}
             return {"success": True, "action": "type", "length": len(text)}
         except Exception as e:
             logger.error(f"Type failed: {e}")
             return {"success": False, "error": str(e)}
 
+    # xdotool is picky about key names — LLMs often get them wrong
+    _KEY_MAP = {
+        "enter": "Return", "return": "Return",
+        "esc": "Escape", "escape": "Escape",
+        "backspace": "BackSpace", "back": "BackSpace",
+        "delete": "Delete", "del": "Delete",
+        "tab": "Tab",
+        "space": "space",
+        "up": "Up", "down": "Down", "left": "Left", "right": "Right",
+        "pageup": "Page_Up", "page_up": "Page_Up",
+        "pagedown": "Page_Down", "page_down": "Page_Down",
+        "home": "Home", "end": "End",
+    }
+
     def hotkey(self, *keys: str) -> Dict[str, Any]:
         """Press keyboard shortcut on the virtual display."""
         try:
-            wid = self._get_window_id()
-            # xdotool uses '+' to join combo keys: ctrl+l, ctrl+a, etc.
-            combo = "+".join(keys)
-            if wid:
-                self._xdotool("key", "--window", wid, combo)
+            # Normalize key names — Gemma4 says "enter", xdotool wants "Return"
+            mapped = [self._KEY_MAP.get(k.lower(), k) for k in keys]
+            combo = "+".join(mapped)
+            # Single keys (Return, Escape, Tab, etc.) go to the focused window
+            # without --window targeting. Firefox has multiple internal X windows
+            # and --window can misfire, sending the key to a background frame
+            # instead of the address bar or active input.
+            is_single_key = len(keys) == 1 and keys[0] not in ("ctrl", "alt", "shift", "super")
+            if is_single_key:
+                r = self._xdotool("key", "--clearmodifiers", combo)
+                logger.debug(f"hotkey (focused): {combo}")
             else:
-                self._xdotool("key", combo)
+                wid = self._get_window_id()
+                if wid:
+                    r = self._xdotool("key", "--window", wid, combo)
+                else:
+                    r = self._xdotool("key", combo)
+                logger.debug(f"hotkey (window={wid or 'none'}): {combo}")
+            if r.returncode != 0:
+                err = r.stderr.strip() or f"xdotool key exited with code {r.returncode}"
+                logger.error(f"Hotkey failed (rc={r.returncode}): {err}")
+                return {"success": False, "error": err}
             return {"success": True, "action": "hotkey", "keys": list(keys)}
         except Exception as e:
             logger.error(f"Hotkey failed {keys}: {e}")
@@ -190,7 +231,7 @@ class LocalScreenBackend(ScreenInterface):
                 return (int(parts[0]), int(parts[1]))
         except Exception:
             pass
-        return (1280, 720)  # Default to what start_agent_display.sh creates
+        return (1024, 1024)  # Default to what start_agent_display.sh creates
 
     def cursor_position(self) -> Tuple[int, int]:
         """Return cursor position on the virtual display."""

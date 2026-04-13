@@ -23,6 +23,10 @@ from backend.services.brain_state import (
     ReflexResult,
     TierTelemetry,
 )
+from backend.services.unified_chat_engine import (
+    clear_abort_flag,
+    is_aborted,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +110,19 @@ VISION_PATTERNS = re.compile(
     r"(?:your|the)\s+virtual|use\s+(?:the|your)\s+screen|/vision|/agent)",
 )
 
+# Pure-chat openers that don't need a screenshot. Attaching one starves
+# inference for ~minutes on small VRAM, so we skip the eyes for these.
+NO_SCREEN_CONTEXT = re.compile(
+    r"^(hi|hello|hey|howdy|yo|sup|hiya|"
+    r"good\s+(morning|afternoon|evening|night)|"
+    r"thanks|thank\s+you|ty|tysm|cheers|"
+    r"bye|goodbye|see\s+(ya|you)|later|gn|"
+    r"how\s+are\s+you|how('s|\s+is)\s+it\s+going|what'?s\s+up|"
+    r"who\s+are\s+you|what\s+are\s+you|what\s+can\s+you\s+do)"
+    r"[\s?!.,]*$",
+    re.IGNORECASE,
+)
+
 
 # ---------------------------------------------------------------------------
 # AgentBrain
@@ -159,14 +176,26 @@ class AgentBrain:
         escalation_reason = None
         success = True
 
+        # Clear any abort flag from a previous request on this session
+        # so we don't immediately abort ourselves.
+        clear_abort_flag(session_id)
+
+        # Agent screen gate — when nobody is actively watching the virtual
+        # screen, vision models should behave like any other model (ReACT +
+        # tools) instead of clicking through Firefox for every request.
+        _screen_active = bool(options and options.get("agent_screen_active", False))
+
         try:
             # -- Gemma4 direct path: no chains, no routing, no bloated prompts --
             # Gemma4 has native vision + pointing + tool use. Just send it the
             # user's message with a screenshot and let it decide what to do.
-            # Other models go through the legacy tier routing below.
+            # Gated on _screen_active — inactive screen = fall through to
+            # normal tier routing so the model uses tools like web_search and
+            # analyze_website instead of emitting JSON click actions.
             if (self.state.model_caps.is_vision_model
                     and "gemma4" in self.state.active_model.lower()
-                    and not force_tier):
+                    and not force_tier
+                    and _screen_active):
                 result = self._gemma4_direct(
                     session_id, message, options, emit_fn, app,
                     project_id=project_id, image_data=image_data,
@@ -212,8 +241,11 @@ class AgentBrain:
                     escalated_from = 1
                     escalation_reason = f"reflex '{reflex_action.name}' failed"
 
-            # -- Vision routing (unchanged — own subsystem) --
-            if self._is_vision_task(message, image_data):
+            # -- Vision routing — only when the agent screen is being watched.
+            # Otherwise vision-sounding messages like "click the Firefox button"
+            # route through normal Instinct so the model can explain that the
+            # screen isn't being viewed, rather than silently attempting clicks.
+            if self._is_vision_task(message, image_data) and _screen_active:
                 tier_used = 2  # Vision goes through Tier 2 with vision prompt
                 return self._instinct(
                     session_id, message, options, emit_fn, app,
@@ -327,7 +359,10 @@ class AgentBrain:
         Returns None if this path can't handle the message (falls through to legacy).
         """
         try:
-            import ollama as _ollama
+            import ollama as ollama
+
+            # Track generated images for chat persistence (same pattern as unified engine)
+            generated_images = []
 
             # Build minimal context — just what Gemma4 needs to know
             desktop_state = ""
@@ -354,31 +389,38 @@ class AgentBrain:
             except Exception:
                 pass
 
-            # Minimal system prompt — identity, state, self-knowledge
+            # Extract DOM metadata from Firefox (interactive elements with coordinates)
+            dom_metadata = ""
+            try:
+                from backend.services.dom_metadata_extractor import DOMMetadataExtractor
+                snapshot = DOMMetadataExtractor.get_instance().extract()
+                if snapshot.success and snapshot.elements:
+                    dom_metadata = DOMMetadataExtractor.format_for_prompt(snapshot)
+            except Exception as e:
+                logger.debug(f"DOM metadata extraction unavailable: {e}")
+
+            # System prompt — identity, state, DOM, actions
             system = (
-                "You are Guaardvark, a local AI assistant with a virtual screen (DISPLAY=:99).\n\n"
+                "You are Guaardvark, a local AI assistant with a virtual screen.\n\n"
                 f"{desktop_state}\n"
             )
+            if dom_metadata:
+                system += f"\n{dom_metadata}\n"
             if self_knowledge:
                 system += f"\n{self_knowledge}\n"
             if memory_block:
                 system += f"\n{memory_block}\n"
 
-            # Tool instructions — only if the message looks action-oriented
             system += (
-                "\nYou have these capabilities:\n"
-                "- See the virtual screen (screenshots are attached to your messages)\n"
-                "- Click UI elements by describing what to click\n"
-                "- Type text, press keyboard shortcuts\n"
-                "- Search the web\n"
-                "- Answer questions from knowledge\n\n"
-                "When you need to perform an action on the virtual screen, respond with JSON:\n"
-                '{"action": "click", "target": "the blue Quit button"}\n'
+                "\nFor screen actions, respond with JSON:\n"
+                '{"action": "click", "target": "the Search button"}\n'
                 '{"action": "type", "text": "youtube.com"}\n'
                 '{"action": "hotkey", "keys": ["ctrl", "l"]}\n'
-                '{"action": "done", "summary": "what you accomplished"}\n\n'
-                "For regular conversation, just respond normally — no JSON needed.\n"
-                "Keep responses concise. The user can see the screen too."
+                '{"action": "done", "summary": "what you accomplished"}\n'
+                '{"action": "generate_image", "prompt": "description of image to create"}\n'
+                '{"action": "screenshot"}\n\n'
+                "If DOM elements with coordinates are listed above, include x and y in clicks.\n"
+                "For conversation, respond normally without JSON."
             )
 
             # Load history
@@ -402,19 +444,27 @@ class AgentBrain:
             # User message — attach screenshot if this looks like a screen task
             user_msg = {"role": "user", "content": message}
 
-            # Attach agent screen screenshot for any message
-            # Gemma4 can see — let it decide if the screenshot is relevant
-            try:
-                from backend.services.local_screen_backend import LocalScreenBackend
-                screen = LocalScreenBackend()
-                screenshot, _ = screen.capture()
-                import base64
-                from io import BytesIO
-                buf = BytesIO()
-                screenshot.save(buf, format="JPEG", quality=70)
-                user_msg["images"] = [base64.b64encode(buf.getvalue()).decode()]
-            except Exception as e:
-                logger.debug(f"Gemma4 direct: screenshot capture failed (non-fatal): {e}")
+            # Gemma4's eyes — but only when the message could plausibly be
+            # about screen state. Attaching a 1280x720 screenshot to every
+            # "hello" was starving inference (5+ minutes for first token on
+            # CPU/GPU split). For pure chat we skip the screenshot entirely;
+            # for everything else we downscale hard before sending.
+            needs_screen = not NO_SCREEN_CONTEXT.match(message.strip())
+            if needs_screen:
+                try:
+                    from backend.services.local_screen_backend import LocalScreenBackend
+                    screen = LocalScreenBackend()
+                    screenshot, _ = screen.capture()
+                    import base64
+                    from io import BytesIO
+                    # Quarter the pixel count vs native 1280x720 — keeps UI
+                    # elements legible to the model but cuts vision-token cost.
+                    screenshot.thumbnail((640, 360))
+                    buf = BytesIO()
+                    screenshot.save(buf, format="JPEG", quality=70)
+                    user_msg["images"] = [base64.b64encode(buf.getvalue()).decode()]
+                except Exception as e:
+                    logger.debug(f"Gemma4 direct: screenshot capture failed (non-fatal): {e}")
 
             # If user pasted an image, use that instead
             if image_data:
@@ -441,21 +491,52 @@ class AgentBrain:
             input_tokens = 0
             output_tokens = 0
 
-            stream = _ollama.chat(
-                model=model,
-                messages=messages,
-                stream=True,
-                options={"num_ctx": 8192, "num_predict": 1024, "temperature": 0.4},
+            # Hard read deadline on the Ollama stream so a wedged vision call
+            # can't hold the GPU slot forever. 90s is generous for first-token
+            # on CPU/GPU split inference but cuts true wedges loose quickly.
+            import httpx as _httpx
+            client = ollama.Client(
+                timeout=_httpx.Timeout(connect=10.0, read=90.0, write=30.0, pool=30.0),
             )
+            try:
+                stream = client.chat(
+                    model=model,
+                    messages=messages,
+                    stream=True,
+                    options={"num_ctx": 8192, "num_predict": 4096, "temperature": 0.4},
+                )
 
-            for chunk in stream:
-                msg = chunk.get("message", {})
-                token = msg.get("content", "")
-                if token:
-                    accumulated.append(token)
-                if chunk.get("done"):
-                    input_tokens = chunk.get("prompt_eval_count", 0) or 0
-                    output_tokens = chunk.get("eval_count", 0) or 0
+                for chunk in stream:
+                    # Check if a newer message aborted us
+                    if is_aborted(session_id):
+                        logger.info(f"Gemma4 direct: aborted mid-stream for session {session_id}")
+                        return None
+                    msg = chunk.get("message", {})
+                    token = msg.get("content", "")
+                    if token:
+                        accumulated.append(token)
+                    if chunk.get("done"):
+                        input_tokens = chunk.get("prompt_eval_count", 0) or 0
+                        output_tokens = chunk.get("eval_count", 0) or 0
+            except (_httpx.ReadTimeout, _httpx.WriteTimeout, _httpx.ConnectTimeout, _httpx.PoolTimeout) as timeout_err:
+                logger.error(
+                    f"Gemma4 direct: Ollama stream timed out for session {session_id} "
+                    f"({type(timeout_err).__name__}: {timeout_err}). Emitting chat:error."
+                )
+                emit_fn("chat:error", {
+                    "error": "Vision model timed out (no token in 90s). Try a shorter "
+                             "message, or restart Ollama if this keeps happening.",
+                    "session_id": session_id,
+                })
+                # Return a real result dict — NOT None — so process() doesn't
+                # fall through to the legacy path and call Ollama all over again.
+                return {
+                    "success": False,
+                    "error": "stream_timeout",
+                    "tier": 0,
+                    "request_id": request_id,
+                    "session_id": session_id,
+                }
 
             response = "".join(accumulated).strip()
             # Strip <think>...</think> blocks
@@ -465,42 +546,59 @@ class AgentBrain:
                 thinking = think_match.group(1).strip()
             response = re.sub(r'<think>[\s\S]*?</think>\s*', '', response).strip()
 
-            # Check if Gemma4 wants to perform an action
-            action_result = self._parse_gemma4_action(response)
+            # Check if Gemma4 wants to perform actions
+            actions = self._parse_gemma4_actions(response)
 
-            if action_result:
-                # Gemma4 is requesting a screen action — execute it first,
-                # then show the user what happened (not the raw JSON).
-                action_type = action_result.get("action", "")
-                target = action_result.get("target", action_result.get("text", ""))
-
-                # Stream the thinking/reasoning to the user
-                reasoning = action_result.get("reasoning", "")
+            if actions:
+                import time as _action_time
+                # Gemma4 is requesting screen actions — execute them all in sequence
                 if thinking:
-                    emit_fn("chat:token", {"content": f"*Thinking: {thinking[:200]}*\n\n", "session_id": session_id})
-                if reasoning:
-                    emit_fn("chat:token", {"content": f"*{reasoning}*\n\n", "session_id": session_id})
+                    emit_fn("chat:token", {"content": f"*{thinking[:200]}*\n\n", "session_id": session_id})
 
-                # Show what we're about to do
-                if action_type == "click":
-                    emit_fn("chat:token", {"content": f"Clicking: {target}\n", "session_id": session_id})
-                elif action_type == "type":
-                    emit_fn("chat:token", {"content": f"Typing: {target}\n", "session_id": session_id})
-                elif action_type == "hotkey":
-                    keys = action_result.get("keys", [])
-                    emit_fn("chat:token", {"content": f"Pressing: {'+'.join(keys)}\n", "session_id": session_id})
+                results = []
+                for i, action_item in enumerate(actions):
+                    action_type = action_item.get("action", "")
+                    target = action_item.get("target", action_item.get("text", ""))
 
-                # Execute the action
-                emit_fn("chat:thinking", {"iteration": 2, "status": f"Executing {action_type}..."})
-                exec_result = self._execute_gemma4_action(
-                    action_result, message, session_id, emit_fn, app
-                )
-                if exec_result:
-                    emit_fn("chat:token", {"content": f"\n{exec_result}", "session_id": session_id})
-                    response = exec_result
-                else:
-                    emit_fn("chat:token", {"content": "\nAction completed.", "session_id": session_id})
-                    response = "Action completed."
+                    # Show what we're about to do
+                    if action_type == "click":
+                        x, y = action_item.get("x", "?"), action_item.get("y", "?")
+                        emit_fn("chat:token", {"content": f"Clicking: {target} ({x},{y})\n", "session_id": session_id})
+                    elif action_type == "type":
+                        emit_fn("chat:token", {"content": f"Typing: {target}\n", "session_id": session_id})
+                    elif action_type == "hotkey":
+                        keys = action_item.get("keys", [])
+                        emit_fn("chat:token", {"content": f"Pressing: {'+'.join(keys)}\n", "session_id": session_id})
+                    elif action_type == "navigate":
+                        emit_fn("chat:token", {"content": f"Navigating: {action_item.get('url', target)}\n", "session_id": session_id})
+                    elif action_type == "generate_image":
+                        emit_fn("chat:token", {"content": f"Generating image: {action_item.get('prompt', '')[:80]}\n", "session_id": session_id})
+                    elif action_type == "screenshot":
+                        emit_fn("chat:token", {"content": "Taking screenshot...\n", "session_id": session_id})
+
+                    # Execute
+                    exec_result = self._execute_gemma4_action(
+                        action_item, message, session_id, emit_fn, app
+                    )
+                    if exec_result:
+                        results.append(exec_result)
+
+                    # Track generated images for chat persistence
+                    if action_type == "generate_image" and exec_result and "failed" not in exec_result.lower():
+                        generated_images.append({
+                            "url": action_item.get("_image_url", ""),
+                            "alt": f"Generated: {action_item.get('prompt', '')[:60]}",
+                            "caption": action_item.get("prompt", ""),
+                        })
+
+                    # Pause between actions — gives the screen time to update
+                    # and makes demo recordings watchable. 1s is enough for
+                    # humans to follow along without feeling sluggish.
+                    if i < len(actions) - 1:
+                        _action_time.sleep(1.0)
+
+                response = "\n".join(results) if results else "Actions completed."
+                emit_fn("chat:token", {"content": f"\n{response}", "session_id": session_id})
             else:
                 # Regular conversation — stream the buffered response to the user
                 # Strip any residual JSON that looks like an action attempt
@@ -518,19 +616,29 @@ class AgentBrain:
                 "session_id": session_id,
                 "request_id": request_id,
                 "token_usage": {"input_tokens": input_tokens, "output_tokens": output_tokens},
+                "generated_images": generated_images,
             })
 
-            # Save assistant response
+            # Save assistant response (with generated images for persistence)
             if app and response:
                 with app.app_context():
                     try:
-                        from backend.utils.chat_utils import save_message_to_db
+                        from backend.models import LLMMessage, db
+                        from datetime import datetime as _dt
                         clean = re.sub(r'<[^>]*>', '', response).strip()
-                        # Don't save raw JSON actions — save the result
-                        if not clean.startswith("{"):
-                            save_message_to_db(session_id, "assistant", clean)
-                        else:
-                            save_message_to_db(session_id, "assistant", f"[Action: {action_result.get('action', '?')}] {response}")
+                        extra = {}
+                        if generated_images:
+                            extra["generatedImages"] = generated_images
+                        content = clean if not clean.startswith("{") else f"[Action] {response}"
+                        msg = LLMMessage(
+                            session_id=session_id,
+                            role="assistant",
+                            content=content,
+                            extra_data=extra or None,
+                            timestamp=_dt.now(),
+                        )
+                        db.session.add(msg)
+                        db.session.commit()
                     except Exception:
                         pass
 
@@ -546,86 +654,209 @@ class AgentBrain:
             logger.error(f"Gemma4 direct path failed: {e}", exc_info=True)
             return None  # Fall through to legacy
 
-    def _parse_gemma4_action(self, response: str) -> Optional[Dict]:
-        """Check if Gemma4's response contains an action JSON."""
-        try:
-            # Look for JSON in the response
-            start = response.find("{")
-            end = response.rfind("}") + 1
-            if start >= 0 and end > start:
-                candidate = response[start:end]
-                data = json.loads(candidate)
+    def _parse_gemma4_actions(self, response: str) -> List[Dict]:
+        """Extract all action JSONs from Gemma4's response.
+
+        Gemma4 may return one action or a sequence of actions.
+        Returns a list of action dicts (may be empty).
+        """
+        actions = []
+        # Find all JSON objects in the response
+        i = 0
+        while i < len(response):
+            start = response.find("{", i)
+            if start == -1:
+                break
+            # Find matching closing brace
+            depth = 0
+            end = start
+            for j in range(start, len(response)):
+                if response[j] == "{":
+                    depth += 1
+                elif response[j] == "}":
+                    depth -= 1
+                    if depth == 0:
+                        end = j + 1
+                        break
+            if depth != 0:
+                break
+            try:
+                data = json.loads(response[start:end])
                 if "action" in data:
-                    return data
-        except (json.JSONDecodeError, ValueError):
-            pass
-        return None
+                    actions.append(data)
+            except (json.JSONDecodeError, ValueError):
+                pass
+            i = end
+        return actions
+
+    def _parse_gemma4_action(self, response: str) -> Optional[Dict]:
+        """Check if Gemma4's response contains an action JSON. Returns first action."""
+        actions = self._parse_gemma4_actions(response)
+        return actions[0] if actions else None
 
     def _execute_gemma4_action(
         self, action: Dict, original_task: str,
         session_id: str, emit_fn: Callable, app=None,
     ) -> Optional[str]:
-        """Execute an action that Gemma4 requested."""
+        """Execute an action Gemma4 requested. Direct screen control — no servo,
+        no agent_task_execute, no tool registry. Gemma4 said what to do, we do it."""
+        from backend.services.local_screen_backend import LocalScreenBackend
+        screen = LocalScreenBackend()
+
         action_type = action.get("action", "").lower()
 
         if action_type == "done":
             return action.get("summary", "Done.")
 
         if action_type in ("click", "right_click"):
+            x = action.get("x")
+            y = action.get("y")
             target = action.get("target", "")
-            if not target:
-                return None
-            emit_fn("chat:tool_call", {
-                "tool": "agent_task_execute",
-                "params": {"task": f"Click the {target}"},
-                "iteration": 1,
-            })
-            try:
-                result = self.state.tool_registry.execute_tool(
-                    "agent_task_execute", task=f"Click the {target}"
-                )
-                emit_fn("chat:tool_result", {
-                    "tool": "agent_task_execute",
-                    "result": {"success": result.success, "output": str(result.output)[:500]},
-                })
-                return str(result.output) if result.success else f"Click failed: {result.error}"
-            except Exception as e:
-                return f"Action failed: {e}"
+            button = "right" if action_type == "right_click" else "left"
+
+            if x is not None and y is not None:
+                x, y = int(x), int(y)
+                # Gemma4 sees the FULL 1024x1024 screenshot (no resize in this path).
+                # It returns raw pixel coordinates in the image's own space.
+                # DO NOT apply scale factors — they push coords off target.
+                # Empirically verified 2026-04-10: raw pixels = 10-16px error (HIT),
+                # scaled by 1.28/0.72 = 300px+ error (MISS).
+                logger.info(f"Gemma4 direct: raw coords ({x},{y}) — no scaling applied")
+            else:
+                # Gemma4 gave a target but no coords — try DOM lookup
+                try:
+                    from backend.services.dom_metadata_extractor import DOMMetadataExtractor
+                    snap = DOMMetadataExtractor.get_instance().extract()
+                    for el in (snap.elements if snap.success else []):
+                        if target.lower() in (el.text or "").lower():
+                            x, y = el.cx, el.cy
+                            break
+                except Exception:
+                    pass
+
+            if x is None or y is None:
+                return f"Cannot click '{target}' — no coordinates. Try again with x and y."
+
+            screen.click(x, y, button=button)
+            import time as _t
+            _t.sleep(0.5)  # let the UI react before the next action
+            logger.info(f"Gemma4 click at ({x},{y}) target=\"{target}\"")
+            return f"Clicked {target} at ({x},{y})"
 
         if action_type == "type":
             text = action.get("text", "")
             if not text:
                 return None
-            try:
-                from backend.services.local_screen_backend import LocalScreenBackend
-                screen = LocalScreenBackend()
-                screen.type_text(text)
-                return f"Typed: {text}"
-            except Exception as e:
-                return f"Type failed: {e}"
+            screen.type_text(text)
+            import time as _t
+            _t.sleep(0.3)  # brief settle after typing
+            return f"Typed: {text}"
 
         if action_type == "hotkey":
             keys = action.get("keys", [])
             if not keys:
                 return None
-            try:
-                from backend.services.local_screen_backend import LocalScreenBackend
-                screen = LocalScreenBackend()
-                screen.hotkey(*keys)
-                return f"Pressed: {'+'.join(keys)}"
-            except Exception as e:
-                return f"Hotkey failed: {e}"
+            screen.hotkey(*keys)
+            logger.info(f"Gemma4 hotkey: {'+'.join(keys)}")
+            return f"Pressed: {'+'.join(keys)}"
+
+        if action_type == "scroll":
+            amount = int(action.get("amount", -3))
+            x = int(action.get("x", 640))
+            y = int(action.get("y", 360))
+            screen.scroll(x, y, amount=amount)
+            return f"Scrolled {amount} at ({x},{y})"
 
         if action_type == "navigate":
             url = action.get("url", "")
             if url:
+                screen.hotkey("ctrl", "l")
+                import time as _t
+                _t.sleep(0.3)
+                screen.hotkey("ctrl", "a")
+                _t.sleep(0.1)
+                screen.type_text(url)
+                _t.sleep(0.2)
+                screen.hotkey("Return")
+                return f"Navigating to {url}"
+
+        if action_type == "screenshot":
+            # Capture, save, and emit to chat so user sees the screen
+            try:
+                import time as _sc_time
+                from backend.tools.agent_control_tools import SCREENSHOTS_DIR, _prune_old_screenshots
+                from backend.utils.vision_analyzer import VisionAnalyzer
+
+                screenshot, cursor_pos = screen.capture()
+                os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
+                filename = f"agent_capture_{int(_sc_time.time() * 1000)}.webp"
+                filepath = os.path.join(SCREENSHOTS_DIR, filename)
+                screenshot.save(filepath, format="WEBP", quality=80)
+                image_url = f"/api/tools/screenshots/{filename}"
+                _prune_old_screenshots(SCREENSHOTS_DIR)
+
+                emit_fn("chat:image", {
+                    "image_url": image_url,
+                    "alt": "Agent screen capture",
+                    "caption": "",
+                    "session_id": session_id,
+                })
+
+                # Quick vision analysis so the agent can describe what's on screen
                 try:
-                    result = self.state.tool_registry.execute_tool(
-                        "agent_task_execute", task=f"Navigate to {url}"
-                    )
-                    return str(result.output) if result.success else f"Navigate failed: {result.error}"
-                except Exception as e:
-                    return f"Navigate failed: {e}"
+                    analyzer = VisionAnalyzer()
+                    analysis = analyzer.analyze(screenshot, prompt="Describe what is on the screen.", num_predict=128)
+                    if analysis.success:
+                        return analysis.description
+                except Exception:
+                    pass
+                return "Screenshot captured and shown in chat."
+            except Exception as e:
+                logger.error(f"Gemma4 screenshot action failed: {e}")
+                return f"Screenshot failed: {e}"
+
+        if action_type == "generate_image":
+            prompt = action.get("prompt", "")
+            if not prompt:
+                return "No prompt provided for image generation."
+
+            # Evict Gemma4 from VRAM so Stable Diffusion can load without OOM
+            try:
+                import requests as _req
+                _req.post(
+                    "http://localhost:11434/api/generate",
+                    json={"model": self.state.active_model, "keep_alive": 0},
+                    timeout=5,
+                )
+            except Exception:
+                pass
+
+            try:
+                from backend.tools.image_tools import ImageGeneratorTool
+                tool = ImageGeneratorTool()
+                result = tool.execute(
+                    prompt=prompt,
+                    style=action.get("style", "realistic"),
+                    width=int(action.get("width", 512)),
+                    height=int(action.get("height", 512)),
+                )
+
+                if result.success and result.metadata.get("image_url"):
+                    # Stash URL for caller's generated_images tracking
+                    action["_image_url"] = result.metadata["image_url"]
+                    # Emit chat:image so the frontend displays it in chat
+                    emit_fn("chat:image", {
+                        "image_url": result.metadata["image_url"],
+                        "alt": f"Generated: {prompt[:60]}",
+                        "caption": prompt,
+                        "session_id": session_id,
+                    })
+                    return f"Image generated successfully. {result.output}"
+                else:
+                    return f"Image generation failed: {result.error or 'unknown error'}"
+            except Exception as e:
+                logger.error(f"Gemma4 generate_image failed: {e}", exc_info=True)
+                return f"Image generation error: {e}"
 
         return None
 

@@ -6,30 +6,26 @@
   },
 
   "open_firefox": {
-    "description": "Open browser via Openbox desktop right-click menu",
+    "description": "Open browser via the big orange Firefox button in the Shortcuts panel (top-left)",
     "triggers": [
       "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s*$",
       "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s+(?:browser)?\\s*$"
     ],
     "steps": [
-      {"action": "click", "x": 640, "y": 360, "button": "right", "_comment": "Right-click desktop center"},
-      {"action": "wait", "seconds": 0.5},
-      {"action": "click", "x": 680, "y": 372, "_comment": "Click Firefox (first menu item)"},
-      {"action": "wait", "seconds": 3}
+      {"action": "click", "x": 92, "y": 103, "_comment": "Click the orange Firefox button in Shortcuts panel"},
+      {"action": "wait", "seconds": 5}
     ]
   },
 
   "open_firefox_and_navigate": {
-    "description": "Open browser and navigate to a URL",
+    "description": "Open browser via Shortcuts panel and navigate to a URL",
     "triggers": [
       "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s+(?:and\\s+)?(?:go|navigate)\\s+(?:to\\s+)?(?:https?://)?([\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*$",
       "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s+(?:to|at|on)\\s+(?:https?://)?([\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*$"
     ],
     "steps": [
-      {"action": "click", "x": 640, "y": 360, "button": "right", "_comment": "Right-click desktop center"},
-      {"action": "wait", "seconds": 0.5},
-      {"action": "click", "x": 680, "y": 372, "_comment": "Click Firefox (first menu item)"},
-      {"action": "wait", "seconds": 4},
+      {"action": "click", "x": 92, "y": 103, "_comment": "Click orange Firefox button in Shortcuts panel"},
+      {"action": "wait", "seconds": 5},
       {"action": "hotkey", "keys": ["ctrl", "l"]},
       {"action": "wait", "seconds": 0.5},
       {"action": "hotkey", "keys": ["ctrl", "a"]},

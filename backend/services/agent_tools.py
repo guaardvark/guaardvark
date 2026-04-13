@@ -5,8 +5,10 @@ Provides tool definition, registry, and execution patterns for agent capabilitie
 """
 
 import logging
+import difflib
+import types
 from dataclasses import dataclass, field
-from typing import Dict, Any, Callable, Optional, List
+from typing import Dict, Any, Callable, Optional, List, Union, Generator
 from enum import Enum
 
 logger = logging.getLogger(__name__)
@@ -49,6 +51,7 @@ class BaseTool:
     
     # Safety and Context flags
     is_dangerous: bool = False
+    requires_approval: bool = False
     requires_confirmation: bool = False
     required_context: List[str] = field(default_factory=list)  # e.g., ['project_id', 'user_id']
     
@@ -267,13 +270,63 @@ class ToolRegistry:
 
         return li_tools
 
-    def execute_tool(self, tool_name: str, agent_context: Optional[Dict[str, Any]] = None, **kwargs) -> ToolResult:
+    def _coerce_params(self, tool: BaseTool, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+        """Robustly coerce values to types defined in tool parameters."""
+        coerced = {}
+        for name, value in kwargs.items():
+            if name == "_agent_context":
+                coerced[name] = value
+                continue
+                
+            param_def = tool.parameters.get(name)
+            if not param_def:
+                coerced[name] = value
+                continue
+
+            target_type = param_def.type.lower()
+            if value is None:
+                coerced[name] = None
+                continue
+
+            try:
+                if target_type in ("int", "integer"):
+                    coerced[name] = int(value)
+                elif target_type in ("float", "number"):
+                    coerced[name] = float(value)
+                elif target_type in ("bool", "boolean"):
+                    if isinstance(value, bool):
+                        coerced[name] = value
+                    else:
+                        v_str = str(value).lower().strip()
+                        coerced[name] = v_str in ("true", "yes", "1", "on", "t")
+                elif target_type in ("dict", "object", "list", "array"):
+                    if isinstance(value, (dict, list)):
+                        coerced[name] = value
+                    else:
+                        import json
+                        coerced[name] = json.loads(value)
+                else:
+                    coerced[name] = str(value)
+            except (ValueError, TypeError, Exception) as e:
+                logger.warning(f"Failed to coerce {name}={value} to {target_type}: {e}")
+                coerced[name] = value
+        
+        # Fill in defaults for missing non-required params
+        for name, param in tool.parameters.items():
+            if name not in coerced and not param.required and param.default is not None:
+                coerced[name] = param.default
+                
+        return coerced
+
+    def execute_tool(self, tool_name: str, agent_context: Optional[Dict[str, Any]] = None, 
+                     on_output: Optional[Callable[[str], None]] = None, **kwargs) -> ToolResult:
         """
         Execute a tool by name with given parameters and context
         
         Args:
             tool_name: Name of the tool to execute
             agent_context: Optional context dictionary (user, project, etc.)
+            on_output: Optional callback for streaming tool output
             **kwargs: Tool parameters
             
         Returns:
@@ -288,45 +341,63 @@ class ToolRegistry:
                 error=f"Tool '{tool_name}' not found in registry"
             )
         
-        # Parameter recovery: fix common LLM mistakes before validation.
-        # 1. If LLM sent param_name/value pairs instead of direct params, remap.
-        # 2. If LLM sent synonyms (content_description, image_description, text, etc.), map to first required param.
-        if not tool.can_execute(**kwargs) and kwargs:
-            expected_required = [name for name, param in tool.parameters.items() if param.required]
-            received = set(kwargs.keys()) - {"_agent_context"}
+        # 1. Parameter recovery: fix common LLM mistakes before validation.
+        expected_all = list(tool.parameters.keys())
+        expected_required = [name for name, param in tool.parameters.items() if param.required]
+        received_keys = set(kwargs.keys()) - {"_agent_context"}
 
-            # Strategy 1: param_name=X, value=Y → X=Y
-            if "param_name" in received and "value" in received:
-                pname_val = kwargs.pop("param_name")
-                pval = kwargs.pop("value")
-                kwargs[pname_val] = pval
-                logger.info(f"Param recovery: remapped param_name={pname_val} to direct kwarg")
+        # Strategy 1: param_name=X, value=Y → X=Y
+        if "param_name" in received_keys and "value" in received_keys:
+            pname_val = kwargs.pop("param_name")
+            pval = kwargs.pop("value")
+            kwargs[pname_val] = pval
+            received_keys = set(kwargs.keys()) - {"_agent_context"}
+            logger.info(f"Param recovery: remapped param_name={pname_val} to direct kwarg")
 
-            # Strategy 2: Unrecognised param(s) → map to missing required param(s)
-            if not tool.can_execute(**kwargs) and expected_required:
-                known_params = set(tool.parameters.keys())
-                current_keys = set(kwargs.keys()) - {"_agent_context"}
-                unknown = current_keys - known_params
-                missing = set(expected_required) - current_keys
+        # Strategy 2: Fuzzy matching for unrecognized params
+        missing_required = set(expected_required) - received_keys
+        unknown_params = received_keys - set(expected_all)
+        
+        if unknown_params and (missing_required or len(received_keys) < len(expected_all)):
+            for unknown in list(unknown_params):
+                # Try to find a close match in all expected parameters (including optional)
+                matches = difflib.get_close_matches(unknown, expected_all, n=1, cutoff=0.6)
+                if matches:
+                    matched_name = matches[0]
+                    if matched_name not in received_keys:
+                        kwargs[matched_name] = kwargs.pop(unknown)
+                        received_keys.remove(unknown)
+                        received_keys.add(matched_name)
+                        logger.info(f"Param recovery: fuzzy matched '{unknown}' → '{matched_name}'")
 
-                if len(unknown) == 1 and len(missing) == 1:
-                    # Simple 1:1 remap
-                    wrong_name = unknown.pop()
-                    right_name = missing.pop()
-                    kwargs[right_name] = kwargs.pop(wrong_name)
-                    logger.info(f"Param recovery: remapped '{wrong_name}' → '{right_name}' for {tool_name}")
-                elif len(missing) == 1 and len(unknown) > 1:
-                    # Multiple unknown params, one missing required — pick the best match.
-                    # Prefer params whose name contains "description", "prompt", "content", "text", "query".
-                    right_name = missing.pop()
-                    _hint_words = ("description", "prompt", "content", "text", "query", "value")
-                    best = next((u for u in unknown if any(h in u.lower() for h in _hint_words)), None)
-                    if best:
-                        kwargs[right_name] = kwargs.pop(best)
-                        # Drop remaining unknown params (LLM hallucinated extras)
-                        for leftover in unknown - {best}:
-                            kwargs.pop(leftover, None)
-                        logger.info(f"Param recovery: remapped '{best}' → '{right_name}', dropped extras for {tool_name}")
+        # Strategy 3: Map remaining unknown params to missing required params (heuristic fallback)
+        missing_required = set(expected_required) - received_keys
+        unknown_params = received_keys - set(expected_all)
+        if len(unknown_params) == 1 and len(missing_required) == 1:
+            wrong_name = unknown_params.pop()
+            right_name = missing_required.pop()
+            kwargs[right_name] = kwargs.pop(wrong_name)
+            received_keys = set(kwargs.keys()) - {"_agent_context"}
+            logger.info(f"Param recovery: mapped unknown '{wrong_name}' to missing required '{right_name}'")
+
+        # Strategy 4: Handle comma-separated coords/lists
+        missing_required = set(expected_required) - received_keys
+        unknown_params = received_keys - set(expected_all)
+        if len(unknown_params) == 1 and len(missing_required) > 1:
+            wrong_name = list(unknown_params)[0]
+            val = kwargs.get(wrong_name, "")
+            if isinstance(val, str) and "," in val:
+                parts = [p.strip() for p in val.split(",")]
+                missing_sorted = sorted(missing_required)
+                if len(parts) == len(missing_sorted):
+                    for pname, pval in zip(missing_sorted, parts):
+                        kwargs[pname] = pval
+                    kwargs.pop(wrong_name)
+                    received_keys = set(kwargs.keys()) - {"_agent_context"}
+                    logger.info(f"Param recovery: split '{wrong_name}' → {missing_sorted}")
+
+        # 2. Type Coercion
+        kwargs = self._coerce_params(tool, kwargs)
 
         if not tool.can_execute(**kwargs):
             # Get expected parameters for better error message
@@ -352,9 +423,38 @@ class ToolRegistry:
             # Pass agent_context as a dedicated kwarg — tools opt in to reading it
             if agent_context:
                 kwargs["_agent_context"] = agent_context
-            result = tool.execute(**kwargs)
-            logger.info(f"Tool {tool_name} executed successfully: {result.success}")
-            return result
+            
+            # Handle generator (streaming) tools vs normal tools
+            result_obj = tool.execute(**kwargs)
+            
+            if isinstance(result_obj, types.GeneratorType):
+                # Streaming tool: iterate through yields and call on_output callback
+                final_result = None
+                accumulated_output = []
+                for chunk in result_obj:
+                    if isinstance(chunk, str):
+                        accumulated_output.append(chunk)
+                        if on_output:
+                            on_output(chunk)
+                    elif isinstance(chunk, ToolResult):
+                        # The last item yielded should be the final ToolResult
+                        final_result = chunk
+                        break
+                
+                # Fallback if no final ToolResult was yielded
+                if not final_result:
+                    final_result = ToolResult(success=True, output="".join(accumulated_output))
+                elif not final_result.output and accumulated_output:
+                    # If result doesn't have output but we accumulated some, attach it
+                    final_result.output = "".join(accumulated_output)
+                
+                logger.info(f"Tool {tool_name} (streaming) finished successfully: {final_result.success}")
+                return final_result
+            else:
+                # Normal tool: return ToolResult directly
+                logger.info(f"Tool {tool_name} executed successfully: {result_obj.success}")
+                return result_obj
+
         except Exception as e:
             logger.error(f"Tool {tool_name} execution failed: {e}", exc_info=True)
             return ToolResult(

@@ -962,7 +962,7 @@ EXAMPLE - Final answer (no tools needed):
         ]
 
         # Get guard blocked tools for next prompt
-        blocked_tools = self._guard.get_blocked_tools()
+        blocked_tools = self._guard.blocked_tools
         blocked_msg = ""
         if blocked_tools:
             blocked_msg = f"\nBLOCKED TOOLS (do not retry): {', '.join(blocked_tools)}"

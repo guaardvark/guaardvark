@@ -16,33 +16,44 @@ PROFILE_DIR = os.path.join(GUAARDVARK_ROOT, "data", "agent", "firefox_profile")
 
 
 def launch_firefox():
-    env = {**os.environ, "DISPLAY": ":99", "MOZ_ENABLE_WAYLAND": "0", "GDK_BACKEND": "x11"}
     subprocess.Popen(
-        ["firefox", "--no-remote", "--profile", PROFILE_DIR],
-        env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        ["firefox", "--no-remote", "--remote-debugging-port", "9222", "--profile", PROFILE_DIR],
+        env=_agent_env(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
 
 
+def _agent_env():
+    """Environment that forces X11 on the agent display, not Wayland."""
+    env = {**os.environ, "DISPLAY": ":99", "GDK_BACKEND": "x11",
+           "MOZ_ENABLE_WAYLAND": "0", "WAYLAND_DISPLAY": "", "XDG_SESSION_TYPE": "x11"}
+    return env
+
+
 def launch_agent_files():
-    env = {**os.environ, "DISPLAY": ":99"}
     subprocess.Popen(
         ["pcmanfm", AGENT_FILES_DIR],
-        env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        env=_agent_env(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
 
 
 def launch_terminal():
-    env = {**os.environ, "DISPLAY": ":99"}
     subprocess.Popen(
         ["xterm", "-fa", "Monospace", "-fs", "12"],
-        env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        env=_agent_env(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
+
+
+def launch_drawing():
+    subprocess.Popen(
+        ["drawing"],
+        env=_agent_env(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
 
 
 def main():
     root = tk.Tk()
     root.title("Shortcuts")
-    root.geometry("120x160+10+10")
+    root.geometry("160x240+10+10")
     root.resizable(False, False)
     root.configure(bg="#1a1a2e")
     root.attributes("-topmost", False)
@@ -55,16 +66,29 @@ def main():
         "font": ("Sans", 9),
         "relief": "flat",
         "bd": 0,
-        "width": 14,
+        "width": 18,
         "height": 1,
         "cursor": "hand2",
     }
 
+    # Firefox gets the spotlight — big orange button so the agent can't miss it
+    firefox_style = {
+        **style,
+        "bg": "#e65100",
+        "fg": "#ffffff",
+        "activebackground": "#ff6d00",
+        "activeforeground": "#ffffff",
+        "font": ("Sans", 12, "bold"),
+        "height": 2,
+        "width": 18,
+    }
+
     tk.Label(root, text="Shortcuts", bg="#1a1a2e", fg="#888888", font=("Sans", 7)).pack(pady=(4, 2))
 
-    tk.Button(root, text="Firefox", command=launch_firefox, **style).pack(pady=2, padx=4)
-    tk.Button(root, text="Agent Files", command=launch_agent_files, **style).pack(pady=2, padx=4)
-    tk.Button(root, text="Terminal", command=launch_terminal, **style).pack(pady=2, padx=4)
+    tk.Button(root, text="Firefox", command=launch_firefox, **firefox_style).pack(pady=4, padx=8)
+    tk.Button(root, text="Agent Files", command=launch_agent_files, **style).pack(pady=2, padx=8)
+    tk.Button(root, text="Drawing", command=launch_drawing, **style).pack(pady=2, padx=8)
+    tk.Button(root, text="Terminal", command=launch_terminal, **style).pack(pady=2, padx=8)
 
     root.mainloop()
 

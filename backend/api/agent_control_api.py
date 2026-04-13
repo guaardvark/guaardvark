@@ -59,9 +59,12 @@ def execute_task():
 
         screen = LocalScreenBackend()
 
+        mouse_only = data.get("mouse_only", False)
+        training_mode = data.get("training_mode", False)
+
         # Run in background thread so the API doesn't block
         def run_task():
-            result = service.execute_task(task, screen)
+            result = service.execute_task(task, screen, mouse_only=mouse_only, training_mode=training_mode)
             logger.info(f"Task completed: success={result.success}, reason={result.reason}, "
                        f"steps={len(result.steps)}, time={result.total_time_seconds:.1f}s")
 
@@ -439,6 +442,25 @@ def submit_feedback():
         with open(feedback_file, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry) + "\n")
         logger.info(f"[FEEDBACK] {'👍' if entry['positive'] else '👎'} task=\"{entry['task'][:60]}\"")
+        
+        # PERSIST TO DATABASE (Structured storage)
+        try:
+            from backend.models import db, ToolFeedback
+            db_entry = ToolFeedback(
+                session_id=entry["session_id"],
+                tool_name=data.get("tool_name", entry["task"][:100]), # preferred tool_name
+                task=entry["task"],
+                positive=entry["positive"],
+                steps=entry["steps"],
+                time_seconds=entry["time_seconds"],
+                model=entry["model"]
+            )
+            db.session.add(db_entry)
+            db.session.commit()
+            logger.debug(f"[FEEDBACK] Persisted to database: ID={db_entry.id}")
+        except Exception as db_err:
+            logger.warning(f"[FEEDBACK] Failed to persist to database (non-fatal): {db_err}")
+
         return jsonify({"success": True, "feedback": entry}), 201
     except Exception as e:
         logger.error(f"Failed to write feedback: {e}")
@@ -502,9 +524,19 @@ def learning_summary():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+import time as _time
+
+# Circuit breaker: cache capture errors for 5s to prevent log spam from frontend polling
+_capture_error_cache = {"error": None, "expires": 0}
+
+
 @agent_control_bp.route("/capture/raw", methods=["POST"])
 def capture_raw():
     """Return a raw JPEG screenshot of the virtual display — no vision analysis."""
+    now = _time.time()
+    if _capture_error_cache["error"] and now < _capture_error_cache["expires"]:
+        return jsonify({"success": False, "error": _capture_error_cache["error"]}), 503
+
     try:
         from backend.services.local_screen_backend import LocalScreenBackend
         from io import BytesIO
@@ -530,12 +562,19 @@ def capture_raw():
             return jsonify({"success": False, "error": "Capture produced invalid image"}), 500
         buf.seek(0)
 
+        # Clear error cache on success
+        _capture_error_cache["error"] = None
+
         from flask import send_file
         return send_file(buf, mimetype="image/jpeg")
 
     except IndexError:
+        _capture_error_cache["error"] = "Agent display not running"
+        _capture_error_cache["expires"] = now + 5
         logger.error("No monitors available on agent display — is Xvfb running?")
         return jsonify({"success": False, "error": "Agent display not running"}), 503
     except Exception as e:
-        logger.error(f"Error in raw capture: {e}", exc_info=True)
+        _capture_error_cache["error"] = str(e)
+        _capture_error_cache["expires"] = now + 5
+        logger.error(f"Error in raw capture: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
