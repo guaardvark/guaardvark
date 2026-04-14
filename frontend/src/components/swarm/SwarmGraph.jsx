@@ -43,14 +43,17 @@ const TaskNode = ({ data }) => {
         bgcolor: "background.paper",
         borderRadius: 2,
         position: "relative",
-        // React Flow applies a CSS transform: scale() to the viewport via
-        // fitView + zoom, which lands on non-integer pixel alignment and
-        // makes HTML text render blurry. These four hints tell the browser
-        // to anti-alias text on the GPU compositing layer so it stays crisp
-        // at any zoom level.
+        // React Flow's viewport transform lands at fractional scales like
+        // 0.87x, which subpixel-blurs CSS text. Font-smoothing alone can't
+        // beat that — the real fix is promoting each node to its own GPU
+        // compositor layer (translateZ + will-change) so the browser
+        // rasterizes the text ONCE at 1x and then scales the texture,
+        // rather than re-rasterizing at the fractional CSS pixel grid.
+        transform: "translateZ(0)",
+        willChange: "transform",
         WebkitFontSmoothing: "antialiased",
         MozOsxFontSmoothing: "grayscale",
-        textRendering: "optimizeLegibility",
+        textRendering: "geometricPrecision",
         backfaceVisibility: "hidden",
       }}
     >
