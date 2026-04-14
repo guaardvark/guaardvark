@@ -8,6 +8,12 @@ The self-hosted AI workstation. Autonomous agents that see your screen and contr
   <img src="docs/screenshots/guaardvark-demo.gif" alt="Guaardvark Demo" width="100%">
 </p>
 
+<p align="center">
+  <img src="docs/screenshots/swarm-demo.gif" alt="Agent Swarm — parallel Claude Code agents across isolated git worktrees" width="100%">
+  <br>
+  <em>Agent Swarm — parse a plan, spawn parallel agents in isolated git worktrees, resolve the dependency DAG, merge back to main.</em>
+</p>
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/guaardvark/guaardvark/actions/workflows/ci.yml/badge.svg)](https://github.com/guaardvark/guaardvark/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/guaardvark?label=PyPI&color=blue)](https://pypi.org/project/guaardvark/)
