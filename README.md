@@ -380,3 +380,7 @@ Looking for something to work on? Check out issues labeled [`good first issue`](
 ## License
 
 [MIT License](LICENSE) — Copyright (c) 2025-2026 Albenze, Inc.
+
+<p align="center">
+  <img src="docs/screenshots/guaardvark-mascot.png" alt="Guaardvark mascot" width="110" height="107">
+</p>
