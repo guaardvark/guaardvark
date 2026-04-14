@@ -55,7 +55,7 @@ const VoiceChat = ({
   const [processingStage, setProcessingStage] = useState('');
   const [lastTranscription, setLastTranscription] = useState('');
   const [lastResponse, setLastResponse] = useState('');
-  const [isPlayingResponse, setIsPlayingResponse] = useState(false);
+  const [_isPlayingResponse, setIsPlayingResponse] = useState(false);
   const [conversationHistory, setConversationHistory] = useState([]);
   const [currentAudioUrl, setCurrentAudioUrl] = useState(null);
   const [stoppedAudioBlob, setStoppedAudioBlob] = useState(null);
@@ -74,7 +74,7 @@ const VoiceChat = ({
   const streamedResponseRef = useRef('');
 
   // Access shared SocketIO connection for streaming LLM responses
-  const { socketRef, connectionState } = useUnifiedProgress();
+  const { socketRef, _connectionState } = useUnifiedProgress();
   const startTimeRef = useRef(null);
 
   useEffect(() => {

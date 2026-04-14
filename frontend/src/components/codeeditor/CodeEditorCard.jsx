@@ -420,7 +420,7 @@ ${currentTab.content}
     }, [currentTab]);
 
     // AI command handler
-    const handleAICommand = useCallback(async (command, selectedText) => {
+    const _handleAICommand = useCallback(async (command, selectedText) => {
       if (!currentTab) return;
 
       const context = {
@@ -462,7 +462,7 @@ ${currentTab.content}
 
     // Expose editor methods via ref for external control
     useImperativeHandle(ref, () => ({
-      applyEdit: (range, newText, description) => {
+      applyEdit: (range, newText, _description) => {
         if (editorRef.current && range) {
           try {
             // Handle both Monaco Range objects and plain objects

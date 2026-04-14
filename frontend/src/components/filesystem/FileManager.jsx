@@ -1592,7 +1592,7 @@ const FileManager = () => {
     const fileItems = items.documents.map(d => ({ ...d, itemType: 'file' }));
 
     // Get grid settings from LayoutContext (critical for proper grid calculations)
-    const { RGL_WIDTH_PROP_PX, CONTAINER_PADDING_PX, CARD_MARGIN_PX } = gridSettings;
+    const { RGL_WIDTH_PROP_PX, CONTAINER_PADDING_PX, _CARD_MARGIN_PX } = gridSettings;
     const outerBoxWidth = RGL_WIDTH_PROP_PX + CONTAINER_PADDING_PX * 2;
 
     return (

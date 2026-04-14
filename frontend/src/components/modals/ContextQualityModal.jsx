@@ -38,7 +38,6 @@ import TipsAndUpdatesIcon from "@mui/icons-material/TipsAndUpdates";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SourceIcon from "@mui/icons-material/Source";
 import CompressIcon from "@mui/icons-material/Compress";
-import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 
 const ContextQualityModal = ({ open, onClose }) => {

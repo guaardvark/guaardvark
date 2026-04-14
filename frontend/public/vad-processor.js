@@ -8,7 +8,7 @@ class VADProcessor extends AudioWorkletProcessor {
     this.frameCount = 0;
   }
 
-  process(inputs, outputs, parameters) {
+  process(inputs, _outputs, _parameters) {
     const input = inputs[0];
     if (!input || input.length === 0) return true;
     

@@ -42,7 +42,7 @@ const PageLayout = ({
   headerContent,
   children,
 }) => {
-  const theme = useTheme();
+  const _theme = useTheme();
   const navigate = useNavigate();
   const showHeader = variant !== "fullscreen";
   const contentPadding = noPadding || variant === "grid" ? 0 : { xs: 1.5, sm: spacing.sectionGap };

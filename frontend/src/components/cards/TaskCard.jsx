@@ -5,7 +5,6 @@ import React from "react";
 import {
   Card,
   CardContent,
-  CardActionArea,
   Typography,
   Box,
   Chip,
@@ -67,7 +66,7 @@ const TaskStatusChip = ({ status, retryCount }) => {
 const TaskCard = ({ 
   task, 
   onEdit, 
-  onDuplicate, 
+  _onDuplicate, 
   onDelete, 
   onStartJob,
   availableProjects = [] 
@@ -78,7 +77,7 @@ const TaskCard = ({
   }
   
   const theme = useTheme();
-  const { activeProcesses, getProcess } = useUnifiedProgress();
+  const { _activeProcesses, getProcess } = useUnifiedProgress();
 
   // BUG FIX #7: Safely get process data with null checks
   const processData = task?.job_id && getProcess && typeof getProcess === 'function'

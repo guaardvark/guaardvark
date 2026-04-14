@@ -74,7 +74,7 @@ const ChatPage = () => {
     const storageKey = `chat_process_${projectId || 'default'}`;
 
     const existingProcesses = Array.from(resourceManager.processes.entries())
-      .filter(([id, process]) =>
+      .filter(([_id, process]) =>
         process.type === ProcessType.CHAT_MESSAGE &&
         process.metadata?.projectId === projectId
       );
@@ -409,7 +409,7 @@ const ChatPage = () => {
       return { isCSVRequest: false, isCodeRequest: false };
     }
 
-    const message_lower = message.toLowerCase();
+    const _message_lower = message.toLowerCase();
 
     const explicitCSVPatterns = [
       /(?:generate|create|build|make|produce|export|download|save|output)\s+.*?\.csv/i,
@@ -503,7 +503,7 @@ const ChatPage = () => {
         });
       }
 
-      const contextRestoration = restoreConversationContext(sessionId);
+      const _contextRestoration = restoreConversationContext(sessionId);
     };
 
     initializeSession();
@@ -602,7 +602,7 @@ const ChatPage = () => {
   }, [sessionId, projectId]);
 
   useEffect(() => {
-    const handleChatHistoryCleared = (event) => {
+    const handleChatHistoryCleared = (_event) => {
       setMessages([]);
       historyLoadedRef.current = null;
       setError('');
@@ -680,7 +680,7 @@ const ChatPage = () => {
           processType: "bulk_csv_generation",
         });
 
-        const result = await generateBulkCSV({
+        const _result = await generateBulkCSV({
           prompt: originalMessage,
           filename: fileData.filename,
           quantity: fileData.quantity,
@@ -793,7 +793,7 @@ const ChatPage = () => {
     setFileGenPopup({ open: false, fileData: null, originalMessage: null });
   }, [resourceManager, dialogStateId]);
 
-  const routeMessageByMode = useCallback(
+  const _routeMessageByMode = useCallback(
     async (mode, sessionId, inputText, projectId, onDelta, signal) => {
       const { sendChatMessage } = await import("../api");
 
@@ -1474,7 +1474,7 @@ const ChatPage = () => {
           // Pass image data through unified chat if present
           const imageBase64 = voiceOptions?.imageBase64 || null;
           const isVoice = !!(voiceOptions?.isVoiceMessage);
-          const ackResult = await unifiedChatService.sendMessage(sessionId, modifiedInputText, {
+          const _ackResult = await unifiedChatService.sendMessage(sessionId, modifiedInputText, {
             use_rag: true,
             chat_mode: chatMode,
             project_id: projectId,
@@ -1697,7 +1697,7 @@ const ChatPage = () => {
     }
   }, [isSending]);
 
-  const handleUploadComplete = useCallback((uploadResult) => {
+  const handleUploadComplete = useCallback((_uploadResult) => {
     const successMessage = {
       id: `success_${Date.now()}`,
       role: "system",

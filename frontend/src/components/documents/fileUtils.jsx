@@ -15,7 +15,7 @@ import {
   Braces as JsonIcon,
   Folder as FolderIcon,
 } from 'lucide-react';
-import { Box, useTheme } from '@mui/material';
+import { Box } from '@mui/material';
 
 // Export folder icon for use in other components
 export { FolderIcon };

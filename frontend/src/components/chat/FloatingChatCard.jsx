@@ -6,10 +6,8 @@ import {
   Paper,
   TextField,
   Chip,
-  Divider,
   List,
   ListItem,
-  ListItemText,
   Grow,
   useTheme,
 } from "@mui/material";
@@ -19,7 +17,6 @@ import StopIcon from "@mui/icons-material/Stop";
 import MinimizeIcon from "@mui/icons-material/Remove";
 import AddIcon from "@mui/icons-material/Add";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import HearingIcon from "@mui/icons-material/Hearing";
 import Tooltip from "@mui/material/Tooltip";
 import { useFloatingChatStore } from "../../stores/useFloatingChatStore";

@@ -43,9 +43,9 @@ const ImagesContextMenu = ({
   onArrangeIcons,
   onArrangeWindows,
   hasClipboard = false,
-  hasSelection = false,
+  _hasSelection = false,
   contextType = 'desktop',
-  selectedItem = null,
+  _selectedItem = null,
   folderColor = null,
 }) => {
   if (!anchorPosition) return null;

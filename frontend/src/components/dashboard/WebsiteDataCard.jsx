@@ -13,7 +13,7 @@ import {
   Avatar,
   ListItemAvatar,
 } from "@mui/material";
-import { Link as RouterLink, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import DashboardCardWrapper from "./DashboardCardWrapper";
 import WebsiteActionModal from "../modals/WebsiteActionModal";
 import {
@@ -66,7 +66,7 @@ const WebsiteDataCard = React.forwardRef(
       fetchWebsites();
     }, [fetchWebsites]);
 
-    const handleOpenModal = (site) => {
+    const _handleOpenModal = (site) => {
       setCurrentWebsite(site);
       setActionModalOpen(true);
     };

@@ -5,12 +5,10 @@ import {
   Typography,
   List,
   ListItem,
-  ListItemText,
   TextField,
   IconButton,
   CircularProgress,
   Alert,
-  Paper,
 } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
 import StopIcon from "@mui/icons-material/Stop";

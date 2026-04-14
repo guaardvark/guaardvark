@@ -4,14 +4,12 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import {
   Box,
-  Paper,
   Typography,
   Button,
   Grid,
   Stack,
   Chip,
   IconButton,
-  Tooltip,
   Card,
   CardContent,
   CardActions,
@@ -22,7 +20,6 @@ import {
   MenuItem,
   Alert,
   CircularProgress,
-  Divider,
   ToggleButton,
   ToggleButtonGroup,
   Switch,
@@ -32,14 +29,10 @@ import PageLayout from "../components/layout/PageLayout";
 import {
   Upload as UploadIcon,
   AutoFixHigh as EnhanceIcon,
-  Close as CloseIcon,
   PlayArrow as PlayIcon,
   Download as DownloadIcon,
   Refresh as RefreshIcon,
   Cancel as CancelIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
-  Schedule as ScheduleIcon,
   Speed as SpeedIcon,
   ArrowBack as BackIcon,
 } from "@mui/icons-material";
@@ -203,7 +196,7 @@ const UpscalingPage = ({ embedded = false }) => {
     setSuccess("");
 
     try {
-      const res = await upscalingService.uploadAndUpscale(selectedFile, {
+      const _res = await upscalingService.uploadAndUpscale(selectedFile, {
         model: selectedModel || undefined,
         target_width: TARGET_PRESETS[targetResolution]?.width,
         two_pass: twoPass,
@@ -242,7 +235,7 @@ const UpscalingPage = ({ embedded = false }) => {
     }
   };
 
-  const formatDuration = (seconds) => {
+  const _formatDuration = (seconds) => {
     if (!seconds) return "";
     const m = Math.floor(seconds / 60);
     const s = Math.round(seconds % 60);

@@ -53,7 +53,7 @@ const AlertSnackbar = React.forwardRef(function Alert(props, ref) {
 });
 
 // Sorting functions (similar to other pages)
-import { descendingComparator, getComparator, stableSort } from "../utils/sortUtils";
+import { getComparator, stableSort } from "../utils/sortUtils";
 
 const formatDate = (dateString) => {
   if (!dateString) return "-";

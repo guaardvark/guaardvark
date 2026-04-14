@@ -29,8 +29,6 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import ErrorIcon from "@mui/icons-material/Error";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import * as wordpressService from "../api/wordpressService";
 import { getClients, getProjects } from "../api";
@@ -43,7 +41,7 @@ const AlertSnackbar = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
 });
 
-import { descendingComparator, getComparator, stableSort } from "../utils/sortUtils";
+import { getComparator, stableSort } from "../utils/sortUtils";
 
 const formatDate = (dateString) => {
   if (!dateString) return "-";

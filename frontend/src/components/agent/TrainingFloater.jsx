@@ -56,7 +56,7 @@ function saveState(state) {
   } catch {}
 }
 
-export default function TrainingFloater({ open, onClose, onNavigateAway }) {
+export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
   const navigate = useNavigate();
   // --- Persisted window state ---
   const saved = loadState();

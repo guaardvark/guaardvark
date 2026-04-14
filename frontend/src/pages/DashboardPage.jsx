@@ -515,7 +515,7 @@ const DashboardPage = () => {
     [minimizedCards, layout, cardColors, saveDashboardState, cardMinGridH, originalDimensions],
   );
 
-  const handleResetLayout = useCallback(() => {
+  const _handleResetLayout = useCallback(() => {
     normalLayoutRef.current = defaultFixedLayout;
     setLayout(defaultFixedLayout);
     setCardColors({});

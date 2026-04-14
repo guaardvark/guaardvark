@@ -38,7 +38,6 @@ import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
 import CircleIcon from "@mui/icons-material/Circle";
 import SpeedIcon from "@mui/icons-material/Speed";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
-import VisibilityIcon from "@mui/icons-material/Visibility";
 
 import DashboardCardWrapper from "../dashboard/DashboardCardWrapper";
 import * as wordpressService from "../../api/wordpressService";
@@ -186,7 +185,7 @@ const WordPressPagesCard = React.forwardRef(
       onToggleMinimize,
       cardColor,
       onCardColorChange,
-      openTabs,
+      _openTabs,
       setOpenTabs,
       setActiveTabIndex,
       ...props
@@ -207,7 +206,7 @@ const WordPressPagesCard = React.forwardRef(
     });
 
     const [pullDialogOpen, setPullDialogOpen] = useState(false);
-    const [processType, setProcessType] = useState("full");
+    const [processType, _setProcessType] = useState("full");
     const [pullOptions, setPullOptions] = useState({
       post_type: "post",
       max_pages: null,

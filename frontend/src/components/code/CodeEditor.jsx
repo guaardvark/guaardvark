@@ -7,7 +7,6 @@ import { Box, Paper, Typography, IconButton, Tooltip, Alert } from "@mui/materia
 import {
   Save as SaveIcon,
   PlayArrow as RunIcon,
-  BugReport as DebugIcon,
   Psychology as AiIcon,
 } from "@mui/icons-material";
 import Editor from "@monaco-editor/react";
@@ -95,7 +94,7 @@ const CodeEditor = ({
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const { startProcess, updateProcess, completeProcess, errorProcess } = useUnifiedProgress();
+  const { startProcess, _updateProcess, completeProcess, errorProcess } = useUnifiedProgress();
 
   // Detect language from file path
   const getLanguageFromPath = useCallback((path) => {
@@ -148,7 +147,7 @@ const CodeEditor = ({
 
     // Configure code completion and suggestions
     monaco.languages.registerCompletionItemProvider(detectedLanguage, {
-      provideCompletionItems: (model, position) => {
+      provideCompletionItems: (_model, _position) => {
         // Future: Integrate with Ollama for AI-powered completions
         const suggestions = [];
 

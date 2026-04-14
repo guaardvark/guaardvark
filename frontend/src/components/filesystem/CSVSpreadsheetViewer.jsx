@@ -21,9 +21,7 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,
   Chip,
-  Divider,
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -44,7 +42,7 @@ const CSVSpreadsheetViewer = ({ fileData, onClose, onSave }) => {
   const [editingCell, setEditingCell] = useState(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [originalData, setOriginalData] = useState([]);
+  const [_originalData, setOriginalData] = useState([]);
 
   // Parse CSV content
   const parseCSV = useCallback((csvContent) => {

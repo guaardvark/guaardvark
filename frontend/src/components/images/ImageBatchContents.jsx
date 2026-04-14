@@ -2,7 +2,7 @@
 // Displays image thumbnails for a batch inside a window.
 // Supports: thumbnail grid, lightbox, selection mode, context menu, keyboard nav.
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Grid,
@@ -32,7 +32,6 @@ import {
   DriveFileRenameOutline as RenameIcon,
   MoreVert as MoreVertIcon,
   CheckBox as CheckBoxIcon,
-  Download as DownloadIcon,
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import ImageLightbox from './ImageLightbox';

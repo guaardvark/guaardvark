@@ -17,8 +17,8 @@ import ImageIcon from '@mui/icons-material/Image';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import { API_BASE, isImageFile, isVideoFile } from './fileUtils';
 
-const MediaView = ({ items, folder, onContextMenu, onFileOpen }) => {
-  const theme = useTheme();
+const MediaView = ({ items, _folder, onContextMenu, _onFileOpen }) => {
+  const _theme = useTheme();
   const [currentIndex, setCurrentIndex] = useState(0);
 
   // Collect all media files (images + videos), skip folders
@@ -28,13 +28,13 @@ const MediaView = ({ items, folder, onContextMenu, onFileOpen }) => {
   }, [items]);
 
   // Non-media files (shown in a compact list below thumbnails)
-  const otherFiles = useMemo(() => {
+  const _otherFiles = useMemo(() => {
     const files = items?.files || [];
     return files.filter(f => !isImageFile(f.filename) && !isVideoFile(f.filename));
   }, [items]);
 
   // Subfolders
-  const subfolders = useMemo(() => items?.folders || [], [items]);
+  const _subfolders = useMemo(() => items?.folders || [], [items]);
 
   // Clamp index when media list changes
   useEffect(() => {
@@ -57,7 +57,7 @@ const MediaView = ({ items, folder, onContextMenu, onFileOpen }) => {
   const fileUrl = currentFile
     ? `${API_BASE}/document/${currentFile.id}/download?v=${currentFile.updated_at || Date.now()}`
     : null;
-  const thumbnailUrl = currentFile
+  const _thumbnailUrl = currentFile
     ? `${API_BASE}/thumbnail?path=${encodeURIComponent(currentFile.path)}`
     : null;
 

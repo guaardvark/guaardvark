@@ -9,8 +9,6 @@ import {
   Chip,
   Switch,
   FormControlLabel,
-  Divider,
-  LinearProgress,
 } from "@mui/material";
 import MuiAlert from "@mui/material/Alert";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";

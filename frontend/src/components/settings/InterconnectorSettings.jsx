@@ -882,7 +882,7 @@ const InterconnectorSettings = () => {
         const testData = response.data || response;
         const totalFiles = testData.total_files || 0;
         const totalSizeMB = testData.total_size_mb || 0;
-        const projectRoot = testData.project_root || "unknown";
+        const _projectRoot = testData.project_root || "unknown";
         
         const message = `File scan test successful: Found ${totalFiles} files (${totalSizeMB} MB)`;
         setFileScanTestResult({ 
@@ -1370,7 +1370,7 @@ const InterconnectorSettings = () => {
                   <Chip
                     label="Enable Auto-Sync"
                     color={config.auto_sync_enabled ? 'primary' : 'default'}
-                    onClick={(e) => setConfig({ ...config, auto_sync_enabled: !config.auto_sync_enabled })}
+                    onClick={(_e) => setConfig({ ...config, auto_sync_enabled: !config.auto_sync_enabled })}
                     variant={config.auto_sync_enabled ? 'filled' : 'outlined'}
                     size="small"
                     sx={{

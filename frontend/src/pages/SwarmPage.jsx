@@ -1,7 +1,7 @@
 // frontend/src/pages/SwarmPage.jsx
 // Swarm Orchestrator dashboard — real-time agent monitoring, launch, and management
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Box,
   Typography,
@@ -37,7 +37,6 @@ import {
   Stop as CancelIcon,
   Refresh as RefreshIcon,
   MergeType as MergeIcon,
-  Delete as CleanupIcon,
   Flight as FlightIcon,
   Cloud as OnlineIcon,
   CloudOff as OfflineIcon,
@@ -50,7 +49,6 @@ import {
   AttachMoney as CostIcon,
   Schedule as TimeIcon,
   AccountTree as BranchIcon,
-  Warning as ConflictIcon,
   CheckCircle as DoneIcon,
   Error as FailedIcon,
   HourglassEmpty as PendingIcon,
@@ -65,7 +63,6 @@ import PageLayout from "../components/layout/PageLayout";
 import { useSnackbar } from "../components/common/SnackbarProvider";
 import SwarmGraph from "../components/swarm/SwarmGraph";
 import {
-  getHealth,
   getAllStatus,
   launchSwarm,
   cancelSwarm,
@@ -1034,7 +1031,7 @@ const SwarmCard = ({
 
 // ─── Task Card Component ─────────────────────────────────────────────
 
-const TaskCard = ({ task, swarmId, onViewLogs, theme }) => {
+const TaskCard = ({ task, swarmId, onViewLogs, _theme }) => {
   const cfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.pending;
 
   return (

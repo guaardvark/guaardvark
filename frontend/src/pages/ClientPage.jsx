@@ -28,7 +28,7 @@ import {
   TableSortLabel,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
-import EditIcon from "@mui/icons-material/Edit"; // For table actions
+import _EditIcon from "@mui/icons-material/Edit"; // For table actions
 import CloseIcon from "@mui/icons-material/Close"; // For table actions
 import LinkIcon from "@mui/icons-material/Link"; // For table actions
 import { useTheme } from "@mui/material/styles";
@@ -55,7 +55,7 @@ const AlertSnackbar = React.forwardRef(function Alert(props, ref) {
 });
 
 // Sorting functions
-import { descendingComparator, getComparator, stableSort } from "../utils/sortUtils";
+import { getComparator, stableSort } from "../utils/sortUtils";
 
 const formatDate = (dateString) => {
   if (!dateString) return "-";

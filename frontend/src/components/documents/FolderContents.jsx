@@ -48,7 +48,7 @@ const FolderContents = ({
   viewMode = 'list',
   selectedItems = new Set(),
   onSelectionChange,
-  onItemsMove,
+  _onItemsMove,
   onContextMenu,
   onDragStart,
   onFolderOpen,
@@ -66,7 +66,7 @@ const FolderContents = ({
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
   const [hasMore, setHasMore] = useState(false);
-  const [totalItems, setTotalItems] = useState(0);
+  const [_totalItems, setTotalItems] = useState(0);
   const PAGE_SIZE = 200;
 
   // Drag-to-select state

@@ -270,7 +270,7 @@ export const UnifiedProgressProvider = ({ children }) => {
 
           // CRITICAL: Fetch and restore active processes from backend
           try {
-            const jobCount = await fetchActiveJobs();
+            const _jobCount = await fetchActiveJobs();
             // console.log(`UnifiedProgressContext: Restored ${jobCount} active jobs from server`);
           } catch (error) {
             console.error("UnifiedProgressContext: Failed to restore active jobs on connect:", error);
@@ -324,7 +324,7 @@ export const UnifiedProgressProvider = ({ children }) => {
 
           // Sync current jobs after reconnection
           try {
-            const jobCount = await fetchActiveJobs();
+            const _jobCount = await fetchActiveJobs();
             // console.log(`UnifiedProgressContext: Restored ${jobCount} jobs after reconnect`);
           } catch (error) {
             console.error("UnifiedProgressContext: Failed to restore jobs after reconnect:", error);
@@ -337,16 +337,16 @@ export const UnifiedProgressProvider = ({ children }) => {
         });
 
         // Uncle Claude and Self-Improvement events
-        socket.on("self_improvement:started", (data) => {
+        socket.on("self_improvement:started", (_data) => {
           // console.log("Self-improvement run started:", data);
         });
-        socket.on("self_improvement:completed", (data) => {
+        socket.on("self_improvement:completed", (_data) => {
           // console.log("Self-improvement run completed:", data);
         });
-        socket.on("uncle:directive", (data) => {
+        socket.on("uncle:directive", (_data) => {
           // console.warn("Uncle Claude directive received:", data.directive, data.reason);
         });
-        socket.on("family:learning", (data) => {
+        socket.on("family:learning", (_data) => {
           // console.log("Family learning received:", data);
         });
       } catch (error) {

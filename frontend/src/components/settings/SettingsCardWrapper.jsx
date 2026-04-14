@@ -8,12 +8,12 @@ const SettingsCardWrapper = React.forwardRef(
   ({ title, icon, children, ...props }, ref) => {
     // Destructure react-grid-layout props to prevent them leaking to DOM
     const {
-      i, x, y, w, h,
-      minW, maxW, minH, maxH,
-      isDraggable, isResizable, isBounded,
-      static: staticProp, moved,
-      resizeHandles, className, style,
-      defaultCollapsed,
+      _i, _x, _y, _w, _h,
+      _minW, _maxW, _minH, _maxH,
+      _isDraggable, _isResizable, _isBounded,
+      static: _staticProp, _moved,
+      _resizeHandles, className, style,
+      _defaultCollapsed,
       ...restProps
     } = props;
 

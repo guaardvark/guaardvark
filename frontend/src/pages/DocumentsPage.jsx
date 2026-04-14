@@ -7,7 +7,7 @@
 // - No react-grid-layout for folder icons (simple positioning)
 
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { Box, Typography, Card, CardActionArea, CardContent, IconButton, Tooltip, Stack, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, useTheme, CircularProgress } from "@mui/material";
+import { Box, Typography, Card, CardActionArea, CardContent, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, useTheme, CircularProgress } from "@mui/material";
 import { GuaardvarkLogo } from "../components/branding";
 import { Apps as AppsIcon, GridView as GridViewIcon, FolderOutlined, Code, UploadFile as UploadFileIcon } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
@@ -54,7 +54,7 @@ const EMPTY_SELECTION = new Set();
 
 const DocumentsPage = () => {
   const { gridSettings } = useLayout();
-  const { RGL_WIDTH_PROP_PX, CONTAINER_PADDING_PX } = gridSettings;
+  const { RGL_WIDTH_PROP_PX, _CONTAINER_PADDING_PX } = gridSettings;
   const { showMessage } = useSnackbar();
   const { activeModel, isLoadingModel, modelError } = useStatus();
   const theme = useTheme();
@@ -129,8 +129,8 @@ const DocumentsPage = () => {
     const el = windowContainerRef.current;
     if (!el) return { maxW: WINDOW_MIN_WIDTH * 2, maxH: WINDOW_MIN_HEIGHT * 2 };
     const rect = el.getBoundingClientRect();
-    const [mx, my] = WINDOWS_MARGIN;
-    const [px, py] = WINDOWS_PADDING;
+    const [_mx, my] = WINDOWS_MARGIN;
+    const [_px, py] = WINDOWS_PADDING;
     // WidthProvider uses actual DOM width, so col count = WINDOWS_COLS in available space
     const rowPitch = WINDOWS_ROW_HEIGHT + my;
     const visibleRows = Math.floor((rect.height - py * 2 + my) / rowPitch);
@@ -192,7 +192,7 @@ const DocumentsPage = () => {
         }
 
         // Create a window for each folder
-        const newWindows = folders.map((folder, index) => {
+        const newWindows = folders.map((folder, _index) => {
           const windowId = `window-${windowIdCounter.current++}`;
           const savedWindow = savedState?.windows?.find(w => w.folderId === folder.id);
 
@@ -341,7 +341,7 @@ const DocumentsPage = () => {
   // Listen for file/folder changes from any tab/component and refresh in place
   useEffect(() => {
     const handleExternalUpdate = (event) => {
-      const payload = event?.detail || event?.data;
+      const _payload = event?.detail || event?.data;
       refreshData();
       // Force any open folder windows to re-fetch their contents
       setFolderRefreshKeys(prev => {
@@ -642,7 +642,7 @@ const DocumentsPage = () => {
   }, []);
 
   // Handle drag start (for items in folder windows)
-  const handleDragStart = useCallback((e, item, type) => {
+  const handleDragStart = useCallback((_e, _item, _type) => {
     // Drag start is handled by FolderContents, just log for debugging
   }, []);
 

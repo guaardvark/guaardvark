@@ -26,7 +26,7 @@ const ANSI_RE = /\x1b\[[0-9;]*[a-zA-Z]|\x1b\].*?\x07/g;
 const stripAnsi = (s) => s.replace(ANSI_RE, '');
 
 const RebootProgressModal = ({ open, onClose }) => {
-  const theme = useTheme();
+  const _theme = useTheme();
   const [output, setOutput] = useState([]);
   const [status, setStatus] = useState('idle'); // idle | running | complete | error
   const [errorMessage, setErrorMessage] = useState(null);

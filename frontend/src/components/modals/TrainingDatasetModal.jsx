@@ -10,7 +10,6 @@ import {
   Alert,
   InputAdornment,
   IconButton,
-  Box,
 } from "@mui/material";
 import FolderOpenIcon from "@mui/icons-material/FolderOpen";
 import DirectoryPicker from "../common/DirectoryPicker";

@@ -15,7 +15,6 @@ import {
   Card,
   CardActionArea,
   CardContent,
-  CardMedia,
   IconButton,
   Tooltip,
   Tabs,
@@ -29,7 +28,6 @@ import {
   Snackbar,
   Alert as MuiAlert,
   Chip,
-  CircularProgress,
   Grid,
   useTheme,
 } from '@mui/material';
@@ -90,7 +88,7 @@ const ImagesPage = () => {
   const { gridSettings } = useLayout();
   const { RGL_WIDTH_PROP_PX } = gridSettings;
   const { showMessage } = useSnackbar();
-  const { activeModel, isLoadingModel, modelError } = useStatus();
+  const { _activeModel, _isLoadingModel, _modelError } = useStatus();
   const theme = useTheme();
 
   // Tabs
@@ -471,7 +469,7 @@ const ImagesPage = () => {
     setVideoDeleteConfirm(null);
   }, [showMessage]);
 
-  const getVideoStatusColor = useCallback((status) => {
+  const _getVideoStatusColor = useCallback((status) => {
     switch (status) {
       case 'completed': return 'success';
       case 'running': case 'generating': return 'info';

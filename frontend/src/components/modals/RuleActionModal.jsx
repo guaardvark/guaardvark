@@ -43,7 +43,7 @@ const detectRuleType = (formData) => {
 };
 
 // Convert display type to database type and level
-const getDbTypeAndLevel = (displayType, isSystemPrompt = false) => {
+const getDbTypeAndLevel = (displayType, _isSystemPrompt = false) => {
   switch (displayType) {
     case "COMMAND":
       return { type: "COMMAND_RULE", level: "USER_GLOBAL" };

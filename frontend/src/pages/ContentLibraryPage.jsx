@@ -5,7 +5,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box,
-  Typography,
   Button,
   Paper,
   IconButton,
@@ -30,15 +29,15 @@ import OutputCard from '../components/cards/OutputCard';
 import OutputModal from '../components/modals/OutputModal';
 import { ContextualLoader } from '../components/common/LoadingStates';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
+const _API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const AlertSnackbar = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
 });
 
 const ContentLibraryPage = () => {
-  const theme = useTheme();
-  const navigate = useNavigate();
+  const _theme = useTheme();
+  const _navigate = useNavigate();
 
   // State management
   const [outputs, setOutputs] = useState([]);

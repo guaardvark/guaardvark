@@ -18,7 +18,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
   Select,
   MenuItem,
   FormControl,
@@ -27,7 +26,6 @@ import {
   Divider,
 } from '@mui/material';
 import {
-  Close as CloseIcon,
   ZoomIn as ZoomInIcon,
   ZoomOut as ZoomOutIcon,
   RotateLeft as RotateLeftIcon,
@@ -74,7 +72,7 @@ const ImageEditor = ({
   const [saving, setSaving] = useState(false);
 
   // Image info
-  const [imageInfo, setImageInfo] = useState(null);
+  const [_imageInfo, setImageInfo] = useState(null);
   const [naturalSize, setNaturalSize] = useState({ w: 0, h: 0 });
 
   // Undo stack (stores operations)

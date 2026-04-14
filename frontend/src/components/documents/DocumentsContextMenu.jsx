@@ -25,9 +25,9 @@ const DocumentsContextMenu = ({
   onOpenWindow,
   onOpenInCodeEditor,
   hasClipboard = false,
-  hasSelection = false,
+  _hasSelection = false,
   contextType = 'desktop', // 'desktop', 'folder', 'file'
-  selectedItem = null,
+  _selectedItem = null,
   folderColor = null,
   isImage = false,
   isCode = false,

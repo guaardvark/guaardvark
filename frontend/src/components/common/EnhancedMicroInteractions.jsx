@@ -105,7 +105,7 @@ export const PolishedIconButton = styled(IconButton)(({ theme, variant = "defaul
 }));
 
 // Enhanced Button with polished interactions
-export const PolishedButton = styled(Button)(({ theme, size = 'medium' }) => ({
+export const PolishedButton = styled(Button)(({ theme, _size = 'medium' }) => ({
   transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
   borderRadius: theme.spacing(1.5),
   textTransform: 'none',
@@ -223,7 +223,7 @@ export const PolishedProgressBar = styled(LinearProgress)(({ theme }) => ({
 }));
 
 // Enhanced Loading Spinner
-export const PolishedSpinner = styled(CircularProgress)(({ theme, size = 20 }) => ({
+export const PolishedSpinner = styled(CircularProgress)(({ theme, _size = 20 }) => ({
   color: theme.palette.primary.main,
   animation: `spin 1s linear infinite, ${pulseGlow} 2s ease-in-out infinite`,
   

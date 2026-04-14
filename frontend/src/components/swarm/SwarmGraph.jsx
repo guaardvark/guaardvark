@@ -1,7 +1,7 @@
 // frontend/src/components/swarm/SwarmGraph.jsx
 // Visualizes the Agent Swarm DAG (Directed Acyclic Graph) using React Flow
 
-import React, { useMemo, useEffect } from "react";
+import React, { useEffect } from "react";
 import ReactFlow, {
   Background,
   Controls,
@@ -28,7 +28,7 @@ const STATUS_COLORS = {
  * Custom Node for Swarm Tasks
  */
 const TaskNode = ({ data }) => {
-  const theme = useTheme();
+  const _theme = useTheme();
   const statusColor = STATUS_COLORS[data.status] || "#9e9e9e";
   
   return (
@@ -104,7 +104,7 @@ const SwarmGraph = ({ tasks = [], height = 400 }) => {
     // Simple layering algorithm
     // In a real app, use dagre for better layout
     const layers = {};
-    const processed = new Set();
+    const _processed = new Set();
     
     const getLayer = (task) => {
       if (layers[task.id] !== undefined) return layers[task.id];

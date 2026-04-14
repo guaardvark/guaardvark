@@ -19,8 +19,6 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  Tabs,
-  Tab,
   Chip,
   Divider,
 } from "@mui/material";
@@ -32,11 +30,8 @@ import {
   Add,
   CreateNewFolder,
   Delete,
-  Edit,
   DriveFileRenameOutline,
-  CloudUpload,
   Storage,
-  Code,
   KeyboardArrowUp,
 } from "@mui/icons-material";
 
@@ -44,7 +39,7 @@ import DashboardCardWrapper from "../dashboard/DashboardCardWrapper";
 import * as documentService from "../../api/documentService";
 import * as fileOperationsService from "../../api/fileOperationsService";
 import UnifiedUploadModal from "../modals/UnifiedUploadModal";
-import { getLanguageFromFilename, detectLanguageFromContent } from "../../utils/languageDetector";
+import { getLanguageFromFilename } from "../../utils/languageDetector";
 
 const FileTreeCard = React.forwardRef(
   (
@@ -426,7 +421,7 @@ const FileTreeCard = React.forwardRef(
           return;
         }
 
-        const timestamp = Date.now();
+        const _timestamp = Date.now();
         const extension = createDialog.type === 'file' ?
           (trimmedName.includes('.') ? '' : '.js') : '';
         const fullName = trimmedName + extension;

@@ -24,7 +24,6 @@ import AddIcon from "@mui/icons-material/Add";
 import SearchIcon from "@mui/icons-material/Search";
 import MemoryIcon from "@mui/icons-material/Memory";
 import SettingsSection from "./SettingsSection";
-import SettingsRow from "./SettingsRow";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5002/api";
 

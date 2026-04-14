@@ -42,7 +42,6 @@ import SmartToyIcon from "@mui/icons-material/SmartToy";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import StickyNote2Icon from "@mui/icons-material/StickyNote2";
-import MovieCreationIcon from "@mui/icons-material/MovieCreation";
 import ExtensionIcon from "@mui/icons-material/Extension";
 import HiveIcon from "@mui/icons-material/Hive";
 

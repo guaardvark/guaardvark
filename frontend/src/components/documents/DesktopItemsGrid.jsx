@@ -15,8 +15,8 @@ const DesktopGridLayout = WidthProvider(ReactGridLayoutLib);
 // Grid configuration (same as FileManager folder grid)
 const DESKTOP_COLS = 48;
 const DESKTOP_ROW_HEIGHT = 30;
-const ICON_GRID_WIDTH = 4;  // ~145px
-const ICON_GRID_HEIGHT = 4; // ~120px
+const _ICON_GRID_WIDTH = 4;  // ~145px
+const _ICON_GRID_HEIGHT = 4; // ~120px
 
 const DesktopItemsGrid = ({
   folders = [],

@@ -3,14 +3,14 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
-import { ToggleButtonGroup, ToggleButton, Tooltip, IconButton, Box, Accordion, AccordionSummary, AccordionDetails, Chip, Typography } from '@mui/material';
+import { ToggleButtonGroup, ToggleButton, Tooltip, Box, Accordion, AccordionSummary, AccordionDetails, Chip, Typography } from '@mui/material';
 import { ViewList as ViewListIcon, ViewModule as ViewModuleIcon, ViewComfy as ViewComfyIcon, ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 import FolderWindowWrapper from './FolderWindowWrapper';
 import FolderContents from './FolderContents';
 import BreadcrumbNav from '../filesystem/BreadcrumbNav';
 
 const FolderWindow = React.forwardRef(({
-  id,
+  _id,
   folder,
   isMinimized,
   onToggleMinimize,

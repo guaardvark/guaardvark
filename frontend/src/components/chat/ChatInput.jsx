@@ -291,10 +291,10 @@ const ChatInput = forwardRef(
 
     // Auto-send timeout tracking to prevent race conditions
     const autoSendTimeoutRef = useRef(null);
-    const lastAutoSendRef = useRef(null);
+    const _lastAutoSendRef = useRef(null);
 
     // Voice chat button ref for state access
-    const voiceChatButtonRef = useRef(null);
+    const _voiceChatButtonRef = useRef(null);
 
     // Propagate voice state changes to parent
     useEffect(() => {
@@ -439,7 +439,7 @@ const ChatInput = forwardRef(
 
       try {
         // Add session ID to tags for proper file association
-        const extension = "." + file.name.split(".").pop().toLowerCase();
+        const _extension = "." + file.name.split(".").pop().toLowerCase();
         const tags = `chat-upload,file-upload,${sessionId}`;
 
         // Upload file using unified API service

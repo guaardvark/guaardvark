@@ -14,7 +14,7 @@ const THUMB_SIZE = 160;
 const GRID_GAP = 8;
 
 const ImageThumbnailGrid = ({
-  folder,
+  _folder,
   currentPath,
   onNavigateToPath,
   viewMode = 'grid',
@@ -22,7 +22,7 @@ const ImageThumbnailGrid = ({
   onSelectionChange,
   onContextMenu,
   onDragStart,
-  onFolderOpen,
+  _onFolderOpen,
   onDrop,
   onImageDoubleClick,
   refreshKey = 0,

@@ -126,7 +126,7 @@ function WordPressPagesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPulling, setIsPulling] = useState(false);
-  const [error, setError] = useState(null);
+  const [_error, setError] = useState(null);
   const [feedback, setFeedback] = useState({
     open: false,
     message: "",
@@ -137,7 +137,7 @@ function WordPressPagesPage() {
   const [diffDialogOpen, setDiffDialogOpen] = useState(false);
   const [diffTab, setDiffTab] = useState(0); // Add state for diff dialog tabs
   const [pullDialogOpen, setPullDialogOpen] = useState(false);
-  const [processType, setProcessType] = useState("full");
+  const [processType, _setProcessType] = useState("full");
   const [pullOptions, setPullOptions] = useState({
     post_type: "post",
     max_pages: null,

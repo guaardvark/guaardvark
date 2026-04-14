@@ -152,7 +152,7 @@ const ChatFileUpload = ({ onFileUploaded, sessionId, projectId }) => {
 
     if (successfulUploads.length > 0) {
       // Generate chat message about uploaded files
-      const fileList = successfulUploads.map((r) => r.file.name).join(", ");
+      const _fileList = successfulUploads.map((r) => r.file.name).join(", ");
       const chatMessage = `**Files Uploaded Successfully:**\n\n${successfulUploads
         .map(
           (r) =>

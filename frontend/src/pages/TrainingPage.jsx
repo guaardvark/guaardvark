@@ -84,7 +84,7 @@ const DemoRow = ({ demo, expanded, onToggle, onDelete, onAttempt, showMessage, t
   useEffect(() => {
     if (expanded && demo.steps) {
       const stepsJson = JSON.stringify(
-        demo.steps.map(({ id, ...rest }) => rest),
+        demo.steps.map(({ _id, ...rest }) => rest),
         null,
         2
       );
@@ -227,10 +227,10 @@ const TrainingPage = () => {
   // Device profiles state
   const [deviceProfiles, setDeviceProfiles] = useState([]);
   const [profilesLoading, setProfilesLoading] = useState(true);
-  const [baseModels, setBaseModels] = useState([]);
+  const [_baseModels, setBaseModels] = useState([]);
   
   // Common state
-  const [error, setError] = useState(null);
+  const [_error, _setError] = useState(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [jobModalOpen, setJobModalOpen] = useState(false);
   const [deviceModalOpen, setDeviceModalOpen] = useState(false);
@@ -1002,7 +1002,7 @@ const TrainingPage = () => {
         <ParseJobModal
           open={parseModalOpen}
           onClose={() => setParseModalOpen(false)}
-          onSuccess={(result) => {
+          onSuccess={(_result) => {
             showMessage("Parse job started successfully", "success");
             fetchJobs();
           }}

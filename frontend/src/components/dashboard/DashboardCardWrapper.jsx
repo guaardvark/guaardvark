@@ -5,7 +5,7 @@
 // - Enhanced dragging support for minimized cards
 // - Better UX for minimize/maximize transitions
 
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useEffect, useRef, useMemo, useCallback } from "react";
 import PropTypes from "prop-types";
 import {
   Paper,
@@ -27,38 +27,38 @@ const DashboardCardWrapper = React.forwardRef(
     // to prevent them from being spread onto the Paper component.
     const {
       i,
-      x,
-      y,
-      w,
-      h, // Basic layout props
-      minW,
-      maxW,
-      minH,
-      maxH, // Size constraints
+      _x,
+      _y,
+      _w,
+      _h, // Basic layout props
+      _minW,
+      _maxW,
+      _minH,
+      _maxH, // Size constraints
       isDraggable,
-      isResizable,
-      isBounded,
-      static: staticProp, // Interaction props
-      moved, // Layout state prop
-      resizeHandles, // Resizing configuration
+      _isResizable,
+      _isBounded,
+      static: _staticProp, // Interaction props
+      _moved, // Layout state prop
+      _resizeHandles, // Resizing configuration
       className, // RGL might add its own classes
       style, // RGL passes style, which we want to keep
 
       // Code editor specific props that should not be passed to DOM
-      projectId,
-      openTabs,
-      setOpenTabs,
-      activeTabIndex,
-      setActiveTabIndex,
-      fileTree,
-      setFileTree,
-      chatMessages,
-      setChatMessages,
-      searchResults,
-      setSearchResults,
-      rulesCutoffEnabled,
-      currentTab,
-      headerActions,
+      _projectId,
+      _openTabs,
+      _setOpenTabs,
+      _activeTabIndex,
+      _setActiveTabIndex,
+      _fileTree,
+      _setFileTree,
+      _chatMessages,
+      _setChatMessages,
+      _searchResults,
+      _setSearchResults,
+      _rulesCutoffEnabled,
+      _currentTab,
+      _headerActions,
 
       ...restProps // Collect any other valid DOM/MUI props (like sx, data-grid)
     } = props;
@@ -94,13 +94,13 @@ const DashboardCardWrapper = React.forwardRef(
       return { isLight, oppositeColor };
     }, [cardColor, theme.palette.text.primary]);
 
-    const isLightColor = colorData.isLight;
+    const _isLightColor = colorData.isLight;
     const getOppositeColor = colorData.oppositeColor;
 
 
     // Handle mouse down to implement custom double-click detection
     // Uses refs instead of state to avoid stale closures on rapid clicks
-    const handleMouseDown = useCallback((e) => {
+    const handleMouseDown = useCallback((_e) => {
       const cs = clickState.current;
       const now = Date.now();
       const timeDiff = now - cs.lastTime;

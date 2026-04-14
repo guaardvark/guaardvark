@@ -64,7 +64,7 @@ const UploadPage = () => {
   const [uploadStatus, setUploadStatus] = useState("idle"); // idle, uploading, success, indexing, error
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  const [uploadProgress, setUploadProgress] = useState(0); // Progress state if using XHR
+  const [_uploadProgress, setUploadProgress] = useState(0); // Progress state if using XHR
   const [recentDocs, setRecentDocs] = useState([]);
   const [isLoadingRecent, setIsLoadingRecent] = useState(true);
   const { activeModel, isLoadingModel, modelError } = useStatus();
