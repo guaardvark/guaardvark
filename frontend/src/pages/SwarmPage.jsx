@@ -220,6 +220,17 @@ const SwarmPage = () => {
 
   // ─── Actions ───────────────────────────────────────────────────
 
+  // Template dropdown + template card share this handler. Picking a template
+  // updates the plan-path field so the user can see exactly what will be
+  // launched; picking the empty "Custom plan file" option clears the
+  // selection but leaves any manually typed path alone.
+  const handleTemplateSelect = (filename) => {
+    setSelectedTemplate(filename);
+    if (filename) {
+      setPlanPath(`plugins/swarm/templates/${filename}`);
+    }
+  };
+
   const handleLaunch = async () => {
     const path = planPath.trim();
     if (!path) {
