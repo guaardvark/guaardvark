@@ -43,6 +43,15 @@ const TaskNode = ({ data }) => {
         bgcolor: "background.paper",
         borderRadius: 2,
         position: "relative",
+        // React Flow applies a CSS transform: scale() to the viewport via
+        // fitView + zoom, which lands on non-integer pixel alignment and
+        // makes HTML text render blurry. These four hints tell the browser
+        // to anti-alias text on the GPU compositing layer so it stays crisp
+        // at any zoom level.
+        WebkitFontSmoothing: "antialiased",
+        MozOsxFontSmoothing: "grayscale",
+        textRendering: "optimizeLegibility",
+        backfaceVisibility: "hidden",
       }}
     >
       <Typography variant="caption" fontWeight={600} sx={{ display: "block", mb: 0.5, color: "text.secondary" }}>
@@ -163,6 +172,12 @@ const SwarmGraph = ({ tasks = [], height = 400 }) => {
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
         fitView
+        // Cap fitView zoom at 1x so the initial auto-fit never scales up
+        // past integer pixel alignment. Small graphs used to open at zoom
+        // levels like 1.37x which made every text pixel subpixel-aligned.
+        fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
+        minZoom={0.5}
+        maxZoom={1.5}
         attributionPosition="bottom-right"
       >
         <Background color="#aaa" gap={20} />
