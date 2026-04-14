@@ -314,8 +314,17 @@ class SwarmOrchestrator:
         agents, handles completions.
         """
         while not self._cancel_event.is_set():
-            # check on running agents
+            # check on running agents — this is where DONE / FAILED transitions happen
             self._poll_running_agents()
+
+            # Re-evaluate blocked status now that running agents may have
+            # completed. Without this call, BLOCKED tasks never unblock even
+            # after their parents finish, and the deadlock detector below
+            # sweeps them as failed. This is the fix for the "Deadlocked —
+            # dependency never completed" bug that bit a 4-task refactor plan
+            # where tasks 3 and 4 depended on tasks 1 and 2 — 1 and 2 both
+            # completed successfully, but 3 and 4 stayed BLOCKED forever.
+            self._update_blocked_status(tasks)
 
             # find tasks ready to launch (deps met, not already running)
             ready = [
@@ -553,9 +562,29 @@ class SwarmOrchestrator:
         return True
 
     def _update_blocked_status(self, tasks: list[SwarmTask]) -> None:
-        """Mark tasks with unmet deps as BLOCKED."""
+        """Re-evaluate PENDING/BLOCKED status against current dependency state.
+
+        Bidirectional: a PENDING task whose deps are unmet transitions to
+        BLOCKED, and a BLOCKED task whose deps have since completed
+        transitions back to PENDING so the main loop's ready filter can
+        pick it up. Tasks in RUNNING, DONE, FAILED, MERGED, NEEDS_REVIEW,
+        or CANCELLED are left alone — we only touch the two states that
+        can legitimately flip based on dependency progress.
+
+        This MUST be called at the top of every _run_loop iteration.
+        Calling it only once at startup (the original bug) meant tasks
+        were stamped BLOCKED at t=0 and never unblocked even after their
+        parents completed successfully. The deadlock detector then swept
+        them as failed with "dependency never completed" even though the
+        dependency very much had.
+        """
         for task in tasks:
-            if task.dependencies and not self._deps_met(task, tasks):
+            if task.status not in (SwarmStatus.PENDING, SwarmStatus.BLOCKED):
+                continue
+            deps_ok = self._deps_met(task, tasks)
+            if deps_ok and task.status == SwarmStatus.BLOCKED:
+                task.status = SwarmStatus.PENDING
+            elif not deps_ok and task.status == SwarmStatus.PENDING:
                 task.status = SwarmStatus.BLOCKED
 
     def _emit_event(self, event_type: str, task_id: str, data: dict[str, Any]) -> None:
