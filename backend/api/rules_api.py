@@ -12,6 +12,22 @@ rules_bp = Blueprint("rules_api", __name__, url_prefix="/api/rules")
 
 @rules_bp.route("", methods=["GET"])
 def get_rules():
+    """
+        Retrieve a list of rules with optional filters.
+
+        Query Parameters:
+            project_id (int, optional): Filter rules by associated project ID.
+            type (str, optional): Filter by rule type.
+            is_active (str, optional): Filter by active status ("true", "1", "yes").
+            page (int, optional): Page number for pagination (default: 1).
+            per_page (int, optional): Number of items per page (max: 100).
+
+        Returns:
+            JSON list of rule objects with HTTP status 200.
+
+        Errors:
+            500: Database error
+    """
     try:
         project_id_filter = request.args.get("project_id", type=int)
         query = db.session.query(Rule)
@@ -46,6 +62,18 @@ def get_rules():
 
 @rules_bp.route("/<int:rule_id>", methods=["GET"])
 def get_rule(rule_id):
+    """
+        Retrieve a single rule by ID.
+
+        Path Parameters:
+            rule_id (int): Unique identifier of the rule.
+
+        Returns:
+            JSON object of the rule with HTTP status 200.
+
+        Errors:
+            404: Rule not found
+    """
     rule = db.session.get(Rule, rule_id)
     if not rule:
         return error_response("Rule not found", 404, "NOT_FOUND")
@@ -54,6 +82,29 @@ def get_rule(rule_id):
 
 @rules_bp.route("", methods=["POST"])
 def create_rule():
+    """
+        Create a new rule.
+
+        Request Body (JSON):
+            name (str): Name of the rule (required).
+            rule_text (str): Rule content (required).
+            level (str, optional): Rule level (default: "PROMPT").
+            type (str, optional): Rule type.
+            command_label (str, optional): Unique command label.
+            reference_id (int, optional): Reference identifier.
+            description (str, optional): Rule description.
+            target_models (str, optional): Target models.
+            is_active (bool, optional): Rule active status.
+            project_id (int, optional): Associated project ID.
+
+        Returns:
+            JSON response with created rule ID and HTTP status 201.
+
+        Errors:
+            400: Invalid input
+            409: Duplicate command_label
+            500: Server or database error
+    """
     # Input validation
     if not request.is_json:
         return error_response("Request must be JSON", 400, "INVALID_REQUEST")
@@ -122,6 +173,23 @@ def create_rule():
 
 @rules_bp.route("/<int:rule_id>", methods=["PUT"])
 def update_rule(rule_id):
+    """
+        Update an existing rule.
+
+        Path Parameters:
+            rule_id (int): Unique identifier of the rule.
+
+        Request Body (JSON):
+            Fields to update (same as create_rule).
+
+        Returns:
+            Success message with HTTP status 200.
+
+        Errors:
+            404: Rule not found
+            409: Duplicate command_label
+            500: Database error
+    """
     data = request.get_json()
     rule = db.session.get(Rule, rule_id)
     if not rule:
@@ -167,6 +235,19 @@ def update_rule(rule_id):
 
 @rules_bp.route("/<int:rule_id>", methods=["DELETE"])
 def delete_rule(rule_id):
+    """
+        Delete a rule by ID.
+
+        Path Parameters:
+            rule_id (int): Unique identifier of the rule.
+
+        Returns:
+            Success message with HTTP status 200.
+
+        Errors:
+            404: Rule not found
+            500: Database error
+    """
     rule = db.session.get(Rule, rule_id)
     if not rule:
         return error_response("Rule not found", 404)
@@ -181,7 +262,15 @@ def delete_rule(rule_id):
 
 @rules_bp.route("/learned", methods=["DELETE"])
 def purge_learned_rules():
-    """Delete all rules marked as LEARNED."""
+    """
+       Delete all rules with level set to "LEARNED".
+
+       Returns:
+            Success message with count of deleted rules.
+
+        Errors:
+            500: Database error
+    """
     try:
         count = db.session.query(Rule).filter(Rule.level == "LEARNED").delete()
         db.session.commit()
