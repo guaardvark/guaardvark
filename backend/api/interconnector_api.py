@@ -613,35 +613,6 @@ def get_network_info():
         return error_response(f"Failed to get network info: {str(e)}", 500)
 
 
-def _detect_system_capabilities():
-    """Detect system capabilities (CPU, memory, disk, GPU)."""
-    capabilities = {
-        "cpu_cores": 1,
-        "memory_mb": 1024,
-        "disk_space_gb": 10,
-        "gpu_available": False,
-    }
-    
-    if PSUTIL_AVAILABLE:
-        try:
-            capabilities["cpu_cores"] = psutil.cpu_count(logical=True) or 1
-            memory = psutil.virtual_memory()
-            capabilities["memory_mb"] = int(memory.total / (1024 * 1024))
-            disk = psutil.disk_usage('/')
-            capabilities["disk_space_gb"] = int(disk.free / (1024 * 1024 * 1024))
-        except Exception as e:
-            logger.warning(f"Failed to detect system capabilities: {e}")
-    
-    # Check for GPU availability
-    try:
-        import subprocess
-        result = subprocess.run(['which', 'nvidia-smi'], capture_output=True, timeout=1)
-        capabilities["gpu_available"] = result.returncode == 0
-    except Exception:
-        capabilities["gpu_available"] = False
-    
-    return capabilities
-
 
 @interconnector_bp.route("/debug/nodes", methods=["GET"])
 def debug_nodes():
@@ -731,7 +702,13 @@ def register_node():
         data = request.get_json()
         node_name = data.get("node_name")
         node_mode = data.get("node_mode", "client")
-        hardware_profile = data.get("hardware_profile", {})
+        # Accept structured hardware_profile from the client. Older clients that
+        # don't send it get a server-side detect as fallback so every row has
+        # data. HardwareDetector is fast (<200ms) and cheap to run here.
+        profile_from_payload = data.get("hardware_profile")
+        if not profile_from_payload:
+            from backend.services.hardware_detector import HardwareDetector
+            profile_from_payload = HardwareDetector().detect()
         sync_entities = data.get("sync_entities", [])
 
         logger.info(f"[SYNC] Registration data: node_name={node_name}, node_mode={node_mode}, "
@@ -804,9 +781,11 @@ def register_node():
             existing_node.node_mode = node_mode
             existing_node.status = "active"
             existing_node.last_heartbeat = datetime.now()
-            existing_node.hardware_profile = json.dumps(hardware_profile)
+            existing_node.hardware_profile = json.dumps(profile_from_payload, sort_keys=True)
             existing_node.sync_entities = json.dumps(sync_entities)
             db.session.commit()
+            from backend.services.fleet_map import get_fleet_map
+            get_fleet_map().register(existing_node.node_id, profile_from_payload)
             logger.info(f"[SYNC] Updated existing node registration: {node_id} ({node_name}) from {client_ip}:{port}")
         else:
             # Create new node
@@ -819,12 +798,14 @@ def register_node():
                 node_mode=node_mode,
                 status="active",
                 last_heartbeat=datetime.now(),
-                hardware_profile=json.dumps(hardware_profile),
+                hardware_profile=json.dumps(profile_from_payload, sort_keys=True),
                 sync_entities=json.dumps(sync_entities),
                 registered_at=datetime.now(),
             )
             db.session.add(new_node)
             db.session.commit()
+            from backend.services.fleet_map import get_fleet_map
+            get_fleet_map().register(new_node.node_id, profile_from_payload)
             logger.info(f"[SYNC] Registered new node: {node_id} ({node_name}) from {client_ip}:{port}")
             
             # Verify node was saved
