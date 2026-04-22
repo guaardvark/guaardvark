@@ -105,6 +105,12 @@ def create_celery_app():
                 'schedule': 86400.0,  # 24 hours
                 'options': {'queue': 'default'},
             },
+            # Cluster heartbeat sweeper (master-only; see CLUSTER_ROLE env)
+            'cluster-heartbeat-sweep': {
+                'task': 'cluster.sweep_node_heartbeats',
+                'schedule': float(os.environ.get("CLUSTER_SWEEP_INTERVAL_S", 5)),
+                'options': {'queue': 'default'},
+            },
         },
         
         task_acks_late=True,
@@ -234,6 +240,12 @@ def create_celery_app():
         logger.info("RAG Autoresearch Celery tasks registered successfully")
     except ImportError as e:
         logger.warning(f"Could not import autoresearch tasks: {e}")
+
+    try:
+        from backend.tasks import cluster_heartbeat_sweeper  # noqa: F401 - registers task
+        logger.info("Cluster heartbeat sweeper task registered")
+    except ImportError as e:
+        logger.warning(f"Could not import cluster heartbeat sweeper: {e}")
 
     logger.info("Celery app configured with enhanced performance settings and Beat schedule")
     return celery_app
