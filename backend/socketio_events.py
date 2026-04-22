@@ -389,3 +389,83 @@ def emit_swarm_event(event_type: str, task_id: str, data: dict):
     }
     socketio.emit("swarm:event", event_data, room="swarm_updates")
     logger.debug(f"Emitted swarm event: {event_type} for {task_id}")
+
+
+# ---- Cluster-foundation handlers (Task 14) ---------------------------------
+
+def _cluster_auth_check(auth):
+    """Returns True if the handshake should be accepted.
+    Cluster OFF: always True (preserve solo behavior).
+    Cluster ON: api_key → node peer; no cluster headers → local browser."""
+    from flask import current_app, request as _req
+    if not current_app.config.get("CLUSTER_ENABLED", False):
+        return True  # solo — no auth enforcement
+    key = None
+    if isinstance(auth, dict):
+        key = auth.get("api_key")
+    if key is None:
+        key = _req.headers.get("X-Guaardvark-API-Key")
+    if key:
+        if _is_valid_node_api_key(key):
+            try:
+                join_room("cluster:masters-broadcast")
+            except Exception:
+                pass
+            return True
+        return False  # key present but invalid
+    # No cluster headers/auth = local browser session — allow
+    return not _looks_like_node_handshake(_req)
+
+
+def _is_valid_node_api_key(key: str) -> bool:
+    """Check if the api_key matches any known InterconnectorNode.
+    Note: the schema may or may not have an api_key column — check before asserting."""
+    try:
+        from backend.models import InterconnectorNode
+        # Legacy: if api_key field doesn't exist on the model, fall back to node_id match
+        if hasattr(InterconnectorNode, "api_key"):
+            return InterconnectorNode.query.filter_by(api_key=key).first() is not None
+        # Otherwise treat key as node_id-based auth (no hardening — matches whatever auth
+        # the Interconnector uses today)
+        return InterconnectorNode.query.filter_by(node_id=key).first() is not None
+    except Exception:
+        return False
+
+
+def _looks_like_node_handshake(request) -> bool:
+    """Heuristic: does this request look like a peer-node handshake that failed auth?
+    Used to decide whether no-api-key means 'browser' (allow) or 'failed node' (reject).
+    Nodes typically connect from different hostnames with no cookies; browsers have cookies."""
+    has_cookie = bool(request.cookies)
+    return not has_cookie  # no cookies + no api_key = likely a failed node handshake
+
+
+@socketio.on("connect")
+def on_connect(auth=None):
+    """Gate cluster node-to-node handshakes behind api_key; browser sessions pass through."""
+    if not _cluster_auth_check(auth):
+        return False
+    return True
+
+
+@socketio.on("cluster:routing_table")
+def handle_cluster_routing_table(data):
+    """Worker-side receiver. Validates sender, persists the table."""
+    import os as _os
+    _logger = logging.getLogger(__name__)
+
+    expected_master = _os.environ.get("CLUSTER_MASTER_NODE_ID")
+    if expected_master and data.get("computed_by") != expected_master:
+        _logger.warning(
+            "[CLUSTER] rejected routing_table from unknown sender %s (expected %s)",
+            data.get("computed_by"), expected_master)
+        return
+
+    try:
+        from backend.services.cluster_routing import RoutingTable, get_routing_store
+        table = RoutingTable.from_dict(data)
+        get_routing_store().set(table, persist=True)
+        _logger.info("[CLUSTER] accepted routing_table from %s (fleet_hash=%s)",
+                     data.get("computed_by"), table.fleet_hash)
+    except (KeyError, ValueError, TypeError) as e:
+        _logger.warning("[CLUSTER] malformed routing_table payload: %s", e)

@@ -416,3 +416,40 @@ def get_routing_store() -> RoutingTableStore:
             _store_singleton = RoutingTableStore()
             _store_singleton.load_from_disk()
         return _store_singleton
+
+
+# ---- master-side recompute + broadcast -----------------------------
+
+def recompute_and_broadcast(reason: str = "manual") -> RoutingTable | None:
+    """Master-only: rebuild the table from the current FleetMap and emit
+    cluster:routing_table to the cluster:masters-broadcast room. No-op on
+    workers or when fleet_hash is unchanged."""
+    import os as _os
+    import logging as _log
+    _logger = _log.getLogger(__name__)
+
+    if _os.environ.get("CLUSTER_ROLE") != "master":
+        return None
+
+    from backend.services.fleet_map import get_fleet_map
+    from backend.socketio_instance import socketio
+
+    master_id = _os.environ.get("CLUSTER_NODE_ID") or "unknown-master"
+    table = RoutingTableBuilder().build(get_fleet_map(), master_node_id=master_id)
+    store = get_routing_store()
+    prev = store.get()
+    if prev is not None and prev.fleet_hash == table.fleet_hash:
+        _logger.debug("[CLUSTER] recompute skipped — fleet_hash unchanged (%s)",
+                      table.fleet_hash)
+        return prev
+
+    store.set(table, persist=True)
+    try:
+        socketio.emit("cluster:routing_table", table.to_dict(),
+                      to="cluster:masters-broadcast")
+        _logger.info(
+            "[CLUSTER] routing_table recomputed (reason=%s, fleet_hash=%s, nodes=%d)",
+            reason, table.fleet_hash, table.node_count)
+    except Exception as e:
+        _logger.warning("[CLUSTER] broadcast failed: %s (table still persisted locally)", e)
+    return table
