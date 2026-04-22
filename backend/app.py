@@ -1109,6 +1109,15 @@ try:
     except Exception as e_node:
         app.logger.warning(f"Could not register node_api_bp: {e_node}")
 
+    # Master-only cluster management (routing-table inspection, recompute, metrics)
+    try:
+        from backend.api.cluster_api import cluster_api_bp
+        if cluster_api_bp.name not in app.blueprints:
+            app.register_blueprint(cluster_api_bp)
+            app.logger.debug("Registered cluster_api_bp")
+    except Exception as e_cluster:
+        app.logger.warning(f"Could not register cluster_api_bp: {e_cluster}")
+
     app.logger.info("Blueprint registration process completed.")
 except Exception as e_bp_reg_block:
     app.logger.error(

@@ -869,10 +869,19 @@ def node_heartbeat(node_id):
         db.session.commit()
         logger.debug(f"[SYNC] Heartbeat updated for node {node_id} ({node.node_name})")
 
-        return success_response(
-            {"node_id": node_id, "heartbeat_at": node.last_heartbeat.isoformat()},
-            "Heartbeat updated"
-        )
+        response_data = {"node_id": node_id, "heartbeat_at": node.last_heartbeat.isoformat()}
+
+        # Master piggybacks the current fleet_hash so workers can self-heal
+        # missed broadcasts without an explicit ACK protocol (see spec §4.5).
+        if os.environ.get("CLUSTER_ROLE") == "master":
+            try:
+                from backend.services.cluster_routing import get_routing_store
+                _table = get_routing_store().get()
+                response_data["current_fleet_hash"] = _table.fleet_hash if _table else None
+            except Exception:
+                response_data["current_fleet_hash"] = None
+
+        return success_response(response_data, "Heartbeat updated")
 
     except Exception as e:
         db.session.rollback()
