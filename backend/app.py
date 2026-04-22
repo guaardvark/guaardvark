@@ -808,6 +808,9 @@ def _initialize_app_components(app):
     from backend.utils.blueprint_discovery import auto_register_blueprints
     auto_register_blueprints(app)
 
+    from backend.middleware.cluster_proxy_middleware import cluster_proxy_before_request
+    app.before_request(cluster_proxy_before_request)
+
     try:
         from backend.services.browser_automation_service import register_browser_shutdown
         register_browser_shutdown(app)
