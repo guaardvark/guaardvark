@@ -1,0 +1,17 @@
+{
+  "include": ["backend"],
+  "exclude": [
+    "backend/venv",
+    "**/__pycache__",
+    "data",
+    "plugins/comfyui"
+  ],
+  "pythonVersion": "3.12",
+  "typeCheckingMode": "basic",
+  "reportMissingImports": "warning",
+  "reportMissingTypeStubs": false,
+  "reportOptionalMemberAccess": "warning",
+  "reportGeneralTypeIssues": "warning",
+  "venvPath": "backend",
+  "venv": "venv"
+}
