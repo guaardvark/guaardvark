@@ -1376,6 +1376,13 @@ ensure_hardware_profile() {
 }
 ensure_hardware_profile
 
+# Export the persistent node_id so the backend knows who it is without
+# re-reading hardware.json.
+if [ -f "$HOME/.guaardvark/hardware.json" ]; then
+    CLUSTER_NODE_ID=$(python3 -c "import json; print(json.load(open('$HOME/.guaardvark/hardware.json'))['node_id'])" 2>/dev/null || echo "")
+    export CLUSTER_NODE_ID
+fi
+
 vader_info "Setting up frontend..."
 cd "$FRONTEND_DIR" || { vader_error "Failed to cd to $FRONTEND_DIR"; exit 1; }
 

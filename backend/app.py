@@ -421,6 +421,9 @@ def _initialize_app_components(app):
             "CACHE_DIR": config.CACHE_DIR,
             "LLM_REQUEST_TIMEOUT": LLM_REQUEST_TIMEOUT,
             "MAX_CONTENT_LENGTH": 100 * 1024 * 1024,
+            "CLUSTER_ENABLED": config.CLUSTER_ENABLED,
+            "CLUSTER_ROLE": config.CLUSTER_ROLE,
+            "CLUSTER_NODE_ID": config.CLUSTER_NODE_ID,
         }
     )
     app.logger.info(
@@ -900,6 +903,27 @@ try:
             app.logger.info(
                 "Global system prompt rule creation disabled - using hardcoded default"
             )
+
+            # ---- Cluster: seed FleetMap from DB + initial routing recompute --------
+            if config.CLUSTER_ENABLED and config.CLUSTER_ROLE == "master":
+                try:
+                    import json as _json
+                    from backend.models import InterconnectorNode
+                    from backend.services.fleet_map import get_fleet_map
+                    fm = get_fleet_map()
+                    for node in InterconnectorNode.query.all():
+                        if node.hardware_profile:
+                            try:
+                                fm.register(node.node_id, _json.loads(node.hardware_profile))
+                            except _json.JSONDecodeError:
+                                app.logger.warning(
+                                    "[CLUSTER] skipping node %s — malformed profile",
+                                    node.node_id)
+                    from backend.services.cluster_routing import recompute_and_broadcast
+                    recompute_and_broadcast(reason="startup")
+                    app.logger.info("[CLUSTER] startup recompute complete")
+                except Exception as e:
+                    app.logger.warning("[CLUSTER] startup recompute failed: %s", e)
 
         except OperationalError as op_err:
             app.logger.error(f"Database operation error during create_all: {op_err}")

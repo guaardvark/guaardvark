@@ -494,6 +494,15 @@ PROJECT_INDEX_MODE = os.environ.get("GUAARDVARK_PROJECT_INDEX_MODE", "global").l
 
 DISABLE_CELERY = os.environ.get("DISABLE_CELERY", "false").lower() == "true"
 
+# ---- Cluster Foundation (spec §6.2) ------------------------------------
+CLUSTER_ENABLED = os.getenv("CLUSTER_ENABLED", "false").lower() in ("1", "true", "yes")
+CLUSTER_ROLE = os.getenv("CLUSTER_ROLE", "solo")  # solo | master | worker
+CLUSTER_MASTER_URL = os.getenv("CLUSTER_MASTER_URL", "")
+CLUSTER_NODE_ID = os.getenv("CLUSTER_NODE_ID", "")  # set by start.sh from hardware.json
+CLUSTER_MASTER_NODE_ID = os.getenv("CLUSTER_MASTER_NODE_ID", "")
+CLUSTER_SWEEP_INTERVAL_S = int(os.getenv("CLUSTER_SWEEP_INTERVAL_S", "5"))
+CLUSTER_HEARTBEAT_TIMEOUT_S = int(os.getenv("CLUSTER_HEARTBEAT_TIMEOUT_S", "15"))
+
 # GPU embedding plugin was removed — the EmbeddingRouter now handles
 # GPU/CPU routing natively via Ollama num_gpu=0 for the CPU path.
 # Legacy stubs kept for backward compatibility with any remaining imports.
