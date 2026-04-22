@@ -173,3 +173,114 @@ def test_resolver_yields_none_for_missing_workload():
                      computed_by="x", node_count=0, fleet_hash="x")
     targets = list(ProxyTargetResolver().resolve("llm_chat", t, local_node_id="me"))
     assert targets == [None]
+
+
+from unittest.mock import patch, MagicMock
+
+
+def test_forwarder_timeout_profiles_exist():
+    from backend.services.cluster_proxy import HttpProxyForwarder
+    f = HttpProxyForwarder()
+    assert f.TIMEOUT_PROFILES["llm_chat"] == (1, 30)
+    assert f.TIMEOUT_PROFILES["video_generation"] == (2, 300)
+    assert f.TIMEOUT_PROFILES["embeddings"] == (1, 20)
+    assert f.TIMEOUT_PROFILES["voice_stt"] == (1, 60)
+
+
+def test_forwarder_strips_hop_by_hop_headers(app):
+    from backend.services.cluster_proxy import HttpProxyForwarder, NodeTarget
+    target = NodeTarget("b", "192.168.1.20", 5002, "k-b")
+    req = MagicMock()
+    req.method = "POST"
+    req.path = "/api/chat/unified"
+    req.headers = {
+        "Content-Type": "application/json",
+        "Connection": "keep-alive",       # hop-by-hop
+        "Transfer-Encoding": "chunked",   # hop-by-hop
+        "Authorization": "Bearer xxx",    # end-to-end — should pass
+        "Host": "original-host.com",      # should be dropped
+    }
+    req.get_data.return_value = b'{"message": "hi"}'
+    req.args = {}
+
+    mock_resp = MagicMock(status_code=200, headers={"Content-Type": "application/json"})
+    mock_resp.iter_content = lambda chunk_size: iter([b"ok"])
+
+    with app.app_context():
+        with patch("requests.request", return_value=mock_resp) as rreq:
+            HttpProxyForwarder().forward(target, "llm_chat", req)
+            sent_headers = rreq.call_args.kwargs["headers"]
+            assert "Connection" not in sent_headers
+            assert "Transfer-Encoding" not in sent_headers
+            assert "Host" not in sent_headers
+            assert sent_headers.get("Authorization") == "Bearer xxx"
+
+
+def test_forwarder_sets_loop_prevention_headers(app, monkeypatch):
+    monkeypatch.setenv("CLUSTER_NODE_ID", "self-id")
+    from backend.services.cluster_proxy import HttpProxyForwarder, NodeTarget
+    target = NodeTarget("b", "192.168.1.20", 5002, "k-b")
+    req = MagicMock()
+    req.method = "POST"; req.path = "/api/chat/unified"; req.args = {}
+    req.headers = {"X-Guaardvark-Hops": "0"}
+    req.get_data.return_value = b"{}"
+
+    mock_resp = MagicMock(status_code=200, headers={})
+    mock_resp.iter_content = lambda chunk_size: iter([b""])
+
+    with app.app_context():
+        with patch("requests.request", return_value=mock_resp) as rreq:
+            HttpProxyForwarder().forward(target, "llm_chat", req)
+            sent = rreq.call_args.kwargs["headers"]
+            assert sent["X-Guaardvark-Proxy"] == "1"
+            assert sent["X-Guaardvark-Hops"] == "1"
+            assert sent["X-Guaardvark-Source-Node"] == "self-id"
+            assert sent["X-Guaardvark-API-Key"] == "k-b"
+
+
+def test_forwarder_increments_hops_from_existing():
+    from backend.services.cluster_proxy import HttpProxyForwarder, NodeTarget
+    target = NodeTarget("c", "h", 5002, "k")
+    req = MagicMock()
+    req.method = "POST"; req.path = "/api/chat/unified"; req.args = {}
+    req.headers = {"X-Guaardvark-Hops": "1"}  # already 1 hop in
+    req.get_data.return_value = b"{}"
+
+    mock_resp = MagicMock(status_code=200, headers={})
+    mock_resp.iter_content = lambda chunk_size: iter([b""])
+
+    with patch("requests.request", return_value=mock_resp) as rreq:
+        HttpProxyForwarder().forward(target, "llm_chat", req)
+        sent = rreq.call_args.kwargs["headers"]
+        assert sent["X-Guaardvark-Hops"] == "2"
+
+
+def test_forwarder_uses_correct_timeout_for_workload():
+    from backend.services.cluster_proxy import HttpProxyForwarder, NodeTarget
+    target = NodeTarget("b", "h", 5002, "k")
+    req = MagicMock()
+    req.method = "POST"; req.path = "/api/batch-video/generate/text"; req.args = {}
+    req.headers = {}
+    req.get_data.return_value = b"{}"
+
+    mock_resp = MagicMock(status_code=200, headers={})
+    mock_resp.iter_content = lambda chunk_size: iter([b""])
+
+    with patch("requests.request", return_value=mock_resp) as rreq:
+        HttpProxyForwarder().forward(target, "video_generation", req)
+        assert rreq.call_args.kwargs["timeout"] == (2, 300)
+
+
+def test_forwarder_raises_on_connection_error(app):
+    import requests as _requests
+    from backend.services.cluster_proxy import HttpProxyForwarder, NodeTarget
+    target = NodeTarget("b", "h", 5002, "k")
+    req = MagicMock()
+    req.method = "POST"; req.path = "/api/chat/unified"; req.args = {}
+    req.headers = {}
+    req.get_data.return_value = b"{}"
+
+    with app.app_context():
+        with patch("requests.request", side_effect=_requests.ConnectionError("refused")):
+            with pytest.raises(_requests.ConnectionError):
+                HttpProxyForwarder().forward(target, "llm_chat", req)

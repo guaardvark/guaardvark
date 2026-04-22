@@ -126,3 +126,72 @@ class ProxyTargetResolver:
         api_key = getattr(node, "api_key", None) or node.node_id
         return NodeTarget(node_id=node.node_id, host=node.host,
                           port=node.port, api_key=api_key)
+
+
+# ---- HTTP forwarder ------------------------------------------------
+
+HOP_BY_HOP_HEADERS = frozenset([
+    "connection", "keep-alive", "proxy-authenticate", "proxy-authorization",
+    "te", "trailers", "transfer-encoding", "upgrade",
+])
+
+
+class HttpProxyForwarder:
+    TIMEOUT_PROFILES: dict[str, tuple[int, int]] = {
+        "llm_chat":         (1, 30),
+        "embeddings":       (1, 20),
+        "rag_search":       (1, 20),
+        "video_generation": (2, 300),
+        "image_generation": (2, 180),
+        "voice_stt":        (1, 60),
+        "voice_tts":        (1, 60),
+    }
+
+    def forward(self, target, workload: str, request):
+        """Forward the Flask `request` to `target` as a remote HTTP call.
+
+        Strips hop-by-hop headers, adds loop-prevention headers, streams the
+        response back. Raises requests.ConnectionError / Timeout on failure
+        so the middleware can iterate to the next fallback.
+        """
+        import os
+        import requests as _rq
+        from flask import Response
+
+        headers = self._sanitize_headers(dict(request.headers), target, request)
+        timeout = self.TIMEOUT_PROFILES.get(workload, (1, 30))
+        url = f"{target.base_url}{request.path}"
+        log.info("[ROUTE] %s → %s (primary) forwarding to %s", workload, target.node_id, url)
+
+        upstream = _rq.request(
+            request.method,
+            url,
+            headers=headers,
+            params=request.args,
+            data=request.get_data(),
+            stream=True,
+            timeout=timeout,
+            allow_redirects=False,
+        )
+
+        resp_headers = {k: v for k, v in upstream.headers.items()
+                        if k.lower() not in HOP_BY_HOP_HEADERS}
+        return Response(
+            upstream.iter_content(chunk_size=8192),
+            status=upstream.status_code,
+            headers=resp_headers,
+        )
+
+    def _sanitize_headers(self, incoming: dict, target, request) -> dict:
+        import os
+        out = {k: v for k, v in incoming.items() if k.lower() not in HOP_BY_HOP_HEADERS}
+        out.pop("Host", None)  # let requests set it
+        try:
+            prev_hops = int(incoming.get("X-Guaardvark-Hops", "0"))
+        except (ValueError, TypeError):
+            prev_hops = 0
+        out["X-Guaardvark-Proxy"] = "1"
+        out["X-Guaardvark-Hops"] = str(prev_hops + 1)
+        out["X-Guaardvark-Source-Node"] = os.environ.get("CLUSTER_NODE_ID", "unknown")
+        out["X-Guaardvark-API-Key"] = target.api_key
+        return out
