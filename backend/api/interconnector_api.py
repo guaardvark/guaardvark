@@ -1528,6 +1528,35 @@ def broadcast_push_to_client(self, broadcast_id: str, node_id: str, payload: Dic
         if resp.status_code == 200:
             target.status = "success"
             target.completed_at = datetime.now()
+
+            # If client reports hardware changed during sync, pull fresh profile
+            # and update our DB row + FleetMap so routing reflects reality.
+            try:
+                resp_json = resp.json()
+            except Exception:
+                resp_json = {}
+
+            if resp_json.get("hardware_profile_updated"):
+                try:
+                    import json as _json
+                    fresh = requests.get(
+                        f"{_build_client_url(node)}/api/node/hardware-profile",
+                        timeout=3,
+                        verify=False,
+                    )
+                    if fresh.status_code == 200:
+                        new_profile = fresh.json()
+                        node.hardware_profile = _json.dumps(new_profile, sort_keys=True)
+                        db.session.flush()
+                        from backend.services.fleet_map import get_fleet_map
+                        get_fleet_map().register(node.node_id, new_profile)
+                        try:
+                            from backend.services.cluster_routing import recompute_and_broadcast
+                            recompute_and_broadcast(reason="hardware_change")
+                        except ImportError:
+                            pass  # Task 14 adds this module
+                except Exception:
+                    pass  # Non-fatal — next sync will retry
         else:
             target.status = "failed"
             target.error_message = f"HTTP {resp.status_code}"
@@ -2722,6 +2751,22 @@ def trigger_manual_sync():
             "sync_duration_ms": sync_duration_ms,
             "timestamp": datetime.now().isoformat(),
         }
+
+        # Client-side: after applying the sync, re-detect hardware. If it changed
+        # since the last snapshot, tell master so it can pull a fresh profile.
+        # Cheap (<200ms); any failure is silently ignored.
+        try:
+            from backend.services.hardware_detector import HardwareDetector
+            import json as _json
+            d = HardwareDetector()
+            profile_path = Path.home() / ".guaardvark" / "hardware.json"
+            prev = d.read_profile(str(profile_path)) or {}
+            curr = d.detect()
+            profile_path.parent.mkdir(exist_ok=True)
+            profile_path.write_text(_json.dumps(curr, indent=2, sort_keys=True))
+            result["hardware_profile_updated"] = bool(d.detect_changes(prev, curr))
+        except Exception:
+            pass  # Leave the flag out on failure; master will check again next sync
 
         return success_response(result, "Synchronization completed")
 

@@ -104,3 +104,45 @@ def test_register_node_seeds_fleet_map(app):
     fm_profile = get_fleet_map().get_profile("seed-node")
     assert fm_profile is not None
     assert fm_profile["gpu"]["vram_mb"] == 8192
+
+
+def test_broadcast_updates_profile_when_client_reports_change(app):
+    """When a client's sync response includes hardware_profile_updated,
+    master pulls fresh profile and updates DB + FleetMap."""
+    from unittest.mock import patch, MagicMock
+    from backend.models import db, InterconnectorNode, InterconnectorBroadcastTarget
+    from backend.services.fleet_map import get_fleet_map
+
+    with app.app_context():
+        node = InterconnectorNode(node_id="push-node", node_name="push-node",
+                                  node_mode="client", host="192.168.1.40",
+                                  port=5002, hardware_profile='{"arch": "x86_64"}')
+        db.session.add(node)
+        # broadcast_push_to_client also queries InterconnectorBroadcastTarget
+        target = InterconnectorBroadcastTarget(broadcast_id="bc-1", node_id="push-node",
+                                               status="pending")
+        db.session.add(target)
+        db.session.commit()
+
+    updated = {"arch": "x86_64", "gpu": {"vendor": "nvidia", "vram_mb": 24576},
+               "services": {"ollama": {"installed": True}}}
+    mock_post = MagicMock(status_code=200)
+    mock_post.json.return_value = {"ok": True, "hardware_profile_updated": True}
+    mock_get = MagicMock(status_code=200)
+    mock_get.json.return_value = updated
+
+    with app.app_context():
+        with patch("requests.post", return_value=mock_post):
+            with patch("requests.get", return_value=mock_get):
+                from backend.api.interconnector_api import broadcast_push_to_client
+                # Celery bind=True task — call .run() to bypass broker entirely
+                broadcast_push_to_client.run("bc-1", "push-node", {"type": "test"})
+
+    with app.app_context():
+        node = InterconnectorNode.query.filter_by(node_id="push-node").first()
+        import json as j
+        profile = j.loads(node.hardware_profile)
+        assert profile.get("gpu", {}).get("vram_mb") == 24576, (
+            f"expected profile update in DB, got {profile}"
+        )
+    assert get_fleet_map().get_profile("push-node")["gpu"]["vram_mb"] == 24576
