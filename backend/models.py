@@ -441,6 +441,9 @@ class Task(db.Model):
     task_handler = db.Column(db.String(100), nullable=True, index=True)
     handler_config = db.Column(db.JSON, nullable=True)
     progress = db.Column(db.Integer, nullable=True, default=0)  # 0-100
+    # Generated output from the task handler — LLM reply, tool output, etc.
+    # Written by unified_task_executor.update_task_result() on successful runs.
+    result = db.Column(db.Text, nullable=True)
     
     # Relationships
     project = db.relationship("Project", backref=db.backref("tasks", lazy="dynamic"))
@@ -498,6 +501,7 @@ class Task(db.Model):
             "task_handler": self.task_handler,
             "handler_config": self.handler_config,
             "progress": self.progress or 0,
+            "result": self.result,
         }
 
 

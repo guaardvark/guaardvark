@@ -857,6 +857,27 @@ try:
             db.create_all()
             app.logger.info("Database tables created/verified successfully.")
 
+            # db.create_all() doesn't ALTER existing tables — it only creates
+            # missing ones. For columns added after the base schema was stamped,
+            # we reconcile them here so legacy databases catch up. Same pattern
+            # as _ensure_document_folder_column() in backup_service.py.
+            try:
+                from sqlalchemy import text as _sa_text
+                existing = db.session.execute(_sa_text(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name = 'tasks' AND column_name = 'result'"
+                )).fetchone()
+                if existing is None:
+                    app.logger.warning("Adding missing tasks.result column (legacy DB)")
+                    db.session.execute(_sa_text("ALTER TABLE tasks ADD COLUMN result TEXT"))
+                    db.session.commit()
+            except Exception as col_err:
+                app.logger.warning(f"Failed to ensure tasks.result column: {col_err}")
+                try:
+                    db.session.rollback()
+                except Exception:
+                    pass
+
             # Create default OS-style folders (Images/, Videos/, Code/) so
             # generated outputs land somewhere DocumentsPage can see them
             try:
