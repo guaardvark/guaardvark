@@ -41,3 +41,22 @@ def test_interconnector_node_has_hardware_profile_and_online(app):
         d = fetched.to_dict()
         assert d["hardware_profile"] == {"arch": "x86_64"}
         assert "capabilities" not in d
+
+
+def test_no_capabilities_references_in_backend():
+    """Regression guard — no production backend code may reference
+    InterconnectorNode.capabilities (removed in Task 1)."""
+    import subprocess
+    result = subprocess.run(
+        ["grep", "-rn", r"\.capabilities", "backend/",
+         "--include=*.py",
+         "--exclude-dir=venv", "--exclude-dir=__pycache__",
+         "--exclude-dir=tests", "--exclude-dir=mcp"],
+        capture_output=True, text=True, cwd="/home/llamax1/LLAMAX8",
+    )
+    offending = [line for line in result.stdout.splitlines()
+                 if ".capabilities" in line]
+    assert not offending, (
+        "Lingering .capabilities references in production backend code:\n"
+        + "\n".join(offending)
+    )

@@ -731,7 +731,7 @@ def register_node():
         data = request.get_json()
         node_name = data.get("node_name")
         node_mode = data.get("node_mode", "client")
-        capabilities = data.get("capabilities", {})
+        hardware_profile = data.get("hardware_profile", {})
         sync_entities = data.get("sync_entities", [])
 
         logger.info(f"[SYNC] Registration data: node_name={node_name}, node_mode={node_mode}, "
@@ -804,7 +804,7 @@ def register_node():
             existing_node.node_mode = node_mode
             existing_node.status = "active"
             existing_node.last_heartbeat = datetime.now()
-            existing_node.capabilities = json.dumps(capabilities)
+            existing_node.hardware_profile = json.dumps(hardware_profile)
             existing_node.sync_entities = json.dumps(sync_entities)
             db.session.commit()
             logger.info(f"[SYNC] Updated existing node registration: {node_id} ({node_name}) from {client_ip}:{port}")
@@ -819,7 +819,7 @@ def register_node():
                 node_mode=node_mode,
                 status="active",
                 last_heartbeat=datetime.now(),
-                capabilities=json.dumps(capabilities),
+                hardware_profile=json.dumps(hardware_profile),
                 sync_entities=json.dumps(sync_entities),
                 registered_at=datetime.now(),
             )
@@ -877,11 +877,11 @@ def node_heartbeat(node_id):
         node.last_heartbeat = datetime.now()
         node.status = "active"
         
-        # Update capabilities if provided
+        # Update hardware_profile if provided
         if request.is_json:
             data = request.get_json()
-            if "capabilities" in data:
-                node.capabilities = json.dumps(data["capabilities"])
+            if "hardware_profile" in data:
+                node.hardware_profile = json.dumps(data["hardware_profile"])
             if "sync_entities" in data:
                 node.sync_entities = json.dumps(data["sync_entities"])
 

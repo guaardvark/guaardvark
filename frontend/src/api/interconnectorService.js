@@ -479,7 +479,7 @@ export const testMasterConnection = async (masterUrl, apiKey) => {
  * @param {string} registrationData.node_name - Name of this node
  * @param {string} registrationData.node_id - Optional node ID (for re-registration)
  * @param {Array<string>} registrationData.sync_entities - Entity types to sync
- * @param {Object} registrationData.capabilities - System capabilities
+ * @param {Object} registrationData.hardware_profile - Structured hardware profile
  */
 export const registerWithMaster = async (masterUrl, apiKey, registrationData) => {
   try {
