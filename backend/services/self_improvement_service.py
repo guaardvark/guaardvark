@@ -71,20 +71,28 @@ class SelfImprovementService:
         self._error_tracker = defaultdict(list)  # fingerprint -> [timestamps]
         self._running = False
         self._current_run = None
+        self._current_run_id = None  # tagged onto every progress event so the UI can pin
         logger.info("SelfImprovementService initialized")
 
     def _emit_progress(self, stage: str, detail: str = "", progress: float = 0.0, **extra):
-        """Emit a self-improvement progress event via SocketIO."""
+        """Emit a self-improvement progress event via SocketIO.
+
+        Auto-tags the current run_id so frontends can filter events to a
+        specific scan — otherwise parallel scans (or stale listeners) would
+        see a smear of unrelated progress lines.
+        """
         try:
             from backend.socketio_instance import socketio
-            socketio.emit("self_improvement_progress", {
+            payload = {
                 "stage": stage,
                 "detail": detail,
                 "progress": progress,
                 "running": self._running,
                 "timestamp": time.time(),
+                "run_id": self._current_run_id,
                 **extra,
-            })
+            }
+            socketio.emit("self_improvement_progress", payload)
         except Exception:
             pass  # Socket may not be available in test mode
 
@@ -146,7 +154,11 @@ class SelfImprovementService:
             )
             db.session.add(run_record)
             db.session.commit()
+            self._current_run_id = run_record.id
 
+            # Re-emit now that we have a run_id so late subscribers still catch it
+            self._emit_progress("starting", "Initializing self-check", 0.05,
+                                trigger=run_record.trigger)
             self._emit_progress("testing", "Running test suite", 0.1)
             root = os.environ.get("GUAARDVARK_ROOT", ".")
             result = subprocess.run(
@@ -238,6 +250,7 @@ class SelfImprovementService:
             return {"success": False, "reason": str(e)}
         finally:
             self._running = False
+            self._current_run_id = None
 
     def _attempt_fix(self, failure: Dict[str, str]) -> Optional[Dict[str, Any]]:
         """Dispatch code_assistant agent to fix a test failure."""

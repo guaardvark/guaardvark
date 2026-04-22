@@ -19,7 +19,7 @@ import {
   Divider,
   Alert,
 } from "@mui/material";
-import DeleteIcon from "@mui/icons-material/Delete";
+import CloseIcon from "@mui/icons-material/Close";
 import AddIcon from "@mui/icons-material/Add";
 import SearchIcon from "@mui/icons-material/Search";
 import MemoryIcon from "@mui/icons-material/Memory";
@@ -206,7 +206,7 @@ const MemoryManagementSection = () => {
                   />
                   <ListItemSecondaryAction>
                     <IconButton edge="end" aria-label="delete" onClick={() => handleDelete(memory.id)} color="error">
-                      <DeleteIcon />
+                      <CloseIcon />
                     </IconButton>
                   </ListItemSecondaryAction>
                 </ListItem>
