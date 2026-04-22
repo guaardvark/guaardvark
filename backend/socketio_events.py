@@ -391,6 +391,136 @@ def emit_swarm_event(event_type: str, task_id: str, data: dict):
     logger.debug(f"Emitted swarm event: {event_type} for {task_id}")
 
 
+# ---- Cluster chat:send bridge (Task 21) ------------------------------------
+
+def _handle_chat_send_local(payload):
+    """Process a chat:send payload on this node — same path as POST /api/chat/unified
+    but entered via Socket.IO (used when the cluster bridge forwards here)."""
+    import threading
+    import uuid
+    from flask import current_app, request as _req
+    from backend.socketio_instance import socketio as _sio
+
+    if not isinstance(payload, dict):
+        return
+    session_id = payload.get("session_id") or str(uuid.uuid4())
+    message = (payload.get("message") or "").strip()
+    image_data = payload.get("image")
+    if not message and not image_data:
+        return
+
+    if not message and image_data:
+        message = "Describe this image."
+
+    options = payload.get("options", {})
+    is_voice_message = bool(payload.get("is_voice_message", False))
+    project_id = payload.get("project_id")
+    if project_id is not None:
+        try:
+            project_id = int(project_id)
+        except (ValueError, TypeError):
+            project_id = None
+
+    # Abort any already-running generation for this session
+    try:
+        from backend.services.unified_chat_engine import set_abort_flag
+        set_abort_flag(session_id)
+    except Exception:
+        pass
+
+    def emit_fn(event, data_payload):
+        data_payload["session_id"] = session_id
+        try:
+            _sio.emit(event, data_payload, room=session_id)
+        except Exception as _e:
+            logger.warning("[BRIDGE-LOCAL] emit %s failed: %s", event, _e)
+
+    app = current_app._get_current_object()
+
+    use_agent_brain = False
+    agent_brain = None
+    engine = None
+    try:
+        from backend.config import AGENT_BRAIN_ENABLED
+        brain_state = getattr(app, "brain_state", None)
+        if AGENT_BRAIN_ENABLED and brain_state and brain_state.is_ready:
+            from backend.services.agent_brain import AgentBrain
+            agent_brain = AgentBrain(state=brain_state)
+            use_agent_brain = True
+    except Exception:
+        pass
+
+    if not use_agent_brain:
+        try:
+            llm = app.config.get("LLAMA_INDEX_LLM")
+            if not llm:
+                from backend.utils.llm_service import get_llm_for_startup
+                llm = get_llm_for_startup()
+                app.config["LLAMA_INDEX_LLM"] = llm
+            from backend.tools.tool_registry_init import initialize_all_tools
+            registry = initialize_all_tools()
+            from backend.services.unified_chat_engine import UnifiedChatEngine
+            engine = UnifiedChatEngine(registry, llm)
+        except Exception as _e:
+            logger.error("[BRIDGE-LOCAL] engine init failed: %s", _e)
+            emit_fn("chat:error", {"error": "LLM not available"})
+            return
+
+    def _run():
+        try:
+            if use_agent_brain:
+                agent_brain.process(
+                    session_id=session_id, message=message,
+                    options=options, emit_fn=emit_fn, app=app,
+                    project_id=project_id, image_data=image_data,
+                )
+            else:
+                engine.chat(session_id, message, options, emit_fn, app=app,
+                            project_id=project_id, image_data=image_data,
+                            is_voice_message=is_voice_message)
+        except Exception as _e:
+            logger.error("[BRIDGE-LOCAL] engine error: %s", _e, exc_info=True)
+            emit_fn("chat:error", {"error": str(_e)})
+
+    threading.Thread(target=_run, daemon=True, name=f"bridge-chat-{session_id[:8]}").start()
+
+
+@socketio.on("chat:send")
+def handle_chat_send(payload):
+    """Cluster-aware chat:send. Routes to a remote primary if cluster routing
+    says so; falls through to local engine otherwise."""
+    try:
+        from flask import current_app, request as _req
+        import os as _os
+        if current_app.config.get("CLUSTER_ENABLED", False):
+            from backend.services.cluster_routing import get_routing_store
+            from backend.services.fleet_map import get_fleet_map
+            from backend.services.cluster_socketio_bridge import SocketIOBridgeRegistry
+            from backend.services.cluster_proxy import NodeTarget
+            from backend.models import InterconnectorNode
+            store = get_routing_store()
+            table = store.get()
+            if table is not None:
+                model_name = (payload or {}).get("model") if isinstance(payload, dict) else None
+                route = store.route_for_chat(model_name, fleet=get_fleet_map())
+                local_id = _os.environ.get("CLUSTER_NODE_ID", "unknown")
+                if (route is not None and route.primary is not None
+                        and route.primary != local_id):
+                    node = InterconnectorNode.query.filter_by(
+                        node_id=route.primary).first()
+                    if node is not None and node.online:
+                        api_key = getattr(node, "api_key", None) or node.node_id
+                        target = NodeTarget(node_id=node.node_id, host=node.host,
+                                            port=node.port, api_key=api_key)
+                        bridge = SocketIOBridgeRegistry.get_or_create(_req.sid, target)
+                        bridge.forward_send(payload)
+                        return
+    except Exception as _e:
+        logger.warning("[BRIDGE] cluster routing failed, handling locally: %s", _e)
+    # Fall through to local handling
+    _handle_chat_send_local(payload)
+
+
 # ---- Cluster-foundation handlers (Task 14) ---------------------------------
 
 def _cluster_auth_check(auth):
@@ -469,3 +599,14 @@ def handle_cluster_routing_table(data):
                      data.get("computed_by"), table.fleet_hash)
     except (KeyError, ValueError, TypeError) as e:
         _logger.warning("[CLUSTER] malformed routing_table payload: %s", e)
+
+
+@socketio.on("disconnect")
+def handle_disconnect():
+    """Clean up any open cluster bridge when a client disconnects."""
+    from flask import request
+    try:
+        from backend.services.cluster_socketio_bridge import SocketIOBridgeRegistry
+        SocketIOBridgeRegistry.close_for_session(request.sid)
+    except Exception:
+        pass
