@@ -1360,6 +1360,22 @@ vader_info "Deactivating venv for now."
 deactivate
 cd "$SCRIPT_DIR"
 
+# ---- cluster: hardware profile ------------------------------------------
+# Refresh ~/.guaardvark/hardware.json on every boot so the Interconnector has
+# a current picture of this box. Cluster routing is off by default; this
+# profile is harmless in solo mode (just a file on disk).
+ensure_hardware_profile() {
+    mkdir -p "$HOME/.guaardvark"
+    if [ -d "$SCRIPT_DIR/backend/venv" ]; then
+        (cd "$SCRIPT_DIR" && "$SCRIPT_DIR/backend/venv/bin/python" -m backend.services.hardware_detector \
+            --output "$HOME/.guaardvark/hardware.json") 2>&1 | sed 's/^/[hardware] /' || \
+            echo "[hardware] WARN: hardware_detector failed (non-fatal)"
+    else
+        echo "[hardware] WARN: backend venv missing; skipping hardware profile"
+    fi
+}
+ensure_hardware_profile
+
 vader_info "Setting up frontend..."
 cd "$FRONTEND_DIR" || { vader_error "Failed to cd to $FRONTEND_DIR"; exit 1; }
 
