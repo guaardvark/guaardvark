@@ -1287,7 +1287,12 @@ class InterconnectorNode(db.Model):
     node_mode = db.Column(db.String(50), nullable=False)  # master/client
     status = db.Column(db.String(50), nullable=False, default="active")  # active/inactive/disconnected
     last_heartbeat = db.Column(db.DateTime(), nullable=True)
-    capabilities = db.Column(db.Text(), nullable=True)  # JSON: cpu_cores, memory_mb, disk_space_gb, gpu_available
+    # Structured hardware profile (hardware.json contents). Replaces the old
+    # `capabilities` minimal blob. See plans/2026-04-21-cluster-foundation-*.md.
+    hardware_profile = db.Column(db.Text(), nullable=False, server_default="{}", default="{}")
+    # Flipped by the heartbeat sweeper (cluster_heartbeat_sweeper.py, added in Task 13) when
+    # last_heartbeat goes stale. Routing excludes offline nodes.
+    online = db.Column(db.Boolean(), nullable=False, server_default=db.true(), default=True)
     sync_entities = db.Column(db.Text(), nullable=True)  # JSON array
     registered_at = db.Column(db.DateTime(), default=lambda: datetime.now())
     last_sync_time = db.Column(db.DateTime(), nullable=True)
@@ -1310,7 +1315,8 @@ class InterconnectorNode(db.Model):
             "node_mode": self.node_mode,
             "status": self.status,
             "last_heartbeat": self.last_heartbeat.isoformat() if self.last_heartbeat else None,
-            "capabilities": json.loads(self.capabilities) if self.capabilities else {},
+            "hardware_profile": json.loads(self.hardware_profile) if self.hardware_profile else {},
+            "online": self.online,
             "sync_entities": json.loads(self.sync_entities) if self.sync_entities else [],
             "registered_at": self.registered_at.isoformat() if self.registered_at else None,
             "last_sync_time": self.last_sync_time.isoformat() if self.last_sync_time else None,
