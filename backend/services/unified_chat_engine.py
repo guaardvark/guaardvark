@@ -83,7 +83,17 @@ def is_conversational(message: str) -> bool:
 
 
 # Tool categories for smart selection
-CORE_TOOLS = ["web_search", "search_knowledge_base", "system_command", "generate_file"]
+# Tools the agent always has on its belt. Memory tools live here so long-term
+# recall is always one tool call away instead of quietly unreachable.
+CORE_TOOLS = [
+    "web_search",
+    "search_knowledge_base",
+    "system_command",
+    "generate_file",
+    "save_memory",
+    "search_memory",
+    "delete_memory",
+]
 BROWSER_TOOLS = ["browser_navigate", "browser_click", "browser_fill", "browser_screenshot",
                  "browser_extract", "browser_wait", "browser_execute_js", "browser_get_html"]
 CODE_TOOLS = ["codegen", "analyze_code", "generate_csv", "generate_bulk_csv"]
@@ -230,7 +240,17 @@ class SemanticToolSelector:
     """
 
     # Tools that are always included regardless of similarity score.
-    CORE_TOOLS = {"web_search", "search_knowledge_base", "system_command", "generate_file"}
+    # Memory tools ride along so the agent can save/search/delete memories
+    # without the selector deciding they "aren't relevant to this query."
+    CORE_TOOLS = {
+        "web_search",
+        "search_knowledge_base",
+        "system_command",
+        "generate_file",
+        "save_memory",
+        "search_memory",
+        "delete_memory",
+    }
 
     def __init__(self):
         self._tool_embeddings: Dict[str, List[float]] = {}
