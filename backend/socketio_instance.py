@@ -20,14 +20,31 @@ else:
         "http://127.0.0.1:3000",  # Alternative localhost
     ]
 
-# Configure SocketIO with memory leak prevention
-socketio = SocketIO(
-    cors_allowed_origins=allowed_origins,
-    ping_timeout=60,  # 60 second ping timeout
-    ping_interval=25,  # 25 second ping interval
-    max_http_buffer_size=1024 * 1024,  # 1MB max buffer size
-    async_mode='threading',  # Use threading for better memory management
-    logger=False,  # Disabled to prevent log flooding
-    engineio_logger=False  # Disabled to prevent log flooding
+# Redis-backed message queue — lets emits from Celery workers reach clients
+# connected to the main Flask process. Without this, `socketio.emit()` from
+# outside the Flask server process just disappears into the void.
+# Falls back to CELERY_BROKER_URL since we're already running Redis for Celery.
+_message_queue = (
+    os.getenv("SOCKETIO_MESSAGE_QUEUE")
+    or os.getenv("CELERY_BROKER_URL")
+    or os.getenv("REDIS_URL")
 )
-logger = logging.getLogger(__name__) 
+
+_socketio_kwargs = {
+    "cors_allowed_origins": allowed_origins,
+    "ping_timeout": 60,
+    "ping_interval": 25,
+    "max_http_buffer_size": 1024 * 1024,
+    "async_mode": "threading",
+    "logger": False,
+    "engineio_logger": False,
+}
+if _message_queue:
+    _socketio_kwargs["message_queue"] = _message_queue
+
+socketio = SocketIO(**_socketio_kwargs)
+logger = logging.getLogger(__name__)
+if _message_queue:
+    logger.info("SocketIO message queue wired to Redis (cross-process emits enabled)")
+else:
+    logger.warning("SocketIO has no message queue — emits from Celery workers will be dropped")
