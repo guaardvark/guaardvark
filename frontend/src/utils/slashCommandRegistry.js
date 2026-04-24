@@ -52,6 +52,15 @@ const BUILT_IN_COMMANDS = [
     ruleId: null,
   },
   {
+    name: "/training",
+    description: "Run the agent in training mode — full 1000-iteration loop, bypasses chat LLM decomposition",
+    usage: "/training <task>",
+    category: "agent",
+    args: "required",
+    handler: "builtin",
+    ruleId: null,
+  },
+  {
     name: "/voice",
     description: "Toggle voice chat on/off",
     usage: "/voice",

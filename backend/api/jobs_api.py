@@ -239,10 +239,37 @@ def get_active_jobs_route():
         # Merge training jobs into active jobs
         all_active_jobs = active_jobs + training_jobs_in_progress
         stuck_jobs = detect_stuck_jobs(all_active_jobs, active_celery_tasks)
-        
-        # Log stuck jobs for monitoring
+
+        # Log stuck jobs for monitoring — but only when the SET changes.
+        # This endpoint is polled every ~30s by the dashboard; without dedup it
+        # produces 120 identical WARNING lines per hour saying the same thing.
+        # Track the set of stuck job_ids across calls and only re-log when new
+        # jobs enter the stuck set or old ones are resolved.
         if stuck_jobs:
-            logger.warning(f"Detected {len(stuck_jobs)} stuck jobs: {[job.get('job_id', 'unknown') for job in stuck_jobs]}")
+            current_stuck_ids = frozenset(
+                job.get('job_id') for job in stuck_jobs if job.get('job_id')
+            )
+            previous_stuck_ids = getattr(detect_stuck_jobs, '_last_warned_ids', frozenset())
+            if current_stuck_ids != previous_stuck_ids:
+                newly_stuck = current_stuck_ids - previous_stuck_ids
+                resolved = previous_stuck_ids - current_stuck_ids
+                if newly_stuck:
+                    logger.warning(
+                        f"Stuck jobs detected (now {len(current_stuck_ids)} total): {sorted(newly_stuck)}"
+                    )
+                if resolved:
+                    logger.info(f"Previously-stuck jobs resolved: {sorted(resolved)}")
+                detect_stuck_jobs._last_warned_ids = current_stuck_ids
+            else:
+                # Same set as last time — downgrade to debug so it doesn't spam the log.
+                logger.debug(
+                    f"Still {len(current_stuck_ids)} stuck jobs (unchanged): {sorted(current_stuck_ids)}"
+                )
+        else:
+            # No stuck jobs — reset the tracker so if any come back we log cleanly.
+            if getattr(detect_stuck_jobs, '_last_warned_ids', None):
+                logger.info("All previously-stuck jobs are now clear.")
+                detect_stuck_jobs._last_warned_ids = frozenset()
             
         # Filter stuck jobs out of active_jobs so they don't block the UI
         stuck_ids = {job.get('job_id') for job in stuck_jobs if job.get('job_id')}

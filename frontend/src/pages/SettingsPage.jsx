@@ -121,6 +121,10 @@ const WEB_SEARCH_ENABLED_KEY = "guaardvark_webSearchEnabled";
 const ADV_DEBUG_ENABLED_KEY = "guaardvark_advDebugEnabled";
 const BEHAVIOR_LEARNING_ENABLED_KEY = "guaardvark_behaviorLearningEnabled";
 const LLM_DEBUG_ENABLED_KEY = "guaardvark_llmDebugEnabled";
+// Global "use RulesPage rules for chat" toggle. Backend is the source of
+// truth (Setting table, key=rules_enabled); this localStorage mirror only
+// speeds first paint before the API round-trip lands.
+const RULES_ENABLED_KEY = "guaardvark_rulesEnabled";
 // Used by ChatPage to enable backend agent routing integration
 const AGENT_ROUTING_ENABLED_KEY = "use_agent_routing";
 // Used by ChatPage to enable unified agentic chat (LLM with tool access)
@@ -162,6 +166,7 @@ const SettingsPage = () => {
   const [behaviorLearningEnabled, setBehaviorLearningEnabled] = useState(
     getInitialBehaviorLearning,
   );
+  const [rulesEnabled, setRulesEnabledState] = useState(getInitialRulesEnabled);
   const [appVersion, setAppVersion] = useState("");
 
   function getInitialWebSearch() {
@@ -188,6 +193,14 @@ const SettingsPage = () => {
     try {
       const saved = localStorage.getItem(BEHAVIOR_LEARNING_ENABLED_KEY);
       return saved === "true";
+    } catch {
+      return false;
+    }
+  }
+  function getInitialRulesEnabled() {
+    if (typeof window === "undefined") return false;
+    try {
+      return localStorage.getItem(RULES_ENABLED_KEY) === "true";
     } catch {
       return false;
     }
@@ -927,6 +940,26 @@ const SettingsPage = () => {
       }
     };
     fetchLlmDebug();
+  }, []);
+
+  useEffect(() => {
+    const fetchRulesEnabled = async () => {
+      try {
+        const result = await apiService.getRulesEnabled();
+        const enabled = result?.data?.rules_enabled ?? result?.rules_enabled;
+        if (typeof enabled === "boolean") {
+          setRulesEnabledState(enabled);
+          try {
+            localStorage.setItem(RULES_ENABLED_KEY, String(enabled));
+          } catch {
+            // localStorage may be unavailable; the backend remains authoritative
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to fetch rules_enabled setting:", err);
+      }
+    };
+    fetchRulesEnabled();
   }, []);
 
   useEffect(() => {
@@ -2643,6 +2676,53 @@ const SettingsPage = () => {
                 <Button variant="outlined" size="small" onClick={() => setAgentsModalOpen(true)}>
                   Open
                 </Button>
+              </SettingsRow>
+              <SettingsRow label="Rules">
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Chip
+                    label={rulesEnabled ? "On" : "Off"}
+                    onClick={async () => {
+                      const next = !rulesEnabled;
+                      // Optimistic UI + localStorage mirror; roll back on failure.
+                      setRulesEnabledState(next);
+                      try {
+                        localStorage.setItem(RULES_ENABLED_KEY, String(next));
+                      } catch {
+                        // non-fatal
+                      }
+                      try {
+                        const result = await apiService.setRulesEnabled(next);
+                        if (result?.error) throw new Error(result.error);
+                        showMessage(
+                          next
+                            ? "Rules enabled — RulesPage active rules will apply"
+                            : "Rules disabled — chat will use the hardcoded prompt",
+                          "info",
+                        );
+                      } catch (err) {
+                        console.error("Failed to update rules_enabled:", err);
+                        setRulesEnabledState(!next);
+                        try {
+                          localStorage.setItem(RULES_ENABLED_KEY, String(!next));
+                        } catch {
+                          // non-fatal
+                        }
+                        showMessage("Failed to update Rules setting", "error");
+                      }
+                    }}
+                    size="small"
+                    color={rulesEnabled ? "primary" : "default"}
+                    variant={rulesEnabled ? "filled" : "outlined"}
+                  />
+                  <Typography
+                    component="button"
+                    variant="body2"
+                    onClick={() => navigate("/rules")}
+                    sx={{ background: "none", border: "none", cursor: "pointer", color: "primary.main", textDecoration: "underline" }}
+                  >
+                    Manage
+                  </Typography>
+                </Box>
               </SettingsRow>
           </SettingsCardWrapper>
 

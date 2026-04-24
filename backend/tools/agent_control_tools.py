@@ -109,9 +109,15 @@ class AgentTaskExecuteTool(BaseTool):
             service = get_agent_control_service()
             screen = LocalScreenBackend()
 
-            # Auto-detect training mode — keeps the agent clicking instead of stopping after one hit
+            # Auto-detect training mode — keeps the agent clicking instead of stopping after one hit.
+            # "trainer" catches "Comments Trainer"/"Vision Trainer"; "keep going" + "don't stop"
+            # let the user explicitly flag a long-running session without ceremony.
             import re as _re
-            training_mode = bool(_re.search(r'\b(?:training|practice|keep clicking|vision trainer)\b', task, _re.IGNORECASE))
+            training_mode = bool(_re.search(
+                r"\b(?:training|trainer|practice|keep clicking|keep going|don'?t stop|vision trainer)\b",
+                task,
+                _re.IGNORECASE,
+            ))
             result = service.execute_task(task, screen, training_mode=training_mode)
 
             # Post-task analysis: quick snapshot of what the screen shows now.

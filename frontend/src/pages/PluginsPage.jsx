@@ -439,7 +439,13 @@ const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
             control={
               <Switch
                 checked={plugin.status === 'running'}
-                onChange={() => handleAction(plugin.status === 'running' ? 'stop' : 'start')}
+                // The plugin toggle is on/off from the user's perspective — "off"
+                // must persist across restarts. 'disable' stops the service AND
+                // flips enabled=false in plugin.json; 'stop' only stops, which is
+                // why the plugin was auto-restarting every boot (see start.sh:1776
+                // — it reads plugin.json's enabled flag). 'start' already auto-
+                // enables on its side (see handlePluginAction below).
+                onChange={() => handleAction(plugin.status === 'running' ? 'disable' : 'start')}
                 disabled={
                   isLoading
                   || plugin.status === 'starting'

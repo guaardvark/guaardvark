@@ -4,7 +4,7 @@ import React, { useRef, useEffect, useImperativeHandle, forwardRef } from "react
 import { Box } from "@mui/material";
 import MessageItem from "./MessageItem";
 
-const MessageList = forwardRef(({ messages }, ref) => {
+const MessageList = forwardRef(({ messages, sessionId }, ref) => {
   const scrollRef = useRef(null);
   const safeMessages = Array.isArray(messages) ? messages : [];
 
@@ -57,7 +57,7 @@ const MessageList = forwardRef(({ messages }, ref) => {
       }}
     >
       {safeMessages.map((msg, index) => (
-        <MessageItem key={msg.id || `msg-${index}`} message={msg} />
+        <MessageItem key={msg.id || `msg-${index}`} message={msg} sessionId={sessionId} />
       ))}
     </Box>
   );

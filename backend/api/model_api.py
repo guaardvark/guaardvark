@@ -470,10 +470,13 @@ def get_resources():
         pass
 
     gpu_used = gpu_total - gpu_free
-    logger.info("RESOURCES: nvidia-smi done, calling get_loaded_models...")
+    # All RESOURCES: trace lines downgraded to DEBUG — this endpoint is
+    # polled every ~15s by the dashboard and was producing ~7 INFO lines
+    # per poll with no actionable content.
+    logger.debug("RESOURCES: nvidia-smi done, calling get_loaded_models...")
 
     loaded = get_loaded_models()
-    logger.info("RESOURCES: get_loaded_models done, %d models", len(loaded))
+    logger.debug("RESOURCES: get_loaded_models done, %d models", len(loaded))
     loaded_summary = [
         {
             "name": m.get("name", "unknown"),
@@ -483,22 +486,24 @@ def get_resources():
         for m in loaded
     ]
 
-    logger.info("RESOURCES: building loaded_summary...")
+    logger.debug("RESOURCES: building loaded_summary...")
     # Embedding model name — read from DB if available
     embed_model_name = None
     try:
         if db and Setting:
-            logger.info("RESOURCES: querying DB for embedding model...")
+            logger.debug("RESOURCES: querying DB for embedding model...")
             setting = db.session.get(Setting, "active_embedding_model")
             if setting and setting.value:
                 embed_model_name = setting.value
-            logger.info("RESOURCES: DB query done, model=%s", embed_model_name)
+            logger.debug("RESOURCES: DB query done, model=%s", embed_model_name)
     except Exception as e:
-        logger.info("RESOURCES: DB query failed: %s", e)
+        logger.debug("RESOURCES: DB query failed: %s", e)
 
-    # Router stats — read cached state only (no lazy init)
+    # Router stats — read cached state only (no lazy init). Downgraded from
+    # INFO to DEBUG because this endpoint is polled every ~15s by the dashboard
+    # and seven INFO lines per poll was drowning the log.
     router_stats = None
-    logger.info("RESOURCES: checking router...")
+    logger.debug("RESOURCES: checking router...")
     try:
         from backend.utils.embedding_router import _embedding_router
         if _embedding_router is not None and _embedding_router._initialized:
@@ -514,6 +519,7 @@ def get_resources():
             }
     except Exception:
         pass
+    logger.debug("RESOURCES: router check done (stats=%s)", "present" if router_stats else "none")
 
     return success_response("Resources retrieved", {
         "gpu": {
@@ -939,9 +945,28 @@ def _switch_model_background(app, new_model_name: str):
                 "message": f"Warming up {new_model_name} (this may take a moment)..."
             }, namespace="/")
 
-            # Test the model — this triggers Ollama to actually load it into VRAM
-            new_llm.complete("Hello")
-            logger.info(f"Successfully created and tested Ollama instance for {new_model_name}")
+            # Force Ollama to load the model and generate one token.
+            # Using raw /api/generate bypasses the llama_index/ollama-python/httpx
+            # stack (whose default timeouts silently failed on slow hardware) and
+            # uses Ollama's canonical warmup primitive. 15-min read timeout covers
+            # worst-case cold load on pre-AVX2 CPUs with spinning disks.
+            warmup_resp = requests.post(
+                f"{OLLAMA_BASE_URL}/api/generate",
+                json={
+                    "model": new_model_name,
+                    "prompt": "ok",
+                    "stream": False,
+                    "options": {"num_predict": 1},
+                    "keep_alive": "30m",
+                },
+                timeout=(10.0, 900.0),
+            )
+            warmup_resp.raise_for_status()
+            load_ns = warmup_resp.json().get("load_duration", 0) or 0
+            logger.info(
+                f"Successfully warmed Ollama for {new_model_name} "
+                f"(load={load_ns // 1_000_000_000}s)"
+            )
 
             # --- New model confirmed working — NOW unload the old one ---
             if old_model_name and old_model_name.lower() != new_model_name.lower():
@@ -1040,40 +1065,13 @@ def _switch_model_background(app, new_model_name: str):
         except Exception as e:
             logger.error(f"Background model switch failed: {e}", exc_info=True)
 
-            # Old model was never unloaded (load-first strategy), so it should still
-            # be available. Only attempt rollback if we somehow lost it.
-            if old_model_name and old_model_name.lower() != new_model_name.lower():
-                current_llm = current_app.config.get("LLAMA_INDEX_LLM")
-                current_model = getattr(current_llm, "model", None) if current_llm else None
-                if current_model != old_model_name:
-                    logger.info(f"Attempting rollback to previous model: {old_model_name}")
-                    socketio.emit("model_switch", {
-                        "status": "loading",
-                        "model": new_model_name,
-                        "message": f"Failed — rolling back to {old_model_name}..."
-                    }, namespace="/")
-                    # Retry with brief waits in case Ollama is recovering
-                    for attempt in range(3):
-                        try:
-                            rollback_llm = Ollama(
-                                model=old_model_name,
-                                base_url=OLLAMA_BASE_URL,
-                                request_timeout=300.0,
-                                temperature=0.4,
-                                context_window=8192,
-                                additional_kwargs={"num_ctx": 8192, "top_p": 0.8, "top_k": 30}
-                            )
-                            rollback_llm.complete("Hello")
-                            Settings.llm = rollback_llm
-                            current_app.config["LLAMA_INDEX_LLM"] = rollback_llm
-                            logger.info(f"Rollback to {old_model_name} succeeded (attempt {attempt + 1})")
-                            break
-                        except Exception as rollback_err:
-                            if attempt < 2:
-                                logger.warning(f"Rollback attempt {attempt + 1} failed: {rollback_err}, retrying...")
-                                time.sleep(3)
-                            else:
-                                logger.error(f"Rollback to {old_model_name} failed after 3 attempts: {rollback_err}")
+            # No rollback retry loop. The warmup probe fails BEFORE Settings.llm is
+            # reassigned (line 958 runs only after warmup succeeds), so the old
+            # model is still bound and usable. The previous 3-attempt rollback
+            # retried rollback_llm.complete("Hello") with a 300s timeout each — on
+            # slow hardware that produced up to 15 min of background hang and
+            # silently reverted the user's chosen model. Surface the failure
+            # instead and let the user decide.
 
             socketio.emit("model_switch", {
                 "status": "error",

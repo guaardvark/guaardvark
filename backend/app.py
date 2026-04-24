@@ -42,8 +42,53 @@ except Exception:
 
 import json
 import logging
+import warnings
 from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
+
+# ── Silence known-cosmetic dev-only log noise ─────────────────────────────
+# These run at module import so they're in place before any request fires.
+#
+#  1. pydub SyntaxWarnings — invalid escape sequences in the library's own
+#     regex patterns. They're the library's problem, not ours; silence the
+#     noise so voice processing doesn't emit 4 warnings per first-use.
+warnings.filterwarnings("ignore", category=SyntaxWarning, module=r"pydub\..*")
+
+#  2. JAX "TPU not found" + "CUDA-enabled jaxlib not installed" warnings.
+#     JAX gets pulled transitively (llama-index retrievers → some tokenizer)
+#     and logs these on first chat. We don't use JAX; suppress.
+class _JaxBackendNoiseFilter(logging.Filter):
+    def filter(self, record):
+        msg = record.getMessage()
+        return not (
+            "Unable to initialize backend 'tpu'" in msg
+            or "CUDA-enabled jaxlib is not installed" in msg
+        )
+logging.getLogger("jax._src.xla_bridge").addFilter(_JaxBackendNoiseFilter())
+
+#  3. Werkzeug "write() before start_response" AssertionError — dev-server-
+#     only artifact (gunicorn doesn't have this check). Happens when a WSGI
+#     handler finalizes without calling start_response — usually streaming
+#     generators that error before yield. Fires as ERROR via the werkzeug
+#     logger with exc_info. Downgrade to DEBUG so it stays diagnosable
+#     without spamming the main log.
+class _SilenceWriteBeforeStartResponse(logging.Filter):
+    def filter(self, record):
+        try:
+            if record.exc_info and record.exc_info[1]:
+                if "write() before start_response" in str(record.exc_info[1]):
+                    # Still capture a one-line trace under a dedicated logger
+                    # so we can re-enable it for deeper debugging later.
+                    logging.getLogger("guaardvark.dev_noise").debug(
+                        "Suppressed werkzeug write() before start_response on %s",
+                        getattr(record, "args", None) or "<unknown request>",
+                    )
+                    return False  # suppress the ERROR-level werkzeug emission
+        except Exception:
+            pass
+        return True
+logging.getLogger("werkzeug").addFilter(_SilenceWriteBeforeStartResponse())
+# ──────────────────────────────────────────────────────────────────────────
 
 import click
 import requests

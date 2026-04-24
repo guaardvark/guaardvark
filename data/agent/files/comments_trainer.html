@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Guaardvark Comments Trainer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: Arial, sans-serif;
+    background: #0f0f0f;
+    color: #e6e6e6;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ===== Top nav bar ===== */
+  #nav {
+    height: 52px;
+    background: #181818;
+    border-bottom: 1px solid #2a2a2a;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 16px;
+  }
+  #logo {
+    font-size: 20px;
+    font-weight: 800;
+    color: #ff6666;
+    user-select: none;
+    letter-spacing: -0.5px;
+  }
+  #logo::before { content: "▶ "; color: #ff3333; }
+  #search-wrap {
+    flex: 1;
+    max-width: 640px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    height: 36px;
+    background: #121212;
+    border: 1px solid #303030;
+    border-radius: 18px;
+    overflow: hidden;
+  }
+  #search-wrap.focus { border-color: #4d88ff; }
+  #search-input {
+    flex: 1;
+    height: 100%;
+    padding: 0 14px;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #fff;
+    font-size: 15px;
+  }
+  #search-submit {
+    width: 56px;
+    height: 100%;
+    background: #222;
+    border: none;
+    border-left: 1px solid #303030;
+    color: #e0e0e0;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  #search-submit:hover { background: #2d2d2d; }
+  .nav-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .icon-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: #222;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+    position: relative;
+  }
+  .icon-btn:hover { background: #2d2d2d; }
+  .notif-dot {
+    position: absolute;
+    top: 4px; right: 4px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #ff3333;
+  }
+  #profile {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4d88ff, #9c4dff);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: bold;
+    cursor: pointer;
+  }
+
+  /* ===== Task banner ===== */
+  #banner {
+    height: 48px;
+    background: #1a1a2e;
+    color: #e0e0e0;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    font-size: 15px;
+    border-bottom: 1px solid #2a2a4a;
+  }
+  #task-label { font-weight: bold; color: #4caf50; margin-right: 10px; }
+  #task-text { flex: 1; }
+  #stats {
+    display: flex;
+    gap: 16px;
+    font-size: 13px;
+  }
+  #stats span b { font-weight: bold; }
+  .s-hit { color: #4caf50; }
+  .s-miss { color: #f44336; }
+  .s-task { color: #4d88ff; }
+  .s-acc { color: #ffb74d; }
+  #banner.done { background: #1b3a1b; }
+
+  /* ===== Main content area ===== */
+  #main {
+    height: calc(100% - 52px - 48px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+  }
+  .view { display: none; padding: 16px; }
+  .view.active { display: block; }
+
+  /* ===== Video grid (View A + View C) ===== */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .card {
+    background: #181818;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  .card:hover { transform: scale(1.01); background: #1e1e1e; }
+  .thumb {
+    width: 100%;
+    height: 150px;
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+    font-size: 28px;
+    font-weight: bold;
+    user-select: none;
+  }
+  .dur {
+    position: absolute;
+    bottom: 6px; right: 6px;
+    background: rgba(0,0,0,0.85);
+    color: #fff;
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-size: 11px;
+  }
+  .badge {
+    position: absolute;
+    top: 6px; left: 6px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+  }
+  .badge.live { background: #ff3333; color: #fff; }
+  .badge.cc { background: #333; color: #fff; }
+  .badge.short { background: #ff1744; color: #fff; }
+  .card .meta { padding: 10px 12px; }
+  .card .title {
+    font-size: 13px;
+    font-weight: bold;
+    color: #fff;
+    line-height: 1.3;
+    margin-bottom: 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .card .sub {
+    font-size: 11px;
+    color: #888;
+  }
+  .thumb.gradient-a { background: linear-gradient(135deg, #ff6b6b, #ee0979); }
+  .thumb.gradient-b { background: linear-gradient(135deg, #4d88ff, #6a3093); }
+  .thumb.gradient-c { background: linear-gradient(135deg, #11998e, #38ef7d); }
+  .thumb.gradient-d { background: linear-gradient(135deg, #f093fb, #f5576c); }
+  .thumb.gradient-e { background: linear-gradient(135deg, #fa709a, #fee140); }
+  .thumb.gradient-f { background: linear-gradient(135deg, #30cfd0, #330867); }
+  .thumb .waveform {
+    display: flex; align-items: center; gap: 2px; height: 40px;
+  }
+  .thumb .waveform div {
+    width: 3px; background: rgba(255,255,255,0.85);
+  }
+
+  /* ===== Detail view (View B) ===== */
+  #back-link {
+    color: #4d88ff;
+    font-size: 14px;
+    cursor: pointer;
+    display: inline-block;
+    margin-bottom: 14px;
+    padding: 4px 8px;
+    border-radius: 4px;
+  }
+  #back-link:hover { background: #1a1a2e; text-decoration: underline; }
+  #player {
+    width: 100%;
+    height: 260px;
+    background: #000;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    margin-bottom: 12px;
+  }
+  #play-btn {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+    font-size: 28px;
+    cursor: pointer;
+  }
+  #play-btn:hover { background: rgba(255,255,255,0.35); }
+  #video-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: #fff;
+    margin-bottom: 8px;
+  }
+  #channel-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #222;
+    margin-bottom: 10px;
+  }
+  #channel-avatar {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #11998e, #38ef7d);
+  }
+  #channel-name {
+    flex: 1;
+    font-size: 13px;
+    color: #fff;
+  }
+  #channel-name .subs { color: #888; font-size: 11px; display: block; }
+  #subscribe {
+    background: #cc0000;
+    color: #fff;
+    border: none;
+    padding: 7px 14px;
+    border-radius: 18px;
+    font-weight: bold;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  #subscribe:hover { background: #aa0000; }
+  #action-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .action {
+    background: #222;
+    color: #e0e0e0;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 16px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .action:hover { background: #2d2d2d; }
+  .action.active { background: #4d88ff; color: #fff; }
+
+  #comments-header {
+    font-size: 15px;
+    font-weight: bold;
+    color: #fff;
+    margin-bottom: 10px;
+  }
+  #comment-field-wrap {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #222;
+  }
+  #user-avatar {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4d88ff, #9c4dff);
+    flex-shrink: 0;
+  }
+  #comment-input-area { flex: 1; }
+  #comment-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #444;
+    color: #fff;
+    font-size: 13px;
+    padding: 6px 2px;
+    outline: none;
+  }
+  #comment-input:focus { border-bottom-color: #4d88ff; }
+  #comment-input::placeholder { color: #888; }
+  #comment-btn-row {
+    display: none;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  #comment-btn-row.visible { display: flex; }
+  #comment-cancel, #comment-submit {
+    border: none;
+    padding: 7px 14px;
+    border-radius: 16px;
+    font-weight: bold;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  #comment-cancel {
+    background: transparent;
+    color: #ccc;
+  }
+  #comment-cancel:hover { background: #222; }
+  #comment-submit {
+    background: #065fd4;
+    color: #fff;
+  }
+  #comment-submit:hover { background: #0a4bb0; }
+  #comment-submit:disabled {
+    background: #2d2d2d;
+    color: #555;
+    cursor: not-allowed;
+  }
+
+  .comment {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .c-avatar {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .c-body { flex: 1; }
+  .c-user {
+    font-size: 12px;
+    font-weight: bold;
+    color: #e0e0e0;
+    margin-bottom: 2px;
+  }
+  .c-user .time { color: #888; font-weight: normal; margin-left: 6px; font-size: 11px; }
+  .c-text { font-size: 13px; color: #ddd; line-height: 1.4; margin-bottom: 5px; }
+  .c-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 11px;
+    color: #aaa;
+  }
+  .c-actions button {
+    background: transparent;
+    border: none;
+    color: #aaa;
+    cursor: pointer;
+    padding: 3px 6px;
+    border-radius: 12px;
+    font-size: 11px;
+    display: flex; align-items: center; gap: 3px;
+  }
+  .c-actions button:hover { background: #222; color: #fff; }
+  .c-actions button.liked { color: #4caf50; }
+  .c-reply { margin-left: 40px; margin-top: 8px; }
+
+  /* ===== Click feedback effects ===== */
+  .click-marker {
+    position: absolute;
+    width: 16px; height: 16px;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 1;
+    transition: opacity 3s ease-out;
+  }
+  .click-marker.fading { opacity: 0; }
+  .click-marker::before, .click-marker::after {
+    content: '';
+    position: absolute;
+    background: #f44336;
+  }
+  .click-marker::before {
+    width: 16px; height: 2px;
+    top: 7px; left: 0;
+    transform: rotate(45deg);
+  }
+  .click-marker::after {
+    width: 16px; height: 2px;
+    top: 7px; left: 0;
+    transform: rotate(-45deg);
+  }
+  .click-marker.hit::before, .click-marker.hit::after {
+    background: #4caf50;
+  }
+  @keyframes hitpulse {
+    0% { box-shadow: 0 0 0 0 rgba(76,175,80,0.8); }
+    100% { box-shadow: 0 0 0 16px rgba(76,175,80,0); }
+  }
+  .hit-flash { animation: hitpulse 0.45s ease-out; }
+
+  #done-overlay {
+    display: none;
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    color: #fff;
+    text-align: center;
+  }
+  #done-overlay.show { display: flex; }
+  #done-overlay h1 { font-size: 40px; color: #4caf50; margin-bottom: 10px; }
+  #done-overlay p { font-size: 16px; color: #ddd; margin-bottom: 6px; }
+  #done-overlay button {
+    margin-top: 20px;
+    background: #4d88ff;
+    color: #fff;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== Top nav bar ===== -->
+<div id="nav">
+  <div id="logo">Videotube</div>
+  <div id="search-wrap">
+    <input id="search-input" type="text" placeholder="Search">
+    <button id="search-submit">🔍</button>
+  </div>
+  <div class="nav-right">
+    <div class="icon-btn" id="notif-btn">🔔<div class="notif-dot"></div></div>
+    <div id="profile">G</div>
+  </div>
+</div>
+
+<!-- ===== Task banner ===== -->
+<div id="banner">
+  <span id="task-label">Task 1 of 10:</span>
+  <span id="task-text">Click the music video thumbnail</span>
+  <div id="stats">
+    <span class="s-hit">Hits <b id="s-hits">0</b></span>
+    <span class="s-miss">Misses <b id="s-misses">0</b></span>
+    <span class="s-task">Tasks <b id="s-tasks">0</b>/10</span>
+    <span class="s-acc">Accuracy <b id="s-acc">—</b></span>
+  </div>
+</div>
+
+<!-- ===== Main ===== -->
+<div id="main">
+
+  <!-- View A: video grid -->
+  <div id="view-grid" class="view active">
+    <div class="grid" id="grid-container">
+      <div class="card" data-target="card-long" id="card-long">
+        <div class="thumb gradient-a">LONG-FORM<div class="dur">24:13</div></div>
+        <div class="meta">
+          <div class="title">Building a Self-Hosted AI Stack — Full Walkthrough</div>
+          <div class="sub">DevFoundry · 128K views · 3 days ago</div>
+        </div>
+      </div>
+      <div class="card" data-target="card-short" id="card-short">
+        <div class="thumb gradient-b" style="height:220px">📱<div class="badge short">SHORTS</div><div class="dur">0:47</div></div>
+        <div class="meta">
+          <div class="title">3 Hidden Tips for Local LLMs You Didn't Know</div>
+          <div class="sub">QuickAI · 2.1M views · 1 week ago</div>
+        </div>
+      </div>
+      <div class="card" data-target="card-live" id="card-live">
+        <div class="thumb gradient-c">LIVE NOW<div class="badge live">● LIVE</div><div class="dur">12K watching</div></div>
+        <div class="meta">
+          <div class="title">Live Coding: Building an Agent Memory Layer</div>
+          <div class="sub">BuildInPublic · Streaming now</div>
+        </div>
+      </div>
+      <div class="card" data-target="card-tutorial" id="card-tutorial">
+        <div class="thumb gradient-d">TUTORIAL<div class="badge cc">CC</div><div class="dur">18:02</div></div>
+        <div class="meta">
+          <div class="title">Fine-Tuning Embeddings for Domain RAG (2026)</div>
+          <div class="sub">PromptLab · 54K views · 2 weeks ago</div>
+        </div>
+      </div>
+      <div class="card" data-target="card-music" id="card-music">
+        <div class="thumb gradient-e">
+          <div class="waveform">
+            <div style="height:28%"></div><div style="height:55%"></div><div style="height:40%"></div>
+            <div style="height:78%"></div><div style="height:65%"></div><div style="height:92%"></div>
+            <div style="height:70%"></div><div style="height:48%"></div><div style="height:60%"></div>
+            <div style="height:35%"></div><div style="height:72%"></div><div style="height:55%"></div>
+            <div style="height:80%"></div><div style="height:45%"></div>
+          </div>
+          <div class="dur">3:47</div>
+        </div>
+        <div class="meta">
+          <div class="title">MUSIC — Synthwave Sunset (Official Audio)</div>
+          <div class="sub">NeonWaves · 12M views · 8 months ago</div>
+        </div>
+      </div>
+      <div class="card" data-target="card-podcast" id="card-podcast">
+        <div class="thumb gradient-f">
+          <div class="waveform">
+            <div style="height:40%"></div><div style="height:62%"></div><div style="height:35%"></div>
+            <div style="height:70%"></div><div style="height:50%"></div><div style="height:80%"></div>
+            <div style="height:45%"></div><div style="height:68%"></div><div style="height:55%"></div>
+            <div style="height:38%"></div><div style="height:72%"></div>
+          </div>
+          <div class="dur">1:12:04</div>
+        </div>
+        <div class="meta">
+          <div class="title">Podcast: The Future of Open-Source AI Assistants</div>
+          <div class="sub">FutureMinds · 89K views · 4 days ago</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- View B: video detail -->
+  <div id="view-detail" class="view">
+    <div id="back-link" data-target="back-link">← Back to videos</div>
+
+    <div id="player">
+      <div id="play-btn" data-target="play-btn">▶</div>
+    </div>
+
+    <div id="video-title">MUSIC — Synthwave Sunset (Official Audio)</div>
+
+    <div id="channel-row">
+      <div id="channel-avatar"></div>
+      <div id="channel-name">
+        <b>NeonWaves</b>
+        <span class="subs">2.3M subscribers</span>
+      </div>
+      <button id="subscribe" data-target="subscribe">Subscribe</button>
+    </div>
+
+    <div id="action-row">
+      <button class="action" data-target="like-video">👍 12K</button>
+      <button class="action" data-target="dislike-video">👎</button>
+      <button class="action" data-target="share">↗ Share</button>
+      <button class="action" data-target="save">＋ Save</button>
+    </div>
+
+    <div id="comments-header">243 comments</div>
+
+    <div id="comment-field-wrap">
+      <div id="user-avatar"></div>
+      <div id="comment-input-area">
+        <input id="comment-input" data-target="comment-input" type="text" placeholder="Add a comment...">
+        <div id="comment-btn-row">
+          <button id="comment-cancel" data-target="comment-cancel">Cancel</button>
+          <button id="comment-submit" data-target="comment-submit" disabled>Comment</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="comment">
+      <div class="c-avatar" style="background:linear-gradient(135deg,#f093fb,#f5576c)"></div>
+      <div class="c-body">
+        <div class="c-user">@retro_dev <span class="time">2 weeks ago</span></div>
+        <div class="c-text">This is the kind of track that gets me through long refactor sessions. Immaculate vibe.</div>
+        <div class="c-actions">
+          <button data-target="like-c1">👍 <span>318</span></button>
+          <button data-target="dislike-c1">👎</button>
+          <button data-target="reply-c1">Reply</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="comment">
+      <div class="c-avatar" style="background:linear-gradient(135deg,#11998e,#38ef7d)"></div>
+      <div class="c-body">
+        <div class="c-user">@cosmic_kim <span class="time">5 days ago</span></div>
+        <div class="c-text">Anyone else think the bass at 2:14 is completely underrated? Chef's kiss.</div>
+        <div class="c-actions">
+          <button data-target="like-c2">👍 <span>142</span></button>
+          <button data-target="dislike-c2">👎</button>
+          <button data-target="reply-c2">Reply</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="comment">
+      <div class="c-avatar" style="background:linear-gradient(135deg,#fa709a,#fee140)"></div>
+      <div class="c-body">
+        <div class="c-user">@synth_sarah <span class="time">3 days ago</span></div>
+        <div class="c-text">Put this on loop while coding. Productivity tripled.</div>
+        <div class="c-actions">
+          <button data-target="like-c3">👍 <span>77</span></button>
+          <button data-target="dislike-c3">👎</button>
+          <button data-target="reply-c3">Reply</button>
+        </div>
+        <div class="c-reply comment">
+          <div class="c-avatar" style="background:linear-gradient(135deg,#30cfd0,#330867);width:26px;height:26px"></div>
+          <div class="c-body">
+            <div class="c-user">@neonwaves <span class="time">3 days ago</span></div>
+            <div class="c-text">Love to hear it! New track drops Friday.</div>
+            <div class="c-actions">
+              <button data-target="like-r3">👍 <span>24</span></button>
+              <button data-target="reply-r3">Reply</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="comment">
+      <div class="c-avatar" style="background:linear-gradient(135deg,#4d88ff,#6a3093)"></div>
+      <div class="c-body">
+        <div class="c-user">@late_night_coder <span class="time">1 day ago</span></div>
+        <div class="c-text">The drop at 1:30 is actual fire 🔥</div>
+        <div class="c-actions">
+          <button data-target="like-c4">👍 <span>41</span></button>
+          <button data-target="dislike-c4">👎</button>
+          <button data-target="reply-c4">Reply</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Done overlay -->
+  <div id="done-overlay">
+    <h1>All Tasks Complete 🎉</h1>
+    <p>Final score posted to feedback.</p>
+    <p id="done-stats"></p>
+    <button id="restart-btn">Start Over</button>
+  </div>
+
+</div>
+
+<script>
+  // Task definitions — the agent reads the instruction via vision
+  // from the task banner and works through these in order.
+  var tasks = [
+    { n: 1,  instruction: "Click the music video thumbnail",            target: "card-music",     view: "grid"   },
+    { n: 2,  instruction: "Click the comment input field",              target: "comment-input",  view: "detail" },
+    { n: 3,  instruction: "Type 'Great video!' into the comment field", target: "comment-input",  view: "detail", expectedText: "Great video!" },
+    { n: 4,  instruction: "Click the Comment button to post",           target: "comment-submit", view: "detail" },
+    { n: 5,  instruction: "Click the Reply button on the first comment (@retro_dev)", target: "reply-c1", view: "detail" },
+    { n: 6,  instruction: "Click the Like button on @cosmic_kim's comment",            target: "like-c2",  view: "detail" },
+    { n: 7,  instruction: "Click the Back to videos link",              target: "back-link",      view: "detail" },
+    { n: 8,  instruction: "Click the search bar",                       target: "search-input",   view: "grid"   },
+    { n: 9,  instruction: "Type 'ollama tutorial', then click Search", target: "search-submit",  view: "grid", expectedText: "ollama tutorial", typingField: "search-input" },
+    { n: 10, instruction: "Click the Live Stream card (with red LIVE badge)", target: "card-live", view: "grid" }
+  ];
+
+  // State
+  var currentTaskIdx = 0;
+  var hits = 0, misses = 0, tasksDone = 0;
+  var lastHitAt = 0;
+  var sessionId = (function() {
+    try { return new URLSearchParams(window.location.search).get("session_id"); }
+    catch (e) { return null; }
+  })();
+
+  function $(id) { return document.getElementById(id); }
+
+  function updateStats() {
+    $("s-hits").textContent = hits;
+    $("s-misses").textContent = misses;
+    $("s-tasks").textContent = tasksDone;
+    var total = hits + misses;
+    $("s-acc").textContent = total > 0 ? Math.round(hits / total * 100) + "%" : "—";
+  }
+
+  function setTaskBanner() {
+    var t = tasks[currentTaskIdx];
+    if (!t) {
+      $("task-label").textContent = "Done:";
+      $("task-text").textContent = "All tasks complete. Nicely done.";
+      $("banner").classList.add("done");
+      return;
+    }
+    $("task-label").textContent = "Task " + t.n + " of " + tasks.length + ":";
+    $("task-text").textContent = t.instruction;
+  }
+
+  function switchView(which) {
+    var views = document.querySelectorAll(".view");
+    for (var i = 0; i < views.length; i++) views[i].classList.remove("active");
+    if (which === "detail") $("view-detail").classList.add("active");
+    else $("view-grid").classList.add("active");
+    $("main").scrollTop = 0;
+  }
+
+  function marker(clientX, clientY, isHit) {
+    var m = document.createElement("div");
+    m.className = "click-marker" + (isHit ? " hit" : "");
+    m.style.left = (clientX - 8) + "px";
+    m.style.top = (clientY - 8) + "px";
+    document.body.appendChild(m);
+    setTimeout(function() { m.classList.add("fading"); }, 2000);
+    setTimeout(function() { if (m.parentNode) m.remove(); }, 5000);
+  }
+
+  function flashElement(el) {
+    if (!el) return;
+    el.classList.add("hit-flash");
+    setTimeout(function() { el.classList.remove("hit-flash"); }, 500);
+  }
+
+  // Fire-and-forget feedback POST — silent on failure (CORS, offline).
+  // The server's pearl distiller picks up positive entries with session_id
+  // and writes a rolling AgentMemory row for the session.
+  function sendFeedback(positive, taskInstruction) {
+    try {
+      fetch("/api/agent-control/feedback", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          positive: !!positive,
+          task: "Trainer task: " + taskInstruction,
+          type: "response",
+          session_id: sessionId,
+          model: "comments_trainer"
+        })
+      }).catch(function() { /* silent */ });
+    } catch (e) { /* silent */ }
+  }
+
+  // Walk up the DOM from the click point to find the nearest element
+  // with a data-target attribute or known id, then compare with the
+  // current task's expected target.
+  function findTargetId(el) {
+    while (el && el !== document.body) {
+      if (el.dataset && el.dataset.target) return el.dataset.target;
+      if (el.id) return el.id;
+      el = el.parentElement;
+    }
+    return null;
+  }
+
+  // Build a posted comment purely via createElement — no innerHTML, no
+  // string concatenation into the DOM. The typed comment body is inserted
+  // as textContent so any characters are safe.
+  function appendPostedComment(bodyText) {
+    var wrap = $("comment-field-wrap");
+    var post = document.createElement("div");
+    post.className = "comment";
+
+    var avatar = document.createElement("div");
+    avatar.className = "c-avatar";
+    avatar.style.background = "linear-gradient(135deg,#4d88ff,#9c4dff)";
+
+    var body = document.createElement("div");
+    body.className = "c-body";
+
+    var user = document.createElement("div");
+    user.className = "c-user";
+    user.textContent = "@guaardvark ";
+    var time = document.createElement("span");
+    time.className = "time";
+    time.textContent = "just now";
+    user.appendChild(time);
+
+    var text = document.createElement("div");
+    text.className = "c-text";
+    text.textContent = bodyText;
+
+    var actions = document.createElement("div");
+    actions.className = "c-actions";
+    var likeBtn = document.createElement("button");
+    likeBtn.disabled = true;
+    likeBtn.textContent = "👍 0";
+    var replyBtn = document.createElement("button");
+    replyBtn.disabled = true;
+    replyBtn.textContent = "Reply";
+    actions.appendChild(likeBtn);
+    actions.appendChild(replyBtn);
+
+    body.appendChild(user);
+    body.appendChild(text);
+    body.appendChild(actions);
+
+    post.appendChild(avatar);
+    post.appendChild(body);
+
+    wrap.parentNode.insertBefore(post, wrap.nextSibling);
+  }
+
+  function handleClick(e) {
+    var now = Date.now();
+    if (now - lastHitAt < 300) return;
+
+    var task = tasks[currentTaskIdx];
+    if (!task) return;
+
+    var targetId = findTargetId(e.target);
+    var expectedId = task.target;
+
+    // Task requires specific text BEFORE a click target is valid
+    if (task.expectedText) {
+      var typingField = task.typingField || task.target;
+      var fieldEl = $(typingField);
+      var typed = fieldEl ? (fieldEl.value || "").trim() : "";
+
+      if (typed !== task.expectedText.trim()) {
+        // Clicking the typing field itself is allowed without penalty —
+        // the agent needs to focus it before typing.
+        if (task.target === typingField && targetId === typingField) return;
+        // Anything else on a text-gated task is a miss.
+        misses++;
+        marker(e.clientX, e.clientY, false);
+        updateStats();
+        return;
+      }
+    }
+
+    if (targetId === expectedId) {
+      hits++;
+      lastHitAt = now;
+      marker(e.clientX, e.clientY, true);
+      var el = document.querySelector('[data-target="' + expectedId + '"]') || $(expectedId);
+      flashElement(el);
+      tasksDone++;
+      applyTaskSideEffect(expectedId);
+      sendFeedback(true, task.instruction);
+      currentTaskIdx++;
+      setTimeout(function() {
+        setTaskBanner();
+        updateStats();
+        if (currentTaskIdx >= tasks.length) showDone();
+      }, 250);
+      updateStats();
+    } else {
+      misses++;
+      marker(e.clientX, e.clientY, false);
+      updateStats();
+      // Every 5th miss on the same task: fire a negative feedback ping so
+      // the pearl distiller sees struggle signal too.
+      if (misses > 0 && misses % 5 === 0) {
+        sendFeedback(false, "Trainer struggled: " + task.instruction);
+      }
+    }
+  }
+
+  // Trigger the natural UI transition for the target that was just hit.
+  function applyTaskSideEffect(targetId) {
+    if (targetId === "card-music" || targetId === "card-live" ||
+        targetId === "card-long" || targetId === "card-short" ||
+        targetId === "card-tutorial" || targetId === "card-podcast") {
+      switchView("detail");
+    } else if (targetId === "back-link") {
+      switchView("grid");
+    } else if (targetId === "comment-input") {
+      $("comment-input").focus();
+      $("comment-btn-row").classList.add("visible");
+    } else if (targetId === "comment-submit") {
+      var text = $("comment-input").value;
+      $("comment-input").value = "";
+      $("comment-btn-row").classList.remove("visible");
+      $("comment-submit").disabled = true;
+      appendPostedComment(text);
+    } else if (targetId === "like-c2") {
+      var btn = document.querySelector('[data-target="like-c2"]');
+      if (btn) btn.classList.add("liked");
+    } else if (targetId === "search-input") {
+      $("search-input").focus();
+      $("search-wrap").classList.add("focus");
+    } else if (targetId === "search-submit") {
+      $("search-wrap").classList.remove("focus");
+    }
+  }
+
+  // Typing tasks advance on match when the typing field IS the click
+  // target; compound tasks (type + click) enable the click target
+  // once the text matches.
+  function handleInput(e) {
+    // YouTube-style: any non-empty text in the comment field enables submit.
+    // Has to happen on every keystroke, independent of task state, otherwise
+    // Task 4 ("click Comment") is unreachable because clicks on disabled
+    // buttons don't fire — been there, debugged that.
+    if (e.target.id === "comment-input") {
+      $("comment-submit").disabled = !((e.target.value || "").trim());
+    }
+
+    var task = tasks[currentTaskIdx];
+    if (!task || !task.expectedText) return;
+    var typingField = task.typingField || task.target;
+    if (e.target.id !== typingField) return;
+
+    var typed = (e.target.value || "").trim();
+    var expected = task.expectedText.trim();
+
+    if (task.target === typingField) {
+      if (typed === expected) {
+        hits++;
+        tasksDone++;
+        sendFeedback(true, task.instruction);
+        currentTaskIdx++;
+        setTaskBanner();
+        updateStats();
+        if (currentTaskIdx >= tasks.length) showDone();
+      }
+      return;
+    }
+
+    if (task.target === "comment-submit") {
+      $("comment-submit").disabled = typed !== expected;
+    }
+  }
+
+  function showDone() {
+    $("done-stats").textContent = "Hits: " + hits + " · Misses: " + misses +
+      " · Accuracy: " + (hits + misses > 0 ? Math.round(hits / (hits + misses) * 100) : 0) + "%";
+    $("done-overlay").classList.add("show");
+  }
+
+  function resetAll() {
+    hits = 0; misses = 0; tasksDone = 0; currentTaskIdx = 0;
+    $("banner").classList.remove("done");
+    $("comment-input").value = "";
+    $("search-input").value = "";
+    $("comment-btn-row").classList.remove("visible");
+    $("comment-submit").disabled = true;
+    $("search-wrap").classList.remove("focus");
+    // Remove any user-posted comments (keep the 4 seed ones)
+    var all = document.querySelectorAll(".comment");
+    for (var i = 0; i < all.length; i++) {
+      var u = all[i].querySelector(".c-user");
+      if (u && u.textContent.indexOf("@guaardvark") === 0 && all[i].parentNode) {
+        all[i].remove();
+      }
+    }
+    var liked = document.querySelectorAll(".liked");
+    for (var j = 0; j < liked.length; j++) liked[j].classList.remove("liked");
+    switchView("grid");
+    $("done-overlay").classList.remove("show");
+    setTaskBanner();
+    updateStats();
+  }
+
+  document.addEventListener("click", handleClick, true);
+  $("comment-input").addEventListener("input", handleInput);
+  $("search-input").addEventListener("input", handleInput);
+  $("restart-btn").addEventListener("click", function(e) {
+    e.stopPropagation();
+    resetAll();
+  });
+  // No hotkeys — the whole point is click+type only. Swallow Enter on both
+  // text fields so agents must click a visible button to submit.
+  function swallowEnter(e) { if (e.key === "Enter") e.preventDefault(); }
+  $("comment-input").addEventListener("keydown", swallowEnter);
+  $("search-input").addEventListener("keydown", swallowEnter);
+
+  setTaskBanner();
+  updateStats();
+</script>
+</body>
+</html>

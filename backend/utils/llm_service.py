@@ -413,19 +413,55 @@ def get_default_llm() -> Ollama:
 
 
 def get_llm_for_startup() -> Ollama:
-    """Return an Ollama instance using the last active model if available."""
+    """Return an Ollama instance using the last active model if available.
+
+    Validates the chosen model is actually pulled in Ollama before returning.
+    If the saved model is missing (common after machine migration / restore),
+    fall through to the first installed model rather than warming up a ghost.
+    """
     from backend.config import LLM_REQUEST_TIMEOUT
+
+    # Probe what Ollama actually has pulled — ground truth beats stored config.
+    installed = []
+    try:
+        import requests
+        resp = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
+        if resp.status_code == 200:
+            installed = [m.get("name", "") for m in resp.json().get("models", []) if m.get("name")]
+    except Exception as e:
+        logger.warning("Could not list Ollama models at startup: %s", e)
 
     model_name = DEFAULT_LLM
     try:
-        # Use get_saved_active_model_name() which checks both DB and file
-        # This ensures the user's model choice persists across restarts
         saved_name = get_saved_active_model_name()
         if saved_name:
-            model_name = saved_name
-            logger.info("Using saved active model: %s", saved_name)
+            if not installed or saved_name in installed:
+                model_name = saved_name
+                logger.info("Using saved active model: %s", saved_name)
+            else:
+                logger.warning(
+                    "Saved active model '%s' is not installed in Ollama. "
+                    "Stored config may be stale (e.g. restored from another machine). "
+                    "Available models: %s",
+                    saved_name, ", ".join(installed) or "<none>",
+                )
     except Exception as e:
         logger.warning("Failed to fetch active model name: %s", e)
+
+    # If we still don't have a usable model, pick the first installed one so
+    # warmup doesn't 404 on a model that isn't pulled. Prefer text chat models
+    # but fall back to any installed model (vision-capable models can still chat).
+    if (not model_name or (installed and model_name not in installed)) and installed:
+        try:
+            from backend.utils.ollama_resource_manager import is_text_chat_model
+            text_only = [n for n in installed if is_text_chat_model(n)]
+            model_name = text_only[0] if text_only else installed[0]
+            logger.info(
+                "Falling back to installed model '%s' for startup warmup.", model_name
+            )
+        except Exception:
+            model_name = installed[0]
+            logger.info("Falling back to first installed model '%s'.", model_name)
 
     # Validate model can be loaded and compute adaptive context window
     try:

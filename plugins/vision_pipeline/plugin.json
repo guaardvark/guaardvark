@@ -14,7 +14,7 @@
   ],
   "config": {
     "enabled": true,
-    "auto_start": true,
+    "auto_start": false,
     "service_url": "http://localhost:8201",
     "timeout": 30,
     "fallback_enabled": false,

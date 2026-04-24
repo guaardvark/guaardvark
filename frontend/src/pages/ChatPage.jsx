@@ -4,6 +4,12 @@ import AddIcon from "@mui/icons-material/Add";
 import HistoryIcon from "@mui/icons-material/History";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import SchoolIcon from "@mui/icons-material/School";
+import StopCircleIcon from "@mui/icons-material/StopCircle";
+import LessonPearlsFloater from "../components/agent/LessonPearlsFloater";
+import LessonSummaryModal from "../components/modals/LessonSummaryModal";
+import { useAppStore } from "../stores/useAppStore";
+import { BASE_URL } from "../api/apiClient";
 import ChatSessionDrawer from "../components/chat/ChatSessionDrawer";
 // AgentScreenViewer is now global in Sidebar — available on all pages
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -264,6 +270,71 @@ const ChatPage = () => {
       })
     );
   }, []);
+
+  // --- Lesson Pearls: Begin/End lesson lifecycle ---
+  const activeLessonId = useAppStore((s) => s.activeLessonId);
+  const setActiveLessonId = useAppStore((s) => s.setActiveLessonId);
+  const clearLessonPearls = useAppStore((s) => s.clearLessonPearls);
+  const [lessonSummary, setLessonSummary] = useState(null); // { memoryId, title, steps }
+  const [lessonBusy, setLessonBusy] = useState(false);
+
+  const handleBeginLesson = useCallback(async () => {
+    if (activeLessonId || lessonBusy || !sessionId) return;
+    setLessonBusy(true);
+    try {
+      const res = await fetch(`${BASE_URL}/lessons/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sessionId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        console.error("Begin lesson failed:", data?.error || res.status);
+        return;
+      }
+      clearLessonPearls();
+      setActiveLessonId(data.lesson_id);
+    } catch (err) {
+      console.error("Begin lesson error:", err);
+    } finally {
+      setLessonBusy(false);
+    }
+  }, [activeLessonId, lessonBusy, sessionId, clearLessonPearls, setActiveLessonId]);
+
+  const handleEndLesson = useCallback(async () => {
+    if (!activeLessonId || lessonBusy) return;
+    setLessonBusy(true);
+    const lessonId = activeLessonId;
+    try {
+      const res = await fetch(`${BASE_URL}/lessons/${lessonId}/end`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        // Graceful degradation — surface but don't crash. Most common reason:
+        // backend restart orphaned the in-memory ACTIVE_LESSONS entry.
+        console.warn("End lesson:", data?.error || `HTTP ${res.status}`);
+        setActiveLessonId(null);
+        clearLessonPearls();
+        return;
+      }
+      setLessonSummary({
+        memoryId: data.memory_id,
+        title: data.summary?.title || "Lesson",
+        steps: data.summary?.steps || [],
+        parameters: data.summary?.parameters || [],
+      });
+      setActiveLessonId(null);
+      clearLessonPearls();
+    } catch (err) {
+      console.error("End lesson error:", err);
+      setActiveLessonId(null);
+      clearLessonPearls();
+    } finally {
+      setLessonBusy(false);
+    }
+  }, [activeLessonId, lessonBusy, setActiveLessonId, clearLessonPearls]);
 
   const handleNewChat = useCallback(() => {
     const newSessionId = `session_${Date.now()}`;
@@ -1758,6 +1829,41 @@ const ChatPage = () => {
 
         {}
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          {!activeLessonId ? (
+            <Tooltip title="Begin Lesson — thumbs-ups will string into a lesson summary">
+              <span>
+                <IconButton
+                  onClick={handleBeginLesson}
+                  disabled={lessonBusy || !sessionId}
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    color: "text.secondary",
+                    transition: "all 0.2s ease-in-out",
+                  }}
+                >
+                  <SchoolIcon />
+                </IconButton>
+              </span>
+            </Tooltip>
+          ) : (
+            <Tooltip title="End Lesson — distill pearls into an editable summary">
+              <span>
+                <IconButton
+                  onClick={handleEndLesson}
+                  disabled={lessonBusy}
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    color: "error.main",
+                    transition: "all 0.2s ease-in-out",
+                  }}
+                >
+                  <StopCircleIcon />
+                </IconButton>
+              </span>
+            </Tooltip>
+          )}
           <Tooltip title="All chats">
             <span>
               <IconButton
@@ -1844,7 +1950,7 @@ const ChatPage = () => {
         />
       )}
 
-      <MessageList messages={messages} />
+      <MessageList messages={messages} sessionId={sessionId} />
 
       {}
       {isStreamingMessage && unifiedChatService && (
@@ -1961,6 +2067,20 @@ const ChatPage = () => {
         }}
       />
     </Paper>
+
+    {/* Lesson pearls — floats over the chat while a lesson is active */}
+    <LessonPearlsFloater />
+
+    {/* Post-End Lesson summary with editable steps */}
+    <LessonSummaryModal
+      open={!!lessonSummary}
+      onClose={() => setLessonSummary(null)}
+      memoryId={lessonSummary?.memoryId}
+      initialTitle={lessonSummary?.title}
+      initialSteps={lessonSummary?.steps}
+      initialParameters={lessonSummary?.parameters}
+      onSaved={() => setLessonSummary(null)}
+    />
     </PageLayout>
   );
 };

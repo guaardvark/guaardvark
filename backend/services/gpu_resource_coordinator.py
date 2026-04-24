@@ -458,6 +458,12 @@ class GPUResourceCoordinator:
                 "ollama_restarted": False
             }
 
+    # Class-level cache: once we confirm there's no NVIDIA hardware on this host,
+    # stop retrying on every poll. Saves ~120 ERROR lines per hour in backend.log
+    # on CPU-only machines. Reset on process restart — if a GPU is hot-plugged or
+    # drivers are installed, the next boot picks it up.
+    _no_gpu_detected = False
+
     def get_available_vram(self) -> Dict[str, Any]:
         """
         Get available VRAM using pynvml (nvidia-ml-py3).
@@ -469,6 +475,16 @@ class GPUResourceCoordinator:
             - gpu_name: GPU device name
             - success: Whether query succeeded
         """
+        # Fast path for CPU-only hosts — skip the probe entirely once we know.
+        if GPUResourceCoordinator._no_gpu_detected:
+            return {
+                "success": False,
+                "available_mb": 0,
+                "total_mb": 0,
+                "used_mb": 0,
+                "reason": "no_gpu_hardware",
+            }
+
         try:
             import pynvml
             pynvml.nvmlInit()
@@ -499,7 +515,11 @@ class GPUResourceCoordinator:
                 GPUResourceCoordinator._pynvml_warned = True
             return self._get_vram_via_nvidia_smi()
         except Exception as e:
-            logger.error(f"Error getting VRAM via pynvml: {e}")
+            # Common on CPU-only hosts: "NVML Shared Library Not Found" — the
+            # machine genuinely has no NVIDIA driver. One warning, not every 30s.
+            if not getattr(GPUResourceCoordinator, '_pynvml_error_logged', False):
+                logger.warning(f"pynvml probe failed ({e}), trying nvidia-smi fallback")
+                GPUResourceCoordinator._pynvml_error_logged = True
             return self._get_vram_via_nvidia_smi()
 
     def _get_vram_via_nvidia_smi(self) -> Dict[str, Any]:
@@ -540,8 +560,26 @@ class GPUResourceCoordinator:
                 "available_mb": 0
             }
 
+        except FileNotFoundError:
+            # No nvidia-smi binary AND pynvml failed earlier → no NVIDIA stack
+            # present on this host. Flip the class-level flag so future calls
+            # short-circuit without spamming ERROR lines.
+            if not GPUResourceCoordinator._no_gpu_detected:
+                logger.info(
+                    "No NVIDIA hardware detected on this host "
+                    "(pynvml unavailable, nvidia-smi not installed). "
+                    "Skipping future VRAM probes until restart."
+                )
+                GPUResourceCoordinator._no_gpu_detected = True
+            return {
+                "success": False,
+                "available_mb": 0,
+                "reason": "no_gpu_hardware",
+            }
         except Exception as e:
-            logger.error(f"Error getting VRAM via nvidia-smi: {e}")
+            if not getattr(GPUResourceCoordinator, '_nvidia_smi_error_logged', False):
+                logger.warning(f"nvidia-smi probe failed once ({e}); will not repeat this warning")
+                GPUResourceCoordinator._nvidia_smi_error_logged = True
             return {
                 "success": False,
                 "error": str(e),

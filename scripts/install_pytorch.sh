@@ -25,6 +25,36 @@ vader_section() { echo -e "\n${VADER_RED}${VADER_BOLD}► $1${VADER_RESET}"; }
 
 vader_header "PyTorch Smart Installer"
 
+# Venv safety: detect the project's venv and use its pip explicitly.
+# Without this, running this script directly (not via start.sh) resolves
+# pip to the system Python, which on modern Debian/Ubuntu triggers the
+# PEP 668 "externally-managed-environment" error. start.sh activates the
+# venv before calling us, so in that path nothing changes — but direct
+# invocation now works too.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+VENV_PIP="$PROJECT_ROOT/backend/venv/bin/pip"
+VENV_PYTHON="$PROJECT_ROOT/backend/venv/bin/python"
+
+if [ -x "$VENV_PIP" ] && [ -x "$VENV_PYTHON" ]; then
+    # Project venv exists — prefer its pip unconditionally so we never touch
+    # system Python regardless of what's on PATH.
+    vader_info "Using project venv: $PROJECT_ROOT/backend/venv"
+    pip() { "$VENV_PIP" "$@"; }
+    # Also route `python3` calls in the verification blocks through the venv.
+    python3() { "$VENV_PYTHON" "$@"; }
+else
+    # No project venv found — require that something is activated, otherwise
+    # refuse to run rather than wreck system Python.
+    if [ -z "${VIRTUAL_ENV:-}" ]; then
+        vader_warn "No project venv at $PROJECT_ROOT/backend/venv AND no active virtualenv."
+        vader_warn "Refusing to install torch into system Python. Activate a venv first, or"
+        vader_warn "create the project venv with: python3 -m venv $PROJECT_ROOT/backend/venv"
+        exit 1
+    fi
+    vader_info "Using active virtualenv: $VIRTUAL_ENV"
+fi
+
 # Detect if NVIDIA GPU is present
 if command -v nvidia-smi &> /dev/null; then
     vader_success "NVIDIA driver detected"
@@ -89,6 +119,16 @@ if command -v nvidia-smi &> /dev/null; then
 
         vader_section "Installation Plan:"
 
+        # --force-reinstall is required because pip's resolver treats the
+        # local-version tag (e.g. +cu130 vs +cpu) as the SAME version number
+        # for "already satisfied" purposes. Without --force-reinstall, a machine
+        # restored from a GPU host's backup will report success but keep the
+        # wrong variant. Also uninstall any lingering CUDA/triton deps that
+        # were pulled in by a previous GPU build so we don't carry dead weight.
+        vader_section "Cleaning prior torch variants and CUDA dependency bloat..."
+        pip uninstall -y torch torchvision torchaudio 2>/dev/null | tail -3 || true
+        pip freeze 2>/dev/null | grep -iE "^(nvidia-|cuda-bindings|cuda-pathfinder|cuda-toolkit|triton)" | awk -F'==' '{print $1}' | xargs -r pip uninstall -y 2>/dev/null | tail -3 || true
+
         if [ "$CUDA_VERSION" != "cpu" ]; then
             vader_detail "PyTorch Index: https://download.pytorch.org/whl/${CUDA_VERSION}"
             vader_detail "CUDA Version:  ${CUDA_NAME}"
@@ -96,14 +136,18 @@ if command -v nvidia-smi &> /dev/null; then
             echo ""
             vader_info "Installing PyTorch with CUDA ${CUDA_NAME} support..."
             echo ""
-            pip install ${USE_PRE:-}torch torchvision torchaudio --index-url "https://download.pytorch.org/whl/$CUDA_VERSION"
+            pip install --upgrade --force-reinstall ${USE_PRE:-}torch torchvision torchaudio --index-url "https://download.pytorch.org/whl/$CUDA_VERSION"
         else
             vader_detail "PyTorch Index: https://download.pytorch.org/whl/cpu"
             vader_detail "Mode:          CPU-only (GPU not supported)"
             echo ""
             vader_info "Installing CPU-only PyTorch..."
             echo ""
-            pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+            pip install --upgrade --force-reinstall torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+            # pynvml is deprecated and fires FutureWarning on every `import torch`
+            # via torch/cuda/__init__.py. On CPU-only hosts it serves no purpose —
+            # torch handles the ImportError gracefully. Remove it to silence the noise.
+            pip uninstall -y pynvml 2>/dev/null | tail -2 || true
         fi
 
         # Verification
@@ -146,7 +190,9 @@ EOF
         vader_warn "Could not detect GPU compute capability"
         vader_info "Installing CPU-only PyTorch as fallback..."
         echo ""
-        pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+        pip uninstall -y torch torchvision torchaudio 2>/dev/null | tail -3 || true
+        pip install --upgrade --force-reinstall torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+        pip uninstall -y pynvml 2>/dev/null | tail -2 || true
 
         vader_section "Verification:"
         python3 -c "import torch; print(f'    PyTorch Version: {torch.__version__}'); print(f'    Mode: CPU-only')"
@@ -158,7 +204,11 @@ else
     echo ""
     vader_info "Installing CPU-only PyTorch..."
     echo ""
-    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+    # Same variant-swap safety: uninstall first, force-reinstall, drop pynvml.
+    pip uninstall -y torch torchvision torchaudio 2>/dev/null | tail -3 || true
+    pip freeze 2>/dev/null | grep -iE "^(nvidia-|cuda-bindings|cuda-pathfinder|cuda-toolkit|triton)" | awk -F'==' '{print $1}' | xargs -r pip uninstall -y 2>/dev/null | tail -3 || true
+    pip install --upgrade --force-reinstall torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+    pip uninstall -y pynvml 2>/dev/null | tail -2 || true
 
     vader_section "Verification:"
     python3 -c "import torch; print(f'    PyTorch Version: {torch.__version__}'); print(f'    Mode: CPU-only')"

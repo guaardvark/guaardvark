@@ -245,7 +245,10 @@ def get_active_system_prompt(
                 
             return text, rule_id
         else:
-            logger.warning(f"System prompt rule '{prompt_rule_name}' not found or not active.")
+            # Expected state when the global rules toggle is off or when a
+            # caller probes optimistically for an optional rule. Callers
+            # handle the None fallback — keep this quiet.
+            logger.debug(f"System prompt rule '{prompt_rule_name}' not found or not active.")
             return None, None
             
     except Exception as e:

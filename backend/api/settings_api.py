@@ -148,6 +148,45 @@ def set_llm_debug():
     return success_response({"llm_debug": enabled})
 
 
+@settings_bp.route("/rules_enabled", methods=["GET"])
+def get_rules_enabled():
+    """Global chat-rules toggle. When off, chat engines skip RulesPage
+    lookups and use the hardcoded default prompt. Default: off."""
+    enabled = False
+    try:
+        setting = db.session.get(Setting, "rules_enabled")
+        if setting and (setting.value or "").lower() in ("true", "1", "yes"):
+            enabled = True
+    except Exception as e:
+        current_app.logger.error(f"Failed to read rules_enabled setting: {e}")
+    return success_response({"rules_enabled": enabled})
+
+
+@settings_bp.route("/rules_enabled", methods=["POST"])
+def set_rules_enabled():
+    if not request.is_json:
+        return error_response("Request must be JSON")
+    data = request.get_json()
+    enabled = bool(data.get("rules_enabled"))
+    try:
+        setting = db.session.get(Setting, "rules_enabled")
+        if setting:
+            setting.value = "true" if enabled else "false"
+        else:
+            setting = Setting(
+                key="rules_enabled", value="true" if enabled else "false"
+            )
+            db.session.add(setting)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(
+            f"Failed to update rules_enabled setting: {e}", exc_info=True
+        )
+        return error_response("Failed to update setting", status_code=500)
+    return success_response({"rules_enabled": enabled})
+
+
 @settings_bp.route("/behavior_learning", methods=["GET"])
 def get_behavior_learning():
     enabled = False

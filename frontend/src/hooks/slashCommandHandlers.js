@@ -19,6 +19,7 @@ export async function executeBuiltinCommand(name, args, context) {
     "/imagine": handleImagine,
     "/websearch": handleWebSearch,
     "/plan": handlePlan,
+    "/training": handleTraining,
   };
 
   const handler = handlers[name];
@@ -261,6 +262,65 @@ async function handlePlan(args, { addMessage }) {
   }
   // Return unhandled so the existing ChatPage /plan handler can pick it up
   return { handled: false };
+}
+
+// ============================================================
+// /training <task> — runs the agent's 1000-iteration training loop
+// ============================================================
+// Posts the raw task directly to /api/agent-control/execute with
+// training_mode: true, bypassing the chat LLM entirely. The chat
+// LLM's habit of decomposing multi-step tasks into single clicks
+// is what was making every trainer run stop after one action.
+// User watches progress via VNC; backend logs show servo events.
+
+async function handleTraining(args, { addMessage }) {
+  if (!args) {
+    addMessage({
+      role: "system",
+      content: "Usage: `/training <task>` — e.g. `/training Work the Comments Trainer — follow the banner, click Start Over when done, don't stop.`",
+      tempId: `train-${Date.now()}`,
+      type: "command",
+    });
+    return { handled: true };
+  }
+
+  addMessage({
+    role: "user",
+    content: `/training ${args}`,
+    tempId: `train-user-${Date.now()}`,
+  });
+
+  try {
+    const res = await fetch("/api/agent-control/execute", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ task: args, training_mode: true }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      addMessage({
+        role: "system",
+        content: `Training run started (up to 1000 iterations / 1 hour). Watch VNC for progress; tail \`logs/backend.log\` for servo events. Task: _${args}_`,
+        tempId: `train-ok-${Date.now()}`,
+        type: "command",
+      });
+    } else {
+      addMessage({
+        role: "system",
+        content: `Training run rejected: ${data.error || "unknown error"}${data.error === "Agent already active" ? " — use kill switch or wait for current run." : ""}`,
+        tempId: `train-fail-${Date.now()}`,
+        type: "command",
+      });
+    }
+  } catch (err) {
+    addMessage({
+      role: "system",
+      content: `Training run failed: ${err.message}`,
+      tempId: `train-err-${Date.now()}`,
+      type: "command",
+    });
+  }
+  return { handled: true };
 }
 
 // ============================================================

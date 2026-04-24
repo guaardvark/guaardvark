@@ -655,27 +655,32 @@ VOICE INTERACTION MODE: You are responding to voice chat, so be extra conversati
                 web_search_enabled = False
                 web_access_setting = False
 
-            # Get the system prompt template from database (RulesPage)
-            # Try enhanced_chat first, then fall back to global_default_chat_system_prompt
-            base_template, rule_id = rule_utils.get_active_system_prompt(
-                "enhanced_chat",
-                db.session,
-                model_name=model_name
-            )
-
-            if not base_template:
-                # Fallback to global_default_chat_system_prompt
+            # Get the system prompt template from database (RulesPage).
+            # Gated by the global SettingsPage → A.I. Features → Rules toggle.
+            # When disabled (default), skip the DB lookups and fall through to
+            # the hardcoded fallback template below.
+            from backend.utils.settings_utils import get_rules_enabled
+            if get_rules_enabled():
                 base_template, rule_id = rule_utils.get_active_system_prompt(
-                    "global_default_chat_system_prompt",
+                    "enhanced_chat",
                     db.session,
                     model_name=model_name
                 )
+                if not base_template:
+                    base_template, rule_id = rule_utils.get_active_system_prompt(
+                        "global_default_chat_system_prompt",
+                        db.session,
+                        model_name=model_name
+                    )
+            else:
+                base_template, rule_id = None, None
 
             if rule_id:
                 logger.info(f"Using system prompt rule ID {rule_id} from database for model '{model_name}'")
             else:
-                logger.warning(f"No system prompt rule found, using fallback for model '{model_name}'")
-                # Use a basic template with required placeholders
+                # Expected state when rules toggle is off OR no matching rule
+                # is active. Fall through to the hardcoded template silently.
+                logger.debug(f"No system prompt rule found, using fallback for model '{model_name}'")
                 base_template = """{rules_str}
 
 You are a helpful AI assistant. Be accurate, concise, and honest.
