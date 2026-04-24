@@ -1,0 +1,18 @@
+# Audio Foundry — core service deps only.
+# Per-backend model deps are added as each backend is wired, to keep
+# `pip install` fast when the plugin is first enabled.
+
+fastapi==0.115.0
+uvicorn==0.30.0
+PyYAML>=6.0
+pydantic>=2.0
+httpx>=0.27.0
+
+# Testing
+pytest>=8.0.0
+
+# Heavy deps added per-backend:
+#   audio_fx_sao        -> torch, diffusers (already in backend venv)
+#   voice_gen_chatterbox -> chatterbox-tts
+#   voice_gen_kokoro     -> kokoro, soundfile
+#   music_gen_acestep    -> ace-step (or HF transformers + custom pipeline)

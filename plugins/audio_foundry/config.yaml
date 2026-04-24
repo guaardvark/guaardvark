@@ -1,0 +1,54 @@
+# Audio Foundry — runtime configuration
+# Values here override plugin.json.config and are hot-editable without restart
+# (where the service code re-reads them; some require restart, noted inline).
+
+output:
+  dir: data/outputs/audio            # relative to project root
+  default_format: wav                # wav | mp3
+  subdirs_by_date: true              # organizes as YYYY-MM-DD/<uuid>.<ext>
+
+backends:
+
+  audio_fx:
+    model: stable-audio-open-1.0
+    # Max duration SAO was trained on. Requests beyond this are clamped.
+    max_duration_s: 47
+    steps: 100                       # diffusion steps; higher = slower but cleaner
+    timeout_s: 60
+    sample_rate: 44100
+
+  voice_gen:
+    primary: chatterbox              # dispatcher order; fallback on OOM or primary failure
+    fallback: kokoro
+    chatterbox:
+      model: resemble-ai/chatterbox
+      sample_rate: 24000
+      chunk_chars: 220               # long text split to prevent single-inference OOM
+      timeout_s: 120
+    kokoro:
+      model: hexgrad/Kokoro-82M
+      sample_rate: 24000
+      default_voice: af_heart        # built-in voice id
+      timeout_s: 30
+
+  music_gen:
+    model: ACE-Step/ACE-Step-v1-3.5B
+    max_duration_s: 240              # 4-min soft cap for MVP
+    timeout_s: 300
+    sample_rate: 44100
+    guidance_scale: 7.5
+    steps: 60
+
+gpu:
+  # Evictability — dispatcher calls into gpu_memory_orchestrator before loading.
+  # If false, refuses to evict other plugins and returns 503 instead.
+  allow_eviction_of_others: true
+  # Seconds of backend idle before auto-unload (frees VRAM for other plugins).
+  # 0 disables auto-unload. Measured from last successful generation.
+  idle_unload_s: 300
+
+celery:
+  # Requests with estimated duration over this run async via Celery queue.
+  # Under this, we block the HTTP request and return the result inline.
+  async_threshold_s: 5
+  queue_name: audio_gen
