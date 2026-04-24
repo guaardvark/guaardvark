@@ -30,8 +30,12 @@ import NarrateButton from "../common/NarrateButton";
 
 const UPLOAD_BASE_URL = BASE_URL + "/uploads";
 
-const MessageItem = ({ message }) => {
+const MessageItem = ({ message, sessionId: sessionIdProp }) => {
   const isUser = message.role === "user";
+  // Per-message sessionId takes precedence, fall through to the list-level
+  // prop so feedback on assistant turns (which often lack message.sessionId)
+  // still carries the active chat session.
+  const effectiveSessionId = message.sessionId || sessionIdProp || null;
 
   // Read narrate button visibility from voice settings (localStorage)
   const [showNarrate, setShowNarrate] = useState(() => {
@@ -67,8 +71,19 @@ const MessageItem = ({ message }) => {
   const isAgentLoop = message.isAgentLoop;
   const logo = useAppStore((s) => s.systemLogo);
   const [lightbox, setLightbox] = useState(null);
-  const [feedback, setFeedback] = useState(null); // null | "up" | "down"
+  // Hydrate thumb state from the message's persisted extra_data so the
+  // icon survives a page refresh. Backend stamps {"feedback": "up"/"down"}
+  // onto LLMMessage.extra_data when the user clicks the chips.
+  const initialFeedback = (() => {
+    const v = message?.extra_data?.feedback;
+    return v === "up" || v === "down" ? v : null;
+  })();
+  const [feedback, setFeedback] = useState(initialFeedback); // null | "up" | "down"
   const [copied, setCopied] = useState(false);
+  // Tag every thumb with the active lesson, if one is open. Pearls with a
+  // lesson_id skip the per-👍 distill path and flow through the End-Lesson
+  // summary distiller instead.
+  const activeLessonId = useAppStore((s) => s.activeLessonId);
 
   const handleCopy = useCallback(async () => {
     const text = typeof message.content === "string" ? message.content : JSON.stringify(message.content, null, 2);
@@ -101,14 +116,15 @@ const MessageItem = ({ message }) => {
         body: JSON.stringify({
           positive,
           task: content.slice(0, 200),
-          session_id: message.sessionId || null,
+          session_id: effectiveSessionId,
           type: "response",
+          lesson_id: activeLessonId || undefined,
         }),
       });
     } catch (err) {
       console.error("Feedback failed:", err);
     }
-  }, [feedback, message.content, message.sessionId]);
+  }, [feedback, message.content, effectiveSessionId, activeLessonId]);
 
   const openLightbox = useCallback((url, name, images, index) => {
     setLightbox({ url, name, images: images || [{ url, name }], index: index || 0 });
@@ -413,7 +429,7 @@ const MessageItem = ({ message }) => {
                   } : null}
                   durationMs={tc.duration_ms}
                   isPending={false}
-                  sessionId={message.sessionId}
+                  sessionId={effectiveSessionId}
                 />
               ))
             )}
@@ -585,6 +601,7 @@ MessageItem.propTypes = {
     badge: PropTypes.string,
     source: PropTypes.string,
   }).isRequired,
+  sessionId: PropTypes.string,
 };
 
 export default React.memo(MessageItem);

@@ -397,6 +397,124 @@ def learn_input():
 # Task feedback — thumbs up/down from the user after any agent task
 # ---------------------------------------------------------------------------
 
+def _distill_pearl_memory(app, session_id: str):
+    """Background thread: roll this session's positive pearls into a short
+    note to the agent's future self, UPSERT one AgentMemory per session.
+
+    Runs async so the feedback endpoint returns fast. Failures are logged
+    and swallowed — a distillation hiccup should never break feedback UX.
+    """
+    if not app or not session_id:
+        return
+    with app.app_context():
+        try:
+            from backend.models import db, LLMMessage, ToolFeedback, AgentMemory
+            from backend.config import OLLAMA_BASE_URL
+            from datetime import datetime
+            import requests
+
+            # Recent conversation — the context the lesson is being drawn from
+            messages = (
+                LLMMessage.query
+                .filter_by(session_id=session_id)
+                .order_by(LLMMessage.timestamp.desc())
+                .limit(20)
+                .all()
+            )
+            messages.reverse()
+            convo_lines = []
+            for m in messages[-12:]:
+                role = (m.role or "?")[:1].upper()
+                content = (m.content or "")[:220]
+                convo_lines.append(f"{role}: {content}")
+
+            # Earlier positive pearls for this session — the string so far
+            pearls = (
+                ToolFeedback.query
+                .filter_by(session_id=session_id, positive=True)
+                .order_by(ToolFeedback.created_at.asc())
+                .all()
+            )
+            pearl_lines = [f"- {(p.task or '')[:150]}" for p in pearls if p.task]
+
+            try:
+                from backend.utils.llm_service import get_saved_active_model_name
+                active_model = get_saved_active_model_name() or "gemma4:e4b"
+            except Exception:
+                active_model = "gemma4:e4b"
+
+            prompt = (
+                "You are Guaardvark, a local AI assistant. The user just approved "
+                "(👍) a response in this chat session. Read the positive pearls "
+                "from this session and the recent exchange, then write a short note "
+                "to your future self (2–3 sentences, plain English, first person) "
+                "about what you learned that worked. Focus on what's reusable next "
+                "time — not a play-by-play. Output only the note, no preamble.\n\n"
+                "=== Positive pearls so far this session ===\n"
+                + ("\n".join(pearl_lines) if pearl_lines else "(first pearl of the session)")
+                + "\n\n=== Recent conversation ===\n"
+                + ("\n".join(convo_lines) if convo_lines else "(no prior turns loaded)")
+                + "\n\nNote to self:"
+            )
+
+            try:
+                resp = requests.post(
+                    f"{OLLAMA_BASE_URL}/api/generate",
+                    json={
+                        "model": active_model,
+                        "prompt": prompt,
+                        "stream": False,
+                        # Gemma4 and similar thinking models can burn 200-400
+                        # tokens on internal reasoning before the first visible
+                        # output token — 800 gives us headroom for ~50 words
+                        # of actual note after the think.
+                        "options": {"num_predict": 800, "temperature": 0.6},
+                    },
+                    timeout=90,
+                )
+                resp.raise_for_status()
+                note = (resp.json().get("response") or "").strip()
+            except Exception as llm_err:
+                logger.warning(f"[DISTILL] LLM call failed for session {session_id[:12]}: {llm_err}")
+                return
+
+            if not note:
+                logger.debug(f"[DISTILL] Empty note for session {session_id[:12]} — skipping")
+                return
+
+            # UPSERT — one rolling memory per session, source tag keeps these
+            # separate from user-typed memories for later curation.
+            existing = (
+                AgentMemory.query
+                .filter_by(session_id=session_id, source="learned_from_feedback")
+                .first()
+            )
+            if existing:
+                existing.content = note
+                existing.updated_at = datetime.now()
+                logger.info(f"[DISTILL] Updated pearl memory for session {session_id[:12]}: {note[:80]}")
+            else:
+                import uuid
+                mem = AgentMemory(
+                    id=uuid.uuid4().hex[:12],
+                    content=note,
+                    source="learned_from_feedback",
+                    session_id=session_id,
+                    type="note",
+                    importance=0.7,
+                )
+                db.session.add(mem)
+                logger.info(f"[DISTILL] Saved pearl memory for session {session_id[:12]}: {note[:80]}")
+            db.session.commit()
+        except Exception as e:
+            logger.error(f"[DISTILL] session {session_id[:12]} failed: {e}", exc_info=True)
+            try:
+                from backend.models import db
+                db.session.rollback()
+            except Exception:
+                pass
+
+
 @agent_control_bp.route("/feedback", methods=["POST"])
 def submit_feedback():
     """Record thumbs up/down feedback for an agent task.
@@ -423,18 +541,40 @@ def submit_feedback():
     from pathlib import Path
     from backend.config import GUAARDVARK_ROOT
 
+    # Read lesson_id from body; if absent, auto-attach from the active-lesson
+    # registry so the frontend doesn't have to carry it. Belt-and-suspenders:
+    # even if MessageItem forgets to send lesson_id, pearls captured inside an
+    # open Begin/End bracket get grouped correctly.
+    lesson_id = (data.get("lesson_id") or None)
+    session_id = data.get("session_id")
+    if not lesson_id and session_id:
+        try:
+            from backend.api.lessons_api import get_active_lesson_id
+            lesson_id = get_active_lesson_id(session_id)
+        except Exception:
+            lesson_id = None
+
     entry = {
         "timestamp": datetime.now().isoformat(),
         "epoch": time.time(),
         "positive": bool(data["positive"]),
         "task": data.get("task", ""),
         "type": data.get("type", "tool_action"),  # "tool_action" or "response"
-        "session_id": data.get("session_id"),
+        "session_id": session_id,
+        "lesson_id": lesson_id,
         "steps": data.get("steps"),
         "time_seconds": data.get("time_seconds"),
         "comment": data.get("comment", ""),
         "model": data.get("model", ""),
     }
+
+    # Session-less pearls can't be grouped into a thread later, so surface
+    # that here — the frontend should send session_id on every feedback ping.
+    if entry["session_id"] is None:
+        logger.warning(
+            "[FEEDBACK] session_id missing on %s — pearl won't be groupable by session",
+            entry["type"],
+        )
 
     feedback_file = Path(GUAARDVARK_ROOT) / "data" / "training" / "knowledge" / "feedback.jsonl"
     try:
@@ -444,10 +584,12 @@ def submit_feedback():
         logger.info(f"[FEEDBACK] {'👍' if entry['positive'] else '👎'} task=\"{entry['task'][:60]}\"")
         
         # PERSIST TO DATABASE (Structured storage)
+        db_entry_id = None
         try:
             from backend.models import db, ToolFeedback
             db_entry = ToolFeedback(
                 session_id=entry["session_id"],
+                lesson_id=entry["lesson_id"],
                 tool_name=data.get("tool_name", entry["task"][:100]), # preferred tool_name
                 task=entry["task"],
                 positive=entry["positive"],
@@ -457,9 +599,72 @@ def submit_feedback():
             )
             db.session.add(db_entry)
             db.session.commit()
+            db_entry_id = db_entry.id
             logger.debug(f"[FEEDBACK] Persisted to database: ID={db_entry.id}")
         except Exception as db_err:
             logger.warning(f"[FEEDBACK] Failed to persist to database (non-fatal): {db_err}")
+
+        # Stamp the feedback state onto the matching chat message so the
+        # thumb-icon survives a page refresh. Match by session_id + content
+        # prefix — the "task" field is already content[:200] from the frontend.
+        if entry["session_id"] and entry["task"]:
+            try:
+                from backend.models import db, LLMMessage
+                msg = (
+                    LLMMessage.query
+                    .filter(
+                        LLMMessage.session_id == entry["session_id"],
+                        LLMMessage.role == ("user" if entry["type"] == "tool_action" else "assistant"),
+                        LLMMessage.content.like(entry["task"][:100].replace("%", r"\%").replace("_", r"\_") + "%"),
+                    )
+                    .order_by(LLMMessage.timestamp.desc())
+                    .first()
+                )
+                if msg is not None:
+                    current_extra = dict(msg.extra_data or {})
+                    current_extra["feedback"] = "up" if entry["positive"] else "down"
+                    msg.extra_data = current_extra
+                    # JSON mutation assignment — SQLAlchemy needs flag_modified
+                    # for nested dicts, but whole-dict reassignment is tracked.
+                    db.session.commit()
+            except Exception as stamp_err:
+                logger.warning(f"[FEEDBACK] Could not stamp message extra_data: {stamp_err}")
+                try:
+                    from backend.models import db
+                    db.session.rollback()
+                except Exception:
+                    pass
+
+        # Two paths for positive pearls:
+        #   (1) No active lesson  → old per-session rolling distillation (async).
+        #   (2) Active lesson     → skip per-👍 distill; emit a live pearl event
+        #                           so the floater can show progress. The real
+        #                           distillation runs on POST /api/lessons/<id>/end.
+        if entry["positive"] and entry["session_id"]:
+            if entry["lesson_id"]:
+                try:
+                    from backend.socketio_events import emit_lesson_event
+                    emit_lesson_event("pearl_added", {
+                        "lesson_id": entry["lesson_id"],
+                        "session_id": entry["session_id"],
+                        "pearl_id": db_entry_id,
+                        "task": entry["task"],
+                        "created_at": entry["timestamp"],
+                    })
+                except Exception as emit_err:
+                    logger.warning(f"[LESSON] emit pearl_added failed (non-fatal): {emit_err}")
+            else:
+                try:
+                    from flask import current_app
+                    _app = current_app._get_current_object()
+                    threading.Thread(
+                        target=_distill_pearl_memory,
+                        args=(_app, entry["session_id"]),
+                        daemon=True,
+                        name=f"distill-{entry['session_id'][:8]}",
+                    ).start()
+                except Exception as spawn_err:
+                    logger.warning(f"[DISTILL] Failed to spawn distillation thread: {spawn_err}")
 
         return jsonify({"success": True, "feedback": entry}), 201
     except Exception as e:

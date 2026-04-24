@@ -350,6 +350,9 @@ class BrainState:
         # Internal
         self._initialized = False
         self._warm_up_thread: Optional[threading.Thread] = None
+        # Flask app handle for live DB reads from worker threads that
+        # don't inherit a request context. Captured during initialize().
+        self._app = None
 
     @classmethod
     def get_instance(cls) -> "BrainState":
@@ -378,6 +381,14 @@ class BrainState:
         self.lite_mode = lite_mode
         logger.info(f"BrainState initializing (lite_mode={lite_mode})")
         start = time.monotonic()
+
+        # Capture the live Flask app so worker threads can push their own
+        # app context when they need DB access (memory lookups, etc.).
+        try:
+            from flask import current_app
+            self._app = current_app._get_current_object()
+        except Exception:
+            self._app = None
 
         # Step 1: Tool registry
         try:
@@ -522,18 +533,11 @@ class BrainState:
         if persona:
             prefix += persona + "\n\n"
 
-        # Load saved memories into context
-        memory_block = ""
-        try:
-            from backend.api.memory_api import get_memories_for_context
-            memory_text = get_memories_for_context(limit=20, max_tokens=500)
-            if memory_text:
-                memory_block = memory_text + "\n\n"
-        except Exception:
-            pass  # Memory system unavailable — no impact on chat
-
-        if memory_block:
-            prefix += memory_block
+        # Memory block is filled live at get_system_prompt() time so a
+        # memory typed after startup appears in the next chat turn without
+        # waiting for a restart. The literal "{MEMORY_BLOCK}" token below
+        # is substituted in get_system_prompt().
+        prefix += "{MEMORY_BLOCK}"
 
         # Inject agent desktop state so the LLM knows what's on the
         # virtual screen before deciding what tools to call
@@ -625,11 +629,24 @@ RULES:
 
         def _ping():
             try:
-                from backend.utils.llm_service import ChatMessage, MessageRole
-                messages = [
-                    ChatMessage(role=MessageRole.USER, content="ping"),
-                ]
-                self.llm.chat(messages)
+                import requests
+                from backend.config import OLLAMA_BASE_URL
+                # Use Ollama's canonical warmup primitive instead of llama_index
+                # chat(): the latter's httpx stack silently timed out on slow
+                # hardware even though Ollama itself was making progress. 15-min
+                # read deadline covers cold-load on pre-AVX2 CPUs with HDDs.
+                resp = requests.post(
+                    f"{OLLAMA_BASE_URL}/api/generate",
+                    json={
+                        "model": self.active_model,
+                        "prompt": "ok",
+                        "stream": False,
+                        "options": {"num_predict": 1},
+                        "keep_alive": "30m",
+                    },
+                    timeout=(10.0, 900.0),
+                )
+                resp.raise_for_status()
                 self.health.warm_up_status = WarmUpStatus.READY
                 logger.info(f"Model warm-up complete: {self.active_model} is hot")
             except Exception as e:
@@ -723,5 +740,18 @@ RULES:
         return self._initialized and self.health.reflexes_loaded
 
     def get_system_prompt(self, context: str = "chat") -> str:
-        """Get pre-rendered system prompt by context key."""
-        return self.system_prompts.get(context, self.system_prompts.get("chat", ""))
+        """Get the system prompt for a context, filling the memory block
+        with a live DB read so new memories apply immediately."""
+        template = self.system_prompts.get(context, self.system_prompts.get("chat", ""))
+        memory_text = ""
+        try:
+            from backend.api.memory_api import get_memories_for_context
+            if self._app is not None:
+                with self._app.app_context():
+                    memory_text = get_memories_for_context(limit=20, max_tokens=500) or ""
+            else:
+                memory_text = get_memories_for_context(limit=20, max_tokens=500) or ""
+        except Exception:
+            memory_text = ""
+        memory_block = f"{memory_text}\n\n" if memory_text else ""
+        return template.replace("{MEMORY_BLOCK}", memory_block)

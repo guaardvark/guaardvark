@@ -214,6 +214,18 @@ def emit_self_improvement_event(event_type: str, data: dict):
     logger.info(f"Emitted self_improvement:{event_type}")
 
 
+def emit_lesson_event(event_type: str, data: dict):
+    """Emit lesson lifecycle events — started, pearl_added, ended.
+    Used by the Begin/End Lesson flow so the floater can show pearls in real time.
+    """
+    socketio.emit(f"lesson:{event_type}", {
+        "event_type": event_type,
+        "timestamp": time.time(),
+        **data,
+    })
+    logger.info(f"Emitted lesson:{event_type}")
+
+
 def emit_uncle_directive(directive: str, reason: str):
     """Emit Uncle Claude directive to all connected clients."""
     socketio.emit("uncle:directive", {

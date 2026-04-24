@@ -372,6 +372,7 @@ class AgentBrain:
             # Build minimal context — just what Gemma4 needs to know
             desktop_state = ""
             try:
+                from backend.services.agent_control_service import AgentControlService
                 desktop_state = AgentControlService._get_desktop_state()
             except Exception:
                 desktop_state = "Desktop state: unknown"
@@ -379,7 +380,14 @@ class AgentBrain:
             memory_block = ""
             try:
                 from backend.api.memory_api import get_memories_for_context
-                memory_block = get_memories_for_context(limit=10, max_tokens=300)
+                # 800 tokens (~3200 chars) so multi-step lesson summaries fit
+                # alongside the user's normal notes without starving either.
+                # Was 300; lessons were getting decapitated before Gemma4 saw them.
+                if app is not None:
+                    with app.app_context():
+                        memory_block = get_memories_for_context(limit=10, max_tokens=800)
+                else:
+                    memory_block = get_memories_for_context(limit=10, max_tokens=800)
             except Exception:
                 pass
 

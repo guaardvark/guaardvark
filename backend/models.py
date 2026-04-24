@@ -2284,6 +2284,9 @@ class ToolFeedback(db.Model):
     __tablename__ = "tool_feedback"
     id = db.Column(db.Integer, primary_key=True)
     session_id = db.Column(db.String(36), index=True)
+    # lesson_id: set when this pearl was captured inside an active Begin/End Lesson
+    # bracket — gates the per-👍 auto-distill and links the row to the lesson summary.
+    lesson_id = db.Column(db.String(36), nullable=True, index=True)
     tool_name = db.Column(db.String(100), nullable=False, index=True)
     task = db.Column(db.Text, nullable=True) # The user's original task or tool parameter
     positive = db.Column(db.Boolean, nullable=False)
@@ -2296,6 +2299,7 @@ class ToolFeedback(db.Model):
         return {
             "id": self.id,
             "session_id": self.session_id,
+            "lesson_id": self.lesson_id,
             "tool_name": self.tool_name,
             "task": self.task,
             "positive": self.positive,

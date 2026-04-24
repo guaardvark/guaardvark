@@ -98,6 +98,50 @@ def list_memories():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@memory_bp.route("/<memory_id>", methods=["PATCH"])
+def update_memory(memory_id):
+    """
+    PATCH /api/memory/<id>
+    Body: { content?, tags?, type?, importance? }
+
+    Update a memory in place. Used by the post-lesson summary modal to save
+    edited steps, and by the general memory UI edit affordance. The `source`
+    and `session_id` fields are intentionally immutable here — they're keys
+    the pearl distiller relies on for UPSERT behavior.
+    """
+    data = request.get_json(silent=True) or {}
+    try:
+        memory = db.session.query(AgentMemory).filter_by(id=memory_id).first()
+        if not memory:
+            return jsonify({"success": False, "error": "Memory not found"}), 404
+
+        if "content" in data:
+            content = (data.get("content") or "").strip()
+            if not content:
+                return jsonify({"success": False, "error": "Content cannot be empty"}), 400
+            memory.content = content
+        if "tags" in data:
+            tags = data.get("tags") or []
+            memory.tags = json.dumps(tags) if tags else None
+        if "type" in data and data["type"]:
+            memory.type = data["type"]
+        if "importance" in data and data["importance"] is not None:
+            try:
+                memory.importance = float(data["importance"])
+            except (TypeError, ValueError):
+                return jsonify({"success": False, "error": "importance must be numeric"}), 400
+
+        memory.updated_at = datetime.now()
+        db.session.commit()
+
+        logger.info(f"Memory updated: {memory_id}")
+        return jsonify({"success": True, "memory": memory.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Failed to update memory {memory_id}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @memory_bp.route("/<memory_id>", methods=["DELETE"])
 def delete_memory(memory_id):
     """
@@ -111,7 +155,7 @@ def delete_memory(memory_id):
 
         db.session.delete(memory)
         db.session.commit()
-        
+
         logger.info(f"Memory deleted: {memory_id}")
         return jsonify({"success": True, "message": f"Deleted memory {memory_id}"})
     except Exception as e:
@@ -181,9 +225,69 @@ def get_memories_for_context(limit: int = 20, max_tokens: int = 500, query: str 
         content = m.content.strip()
         if not content:
             continue
-        # Truncate individual entries that are too long
-        if len(content) > 300:
-            content = content[:297] + "..."
+
+        # Lesson summaries are stored as JSON {title, steps:[{order, text}]}.
+        # Flatten into readable imperative text so Gemma4 can treat them as
+        # behavioral instructions, not opaque JSON fragments. Without this
+        # branch, lessons get decapitated by the 300-char truncation below
+        # and the model never sees the actual steps — the whole pipeline
+        # saves lessons that never influence behavior.
+        if m.source == "lesson_summary":
+            try:
+                lesson_data = json.loads(content)
+                title = (lesson_data.get("title") or "Task").strip()
+                steps = lesson_data.get("steps") or []
+                step_texts = []
+                for s in sorted(steps, key=lambda x: x.get("order", 0) if isinstance(x, dict) else 0):
+                    if isinstance(s, dict):
+                        text = (s.get("text") or "").strip()
+                    else:
+                        text = str(s).strip()
+                    if text:
+                        step_texts.append(f"{s.get('order') if isinstance(s, dict) else len(step_texts) + 1}. {text}")
+                flattened = f"LESSON ({title}): " + " -> ".join(step_texts)
+
+                # Append a PARAMETERS line if the lesson defines placeholders.
+                # This is what teaches Gemma4 that "{channel}" in the steps is
+                # a slot to fill from the current user request — without it,
+                # the model sees bare placeholder text and gets confused.
+                parameters = lesson_data.get("parameters") or []
+                if parameters:
+                    param_strs = []
+                    for p in parameters:
+                        if not isinstance(p, dict):
+                            continue
+                        name = (p.get("name") or "").strip()
+                        desc = (p.get("description") or "").strip()
+                        example = (p.get("example") or "").strip()
+                        if not name:
+                            continue
+                        token = f"{{{name}}}"
+                        parts = [desc] if desc else []
+                        if example:
+                            parts.append(f"e.g. {example}")
+                        suffix = f" ({'; '.join(parts)})" if parts else ""
+                        param_strs.append(f"{token}{suffix}")
+                    if param_strs:
+                        flattened += " | PARAMETERS: " + ", ".join(param_strs)
+
+                content = flattened
+                # Lessons get a larger per-entry budget than notes — step lists
+                # + parameter definitions need the room.
+                if len(content) > 1200:
+                    content = content[:1197] + "..."
+            except Exception as parse_err:
+                logger.warning(
+                    f"Lesson memory {m.id} has malformed JSON content; "
+                    f"falling back to truncated raw: {parse_err}"
+                )
+                if len(content) > 300:
+                    content = content[:297] + "..."
+        else:
+            # Standard truncation for plain notes / facts / instructions
+            if len(content) > 300:
+                content = content[:297] + "..."
+
         line = f"- {content}"
         if used + len(line) > char_budget:
             break
