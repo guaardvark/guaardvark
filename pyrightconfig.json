@@ -13,5 +13,6 @@
   "reportOptionalMemberAccess": "warning",
   "reportGeneralTypeIssues": "warning",
   "venvPath": "backend",
-  "venv": "venv"
+  "venv": "venv",
+  "pythonPath": "backend/venv/bin/python"
 }
