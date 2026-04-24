@@ -6,6 +6,7 @@ Uses Ollama client directly for token-by-token streaming (bypasses LlamaIndex Pr
 """
 
 import os
+import hashlib
 import json
 import logging
 import re
@@ -252,10 +253,21 @@ class SemanticToolSelector:
         "delete_memory",
     }
 
+    # Embedding model used for semantic tool ranking. Override via env var for
+    # machines that can't run the default (e.g. low-RAM laptops where a 2.5GB
+    # embedding model won't fit alongside a chat model). If the chosen model
+    # isn't pulled, the selector disables itself and the chat engine falls
+    # back to keyword-based tool selection automatically.
+    DEFAULT_EMBEDDING_MODEL = "qwen3-embedding:4b-q4_K_M"
+
     def __init__(self):
         self._tool_embeddings: Dict[str, List[float]] = {}
         self._initialized = False
+        self._disabled = False
         self._lock = threading.Lock()
+        self._embedding_model = os.environ.get(
+            "GUAARDVARK_TOOL_EMBEDDING_MODEL", self.DEFAULT_EMBEDDING_MODEL
+        )
 
     # ------------------------------------------------------------------
     # Public API
@@ -278,8 +290,16 @@ class SemanticToolSelector:
 
         all_tool_names = registry.list_tools()
 
+        # If we've already determined the embedding model isn't available on
+        # this machine, skip the retry loop entirely and go straight to the
+        # keyword-based selector. Keeps the per-request log quiet.
+        if self._disabled:
+            return select_tools_for_context(message, all_tool_names, max_tools)
+
         try:
             self._lazy_init(registry)
+            if self._disabled:
+                return select_tools_for_context(message, all_tool_names, max_tools)
             msg_emb = self._embed(message)
             return self._rank_and_select(msg_emb, all_tool_names, max_tools)
         except Exception as exc:
@@ -294,12 +314,38 @@ class SemanticToolSelector:
 
     def _lazy_init(self, registry) -> None:
         """Embed all tools once, thread-safely with persistent cache."""
-        if self._initialized:
+        if self._initialized or self._disabled:
             return
         with self._lock:
-            if self._initialized:   # double-checked locking
+            if self._initialized or self._disabled:   # double-checked locking
                 return
-            
+
+            # Probe Ollama once to see if the embedding model is actually pulled.
+            # If not, disable the semantic selector permanently for this process
+            # instead of burning a 404 per tool per chat request.
+            try:
+                import requests
+                from backend.config import OLLAMA_BASE_URL
+                resp = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
+                if resp.status_code == 200:
+                    installed = {m.get("name", "") for m in resp.json().get("models", [])}
+                    if self._embedding_model not in installed:
+                        logger.info(
+                            "SemanticToolSelector disabled — embedding model '%s' "
+                            "is not installed. Using keyword-based tool selection. "
+                            "Set GUAARDVARK_TOOL_EMBEDDING_MODEL to a smaller model "
+                            "(e.g. 'all-minilm' or 'nomic-embed-text') and `ollama pull` "
+                            "it to enable semantic ranking.",
+                            self._embedding_model,
+                        )
+                        self._disabled = True
+                        self._initialized = True
+                        return
+            except Exception as e:
+                # If we can't reach Ollama, let the embedding attempts fail below
+                # and rely on the existing keyword fallback.
+                logger.debug(f"Could not probe Ollama for embedding model: {e}")
+
             # 1. Try to load from persistent cache
             cached_data = {}
             if os.path.exists(TOOL_EMBEDDING_CACHE):
@@ -320,7 +366,10 @@ class SemanticToolSelector:
                     continue
                 
                 doc = self._build_tool_doc(name, tool)
-                doc_hash = str(hash(doc)) # Simple hash to detect changes
+                # sha1 because Python's hash() is randomized per process
+                # (PYTHONHASHSEED) — str(hash(doc)) produces a different value
+                # every restart, which makes the persistent cache never match.
+                doc_hash = hashlib.sha1(doc.encode("utf-8")).hexdigest()
                 
                 # Check cache (and hash matches)
                 if name in cached_data and cached_data[name].get("hash") == doc_hash:
@@ -350,7 +399,7 @@ class SemanticToolSelector:
             try:
                 import ollama
                 ollama.embeddings(
-                    model="qwen3-embedding:4b-q4_K_M",
+                    model=self._embedding_model,
                     prompt=".",
                     keep_alive=0,
                 )
@@ -386,7 +435,7 @@ class SemanticToolSelector:
     def _embed(self, text: str, keep_alive=0) -> List[float]:
         """Call ollama to embed text. keep_alive=0 unloads model after use."""
         import ollama
-        kwargs = {"model": "qwen3-embedding:4b-q4_K_M", "prompt": text}
+        kwargs = {"model": self._embedding_model, "prompt": text}
         if keep_alive is not None:
             kwargs["keep_alive"] = keep_alive
         response = ollama.embeddings(**kwargs)
@@ -1698,8 +1747,10 @@ class UnifiedChatEngine:
         has_url = _message_mentions_url(message)
 
         try:
-            from backend.services.agent_router import AgentRouter, RouteType
-            router = AgentRouter()
+            from backend.services.agent_router import RouteType, get_agent_router
+            # Use the singleton — the bare AgentRouter() call re-ran __init__
+            # (and emitted "AgentRouter initialized") on every chat request.
+            router = get_agent_router()
             decision = router.route(message)
 
             if decision.route_type == RouteType.CHAT_ONLY:
@@ -1779,15 +1830,27 @@ class UnifiedChatEngine:
         return any(kw in msg_lower for kw in UnifiedChatEngine._REALTIME_KEYWORDS)
 
     def _load_rules(self, model_name: str) -> str:
-        """Load system prompt rules from database (thread-safe with app context)."""
+        """Load system prompt rules from database (thread-safe with app context).
+
+        Gated by the global SettingsPage → A.I. Features → Rules toggle.
+        When disabled (default), skip DB lookups entirely and return the
+        hardcoded prompt — no warnings, no RulesPage coupling.
+        """
+        default_prompt = "You are a helpful AI assistant. Be accurate, concise, and honest."
         try:
             from backend import rule_utils
             from backend.models import db
+            from backend.utils.settings_utils import get_rules_enabled
 
             ctx = self.app.app_context() if self.app else None
             if ctx:
                 ctx.push()
             try:
+                # Rules are opt-in. When the global toggle is off, the hardcoded
+                # default is authoritative — no RulesPage coupling at all.
+                if not get_rules_enabled():
+                    return default_prompt
+
                 text, rule_id = rule_utils.get_active_system_prompt(
                     "enhanced_chat", db.session, model_name=model_name
                 )
@@ -1804,7 +1867,7 @@ class UnifiedChatEngine:
         except Exception as e:
             logger.warning(f"Failed to load rules: {e}")
 
-        return "You are a helpful AI assistant. Be accurate, concise, and honest."
+        return default_prompt
 
     _VOICE_INSTRUCTION = (
         "\n\nIMPORTANT — VOICE MODE: The user is speaking to you via voice. "
@@ -1821,11 +1884,17 @@ class UnifiedChatEngine:
         """Build the system prompt with rules and tool definitions."""
         voice_suffix = self._VOICE_INSTRUCTION if getattr(self, '_is_voice_message', False) else ""
 
-        # Load saved memories into context
+        # Load saved memories into context. Wrap defensively so the call
+        # works regardless of whether _build_system_prompt is invoked from
+        # inside or outside an app context.
         memory_block = ""
         try:
             from backend.api.memory_api import get_memories_for_context
-            memory_text = get_memories_for_context(limit=20, max_tokens=500)
+            if self.app is not None:
+                with self.app.app_context():
+                    memory_text = get_memories_for_context(limit=20, max_tokens=500)
+            else:
+                memory_text = get_memories_for_context(limit=20, max_tokens=500)
             if memory_text:
                 memory_block = f"\n\n{memory_text}"
         except Exception:
@@ -1884,6 +1953,7 @@ RULES:
    - NEVER use browser_navigate, browser_click, browser_get_html, or browser_extract for tasks on the virtual screen. Those control a separate invisible browser. Use agent_task_execute and agent_screen_capture ONLY.
    - You do NOT need the user to say "virtual screen" — if they ask you to click something, open a page, close a tab, scroll, or describe what's showing, USE THE AGENT TOOLS.
    - agent_task_execute controls the real Firefox browser with vision + mouse + keyboard, like a human sitting at the computer.
+   - Pass the user's task verbatim. Don't pre-scroll or pre-capture.
 10. After a tool succeeds, give a SHORT response (1-2 sentences). Do NOT repeat the tool's technical output (URLs, model names, seeds, file paths). The user can see the tool result card. Just confirm what was done.
 11. NEVER HALLUCINATE ACTIONS. If the user asks you to click, open, close, navigate, or do anything physical — you MUST call agent_task_execute. Do NOT just say "I've done it" without a tool call. The user is watching the screen and will see that nothing happened. If you cannot do something, say so honestly.
 12. NEVER claim you did something if no tool call succeeded. If all tools failed, say "I wasn't able to do that" — do NOT fabricate a success story. The user can see the tool results and will know if you are lying.
