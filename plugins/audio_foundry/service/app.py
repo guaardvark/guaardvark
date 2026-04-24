@@ -13,6 +13,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from service.bootstrap import bootstrap
 from service.config_loader import load_config
 from service.dispatcher import Dispatcher, Intent, NotWired
 
@@ -64,6 +65,7 @@ app.add_middleware(
 
 _config = load_config()
 _dispatcher = Dispatcher()
+bootstrap(_dispatcher, _config)
 
 
 # ---------- endpoints --------------------------------------------------------

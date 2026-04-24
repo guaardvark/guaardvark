@@ -75,3 +75,57 @@ def test_voice_invalid_backend_is_rejected():
         json={"text": "hi", "backend": "not-a-backend"},
     )
     assert r.status_code == 422
+
+
+def test_generate_fx_with_mock_backend_returns_200(tmp_path):
+    """End-to-end wire test for the response-serialization path.
+
+    Registers a tiny mock backend (no torch, no model) and confirms that a
+    GenerationResult flows back through dispatcher -> service -> HTTP JSON
+    with every meta field preserved. This is the proof that when SAO loads
+    for real, the response surface is already known-good.
+    """
+    from service.app import _dispatcher
+    from service.dispatcher import Intent
+    from backends.base import AudioBackend, GenerationResult
+
+    class MockFx(AudioBackend):
+        name = "mock_fx"
+        vram_mb_estimate = 0
+
+        def __init__(self) -> None:
+            self._loaded = False
+
+        def load(self) -> None:
+            self._loaded = True
+
+        def unload(self) -> None:
+            self._loaded = False
+
+        @property
+        def is_loaded(self) -> bool:
+            return self._loaded
+
+        def generate(self, **params):
+            path = tmp_path / "mock.wav"
+            path.write_bytes(b"RIFFmock")
+            return GenerationResult(
+                path=path,
+                duration_s=0.01,
+                sample_rate=44100,
+                meta={"mock": True, "prompt": params.get("prompt")},
+            )
+
+    prev = _dispatcher._backends[Intent.FX]
+    _dispatcher.register(Intent.FX, MockFx())
+    try:
+        r = client.post("/generate/fx", json={"prompt": "rain", "duration_s": 5})
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["sample_rate"] == 44100
+        assert body["duration_s"] == 0.01
+        assert body["meta"]["mock"] is True
+        assert body["meta"]["prompt"] == "rain"
+        assert body["path"].endswith("mock.wav")
+    finally:
+        _dispatcher._backends[Intent.FX] = prev
