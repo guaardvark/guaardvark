@@ -48,6 +48,19 @@ pids/
 # Environment
 .env
 
+# Local-only planning/design docs (never pushed)
+plans/
+
+# Local-only audit reports (slices, summaries, inventories)
+audit/
+
+# Runtime cluster state — regenerated on startup, never committed
+data/cluster/
+backend/data/
+
+# Scratch scripts at repo root (root-level only, not backend/tests/)
+/test_stream.py
+
 # Frontend build
 frontend/dist/
 frontend/.vite/
