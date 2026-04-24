@@ -23,9 +23,12 @@ import EditIcon from '@mui/icons-material/Edit';
 import SkipNextIcon from '@mui/icons-material/SkipNext';
 // No trash icons — system uses X/close for all remove actions
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
+import KeyboardIcon from '@mui/icons-material/Keyboard';
+import KeyboardOutlinedIcon from '@mui/icons-material/KeyboardOutlined';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { useNavigate } from 'react-router-dom';
+import { useAppStore } from '../../stores/useAppStore';
 
 const API_BASE = '/api/agent-control/learn';
 const STORAGE_KEY = 'guaardvark_training_floater_state';
@@ -58,6 +61,8 @@ function saveState(state) {
 
 export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
   const navigate = useNavigate();
+  const kbdForwarding = useAppStore((s) => s.keyboardForwardingEnabled);
+  const toggleKbdForwarding = useAppStore((s) => s.toggleKeyboardForwarding);
   // --- Persisted window state ---
   const saved = loadState();
   const [collapsed, setCollapsed] = useState(saved.collapsed ?? false);
@@ -721,6 +726,16 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
             </IconButton>
           </Tooltip>
         )}
+        <Tooltip title={kbdForwarding ? 'Keyboard → Agent: ON (click to stop)' : 'Send keyboard to Agent Screen'}>
+          <IconButton
+            className="header-btn"
+            size="small"
+            onClick={toggleKbdForwarding}
+            sx={{ p: 0.25, mr: 0.25, color: kbdForwarding ? 'success.main' : 'text.secondary' }}
+          >
+            {kbdForwarding ? <KeyboardIcon sx={{ fontSize: 16 }} /> : <KeyboardOutlinedIcon sx={{ fontSize: 16 }} />}
+          </IconButton>
+        </Tooltip>
         <IconButton
           className="header-btn"
           size="small"

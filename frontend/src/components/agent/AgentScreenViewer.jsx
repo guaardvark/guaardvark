@@ -16,6 +16,8 @@ import PauseIcon from '@mui/icons-material/Pause';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import CloseIcon from '@mui/icons-material/Close';
 import CircleIcon from '@mui/icons-material/Circle';
+import KeyboardIcon from '@mui/icons-material/Keyboard';
+import KeyboardOutlinedIcon from '@mui/icons-material/KeyboardOutlined';
 import axios from 'axios';
 import { useAppStore } from '../../stores/useAppStore';
 
@@ -97,6 +99,8 @@ export default function AgentScreenViewer({ open, onClose }) {
   // viewer is hidden — backend should treat the screen as idle and route
   // models through the normal tool path.
   const setAgentScreenOpen = useAppStore((s) => s.setAgentScreenOpen);
+  const kbdForwarding = useAppStore((s) => s.keyboardForwardingEnabled);
+  const toggleKbdForwarding = useAppStore((s) => s.toggleKeyboardForwarding);
   useEffect(() => {
     setAgentScreenOpen(!!open);
     return () => setAgentScreenOpen(false);
@@ -338,6 +342,16 @@ export default function AgentScreenViewer({ open, onClose }) {
           )}
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+          <Tooltip title={kbdForwarding ? 'Keyboard → Agent: ON (click to stop)' : 'Send keyboard to Agent Screen'}>
+            <IconButton
+              className="header-btn"
+              size="small"
+              onClick={toggleKbdForwarding}
+              sx={{ p: 0.2, color: kbdForwarding ? 'success.main' : 'text.secondary' }}
+            >
+              {kbdForwarding ? <KeyboardIcon sx={{ fontSize: 13 }} /> : <KeyboardOutlinedIcon sx={{ fontSize: 13 }} />}
+            </IconButton>
+          </Tooltip>
           <IconButton className="header-btn" size="small" onClick={openPopup} sx={{ p: 0.2 }}>
             <OpenInNewIcon sx={{ fontSize: 13 }} />
           </IconButton>

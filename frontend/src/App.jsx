@@ -3,6 +3,7 @@ import React, { Suspense, lazy, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import useNavigationCancel from "./hooks/useNavigationCancel";
 import useGpuIntent from "./hooks/useGpuIntent";
+import useKeyboardForwarding from "./hooks/useKeyboardForwarding";
 import {
   ThemeProvider as MuiThemeProvider,
   CssBaseline,
@@ -124,6 +125,10 @@ const AppContainer = () => {
   const theme = themes[themeName]?.theme || themes["guaardvark"].theme;
   const fetchSystemInfo = useAppStore((state) => state.fetchSystemInfo);
   const systemName = useAppStore((state) => state.systemName);
+
+  // Route keystrokes to DISPLAY=:99 when the user flips the toggle on either
+  // floater. No-op when disabled.
+  useKeyboardForwarding();
 
   React.useEffect(() => {
     fetchSystemInfo();
