@@ -3,9 +3,16 @@
 # (where the service code re-reads them; some require restart, noted inline).
 
 output:
-  dir: data/outputs/audio            # relative to project root
+  dir: data/uploads/Audio            # project-root-relative; under UPLOAD_DIR so DocumentsPage can serve it
   default_format: wav                # wav | mp3
-  subdirs_by_date: true              # organizes as YYYY-MM-DD/<uuid>.<ext>
+  subdirs_by_date: false             # flat filenames (uuid only) — date folders clutter the UI tree at low volume
+
+registration:
+  # POST each generated file to this endpoint on the main Guaardvark backend
+  # so it lands as a Document row and shows up in DocumentsPage.
+  backend_url: http://localhost:5002
+  folder: Audio
+  enabled: true
 
 backends:
 

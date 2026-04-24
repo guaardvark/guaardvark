@@ -16,7 +16,6 @@ from __future__ import annotations
 import logging
 import time
 import uuid
-from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -125,10 +124,11 @@ class StableAudioOpenBackend(AudioBackend):
         # diffusers returns audios as tensor [batch, channels, samples]
         audio = result.audios[0].float().cpu().numpy().T  # -> [samples, channels]
 
-        out_dir = self._output_root / date.today().isoformat()
-        out_dir.mkdir(parents=True, exist_ok=True)
+        # Flat layout: everything lives directly under Audio/ so DocumentsPage
+        # shows one tidy folder instead of a date-tree that's 99% empty on day one.
+        self._output_root.mkdir(parents=True, exist_ok=True)
         asset_id = uuid.uuid4().hex
-        out_path = out_dir / f"{asset_id}.wav"
+        out_path = self._output_root / f"{asset_id}.wav"
         sf.write(str(out_path), audio, self._sample_rate)
 
         actual_duration = audio.shape[0] / self._sample_rate

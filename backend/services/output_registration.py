@@ -21,8 +21,8 @@ from backend.models import Document as DBDocument, Folder, db
 
 logger = logging.getLogger(__name__)
 
-# The holy trinity of default folders — like Documents/Pictures/Videos on any OS
-DEFAULT_FOLDERS = ["Images", "Videos", "Code"]
+# The OS-style default folders surfaced in DocumentsPage
+DEFAULT_FOLDERS = ["Images", "Videos", "Code", "Audio"]
 
 # Bates prefix per content type
 BATES_PREFIXES = {
@@ -32,6 +32,8 @@ BATES_PREFIXES = {
     "video_batch": "VideoBatch",
     "code": "CodeGen",
     "data": "DataGen",
+    "audio": "AudioGen",
+    "audio_batch": "AudioBatch",
 }
 
 
@@ -71,7 +73,8 @@ def bates_name(content_type: str, extension: str = "", parent_dir: Optional[Path
     if parent_dir is None:
         # Guess the folder from content type
         folder_map = {"image": "Images", "image_batch": "Images", "video": "Videos",
-                      "video_batch": "Videos", "code": "Code", "data": "Code"}
+                      "video_batch": "Videos", "code": "Code", "data": "Code",
+                      "audio": "Audio", "audio_batch": "Audio"}
         folder_name = folder_map.get(content_type, "")
         parent_dir = Path(UPLOAD_DIR) / folder_name
 

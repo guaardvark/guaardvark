@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 from service.bootstrap import bootstrap
 from service.config_loader import load_config
 from service.dispatcher import Dispatcher, Intent, NotWired
+from service.registration import register_output
 
 logger = logging.getLogger(__name__)
 
@@ -111,19 +112,34 @@ def generate_music(req: MusicRequest) -> dict[str, Any]:
 # ---------- helpers ----------------------------------------------------------
 
 def _run(intent: Intent, params: dict[str, Any]) -> dict[str, Any]:
-    """Thin wrapper around dispatcher — translates NotWired to 501, real errors to 500."""
+    """Thin wrapper around dispatcher — translates NotWired to 501, real errors to 500.
+
+    Also registers the resulting file with the main Guaardvark backend so it shows
+    up in DocumentsPage. Registration is non-fatal — a failure there doesn't kill
+    the generate response; the file is on disk either way.
+    """
     try:
         result = _dispatcher.generate(intent, **params)
     except NotWired as e:
-        # Skeleton phase: valid intent, no backend yet.
+        # Valid intent, no backend registered yet (skeleton for voice/music).
         raise HTTPException(status_code=501, detail=str(e))
     except Exception as e:
         logger.exception("Generation failed for intent=%s", intent.value)
         raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}")
+
+    reg_cfg = _config.get("runtime", {}).get("registration", {})
+    doc = None
+    if reg_cfg.get("enabled", True):
+        doc = register_output(
+            result,
+            backend_url=reg_cfg.get("backend_url", "http://localhost:5002"),
+            folder=reg_cfg.get("folder", "Audio"),
+        )
 
     return {
         "path": str(result.path),
         "duration_s": result.duration_s,
         "sample_rate": result.sample_rate,
         "meta": result.meta,
+        "document_id": doc.get("id") if doc else None,
     }
