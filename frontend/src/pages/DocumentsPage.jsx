@@ -11,10 +11,11 @@ import { Box, Typography, Card, CardActionArea, CardContent, IconButton, Tooltip
 import { GuaardvarkLogo } from "../components/branding";
 import { Apps as AppsIcon, GridView as GridViewIcon, FolderOutlined, Code, UploadFile as UploadFileIcon } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
-import { getFileIcon, getItemKey, FolderIndexIndicator, isImageFile, isCodeFile, isPdfFile } from "../components/documents/fileUtils.jsx";
+import { getFileIcon, getItemKey, FolderIndexIndicator, isImageFile, isCodeFile, isPdfFile, isAudioFile } from "../components/documents/fileUtils.jsx";
 import ImageLightbox from "../components/images/ImageLightbox";
 import CodeViewerModal from "../components/documents/CodeViewerModal";
 import PdfViewerModal from "../components/documents/PdfViewerModal";
+import AudioPlayerModal from "../components/documents/AudioPlayerModal";
 import ReactGridLayoutLib, { WidthProvider } from 'react-grid-layout';
 import FolderWindow from "../components/documents/FolderWindow";
 import DocumentsContextMenu from "../components/documents/DocumentsContextMenu";
@@ -157,6 +158,7 @@ const DocumentsPage = () => {
   const [lightbox, setLightbox] = useState(null); // { url, name, documentId, editMode }
   const [codeViewer, setCodeViewer] = useState(null); // { file } for CodeViewerModal
   const [pdfViewer, setPdfViewer] = useState(null); // { file } for PdfViewerModal
+  const [audioPlayer, setAudioPlayer] = useState(null); // { file } for AudioPlayerModal
   const navigate = useNavigate();
   const [dragOverFolderId, setDragOverFolderId] = useState(null); // Folder ID being dragged over
   const fileInputRef = useRef(null);
@@ -1414,6 +1416,8 @@ const DocumentsPage = () => {
       setCodeViewer({ file: item });
     } else if (isPdfFile(filename)) {
       setPdfViewer({ file: item });
+    } else if (isAudioFile(filename)) {
+      setAudioPlayer({ file: item });
     }
   }, [contextMenuItem, contextMenuType]);
 
@@ -2171,6 +2175,8 @@ const DocumentsPage = () => {
                         setCodeViewer({ file });
                       } else if (isPdfFile(filename)) {
                         setPdfViewer({ file });
+                      } else if (isAudioFile(filename)) {
+                        setAudioPlayer({ file });
                       } else {
                         window.open(`${API_BASE}/document/${file.id}/download`, '_blank');
                       }
@@ -2322,6 +2328,8 @@ const DocumentsPage = () => {
                           setCodeViewer({ file });
                         } else if (isPdfFile(filename)) {
                           setPdfViewer({ file });
+                        } else if (isAudioFile(filename)) {
+                          setAudioPlayer({ file });
                         } else {
                           window.open(`${API_BASE}/document/${file.id}/download`, '_blank');
                         }
@@ -2543,6 +2551,13 @@ const DocumentsPage = () => {
         open={!!pdfViewer}
         onClose={() => setPdfViewer(null)}
         file={pdfViewer?.file}
+      />
+
+      {/* Audio Player Modal */}
+      <AudioPlayerModal
+        open={!!audioPlayer}
+        onClose={() => setAudioPlayer(null)}
+        file={audioPlayer?.file}
       />
 
       {/* Upload Progress Overlay */}

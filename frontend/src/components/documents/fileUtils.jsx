@@ -36,6 +36,9 @@ const VIDEO_EXTENSIONS = ['mp4', 'webm', 'avi', 'mov', 'mkv', 'flv', 'wmv', 'm4v
 // Code file extensions
 const CODE_EXTENSIONS = ['js', 'jsx', 'ts', 'tsx', 'py', 'java', 'c', 'cpp', 'h', 'cs', 'go', 'rs', 'rb', 'php', 'swift', 'kt', 'scala', 'html', 'css', 'scss', 'less', 'vue', 'sh', 'bash', 'zsh', 'sql', 'json', 'yaml', 'yml', 'toml', 'xml', 'ini', 'env', 'config', 'md', 'txt', 'csv', 'log'];
 
+// Audio file extensions — those an HTML5 <audio> element can actually play
+const AUDIO_EXTENSIONS = ['wav', 'mp3', 'ogg', 'flac', 'm4a', 'aac', 'opus'];
+
 // Check if a filename is an image
 export const isImageFile = (filename) => {
   if (!filename) return false;
@@ -50,8 +53,15 @@ export const isVideoFile = (filename) => {
   return VIDEO_EXTENSIONS.includes(ext);
 };
 
-// Check if a filename is any media type (image or video)
-export const isMediaFile = (filename) => isImageFile(filename) || isVideoFile(filename);
+// Check if a filename is an audio file the in-app player can handle
+export const isAudioFile = (filename) => {
+  if (!filename) return false;
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  return AUDIO_EXTENSIONS.includes(ext);
+};
+
+// Check if a filename is any media type (image, video, or audio)
+export const isMediaFile = (filename) => isImageFile(filename) || isVideoFile(filename) || isAudioFile(filename);
 
 // Check if a filename is a code/text file that can be opened in an editor
 export const isCodeFile = (filename) => {

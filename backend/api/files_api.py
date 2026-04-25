@@ -1077,9 +1077,14 @@ def download_document(doc_id):
         physical_path = get_physical_path(document.path)
         if not physical_path.exists():
             return error_response("File not found on disk", 404, "FILE_NOT_FOUND")
-        # Serve inline for media files and PDFs so <video>, <img>, and <iframe> tags can play/display them,
-        # fall back to attachment for everything else (triggers browser download)
-        media_exts = {'.mp4', '.webm', '.avi', '.mov', '.mkv', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.pdf'}
+        # Serve inline for media files and PDFs so <video>, <img>, <audio>, and <iframe>
+        # tags can play/display them; fall back to attachment for everything else.
+        media_exts = {
+            '.mp4', '.webm', '.avi', '.mov', '.mkv',                  # video
+            '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg',          # image
+            '.wav', '.mp3', '.ogg', '.flac', '.m4a', '.aac', '.opus',  # audio
+            '.pdf',
+        }
         as_attachment = physical_path.suffix.lower() not in media_exts
         response = send_file(physical_path, as_attachment=as_attachment, download_name=document.filename)
         # Disable long-term caching so edited images are served fresh
