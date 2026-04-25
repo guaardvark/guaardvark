@@ -39,8 +39,8 @@ def bootstrap(dispatcher: Dispatcher, config: dict[str, Any]) -> None:
     if "voice" not in disabled:
         _try_register_voice(dispatcher, backends_cfg.get("voice_gen", {}), output_dir)
 
-    # music_gen lands in a subsequent commit — intentionally no-op here so the
-    # skeleton test suite stays green as backends wire up incrementally.
+    if "music" not in disabled:
+        _try_register_music(dispatcher, backends_cfg.get("music_gen", {}), output_dir)
 
 
 def _try_register_fx(
@@ -87,6 +87,26 @@ def _try_register_voice(
         dispatcher.register(Intent.VOICE, backend)
     except Exception as e:
         logger.error("Failed to register voice_gen backend: %s", e, exc_info=True)
+
+
+def _try_register_music(
+    dispatcher: Dispatcher,
+    cfg: dict[str, Any],
+    output_dir: Path,
+) -> None:
+    """Register the music_gen backend (ACE-Step v1 3.5B)."""
+    try:
+        from backends.music_gen_acestep import ACEStepBackend
+        backend = ACEStepBackend(
+            output_root=output_dir,
+            sample_rate=int(cfg.get("sample_rate", 44100)),
+            max_duration_s=float(cfg.get("max_duration_s", 240.0)),
+            steps=int(cfg.get("steps", 60)),
+            guidance_scale=float(cfg.get("guidance_scale", 7.5)),
+        )
+        dispatcher.register(Intent.MUSIC, backend)
+    except Exception as e:
+        logger.error("Failed to register music_gen backend: %s", e, exc_info=True)
 
 
 def _parse_disabled(val: str) -> set[str]:

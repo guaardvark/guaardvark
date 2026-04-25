@@ -21,5 +21,7 @@ soundfile>=0.12
 chatterbox-tts>=0.1
 kokoro>=0.7
 
-# Future per-backend deps added when each backend lands:
-#   music_gen_acestep    -> ace-step (or HF transformers + custom pipeline)
+# music_gen runtime deps. Same opt-in story — ACE-Step is heavy (~10 GB
+# weights) so we don't pull it on every install. First /generate/music
+# call surfaces a clear pip-install error if missing.
+acestep>=0.1
