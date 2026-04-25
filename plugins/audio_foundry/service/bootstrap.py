@@ -36,8 +36,11 @@ def bootstrap(dispatcher: Dispatcher, config: dict[str, Any]) -> None:
     if "fx" not in disabled:
         _try_register_fx(dispatcher, backends_cfg.get("audio_fx", {}), output_dir)
 
-    # voice and music land in subsequent commits — intentionally no-op here
-    # so the skeleton test suite stays green as those wire up incrementally.
+    if "voice" not in disabled:
+        _try_register_voice(dispatcher, backends_cfg.get("voice_gen", {}), output_dir)
+
+    # music_gen lands in a subsequent commit — intentionally no-op here so the
+    # skeleton test suite stays green as backends wire up incrementally.
 
 
 def _try_register_fx(
@@ -58,6 +61,32 @@ def _try_register_fx(
         # Registration failure shouldn't kill the service — log and leave fx unwired.
         # /generate/fx will return 501 via NotWired, which is honest.
         logger.error("Failed to register audio_fx backend: %s", e, exc_info=True)
+
+
+def _try_register_voice(
+    dispatcher: Dispatcher,
+    cfg: dict[str, Any],
+    output_dir: Path,
+) -> None:
+    """Register the voice_gen facade (Chatterbox primary + Kokoro fallback)."""
+    try:
+        from backends.voice_gen import VoiceGenBackend
+        chat_cfg = cfg.get("chatterbox", {}) or {}
+        koko_cfg = cfg.get("kokoro", {}) or {}
+        backend = VoiceGenBackend(
+            output_root=output_dir,
+            chatterbox_kwargs={
+                "sample_rate": int(chat_cfg.get("sample_rate", 24000)),
+                "chunk_chars": int(chat_cfg.get("chunk_chars", 220)),
+            },
+            kokoro_kwargs={
+                "sample_rate": int(koko_cfg.get("sample_rate", 24000)),
+                "default_voice": str(koko_cfg.get("default_voice", "af_heart")),
+            },
+        )
+        dispatcher.register(Intent.VOICE, backend)
+    except Exception as e:
+        logger.error("Failed to register voice_gen backend: %s", e, exc_info=True)
 
 
 def _parse_disabled(val: str) -> set[str]:

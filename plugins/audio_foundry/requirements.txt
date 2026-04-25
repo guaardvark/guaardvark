@@ -15,7 +15,11 @@ pytest>=8.0.0
 # already in the project's backend/venv; soundfile is added here.
 soundfile>=0.12
 
+# voice_gen runtime deps. Both are optional in the sense that the plugin
+# starts and tests pass without them; first real call to /generate/voice
+# will fail with a clear "pip install ..." message if either is missing.
+chatterbox-tts>=0.1
+kokoro>=0.7
+
 # Future per-backend deps added when each backend lands:
-#   voice_gen_chatterbox -> chatterbox-tts
-#   voice_gen_kokoro     -> kokoro
 #   music_gen_acestep    -> ace-step (or HF transformers + custom pipeline)
