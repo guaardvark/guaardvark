@@ -1066,6 +1066,20 @@ def link_document_to_entity(doc_id):
         return error_response("Failed to link document", 500, "LINK_ERROR")
 
 
+@files_bp.route("/document/<int:doc_id>", methods=["GET"])
+def get_document(doc_id):
+    """GET /api/files/document/:id - Return one document's full record (incl. parsed metadata).
+
+    Folder listings use to_dict_light for speed; consumers that need the full
+    record (audio player modal, file properties, etc.) hit this endpoint to
+    pull the heavier fields on demand.
+    """
+    document = db.session.get(DBDocument, doc_id)
+    if not document:
+        return error_response("Document not found", 404, "DOCUMENT_NOT_FOUND")
+    return success_response(document.to_dict())
+
+
 @files_bp.route("/document/<int:doc_id>/download", methods=["GET"])
 def download_document(doc_id):
     """GET /api/files/document/:id/download - Download file"""

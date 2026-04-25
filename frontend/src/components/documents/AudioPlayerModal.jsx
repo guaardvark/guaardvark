@@ -3,7 +3,7 @@
 // canvas can replace the audio element later without changing the surrounding
 // modal shell or the click-handler contract in DocumentsPage.
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -18,6 +18,7 @@ import {
   Tooltip,
 } from "@mui/material";
 import { Close as CloseIcon, MusicNote as AudioIcon } from "@mui/icons-material";
+import axios from "axios";
 
 const API_BASE = "/api/files";
 
@@ -44,10 +45,39 @@ const formatSampleRate = (sr) => {
 };
 
 const AudioPlayerModal = ({ open, onClose, file }) => {
+  // The file passed in usually comes from the lightweight listing (no
+  // metadata). Fetch the full record on open so the prompt caption + chips
+  // can render. Single round-trip; no listing perf hit.
+  const [fullDoc, setFullDoc] = useState(null);
+
+  useEffect(() => {
+    if (!open || !file?.id) {
+      setFullDoc(null);
+      return;
+    }
+    let cancelled = false;
+    axios
+      .get(`${API_BASE}/document/${file.id}`)
+      .then((res) => {
+        if (cancelled) return;
+        // success_response shape: { success, message, data }
+        setFullDoc(res.data?.data || res.data);
+      })
+      .catch(() => {
+        // Non-fatal — modal still works without metadata; player still plays.
+        if (!cancelled) setFullDoc(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, file?.id]);
+
   if (!open || !file) return null;
 
-  const filename = file.filename || file.name || "audio";
-  const meta = getMeta(file);
+  // Prefer the freshly-fetched record; fall back to whatever was passed in.
+  const enriched = fullDoc || file;
+  const filename = enriched.filename || enriched.name || "audio";
+  const meta = getMeta(enriched);
   // SAO/voice/music backends each store a prompt-like field; fall back through
   // the most likely names so we don't have to special-case per backend here.
   const prompt = meta.prompt || meta.text || meta.style_prompt || meta.lyrics;
