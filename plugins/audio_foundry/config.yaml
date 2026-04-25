@@ -47,6 +47,11 @@ backends:
     steps: 60
 
 gpu:
+  # Talk to the main backend's gpu_memory_orchestrator (HTTP) before loading.
+  # When true, the dispatcher requests VRAM (which may evict Ollama/ComfyUI/etc.),
+  # runs load(), then marks the slot LOADED. When false, the dispatcher loads
+  # blind and lets CUDA-OOM happen if there's no room.
+  orchestrator_enabled: true
   # Evictability — dispatcher calls into gpu_memory_orchestrator before loading.
   # If false, refuses to evict other plugins and returns 503 instead.
   allow_eviction_of_others: true

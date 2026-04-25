@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 from service.bootstrap import bootstrap
 from service.config_loader import load_config
 from service.dispatcher import Dispatcher, Intent, NotWired
+from service.orchestrator_client import OrchestratorClient
 from service.registration import register_output
 
 logger = logging.getLogger(__name__)
@@ -65,7 +66,18 @@ app.add_middleware(
 )
 
 _config = load_config()
-_dispatcher = Dispatcher()
+
+# GPU orchestrator client — talks to the main Guaardvark backend over HTTP
+# so the dispatcher can request VRAM and trigger eviction of other models
+# (Ollama, ComfyUI, ...) before loading an audio backend.
+_gpu_cfg = _config.get("runtime", {}).get("gpu", {})
+_reg_cfg = _config.get("runtime", {}).get("registration", {})
+_orch_client = OrchestratorClient(
+    backend_url=_reg_cfg.get("backend_url", "http://localhost:5002"),
+    enabled=_gpu_cfg.get("orchestrator_enabled", True),
+)
+
+_dispatcher = Dispatcher(orchestrator=_orch_client)
 bootstrap(_dispatcher, _config)
 
 

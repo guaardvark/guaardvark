@@ -108,3 +108,34 @@ def gpu_preload():
     except Exception as e:
         logger.error(f"GPU preload error: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+@gpu_orchestrator_bp.route("/mark-loaded", methods=["POST"])
+def gpu_mark_loaded():
+    """Transition a slot from LOADING to LOADED — call after the model finished loading.
+
+    Out-of-process callers (audio_foundry, future plugin services) need this
+    because they ran request_model() over HTTP, ran their own load() locally,
+    and now have to tell the orchestrator the load is complete.
+    """
+    data = request.get_json(silent=True) or {}
+    slot_id = data.get("slot_id", "").strip()
+
+    if not slot_id:
+        return jsonify({"error": "Missing 'slot_id' field"}), 400
+
+    _get_orch().mark_model_loaded(slot_id)
+    return jsonify({"success": True, "slot_id": slot_id}), 200
+
+
+@gpu_orchestrator_bp.route("/release", methods=["POST"])
+def gpu_release():
+    """Mark a model as no longer in active use. Does not unload — starts the eviction timer."""
+    data = request.get_json(silent=True) or {}
+    slot_id = data.get("slot_id", "").strip()
+
+    if not slot_id:
+        return jsonify({"error": "Missing 'slot_id' field"}), 400
+
+    _get_orch().release_model(slot_id)
+    return jsonify({"success": True, "slot_id": slot_id}), 200
