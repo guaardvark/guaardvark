@@ -93,21 +93,87 @@ def gpu_evict():
 
 @gpu_orchestrator_bp.route("/preload", methods=["POST"])
 def gpu_preload():
-    """Request preloading a model. Registers intent but actual loading is up to the caller."""
+    """Request preloading a model. Registers intent but actual loading is up to the caller.
+
+    Accepts `exclusive: bool` in the body — when true, evicts ALL other
+    registered models AND force-unloads any Ollama models the orchestrator
+    doesn't know about (the polish flow warms Ollama via direct HTTP, which
+    bypasses the orchestrator's registry, so a registry-only eviction can
+    leave a hot Ollama model camping 8-10 GB of VRAM).
+    """
     data = request.get_json(silent=True) or {}
     slot_id = data.get("slot_id", "").strip()
     vram_mb = data.get("vram_mb", 4000)
     priority = data.get("priority", 50)
+    exclusive = bool(data.get("exclusive", False))
 
     if not slot_id:
         return jsonify({"error": "Missing 'slot_id' field"}), 400
 
     try:
-        slot = _get_orch().request_model(slot_id, vram_estimate_mb=vram_mb, priority=priority)
+        # When the caller wants exclusive VRAM, drop any unregistered Ollama
+        # models off the GPU first. Best-effort — failures here just log and
+        # we proceed to request_model, which handles its own registry.
+        if exclusive:
+            _force_unload_ollama_models()
+
+        slot = _get_orch().request_model(
+            slot_id,
+            vram_estimate_mb=vram_mb,
+            priority=priority,
+            exclusive=exclusive,
+        )
         return jsonify({"success": True, "slot": slot.to_dict()}), 200
     except Exception as e:
         logger.error(f"GPU preload error: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+def _force_unload_ollama_models() -> None:
+    """Unload every model Ollama is currently holding.
+
+    Ollama's `/api/ps` lists loaded models; sending a `keep_alive=0` chat
+    request to each is its documented way to drop a model immediately. The
+    orchestrator's normal eviction path can't do this because Ollama models
+    warmed via direct HTTP (e.g. our music-prompt rewriter) don't get
+    registered in the orchestrator's slot registry.
+
+    All errors are swallowed and logged — this is a best-effort assist for
+    callers asking for exclusive VRAM, not a critical correctness path.
+    """
+    try:
+        import requests
+        from backend.config import OLLAMA_BASE_URL
+    except Exception as e:
+        logger.warning("Force-unload Ollama: imports failed (%s); skipping", e)
+        return
+
+    try:
+        ps = requests.get(f"{OLLAMA_BASE_URL}/api/ps", timeout=3)
+        ps.raise_for_status()
+        loaded = [m.get("name") for m in (ps.json() or {}).get("models", []) if m.get("name")]
+    except Exception as e:
+        logger.warning("Force-unload Ollama: /api/ps failed (%s); nothing to unload", e)
+        return
+
+    if not loaded:
+        logger.info("Force-unload Ollama: no models currently loaded")
+        return
+
+    logger.info("Force-unload Ollama: dropping %d model(s): %s", len(loaded), ", ".join(loaded))
+    for name in loaded:
+        try:
+            # `keep_alive: 0` evicts immediately. Empty messages keeps the call
+            # cheap (no actual generation work), and stream=false makes the
+            # call synchronous so we know the eviction has registered before
+            # we move on to load the heavy model.
+            requests.post(
+                f"{OLLAMA_BASE_URL}/api/chat",
+                json={"model": name, "messages": [], "keep_alive": 0, "stream": False},
+                timeout=10,
+            )
+        except Exception as e:
+            logger.warning("Force-unload Ollama: %s drop failed (%s)", name, e)
 
 
 @gpu_orchestrator_bp.route("/mark-loaded", methods=["POST"])

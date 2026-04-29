@@ -43,6 +43,10 @@ class VoiceRequest(BaseModel):
 class MusicRequest(BaseModel):
     lyrics: Optional[str] = None
     style_prompt: str = Field(..., min_length=1)
+    # Optional steering-away tags. ACE-Step drifts toward its strongest training
+    # prior when style tags are vague ("professional", "futuristic"); negative
+    # tags push it off that prior. Caller can leave None to skip negative steering.
+    negative_prompt: Optional[str] = None
     duration_s: float = Field(60.0, gt=0, le=240.0)
     instrumental_only: bool = False
     output_format: str = Field("wav", pattern="^(wav|mp3)$")
@@ -104,6 +108,88 @@ def status() -> dict[str, Any]:
 def get_config() -> dict[str, Any]:
     """Return the merged manifest+runtime config, with secrets stripped (none yet)."""
     return _config
+
+
+@app.post("/config/reload")
+def reload_config() -> dict[str, Any]:
+    """Hot-reload config from disk. Some changes (ports, models) still require restart."""
+    global _config
+    _config = load_config()
+    return {"status": "reloaded", "config": _config}
+
+
+@app.post("/evict/{intent}")
+def evict_backend(intent: str) -> dict[str, Any]:
+    """Force-unload a backend to free VRAM. Called by main backend or orchestrator."""
+    try:
+        it = Intent(intent)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid intent: {intent}")
+
+    unloaded = _dispatcher.unload(it)
+    return {"intent": intent, "unloaded": unloaded}
+
+
+@app.get("/voices")
+def list_voices() -> dict[str, Any]:
+    """Return the available voice catalog grouped by backend.
+
+    Kokoro voices are listed inline (the IDs are stable per Kokoro release).
+    Chatterbox voices come from reference clips at request-time, so the
+    Chatterbox section just describes the contract — not a list.
+
+    Frontend uses this to render the voice picker dropdown so we don't have
+    to redeploy the UI when Kokoro adds voices upstream.
+    """
+    # Kokoro v1.0+ catalog. American and British English are the wired set;
+    # voice_gen_kokoro.py routes lang_code from the voice prefix at runtime.
+    return {
+        "kokoro": {
+            "default": "af_heart",
+            "groups": [
+                {"label": "American Female", "voices": [
+                    {"id": "af_heart",   "label": "Heart (default)"},
+                    {"id": "af_bella",   "label": "Bella"},
+                    {"id": "af_nicole",  "label": "Nicole"},
+                    {"id": "af_sarah",   "label": "Sarah"},
+                    {"id": "af_sky",     "label": "Sky"},
+                    {"id": "af_alloy",   "label": "Alloy"},
+                    {"id": "af_aoede",   "label": "Aoede"},
+                    {"id": "af_jessica", "label": "Jessica"},
+                    {"id": "af_kore",    "label": "Kore"},
+                    {"id": "af_nova",    "label": "Nova"},
+                    {"id": "af_river",   "label": "River"},
+                ]},
+                {"label": "American Male", "voices": [
+                    {"id": "am_adam",    "label": "Adam"},
+                    {"id": "am_michael", "label": "Michael"},
+                    {"id": "am_eric",    "label": "Eric"},
+                    {"id": "am_echo",    "label": "Echo"},
+                    {"id": "am_fenrir",  "label": "Fenrir"},
+                    {"id": "am_liam",    "label": "Liam"},
+                    {"id": "am_onyx",    "label": "Onyx"},
+                    {"id": "am_puck",    "label": "Puck"},
+                    {"id": "am_santa",   "label": "Santa"},
+                ]},
+                {"label": "British Female", "voices": [
+                    {"id": "bf_emma",     "label": "Emma"},
+                    {"id": "bf_isabella", "label": "Isabella"},
+                    {"id": "bf_alice",    "label": "Alice"},
+                    {"id": "bf_lily",     "label": "Lily"},
+                ]},
+                {"label": "British Male", "voices": [
+                    {"id": "bm_george",  "label": "George"},
+                    {"id": "bm_lewis",   "label": "Lewis"},
+                    {"id": "bm_daniel",  "label": "Daniel"},
+                    {"id": "bm_fable",   "label": "Fable"},
+                ]},
+            ],
+        },
+        "chatterbox": {
+            "type": "reference_clip",
+            "description": "Zero-shot voice cloning from a 5-10s reference clip. Pass `reference_clip_path` in the /generate/voice request.",
+        },
+    }
 
 
 @app.post("/generate/fx")

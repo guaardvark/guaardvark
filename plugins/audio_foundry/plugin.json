@@ -1,8 +1,8 @@
 {
   "id": "audio_foundry",
   "name": "Audio Foundry",
-  "version": "0.1.0",
-  "description": "Local audio generation. Voiceover (Chatterbox + Kokoro TTS), SFX/ambience/music-beds (Stable Audio Open), full-song generation (ACE-Step) — single service, lazy model loading, one toggle. Part of the Guaardvark Media Foundry.",
+  "version": "0.2.0",
+  "description": "Local audio generation. Voiceover (Chatterbox + Kokoro TTS), SFX/ambience/music-beds (Stable Audio Open), full-song generation (ACE-Step) \u2014 single service, lazy model loading, one toggle. Part of the Guaardvark Media Foundry.",
   "author": "Guaardvark",
   "type": "service",
   "category": "generation",
@@ -11,7 +11,7 @@
   "core": false,
   "dependencies": [],
   "config": {
-    "enabled": false,
+    "enabled": true,
     "auto_start": false,
     "service_url": "http://127.0.0.1:8206",
     "timeout": 120,

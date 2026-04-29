@@ -47,8 +47,19 @@ class OrchestratorClient:
     def enabled(self) -> bool:
         return self._enabled
 
-    def request_vram(self, slot_id: str, vram_mb: int, priority: int = 70) -> bool:
+    def request_vram(
+        self,
+        slot_id: str,
+        vram_mb: int,
+        priority: int = 70,
+        exclusive: bool = False,
+    ) -> bool:
         """Reserve VRAM for slot_id; the orchestrator may evict other models first.
+
+        When `exclusive=True`, the orchestrator will evict ALL other registered
+        models AND force-unload any loaded Ollama models (via /api/ps +
+        keep_alive=0) — required for big models like ACE-Step that can't share
+        the GPU with anything heavy.
 
         Returns True on success, False if the orchestrator is unreachable or
         rejected the request. Caller should still attempt load() in the False
@@ -58,7 +69,12 @@ class OrchestratorClient:
             return True
         return self._post(
             "/api/gpu/memory/preload",
-            {"slot_id": slot_id, "vram_mb": int(vram_mb), "priority": int(priority)},
+            {
+                "slot_id": slot_id,
+                "vram_mb": int(vram_mb),
+                "priority": int(priority),
+                "exclusive": bool(exclusive),
+            },
             op="request_vram",
         )
 
