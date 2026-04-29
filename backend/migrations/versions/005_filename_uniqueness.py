@@ -88,9 +88,12 @@ def upgrade():
                     doc_id, folder_id, filename, new_name,
                 )
 
-    # Drop the existing NON-UNIQUE composite index — replacing it with a
-    # UNIQUE one would make it redundant and slow inserts down for no gain.
-    op.drop_index("ix_doc_folder_filename", table_name="documents")
+    # Drop the existing NON-UNIQUE composite index if present — older DB
+    # snapshots may not have this index even though it's declared in the
+    # model (create_all() builds it for fresh DBs but no prior migration
+    # added it for live ones). IF EXISTS keeps this migration safe across
+    # both shapes.
+    op.execute("DROP INDEX IF EXISTS ix_doc_folder_filename")
 
     # Add the unique constraint. NULLS NOT DISTINCT means root-level docs
     # (folder_id IS NULL) also have to have unique filenames among themselves,
@@ -105,10 +108,11 @@ def upgrade():
 
 def downgrade():
     op.execute("DROP INDEX IF EXISTS uq_doc_folder_filename")
-    op.create_index(
-        "ix_doc_folder_filename",
-        "documents",
-        ["folder_id", "filename"],
+    # Recreate the non-unique index only if it didn't already exist (some
+    # deploys never had it before the upgrade ran).
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_doc_folder_filename "
+        "ON documents (folder_id, filename)"
     )
     # Note: we don't un-rename the suffixed dups on downgrade. The renamed
     # rows keep their new names (no easy way to know which were renamed),
