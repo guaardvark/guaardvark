@@ -172,6 +172,18 @@ def render_timeline_endpoint():
     if output_path is None:
         return error_response("Could not allocate output filename", 500, "FILENAME_ALLOCATION_FAILED")
 
+    # Phase 8 of editor plan — claim the JobOperationGate for VIDEO_RENDER
+    # kind so other surfaces (Activity page, Audio Studio, future Image
+    # Studio) know the GPU/CPU is busy and can show a banner / queue.
+    # On a 16 GB card this runs CPU-bound (libx264) and doesn't actually
+    # claim GPU exclusively; mark it non-exclusive so Activity-side jobs
+    # can coexist. The gate still surfaces the in-progress flag.
+    from backend.services.job_operation_gate import get_gate
+    from backend.services.job_types import JobKind
+    gate = get_gate()
+    render_id = output_path.stem  # use the source-named stem as the native id
+    gate.register_running(JobKind.VIDEO_RENDER, render_id)
+
     from backend.services.video_timeline_render import render_timeline
     try:
         render_timeline(
@@ -189,6 +201,8 @@ def render_timeline_endpoint():
     except Exception as e:
         logger.exception("render_timeline_endpoint unexpected failure")
         return error_response(f"{type(e).__name__}: {e}", 500, "RENDER_FAILED")
+    finally:
+        gate.unregister_running(JobKind.VIDEO_RENDER, render_id)
 
     new_doc = register_file(
         physical_path=str(output_path),

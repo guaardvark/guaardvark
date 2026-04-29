@@ -32,6 +32,7 @@ import {
 } from "@mui/icons-material";
 import PageLayout from "../components/layout/PageLayout";
 import { listVideoDocuments, listAudioDocuments, renderTimeline } from "../api/videoOverlayService";
+import { getJobsGate } from "../api/jobsService";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -59,7 +60,26 @@ const VideoEditorPage = () => {
   const [previewPlaying, setPreviewPlaying] = useState(false);
   const [rendering, setRendering] = useState(false);
   const [renderResult, setRenderResult] = useState(null);
+  const [gate, setGate] = useState(null);
   const [error, setError] = useState(null);
+
+  // Phase 8 — poll the JobOperationGate so the Render button knows whether
+  // another exclusive job (training, etc.) is mid-flight. Refreshes every
+  // 5s; cheap call, returns a small JSON snapshot.
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const snapshot = await getJobsGate();
+        if (!cancelled) setGate(snapshot);
+      } catch (e) {
+        if (!cancelled) setGate(null);
+      }
+    };
+    tick();
+    const t = setInterval(tick, 5000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, []);
 
   // Pull video + audio Documents into the media library. Phase 6 of the
   // editor plan — both lists feed the drag-drop palette.
@@ -364,9 +384,14 @@ const VideoEditorPage = () => {
                 variant="contained"
                 startIcon={rendering ? <CircularProgress size={20} color="inherit" /> : <RenderIcon />}
                 onClick={handleRender}
-                disabled={!timeline.video || rendering}
+                disabled={!timeline.video || rendering || (gate?.gpu_busy && gate?.gpu_holder?.kind !== "video_render")}
+                title={gate?.gpu_busy ? `GPU held by ${gate.gpu_holder?.kind} — wait for it to finish` : ""}
               >
-                {rendering ? "Rendering..." : "Render"}
+                {rendering
+                  ? "Rendering..."
+                  : (gate?.gpu_busy && gate?.gpu_holder?.kind !== "video_render")
+                    ? `GPU busy: ${gate.gpu_holder?.kind}`
+                    : "Render"}
               </Button>
               {renderResult && (
                 <Button
