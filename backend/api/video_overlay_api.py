@@ -95,6 +95,126 @@ def list_videos():
     })
 
 
+@video_overlay_bp.route("/audio-library", methods=["GET"])
+def list_audio_library():
+    """List audio Documents for the editor's media library audio rail."""
+    limit = min(int(request.args.get("limit", 200)), 500)
+    extensions = (".wav", ".mp3", ".ogg", ".flac", ".m4a", ".aac", ".opus")
+    rows = (
+        DBDocument.query
+        .filter(db.or_(*[DBDocument.filename.ilike(f"%{ext}") for ext in extensions]))
+        .order_by(DBDocument.id.desc())
+        .limit(limit)
+        .all()
+    )
+    return success_response({
+        "audio": [d.to_dict() for d in rows],
+        "total": len(rows),
+    })
+
+
+@video_overlay_bp.route("/render-timeline", methods=["POST"])
+def render_timeline_endpoint():
+    """Render a Video Editor timeline to a final mp4.
+
+    Body shape (TimelineState — see frontend/src/pages/VideoEditorPage.jsx):
+      {
+        video_document_id: int,
+        video_trim_start: float | null,
+        video_trim_end: float | null,
+        text_elements: [{text, fontSize, fontColor, x, y, rotation,
+                          startSeconds, endSeconds}, ...],
+        audio_document_id: int | null,
+        audio_volume: float,
+      }
+
+    Returns the new Document on success. JobOperationGate integration and
+    Celery routing for long renders are wired in Phase 8.
+    """
+    payload = request.get_json(silent=True) or {}
+    video_doc_id = payload.get("video_document_id")
+    if not isinstance(video_doc_id, int):
+        return error_response("video_document_id (int) is required", 400, "MISSING_FIELDS")
+
+    video_doc = db.session.get(DBDocument, video_doc_id)
+    if video_doc is None:
+        return error_response("Video document not found", 404, "DOCUMENT_NOT_FOUND")
+    video_path = _resolve_video_path(video_doc)
+    if video_path is None:
+        return error_response(f"Video file not on disk: {video_doc.path}", 404, "FILE_NOT_FOUND")
+
+    # Audio is optional; resolve if present.
+    audio_path = None
+    audio_doc_id = payload.get("audio_document_id")
+    if isinstance(audio_doc_id, int):
+        audio_doc = db.session.get(DBDocument, audio_doc_id)
+        if audio_doc is None:
+            return error_response("Audio document not found", 404, "AUDIO_NOT_FOUND")
+        audio_path = _resolve_video_path(audio_doc)  # same resolver works for any media kind
+        if audio_path is None:
+            return error_response(f"Audio file not on disk: {audio_doc.path}", 404, "AUDIO_NOT_ON_DISK")
+
+    text_elements = payload.get("text_elements") or []
+    if not isinstance(text_elements, list):
+        return error_response("text_elements must be an array", 400, "INVALID_TEXT_ELEMENTS")
+
+    # Source-named output via the resolver (Phase 3 of filename plan): pick
+    # the next free '<source>_NNN.mp4' under data/outputs/videos/editor-renders/.
+    editor_renders_dir = Path("data/outputs/videos/editor-renders")
+    editor_renders_dir.mkdir(parents=True, exist_ok=True)
+    source_stem = Path(video_doc.filename).stem
+    output_path = None
+    for n in range(1, 1000):
+        candidate = editor_renders_dir / f"{source_stem}_{n:03d}.mp4"
+        if not candidate.exists():
+            output_path = candidate.resolve()
+            break
+    if output_path is None:
+        return error_response("Could not allocate output filename", 500, "FILENAME_ALLOCATION_FAILED")
+
+    from backend.services.video_timeline_render import render_timeline
+    try:
+        render_timeline(
+            video_input_path=video_path,
+            output_path=output_path,
+            text_elements=text_elements,
+            video_trim_start=payload.get("video_trim_start"),
+            video_trim_end=payload.get("video_trim_end"),
+            audio_input_path=audio_path,
+            audio_volume=float(payload.get("audio_volume", 1.0)),
+        )
+    except VideoOverlayError as e:
+        logger.warning("render_timeline_endpoint failed: %s", e)
+        return error_response(str(e), 500, "RENDER_FAILED")
+    except Exception as e:
+        logger.exception("render_timeline_endpoint unexpected failure")
+        return error_response(f"{type(e).__name__}: {e}", 500, "RENDER_FAILED")
+
+    new_doc = register_file(
+        physical_path=str(output_path),
+        folder_name="Videos",
+        subfolder_name="Editor Renders",
+        filename=output_path.name,
+        file_type=".mp4",
+        file_metadata={
+            "source_document_id": video_doc.id,
+            "source_filename": video_doc.filename,
+            "audio_document_id": audio_doc_id,
+            "text_element_count": len(text_elements),
+            "trim_start": payload.get("video_trim_start"),
+            "trim_end": payload.get("video_trim_end"),
+        },
+    )
+    if new_doc is None:
+        return error_response("Render succeeded but Document registration failed", 500, "REGISTRATION_ERROR")
+
+    return success_response(
+        data=new_doc.to_dict(),
+        message="Timeline rendered",
+        status_code=201,
+    )
+
+
 @video_overlay_bp.route("/text", methods=["POST"])
 def overlay_text():
     """Render a single text element onto an existing video and register the result."""

@@ -31,7 +31,7 @@ import {
   GraphicEq as AudioIcon,
 } from "@mui/icons-material";
 import PageLayout from "../components/layout/PageLayout";
-import { listVideoDocuments } from "../api/videoOverlayService";
+import { listVideoDocuments, listAudioDocuments, renderTimeline } from "../api/videoOverlayService";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -53,19 +53,25 @@ const _emptyTimeline = () => ({
 const VideoEditorPage = () => {
   const [timeline, setTimeline] = useState(_emptyTimeline());
   const [mediaLibrary, setMediaLibrary] = useState([]);
+  const [audioLibrary, setAudioLibrary] = useState([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);  // {type, id} for properties panel
   const [previewPlaying, setPreviewPlaying] = useState(false);
+  const [rendering, setRendering] = useState(false);
+  const [renderResult, setRenderResult] = useState(null);
   const [error, setError] = useState(null);
 
-  // Pull video Documents into the media library. Audio + image library work
-  // lands in Phase 6 alongside drag-drop.
+  // Pull video + audio Documents into the media library. Phase 6 of the
+  // editor plan — both lists feed the drag-drop palette.
   useEffect(() => {
     let cancelled = false;
     setLoadingMedia(true);
-    listVideoDocuments()
-      .then((list) => {
-        if (!cancelled) setMediaLibrary(list);
+    Promise.all([listVideoDocuments(), listAudioDocuments()])
+      .then(([videos, audios]) => {
+        if (!cancelled) {
+          setMediaLibrary(videos);
+          setAudioLibrary(audios);
+        }
       })
       .catch((e) => {
         if (!cancelled) {
@@ -149,9 +155,79 @@ const VideoEditorPage = () => {
     return timeline.textElements.find((t) => t.id === selectedItem.id) || null;
   }, [selectedItem, timeline.textElements]);
 
-  const handleRender = () => {
-    // Wired in Phase 7 — POST /api/video-overlay/render-timeline.
-    setError("Render endpoint lands in Phase 7 of the editor plan.");
+  const handleRender = async () => {
+    if (!timeline.video) {
+      setError("Add a video to the timeline first.");
+      return;
+    }
+    setRendering(true);
+    setError(null);
+    setRenderResult(null);
+    try {
+      const payload = {
+        video_document_id: timeline.video.documentId,
+        video_trim_start: timeline.video.trimStart || 0,
+        video_trim_end: timeline.video.trimEnd,  // null = full duration
+        text_elements: timeline.textElements.map((t) => ({
+          text: t.text,
+          fontSize: t.fontSize,
+          fontColor: t.fontColor,
+          x: t.x,
+          y: t.y,
+          rotation: t.rotation,
+          startSeconds: t.startSeconds,
+          endSeconds: t.endSeconds,
+        })),
+        audio_document_id: timeline.audio?.documentId || null,
+        audio_volume: timeline.audio?.volume ?? 1.0,
+      };
+      const newDoc = await renderTimeline(payload);
+      setRenderResult({
+        ...newDoc,
+        full_url: `${API_BASE}/files/document/${newDoc.id}/download`,
+      });
+    } catch (e) {
+      console.error("VideoEditorPage: render failed:", e);
+      setError(e.response?.data?.error?.message || e.response?.data?.message || e.message || "Render failed");
+    } finally {
+      setRendering(false);
+    }
+  };
+
+  // HTML5 drag-and-drop. dataTransfer carries the media-library row id +
+  // kind ('video' or 'audio') so the timeline drop handler knows where to put it.
+  const handleDragStartMedia = (e, mediaItem, kind) => {
+    e.dataTransfer.setData("application/json", JSON.stringify({ id: mediaItem.id, kind, filename: mediaItem.filename }));
+    e.dataTransfer.effectAllowed = "copy";
+  };
+
+  const handleDropOnVideoTrack = (e) => {
+    e.preventDefault();
+    try {
+      const data = JSON.parse(e.dataTransfer.getData("application/json"));
+      if (data.kind !== "video") return;
+      setTimeline((prev) => ({
+        ...prev,
+        video: { documentId: data.id, documentFilename: data.filename, trimStart: 0, trimEnd: null },
+      }));
+    } catch {}
+  };
+
+  const handleDropOnAudioTrack = (e) => {
+    e.preventDefault();
+    try {
+      const data = JSON.parse(e.dataTransfer.getData("application/json"));
+      if (data.kind !== "audio") return;
+      setTimeline((prev) => ({
+        ...prev,
+        audio: { documentId: data.id, documentFilename: data.filename, volume: 1.0, startOffset: 0 },
+      }));
+    } catch {}
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
   };
 
   return (
@@ -168,12 +244,15 @@ const VideoEditorPage = () => {
                 No video files yet. Generate one or import from Documents.
               </Typography>
             )}
-            <Stack spacing={1}>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>Videos</Typography>
+            <Stack spacing={1} mb={2}>
               {mediaLibrary.map((m) => (
                 <Paper
-                  key={m.id}
+                  key={`v-${m.id}`}
                   variant="outlined"
-                  sx={{ p: 1, cursor: "pointer", "&:hover": { bgcolor: "action.hover" } }}
+                  draggable
+                  onDragStart={(e) => handleDragStartMedia(e, m, "video")}
+                  sx={{ p: 1, cursor: "grab", "&:hover": { bgcolor: "action.hover" }, "&:active": { cursor: "grabbing" } }}
                   onClick={() => handleAddMedia(m)}
                 >
                   <Stack direction="row" spacing={1} alignItems="center">
@@ -185,6 +264,38 @@ const VideoEditorPage = () => {
                       {m.size != null && (
                         <Typography variant="caption" color="text.secondary">
                           {(m.size / 1024 / 1024).toFixed(1)} MB
+                        </Typography>
+                      )}
+                    </Box>
+                  </Stack>
+                </Paper>
+              ))}
+            </Stack>
+
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>Audio</Typography>
+            <Stack spacing={1}>
+              {audioLibrary.length === 0 && !loadingMedia && (
+                <Typography variant="caption" color="text.secondary">
+                  No audio files yet. Generate via Audio Studio.
+                </Typography>
+              )}
+              {audioLibrary.map((a) => (
+                <Paper
+                  key={`a-${a.id}`}
+                  variant="outlined"
+                  draggable
+                  onDragStart={(e) => handleDragStartMedia(e, a, "audio")}
+                  sx={{ p: 1, cursor: "grab", "&:hover": { bgcolor: "action.hover" } }}
+                >
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <AudioIcon fontSize="small" sx={{ color: TRACK_COLORS.audio }} />
+                    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                      <Typography variant="caption" sx={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {a.filename}
+                      </Typography>
+                      {a.size != null && (
+                        <Typography variant="caption" color="text.secondary">
+                          {(a.size / 1024 / 1024).toFixed(1)} MB
                         </Typography>
                       )}
                     </Box>
@@ -251,12 +362,21 @@ const VideoEditorPage = () => {
               <Box sx={{ flexGrow: 1 }} />
               <Button
                 variant="contained"
-                startIcon={<RenderIcon />}
+                startIcon={rendering ? <CircularProgress size={20} color="inherit" /> : <RenderIcon />}
                 onClick={handleRender}
-                disabled={!timeline.video}
+                disabled={!timeline.video || rendering}
               >
-                Render
+                {rendering ? "Rendering..." : "Render"}
               </Button>
+              {renderResult && (
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={() => window.open(renderResult.full_url, "_blank")}
+                >
+                  Download {renderResult.filename}
+                </Button>
+              )}
             </Stack>
           </Paper>
 
@@ -343,7 +463,11 @@ const VideoEditorPage = () => {
             {/* Video track */}
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Chip size="small" label="V" sx={{ bgcolor: TRACK_COLORS.video, color: "white", minWidth: 28 }} />
-              <Box sx={{ flex: 1, height: 32, border: 1, borderColor: "divider", borderRadius: 1, display: "flex", alignItems: "center", px: 1 }}>
+              <Box
+                onDragOver={handleDragOver}
+                onDrop={handleDropOnVideoTrack}
+                sx={{ flex: 1, height: 32, border: 1, borderColor: "divider", borderRadius: 1, display: "flex", alignItems: "center", px: 1 }}
+              >
                 {timeline.video ? (
                   <Chip
                     size="small"
@@ -352,7 +476,7 @@ const VideoEditorPage = () => {
                     onDelete={() => setTimeline((p) => ({ ...p, video: null }))}
                   />
                 ) : (
-                  <Typography variant="caption" color="text.secondary">Click a video in Media Library to add</Typography>
+                  <Typography variant="caption" color="text.secondary">Drag a video here</Typography>
                 )}
               </Box>
             </Box>
@@ -382,18 +506,20 @@ const VideoEditorPage = () => {
             {/* Audio track */}
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Chip size="small" label="A" sx={{ bgcolor: TRACK_COLORS.audio, color: "white", minWidth: 28 }} />
-              <Box sx={{ flex: 1, height: 32, border: 1, borderColor: "divider", borderRadius: 1, display: "flex", alignItems: "center", px: 1 }}>
+              <Box
+                onDragOver={handleDragOver}
+                onDrop={handleDropOnAudioTrack}
+                sx={{ flex: 1, height: 32, border: 1, borderColor: "divider", borderRadius: 1, display: "flex", alignItems: "center", px: 1 }}
+              >
                 {timeline.audio ? (
                   <Chip
                     size="small"
                     icon={<AudioIcon fontSize="small" />}
-                    label={`Audio doc #${timeline.audio.documentId}`}
+                    label={timeline.audio.documentFilename || `Audio #${timeline.audio.documentId}`}
                     onDelete={() => setTimeline((p) => ({ ...p, audio: null }))}
                   />
                 ) : (
-                  <Typography variant="caption" color="text.secondary">
-                    Audio track wires to audio_foundry in Phase 6
-                  </Typography>
+                  <Typography variant="caption" color="text.secondary">Drag an audio file here</Typography>
                 )}
               </Box>
             </Box>

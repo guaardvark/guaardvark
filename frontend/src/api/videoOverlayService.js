@@ -42,3 +42,19 @@ export const listVideoDocuments = async () => {
   const res = await axios.get(`${API_BASE}/video-overlay/videos?limit=200`);
   return res.data?.data?.videos || res.data?.videos || [];
 };
+
+// Phase 6 of the editor plan — list audio Documents for the timeline's
+// audio rail. Same pattern as listVideoDocuments.
+export const listAudioDocuments = async () => {
+  const res = await axios.get(`${API_BASE}/video-overlay/audio-library?limit=200`);
+  return res.data?.data?.audio || res.data?.audio || [];
+};
+
+// Phase 7 — render a Video Editor timeline to a final mp4.
+export const renderTimeline = async (timeline) => {
+  // timeline shape mirrors the backend endpoint's expected payload.
+  const res = await axios.post(`${API_BASE}/video-overlay/render-timeline`, timeline, {
+    timeout: 600000,  // 10 min — large renders happen.
+  });
+  return res.data?.data || res.data;
+};
