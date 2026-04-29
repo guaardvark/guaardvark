@@ -43,10 +43,16 @@ const ProgressFooterBar = () => {
     const lastProcessIdRef = useRef(null);
     const hideTimerRef = useRef(null);
     const lastActiveRef = useRef(false);
+    // Mirrors globalProgress.active so the 3s-grace setTimeout below can read
+    // a fresh value at fire time. Without this, the timer captured the stale
+    // closure value and could hide the bar while a new process was already
+    // running, or fail to hide it when a process actually completed.
+    const globalActiveRef = useRef(false);
 
     // Core effect: sync footer state from unified progress
     useEffect(() => {
         const hasActive = globalProgress.active && globalProgress.activeCount > 0;
+        globalActiveRef.current = !!globalProgress.active;
 
         // Cancel any pending hide timer when new activity arrives
         if (hasActive && hideTimerRef.current) {
@@ -133,11 +139,13 @@ const ProgressFooterBar = () => {
             }
 
             // Grace period: keep the bar visible for 3 seconds after last activity
-            // This prevents flicker from brief state transitions
+            // This prevents flicker from brief state transitions. Read activity
+            // state through the ref — the closure-captured `globalProgress` is
+            // stale by the time this fires (3s later), so a new process that
+            // arrived during the grace window was being missed.
             if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
             hideTimerRef.current = setTimeout(() => {
-                // Double-check: only hide if still no active progress
-                if (!globalProgress.active) {
+                if (!globalActiveRef.current) {
                     setVisible(false);
                     setProgress(0);
                     setStatusText('Idle');
@@ -166,6 +174,14 @@ const ProgressFooterBar = () => {
     const sidebarExpanded = useAppStore((state) => state.sidebarExpanded);
     const drawerWidth = sidebarExpanded ? 240 : 64;
 
+    // Truly hide when there's nothing to show. Previously the footer rendered
+    // at opacity 0.2 with pointer-events disabled — a 24 px ghost bar that
+    // sat on every page even when idle. Returning null when not visible
+    // removes that visual noise entirely.
+    if (!visible) {
+        return null;
+    }
+
     try {
         return (
             <Box
@@ -182,66 +198,50 @@ const ProgressFooterBar = () => {
                     alignItems: 'center',
                     px: 2,
                     boxShadow: '0 -2px 8px rgba(0,0,0,0.1)',
-                    opacity: visible ? 1 : 0.2,
-                    pointerEvents: visible ? 'auto' : 'none',
                     transition: 'opacity 0.3s ease-in-out',
                 }}
             >
-                {visible ? (
-                    <>
-                        <LinearProgress
-                            color="info"
-                            variant="determinate"
-                            value={progress}
-                            sx={{
-                                height: '4px',
-                                flexGrow: 1,
-                                mr: 2,
-                                borderRadius: '2px',
-                                backgroundColor: theme.palette.mode === 'dark' ? 'grey.800' : 'grey.300',
-                                '& .MuiLinearProgress-bar': { borderRadius: '2px' },
-                            }}
-                        />
-                        {itemCount ? (
-                            <Typography
-                                variant="caption"
-                                sx={{
-                                    color: 'info.main',
-                                    fontSize: '0.65rem',
-                                    fontWeight: 500,
-                                    mr: 1,
-                                    minWidth: '60px',
-                                    textAlign: 'right',
-                                }}
-                            >
-                                {itemCount.current} of {itemCount.total} ({Math.round(progress)}%)
-                            </Typography>
-                        ) : (
-                            <Typography
-                                variant="caption"
-                                sx={{
-                                    color: 'info.main',
-                                    fontSize: '0.65rem',
-                                    fontWeight: 500,
-                                    mr: 1,
-                                    minWidth: '30px',
-                                    textAlign: 'right',
-                                }}
-                            >
-                                {Math.round(progress)}%
-                            </Typography>
-                        )}
-                    </>
-                ) : (
-                    <Box
+                <LinearProgress
+                    color="info"
+                    variant="determinate"
+                    value={progress}
+                    sx={{
+                        height: '4px',
+                        flexGrow: 1,
+                        mr: 2,
+                        borderRadius: '2px',
+                        backgroundColor: theme.palette.mode === 'dark' ? 'grey.800' : 'grey.300',
+                        '& .MuiLinearProgress-bar': { borderRadius: '2px' },
+                    }}
+                />
+                {itemCount ? (
+                    <Typography
+                        variant="caption"
                         sx={{
-                            height: '4px',
-                            flexGrow: 1,
-                            mr: 2,
-                            backgroundColor: theme.palette.mode === 'dark' ? 'grey.800' : 'grey.300',
-                            borderRadius: '2px',
+                            color: 'info.main',
+                            fontSize: '0.65rem',
+                            fontWeight: 500,
+                            mr: 1,
+                            minWidth: '60px',
+                            textAlign: 'right',
                         }}
-                    />
+                    >
+                        {itemCount.current} of {itemCount.total} ({Math.round(progress)}%)
+                    </Typography>
+                ) : (
+                    <Typography
+                        variant="caption"
+                        sx={{
+                            color: 'info.main',
+                            fontSize: '0.65rem',
+                            fontWeight: 500,
+                            mr: 1,
+                            minWidth: '30px',
+                            textAlign: 'right',
+                        }}
+                    >
+                        {Math.round(progress)}%
+                    </Typography>
                 )}
                 <Typography
                     variant="caption"
