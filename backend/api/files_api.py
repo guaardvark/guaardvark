@@ -868,16 +868,29 @@ def move_document(doc_id):
             dest_folder_id = dest_folder.id
         old_path = document.path
         old_physical_path = get_physical_path(old_path)
-        physical_filename = Path(old_path).name
+        # Apply the resolver against the destination folder — was a silent
+        # overwrite before, which is the fastest way to lose a file.
+        # Files-app convention: 'name (2).ext' if a sibling already holds
+        # the name. exclude_id=document.id so we don't see ourselves as
+        # a collision (no-op move into the same folder is fine).
+        from backend.utils.filename_resolver import resolve_filename
+        resolved_filename = resolve_filename(
+            dest_folder_id,
+            document.filename,
+            db.session,
+            DBDocument,
+            exclude_id=document.id,
+        )
         if dest_path and dest_path != "/":
-            new_path = f"{dest_path}/{physical_filename}"
+            new_path = f"{dest_path}/{resolved_filename}"
         else:
-            new_path = physical_filename
+            new_path = resolved_filename
         new_physical_path = get_physical_path(new_path)
         if old_physical_path.exists():
             new_physical_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(old_physical_path), str(new_physical_path))
             logger.info(f"Moved file: {old_physical_path} -> {new_physical_path}")
+        document.filename = resolved_filename
         document.path = new_path
         document.folder_id = dest_folder_id
         document.updated_at = datetime.datetime.now()
