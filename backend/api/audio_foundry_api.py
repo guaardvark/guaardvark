@@ -240,8 +240,9 @@ def upload_voice_clip():
         return {"error": "Empty filename"}, 400
 
     # Use the user's preferred display name when present; otherwise fall back
-    # to the raw filename. We never trust either for filesystem placement —
-    # final on-disk name uses a UUID + the validated extension.
+    # to the secured raw filename. The on-disk name is derived from this so
+    # the user sees a recognizable filename in the picker — no more `<hex>.wav`
+    # mystery files in voice_references/. Files-app suffix on collision.
     display_name = flask_request.form.get("name") or f.filename
     raw_ext = Path(secure_filename(f.filename) or "").suffix.lower()
     if raw_ext not in _ALLOWED_AUDIO_EXTS:
@@ -249,8 +250,20 @@ def upload_voice_clip():
             "error": f"Unsupported audio format {raw_ext!r}. Allowed: {sorted(_ALLOWED_AUDIO_EXTS)}",
         }, 400
 
-    asset_id = uuid.uuid4().hex
-    target = _voice_ref_dir() / f"{asset_id}{raw_ext}"
+    # Sanitize the display name for filesystem use — keep readable, drop
+    # path separators and weird control chars. secure_filename strips the
+    # extension if the user supplied one in display_name (e.g. "my voice.wav"),
+    # so we re-attach raw_ext to be sure.
+    safe_stem = secure_filename(Path(display_name).stem) or "voice_clip"
+    desired = f"{safe_stem}{raw_ext}"
+
+    from backend.utils.filename_resolver import resolve_filesystem_filename
+    chosen_name = resolve_filesystem_filename(_voice_ref_dir(), desired)
+    target = _voice_ref_dir() / chosen_name
+    # The DB-style "id" returned to the frontend used to be a uuid hex;
+    # keep that shape so existing callers don't break — derive it from the
+    # chosen filename's stem now (e.g. "narration" → id="narration").
+    asset_id = Path(chosen_name).stem
 
     # Stream-write with a size cap so a malicious / runaway upload can't fill disk.
     written = 0

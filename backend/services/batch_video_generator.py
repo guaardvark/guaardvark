@@ -9,6 +9,7 @@ environments.
 
 import json
 import logging
+import queue
 import subprocess
 import threading
 import uuid
@@ -79,6 +80,7 @@ class BatchVideoRequest:
     interpolation_multiplier: int = 2
     prompt_style: str = "cinematic"
     enhance_prompt: bool = True
+    negative_prompt: str = ""
     metadata: Dict = field(default_factory=dict)
 
 
@@ -119,10 +121,61 @@ class BatchVideoGenerator:
         self.active_batches: Dict[str, BatchVideoStatus] = {}
         self.batch_lock = threading.Lock()
 
+        # Queue plumbing — one batch runs at a time, the rest stack up.
+        self.batch_queue: "queue.Queue[tuple]" = queue.Queue()
+        self.cancel_events: Dict[str, threading.Event] = {}
+        self.queue_order: List[str] = []  # batch_ids in submission order, oldest first
+        self._running_batch_id: Optional[str] = None
+
         self.video_generator = get_video_generator()
         self.service_available = self.video_generator.service_available
         _get_video_logger()  # Initialize dedicated log file
+
+        # Single daemon worker drains the queue. GPU coordinator stays as
+        # defense-in-depth inside _run_batch.
+        self._worker_thread = threading.Thread(
+            target=self._queue_worker, daemon=True, name="batch-video-worker"
+        )
+        self._worker_thread.start()
+
         logger.info(f"BatchVideoGenerator initialized - Service available: {self.service_available}")
+
+    def _queue_worker(self) -> None:
+        """Pulls one batch off the queue at a time. Bouncer at the GPU door."""
+        while True:
+            try:
+                batch_request, status = self.batch_queue.get()
+            except Exception as e:
+                logger.error(f"Queue worker get() failed: {e}")
+                continue
+
+            try:
+                cancel_event = self.cancel_events.get(batch_request.batch_id)
+                if cancel_event and cancel_event.is_set():
+                    status.status = "cancelled"
+                    status.end_time = datetime.now()
+                    if not status.error:
+                        status.error = "Cancelled before start"
+                    self._save_metadata(status)
+                    logger.info(f"Skipped cancelled batch {batch_request.batch_id}")
+                    continue
+
+                self._running_batch_id = batch_request.batch_id
+                self._run_batch(batch_request, status)
+            except Exception as e:
+                logger.error(f"Queue worker crashed on batch {batch_request.batch_id}: {e}")
+                status.status = "error"
+                status.error = str(e)
+                status.end_time = datetime.now()
+                self._save_metadata(status)
+            finally:
+                self._running_batch_id = None
+                with self.batch_lock:
+                    if batch_request.batch_id in self.queue_order:
+                        # Keep completed batches in queue_order for /queue snapshot
+                        # so the UI can show recent history. _cleanup_stale_batches
+                        # already trims old data.
+                        pass
 
     @staticmethod
     def _extract_thumbnail(video_path: Path, thumbnail_path: Path) -> bool:
@@ -183,6 +236,8 @@ class BatchVideoGenerator:
             logger.error(f"Batch {batch_request.batch_id} failed to acquire GPU lock: {lock_result.get('error')}")
             return
 
+        cancel_event = self.cancel_events.get(batch_request.batch_id)
+
         try:
             status.start_time = datetime.now()
             status.status = "running"
@@ -192,6 +247,9 @@ class BatchVideoGenerator:
             batch_dir.mkdir(parents=True, exist_ok=True)
 
             for item in batch_request.items:
+                if cancel_event and cancel_event.is_set():
+                    status.status = "cancelled"
+                    break
                 if status.status == "cancelled":
                     break
 
@@ -205,6 +263,7 @@ class BatchVideoGenerator:
 
                     gen_request = VideoGenerationRequest(
                         prompt=item.prompt or "",
+                        negative_prompt=batch_request.negative_prompt,
                         model=batch_request.model,
                         duration_frames=batch_request.duration_frames,
                         fps=batch_request.fps,
@@ -252,7 +311,8 @@ class BatchVideoGenerator:
                 finally:
                     self._save_metadata(status)
 
-            status.status = "completed" if status.failed_videos == 0 else "error"
+            if status.status != "cancelled":
+                status.status = "completed" if status.failed_videos == 0 else "error"
             status.end_time = datetime.now()
             self._save_metadata(status)
 
@@ -356,12 +416,13 @@ class BatchVideoGenerator:
             interpolation_multiplier=int(params.get("interpolation_multiplier", 2)),
             prompt_style=params.get("prompt_style", "cinematic"),
             enhance_prompt=bool(params.get("enhance_prompt", True)),
+            negative_prompt=params.get("negative_prompt", "") or "",
             metadata=params.get("metadata", {}),
         )
 
         status = BatchVideoStatus(
             batch_id=batch_id,
-            status="pending",
+            status="queued",
             total_videos=len(items),
             output_dir=str(batch_dir),
             metadata=params.get("metadata", {}),
@@ -369,10 +430,19 @@ class BatchVideoGenerator:
 
         with self.batch_lock:
             self.active_batches[batch_id] = status
+            self.cancel_events[batch_id] = threading.Event()
+            self.queue_order.append(batch_id)
 
-        # Launch background thread
-        t = threading.Thread(target=self._run_batch, args=(batch_request, status), daemon=True)
-        t.start()
+        # Persist queued state immediately so a restart leaves a discoverable trail
+        # (Phase 2 will use this for opt-in resume).
+        self._save_metadata(status)
+
+        # Stack it on the queue. The single worker thread drains one batch at a time.
+        self.batch_queue.put((batch_request, status))
+        logger.info(
+            f"Enqueued batch {batch_id} ({len(items)} items) — "
+            f"queue depth ~{self.batch_queue.qsize()}"
+        )
 
         return status
 
@@ -438,25 +508,53 @@ class BatchVideoGenerator:
         return None
 
     def cancel_batch(self, batch_id: str) -> bool:
-        """Cancel a running or stale batch by updating its status."""
-        # Check in-memory active batches first
+        """Cancel a queued or running batch.
+
+        Two-layer interrupt: flip the cancel event (so the worker bails out
+        between items) and, if the batch is mid-render, yell at ComfyUI's
+        /interrupt endpoint so the current sampler aborts immediately.
+        """
+        cancellable = ("queued", "running", "pending", "processing")
+
+        # In-memory path — covers anything queued or running
         with self.batch_lock:
             status = self.active_batches.get(batch_id)
-            if status and status.status in ("running", "pending", "processing"):
-                status.status = "cancelled"
-                status.end_time = datetime.now()
-                self._save_metadata(status)
-                logger.info(f"Cancelled active batch {batch_id}")
-                return True
+            event = self.cancel_events.get(batch_id)
 
-        # Fall back to on-disk metadata
+        if status and status.status in cancellable:
+            if event:
+                event.set()
+
+            was_running = (status.status == "running") or (self._running_batch_id == batch_id)
+            status.status = "cancelled"
+            status.end_time = datetime.now()
+            if not status.error:
+                status.error = "Cancelled by user"
+            self._save_metadata(status)
+
+            if was_running:
+                # Force ComfyUI to abort the current sampler. Without this,
+                # cancel only fires between items — useless for a 20-min Wan run.
+                try:
+                    interrupted = self.video_generator.interrupt()
+                    logger.info(
+                        f"Cancel batch {batch_id}: running, interrupt sent "
+                        f"(ack={interrupted})"
+                    )
+                except Exception as e:
+                    logger.warning(f"Cancel batch {batch_id}: interrupt call failed: {e}")
+            else:
+                logger.info(f"Cancel batch {batch_id}: queued, will skip when worker reaches it")
+            return True
+
+        # Fall back to on-disk metadata for batches no longer tracked in memory
         batch_dir = self._get_batch_dir(batch_id)
         metadata_file = batch_dir / "batch_metadata.json"
         if metadata_file.exists():
             try:
                 with open(metadata_file, "r") as f:
                     data = json.load(f)
-                if data.get("status") in ("running", "pending", "processing"):
+                if data.get("status") in cancellable:
                     data["status"] = "cancelled"
                     data["end_time"] = datetime.now().isoformat()
                     if not data.get("error"):
@@ -469,6 +567,40 @@ class BatchVideoGenerator:
                 logger.error(f"Failed to cancel batch {batch_id}: {e}")
                 return False
         return False
+
+    def list_queue(self) -> List[Dict]:
+        """Snapshot of the current queue for the UI panel.
+
+        Returns batches in submission order with a position number.
+        Includes queued, running, and recently completed/cancelled batches
+        from the in-memory active set.
+        """
+        snapshot = []
+        with self.batch_lock:
+            order = list(self.queue_order)
+            running_id = self._running_batch_id
+
+        position = 0
+        for batch_id in order:
+            with self.batch_lock:
+                status = self.active_batches.get(batch_id)
+            if not status:
+                continue
+            position += 1
+            snapshot.append({
+                "position": position,
+                "batch_id": batch_id,
+                "status": status.status,
+                "total_videos": status.total_videos,
+                "completed_videos": status.completed_videos,
+                "failed_videos": status.failed_videos,
+                "is_running": batch_id == running_id,
+                "start_time": status.start_time.isoformat() if status.start_time else None,
+                "end_time": status.end_time.isoformat() if status.end_time else None,
+                "display_name": (status.metadata or {}).get("display_name"),
+                "error": status.error,
+            })
+        return snapshot
 
     def _cleanup_stale_batches(self) -> None:
         """Mark batches stuck in running/pending/processing as cancelled.
@@ -603,7 +735,19 @@ class BatchVideoGenerator:
             return None
         videos_dir.mkdir(parents=True, exist_ok=True)
 
-        video_path = videos_dir / f"video_{uuid.uuid4().hex}.mp4"
+        # Each item_dir holds a single rendered video — give it a clean,
+        # predictable name. The collision resolver in register_file applies
+        # if anything ends up registered into the same DB folder twice.
+        # Legacy: f"video_{uuid.uuid4().hex}.mp4" left hex visible in the UI.
+        video_path = videos_dir / "video.mp4"
+        if video_path.exists():
+            # Same item_dir got re-rendered (rare). Add a sequential suffix
+            # using the same Files-app convention the resolver uses.
+            from backend.utils.filename_resolver import _split_existing_suffix
+            stem, n = _split_existing_suffix("video")
+            while video_path.exists():
+                n += 1
+                video_path = videos_dir / f"{stem} ({n}).mp4"
         combined = self.video_generator._combine_frames_to_video(frames_dir, video_path, fps)
         if not combined:
             return None

@@ -144,7 +144,22 @@ def overlay_text():
     # but if a user has, say, a .mov stored we still want the convention to be
     # right. The actual container ffmpeg writes is determined by libx264 +
     # the path — sticking with .mp4 keeps things broadly compatible.
-    output_path = (_OVERLAY_SUBDIR / f"{uuid.uuid4().hex}.mp4").resolve()
+    # Source-named with sequential suffix per the filename plan. Pattern:
+    # "<source_basename>_001.mp4", "_002.mp4" on subsequent renders of the
+    # same source. Bumps until it finds a free slot in _OVERLAY_SUBDIR.
+    _OVERLAY_SUBDIR.mkdir(parents=True, exist_ok=True)
+    source_stem = Path(doc.filename).stem
+    n = 1
+    while True:
+        candidate = _OVERLAY_SUBDIR / f"{source_stem}_{n:03d}.mp4"
+        if not candidate.exists():
+            output_path = candidate.resolve()
+            break
+        n += 1
+        if n > 999:
+            # Absurdity guard — shouldn't happen in practice
+            output_path = (_OVERLAY_SUBDIR / f"{source_stem}_{uuid.uuid4().hex[:8]}.mp4").resolve()
+            break
 
     try:
         add_text_to_video(

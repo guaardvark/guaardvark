@@ -877,11 +877,18 @@ class OfflineVideoGenerator:
                 logger.info("GPU lock released after single video generation")
 
     def _generate_video_impl(self, request: VideoGenerationRequest) -> VideoGenerationResult:
-        batch_dir = request.output_dir or (self.cache_dir / f"batch_{uuid.uuid4().hex}")
-        batch_dir = Path(batch_dir)
+        # Date-stamped names beat raw uuid hex for anything the user might
+        # see in DocumentsPage / CodeEditorPage. The Bates path picks a
+        # sequence number when called with the right context; this fallback
+        # uses HH-MM-SS to disambiguate same-second batches on the cache_dir.
+        from datetime import datetime as _dt
+        if request.output_dir:
+            batch_dir = Path(request.output_dir)
+        else:
+            batch_dir = self.cache_dir / f"VideoBatch_{_dt.now().strftime('%m-%d-%Y_%H-%M-%S')}"
         item_id = request.metadata.get("item_id") if request.metadata else None
         if not item_id:
-            item_id = f"item_{uuid.uuid4().hex}"
+            item_id = f"VideoGen_{_dt.now().strftime('%m-%d-%Y_%H-%M-%S')}"
             request.metadata["item_id"] = item_id
         videos_dir, frames_dir, thumbs_dir = self._make_output_dirs(batch_dir, item_id)
 
@@ -1020,8 +1027,18 @@ class OfflineVideoGenerator:
                 result.success = True
                 return result
 
-            video_name = f"video_{uuid.uuid4().hex}.mp4"
-            video_path = videos_dir / video_name
+            # Same readable-name convention as the batch dir above. The
+            # parent item_dir is already date+time stamped so a plain
+            # "video.mp4" inside it is unambiguous; resolver suffixes if
+            # something rendered into the same item_dir twice.
+            video_path = videos_dir / "video.mp4"
+            if video_path.exists():
+                from backend.utils.filename_resolver import _split_existing_suffix
+                stem, n = _split_existing_suffix("video")
+                while video_path.exists():
+                    n += 1
+                    video_path = videos_dir / f"{stem} ({n}).mp4"
+            video_name = video_path.name
             combined = self._combine_frames_to_video(
                 frames_dir=frames_dir,
                 output_video_path=video_path,

@@ -106,6 +106,39 @@ def resolve_filename(
         candidate = f"{base_stem} ({attempt}){ext}"
 
 
+def resolve_filesystem_filename(directory, desired_name: str) -> str:
+    """Filesystem-only sibling of resolve_filename — for free-floating files
+    that aren't tracked as Documents (voice reference clips, transient outputs,
+    etc.). Same Files-app collision convention; just walks os.listdir instead
+    of querying the DB.
+
+    Args:
+        directory: Path to scan for collisions. Created if it doesn't exist
+            isn't this function's job — pass an existing dir.
+        desired_name: The name the caller wants on disk.
+
+    Returns:
+        A name guaranteed not to collide with any existing file in `directory`.
+    """
+    from pathlib import Path
+    base_stem, ext = os.path.splitext(desired_name)
+    base_stem, start_n = _split_existing_suffix(base_stem)
+    candidate = desired_name
+    attempt = start_n
+
+    p = Path(directory)
+    while True:
+        if not (p / candidate).exists():
+            return candidate
+        attempt += 1
+        if attempt > _MAX_COLLISION_ATTEMPTS:
+            raise FilenameCollisionError(
+                f"More than {_MAX_COLLISION_ATTEMPTS} files named like "
+                f"{desired_name!r} in {directory}. Probable bug."
+            )
+        candidate = f"{base_stem} ({attempt}){ext}"
+
+
 def find_duplicate_groups(db_session, document_model) -> list[dict]:
     """Pre-flight audit: find every (folder_id, filename) duplicate group.
 

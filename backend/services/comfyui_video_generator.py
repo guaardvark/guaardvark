@@ -226,6 +226,41 @@ class ComfyUIVideoGenerator:
         },
     }
 
+    # CogVideoX/Wan are 8x VAE × 2x patch → /16. SVD is U-Net only → /8.
+    # Mirror of MODEL_OPTIONS[*].dimensionAlignment in VideoGeneratorPage.jsx —
+    # the frontend should already snap, this is the defense-in-depth seam for
+    # API/MCP/agent callers that go straight to the workflow builders.
+    _DIMENSION_ALIGNMENT_BY_FAMILY = {
+        "cogvideox": 16,
+        "wan": 16,
+        "svd": 8,
+    }
+
+    @classmethod
+    def _model_family(cls, model: str) -> str:
+        if model in cls.WAN22_MODELS or model in ("wan22", "wan2.2"):
+            return "wan"
+        if model in cls.COGVIDEOX_MODELS:
+            return "cogvideox"
+        return "svd"
+
+    @classmethod
+    def _align_dimensions(cls, width: int, height: int, model: str) -> tuple[int, int]:
+        """Snap (width, height) to the model family's required alignment.
+
+        Logs a WARNING when the input wasn't already aligned — that's our
+        breadcrumb if a caller bypasses the frontend's snap.
+        """
+        align = cls._DIMENSION_ALIGNMENT_BY_FAMILY.get(cls._model_family(model), 16)
+        new_w = max(align, round(width / align) * align)
+        new_h = max(align, round(height / align) * align)
+        if (new_w, new_h) != (width, height):
+            logger.warning(
+                "Aligned video dims for %s: %dx%d → %dx%d (must be multiple of %d)",
+                model, width, height, new_w, new_h, align,
+            )
+        return new_w, new_h
+
     def _add_cogvideox_optional_nodes(
         self,
         workflow: dict,
@@ -868,6 +903,28 @@ class ComfyUIVideoGenerator:
 
         return workflow
 
+    def interrupt(self) -> bool:
+        """Force-stop whatever ComfyUI is currently sampling.
+
+        Yells "ABORT!" at the kitchen — ComfyUI bails on the current sampler,
+        history gets a partial entry, and our wait loop returns.
+        """
+        try:
+            requests.post(f"{self.comfy_url}/interrupt", timeout=5)
+            try:
+                requests.post(
+                    f"{self.comfy_url}/queue",
+                    json={"clear": True},
+                    timeout=5,
+                )
+            except Exception as clear_err:
+                logger.debug(f"Queue clear failed (non-fatal): {clear_err}")
+            logger.info("Sent interrupt + queue-clear to ComfyUI")
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to interrupt ComfyUI: {e}")
+            return False
+
     def _queue_prompt(self, workflow: dict) -> Optional[str]:
         try:
             payload = {"prompt": workflow}
@@ -1033,7 +1090,10 @@ class ComfyUIVideoGenerator:
                 from backend.services.output_registration import bates_name
                 folder_name = bates_name("video_batch", "", self.default_output_dir)
             except Exception:
-                folder_name = f"batch_{uuid.uuid4().hex}"
+                # Bates failed — fall back to a date-stamped name rather than
+                # raw uuid hex so the user-visible folder name stays readable.
+                from datetime import datetime as _dt
+                folder_name = f"VideoBatch_{_dt.now().strftime('%m-%d-%Y_%H-%M-%S')}"
             batch_dir = self.default_output_dir / folder_name
         batch_dir = Path(batch_dir)
 
@@ -1044,7 +1104,10 @@ class ComfyUIVideoGenerator:
                 from backend.services.output_registration import bates_name
                 item_id = bates_name("video", "", batch_dir)
             except Exception:
-                item_id = f"item_{uuid.uuid4().hex}"
+                # Same fallback shape as folder_name above — readable names
+                # over uuid hex when the Bates path fails for any reason.
+                from datetime import datetime as _dt
+                item_id = f"VideoGen_{_dt.now().strftime('%m-%d-%Y_%H-%M-%S')}"
             if request.metadata:
                 request.metadata["item_id"] = item_id
 
@@ -1067,6 +1130,12 @@ class ComfyUIVideoGenerator:
             image_path = request.metadata.get("image_path") if request.metadata else None
             model = request.model or "svd"
             seed = request.seed if request.seed is not None else int(time.time() * 1000) % (2**31)
+
+            # Defense-in-depth: snap dims before they enter any workflow builder.
+            # Off-by-one here is the "tensor a (51) must match tensor b (50)" crash.
+            request.width, request.height = self._align_dimensions(
+                request.width, request.height, model
+            )
 
             interpolation = request.interpolation_multiplier
 
