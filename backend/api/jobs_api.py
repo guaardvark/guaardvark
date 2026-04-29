@@ -21,6 +21,14 @@ except Exception:
 jobs_bp = Blueprint("jobs_api", __name__, url_prefix="/api/meta")
 logger = logging.getLogger(__name__)
 
+# Phase 8 of plans/2026-04-29-tasks-jobs-progress-unification.md notes:
+# this blueprint exposes /api/meta/active_jobs which several frontend consumers
+# (UnifiedProgressContext, JobDetailsModal, progressService) still call. The
+# canonical replacement is GET /api/jobs/active served by unified_jobs_resource_api.
+# Per user direction in plan §8.4 we keep aliases forever for endpoints with
+# any external caller — these callers stay on the old path indefinitely; the
+# new path is additive. No hard cuts.
+
 
 def get_active_celery_tasks() -> Dict[str, Any]:
     """Get active Celery tasks from Redis broker."""
