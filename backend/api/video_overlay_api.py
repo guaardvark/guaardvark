@@ -59,19 +59,17 @@ _VALID_POSITIONS = {
 
 
 def _resolve_video_path(doc: DBDocument) -> Path | None:
-    """Document.path is sometimes relative to the project root, sometimes absolute.
+    """Resolve a video Document to its on-disk bytes.
 
-    The mp4s registered by comfyui_video_generator land as relative to project
-    root (e.g. `plugins/comfyui/ComfyUI/output/cogvideo_00008.mp4`), but a
-    user-uploaded file might be stored absolute. Try both.
+    Delegates to backend.services.document_path_resolver which handles the
+    divergent paths that legacy generators produced (paths under UPLOAD_DIR,
+    paths under plugins/comfyui/ComfyUI/output/, paths that disagree with
+    Document.filename, etc.). Phase 1 of the Video Editor plan
+    (plans/2026-04-29-video-editor.md §4) established this resolver as the
+    bridge for rows predating the filename-structure invariant.
     """
-    candidate = Path(doc.path)
-    if candidate.is_file():
-        return candidate.resolve()
-    project_relative = Path.cwd() / candidate
-    if project_relative.is_file():
-        return project_relative.resolve()
-    return None
+    from backend.services.document_path_resolver import resolve_document_path
+    return resolve_document_path(doc)
 
 
 @video_overlay_bp.route("/videos", methods=["GET"])
