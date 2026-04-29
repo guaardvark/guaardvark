@@ -47,6 +47,8 @@ import ExtensionIcon from "@mui/icons-material/Extension";
 import HiveIcon from "@mui/icons-material/Hive";
 import CampaignIcon from "@mui/icons-material/Campaign";
 import TextFieldsIcon from "@mui/icons-material/TextFields";
+import QueueIcon from "@mui/icons-material/Queue";
+import MonitorHeartIcon from "@mui/icons-material/MonitorHeart";
 
 import SystemMetricsModal from "../modals/SystemMetricsModal";
 import AgentScreenViewer from "../agent/AgentScreenViewer";
@@ -74,7 +76,13 @@ const navGroups = [
       { text: "Clients", icon: <AccountBoxIcon />, path: "/clients" },
       { text: "Projects", icon: <FolderIcon />, path: "/projects" },
       { text: "Websites", icon: <LanguageIcon />, path: "/websites" },
-      { text: "Job Scheduler", icon: <TaskAltIcon />, path: "/tasks" },
+      // Tasks/Jobs unification — two filtered views of the same canonical
+      // /api/jobs resource. Jobs = user-initiated queueable work.
+      // Activity = system-driven background work. The two are aware of each
+      // other via the JobOperationGate that lands in Phase 9 of the plan.
+      // Replaces the legacy "Job Scheduler" entry that pointed at /tasks.
+      { text: "Jobs", icon: <QueueIcon />, path: "/jobs" },
+      { text: "Activity", icon: <MonitorHeartIcon />, path: "/activity" },
       { text: "Outreach", icon: <CampaignIcon />, path: "/outreach" },
     ],
   },
