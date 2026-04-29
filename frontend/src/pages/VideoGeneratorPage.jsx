@@ -262,7 +262,11 @@ const PROMPT_STYLES = {
   cinematic: { label: "Cinematic", description: "Film-quality lighting and motion" },
   realistic: { label: "Realistic", description: "Photorealistic detail" },
   artistic: { label: "Artistic", description: "Stylized and expressive" },
-  anime: { label: "Anime", description: "Japanese animation style" },
+  anime: { label: "Anime (Japanese)", description: "Japanese cel-shaded animation" },
+  "3d_animation": { label: "3D Animation (Pixar-style)", description: "Polished CGI, expressive characters" },
+  stop_motion: { label: "Stop-motion / Claymation", description: "Tactile clay, handcrafted feel" },
+  hand_drawn: { label: "Hand-drawn 2D (Ghibli-style)", description: "Painterly watercolor backgrounds" },
+  western_cartoon: { label: "Western Cartoon", description: "Bold outlines, flat shading, snappy motion" },
   none: { label: "None", description: "No enhancement" },
 };
 
@@ -306,20 +310,23 @@ const MODEL_OPTIONS = {
     defaultSteps: 25,
     supportsT2V: true,
     supportsI2V: false,
+    dimensionAlignment: 16,
   },
-  // CogVideoX models
+  // CogVideoX models — 5b is the recommended one for quality.
+  // 2b is materially weaker and only worth picking for quick draft passes.
   "cogvideox-2b": {
-    label: "CogVideoX 2B",
-    description: "6s videos, fast (~12GB VRAM)",
+    label: "CogVideoX 2B (Fast/Draft)",
+    description: "6s draft videos, lower quality (~12GB VRAM) — prefer 5B",
     type: "cogvideox",
     maxFrames: 49,
     resolution: [720, 480],
     defaultSteps: 30,
     supportsT2V: true,
     supportsI2V: false,
+    dimensionAlignment: 16,
   },
   "cogvideox-5b": {
-    label: "CogVideoX 5B",
+    label: "CogVideoX 5B (Recommended)",
     description: "6s videos, best quality (~16GB VRAM)",
     type: "cogvideox",
     maxFrames: 49,
@@ -327,6 +334,7 @@ const MODEL_OPTIONS = {
     defaultSteps: 50,
     supportsT2V: true,
     supportsI2V: false,
+    dimensionAlignment: 16,
   },
   "cogvideox-5b-i2v": {
     label: "CogVideoX 5B I2V",
@@ -337,6 +345,7 @@ const MODEL_OPTIONS = {
     defaultSteps: 50,
     supportsT2V: false,
     supportsI2V: true,
+    dimensionAlignment: 16,
   },
   // SVD models (legacy)
   svd: {
@@ -348,6 +357,7 @@ const MODEL_OPTIONS = {
     defaultSteps: 25,
     supportsT2V: false,
     supportsI2V: true,
+    dimensionAlignment: 8,
   },
   "svd-xt": {
     label: "SVD-XT (legacy)",
@@ -358,6 +368,7 @@ const MODEL_OPTIONS = {
     defaultSteps: 25,
     supportsT2V: false,
     supportsI2V: true,
+    dimensionAlignment: 8,
   },
 };
 
@@ -368,6 +379,17 @@ const DEFAULT_I2V_MODEL = "cogvideox-5b-i2v";
 // Helper to check model type
 const isCogVideoXModel = (model) => MODEL_OPTIONS[model]?.type === "cogvideox";
 const isWanModel = (model) => MODEL_OPTIONS[model]?.type === "wan";
+
+// CogVideoX/Wan use 2x2 patch embedding on top of an 8x VAE → dims must be /16.
+// SVD is a U-Net with no patches → /8 is enough. Off-by-one here turns into
+// "tensor a (51) must match tensor b (50)" at scheduler.step. Don't ship without it.
+const snapDimensions = (width, height, model) => {
+  const align = MODEL_OPTIONS[model]?.dimensionAlignment ?? 16;
+  return {
+    width: Math.round(width / align) * align,
+    height: Math.round(height / align) * align,
+  };
+};
 const isSvdModel = (model) => MODEL_OPTIONS[model]?.type === "svd";
 
 // Lazy import for VideoModelsModal
@@ -403,6 +425,10 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   const [qualityTier, setQualityTier] = useState("standard");
   const [promptStyle, setPromptStyle] = useState("cinematic");
   const [enhancePrompt, setEnhancePrompt] = useState(true);
+
+  // Batch-wide prompt modifiers (mirror BatchImageGen's "Look & Feel" pattern)
+  const [lookAndFeel, setLookAndFeel] = useState("");
+  const [negativePrompt, setNegativePrompt] = useState("");
   const [lowVramMode, setLowVramMode] = useState(() => {
     const saved = localStorage.getItem('lowVramMode');
     // Default to TRUE for 16GB GPUs to prevent CUDA memory errors
@@ -430,8 +456,10 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   const [activeBatchId, setActiveBatchId] = useState(null);
   const [batchStatus, setBatchStatus] = useState(null);
   const [batches, setBatches] = useState([]);
+  const [queue, setQueue] = useState([]);
   const [videoPlayer, setVideoPlayer] = useState(null); // { url, title, batchId, results, currentIndex }
   const pollingRef = useRef(null);
+  const queuePollingRef = useRef(null);
 
   // Filter models by current input mode
   const availableModels = useMemo(() => {
@@ -460,6 +488,15 @@ const VideoGeneratorPage = ({ embedded = false }) => {
 
   // Calculate video dimensions from aspect ratio and size
   const videoDimensions = useMemo(() => {
+    // CogVideoX is trained on 720x480 (3:2). Aspect-ratio math at 16:9 lands
+    // on 720x405 → snaps to 720x400, which is off-spec and produces distorted
+    // output every time. Pin to the model's native frame and let the user
+    // letterbox / crop in post if they need a different aspect.
+    if (isCogVideoXModel(model)) {
+      const [nativeW, nativeH] = MODEL_OPTIONS[model].resolution;
+      return { width: nativeW, height: nativeH };
+    }
+
     const ratioConfig = ASPECT_RATIO_PRESETS[aspectRatio] || ASPECT_RATIO_PRESETS["16:9"];
     const sizeConfig = VIDEO_SIZE_PRESETS[videoSize] || VIDEO_SIZE_PRESETS.large;
     const baseSize = sizeConfig.baseSize;
@@ -476,12 +513,11 @@ const VideoGeneratorPage = ({ embedded = false }) => {
       width = Math.round(baseSize * ratio);
     }
 
-    // Ensure dimensions are multiples of 8 (required by diffusion models)
-    width = Math.round(width / 8) * 8;
-    height = Math.round(height / 8) * 8;
+    // Snap to the model's required alignment (16 for CogVideoX/Wan, 8 for SVD).
+    ({ width, height } = snapDimensions(width, height, model));
 
     return { width, height };
-  }, [aspectRatio, videoSize]);
+  }, [aspectRatio, videoSize, model]);
 
   // Compute final params from presets
   const computedParams = useMemo(() => {
@@ -512,6 +548,14 @@ const VideoGeneratorPage = ({ embedded = false }) => {
       effectiveSteps = modelConfig.defaultSteps || 25;
     }
 
+    // CogVideoX is unusually step-sensitive — anything below ~50 produces visibly
+    // smeared / underbaked output regardless of the rest of the params. Floor it
+    // unless the user explicitly opts into fewer in advanced settings.
+    if (isCogVideoXModel(model) && effectiveSteps < 50 &&
+        (advancedParams.num_inference_steps === null || advancedParams.num_inference_steps === undefined)) {
+      effectiveSteps = 50;
+    }
+
     // Low VRAM safe preset for CogVideoX on 16GB GPUs
     // Very aggressive settings based on successful test: 8 frames, 15 steps, 480x320
     if (lowVramMode && isCogVideoXModel(model)) {
@@ -531,15 +575,14 @@ const VideoGeneratorPage = ({ embedded = false }) => {
       const longestSide = Math.max(width, height);
       if (longestSide > maxSafeSide) {
         const scale = maxSafeSide / longestSide;
-        width = Math.round((width * scale) / 8) * 8;
-        height = Math.round((height * scale) / 8) * 8;
+        width = width * scale;
+        height = height * scale;
       }
       // Ensure minimum dimensions are met (CogVideoX needs at least 256x256)
       if (width < 256) width = 256;
       if (height < 256) height = 256;
-      // Ensure dimensions are multiples of 8
-      width = Math.round(width / 8) * 8;
-      height = Math.round(height / 8) * 8;
+      // Snap to the model's required alignment (always last, after every resize)
+      ({ width, height } = snapDimensions(width, height, effectiveModel));
 
       // Aggressive step reduction - tested working with 15 steps
       if (effectiveSteps > 15) {
@@ -560,13 +603,12 @@ const VideoGeneratorPage = ({ embedded = false }) => {
       const longestSide = Math.max(width, height);
       if (longestSide > maxSafeSide) {
         const scale = maxSafeSide / longestSide;
-        width = Math.round((width * scale) / 8) * 8;
-        height = Math.round((height * scale) / 8) * 8;
+        width = width * scale;
+        height = height * scale;
       }
       if (width < 256) width = 256;
       if (height < 256) height = 256;
-      width = Math.round(width / 8) * 8;
-      height = Math.round(height / 8) * 8;
+      ({ width, height } = snapDimensions(width, height, effectiveModel));
 
       // Moderate step reduction
       if (effectiveSteps > 20) {
@@ -666,8 +708,13 @@ const VideoGeneratorPage = ({ embedded = false }) => {
 
   useEffect(() => {
     fetchBatches();
+    fetchQueue();
+    // Continuous queue polling — cheap, gives the user live feedback as
+    // batches drain and as they stack up new ones.
+    queuePollingRef.current = setInterval(fetchQueue, 2000);
     return () => {
       stopPolling();
+      if (queuePollingRef.current) clearInterval(queuePollingRef.current);
     };
   }, []);
 
@@ -687,6 +734,20 @@ const VideoGeneratorPage = ({ embedded = false }) => {
       }
     } catch (e) {
       // ignore
+    }
+  };
+
+  const fetchQueue = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/batch-video/queue`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setQueue(data.data.queue || []);
+        }
+      }
+    } catch (e) {
+      // ignore polling errors
     }
   };
 
@@ -874,20 +935,6 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     setSuccess("");
     setBatchStatus(null);
 
-    // Pre-flight GPU check — backend will also enforce this
-    try {
-      const statusRes = await fetch(`${API_BASE}/gpu/status`);
-      if (statusRes.ok) {
-        const statusData = await statusRes.json();
-        if (statusData.success && !statusData.data.available) {
-          setError("GPU is currently in use. Stop Ollama or other GPU services from the Plugins page first.");
-          return;
-        }
-      }
-    } catch (e) {
-      // Continue anyway, backend will handle the check
-    }
-
     if (inputMode === "text" && parsedPrompts.length === 0) {
       setError("Please enter at least one prompt.");
       return;
@@ -901,10 +948,28 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     try {
       const imagePaths = selectedImages.map(img => img.path);
       const motionPrompt = promptsText.trim();
+
+      // Look & Feel concatenation — same pattern as BatchImageGen.
+      // Each prompt gets the batch-wide style modifier appended.
+      const lf = lookAndFeel.trim();
+      const finalPrompts = lf
+        ? parsedPrompts.map((p) => `${p}, ${lf}`)
+        : parsedPrompts;
+
+      // SVD ignores negative prompts (image-conditioned only). Hide it from the wire too.
+      const isSvd = (computedParams.model || model || "").toLowerCase().includes("svd");
+      const trimmedNeg = negativePrompt.trim();
+      const negativePayload = !isSvd && trimmedNeg ? { negative_prompt: trimmedNeg } : {};
+
       const body =
         inputMode === "text"
-          ? { prompts: parsedPrompts, ...computedParams }
-          : { image_paths: imagePaths, prompt: motionPrompt || "", ...computedParams };
+          ? { prompts: finalPrompts, ...computedParams, ...negativePayload }
+          : {
+              image_paths: imagePaths,
+              prompt: lf && motionPrompt ? `${motionPrompt}, ${lf}` : motionPrompt,
+              ...computedParams,
+              ...negativePayload,
+            };
 
       const url =
         inputMode === "text"
@@ -919,23 +984,29 @@ const VideoGeneratorPage = ({ embedded = false }) => {
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        setError(errorData.error || `Failed to start generation: HTTP ${res.status}`);
+        setError(errorData.error || `Failed to queue batch: HTTP ${res.status}`);
         return;
       }
 
       const data = await res.json();
       if (!data.success) {
-        setError(data.error || "Failed to start generation");
+        setError(data.error || "Failed to queue batch");
         return;
       }
 
       const batchId = data.data.batch_id;
       setActiveBatchId(batchId);
-      setSuccess(`Generation started! This may take 1-2 minutes...`);
+      setSuccess(`Batch queued. The worker drains one batch at a time — keep stacking 'em.`);
       startPollingStatus(batchId);
       await fetchBatches();
+
+      // Reset prompts so the user can immediately compose the next batch.
+      // Keep Look & Feel + Negative Prompt — those usually carry across batches.
+      if (inputMode === "text") {
+        setPromptsText("");
+      }
     } catch (e) {
-      setError(`Generation failed: ${e.message}`);
+      setError(`Failed to queue batch: ${e.message}`);
     } finally {
       setIsGenerating(false);
     }
@@ -1322,6 +1393,55 @@ const VideoGeneratorPage = ({ embedded = false }) => {
               )}
             </Box>
           )}
+
+          {/* Batch-wide prompt modifiers — apply to every prompt in the batch */}
+          <Stack spacing={2} sx={{ mt: 2 }}>
+            <TextField
+              label="Look & Feel (optional, applied to every prompt)"
+              multiline
+              minRows={2}
+              maxRows={4}
+              value={lookAndFeel}
+              onChange={(e) => setLookAndFeel(e.target.value)}
+              placeholder="moody cinematic, golden hour lighting, dramatic shadows, shallow depth of field"
+              helperText={
+                lookAndFeel.trim()
+                  ? `Will be appended to ${parsedPrompts.length || 0} prompt${parsedPrompts.length === 1 ? "" : "s"} in this batch.`
+                  : "Style modifier — same shape as BatchImageGen's Look & Feel field."
+              }
+              fullWidth
+              variant="outlined"
+              size="small"
+            />
+
+            {!(model || "").toLowerCase().includes("svd") ? (
+              <TextField
+                label="Negative Prompt (optional, applied to every prompt)"
+                multiline
+                minRows={2}
+                maxRows={4}
+                value={negativePrompt}
+                onChange={(e) => setNegativePrompt(e.target.value)}
+                placeholder="blurry, distorted hands, washed out colors, watermark, text overlay"
+                helperText="What to avoid in every video. Quality defects work better than content restrictions."
+                fullWidth
+                variant="outlined"
+                size="small"
+              />
+            ) : (
+              <Tooltip
+                title="SVD is image-conditioned only — it has no text-negative path, so a negative prompt would be ignored. Pick CogVideoX or Wan 2.2 to use this field."
+                placement="right"
+                arrow
+              >
+                <Box>
+                  <Alert severity="info" variant="outlined" sx={{ py: 0.5 }}>
+                    Negative Prompt isn't supported by SVD. Switch to CogVideoX or Wan 2.2 to use it.
+                  </Alert>
+                </Box>
+              </Tooltip>
+            )}
+          </Stack>
 
           <Divider sx={{ my: 3 }} />
 
@@ -1831,7 +1951,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
             sx={{ py: 1.5 }}
             fullWidth
           >
-            {isGenerating ? "Generating..." : "Generate Video"}
+            {isGenerating ? "Queueing..." : "Add to Queue"}
           </Button>
 
           {isGenerating && <LinearProgress />}
@@ -1843,6 +1963,101 @@ const VideoGeneratorPage = ({ embedded = false }) => {
 
         {/* Status Section - Right Side */}
         <Grid item xs={12} lg={6}>
+          {/* Batch Queue panel — live view of what's running and what's stacked behind it */}
+          {queue.length > 0 && (
+            <Card sx={{ mb: 3, boxShadow: 2, borderRadius: 2 }}>
+              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    Batch Queue
+                  </Typography>
+                  <Chip
+                    label={`${queue.filter(q => q.status === 'queued' || q.status === 'running').length} active`}
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                  />
+                </Stack>
+                <Stack spacing={1}>
+                  {queue.map((q, idx) => {
+                    const slotTag = `#${idx + 1}`;
+                    const pct = q.total_videos > 0
+                      ? Math.round(((q.completed_videos + q.failed_videos) / q.total_videos) * 100)
+                      : 0;
+                    const chipColor =
+                      q.status === 'running' ? 'primary' :
+                      q.status === 'queued' ? 'default' :
+                      q.status === 'completed' ? 'success' :
+                      q.status === 'cancelled' ? 'warning' :
+                      q.status === 'error' ? 'error' : 'default';
+                    const cancellable = q.status === 'queued' || q.status === 'running';
+                    return (
+                      <Box
+                        key={q.batch_id}
+                        sx={{
+                          p: 1.5,
+                          border: '1px solid',
+                          borderColor: q.is_running ? 'primary.main' : 'divider',
+                          borderRadius: 1,
+                          bgcolor: q.is_running ? 'action.hover' : 'transparent',
+                        }}
+                      >
+                        <Stack direction="row" alignItems="center" spacing={1.5}>
+                          <Chip
+                            label={slotTag}
+                            size="small"
+                            variant="outlined"
+                            sx={{ minWidth: 44, fontFamily: 'monospace' }}
+                          />
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography variant="body2" noWrap title={q.batch_id}>
+                              {q.display_name || q.batch_id}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {q.completed_videos + q.failed_videos}/{q.total_videos} videos
+                              {q.failed_videos > 0 ? ` (${q.failed_videos} failed)` : ''}
+                            </Typography>
+                          </Box>
+                          <Chip
+                            label={q.status.toUpperCase()}
+                            size="small"
+                            color={chipColor}
+                          />
+                          {cancellable && (
+                            <Tooltip
+                              title={q.status === 'running' ? 'Cancel — interrupts ComfyUI mid-frame' : 'Remove from queue'}
+                              arrow
+                            >
+                              <IconButton
+                                size="small"
+                                onClick={() => handleCancelBatch(q.batch_id)}
+                                aria-label="cancel batch"
+                              >
+                                <CloseIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </Stack>
+                        {q.status === 'running' && (
+                          <LinearProgress
+                            variant="determinate"
+                            value={pct}
+                            sx={{ mt: 1, height: 4, borderRadius: 2 }}
+                          />
+                        )}
+                        {q.error && (
+                          <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
+                            {q.error}
+                          </Typography>
+                        )}
+                      </Box>
+                    );
+                  })}
+                </Stack>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Active batch status */}
           {batchStatus ? (
             <Card sx={{ 

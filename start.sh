@@ -198,6 +198,41 @@ fi
 
 command_exists() { command -v "$1" >/dev/null 2>&1; }
 
+# Resolve the EFFECTIVE enabled state for a plugin:
+#   1. data/plugin_state.json's `user_enabled[<id>]` if the user has toggled it
+#   2. plugin.json's `config.enabled` otherwise (manifest default)
+#
+# Echoes "True" or "False" — match the casing of Python's bool repr so the
+# existing `[ "$x" = "True" ]` checks throughout this script keep working.
+# Defaults to False on any read error (fail closed: don't start plugins
+# whose state we can't determine).
+#
+# Defined up here near the other helpers because step-4 (Ollama) calls it
+# WAY before the plugin loop later in the script — defining it down by the
+# loop produced "command not found" on every boot.
+plugin_effective_enabled() {
+    local plugin_id="$1"
+    local plugin_json="$2"
+    python3 - "$plugin_id" "$plugin_json" "$SCRIPT_DIR/data/plugin_state.json" <<'PYEOF' 2>/dev/null || echo "False"
+import json, os, sys
+plugin_id, plugin_json, state_file = sys.argv[1], sys.argv[2], sys.argv[3]
+try:
+    with open(state_file) as f:
+        prefs = (json.load(f) or {}).get("user_enabled", {})
+    if plugin_id in prefs:
+        print("True" if prefs[plugin_id] else "False")
+        sys.exit(0)
+except (OSError, ValueError):
+    pass
+try:
+    with open(plugin_json) as f:
+        cfg = (json.load(f) or {}).get("config", {})
+    print("True" if cfg.get("enabled", False) else "False")
+except (OSError, ValueError):
+    print("False")
+PYEOF
+}
+
 check_with_cache() {
   local cache_key="$1"
   local cache_file="$CACHE_DIR/$cache_key"
@@ -1102,9 +1137,10 @@ if command_exists nvidia-smi && [ ! -f "$GPU_SUDOERS" ]; then
     fi
 fi
 
-# Check if Ollama plugin is enabled (defaults to true if file missing or unreadable)
+# Check if Ollama plugin is enabled. Honors the user_enabled overlay in
+# data/plugin_state.json (UI toggle) and falls back to plugin.json default.
 OLLAMA_PLUGIN_JSON="$SCRIPT_DIR/plugins/ollama/plugin.json"
-OLLAMA_ENABLED=$(python3 -c "import json; print(json.load(open('$OLLAMA_PLUGIN_JSON')).get('config',{}).get('enabled', True))" 2>/dev/null || echo "True")
+OLLAMA_ENABLED=$(plugin_effective_enabled "ollama" "$OLLAMA_PLUGIN_JSON")
 
 if [ "$OLLAMA_AVAILABLE" -eq 1 ] && [ "$OLLAMA_ENABLED" != "False" ]; then
     # Step 1: Check if already running
@@ -1367,11 +1403,17 @@ cd "$SCRIPT_DIR"
 ensure_hardware_profile() {
     mkdir -p "$HOME/.guaardvark"
     if [ -d "$SCRIPT_DIR/backend/venv" ]; then
-        (cd "$SCRIPT_DIR" && "$SCRIPT_DIR/backend/venv/bin/python" -m backend.services.hardware_detector \
-            --output "$HOME/.guaardvark/hardware.json") 2>&1 | sed 's/^/[hardware] /' || \
-            echo "[hardware] WARN: hardware_detector failed (non-fatal)"
+        # Pipe verbose detector output to the setup log; emit one consistently-
+        # styled line via vader_success/warn so it matches the rest of the boot
+        # output instead of arriving in the shell's default color.
+        if (cd "$SCRIPT_DIR" && "$SCRIPT_DIR/backend/venv/bin/python" -m backend.services.hardware_detector \
+                --output "$HOME/.guaardvark/hardware.json") >> "$SETUP_LOG" 2>&1; then
+            vader_success "Hardware profile written to ~/.guaardvark/hardware.json"
+        else
+            vader_warn "hardware_detector failed (non-fatal)"
+        fi
     else
-        echo "[hardware] WARN: backend venv missing; skipping hardware profile"
+        vader_warn "Backend venv missing — skipping hardware profile"
     fi
 }
 ensure_hardware_profile
@@ -1386,17 +1428,24 @@ fi
 vader_info "Setting up frontend..."
 cd "$FRONTEND_DIR" || { vader_error "Failed to cd to $FRONTEND_DIR"; exit 1; }
 
+# Sentinel set immediately after a successful install. Compare *.json against
+# THIS file rather than node_modules' directory mtime — the directory mtime
+# bumps on every npm internal write and on `git pull`/`git checkout` of any
+# nested file, which made the original check trip on every boot.
+INSTALL_SENTINEL="node_modules/.guaardvark-installed"
 if [ ! -d node_modules ]; then
     vader_info "Installing frontend dependencies..."
-    $NPM_CMD install >> "$SETUP_LOG" 2>&1
-else
-    if [ "package.json" -nt "node_modules" ] || [ "package-lock.json" -nt "node_modules" ]; then
-        vader_info "package.json changed - updating frontend dependencies..."
-        $NPM_CMD install >> "$SETUP_LOG" 2>&1
-    elif ! $NPM_CMD ls >/dev/null 2>&1; then
-        vader_info "Updating frontend dependencies..."
-        $NPM_CMD install >> "$SETUP_LOG" 2>&1
-    fi
+    $NPM_CMD install >> "$SETUP_LOG" 2>&1 && touch "$INSTALL_SENTINEL"
+elif [ ! -f "$INSTALL_SENTINEL" ]; then
+    # First boot after this sentinel-based check landed — trust the existing
+    # node_modules and start tracking from here. Avoids a forced reinstall.
+    touch "$INSTALL_SENTINEL"
+elif [ "package.json" -nt "$INSTALL_SENTINEL" ] || [ "package-lock.json" -nt "$INSTALL_SENTINEL" ]; then
+    vader_info "package.json changed - updating frontend dependencies..."
+    $NPM_CMD install >> "$SETUP_LOG" 2>&1 && touch "$INSTALL_SENTINEL"
+elif ! $NPM_CMD ls >/dev/null 2>&1; then
+    vader_info "Updating frontend dependencies..."
+    $NPM_CMD install >> "$SETUP_LOG" 2>&1 && touch "$INSTALL_SENTINEL"
 fi
 
 ensure_npm_package rollup-plugin-polyfill-node
@@ -1728,6 +1777,14 @@ plugin_should_skip() {
     return 1
 }
 
+# Read a single key from plugin.json's `config` block (manifest only — never
+# user-overridable). Used for `auto_start` which is purely a manifest hint.
+plugin_manifest_flag() {
+    local plugin_json="$1"
+    local key="$2"
+    python3 -c "import json,sys; c=json.load(open(sys.argv[1])).get('config',{}); print('True' if c.get(sys.argv[2], False) else 'False')" "$plugin_json" "$key" 2>/dev/null || echo "False"
+}
+
 start_plugin() {
     local plugin_dir="$1"
     local plugin_name=$(basename "$plugin_dir")
@@ -1772,9 +1829,10 @@ for plugin_dir in "$SCRIPT_DIR"/plugins/*/; do
     plugin_should_skip "$plugin_name" && continue
     [ ! -f "$plugin_json" ] && continue
 
-    # Check auto_start AND enabled
-    auto_start=$(python3 -c "import json; c=json.load(open('$plugin_json')).get('config',{}); print(c.get('auto_start',False) and c.get('enabled',False))" 2>/dev/null)
-    if [ "$auto_start" = "True" ]; then
+    # auto_start is a manifest hint (not user-toggleable); enabled honors the overlay.
+    auto_start=$(plugin_manifest_flag "$plugin_json" "auto_start")
+    enabled=$(plugin_effective_enabled "$plugin_name" "$plugin_json")
+    if [ "$auto_start" = "True" ] && [ "$enabled" = "True" ]; then
         start_plugin "$plugin_dir"
         PLUGINS_STARTED=$((PLUGINS_STARTED + 1))
     fi
@@ -1785,8 +1843,9 @@ if [ "${START_DISCORD:-0}" -eq 1 ]; then
     DISCORD_DIR="$SCRIPT_DIR/plugins/discord"
     if [ -d "$DISCORD_DIR" ] && [ -f "$DISCORD_DIR/scripts/start.sh" ]; then
         # Only start if not already started in pass 1
-        DISCORD_AUTO=$(python3 -c "import json; c=json.load(open('$DISCORD_DIR/plugin.json')).get('config',{}); print(c.get('auto_start',False) and c.get('enabled',False))" 2>/dev/null)
-        if [ "$DISCORD_AUTO" != "True" ]; then
+        DISCORD_AUTO=$(plugin_manifest_flag "$DISCORD_DIR/plugin.json" "auto_start")
+        DISCORD_ENABLED=$(plugin_effective_enabled "discord" "$DISCORD_DIR/plugin.json")
+        if ! { [ "$DISCORD_AUTO" = "True" ] && [ "$DISCORD_ENABLED" = "True" ]; }; then
             start_plugin "$DISCORD_DIR"
             PLUGINS_STARTED=$((PLUGINS_STARTED + 1))
         fi
@@ -1804,10 +1863,10 @@ if [ "${START_ALL_PLUGINS:-0}" -eq 1 ]; then
         plugin_should_skip "$plugin_name" && continue
         [ ! -f "$plugin_json" ] && continue
 
-        enabled=$(python3 -c "import json; print(json.load(open('$plugin_json')).get('config',{}).get('enabled',False))" 2>/dev/null)
-        auto_start=$(python3 -c "import json; print(json.load(open('$plugin_json')).get('config',{}).get('auto_start',False))" 2>/dev/null)
+        enabled=$(plugin_effective_enabled "$plugin_name" "$plugin_json")
+        auto_start=$(plugin_manifest_flag "$plugin_json" "auto_start")
 
-        # Skip if already started in pass 1 (auto_start + enabled)
+        # Skip if already started in pass 1 (auto_start + effective_enabled)
         if [ "$auto_start" = "True" ] && [ "$enabled" = "True" ]; then
             continue
         fi

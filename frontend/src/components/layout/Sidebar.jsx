@@ -35,6 +35,7 @@ import BarChartIcon from "@mui/icons-material/BarChart";
 import DesktopWindowsIcon from "@mui/icons-material/DesktopWindows";
 import PetsIcon from "@mui/icons-material/Pets";
 import ImageIcon from "@mui/icons-material/Image";
+import GraphicEqIcon from "@mui/icons-material/GraphicEq";
 import CodeIcon from "@mui/icons-material/Code";
 import LibraryBooksIcon from "@mui/icons-material/LibraryBooks";
 import BuildIcon from "@mui/icons-material/Build";
@@ -44,6 +45,8 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import StickyNote2Icon from "@mui/icons-material/StickyNote2";
 import ExtensionIcon from "@mui/icons-material/Extension";
 import HiveIcon from "@mui/icons-material/Hive";
+import CampaignIcon from "@mui/icons-material/Campaign";
+import TextFieldsIcon from "@mui/icons-material/TextFields";
 
 import SystemMetricsModal from "../modals/SystemMetricsModal";
 import AgentScreenViewer from "../agent/AgentScreenViewer";
@@ -60,6 +63,8 @@ const navGroups = [
       { text: "Code Editor", icon: <CodeIcon />, path: "/code-editor" },
       { text: "Files", icon: <ArticleIcon />, path: "/documents" },
       { text: "Media", icon: <ImageIcon />, path: "/images" },
+      { text: "Audio Studio", icon: <GraphicEqIcon />, path: "/audio" },
+      { text: "Video Text", icon: <TextFieldsIcon />, path: "/video-text-overlay" },
       { text: "Notes", icon: <StickyNote2Icon />, path: "/notes" },
     ],
   },
@@ -70,6 +75,7 @@ const navGroups = [
       { text: "Projects", icon: <FolderIcon />, path: "/projects" },
       { text: "Websites", icon: <LanguageIcon />, path: "/websites" },
       { text: "Job Scheduler", icon: <TaskAltIcon />, path: "/tasks" },
+      { text: "Outreach", icon: <CampaignIcon />, path: "/outreach" },
     ],
   },
   {

@@ -38,7 +38,9 @@ const UploadPage = lazy(() => import("./pages/UploadPage"));
 const TrainingPage = lazy(() => import("./pages/TrainingPage"));
 const BatchImageGeneratorPage = lazy(() => import("./pages/BatchImageGeneratorPage"));
 const ImagesPage = lazy(() => import("./pages/ImagesPage"));
+const AudioFoundryPage = lazy(() => import("./pages/AudioFoundryPage"));
 const VideoGeneratorPage = lazy(() => import("./pages/VideoGeneratorPage"));
+const VideoTextOverlayPage = lazy(() => import("./pages/VideoTextOverlayPage"));
 const BulkImportDocumentsPage = lazy(() => import("./pages/BulkImportDocumentsPage"));
 const CodeEditorPage = lazy(() => import("./pages/CodeEditorPage"));
 const ContentLibraryPage = lazy(() => import("./pages/ContentLibraryPage"));
@@ -49,6 +51,7 @@ const StickyNotesPage = lazy(() => import("./pages/StickyNotesPage"));
 const DevToolsPage = lazy(() => import("./pages/DevToolsPage"));
 const PluginsPage = lazy(() => import("./pages/PluginsPage"));
 const SwarmPage = lazy(() => import("./pages/SwarmPage"));
+const OutreachPage = lazy(() => import("./pages/OutreachPage"));
 const VoiceChatPage = lazy(() => import("./pages/VoiceChatPage"));
 import Sidebar from "./components/layout/Sidebar";
 import ProgressFooterBar from "./components/layout/ProgressFooterBar";
@@ -284,11 +287,31 @@ const AppContainer = () => {
                         }
                       />
                       <Route
+                        path="/audio"
+                        element={
+                          <AppLayout>
+                            <ErrorBoundary>
+                              <AudioFoundryPage />
+                            </ErrorBoundary>
+                          </AppLayout>
+                        }
+                      />
+                      <Route
                         path="/video"
                         element={
                           <AppLayout>
                             <ErrorBoundary>
                               <VideoGeneratorPage />
+                            </ErrorBoundary>
+                          </AppLayout>
+                        }
+                      />
+                      <Route
+                        path="/video-text-overlay"
+                        element={
+                          <AppLayout>
+                            <ErrorBoundary>
+                              <VideoTextOverlayPage />
                             </ErrorBoundary>
                           </AppLayout>
                         }
@@ -448,6 +471,16 @@ const AppContainer = () => {
                         element={
                           <AppLayout>
                             <WordPressPagesPage />
+                          </AppLayout>
+                        }
+                      />
+                      <Route
+                        path="/outreach"
+                        element={
+                          <AppLayout>
+                            <ErrorBoundary>
+                              <OutreachPage />
+                            </ErrorBoundary>
                           </AppLayout>
                         }
                       />
