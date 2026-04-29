@@ -49,6 +49,7 @@ import CampaignIcon from "@mui/icons-material/Campaign";
 import TextFieldsIcon from "@mui/icons-material/TextFields";
 import QueueIcon from "@mui/icons-material/Queue";
 import MonitorHeartIcon from "@mui/icons-material/MonitorHeart";
+import MovieFilterIcon from "@mui/icons-material/MovieFilter";
 
 import SystemMetricsModal from "../modals/SystemMetricsModal";
 import AgentScreenViewer from "../agent/AgentScreenViewer";
@@ -65,9 +66,21 @@ const navGroups = [
       { text: "Code Editor", icon: <CodeIcon />, path: "/code-editor" },
       { text: "Files", icon: <ArticleIcon />, path: "/documents" },
       { text: "Media", icon: <ImageIcon />, path: "/images" },
+      { text: "Notes", icon: <StickyNote2Icon />, path: "/notes" },
+    ],
+  },
+  {
+    // Per master-plan §7 (Option A) — surface VideoGen / ImageGen / AudioGen
+    // as first-class apps under their own group. Media (the library viewer)
+    // stays in Main per the user's note "accessible from Files and Studio";
+    // it shows up in Main and any consumer can deep-link from anywhere.
+    // "Video Text" is temporary — it gets absorbed into Video Editor in
+    // Phase 9 of the editor plan, then this entry goes away.
+    label: "Studio",
+    items: [
+      { text: "Video Editor", icon: <MovieFilterIcon />, path: "/video-editor" },
       { text: "Audio Studio", icon: <GraphicEqIcon />, path: "/audio" },
       { text: "Video Text", icon: <TextFieldsIcon />, path: "/video-text-overlay" },
-      { text: "Notes", icon: <StickyNote2Icon />, path: "/notes" },
     ],
   },
   {

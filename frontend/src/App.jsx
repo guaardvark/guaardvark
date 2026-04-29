@@ -43,6 +43,7 @@ const ImagesPage = lazy(() => import("./pages/ImagesPage"));
 const AudioFoundryPage = lazy(() => import("./pages/AudioFoundryPage"));
 const VideoGeneratorPage = lazy(() => import("./pages/VideoGeneratorPage"));
 const VideoTextOverlayPage = lazy(() => import("./pages/VideoTextOverlayPage"));
+const VideoEditorPage = lazy(() => import("./pages/VideoEditorPage"));
 const BulkImportDocumentsPage = lazy(() => import("./pages/BulkImportDocumentsPage"));
 const CodeEditorPage = lazy(() => import("./pages/CodeEditorPage"));
 const ContentLibraryPage = lazy(() => import("./pages/ContentLibraryPage"));
@@ -334,6 +335,16 @@ const AppContainer = () => {
                           <AppLayout>
                             <ErrorBoundary>
                               <VideoTextOverlayPage />
+                            </ErrorBoundary>
+                          </AppLayout>
+                        }
+                      />
+                      <Route
+                        path="/video-editor"
+                        element={
+                          <AppLayout>
+                            <ErrorBoundary>
+                              <VideoEditorPage />
                             </ErrorBoundary>
                           </AppLayout>
                         }
