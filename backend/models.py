@@ -505,6 +505,48 @@ class Task(db.Model):
         }
 
 
+class SocialOutreachLog(db.Model):
+    """Audit row for every drafted/posted/aborted outreach action.
+
+    Lives alongside the jsonl audit file — the jsonl is the trail of record;
+    this table makes it queryable from the API/UI.
+    """
+    __tablename__ = "social_outreach_log"
+    id = db.Column(db.Integer, primary_key=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(), index=True)
+    platform = db.Column(db.String(40), nullable=False, index=True)  # reddit/discord/facebook
+    action = db.Column(db.String(40), nullable=False)  # comment/share/abort
+    target_url = db.Column(db.String(2048), nullable=True)
+    target_thread_id = db.Column(db.String(255), nullable=True, index=True)
+    draft_text = db.Column(db.Text, nullable=True)
+    posted_text = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(40), nullable=False, default="drafted", index=True)
+    grade_score = db.Column(db.Float, nullable=True)
+    abort_reason = db.Column(db.String(512), nullable=True)
+    task_id = db.Column(
+        db.Integer,
+        db.ForeignKey("tasks.id", name="fk_social_outreach_task_id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "platform": self.platform,
+            "action": self.action,
+            "target_url": self.target_url,
+            "target_thread_id": self.target_thread_id,
+            "draft_text": self.draft_text,
+            "posted_text": self.posted_text,
+            "status": self.status,
+            "grade_score": self.grade_score,
+            "abort_reason": self.abort_reason,
+            "task_id": self.task_id,
+        }
+
+
 class Project(db.Model):
     __tablename__ = "projects"
     id = db.Column(db.Integer, primary_key=True)
@@ -749,7 +791,18 @@ class Folder(db.Model):
 class Document(db.Model):
     __tablename__ = "documents"
     __table_args__ = (
-        db.Index("ix_doc_folder_filename", "folder_id", "filename"),
+        # Unique on (folder_id, filename) so two files with the same name
+        # can't coexist in the same folder. NULLS NOT DISTINCT (PG15+) means
+        # root-level docs (folder_id IS NULL) also enforce the rule among
+        # themselves. The filename_resolver helper applies the Files-app
+        # suffix convention before insert; this constraint is the backstop.
+        db.Index(
+            "uq_doc_folder_filename",
+            "folder_id",
+            "filename",
+            unique=True,
+            postgresql_nulls_not_distinct=True,
+        ),
         db.Index("ix_doc_folder_uploaded", "folder_id", "uploaded_at"),
         db.Index("ix_doc_folder_size", "folder_id", "size"),
     )

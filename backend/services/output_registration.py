@@ -197,11 +197,18 @@ def register_file(
         parent = Folder.query.filter_by(path=folder_name).first()
         folder_id = parent.id if parent else None
 
-    # Check for duplicate path
+    # Check for duplicate path (same physical file already registered).
     existing = DBDocument.query.filter_by(path=db_path).first()
     if existing:
         logger.debug(f"Document already registered: {db_path}")
         return existing
+
+    # Apply the filename collision resolver — picks a name that doesn't clash
+    # with any sibling Document in the same folder. Files-app convention:
+    # `name (2).ext`, `name (3).ext`, never random hex. Pairs with the
+    # UNIQUE (folder_id, filename) constraint added in migration 005.
+    from backend.utils.filename_resolver import resolve_filename
+    filename = resolve_filename(folder_id, filename, db.session, DBDocument)
 
     # File size
     try:
