@@ -2395,6 +2395,49 @@ class AgentMemory(db.Model):
         }
 
 
+class RetentionAudit(db.Model):
+    """Audit trail for every deletion in the system.
+
+    Per plans/2026-04-29-data-retention.md §6. Default retention across
+    the system is keep-forever; this table is what makes that policy
+    enforceable and auditable for business/legal contexts. Rows are
+    written whenever data is actually removed — manual delete, bulk
+    delete, auto-purge — so the user (or their counsel) can answer
+    "what was removed, when, by whom, under what filter."
+
+    NOT auto-pruned. The audit log itself is load-bearing.
+    """
+    __tablename__ = "retention_audit"
+
+    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    occurred_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now())
+    actor = db.Column(db.String(32), nullable=False)  # 'user' | 'system'
+    kind = db.Column(db.String(64), nullable=False)
+    operation = db.Column(db.String(64), nullable=False)  # manual_delete | bulk_delete | auto_purge
+    item_count = db.Column(db.Integer, nullable=False)
+    bytes_freed = db.Column(db.BigInteger, nullable=True)
+    parameters = db.Column(db.JSON, nullable=True)
+    triggered_by = db.Column(db.String(255), nullable=True)
+
+    __table_args__ = (
+        db.Index("ix_retention_audit_occurred", "occurred_at"),
+        db.Index("ix_retention_audit_kind", "kind"),
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "occurred_at": self.occurred_at.isoformat() if self.occurred_at else None,
+            "actor": self.actor,
+            "kind": self.kind,
+            "operation": self.operation,
+            "item_count": self.item_count,
+            "bytes_freed": self.bytes_freed,
+            "parameters": self.parameters,
+            "triggered_by": self.triggered_by,
+        }
+
+
 class JobHistory(db.Model):
     """Terminal-status snapshot of every Job that ran in the system.
 
