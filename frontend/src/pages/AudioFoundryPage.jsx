@@ -177,7 +177,7 @@ const AudioFoundryPage = () => {
       refreshVoiceClips();
     } catch (err) {
       console.error("Voice clip upload failed:", err);
-      setError(err.response?.data?.error || "Upload failed.");
+      setError(err.response?.data?.error || "Import failed.");
     } finally {
       setUploadingClip(false);
     }
@@ -504,7 +504,7 @@ const AudioFoundryPage = () => {
                             disabled={uploadingClip}
                             sx={{ borderRadius: 2, justifyContent: "flex-start" }}
                           >
-                            {uploadingClip ? "Uploading..." : "Upload reference clip"}
+                            {uploadingClip ? "Importing..." : "Import reference clip"}
                             <input
                               hidden
                               type="file"
@@ -516,7 +516,7 @@ const AudioFoundryPage = () => {
 
                         {voiceClipLibrary.length > 0 && !referenceClip && (
                           <FormControl variant="filled" size="small" fullWidth>
-                            <InputLabel>...or pick a previously uploaded clip</InputLabel>
+                            <InputLabel>...or pick a previously imported clip</InputLabel>
                             <Select
                               value=""
                               onChange={(e) => {

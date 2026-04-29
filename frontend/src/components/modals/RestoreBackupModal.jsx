@@ -110,7 +110,7 @@ const RestoreBackupModal = ({ open, onClose, onRestore, isProcessing, backups = 
           sx={{ borderBottom: 1, borderColor: "divider" }}
         >
           <Tab icon={<StorageIcon fontSize="small" />} iconPosition="start" label="Server Backups" />
-          <Tab icon={<UploadFileIcon fontSize="small" />} iconPosition="start" label="Upload File" />
+          <Tab icon={<UploadFileIcon fontSize="small" />} iconPosition="start" label="Import File" />
         </Tabs>
 
         <Box sx={{ p: 2 }}>

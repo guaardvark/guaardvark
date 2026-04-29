@@ -183,7 +183,7 @@ const UploadPage = () => {
 
   return (
     <PageLayout
-      title="Upload Documents"
+      title="Import Documents"
       variant="standard"
       modelStatus
       activeModel={isLoadingModel ? "Loading..." : modelError ? "Error" : activeModel || "Default"}
@@ -244,10 +244,10 @@ const UploadPage = () => {
           }
         >
           {uploadStatus === "uploading"
-            ? "Uploading..."
+            ? "Importing..."
             : uploadStatus === "indexing"
               ? "Indexing..."
-              : "Upload and Index"}
+              : "Import and Index"}
         </Button>
 
         {/* Status Messages */}
@@ -313,7 +313,7 @@ const UploadPage = () => {
                   primary={doc.filename || `Document ${doc.id}`}
                   secondary={
                     <>
-                      <IndexStatusChip status={doc.index_status} /> Uploaded:{" "}
+                      <IndexStatusChip status={doc.index_status} /> Imported:{" "}
                       {formatTimestamp(doc.uploaded_at)}
                     </>
                   }

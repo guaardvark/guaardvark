@@ -169,7 +169,7 @@ const UnifiedUploadModal = ({
     setFormError(null);
     
     if (!selectedFile) {
-      setFormError("Please select a file to upload.");
+      setFormError("Please select a file to import.");
       return;
     }
 
@@ -206,7 +206,7 @@ const UnifiedUploadModal = ({
       // Start process in unified progress tracking
       startProcess(
         processId,
-        `Uploading ${selectedFile.name}...`,
+        `Importing ${selectedFile.name}...`,
         "file_upload"
       );
 
@@ -228,7 +228,7 @@ const UnifiedUploadModal = ({
               updateProcess(
                 processId,
                 progressData.percentage,
-                `Uploading ${selectedFile.name} (${progressData.percentage}%)`
+                `Importing ${selectedFile.name} (${progressData.percentage}%)`
               );
             }
           );
@@ -245,7 +245,7 @@ const UnifiedUploadModal = ({
       // Mark upload as completed in progress context
       completeProcess(
         processId,
-        `Upload completed: ${selectedFile.name}`
+        `Import completed: ${selectedFile.name}`
       );
 
       // Success - call callback and close modal
@@ -259,12 +259,12 @@ const UnifiedUploadModal = ({
 
     } catch (error) {
       console.error("Upload error:", error);
-      setFormError(`Upload failed: ${error.message}`);
+      setFormError(`Import failed: ${error.message}`);
       
       // Mark upload as failed in progress context
       errorProcess(
         processId,
-        `Upload failed: ${selectedFile.name} - ${error.message}`
+        `Import failed: ${selectedFile.name} - ${error.message}`
       );
     } finally {
       setIsUploading(false);
@@ -277,7 +277,7 @@ const UnifiedUploadModal = ({
     }
   };
 
-  const modalTitle = mode === "chat" ? "Upload File for Chat" : "Upload Document";
+  const modalTitle = mode === "chat" ? "Import File for Chat" : "Import Document";
 
   return (
     <Dialog 
@@ -352,8 +352,8 @@ const UnifiedUploadModal = ({
               <Box sx={{ mb: 1 }}>
                 <Typography variant="body2" color="text.secondary">
                   {uploadProgress.percentage > 0 
-                    ? `Uploading file... ${uploadProgress.percentage}%`
-                    : "Uploading file..."}
+                    ? `Importing file... ${uploadProgress.percentage}%`
+                    : "Importing file..."}
                 </Typography>
                 {uploadProgress.speed > 0 && (
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>

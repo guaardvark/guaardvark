@@ -808,7 +808,7 @@ const DocumentsPage = () => {
           setUploadProgress(null);
         }
 
-        showMessage?.(`Uploaded ${uploadedCount} file(s)`, 'success');
+        showMessage?.(`Imported ${uploadedCount} file(s)`, 'success');
 
         // Refresh data after upload
         await refreshData();
@@ -1168,15 +1168,15 @@ const DocumentsPage = () => {
       const uploaded = results.filter(r => !r?.skipped).length;
       const skipped = results.filter(r => r?.skipped).length;
       const msg = skipped > 0
-        ? `Uploaded ${uploaded} file(s) (${skipped} ignored by filter)`
-        : `Uploaded ${uploaded} file(s)`;
+        ? `Imported ${uploaded} file(s) (${skipped} ignored by filter)`
+        : `Imported ${uploaded} file(s)`;
       showMessage?.(msg, 'success');
 
       // Refresh data after upload
       await refreshData();
     } catch (err) {
-      const errorMsg = err.response?.data?.message || err.message || 'Upload failed';
-      showMessage?.(`Upload failed: ${errorMsg}`, 'error');
+      const errorMsg = err.response?.data?.message || err.message || 'Import failed';
+      showMessage?.(`Import failed: ${errorMsg}`, 'error');
     } finally {
       // Reset file input
       if (e.target) {
@@ -1846,7 +1846,7 @@ const DocumentsPage = () => {
       variant="grid"
       actions={
         <>
-          <Tooltip title="Upload Files">
+          <Tooltip title="Import Files">
             <IconButton onClick={handleUpload} size="small" sx={{ opacity: 0.6 }}>
               <UploadFileIcon fontSize="small" />
             </IconButton>

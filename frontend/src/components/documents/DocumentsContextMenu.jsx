@@ -78,7 +78,7 @@ const DocumentsContextMenu = ({
         sx={menuStyles}
       >
         <MenuItem onClick={onNewFolder}>New Folder</MenuItem>
-        <MenuItem onClick={onUpload}>Upload Files</MenuItem>
+        <MenuItem onClick={onUpload}>Import Files</MenuItem>
         {hasClipboard && (
           <>
             <Divider />
