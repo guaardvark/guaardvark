@@ -368,6 +368,28 @@ def job_history():
     }), 200
 
 
+@unified_jobs_resource_bp.route("/<path:job_id>/cancel", methods=["POST"])
+def cancel_job_route(job_id: str):
+    """Cancel a job by id, dispatched per-kind.
+
+    Returns 200 with `{cancelled: true, id}` on success, 200 with
+    `{cancelled: false, id, reason}` if the kind doesn't support cancel
+    or the underlying transport refused. 4xx only on malformed input.
+    """
+    try:
+        kind, native_id = parse_job_id(job_id)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    from backend.services.job_cancel import cancel_job
+    ok = cancel_job(kind, native_id)
+    return jsonify({
+        "id": job_id,
+        "cancelled": ok,
+        "reason": None if ok else "Cancel transport refused or kind not cancellable",
+    }), 200
+
+
 @unified_jobs_resource_bp.route("/<path:job_id>", methods=["GET"])
 def job_detail(job_id: str):
     """Fetch one job by wire-format id ('kind:native_id').

@@ -37,8 +37,10 @@ import {
   listJobs,
   listJobHistory,
   jobsSummary,
+  cancelJob,
   JOB_STATUSES,
 } from "../../api/jobsService";
+import { Button } from "@mui/material";
 import { useUnifiedProgress } from "../../contexts/UnifiedProgressContext";
 
 const STATUS_COLORS = {
@@ -387,11 +389,30 @@ const JobsList = ({ title, subtitle, kinds }) => {
                   </Box>
                 </Box>
               )}
-              {/* Cancel button placeholder — wired in Phase 7 */}
               {selected.cancellable && (
-                <Alert severity="info" variant="outlined" sx={{ fontSize: "0.8rem" }}>
-                  Cancel-by-id transport ships in Tasks/Jobs Phase 7.
-                </Alert>
+                <Button
+                  variant="outlined"
+                  color="error"
+                  fullWidth
+                  onClick={async () => {
+                    try {
+                      const res = await cancelJob(selected.id);
+                      if (res?.cancelled) {
+                        // Optimistic — mark cancelled in the local list.
+                        setActiveRows((prev) => prev.map((r) =>
+                          r.id === selected.id ? { ...r, status: "cancelled", cancellable: false } : r
+                        ));
+                        setSelected({ ...selected, status: "cancelled", cancellable: false });
+                      } else {
+                        setError(res?.reason || "Cancel refused");
+                      }
+                    } catch (e) {
+                      setError(e.response?.data?.error || e.message || "Cancel failed");
+                    }
+                  }}
+                >
+                  Cancel job
+                </Button>
               )}
             </Stack>
           )}

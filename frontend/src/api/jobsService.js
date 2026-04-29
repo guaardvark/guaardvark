@@ -81,3 +81,10 @@ export const getJob = async (jobId) => {
   const res = await axios.get(`${API_BASE}/jobs/${encodeURIComponent(jobId)}`);
   return res.data;
 };
+
+// Phase 7 — POST /api/jobs/:id/cancel. Returns {id, cancelled, reason}.
+// Always 200; check `cancelled` for success.
+export const cancelJob = async (jobId) => {
+  const res = await axios.post(`${API_BASE}/jobs/${encodeURIComponent(jobId)}/cancel`);
+  return res.data;
+};
