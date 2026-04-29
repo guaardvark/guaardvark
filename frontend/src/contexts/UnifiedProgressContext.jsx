@@ -36,6 +36,11 @@ const ACTIONS = {
   REMOVE_PROCESS: 'REMOVE_PROCESS',
   CLEAR_OLD_PROCESSES: 'CLEAR_OLD_PROCESSES',
   SYNC_PROCESSES: 'SYNC_PROCESSES',
+  // Phase 4 of Tasks/Jobs unification — separate state slice for canonical
+  // 'job:event' payloads keyed by 'kind:native_id'. Lives alongside
+  // activeProcesses (legacy) so existing consumers stay working until the
+  // Phase 8 deprecation sweep migrates them.
+  UNIFIED_JOB_UPDATE: 'UNIFIED_JOB_UPDATE',
 };
 
 // Reducer for atomic state management
@@ -84,6 +89,15 @@ const progressReducer = (state, action) => {
 
       return changed ? { ...state, activeProcesses: newProcesses } : state;
     }
+    case ACTIONS.UNIFIED_JOB_UPDATE: {
+      // Canonical Job dict from the new jobs:* socket channel. Replace any
+      // existing entry for this id; if it's terminal, schedule a delayed
+      // removal so the UI can show the final state briefly.
+      const job = action.payload;
+      const newJobs = new Map(state.unifiedJobs || new Map());
+      newJobs.set(job.id, { ...job, _receivedAt: Date.now() });
+      return { ...state, unifiedJobs: newJobs };
+    }
     default:
       return state;
   }
@@ -93,9 +107,10 @@ export const UnifiedProgressProvider = ({ children }) => {
   const theme = useTheme();
   const [state, dispatch] = useReducer(progressReducer, {
     activeProcesses: new Map(),
+    unifiedJobs: new Map(),  // Phase 4 — canonical Job dicts from jobs:* channel
   });
 
-  const { activeProcesses } = state;
+  const { activeProcesses, unifiedJobs } = state;
 
   const socketRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
@@ -276,9 +291,16 @@ export const UnifiedProgressProvider = ({ children }) => {
             console.error("UnifiedProgressContext: Failed to restore active jobs on connect:", error);
           }
 
-          // Subscribe to global progress updates
+          // Subscribe to global progress updates (legacy job_progress channel)
           socket.emit("subscribe", { job_id: "global_progress" });
           // console.log("UnifiedProgressContext: Subscribed to global_progress room");
+
+          // Phase 4 of Tasks/Jobs unification — also subscribe to the new
+          // canonical jobs:* channel. Both channels run in parallel until
+          // Phase 8 deprecates the legacy one. The new channel emits
+          // 'job:event' with a fully-adapted Job dict (kind, status normalized,
+          // wire-format id 'kind:native_id', etc.).
+          socket.emit("subscribe", { job_id: "jobs:all" });
         });
 
         socket.on("job_progress", (data) => {
@@ -304,6 +326,23 @@ export const UnifiedProgressProvider = ({ children }) => {
           }
         });
 
+        // Phase 4 — canonical 'job:event' listener. Payload is a Job dict
+        // (id='kind:native_id', kind, status, progress, label, metadata, ...).
+        // Stored in a separate `unifiedJobs` Map so it doesn't interfere with
+        // the legacy activeProcesses consumers; new consumers (Phase 6 Tasks/Jobs
+        // page) read from unifiedJobs.
+        socket.on("job:event", (data) => {
+          try {
+            if (!data || !data.id) {
+              console.error("UnifiedProgressContext: bad job:event payload:", data);
+              return;
+            }
+            dispatch({ type: ACTIONS.UNIFIED_JOB_UPDATE, payload: data });
+          } catch (error) {
+            console.error("UnifiedProgressContext: Error handling job:event:", error, data);
+          }
+        });
+
         socket.on("disconnect", () => {
           // console.log("UnifiedProgressContext: Disconnected from SocketIO");
           setConnectionState('disconnected');
@@ -320,7 +359,9 @@ export const UnifiedProgressProvider = ({ children }) => {
 
           // Re-subscribe to global progress updates
           socket.emit("subscribe", { job_id: "global_progress" });
-          // console.log("UnifiedProgressContext: Re-subscribed to global_progress room after reconnect");
+          // Phase 4 — re-subscribe to canonical jobs:all on reconnect too.
+          socket.emit("subscribe", { job_id: "jobs:all" });
+          // console.log("UnifiedProgressContext: Re-subscribed to global_progress + jobs:all after reconnect");
 
           // Sync current jobs after reconnection
           try {
@@ -804,6 +845,7 @@ export const UnifiedProgressProvider = ({ children }) => {
   const contextValue = useMemo(() => ({
     // State
     activeProcesses,
+    unifiedJobs,  // Phase 4 — canonical Job map keyed by 'kind:native_id'
     globalProgress,
     socketRef,
     connectionState,
@@ -831,6 +873,7 @@ export const UnifiedProgressProvider = ({ children }) => {
     detectProcessType,
   }), [
     activeProcesses,
+    unifiedJobs,
     globalProgress,
     connectionState,
     startProcess,
