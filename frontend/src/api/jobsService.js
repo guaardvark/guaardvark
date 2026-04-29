@@ -88,3 +88,13 @@ export const cancelJob = async (jobId) => {
   const res = await axios.post(`${API_BASE}/jobs/${encodeURIComponent(jobId)}/cancel`);
   return res.data;
 };
+
+// Phase 9 — GET /api/jobs/gate. Returns a JobOperationGate snapshot:
+// {gpu_busy, gpu_holder: {kind, native_id, duration_s}, gpu_cooldown_remaining_s,
+//  in_progress: {kind: [native_id]}, gpu_exclusive_kinds: [...]}.
+// Used by Jobs/Activity pages and the editor's Render button to know whether
+// the GPU is currently held by another exclusive job.
+export const getJobsGate = async () => {
+  const res = await axios.get(`${API_BASE}/jobs/gate`);
+  return res.data;
+};

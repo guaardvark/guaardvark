@@ -368,6 +368,22 @@ def job_history():
     }), 200
 
 
+@unified_jobs_resource_bp.route("/gate", methods=["GET"])
+def gate_snapshot():
+    """Cross-surface traffic-light snapshot.
+
+    Returns the JobOperationGate state — which kinds are in-progress,
+    which one (if any) currently holds GPU exclusivity, the cooldown
+    remaining after a recent GPU release. The Jobs and Activity pages
+    poll this to surface "GPU busy — try again later" banners; the
+    Video Editor's Render button reads it before submitting.
+
+    See backend/services/job_operation_gate.py for the gate semantics.
+    """
+    from backend.services.job_operation_gate import get_gate
+    return jsonify(get_gate().snapshot()), 200
+
+
 @unified_jobs_resource_bp.route("/<path:job_id>/cancel", methods=["POST"])
 def cancel_job_route(job_id: str):
     """Cancel a job by id, dispatched per-kind.
