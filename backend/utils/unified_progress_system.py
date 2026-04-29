@@ -498,10 +498,15 @@ class UnifiedProgressSystem:
                 # working until Phase 8 deprecates them.
                 try:
                     from backend.services.job_registry import adapt_unified_progress
+                    from backend.services.job_history_service import record_terminal_job
                     job = adapt_unified_progress(event_data)
                     job_dict = job.to_dict()
                     socketio.emit("job:event", job_dict, to="jobs:all", namespace='/')
                     socketio.emit("job:event", job_dict, to=f"jobs:{job.kind.value}", namespace='/')
+
+                    # Phase 5 — persist terminal-status jobs to job_history.
+                    # No-ops for non-terminal status; idempotent on retry.
+                    record_terminal_job(job)
                 except Exception as e:
                     # Non-fatal — old job_progress emit above is still in flight.
                     logger.warning("Canonical job:event emit failed (non-fatal): %s", e)

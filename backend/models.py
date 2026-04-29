@@ -2393,3 +2393,56 @@ class AgentMemory(db.Model):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
+
+
+class JobHistory(db.Model):
+    """Terminal-status snapshot of every Job that ran in the system.
+
+    Populated when a Job reaches completed / failed / cancelled status.
+    Denormalized — carries every field the Tasks/Jobs History tab needs
+    so the page never JOINs back to the native source. Native rows can
+    be deleted without losing history.
+
+    Per plans/2026-04-29-data-retention.md the default retention is
+    keep-forever; opt-in pruners live behind a Settings → Data Retention
+    surface. NOT pruned by any default Celery beat task.
+    """
+    __tablename__ = "job_history"
+
+    id = db.Column(db.String(255), primary_key=True)  # "{kind}:{native_id}"
+    kind = db.Column(db.String(64), nullable=False)
+    native_id = db.Column(db.String(255), nullable=False)
+    label = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(32), nullable=False)  # terminal value
+    progress = db.Column(db.Float, nullable=True)
+    started_at = db.Column(db.DateTime, nullable=True)
+    finished_at = db.Column(db.DateTime, nullable=False)
+    duration_s = db.Column(db.Float, nullable=True)
+    error_message = db.Column(db.Text, nullable=True)
+    parent_id = db.Column(db.String(255), nullable=True)
+    # Named job_metadata in the column to dodge SQLAlchemy's reserved 'metadata'.
+    job_metadata = db.Column(db.JSON, nullable=True)
+    recorded_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now())
+
+    __table_args__ = (
+        db.Index("ix_job_history_kind_finished", "kind", "finished_at"),
+        db.Index("ix_job_history_finished", "finished_at"),
+        db.Index("ix_job_history_status", "status"),
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "kind": self.kind,
+            "native_id": self.native_id,
+            "label": self.label,
+            "status": self.status,
+            "progress": self.progress,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "finished_at": self.finished_at.isoformat() if self.finished_at else None,
+            "duration_s": self.duration_s,
+            "error_message": self.error_message,
+            "parent_id": self.parent_id,
+            "metadata": self.job_metadata or {},
+            "recorded_at": self.recorded_at.isoformat() if self.recorded_at else None,
+        }

@@ -325,6 +325,49 @@ def jobs_summary():
     }), 200
 
 
+@unified_jobs_resource_bp.route("/history", methods=["GET"])
+def job_history():
+    """Paginated terminal-job history from the job_history table.
+
+    Persists across backend restart (unlike the in-memory active list).
+    Default retention is keep-forever per the data retention plan; opt-in
+    pruners are wired separately under a Settings → Data Retention surface.
+
+    Query params:
+        kind     filter to one kind (single value, not multi)
+        status   filter to one terminal status (completed/failed/cancelled)
+        limit    page size (default 100, max 500)
+        offset   pagination offset
+    """
+    from backend.services.job_history_service import list_history
+
+    kind = request.args.get("kind")
+    status = request.args.get("status")
+    try:
+        limit = int(request.args.get("limit", _DEFAULT_LIMIT))
+    except (TypeError, ValueError):
+        limit = _DEFAULT_LIMIT
+    limit = max(1, min(limit, _MAX_LIMIT))
+
+    try:
+        offset = int(request.args.get("offset", 0))
+    except (TypeError, ValueError):
+        offset = 0
+    offset = max(0, offset)
+
+    rows = list_history(kind=kind, status=status, limit=limit, offset=offset)
+    return jsonify({
+        "history": rows,
+        "total": len(rows),
+        "applied_filters": {
+            "kind": kind,
+            "status": status,
+            "limit": limit,
+            "offset": offset,
+        },
+    }), 200
+
+
 @unified_jobs_resource_bp.route("/<path:job_id>", methods=["GET"])
 def job_detail(job_id: str):
     """Fetch one job by wire-format id ('kind:native_id').
