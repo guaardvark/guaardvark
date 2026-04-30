@@ -22,6 +22,14 @@ data/cache/
 data/database/
 data/models/
 data/context/
+
+# Plugin runtime artifacts (generated per-machine, never sync)
+plugins/*/outputs/
+plugins/*/output/
+plugins/*/cache/
+plugins/*/tmp/
+plugins/*/.cache/
+plugins/*/__pycache__/
 data/docstore.json
 data/index_store.json
 data/default__vector_store.json
