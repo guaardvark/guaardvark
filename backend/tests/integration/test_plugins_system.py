@@ -135,26 +135,27 @@ class TestPluginRegistry:
         assert metadata.config.timeout == 10
     
     def test_update_plugin_config(self, plugins_dir):
-        """Test updating plugin configuration."""
+        """update_plugin_config refuses runtime-state keys (enabled, auto_start) —
+        those go through PluginManager.enable_plugin/disable_plugin which writes
+        data/plugin_state.json. Static manifest fields like timeout still pass
+        through and persist to plugin.json."""
         registry = PluginRegistry(plugins_dir=plugins_dir)
-        
-        # Update config
-        success = registry.update_plugin_config("test-plugin", {"enabled": True, "timeout": 60})
-        
-        assert success
-        
-        # Verify update persisted
+
+        # Runtime-state key is refused; manifest stays clean.
+        assert registry.update_plugin_config("test-plugin", {"enabled": True}) is False
+
+        # Static field updates succeed.
+        assert registry.update_plugin_config("test-plugin", {"timeout": 60}) is True
+
         metadata = registry.get_plugin("test-plugin")
-        assert metadata.config.enabled == True
         assert metadata.config.timeout == 60
-        
-        # Verify plugin.json was updated
+
         plugin_json_path = plugins_dir / "test-plugin" / "plugin.json"
         with open(plugin_json_path) as f:
             saved_config = json.load(f)
-        
-        assert saved_config["config"]["enabled"] == True
         assert saved_config["config"]["timeout"] == 60
+        # Confirm 'enabled' did not sneak in.
+        assert "enabled" not in saved_config["config"]
     
     def test_list_plugins_by_type(self, plugins_dir):
         """Test filtering plugins by type."""
@@ -287,7 +288,7 @@ class TestPluginsAPI:
             mock_reg = PluginRegistry(plugins_dir=plugins_dir)
             mock_registry.return_value = mock_reg
             
-            with patch('backend.plugins.plugin_manager.get_plugin_manager') as mock_manager:
+            with patch('backend.api.plugins_api.get_plugin_manager') as mock_manager:
                 mock_mgr = PluginManager(registry=mock_reg)
                 mock_manager.return_value = mock_mgr
                 
@@ -304,7 +305,7 @@ class TestPluginsAPI:
             mock_reg = PluginRegistry(plugins_dir=plugins_dir)
             mock_registry.return_value = mock_reg
             
-            with patch('backend.plugins.plugin_manager.get_plugin_manager') as mock_manager:
+            with patch('backend.api.plugins_api.get_plugin_manager') as mock_manager:
                 mock_mgr = PluginManager(registry=mock_reg)
                 mock_manager.return_value = mock_mgr
                 
@@ -321,7 +322,7 @@ class TestPluginsAPI:
             mock_reg = PluginRegistry(plugins_dir=plugins_dir)
             mock_registry.return_value = mock_reg
             
-            with patch('backend.plugins.plugin_manager.get_plugin_manager') as mock_manager:
+            with patch('backend.api.plugins_api.get_plugin_manager') as mock_manager:
                 mock_mgr = PluginManager(registry=mock_reg)
                 mock_manager.return_value = mock_mgr
                 
@@ -335,7 +336,7 @@ class TestPluginsAPI:
             mock_reg = PluginRegistry(plugins_dir=plugins_dir)
             mock_registry.return_value = mock_reg
             
-            with patch('backend.plugins.plugin_manager.get_plugin_manager') as mock_manager:
+            with patch('backend.api.plugins_api.get_plugin_manager') as mock_manager:
                 mock_mgr = PluginManager(registry=mock_reg)
                 mock_manager.return_value = mock_mgr
                 
@@ -351,7 +352,7 @@ class TestPluginsAPI:
             mock_reg = PluginRegistry(plugins_dir=plugins_dir)
             mock_registry.return_value = mock_reg
             
-            with patch('backend.plugins.plugin_manager.get_plugin_manager') as mock_manager:
+            with patch('backend.api.plugins_api.get_plugin_manager') as mock_manager:
                 mock_mgr = PluginManager(registry=mock_reg)
                 mock_manager.return_value = mock_mgr
                 
@@ -371,7 +372,7 @@ class TestPluginsAPI:
             mock_reg = PluginRegistry(plugins_dir=plugins_dir)
             mock_registry.return_value = mock_reg
             
-            with patch('backend.plugins.plugin_manager.get_plugin_manager') as mock_manager:
+            with patch('backend.api.plugins_api.get_plugin_manager') as mock_manager:
                 mock_mgr = PluginManager(registry=mock_reg)
                 mock_manager.return_value = mock_mgr
                 
@@ -390,7 +391,7 @@ class TestPluginsAPI:
             mock_reg = PluginRegistry(plugins_dir=plugins_dir)
             mock_registry.return_value = mock_reg
             
-            with patch('backend.plugins.plugin_manager.get_plugin_manager') as mock_manager:
+            with patch('backend.api.plugins_api.get_plugin_manager') as mock_manager:
                 mock_mgr = PluginManager(registry=mock_reg)
                 mock_manager.return_value = mock_mgr
                 
