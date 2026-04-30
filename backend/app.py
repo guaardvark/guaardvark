@@ -1030,16 +1030,35 @@ def initialize_llm_and_index_async():
             except Exception as e:
                 app.logger.warning(f"[LLM-Init] Failed to persist active model on startup: {e}")
 
-            app.logger.info("[LLM-Init] Step 5/6: Warming up model...")
+            # Step 5: warm up the model into VRAM. Skipped when the user has
+            # disabled the Ollama plugin in /plugins — otherwise we'd burn ~10
+            # GB of VRAM at boot for a service the user explicitly turned off.
+            # When skipped, the first chat message triggers an on-demand load
+            # (~5s slower for that one message). This honors the user_enabled
+            # overlay in data/plugin_state.json with a fallback to ollama's
+            # plugin.json default for fresh installs.
             try:
-                model_name = getattr(llm, "model", "unknown")
-                app.logger.info(f"[LLM-Init] Warming up model '{model_name}' (loading into GPU)...")
-                warmup_start = time.time()
-                llm.complete("warmup")
-                warmup_duration = time.time() - warmup_start
-                app.logger.info(f"[LLM-Init] Model warmup completed in {warmup_duration:.1f}s — ready for chat")
-            except Exception as e:
-                app.logger.error(f"[LLM-Init] Model warmup FAILED: {e} — first chat will be slow", exc_info=True)
+                from backend.plugins.plugin_manager import get_plugin_manager
+                _ollama_enabled = get_plugin_manager().is_effectively_enabled("ollama")
+            except Exception:
+                _ollama_enabled = True  # Fail-open — better to warm up than leave a real user without chat
+
+            if _ollama_enabled:
+                app.logger.info("[LLM-Init] Step 5/6: Warming up model...")
+                try:
+                    model_name = getattr(llm, "model", "unknown")
+                    app.logger.info(f"[LLM-Init] Warming up model '{model_name}' (loading into GPU)...")
+                    warmup_start = time.time()
+                    llm.complete("warmup")
+                    warmup_duration = time.time() - warmup_start
+                    app.logger.info(f"[LLM-Init] Model warmup completed in {warmup_duration:.1f}s — ready for chat")
+                except Exception as e:
+                    app.logger.error(f"[LLM-Init] Model warmup FAILED: {e} — first chat will be slow", exc_info=True)
+            else:
+                app.logger.info(
+                    "[LLM-Init] Step 5/6: Skipping model warmup — Ollama plugin is disabled in user prefs. "
+                    "First chat call will load the model on demand (~5s slower)."
+                )
 
             app.config["LLM_READY"] = True
             app.logger.info("[LLM-Init] Step 6/6: LLM and index initialization completed successfully")
@@ -1352,7 +1371,10 @@ def debug_env():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# Both prefixes are valid — Docker/k8s probes and the legacy frontend
+# client expect /health, while the rest of the API lives under /api.
 @app.route("/api/health")
+@app.route("/health")
 def health_check():
     uptime_seconds = time.time() - start_time if "start_time" in globals() else 0
     return (

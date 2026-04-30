@@ -16,6 +16,7 @@ from typing import Dict, List, Optional, Any, Tuple
 
 from .plugin_base import PluginStatus, PluginMetadata
 from .plugin_registry import PluginRegistry, get_plugin_registry
+from .plugin_state_store import PluginStateStore
 
 logger = logging.getLogger(__name__)
 
@@ -192,10 +193,8 @@ def _run_plugin_script(argv: list, cwd: str, timeout: int) -> dict:
     except Exception as e:
         return {"ok": False, "rc": -1, "stdout": "", "stderr": "", "error": str(e)}
 
-# Where we save which plugins were running (survives reboots)
-GUAARDVARK_ROOT = os.environ.get("GUAARDVARK_ROOT", str(Path(__file__).resolve().parents[2]))
-PLUGIN_STATE_FILE = os.path.join(GUAARDVARK_ROOT, "data", "plugin_state.json")
-
+# Where state lives — derived from the registry's plugins_dir at construction
+# time. plugin_state.json is per-machine runtime state; see PluginStateStore.
 
 class PluginManager:
     """
@@ -205,14 +204,26 @@ class PluginManager:
     Works with the PluginRegistry for plugin discovery.
     """
     
-    def __init__(self, registry: Optional[PluginRegistry] = None):
+    def __init__(
+        self,
+        registry: Optional[PluginRegistry] = None,
+        state_store: Optional[PluginStateStore] = None,
+    ):
         """
         Initialize plugin manager.
-        
+
         Args:
             registry: Plugin registry instance. Uses global if not provided.
+            state_store: Where to read/write per-machine runtime state.
+                Defaults to a store at <plugins_dir>.parent/data/plugin_state.json,
+                so tests that pass a temp plugins_dir get isolated state for free.
         """
         self.registry = registry or get_plugin_registry()
+        if state_store is None:
+            state_store = PluginStateStore(
+                self.registry.plugins_dir.parent / "data" / "plugin_state.json"
+            )
+        self.state_store = state_store
         self._plugin_status: Dict[str, PluginStatus] = {}
         self._plugin_pids: Dict[str, int] = {}
         self._gate = PluginOperationGate()  # Traffic light for rapid clicks
@@ -222,6 +233,18 @@ class PluginManager:
     
     def _init_plugin_status(self):
         """Initialize plugin status and restore previously running plugins."""
+        # Seed the in-memory `metadata.config.enabled` from the user_enabled
+        # overlay before anything else looks at it. After this point, that
+        # field reflects the EFFECTIVE state (user pref ∨ manifest default)
+        # for the rest of this process's lifetime. enable_plugin/disable_plugin
+        # keep it in sync on subsequent toggles. plugin.json on disk stays
+        # untouched — it's the canonical default for fresh installs.
+        prefs = self.state_store.get_user_enabled()
+        if prefs:
+            for plugin_id, metadata in self.registry.get_all_plugins().items():
+                if plugin_id in prefs:
+                    metadata.config.enabled = bool(prefs[plugin_id])
+
         # First pass: detect what's already running and kill orphans
         for plugin_id, metadata in self.registry.get_all_plugins().items():
             if metadata.config.enabled:
@@ -238,14 +261,19 @@ class PluginManager:
                     elif self._has_enabled_dependents(plugin_id):
                         dependents = self._get_enabled_dependents(plugin_id)
                         logger.info(f"Disabled plugin '{plugin_id}' running on port {metadata.port} — keeping it (needed by {dependents})")
+                    elif metadata.port == self._backend_port():
+                        logger.error(
+                            f"Disabled plugin '{plugin_id}' declares port {metadata.port}, which is the "
+                            f"main backend's port. Refusing to kill — fix the plugin.json port collision. "
+                            f"(_kill_by_port has a self-PID guard as a second line of defense.)"
+                        )
                     else:
                         logger.warning(f"Disabled plugin '{plugin_id}' has orphan process on port {metadata.port} — killing it")
                         self._kill_by_port(metadata.port)
                 self._plugin_status[plugin_id] = PluginStatus.DISABLED
 
         # Second pass: start plugins that were running last time
-        saved = self._load_state()
-        for plugin_id in saved.get("running", []):
+        for plugin_id in self.state_store.get_running():
             if self._plugin_status.get(plugin_id) == PluginStatus.STOPPED:
                 logger.info(f"Restoring plugin: {plugin_id} (was running before shutdown)")
                 try:
@@ -261,29 +289,40 @@ class PluginManager:
 
         # Clean up: sync state file to match reality (removes stale entries
         # from plugins that were disabled or stopped between reboots)
-        self._save_state()
+        self._save_running()
 
-    def _save_state(self):
-        """Save which plugins are currently running to disk."""
+    def _save_running(self) -> None:
+        """Persist the current running set via the state store."""
         running = [pid for pid, status in self._plugin_status.items()
                    if status == PluginStatus.RUNNING]
-        try:
-            os.makedirs(os.path.dirname(PLUGIN_STATE_FILE), exist_ok=True)
-            with open(PLUGIN_STATE_FILE, 'w') as f:
-                json.dump({"running": running}, f)
-        except Exception as e:
-            logger.warning(f"Could not save plugin state: {e}")
+        self.state_store.set_running(running)
 
-    def _load_state(self) -> dict:
-        """Load saved plugin state from disk."""
-        try:
-            if os.path.exists(PLUGIN_STATE_FILE):
-                with open(PLUGIN_STATE_FILE) as f:
-                    return json.load(f)
-        except Exception as e:
-            logger.warning(f"Could not load plugin state: {e}")
-        return {"running": []}
+    # ─── User-toggle persistence (overlay on plugin.json defaults) ─────────────
+    #
+    # The toggle in /plugins UI updates `user_enabled[plugin_id]` via the state
+    # store, NOT the `enabled` field in plugin.json. plugin.json stays the
+    # canonical default for fresh installs / new clones. is_effectively_enabled
+    # joins the two with the rule: explicit user pref wins, fall back to
+    # manifest default.
+
+    def is_effectively_enabled(self, plugin_id: str) -> bool:
+        """User pref wins, falling back to the manifest's default_enabled."""
+        prefs = self.state_store.get_user_enabled()
+        if plugin_id in prefs:
+            return bool(prefs[plugin_id])
+        metadata = self.registry.get_plugin(plugin_id)
+        return bool(metadata.config.enabled) if metadata else False
     
+    @staticmethod
+    def _backend_port() -> Optional[int]:
+        """Return the main Flask backend's port (FLASK_PORT env, default 5002).
+        Used to short-circuit orphan-kill logic when a plugin manifest's port
+        collides with the backend's own port — see the gpu_embedding case."""
+        try:
+            return int(os.environ.get("FLASK_PORT", "5002"))
+        except (TypeError, ValueError):
+            return 5002
+
     def _check_service_running(self, metadata: PluginMetadata) -> bool:
         """Check if a service plugin is running by hitting its health endpoint"""
         if metadata.type != 'service':
@@ -306,9 +345,41 @@ class PluginManager:
             return False
     
     def _kill_by_port(self, port: int):
-        """Kill any process listening on the given port (orphan cleanup)."""
+        """Kill any process listening on the given port (orphan cleanup).
+
+        SAFETY: never kill our own PID, our parent's PID, or anything in our
+        own process group. This protects against pre-existing manifest bugs
+        where a disabled plugin claims the same port as the main Flask
+        backend (e.g. gpu_embedding's port=5002 collision with FLASK_PORT).
+        Without this guard, init-time orphan cleanup would SIGTERM the
+        backend that just spawned us — exactly the pattern that took the
+        system down on 2026-04-28.
+        """
         if not port:
             return
+
+        # Build a set of PIDs we must NEVER kill, no matter what.
+        protected: set[int] = {os.getpid()}
+        try:
+            protected.add(os.getppid())
+        except Exception:
+            pass
+        try:
+            protected.add(os.getpgrp())  # our process group leader
+        except Exception:
+            pass
+        try:
+            # Anything sharing our process group is also protected — covers
+            # Celery workers / sidecar runners that the backend spawns.
+            for line in subprocess.check_output(
+                ['ps', '-eo', 'pid,pgid', '--no-headers'], text=True, timeout=3
+            ).splitlines():
+                parts = line.split()
+                if len(parts) == 2 and parts[1].isdigit() and int(parts[1]) == os.getpgrp():
+                    protected.add(int(parts[0]))
+        except Exception:
+            pass
+
         try:
             result = subprocess.run(
                 ['lsof', '-ti', f':{port}'],
@@ -317,15 +388,23 @@ class PluginManager:
             pids = result.stdout.strip().split('\n')
             for pid_str in pids:
                 pid_str = pid_str.strip()
-                if pid_str and pid_str.isdigit():
-                    pid = int(pid_str)
-                    try:
-                        os.kill(pid, signal.SIGTERM)
-                        logger.info(f"Killed orphan process on port {port} (PID {pid})")
-                    except ProcessLookupError:
-                        pass
-                    except PermissionError:
-                        logger.warning(f"No permission to kill PID {pid} on port {port}")
+                if not (pid_str and pid_str.isdigit()):
+                    continue
+                pid = int(pid_str)
+                if pid in protected:
+                    logger.error(
+                        f"Refusing to kill PID {pid} on port {port} — it is the backend "
+                        f"process (or a child of it). Plugin manifest likely declares a "
+                        f"port that collides with FLASK_PORT. Fix the plugin.json port."
+                    )
+                    continue
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                    logger.info(f"Killed orphan process on port {port} (PID {pid})")
+                except ProcessLookupError:
+                    pass
+                except PermissionError:
+                    logger.warning(f"No permission to kill PID {pid} on port {port}")
         except Exception as e:
             logger.debug(f"Port kill failed for port {port}: {e}")
 
@@ -452,7 +531,7 @@ class PluginManager:
                 for i in range(max_retries):
                     if self._check_service_running(metadata):
                         self._plugin_status[plugin_id] = PluginStatus.RUNNING
-                        self._save_state()
+                        self._save_running()
                         logger.info(f"Plugin started: {plugin_id}")
                         return {
                             'success': True,
@@ -533,7 +612,7 @@ class PluginManager:
 
                     if not self._check_service_running(metadata):
                         self._plugin_status[plugin_id] = PluginStatus.STOPPED
-                        self._save_state()
+                        self._save_running()
                         logger.info(f"Plugin stopped: {plugin_id}")
                         return {
                             'success': True,
@@ -554,7 +633,7 @@ class PluginManager:
 
             if not self._check_service_running(metadata):
                 self._plugin_status[plugin_id] = PluginStatus.STOPPED
-                self._save_state()
+                self._save_running()
                 logger.info(f"Plugin stopped: {plugin_id}")
                 return {'success': True, 'message': 'Plugin stopped successfully'}
 
@@ -574,34 +653,90 @@ class PluginManager:
         return self.start_plugin(plugin_id)
     
     def enable_plugin(self, plugin_id: str) -> Dict[str, Any]:
-        """Enable a plugin"""
-        if not self.registry.is_registered(plugin_id):
-            return {'success': False, 'error': f'Plugin not found: {plugin_id}'}
-        
-        success = self.registry.update_plugin_config(plugin_id, {'enabled': True})
-        if success:
-            self._plugin_status[plugin_id] = PluginStatus.STOPPED
-            logger.info(f"Plugin enabled: {plugin_id}")
-            return {'success': True, 'message': 'Plugin enabled'}
-        return {'success': False, 'error': 'Failed to enable plugin'}
-    
-    def disable_plugin(self, plugin_id: str) -> Dict[str, Any]:
-        """Disable a plugin (stops it first if running, unless core)"""
+        """Enable a plugin via the user_enabled overlay (does NOT mutate plugin.json)."""
         if not self.registry.is_registered(plugin_id):
             return {'success': False, 'error': f'Plugin not found: {plugin_id}'}
 
+        try:
+            self.state_store.set_user_enabled(plugin_id, True)
+        except Exception as e:
+            logger.error(f"Failed to persist user_enabled for {plugin_id}: {e}")
+            return {'success': False, 'error': 'Failed to enable plugin'}
+
+        # Keep the in-memory metadata in sync so any code reading
+        # metadata.config.enabled (until those paths are migrated to
+        # is_effectively_enabled) sees the new value within this process.
         metadata = self.registry.get_plugin(plugin_id)
+        if metadata is not None:
+            metadata.config.enabled = True
 
-        # Stop if running
+        self._plugin_status[plugin_id] = PluginStatus.STOPPED
+        logger.info(f"Plugin enabled (user pref): {plugin_id}")
+        return {'success': True, 'message': 'Plugin enabled'}
+
+    def disable_plugin(self, plugin_id: str) -> Dict[str, Any]:
+        """Disable a plugin via the user_enabled overlay (stops it first if running)."""
+        if not self.registry.is_registered(plugin_id):
+            return {'success': False, 'error': f'Plugin not found: {plugin_id}'}
+
+        # Stop if running — same behavior as before; intuitive UX.
         if self._plugin_status.get(plugin_id) == PluginStatus.RUNNING:
             self.stop_plugin(plugin_id)
 
-        success = self.registry.update_plugin_config(plugin_id, {'enabled': False})
-        if success:
-            self._plugin_status[plugin_id] = PluginStatus.DISABLED
-            logger.info(f"Plugin disabled: {plugin_id}")
-            return {'success': True, 'message': 'Plugin disabled'}
-        return {'success': False, 'error': 'Failed to disable plugin'}
+        # Special case: Ollama is a system-level service that the plugin
+        # manager doesn't physically start/stop, but it can hold gigabytes of
+        # VRAM via loaded models. When the user disables the Ollama plugin we
+        # unload everything from Ollama's memory so the toggle actually frees
+        # GPU. The Ollama daemon itself stays running (system service) — only
+        # the loaded models go.
+        if plugin_id == "ollama":
+            self._unload_all_ollama_models()
+
+        try:
+            self.state_store.set_user_enabled(plugin_id, False)
+        except Exception as e:
+            logger.error(f"Failed to persist user_enabled for {plugin_id}: {e}")
+            return {'success': False, 'error': 'Failed to disable plugin'}
+
+        metadata = self.registry.get_plugin(plugin_id)
+        if metadata is not None:
+            metadata.config.enabled = False
+
+        self._plugin_status[plugin_id] = PluginStatus.DISABLED
+        logger.info(f"Plugin disabled (user pref): {plugin_id}")
+        return {'success': True, 'message': 'Plugin disabled'}
+
+    def _unload_all_ollama_models(self) -> None:
+        """Unload every model currently loaded in Ollama memory.
+
+        Used when the user disables the Ollama plugin from /plugins. Best-
+        effort: any model that fails to unload is logged and skipped. Imports
+        live inside the method so `plugin_manager` doesn't pull `model_api`
+        at module import time (avoids circular-import risk during boot).
+        """
+        try:
+            from backend.api.model_api import get_loaded_models, unload_model_from_ollama
+        except Exception as e:
+            logger.warning(f"Could not import Ollama unload helpers: {e}")
+            return
+
+        loaded = get_loaded_models() or []
+        if not loaded:
+            logger.info("Ollama disable: no models currently loaded; nothing to unload")
+            return
+
+        for m in loaded:
+            name = m.get("name") or m.get("model")
+            if not name:
+                continue
+            try:
+                unloaded = unload_model_from_ollama(name)
+                if unloaded:
+                    logger.info(f"Ollama disable: unloaded {name}")
+                else:
+                    logger.warning(f"Ollama disable: unload of {name} reported failure")
+            except Exception as e:
+                logger.warning(f"Ollama disable: error unloading {name}: {e}")
     
     def health_check(self, plugin_id: str) -> Dict[str, Any]:
         """
