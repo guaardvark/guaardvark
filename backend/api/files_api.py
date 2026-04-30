@@ -1101,8 +1101,13 @@ def download_document(doc_id):
         document = db.session.get(DBDocument, doc_id)
         if not document:
             return error_response("Document not found", 404, "DOCUMENT_NOT_FOUND")
-        physical_path = get_physical_path(document.path)
-        if not physical_path.exists():
+        # Use the multi-base resolver so files outside UPLOAD_DIR (notably
+        # plugins/comfyui/ComfyUI/output/) still resolve. Fall back to the
+        # naive UPLOAD_BASE join for files that ARE under UPLOAD_DIR — the
+        # resolver tries that first anyway, so this is a safety net.
+        from backend.services.document_path_resolver import resolve_document_path
+        physical_path = resolve_document_path(document) or get_physical_path(document.path)
+        if not physical_path or not physical_path.exists():
             return error_response("File not found on disk", 404, "FILE_NOT_FOUND")
         # Serve inline for media files and PDFs so <video>, <img>, <audio>, and <iframe>
         # tags can play/display them; fall back to attachment for everything else.

@@ -197,12 +197,7 @@ const JobsList = ({ title, subtitle, kinds }) => {
   return (
     <Box sx={{ maxWidth: 1400, mx: "auto", mt: 2, px: 2 }}>
       <Stack spacing={2}>
-        <Box>
-          <Typography variant="h5" fontWeight="bold">{title}</Typography>
-          {subtitle && (
-            <Typography variant="body2" color="text.secondary">{subtitle}</Typography>
-          )}
-        </Box>
+        {/* Page title comes from PageLayout — don't duplicate it here. */}
 
         {/* Status chips — click to filter */}
         <Paper elevation={2} sx={{ p: 2, borderRadius: 2 }}>

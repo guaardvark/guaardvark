@@ -11,11 +11,7 @@ import { JOB_KINDS_FOR_ACTIVITY_PAGE } from "../api/jobsService";
 
 const ActivityPage = () => (
   <PageLayout title="Activity" subtitle="What the system is doing on its own">
-    <JobsList
-      title="Activity"
-      subtitle="Indexing, agent runs, training, research, self-improvement"
-      kinds={JOB_KINDS_FOR_ACTIVITY_PAGE}
-    />
+    <JobsList kinds={JOB_KINDS_FOR_ACTIVITY_PAGE} />
   </PageLayout>
 );
 

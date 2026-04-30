@@ -26,7 +26,6 @@ import NotFoundPage from "./pages/NotFoundPage";
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const ProjectsPage = lazy(() => import("./pages/ProjectsPage"));
 const TaskPage = lazy(() => import("./pages/TaskPage"));
-const JobsPage = lazy(() => import("./pages/JobsPage"));
 const ActivityPage = lazy(() => import("./pages/ActivityPage"));
 const DocumentsPage = lazy(() => import("./pages/DocumentsPage"));
 const RulesPage = lazy(() => import("./pages/RulesPage"));
@@ -244,16 +243,6 @@ const AppContainer = () => {
                         element={
                           <AppLayout>
                             <TaskPage />
-                          </AppLayout>
-                        }
-                      />
-                      <Route
-                        path="/jobs"
-                        element={
-                          <AppLayout>
-                            <ErrorBoundary>
-                              <JobsPage />
-                            </ErrorBoundary>
                           </AppLayout>
                         }
                       />

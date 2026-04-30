@@ -392,14 +392,35 @@ const VideoEditorPage = () => {
                 </Stack>
               )}
 
-              {/* Text overlays — absolutely positioned. Phase 3 of editor plan
-                  will make these draggable/resizable via react-rnd. */}
+              {/* Text overlays — drag to reposition. Pointer events on the
+                  element handle the move; rotation/size still come from the
+                  Properties panel sliders. */}
               {timeline.textElements.map((t) => (
                 <Box
                   key={t.id}
-                  onClick={(e) => {
+                  onMouseDown={(e) => {
                     e.stopPropagation();
                     setSelectedItem({ type: "text", id: t.id });
+                    const startX = e.clientX;
+                    const startY = e.clientY;
+                    const origX = t.x;
+                    const origY = t.y;
+                    let moved = false;
+                    const onMove = (mv) => {
+                      moved = true;
+                      const dx = mv.clientX - startX;
+                      const dy = mv.clientY - startY;
+                      handleUpdateText(t.id, { x: origX + dx, y: origY + dy });
+                    };
+                    const onUp = () => {
+                      window.removeEventListener("mousemove", onMove);
+                      window.removeEventListener("mouseup", onUp);
+                      // If the user just clicked without dragging, that's fine —
+                      // selection already happened on mousedown.
+                      void moved;
+                    };
+                    window.addEventListener("mousemove", onMove);
+                    window.addEventListener("mouseup", onUp);
                   }}
                   sx={{
                     position: "absolute",
@@ -410,7 +431,7 @@ const VideoEditorPage = () => {
                     fontSize: `${t.fontSize}px`,
                     fontWeight: 700,
                     textShadow: "1px 1px 3px rgba(0,0,0,0.8)",
-                    cursor: "pointer",
+                    cursor: "move",
                     border: selectedItem?.type === "text" && selectedItem.id === t.id
                       ? "1px dashed yellow" : "1px dashed transparent",
                     padding: "2px 4px",

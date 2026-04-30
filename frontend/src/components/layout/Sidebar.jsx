@@ -79,6 +79,8 @@ const navGroups = [
     label: "Studio",
     items: [
       { text: "Video Editor", icon: <MovieFilterIcon />, path: "/video-editor" },
+      { text: "Video Gen", icon: <ImageIcon />, path: "/video" },
+      { text: "Image Gen", icon: <ImageIcon />, path: "/batch-images" },
       { text: "Audio Studio", icon: <GraphicEqIcon />, path: "/audio" },
       { text: "Video Text", icon: <TextFieldsIcon />, path: "/video-text-overlay" },
     ],
@@ -89,12 +91,13 @@ const navGroups = [
       { text: "Clients", icon: <AccountBoxIcon />, path: "/clients" },
       { text: "Projects", icon: <FolderIcon />, path: "/projects" },
       { text: "Websites", icon: <LanguageIcon />, path: "/websites" },
-      // Tasks/Jobs unification — two filtered views of the same canonical
-      // /api/jobs resource. Jobs = user-initiated queueable work.
-      // Activity = system-driven background work. The two are aware of each
-      // other via the JobOperationGate that lands in Phase 9 of the plan.
-      // Replaces the legacy "Job Scheduler" entry that pointed at /tasks.
-      { text: "Jobs", icon: <QueueIcon />, path: "/jobs" },
+      // Job scheduler — the legacy TaskPage at /tasks owns creation and
+      // queueing of user-initiated jobs (VideoGen, FileGen, scraping,
+      // research, code analysis, anything the system can do).
+      // Activity is the read-only view of system-driven background work
+      // (training, indexing, self-improvement) backed by the new
+      // /api/jobs adapter layer.
+      { text: "Jobs", icon: <QueueIcon />, path: "/tasks" },
       { text: "Activity", icon: <MonitorHeartIcon />, path: "/activity" },
       { text: "Outreach", icon: <CampaignIcon />, path: "/outreach" },
     ],
