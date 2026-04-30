@@ -30,6 +30,7 @@ plugins/*/cache/
 plugins/*/tmp/
 plugins/*/.cache/
 plugins/*/__pycache__/
+data/plugin_state.json
 data/docstore.json
 data/index_store.json
 data/default__vector_store.json
