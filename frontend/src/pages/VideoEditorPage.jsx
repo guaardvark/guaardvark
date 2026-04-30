@@ -6,7 +6,7 @@
 //
 // Phase 5 ships the layout + state model + click-to-add wiring. Phase 6
 // adds drag-and-drop. Phase 7 wires the render-timeline endpoint.
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Paper,
@@ -53,6 +53,11 @@ const _emptyTimeline = () => ({
 
 const VideoEditorPage = () => {
   const [timeline, setTimeline] = useState(_emptyTimeline());
+  // Phase 10 polish — single-step undo. Push the previous state on every
+  // mutation; restore it on Cmd/Ctrl+Z. Single level is "enough" per the
+  // plan §10 (deeper history would need a proper undo stack abstraction).
+  const undoSnapshotRef = useRef(null);
+  const videoElRef = useRef(null);
   const [mediaLibrary, setMediaLibrary] = useState([]);
   const [audioLibrary, setAudioLibrary] = useState([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
@@ -124,35 +129,78 @@ const VideoEditorPage = () => {
   // react-moveable; for now click-to-place + edit-in-properties.
   const handleAddText = useCallback((x, y) => {
     const newId = `text_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    setTimeline((prev) => ({
-      ...prev,
-      textElements: [
-        ...prev.textElements,
-        {
-          id: newId,
-          text: "Sample text",
-          fontSize: 48,
-          fontColor: "white",
-          x: x ?? 320,
-          y: y ?? 240,
-          rotation: 0,
-          startSeconds: 0,
-          endSeconds: null,
-        },
-      ],
-    }));
+    setTimeline((prev) => {
+      undoSnapshotRef.current = prev;
+      return {
+        ...prev,
+        textElements: [
+          ...prev.textElements,
+          {
+            id: newId,
+            text: "Sample text",
+            fontSize: 48,
+            fontColor: "white",
+            x: x ?? 320,
+            y: y ?? 240,
+            rotation: 0,
+            startSeconds: 0,
+            endSeconds: null,
+          },
+        ],
+      };
+    });
     setSelectedItem({ type: "text", id: newId });
   }, []);
 
   const handleDeleteText = (textId) => {
-    setTimeline((prev) => ({
-      ...prev,
-      textElements: prev.textElements.filter((t) => t.id !== textId),
-    }));
+    setTimeline((prev) => {
+      undoSnapshotRef.current = prev;
+      return {
+        ...prev,
+        textElements: prev.textElements.filter((t) => t.id !== textId),
+      };
+    });
     if (selectedItem?.type === "text" && selectedItem.id === textId) {
       setSelectedItem(null);
     }
   };
+
+  const handleUndo = useCallback(() => {
+    if (undoSnapshotRef.current) {
+      setTimeline(undoSnapshotRef.current);
+      undoSnapshotRef.current = null;
+    }
+  }, []);
+
+  // Keyboard shortcuts: space toggles play/pause on the preview video,
+  // Delete removes the selected text element, Cmd/Ctrl+Z undoes the last
+  // mutation. Skipped when the user is typing in an input/textarea so
+  // shortcuts don't fight form-field editing.
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const target = e.target;
+      const isFormField = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
+      if (isFormField) return;
+
+      if (e.key === " " || e.code === "Space") {
+        e.preventDefault();
+        const v = videoElRef.current;
+        if (v) {
+          if (v.paused) v.play(); else v.pause();
+        }
+      } else if (e.key === "Delete" || e.key === "Backspace") {
+        if (selectedItem?.type === "text") {
+          e.preventDefault();
+          handleDeleteText(selectedItem.id);
+        }
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        handleUndo();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedItem, handleUndo]);
 
   const handleUpdateText = (textId, patch) => {
     setTimeline((prev) => ({
@@ -330,8 +378,11 @@ const VideoEditorPage = () => {
             <Box sx={{ position: "relative", flex: 1, bgcolor: "#000", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
               {previewVideoUrl ? (
                 <video
+                  ref={videoElRef}
                   src={previewVideoUrl}
                   controls
+                  onPlay={() => setPreviewPlaying(true)}
+                  onPause={() => setPreviewPlaying(false)}
                   style={{ maxWidth: "100%", maxHeight: "100%", display: "block" }}
                 />
               ) : (
@@ -485,21 +536,53 @@ const VideoEditorPage = () => {
           </Stack>
 
           <Stack spacing={1}>
-            {/* Video track */}
+            {/* Video track + Phase 10 trim inputs */}
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Chip size="small" label="V" sx={{ bgcolor: TRACK_COLORS.video, color: "white", minWidth: 28 }} />
               <Box
                 onDragOver={handleDragOver}
                 onDrop={handleDropOnVideoTrack}
-                sx={{ flex: 1, height: 32, border: 1, borderColor: "divider", borderRadius: 1, display: "flex", alignItems: "center", px: 1 }}
+                sx={{ flex: 1, height: 32, border: 1, borderColor: "divider", borderRadius: 1, display: "flex", alignItems: "center", px: 1, gap: 1 }}
               >
                 {timeline.video ? (
-                  <Chip
-                    size="small"
-                    icon={<VideoIcon fontSize="small" />}
-                    label={timeline.video.documentFilename || `Document #${timeline.video.documentId}`}
-                    onDelete={() => setTimeline((p) => ({ ...p, video: null }))}
-                  />
+                  <>
+                    <Chip
+                      size="small"
+                      icon={<VideoIcon fontSize="small" />}
+                      label={timeline.video.documentFilename || `Document #${timeline.video.documentId}`}
+                      onDelete={() => setTimeline((p) => ({ ...p, video: null }))}
+                    />
+                    <TextField
+                      size="small"
+                      label="Start (s)"
+                      type="number"
+                      value={timeline.video.trimStart ?? 0}
+                      onChange={(e) =>
+                        setTimeline((prev) => ({
+                          ...prev,
+                          video: { ...prev.video, trimStart: Number(e.target.value) || 0 },
+                        }))
+                      }
+                      sx={{ width: 100 }}
+                      inputProps={{ step: "0.1", min: 0 }}
+                    />
+                    <TextField
+                      size="small"
+                      label="End (s)"
+                      type="number"
+                      value={timeline.video.trimEnd ?? ""}
+                      placeholder="full"
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setTimeline((prev) => ({
+                          ...prev,
+                          video: { ...prev.video, trimEnd: v === "" ? null : Number(v) },
+                        }));
+                      }}
+                      sx={{ width: 100 }}
+                      inputProps={{ step: "0.1", min: 0 }}
+                    />
+                  </>
                 ) : (
                   <Typography variant="caption" color="text.secondary">Drag a video here</Typography>
                 )}
@@ -552,7 +635,7 @@ const VideoEditorPage = () => {
 
           <Divider sx={{ my: 1 }} />
           <Typography variant="caption" color="text.secondary">
-            v1 — drag-and-drop, render endpoint, and orchestrator integration land in subsequent phases.
+            Shortcuts: <kbd>Space</kbd> play/pause, <kbd>Delete</kbd> remove selected text, <kbd>Cmd/Ctrl+Z</kbd> undo last action.
           </Typography>
         </Paper>
       </Box>
