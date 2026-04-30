@@ -192,9 +192,11 @@ class PluginBase(ABC):
         return False
     
     def _save_config(self):
-        if self.metadata:
-            json_path = self.plugin_dir / 'plugin.json'
-            self.metadata.save(json_path)
+        # Intentionally a no-op. plugin.json is the static manifest and
+        # MUST NOT be mutated at runtime — runtime state lives in
+        # data/plugin_state.json (user_enabled overlay), managed by
+        # backend.plugins.plugin_manager.PluginManager.
+        return
     
     def get_info(self) -> Dict[str, Any]:
         return {
