@@ -38,15 +38,35 @@ class PluginConfig:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'PluginConfig':
-        known_fields = {'enabled', 'auto_start', 'service_url', 'timeout', 'fallback_enabled'}
+        # Manifest fields use the `default_*` names to make their role explicit:
+        # they're the *default* for fresh installs; live state is in
+        # data/plugin_state.json. Legacy `enabled`/`auto_start` keys are still
+        # accepted for backward compatibility with un-migrated manifests.
+        # `default_enabled` (new) takes precedence over `enabled` (legacy)
+        # if both are present mid-migration.
+        enabled = data.get("default_enabled", data.get("enabled", False))
+        auto_start = data.get("default_auto_start", data.get("auto_start", False))
+
+        known_fields = {"service_url", "timeout", "fallback_enabled"}
         known_data = {k: v for k, v in data.items() if k in known_fields}
-        extra_data = {k: v for k, v in data.items() if k not in known_fields}
-        return cls(**known_data, extra=extra_data)
+        ignored = {"default_enabled", "default_auto_start", "enabled", "auto_start"}
+        extra_data = {
+            k: v for k, v in data.items()
+            if k not in known_fields and k not in ignored
+        }
+        return cls(
+            enabled=bool(enabled),
+            auto_start=bool(auto_start),
+            **known_data,
+            extra=extra_data,
+        )
 
     def to_dict(self) -> Dict[str, Any]:
+        # Emit the new field names. Old `enabled`/`auto_start` are gone from
+        # the serialized manifest; runtime state lives in plugin_state.json.
         result = {
-            'enabled': self.enabled,
-            'auto_start': self.auto_start,
+            'default_enabled': self.enabled,
+            'default_auto_start': self.auto_start,
             'service_url': self.service_url,
             'timeout': self.timeout,
             'fallback_enabled': self.fallback_enabled,

@@ -108,3 +108,35 @@ def test_registry_update_config_allows_non_runtime_fields(tmp_path):
     json_path = plugin_dir / "plugin.json"
     data = json.loads(json_path.read_text())
     assert data["config"]["timeout"] == 90
+
+
+from backend.plugins.plugin_base import PluginConfig
+
+
+def test_plugin_config_accepts_default_enabled_field():
+    cfg = PluginConfig.from_dict({"default_enabled": True, "timeout": 30})
+    assert cfg.enabled is True
+    assert cfg.timeout == 30
+
+
+def test_plugin_config_default_enabled_takes_precedence_over_legacy_enabled():
+    # If a manifest still has both fields (mid-migration), the explicit
+    # default_enabled wins.
+    cfg = PluginConfig.from_dict({"default_enabled": False, "enabled": True})
+    assert cfg.enabled is False
+
+
+def test_plugin_config_falls_back_to_legacy_enabled_when_default_enabled_absent():
+    cfg = PluginConfig.from_dict({"enabled": True})
+    assert cfg.enabled is True
+
+
+def test_plugin_config_to_dict_emits_default_enabled_not_enabled():
+    cfg = PluginConfig(enabled=True, auto_start=False, timeout=30)
+    out = cfg.to_dict()
+    assert "default_enabled" in out
+    assert out["default_enabled"] is True
+    # Old keys not emitted any more
+    assert "enabled" not in out
+    assert "auto_start" not in out
+    assert "default_auto_start" in out
