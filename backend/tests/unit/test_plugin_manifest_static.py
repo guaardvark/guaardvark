@@ -68,3 +68,43 @@ def test_plugin_base_disable_does_not_mutate_plugin_json(tmp_path):
     after = _hash(json_path)
     assert before == after
     assert plugin.metadata.config.enabled is False
+
+
+from backend.plugins.plugin_registry import PluginRegistry
+
+
+def test_registry_update_config_does_not_mutate_plugin_json_for_enabled(tmp_path):
+    plugins_dir = tmp_path / "plugins"
+    plugin_dir = plugins_dir / "demo"
+    json_path = _write_manifest(plugin_dir, "demo", enabled=False)
+    before = _hash(json_path)
+
+    registry = PluginRegistry(plugins_dir=plugins_dir)
+    assert registry.is_registered("demo")
+
+    # Caller tries to flip 'enabled' via the registry — must be refused
+    # (or routed through user_enabled overlay), never written to disk.
+    result = registry.update_plugin_config("demo", {"enabled": True})
+    assert result is False, (
+        "registry.update_plugin_config must refuse runtime-state keys "
+        "(enabled, auto_start) — they belong in plugin_state.json"
+    )
+
+    after = _hash(json_path)
+    assert before == after
+
+
+def test_registry_update_config_allows_non_runtime_fields(tmp_path):
+    """Static manifest fields like timeout are still editable via the registry.
+    They are not per-machine state, so changing them in plugin.json is fine."""
+    plugins_dir = tmp_path / "plugins"
+    plugin_dir = plugins_dir / "demo"
+    _write_manifest(plugin_dir, "demo", enabled=False)
+
+    registry = PluginRegistry(plugins_dir=plugins_dir)
+    result = registry.update_plugin_config("demo", {"timeout": 90})
+    assert result is True
+
+    json_path = plugin_dir / "plugin.json"
+    data = json.loads(json_path.read_text())
+    assert data["config"]["timeout"] == 90

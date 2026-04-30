@@ -150,38 +150,55 @@ class PluginRegistry:
         """Check if a plugin is registered"""
         return plugin_id in self._plugins
     
+    # Keys that represent per-machine runtime state. These belong in
+    # data/plugin_state.json (user_enabled overlay), NOT in plugin.json.
+    _RUNTIME_STATE_KEYS = frozenset({"enabled", "auto_start"})
+
     def update_plugin_config(self, plugin_id: str, config_updates: Dict[str, Any]) -> bool:
         """
-        Update plugin configuration.
-        
+        Update plugin manifest configuration on disk.
+
+        Refuses any update that touches runtime-state keys (enabled, auto_start) —
+        those must go through PluginManager.enable_plugin/disable_plugin which
+        writes to data/plugin_state.json instead. This prevents per-machine
+        plugin.json drift between client and master nodes.
+
         Args:
             plugin_id: Plugin ID
             config_updates: Dictionary of config values to update
-            
+
         Returns:
-            True if successful
+            True if successful, False if rejected or failed
         """
         if plugin_id not in self._plugins:
             logger.warning(f"Plugin not found: {plugin_id}")
             return False
-        
+
+        forbidden = self._RUNTIME_STATE_KEYS.intersection(config_updates.keys())
+        if forbidden:
+            logger.error(
+                f"Refusing update_plugin_config for {plugin_id}: "
+                f"runtime-state keys {sorted(forbidden)} must use "
+                f"PluginManager.enable_plugin/disable_plugin (writes "
+                f"data/plugin_state.json), not plugin.json."
+            )
+            return False
+
         metadata = self._plugins[plugin_id]
         plugin_dir = self._plugin_dirs[plugin_id]
-        
-        # Update config
+
         for key, value in config_updates.items():
             if hasattr(metadata.config, key):
                 setattr(metadata.config, key, value)
             else:
                 metadata.config.extra[key] = value
-        
-        # Save to plugin.json
+
         try:
             metadata.save(plugin_dir / 'plugin.json')
-            logger.info(f"Updated config for plugin: {plugin_id}")
+            logger.info(f"Updated manifest for plugin: {plugin_id}")
             return True
         except Exception as e:
-            logger.error(f"Failed to save plugin config: {e}")
+            logger.error(f"Failed to save plugin manifest: {e}")
             return False
 
 
