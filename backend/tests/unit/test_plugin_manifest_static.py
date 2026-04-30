@@ -140,3 +140,26 @@ def test_plugin_config_to_dict_emits_default_enabled_not_enabled():
     assert "enabled" not in out
     assert "auto_start" not in out
     assert "default_auto_start" in out
+
+
+def test_no_plugin_json_in_repo_contains_runtime_state_keys():
+    """Regression guard: plugins/<id>/plugin.json must be a static manifest."""
+    repo_root = Path(__file__).resolve().parents[3]
+    plugins_dir = repo_root / "plugins"
+    if not plugins_dir.is_dir():
+        pytest.skip(f"plugins/ not found at {plugins_dir}")
+
+    offenders = []
+    for plugin_json in sorted(plugins_dir.glob("*/plugin.json")):
+        data = json.loads(plugin_json.read_text())
+        config = data.get("config", {})
+        for legacy_key in ("enabled", "auto_start"):
+            if legacy_key in config:
+                offenders.append(f"{plugin_json.relative_to(repo_root)} has config.{legacy_key}")
+
+    assert not offenders, (
+        "plugin.json files contain runtime-state keys — these belong in "
+        "data/plugin_state.json's user_enabled overlay, not the manifest. "
+        "Run scripts/migrate_plugin_manifests.py to fix:\n  "
+        + "\n  ".join(offenders)
+    )
