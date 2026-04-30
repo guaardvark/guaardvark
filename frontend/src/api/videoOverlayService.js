@@ -50,6 +50,13 @@ export const listAudioDocuments = async () => {
   return res.data?.data?.audio || res.data?.audio || [];
 };
 
+// Mirror of the above for image documents — populates the editor's
+// Images tab in the media library.
+export const listImageDocuments = async () => {
+  const res = await axios.get(`${API_BASE}/video-overlay/image-library?limit=200`);
+  return res.data?.data?.images || res.data?.images || [];
+};
+
 // Phase 7 — render a Video Editor timeline to a final mp4.
 export const renderTimeline = async (timeline) => {
   // timeline shape mirrors the backend endpoint's expected payload.

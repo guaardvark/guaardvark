@@ -20,6 +20,9 @@ import {
   Divider,
   CircularProgress,
   Alert,
+  Tabs,
+  Tab,
+  Grid,
 } from "@mui/material";
 import {
   PlayArrow as PlayIcon,
@@ -29,9 +32,10 @@ import {
   TextFields as TextIcon,
   MovieFilter as VideoIcon,
   GraphicEq as AudioIcon,
+  Image as ImageIcon,
 } from "@mui/icons-material";
 import PageLayout from "../components/layout/PageLayout";
-import { listVideoDocuments, listAudioDocuments, renderTimeline } from "../api/videoOverlayService";
+import { listVideoDocuments, listAudioDocuments, listImageDocuments, renderTimeline } from "../api/videoOverlayService";
 import { getJobsGate } from "../api/jobsService";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
@@ -60,7 +64,10 @@ const VideoEditorPage = () => {
   const videoElRef = useRef(null);
   const [mediaLibrary, setMediaLibrary] = useState([]);
   const [audioLibrary, setAudioLibrary] = useState([]);
+  const [imageLibrary, setImageLibrary] = useState([]);
+  const [mediaTab, setMediaTab] = useState(0);  // 0=Video, 1=Audio, 2=Images
   const [loadingMedia, setLoadingMedia] = useState(false);
+  const [videoDuration, setVideoDuration] = useState(0);  // for visual trim slider
   const [selectedItem, setSelectedItem] = useState(null);  // {type, id} for properties panel
   const [previewPlaying, setPreviewPlaying] = useState(false);
   const [rendering, setRendering] = useState(false);
@@ -86,16 +93,17 @@ const VideoEditorPage = () => {
     return () => { cancelled = true; clearInterval(t); };
   }, []);
 
-  // Pull video + audio Documents into the media library. Phase 6 of the
-  // editor plan — both lists feed the drag-drop palette.
+  // Pull video + audio + image Documents into the media library. Three
+  // tabs in the panel each render their own icon-grid.
   useEffect(() => {
     let cancelled = false;
     setLoadingMedia(true);
-    Promise.all([listVideoDocuments(), listAudioDocuments()])
-      .then(([videos, audios]) => {
+    Promise.all([listVideoDocuments(), listAudioDocuments(), listImageDocuments()])
+      .then(([videos, audios, images]) => {
         if (!cancelled) {
           setMediaLibrary(videos);
           setAudioLibrary(audios);
+          setImageLibrary(images);
         }
       })
       .catch((e) => {
@@ -303,74 +311,88 @@ const VideoEditorPage = () => {
       <Box sx={{ display: "flex", flexDirection: "column", height: "calc(100vh - 96px)", p: 2, gap: 2 }}>
         {/* Top half: preview + media library + properties */}
         <Box sx={{ display: "flex", gap: 2, flex: 1, minHeight: 0 }}>
-          {/* Media library — left */}
-          <Paper elevation={2} sx={{ width: 240, p: 2, overflow: "auto" }}>
-            <Typography variant="subtitle2" fontWeight="bold" mb={1}>Media Library</Typography>
-            {loadingMedia && <CircularProgress size={20} />}
-            {!loadingMedia && mediaLibrary.length === 0 && (
-              <Typography variant="caption" color="text.secondary">
-                No video files yet. Generate one or import from Documents.
-              </Typography>
-            )}
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>Videos</Typography>
-            <Stack spacing={1} mb={2}>
-              {mediaLibrary.map((m) => (
-                <Paper
-                  key={`v-${m.id}`}
-                  variant="outlined"
-                  draggable
-                  onDragStart={(e) => handleDragStartMedia(e, m, "video")}
-                  sx={{ p: 1, cursor: "grab", "&:hover": { bgcolor: "action.hover" }, "&:active": { cursor: "grabbing" } }}
-                  onClick={() => handleAddMedia(m)}
-                >
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <VideoIcon fontSize="small" color="primary" />
-                    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                      <Typography variant="caption" sx={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {m.filename}
-                      </Typography>
-                      {m.size != null && (
-                        <Typography variant="caption" color="text.secondary">
-                          {(m.size / 1024 / 1024).toFixed(1)} MB
-                        </Typography>
-                      )}
-                    </Box>
-                  </Stack>
-                </Paper>
-              ))}
-            </Stack>
+          {/* Media library — left. Tabbed icon-grid: Video / Audio / Images.
+              Each tile is draggable onto its matching timeline track. */}
+          <Paper elevation={2} sx={{ width: 280, display: "flex", flexDirection: "column", minHeight: 0 }}>
+            <Tabs
+              value={mediaTab}
+              onChange={(_, v) => setMediaTab(v)}
+              variant="fullWidth"
+              sx={{ borderBottom: 1, borderColor: "divider", minHeight: 40 }}
+            >
+              <Tab icon={<VideoIcon fontSize="small" />} label={`Video (${mediaLibrary.length})`} sx={{ minHeight: 40, textTransform: "none", fontSize: "0.75rem" }} />
+              <Tab icon={<AudioIcon fontSize="small" />} label={`Audio (${audioLibrary.length})`} sx={{ minHeight: 40, textTransform: "none", fontSize: "0.75rem" }} />
+              <Tab icon={<ImageIcon fontSize="small" />} label={`Images (${imageLibrary.length})`} sx={{ minHeight: 40, textTransform: "none", fontSize: "0.75rem" }} />
+            </Tabs>
 
-            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>Audio</Typography>
-            <Stack spacing={1}>
-              {audioLibrary.length === 0 && !loadingMedia && (
-                <Typography variant="caption" color="text.secondary">
-                  No audio files yet. Generate via Audio Studio.
-                </Typography>
-              )}
-              {audioLibrary.map((a) => (
-                <Paper
-                  key={`a-${a.id}`}
-                  variant="outlined"
-                  draggable
-                  onDragStart={(e) => handleDragStartMedia(e, a, "audio")}
-                  sx={{ p: 1, cursor: "grab", "&:hover": { bgcolor: "action.hover" } }}
-                >
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <AudioIcon fontSize="small" sx={{ color: TRACK_COLORS.audio }} />
-                    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                      <Typography variant="caption" sx={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {a.filename}
-                      </Typography>
-                      {a.size != null && (
-                        <Typography variant="caption" color="text.secondary">
-                          {(a.size / 1024 / 1024).toFixed(1)} MB
-                        </Typography>
-                      )}
-                    </Box>
-                  </Stack>
-                </Paper>
-              ))}
-            </Stack>
+            <Box sx={{ flex: 1, p: 1, overflow: "auto" }}>
+              {loadingMedia && <CircularProgress size={20} />}
+              {(() => {
+                const list = mediaTab === 0 ? mediaLibrary : mediaTab === 1 ? audioLibrary : imageLibrary;
+                const kind = mediaTab === 0 ? "video" : mediaTab === 1 ? "audio" : "image";
+                const Icon = mediaTab === 0 ? VideoIcon : mediaTab === 1 ? AudioIcon : ImageIcon;
+                const iconColor = mediaTab === 0 ? "primary.main" : mediaTab === 1 ? TRACK_COLORS.audio : "info.main";
+                if (!loadingMedia && list.length === 0) {
+                  return (
+                    <Typography variant="caption" color="text.secondary" sx={{ p: 1, display: "block" }}>
+                      Nothing here yet. Generate via the Studio or import from Documents.
+                    </Typography>
+                  );
+                }
+                return (
+                  <Grid container spacing={1}>
+                    {list.map((item) => (
+                      <Grid item xs={6} key={`${kind}-${item.id}`}>
+                        <Paper
+                          variant="outlined"
+                          draggable
+                          onDragStart={(e) => handleDragStartMedia(e, item, kind)}
+                          onClick={() => kind === "video" && handleAddMedia(item)}
+                          sx={{
+                            p: 1,
+                            cursor: "grab",
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: 0.5,
+                            "&:hover": { bgcolor: "action.hover", borderColor: iconColor },
+                            "&:active": { cursor: "grabbing" },
+                            aspectRatio: "1 / 1",
+                            justifyContent: "center",
+                            textAlign: "center",
+                          }}
+                        >
+                          {kind === "image" ? (
+                            <Box
+                              component="img"
+                              src={`${API_BASE}/files/document/${item.id}/download`}
+                              sx={{ maxWidth: "100%", maxHeight: 60, objectFit: "contain", borderRadius: 0.5 }}
+                              onError={(e) => { e.target.style.display = "none"; }}
+                            />
+                          ) : (
+                            <Icon sx={{ fontSize: 36, color: iconColor }} />
+                          )}
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              fontSize: "0.65rem",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              width: "100%",
+                              lineHeight: 1.2,
+                            }}
+                            title={item.filename}
+                          >
+                            {item.filename}
+                          </Typography>
+                        </Paper>
+                      </Grid>
+                    ))}
+                  </Grid>
+                );
+              })()}
+            </Box>
           </Paper>
 
           {/* Preview window — center */}
@@ -383,6 +405,18 @@ const VideoEditorPage = () => {
                   controls
                   onPlay={() => setPreviewPlaying(true)}
                   onPause={() => setPreviewPlaying(false)}
+                  onLoadedMetadata={(e) => {
+                    // Captures the source duration so the trim slider can set
+                    // its max bound; default trimEnd = full duration if unset.
+                    const dur = e.target.duration;
+                    if (dur && isFinite(dur)) {
+                      setVideoDuration(dur);
+                      setTimeline((prev) => prev.video && prev.video.trimEnd == null
+                        ? { ...prev, video: { ...prev.video, trimEnd: dur } }
+                        : prev,
+                      );
+                    }
+                  }}
                   style={{ maxWidth: "100%", maxHeight: "100%", display: "block" }}
                 />
               ) : (
@@ -557,13 +591,13 @@ const VideoEditorPage = () => {
           </Stack>
 
           <Stack spacing={1}>
-            {/* Video track + Phase 10 trim inputs */}
+            {/* Video track + visual trim slider */}
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Chip size="small" label="V" sx={{ bgcolor: TRACK_COLORS.video, color: "white", minWidth: 28 }} />
               <Box
                 onDragOver={handleDragOver}
                 onDrop={handleDropOnVideoTrack}
-                sx={{ flex: 1, height: 32, border: 1, borderColor: "divider", borderRadius: 1, display: "flex", alignItems: "center", px: 1, gap: 1 }}
+                sx={{ flex: 1, minHeight: 32, border: 1, borderColor: "divider", borderRadius: 1, display: "flex", alignItems: "center", px: 1, gap: 2 }}
               >
                 {timeline.video ? (
                   <>
@@ -572,37 +606,36 @@ const VideoEditorPage = () => {
                       icon={<VideoIcon fontSize="small" />}
                       label={timeline.video.documentFilename || `Document #${timeline.video.documentId}`}
                       onDelete={() => setTimeline((p) => ({ ...p, video: null }))}
+                      sx={{ flexShrink: 0 }}
                     />
-                    <TextField
-                      size="small"
-                      label="Start (s)"
-                      type="number"
-                      value={timeline.video.trimStart ?? 0}
-                      onChange={(e) =>
-                        setTimeline((prev) => ({
-                          ...prev,
-                          video: { ...prev.video, trimStart: Number(e.target.value) || 0 },
-                        }))
-                      }
-                      sx={{ width: 100 }}
-                      inputProps={{ step: "0.1", min: 0 }}
-                    />
-                    <TextField
-                      size="small"
-                      label="End (s)"
-                      type="number"
-                      value={timeline.video.trimEnd ?? ""}
-                      placeholder="full"
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setTimeline((prev) => ({
-                          ...prev,
-                          video: { ...prev.video, trimEnd: v === "" ? null : Number(v) },
-                        }));
-                      }}
-                      sx={{ width: 100 }}
-                      inputProps={{ step: "0.1", min: 0 }}
-                    />
+                    {videoDuration > 0 && (
+                      <Box sx={{ flex: 1, display: "flex", alignItems: "center", gap: 1 }}>
+                        <Typography variant="caption" sx={{ minWidth: 36, fontFamily: "monospace" }}>
+                          {(timeline.video.trimStart || 0).toFixed(1)}s
+                        </Typography>
+                        <Slider
+                          size="small"
+                          value={[
+                            timeline.video.trimStart || 0,
+                            timeline.video.trimEnd ?? videoDuration,
+                          ]}
+                          min={0}
+                          max={videoDuration}
+                          step={0.1}
+                          onChange={(_e, v) => {
+                            const [start, end] = Array.isArray(v) ? v : [v, v];
+                            setTimeline((prev) => ({
+                              ...prev,
+                              video: { ...prev.video, trimStart: start, trimEnd: end },
+                            }));
+                          }}
+                          sx={{ color: TRACK_COLORS.video }}
+                        />
+                        <Typography variant="caption" sx={{ minWidth: 36, fontFamily: "monospace", textAlign: "right" }}>
+                          {(timeline.video.trimEnd ?? videoDuration).toFixed(1)}s
+                        </Typography>
+                      </Box>
+                    )}
                   </>
                 ) : (
                   <Typography variant="caption" color="text.secondary">Drag a video here</Typography>

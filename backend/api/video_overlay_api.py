@@ -113,6 +113,24 @@ def list_audio_library():
     })
 
 
+@video_overlay_bp.route("/image-library", methods=["GET"])
+def list_image_library():
+    """List image Documents for the editor's media library image rail."""
+    limit = min(int(request.args.get("limit", 200)), 500)
+    extensions = (".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff")
+    rows = (
+        DBDocument.query
+        .filter(db.or_(*[DBDocument.filename.ilike(f"%{ext}") for ext in extensions]))
+        .order_by(DBDocument.id.desc())
+        .limit(limit)
+        .all()
+    )
+    return success_response({
+        "images": [d.to_dict() for d in rows],
+        "total": len(rows),
+    })
+
+
 @video_overlay_bp.route("/render-timeline", methods=["POST"])
 def render_timeline_endpoint():
     """Render a Video Editor timeline to a final mp4.
