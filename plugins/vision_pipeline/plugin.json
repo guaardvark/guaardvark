@@ -13,8 +13,6 @@
     "ollama"
   ],
   "config": {
-    "enabled": true,
-    "auto_start": false,
     "service_url": "http://localhost:8201",
     "timeout": 30,
     "fallback_enabled": false,
@@ -25,7 +23,9 @@
     "frame_quality": 70,
     "frame_width": 512,
     "context_window_seconds": 30,
-    "change_threshold": 0.3
+    "change_threshold": 0.3,
+    "default_enabled": true,
+    "default_auto_start": false
   },
   "requirements": {
     "gpu": false,

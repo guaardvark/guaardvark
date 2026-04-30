@@ -11,14 +11,14 @@
   "core": false,
   "dependencies": [],
   "config": {
-    "enabled": true,
-    "auto_start": false,
     "service_url": "http://127.0.0.1:8206",
     "timeout": 120,
     "fallback_enabled": false,
     "default_voice_backend": "chatterbox",
     "default_output_format": "wav",
-    "output_dir": "data/outputs/audio"
+    "output_dir": "data/outputs/audio",
+    "default_enabled": true,
+    "default_auto_start": false
   },
   "requirements": {
     "gpu": true,

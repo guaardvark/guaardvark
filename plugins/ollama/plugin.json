@@ -11,11 +11,11 @@
   "core": true,
   "dependencies": [],
   "config": {
-    "enabled": true,
-    "auto_start": false,
     "service_url": "http://localhost:11434",
     "timeout": 30,
-    "fallback_enabled": false
+    "fallback_enabled": false,
+    "default_enabled": false,
+    "default_auto_start": false
   },
   "requirements": {
     "gpu": true,

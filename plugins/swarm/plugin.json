@@ -11,15 +11,15 @@
   "core": false,
   "dependencies": [],
   "config": {
-    "enabled": true,
-    "auto_start": false,
     "service_url": "http://localhost:8210",
     "timeout": 30,
     "fallback_enabled": false,
     "max_concurrent_agents": 5,
     "flight_mode": false,
     "auto_merge": false,
-    "run_tests_before_merge": true
+    "run_tests_before_merge": true,
+    "default_enabled": true,
+    "default_auto_start": false
   },
   "requirements": {
     "gpu": false,

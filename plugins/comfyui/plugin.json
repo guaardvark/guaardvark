@@ -11,11 +11,11 @@
   "core": false,
   "dependencies": [],
   "config": {
-    "enabled": true,
-    "auto_start": false,
     "service_url": "http://127.0.0.1:8188",
     "timeout": 60,
-    "fallback_enabled": false
+    "fallback_enabled": false,
+    "default_enabled": true,
+    "default_auto_start": false
   },
   "requirements": {
     "gpu": true,

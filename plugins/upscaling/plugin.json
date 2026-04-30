@@ -11,8 +11,6 @@
   "core": false,
   "dependencies": [],
   "config": {
-    "enabled": false,
-    "auto_start": false,
     "service_url": "http://localhost:8202",
     "timeout": 30,
     "fallback_enabled": false,
@@ -26,7 +24,9 @@
     "watch_input_dir": "",
     "watch_output_dir": "",
     "target_width": 3840,
-    "callback_url": ""
+    "callback_url": "",
+    "default_enabled": false,
+    "default_auto_start": false
   },
   "requirements": {
     "gpu": true,
