@@ -219,6 +219,7 @@ class VisionAnalyzer:
         num_predict: int = 256,
         temperature: float = 0.3,
         think: bool = False,
+        system: Optional[str] = None,
     ) -> VisionResult:
         """
         Analyze an image using an Ollama vision model.
@@ -232,6 +233,10 @@ class VisionAnalyzer:
             think: Allow thinking tokens (default: False — thinking models
                    like Gemma4 burn through num_predict on hidden reasoning,
                    returning empty content)
+            system: Optional system-role content. Used to carry persistent
+                   instructions or knowledge that must not compete with the
+                   per-call user prompt for action-format conditioning. The
+                   agent's cross-session memory rides this slot.
 
         Returns:
             VisionResult with description or error
@@ -243,13 +248,18 @@ class VisionAnalyzer:
             import time
             start = time.time()
 
+            messages = []
+            if system:
+                messages.append({"role": "system", "content": system})
+            messages.append({
+                "role": "user",
+                "content": prompt,
+                "images": [image_b64],
+            })
+
             request_body = {
                 "model": model,
-                "messages": [{
-                    "role": "user",
-                    "content": prompt,
-                    "images": [image_b64],
-                }],
+                "messages": messages,
                 "stream": False,
                 "options": {
                     "num_predict": num_predict,

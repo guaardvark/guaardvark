@@ -34,7 +34,11 @@ _service_lock = threading.Lock()
 class AgentControlConfig:
     """Configuration for the agent control loop."""
     max_iterations: int = 15
-    max_consecutive_failures: int = 3
+    # Bumped from 3 → 5 so transient screen states (mid-load page, brief
+    # black between window switches, vision model spitting bad JSON once)
+    # don't kill the loop. The failure counter still resets on every successful
+    # action, so this only matters for genuinely-stuck sequences.
+    max_consecutive_failures: int = 5
     task_timeout_seconds: int = 60  # 1 minute — good tasks finish in <10s
     action_timeout_seconds: int = 60
     verify_actions: bool = True
@@ -272,9 +276,21 @@ class AgentControlService:
                 if unified_model:
                     # UNIFIED MODE: Compact prompt — vision model sees screenshot + short context
                     unified_prompt = self._build_unified_prompt(task, self._action_history, training_mode=training_mode)
+                    # Persistent cross-session knowledge rides the system slot,
+                    # not the user prompt — keeps the per-step prompt small
+                    # enough to hold the model in instructed mode while still
+                    # carrying URL routes, Firefox button location, recipe
+                    # index, etc. into every decision.
+                    persistent_system = self._build_persistent_knowledge_system()
+                    if persistent_system:
+                        logger.warning(
+                            f"[AGENT][PROMPT-UNIFIED] system_msg={len(persistent_system)}ch "
+                            f"user_prompt={len(unified_prompt)}ch"
+                        )
                     result = analyzer.analyze(
                         screenshot, prompt=unified_prompt,
-                        model=unified_model, num_predict=256, temperature=0.1
+                        model=unified_model, num_predict=256, temperature=0.1,
+                        system=persistent_system or None,
                     )
                     if not result.success:
                         logger.error(f"[AGENT][STEP {iteration+1}][UNIFIED] Vision+decision failed: {result.error}")
@@ -448,12 +464,14 @@ class AgentControlService:
                 # 5c. LOOP BREAKER — if last 3 actions are identical, the LLM
                 # is stuck in a loop. Force-complete instead of burning iterations.
                 # Disabled in training mode — repeating clicks is the whole point.
+                # Also disabled for `wait` — patiently waiting through a slow load
+                # is exactly what we WANT, not a loop to break out of.
                 if len(self._action_history) >= 3 and not getattr(self, '_training_mode', False):
                     last3 = [
                         (h.action.action_type, h.action.target_description, h.action.text)
                         for h in self._action_history[-3:]
                     ]
-                    if len(set(last3)) == 1:
+                    if len(set(last3)) == 1 and last3[0][0] != "wait":
                         logger.warning(
                             f"[AGENT][LOOP] Same action repeated 3x: "
                             f"{last3[0][0]} \"{last3[0][1] or last3[0][2]}\". "
@@ -965,6 +983,14 @@ class AgentControlService:
                     return screen.move(action.coordinates[0], action.coordinates[1])
                 return {"success": False, "error": "No coordinates for move"}
 
+            elif action.action_type == "wait":
+                # Patience action — for transient screens (mid-load, focus loss,
+                # animation in flight). Defaults to 1.5s; the model can ask
+                # for longer by stuffing seconds into scroll_amount.
+                seconds = max(0.3, min(float(action.scroll_amount or 1.5), 8.0))
+                time.sleep(seconds)
+                return {"success": True, "waited": seconds}
+
             else:
                 return {"success": False, "error": f"Unknown action: {action.action_type}"}
 
@@ -1124,13 +1150,21 @@ class AgentControlService:
         if training_mode:
             training_override = "\nTRAINING MODE: NEVER say done. Click the next target.\n"
 
+        # One-line confidence rules. Kept terse on purpose — verbose
+        # prompt text leaks into typed actions when the model parrots context.
+        confidence = (
+            "Web task + no browser visible: open Firefox first. "
+            "Screen mid-load or transient: wait, do not quit. "
+            "Step 1 done is forbidden."
+        )
+
         return f"""Task: {task}
 
 {desktop_state}
-{dom_block}{done_lines}{loop_warning}{training_override}Step {len(history) + 1}. ONE next action.
+{dom_block}{done_lines}{loop_warning}{training_override}Step {len(history) + 1}. ONE next action. {confidence}
 
 Reply ONLY with JSON:
-{{"action": "click|right_click|type|hotkey|scroll|done", "target_description": "...", "text": "literal value only", "keys": ["ctrl","t"], "reasoning": "why"}}"""
+{{"action": "click|right_click|type|hotkey|scroll|wait|done", "target_description": "...", "text": "literal value only", "keys": ["ctrl","t"], "reasoning": "why"}}"""
 
     @staticmethod
     def _get_unified_model() -> str:
@@ -1189,6 +1223,25 @@ Reply ONLY with JSON:
             logger.warning(f"Failed to load recipes: {e}")
             cls._recipe_cache = {}
             return {}
+
+    @classmethod
+    def _load_recipe_index(cls) -> str:
+        """Render the recipe library as a one-line-per-recipe index for the
+        agent's decision prompt. Recipes that match a task are auto-executed
+        before the LLM ever sees the prompt — but listing them by description
+        tells the LLM what shortcuts exist, so it can phrase its own steps the
+        same way (e.g. 'click the orange Firefox button' instead of pixel
+        hunting).
+        """
+        recipes = cls._load_recipes()
+        if not recipes:
+            return ""
+        lines = []
+        for name, recipe in recipes.items():
+            desc = (recipe.get("description") or "").strip()
+            if desc:
+                lines.append(f"- {name}: {desc}")
+        return "\n".join(lines)
 
     def _try_recipe(self, task: str, screen) -> 'AgentResult | None':
         """Match task against recipe library and execute deterministically."""
@@ -1361,6 +1414,45 @@ Reply ONLY with JSON:
         return ""
 
     @staticmethod
+    def _load_self_knowledge_compact() -> str:
+        """Load the compact self-knowledge file for unified VLM prompts.
+        Smaller and prose-only — sized to ride below the threshold that
+        flips a vision-LLM into its CSS-selector training prior. Used in
+        the system-message slot, paired with the recipe index.
+        """
+        import os
+        from backend.config import GUAARDVARK_ROOT
+        path = os.path.join(GUAARDVARK_ROOT, "data", "agent", "self_knowledge_compact.md")
+        try:
+            if os.path.exists(path):
+                with open(path, "r") as f:
+                    return f.read().strip()
+        except Exception as e:
+            logger.warning(f"Failed to load compact self-knowledge: {e}")
+        return ""
+
+    @classmethod
+    def _build_persistent_knowledge_system(cls) -> str:
+        """Build the system-message content carrying the agent's persistent
+        knowledge — compact facts plus recipe index. Routed via Ollama's
+        system role so it doesn't compete with the per-step user prompt
+        for action-format conditioning. This is the cross-session memory
+        slot: anything in here survives reboots and primes every decision.
+        """
+        parts = []
+        sk = cls._load_self_knowledge_compact()
+        if sk:
+            parts.append(sk)
+        recipes = cls._load_recipe_index()
+        if recipes:
+            parts.append(
+                "## Available Recipes (the system auto-executes these on matching task strings; "
+                "knowing they exist tells you what shortcuts the environment offers)\n"
+                + recipes
+            )
+        return "\n\n".join(parts)
+
+    @staticmethod
     def _load_example_traces(task: str) -> str:
         """Load relevant example traces for the task to use as few-shot examples."""
         import os, json, re
@@ -1468,7 +1560,39 @@ Reply ONLY with JSON:
 
         desktop_state = self._get_desktop_state()
 
-        return f"""Task: {task}
+        # Persistent knowledge — loaded once per call, stable across sessions.
+        # This is the cross-session memory: what the agent has learned about
+        # its own environment, the shortcuts it can rely on, and patterns
+        # that have worked before. Without these the LLM rediscovers the
+        # screen layout every step.
+        self_knowledge = self._load_self_knowledge()
+        recipe_index = self._load_recipe_index()
+        example_traces = self._load_example_traces(task)
+
+        knowledge_block = ""
+        if self_knowledge:
+            knowledge_block += f"## Known Facts (always true)\n{self_knowledge.strip()}\n\n"
+        if recipe_index:
+            knowledge_block += (
+                "## Available Recipes (the system auto-executes these on matching task strings; "
+                "knowing they exist tells you what shortcuts the environment offers)\n"
+                f"{recipe_index}\n\n"
+            )
+        if example_traces:
+            knowledge_block += f"{example_traces.strip()}\n\n"
+
+        # Phase-1 verification log: confirm the loaders fire and how much
+        # knowledge gets injected. Remove once we're sure it's wired right.
+        logger.warning(
+            f"[AGENT][PROMPT] knowledge_block={len(knowledge_block)}ch "
+            f"self_knowledge={len(self_knowledge)}ch "
+            f"recipe_index={len(recipe_index)}ch "
+            f"example_traces={len(example_traces)}ch"
+        )
+
+        return f"""{knowledge_block}---
+
+Task: {task}
 
 {desktop_state}
 
