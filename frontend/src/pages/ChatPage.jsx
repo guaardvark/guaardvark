@@ -519,8 +519,8 @@ const ChatPage = () => {
     if (hasExplicitCodeFileExtension || hasExplicitCodeIntent) {
 
       const codeFilenameMatch = message.match(
-        /(?:generate|create|write|save|export).*?(?:as|to|named?|into)?\s*['""]?([a-zA-Z0-9_\-\.]+\.(py|jsx?|ts|tsx|css|html|php|json|java|cpp|c|h|rb|go|rs|swift|txt|md))['""]?/i
-      ) || message.match(/['""]?([a-zA-Z0-9_\-\.]+\.(py|jsx?|ts|tsx|css|html|php|json|java|cpp|c|h|rb|go|rs|swift|txt|md))['""]?/i);
+        /(?:generate|create|write|save|export).*?(?:as|to|named?|into)?\s*['""]?([a-zA-Z0-9_\-.]+\.(py|jsx?|ts|tsx|css|html|php|json|java|cpp|c|h|rb|go|rs|swift|txt|md))['""]?/i
+      ) || message.match(/['""]?([a-zA-Z0-9_\-.]+\.(py|jsx?|ts|tsx|css|html|php|json|java|cpp|c|h|rb|go|rs|swift|txt|md))['""]?/i);
 
       const filename = codeFilenameMatch ? codeFilenameMatch[1] : `generated_file_${Date.now()}.txt`;
       const description = `Generate code file based on: "${message.substring(0, 100)}${message.length > 100 ? "..." : ""}"`;
@@ -538,7 +538,7 @@ const ChatPage = () => {
     if (hasExplicitCSVFileExtension || hasExplicitCSVIntent || hasBulkIntent) {
 
       const filenameMatch = message.match(
-        /(?:save|export|create|generate).*?(?:as|to|named?)?\s*['""]?([a-zA-Z0-9_\-\.]+\.csv)['""]?/i
+        /(?:save|export|create|generate).*?(?:as|to|named?)?\s*['""]?([a-zA-Z0-9_\-.]+\.csv)['""]?/i
       );
       const filename = filenameMatch ? filenameMatch[1] : `generated_data_${Date.now()}.csv`;
 
@@ -565,6 +565,7 @@ const ChatPage = () => {
     const initializeSession = async () => {
       const restoredSession = restoreSessionFromBackup(sessionId);
       if (restoredSession) {
+        // Restored session is already wired; nothing to do
       } else {
         registerSession(sessionId, {
           autoBackup: true,
@@ -1232,7 +1233,9 @@ const ChatPage = () => {
           setIsSending(false);
           try {
             sessionStorage.removeItem(processingStorageKey);
-          } catch (e) { }
+          } catch {
+            // sessionStorage may be unavailable; cleanup is best-effort
+          }
         }
         return;
       }

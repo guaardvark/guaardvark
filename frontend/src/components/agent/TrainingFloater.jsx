@@ -56,7 +56,9 @@ function loadState() {
 function saveState(state) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {}
+  } catch {
+    // localStorage may be blocked in private mode — drop the save quietly
+  }
 }
 
 export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
@@ -161,7 +163,9 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
         if (data.steps_count !== undefined) {
           setStepsRecorded(data.steps_count);
         }
-      } catch {}
+      } catch {
+        // poll error tolerated; next tick will retry
+      }
     };
     poll();
     pollRef.current = setInterval(poll, POLL_INTERVAL);
@@ -238,7 +242,9 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
     try {
       const res = await axios.get(`${API_BASE}/demonstrations`);
       setDemonstrations(res.data.demonstrations || []);
-    } catch {}
+    } catch {
+      // demonstrations endpoint optional — empty list is fine
+    }
   };
 
   const handleStartRecording = async () => {

@@ -19,25 +19,17 @@ import {
   Autocomplete,
   Tabs,
   Tab,
-  Typography,
-  Divider,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  IconButton,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-import AddIcon from "@mui/icons-material/Add";
-import DeleteIcon from "@mui/icons-material/Delete";
 
 import * as apiService from "../../api";
 import * as wordpressService from "../../api/wordpressService";
-import { BRAND_TONE_OPTIONS, SOCIAL_PLATFORMS } from "../../config/defaults";
-import { validateSiteMeta } from "../../utils/validation";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import RefreshIcon from "@mui/icons-material/Refresh";
-import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 
 const WebsiteActionModal = ({
   open,
@@ -80,7 +72,7 @@ const WebsiteActionModal = ({
   const [isLoadingClients, setIsLoadingClients] = useState(false);
   const [formClientValue, setFormClientValue] = useState(null); // For Client Autocomplete
   const [activeTab, setActiveTab] = useState(0); // Tab navigation: 0=Website, 1=WordPress
-  const [validationErrors, setValidationErrors] = useState(null);
+  const [_validationErrors, setValidationErrors] = useState(null);
   
   // WordPress integration state
   const [wpSite, setWpSite] = useState(null);
@@ -403,19 +395,19 @@ const WebsiteActionModal = ({
     }
   };
 
-  const handleClientMetaChange = (field, value) => {
+  const _handleClientMetaChange = (field, value) => {
     setClientMeta(prev => ({ ...prev, [field]: value }));
     setValidationErrors(null);
   };
 
-  const handleSocialLinkAdd = () => {
+  const _handleSocialLinkAdd = () => {
     setClientMeta(prev => ({
       ...prev,
       social_links: [...prev.social_links, { platform: '', url: '' }]
     }));
   };
 
-  const handleSocialLinkChange = (index, field, value) => {
+  const _handleSocialLinkChange = (index, field, value) => {
     setClientMeta(prev => ({
       ...prev,
       social_links: prev.social_links.map((link, i) =>
@@ -424,7 +416,7 @@ const WebsiteActionModal = ({
     }));
   };
 
-  const handleSocialLinkRemove = (index) => {
+  const _handleSocialLinkRemove = (index) => {
     setClientMeta(prev => ({
       ...prev,
       social_links: prev.social_links.filter((_, i) => i !== index)
@@ -454,12 +446,12 @@ const WebsiteActionModal = ({
     setWpFormError(null);
     try {
       // First register a temporary site to test, then delete it
-      const testPayload = {
+      const _testPayload = {
         url: wpFormData.url,
         username: wpFormData.username,
         api_key: wpFormData.api_key,
       };
-      
+
       // Use the test endpoint if available, or register then delete
       if (wpSite) {
         const response = await wordpressService.testWordPressConnection(wpSite.id);

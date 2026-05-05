@@ -39,8 +39,6 @@ import {
   Build,
   Dashboard,
   Assessment,
-  Visibility,
-  VisibilityOff,
   BlockOutlined,
   CheckCircleOutlined,
   SmartToy,
@@ -50,11 +48,9 @@ import {
 
 import PageLayout from "../components/layout/PageLayout";
 import { useStatus } from "../contexts/StatusContext";
-import { useAppStore } from "../stores/useAppStore";
 import { useUnifiedProgress } from "../contexts/UnifiedProgressContext";
 import { useLayout } from "../contexts/LayoutContext";
 import * as apiService from "../api";
-import * as fileOperationsService from "../api/fileOperationsService";
 import * as codeExecutionService from "../api/codeExecutionService";
 
 import FileTreeCard from "../components/codeeditor/FileTreeCard";
@@ -83,7 +79,6 @@ const CodeEditorPage = () => {
   const location = useLocation();
   const { gridSettings } = useLayout();
   const { activeModel, isLoadingModel, modelError } = useStatus();
-  const systemName = useAppStore((state) => state.systemName);
   const [initialStateLoaded, setInitialStateLoaded] = useState(false);
   const [layoutError, setLayoutError] = useState(null);
   const [cardColors, setCardColors] = useState({});
@@ -104,9 +99,6 @@ const CodeEditorPage = () => {
   const [availableModels, setAvailableModels] = useState([]);
   const [selectedModel, setSelectedModel] = useState("");
   const [isModelLoading, setIsModelLoading] = useState(false);
-
-  const [showFloatingActions, setShowFloatingActions] = useState(false);
-  const [showFloatingMetrics, setShowFloatingMetrics] = useState(false);
 
   const [symbolSearchOpen, setSymbolSearchOpen] = useState(false);
   const [symbolQuery, setSymbolQuery] = useState('');
@@ -207,7 +199,7 @@ const CodeEditorPage = () => {
     }
   }, []);
 
-  const fetchRelatedFiles = useCallback(async (folderId) => {
+  const _fetchRelatedFiles = useCallback(async (folderId) => {
     if (!folderId) {
       setRelatedFiles([]);
       return;
@@ -390,6 +382,7 @@ const CodeEditorPage = () => {
     const processId = `code-action-${action}-${Date.now()}`;
     
     try {
+      /* eslint-disable no-case-declarations -- each case body is self-contained; wrapping every case in braces is noisier than this scoped suppression */
       switch (action) {
         case 'run':
           startProcess(processId, 'Code Execution', 'Running code...');

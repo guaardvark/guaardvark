@@ -90,8 +90,6 @@ export const StatusProvider = ({ children }) => {
     };
 
     initializeStatus();
-    // Remove fetchModel and fetchModelStatus from dependencies to prevent re-runs
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Value provided by the context

@@ -13,7 +13,6 @@ import {
   Typography,
   Stack,
   Chip,
-  CircularProgress,
   Tabs,
   Tab,
   Table,
@@ -73,7 +72,7 @@ const _formatRelative = (iso) => {
   }
 };
 
-const JobsList = ({ title, subtitle, kinds }) => {
+const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
   const { unifiedJobs } = useUnifiedProgress();
 
   const [tab, setTab] = useState(0);  // 0 = Active, 1 = History
@@ -83,7 +82,7 @@ const JobsList = ({ title, subtitle, kinds }) => {
   const [historyRows, setHistoryRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [summary, setSummary] = useState(null);
+  const [_summary, setSummary] = useState(null);
   const [selected, setSelected] = useState(null);
 
   // Initial load + manual refresh button. Live updates from the socket

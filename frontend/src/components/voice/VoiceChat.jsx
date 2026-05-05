@@ -234,7 +234,7 @@ const VoiceChat = ({
       .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
       .replace(/<[^>]*>/g, '')
       .replace(/\s+/g, ' ')
-      .replace(/[•\-\*]\s*/g, '')
+      .replace(/[•\-*]\s*/g, '')
       .replace(/\n\s*\n/g, '. ')
       .replace(/\n/g, ', ')
       .replace(/\s*\.\s*\.\s*\./g, '. ')

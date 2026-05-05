@@ -22,6 +22,7 @@ import { BASE_URL } from '../../api/apiClient';
 import { getBackendHealth } from '../../api/devtoolsService';
 
 // Strip ANSI escape codes from terminal output
+// eslint-disable-next-line no-control-regex -- intentional: ANSI escape sequences are control chars by definition
 const ANSI_RE = /\x1b\[[0-9;]*[a-zA-Z]|\x1b\].*?\x07/g;
 const stripAnsi = (s) => s.replace(ANSI_RE, '');
 
@@ -106,6 +107,7 @@ const RebootProgressModal = ({ open, onClose }) => {
       const decoder = new TextDecoder();
       let buffer = '';
 
+      // eslint-disable-next-line no-constant-condition -- standard streaming-read pattern; loop exits via `if (done) break`
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;

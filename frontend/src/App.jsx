@@ -1,6 +1,6 @@
 
-import React, { Suspense, lazy, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
+import React, { Suspense, lazy } from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import useNavigationCancel from "./hooks/useNavigationCancel";
 import useGpuIntent from "./hooks/useGpuIntent";
 import useKeyboardForwarding from "./hooks/useKeyboardForwarding";
@@ -37,7 +37,6 @@ const ProjectDetailPage = lazy(() => import("./pages/ProjectDetailPage"));
 const ClientPage = lazy(() => import("./pages/ClientPage"));
 const UploadPage = lazy(() => import("./pages/UploadPage"));
 const TrainingPage = lazy(() => import("./pages/TrainingPage"));
-const BatchImageGeneratorPage = lazy(() => import("./pages/BatchImageGeneratorPage"));
 const ImagesPage = lazy(() => import("./pages/ImagesPage"));
 const AudioFoundryPage = lazy(() => import("./pages/AudioFoundryPage"));
 const VideoGeneratorPage = lazy(() => import("./pages/VideoGeneratorPage"));
@@ -61,7 +60,7 @@ import { StatusProvider } from "./contexts/StatusContext";
 import { SnackbarProvider } from "./components/common/SnackbarProvider";
 import { ErrorProvider } from "./components/common/ErrorProvider";
 import ErrorBoundary from "./components/common/ErrorBoundary";
-import { LayoutProvider, useLayout } from "./contexts/LayoutContext";
+import { LayoutProvider } from "./contexts/LayoutContext";
 import { UnifiedProgressProvider } from './contexts/UnifiedProgressContext';
 import { VoiceProvider } from "./contexts/VoiceContext";
 import FloatingChatProvider from "./components/chat/FloatingChatProvider";
@@ -78,7 +77,6 @@ const AppLayout = ({ children }) => {
   // Signal GPU orchestrator on page navigation for predictive model loading
   useGpuIntent();
 
-  const { showFooter } = useLayout();
   const sidebarExpanded = useAppStore((state) => state.sidebarExpanded);
   const drawerWidth = sidebarExpanded ? spacing.sidebarExpanded : spacing.sidebarCollapsed;
 

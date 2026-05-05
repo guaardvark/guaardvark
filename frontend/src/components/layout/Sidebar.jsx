@@ -23,7 +23,6 @@ import { spacing } from "../../theme/tokens";
 
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
-import TaskAltIcon from "@mui/icons-material/TaskAlt";
 import ArticleIcon from "@mui/icons-material/Article";
 import FolderIcon from "@mui/icons-material/Folder";
 import LanguageIcon from "@mui/icons-material/Language";

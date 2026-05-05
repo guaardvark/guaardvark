@@ -17,7 +17,6 @@ import {
 } from '@mui/icons-material';
 import { keyframes } from '@mui/material/styles';
 import voiceService from '../../api/voiceService';
-import { BASE_URL, BACKEND_URL } from '../../api/apiClient';
 import { checkForWakeWord } from '../../utils/wakeWordMatcher';
 import CanvasWaveform from './CanvasWaveform';
 
@@ -27,13 +26,13 @@ const pulseAnimation = keyframes`
   100% { transform: scale(1); opacity: 1; }
 `;
 
-const waveformAnimation = keyframes`
+const _waveformAnimation = keyframes`
   0%, 100% { height: 20%; }
   50% { height: 100%; }
 `;
 
 // Strip markdown/formatting for clean TTS input (from VoiceChat.jsx pattern)
-const cleanTextForTTS = (text) => {
+const _cleanTextForTTS = (text) => {
   if (!text) return '';
   return text
     .replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1')
@@ -44,7 +43,7 @@ const cleanTextForTTS = (text) => {
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
     .replace(/<[^>]*>/g, '')
     .replace(/\s+/g, ' ')
-    .replace(/[•\-\*]\s*/g, '')
+    .replace(/[•\-*]\s*/g, '')
     .replace(/\n\s*\n/g, '. ')
     .replace(/\n/g, ', ')
     .replace(/\s*\.\s*\.\s*\./g, '. ')
@@ -215,19 +214,18 @@ const ContinuousVoiceChat = React.forwardRef(({
 
   // --- State ---
   const [isListening, setIsListening] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isProcessing, _setIsProcessing] = useState(false);
   const [currentVolume, setCurrentVolume] = useState(0);
   const [speechDetected, setSpeechDetected] = useState(false);
   const [segmentCount, setSegmentCount] = useState(0);
   const [error, setError] = useState(null);
   const [processingQueue, setProcessingQueue] = useState(0);
   const [audioLevels, setAudioLevels] = useState(new Array(20).fill(0));
-  const [keyboardShortcutEnabled, setKeyboardShortcutEnabled] = useState(true);
+  const [keyboardShortcutEnabled, _setKeyboardShortcutEnabled] = useState(true);
   const [waveformActive, setWaveformActive] = useState(false);
 
   const [isMicMuted, setIsMicMuted] = useState(false);
-  const [isAISpeaking, setIsAISpeaking] = useState(false);
-  const [lastErrorTime, setLastErrorTime] = useState(0);
+  const [isAISpeaking, _setIsAISpeaking] = useState(false);
 
   // --- Wake word state ---
   const [listeningMode, setListeningMode] = useState('active'); // 'passive' | 'active'
@@ -291,14 +289,6 @@ const ContinuousVoiceChat = React.forwardRef(({
 
   const isMountedRef = useRef(true);
   const processingCountRef = useRef(0);
-
-  const audioValidationRef = useRef({
-    lastValidChunk: null,
-    corruptedChunks: 0,
-    totalChunks: 0,
-    lastChunkTime: 0
-  });
-  const errorRecoveryTimeoutRef = useRef(null);
 
   // --- [Bug 2 fix] Serial processing queue ---
   const audioQueueRef = useRef([]);
@@ -628,7 +618,7 @@ const ContinuousVoiceChat = React.forwardRef(({
   }, [isAISpeaking, isMicMuted, incrementErrors, resetErrors]);
 
 
-  const validateAudioBlob = useCallback(async (audioBlob) => {
+  const _validateAudioBlob = useCallback(async (audioBlob) => {
     try {
       if (!audioBlob || audioBlob.size === 0) {
         console.warn('ContinuousVoiceChat: Audio blob is empty or null');
@@ -1297,8 +1287,6 @@ const ContinuousVoiceChat = React.forwardRef(({
   // --- COMPACT RENDERING: circular waveform button ---
   if (compact) {
     const btnSize = 40;
-    const numBars = 7;
-    const idleHeights = [0.22, 0.38, 0.28, 0.45, 0.28, 0.38, 0.22];
     const isProcessingAudio = isProcessing || processingQueue > 0;
 
     return (

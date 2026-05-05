@@ -39,7 +39,7 @@ function loadState() {
 }
 
 function saveState(state) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* localStorage may be blocked in private mode */ }
 }
 
 function fmtElapsed(ms) {

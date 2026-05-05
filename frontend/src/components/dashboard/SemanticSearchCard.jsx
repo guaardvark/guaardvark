@@ -102,7 +102,7 @@ const SemanticSearchCard = React.forwardRef(
       );
       
       if (hasCSVKeyword && hasGenerationKeyword) {
-        const filenameMatch = message.match(/(?:save|export|create|generate).*?(?:as|to|named?)?\s*['""]?([a-zA-Z0-9_\-\.]+\.csv)['""]?/i);
+        const filenameMatch = message.match(/(?:save|export|create|generate).*?(?:as|to|named?)?\s*['""]?([a-zA-Z0-9_\-.]+\.csv)['""]?/i);
         const filename = filenameMatch ? filenameMatch[1] : `generated_data_${Date.now()}.csv`;
         
         return {

@@ -25,6 +25,7 @@ export const API_BASE = '/api/files'; // Use relative path so Vite proxy handles
 export const MAX_FILENAME_LENGTH = 255;
 export const MAX_FILE_SIZE_MB = 100; // Maximum file size in MB
 export const BYTES_PER_MB = 1024 * 1024;
+// eslint-disable-next-line no-control-regex -- intentional: matches OS-illegal filename control chars
 export const INVALID_FILENAME_CHARS = /[<>:"/\\|?*\x00-\x1f]/;
 
 // Image file extensions that should show thumbnails

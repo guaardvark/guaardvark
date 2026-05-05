@@ -370,7 +370,6 @@ const DashboardPage = () => {
       setOriginalDimensions({});
     }
     // normal: already loaded from saved state
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialStateLoaded]);
 
   // Apply z-indices to grid item elements after renders.

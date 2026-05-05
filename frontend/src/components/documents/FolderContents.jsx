@@ -494,9 +494,9 @@ const FolderContents = ({
         }}
       />
     ),
-    TableHead: React.forwardRef((props, ref) => <TableHead {...props} ref={ref} />),
+    TableHead: React.forwardRef(function ForwardedTableHead(props, ref) { return <TableHead {...props} ref={ref} />; }),
     TableRow: stableTableRowComponent,
-    TableBody: React.forwardRef((props, ref) => <TableBody {...props} ref={ref} />),
+    TableBody: React.forwardRef(function ForwardedTableBody(props, ref) { return <TableBody {...props} ref={ref} />; }),
   }), [stableTableRowComponent]);
 
   // Load more items for infinite scroll

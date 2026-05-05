@@ -1,4 +1,3 @@
-/* global process */
 import React from 'react';
 
 // Development utility to help detect unsafe useEffect patterns

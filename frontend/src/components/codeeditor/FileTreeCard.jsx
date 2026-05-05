@@ -403,6 +403,7 @@ const FileTreeCard = React.forwardRef(
       try {
         // Validate filename
         const trimmedName = newItemName.trim();
+        // eslint-disable-next-line no-control-regex -- intentional: matches OS-illegal filename control chars
         const invalidChars = /[<>:"/\\|?*\x00-\x1f]/;
         if (invalidChars.test(trimmedName)) {
           alert('Filename contains invalid characters. Please use only letters, numbers, spaces, hyphens, and underscores.');
@@ -540,6 +541,7 @@ const FileTreeCard = React.forwardRef(
 
       try {
         const trimmedName = renameValue.trim();
+        // eslint-disable-next-line no-control-regex -- intentional: matches OS-illegal filename control chars
         const invalidChars = /[<>:"/\\|?*\x00-\x1f]/;
         if (invalidChars.test(trimmedName)) {
           alert('Filename contains invalid characters. Please use only letters, numbers, spaces, hyphens, and underscores.');

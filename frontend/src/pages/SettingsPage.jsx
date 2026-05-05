@@ -11,11 +11,8 @@ import {
   InputLabel,
   CircularProgress,
   Paper,
-  Grid,
   Tooltip,
   Switch,
-  FormControlLabel,
-  Divider,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -27,12 +24,9 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Input,
   TextField,
-  Stack,
   Avatar,
   Slider,
-  IconButton,
 } from "@mui/material";
 import MuiAlert from "@mui/material/Alert";
 
@@ -45,10 +39,7 @@ import StorageIcon from "@mui/icons-material/Storage";
 import DnsIcon from "@mui/icons-material/Dns";
 import SpeedIcon from "@mui/icons-material/Speed";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
-import FileUploadIcon from "@mui/icons-material/FileUpload";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
-import BackupIcon from "@mui/icons-material/Backup";
-import RestoreIcon from "@mui/icons-material/Restore";
 import AccountBoxIcon from "@mui/icons-material/AccountBox";
 import WarningIcon from "@mui/icons-material/Warning";
 import SecurityIcon from "@mui/icons-material/Security";
@@ -57,16 +48,7 @@ import ChatIcon from "@mui/icons-material/Chat";
 import ApiIcon from "@mui/icons-material/Api";
 import SystemIcon from "@mui/icons-material/Computer";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
-import BuildIcon from "@mui/icons-material/Build";
-import DashboardIcon from "@mui/icons-material/Dashboard";
-import SmartToyIcon from "@mui/icons-material/SmartToy";
-import ExtensionIcon from "@mui/icons-material/Extension";
-import CodeIcon from "@mui/icons-material/Code";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import ExpandLessIcon from "@mui/icons-material/ExpandLess";
-import ImageIcon from "@mui/icons-material/Image";
-import MusicNoteIcon from "@mui/icons-material/MusicNote";
-import ScienceIcon from "@mui/icons-material/Science";
 import { Accordion, AccordionSummary, AccordionDetails, Chip, LinearProgress } from "@mui/material";
 
 import { io } from "socket.io-client";
@@ -89,11 +71,8 @@ import VoiceSettingsModal from "../components/modals/VoiceSettingsModal";
 import SettingsRow from "../components/settings/SettingsRow";
 import SettingsCardWrapper from "../components/settings/SettingsCardWrapper";
 import { SOCKET_URL } from "../api/apiClient";
-import PaletteIcon from "@mui/icons-material/Palette";
 import SchoolIcon from "@mui/icons-material/School";
-import TaskAltIcon from "@mui/icons-material/TaskAlt";
 import { useNavigate } from "react-router-dom";
-import { themes } from "../theme";
 import {
   getBranding,
   updateBranding,
@@ -110,10 +89,9 @@ import { useStatus } from "../contexts/StatusContext";
 import PageLayout from "../components/layout/PageLayout";
 import { useSnackbar } from "../components/common/SnackbarProvider";
 import * as interconnectorApi from "../api/interconnectorService";
-import { useVoiceContext, useVoice } from "../contexts/VoiceContext";
+import { useVoice } from "../contexts/VoiceContext";
 import * as apiService from "../api";
 import voiceService from "../api/voiceService";
-import { updateAgentSettings } from "../api/agentsService";
 import { ragAutoresearchService } from "../api/ragAutoresearchService";
 
 // localStorage keys for persisting settings
@@ -126,23 +104,19 @@ const LLM_DEBUG_ENABLED_KEY = "guaardvark_llmDebugEnabled";
 // speeds first paint before the API round-trip lands.
 const RULES_ENABLED_KEY = "guaardvark_rulesEnabled";
 // Used by ChatPage to enable backend agent routing integration
-const AGENT_ROUTING_ENABLED_KEY = "use_agent_routing";
+const _AGENT_ROUTING_ENABLED_KEY = "use_agent_routing";
 // Used by ChatPage to enable unified agentic chat (LLM with tool access)
-const UNIFIED_CHAT_ENABLED_KEY = "use_unified_chat";
+const _UNIFIED_CHAT_ENABLED_KEY = "use_unified_chat";
 
 // Voice settings localStorage keys (must match key used by voice components)
 const VOICE_SETTINGS_KEY = "guaardvark_voiceSettings";
 const VOICE_CHAT_ENABLED_KEY = "guaardvark_voiceChatEnabled";
 
-const Alert = React.forwardRef(function Alert(props, ref) {
-  return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
-});
-
 const SettingsPage = () => {
   const [availableModels, setAvailableModels] = useState([]);
   const [selectedModel, setSelectedModel] = useState("");
   const [embeddingModel, setEmbeddingModel] = useState("");
-  const [isLoadingEmbeddingModel, setIsLoadingEmbeddingModel] = useState(true);
+  const [_isLoadingEmbeddingModel, setIsLoadingEmbeddingModel] = useState(true);
 
   // Reset selectedModel if it's not in available options
   useEffect(() => {
@@ -214,27 +188,7 @@ const SettingsPage = () => {
       return false;
     }
   }
-  function getInitialAgentRouting() {
-    if (typeof window === "undefined") return true;
-    try {
-      const saved = localStorage.getItem(AGENT_ROUTING_ENABLED_KEY);
-      return saved === null || saved === "true"; // ON by default, matches ChatPage
-    } catch {
-      return true;
-    }
-  }
-  function getInitialUnifiedChat() {
-    if (typeof window === "undefined") return true;
-    try {
-      const saved = localStorage.getItem(UNIFIED_CHAT_ENABLED_KEY);
-      return saved === null || saved === "true"; // ON by default, matches ChatPage
-    } catch {
-      return true;
-    }
-  }
   const [webSearchEnabled, setWebSearchEnabled] = useState(getInitialWebSearch);
-  const [agentRoutingEnabled, setAgentRoutingEnabled] = useState(getInitialAgentRouting);
-  const [unifiedChatEnabled, setUnifiedChatEnabled] = useState(getInitialUnifiedChat);
   const [isTesting, setIsTesting] = useState(false);
   const [testResults, setTestResults] = useState(null);
   const [isRunningTests, setIsRunningTests] = useState(false);
@@ -653,7 +607,7 @@ const SettingsPage = () => {
 
   const themeName = useAppStore((state) => state.themeName);
 
-  const { activeModel, isLoadingModel, modelError, refreshActiveModel } =
+  const { activeModel, isLoadingModel, modelError: _modelError, refreshActiveModel } =
     useStatus();
 
   // Socket listener for async model switching events
@@ -1196,7 +1150,7 @@ const SettingsPage = () => {
       "Failed to clear chat history",
     );
   };
-  const handleResetIndexClick = () => {
+  const _handleResetIndexClick = () => {
     /* ... (unchanged from v3.4) ... */
     handleActionClick(
       apiService.resetIndexStorage,
@@ -1229,7 +1183,7 @@ const SettingsPage = () => {
     setIsPurging(false);
     setPurgeModalOpen(false);
   };
-  const handlePurgeBehaviorLearningClick = () => {
+  const _handlePurgeBehaviorLearningClick = () => {
     handleActionClick(
       apiService.purgeBehaviorLearning,
       [],
@@ -1240,7 +1194,7 @@ const SettingsPage = () => {
     );
   };
 
-  const handleClearBehaviorLogClick = () => {
+  const _handleClearBehaviorLogClick = () => {
     handleActionClick(
       clearBehaviorLog,
       [],
@@ -1881,7 +1835,7 @@ const SettingsPage = () => {
     }
   };
 
-  const triggerFileImportInput = () => {
+  const _triggerFileImportInput = () => {
     fileImportInputRef.current?.click();
   };
 

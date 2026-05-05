@@ -92,6 +92,7 @@ const API_BASE = `${BASE_URL}/files`;
 const MAX_FILENAME_LENGTH = 255;
 const MAX_FILE_SIZE_MB = 100; // Maximum file size in MB
 const BYTES_PER_MB = 1024 * 1024;
+// eslint-disable-next-line no-control-regex -- intentional: matches OS-illegal filename control chars
 const INVALID_FILENAME_CHARS = /[<>:"/\\|?*\x00-\x1f]/;
 
 // File extension to icon mapping

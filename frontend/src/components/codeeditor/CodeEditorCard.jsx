@@ -722,6 +722,7 @@ ${currentTab.content}
 
       try {
         const trimmedName = renameValue.trim();
+        // eslint-disable-next-line no-control-regex -- intentional: \x00-\x1f matches OS-illegal filename control chars
         const invalidChars = /[<>:"/\\|?*\x00-\x1f]/;
         if (invalidChars.test(trimmedName)) {
           alert('Filename contains invalid characters. Please use only letters, numbers, spaces, hyphens, and underscores.');

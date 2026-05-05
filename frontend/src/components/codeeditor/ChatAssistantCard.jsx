@@ -3,9 +3,7 @@
 // Provides intelligent code assistance with real-time context awareness
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
-import ErrorBoundary from "../common/ErrorBoundary";
-import { ValidationError } from "../../utils/inputValidation";
-import { ContextualLoader, EnhancedLinearProgress, NetworkStatus, LoadingButton } from "../common/LoadingStates";
+import { EnhancedLinearProgress } from "../common/LoadingStates";
 import {
   Box,
   TextField,
@@ -14,12 +12,10 @@ import {
   Stack,
   Typography,
   Tooltip,
-  Divider,
   Alert,
   Paper,
   Button,
   Badge,
-  LinearProgress,
   List,
   ListItem,
   ListItemText,
@@ -47,21 +43,14 @@ import {
   Security as SecurityIcon,
   Code as CodeIcon,
   AutoFixHigh as FixIcon,
-  Palette as StyleIcon,
   Close as CloseIcon,
-  Refresh as RefreshIcon,
-  Delete as DeleteIcon,
   Add as AddIcon,
-  Search as SearchIcon,
   Description as DocumentIcon,
   LightbulbOutlined as SuggestionIcon,
   ErrorOutline as ErrorIcon,
   WarningAmber as WarningIcon,
   CheckCircle as SuccessIcon,
-  Visibility as ViewIcon,
   ExpandMore as ExpandMoreIcon,
-  AutoAwesome as AIIcon,
-  TrendingUp as AnalyticsIcon,
   Psychology as ContextIcon,
   Apps as GridMenuIcon,
   LocationOn as LocationIcon,
@@ -75,7 +64,7 @@ import AICommandPalette from "./AICommandPalette";
 import * as codeIntelligenceService from "../../api/codeIntelligenceService";
 import * as chatService from "../../api/chatService";
 import { useUnifiedProgress } from "../../contexts/UnifiedProgressContext";
-import { buildSmartContext, buildChatContext, shouldUseSmartContext } from "../../utils/smartContextBuilder";
+import { buildSmartContext } from "../../utils/smartContextBuilder";
 import { parseCodeStructure, generateStructureSummary } from "../../utils/codeStructureParser";
 
 const ChatAssistantCard = React.forwardRef(
@@ -132,9 +121,7 @@ const ChatAssistantCard = React.forwardRef(
     const [structuredRecommendations, setStructuredRecommendations] = useState([]);
 
     // UI state
-    const [activePanel, setActivePanel] = useState("chat"); // chat, context, analysis
     const [contextExpanded, setContextExpanded] = useState(false);
-    const [analysisExpanded, setAnalysisExpanded] = useState(false);
 
     // Enhanced loading states
     const [loadingState, setLoadingState] = useState({
@@ -389,7 +376,7 @@ const ChatAssistantCard = React.forwardRef(
     }, []);
 
     // Enhanced context detection
-    const updateCodeContext = useCallback((selection = {}) => {
+    const _updateCodeContext = useCallback((selection = {}) => {
       setCodeContext(prev => {
         // Only update if something actually changed - optimized comparison
         const newText = selection.text || "";
@@ -637,6 +624,7 @@ Please provide a helpful, specific response about the selected code. Analyze the
           const commandType = lowerMessage.split(' ')[0].substring(1);
           let result;
 
+          /* eslint-disable no-case-declarations -- each case body is self-contained; scoped suppression beats wrapping every case in braces */
           switch (commandType) {
             case 'optimize':
               result = await codeIntelligenceService.refactorCodeIntelligent(enhancedContext, 'optimize', rulesCutoffEnabled);
@@ -1008,7 +996,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
     }, [currentTab, setOpenTabs, activeTabIndex, openTabs, setChatMessages, codeContext.selectionRange, editorRef]);
 
     // Function to apply multi-file edits with confirmation dialog
-    const applyMultiFileEdits = useCallback(async (edits) => {
+    const _applyMultiFileEdits = useCallback(async (edits) => {
       // edits: [{filePath, newContent, description, editRange?}]
       if (!edits || !Array.isArray(edits) || edits.length === 0) {
         console.error('No edits provided for multi-file application');
