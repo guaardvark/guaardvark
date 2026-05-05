@@ -286,7 +286,9 @@ const VideoEditorPage = () => {
         ...prev,
         video: { documentId: data.id, documentFilename: data.filename, trimStart: 0, trimEnd: null },
       }));
-    } catch {}
+    } catch {
+      // Drop didn't carry our JSON payload — not a media-library item, ignore
+    }
   };
 
   const handleDropOnAudioTrack = (e) => {
@@ -298,7 +300,9 @@ const VideoEditorPage = () => {
         ...prev,
         audio: { documentId: data.id, documentFilename: data.filename, volume: 1.0, startOffset: 0 },
       }));
-    } catch {}
+    } catch {
+      // Drop didn't carry our JSON payload — not a media-library item, ignore
+    }
   };
 
   const handleDragOver = (e) => {

@@ -79,18 +79,23 @@ def send_chat_message_internal(session_id: str, user_message: str, project_id=No
             bypass_rules=bypass_rules
         )
         
-        # Extract message from response
+        # Extract message from response. The chat API doesn't always include
+        # a `success` field — most successful responses just have `response`
+        # containing the content. Check error first to avoid masking failures,
+        # then fall through to content keys in priority order.
         if isinstance(response, dict):
-            if response.get('success') and 'response' in response:
-                return {'message': response['response']}
-            elif 'message' in response:
-                return {'message': response['message']}
-            elif 'error' in response:
+            if 'error' in response:
                 logger.error(f"Chat API returned error: {response.get('error')}")
                 return {'message': f"Error: {response.get('error')}"}
-        
+            if 'response' in response:
+                return {'message': response['response']}
+            if 'message' in response:
+                return {'message': response['message']}
+
         logger.warning(f"Unexpected response format from chat API: {response}")
-        return None
+        # Return a stable shape so callers don't crash on .get() — see the
+        # 'NoneType' has no attribute 'get' regression hit on 2026-04-28.
+        return {'message': "Analysis returned an unexpected response format."}
         
     except Exception as e:
         logger.error(f"Failed to send chat message: {e}", exc_info=True)

@@ -4,7 +4,6 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import {
   Box,
-  Paper,
   Typography,
   ToggleButton,
   ToggleButtonGroup,
@@ -24,13 +23,11 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Collapse,
   Alert,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Checkbox,
   CircularProgress,
   Switch,
   FormControlLabel,
@@ -42,9 +39,7 @@ import {
   Download as DownloadIcon,
   VideoLibrary as VideoIcon,
   Image as ImageIcon,
-  MovieCreation as MovieCreationIcon,
   DriveFileRenameOutline as RenameIcon,
-  ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   Settings as SettingsIcon,
   Speed as SpeedIcon,
@@ -60,10 +55,6 @@ import {
   AutoFixHigh as EnhanceIcon,
   NavigateBefore as PrevIcon,
   NavigateNext as NextIcon,
-  Pause as PauseIcon,
-  VolumeUp as VolumeUpIcon,
-  VolumeOff as VolumeOffIcon,
-  Fullscreen as FullscreenIcon,
 } from "@mui/icons-material";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
@@ -312,6 +303,17 @@ const MODEL_OPTIONS = {
     supportsI2V: false,
     dimensionAlignment: 16,
   },
+  "wan22-14b-i2v": {
+    label: "Wan 2.2 14B I2V (GGUF Q5)",
+    description: "Top-tier image-to-video, 5s clips (~11GB VRAM)",
+    type: "wan",
+    maxFrames: 81,
+    resolution: [832, 480],
+    defaultSteps: 25,
+    supportsT2V: false,
+    supportsI2V: true,
+    dimensionAlignment: 16,
+  },
   // CogVideoX models — 5b is the recommended one for quality.
   // 2b is materially weaker and only worth picking for quick draft passes.
   "cogvideox-2b": {
@@ -374,7 +376,10 @@ const MODEL_OPTIONS = {
 
 // Default model per input mode
 const DEFAULT_T2V_MODEL = "wan22-14b";
-const DEFAULT_I2V_MODEL = "cogvideox-5b-i2v";
+// Wan 2.2 I2V is the strictly-better default (cinematic motion, lower VRAM,
+// no kijai-wrapper schema-drift gotchas). CogVideoX I2V stays in the dropdown
+// for users who want it.
+const DEFAULT_I2V_MODEL = "wan22-14b-i2v";
 
 // Helper to check model type
 const isCogVideoXModel = (model) => MODEL_OPTIONS[model]?.type === "cogvideox";
@@ -1034,7 +1039,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     }
   };
 
-  const handleDeleteBatch = async (batchId) => {
+  const _handleDeleteBatch = async (batchId) => {
     try {
       const res = await fetch(`${API_BASE}/batch-video/delete/${batchId}`, {
         method: "DELETE",
@@ -2309,7 +2314,6 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                 {batches.map((b) => {
                   const dateStr = formatVideoDate(b.start_time || b.end_time);
                   const videoCount = b.completed_videos ?? 0;
-                  const totalCount = b.total_videos ?? 0;
                   return (
                   <Grid item xs={6} sm={4} md={3} key={b.batch_id}>
                     <Box

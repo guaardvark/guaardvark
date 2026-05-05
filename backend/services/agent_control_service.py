@@ -1474,10 +1474,11 @@ Reply ONLY with JSON:
     @classmethod
     def _build_persistent_knowledge_system(cls) -> str:
         """Build the system-message content carrying the agent's persistent
-        knowledge — compact facts plus recipe index. Routed via Ollama's
-        system role so it doesn't compete with the per-step user prompt
-        for action-format conditioning. This is the cross-session memory
-        slot: anything in here survives reboots and primes every decision.
+        knowledge — compact facts plus recipe index plus distilled lessons.
+        Routed via Ollama's system role so it doesn't compete with the
+        per-step user prompt for action-format conditioning. This is the
+        cross-session memory slot: anything in here survives reboots and
+        primes every decision.
         """
         parts = []
         sk = cls._load_self_knowledge_compact()
@@ -1490,7 +1491,86 @@ Reply ONLY with JSON:
                 "knowing they exist tells you what shortcuts the environment offers)\n"
                 + recipes
             )
+        lessons = cls._load_lesson_memories()
+        if lessons:
+            parts.append(lessons)
         return "\n\n".join(parts)
+
+    @staticmethod
+    def _load_lesson_memories(max_rows: int = 6, max_chars: int = 2500) -> str:
+        """Pull distilled lessons + user-curated memories out of AgentMemory
+        and format them as readable text for the system prompt.
+
+        Filters out source='learned_from_feedback' — the deprecated junk
+        distiller's first-person reflections (deprecated 2026-05-05, see
+        agent_control_api._distill_pearl_memory). Only lesson_summary
+        (End-Lesson structured distillations) and manual (user-typed
+        memories) are kept.
+
+        lesson_summary content is stored as JSON ({title, steps,
+        parameters}); parsed and rendered as markdown bullets so the
+        system message stays JSON-shape-clean (the model sees competing
+        JSON shapes and starts hallucinating selectors).
+        """
+        try:
+            from backend.models import AgentMemory
+        except Exception as e:
+            logger.debug(f"AgentMemory import failed in lesson loader: {e}")
+            return ""
+
+        try:
+            rows = (
+                AgentMemory.query
+                .filter(AgentMemory.source.in_(["lesson_summary", "manual"]))
+                .order_by(AgentMemory.importance.desc(), AgentMemory.id.desc())
+                .limit(max_rows)
+                .all()
+            )
+        except Exception as e:
+            logger.debug(f"AgentMemory query failed in lesson loader: {e}")
+            return ""
+
+        if not rows:
+            return ""
+
+        sections = []
+        total = 0
+        for row in rows:
+            content = (row.content or "").strip()
+            if not content:
+                continue
+            block = ""
+            if row.source == "lesson_summary":
+                # Try parse-as-JSON first; fall back to raw text on failure.
+                import json as _json
+                try:
+                    payload = _json.loads(content)
+                    title = (payload.get("title") or "Lesson").strip()
+                    steps = payload.get("steps") or []
+                    step_lines = []
+                    for s in steps:
+                        if isinstance(s, dict):
+                            text = (s.get("text") or s.get("step") or "").strip()
+                        else:
+                            text = str(s).strip()
+                        if text:
+                            step_lines.append(f"  {len(step_lines)+1}. {text[:200]}")
+                    if step_lines:
+                        block = f"### {title}\n" + "\n".join(step_lines)
+                except Exception:
+                    block = f"### Lesson\n{content[:600]}"
+            else:  # manual
+                block = f"- {content[:400]}"
+            if not block:
+                continue
+            if total + len(block) > max_chars:
+                break
+            sections.append(block)
+            total += len(block) + 2
+
+        if not sections:
+            return ""
+        return "## Lessons & Notes (cross-session memory — apply when relevant)\n" + "\n\n".join(sections)
 
     @staticmethod
     def _load_example_traces(task: str) -> str:

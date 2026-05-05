@@ -80,6 +80,13 @@ const FALLBACK_VOICES = [
     { id: "bm_daniel",  label: "Daniel" },
     { id: "bm_fable",   label: "Fable" },
   ]},
+  { label: "Spanish Female", voices: [
+    { id: "ef_dora",    label: "Dora" },
+  ]},
+  { label: "Spanish Male", voices: [
+    { id: "em_alex",    label: "Alex" },
+    { id: "em_santa",   label: "Santa" },
+  ]},
 ];
 
 // Suno-style tag palette for the Music tab. These are also the vocabulary
@@ -718,7 +725,10 @@ const AudioFoundryPage = () => {
                         variant="contained"
                         size="large"
                         startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <MusicIcon />}
-                        disabled={loading}
+                        disabled={
+                          loading ||
+                          (!composeMusicIntent(musicGenres, musicMoods, musicInstruments, musicExtra) && !musicPreview)
+                        }
                         onClick={generateMusic}
                         sx={{ py: 1.5, borderRadius: 2, backgroundColor: "#2196f3", "&:hover": { backgroundColor: "#1976d2" } }}
                       >

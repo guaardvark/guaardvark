@@ -1,6 +1,7 @@
 # Python
 backend/venv/
 cli/venv/
+plugins/*/venv-*/
 cli/llx.egg-info/
 __pycache__/
 *.pyc
@@ -31,6 +32,7 @@ plugins/*/tmp/
 plugins/*/.cache/
 plugins/*/__pycache__/
 data/plugin_state.json
+data/social_outreach/
 data/docstore.json
 data/index_store.json
 data/default__vector_store.json
@@ -48,6 +50,11 @@ data/training/poisoned_data_backup/
 
 # Agent desktop shortcuts (generated with local paths at runtime)
 data/agent/desktop/
+
+# Stray local scratch files (do not commit)
+/1_logo.png
+/doc.txt
+/README.draft.md
 
 # Logs, backups, PIDs
 logs/

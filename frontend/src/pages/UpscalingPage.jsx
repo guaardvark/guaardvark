@@ -35,6 +35,7 @@ import {
   Cancel as CancelIcon,
   Speed as SpeedIcon,
   ArrowBack as BackIcon,
+  Close as CloseIcon,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import * as upscalingService from "../api/upscalingService";
@@ -57,10 +58,11 @@ const UpscalingPage = ({ embedded = false }) => {
   const [serviceHealth, setServiceHealth] = useState(null);
   const [models, setModels] = useState({ downloaded: [], available: [] });
 
-  // Upload state
+  // Upload state — selectedFiles is an array so we can batch-queue a bunch at once
   const [dragActive, setDragActive] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [uploadProgress, setUploadProgress] = useState(null); // { current, total, name }
 
   // Settings
   const [selectedModel, setSelectedModel] = useState("");
@@ -108,14 +110,27 @@ const UpscalingPage = ({ embedded = false }) => {
         const res = await upscalingService.getModels();
         const data = res.data || res;
         setModels(data);
-        if (data.downloaded?.length > 0 && !selectedModel) {
-          setSelectedModel(data.downloaded[0].name);
+        // Functional setter so we read the *current* selectedModel, not the
+        // value captured at effect-creation time. Auto-pick the first
+        // downloaded model only if the user hasn't already chosen one.
+        if (data.downloaded?.length > 0) {
+          setSelectedModel((current) => current || data.downloaded[0].name);
         }
       } catch {
         // ignore
       }
     };
     loadModels();
+  }, [serviceAvailable]);
+
+  // If the plugin goes down mid-session, kill the polling interval so it
+  // doesn't keep firing with a stale fetchJobs closure that thinks the
+  // service is still up. Re-enable will start a fresh interval next upscale.
+  useEffect(() => {
+    if (serviceAvailable === false && pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
   }, [serviceAvailable]);
 
   // --- Job polling ---
@@ -168,19 +183,34 @@ const UpscalingPage = ({ embedded = false }) => {
     e.stopPropagation();
     setDragActive(false);
     if (e.dataTransfer.files?.length > 0) {
-      const file = e.dataTransfer.files[0];
-      if (isVideoFile(file.name)) {
-        setSelectedFile(file);
-      } else {
-        setError("Please upload a video file (.mp4, .mkv, .avi, .mov, .webm)");
+      const dropped = Array.from(e.dataTransfer.files);
+      const videos = dropped.filter((f) => isVideoFile(f.name));
+      const rejected = dropped.length - videos.length;
+      if (videos.length > 0) {
+        setSelectedFiles((prev) => [...prev, ...videos]);
+      }
+      if (rejected > 0) {
+        setError(`Skipped ${rejected} non-video file(s). Allowed: .mp4, .mkv, .avi, .mov, .webm`);
       }
     }
   }, []);
 
   const handleFileSelect = useCallback((e) => {
     if (e.target.files?.length > 0) {
-      setSelectedFile(e.target.files[0]);
+      const picked = Array.from(e.target.files).filter((f) => isVideoFile(f.name));
+      if (picked.length > 0) {
+        setSelectedFiles((prev) => [...prev, ...picked]);
+      }
     }
+  }, []);
+
+  const handleRemoveFile = useCallback((idx) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== idx));
+  }, []);
+
+  const handleClearFiles = useCallback(() => {
+    setSelectedFiles([]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }, []);
 
   const isVideoFile = (name) => {
@@ -189,28 +219,49 @@ const UpscalingPage = ({ embedded = false }) => {
   };
 
   // --- Submit upscale ---
+  // Loops through every selected file and submits a job per file. The backend
+  // queues them, so they upscale sequentially without us having to coordinate.
   const handleUpscale = async () => {
-    if (!selectedFile) return;
+    if (selectedFiles.length === 0) return;
     setIsUploading(true);
     setError("");
     setSuccess("");
 
-    try {
-      const _res = await upscalingService.uploadAndUpscale(selectedFile, {
-        model: selectedModel || undefined,
-        target_width: TARGET_PRESETS[targetResolution]?.width,
-        two_pass: twoPass,
-      });
-      setSuccess(`Upscale job submitted for "${selectedFile.name}"`);
-      setSelectedFile(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      await fetchJobs();
-      startPolling();
-    } catch (e) {
-      setError(e.message || "Failed to submit upscale job");
-    } finally {
-      setIsUploading(false);
+    const total = selectedFiles.length;
+    const failures = [];
+    let succeeded = 0;
+
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const file = selectedFiles[i];
+      setUploadProgress({ current: i + 1, total, name: file.name });
+      try {
+        await upscalingService.uploadAndUpscale(file, {
+          model: selectedModel || undefined,
+          target_width: TARGET_PRESETS[targetResolution]?.width,
+          two_pass: twoPass,
+        });
+        succeeded += 1;
+      } catch (e) {
+        failures.push(`${file.name}: ${e.message || "failed"}`);
+      }
     }
+
+    setUploadProgress(null);
+    if (succeeded > 0) {
+      setSuccess(
+        total === 1
+          ? `Upscale job submitted for "${selectedFiles[0].name}"`
+          : `Submitted ${succeeded} of ${total} upscale jobs`
+      );
+    }
+    if (failures.length > 0) {
+      setError(`Failed to submit: ${failures.join("; ")}`);
+    }
+    setSelectedFiles([]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    await fetchJobs();
+    startPolling();
+    setIsUploading(false);
   };
 
   // --- Cancel job ---
@@ -222,6 +273,20 @@ const UpscalingPage = ({ embedded = false }) => {
       // ignore
     }
   };
+
+  // --- Clear finished jobs ---
+  const handleClearFinished = async () => {
+    try {
+      await upscalingService.clearFinishedJobs();
+      await fetchJobs();
+    } catch {
+      // ignore
+    }
+  };
+
+  const finishedCount = jobs.filter(
+    (j) => j.status === "completed" || j.status === "failed" || j.status === "cancelled"
+  ).length;
 
   // --- Job status helpers ---
   const statusColor = (status) => {
@@ -316,19 +381,63 @@ const UpscalingPage = ({ embedded = false }) => {
                   ref={fileInputRef}
                   type="file"
                   accept="video/*"
+                  multiple
                   onChange={handleFileSelect}
                   style={{ display: "none" }}
                 />
                 <UploadIcon sx={{ fontSize: 48, color: "text.secondary", mb: 1 }} />
-                <Typography variant="body1" color="text.secondary">
-                  {selectedFile
-                    ? selectedFile.name
-                    : "Drag & drop a video here, or click to browse"}
-                </Typography>
-                {selectedFile && (
-                  <Typography variant="caption" color="text.secondary">
-                    {(selectedFile.size / (1024 * 1024)).toFixed(1)} MB
+                {selectedFiles.length === 0 ? (
+                  <Typography variant="body1" color="text.secondary">
+                    Drag & drop videos here, or click to browse
                   </Typography>
+                ) : (
+                  <Stack spacing={0.5} sx={{ mt: 0.5 }} onClick={(e) => e.stopPropagation()}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ px: 0.5 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        {selectedFiles.length} file{selectedFiles.length === 1 ? "" : "s"} ready
+                      </Typography>
+                      <Button size="small" onClick={handleClearFiles} disabled={isUploading}>
+                        Clear all
+                      </Button>
+                    </Stack>
+                    {selectedFiles.map((f, i) => (
+                      <Stack
+                        key={`${f.name}-${i}`}
+                        direction="row"
+                        alignItems="center"
+                        spacing={1}
+                        sx={{
+                          bgcolor: "action.hover",
+                          px: 1,
+                          py: 0.5,
+                          borderRadius: 1,
+                        }}
+                      >
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            flex: 1,
+                            textAlign: "left",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {f.name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {(f.size / (1024 * 1024)).toFixed(1)} MB
+                        </Typography>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleRemoveFile(i)}
+                          disabled={isUploading}
+                        >
+                          <CloseIcon fontSize="inherit" />
+                        </IconButton>
+                      </Stack>
+                    ))}
+                  </Stack>
                 )}
               </Box>
 
@@ -391,11 +500,19 @@ const UpscalingPage = ({ embedded = false }) => {
                   size="large"
                   startIcon={isUploading ? <CircularProgress size={20} color="inherit" /> : <EnhanceIcon />}
                   onClick={handleUpscale}
-                  disabled={!selectedFile || isUploading || !serviceAvailable}
+                  disabled={selectedFiles.length === 0 || isUploading || !serviceAvailable}
                   fullWidth
                   sx={{ mt: 1 }}
                 >
-                  {isUploading ? "Uploading..." : twoPass ? "Upscale Video (2-Pass)" : "Upscale Video"}
+                  {isUploading
+                    ? uploadProgress
+                      ? `Uploading ${uploadProgress.current}/${uploadProgress.total}...`
+                      : "Uploading..."
+                    : selectedFiles.length > 1
+                      ? `Upscale ${selectedFiles.length} Videos${twoPass ? " (2-Pass)" : ""}`
+                      : twoPass
+                        ? "Upscale Video (2-Pass)"
+                        : "Upscale Video"}
                 </Button>
               </Stack>
             </CardContent>
@@ -450,9 +567,18 @@ const UpscalingPage = ({ embedded = false }) => {
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
                   Upscale Jobs
                 </Typography>
-                <IconButton size="small" onClick={fetchJobs}>
-                  <RefreshIcon />
-                </IconButton>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Button
+                    size="small"
+                    onClick={handleClearFinished}
+                    disabled={finishedCount === 0}
+                  >
+                    Clear finished{finishedCount > 0 ? ` (${finishedCount})` : ""}
+                  </Button>
+                  <IconButton size="small" onClick={fetchJobs}>
+                    <RefreshIcon />
+                  </IconButton>
+                </Stack>
               </Stack>
 
               {jobs.length === 0 ? (

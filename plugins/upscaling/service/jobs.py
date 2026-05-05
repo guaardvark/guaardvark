@@ -115,6 +115,19 @@ class JobManager:
                 if j["status"] in (JobStatus.RUNNING.value, JobStatus.PENDING.value)
             )
 
+    def clear_finished(self) -> int:
+        """Remove all completed/failed/cancelled jobs. Returns the count removed."""
+        terminal_statuses = (
+            JobStatus.COMPLETED.value,
+            JobStatus.FAILED.value,
+            JobStatus.CANCELLED.value,
+        )
+        with self._lock:
+            to_remove = [jid for jid, j in self._jobs.items() if j["status"] in terminal_statuses]
+            for jid in to_remove:
+                del self._jobs[jid]
+            return len(to_remove)
+
     def _evict_old(self):
         """Remove oldest completed/failed/cancelled jobs beyond max_history."""
         terminal = [

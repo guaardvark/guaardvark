@@ -134,7 +134,6 @@ const StickyNote = React.memo(
       if (contentRef.current && content !== undefined) {
         contentRef.current.innerHTML = content;
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {

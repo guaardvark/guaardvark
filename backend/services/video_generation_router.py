@@ -121,6 +121,23 @@ class VideoGenerationRouter:
             "ComfyUI is not running and Offline generator is not installed."
         )
 
+    def interrupt(self) -> bool:
+        """Tell whichever backend is currently sampling to abort.
+
+        Returns True if a backend acknowledged the interrupt. ComfyUI honours
+        this immediately; the offline generator can only stop between items.
+        """
+        if self._check_comfyui():
+            try:
+                comfy = self._get_comfyui()
+                return comfy.interrupt()
+            except Exception as e:
+                logger.warning(f"Router interrupt to ComfyUI failed: {e}")
+                return False
+        # Offline generator: no in-flight cancel today.
+        logger.info("Interrupt called but ComfyUI not running; offline backend cancels between items.")
+        return False
+
     def generate_video(self, request: VideoGenerationRequest) -> VideoGenerationResult:
         """Route a generation request to the best available backend."""
         with self._gen_count_lock:

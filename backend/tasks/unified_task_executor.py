@@ -501,6 +501,33 @@ def execute_unified_task(self, task_id: int):
             except Exception as e:
                 logger.warning(f"CSV handler failed, falling back to generic: {e}")
 
+        # Social outreach tasks — discover + draft + (maybe) post on a platform.
+        if output is None and task_type and task_type.startswith('social_outreach_'):
+            try:
+                update_progress(20, f"Running social outreach pass: {task_type}")
+                wf = task.get('workflow_config') or {}
+                if task_type == 'social_outreach_reddit':
+                    from backend.services.social_outreach.reddit_outreach import RedditOutreachLoop
+                    output = RedditOutreachLoop().run_one_pass(
+                        wf.get('subreddit', ''),
+                        task_id=task_id,
+                    )
+                elif task_type == 'social_outreach_share':
+                    from backend.services.social_outreach.self_share import SelfShareLoop
+                    output = SelfShareLoop().run_one_pass(
+                        wf.get('subreddit', ''),
+                        wf.get('link_url', ''),
+                        task_id=task_id,
+                    )
+                elif task_type == 'social_outreach_discord':
+                    output = {"status": "noop", "reason": "discord cog polls itself"}
+                else:
+                    output = {"error": f"unknown social_outreach type: {task_type}"}
+                handler_used = task_type
+            except Exception as e:
+                logger.warning(f"Social outreach handler failed: {e}", exc_info=True)
+                output = {"error": str(e)}
+
         # Fall back to generic LLM execution
         if output is None:
             update_progress(20, "Using generic LLM execution...")

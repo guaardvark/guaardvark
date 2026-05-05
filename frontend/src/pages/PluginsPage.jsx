@@ -431,7 +431,9 @@ const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
           title={
             (plugin.cooldown_remaining || 0) > 0
               ? `Cooling down — wait ${Math.ceil(plugin.cooldown_remaining)}s before toggling again`
-              : ''
+              : plugin.status !== 'running' && plugin.user_enabled === false
+                ? 'Currently disabled. Toggling on will both start it AND re-enable it across restarts.'
+                : 'Preference saved across restarts'
           }
           arrow
         >
@@ -439,12 +441,11 @@ const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
             control={
               <Switch
                 checked={plugin.status === 'running'}
-                // The plugin toggle is on/off from the user's perspective — "off"
-                // must persist across restarts. 'disable' stops the service AND
-                // flips enabled=false in plugin.json; 'stop' only stops, which is
-                // why the plugin was auto-restarting every boot (see start.sh:1776
-                // — it reads plugin.json's enabled flag). 'start' already auto-
-                // enables on its side (see handlePluginAction below).
+                // 'disable' stops the service AND persists the off-state in
+                // data/plugin_state.json's user_enabled overlay (NOT plugin.json,
+                // which stays the canonical default in git). start.sh and the
+                // backend both consult that overlay before plugin.json defaults,
+                // so a plugin toggled off here stays off across reboots.
                 onChange={() => handleAction(plugin.status === 'running' ? 'disable' : 'start')}
                 disabled={
                   isLoading
@@ -659,7 +660,12 @@ const PluginsPage = () => {
       setError(null);
       const response = await listPlugins();
       if (response.success) {
-        setPlugins(response.data.plugins || []);
+        const list = response.data.plugins || [];
+        setPlugins(list);
+        // Return the fresh list so callers awaiting a refresh can read it
+        // without racing the React state update (which is async and would
+        // hand them the pre-refresh array via the closure).
+        return list;
       } else {
         setError(response.message || 'Failed to load plugins');
       }
@@ -668,6 +674,7 @@ const PluginsPage = () => {
     } finally {
       setLoading(false);
     }
+    return null;
   }, []);
 
   useEffect(() => {
@@ -723,11 +730,15 @@ const PluginsPage = () => {
           return;
         }
         showMessage(response.message || `Plugin ${action} successful`, 'success');
-        await fetchPlugins();
+        const fresh = await fetchPlugins();
 
-        // After stopping ComfyUI, offer to restart Ollama (if Ollama is not running)
+        // After stopping ComfyUI, offer to restart Ollama if it's not running.
+        // Read from the *fresh* plugin list returned by fetchPlugins — the
+        // `plugins` state variable still holds the pre-stop snapshot here
+        // because React hasn't re-rendered yet.
         if (action === 'stop' && pluginId === 'comfyui') {
-          const ollamaPlugin = plugins.find((p) => p.id === 'ollama');
+          const list = fresh || plugins;
+          const ollamaPlugin = list.find((p) => p.id === 'ollama');
           if (ollamaPlugin && ollamaPlugin.enabled && ollamaPlugin.status !== 'running') {
             setShowRestartOllama(true);
           }

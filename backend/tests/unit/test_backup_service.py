@@ -109,3 +109,110 @@ def test_missing_file_in_backup(tmp_path, app):
         with zipfile.ZipFile(path, "r") as zf:
             meta = json.load(zf.open("guaardvark_backup.json"))
         assert meta["clients"][0]["logo_path"].endswith("missing.png")
+
+
+# Regression: shutil.ignore_patterns uses fnmatch, so 'venv' alone is an EXACT
+# match — it doesn't catch sibling venvs like audio_foundry/venv-music. We
+# learned that the hard way when a 5.9 GB music venv leaked into the code
+# release zip and inflated it from ~3 MB to 409 MB.
+def test_global_ignore_blocks_sibling_venvs():
+    import shutil
+    ignore = shutil.ignore_patterns(*backup_service.GLOBAL_IGNORE_PATTERNS)
+    candidates = ["venv", "venv-music", "venv-pip", ".venv", ".venv-test", "env", "env-foo"]
+    blocked = ignore("plugins/audio_foundry", candidates)
+    for name in candidates:
+        assert name in blocked, f"{name!r} should be ignored but slipped through"
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# .env sanitizer for code-release backups. Goal: drop the zip on a new
+# machine, run ./start.sh, and have it bootstrap cleanly. The sanitizer
+# strips per-machine values (Redis password, DATABASE_URL, SECRET_KEY) so
+# start.sh / start_redis.sh / start_postgres.sh regenerate them, while
+# preserving account-level credentials so plugins keep working.
+
+_FAKE_ROOT = "/home/alice/G002"
+_FAKE_HOME = "/home/alice"
+
+
+def test_sanitize_strips_redis_password():
+    """Redis URL passwords baked from machine A must not travel to machine B —
+    start_redis.sh keys on the absence of a password to provision a fresh one."""
+    env = (
+        "REDIS_URL=redis://:abc123secret@localhost:6379/0\n"
+        "CELERY_BROKER_URL=redis://:abc123secret@localhost:6379/0\n"
+        "CELERY_RESULT_BACKEND=redis://:abc123secret@localhost:6379/0\n"
+    )
+    out = backup_service.sanitize_env_for_release(env, _FAKE_ROOT, _FAKE_HOME)
+    assert "abc123secret" not in out
+    for key in ("REDIS_URL", "CELERY_BROKER_URL", "CELERY_RESULT_BACKEND"):
+        assert f"{key}=redis://localhost:6379/0" in out
+
+
+def test_sanitize_comments_out_secret_key():
+    """SECRET_KEY must be regenerated per machine — start.sh detects an empty
+    or missing line and writes a fresh one."""
+    env = "SECRET_KEY=abcdef0123456789\n"
+    out = backup_service.sanitize_env_for_release(env, _FAKE_ROOT, _FAKE_HOME)
+    assert "abcdef0123456789" not in out
+    assert "# SECRET_KEY=" in out
+
+
+def test_sanitize_preserves_account_credentials():
+    """Account-level keys ride along — the user wants Discord/Anthropic/HF
+    to work on the new machine without manual re-entry."""
+    env = (
+        "ANTHROPIC_API_KEY=sk-ant-real-key\n"
+        "DISCORD_BOT_TOKEN=discord-real-token\n"
+        "HF_TOKEN=hf_real_token\n"
+    )
+    out = backup_service.sanitize_env_for_release(env, _FAKE_ROOT, _FAKE_HOME)
+    assert "ANTHROPIC_API_KEY=sk-ant-real-key" in out
+    assert "DISCORD_BOT_TOKEN=discord-real-token" in out
+    assert "HF_TOKEN=hf_real_token" in out
+
+
+def test_sanitize_strips_machine_paths():
+    env = f"GUAARDVARK_ALLOWED_PATHS={_FAKE_ROOT}/data:{_FAKE_HOME}/Documents\n"
+    out = backup_service.sanitize_env_for_release(env, _FAKE_ROOT, _FAKE_HOME)
+    assert _FAKE_ROOT not in out
+    assert _FAKE_HOME not in out
+    assert "# GUAARDVARK_ALLOWED_PATHS=" in out
+
+
+def test_sanitize_comments_database_url():
+    env = "DATABASE_URL=postgresql://user:pw@localhost:5432/guaardvark\n"
+    out = backup_service.sanitize_env_for_release(env, _FAKE_ROOT, _FAKE_HOME)
+    assert "postgresql://" not in out
+    assert "# DATABASE_URL=" in out
+
+
+def test_sanitize_writes_warning_header():
+    out = backup_service.sanitize_env_for_release("FOO=bar\n", _FAKE_ROOT, _FAKE_HOME)
+    assert backup_service._SANITIZE_HEADER_MARKER in out
+    assert "WARNING" in out
+    assert "DISCORD_BOT_TOKEN" in out  # named in the warning
+
+
+def test_sanitize_is_idempotent():
+    """Re-sanitizing a sanitized .env (e.g. when machine B makes a release of
+    its own install) must not stack duplicate headers."""
+    env = "ANTHROPIC_API_KEY=sk-ant-real-key\n"
+    once = backup_service.sanitize_env_for_release(env, _FAKE_ROOT, _FAKE_HOME)
+    twice = backup_service.sanitize_env_for_release(once, _FAKE_ROOT, _FAKE_HOME)
+    # Header should appear exactly once even after two passes
+    assert twice.count(backup_service._SANITIZE_HEADER_MARKER) == 1
+    # And the credential survives both rounds
+    assert "ANTHROPIC_API_KEY=sk-ant-real-key" in twice
+
+
+def test_sanitize_preserves_unrelated_lines():
+    env = (
+        "FLASK_PORT=5002\n"
+        "VITE_PORT=5175\n"
+        "GUAARDVARK_BROWSER_HEADLESS=true\n"
+    )
+    out = backup_service.sanitize_env_for_release(env, _FAKE_ROOT, _FAKE_HOME)
+    assert "FLASK_PORT=5002" in out
+    assert "VITE_PORT=5175" in out
+    assert "GUAARDVARK_BROWSER_HEADLESS=true" in out

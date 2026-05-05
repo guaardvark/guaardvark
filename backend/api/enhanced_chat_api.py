@@ -3409,6 +3409,32 @@ You are analyzing code files. When responding to questions about code:
                 except Exception as mem_error:
                     logger.debug(f"MemoryManager persist failed: {mem_error}")
 
+                # Lazily roll-up older messages into summaries when the session
+                # grows past the threshold. Fire in a background thread so we
+                # don't tax the response with summarisation latency. Most
+                # calls are no-ops (returns 0 unless a full window accumulated
+                # since the last summary).
+                try:
+                    raw_msgs = self.session_messages.get(session_id, [])
+                    if len(raw_msgs) >= 30:
+                        formatted_for_summary = []
+                        for msg in raw_msgs:
+                            if hasattr(msg, "role") and hasattr(msg, "content"):
+                                formatted_for_summary.append({
+                                    "role": msg.role.value if hasattr(msg.role, "value") else str(msg.role),
+                                    "content": msg.content,
+                                    "timestamp": getattr(msg, "timestamp", datetime.now()),
+                                })
+                        if formatted_for_summary:
+                            threading.Thread(
+                                target=self._memory_manager.maybe_summarize_session,
+                                args=(session_id, formatted_for_summary),
+                                daemon=True,
+                                name=f"summarise-{session_id[:8]}",
+                            ).start()
+                except Exception as summ_error:
+                    logger.debug(f"Background summarisation skipped: {summ_error}")
+
             # Log conversation exchange with ConversationLogger for persistent debugging
             if self._conversation_logger:
                 try:

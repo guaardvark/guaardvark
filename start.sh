@@ -140,16 +140,20 @@ if [ -f "$SCRIPT_DIR/.env" ]; then
   export GUAARDVARK_ROOT="$SCRIPT_DIR"
 fi
 
-# Generate SECRET_KEY if not set — prevents "Using default SECRET_KEY" warning
+# Generate SECRET_KEY if not set — prevents "Using default SECRET_KEY" warning.
+# Handles three cases: line missing, line present-but-empty, line present-with-value.
+# The first two need regeneration; only the third is a no-op.
 if [ -z "$SECRET_KEY" ]; then
-  if grep -q '^SECRET_KEY=' "$SCRIPT_DIR/.env" 2>/dev/null; then
-    : # Already in .env but empty — will be sourced above
-  else
-    _generated_key=$(python3 -c "import secrets; print(secrets.token_hex(32))" 2>/dev/null)
-    if [ -n "$_generated_key" ]; then
+  _generated_key=$(python3 -c "import secrets; print(secrets.token_hex(32))" 2>/dev/null)
+  if [ -n "$_generated_key" ]; then
+    if grep -q '^SECRET_KEY=' "$SCRIPT_DIR/.env" 2>/dev/null; then
+      # Line exists but is empty (e.g. stripped by code-release sanitizer or
+      # a commented-out variant). Replace in place.
+      sed -i "s|^SECRET_KEY=.*|SECRET_KEY=$_generated_key|" "$SCRIPT_DIR/.env"
+    else
       echo "SECRET_KEY=$_generated_key" >> "$SCRIPT_DIR/.env"
-      export SECRET_KEY="$_generated_key"
     fi
+    export SECRET_KEY="$_generated_key"
   fi
 fi
 

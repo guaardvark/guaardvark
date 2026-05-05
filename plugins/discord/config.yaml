@@ -48,3 +48,9 @@ vip:
     Welcome to Guaardvark — a self-hosted AI platform you can make your own.
 
     Try `/ask` to chat, `/claude` to talk to Claude directly, `/imagine` to generate images, or `/status` to see what's running.
+
+outreach:
+  enabled: false  # flip to true after seeding channel ids; backend kill switch is the master gate
+  channels: []    # Discord channel IDs the bot watches for relevant Ollama / ComfyUI / local-AI threads
+  poll_interval_seconds: 600  # how often to scan; 600 = 10 min
+  max_replies_per_pass: 1     # never reply to more than one message per channel per pass

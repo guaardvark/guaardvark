@@ -16,6 +16,36 @@ from backend.socketio_instance import socketio
 _model_list_cache = {"models": None, "timestamp": 0}
 MODEL_LIST_CACHE_TTL = 30  # seconds
 
+# Outage tracker — log Ollama connection failures once per outage instead of
+# on every poll. Without this, a 14-minute Ollama startup race fills the log
+# with dozens of identical ERROR + connection-refused stacktraces.
+_ollama_status_lock = threading.Lock()
+_ollama_status = {"down_since": None, "logged_failure": False}
+
+
+def _on_ollama_failure(err: Exception, op: str) -> None:
+    with _ollama_status_lock:
+        first = not _ollama_status["logged_failure"]
+        _ollama_status["logged_failure"] = True
+        if _ollama_status["down_since"] is None:
+            _ollama_status["down_since"] = time.time()
+    if first:
+        logger.error(f"Could not connect to Ollama API ({op}): {err}")
+    else:
+        logger.debug(f"Ollama still down ({op}): {err}")
+
+
+def _on_ollama_success() -> None:
+    with _ollama_status_lock:
+        if not _ollama_status["logged_failure"]:
+            return
+        outage_started = _ollama_status["down_since"]
+        _ollama_status["down_since"] = None
+        _ollama_status["logged_failure"] = False
+    if outage_started is not None:
+        outage_s = time.time() - outage_started
+        logger.info(f"Ollama API recovered after {outage_s:.1f}s outage")
+
 # --- LlamaIndex Imports ---
 try:
     from llama_index.core import PromptTemplate, Settings
@@ -103,10 +133,11 @@ def get_loaded_models() -> list:
     try:
         response = requests.get(f"{OLLAMA_BASE_URL}/api/ps", timeout=3)
         if response.ok:
+            _on_ollama_success()
             data = response.json()
             return data.get("models", [])
     except requests.exceptions.RequestException as e:
-        logger.warning(f"Could not get loaded models: {e}")
+        _on_ollama_failure(e, "/api/ps")
     return []
 
 
@@ -199,8 +230,13 @@ def get_available_ollama_models(use_cache: bool = True, force_refresh: bool = Fa
 
         return chat_models
     except requests.exceptions.RequestException as e:
-        logger.error(f"Could not connect to Ollama API at {ollama_tags_url}: {e}")
-        return {"error": f"Could not connect to Ollama API: {e}"}
+        # Ollama plugin is off / unreachable. Distinguish from real processing
+        # errors so the route can return 200 + empty list (no 502 console noise
+        # on the Plugins page when the user has Ollama disabled). Real errors
+        # (malformed JSON, schema mismatches, etc.) fall through to the
+        # generic Exception block below and still surface as 502.
+        logger.info(f"Ollama unreachable at {ollama_tags_url}: {e}")
+        return {"error": f"Could not connect to Ollama API: {e}", "offline": True}
     except Exception as e:
         logger.error(f"Error processing Ollama API response: {e}", exc_info=True)
         return {"error": f"Failed to process Ollama API response: {e}"}
@@ -208,10 +244,21 @@ def get_available_ollama_models(use_cache: bool = True, force_refresh: bool = Fa
 
 @model_bp.route("/list", methods=["GET"])
 def list_models():
-    """API endpoint to list available models from Ollama."""
+    """API endpoint to list available models from Ollama.
+
+    When Ollama is offline (plugin disabled / not running), returns a 200 with
+    an empty model list and `ollama_offline: true` rather than a 502, so pages
+    that load this on mount don't spam the console with 502 errors. Real
+    Ollama errors (malformed responses, etc.) still return 502.
+    """
     force_refresh = request.args.get('refresh', '').lower() == 'true'
     models_data = get_available_ollama_models(use_cache=True, force_refresh=force_refresh)
     if isinstance(models_data, dict) and models_data.get("error"):
+        if models_data.get("offline"):
+            return success_response(
+                "Ollama offline",
+                {"models": [], "ollama_offline": True},
+            )
         return error_response(models_data["error"], 502, "OLLAMA_ERROR")
     logger.info(f"Returning {len(models_data)} available models from Ollama.")
     return success_response("Models retrieved", {"models": models_data})

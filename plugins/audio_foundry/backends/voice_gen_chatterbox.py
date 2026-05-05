@@ -84,6 +84,7 @@ class ChatterboxBackend(AudioBackend):
         reference_clip = params.get("reference_clip_path")
         emotion = params.get("emotion")  # not all Chatterbox builds support this
         seed = params.get("seed")
+        requested_format = params.get("output_format", "wav")
 
         import torch
         import soundfile as sf
@@ -127,14 +128,28 @@ class ChatterboxBackend(AudioBackend):
         out_path = self._output_root / f"{asset_id}.wav"
         sf.write(str(out_path), audio, self._sample_rate)
 
+        # Post-process: normalization + format conversion (MP3).
+        # If post_process raises (ffmpeg missing, format invalid, OOM), the raw
+        # WAV at out_path used to leak forever. Reap it on failure; on success
+        # post_process either returns a new file (and we delete the raw WAV) or
+        # returns out_path itself (and we keep it).
+        try:
+            final_path = self.post_process(out_path, output_format=requested_format)
+        except Exception:
+            out_path.unlink(missing_ok=True)
+            raise
+        if final_path != out_path:
+            out_path.unlink(missing_ok=True)
+        actual_format = final_path.suffix.lstrip(".").lower()
+
         actual_duration = audio.shape[0] / self._sample_rate
         logger.info(
             "Chatterbox wrote %s — %.2fs audio in %.1fs wall",
-            out_path, actual_duration, gen_seconds,
+            final_path, actual_duration, gen_seconds,
         )
 
         return GenerationResult(
-            path=out_path.resolve(),
+            path=final_path.resolve(),
             duration_s=actual_duration,
             sample_rate=self._sample_rate,
             meta={
@@ -144,6 +159,8 @@ class ChatterboxBackend(AudioBackend):
                 "reference_clip_path": str(reference_clip) if reference_clip else None,
                 "emotion": emotion,
                 "seed": seed,
+                "requested_output_format": requested_format,
+                "actual_output_format": actual_format,
                 "generation_seconds": round(gen_seconds, 2),
             },
         )

@@ -95,8 +95,6 @@ const createDataSlice = (set, get) => ({
       }
       
       const response = await res.json();
-      console.log("App store branding response:", response);
-      
       const data = response.data || response;
       set({
         systemName: data.system_name || null,

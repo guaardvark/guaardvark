@@ -127,7 +127,12 @@ def _distill_lesson_pearls(app, lesson_id: str, session_id: str) -> dict | None:
                 "- Every placeholder used in steps MUST appear in parameters with a description "
                 "  and the concrete example from this session.\n"
                 "- If a lesson has no variable parts, return \"parameters\": [].\n"
-                "- Do NOT editorialize or add steps that weren't in the pearls.\n\n"
+                "- Do NOT editorialize or add steps that weren't in the pearls.\n"
+                "- For click steps, describe the target by appearance and location in words "
+                "  ('click the orange Firefox flame icon in the top-left Shortcuts panel', "
+                "  'click the Send button below the comment box'). NEVER include pixel "
+                "  coordinates like 'x=92' or '(640, 660)' — the agent's vision model finds "
+                "  targets fresh on each frame, so coordinates rot the moment a layout shifts.\n\n"
                 "=== Positive pearls (in order) ===\n"
                 + "\n".join(pearl_lines)
                 + "\n\n=== Recent conversation ===\n"

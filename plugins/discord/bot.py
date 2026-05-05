@@ -60,6 +60,7 @@ COG_MODULES = [
     "commands.cli_proxy",
     "commands.channel_chat",
     "commands.demo",
+    "commands.outreach",
 ]
 
 
@@ -71,6 +72,11 @@ class GuaardvarkBot(commands.Bot):
         super().__init__(command_prefix=config.get("bot", {}).get("prefix", "!"), intents=intents)
         self.config = config
         self.api_client = GuaardvarkClient(base_url=config["api"]["base_url"])
+        # Serialise VIP greeting so two simultaneous interactions from the
+        # same user don't both pass the "already greeted?" check, await
+        # interaction.user.send(), and stamp duplicate DMs.
+        self._vip_greet_lock = asyncio.Lock()
+        self._vip_greeted_cache: set[int] = set()
 
     async def setup_hook(self):
         await self.api_client.setup()
@@ -120,35 +126,53 @@ class GuaardvarkBot(commands.Bot):
         """Send one-time DM greeting to VIP users."""
         vip_config = self.config.get("vip", {})
         vip_ids = vip_config.get("user_ids", [])
-        if not vip_ids or interaction.user.id not in vip_ids:
+        user_id = interaction.user.id
+        if not vip_ids or user_id not in vip_ids:
+            return
+
+        # Fast in-memory check before grabbing the lock — most callers exit
+        # here on the second-and-later interactions in the same process life.
+        if user_id in self._vip_greeted_cache:
             return
 
         greeted_file = Path(os.environ.get("GUAARDVARK_ROOT", ".")) / "data" / "context" / "vip_greeted.json"
-        greeted = set()
-        if greeted_file.exists():
+
+        # Lock guarantees only one coroutine at a time can read-check-send-write.
+        # Without it, two simultaneous interactions both pass the "already
+        # greeted?" check, both await user.send(), and both write the file —
+        # the user gets a duplicate DM.
+        async with self._vip_greet_lock:
+            # Re-check inside the lock now that we hold it.
+            if user_id in self._vip_greeted_cache:
+                return
+
+            greeted = set()
+            if greeted_file.exists():
+                try:
+                    greeted = set(json.loads(greeted_file.read_text()).get("greeted", []))
+                except Exception:
+                    pass
+            self._vip_greeted_cache = greeted
+
+            if user_id in greeted:
+                return
+
+            greeting = vip_config.get("greeting", "Welcome to Guaardvark.")
             try:
-                greeted = set(json.loads(greeted_file.read_text()).get("greeted", []))
-            except Exception:
-                pass
+                await interaction.user.send(greeting)
+                logger.info("Sent VIP greeting to user %s", user_id)
+            except discord.Forbidden:
+                logger.warning("Cannot DM VIP user %s (DMs disabled)", user_id)
+            except Exception as e:
+                logger.warning("Failed to send VIP greeting: %s", e)
 
-        if interaction.user.id in greeted:
-            return
-
-        greeting = vip_config.get("greeting", "Welcome to Guaardvark.")
-        try:
-            await interaction.user.send(greeting)
-            logger.info("Sent VIP greeting to user %s", interaction.user.id)
-        except discord.Forbidden:
-            logger.warning("Cannot DM VIP user %s (DMs disabled)", interaction.user.id)
-        except Exception as e:
-            logger.warning("Failed to send VIP greeting: %s", e)
-
-        greeted.add(interaction.user.id)
-        try:
-            greeted_file.parent.mkdir(parents=True, exist_ok=True)
-            greeted_file.write_text(json.dumps({"greeted": list(greeted)}))
-        except Exception as e:
-            logger.warning("Failed to save VIP greeted state: %s", e)
+            greeted.add(user_id)
+            self._vip_greeted_cache = greeted
+            try:
+                greeted_file.parent.mkdir(parents=True, exist_ok=True)
+                greeted_file.write_text(json.dumps({"greeted": list(greeted)}))
+            except Exception as e:
+                logger.warning("Failed to save VIP greeted state: %s", e)
 
     async def _start_health_server(self):
         """Start a lightweight HTTP health server on port 8200."""

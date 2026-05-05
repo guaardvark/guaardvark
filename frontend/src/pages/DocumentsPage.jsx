@@ -190,7 +190,8 @@ const DocumentsPage = () => {
           if (stateResponse.ok) {
             savedState = await stateResponse.json();
           }
-        } catch (err) {
+        } catch {
+          // No saved state yet — first run, defaults are fine
         }
 
         // Create a window for each folder
@@ -416,7 +417,7 @@ const DocumentsPage = () => {
     try {
       // Use explicit param if given, otherwise use ref (always current, avoids stale closures)
       const positionsToSave = currentIconPositions || iconPositionsRef.current;
-      const response = await fetch(WINDOWS_STATE_ENDPOINT, {
+      await fetch(WINDOWS_STATE_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -429,11 +430,9 @@ const DocumentsPage = () => {
           lastSaved: new Date().toISOString(),
         }),
       });
-
-      if (response.ok) {
-      } else {
-      }
-    } catch (err) {
+      // Persistence is fire-and-forget — response intentionally not checked
+    } catch {
+      // Layout save is best-effort; if it fails the user just loses layout on refresh
     }
   }, []);
 

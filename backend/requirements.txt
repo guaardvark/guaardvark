@@ -1,5 +1,12 @@
 # backend/requirements.txt
 # Consolidated requirements for Guaardvark
+
+# pkg_resources guard — setuptools >=81 dropped pkg_resources, which several
+# ML libs in this stack still import (resemble-perth via chatterbox-tts hit
+# this on 2026-04-28; gfpgan/basicsr/mediapipe historically use it too).
+# Once the rest of the stack migrates off pkg_resources we can drop this.
+setuptools<81
+
 # Core Flask/Backend Dependencies
 Flask==3.0.0
 Flask-Executor==1.0.0
@@ -36,6 +43,7 @@ python-slugify==8.0.4
 loguru==0.7.2
 
 # LLM/AI Dependencies
+ollama>=0.4.0
 llama-index-core>=0.13.0,<0.15.0  # Compatible with llama-index-embeddings-ollama
 llama-index-llms-ollama>=0.7.0  # Updated for llama-index-core 0.14.x
 llama-index-embeddings-ollama>=0.8.0
@@ -86,6 +94,8 @@ imageio-ffmpeg==0.5.1
 piper-tts==1.3.0
 onnxruntime==1.22.1
 pydub==0.25.1
+librosa>=0.10.2  # Audio decode + duration probe in voice_api.py
+soundfile>=0.12.1  # WAV/FLAC IO for voice_api + audio_foundry backends
 
 # Testing Dependencies
 pytest==8.4.1

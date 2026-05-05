@@ -82,6 +82,8 @@ def create_celery_app():
             'maintenance.daily_backup': {'queue': 'default'},
             'backend.celery_tasks_isolated.*': {'queue': 'default'},
             'backend.tasks.*': {'queue': 'default'},
+            'social_outreach.*': {'queue': 'default'},
+            'memory.*': {'queue': 'default'},
         },
 
         beat_schedule={
@@ -109,6 +111,33 @@ def create_celery_app():
             'cluster-heartbeat-sweep': {
                 'task': 'cluster.sweep_node_heartbeats',
                 'schedule': float(os.environ.get("CLUSTER_SWEEP_INTERVAL_S", 5)),
+                'options': {'queue': 'default'},
+            },
+            # Social outreach loops — beat-driven so they run unattended.
+            # Cadence here is the upper bound; kill_switch.cadence_allows_post
+            # enforces the actual 30-min-per-platform / 8-per-day caps.
+            'social-outreach-reddit-tick': {
+                'task': 'social_outreach.tick_reddit_outreach',
+                'schedule': 2700.0,  # 45 minutes
+                'options': {'queue': 'default'},
+            },
+            'social-outreach-self-share-tick': {
+                'task': 'social_outreach.tick_self_share',
+                'schedule': 14400.0,  # 4 hours
+                'options': {'queue': 'default'},
+            },
+            'social-outreach-process-approved': {
+                'task': 'social_outreach.tick_process_approved_drafts',
+                'schedule': 60.0,  # 1 minute
+                'options': {'queue': 'default'},
+            },
+            # Reap memory_state_<session_id> rows from system_setting that
+            # haven't been touched in GUAARDVARK_MEMORY_RETENTION_DAYS days.
+            # MemoryManager writes these on every chat turn; without this
+            # sweep they grow unbounded.
+            'memory-cleanup-old-session-state': {
+                'task': 'memory.cleanup_old_session_state',
+                'schedule': 86400.0,  # 24 hours — daily is plenty for a 30-day retention
                 'options': {'queue': 'default'},
             },
         },
@@ -218,6 +247,25 @@ def create_celery_app():
         logger.info("Task scheduler Celery Beat tasks imported successfully")
     except ImportError as e:
         logger.warning(f"Could not import task scheduler Beat tasks: {e}")
+
+    try:
+        from backend.tasks.social_outreach_tasks import (
+            engage_with_subreddit,
+            self_share,
+            discord_pass,
+            tick_reddit_outreach,
+            tick_self_share,
+            tick_process_approved_drafts,
+        )
+        logger.info("Social outreach tasks imported successfully")
+    except ImportError as e:
+        logger.warning(f"Could not import social outreach tasks: {e}")
+
+    try:
+        from backend.tasks.memory_maintenance_tasks import cleanup_old_session_memory  # noqa: F401
+        logger.info("Memory maintenance tasks imported successfully")
+    except ImportError as e:
+        logger.warning(f"Could not import memory maintenance tasks: {e}")
 
     try:
         from backend.tasks.self_improvement_tasks import (

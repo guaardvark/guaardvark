@@ -1,0 +1,22 @@
+{
+  "_README": "Seed file. Fill in concrete subreddits, channel ids, and FB groups before flipping social_outreach_enabled=true. Suggested first-night reddit targets in the comments below.",
+  "reddit": {
+    "outreach_subs": [
+      "LocalLLaMA",
+      "selfhosted",
+      "comfyui",
+      "StableDiffusion",
+      "Ollama"
+    ],
+    "share_subs": [
+      "SideProject",
+      "selfhosted"
+    ]
+  },
+  "discord": {
+    "channels": []
+  },
+  "facebook": {
+    "groups": []
+  }
+}

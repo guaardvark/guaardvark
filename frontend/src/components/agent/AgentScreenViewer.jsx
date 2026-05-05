@@ -37,7 +37,9 @@ function loadState() {
 function saveState(state) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {}
+  } catch {
+    // localStorage write blocked or quota exceeded — non-fatal
+  }
 }
 
 // Chip for the sidebar or any page header — toggles the floating window
@@ -69,6 +71,10 @@ export default function AgentScreenViewer({ open, onClose }) {
   const [fps, setFps] = useState(saved.fps ?? 2);
   const [collapsed, setCollapsed] = useState(saved.collapsed ?? false);
   const [imageSrc, setImageSrc] = useState(null);
+  // The unmount-cleanup useEffect runs with an empty deps array, so it would
+  // capture imageSrc at mount time (null) and never revoke the live blob URL.
+  // Mirror imageSrc into a ref so cleanup can read the latest value.
+  const imageSrcRef = useRef(null);
   const [popupWindow, setPopupWindow] = useState(null);
   const [position, setPosition] = useState(() => {
     const x = saved.x ?? window.innerWidth - DEFAULT_WIDTH - 20;
@@ -130,6 +136,7 @@ export default function AgentScreenViewer({ open, onClose }) {
           if (prev) URL.revokeObjectURL(prev);
           return url;
         });
+        imageSrcRef.current = url;
       } else if (response.status === 503) {
         consecutiveFailures.current++;
         setCaptureError('Agent display not running');
@@ -155,7 +162,7 @@ export default function AgentScreenViewer({ open, onClose }) {
 
   useEffect(() => {
     return () => {
-      if (imageSrc) URL.revokeObjectURL(imageSrc);
+      if (imageSrcRef.current) URL.revokeObjectURL(imageSrcRef.current);
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (popupIntervalRef.current) clearInterval(popupIntervalRef.current);
     };
@@ -275,7 +282,9 @@ export default function AgentScreenViewer({ open, onClose }) {
           body: JSON.stringify({ quality: 70 }),
         });
         if (res.ok) { const blob = await res.blob(); const url = URL.createObjectURL(blob); if (img.src) URL.revokeObjectURL(img.src); img.src = url; }
-      } catch {}
+      } catch {
+        // dropped frame — next interval tick will try again
+      }
     };
     stream();
     popupIntervalRef.current = setInterval(stream, 1000 / fps);

@@ -1,27 +1,77 @@
-# Audio Foundry — core service deps only.
-# Per-backend model deps are added as each backend is wired, to keep
-# `pip install` fast when the plugin is first enabled.
+# Audio Foundry — main service venv (plugins/audio_foundry/venv/).
+#
+# Hosts the FastAPI dispatcher + three of four backends:
+#   - audio_fx   (Stable Audio Open via diffusers)
+#   - voice_gen  (Chatterbox primary, Kokoro fallback)
+#
+# ACE-Step lives in a SIBLING venv (plugins/audio_foundry/venv-music/) — see
+# requirements-music.txt — because it pins transformers==4.50.0 while
+# chatterbox-tts pins transformers==5.2.0. Two exact pins, can't coexist.
+# music_gen_acestep.py drives that venv via subprocess.
 
-fastapi==0.115.0
-uvicorn==0.30.0
+# Core service — fastapi/uvicorn left as floors, not exact pins, because
+# chatterbox-tts pulls gradio which requires fastapi>=0.130. Hard-pinning
+# 0.115.0 makes the resolver fail outright (saw this on first launch).
+fastapi>=0.115.0
+uvicorn>=0.30.0
 PyYAML>=6.0
 pydantic>=2.0
 httpx>=0.27.0
+pydub>=0.25.1
 
 # Testing
 pytest>=8.0.0
 
-# audio_fx (SAO) runtime deps — torch, diffusers, transformers, accelerate are
-# already in the project's backend/venv; soundfile is added here.
+# Audio I/O — used by every backend
 soundfile>=0.12
 
-# voice_gen runtime deps. Both are optional in the sense that the plugin
-# starts and tests pass without them; first real call to /generate/voice
-# will fail with a clear "pip install ..." message if either is missing.
-chatterbox-tts>=0.1
+# voice_gen — Chatterbox brings its own torch 2.6 / transformers 5.2 /
+# diffusers 0.29 / safetensors / numpy / librosa as transitive deps.
+chatterbox-tts==0.1.7
+
+# audio_fx (Stable Audio Open) needs StableAudioPipeline, which was first
+# added in diffusers 0.30.0. Chatterbox-tts pins diffusers==0.29.0, but its
+# actual usage is limited to stable scheduler classes — verified to work
+# fine on diffusers 0.37+.
+#
+# The two pins (chatterbox==0.1.7 and diffusers>=0.30) are mutually
+# incompatible to pip's strict resolver, so we DON'T list diffusers>=0.30
+# here. Instead, scripts/start.sh runs a forced `pip install --upgrade
+# diffusers>=0.30,<0.40` AFTER this requirements.txt install, which pip
+# permits with a benign "dependency conflict" warning. This keeps the
+# requirements.txt resolver-friendly while still ending up with diffusers
+# 0.37+ at runtime.
+
+# Stable Audio Open's CosineDPMSolverMultistepScheduler requires torchsde.
+# Backend already pulls it, but audio_foundry runs in an isolated venv so
+# we list it explicitly here.
+torchsde>=0.2.6
+
+# diffusers emits a noisy LoRACompatibleLinear deprecation warning on every
+# Chatterbox load unless PEFT is installed. PEFT itself is small and brings
+# no conflicting pins; adding it just to silence the warning is a fair trade.
+peft>=0.10
+
+# Chatterbox depends on `resemble-perth`, which still uses the legacy
+# `pkg_resources` API. setuptools >=81 removed pkg_resources, which makes
+# perth fail to import, which makes ChatterboxTTS.from_pretrained crash
+# with `'NoneType' object is not callable` (perth's __init__ silently
+# swallows the ImportError and leaves the watermarker class as None).
+# Pinning setuptools<81 keeps pkg_resources around. Once perth ships a
+# fix that drops pkg_resources, this pin can come off.
+setuptools<81
+
+# voice_gen fallback — Kokoro is unpinned (just `torch`, `transformers`,
+# `numpy`), so pip resolves it against whatever chatterbox installed.
+# Non-English Kokoro languages (e/f/h/i/p — Spanish, French, Hindi, Italian,
+# Portuguese) use `phonemizer-fork` + espeak-ng, both pulled transitively by
+# `kokoro` and already wired here. Requires `espeak-ng` on the host (Ubuntu
+# ships it; check `which espeak-ng`). Japanese/Chinese (j/z) would need
+# misaki[ja]/misaki[zh] additionally — not wired today.
 kokoro>=0.7
 
-# music_gen runtime deps. Same opt-in story — ACE-Step is heavy (~10 GB
-# weights) so we don't pull it on every install. First /generate/music
-# call surfaces a clear pip-install error if missing.
-acestep>=0.1
+# audio_fx — Stable Audio Open uses diffusers' StableAudioPipeline. The
+# StableAudioPipeline class has been in diffusers since 0.27, so the 0.29
+# that chatterbox installs covers it. accelerate isn't pulled by chatterbox
+# but SAO needs it for fp16 device placement.
+accelerate>=0.30

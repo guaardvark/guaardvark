@@ -3,6 +3,7 @@ Flask Application for GPU Embedding Service
 """
 
 import logging
+import threading
 import time
 from flask import Flask, request, jsonify
 from typing import Dict, Any, List
@@ -42,8 +43,28 @@ def _initialize_service():
     
     return success
 
-# Initialize on import
-_initialize_service()
+# Defer initialization until the server actually starts handling requests.
+# Module-import-time init pulls a model from Ollama, which fails silently if
+# Ollama isn't ready yet and leaves the service in a degraded state with no
+# retry. Worse, every uvicorn introspection / reload probe re-triggers the
+# load. We move it to a one-shot first-request hook instead.
+_init_lock = threading.Lock()
+_init_attempted = False
+
+
+@app.before_request
+def _ensure_initialized():
+    global _init_attempted
+    if _init_attempted:
+        return
+    with _init_lock:
+        if _init_attempted:
+            return
+        _init_attempted = True
+        try:
+            _initialize_service()
+        except Exception as e:
+            logger.error(f"Deferred init failed: {e}", exc_info=True)
 
 
 @app.route('/health', methods=['GET'])
@@ -235,7 +256,7 @@ if __name__ == '__main__':
     # Get configuration
     config = get_service_config()
     host = config.get("host", "127.0.0.1")
-    port = config.get("port", 5002)
+    port = config.get("port", 8203)  # 8203, NOT 5002 — that's the main backend's port
     debug = config.get("debug", False)
     
     logger.info(f"Starting GPU Embedding Service on {host}:{port}")

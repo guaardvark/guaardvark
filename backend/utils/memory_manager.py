@@ -408,6 +408,55 @@ class MemoryManager:
             'summaries': summaries
         }
 
+    def maybe_summarize_session(
+        self,
+        session_id: str,
+        messages: List[Dict],
+        threshold: int = 30,
+        window_size: int = 20,
+    ) -> int:
+        """Lazily roll-up old messages into summaries.
+
+        The original `create_session_summary` re-summarises the whole list on
+        every call, which both burns tokens and double-counts the same window.
+        This helper only summarises the chunks of `window_size` that have
+        accumulated *since* the last summary's `end_index`. Safe to call after
+        every chat turn — most calls are no-ops.
+
+        Returns the number of new summary entries appended.
+        """
+        if len(messages) < threshold:
+            return 0
+
+        existing = self.session_summaries.get(session_id, [])
+        last_end = existing[-1]["end_index"] if existing else 0
+
+        appended = 0
+        for i in range(last_end, len(messages), window_size):
+            window = messages[i:i + window_size]
+            # Only commit *complete* windows so partial tail messages get
+            # picked up by a future call once they're fully buffered.
+            if len(window) < window_size:
+                break
+            summary_text = ConversationSummarizer.create_summary(window)
+            if not summary_text:
+                continue
+            self.session_summaries.setdefault(session_id, []).append({
+                "start_index": i,
+                "end_index": i + window_size,
+                "summary": summary_text,
+                "message_count": window_size,
+                "created_at": datetime.now(),
+            })
+            appended += 1
+
+        if appended > 0:
+            logger.info(
+                "Summarised %d new window(s) for session %s (total summaries: %d)",
+                appended, session_id, len(self.session_summaries.get(session_id, [])),
+            )
+        return appended
+
     def get_memory_context(self, session_id: str, current_message: str,
                           all_messages: List[Dict], max_tokens: int = 4000) -> Dict:
         """
@@ -573,15 +622,18 @@ class MemoryManager:
         except Exception as e:
             logger.error(f"Failed to load memory: {e}")
 
-    def cleanup_old_memory(self, days: int = 30):
+    def cleanup_old_memory(self, days: int = 30) -> int:
         """
-        Clean up old memory states
+        Clean up old memory states.
 
         Args:
             days: Remove memory older than this many days
+
+        Returns:
+            Number of rows actually deleted (0 on no-db / error / nothing to do).
         """
         if not self.db:
-            return
+            return 0
 
         try:
             from backend.models import SystemSetting
@@ -598,12 +650,15 @@ class MemoryManager:
                 self.db.delete(setting)
 
             self.db.commit()
-            logger.info(f"🧹 Cleaned up {len(old_settings)} old memory states")
+            count = len(old_settings)
+            logger.info(f"🧹 Cleaned up {count} old memory states")
+            return count
 
         except Exception as e:
             logger.error(f"Failed to cleanup memory: {e}")
             if self.db:
                 self.db.rollback()
+            return 0
 
 
 # Singleton instance

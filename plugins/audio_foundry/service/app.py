@@ -183,6 +183,13 @@ def list_voices() -> dict[str, Any]:
                     {"id": "bm_daniel",  "label": "Daniel"},
                     {"id": "bm_fable",   "label": "Fable"},
                 ]},
+                {"label": "Spanish Female", "voices": [
+                    {"id": "ef_dora",    "label": "Dora"},
+                ]},
+                {"label": "Spanish Male", "voices": [
+                    {"id": "em_alex",    "label": "Alex"},
+                    {"id": "em_santa",   "label": "Santa"},
+                ]},
             ],
         },
         "chatterbox": {

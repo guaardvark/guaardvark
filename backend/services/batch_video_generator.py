@@ -33,6 +33,14 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
+def _derive_display_name(text: str, max_len: int = 40) -> str:
+    """Trim a prompt down to something the Media Library card can show."""
+    cleaned = " ".join((text or "").split())
+    if len(cleaned) <= max_len:
+        return cleaned
+    return cleaned[: max_len - 1].rstrip() + "…"
+
 # Dedicated video generation log file
 _video_log_handler = None
 def _get_video_logger():
@@ -364,6 +372,10 @@ class BatchVideoGenerator:
             BatchVideoItem(id=str(uuid.uuid4()), prompt=p, metadata={"source": "prompt"})
             for p in prompts
         ]
+        metadata = dict(params.get("metadata") or {})
+        if not metadata.get("display_name") and prompts:
+            metadata["display_name"] = _derive_display_name(prompts[0])
+        params["metadata"] = metadata
         return self._start_batch(batch_id=batch_id, items=items, **params)
 
     def start_batch_from_images(
@@ -383,6 +395,12 @@ class BatchVideoGenerator:
             )
             for path in image_paths
         ]
+        metadata = dict(params.get("metadata") or {})
+        if not metadata.get("display_name"):
+            seed_text = user_prompt or (Path(image_paths[0]).name if image_paths else "")
+            if seed_text:
+                metadata["display_name"] = _derive_display_name(seed_text)
+        params["metadata"] = metadata
         return self._start_batch(batch_id=batch_id, items=items, **params)
 
     def _start_batch(self, batch_id: str, items: List[BatchVideoItem], **params) -> BatchVideoStatus:

@@ -131,14 +131,24 @@ class StableAudioOpenBackend(AudioBackend):
         out_path = self._output_root / f"{asset_id}.wav"
         sf.write(str(out_path), audio, self._sample_rate)
 
+        # Reap the raw WAV if post_process fails or replaces it (see chatterbox).
+        try:
+            final_path = self.post_process(out_path, output_format=requested_format)
+        except Exception:
+            out_path.unlink(missing_ok=True)
+            raise
+        if final_path != out_path:
+            out_path.unlink(missing_ok=True)
+        actual_format = final_path.suffix.lstrip(".").lower()
+
         actual_duration = audio.shape[0] / self._sample_rate
         logger.info(
             "SAO wrote %s — %.2fs audio in %.1fs wall",
-            out_path, actual_duration, gen_seconds,
+            final_path, actual_duration, gen_seconds,
         )
 
         return GenerationResult(
-            path=out_path.resolve(),
+            path=final_path.resolve(),
             duration_s=actual_duration,
             sample_rate=self._sample_rate,
             meta={
@@ -148,7 +158,7 @@ class StableAudioOpenBackend(AudioBackend):
                 "steps": self._steps,
                 "requested_duration_s": duration_s,
                 "requested_output_format": requested_format,
-                "actual_output_format": "wav",
+                "actual_output_format": actual_format,
                 "seed": seed,
                 "generation_seconds": round(gen_seconds, 2),
             },

@@ -25,6 +25,7 @@ import { uploadFile, getDocuments } from "../api";
 import { triggerIndexing } from "../api/indexingService"; // Import directly to avoid static bundling
 import { useStatus } from "../contexts/StatusContext";
 import PageLayout from "../components/layout/PageLayout";
+import { formatTimestamp } from "../utils/fileTypeUtils";
 
 const IndexStatusChip = ({ status }) => {
   let color = "default";

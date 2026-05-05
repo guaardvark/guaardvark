@@ -457,9 +457,19 @@ class BrainState:
             self.reflexes = []
             self.health.reflexes_loaded = False
 
-        # Step 7: Warm-up ping (background thread)
-        if self.health.llm_available:
+        # Step 7: Warm-up ping (background thread). Skipped when the user has
+        # disabled the Ollama plugin in /plugins — same logic as app.py's
+        # [LLM-Init] step 5. Without this gate, Ollama would still load the
+        # model into VRAM at boot even with the plugin toggled off, because
+        # this warmup runs independently of [LLM-Init].
+        if self.health.llm_available and self._ollama_user_enabled():
             self._start_warmup()
+        elif self.health.llm_available:
+            logger.info(
+                "BrainState: skipping warm-up — Ollama plugin is disabled in user prefs. "
+                "First chat call will load the model on demand."
+            )
+            self.health.warm_up_status = WarmUpStatus.READY
 
         elapsed = (time.monotonic() - start) * 1000
         self._initialized = True
@@ -539,15 +549,12 @@ class BrainState:
         # is substituted in get_system_prompt().
         prefix += "{MEMORY_BLOCK}"
 
-        # Inject agent desktop state so the LLM knows what's on the
-        # virtual screen before deciding what tools to call
-        try:
-            from backend.services.agent_control_service import AgentControlService
-            desktop = AgentControlService._get_desktop_state()
-            if desktop:
-                prefix += f"Agent virtual screen state:\n{desktop}\n\n"
-        except Exception:
-            pass  # Agent display not running — no impact
+        # Desktop state used to be looked up here and frozen into the prompt
+        # at startup. That meant chat saw whatever the screen looked like at
+        # boot for the rest of the process lifetime — even after the agent
+        # navigated, opened apps, etc. Use a placeholder substituted live in
+        # get_system_prompt(), same pattern as {MEMORY_BLOCK}.
+        prefix += "{DESKTOP_STATE}"
 
         # -- Chat prompt (Tier 2) --
         tool_block = ""
@@ -622,6 +629,33 @@ RULES:
 - If you cannot find the answer, say so honestly."""
 
     # -- Warm-up ping -------------------------------------------------------
+
+    @staticmethod
+    def _ollama_user_enabled() -> bool:
+        """Return True if the user has Ollama enabled, False if disabled.
+
+        Checks data/plugin_state.json's user_enabled overlay first; falls back
+        to plugins/ollama/plugin.json's config.enabled if no override. Defaults
+        fail-open (True) so a corrupt/missing state file doesn't break chat
+        for users who never touched the plugin toggle.
+        """
+        try:
+            import json as _json
+            from pathlib import Path
+            root = Path(__file__).resolve().parent.parent.parent
+            state_file = root / "data" / "plugin_state.json"
+            if state_file.exists():
+                state = _json.loads(state_file.read_text()) or {}
+                user_enabled = state.get("user_enabled", {})
+                if "ollama" in user_enabled:
+                    return bool(user_enabled["ollama"])
+            manifest = root / "plugins" / "ollama" / "plugin.json"
+            if manifest.exists():
+                cfg = (_json.loads(manifest.read_text()) or {}).get("config", {})
+                return bool(cfg.get("enabled", True))
+        except Exception:
+            pass
+        return True
 
     def _start_warmup(self):
         """Send a throwaway prompt to force model into VRAM."""
@@ -754,4 +788,21 @@ RULES:
         except Exception:
             memory_text = ""
         memory_block = f"{memory_text}\n\n" if memory_text else ""
-        return template.replace("{MEMORY_BLOCK}", memory_block)
+
+        # Live desktop state (mirrors the live MEMORY_BLOCK pattern). Captured
+        # at request time, not at startup, so the LLM sees what's actually
+        # on the virtual screen right now.
+        desktop_block = ""
+        try:
+            from backend.services.agent_control_service import AgentControlService
+            desktop = AgentControlService._get_desktop_state()
+            if desktop:
+                desktop_block = f"Agent virtual screen state:\n{desktop}\n\n"
+        except Exception:
+            desktop_block = ""
+
+        return (
+            template
+            .replace("{MEMORY_BLOCK}", memory_block)
+            .replace("{DESKTOP_STATE}", desktop_block)
+        )

@@ -28,6 +28,14 @@ async function getAvailableModels() {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     const data = await response.json();
+    // Backend returns 200 with `ollama_offline: true` when the Ollama plugin
+    // is simply disabled — that's not an error, just an empty model set. Log
+    // at debug level so the Plugins page (and anything else that loads this
+    // on mount) doesn't spam the console with warnings the user can't act on.
+    if (data?.data?.ollama_offline || data?.message?.ollama_offline) {
+      console.debug('Ollama plugin offline; returning empty model list');
+      return [];
+    }
     // Handle non-standard envelope: {data: "string", message: {models: [...]}}
     // Also handle: {data: {models: [...]}} or {models: [...]} or [...]
     if (data?.message?.models) return data.message.models;

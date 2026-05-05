@@ -37,27 +37,33 @@ const MessageItem = ({ message, sessionId: sessionIdProp }) => {
   // still carries the active chat session.
   const effectiveSessionId = message.sessionId || sessionIdProp || null;
 
-  // Read narrate button visibility from voice settings (localStorage)
-  const [showNarrate, setShowNarrate] = useState(() => {
+  // Read narrate visibility + selected voice from voice settings (localStorage).
+  // The voice picked in Settings flows through to NarrateButton's Fast (Piper)
+  // path; Expressive ignores it (audio_foundry's dispatcher picks Chatterbox/Kokoro).
+  const readVoiceSettings = () => {
     try {
       const vs = localStorage.getItem('guaardvark_voiceSettings');
       if (vs) {
         const parsed = JSON.parse(vs);
-        return parsed.showNarrateButtons !== false;
+        return {
+          showNarrate: parsed.showNarrateButtons !== false,
+          voice: parsed.voice || 'libritts',
+        };
       }
-    } catch {}
-    return true;
-  });
+    } catch {
+      // invalid JSON in localStorage — fall through to defaults
+    }
+    return { showNarrate: true, voice: 'libritts' };
+  };
+
+  const [showNarrate, setShowNarrate] = useState(() => readVoiceSettings().showNarrate);
+  const [selectedVoice, setSelectedVoice] = useState(() => readVoiceSettings().voice);
 
   useEffect(() => {
     const handler = () => {
-      try {
-        const vs = localStorage.getItem('guaardvark_voiceSettings');
-        if (vs) {
-          const parsed = JSON.parse(vs);
-          setShowNarrate(parsed.showNarrateButtons !== false);
-        }
-      } catch {}
+      const next = readVoiceSettings();
+      setShowNarrate(next.showNarrate);
+      setSelectedVoice(next.voice);
     };
     window.addEventListener('voiceSettingsChanged', handler);
     window.addEventListener('storage', handler);
@@ -552,7 +558,7 @@ const MessageItem = ({ message, sessionId: sessionIdProp }) => {
                 )}
               </IconButton>
             </Tooltip>
-            {showNarrate && <NarrateButton text={message.content} size="small" />}
+            {showNarrate && <NarrateButton text={message.content} voice={selectedVoice} size="small" />}
           </Box>
         )}
         {/* Source badge for Uncle Claude / Family / Self-Improvement responses */}

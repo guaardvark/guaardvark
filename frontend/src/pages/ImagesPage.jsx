@@ -235,7 +235,9 @@ const ImagesPage = () => {
       try {
         const resp = await fetch(WINDOWS_STATE_ENDPOINT);
         if (resp.ok) savedState = await resp.json();
-      } catch {}
+      } catch {
+        // No saved window state yet — first run, defaults are fine
+      }
 
       // Seed counter above any saved window IDs to avoid duplicates
       if (savedState?.windows) {
@@ -394,9 +396,10 @@ const ImagesPage = () => {
           });
           setVideoBatches(batches);
 
-          // Fetch details (results) for completed batches
+          // Fetch details for any batch that may have produced videos —
+          // cancelled/error batches often have partial results worth showing.
           const detailPromises = batches
-            .filter(b => b.status === 'completed' || b.status === 'partial')
+            .filter(b => ['completed', 'partial', 'cancelled', 'error'].includes(b.status))
             .map(async (b) => {
               try {
                 const statusRes = await fetch(`${VIDEO_API_BASE}/status/${b.batch_id}`);
@@ -406,7 +409,9 @@ const ImagesPage = () => {
                     return { batch_id: b.batch_id, ...statusData.data };
                   }
                 }
-              } catch {}
+              } catch {
+                // One batch's status fetch failed — skip it, others continue
+              }
               return null;
             });
           const details = await Promise.all(detailPromises);
@@ -489,6 +494,15 @@ const ImagesPage = () => {
     } catch { return ''; }
   }, []);
 
+  // Legacy batches predate display_name in metadata — pull a humane label
+  // out of "VideoBatch_MM-DD-YYYY_NNN" instead of slicing it to "VideoBatch_0".
+  const fallbackBatchName = useCallback((batchId) => {
+    if (!batchId) return 'Batch';
+    const m = batchId.match(/^VideoBatch_(\d{2})-(\d{2})-\d{4}_(\d+)$/);
+    if (m) return `${m[1]}/${m[2]} #${m[3]}`;
+    return batchId.replace(/^VideoBatch_/, '');
+  }, []);
+
   // ──────────────────── Window State Persistence ────────────────────
 
   const saveWindowState = useCallback(async (windowsData, layout, colors, zIndex, maxZ, currentIconPositions) => {
@@ -510,7 +524,9 @@ const ImagesPage = () => {
           lastSaved: new Date().toISOString(),
         }),
       });
-    } catch {}
+    } catch {
+      // Persisting window layout is best-effort; don't bother the user
+    }
   }, []);
 
   // ──────────────────── Window Management ────────────────────
@@ -2084,7 +2100,7 @@ const ImagesPage = () => {
                 const results = details?.results?.filter(r => r.success && r.video_path) || [];
                 const firstResult = results[0];
                 const videoCount = batch.completed_videos ?? 0;
-                const displayName = batch.display_name || batch.batch_id.slice(0, 12);
+                const displayName = batch.display_name || fallbackBatchName(batch.batch_id);
 
                 return (
                   <Grid item xs={6} sm={4} md={3} lg={2} key={batch.batch_id}>

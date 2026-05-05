@@ -297,7 +297,11 @@ def check_scheduled_tasks(self):
 
             except Exception as e:
                 logger.error(f"Failed to submit scheduled task {task_id}: {e}")
-                # Revert task status if Celery submission failed
+                # Revert task status if Celery submission failed.
+                # Use try/finally so a session is always closed — without it,
+                # a raise inside .execute() would leak a DB connection every
+                # 60s under Beat. Sessions stack, the pool exhausts, fun ensues.
+                revert_session = None
                 try:
                     revert_session = get_db_session()
                     revert_session.execute(text("""
@@ -305,9 +309,11 @@ def check_scheduled_tasks(self):
                         WHERE id = :task_id AND status = 'queued'
                     """), {"task_id": task_id})
                     revert_session.commit()
-                    revert_session.close()
-                except Exception:
-                    pass
+                except Exception as revert_err:
+                    logger.warning(f"Could not revert task {task_id} status: {revert_err}")
+                finally:
+                    if revert_session is not None:
+                        revert_session.close()
 
         return {
             'processed': submitted_count,
@@ -425,6 +431,13 @@ def _get_queue_for_task_type(task_type: str) -> str:
         'indexing': 'indexing',
         'data_analysis': 'default',
         'web_scraping': 'default',
+        # Social outreach rides the default queue. The current worker is started
+        # with --concurrency=2 and no -Q filter, so default is the only safe
+        # destination. Cadence enforcement (kill_switch.cadence_allows_post)
+        # prevents back-to-back posts within the 30 min window per platform.
+        'social_outreach_reddit': 'default',
+        'social_outreach_share': 'default',
+        'social_outreach_discord': 'default',
     }
     return queue_mapping.get(task_type, 'default')
 

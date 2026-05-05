@@ -398,7 +398,23 @@ def learn_input():
 # ---------------------------------------------------------------------------
 
 def _distill_pearl_memory(app, session_id: str):
-    """Background thread: roll this session's positive pearls into a short
+    """DEPRECATED 2026-05-05 — no longer invoked. Kept here as a reference
+    for any future revival with a vision-actionable prompt.
+
+    Why it was killed: the prompt below explicitly asks for a first-person
+    "note to your future self," which produced introspective reflections
+    ("When a direct action fails, I must wait for the user to prompt me to
+    re-engage my vision tools and coordinate system...") that don't
+    translate to action and clutter AgentMemory with unused rows. Per
+    data/agent/LEARNING_PRINCIPLES.md, stored knowledge must be
+    vision-actionable ("find this and do that"), not self-reflective.
+
+    The End-Lesson distiller in backend/api/lessons_api.py is the
+    surviving distillation path — user-bracketed, structured-JSON output,
+    parameterized steps. Build there if more distillation is needed.
+
+    Original docstring:
+    Background thread: roll this session's positive pearls into a short
     note to the agent's future self, UPSERT one AgentMemory per session.
 
     Runs async so the feedback endpoint returns fast. Failures are logged
@@ -635,36 +651,28 @@ def submit_feedback():
                 except Exception:
                     pass
 
-        # Two paths for positive pearls:
-        #   (1) No active lesson  → old per-session rolling distillation (async).
-        #   (2) Active lesson     → skip per-👍 distill; emit a live pearl event
-        #                           so the floater can show progress. The real
-        #                           distillation runs on POST /api/lessons/<id>/end.
-        if entry["positive"] and entry["session_id"]:
-            if entry["lesson_id"]:
-                try:
-                    from backend.socketio_events import emit_lesson_event
-                    emit_lesson_event("pearl_added", {
-                        "lesson_id": entry["lesson_id"],
-                        "session_id": entry["session_id"],
-                        "pearl_id": db_entry_id,
-                        "task": entry["task"],
-                        "created_at": entry["timestamp"],
-                    })
-                except Exception as emit_err:
-                    logger.warning(f"[LESSON] emit pearl_added failed (non-fatal): {emit_err}")
-            else:
-                try:
-                    from flask import current_app
-                    _app = current_app._get_current_object()
-                    threading.Thread(
-                        target=_distill_pearl_memory,
-                        args=(_app, entry["session_id"]),
-                        daemon=True,
-                        name=f"distill-{entry['session_id'][:8]}",
-                    ).start()
-                except Exception as spawn_err:
-                    logger.warning(f"[DISTILL] Failed to spawn distillation thread: {spawn_err}")
+        # Positive pearl handling:
+        #   - Active lesson  → emit a live pearl event so the lesson floater
+        #     shows progress. Real distillation runs on POST /api/lessons/<id>/end,
+        #     which produces vision-actionable, parameterized lesson steps.
+        #   - No active lesson → record the feedback row and STOP. Earlier we
+        #     auto-distilled here via _distill_pearl_memory; that produced
+        #     first-person "note to my future self" reflections that didn't
+        #     translate to action and polluted AgentMemory with unused rows.
+        #     Killed 2026-05-05 per LEARNING_PRINCIPLES.md — knowledge has to
+        #     be vision-actionable, not introspective.
+        if entry["positive"] and entry["session_id"] and entry["lesson_id"]:
+            try:
+                from backend.socketio_events import emit_lesson_event
+                emit_lesson_event("pearl_added", {
+                    "lesson_id": entry["lesson_id"],
+                    "session_id": entry["session_id"],
+                    "pearl_id": db_entry_id,
+                    "task": entry["task"],
+                    "created_at": entry["timestamp"],
+                })
+            except Exception as emit_err:
+                logger.warning(f"[LESSON] emit pearl_added failed (non-fatal): {emit_err}")
 
         return jsonify({"success": True, "feedback": entry}), 201
     except Exception as e:

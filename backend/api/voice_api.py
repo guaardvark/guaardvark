@@ -14,10 +14,16 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict, Set
 import json
 import psutil
+import requests
 
 from flask import Blueprint, current_app, jsonify, request, send_file
 from werkzeug.utils import secure_filename
 from backend.utils.response_utils import success_response, error_response
+
+# Audio Foundry plugin endpoint — Chatterbox primary, Kokoro fallback.
+# When the plugin is disabled or unreachable, /voice/narrate transparently
+# falls back to Piper so the button never breaks. See plugins/audio_foundry/.
+AUDIO_FOUNDRY_URL = os.environ.get("AUDIO_FOUNDRY_URL", "http://127.0.0.1:8206")
 
 # --- Blueprint Definition ---
 voice_bp = Blueprint("voice_api", __name__, url_prefix="/api/voice")
@@ -1186,12 +1192,78 @@ def stream_tts(stream_id):
     from flask import Response
     return Response(generate_audio(), mimetype="audio/wav")
 
+def _try_audio_foundry_voice(text: str, output_format: str, narrations_dir: str) -> Optional[Dict]:
+    """Hand the request off to the Audio Foundry plugin (Chatterbox primary,
+    Kokoro fallback). Returns a Piper-shaped response dict on success, or None
+    when the plugin is disabled, unreachable, or errors out — caller falls
+    back to Piper so the user never sees a broken button.
+
+    Multi-section scripts are flattened into a single text body; Chatterbox
+    handles long-text chunking internally (see voice_gen_chatterbox.py).
+    """
+    try:
+        resp = requests.post(
+            f"{AUDIO_FOUNDRY_URL}/generate/voice",
+            json={"text": text, "backend": "auto", "output_format": output_format},
+            timeout=(2, 180),  # 2s connect — fails fast when plugin is off
+        )
+    except requests.exceptions.RequestException as e:
+        # Connection refused / DNS / timeout. Plugin probably not running.
+        logger.info("Voice API: audio_foundry unreachable (%s) — using Piper fallback", e)
+        return None
+
+    if resp.status_code != 200:
+        logger.warning(
+            "Voice API: audio_foundry returned %d: %s — using Piper fallback",
+            resp.status_code, resp.text[:200],
+        )
+        return None
+
+    try:
+        body = resp.json()
+        src_path = body["path"]
+        actual_backend = body.get("meta", {}).get("backend", "audio_foundry")
+        duration = body.get("duration_s", 0.0)
+    except (ValueError, KeyError) as e:
+        logger.warning("Voice API: audio_foundry response malformed (%s) — using Piper fallback", e)
+        return None
+
+    if not os.path.exists(src_path):
+        logger.warning("Voice API: audio_foundry path %s missing — using Piper fallback", src_path)
+        return None
+
+    # Copy into narrations dir under the existing naming so /voice/audio/ can
+    # serve it without changing the security check on that endpoint.
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_filename = f"narration_{timestamp}.{output_format}"
+    out_path = os.path.join(narrations_dir, out_filename)
+    try:
+        shutil.copy2(src_path, out_path)
+    except (OSError, IOError) as e:
+        logger.warning("Voice API: failed to stage audio_foundry output (%s) — using Piper fallback", e)
+        return None
+
+    return {
+        "audio_url": f"/voice/audio/{out_filename}",
+        "filename": out_filename,
+        "duration_seconds": round(float(duration), 2),
+        "sections": 1,
+        "total_sections": 1,
+        "voice": actual_backend,
+        "output_format": output_format,
+        "engine": actual_backend,  # "chatterbox" or "kokoro" — whichever ran
+    }
+
+
 @voice_bp.route("/narrate", methods=["POST"])
 def narrate():
     """Generate narration audio from a multi-section script.
 
-    Splits script into sections, generates TTS per section via Piper,
-    inserts silence between sections, concatenates into a single audio file.
+    Default path: per-section Piper TTS, concatenated with pydub. When the
+    caller asks for the Expressive engine ("bark" kept as a back-compat
+    alias), hand off to the audio_foundry plugin (Chatterbox/Kokoro). If
+    that plugin is disabled or unreachable, transparently fall through to
+    Piper so the user never sees a broken button.
     """
     logger.info("Voice API: Received narration request")
 
@@ -1206,13 +1278,33 @@ def narrate():
         pause_between = float(data.get("pause_between_sections", 1.0))
         output_format = data.get("output_format", "wav").lower()
 
-        # Narration only supports Piper — if Bark was requested, fall back to Piper default voice
-        if engine == "bark":
-            logger.info("Voice API: Bark engine not supported for narration, falling back to Piper")
-            voice = DEFAULT_VOICE
-
         if not script:
             return jsonify({"error": "Script is required"}), 400
+
+        # Validate output format early — needed by both engines.
+        if output_format not in ("wav", "mp3"):
+            output_format = "wav"
+
+        # Ensure narrations output directory exists — both engines write here.
+        backend_path = get_backend_path()
+        guaardvark_root = os.environ.get("GUAARDVARK_ROOT", os.path.dirname(backend_path))
+        narrations_dir = os.path.join(guaardvark_root, "data", "outputs", "narrations")
+        os.makedirs(narrations_dir, exist_ok=True)
+
+        # Expressive route: try audio_foundry first, fall through to Piper on miss.
+        # "bark" stays accepted for back-compat with older frontend builds.
+        if engine in ("expressive", "bark"):
+            text_body = (
+                "\n\n".join(s for s in script if isinstance(s, str) and s.strip())
+                if isinstance(script, list)
+                else str(script)
+            )
+            af_result = _try_audio_foundry_voice(text_body, output_format, narrations_dir)
+            if af_result is not None:
+                logger.info("Voice API: Narration via audio_foundry (%s)", af_result["engine"])
+                return jsonify(af_result)
+            # else: fall through to Piper with the user-selected voice
+            logger.info("Voice API: Expressive narration falling back to Piper (voice=%s)", voice)
 
         # Accept string (split on double-newline) or array of sections
         if isinstance(script, str):
@@ -1225,27 +1317,16 @@ def narrate():
         if not sections:
             return jsonify({"error": "Script contains no non-empty sections"}), 400
 
-        # Validate voice
         if voice not in PIPER_VOICES:
             return jsonify({
                 "error": f"Invalid voice. Must be one of: {list(PIPER_VOICES.keys())}"
             }), 400
 
-        backend_path = get_backend_path()
         voice_config = PIPER_VOICES[voice]
         piper_model = os.path.join(backend_path, voice_config["model"])
 
         if not os.path.exists(piper_model):
             return jsonify({"error": f"Piper model not found: {voice}. Download it first."}), 503
-
-        # Validate output format
-        if output_format not in ("wav", "mp3"):
-            output_format = "wav"
-
-        # Ensure narrations output directory exists
-        guaardvark_root = os.environ.get("GUAARDVARK_ROOT", os.path.dirname(backend_path))
-        narrations_dir = os.path.join(guaardvark_root, "data", "outputs", "narrations")
-        os.makedirs(narrations_dir, exist_ok=True)
 
         # Clean text helper (same logic as text_to_speech)
         def clean_section(text):

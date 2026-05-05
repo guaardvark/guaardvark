@@ -219,8 +219,16 @@ class ComfyUIVideoGenerator:
 
     WAN22_MODELS = {
         "wan22-14b": {
+            "type": "t2v",
             "unet_high": "Wan2.2-T2V-A14B-HighNoise-Q5_K_M.gguf",
             "unet_low": "Wan2.2-T2V-A14B-LowNoise-Q5_K_M.gguf",
+            "clip": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+            "vae": "wan_2.1_vae.safetensors",
+        },
+        "wan22-14b-i2v": {
+            "type": "i2v",
+            "unet_high": "Wan2.2-I2V/HighNoise/Wan2.2-I2V-A14B-HighNoise-Q5_K_M.gguf",
+            "unet_low": "Wan2.2-I2V/LowNoise/Wan2.2-I2V-A14B-LowNoise-Q5_K_M.gguf",
             "clip": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
             "vae": "wan_2.1_vae.safetensors",
         },
@@ -499,10 +507,14 @@ class ComfyUIVideoGenerator:
             "10": {
                 "class_type": "ImageResizeKJ",
                 "inputs": {
+                    # KJNodes ImageResizeKJ schema drifted: fields used to be
+                    # width_input/height_input/interpolation; now they're
+                    # width/height/upscale_method (with upscale_method as a
+                    # required enum). divisible_by stays required as well.
                     "image": ["5", 0],
-                    "width_input": width,
-                    "height_input": height,
-                    "interpolation": "lanczos",
+                    "width": width,
+                    "height": height,
+                    "upscale_method": "lanczos",
                     "keep_proportion": False,
                     "divisible_by": 16,
                 }
@@ -770,6 +782,131 @@ class ComfyUIVideoGenerator:
                 workflow,
                 source_node_id="12",       # VAEDecode
                 video_combine_node_id="13", # VHS_VideoCombine
+                base_fps=fps,
+                multiplier=interpolation_multiplier,
+            )
+
+        return workflow
+
+    def _create_wan22_i2v_workflow(
+        self,
+        image_filename: str,
+        prompt: str,
+        negative_prompt: str = "",
+        model_key: str = "wan22-14b-i2v",
+        num_frames: int = 81,
+        num_inference_steps: int = 20,
+        guidance_scale: float = 3.5,
+        width: int = 832,
+        height: int = 480,
+        seed: Optional[int] = None,
+        fps: int = 16,
+        interpolation_multiplier: int = 2,
+    ) -> dict:
+        # Same MoE two-pass dance as Wan T2V, but the empty latent gets swapped
+        # for WanImageToVideo — that node bakes the start frame into the
+        # conditioning and hands back a properly-shaped image-conditioned latent.
+        if seed is None:
+            seed = int(time.time() * 1000) % (2**31)
+
+        model_files = self.WAN22_MODELS.get(model_key, self.WAN22_MODELS["wan22-14b-i2v"])
+
+        if not negative_prompt:
+            negative_prompt = (
+                "blurry, low quality, extra fingers, extra limbs, deformed hands, "
+                "deformed face, disfigured, static, overexposed, worst quality, "
+                "NSFW, nude"
+            )
+
+        midpoint = num_inference_steps // 2
+
+        workflow = {
+            "1": {"class_type": "UnetLoaderGGUF", "inputs": {"unet_name": model_files["unet_high"]}},
+            "2": {"class_type": "UnetLoaderGGUF", "inputs": {"unet_name": model_files["unet_low"]}},
+            "3": {"class_type": "CLIPLoader", "inputs": {"clip_name": model_files["clip"], "type": "wan", "device": "default"}},
+            "4": {"class_type": "VAELoader", "inputs": {"vae_name": model_files["vae"]}},
+            "5": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["3", 0], "text": prompt}},
+            "6": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["3", 0], "text": negative_prompt}},
+            "14": {"class_type": "LoadImage", "inputs": {"image": image_filename}},
+            # WanImageToVideo: takes pos/neg cond + start image + vae →
+            # returns image-conditioned pos/neg + a length-N latent.
+            "7": {
+                "class_type": "WanImageToVideo",
+                "inputs": {
+                    "positive": ["5", 0],
+                    "negative": ["6", 0],
+                    "vae": ["4", 0],
+                    "width": width,
+                    "height": height,
+                    "length": num_frames,
+                    "batch_size": 1,
+                    "start_image": ["14", 0],
+                },
+            },
+            "8": {"class_type": "ModelSamplingSD3", "inputs": {"model": ["1", 0], "shift": 8.0}},
+            "9": {"class_type": "ModelSamplingSD3", "inputs": {"model": ["2", 0], "shift": 8.0}},
+            "10": {
+                "class_type": "KSamplerAdvanced",
+                "inputs": {
+                    "model": ["8", 0],
+                    "positive": ["7", 0],
+                    "negative": ["7", 1],
+                    "latent_image": ["7", 2],
+                    "add_noise": "enable",
+                    "noise_seed": seed,
+                    "control_after_generate": "randomize",
+                    "steps": num_inference_steps,
+                    "cfg": guidance_scale,
+                    "sampler_name": "euler",
+                    "scheduler": "simple",
+                    "start_at_step": 0,
+                    "end_at_step": midpoint,
+                    "return_with_leftover_noise": "enable",
+                },
+            },
+            "11": {
+                "class_type": "KSamplerAdvanced",
+                "inputs": {
+                    "model": ["9", 0],
+                    "positive": ["7", 0],
+                    "negative": ["7", 1],
+                    "latent_image": ["10", 0],
+                    "add_noise": "disable",
+                    "noise_seed": 0,
+                    "control_after_generate": "fixed",
+                    "steps": num_inference_steps,
+                    "cfg": guidance_scale,
+                    "sampler_name": "euler",
+                    "scheduler": "simple",
+                    "start_at_step": midpoint,
+                    "end_at_step": 10000,
+                    "return_with_leftover_noise": "disable",
+                },
+            },
+            "12": self._build_vae_decode_node("11", "4", width, height),
+            "13": {
+                "class_type": "VHS_VideoCombine",
+                "inputs": {
+                    "images": ["12", 0],
+                    "frame_rate": fps,
+                    "loop_count": 0,
+                    "filename_prefix": "wan22_i2v",
+                    "format": "video/h264-mp4",
+                    "pix_fmt": "yuv420p",
+                    "crf": 19,
+                    "save_metadata": True,
+                    "pingpong": False,
+                    "save_output": True,
+                    "videopreview": {"hidden": False, "paused": False, "params": {}},
+                },
+            },
+        }
+
+        if interpolation_multiplier > 1:
+            self._add_rife_interpolation(
+                workflow,
+                source_node_id="12",
+                video_combine_node_id="13",
                 base_fps=fps,
                 multiplier=interpolation_multiplier,
             )
@@ -1141,25 +1278,51 @@ class ComfyUIVideoGenerator:
 
             # ── Route by model type ──────────────────────────────────
             if model in self.WAN22_MODELS or model in ("wan22", "wan2.2"):
-                if image_path:
-                    result.error = "Wan 2.2 is text-to-video only. Use CogVideoX 5B I2V or SVD for image-to-video."
-                    return result
-                # Text-to-video via Wan 2.2 GGUF
                 model_key = model if model in self.WAN22_MODELS else "wan22-14b"
-                workflow = self._create_wan22_t2v_workflow(
-                    prompt=request.prompt,
-                    negative_prompt=request.negative_prompt,
-                    model_key=model_key,
-                    num_frames=request.duration_frames,
-                    num_inference_steps=request.num_inference_steps,
-                    guidance_scale=request.guidance_scale,
-                    width=request.width,
-                    height=request.height,
-                    seed=seed,
-                    fps=request.fps,
-                    interpolation_multiplier=interpolation,
-                )
-                logger.info(f"Using Wan 2.2 text-to-video ({model_key}) via ComfyUI GGUF")
+                cfg = self.WAN22_MODELS[model_key]
+                is_i2v = cfg.get("type") == "i2v"
+
+                if is_i2v:
+                    if not image_path or not Path(image_path).exists():
+                        result.error = "Wan 2.2 I2V requires an input image."
+                        return result
+                    uploaded_image = self._upload_image_to_comfyui(image_path)
+                    if not uploaded_image:
+                        result.error = "Failed to upload image to ComfyUI"
+                        return result
+                    workflow = self._create_wan22_i2v_workflow(
+                        image_filename=uploaded_image,
+                        prompt=request.prompt,
+                        negative_prompt=request.negative_prompt,
+                        model_key=model_key,
+                        num_frames=request.duration_frames,
+                        num_inference_steps=request.num_inference_steps,
+                        guidance_scale=request.guidance_scale,
+                        width=request.width,
+                        height=request.height,
+                        seed=seed,
+                        fps=request.fps,
+                        interpolation_multiplier=interpolation,
+                    )
+                    logger.info(f"Using Wan 2.2 image-to-video ({model_key}) via ComfyUI GGUF")
+                else:
+                    if image_path:
+                        result.error = f"{model_key} is text-to-video only. Use wan22-14b-i2v for image-to-video."
+                        return result
+                    workflow = self._create_wan22_t2v_workflow(
+                        prompt=request.prompt,
+                        negative_prompt=request.negative_prompt,
+                        model_key=model_key,
+                        num_frames=request.duration_frames,
+                        num_inference_steps=request.num_inference_steps,
+                        guidance_scale=request.guidance_scale,
+                        width=request.width,
+                        height=request.height,
+                        seed=seed,
+                        fps=request.fps,
+                        interpolation_multiplier=interpolation,
+                    )
+                    logger.info(f"Using Wan 2.2 text-to-video ({model_key}) via ComfyUI GGUF")
 
             elif model in ("cogvideox-2b", "cogvideox-5b"):
                 if image_path:

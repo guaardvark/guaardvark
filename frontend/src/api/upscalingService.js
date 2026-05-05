@@ -60,6 +60,11 @@ export const cancelJob = async (jobId) => {
   return handleResponse(response);
 };
 
+export const clearFinishedJobs = async () => {
+  const response = await fetch(`${BASE_URL}/jobs`, { method: "DELETE" });
+  return handleResponse(response);
+};
+
 export default {
   getHealth,
   getModels,
@@ -68,4 +73,5 @@ export default {
   listJobs,
   getJob,
   cancelJob,
+  clearFinishedJobs,
 };

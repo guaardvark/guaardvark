@@ -157,6 +157,25 @@ def cancel_job(job_id):
         return error_response(str(e), 500)
 
 
+@upscaling_bp.route("/jobs", methods=["DELETE"])
+def clear_finished_jobs():
+    """Clear finished/failed/cancelled jobs from history. Active jobs untouched."""
+    try:
+        resp = requests.delete(
+            f"{UPSCALING_URL}/jobs",
+            headers=_auth_headers(),
+            timeout=UPSCALING_TIMEOUT,
+        )
+        data = resp.json()
+        if resp.status_code == 200:
+            return success_response(data=data, message="Cleared finished jobs")
+        return error_response(data.get("error", "Failed to clear"), resp.status_code)
+    except requests.ConnectionError:
+        return error_response("Upscaling service not running", 503)
+    except Exception as e:
+        return error_response(str(e), 500)
+
+
 # --- Upload & Serve ---
 
 def _get_upload_dir() -> Path:

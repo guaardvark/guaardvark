@@ -4,6 +4,57 @@
 
 The self-hosted AI workstation. Autonomous agents that see your screen and control your apps. A three-tier neural routing engine. Parallel agent swarms across isolated git worktrees. Video generation, image upscaling to 4K/8K, RAG over your documents, voice interface, and a 57-tool execution engine — all running locally on your hardware. Your machine. Your data. Your rules.
 
+Video: Easy to use, no workflows needed, paste a list of prompts, select the model, video resolution, etc. and hit go. Then run the next batch because we have a queue system. 
+Image to Video
+Text to Video
+Voice Cloning
+Neural Voice Generation
+Audio Studio / Music Generation / FX Lab
+Video Editor 
+Video Text Overlay
+Batch Image Gen
+Batch Video Gen
+Video Upscaling
+Batch CSV Gen (Create Unique Web Pages, Posts Content, Data, based on Indexed Files)
+Voice Chat
+ComfyUI Backend
+File Manager (Drag from desktop into FileManager, Index, Assign to Clients / Projects / Sites / Notes / Code Repo)
+WordPress Connectivity (We will need to upload this plugin, with disclaimer text, needs finished and secured. Works fairly well though). Color Code Files, Copy & Paste, Drag & Drop, Folder / List View, Media View, etc. Right-click menus (copy, paste, delete, index contents recursively). 
+Notes Manager
+Media Manager
+Plugin System (System Resource Orchestrator)
+CPU Offload
+Download Voice Models, Video Models, Image Models, 
+Interconnector / Install and Sync Additional Local Machines / Load Balancing / Clusters
+Agent Swarms System
+Agent Memory System
+Agent Training System (Visual - Hand Eye Coordination)
+Agent Learning System
+Advanced Settings Page
+Debugging, RAG, Cache, Diagnostics, Tests. 
+Self Improvement
+Auto Researcher
+Code Editor
+Code Analyzer
+Code Repos
+Quickly switch to local Ollama Models
+Quickly switch embedding models (grouped by #)
+Backup & Restore Data and System Config
+Rules & Prompts System (Import / Export Rules)
+GPU / CPU Resource Monitor
+File Generation (Code, Text, Docs, Images, Video, Audio)
+Task Scheduler System
+Project Management System
+Client Management
+Websites Management
+Agents
+Agent Tools
+Swarms
+Virtual Agent Screen
+Dashboard
+Outreach System (explain this, every detail). 
+
+
 <p align="center">
   <img src="docs/screenshots/guaardvark-demo.gif" alt="Guaardvark Demo" width="100%">
 </p>
