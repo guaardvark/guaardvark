@@ -16,7 +16,8 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
-AUDIT_DIR = Path(os.environ.get("GUAARDVARK_ROOT", "/home/llamax1/LLAMAX8")) / "data" / "social_outreach"
+_REPO_ROOT = Path(os.environ.get("GUAARDVARK_ROOT") or Path(__file__).resolve().parents[3])
+AUDIT_DIR = _REPO_ROOT / "data" / "social_outreach"
 AUDIT_FILE = AUDIT_DIR / "audit.jsonl"
 
 

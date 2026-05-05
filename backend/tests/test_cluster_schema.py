@@ -47,12 +47,14 @@ def test_no_capabilities_references_in_backend():
     """Regression guard — no production backend code may reference
     InterconnectorNode.capabilities (removed in Task 1)."""
     import subprocess
+    from pathlib import Path
+    repo_root = Path(__file__).resolve().parents[2]
     result = subprocess.run(
         ["grep", "-rn", r"\.capabilities", "backend/",
          "--include=*.py",
          "--exclude-dir=venv", "--exclude-dir=__pycache__",
          "--exclude-dir=tests", "--exclude-dir=mcp"],
-        capture_output=True, text=True, cwd="/home/llamax1/LLAMAX8",
+        capture_output=True, text=True, cwd=str(repo_root),
     )
     offending = [line for line in result.stdout.splitlines()
                  if ".capabilities" in line]

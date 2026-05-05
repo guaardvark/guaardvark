@@ -375,7 +375,7 @@ class DOMMetadataExtractor:
             return False
 
     @staticmethod
-    def ensure_agent_firefox(profile_dir: str = "/home/llamax1/LLAMAX8/data/agent/firefox_profile",
+    def ensure_agent_firefox(profile_dir: Optional[str] = None,
                              display: str = ":99",
                              timeout: float = 25.0) -> Tuple[bool, str]:
         """Make sure Firefox is running on the agent display with BiDi enabled.
@@ -393,6 +393,11 @@ class DOMMetadataExtractor:
         import time as _time
         from pathlib import Path
 
+        # Default profile dir = <repo_root>/data/agent/firefox_profile, computed
+        # from this file's location so it works wherever the repo is checked out.
+        if profile_dir is None:
+            profile_dir = str(Path(__file__).resolve().parents[2] / "data" / "agent" / "firefox_profile")
+
         if not Path(profile_dir).exists():
             return False, f"profile dir missing: {profile_dir}"
 
@@ -400,7 +405,7 @@ class DOMMetadataExtractor:
         # Firefox window back to the host display.
         env = {
             "DISPLAY": display,
-            "HOME": os.environ.get("HOME", "/home/llamax1"),
+            "HOME": os.environ.get("HOME") or str(Path.home()),
             "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
             "LANG": os.environ.get("LANG", "C.UTF-8"),
             "USER": os.environ.get("USER", "llamax1"),

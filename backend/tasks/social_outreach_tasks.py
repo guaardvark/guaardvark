@@ -68,12 +68,8 @@ import os
 from pathlib import Path
 
 
-_TARGETS_FILE = (
-    Path(os.environ.get("GUAARDVARK_ROOT", "/home/llamax1/LLAMAX8"))
-    / "data"
-    / "agent"
-    / "social_outreach_targets.json"
-)
+_REPO_ROOT = Path(os.environ.get("GUAARDVARK_ROOT") or Path(__file__).resolve().parents[2])
+_TARGETS_FILE = _REPO_ROOT / "data" / "agent" / "social_outreach_targets.json"
 
 
 def _load_targets() -> dict:

@@ -30,12 +30,8 @@ logger = logging.getLogger("discord_bot")
 
 # We track which message ids we've already considered so the loop doesn't keep
 # re-drafting replies for the same prompt every 10 minutes.
-_SEEN_FILE = (
-    Path(os.environ.get("GUAARDVARK_ROOT", "/home/llamax1/LLAMAX8"))
-    / "data"
-    / "social_outreach"
-    / "discord_seen.json"
-)
+_REPO_ROOT = Path(os.environ.get("GUAARDVARK_ROOT") or Path(__file__).resolve().parents[3])
+_SEEN_FILE = _REPO_ROOT / "data" / "social_outreach" / "discord_seen.json"
 
 # Default poll interval if config doesn't set one. 10 minutes mirrors the plan.
 DEFAULT_POLL_SECONDS = 600
