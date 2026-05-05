@@ -1153,3 +1153,370 @@ def promote_candidate_recipe(memory_id: str):
     except Exception as e:
         logger.error(f"promote_candidate_recipe failed: {e}", exc_info=True)
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# Agent Display dependency detector + installer
+#
+# Mirrors voice_api's install-whisper pattern for the virtual display stack:
+# Xvfb, x11vnc, openbox, tint2, xdotool, scrot, a browser, the python `mss`
+# module, the start_agent_display.sh script, and the live :99 X socket.
+#
+# GET  /api/agent-control/display-status  → per-component {installed, version}
+# POST /api/agent-control/install-display → apt-get + pip install everything
+#                                           that came back missing
+# ---------------------------------------------------------------------------
+
+# What the script actually invokes. (apt_package, command_to_probe).
+_DISPLAY_SYSTEM_DEPS = [
+    ("xvfb", "Xvfb"),
+    ("x11vnc", "x11vnc"),
+    ("openbox", "openbox"),
+    ("tint2", "tint2"),
+    ("xdotool", "xdotool"),
+    ("scrot", "scrot"),
+]
+# Browsers — the script auto-picks whichever is present, so any one is fine.
+_DISPLAY_BROWSER_CHOICES = [
+    ("firefox", "firefox"),
+    ("chromium-browser", "chromium-browser"),
+    ("chromium", "chromium"),
+    ("google-chrome", "google-chrome"),
+]
+
+
+def _probe_command_version(cmd: str) -> str | None:
+    """Best-effort version string. Quick-and-quiet — falls back to None."""
+    import shutil
+    import subprocess
+    if not shutil.which(cmd):
+        return None
+    for flag in ("--version", "-version", "-v"):
+        try:
+            r = subprocess.run(
+                [cmd, flag], capture_output=True, text=True, timeout=3
+            )
+            out = (r.stdout or r.stderr or "").strip().splitlines()
+            first = out[0][:120] if out else ""
+            # Skip banners that are clearly an error message rather than a version.
+            if first and not first.lower().startswith(("unrecognized", "unknown option", "error", "usage:")):
+                return first
+        except Exception:
+            continue
+    return "installed"  # Found via shutil.which but no clean version banner
+
+
+def _probe_display_socket(display_num: int = 99) -> bool:
+    """True if /tmp/.X11-unix/X<n> exists — the cheap way to know Xvfb is up."""
+    import os
+    return os.path.exists(f"/tmp/.X11-unix/X{display_num}")
+
+
+@agent_control_bp.route("/display-status", methods=["GET"])
+def display_status():
+    """Probe everything the agent virtual display needs and report per-component.
+
+    Frontend uses this to decide whether to show the install prompt and to
+    list which pieces are missing. Returns 200 even when stuff is broken —
+    the JSON tells you what's wrong.
+    """
+    import os
+    import shutil
+    from importlib.util import find_spec
+    from backend.config import GUAARDVARK_ROOT
+
+    components = {}
+    missing_apt = []
+
+    for apt_pkg, cmd in _DISPLAY_SYSTEM_DEPS:
+        installed = shutil.which(cmd) is not None
+        components[cmd] = {
+            "installed": installed,
+            "version": _probe_command_version(cmd) if installed else None,
+            "apt_package": apt_pkg,
+        }
+        if not installed:
+            missing_apt.append(apt_pkg)
+
+    # Browser — at least one of the choices must be present.
+    browser_found = None
+    for apt_pkg, cmd in _DISPLAY_BROWSER_CHOICES:
+        if shutil.which(cmd):
+            browser_found = {
+                "command": cmd,
+                "apt_package": apt_pkg,
+                "version": _probe_command_version(cmd),
+            }
+            break
+    components["browser"] = {
+        "installed": browser_found is not None,
+        "version": browser_found["version"] if browser_found else None,
+        "command": browser_found["command"] if browser_found else None,
+        "apt_package": browser_found["apt_package"] if browser_found else "firefox",
+    }
+    if not browser_found:
+        missing_apt.append("firefox")  # Default install target
+
+    # Python mss — what the screen backend uses to capture pixels.
+    try:
+        mss_spec = find_spec("mss")
+        mss_installed = mss_spec is not None
+    except Exception:
+        mss_installed = False
+    mss_version = None
+    if mss_installed:
+        try:
+            import mss as _mss
+            mss_version = getattr(_mss, "__version__", "installed")
+        except Exception:
+            mss_version = "installed"
+    components["mss"] = {
+        "installed": mss_installed,
+        "version": mss_version,
+        "pip_package": "mss",
+    }
+
+    # Script presence — without this, none of the rest helps.
+    script_path = os.path.join(GUAARDVARK_ROOT, "scripts", "start_agent_display.sh")
+    components["start_script"] = {
+        "installed": os.path.exists(script_path),
+        "path": script_path,
+    }
+
+    # Live :99 socket — already-running display means the user is good to go.
+    components["display_running"] = {
+        "installed": _probe_display_socket(99),
+        "display": ":99",
+    }
+
+    all_ready = all(c.get("installed") for c in components.values() if c is not components["display_running"])
+    return jsonify({
+        "success": True,
+        "ready": all_ready,
+        "display_running": components["display_running"]["installed"],
+        "components": components,
+        "missing_apt_packages": missing_apt,
+        "missing_pip_packages": [] if mss_installed else ["mss"],
+    })
+
+
+@agent_control_bp.route("/install-display", methods=["POST"])
+def install_display():
+    """Install the apt + pip dependencies the agent display needs.
+
+    Mirrors voice_api install-whisper: figure out what's missing, shell out to
+    `sudo apt-get install -y ...` and `pip install ...`, return what we did.
+    Sudo is required for apt; if the host doesn't have passwordless sudo for
+    apt-get, this will fail with a useful error message.
+    """
+    import os
+    import shutil
+    import subprocess
+    import sys
+    from importlib.util import find_spec
+
+    try:
+        # Recompute what's missing so we don't trust stale frontend state.
+        missing_apt = []
+        for apt_pkg, cmd in _DISPLAY_SYSTEM_DEPS:
+            if not shutil.which(cmd):
+                missing_apt.append(apt_pkg)
+
+        # Browser — pick one if none present. Default to firefox.
+        if not any(shutil.which(cmd) for _, cmd in _DISPLAY_BROWSER_CHOICES):
+            missing_apt.append("firefox")
+
+        try:
+            mss_missing = find_spec("mss") is None
+        except Exception:
+            mss_missing = True
+
+        steps = []
+
+        if missing_apt:
+            logger.info(f"Agent display install: apt-get installing {missing_apt}")
+            try:
+                apt_result = subprocess.run(
+                    ["sudo", "-n", "apt-get", "install", "-y", *missing_apt],
+                    capture_output=True, text=True, timeout=600,
+                )
+            except subprocess.TimeoutExpired:
+                return jsonify({
+                    "success": False,
+                    "error": "apt-get timed out after 10 minutes — check network and try again",
+                }), 500
+            steps.append({
+                "step": "apt_install",
+                "packages": missing_apt,
+                "returncode": apt_result.returncode,
+                "stderr_tail": (apt_result.stderr or "")[-500:],
+            })
+            if apt_result.returncode != 0:
+                stderr = (apt_result.stderr or "").strip()
+                hint = ""
+                if "sudo" in stderr.lower() or "password" in stderr.lower():
+                    hint = (
+                        " Passwordless sudo not configured for apt-get. "
+                        "Run manually: sudo apt-get install -y "
+                        + " ".join(missing_apt)
+                    )
+                return jsonify({
+                    "success": False,
+                    "error": f"apt-get install failed (exit {apt_result.returncode}).{hint}",
+                    "stderr_tail": stderr[-500:],
+                    "steps": steps,
+                }), 500
+
+        if mss_missing:
+            logger.info("Agent display install: pip installing mss")
+            pip_result = subprocess.run(
+                [sys.executable, "-m", "pip", "install", "mss"],
+                capture_output=True, text=True, timeout=180,
+            )
+            steps.append({
+                "step": "pip_install",
+                "packages": ["mss"],
+                "returncode": pip_result.returncode,
+                "stderr_tail": (pip_result.stderr or "")[-500:],
+            })
+            if pip_result.returncode != 0:
+                return jsonify({
+                    "success": False,
+                    "error": "pip install mss failed",
+                    "stderr_tail": (pip_result.stderr or "")[-500:],
+                    "steps": steps,
+                }), 500
+
+        # Verify the script is present too — it ships with the repo, so its
+        # absence means a corrupt checkout, not something we can apt-install.
+        from backend.config import GUAARDVARK_ROOT
+        script_path = os.path.join(GUAARDVARK_ROOT, "scripts", "start_agent_display.sh")
+        if not os.path.exists(script_path):
+            return jsonify({
+                "success": False,
+                "error": f"start_agent_display.sh missing at {script_path} — re-pull the repo",
+                "steps": steps,
+            }), 500
+
+        # Re-probe after install so the response reflects reality.
+        still_missing = [pkg for pkg, cmd in _DISPLAY_SYSTEM_DEPS if not shutil.which(cmd)]
+        if not any(shutil.which(cmd) for _, cmd in _DISPLAY_BROWSER_CHOICES):
+            still_missing.append("(browser)")
+        try:
+            mss_ok = find_spec("mss") is not None
+        except Exception:
+            mss_ok = False
+
+        if still_missing or not mss_ok:
+            return jsonify({
+                "success": False,
+                "error": f"Install completed but components still missing: {still_missing} mss_ok={mss_ok}",
+                "steps": steps,
+            }), 500
+
+        nothing_to_do = not missing_apt and not mss_missing
+        return jsonify({
+            "success": True,
+            "already_installed": nothing_to_do,
+            "message": (
+                "Agent Display dependencies already installed."
+                if nothing_to_do else
+                "Agent Display dependencies installed. Run "
+                "`bash scripts/start_agent_display.sh start` or restart Guaardvark."
+            ),
+            "steps": steps,
+        })
+
+    except Exception as e:
+        logger.error(f"install_display failed: {e}", exc_info=True)
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+def _run_display_script(action: str, timeout: int = 60) -> dict:
+    """Shell out to scripts/start_agent_display.sh <action> and return a
+    structured result. Used by both start-display and stop-display so the
+    error shape stays consistent.
+    """
+    import os
+    import subprocess
+    from backend.config import GUAARDVARK_ROOT
+
+    script = os.path.join(GUAARDVARK_ROOT, "scripts", "start_agent_display.sh")
+    if not os.path.exists(script):
+        return {
+            "success": False,
+            "error": f"start_agent_display.sh missing at {script} — re-pull the repo",
+            "returncode": -1,
+        }
+
+    try:
+        result = subprocess.run(
+            ["bash", script, action],
+            capture_output=True, text=True, timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return {
+            "success": False,
+            "error": f"{action} timed out after {timeout}s",
+            "returncode": -1,
+        }
+
+    return {
+        "success": result.returncode == 0,
+        "returncode": result.returncode,
+        "stdout_tail": (result.stdout or "")[-500:],
+        "stderr_tail": (result.stderr or "")[-500:],
+    }
+
+
+@agent_control_bp.route("/start-display", methods=["POST"])
+def start_display():
+    """Bring the agent display up. Idempotent — the start script returns
+    fast if Xvfb / openbox / x11vnc are already running.
+
+    Returns 200 on success with a `display_running` flag, 500 on script
+    failure with stderr_tail for debugging.
+    """
+    result = _run_display_script("start", timeout=60)
+    # Probe the live socket regardless of script returncode — sometimes
+    # the script reports stale errors but :99 is up. Truth lives in /tmp.
+    result["display_running"] = _probe_display_socket(99)
+
+    if result["success"] or result["display_running"]:
+        return jsonify({
+            "success": True,
+            "display_running": result["display_running"],
+            "message": "Agent display is up on :99.",
+            "stdout_tail": result.get("stdout_tail", ""),
+        })
+    return jsonify({
+        "success": False,
+        "error": f"start_agent_display.sh start failed (exit {result.get('returncode')})",
+        "stderr_tail": result.get("stderr_tail", ""),
+        "stdout_tail": result.get("stdout_tail", ""),
+    }), 500
+
+
+@agent_control_bp.route("/stop-display", methods=["POST"])
+def stop_display():
+    """Tear the agent display down. Idempotent — stop is a no-op if
+    nothing's running.
+    """
+    result = _run_display_script("stop", timeout=30)
+    result["display_running"] = _probe_display_socket(99)
+
+    # We trust the post-stop socket probe: if the socket is gone, it's
+    # stopped, regardless of what the script's returncode said.
+    if not result["display_running"]:
+        return jsonify({
+            "success": True,
+            "display_running": False,
+            "message": "Agent display stopped.",
+            "stdout_tail": result.get("stdout_tail", ""),
+        })
+    return jsonify({
+        "success": False,
+        "error": "Stop ran but :99 socket is still alive — something is keeping it up",
+        "stderr_tail": result.get("stderr_tail", ""),
+        "stdout_tail": result.get("stdout_tail", ""),
+    }), 500
