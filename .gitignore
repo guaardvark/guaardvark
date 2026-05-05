@@ -51,6 +51,13 @@ data/training/poisoned_data_backup/
 # Agent desktop shortcuts (generated with local paths at runtime)
 data/agent/desktop/
 
+# Agent browser state — cookies, sessions, history, cache, anything that
+# should never leave the local machine. Was previously only excluded via
+# .git/info/exclude (per-clone, not shared); promoting to the tracked
+# .gitignore so a fresh clone cannot accidentally track it.
+data/agent/firefox_profile/
+data/agent/firefox_extension/
+
 # Stray local scratch files (do not commit)
 /1_logo.png
 /doc.txt
