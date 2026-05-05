@@ -1331,11 +1331,35 @@ Reply ONLY with JSON:
         )
 
     def _execute_recipe(self, name: str, recipe: dict, match, screen) -> 'AgentResult':
-        """Execute a matched recipe — deterministic sequence of actions."""
+        """Execute a matched recipe — deterministic sequence of actions.
+
+        Click steps may specify either a `target_description` (vision-driven —
+        the servo finds the target on the current frame, surviving layout
+        shifts) or explicit `x`/`y` coordinates (legacy, brittle when the
+        environment changes). Recipes should prefer target_description; the
+        coordinate path stays for back-compat but is on the way out.
+        """
         import time as _time
         start = _time.time()
         action_steps = []
         step_num = 0
+
+        # Lazy-build the servo only if a step actually needs vision targeting.
+        # Keyboard-only recipes (~80% of the library) pay zero vision cost.
+        servo_box = {"servo": None}
+
+        def get_servo():
+            if servo_box["servo"] is None:
+                from backend.services.servo_controller import ServoController
+                from backend.services.training_data_collector import TrainingDataCollector
+                from backend.services.servo_knowledge_store import get_vision_config
+                from backend.utils.vision_analyzer import VisionAnalyzer
+                servo_box["servo"] = ServoController(
+                    screen, VisionAnalyzer(),
+                    collector=TrainingDataCollector(),
+                    vision_config=get_vision_config(),
+                )
+            return servo_box["servo"]
 
         for step in recipe.get("steps", []):
             action_type = step.get("action")
@@ -1374,12 +1398,28 @@ Reply ONLY with JSON:
                     result=result, failed=not result.get("success", False)
                 ))
             elif action_type == "click":
-                x, y = step.get("x", 0), step.get("y", 0)
+                target = substitute(step.get("target_description", ""))
+                x = step.get("x")
+                y = step.get("y")
                 button = step.get("button", "left")
-                result = screen.click(x, y, button=button)
+                if target:
+                    # Vision-driven: the recipe says WHAT to click, the servo
+                    # finds WHERE on this frame. Resilient to layout changes,
+                    # at the cost of one vision call per click.
+                    result = get_servo().click_target(target, button=button)
+                elif isinstance(x, int) and isinstance(y, int):
+                    # Legacy coordinate path. Brittle — retained only so older
+                    # recipes don't break before they've been migrated.
+                    result = screen.click(x, y, button=button)
+                else:
+                    result = {"success": False, "error": "click step needs target_description or x/y"}
                 action_steps.append(ActionStep(
                     iteration=step_num, scene_description=f"recipe:{name}",
-                    action=AgentAction(action_type="click" if button == "left" else "right_click", coordinates=(x, y)),
+                    action=AgentAction(
+                        action_type="click" if button == "left" else "right_click",
+                        target_description=target or "",
+                        coordinates=(x or 0, y or 0),
+                    ),
                     result=result, failed=not result.get("success", False)
                 ))
             step_num += 1

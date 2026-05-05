@@ -12,7 +12,7 @@
       "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s+(?:browser)?\\s*$"
     ],
     "steps": [
-      {"action": "click", "x": 92, "y": 103, "_comment": "Click the orange Firefox button in Shortcuts panel"},
+      {"action": "click", "target_description": "the orange Firefox flame icon in the Shortcuts panel at the top-left of the desktop", "_comment": "Vision-driven — servo finds the icon on the current frame"},
       {"action": "wait", "seconds": 5}
     ]
   },
@@ -24,7 +24,7 @@
       "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s+(?:to|at|on)\\s+(?:https?://)?([\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*$"
     ],
     "steps": [
-      {"action": "click", "x": 92, "y": 103, "_comment": "Click orange Firefox button in Shortcuts panel"},
+      {"action": "click", "target_description": "the orange Firefox flame icon in the Shortcuts panel at the top-left of the desktop", "_comment": "Vision-driven — servo finds the icon on the current frame"},
       {"action": "wait", "seconds": 5},
       {"action": "hotkey", "keys": ["ctrl", "l"]},
       {"action": "wait", "seconds": 0.5},
@@ -38,11 +38,14 @@
   },
 
   "navigate_url": {
-    "description": "Navigate to any URL in the current tab",
+    "description": "Navigate to a domain-shaped URL in the current tab. Hostname must contain a dot OR port — bare words like 'open settings' or 'go to youtube' route to their dedicated recipes instead.",
     "triggers": [
-      "^(?:navigate|go)\\s+to\\s+(?:https?://)?([\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*$",
-      "^open\\s+(?:https?://)?([\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*$",
-      "^visit\\s+(?:https?://)?([\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*$"
+      "^(?:navigate|go)\\s+to\\s+(?:https?://)?(\\w[\\w.-]*\\.[\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*$",
+      "^(?:navigate|go)\\s+to\\s+(?:https?://)?([\\w.-]+:[0-9]+(?:/\\S*?)?)\\s*$",
+      "^open\\s+(?:https?://)?(\\w[\\w.-]*\\.[\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*$",
+      "^open\\s+(?:https?://)?([\\w.-]+:[0-9]+(?:/\\S*?)?)\\s*$",
+      "^visit\\s+(?:https?://)?(\\w[\\w.-]*\\.[\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*$",
+      "^visit\\s+(?:https?://)?([\\w.-]+:[0-9]+(?:/\\S*?)?)\\s*$"
     ],
     "steps": [
       {"action": "hotkey", "keys": ["Escape"]},
@@ -336,9 +339,15 @@
   },
 
   "youtube_search": {
-    "description": "Navigate to YouTube and search for something",
-    "triggers": ["(?:youtube|search\\s+youtube)\\s+(?:for\\s+)?[\"']?(.+?)[\"']?\\s*$"],
+    "description": "Open Firefox if needed and search YouTube for the topic",
+    "triggers": [
+      "(?:youtube|search\\s+youtube)\\s+(?:for\\s+)?[\"']?(.+?)[\"']?\\s*$",
+      "^(?:search|find|look\\s+up|look\\s+for|show\\s+me)\\s+(?:the\\s+)?(?:latest\\s+|newest\\s+|recent\\s+|top\\s+)?(.+?)\\s+(?:on|in|via|using)\\s+youtube\\s*$",
+      "^(?:youtube\\s+)?(?:videos?|clips?)\\s+(?:about|on|of|for)\\s+(.+?)\\s*$"
+    ],
     "steps": [
+      {"action": "click", "target_description": "the orange Firefox flame icon in the Shortcuts panel at the top-left of the desktop", "_comment": "Vision-driven — focuses if open, launches if not"},
+      {"action": "wait", "seconds": 4},
       {"action": "hotkey", "keys": ["Escape"]},
       {"action": "wait", "seconds": 0.3},
       {"action": "hotkey", "keys": ["ctrl", "l"]},
@@ -348,7 +357,7 @@
       {"action": "type", "text": "https://www.youtube.com/results?search_query={1}"},
       {"action": "wait", "seconds": 0.3},
       {"action": "hotkey", "keys": ["Return"]},
-      {"action": "wait", "seconds": 3}
+      {"action": "wait", "seconds": 4}
     ]
   },
 
@@ -375,7 +384,7 @@
   "open_guaardvark_page": {
     "description": "Open a specific Guaardvark page (chat, settings, images, etc.)",
     "triggers": [
-      "^(?:open|go\\s+to|navigate\\s+to)\\s+(?:the\\s+)?(?:guaardvark\\s+)?(chat|settings|images|video|documents|notes|clients|projects|websites|rules|tools|agents|plugins|tasks)(?:\\s+page)?\\s*$"
+      "^(?:open|go\\s+to|navigate\\s+to)\\s+(?:the\\s+)?(?:guaardvark\\s+)?(chat|settings|images|video|documents|notes|clients|projects|websites|rules|tools|agents|plugins|tasks|outreach)(?:\\s+page)?\\s*$"
     ],
     "steps": [
       {"action": "hotkey", "keys": ["Escape"]},
@@ -391,6 +400,72 @@
     ]
   },
 
+  "open_youtube": {
+    "description": "Open YouTube — opens Firefox first if no browser is running",
+    "triggers": [
+      "^(?:open|go\\s+to|launch|navigate\\s+to|visit)\\s+(?:the\\s+)?youtube(?:\\.com)?\\s*$",
+      "^youtube\\s*$"
+    ],
+    "steps": [
+      {"action": "click", "target_description": "the orange Firefox flame icon in the Shortcuts panel at the top-left of the desktop", "_comment": "Vision-driven — opens or focuses Firefox"},
+      {"action": "wait", "seconds": 4},
+      {"action": "hotkey", "keys": ["Escape"]},
+      {"action": "wait", "seconds": 0.3},
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "wait", "seconds": 0.5},
+      {"action": "hotkey", "keys": ["ctrl", "a"]},
+      {"action": "wait", "seconds": 0.2},
+      {"action": "type", "text": "https://www.youtube.com/"},
+      {"action": "wait", "seconds": 0.3},
+      {"action": "hotkey", "keys": ["Return"]},
+      {"action": "wait", "seconds": 3}
+    ]
+  },
+
+  "open_reddit": {
+    "description": "Open Reddit homepage — opens Firefox first if no browser is running",
+    "triggers": [
+      "^(?:open|go\\s+to|launch|navigate\\s+to|visit)\\s+(?:the\\s+)?reddit(?:\\.com)?\\s*$",
+      "^reddit\\s*$"
+    ],
+    "steps": [
+      {"action": "click", "target_description": "the orange Firefox flame icon in the Shortcuts panel at the top-left of the desktop", "_comment": "Vision-driven — opens or focuses Firefox"},
+      {"action": "wait", "seconds": 4},
+      {"action": "hotkey", "keys": ["Escape"]},
+      {"action": "wait", "seconds": 0.3},
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "wait", "seconds": 0.5},
+      {"action": "hotkey", "keys": ["ctrl", "a"]},
+      {"action": "wait", "seconds": 0.2},
+      {"action": "type", "text": "https://www.reddit.com/"},
+      {"action": "wait", "seconds": 0.3},
+      {"action": "hotkey", "keys": ["Return"]},
+      {"action": "wait", "seconds": 3}
+    ]
+  },
+
+  "open_subreddit": {
+    "description": "Open a specific subreddit by name (e.g. r/LocalLLaMA)",
+    "triggers": [
+      "^(?:open|go\\s+to|visit|navigate\\s+to)\\s+r/(\\w+)\\s*$",
+      "^(?:open|go\\s+to)\\s+(?:the\\s+)?(?:reddit\\s+)?subreddit\\s+r?/?(\\w+)\\s*$"
+    ],
+    "steps": [
+      {"action": "click", "target_description": "the orange Firefox flame icon in the Shortcuts panel at the top-left of the desktop", "_comment": "Vision-driven — opens or focuses Firefox"},
+      {"action": "wait", "seconds": 4},
+      {"action": "hotkey", "keys": ["Escape"]},
+      {"action": "wait", "seconds": 0.3},
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "wait", "seconds": 0.5},
+      {"action": "hotkey", "keys": ["ctrl", "a"]},
+      {"action": "wait", "seconds": 0.2},
+      {"action": "type", "text": "https://www.reddit.com/r/{1}/"},
+      {"action": "wait", "seconds": 0.3},
+      {"action": "hotkey", "keys": ["Return"]},
+      {"action": "wait", "seconds": 3}
+    ]
+  },
+
   "type_in_chat": {
     "description": "Type a message in the Guaardvark chat input and send it",
     "triggers": [
@@ -398,7 +473,7 @@
       "^(?:send|type)\\s+(?:the\\s+)?message\\s+[\"'](.+?)[\"']\\s*$"
     ],
     "steps": [
-      {"action": "click", "x": 640, "y": 660, "_comment": "Click chat input field"},
+      {"action": "click", "target_description": "the chat input field at the bottom of the chat page (a wide text field with placeholder text like 'Type your message...')", "_comment": "Vision-driven — finds the chat input regardless of page size"},
       {"action": "wait", "seconds": 0.5},
       {"action": "type", "text": "{1}"},
       {"action": "wait", "seconds": 0.3},
@@ -453,7 +528,7 @@
       "^right\\s*click\\s+(?:the\\s+)?(?:desktop|screen|background)\\s*$"
     ],
     "steps": [
-      {"action": "click", "x": 640, "y": 360, "button": "right"},
+      {"action": "click", "target_description": "anywhere on the empty desktop background, away from any open windows or panels", "button": "right", "_comment": "Vision-driven — finds an empty desktop region"},
       {"action": "wait", "seconds": 0.5}
     ]
   },
