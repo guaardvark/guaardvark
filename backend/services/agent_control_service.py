@@ -1169,6 +1169,8 @@ class AgentControlService:
 {desktop_state}
 {dom_block}{done_lines}{loop_warning}{training_override}Step {len(history) + 1}. ONE next action. {confidence}
 
+target_description rules: SHORT label, ≤4 words, one distinctive adjective. Examples: "orange Firefox button", "chat input field", "Send button", "desktop background". NOT "the orange Firefox flame in the top-left Shortcuts panel" — multi-clause descriptions break the vision detector and land at (0,0).
+
 Reply ONLY with JSON:
 {{"action": "click|right_click|type|hotkey|scroll|wait|done", "target_description": "...", "text": "literal value only", "keys": ["ctrl","t"], "reasoning": "why"}}"""
 

@@ -310,6 +310,15 @@ const MessageItem = ({ message, sessionId: sessionIdProp }) => {
             borderBottomLeftRadius: 16,
             borderBottomRightRadius: 16,
           }),
+          // Agent-mode marker: messages tagged with mode === "agent" get an
+          // orange outline so the chat history visibly distinguishes between
+          // chat-mode and agent-mode messages. The visual sits on the AI's
+          // surface (the bubble) rather than the user's input field, since
+          // agent mode is a property of how the AI interprets the message.
+          ...(message.mode === "agent" && {
+            border: "2px solid",
+            borderColor: "warning.main",
+          }),
         }}
       >
         {/* Command badge */}

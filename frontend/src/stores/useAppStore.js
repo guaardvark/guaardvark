@@ -46,6 +46,19 @@ const createUISlice = (set, get) => ({
   agentScreenOpen: false,
   setAgentScreenOpen: (open) => set({ agentScreenOpen: open }),
 
+  // Modal session mode — per-session "chat" | "agent". Backend at
+  // /api/chat-sessions/<id>/mode is the source of truth; this is just a
+  // cache so ChatInput can render visual chrome and route messages without
+  // re-fetching every keystroke. ChatInput hydrates the cache on
+  // session-change; slash handlers update both backend (PATCH) and cache.
+  // Sessions whose mode is unknown to the cache default to "chat".
+  sessionModes: {},
+  setSessionMode: (sessionId, mode) =>
+    set((state) => ({
+      sessionModes: { ...state.sessionModes, [sessionId]: mode },
+    })),
+  getSessionMode: (sessionId) => (get().sessionModes[sessionId] || "chat"),
+
   isLoading: false,
   setIsLoading: (loading) => set({ isLoading: loading }),
   

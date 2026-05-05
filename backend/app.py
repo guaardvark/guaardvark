@@ -929,6 +929,27 @@ try:
                 except Exception:
                     pass
 
+            # Same pattern for llm_sessions.mode (added 2026-05-05 for agent-mode).
+            try:
+                from sqlalchemy import text as _sa_text
+                existing = db.session.execute(_sa_text(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name = 'llm_sessions' AND column_name = 'mode'"
+                )).fetchone()
+                if existing is None:
+                    app.logger.warning("Adding missing llm_sessions.mode column (legacy DB)")
+                    db.session.execute(_sa_text(
+                        "ALTER TABLE llm_sessions ADD COLUMN mode VARCHAR(20) "
+                        "NOT NULL DEFAULT 'chat'"
+                    ))
+                    db.session.commit()
+            except Exception as col_err:
+                app.logger.warning(f"Failed to ensure llm_sessions.mode column: {col_err}")
+                try:
+                    db.session.rollback()
+                except Exception:
+                    pass
+
             # Create default OS-style folders (Images/, Videos/, Code/) so
             # generated outputs land somewhere DocumentsPage can see them
             try:

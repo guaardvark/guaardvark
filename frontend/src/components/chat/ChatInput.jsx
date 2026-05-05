@@ -225,6 +225,34 @@ const ChatInput = forwardRef(
     const voiceSettings = useVoiceSettings();
     const wakeWordEnabled = voiceSettings.wakeWordEnabled !== false;  // Default ON
 
+    // Modal session mode — "chat" | "agent". The session's mode is stored
+    // server-side; we cache it in Zustand and hydrate on session change.
+    // When in agent mode, a non-slash send goes straight to the agent loop
+    // instead of the chat LLM.
+    const sessionMode = useAppStore((s) => s.sessionModes[sessionId] || "chat");
+    const setSessionMode = useAppStore((s) => s.setSessionMode);
+    const agentModeActive = sessionMode === "agent";
+
+    useEffect(() => {
+      if (!sessionId) return;
+      let cancelled = false;
+      (async () => {
+        try {
+          const res = await fetch(
+            `/api/chat-sessions/${encodeURIComponent(sessionId)}/mode`
+          );
+          if (!res.ok) return;
+          const data = await res.json();
+          if (!cancelled && data?.success && data.mode) {
+            setSessionMode(sessionId, data.mode);
+          }
+        } catch {
+          // Network failure → leave the cached value (or "chat" default).
+        }
+      })();
+      return () => { cancelled = true; };
+    }, [sessionId, setSessionMode]);
+
     // Slash command hook — popup state, filtering, keyboard nav, command execution
     const slashCmds = useSlashCommands({
       inputRef,
@@ -976,6 +1004,62 @@ Please try a different image or check if the vision model is properly loaded.`;
       const file = fileRef.current?.files?.[0] || null;
       if (!currentText.trim() && !file) return;
 
+      // Agent mode: every non-slash message becomes a screen-control task,
+      // bypassing the chat LLM entirely. The session's mode flag is the
+      // sticky signal; flip via /agent and /chat slash commands.
+      //
+      // The user bubble carries `mode: "agent"` so MessageItem renders it
+      // with the orange outline. We deliberately do NOT inject a "task
+      // started" system bubble on success — the bubble itself + the orange
+      // chip above the input are signal enough, and adding a notification
+      // per send would clutter the chat.
+      if (agentModeActive && currentText.trim()) {
+        const task = currentText.trim();
+        if (onAddMessage) {
+          onAddMessage({
+            role: "user",
+            content: task,
+            tempId: `agent-task-${Date.now()}`,
+            mode: "agent",
+          });
+        }
+        setInputText("");
+        if (inputRef.current) {
+          inputRef.current.value = "";
+          inputRef.current.focus();
+        }
+        try {
+          const res = await fetch("/api/agent-control/execute", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ task }),
+          });
+          const data = await res.json();
+          // Only surface a system bubble on FAILURE — success is silent;
+          // the orange task bubble + agent screen are the feedback channel.
+          if (!data.success && onAddMessage) {
+            onAddMessage({
+              role: "system",
+              content: `Task rejected: ${data.error || "unknown error"}${data.error === "Agent already active" ? " — wait for the current run or use the kill switch." : ""}`,
+              tempId: `agent-fail-${Date.now()}`,
+              type: "command",
+              mode: "agent",
+            });
+          }
+        } catch (err) {
+          if (onAddMessage) {
+            onAddMessage({
+              role: "system",
+              content: `Task failed: ${err.message}`,
+              tempId: `agent-err-${Date.now()}`,
+              type: "command",
+              mode: "agent",
+            });
+          }
+        }
+        return;
+      }
+
       // Input validation and sanitization
       const sanitizedInput = currentText.trim();
       const maxLength = 100000; // 100k character limit for file analysis
@@ -1286,14 +1370,33 @@ Total URLs: ${analysis.totalUrls}`;
             open={slashCmds.popupVisible}
           />
 
+          {/* Agent mode badge — sits above the input when active */}
+          {agentModeActive && (
+            <Chip
+              label="AGENT MODE — type /chat to exit"
+              color="warning"
+              size="small"
+              sx={{
+                position: "absolute",
+                top: -28,
+                left: 8,
+                fontWeight: 600,
+                letterSpacing: 0.5,
+                zIndex: 2,
+              }}
+            />
+          )}
+
           {/* Text input field */}
           <TextField
             fullWidth
             size="small"
             placeholder={
-              imageState.images.length > 0
-                ? "Ask about this image..."
-                : "Type your message, paste an image, or use voice..."
+              agentModeActive
+                ? "Describe a screen action — every message is a task while in agent mode"
+                : imageState.images.length > 0
+                  ? "Ask about this image..."
+                  : "Type your message, paste an image, or use voice..."
             }
             value={inputText}
             onChange={(e) => {

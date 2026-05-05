@@ -973,6 +973,13 @@ class LLMSession(db.Model):
         nullable=True,
         index=True,
     )
+    # Modal session: "chat" routes through the LLM as usual; "agent" routes
+    # every non-slash message straight to /api/agent-control/execute. The
+    # frontend reads this on session-load to show the right visual chrome,
+    # and the user toggles via /agent and /chat slash commands.
+    mode = db.Column(
+        db.String(20), nullable=False, default="chat", server_default="chat"
+    )
     created_at = db.Column(db.DateTime, default=lambda: datetime.now())
     messages = db.relationship(
         "LLMMessage", backref="session", lazy="dynamic", cascade="all, delete-orphan"

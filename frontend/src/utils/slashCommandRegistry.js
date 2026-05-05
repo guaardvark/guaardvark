@@ -61,6 +61,33 @@ const BUILT_IN_COMMANDS = [
     ruleId: null,
   },
   {
+    name: "/agent",
+    description: "Switch this chat into agent mode — every message becomes a screen-control task. Optional <task> fires immediately.",
+    usage: "/agent [task]",
+    category: "agent",
+    args: "optional",
+    handler: "builtin",
+    ruleId: null,
+  },
+  {
+    name: "/chat",
+    description: "Switch this chat back to chat mode (exits agent mode)",
+    usage: "/chat",
+    category: "agent",
+    args: "none",
+    handler: "builtin",
+    ruleId: null,
+  },
+  {
+    name: "/exit",
+    description: "Exit agent mode (alias for /chat)",
+    usage: "/exit",
+    category: "agent",
+    args: "none",
+    handler: "builtin",
+    ruleId: null,
+  },
+  {
     name: "/voice",
     description: "Toggle voice chat on/off",
     usage: "/voice",
@@ -71,7 +98,7 @@ const BUILT_IN_COMMANDS = [
   },
   {
     name: "/vision",
-    description: "Vision pipeline (coming soon)",
+    description: "Show Vision Pipeline plugin status (start/stop from the Plugins page)",
     usage: "/vision",
     category: "utility",
     args: "none",
@@ -154,15 +181,27 @@ export function getBuiltInCommands() {
 /**
  * Filter commands by partial input (e.g., "/im" matches "/imagine").
  * Matches against name and description.
+ *
+ * Sort order: name-prefix matches first (most relevant), then
+ * description-only matches. Within each tier, alphabetical by name.
+ * This way typing "/agent" + Enter selects /agent itself, not /training
+ * (whose description happens to contain the word "agent").
  */
 export function filterCommands(commands, input) {
   if (!input || !input.startsWith("/")) return [];
   const query = input.toLowerCase();
-  return commands.filter(
+  const matched = commands.filter(
     (cmd) =>
       cmd.name.toLowerCase().startsWith(query) ||
       cmd.description.toLowerCase().includes(query.slice(1))
   );
+  return matched.sort((a, b) => {
+    const aPrefix = a.name.toLowerCase().startsWith(query);
+    const bPrefix = b.name.toLowerCase().startsWith(query);
+    if (aPrefix && !bPrefix) return -1;
+    if (!aPrefix && bPrefix) return 1;
+    return a.name.localeCompare(b.name);
+  });
 }
 
 /**

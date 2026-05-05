@@ -4,6 +4,8 @@
  *   { addMessage, updateMessage, onSendMessage, chatState, allCommands }
  */
 
+import { useAppStore } from "../stores/useAppStore";
+
 // ============================================================
 // Dispatcher
 // ============================================================
@@ -20,6 +22,9 @@ export async function executeBuiltinCommand(name, args, context) {
     "/websearch": handleWebSearch,
     "/plan": handlePlan,
     "/training": handleTraining,
+    "/agent": handleAgent,
+    "/chat": handleChatMode,
+    "/exit": handleChatMode,  // alias
   };
 
   const handler = handlers[name];
@@ -346,6 +351,161 @@ async function handleDbRule(name, args, { addMessage }) {
     });
   } catch (err) {
     addMessage({ role: "system", content: `Command failed: ${err.message}`, tempId: `rule-err-${Date.now()}` });
+  }
+  return { handled: true };
+}
+
+// ============================================================
+// /agent and /chat — modal session toggle
+//
+// The session has a `mode` ("chat" | "agent") that lives on the backend.
+// `/agent` flips it to "agent" and (with args) optionally fires the first
+// task right away. `/chat` (and its alias `/exit`) flips it back. Once in
+// agent mode, ChatInput routes every non-slash message straight to
+// /api/agent-control/execute — no chat LLM, no ambiguity.
+//
+// Slash commands themselves work in either mode; flipping the mode is
+// always a slash, never a natural-language ask.
+// ============================================================
+
+async function _patchSessionMode(sessionId, mode) {
+  const res = await fetch(`/api/chat-sessions/${encodeURIComponent(sessionId)}/mode`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `PATCH /mode failed (${res.status})`);
+  }
+  return res.json();
+}
+
+async function handleAgent(args, { addMessage, chatState }) {
+  const sessionId = chatState?.sessionId;
+  if (!sessionId) {
+    addMessage({
+      role: "system",
+      content: "/agent needs a session — open a chat first.",
+      tempId: `agent-no-session-${Date.now()}`,
+      type: "command",
+    });
+    return { handled: true };
+  }
+
+  const currentMode = useAppStore.getState().getSessionMode(sessionId);
+  const trimmedArgs = (args || "").trim();
+
+  // Echo the slash to chat so the user sees what fired
+  addMessage({
+    role: "user",
+    content: trimmedArgs ? `/agent ${trimmedArgs}` : "/agent",
+    tempId: `agent-user-${Date.now()}`,
+  });
+
+  // Flip the mode (PATCH backend + cache locally) unless we're already there
+  if (currentMode !== "agent") {
+    try {
+      await _patchSessionMode(sessionId, "agent");
+      useAppStore.getState().setSessionMode(sessionId, "agent");
+    } catch (err) {
+      addMessage({
+        role: "system",
+        content: `Failed to switch into agent mode: ${err.message}`,
+        tempId: `agent-fail-${Date.now()}`,
+        type: "command",
+      });
+      return { handled: true };
+    }
+  }
+
+  // No task → just announce the mode
+  if (!trimmedArgs) {
+    addMessage({
+      role: "system",
+      content: currentMode === "agent"
+        ? "Already in **agent mode**. Type a screen-control task, or use `/chat` to exit."
+        : "Switched to **agent mode** — every message in this session is now a screen-control task. Type `/chat` to exit.",
+      tempId: `agent-ok-${Date.now()}`,
+      type: "command",
+    });
+    return { handled: true };
+  }
+
+  // Task provided → fire it immediately via the agent loop
+  try {
+    const res = await fetch("/api/agent-control/execute", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ task: trimmedArgs }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      addMessage({
+        role: "system",
+        content: `**Agent mode** active. Task started: _${trimmedArgs}_  \nWatch the agent screen for progress.`,
+        tempId: `agent-fire-${Date.now()}`,
+        type: "command",
+      });
+    } else {
+      addMessage({
+        role: "system",
+        content: `Task rejected: ${data.error || "unknown error"}${data.error === "Agent already active" ? " — wait for the current run or use the kill switch." : ""}`,
+        tempId: `agent-fire-fail-${Date.now()}`,
+        type: "command",
+      });
+    }
+  } catch (err) {
+    addMessage({
+      role: "system",
+      content: `Task failed: ${err.message}`,
+      tempId: `agent-fire-err-${Date.now()}`,
+      type: "command",
+    });
+  }
+  return { handled: true };
+}
+
+async function handleChatMode(args, { addMessage, chatState }) {
+  const sessionId = chatState?.sessionId;
+  if (!sessionId) {
+    addMessage({
+      role: "system",
+      content: "/chat needs a session — open a chat first.",
+      tempId: `chat-no-session-${Date.now()}`,
+      type: "command",
+    });
+    return { handled: true };
+  }
+
+  const currentMode = useAppStore.getState().getSessionMode(sessionId);
+
+  if (currentMode === "chat") {
+    addMessage({
+      role: "system",
+      content: "Already in chat mode.",
+      tempId: `chat-noop-${Date.now()}`,
+      type: "command",
+    });
+    return { handled: true };
+  }
+
+  try {
+    await _patchSessionMode(sessionId, "chat");
+    useAppStore.getState().setSessionMode(sessionId, "chat");
+    addMessage({
+      role: "system",
+      content: "Switched to **chat mode**. Messages route through the LLM again. Type `/agent` to switch back.",
+      tempId: `chat-ok-${Date.now()}`,
+      type: "command",
+    });
+  } catch (err) {
+    addMessage({
+      role: "system",
+      content: `Failed to exit agent mode: ${err.message}`,
+      tempId: `chat-fail-${Date.now()}`,
+      type: "command",
+    });
   }
   return { handled: true };
 }
