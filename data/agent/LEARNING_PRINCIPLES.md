@@ -80,5 +80,26 @@ Examples that violate the principle:
 3. Test by deleting any cached coordinates and re-running the task. The
    vision model should succeed cold.
 
+## Short labels for the servo, rich context for the brain
+
+Two roles, two budgets:
+
+- **`target_description` in recipes/lessons** is the vision model's
+  *detection query*. It must be short and conventional ("orange Firefox
+  button", "chat input field", "Send button"). Empirically (2026-05-05),
+  small VLMs like qwen3-vl:2b emit clean detection JSON for short
+  labels with one distinctive adjective and switch to prose (which the
+  parser can't read) when given verbose multi-clause descriptions.
+- **Knowledge files** like `self_knowledge_compact.md` carry the rich
+  context the LLM needs to *reason* about the environment ("the
+  Shortcuts panel anchored top-left of the desktop, always visible,
+  contains launch buttons for…"). Long-form is fine here — this isn't
+  fed to the detector, it's fed to the decider.
+
+A target_description of "the orange Firefox flame icon in the top-left
+Shortcuts panel" is the WRONG length for both: too long for vision
+(prose output, parse fails), too redundant for knowledge (just say
+"orange Firefox button" and let the knowledge file describe context).
+
 This is the contract. Phase 2 (lesson distillation, skill induction,
 auto-recipe-generation) lands on top of it. Don't break it.

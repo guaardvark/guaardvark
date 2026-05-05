@@ -12,7 +12,7 @@
       "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s+(?:browser)?\\s*$"
     ],
     "steps": [
-      {"action": "click", "target_description": "the orange Firefox flame icon in the Shortcuts panel at the top-left of the desktop", "_comment": "Vision-driven — servo finds the icon on the current frame"},
+      {"action": "click", "target_description": "orange Firefox button", "_comment": "Vision-driven — servo finds the icon on the current frame"},
       {"action": "wait", "seconds": 5}
     ]
   },
@@ -24,7 +24,7 @@
       "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s+(?:to|at|on)\\s+(?:https?://)?([\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*$"
     ],
     "steps": [
-      {"action": "click", "target_description": "the orange Firefox flame icon in the Shortcuts panel at the top-left of the desktop", "_comment": "Vision-driven — servo finds the icon on the current frame"},
+      {"action": "click", "target_description": "orange Firefox button", "_comment": "Vision-driven — servo finds the icon on the current frame"},
       {"action": "wait", "seconds": 5},
       {"action": "hotkey", "keys": ["ctrl", "l"]},
       {"action": "wait", "seconds": 0.5},
@@ -346,7 +346,7 @@
       "^(?:youtube\\s+)?(?:videos?|clips?)\\s+(?:about|on|of|for)\\s+(.+?)\\s*$"
     ],
     "steps": [
-      {"action": "click", "target_description": "the orange Firefox flame icon in the Shortcuts panel at the top-left of the desktop", "_comment": "Vision-driven — focuses if open, launches if not"},
+      {"action": "click", "target_description": "orange Firefox button", "_comment": "Vision-driven — focuses if open, launches if not"},
       {"action": "wait", "seconds": 4},
       {"action": "hotkey", "keys": ["Escape"]},
       {"action": "wait", "seconds": 0.3},
@@ -407,7 +407,7 @@
       "^youtube\\s*$"
     ],
     "steps": [
-      {"action": "click", "target_description": "the orange Firefox flame icon in the Shortcuts panel at the top-left of the desktop", "_comment": "Vision-driven — opens or focuses Firefox"},
+      {"action": "click", "target_description": "orange Firefox button", "_comment": "Vision-driven — opens or focuses Firefox"},
       {"action": "wait", "seconds": 4},
       {"action": "hotkey", "keys": ["Escape"]},
       {"action": "wait", "seconds": 0.3},
@@ -429,7 +429,7 @@
       "^reddit\\s*$"
     ],
     "steps": [
-      {"action": "click", "target_description": "the orange Firefox flame icon in the Shortcuts panel at the top-left of the desktop", "_comment": "Vision-driven — opens or focuses Firefox"},
+      {"action": "click", "target_description": "orange Firefox button", "_comment": "Vision-driven — opens or focuses Firefox"},
       {"action": "wait", "seconds": 4},
       {"action": "hotkey", "keys": ["Escape"]},
       {"action": "wait", "seconds": 0.3},
@@ -451,7 +451,7 @@
       "^(?:open|go\\s+to)\\s+(?:the\\s+)?(?:reddit\\s+)?subreddit\\s+r?/?(\\w+)\\s*$"
     ],
     "steps": [
-      {"action": "click", "target_description": "the orange Firefox flame icon in the Shortcuts panel at the top-left of the desktop", "_comment": "Vision-driven — opens or focuses Firefox"},
+      {"action": "click", "target_description": "orange Firefox button", "_comment": "Vision-driven — opens or focuses Firefox"},
       {"action": "wait", "seconds": 4},
       {"action": "hotkey", "keys": ["Escape"]},
       {"action": "wait", "seconds": 0.3},
@@ -473,7 +473,7 @@
       "^(?:send|type)\\s+(?:the\\s+)?message\\s+[\"'](.+?)[\"']\\s*$"
     ],
     "steps": [
-      {"action": "click", "target_description": "the chat input field at the bottom of the chat page (a wide text field with placeholder text like 'Type your message...')", "_comment": "Vision-driven — finds the chat input regardless of page size"},
+      {"action": "click", "target_description": "chat input field", "_comment": "Vision-driven — finds the chat input regardless of page size"},
       {"action": "wait", "seconds": 0.5},
       {"action": "type", "text": "{1}"},
       {"action": "wait", "seconds": 0.3},
@@ -528,7 +528,7 @@
       "^right\\s*click\\s+(?:the\\s+)?(?:desktop|screen|background)\\s*$"
     ],
     "steps": [
-      {"action": "click", "target_description": "anywhere on the empty desktop background, away from any open windows or panels", "button": "right", "_comment": "Vision-driven — finds an empty desktop region"},
+      {"action": "click", "target_description": "desktop background", "button": "right", "_comment": "Vision-driven — finds an empty desktop region"},
       {"action": "wait", "seconds": 0.5}
     ]
   },
