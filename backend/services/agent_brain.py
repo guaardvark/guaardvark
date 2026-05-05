@@ -748,7 +748,37 @@ class AgentBrain:
                     pass
 
             if x is None or y is None:
-                return f"Cannot click '{target}' — no coordinates. Try again with x and y."
+                # Vision-driven fallback: chat-side clicks used to bail here
+                # ("Cannot click — no coordinates") which forced the user to
+                # hand-feed pixels. Wrong philosophy: the agent has eyes; let
+                # them work. Per data/agent/LEARNING_PRINCIPLES.md.
+                if target:
+                    try:
+                        from backend.services.servo_controller import ServoController
+                        from backend.services.training_data_collector import TrainingDataCollector
+                        from backend.services.servo_knowledge_store import get_vision_config
+                        from backend.utils.vision_analyzer import VisionAnalyzer
+                        servo = ServoController(
+                            screen, VisionAnalyzer(),
+                            collector=TrainingDataCollector(),
+                            vision_config=get_vision_config(),
+                        )
+                        result = servo.click_target(target, button=button)
+                        if result.get("success"):
+                            cx, cy = result.get("x"), result.get("y")
+                            logger.info(f"Gemma4 vision-fallback click: {target!r} at ({cx},{cy})")
+                            import time as _t
+                            _t.sleep(0.5)  # match the coord-path settle
+                            return f"Clicked {target} at ({cx},{cy})"
+                        return (
+                            f"Tried to click '{target}' via vision but couldn't find "
+                            f"it on the current screen. Try a shorter, more "
+                            f"distinctive label (e.g. 'orange Firefox button') or "
+                            f"check whether the target is actually visible."
+                        )
+                    except Exception as e:
+                        logger.warning(f"Vision-fallback click failed for {target!r}: {e}")
+                return f"Cannot click '{target}'."
 
             screen.click(x, y, button=button)
             import time as _t

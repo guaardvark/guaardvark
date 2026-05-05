@@ -397,6 +397,198 @@ def learn_input():
 # Task feedback — thumbs up/down from the user after any agent task
 # ---------------------------------------------------------------------------
 
+def _induce_candidate_recipe(app, session_id: str, feedback_task: str):
+    """Background thread: when the user thumbs-up's a successful task that
+    wasn't part of a bracketed lesson, induce a recipes.json-shaped entry
+    capturing what made it work, so the same task pattern auto-executes
+    deterministically next time.
+
+    This is the AWM (Agent Workflow Memory, ICML 2025) pattern, adapted to
+    Guaardvark: positive feedback + matching last successful run = candidate
+    recipe. Output goes to AgentMemory with source='candidate_recipe' for
+    user review; never auto-promoted to recipes.json. Promotion is a
+    deliberate action via /api/candidate-recipes/<id>/promote.
+
+    Safety gates:
+    - Only induces if the agent's _last_result.task == feedback.task
+      (avoids inducing from stale state when the user thumbs-up's an old run).
+    - Only induces on success=True (failed runs would teach the wrong path).
+    - Skips if action_history is empty or has only one trivial step.
+    - Hard rules in the prompt: vision-actionable target_descriptions,
+      short labels (≤4 words), no pixel coordinates. Per
+      data/agent/LEARNING_PRINCIPLES.md.
+    """
+    if not app or not session_id or not feedback_task:
+        return
+    with app.app_context():
+        try:
+            from backend.models import db, AgentMemory
+            from backend.config import OLLAMA_BASE_URL
+            from backend.services.agent_control_service import get_agent_control_service
+            import requests
+            import uuid as _uuid
+
+            service = get_agent_control_service()
+            last = service._last_result
+            if not last or not last.success:
+                logger.info("[INDUCE] no successful last_result — skipping induction")
+                return
+            if (last.task or "").strip().lower() != (feedback_task or "").strip().lower():
+                logger.info(
+                    f"[INDUCE] feedback task does not match last run — skipping. "
+                    f"feedback={feedback_task[:60]!r} last={last.task[:60] if last.task else ''!r}"
+                )
+                return
+            steps = last.steps or []
+            if len(steps) < 1:
+                logger.info("[INDUCE] no action steps to learn from — skipping")
+                return
+
+            # Render action history for the LLM. Keep it compact; the model
+            # needs the shape, not narrative prose.
+            history_lines = []
+            for i, s in enumerate(steps, 1):
+                a = s.action
+                act = a.action_type or "?"
+                bits = [f"{i}. {act}"]
+                if a.target_description:
+                    bits.append(f'target="{a.target_description}"')
+                if a.text:
+                    bits.append(f'text={a.text!r}')
+                if a.keys:
+                    bits.append(f"keys={a.keys}")
+                bits.append("[OK]" if not s.failed else "[FAIL]")
+                history_lines.append(" ".join(bits))
+
+            try:
+                from backend.utils.llm_service import get_saved_active_model_name
+                active_model = get_saved_active_model_name() or "gemma4:e4b"
+            except Exception:
+                active_model = "gemma4:e4b"
+
+            prompt = (
+                "You are inducing a reusable recipe for the Guaardvark agent. "
+                "The user just confirmed (👍) that a task succeeded. Extract "
+                "the GENERIC pattern so it can auto-execute next time.\n\n"
+                "Return STRICT JSON only — no prose, no code fences, no commentary:\n"
+                '{"description": "<one short sentence, generic, no specific names>", '
+                '"triggers": ["<regex pattern matching the task phrase>"], '
+                '"steps": [<step objects>]}\n\n'
+                "Step shapes:\n"
+                '  Click:  {"action": "click", "target_description": "<short label>"}\n'
+                '  Type:   {"action": "type", "text": "<literal text or {placeholder}>"}\n'
+                '  Hotkey: {"action": "hotkey", "keys": ["ctrl","l"]}\n'
+                '  Wait:   {"action": "wait", "seconds": <float>}\n\n'
+                "Hard rules:\n"
+                "- target_description MUST be a SHORT, conventional UI label "
+                "  (≤4 words, one distinctive adjective): 'orange Firefox button', "
+                "  'chat input field', 'Send button'. Long descriptions break the "
+                "  vision detector. Long-form context belongs in self_knowledge_compact.md, "
+                "  not in target_description.\n"
+                "- NEVER include pixel coordinates (x, y) — vision finds targets per-frame. "
+                "  Coordinates rot when layouts shift.\n"
+                "- Replace specific values (URLs, search terms, channel names) with "
+                "  {snake_case_placeholder} tokens. UI element names stay literal.\n"
+                "- Trigger regex MUST anchor on ^ and end with \\s*$, use "
+                "  non-capturing groups (?:...) for synonyms, and capture variable "
+                "  parts as positional groups that map to step placeholders {1}, {2}, etc.\n"
+                "- Mirror the action history's ORDER and shape — do not invent steps "
+                "  that didn't happen, do not omit waits between actions.\n\n"
+                f"=== Successful task ===\n{feedback_task[:300]}\n\n"
+                "=== Action history (what the agent did, in order) ===\n"
+                + "\n".join(history_lines)
+                + "\n\nJSON:"
+            )
+
+            try:
+                resp = requests.post(
+                    f"{OLLAMA_BASE_URL}/api/generate",
+                    json={
+                        "model": active_model,
+                        "prompt": prompt,
+                        "stream": False,
+                        "options": {"num_predict": 800, "temperature": 0.3},
+                    },
+                    timeout=90,
+                )
+                resp.raise_for_status()
+                raw = (resp.json().get("response") or "").strip()
+            except Exception as llm_err:
+                logger.warning(f"[INDUCE] LLM call failed: {llm_err}")
+                return
+
+            # Parse: try direct JSON, then regex-extract the first {...} block.
+            import json as _json
+            import re as _re
+            parsed = None
+            if raw:
+                candidates = [raw]
+                m = _re.search(r"\{.*\}", raw, _re.DOTALL)
+                if m:
+                    candidates.append(m.group(0))
+                for cand in candidates:
+                    try:
+                        parsed = _json.loads(cand)
+                        if isinstance(parsed, dict) and "steps" in parsed and "triggers" in parsed:
+                            break
+                        parsed = None
+                    except Exception:
+                        parsed = None
+            if not parsed:
+                logger.warning(f"[INDUCE] could not parse JSON candidate from LLM: {raw[:200]!r}")
+                return
+
+            # Validate shape — bail on anything missing the essentials.
+            description = str(parsed.get("description") or "").strip()[:200]
+            triggers = parsed.get("triggers") or []
+            steps_in = parsed.get("steps") or []
+            if not description or not triggers or not steps_in:
+                logger.info("[INDUCE] parsed JSON missing description/triggers/steps — skipping")
+                return
+
+            # Reject candidates that smuggled coordinates back in. The prompt
+            # forbade them but LLMs hallucinate; defense in depth.
+            offending = []
+            for s in steps_in:
+                if isinstance(s, dict) and (("x" in s and isinstance(s["x"], (int, float))) or
+                                              ("y" in s and isinstance(s["y"], (int, float)))):
+                    offending.append(s)
+            if offending:
+                logger.warning(
+                    f"[INDUCE] candidate contained coordinate steps — refusing to save. "
+                    f"first offender: {offending[0]}"
+                )
+                return
+
+            normalized = {
+                "description": description,
+                "triggers": [str(t) for t in triggers if isinstance(t, str)][:5],
+                "steps": [s for s in steps_in if isinstance(s, dict) and s.get("action")][:30],
+            }
+            if not normalized["triggers"] or not normalized["steps"]:
+                logger.info("[INDUCE] post-validation empties — skipping")
+                return
+
+            content_json = _json.dumps(normalized, ensure_ascii=False)
+            row = AgentMemory(
+                id=str(_uuid.uuid4()),
+                content=content_json,
+                source="candidate_recipe",
+                session_id=session_id,
+                type="snippet",
+                importance=0.7,
+                tags=_json.dumps(["candidate_recipe", "auto_induced"]),
+            )
+            db.session.add(row)
+            db.session.commit()
+            logger.info(
+                f"[INDUCE] saved candidate recipe {row.id[:8]} — "
+                f"\"{description[:60]}\" with {len(normalized['steps'])} steps"
+            )
+        except Exception as e:
+            logger.warning(f"[INDUCE] failed for session {session_id[:12]}: {e}", exc_info=True)
+
+
 def _distill_pearl_memory(app, session_id: str):
     """DEPRECATED 2026-05-05 — no longer invoked. Kept here as a reference
     for any future revival with a vision-actionable prompt.
@@ -655,24 +847,36 @@ def submit_feedback():
         #   - Active lesson  → emit a live pearl event so the lesson floater
         #     shows progress. Real distillation runs on POST /api/lessons/<id>/end,
         #     which produces vision-actionable, parameterized lesson steps.
-        #   - No active lesson → record the feedback row and STOP. Earlier we
-        #     auto-distilled here via _distill_pearl_memory; that produced
-        #     first-person "note to my future self" reflections that didn't
-        #     translate to action and polluted AgentMemory with unused rows.
-        #     Killed 2026-05-05 per LEARNING_PRINCIPLES.md — knowledge has to
-        #     be vision-actionable, not introspective.
-        if entry["positive"] and entry["session_id"] and entry["lesson_id"]:
-            try:
-                from backend.socketio_events import emit_lesson_event
-                emit_lesson_event("pearl_added", {
-                    "lesson_id": entry["lesson_id"],
-                    "session_id": entry["session_id"],
-                    "pearl_id": db_entry_id,
-                    "task": entry["task"],
-                    "created_at": entry["timestamp"],
-                })
-            except Exception as emit_err:
-                logger.warning(f"[LESSON] emit pearl_added failed (non-fatal): {emit_err}")
+        #   - No active lesson → spawn AWM-style recipe induction. Replaces the
+        #     deprecated _distill_pearl_memory junk distiller. Inducer is gated
+        #     to only fire on a successful last_result that matches the feedback
+        #     task, and it produces a candidate_recipe row in AgentMemory for
+        #     user review (never auto-promoted to recipes.json).
+        if entry["positive"] and entry["session_id"]:
+            if entry["lesson_id"]:
+                try:
+                    from backend.socketio_events import emit_lesson_event
+                    emit_lesson_event("pearl_added", {
+                        "lesson_id": entry["lesson_id"],
+                        "session_id": entry["session_id"],
+                        "pearl_id": db_entry_id,
+                        "task": entry["task"],
+                        "created_at": entry["timestamp"],
+                    })
+                except Exception as emit_err:
+                    logger.warning(f"[LESSON] emit pearl_added failed (non-fatal): {emit_err}")
+            else:
+                try:
+                    from flask import current_app
+                    _app = current_app._get_current_object()
+                    threading.Thread(
+                        target=_induce_candidate_recipe,
+                        args=(_app, entry["session_id"], entry["task"] or ""),
+                        daemon=True,
+                        name=f"induce-{entry['session_id'][:8]}",
+                    ).start()
+                except Exception as spawn_err:
+                    logger.warning(f"[INDUCE] Failed to spawn induction thread: {spawn_err}")
 
         return jsonify({"success": True, "feedback": entry}), 201
     except Exception as e:
@@ -790,4 +994,162 @@ def capture_raw():
         _capture_error_cache["error"] = str(e)
         _capture_error_cache["expires"] = now + 5
         logger.error(f"Error in raw capture: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# Candidate recipes — Phase 3 (Agent Workflow Memory)
+#
+# After a successful task that wasn't part of a bracketed lesson, the
+# inducer (above) drops a recipes.json-shaped JSON into AgentMemory with
+# source="candidate_recipe". These two endpoints surface that queue:
+#   GET  /api/agent-control/candidate-recipes        — list pending
+#   POST /api/agent-control/candidate-recipes/<id>/promote
+#                                                    — merge into recipes.json
+# Rejection reuses the existing DELETE /api/memory/<id>; nothing new needed.
+# ---------------------------------------------------------------------------
+
+@agent_control_bp.route("/candidate-recipes", methods=["GET"])
+def list_candidate_recipes():
+    """List pending candidate recipes induced from successful runs.
+
+    Each row's content is JSON; we parse it inline so the caller sees the
+    structured shape without re-parsing.
+    """
+    try:
+        from backend.models import AgentMemory
+        rows = (
+            AgentMemory.query
+            .filter_by(source="candidate_recipe")
+            .order_by(AgentMemory.created_at.desc())
+            .limit(50)
+            .all()
+        )
+        items = []
+        for r in rows:
+            parsed = None
+            try:
+                import json as _json
+                parsed = _json.loads(r.content or "")
+            except Exception:
+                parsed = None
+            items.append({
+                "id": r.id,
+                "session_id": r.session_id,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+                "importance": r.importance,
+                "candidate": parsed,  # null if parse failed; raw content kept below
+                "raw": r.content if parsed is None else None,
+            })
+        return jsonify({"success": True, "candidates": items, "total": len(items)})
+    except Exception as e:
+        logger.error(f"list_candidate_recipes failed: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@agent_control_bp.route("/candidate-recipes/<memory_id>/promote", methods=["POST"])
+def promote_candidate_recipe(memory_id: str):
+    """Merge a candidate into data/agent/recipes.json under a derived name.
+
+    Body (optional): {"name": "<custom_recipe_name>"} — caller-provided
+    recipe key. If omitted, derived from description.
+
+    On success, the AgentMemory row is tagged 'promoted' (not deleted) so
+    the user can see what's been merged. Idempotent under repeat calls
+    against the same candidate (re-promotion overwrites the recipe entry).
+    """
+    try:
+        import json as _json
+        import re as _re
+        from pathlib import Path
+        from backend.models import db, AgentMemory
+        from backend.config import GUAARDVARK_ROOT
+
+        row = AgentMemory.query.filter_by(id=memory_id, source="candidate_recipe").first()
+        if not row:
+            return jsonify({"success": False, "error": "candidate not found"}), 404
+
+        try:
+            candidate = _json.loads(row.content or "")
+        except Exception as e:
+            return jsonify({"success": False, "error": f"candidate JSON malformed: {e}"}), 400
+
+        if not isinstance(candidate, dict) or "steps" not in candidate or "triggers" not in candidate:
+            return jsonify({"success": False, "error": "candidate missing required fields"}), 400
+
+        body = request.get_json(silent=True) or {}
+        custom_name = (body.get("name") or "").strip()
+
+        # Defense: reject candidates with coordinate-only click steps. The
+        # inducer already filters these out, but a hand-edited row could
+        # smuggle them back.
+        for s in candidate.get("steps", []):
+            if isinstance(s, dict) and s.get("action") == "click":
+                if "x" in s or "y" in s:
+                    if not s.get("target_description"):
+                        return jsonify({
+                            "success": False,
+                            "error": "candidate contains coordinate-only click step (LEARNING_PRINCIPLES violation)"
+                        }), 400
+
+        # Derive a recipe name from the description if not provided. snake_case
+        # short slug, prefixed 'auto_' so it's identifiable as inducer-origin.
+        if custom_name:
+            name = custom_name
+        else:
+            desc = candidate.get("description", "") or "induced"
+            slug = _re.sub(r"[^a-z0-9]+", "_", desc.lower()).strip("_")[:40] or "induced"
+            name = f"auto_{slug}"
+
+        recipes_path = Path(GUAARDVARK_ROOT) / "data" / "agent" / "recipes.json"
+        try:
+            with recipes_path.open("r") as f:
+                recipes = _json.load(f)
+        except Exception as e:
+            return jsonify({"success": False, "error": f"recipes.json read failed: {e}"}), 500
+
+        # Atomic write: load → modify → write to temp → rename. Avoids a
+        # half-written recipes.json if the process gets killed mid-flight.
+        recipes[name] = {
+            "description": candidate.get("description", ""),
+            "triggers": candidate.get("triggers", []),
+            "steps": candidate.get("steps", []),
+            "_origin": "candidate_recipe_promotion",
+            "_promoted_from": memory_id,
+        }
+        tmp_path = recipes_path.with_suffix(".json.tmp")
+        with tmp_path.open("w") as f:
+            _json.dump(recipes, f, indent=2, ensure_ascii=False)
+        tmp_path.replace(recipes_path)
+
+        # Tag the AgentMemory row as promoted (kept for audit trail). Re-tag
+        # idempotently — a second promote just bumps updated_at.
+        existing_tags = []
+        if row.tags:
+            try:
+                existing_tags = _json.loads(row.tags) or []
+            except Exception:
+                existing_tags = []
+        if "promoted" not in existing_tags:
+            existing_tags.append("promoted")
+        row.tags = _json.dumps(existing_tags)
+        db.session.commit()
+
+        # Force the cached recipe library to reload on next agent task.
+        try:
+            from backend.services.agent_control_service import AgentControlService
+            AgentControlService._recipe_cache = None
+            AgentControlService._recipe_mtime = 0.0
+        except Exception:
+            pass
+
+        logger.info(f"[INDUCE] promoted candidate {memory_id[:8]} → recipes.json key '{name}'")
+        return jsonify({
+            "success": True,
+            "name": name,
+            "description": candidate.get("description", ""),
+            "step_count": len(candidate.get("steps", [])),
+        })
+    except Exception as e:
+        logger.error(f"promote_candidate_recipe failed: {e}", exc_info=True)
         return jsonify({"success": False, "error": str(e)}), 500

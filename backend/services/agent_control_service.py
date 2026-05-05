@@ -93,6 +93,7 @@ class AgentResult:
     reason: str = ""
     steps: List[ActionStep] = field(default_factory=list)
     total_time_seconds: float = 0.0
+    task: str = ""  # the user-facing task string this result is for
 
 
 class AgentControlService:
@@ -816,6 +817,11 @@ class AgentControlService:
 
     def _store_and_return(self, result: AgentResult) -> AgentResult:
         """Store result for status reporting and return it."""
+        if not result.task:
+            # Stamp the task so consumers (e.g. Phase 3 inducer) can match the
+            # result against later feedback without depending on _current_task,
+            # which gets cleared in the loop's finally block.
+            result.task = self._current_task or ""
         self._last_result = result
         # Enforce window boundaries so windows don't escape the virtual display
         self._enforce_window_boundaries()
