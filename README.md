@@ -2,58 +2,58 @@
 
 **Version 2.6.0** · [guaardvark.com](https://guaardvark.com)
 
-The self-hosted AI workstation. Autonomous agents that see your screen and control your apps. A three-tier neural routing engine. Parallel agent swarms across isolated git worktrees. Video generation, image upscaling to 4K/8K, RAG over your documents, voice interface, and a 57-tool execution engine — all running locally on your hardware. Your machine. Your data. Your rules.
+The self-hosted AI workstation. Autonomous agents that see your screen and control your apps. A three-tier neural routing engine. Parallel agent swarms across isolated git worktrees. Video generation, image upscaling to 4K/8K, RAG over your documents, voice interface, and a 60+ tool execution engine — all running locally on your hardware. Your machine. Your data. Your rules.
 
-Video: Easy to use, no workflows needed, paste a list of prompts, select the model, video resolution, etc. and hit go. Then run the next batch because we have a queue system. 
-Image to Video
-Text to Video
-Voice Cloning
-Neural Voice Generation
-Audio Studio / Music Generation / FX Lab
-Video Editor 
-Video Text Overlay
-Batch Image Gen
-Batch Video Gen
-Video Upscaling
-Batch CSV Gen (Create Unique Web Pages, Posts Content, Data, based on Indexed Files)
-Voice Chat
-ComfyUI Backend
-File Manager (Drag from desktop into FileManager, Index, Assign to Clients / Projects / Sites / Notes / Code Repo)
-WordPress Connectivity (We will need to upload this plugin, with disclaimer text, needs finished and secured. Works fairly well though). Color Code Files, Copy & Paste, Drag & Drop, Folder / List View, Media View, etc. Right-click menus (copy, paste, delete, index contents recursively). 
-Notes Manager
-Media Manager
-Plugin System (System Resource Orchestrator)
-CPU Offload
-Download Voice Models, Video Models, Image Models, 
-Interconnector / Install and Sync Additional Local Machines / Load Balancing / Clusters
-Agent Swarms System
-Agent Memory System
-Agent Training System (Visual - Hand Eye Coordination)
-Agent Learning System
-Advanced Settings Page
-Debugging, RAG, Cache, Diagnostics, Tests. 
-Self Improvement
-Auto Researcher
-Code Editor
-Code Analyzer
-Code Repos
-Quickly switch to local Ollama Models
-Quickly switch embedding models (grouped by #)
-Backup & Restore Data and System Config
-Rules & Prompts System (Import / Export Rules)
-GPU / CPU Resource Monitor
-File Generation (Code, Text, Docs, Images, Video, Audio)
-Task Scheduler System
-Project Management System
-Client Management
-Websites Management
-Agents
-Agent Tools
-Swarms
-Virtual Agent Screen
-Dashboard
-Outreach System (explain this, every detail). 
+## What's included
 
+A full creative-professional AI workstation, all running locally:
+
+**Generation**
+- **Video (Text-to-Video, Image-to-Video)** — Wan 2.2, CogVideoX 2B/5B, SVD-XT. No workflow graph required: paste a list of prompts, pick a model and resolution, hit go. The queue handles the rest while you start the next batch.
+- **Audio Studio** — music generation (ACE-Step, full songs with vocals or instrumental), sound-effect lab (Stable Audio Open), neural voice (Chatterbox + Kokoro), and 6 Piper voice profiles out of the box.
+- **Voice Cloning** — gated behind an explicit consent prompt before any clone is created or used.
+- **Image generation** — Stable Diffusion via Diffusers with batch queue, face restoration, anatomy and detail controls.
+- **Image + Video Upscaling** — 4K and 8K via HAT-L, RealESRGAN family, NMKD-Superscale, Foolhardy Remacri. Two-pass mode for maximum quality. Frame-by-frame video processing.
+- **Batch CSV Generator** — generate unique web pages, post content, or structured data from a CSV using your indexed knowledge base as ground truth. Marketing copy, product pages, unique-content campaigns at scale.
+- **File Generation** — code, text, docs, images, video, audio in one queue.
+
+**Editing**
+- **Video Editor** — Shotcut-lite timeline with three lanes (video / text / audio), drag-and-drop from the media library, real text overlay rendering via ffmpeg, visual trim sliders, keyboard shortcuts, one-step undo.
+- **Video Text Overlay** — standalone tool for the simpler one-off case.
+
+**Agents & Automation**
+- **Autonomous screen agents** — agents see a real virtual desktop (Xvfb :99), move the mouse, click, type, navigate browsers, and verify their own actions.
+- **AgentBrain** — three-tier neural routing: Reflex (<100ms), Instinct (1–3s), Deliberation (5–30s).
+- **Agent Training System** — visual hand-eye-coordination teaching: bracket a session with Begin/End Lesson, walk the agent through a flow with thumbs-up pearls, the system distills a structured replayable lesson with parameterized steps.
+- **Agent Memory + Learning** — system-message persistent knowledge that survives reboots, recipe induction from successful tasks (Agent Workflow Memory pattern), vision-actionable knowledge with no cached pixel coordinates.
+- **Agent Swarms** — up to 20 parallel coding agents, each in an isolated git worktree on its own branch. Dependency-ordered merging. Flight Mode (fully offline). Backends: Claude Code, Cline/OpenClaw via local Ollama.
+- **Agents · Agent Tools · Virtual Agent Screen** — explorable surfaces for each capability, with a draggable VNC viewer that works on any page.
+- **Voice Chat** — Whisper.cpp transcribes, the agent thinks, Piper speaks. Toggle with `/voice`.
+- **Outreach System** — supervised AI for social-media engagement (Reddit, Discord, Twitter/X, Facebook) grounded in your indexed knowledge. Full detail below.
+- **Self-Improvement** — detects test failures, dispatches an agent to read the offending code and fix it, verifies, broadcasts to other instances. Optional Anthropic-API guardian review.
+- **Auto Researcher** — autonomous RAG-pipeline optimizer that experiments with parameters, keeps wins, reverts losses.
+
+**Workflow Surfaces**
+- **File Manager** — drag from your real desktop into the in-app File Manager. Color-code files, copy & paste, drag-and-drop reorganize. Folder / List / Media views. Right-click menus (copy, paste, delete, recursive index). Files attach to clients, projects, websites, notes, or code repos.
+- **Notes Manager** · **Media Manager** · **Project Management** · **Client Management** · **Websites Management** — consistent grid+detail UI for the working surfaces a small business actually uses. Cross-linked: documents attach to projects attach to clients attach to websites.
+- **Dashboard** — live status grid: model health, GPU usage, RAG state, agent activity, plugin states.
+- **Code Editor** — Monaco-based IDE with right-click "explain", "fix", "generate" via the AI assistant.
+- **Code Analyzer · Code Repos** — repo-level understanding and per-repo indexing.
+- **Task Scheduler** — cron-style scheduling for any agent task or generation job.
+- **Rules & Prompts** — import/export rules and prompts as a portable bundle.
+
+**Integration**
+- **ComfyUI Backend** — managed as a plugin, used as the execution layer for advanced video pipelines.
+- **WordPress Connectivity** — push generated content directly into a WordPress site via a companion plugin. Functional today; ships with security disclaimers and a finishing-pass on the roadmap before the plugin moves out of beta.
+
+**Platform**
+- **Plugin System** — every heavy capability (ComfyUI, Vision Pipeline, Audio Foundry, Upscaling, Discord, Swarm) is a managed plugin with health monitoring, port-based orphan cleanup, and a **System Resource Orchestrator** that arbitrates VRAM between them so two big models don't fight for the GPU.
+- **CPU Offload** for models that don't fit in VRAM.
+- **GPU + CPU Resource Monitor** — live, always visible.
+- **Interconnector / Cluster** — install Guaardvark on multiple local machines, master/client architecture with approval workflows, automatic load balancing across the fleet, hardware profile auto-detection.
+- **Model Management** — download voice/video/image models from HuggingFace with progress tracking. Quick-switch between local Ollama models. Quick-switch embedding models grouped by parameter count.
+- **Backup & Restore** — granular or full system backup, schema-migration-aware restore, cross-version compatible.
+- **Advanced Settings** — debugging toggles, RAG knobs, cache controls, diagnostic tools, test runners, self-improvement controls — exposed in the UI, not hidden behind a "config files only" wall.
 
 <p align="center">
   <img src="docs/screenshots/guaardvark-demo.gif" alt="Guaardvark Demo" width="100%">
@@ -164,6 +164,34 @@ State-of-the-art video generation running entirely on your GPU. No cloud APIs, n
 - **Batch processing** — queue multiple videos from a prompt list, processed by Celery workers
 - **ComfyUI integration** — one-click launch to the node editor for custom workflows
 
+### Audio Studio — Music, FX, and Neural Voice
+
+Three audio backends in one plugin with shared GPU-arbitration so they don't trample each other or fight Ollama for VRAM.
+
+- **Music generation** — ACE-Step v1 (3.5B) for full songs with vocals or instrumental-only mode. Suno-style chip-prompt UX (Genre / Mood / Instrument) with optional LLM "Polish" pass that translates plain English into ACE-Step's tag vocabulary plus a paired negative prompt. ~10 GB VRAM at fp16.
+- **FX Lab** — Stable Audio Open for sound effects and short ambient pieces. Light, fast, runs alongside other models.
+- **Neural Voice** — Chatterbox as the primary TTS backend, Kokoro as a fast fallback, Piper for narration with 6 voice profiles included. Used for chat narration, voiceover for videos, and the voice-chat conversational mode.
+- **Voice Cloning** — opt-in, gated behind an explicit consent prompt before any clone is created or used. Reference clips are kept under your control; the system never auto-clones from incidental audio.
+- **Built-in audio player** — generated WAVs and MP3s open in an in-app player modal instead of triggering a browser download. Documents page surfaces audio rows with prompt, model, duration, and a waveform.
+- **Suno export** — bulk-export a Suno library into the local DocumentsPage for use with the other generators.
+
+### Video Editor — Shotcut-lite Timeline
+
+A built-in non-linear editor for stitching generated clips, layering text, and rendering finished videos — without leaving the app.
+
+| Lane | Holds | Source |
+|------|-------|--------|
+| **Video** | one clip per timeline (multi-clip tracking on the roadmap) | Media Library — drag-and-drop |
+| **Text** | unlimited overlays, draggable on the preview, properties-panel for size/color/rotation | Add-Text button + properties editor |
+| **Audio** | one music or voice clip | Media Library — Audio tab |
+
+- **Visual trim slider** — Material UI range slider bound to source duration, two thumbs for start/end, live monospace readout. No more typing seconds into number inputs.
+- **Tabbed icon-grid library** — three tabs (Video / Audio / Images) with counts in the tab labels. 36px tiles, drag from tile to matching timeline track.
+- **Real text overlay rendering** — backend uses `ffmpeg drawtext` (9 named positions, optional outline + translucent box, proper escaping for colons/quotes/commas). Original is preserved.
+- **Keyboard shortcuts** — space to play/pause, arrow keys to scrub, `t` to add text, `del` to remove selected, `cmd+z` for one-step undo.
+- **JobOperationGate** — render path checks the gate before grabbing the GPU, so a render won't trample an active video generation or upscaling job.
+- **Standalone Video Text Overlay tool** — for the simple one-off case where you don't need a timeline.
+
 ### GPU Image Upscaling — 4K and 8K Output
 
 Upscale images and video frames to 4K (3840px) or 8K (7680px) resolution using GPU-accelerated super-resolution models.
@@ -209,6 +237,35 @@ The system runs its own test suite, identifies failures, dispatches an AI agent 
 - **Pending fixes queue** — stage, review, approve, or reject proposed changes
 - **Cross-machine learning** — fixes propagate to all connected instances via the Interconnector
 
+### Outreach System — Supervised AI for Social-Media Engagement
+
+A supervised, auditable framework for drafting and posting authentic comments on Reddit, Discord, Twitter/X, and Facebook — using your own indexed knowledge as the source of truth for citations and context. The point isn't volume. It's keeping up with engagement on your own products and topics, with the agent handling the legwork.
+
+**How it works**:
+
+1. **Discover** — the agent scouts target threads either by URL (you paste one into the New Draft modal) or by walking platform-specific entry points (subscribed subreddits, Discord channels, Twitter feeds, Facebook groups).
+2. **Context** — for each candidate post, the agent fetches the OP body and top comments. Reddit goes through the JSON API (fast, no scrape). Discord, Twitter, and Facebook go through the agent's logged-in Firefox session over CDP/BiDi, with a vision-model fallback when DOM selectors drift after a platform redesign.
+3. **Draft** — your local LLM composes a reply grounded in the thread context plus citations from your indexed documents (clients, projects, products, examples — whatever you've fed the knowledge base).
+4. **Grade** — every draft is scored against a relevance + quality rubric. Anything below threshold is dropped before it reaches the queue. Generic "great post!" replies don't survive grading.
+5. **Review** — drafts land in a queue. In supervised mode (the default), nothing posts without your approval. Edit, save, approve, reject — your call on each one.
+6. **Post** — approved drafts are posted via the platform's logged-in browser session, using a persona-shaped voice and a vision-driven send. Reddit posting is fully wired and verified end-to-end. Discord/Twitter/Facebook posting is in flight; drafting, queueing, and the supervised review surface already work for all four.
+
+**Three layers of safety**:
+
+- **Kill switch** at the system level. Flip it off and every outreach pipeline — drafting, queueing, posting — stops mid-flight. Nothing escapes.
+- **Supervised mode** is the default. Drafts queue, never auto-post. You approve each one explicitly.
+- **Cadence gates** — at most 1 post per 30 minutes per platform, configurable. Prevents bot-shaped behavior and respects platform anti-spam expectations.
+
+**Audit log** — every action (scout, draft, grade, approve, reject, post, fail) is recorded in a JSONL audit trail with timestamps, draft IDs, and outcomes. Exportable for compliance or post-hoc review.
+
+**Persona system** — a single configurable persona (voice, expertise areas, citation style, what to never say) shapes every draft for consistency. Your replies sound like you, not like an LLM.
+
+**Manual draft mode** — paste a thread URL, the agent auto-scouts the context, the LLM seeds a draft, you edit and save. Full human control with the agent doing the legwork (scouting, context-fetching, citation suggestion).
+
+**On-demand passes** — instead of waiting for the cron, fire a pass for a specific platform or subreddit on demand from the UI. Useful for active engagement around a launch or a thread you spotted.
+
+**Why it's not spam** — outreach is anchored on your own knowledge base. Citations point at YOUR documentation, YOUR examples. The system grades drafts for genuine relevance and refuses to engage when it can't add value. The cadence gate keeps the volume human-paced. Supervised mode keeps the human in the loop. The result is closer to "an assistant that helps you keep up with engagement on your own products and topics" than "an outbound bot."
+
 ---
 
 ## Full Feature Set
@@ -227,30 +284,91 @@ The system runs its own test suite, identifies failures, dispatches an AI agent 
 - **Uncle Claude escalation** — optional Anthropic API integration for problems that need a bigger model, with monthly token budgeting
 
 ### Image Generation
-- Stable Diffusion via Diffusers library — batch queue with auto-registration to file system
+- Stable Diffusion via Diffusers library — batch queue with auto-registration to the file system
 - Face restoration, anatomy enhancement, and detail controls
 - Image library with thumbnail grid, lightbox preview, keyboard navigation, batch operations
 - **Bates-numbered output** — generated files auto-registered with timestamped sequential naming
 
+### Audio Studio
+- ACE-Step v1 (3.5B) for full-song music generation with vocals or instrumental-only
+- Stable Audio Open for FX and short ambient pieces
+- Chatterbox + Kokoro neural TTS, plus 6 Piper voice profiles
+- Voice cloning with explicit consent gating
+- Suno-style chip-prompt UX with optional LLM "Polish" pass for ACE-Step's tag vocabulary
+- In-app audio player modal — generated audio doesn't trigger downloads
+- Suno bulk-export landing in the local DocumentsPage
+
+### Video Editor
+- Three-lane timeline (video / text / audio) with drag-and-drop from the Media Library
+- Real text overlay rendering via `ffmpeg drawtext` (9 positions, outline + box options)
+- Visual trim slider, keyboard shortcuts, one-step undo
+- Tabbed icon-grid library with counts in tab labels
+- JobOperationGate hook so renders coordinate VRAM with other GPU-heavy jobs
+
+### Outreach System
+- Reddit / Discord / Twitter-X / Facebook drafting + queueing
+- Reddit posting fully wired; other platforms in flight
+- Three-layer safety (kill switch + supervised mode + cadence gates)
+- Persona system + audit log + on-demand passes
+- Indexed-knowledge citations grounded in your documents
+
+### Voice + Voice Chat
+- Whisper.cpp for speech-to-text, Piper for text-to-speech
+- Hands-free conversation mode toggled by `/voice`
+- Narration buttons on assistant responses for any message
+- Continuous voice chat with VAD-driven turn-taking
+
 ### Agent & Code Tools
 - **Monaco code editor** — built-in IDE with AI-powered explain, fix, and generate via right-click context menu
+- **Code Analyzer** — repo-level static analysis surfaced in the editor
+- **Code Repos** — per-repo indexing and cross-repo search
 - **Self-demo system** — automated feature tour with screen recording and TTS narration
 - **Media viewer** — inline document and media previews with thumbnail strip navigation
 
 ### File & Document Management
 - Desktop-style UI — draggable folder icons, resizable windows, right-click context menus
-- Drag-and-drop upload preserving folder structures
-- Folder properties linked to clients, projects, and websites
+- Drag from your real desktop into the in-app File Manager (preserves folder structure)
+- Color-code files, copy/paste, drag-and-drop reorganize
+- Folder / List / Media views; switch on the fly
+- Right-click menus: copy, paste, delete, recursive-index
+- Files attach to clients, projects, websites, notes, or code repos for organized retrieval
+- **Notes Manager** · **Media Manager** — first-class surfaces alongside Documents
+
+### Project · Client · Website Management
+- Grid+detail UI for each — consistent shape, easy to learn one and know all three
+- Cross-linked: documents attach to projects, projects attach to clients, clients attach to websites
+- Per-project knowledge base isolation for RAG
+- Per-website settings carry through to outreach personas and WordPress integration
+
+### WordPress Connectivity
+- Companion plugin pushes generated content (text, images, video, audio) directly into a WordPress site
+- Functional today; ships with explicit security disclaimers
+- Roadmap: finishing pass + security hardening before the plugin moves out of beta
+- Treat as opt-in for now — read the disclaimer before deploying to a production site
+
+### Task Scheduler
+- Cron-style scheduling for any agent task or generation job
+- Manage from the Tasks page; live status mirrored to the Activity feed
+- Backed by Celery beat with persistent job history that survives restarts
+
+### Rules & Prompts
+- System prompts and behavior rules stored as portable bundles
+- Import/export to share between machines or back up before risky tweaks
+- COMMAND_RULE entries surface as custom slash commands in the chat input
 
 ### Multi-Machine Sync (Interconnector)
-- Connect multiple instances into a family that shares code, learnings, and model configs
+- Connect multiple Guaardvark instances into a family that shares code, learnings, and model configs
 - Master/client architecture with approval workflows and pre-sync backups
+- Hardware profile auto-detection on each node
+- Routing-table builder distributes workloads across the fleet by capability
 
 ### Plugin System
 - **Managed plugins** with health monitoring, port-based orphan cleanup, and auto-restore on restart
-- Ollama, ComfyUI, Vision Pipeline, Upscaling, Swarm Orchestrator, and Discord bot
-- Live VRAM monitoring with GPU conflict detection
-- Model download management from HuggingFace with progress tracking
+- Ollama, ComfyUI, Vision Pipeline, Audio Foundry, Upscaling, Swarm Orchestrator, Discord
+- **System Resource Orchestrator** arbitrates VRAM between plugins so they don't trample each other
+- **CPU Offload** for models that don't fit in VRAM
+- Live GPU + CPU resource monitor, persistent across the UI
+- Model download management from HuggingFace with progress tracking — voice, video, image models
 
 ### Vision Pipeline
 - Real-time frame analysis via Ollama vision models with adaptive FPS throttling
@@ -258,12 +376,27 @@ The system runs its own test suite, identifies failures, dispatches an AI agent 
 - Local camera capture with device enumeration and stream management
 - Context buffer with sliding window and compression
 
+### Self-Improvement & Research
+- **Self-Improvement Engine** — detect → fix → verify → broadcast loop with three modes (Scheduled, Reactive, Directed)
+- **Auto Researcher** — autonomous RAG-pipeline optimizer that experiments with parameters, keeps wins, reverts losses
+- **Pending Fixes queue** — stage, review, approve, or reject proposed code changes
+- **Cross-machine learning** — fixes propagate to all connected Interconnector nodes
+
+### Backup & Restore
+- Granular per-area backups (data only, full, code) or single-shot full system
+- Schema-migration-aware restore so an older backup can come back to a newer schema cleanly
+- Cross-version compatible
+
+### Advanced Settings
+- Debugging toggles, RAG knobs, cache controls, diagnostic tools, test runners, self-improvement controls
+- Surfaced in the UI, not hidden behind a "config files only" wall
+- Sectioned by area (Chat, RAG, Memory, Voice, Agents, Plugins, etc.) for quick navigation
+
 ### System
-- Dashboard with live status cards for model health, GPU, self-improvement, RAG
+- Dashboard with live status cards for model health, GPU, self-improvement, RAG, plugins, agent activity
 - Celery background task system with live progress
 - Six built-in themes
 - Container support with Containerfile for isolated testing
-- Comprehensive backup and restore — granular or full, with schema migration support
 
 ---
 
