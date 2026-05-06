@@ -117,6 +117,11 @@ MCP_TOOLS = ["mcp_connect", "mcp_disconnect", "mcp_execute", "mcp_get_state",
 # Bulk and event-driven file ops. Distinct from generate_file (which is in CORE)
 # because these touch many files at once or watch for changes — heavier intent.
 FILE_TOOLS = ["file_bulk_operation", "file_watch"]
+# Populated dynamically when an MCP server connects — see
+# backend.services.mcp_native_proxy. Holds names like 'filesystem_list_directory'
+# so the LLM can pick MCP tools by name without going through mcp_execute.
+# Mutated in place so the TOOL_CONTEXT_KEYWORDS reference below stays live.
+MCP_NATIVE_TOOLS: List[str] = []
 
 # URL / bare-domain detection — matches explicit URLs, www-prefixed hosts, and
 # bare domains with common TLDs. Deliberately does NOT match dotted identifiers
@@ -180,10 +185,20 @@ TOOL_CONTEXT_KEYWORDS = {
     "file": (["bulk file", "rename files", "process all files", "watch file",
               "watch the file", "monitor file", "all files in", "every file in",
               "batch file"], FILE_TOOLS),
+    # MCP-native proxies (filesystem_list_directory, filesystem_read_text_file, …)
+    # surface for natural file/dir queries without needing an MCP keyword. List
+    # is mutated by mcp_native_proxy on connect/disconnect; until any MCP server
+    # is connected, this category is empty and contributes nothing.
+    "mcp_native": (["list the files", "list files", "files in", "directory",
+                    "read file", "read the file", "write file", "write to file",
+                    "create file", "delete file", "rename file", "move file",
+                    "show me the file", "show me files", "what's in the",
+                    "what is in the", "file contents", "file tree", "ls "],
+                   MCP_NATIVE_TOOLS),
 }
 
 
-def select_tools_for_context(message: str, all_tool_names: List[str], max_tools: int = 15) -> List[str]:
+def select_tools_for_context(message: str, all_tool_names: List[str], max_tools: int = 25) -> List[str]:
     """Select most relevant tools based on message content."""
     # No tools for conversational messages
     if is_conversational(message):
@@ -270,7 +285,13 @@ def build_mcp_inventory_for_prompt(selected_tools: List[str]) -> str:
     if not inventory:
         return ""
 
-    lines = ["", "Connected MCP servers (call any of these via mcp_execute(server, tool, arguments)):"]
+    lines = [
+        "",
+        "Connected MCP servers — these are also exposed as native tools "
+        "(prefer the native form `<server>_<tool>` when possible; fall back "
+        "to mcp_execute(server, tool, arguments) only for tools you can't see "
+        "by name in your tool list):",
+    ]
     for srv_name, tools in inventory.items():
         lines.append(f"\n  Server '{srv_name}' — {len(tools)} tools:")
         for t in tools:
@@ -280,7 +301,8 @@ def build_mcp_inventory_for_prompt(selected_tools: List[str]) -> str:
             schema = t.get("inputSchema") or {}
             required = schema.get("required") or []
             req_hint = f"  [args: {', '.join(required)}]" if required else ""
-            lines.append(f"    - {tname}{req_hint}: {desc}")
+            native_name = f"{srv_name}_{tname}"
+            lines.append(f"    - {tname}  (native: `{native_name}`){req_hint}: {desc}")
     return "\n".join(lines)
 
 
@@ -333,11 +355,15 @@ class SemanticToolSelector:
         self,
         message: str,
         registry,
-        max_tools: int = 15,
+        max_tools: int = 25,
     ) -> List[str]:
         """Return up to *max_tools* tool names ranked by relevance to *message*.
 
-        Always includes CORE_TOOLS (up to the cap).
+        Always includes CORE_TOOLS (up to the cap). Cap was 15 originally;
+        bumped to 25 once MCP-native proxies started landing — CORE (8) plus
+        a full MCP server's tool list (up to 14) plus a couple more was
+        getting truncated mid-set non-deterministically and the actual
+        relevant tool was sometimes the one that fell off.
         Falls back to ``select_tools_for_context`` if embedding fails.
         """
         # No tools for conversational messages

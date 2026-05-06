@@ -218,11 +218,20 @@ class MCPClientService:
                 last_connected=datetime.now()
             )
             self._servers[server_name] = server
-            
+
             self._state.servers_connected = sum(1 for s in self._servers.values() if s.connected)
             self._state.total_tools_available = sum(len(s.tools) for s in self._servers.values())
-            
+
             logger.info(f"Connected to MCP server '{server_name}' with {len(tools)} tools")
+
+            # Path C: surface this server's tools as native BaseTool proxies in
+            # the global registry so the LLM can pick e.g. `filesystem_list_directory`
+            # directly, without going through the generic mcp_execute shim.
+            try:
+                from backend.services.mcp_native_proxy import register_native_proxies
+                register_native_proxies(server_name, tools)
+            except Exception as proxy_exc:
+                logger.warning(f"Native proxy registration failed for '{server_name}': {proxy_exc}")
             
             return {
                 "success": True,
@@ -256,10 +265,17 @@ class MCPClientService:
         
         server.connected = False
         server.process = None
-        
+
         self._state.servers_connected = sum(1 for s in self._servers.values() if s.connected)
         self._state.total_tools_available = sum(len(s.tools) for s in self._servers.values() if s.connected)
-        
+
+        # Path C: tear down the per-tool BaseTool proxies we registered on connect.
+        try:
+            from backend.services.mcp_native_proxy import unregister_native_proxies
+            unregister_native_proxies(server_name)
+        except Exception as proxy_exc:
+            logger.warning(f"Native proxy teardown failed for '{server_name}': {proxy_exc}")
+
         logger.info(f"Disconnected from MCP server '{server_name}'")
         
         return {"success": True, "server": server_name}
