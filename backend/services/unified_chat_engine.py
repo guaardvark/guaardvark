@@ -94,19 +94,29 @@ CORE_TOOLS = [
     "save_memory",
     "search_memory",
     "delete_memory",
+    "agent_status",  # cheap introspection — agent should always be able to report its state
 ]
 BROWSER_TOOLS = ["browser_navigate", "browser_click", "browser_fill", "browser_screenshot",
                  "browser_extract", "browser_wait", "browser_execute_js", "browser_get_html"]
-CODE_TOOLS = ["codegen", "analyze_code", "generate_csv", "generate_bulk_csv"]
+CODE_TOOLS = ["codegen", "analyze_code", "generate_csv", "generate_bulk_csv", "execute_python"]
 CONTENT_TOOLS = ["generate_wordpress_content", "generate_enhanced_wordpress_content"]
 DESKTOP_TOOLS = ["app_launch", "app_list", "app_focus", "gui_click", "gui_type",
-                 "gui_hotkey", "gui_screenshot", "notification_send"]
-WEB_TOOLS = ["analyze_website"]
+                 "gui_hotkey", "gui_screenshot", "notification_send",
+                 "clipboard_get", "clipboard_set", "gui_locate_image"]
+WEB_TOOLS = ["analyze_website", "fetch_url"]
 MEDIA_TOOLS = ["media_play", "media_control", "media_volume", "media_status"]
 IMAGE_TOOLS = ["generate_image", "generate_animation"]
 # For chat context, only expose the tools the LLM should actually call
 # agent_mode_start/stop are internal — the LLM should use agent_task_execute directly
 AGENT_CONTROL_TOOLS = ["agent_task_execute", "agent_screen_capture"]
+# External MCP servers — registered but previously unwired so the agent could not
+# reach them. The 6-tool family is gated by keywords below; surfacing it doesn't
+# change behavior unless the user actually mentions MCP / external tools.
+MCP_TOOLS = ["mcp_connect", "mcp_disconnect", "mcp_execute", "mcp_get_state",
+             "mcp_list_servers", "mcp_list_tools"]
+# Bulk and event-driven file ops. Distinct from generate_file (which is in CORE)
+# because these touch many files at once or watch for changes — heavier intent.
+FILE_TOOLS = ["file_bulk_operation", "file_watch"]
 
 # URL / bare-domain detection — matches explicit URLs, www-prefixed hosts, and
 # bare domains with common TLDs. Deliberately does NOT match dotted identifiers
@@ -165,6 +175,11 @@ TOOL_CONTEXT_KEYWORDS = {
                        "what do you see", "what is on the screen",
                        "/vision", "/agent"],
                       AGENT_CONTROL_TOOLS),
+    "mcp": (["mcp", "model context protocol", "external server", "external tool",
+             "external service", "remote tool", "claude desktop"], MCP_TOOLS),
+    "file": (["bulk file", "rename files", "process all files", "watch file",
+              "watch the file", "monitor file", "all files in", "every file in",
+              "batch file"], FILE_TOOLS),
 }
 
 
@@ -251,6 +266,7 @@ class SemanticToolSelector:
         "save_memory",
         "search_memory",
         "delete_memory",
+        "agent_status",
     }
 
     # Embedding model used for semantic tool ranking. Override via env var for

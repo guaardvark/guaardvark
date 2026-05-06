@@ -164,13 +164,23 @@ def parse_tool_calls_xml(llm_response: str) -> ToolCallResponse:
                 value_queue = []
                 other_params = {}
 
+                # The FIRST <tool> tag is always the structural tool-name (matched
+                # earlier into tool_name). Any *subsequent* <tool> is a real
+                # parameter — this matters when a tool's own schema includes a
+                # parameter literally named "tool" (e.g. mcp_execute).
+                seen_structural_tool = False
                 for pm_name, pm_val in param_matches:
+                    if pm_name == 'tool' and not seen_structural_tool:
+                        seen_structural_tool = True
+                        continue
                     if pm_name in ('parameter', 'parameter_name'):
                         param_names_queue.append(pm_val.strip())
                     elif pm_name == 'value':
                         value_queue.append(pm_val.strip())
-                    elif pm_name not in ['tool', 'reasoning']:
-                        # Direct-format tag mixed into nested format
+                    elif pm_name != 'reasoning':
+                        # Direct-format tag mixed into nested format. Includes
+                        # the second-or-later <tool> element when the tool's
+                        # schema has a parameter literally called "tool".
                         other_params[pm_name] = pm_val.strip()
 
                 # Pair parameter names with values positionally
@@ -207,10 +217,19 @@ def parse_tool_calls_xml(llm_response: str) -> ToolCallResponse:
                         params[missing_param] = unclosed_value.group(1).strip()
                         logger.info(f"Recovered unclosed value for param '{missing_param}'")
             else:
-                # Direct format: parameter name is the tag name
+                # Direct format: parameter name is the tag name. The FIRST
+                # <tool> tag is the structural tool-name (already captured by
+                # tool_name_match above). Any *subsequent* <tool> is a real
+                # parameter — needed for tools whose schema includes a
+                # parameter literally named "tool" (e.g. mcp_execute).
+                seen_structural_tool = False
                 for param_name, param_value in param_matches:
-                    if param_name not in ['tool', 'reasoning', 'tool_call']:
-                        params[param_name] = param_value.strip()
+                    if param_name == 'tool' and not seen_structural_tool:
+                        seen_structural_tool = True
+                        continue
+                    if param_name in ('reasoning', 'tool_call'):
+                        continue
+                    params[param_name] = param_value.strip()
 
             # Strip wrapping quotes from values (LLMs often quote XML values)
             for k in list(params.keys()):

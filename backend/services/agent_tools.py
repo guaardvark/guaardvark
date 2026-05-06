@@ -318,17 +318,23 @@ class ToolRegistry:
                 
         return coerced
 
-    def execute_tool(self, tool_name: str, agent_context: Optional[Dict[str, Any]] = None, 
+    def execute_tool(self, tool_name: str, /, agent_context: Optional[Dict[str, Any]] = None,
                      on_output: Optional[Callable[[str], None]] = None, **kwargs) -> ToolResult:
         """
         Execute a tool by name with given parameters and context
-        
+
         Args:
-            tool_name: Name of the tool to execute
+            tool_name: Name of the tool to execute (positional-only — the `/`
+                makes it impossible for an LLM-supplied kwarg named `tool_name`
+                to collide with this param. If the LLM passes `tool_name=...`
+                in its args, it lands in **kwargs and the param-recovery
+                logic below remaps it to the tool's actual schema name. The
+                /` is what unblocks tools like mcp_execute whose own
+                parameters can shadow registry-internal names.
             agent_context: Optional context dictionary (user, project, etc.)
             on_output: Optional callback for streaming tool output
             **kwargs: Tool parameters
-            
+
         Returns:
             ToolResult with execution results
         """
