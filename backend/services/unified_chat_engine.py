@@ -244,6 +244,46 @@ def build_concise_tool_list(registry, tool_names: List[str]) -> str:
     return "\n".join(lines)
 
 
+def build_mcp_inventory_for_prompt(selected_tools: List[str]) -> str:
+    """Return a prompt section listing tools available on each connected MCP server.
+
+    Only emits content when `mcp_execute` is in the selected tools — i.e. the
+    LLM might actually invoke MCP this turn. Without this, the LLM has no way
+    to know what `tool` name to pass to mcp_execute, so it guesses (and
+    usually omits the param entirely). Reads cached server.tools — no
+    subprocess RPC, no event-loop hop.
+
+    Returns empty string when MCP is disabled, no servers connected, or
+    mcp_execute isn't in scope. Safe to call on every chat turn.
+    """
+    if "mcp_execute" not in selected_tools:
+        return ""
+    try:
+        from backend.services.mcp_client_service import MCPClientService, MCP_ENABLED
+        if not MCP_ENABLED:
+            return ""
+        service = MCPClientService.get_instance()
+        inventory = service.cached_tools_for_prompt()
+    except Exception as e:
+        logger.debug(f"MCP inventory unavailable: {e}")
+        return ""
+    if not inventory:
+        return ""
+
+    lines = ["", "Connected MCP servers (call any of these via mcp_execute(server, tool, arguments)):"]
+    for srv_name, tools in inventory.items():
+        lines.append(f"\n  Server '{srv_name}' — {len(tools)} tools:")
+        for t in tools:
+            tname = t.get("name", "?")
+            desc = (t.get("description") or "").split("\n")[0][:80]
+            # Hint required arg names from the MCP tool's schema, if present.
+            schema = t.get("inputSchema") or {}
+            required = schema.get("required") or []
+            req_hint = f"  [args: {', '.join(required)}]" if required else ""
+            lines.append(f"    - {tname}{req_hint}: {desc}")
+    return "\n".join(lines)
+
+
 class SemanticToolSelector:
     """
     Ranks tools by embedding-based cosine similarity to the user's message.
@@ -646,6 +686,11 @@ class UnifiedChatEngine:
                 )
 
         tool_list = build_concise_tool_list(self.registry, selected_tools)
+        # If MCP is in scope, inject the live inventory so the LLM knows the
+        # real tool names per connected server (otherwise it guesses).
+        mcp_section = build_mcp_inventory_for_prompt(selected_tools)
+        if mcp_section:
+            tool_list = tool_list + "\n" + mcp_section
         system_prompt = self._build_system_prompt(rules_persona, tool_list)
 
         logger.info(

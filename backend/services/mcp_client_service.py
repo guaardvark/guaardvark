@@ -346,6 +346,20 @@ class MCPClientService:
         except Exception as e:
             return {"success": False, "error": str(e)}
     
+    def cached_tools_for_prompt(self) -> Dict[str, List[Dict[str, Any]]]:
+        """Sync, cache-only read: connected server name → list of tool dicts.
+
+        Used by unified_chat_engine to build a prompt section that hands the
+        LLM the actual MCP tool inventory instead of letting it guess names.
+        Reads `_servers[name].tools`, which is populated at connect-time —
+        no subprocess RPC, no event-loop hop. Safe to call on every chat turn.
+        """
+        return {
+            name: list(srv.tools)
+            for name, srv in self._servers.items()
+            if srv.connected
+        }
+
     def list_configured_servers(self) -> Dict[str, Any]:
         servers = []
         for name, config in self._server_configs.items():
