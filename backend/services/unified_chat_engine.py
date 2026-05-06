@@ -382,6 +382,10 @@ class SemanticToolSelector:
             self._lazy_init(registry)
             if self._disabled:
                 return select_tools_for_context(message, all_tool_names, max_tools)
+            # Embed any tools that joined the registry after _lazy_init —
+            # MCP-native proxies registered mid-process, plugin tools added
+            # at runtime, etc. Cheap no-op when nothing new.
+            self._embed_missing_tools(all_tool_names, registry)
             msg_emb = self._embed(message)
             return self._rank_and_select(msg_emb, all_tool_names, max_tools)
         except Exception as exc:
@@ -523,6 +527,66 @@ class SemanticToolSelector:
         response = ollama.embeddings(**kwargs)
         return response["embedding"]
 
+    def _embed_missing_tools(self, all_tool_names: List[str], registry) -> None:
+        """Embed tools that joined the registry after _lazy_init ran.
+
+        Without this, MCP-native proxies (registered when an MCP server
+        connects mid-process) are invisible to semantic ranking — they'd
+        only be findable via the keyword router. The persistent cache
+        on disk is updated alongside the in-memory dict so a subsequent
+        process restart inherits the work.
+
+        Thread-safe via self._lock; idempotent (no-op when no new tools).
+        """
+        missing = [n for n in all_tool_names if n not in self._tool_embeddings]
+        if not missing:
+            return
+        with self._lock:
+            # Re-check after acquiring lock — another thread may have just embedded these.
+            missing = [n for n in missing if n not in self._tool_embeddings]
+            if not missing:
+                return
+
+            cached_data: Dict[str, Dict[str, Any]] = {}
+            if os.path.exists(TOOL_EMBEDDING_CACHE):
+                try:
+                    with open(TOOL_EMBEDDING_CACHE, "r") as f:
+                        cached_data = json.load(f)
+                except Exception:
+                    pass
+
+            updated = False
+            embedded_count = 0
+            for name in missing:
+                tool = registry.get_tool(name)
+                if not tool:
+                    continue
+                doc = self._build_tool_doc(name, tool)
+                doc_hash = hashlib.sha1(doc.encode("utf-8")).hexdigest()
+                # Cache hit (e.g. cleared in-memory but persistent kept it)
+                if name in cached_data and cached_data[name].get("hash") == doc_hash:
+                    self._tool_embeddings[name] = cached_data[name]["embedding"]
+                    continue
+                try:
+                    emb = self._embed(doc, keep_alive=None)
+                    self._tool_embeddings[name] = emb
+                    cached_data[name] = {"embedding": emb, "hash": doc_hash}
+                    updated = True
+                    embedded_count += 1
+                except Exception as exc:
+                    logger.debug(f"Could not lazy-embed '{name}': {exc}")
+
+            if embedded_count:
+                logger.info(f"SemanticToolSelector: lazy-embedded {embedded_count} new tool(s)")
+
+            if updated:
+                try:
+                    os.makedirs(os.path.dirname(TOOL_EMBEDDING_CACHE), exist_ok=True)
+                    with open(TOOL_EMBEDDING_CACHE, "w") as f:
+                        json.dump(cached_data, f)
+                except Exception as exc:
+                    logger.warning(f"Failed to update tool embedding cache: {exc}")
+
     def _rank_and_select(
         self,
         msg_emb: List[float],
@@ -595,7 +659,7 @@ def get_semantic_selector() -> SemanticToolSelector:
 class UnifiedChatEngine:
     """Core engine combining RAG + tools + conversation in one ReACT loop."""
 
-    def __init__(self, tool_registry, llm_instance, max_iterations: int = 5):
+    def __init__(self, tool_registry, llm_instance, max_iterations: int = 8):
         self.registry = tool_registry
         self.llm = llm_instance
         self.max_iterations = max_iterations
@@ -809,6 +873,7 @@ class UnifiedChatEngine:
         log_system_prompt("unified_chat", system_prompt, session_id=session_id)
         log_user_message("unified_chat", message, session_id=session_id)
 
+        wrap_up_nudge_pushed = False
         for iteration in range(1, self.max_iterations + 1):
             if is_aborted(session_id):
                 emit_fn("chat:complete", {
@@ -820,6 +885,24 @@ class UnifiedChatEngine:
                     "token_usage": token_usage,
                 })
                 break
+
+            # One-shot wrap-up nudge after a couple of tool calls. Smaller models
+            # (gemma4:e4b in particular) tend to keep calling tools after a
+            # successful result instead of writing the final answer once the
+            # data is available. Pushed once at iteration 3 so the LLM still
+            # has plenty of room (max=8) but a clear cue to stop spinning.
+            if iteration == 3 and tools_called and not wrap_up_nudge_pushed:
+                ollama_messages.append({
+                    "role": "system",
+                    "content": (
+                        "You've already executed tool calls. If the prior tool "
+                        "results contain what's needed to answer the user's "
+                        "question, write your final answer now without calling "
+                        "another tool. Only call another tool if the answer is "
+                        "genuinely incomplete."
+                    ),
+                })
+                wrap_up_nudge_pushed = True
 
             # 6a. Emit thinking
             emit_fn("chat:thinking", {"iteration": iteration, "status": "Calling LLM..."})
