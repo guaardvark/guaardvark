@@ -411,3 +411,52 @@ def test_regenerate_shot_dispatches_celery_task(client, app, monkeypatch):
     assert data["regen_job_id"] == "fake-task-id-123"
     assert sent["name"] == "production.regen_storyboard_shot"
     assert sent["args"] == [shot_id, None]
+
+
+def test_get_production_subjects_returns_screenwriter_extracted_subjects(client, app):
+    """CastingPanel needs real Subject ids to upload refs against. Source of
+    truth is the latest ok screenwriter SwarmMessage."""
+    with app.app_context():
+        from backend.models import Production, Subject, SwarmMessage
+        prod = Production(name="P", script_text="x",
+                          status="casting", current_stage="casting", settings_json={})
+        # Two cast-library entries — one matching the script, one not.
+        alice = Subject(kind="character", name="Alice", description="hero",
+                        ref_image_paths=[], training_status="untrained")
+        bob = Subject(kind="character", name="Bob", description="other",
+                      ref_image_paths=[], training_status="untrained")
+        db.session.add_all([prod, alice, bob]); db.session.commit()
+
+        msg = SwarmMessage(
+            production_id=prod.id, agent_name="screenwriter", status="ok",
+            input_json={"script": "..."},
+            output_json={"subjects": [{"name": "Alice", "kind": "character",
+                                        "description": "hero"}]},
+        )
+        db.session.add(msg); db.session.commit()
+        prod_id = prod.id
+
+    resp = client.get(f"/api/production/{prod_id}/subjects")
+    assert resp.status_code == 200
+    subjects = resp.get_json()["subjects"]
+    assert len(subjects) == 1
+    assert subjects[0]["name"] == "Alice"
+    assert subjects[0]["id"] > 0
+
+
+def test_get_production_subjects_empty_when_screenwriter_never_succeeded(client, app):
+    """No screenwriter:ok message → empty list, not 500."""
+    with app.app_context():
+        from backend.models import Production
+        prod = Production(name="P", script_text="x",
+                          status="screenwriting", current_stage="screenwriting", settings_json={})
+        db.session.add(prod); db.session.commit()
+        prod_id = prod.id
+    resp = client.get(f"/api/production/{prod_id}/subjects")
+    assert resp.status_code == 200
+    assert resp.get_json() == {"subjects": []}
+
+
+def test_get_production_subjects_404_for_unknown(client):
+    resp = client.get("/api/production/9999/subjects")
+    assert resp.status_code == 404

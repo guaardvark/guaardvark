@@ -77,6 +77,53 @@ def list_productions():
     })
 
 
+@bp.get("/<int:prod_id>/subjects")
+def get_production_subjects(prod_id):
+    """Return the Subjects this production cares about — i.e. what the
+    Screenwriter agent extracted from the script. The CastingPanel uses this
+    to know which Subjects need a cast action; without it we'd have no way
+    to map the script's named characters/environments back to real Subject
+    rows (the schema has no Production↔Subject join — Subjects live in the
+    cast library and are matched by name+kind).
+    """
+    from backend.models import Subject, SwarmMessage
+    p = db.session.get(Production, prod_id)
+    if p is None:
+        return jsonify({"error": "not_found"}), 404
+
+    # Latest 'ok' screenwriter message has the canonical subject list for the
+    # current script. If the screenwriter never ran (or only produced parse
+    # errors), there's nothing to cast — return empty.
+    msg = (
+        SwarmMessage.query
+        .filter_by(production_id=prod_id, agent_name="screenwriter", status="ok")
+        .order_by(SwarmMessage.created_at.desc())
+        .first()
+    )
+    declared = (msg.output_json or {}).get("subjects", []) if msg else []
+
+    # Look up the actual Subject rows by name+kind. The Screenwriter task
+    # upserts Subjects on success, so a match here is guaranteed for any
+    # script whose pipeline reached at least screenwriting:ok.
+    out = []
+    for d in declared:
+        name, kind = d.get("name"), d.get("kind")
+        if not name or not kind:
+            continue
+        s = Subject.query.filter_by(name=name, kind=kind).first()
+        if s is None:
+            continue
+        out.append({
+            "id": s.id, "name": s.name, "kind": s.kind,
+            "description": s.description,
+            "ref_image_paths": s.ref_image_paths or [],
+            "lora_path": s.lora_path,
+            "training_status": s.training_status,
+        })
+
+    return jsonify({"subjects": out})
+
+
 @bp.get("/<int:prod_id>")
 def get_production(prod_id):
     p = db.session.get(Production, prod_id)
