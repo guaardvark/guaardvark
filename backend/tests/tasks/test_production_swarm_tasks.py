@@ -82,6 +82,56 @@ def test_run_screenwriter_persists_subjects_and_shots(app, production):
     assert msg.agent_name == "screenwriter"
 
 
+def test_run_screenwriter_creates_production_subjects(app, production):
+    def fake_llm(*args, **kwargs):
+        return json.dumps({
+            "subjects": [
+                {"name": "Alice", "kind": "character", "description": "A test character"}
+            ],
+            "scenes": []
+        })
+
+    run_screenwriter(production.id, llm=fake_llm)
+
+    from backend.models import ProductionSubject
+    ps = ProductionSubject.query.filter_by(production_id=production.id).all()
+    assert len(ps) == 1
+    assert ps[0].subject.name == "Alice"
+
+
+def test_run_screenwriter_retry_does_not_duplicate(app, production):
+    def fake_llm(*args, **kwargs):
+        return json.dumps({
+            "subjects": [
+                {"name": "Alice", "kind": "character", "description": "A test character"}
+            ],
+            "scenes": [
+                {
+                    "number": 1,
+                    "location": "CAFE",
+                    "shots": [
+                        {"number": 1, "description": "Wide shot", "dialogue": "Hello"}
+                    ]
+                }
+            ]
+        })
+
+    run_screenwriter(production.id, llm=fake_llm)
+
+    from backend.models import ProductionSubject
+    assert ProductionSubject.query.filter_by(production_id=production.id).count() == 1
+    assert ProductionShot.query.filter_by(production_id=production.id).count() == 1
+
+    # Reset stage and run again
+    production.current_stage = "screenwriting"
+    db.session.commit()
+
+    run_screenwriter(production.id, llm=fake_llm)
+
+    assert ProductionSubject.query.filter_by(production_id=production.id).count() == 1
+    assert ProductionShot.query.filter_by(production_id=production.id).count() == 1
+
+
 def test_run_screenwriter_parse_error_marks_failed_stage(app, production):
     def fake_llm(*args, **kwargs):
         return "garbage"

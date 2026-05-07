@@ -2,7 +2,7 @@ import json
 from celery import Celery
 from flask import current_app
 
-from backend.models import db, Production, Subject, ProductionShot, ProductionShotSubject, SwarmMessage, Document
+from backend.models import db, Production, Subject, ProductionShot, ProductionShotSubject, ProductionSubject, SwarmMessage, Document
 from backend.services.production_service import ProductionService
 from backend.services.swarm.agents.screenwriter import Screenwriter
 from backend.services.swarm.agents.cinematographer import Cinematographer
@@ -72,6 +72,11 @@ def run_screenwriter(prod_id: int, llm=None):
     if not prod or prod.current_stage != "screenwriting":
         return
 
+    # Idempotency reset: delete existing outputs for this production
+    ProductionSubject.query.filter_by(production_id=prod_id).delete()
+    ProductionShot.query.filter_by(production_id=prod_id).delete()
+    db.session.commit()
+
     agent = Screenwriter(llm=llm)
     input_data = prod.script_text
     
@@ -99,9 +104,16 @@ def run_screenwriter(prod_id: int, llm=None):
         existing = Subject.query.filter_by(name=subj.name, kind=subj.kind).first()
         if existing:
             existing.description = subj.description
+            subject_to_link = existing
         else:
             new_subj = Subject(name=subj.name, kind=subj.kind, description=subj.description)
             db.session.add(new_subj)
+            db.session.flush()  # get ID
+            subject_to_link = new_subj
+            
+        # Link to production
+        ps = ProductionSubject(production_id=prod_id, subject_id=subject_to_link.id)
+        db.session.add(ps)
     
     for scene in out.scenes:
         for shot in scene.shots:

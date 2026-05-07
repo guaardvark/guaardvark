@@ -81,38 +81,23 @@ def list_productions():
 def get_production_subjects(prod_id):
     """Return the Subjects this production cares about — i.e. what the
     Screenwriter agent extracted from the script. The CastingPanel uses this
-    to know which Subjects need a cast action; without it we'd have no way
-    to map the script's named characters/environments back to real Subject
-    rows (the schema has no Production↔Subject join — Subjects live in the
-    cast library and are matched by name+kind).
+    to know which Subjects need a cast action.
     """
-    from backend.models import Subject, SwarmMessage
+    from backend.models import Subject, ProductionSubject
     p = db.session.get(Production, prod_id)
     if p is None:
         return jsonify({"error": "not_found"}), 404
 
-    # Latest 'ok' screenwriter message has the canonical subject list for the
-    # current script. If the screenwriter never ran (or only produced parse
-    # errors), there's nothing to cast — return empty.
-    msg = (
-        SwarmMessage.query
-        .filter_by(production_id=prod_id, agent_name="screenwriter", status="ok")
-        .order_by(SwarmMessage.created_at.desc())
-        .first()
+    # Look up the actual Subject rows via the ProductionSubject join table.
+    subjects = (
+        db.session.query(Subject)
+        .join(ProductionSubject)
+        .filter(ProductionSubject.production_id == prod_id)
+        .all()
     )
-    declared = (msg.output_json or {}).get("subjects", []) if msg else []
 
-    # Look up the actual Subject rows by name+kind. The Screenwriter task
-    # upserts Subjects on success, so a match here is guaranteed for any
-    # script whose pipeline reached at least screenwriting:ok.
     out = []
-    for d in declared:
-        name, kind = d.get("name"), d.get("kind")
-        if not name or not kind:
-            continue
-        s = Subject.query.filter_by(name=name, kind=kind).first()
-        if s is None:
-            continue
+    for s in subjects:
         out.append({
             "id": s.id, "name": s.name, "kind": s.kind,
             "description": s.description,

@@ -415,9 +415,9 @@ def test_regenerate_shot_dispatches_celery_task(client, app, monkeypatch):
 
 def test_get_production_subjects_returns_screenwriter_extracted_subjects(client, app):
     """CastingPanel needs real Subject ids to upload refs against. Source of
-    truth is the latest ok screenwriter SwarmMessage."""
+    truth is the ProductionSubject join table."""
     with app.app_context():
-        from backend.models import Production, Subject, SwarmMessage
+        from backend.models import Production, Subject, ProductionSubject
         prod = Production(name="P", script_text="x",
                           status="casting", current_stage="casting", settings_json={})
         # Two cast-library entries — one matching the script, one not.
@@ -427,13 +427,8 @@ def test_get_production_subjects_returns_screenwriter_extracted_subjects(client,
                       ref_image_paths=[], training_status="untrained")
         db.session.add_all([prod, alice, bob]); db.session.commit()
 
-        msg = SwarmMessage(
-            production_id=prod.id, agent_name="screenwriter", status="ok",
-            input_json={"script": "..."},
-            output_json={"subjects": [{"name": "Alice", "kind": "character",
-                                        "description": "hero"}]},
-        )
-        db.session.add(msg); db.session.commit()
+        ps = ProductionSubject(production_id=prod.id, subject_id=alice.id)
+        db.session.add(ps); db.session.commit()
         prod_id = prod.id
 
     resp = client.get(f"/api/production/{prod_id}/subjects")

@@ -2536,6 +2536,32 @@ class Subject(db.Model):
     updated_at = db.Column(db.DateTime, nullable=False, default=db.func.now(), onupdate=db.func.now())
 
 
+class ProductionSubject(db.Model):
+    """Subjects a Production needs — populated by the Screenwriter task.
+    Distinct from ProductionShotSubject, which is a per-shot LoRA stack."""
+    __tablename__ = "production_subjects"
+
+    id = db.Column(db.Integer, primary_key=True)
+    production_id = db.Column(
+        db.Integer,
+        db.ForeignKey("productions.id", name="fk_production_subject_production_id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    subject_id = db.Column(
+        db.Integer,
+        db.ForeignKey("subjects.id", name="fk_production_subject_subject_id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now())
+    __table_args__ = (db.UniqueConstraint("production_id", "subject_id", name="uq_production_subject"),)
+
+    production = db.relationship(
+        "Production",
+        backref=db.backref("production_subjects", cascade="all, delete-orphan"),
+    )
+    subject = db.relationship("Subject")
+
+
 class ProductionShot(db.Model):
     """One shot in a production. Storyboard image, then I2V clip."""
     __tablename__ = "production_shots"
