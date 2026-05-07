@@ -10,9 +10,27 @@ from dataclasses import dataclass
 from time import time
 from typing import Generic, TypeVar, Callable
 import json
+import re
 from pydantic import BaseModel, ValidationError
 
 T = TypeVar("T", bound=BaseModel)
+
+
+# Matches a fenced code block, optionally with a language tag (e.g. ```json).
+# Captures the inner content. Tolerates surrounding prose.
+_FENCE_RE = re.compile(r"```(?:[a-zA-Z0-9]+)?\s*\n?(.*?)\n?\s*```", re.DOTALL)
+
+
+def _strip_markdown_fences(raw: str) -> str:
+    """Extract JSON from a markdown fence if present, else return as-is.
+
+    LLMs (especially Ollama-served Gemma/Qwen) often wrap structured output
+    in ```json ... ``` blocks despite explicit prompt instructions otherwise.
+    """
+    match = _FENCE_RE.search(raw)
+    if match:
+        return match.group(1).strip()
+    return raw.strip()
 
 
 @dataclass
@@ -57,7 +75,8 @@ class BaseSwarmAgent(Generic[T]):
 
         latency_ms = int((time() - t0) * 1000)
         try:
-            parsed = self.output_model.model_validate(json.loads(raw))
+            cleaned = _strip_markdown_fences(raw)
+            parsed = self.output_model.model_validate(json.loads(cleaned))
         except (ValidationError, json.JSONDecodeError) as e:
             return AgentInvocation(
                 agent_name=self.name, input_data=input_data, output=None,

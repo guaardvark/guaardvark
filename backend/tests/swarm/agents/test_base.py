@@ -41,3 +41,37 @@ def test_agent_records_llm_error():
     assert inv.status == "error"
     assert inv.output is None
     assert "LLM down" in inv.error_text
+
+
+def test_agent_strips_json_markdown_fences():
+    """Ollama-served models often wrap JSON in ```json ... ``` fences."""
+    canned = '```json\n{"answer": "fenced"}\n```'
+    agent = _TestAgent(llm=lambda **kw: canned)
+    inv = agent.invoke("question")
+    assert inv.status == "ok"
+    assert inv.output.answer == "fenced"
+
+
+def test_agent_strips_plain_triple_backtick_fences():
+    canned = '```\n{"answer": "plain"}\n```'
+    agent = _TestAgent(llm=lambda **kw: canned)
+    inv = agent.invoke("question")
+    assert inv.status == "ok"
+    assert inv.output.answer == "plain"
+
+
+def test_agent_handles_unfenced_json_unchanged():
+    canned = '{"answer": "clean"}'
+    agent = _TestAgent(llm=lambda **kw: canned)
+    inv = agent.invoke("question")
+    assert inv.status == "ok"
+    assert inv.output.answer == "clean"
+
+
+def test_agent_strips_fences_with_surrounding_prose():
+    """Some models prepend explanatory text before the JSON block."""
+    canned = 'Here is the breakdown:\n\n```json\n{"answer": "with prose"}\n```\n\nLet me know if you need more.'
+    agent = _TestAgent(llm=lambda **kw: canned)
+    inv = agent.invoke("question")
+    assert inv.status == "ok"
+    assert inv.output.answer == "with prose"
