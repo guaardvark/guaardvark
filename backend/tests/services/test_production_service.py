@@ -114,6 +114,31 @@ def test_advance_from_terminal_stage_is_noop(app):
     assert result is False
 
 
+def test_advance_only_one_winner_when_called_twice(app):
+    """Two concurrent dispatches must not both advance. The second one returns
+    False because the row's current_stage no longer matches the predecessor."""
+    svc = ProductionService(db.session)
+    prod = svc.create(name="X", script_text="x", project_id=None)
+    first = svc.advance_if_predecessor(prod.id, expected_predecessor="draft")
+    second = svc.advance_if_predecessor(prod.id, expected_predecessor="draft")
+    assert first is True
+    assert second is False
+    db.session.refresh(prod)
+    assert prod.current_stage == "screenwriting"
+
+
+def test_fail_stage_coerces_exception_to_string(app):
+    """Passing an Exception to fail_stage used to crash JSON serialization,
+    leaving the row stuck. Must coerce to str so the error_blob commits cleanly."""
+    svc = ProductionService(db.session)
+    prod = svc.create(name="X", script_text="x", project_id=None)
+    err = ValueError("boom — bad shot count")
+    svc.fail_stage(prod.id, stage="cinematography", error=err)
+    db.session.refresh(prod)
+    assert prod.status == "failed_cinematography"
+    assert prod.error_blob == {"stage": "cinematography", "error": "boom — bad shot count"}
+
+
 def test_state_transitions_in_order():
     expected = {
         "draft": "screenwriting",

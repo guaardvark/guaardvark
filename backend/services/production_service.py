@@ -42,6 +42,18 @@ STAGE_TO_AGENT: dict[str, str | None] = {
 TERMINAL_STATUSES = {"complete", "failed"}
 
 
+def _coerce_error(error):
+    """Make ``error`` safe for the SQLAlchemy JSON column.
+
+    JSON-native types pass through. Exceptions and anything else get
+    stringified — better to lose structure than lose the whole row to a
+    serialization crash.
+    """
+    if error is None or isinstance(error, (str, int, float, bool, list, dict)):
+        return error
+    return str(error)
+
+
 class ProductionService:
     """Coordinates state transitions on Production rows.
 
@@ -72,34 +84,47 @@ class ProductionService:
     # --- State machine -----------------------------------------------------
 
     def advance_if_predecessor(self, prod_id: int, *, expected_predecessor: str) -> bool:
-        """Idempotent stage advance. Returns True iff the transition happened.
+        """Atomic stage advance. Returns True iff the transition happened.
 
-        Used by agent dispatch so it's safe against double-fire and crash-resume
-        race conditions: if a Production is no longer at `expected_predecessor`,
-        nothing happens (someone else already advanced it, or it's terminal).
+        Two Celery workers can race here under crash-resume + double-dispatch.
+        The atomic UPDATE-WHERE makes only one of them win — the other's update
+        affects zero rows and returns False. Without this, both reads would see
+        the same predecessor and both writes would land, dispatching the next
+        agent twice.
         """
-        p = self.s.get(Production, prod_id)
-        if p is None or p.current_stage != expected_predecessor:
-            return False
         next_stage = VALID_TRANSITIONS.get(expected_predecessor)
         if next_stage is None:
             return False
-        p.current_stage = next_stage
-        # Keep status synced with the active stage so Activity/UI filters see real state.
-        p.status = next_stage
+        # Status mirrors current_stage so Activity/UI filters see real state.
+        rows = (
+            self.s.query(Production)
+            .filter(
+                Production.id == prod_id,
+                Production.current_stage == expected_predecessor,
+            )
+            .update(
+                {"current_stage": next_stage, "status": next_stage},
+                synchronize_session=False,
+            )
+        )
         self.s.commit()
-        return True
+        return rows > 0
 
     def fail_stage(self, prod_id: int, *, stage: str, error) -> None:
         """Persist a failed-stage status and error blob. Used by agent dispatchers
         when an agent returns a non-OK AgentInvocation. Status becomes
         ``failed_<stage>`` so the boot-time resumer knows to skip it.
+
+        ``error`` is passed through if JSON-serializable (dict / list / str /
+        number / None) and stringified otherwise. Callers commonly pass caught
+        Exception instances; without coercion the JSON column crashes on commit
+        and the row stays stuck in its non-terminal state forever.
         """
         p = self.s.get(Production, prod_id)
         if p is None:
             return
         p.status = f"failed_{stage}"
-        p.error_blob = {"stage": stage, "error": error}
+        p.error_blob = {"stage": stage, "error": _coerce_error(error)}
         self.s.commit()
 
     # --- Resumability ------------------------------------------------------
