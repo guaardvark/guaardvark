@@ -49,6 +49,7 @@ import TextFieldsIcon from "@mui/icons-material/TextFields";
 import QueueIcon from "@mui/icons-material/Queue";
 import MonitorHeartIcon from "@mui/icons-material/MonitorHeart";
 import MovieFilterIcon from "@mui/icons-material/MovieFilter";
+import HubIcon from "@mui/icons-material/Hub";
 
 import SystemMetricsModal from "../modals/SystemMetricsModal";
 import AgentScreenViewer from "../agent/AgentScreenViewer";
@@ -111,6 +112,7 @@ const navGroups = [
       { text: "CSVGen", icon: <LibraryBooksIcon />, path: "/content-library" },
       { text: "Swarm", icon: <HiveIcon />, path: "/swarm" },
       { text: "Plugins", icon: <ExtensionIcon />, path: "/plugins" },
+      { text: "System Map", icon: <HubIcon />, path: "/system-map" },
       { text: "Settings", icon: <SettingsIcon />, path: "/settings" },
     ],
   },
