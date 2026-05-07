@@ -268,32 +268,63 @@ logger_module = logging.getLogger(__name__)
 def _ensure_redis_running(redis_url: str, fatal: bool = True) -> None:
     if not redis or not redis_url.startswith("redis://"):
         return
+    import socket as _socket
     try:
-        redis.from_url(redis_url).ping()
+        redis.from_url(redis_url, socket_connect_timeout=3).ping()
         return
-    except Exception:
-        root_logger.error(
-            "Redis is not running. Start with redis-server or update your REDIS_URL."
+    except redis.exceptions.AuthenticationError as err:
+        # Auth mismatch — REDIS_URL doesn't match the running redis-server's password.
+        # Spawning a second redis-server here would clobber the running one (or fail to bind),
+        # so refuse and surface clearly.
+        root_logger.critical(
+            "Redis authentication failed: %s. "
+            "Check that REDIS_URL in .env matches the running redis-server's `requirepass`.",
+            err,
         )
-        started = False
-        if shutil.which("redis-server"):
-            try:
-                subprocess.Popen(
-                    ["redis-server", "--daemonize", "yes"],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                time.sleep(1)
-                redis.from_url(redis_url).ping()
-                started = True
-                root_logger.info("redis-server started automatically")
-            except Exception as err:
-                root_logger.error("Failed to start redis-server automatically: %s", err)
-        else:
-            root_logger.error("redis-server command not found")
-        if not started and fatal:
-            root_logger.critical("Redis unavailable and could not be started")
-            raise SystemExit("Redis server required but not running")
+        if fatal:
+            raise SystemExit("Redis authentication failed — fix REDIS_URL in .env")
+        return
+    except Exception as err:
+        root_logger.error(
+            "Redis ping failed (%s): %s. URL host=%s",
+            type(err).__name__,
+            err,
+            redis_url.rsplit("@", 1)[-1] if "@" in redis_url else redis_url,
+        )
+    # If port 6379 is already bound, redis IS running but our URL can't reach it.
+    # Spawning a second redis-server would either fail to bind (port in use) or
+    # succeed without auth on a different port — neither helps and both confuse.
+    port_in_use = False
+    try:
+        with _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM) as s:
+            s.settimeout(0.5)
+            port_in_use = s.connect_ex(("127.0.0.1", 6379)) == 0
+    except Exception:
+        pass
+    started = False
+    if port_in_use:
+        root_logger.critical(
+            "Port 6379 is already bound — redis is running but unreachable with the configured URL. "
+            "This is almost always an auth or URL mismatch. Verify REDIS_URL in .env."
+        )
+    elif shutil.which("redis-server"):
+        try:
+            subprocess.Popen(
+                ["redis-server", "--daemonize", "yes"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            time.sleep(1)
+            redis.from_url(redis_url, socket_connect_timeout=3).ping()
+            started = True
+            root_logger.info("redis-server started automatically")
+        except Exception as err:
+            root_logger.error("Failed to start redis-server automatically: %s", err)
+    else:
+        root_logger.error("redis-server command not found")
+    if not started and fatal:
+        root_logger.critical("Redis unavailable and could not be started")
+        raise SystemExit("Redis server required but not running")
 
 
 def _ensure_redis_client():
@@ -1498,21 +1529,6 @@ def get_version():
         "description": "LLM-powered development environment",
         "timestamp": "2025-09-27T07:15:00Z"
     }), 200
-
-
-@app.route("/api/meta/test-llm")
-def test_llm():
-    try:
-        return jsonify({
-            "status": "available",
-            "message": "LLM service is configured",
-            "model": "llama3:latest"
-        }), 200
-    except Exception as e:
-        return jsonify({
-            "status": "unavailable",
-            "error": str(e)
-        }), 503
 
 
 @app.route("/api/health/redis")

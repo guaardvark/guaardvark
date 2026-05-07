@@ -335,7 +335,7 @@ async function handleTraining(args, { addMessage }) {
 async function handleDbRule(name, args, { addMessage }) {
   addMessage({ role: "user", content: `${name} ${args}`, tempId: `rule-user-${Date.now()}` });
   try {
-    const res = await fetch("/api/generation/from_command", {
+    const res = await fetch("/api/generate/from_command", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

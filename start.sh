@@ -913,6 +913,11 @@ OLLAMA_AVAILABLE=1
 if ! command_exists "ollama"; then
     vader_warn "ollama command line tool not found."
     if command_exists apt-get && [ "$FAST_START" -ne 1 ]; then
+        # Ollama installer's tarball is zstd-compressed — extraction silently fails on minimal images without it.
+        if ! command_exists zstd; then
+            vader_info "Installing zstd (required by ollama installer)..."
+            sudo apt-get install -y zstd >/dev/null 2>&1 || vader_warn "zstd install failed; ollama install likely will too."
+        fi
         curl -fsSL https://ollama.com/install.sh | sh || OLLAMA_AVAILABLE=0
         command_exists "ollama" || OLLAMA_AVAILABLE=0
     else
@@ -1048,7 +1053,21 @@ if [ -d "$CLI_DIR" ] && [ -f "$CLI_DIR/setup.py" ]; then
             vader_success "Command 'guaardvark' is available globally"
         else
             vader_success "CLI installed to $LOCAL_BIN"
-            vader_warn "$LOCAL_BIN is not in PATH. Add to ~/.bashrc:  export PATH=\"\$HOME/.local/bin:\$PATH\""
+            # Make it available for the rest of this script run + spawned children.
+            export PATH="$LOCAL_BIN:$PATH"
+            # Persist for new shells via ~/.bashrc — idempotent, marker-guarded.
+            BASHRC="$HOME/.bashrc"
+            BASHRC_MARKER="# Added by guaardvark CLI installer — do not remove without removing the export"
+            if [ -f "$BASHRC" ] && ! grep -qF "$BASHRC_MARKER" "$BASHRC"; then
+                {
+                    echo ""
+                    echo "$BASHRC_MARKER"
+                    echo "export PATH=\"\$HOME/.local/bin:\$PATH\""
+                } >> "$BASHRC"
+                vader_success "Added \$HOME/.local/bin to PATH in ~/.bashrc (effective in new shells)"
+            elif [ ! -f "$BASHRC" ]; then
+                vader_warn "~/.bashrc not found — add manually:  export PATH=\"\$HOME/.local/bin:\$PATH\""
+            fi
         fi
     fi
 fi

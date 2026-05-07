@@ -96,8 +96,16 @@ PG_PORT="5432"
 # ─── Fast path: If PG is running and connection works, exit immediately ───────
 # This is the common case after first-time setup — no sudo needed.
 
+# Returns 0 if systemd is the actual init system; 1 otherwise.
+# `command_exists systemctl` is unreliable — Ubuntu containers, WSL1, and minimal
+# images ship the binary without systemd running as PID 1, where every systemctl
+# call returns "Failed to connect to bus".
+is_systemd_running() {
+  [ -d /run/systemd/system ]
+}
+
 pg_is_running() {
-  if command_exists systemctl; then
+  if is_systemd_running && command_exists systemctl; then
     systemctl is-active --quiet postgresql
   elif command_exists pg_isready; then
     pg_isready -h "$PG_HOST" -p "$PG_PORT" >/dev/null 2>&1
@@ -174,7 +182,7 @@ fi
 
 # ─── Step 2: Ensure PostgreSQL service is running + enabled on boot ───────────
 
-if command_exists systemctl; then
+if is_systemd_running && command_exists systemctl; then
   if ! systemctl is-active --quiet postgresql; then
     if sudo systemctl start postgresql >/dev/null 2>&1; then
       sleep 2
@@ -195,11 +203,31 @@ if command_exists systemctl; then
     fi
   fi
 else
-  if ! pg_isready -h "$PG_HOST" -p "$PG_PORT" >/dev/null 2>&1; then
-    vader_error "PostgreSQL is not running and systemctl is not available. Start PostgreSQL manually."
-    exit 1
-  else
+  # No systemd — typical for containers / WSL1 / minimal installs.
+  # Use pg_ctlcluster directly if a cluster exists, else fall back to a connectivity check.
+  if pg_isready -h "$PG_HOST" -p "$PG_PORT" >/dev/null 2>&1; then
     vader_success "PostgreSQL is running."
+  else
+    PG_CLUSTER_VERSION=$(ls /etc/postgresql/ 2>/dev/null | head -1)
+    if [ -n "$PG_CLUSTER_VERSION" ] && command_exists pg_ctlcluster; then
+      vader_info "Starting PostgreSQL cluster ${PG_CLUSTER_VERSION} via pg_ctlcluster (no systemd detected)..."
+      if sudo pg_ctlcluster "$PG_CLUSTER_VERSION" main start >/dev/null 2>&1; then
+        sleep 2
+        if pg_isready -h "$PG_HOST" -p "$PG_PORT" >/dev/null 2>&1; then
+          vader_success "PostgreSQL cluster ${PG_CLUSTER_VERSION} started."
+        else
+          vader_error "pg_ctlcluster reported success but pg_isready still fails. Check /var/log/postgresql/."
+          exit 1
+        fi
+      else
+        vader_error "Failed to start PostgreSQL via pg_ctlcluster ${PG_CLUSTER_VERSION} main."
+        diagnose_postgres_error "service failed to start"
+        exit 1
+      fi
+    else
+      vader_error "PostgreSQL is not running and no systemd or pg_ctlcluster available. Start PostgreSQL manually."
+      exit 1
+    fi
   fi
 fi
 
