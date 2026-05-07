@@ -3,15 +3,16 @@
 // The constellation. Same DNA as guaardvark.com's neural-net.js
 // (translucent blue, drift, occasional pulses, link alpha falls off
 // with distance) but the data is real: each node is a module, edges
-// are import dependencies, color encodes lifecycle, size encodes
-// importer count. Pseudo-3D via radius+blur+alpha and parallax on
-// mouse-move.
+// are import dependencies. Section drives hue (within a 40° range to
+// keep it cohesive), lifecycle drives alpha, importer count drives size.
 //
-// Rendering: bespoke canvas2d. Layout: d3-force on a separate ticker
-// that runs until the simulation cools, then we just render at 60fps.
+// Wheel zooms. Drag pans (left, middle, or shift+left — all the same).
+// R resets the view. The canvas itself is transparent — the page
+// background shows through, so theme changes propagate automatically.
 //
 // Inputs: a SystemMap dict (see backend/services/system_mapper).
 // Notifies parent of hover/click via onNodeHover / onNodeClick.
+// Imperative API via ref: flyTo(id), pulseNode(id), resetView().
 
 import React, { useEffect, useRef, useImperativeHandle, forwardRef } from "react";
 import {
@@ -20,72 +21,132 @@ import {
   forceManyBody,
   forceCenter,
   forceCollide,
+  forceX,
+  forceY,
 } from "d3-force";
 
-// Marketing-site palette. 168/216/255 is exactly the existing blue.
+// ────────────────────────────────────────────────────────────────────────
+// Color palette
+// All hues live in a 187-230 range — same blue organism, no Pride confetti.
+// Lifecycle drives alpha multiplier on top.
+const SECTION_HUE = {
+  "backend/api": 195,         // outermost surface, slight cyan
+  "backend/services": 207,    // marketing blue (the reference)
+  "backend/utils": 215,       // slightly more blue
+  "backend/tools": 187,       // cyan-leaning, LLM-reachable
+  "backend/tasks": 224,       // slight purple, async
+  "backend/agents": 200,      // distinct, slightly more saturated
+  "backend/mcp": 192,         // close to tools — they're peers
+  "backend/plugins": 218,
+  "backend/middleware": 210,
+  "backend/orchestration": 222,
+  "backend/rag": 188,
+  "backend/memory": 205,
+  "backend/cluster": 226,
+  "backend/self_improvement": 198,
+  "backend/routes": 200,
+  "frontend/api": 197,
+  "frontend/pages": 203,
+  "frontend/components": 209,
+  "frontend/stores": 213,
+  "frontend/hooks": 217,
+  "frontend/contexts": 211,
+  "frontend/services": 207,
+  "frontend/utils": 219,
+  "plugins": 230,
+  "cli": 225,
+  "scripts": 228,
+  "training": 220,
+  "top-level": 207,
+  "other": 207,
+};
+
+// Per-lifecycle alpha multiplier and sat/lightness tweak.
+const LIFECYCLE = {
+  active:      { alpha: 0.85, sat: 75, light: 78 },
+  "auto-loaded": { alpha: 0.65, sat: 70, light: 76 },
+  dormant:     { alpha: 0.22, sat: 45, light: 70 },
+  archived:    { alpha: 0.30, sat: 12, light: 65 },  // desaturated grey-blue
+  test:        { alpha: 0.45, sat: 50, light: 75 },
+  script:      { alpha: 0.55, sat: 55, light: 76 },
+  config:      { alpha: 0.40, sat: 45, light: 72 },
+  skip:        { alpha: 0.20, sat: 20, light: 65 },
+};
+
 const PALETTE = {
-  bg: "rgb(8, 14, 26)",
-  bgGradientTo: "rgb(14, 22, 40)",
-  // Lifecycle → node color
-  active: "rgba(168, 216, 255, 0.85)",
-  autoLoaded: "rgba(180, 210, 255, 0.65)",
-  dormant: "rgba(168, 216, 255, 0.22)",
-  archived: "rgba(140, 145, 160, 0.30)",
-  test: "rgba(168, 216, 255, 0.45)",
-  script: "rgba(168, 216, 255, 0.55)",
-  config: "rgba(168, 216, 255, 0.40)",
-  skip: "rgba(140, 145, 160, 0.20)",
-  // Edge default
+  // Canvas is transparent — page bg shows through, so we never paint our
+  // own background. Edges and effects only.
   edge: "rgba(168, 216, 255, 0.18)",
-  // Severity highlights
   cycleEdge: "rgba(255, 110, 110, 0.55)",
   highFinding: "rgba(255, 170, 80, 0.95)",
   mediumFinding: "rgba(255, 220, 130, 0.7)",
 };
 
-const lifecycleColor = (lifecycle) => PALETTE[lifecycle] || PALETTE.dormant;
+// HSLA string from a hue with lifecycle bias.
+function nodeColor(section, lifecycle, alphaMult = 1) {
+  const hue = SECTION_HUE[section] ?? SECTION_HUE.other;
+  const lc = LIFECYCLE[lifecycle] || LIFECYCLE.active;
+  const a = lc.alpha * alphaMult;
+  return `hsla(${hue}, ${lc.sat}%, ${lc.light}%, ${a})`;
+}
 
-// Higher-importer modules render bigger. Clamped so nothing goes
-// dwarf or whale.
-const radiusFor = (node) => {
+// Higher-importer modules render bigger. Log-scaled, clamped.
+function radiusFor(node) {
   const importers = Math.max(0, node.importers || 0);
-  // log scale so a hot module (importers=80) doesn't flatten everyone else
   const r = 1.6 + Math.log2(1 + importers) * 0.9;
   return Math.min(8, Math.max(2, r));
-};
+}
+
+// Convert "backend/services/foo.py" → "backend/services" (or other section).
+function pathToSection(path) {
+  if (!path || typeof path !== "string") return "other";
+  if (!path.includes("/")) return "top-level";
+  if (path.startsWith("backend/")) {
+    const sub = path.slice("backend/".length).split("/")[0];
+    return `backend/${sub}`;
+  }
+  if (path.startsWith("frontend/src/")) {
+    const sub = path.slice("frontend/src/".length).split("/")[0];
+    return `frontend/${sub}`;
+  }
+  if (path.startsWith("frontend/")) return "frontend/other";
+  if (path.startsWith("plugins/")) return "plugins";
+  if (path.startsWith("scripts/")) return "scripts";
+  if (path.startsWith("cli/")) return "cli";
+  if (path.startsWith("training/")) return "training";
+  return "other";
+}
+
+// Module name "backend.services.foo" → path "backend/services/foo.py".
+function moduleNameToPath(name) {
+  if (!name) return "";
+  return name.replace(/\./g, "/") + ".py";
+}
 
 // Build the graph the simulation will run on.
 function buildGraph(systemMap) {
-  if (!systemMap) return { nodes: [], links: [], nodeIndex: {}, cycleEdges: new Set() };
+  if (!systemMap) return { nodes: [], links: [], nodeIndex: {}, severityCounts: {} };
 
   const dep = systemMap.dependency_graph || {};
-  const rel = systemMap.stats?.reachability || {};
+  const moduleNames = Object.keys(dep);
 
-  // Dependency map: every src in dep is a node. Targets that aren't
-  // already keys we ignore (they're outside the analyzed set).
-  const moduleNames = new Set(Object.keys(dep));
-  // Pull a per-module summary from findings + lifecycle hints.
-  // We don't get a flat node list from system_mapper today, so we
-  // synthesize one from dep_graph + findings.
   const nodeMeta = {};
   for (const name of moduleNames) {
     nodeMeta[name] = {
       lifecycle: "active",
-      layer: "module",
+      section: pathToSection(moduleNameToPath(name)),
       findings: [],
       importers: 0,
     };
   }
 
-  // importer count = how many other modules import this one
   for (const [src, targets] of Object.entries(dep)) {
     for (const t of targets || []) {
       if (nodeMeta[t]) nodeMeta[t].importers++;
     }
   }
 
-  // Findings → severity + lifecycle hints + cycle edges
-  const cycleEdges = new Set(); // "src||dst" pairs to render in red
+  const cycleEdges = new Set();
   for (const f of systemMap.findings || []) {
     if (f.kind === "import-cycle" && f.evidence?.cycle) {
       const cyc = f.evidence.cycle;
@@ -97,11 +158,9 @@ function buildGraph(systemMap) {
       }
     }
     if (f.kind === "dormant-module") {
-      const p = (f.paths || [])[0];
-      const m = pathToModuleName(p);
+      const m = pathToModuleName((f.paths || [])[0]);
       if (m && nodeMeta[m]) nodeMeta[m].lifecycle = "dormant";
     }
-    // Tag nodes with their max-severity finding for visual pulse
     for (const p of f.paths || []) {
       const m = pathToModuleName(p);
       if (m && nodeMeta[m]) {
@@ -112,26 +171,33 @@ function buildGraph(systemMap) {
 
   const nodes = [];
   const nodeIndex = {};
+  const sevPriority = { high: 3, medium: 2, low: 1, info: 0 };
   for (const name of moduleNames) {
     const meta = nodeMeta[name];
-    const sevPriority = { high: 3, medium: 2, low: 1, info: 0 };
     const topSev = (meta.findings || []).reduce(
       (acc, f) =>
         (sevPriority[f.severity] || 0) > (sevPriority[acc] || 0) ? f.severity : acc,
       null,
     );
+    // Seed positions in a disc rather than all at (0,0) — d3-force can't
+    // escape a delta distribution at origin, which is what produced the
+    // "vertical galaxy" effect on first ship. Random in a ~600px disc gives
+    // the simulation room to relax into a roughly circular blob.
+    const a = Math.random() * Math.PI * 2;
+    const r0 = Math.sqrt(Math.random()) * 300;
     const node = {
       id: name,
       lifecycle: meta.lifecycle,
+      section: meta.section,
       importers: meta.importers,
       findings: meta.findings,
       topSeverity: topSev,
-      // d3-force fills these in
-      x: 0,
-      y: 0,
-      vx: 0,
-      vy: 0,
-      pulse: 0, // 0..1, decays
+      x: Math.cos(a) * r0,
+      y: Math.sin(a) * r0,
+      vx: 0, vy: 0,
+      sx: 0, sy: 0,        // screen coords (post-transform); used by hit-test
+      depth: 0,            // current z after rotation; affects render
+      pulse: 0,
     };
     nodes.push(node);
     nodeIndex[name] = node;
@@ -143,31 +209,23 @@ function buildGraph(systemMap) {
     for (const t of targets || []) {
       if (!nodeIndex[t]) continue;
       const isCycle = cycleEdges.has(`${src}||${t}`);
-      links.push({
-        source: src,
-        target: t,
-        cycle: isCycle,
-      });
+      links.push({ source: src, target: t, cycle: isCycle });
     }
   }
 
-  // Stats overlay
   const counts = { high: 0, medium: 0, low: 0, info: 0 };
   for (const f of systemMap.findings || []) {
     if (counts[f.severity] !== undefined) counts[f.severity]++;
   }
-
-  return { nodes, links, nodeIndex, cycleEdges, severityCounts: counts, reachability: rel };
+  return { nodes, links, nodeIndex, severityCounts: counts };
 }
 
-// Turn "backend/services/foo.py" → "backend.services.foo" (matches dep_graph keys).
 function pathToModuleName(path) {
   if (!path) return null;
   if (!path.endsWith(".py")) return null;
   return path.slice(0, -3).replace(/\//g, ".");
 }
 
-// Build neighbor index for click-spotlight.
 function neighborsOf(nodeId, links) {
   const n = new Set([nodeId]);
   for (const l of links) {
@@ -179,46 +237,54 @@ function neighborsOf(nodeId, links) {
   return n;
 }
 
+// ────────────────────────────────────────────────────────────────────────
+
 const SystemMapCanvas = forwardRef(function SystemMapCanvas(
-  {
-    systemMap,
-    onNodeHover,
-    onNodeClick,
-    selectedNodeId,
-    searchQuery,
-  },
+  { systemMap, onNodeHover, onNodeClick, selectedNodeId, searchQuery, highlightedPrefixes },
   ref,
 ) {
   const canvasRef = useRef(null);
   const stateRef = useRef({
-    graph: { nodes: [], links: [], nodeIndex: {}, cycleEdges: new Set() },
+    graph: { nodes: [], links: [], nodeIndex: {}, severityCounts: {} },
     sim: null,
     raf: null,
     width: 0,
     height: 0,
     dpr: 1,
-    camera: { x: 0, y: 0, zoom: 1 }, // world translation + scale
-    parallax: { x: 0, y: 0 },        // mouse-driven offset
+    // View state — pan + zoom only, no rotation, no mouse parallax
+    camera: { x: 0, y: 0 },
+    zoom: 1,
+    // Interaction state
+    drag: null,                // {startX, startY, baseCamX, baseCamY}
+    lastInteractionTime: 0,
+    // Hover/spotlight
     hover: null,
-    spotlight: null, // node id; when set, fade non-neighbors
+    spotlight: null,
     spotlightNeighbors: null,
+    searchMatches: null,
+    highlightedPrefixes: null, // mirror of prop, read inside the render loop
     pulseClockMs: performance.now(),
   });
 
-  // Imperative API for parent (camera glide on search).
+  // Reflect highlightedPrefixes into the ref so the render loop sees updates
+  // without re-binding the loop on every prop change.
+  useEffect(() => {
+    stateRef.current.highlightedPrefixes = highlightedPrefixes;
+  }, [highlightedPrefixes]);
+
+  // Imperative API (parent calls these via ref).
   useImperativeHandle(ref, () => ({
     flyTo(nodeId) {
       const st = stateRef.current;
       const node = st.graph.nodeIndex[nodeId];
       if (!node) return;
-      // Animate the camera by easing towards the node's center over ~600ms.
       const startX = st.camera.x;
       const startY = st.camera.y;
-      const targetX = -node.x;
-      const targetY = -node.y;
+      const targetX = -node.x * st.zoom;
+      const targetY = -node.y * st.zoom;
       const t0 = performance.now();
       const dur = 600;
-      const ease = (t) => 1 - Math.pow(1 - t, 3); // cubic out
+      const ease = (t) => 1 - Math.pow(1 - t, 3);
       function step(now) {
         const t = Math.min(1, (now - t0) / dur);
         st.camera.x = startX + (targetX - startX) * ease(t);
@@ -226,44 +292,66 @@ const SystemMapCanvas = forwardRef(function SystemMapCanvas(
         if (t < 1) requestAnimationFrame(step);
       }
       requestAnimationFrame(step);
-      // Pulse it so the user sees where it landed.
       node.pulse = 1;
+    },
+    pulseNode(nodeId) {
+      const st = stateRef.current;
+      const node = st.graph.nodeIndex[nodeId];
+      if (node) node.pulse = 1;
+    },
+    resetView() {
+      const st = stateRef.current;
+      const t0 = performance.now();
+      const dur = 400;
+      const startCx = st.camera.x;
+      const startCy = st.camera.y;
+      const startZoom = st.zoom;
+      const ease = (t) => 1 - Math.pow(1 - t, 3);
+      function step(now) {
+        const t = Math.min(1, (now - t0) / dur);
+        const e = ease(t);
+        st.camera.x = startCx * (1 - e);
+        st.camera.y = startCy * (1 - e);
+        st.zoom = startZoom + (1 - startZoom) * e;
+        if (t < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
     },
   }));
 
-  // Build / rebuild graph when systemMap changes.
+  // Build graph + run d3-force when systemMap changes.
   useEffect(() => {
     const st = stateRef.current;
     st.graph = buildGraph(systemMap);
 
-    // Stop any existing simulation first.
     if (st.sim) {
       st.sim.stop();
       st.sim = null;
     }
-
     if (!st.graph.nodes.length) return;
 
-    // Simulation. d3-force mutates node x/y in place.
+    // Center force is the dominant anchor; X/Y nudges keep outliers from
+    // dragging the centroid off-axis if the graph is asymmetric.
     const sim = forceSimulation(st.graph.nodes)
       .force(
         "link",
-        forceLink(st.graph.links)
-          .id((n) => n.id)
-          .distance(60)
-          .strength(0.4),
+        forceLink(st.graph.links).id((n) => n.id).distance(60).strength(0.4),
       )
       .force("charge", forceManyBody().strength(-90).distanceMax(400))
       .force("center", forceCenter(0, 0))
+      // Soft anchors — too strong and the cloud collapses on one axis
+      // (that's how the "galaxy sliver" first showed up). 0.025 keeps
+      // the centroid honest without squashing the layout.
+      .force("centerX", forceX(0).strength(0.025))
+      .force("centerY", forceY(0).strength(0.025))
       .force("collide", forceCollide().radius((n) => radiusFor(n) + 4))
       .alpha(1)
       .alphaDecay(0.018)
       .velocityDecay(0.55);
-
     st.sim = sim;
   }, [systemMap]);
 
-  // Update spotlight when selection changes.
+  // Spotlight on selection change.
   useEffect(() => {
     const st = stateRef.current;
     if (!selectedNodeId) {
@@ -273,12 +361,11 @@ const SystemMapCanvas = forwardRef(function SystemMapCanvas(
     }
     st.spotlight = selectedNodeId;
     st.spotlightNeighbors = neighborsOf(selectedNodeId, st.graph.links);
-    // Pulse the selected node
     const n = st.graph.nodeIndex[selectedNodeId];
     if (n) n.pulse = 1;
   }, [selectedNodeId]);
 
-  // Search highlight: dim everything except matches, briefly pulse them.
+  // Search highlight.
   useEffect(() => {
     const st = stateRef.current;
     if (!searchQuery || searchQuery.length < 2) {
@@ -291,21 +378,20 @@ const SystemMapCanvas = forwardRef(function SystemMapCanvas(
       if (n.id.toLowerCase().includes(q)) matches.add(n.id);
     }
     st.searchMatches = matches;
-    // Pulse all matches
     for (const id of matches) {
       const n = st.graph.nodeIndex[id];
       if (n) n.pulse = 1;
     }
   }, [searchQuery]);
 
-  // Setup canvas + render loop.
+  // Setup canvas + observers + render loop.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d", { alpha: true });
     const st = stateRef.current;
 
-    const resize = () => {
+    function applySize() {
       const r = canvas.getBoundingClientRect();
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       st.dpr = dpr;
@@ -314,119 +400,201 @@ const SystemMapCanvas = forwardRef(function SystemMapCanvas(
       canvas.width = r.width * dpr;
       canvas.height = r.height * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    };
+    }
+    applySize();
 
-    resize();
-    window.addEventListener("resize", resize);
+    // ResizeObserver catches the initial-mount layout race that window.resize
+    // alone misses. The canvas's parent is what we observe; canvas itself is
+    // 100% width/height inside it.
+    const ro = new ResizeObserver(() => {
+      applySize();
+      // Re-anchor camera. If the graph cooled in a previous size, the camera
+      // was correct then but might be off now. Snap to 0 so the centroid is
+      // back at screen-center; the user can re-pan if they want.
+      st.camera.x = 0;
+      st.camera.y = 0;
+    });
+    if (canvas.parentElement) ro.observe(canvas.parentElement);
+    window.addEventListener("resize", applySize);
 
-    // Mouse parallax + hover detection.
-    const onMove = (e) => {
+    // ── Mouse: hover detection (uses last-frame screen coords stored on each node) ──
+    function onMove(e) {
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
-      st.parallax.x = (mx - st.width / 2) * 0.04;
-      st.parallax.y = (my - st.height / 2) * 0.04;
 
-      // Hover hit-test in world coords
-      const wx = mx - st.width / 2 - st.camera.x - st.parallax.x;
-      const wy = my - st.height / 2 - st.camera.y - st.parallax.y;
+      // Drag handling — any button is pan now (rotation removed)
+      if (st.drag) {
+        st.lastInteractionTime = performance.now();
+        const dx = mx - st.drag.startX;
+        const dy = my - st.drag.startY;
+        st.camera.x = st.drag.baseCamX + dx;
+        st.camera.y = st.drag.baseCamY + dy;
+        return;
+      }
+
+      // Hit-test against each node's last-frame screen coords (computed in tick()).
       let nearest = null;
-      let bestD2 = 12 * 12; // 12px slop
+      let bestD2 = 14 * 14;
       for (const n of st.graph.nodes) {
-        const dx = n.x - wx;
-        const dy = n.y - wy;
+        const dx = n.sx - mx;
+        const dy = n.sy - my;
         const d2 = dx * dx + dy * dy;
-        const r = radiusFor(n) + 6;
-        if (d2 < bestD2 && d2 < r * r * 4) {
+        if (d2 < bestD2) {
           bestD2 = d2;
           nearest = n;
         }
       }
       const prev = st.hover;
       st.hover = nearest ? nearest.id : null;
-      if (prev !== st.hover && onNodeHover) {
-        onNodeHover(nearest);
-      }
-    };
-    canvas.addEventListener("mousemove", onMove);
+      if (prev !== st.hover && onNodeHover) onNodeHover(nearest);
+    }
 
-    const onLeave = () => {
+    function onLeave() {
       st.hover = null;
       if (onNodeHover) onNodeHover(null);
-    };
-    canvas.addEventListener("mouseleave", onLeave);
+    }
 
-    const onClick = () => {
-      if (st.hover && onNodeClick) {
-        onNodeClick(st.graph.nodeIndex[st.hover]);
-      } else if (onNodeClick) {
-        onNodeClick(null); // clicking empty space deselects
+    function onDown(e) {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      // Any drag = pan (rotation was removed). Right-click is suppressed below.
+      if (e.button === 0 || e.button === 1) {
+        st.drag = {
+          startX: mx,
+          startY: my,
+          baseCamX: st.camera.x,
+          baseCamY: st.camera.y,
+        };
+        if (e.button === 1) e.preventDefault();
       }
-    };
-    canvas.addEventListener("click", onClick);
+    }
 
-    // Render loop
-    const tick = (now) => {
+    function onUp(e) {
+      if (!st.drag) return;
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const dist = Math.hypot(mx - st.drag.startX, my - st.drag.startY);
+      const wasDrag = dist > 4;
+      st.drag = null;
+      // If the mouse barely moved, treat as a click (hover already set st.hover)
+      if (!wasDrag && e.button === 0) {
+        if (st.hover && onNodeClick) {
+          onNodeClick(st.graph.nodeIndex[st.hover]);
+        } else if (onNodeClick) {
+          onNodeClick(null);
+        }
+      }
+    }
+
+    function onWheel(e) {
+      e.preventDefault();
+      st.lastInteractionTime = performance.now();
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+
+      // Zoom factor: trackpad pinch sends ctrlKey=true with small deltas
+      const factor = Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015));
+      const newZoom = clamp(st.zoom * factor, 0.3, 3);
+      const ratio = newZoom / st.zoom;
+      // Anchor zoom at cursor: keep the world point under the cursor fixed.
+      // worldPoint = (mx - w/2 - camera.x) / zoom
+      // After zoom: we want camera s.t. cursor still over the same world point.
+      const cx = mx - st.width / 2;
+      const cy = my - st.height / 2;
+      st.camera.x = cx - (cx - st.camera.x) * ratio;
+      st.camera.y = cy - (cy - st.camera.y) * ratio;
+      st.zoom = newZoom;
+    }
+
+    // contextmenu suppress on right-click (keeps right-button reserved)
+    function onCtx(e) {
+      e.preventDefault();
+    }
+
+    canvas.addEventListener("mousemove", onMove);
+    canvas.addEventListener("mouseleave", onLeave);
+    canvas.addEventListener("mousedown", onDown);
+    window.addEventListener("mouseup", onUp);
+    canvas.addEventListener("wheel", onWheel, { passive: false });
+    canvas.addEventListener("contextmenu", onCtx);
+
+    // Returns true when at least one prefix is highlighted AND this node's
+    // section starts with one of them. When the set is empty, no highlighting
+    // is in effect and every node renders at full alpha.
+    function isInHighlight(node, set) {
+      if (!set || set.size === 0) return null; // null = "highlighting inactive"
+      for (const p of set) if (node.section && node.section.startsWith(p)) return true;
+      return false;
+    }
+
+    // ── Render loop ──
+    function tick(now) {
       const dt = Math.min(48, now - (st.pulseClockMs || now)) / 16.666;
       st.pulseClockMs = now;
 
       const w = st.width;
       const h = st.height;
 
-      // Background gradient
-      const g = ctx.createLinearGradient(0, 0, 0, h);
-      g.addColorStop(0, PALETTE.bg);
-      g.addColorStop(1, PALETTE.bgGradientTo);
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, w, h);
+      // Canvas is transparent — page bg shows through. Just clear each frame.
+      ctx.clearRect(0, 0, w, h);
 
-      // Idle camera drift — slow, almost imperceptible
-      st.camera.x += Math.sin(now / 9000) * 0.04;
-      st.camera.y += Math.cos(now / 11000) * 0.04;
+      // Idle drift only when user hasn't interacted in 3s+
+      const idle = !st.drag && now - (st.lastInteractionTime || 0) > 3000;
+      if (idle) {
+        st.camera.x += Math.sin(now / 9000) * 0.04;
+        st.camera.y += Math.cos(now / 11000) * 0.04;
+      }
 
-      // Translate to center + camera + parallax
-      ctx.save();
-      ctx.translate(
-        w / 2 + st.camera.x + st.parallax.x,
-        h / 2 + st.camera.y + st.parallax.y,
-      );
+      // Project each node into screen space (pure 2D — rotation removed).
+      const cxScreen = w / 2 + st.camera.x;
+      const cyScreen = h / 2 + st.camera.y;
+      const z = st.zoom;
+      for (const n of st.graph.nodes) {
+        n.sx = cxScreen + n.x * z;
+        n.sy = cyScreen + n.y * z;
+      }
 
-      // Edges first (behind nodes)
+      // Edges (drawn first, behind nodes).
       ctx.lineWidth = 1;
       const spotlight = st.spotlight;
       const neighbors = st.spotlightNeighbors;
+      const hl = st.highlightedPrefixes;
       for (const l of st.graph.links) {
         const a = typeof l.source === "object" ? l.source : st.graph.nodeIndex[l.source];
         const b = typeof l.target === "object" ? l.target : st.graph.nodeIndex[l.target];
         if (!a || !b) continue;
-        const dx = a.x - b.x;
-        const dy = a.y - b.y;
+        const dx = a.sx - b.sx;
+        const dy = a.sy - b.sy;
         const d = Math.sqrt(dx * dx + dy * dy);
-        let alpha = Math.max(0, 1 - d / 280) * 0.55;
-
-        // Spotlight: dim non-neighbor edges
+        const linkRange = 280 * z;
+        let alpha = Math.max(0, 1 - d / linkRange) * 0.55;
         if (spotlight && !(neighbors.has(a.id) && neighbors.has(b.id))) {
           alpha *= 0.18;
         }
-
+        // Section highlight: edges where neither endpoint is in highlight fade
+        if (hl && hl.size > 0) {
+          const aIn = isInHighlight(a, hl);
+          const bIn = isInHighlight(b, hl);
+          if (!aIn && !bIn) alpha *= 0.18;
+        }
         if (l.cycle) {
           ctx.strokeStyle = `rgba(255, 110, 110, ${Math.max(0.18, alpha * 1.2)})`;
         } else {
           ctx.strokeStyle = `rgba(168, 216, 255, ${alpha * 0.4})`;
         }
         ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
+        ctx.moveTo(a.sx, a.sy);
+        ctx.lineTo(b.sx, b.sy);
         ctx.stroke();
       }
 
-      // Nodes
       for (const n of st.graph.nodes) {
-        // Pulse decay
         if (n.pulse > 0) n.pulse -= 0.012 * dt;
         if (n.pulse < 0) n.pulse = 0;
-
-        // Severity-driven occasional pulses for unselected high-sev nodes
         if (
           (n.topSeverity === "high" || n.topSeverity === "medium") &&
           Math.random() < (n.topSeverity === "high" ? 0.0009 : 0.0004)
@@ -434,17 +602,23 @@ const SystemMapCanvas = forwardRef(function SystemMapCanvas(
           n.pulse = 1;
         }
 
+        const r = (radiusFor(n) + n.pulse * 4) * z;
+        if (r < 0.5) continue;
+
         let alpha = 1;
-        if (spotlight && !neighbors.has(n.id)) alpha = 0.12;
+        if (spotlight && !neighbors.has(n.id)) alpha *= 0.12;
         if (st.searchMatches && !st.searchMatches.has(n.id)) alpha = Math.min(alpha, 0.18);
 
-        const baseColor = lifecycleColor(n.lifecycle);
-        const pulseAdd = n.pulse * 4;
-        const r = radiusFor(n) + pulseAdd;
+        // Section-prefix highlighting from the legend chips
+        const inHl = isInHighlight(n, hl);
+        if (inHl === false) alpha *= 0.22;       // fade non-matching when highlight active
+        // (inHl === true or null → no penalty)
 
-        // Soft glow when pulsing
+        const baseColor = nodeColor(n.section, n.lifecycle, alpha);
+
+        // Soft glow on pulse
         if (n.pulse > 0.05) {
-          const glow = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, r * 4);
+          const glow = ctx.createRadialGradient(n.sx, n.sy, 0, n.sx, n.sy, r * 4);
           const glowColor =
             n.topSeverity === "high"
               ? PALETTE.highFinding
@@ -453,43 +627,54 @@ const SystemMapCanvas = forwardRef(function SystemMapCanvas(
                 : "rgba(168, 216, 255, 0.55)";
           glow.addColorStop(0, glowColor);
           glow.addColorStop(1, "rgba(168, 216, 255, 0)");
-          ctx.globalAlpha = n.pulse * 0.5 * alpha;
+          ctx.globalAlpha = n.pulse * 0.5;
           ctx.fillStyle = glow;
           ctx.beginPath();
-          ctx.arc(n.x, n.y, r * 4, 0, Math.PI * 2);
+          ctx.arc(n.sx, n.sy, r * 4, 0, Math.PI * 2);
           ctx.fill();
           ctx.globalAlpha = 1;
         }
 
+        // Highlighted nodes get a soft pulsing aura so the eye finds them
+        if (inHl === true) {
+          const auraR = r * 3;
+          const aura = ctx.createRadialGradient(n.sx, n.sy, 0, n.sx, n.sy, auraR);
+          aura.addColorStop(0, "rgba(255, 255, 255, 0.18)");
+          aura.addColorStop(1, "rgba(168, 216, 255, 0)");
+          ctx.fillStyle = aura;
+          ctx.beginPath();
+          ctx.arc(n.sx, n.sy, auraR, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
         // Hover ring
         if (st.hover === n.id) {
-          ctx.strokeStyle = `rgba(255, 255, 255, ${0.75 * alpha})`;
+          ctx.strokeStyle = `rgba(255, 255, 255, 0.75)`;
           ctx.lineWidth = 1;
           ctx.beginPath();
-          ctx.arc(n.x, n.y, r + 3, 0, Math.PI * 2);
+          ctx.arc(n.sx, n.sy, r + 3, 0, Math.PI * 2);
           ctx.stroke();
         }
 
-        // Body
-        ctx.globalAlpha = alpha;
         ctx.fillStyle = baseColor;
         ctx.beginPath();
-        ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+        ctx.arc(n.sx, n.sy, Math.max(0.5, r), 0, Math.PI * 2);
         ctx.fill();
-        ctx.globalAlpha = 1;
       }
 
-      ctx.restore();
-
       st.raf = requestAnimationFrame(tick);
-    };
+    }
     st.raf = requestAnimationFrame(tick);
 
     return () => {
-      window.removeEventListener("resize", resize);
+      ro.disconnect();
+      window.removeEventListener("resize", applySize);
       canvas.removeEventListener("mousemove", onMove);
       canvas.removeEventListener("mouseleave", onLeave);
-      canvas.removeEventListener("click", onClick);
+      canvas.removeEventListener("mousedown", onDown);
+      window.removeEventListener("mouseup", onUp);
+      canvas.removeEventListener("wheel", onWheel);
+      canvas.removeEventListener("contextmenu", onCtx);
       if (st.raf) cancelAnimationFrame(st.raf);
       if (st.sim) st.sim.stop();
     };
@@ -504,9 +689,15 @@ const SystemMapCanvas = forwardRef(function SystemMapCanvas(
         height: "100%",
         display: "block",
         cursor: "crosshair",
+        userSelect: "none",
+        touchAction: "none",
       }}
     />
   );
 });
+
+function clamp(v, lo, hi) {
+  return v < lo ? lo : v > hi ? hi : v;
+}
 
 export default SystemMapCanvas;
