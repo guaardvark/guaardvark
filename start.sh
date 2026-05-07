@@ -1553,6 +1553,19 @@ if command -v nvidia-smi &>/dev/null; then
         fi
     fi
 fi
+# Pick up the auth-bearing URLs that start_redis.sh / start_postgres.sh wrote to .env.
+# Without this, the `${X:-default}` exports below would set no-auth defaults that win
+# over .env (because the Flask app uses `load_dotenv(override=False)`), and every
+# subprocess from here on — schema_sync, the Flask app, Celery — would fail to
+# authenticate to redis with a misleading "Authentication required" error.
+if [ -f "$SCRIPT_DIR/.env" ]; then
+    for _key in REDIS_URL CELERY_BROKER_URL CELERY_RESULT_BACKEND; do
+        _val=$(grep -E "^${_key}=" "$SCRIPT_DIR/.env" | tail -1 | sed "s/^${_key}=//")
+        if [ -n "$_val" ]; then
+            export "${_key}=${_val}"
+        fi
+    done
+fi
 export REDIS_URL="${REDIS_URL:-redis://localhost:6379/0}"
 export CELERY_BROKER_URL="${CELERY_BROKER_URL:-redis://localhost:6379/0}"
 export CELERY_RESULT_BACKEND="${CELERY_RESULT_BACKEND:-redis://localhost:6379/0}"
