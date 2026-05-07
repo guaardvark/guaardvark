@@ -65,3 +65,31 @@ def test_swarm_message_persists_io(app):
         db.session.add(msg); db.session.commit()
         assert msg.id is not None
         assert msg.input_json == {"script": "x"}
+
+
+def test_deleting_production_cascades_to_children(app):
+    """Deleting a Production must cascade to its shots, shot_subjects, and
+    swarm_messages — otherwise Postgres rejects the delete or orphans pile up."""
+    with app.app_context():
+        prod = Production(name="P", script_text="x", status="draft", current_stage="draft")
+        char = Subject(kind="character", name="hero", description="x")
+        db.session.add_all([prod, char]); db.session.commit()
+
+        shot = ProductionShot(production_id=prod.id, scene_number=1, shot_number=1,
+                              description="x", duration_seconds=3.0)
+        db.session.add(shot); db.session.commit()
+        db.session.add(ProductionShotSubject(shot_id=shot.id, subject_id=char.id))
+        db.session.add(SwarmMessage(production_id=prod.id, agent_name="screenwriter",
+                                    input_json={}, status="ok"))
+        db.session.commit()
+
+        prod_id = prod.id
+        db.session.delete(prod)
+        db.session.commit()
+
+        assert Production.query.filter_by(id=prod_id).count() == 0
+        assert ProductionShot.query.filter_by(production_id=prod_id).count() == 0
+        assert SwarmMessage.query.filter_by(production_id=prod_id).count() == 0
+        assert ProductionShotSubject.query.count() == 0
+        # Subject lives on — it's a cast-library entry, independent of productions.
+        assert Subject.query.count() == 1

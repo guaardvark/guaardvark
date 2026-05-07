@@ -2503,7 +2503,11 @@ class Production(db.Model):
     __tablename__ = "productions"
 
     id = db.Column(db.Integer, primary_key=True)
-    project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), nullable=True, index=True)
+    project_id = db.Column(
+        db.Integer,
+        db.ForeignKey("projects.id", name="fk_production_project_id", ondelete="SET NULL"),
+        nullable=True, index=True,
+    )
     name = db.Column(db.String(255), nullable=False)
     script_text = db.Column(db.Text, nullable=False)
     status = db.Column(db.String(64), nullable=False, default="draft", index=True)
@@ -2537,20 +2541,31 @@ class ProductionShot(db.Model):
     __tablename__ = "production_shots"
 
     id = db.Column(db.Integer, primary_key=True)
-    production_id = db.Column(db.Integer, db.ForeignKey("productions.id"), nullable=False, index=True)
+    production_id = db.Column(
+        db.Integer,
+        db.ForeignKey("productions.id", name="fk_production_shot_production_id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     scene_number = db.Column(db.Integer, nullable=False)
     shot_number = db.Column(db.Integer, nullable=False)
     description = db.Column(db.Text, nullable=False)
     camera_angle = db.Column(db.String(128), nullable=True)
     duration_seconds = db.Column(db.Float, nullable=False, default=3.0)
     dialogue_text = db.Column(db.Text, nullable=True)
-    voice_subject_id = db.Column(db.Integer, db.ForeignKey("subjects.id"), nullable=True)
+    voice_subject_id = db.Column(
+        db.Integer,
+        db.ForeignKey("subjects.id", name="fk_production_shot_voice_subject_id", ondelete="SET NULL"),
+        nullable=True,
+    )
     storyboard_image_path = db.Column(db.String(512), nullable=True)
     video_clip_path = db.Column(db.String(512), nullable=True)
     approved = db.Column(db.Boolean, nullable=False, default=False)
     regen_count = db.Column(db.Integer, nullable=False, default=0)
 
-    production = db.relationship("Production", backref="shots")
+    production = db.relationship(
+        "Production",
+        backref=db.backref("shots", cascade="all, delete-orphan"),
+    )
 
 
 class ProductionShotSubject(db.Model):
@@ -2558,8 +2573,21 @@ class ProductionShotSubject(db.Model):
     __tablename__ = "production_shot_subjects"
 
     id = db.Column(db.Integer, primary_key=True)
-    shot_id = db.Column(db.Integer, db.ForeignKey("production_shots.id"), nullable=False, index=True)
-    subject_id = db.Column(db.Integer, db.ForeignKey("subjects.id"), nullable=False, index=True)
+    shot_id = db.Column(
+        db.Integer,
+        db.ForeignKey("production_shots.id", name="fk_pss_shot_id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    subject_id = db.Column(
+        db.Integer,
+        db.ForeignKey("subjects.id", name="fk_pss_subject_id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+
+    shot = db.relationship(
+        "ProductionShot",
+        backref=db.backref("shot_subjects", cascade="all, delete-orphan"),
+    )
 
 
 class SwarmMessage(db.Model):
@@ -2567,7 +2595,11 @@ class SwarmMessage(db.Model):
     __tablename__ = "swarm_messages"
 
     id = db.Column(db.Integer, primary_key=True)
-    production_id = db.Column(db.Integer, db.ForeignKey("productions.id"), nullable=False, index=True)
+    production_id = db.Column(
+        db.Integer,
+        db.ForeignKey("productions.id", name="fk_swarm_message_production_id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
     agent_name = db.Column(db.String(64), nullable=False, index=True)
     input_json = db.Column(db.JSON, nullable=False)
     output_json = db.Column(db.JSON, nullable=True)
@@ -2578,4 +2610,9 @@ class SwarmMessage(db.Model):
     status = db.Column(db.String(32), nullable=False, default="ok")  # ok | parse_error | timeout | error
     error_text = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=db.func.now(), index=True)
+
+    production = db.relationship(
+        "Production",
+        backref=db.backref("swarm_messages", cascade="all, delete-orphan"),
+    )
 
