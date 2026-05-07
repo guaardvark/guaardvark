@@ -137,3 +137,21 @@ def test_render_creates_output_directories(tmp_path):
     )
     assert (tmp_path / "outputs" / "prod_1" / "clips").exists()
     assert (tmp_path / "outputs" / "prod_1" / "audio").exists()
+
+
+def test_render_raises_on_empty_shots(tmp_path):
+    """M3: an empty shots list must fail loudly — no music gen, no ffmpeg crash.
+    A Production with zero shots is an upstream bug (Screenwriter returned nothing);
+    fail_stage upstream is the right place to handle it, not silent success."""
+    import pytest as _pt
+    i2v, audio, ffmpeg = _make_editor(tmp_path)
+    editor = Editor(i2v=i2v, audio_foundry=audio, ffmpeg=ffmpeg)
+    with _pt.raises(ValueError, match="empty"):
+        editor.render(
+            production_id=1, production_name="X",
+            shots=[], output_dir=str(tmp_path),
+        )
+    # Must NOT have called any generators
+    assert audio.generate_music.call_count == 0
+    assert ffmpeg.concat_with_audio.call_count == 0
+    assert i2v.i2v_from_image.call_count == 0

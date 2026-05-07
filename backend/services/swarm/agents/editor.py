@@ -104,6 +104,12 @@ class Editor:
         is a v1.x optimization gated by the JobOperationGate (handled by the
         caller — production_service.gpu_stage wraps this method).
         """
+        # M3: refuse to render an empty production. Fails loudly so the upstream
+        # caller (production_service) can fail_stage with a clear error rather
+        # than letting ffmpeg blow up on empty inputs.
+        if not shots:
+            raise ValueError(f"Cannot render production {production_id}: shots list is empty")
+
         output_path = Path(output_dir)
         clips_dir = output_path / "clips"
         audio_dir = output_path / "audio"
