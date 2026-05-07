@@ -21,7 +21,7 @@ if _readme_path.exists():
 
 setup(
     name="guaardvark",
-    version="2.6.0",
+    version="2.5.3",
     description="Guaardvark CLI — full-stack AI platform with RAG, image/video generation, and agents",
     long_description=_long_description,
     long_description_content_type="text/markdown",
