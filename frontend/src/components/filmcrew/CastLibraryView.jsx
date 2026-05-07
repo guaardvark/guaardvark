@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -21,9 +21,10 @@ import {
   CircularProgress,
   Alert
 } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
+import CloseIcon from '@mui/icons-material/Close';
 import AddIcon from '@mui/icons-material/Add';
 import { listCastLibrary, createCastSubject, deleteCastSubject } from '../../api/productionService';
+import DragDropImageUpload from './DragDropImageUpload';
 
 const KINDS = ['character', 'environment', 'prop'];
 
@@ -32,8 +33,9 @@ const CastLibraryView = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: '', kind: 'character', description: '', ref_image_paths: '' });
+  const [form, setForm] = useState({ name: '', kind: 'character', description: '' });
   const [submitting, setSubmitting] = useState(false);
+  const uploaderRef = useRef(null);
 
   useEffect(() => {
     loadLibrary();
@@ -54,13 +56,14 @@ const CastLibraryView = () => {
   const handleCreate = async () => {
     setSubmitting(true);
     try {
-      const payload = {
-        ...form,
-        ref_image_paths: form.ref_image_paths.split(',').map(s => s.trim()).filter(Boolean)
-      };
-      await createCastSubject(payload);
+      // Two-phase: create the row first, then flush any staged drag-drop
+      // images straight into /upload-refs against the new id.
+      const subj = await createCastSubject(form);
+      if (uploaderRef.current?.hasStagedFiles()) {
+        await uploaderRef.current.flushTo(subj.id);
+      }
       setOpen(false);
-      setForm({ name: '', kind: 'character', description: '', ref_image_paths: '' });
+      setForm({ name: '', kind: 'character', description: '' });
       loadLibrary();
     } catch (err) {
       setError('Failed to create subject');
@@ -127,8 +130,12 @@ const CastLibraryView = () => {
                     />
                   </TableCell>
                   <TableCell>
-                    <IconButton onClick={() => handleDelete(s.id)} color="inherit">
-                      <DeleteIcon />
+                    <IconButton
+                      onClick={() => handleDelete(s.id)}
+                      color="inherit"
+                      aria-label="remove from cast library"
+                    >
+                      <CloseIcon />
                     </IconButton>
                   </TableCell>
                 </TableRow>
@@ -166,24 +173,29 @@ const CastLibraryView = () => {
                 </MenuItem>
               ))}
             </TextField>
-            <TextField 
-              label="Description" 
-              fullWidth 
-              multiline 
+            <TextField
+              label="Description"
+              fullWidth
+              multiline
               rows={2}
-              value={form.description} 
+              value={form.description}
               onChange={e => setForm({...form, description: e.target.value})}
             />
-            <TextField 
-              label="Reference Image Paths (comma separated)" 
-              fullWidth 
-              value={form.ref_image_paths} 
-              onChange={e => setForm({...form, ref_image_paths: e.target.value})}
-            />
+            <Box>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                Reference images (optional — drop them here, no path-typing)
+              </Typography>
+              <DragDropImageUpload
+                ref={uploaderRef}
+                helperText="Will upload after the subject is saved."
+              />
+            </Box>
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpen(false)}>Cancel</Button>
+          <Button onClick={() => { setOpen(false); setForm({ name: '', kind: 'character', description: '' }); }}>
+            Cancel
+          </Button>
           <Button onClick={handleCreate} variant="contained" disabled={submitting || !form.name}>
             {submitting ? 'Saving...' : 'Save'}
           </Button>

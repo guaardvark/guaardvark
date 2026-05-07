@@ -20,6 +20,7 @@ import {
   Alert
 } from '@mui/material';
 import { listCastLibrary, castSubject } from '../../api/productionService';
+import DragDropImageUpload from './DragDropImageUpload';
 
 const CastingPanel = ({ productionId, shots, onCastingConfirmed }) => {
   const [castingData, setCastingData] = useState({});
@@ -85,10 +86,13 @@ const CastingPanel = ({ productionId, shots, onCastingConfirmed }) => {
     }));
   };
 
-  const handleRefsChange = (subjectId, refs) => {
+  const handleRefsUploaded = (subjectId, paths) => {
+    // The drag-drop component already POSTed the files to /upload-refs and
+    // returns the subject's authoritative ref_image_paths. We mirror that
+    // into the cast form so the eventual /cast/<subject_id> call has them.
     setCastingData(prev => ({
       ...prev,
-      [subjectId]: { ...prev[subjectId], ref_image_paths: refs.split(',').map(r => r.trim()) }
+      [subjectId]: { ...prev[subjectId], ref_image_paths: paths }
     }));
   };
 
@@ -166,11 +170,11 @@ const CastingPanel = ({ productionId, shots, onCastingConfirmed }) => {
                     />
                   )}
                   {castingData[subj.id]?.action === 'train_from_uploads' && (
-                    <TextField 
-                      label="Image paths (comma separated)" 
-                      size="small" 
-                      fullWidth 
-                      onChange={(e) => handleRefsChange(subj.id, e.target.value)}
+                    <DragDropImageUpload
+                      subjectId={subj.id}
+                      existingPaths={castingData[subj.id]?.ref_image_paths || []}
+                      onUploaded={(paths) => handleRefsUploaded(subj.id, paths)}
+                      helperText="Drop a few clear photos — that's the LoRA's only training data."
                     />
                   )}
                 </TableCell>
