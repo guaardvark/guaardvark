@@ -16,9 +16,11 @@ from pydantic import BaseModel, ValidationError
 T = TypeVar("T", bound=BaseModel)
 
 
-# Matches a fenced code block, optionally with a language tag (e.g. ```json).
-# Captures the inner content. Tolerates surrounding prose.
-_FENCE_RE = re.compile(r"```(?:[a-zA-Z0-9]+)?\s*\n?(.*?)\n?\s*```", re.DOTALL)
+# Matches the OPENING fence (with optional language tag) and the LAST closing
+# fence in the string. Greedy on the inner capture so JSON strings containing
+# triple-backticks (e.g. dialogue with code references) don't get prematurely
+# truncated. We assume the LLM wraps a single block; surrounding prose is fine.
+_FENCE_RE = re.compile(r"```(?:[a-zA-Z0-9]+)?\s*\n?(.*)\n?\s*```", re.DOTALL)
 
 
 def _strip_markdown_fences(raw: str) -> str:

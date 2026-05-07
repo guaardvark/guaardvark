@@ -75,3 +75,14 @@ def test_agent_strips_fences_with_surrounding_prose():
     inv = agent.invoke("question")
     assert inv.status == "ok"
     assert inv.output.answer == "with prose"
+
+
+def test_agent_strips_fences_when_json_string_contains_backticks():
+    """Non-greedy regex used to truncate at the first triple-backtick run inside
+    a JSON string value (e.g. dialogue with code references). Greedy match keeps
+    the full payload so JSON parsing succeeds."""
+    canned = '```json\n{"answer": "press ```Enter``` to continue"}\n```'
+    agent = _TestAgent(llm=lambda **kw: canned)
+    inv = agent.invoke("question")
+    assert inv.status == "ok"
+    assert inv.output.answer == "press ```Enter``` to continue"
