@@ -1,10 +1,29 @@
 """Cast Library — CRUD over Subjects. Reusable across Productions."""
-from flask import Blueprint, request, jsonify
+import logging
+import os
+from pathlib import Path
+
+from flask import Blueprint, current_app, request, jsonify
+from werkzeug.utils import secure_filename
+
 from backend.models import db, Subject
 
 bp = Blueprint("cast_library_api", __name__, url_prefix="/api/cast-library")
+log = logging.getLogger(__name__)
 
 VALID_KINDS = {"character", "environment", "prop"}
+
+# Standard image formats — anything else is rejected at upload time.
+_ALLOWED_REF_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}
+_MAX_REF_BYTES = 25 * 1024 * 1024  # 25 MB per image — generous, but caps runaway uploads.
+
+
+def _cast_ref_dir(subject_id: int) -> Path:
+    """Where reference images for a Subject live on disk. Created lazily."""
+    base = Path(current_app.config.get("DATA_DIR") or "data")
+    target = base / "cast_refs" / str(subject_id)
+    target.mkdir(parents=True, exist_ok=True)
+    return target
 
 
 def _serialize(s: Subject) -> dict:
@@ -49,3 +68,73 @@ def delete_subject(subject_id):
         return jsonify({"error": "not_found"}), 404
     db.session.delete(s); db.session.commit()
     return "", 204
+
+
+@bp.post("/subjects/<int:subject_id>/upload-refs")
+def upload_subject_refs(subject_id):
+    """Drag-and-drop receiver for reference images. Accepts one or more
+    multipart files under the ``files`` field, saves them under
+    ``data/cast_refs/<subject_id>/``, appends the resolved paths onto
+    ``Subject.ref_image_paths``, and returns the updated subject.
+
+    The user-facing flow expects no path-typing — the frontend drops images
+    here and the server owns persistence.
+    """
+    s = db.session.get(Subject, subject_id)
+    if s is None:
+        return jsonify({"error": "subject not found"}), 404
+
+    files = request.files.getlist("files")
+    if not files:
+        return jsonify({"error": "no files (expected multipart field 'files')"}), 400
+
+    target_dir = _cast_ref_dir(subject_id)
+    saved_paths: list[str] = []
+    skipped: list[dict] = []
+
+    for f in files:
+        if not f or not f.filename:
+            continue
+        safe_name = secure_filename(f.filename) or ""
+        ext = Path(safe_name).suffix.lower()
+        if ext not in _ALLOWED_REF_EXTS:
+            skipped.append({"name": f.filename, "reason": f"unsupported extension {ext!r}"})
+            continue
+
+        # Resolve collisions by appending -1, -2, … so multiple uploads with
+        # the same source filename don't clobber each other.
+        stem = Path(safe_name).stem or "ref"
+        candidate = target_dir / f"{stem}{ext}"
+        n = 1
+        while candidate.exists():
+            candidate = target_dir / f"{stem}-{n}{ext}"
+            n += 1
+
+        # Stream-write with a per-file size cap so a malicious / runaway
+        # upload can't fill disk.
+        written = 0
+        oversized = False
+        with open(candidate, "wb") as out:
+            while True:
+                chunk = f.stream.read(64 * 1024)
+                if not chunk:
+                    break
+                written += len(chunk)
+                if written > _MAX_REF_BYTES:
+                    oversized = True
+                    break
+                out.write(chunk)
+        if oversized:
+            candidate.unlink(missing_ok=True)
+            skipped.append({"name": f.filename, "reason": "too large"})
+            continue
+        saved_paths.append(str(candidate))
+
+    s.ref_image_paths = list(s.ref_image_paths or []) + saved_paths
+    db.session.commit()
+
+    return jsonify({
+        "subject": _serialize(s),
+        "saved": saved_paths,
+        "skipped": skipped,
+    })
