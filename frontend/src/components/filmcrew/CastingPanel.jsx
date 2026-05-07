@@ -19,58 +19,39 @@ import {
   Chip,
   Alert
 } from '@mui/material';
-import { listCastLibrary, castSubject } from '../../api/productionService';
+import { listCastLibrary, listProductionSubjects, castSubject } from '../../api/productionService';
 import DragDropImageUpload from './DragDropImageUpload';
 
 const CastingPanel = ({ productionId, shots, onCastingConfirmed }) => {
   const [castingData, setCastingData] = useState({});
   const [castLibrary, setCastLibrary] = useState([]);
+  const [subjectsToCast, setSubjectsToCast] = useState([]);
   const [loading, setLoading] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState(null);
 
-  // Decision: Backend doesn't expose a "get cast recommendation" endpoint yet.
-  // Just show the subjects linked to shots.
-  const uniqueSubjects = [];
-  const seenIds = new Set();
-  
-  // Note: Shots should have subjects in a real scenario, but if they are just strings
-  // or IDs in the prompt description, we might need to parse them.
-  // However, the model `ProductionShotSubject` exists.
-  // Assuming `production.shots` return includes associated subjects.
-  // Wait, the `get_production` endpoint in `production_api.py` doesn't return subjects per shot yet.
-  // Let me check if I should update that or just use a placeholder.
-  
-  // "For v1, just shows the Subjects already linked to this production via the shots"
-  // Let's assume `shots` have a `subjects` array (populated by a join or manually).
-  
-  // Wait, I'll check `get_production` in `production_api.py` again.
-  // It only returns id, scene_number, shot_number, description, approved, storyboard_image_path, video_clip_path.
-  // It DOES NOT return subjects.
-  
-  // I might need to update `get_production` to include subjects if I want this to work.
-  // But the prompt said "Don't modify backend code unless you're adding the small list endpoint".
-  
-  // Let's assume there's a way to get subjects for a production.
-  // Maybe I should add a `GET /api/production/<id>/subjects` endpoint?
-  
   useEffect(() => {
+    let cancelled = false;
     const fetchData = async () => {
+      if (!productionId) return;
       setLoading(true);
       try {
-        const library = await listCastLibrary();
+        const [library, prodSubjects] = await Promise.all([
+          listCastLibrary(),
+          listProductionSubjects(productionId),
+        ]);
+        if (cancelled) return;
         setCastLibrary(library.subjects || []);
-        
-        // Mocking some subjects for now if none are found, or try to find them from shots.
-        // In a real scenario, the screenwriter agent would have created these.
+        setSubjectsToCast(prodSubjects.subjects || []);
       } catch (err) {
-        setError('Failed to load cast library');
+        if (!cancelled) setError('Failed to load casting data');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchData();
-  }, []);
+    return () => { cancelled = true; };
+  }, [productionId]);
 
   const handleActionChange = (subjectId, action) => {
     setCastingData(prev => ({
@@ -121,17 +102,17 @@ const CastingPanel = ({ productionId, shots, onCastingConfirmed }) => {
     }
   };
 
-  // Mocking subjects for the sake of the UI if none found
-  // In reality, these would come from the production details.
-  const subjectsToCast = [
-    { id: 101, name: 'Lead Actor', kind: 'character' },
-    { id: 102, name: 'Living Room', kind: 'environment' }
-  ];
-
   return (
     <Box sx={{ mt: 3 }}>
       <Typography variant="h6" gutterBottom>Pick a face for your character</Typography>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {!loading && subjectsToCast.length === 0 && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          No subjects yet — the Screenwriter agent will populate these from the script.
+          If you're seeing this after the script ran, the screenwriter run may have failed
+          (check the failed-stage indicator above).
+        </Alert>
+      )}
       <TableContainer component={Paper}>
         <Table>
           <TableHead>

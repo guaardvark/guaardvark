@@ -17,6 +17,11 @@ export const getProduction = async (id) => {
   return response.data;
 };
 
+export const listProductionSubjects = async (id) => {
+  const response = await axios.get(`${API_BASE}/production/${id}/subjects`);
+  return response.data;
+};
+
 export const createProduction = async (data) => {
   const response = await axios.post(`${API_BASE}/production`, data);
   return response.data;
@@ -54,6 +59,7 @@ export const deleteCastSubject = async (id) => {
 const productionService = {
   listProductions,
   getProduction,
+  listProductionSubjects,
   createProduction,
   castSubject,
   approveStoryboard,
