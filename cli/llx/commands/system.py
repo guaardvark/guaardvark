@@ -84,7 +84,7 @@ def health(
         client = get_client(server)
         data = client.get("/api/health")
         if json_out or output.is_pipe():
-            output.print_json(data)
+            output.print_json({"status": "success", "data": data})
         else:
             status = data.get("status", "unknown")
             icon = ICON_ONLINE if status == "ok" else ICON_OFFLINE
@@ -94,7 +94,7 @@ def health(
             h, m = divmod(uptime // 60, 60)
             console.print(f"[{style}]{icon} {status}[/{style}]  [llx.dim]|[/llx.dim]  Version: {version}  [llx.dim]|[/llx.dim]  Uptime: {h}h {m}m")
     except LlxConnectionError as e:
-        output.print_error(str(e))
+        output.print_error(str(e), code="CONNECTION_ERROR")
         raise typer.Exit(1)
 
 
@@ -117,12 +117,17 @@ def status(
             metrics_data = {}
 
         if json_out or output.is_pipe():
-            output.print_json({
-                "health": health_data,
-                "model": model_data,
-                "celery": celery_data,
-                "metrics": metrics_data,
-            })
+            output.print_json(
+                {
+                    "status": "success",
+                    "data": {
+                        "health": health_data,
+                        "model": model_data,
+                        "celery": celery_data,
+                        "metrics": metrics_data,
+                    },
+                }
+            )
             return
 
         server_url = client.server_url
@@ -156,10 +161,10 @@ def status(
         console.print(make_panel(content, title="System Status"))
 
     except LlxConnectionError as e:
-        output.print_error(str(e))
+        output.print_error(str(e), code="CONNECTION_ERROR")
         raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message)
+        output.print_error(e.message, code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -217,17 +222,17 @@ def models_list(
         models = msg.get("models", [])
 
         if json_out or output.is_pipe():
-            output.print_json(models)
+            output.print_json({"status": "success", "data": {"models": models}})
             return
 
         rows = [{"name": m.get("name", "?"), "id": m.get("id", m.get("full_name", "?"))} for m in models]
         output.print_table(rows, columns=["name", "id"], title=f"Available Models ({len(rows)})")
 
     except LlxConnectionError as e:
-        output.print_error(str(e))
+        output.print_error(str(e), code="CONNECTION_ERROR")
         raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message)
+        output.print_error(e.message, code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -247,7 +252,7 @@ def models_active(
             info = {}
 
         if json_out or output.is_pipe():
-            output.print_json(info)
+            output.print_json({"status": "success", "data": info})
             return
 
         output.print_kv({
@@ -257,8 +262,11 @@ def models_active(
             "Image gen model": info.get("image_gen_model", "none"),
         }, title="Active Models")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -266,12 +274,29 @@ def models_active(
 def models_set(
     model: str = typer.Argument(help="Model name to switch to"),
     server: str = typer.Option(None, "--server", "-s"),
+    json_out: bool = typer.Option(False, "--json", "-j"),
 ):
     server = server or get_global_server()
+    json_out = json_out or get_global_json()
+    output.set_json_mode(json_out)
     try:
         client = get_client(server)
-        data = client.post("/api/model/set", json={"model": model})
-        output.print_success(f"Switching to {model}... (this may take a moment)")
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+        client.post("/api/model/set", json={"model": model})
+        if json_out or output.is_pipe():
+            output.print_json(
+                {
+                    "status": "success",
+                    "data": {
+                        "message": f"Switching to {model}... (this may take a moment)",
+                        "model": model,
+                    },
+                }
+            )
+        else:
+            output.print_success(f"Switching to {model}... (this may take a moment)")
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)

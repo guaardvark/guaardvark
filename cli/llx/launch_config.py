@@ -13,7 +13,7 @@ _DEFAULTS = {
     "mode": "lite",
     "model": None,
     "ollama_base_url": "http://127.0.0.1:11434",
-    "server_url": "http://localhost:5000",
+    "server_url": "http://localhost:5002",
     "auto_start_services": True,
     "guaardvark_root": None,
 }

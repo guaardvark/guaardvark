@@ -13,7 +13,7 @@ ENV_API_KEY = "GUAARDVARK_API_KEY"
 ENV_API_KEY_ALT = "LLX_API_KEY"
 
 DEFAULT_CONFIG = {
-    "server": "http://localhost:5000",
+    "server": "http://localhost:5002",
     "api_key": None,
     "default_output": "table",
     "chat_session_history": 50,

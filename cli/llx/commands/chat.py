@@ -129,11 +129,16 @@ def _chat_sync(session_id: str, message: str, no_rag: bool, server: str | None, 
             )
 
         if json_out or output.is_pipe():
-            output.print_json({
-                "session_id": session_id,
-                "response": response_text,
-                "elapsed": round(elapsed, 2),
-            })
+            output.print_json(
+                {
+                    "status": "success",
+                    "data": {
+                        "session_id": session_id,
+                        "response": response_text,
+                        "elapsed": round(elapsed, 2),
+                    },
+                }
+            )
         else:
             console.print()
             console.print(Markdown(response_text))
@@ -142,10 +147,10 @@ def _chat_sync(session_id: str, message: str, no_rag: bool, server: str | None, 
         save_session(session_id, message[:80])
 
     except LlxConnectionError as e:
-        output.print_error(str(e))
+        output.print_error(str(e), code="CONNECTION_ERROR")
         raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message)
+        output.print_error(e.message, code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -159,7 +164,9 @@ def _chat_export(session_id: str, server: str | None, output_file: Path | None, 
             messages = []
 
         if json_out or output.is_pipe():
-            output.print_json({"session_id": session_id, "messages": messages})
+            output.print_json(
+                {"status": "success", "data": {"session_id": session_id, "messages": messages}}
+            )
             return
 
         lines = [f"# Chat Export — Session {session_id[:8]}...", ""]
@@ -184,10 +191,10 @@ def _chat_export(session_id: str, server: str | None, output_file: Path | None, 
             print(markdown)
 
     except LlxConnectionError as e:
-        output.print_error(str(e))
+        output.print_error(str(e), code="CONNECTION_ERROR")
         raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message)
+        output.print_error(e.message, code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -259,11 +266,16 @@ def _chat_streaming(session_id: str, message: str, no_rag: bool, server: str | N
             streamer.wait_for_completion(approval_handler=None, timeout=300)
             full_response = "".join(response_parts)
             if json_out:
-                output.print_json({
-                    "session_id": session_id,
-                    "response": full_response,
-                    "elapsed": round(time.time() - start_time, 2),
-                })
+                output.print_json(
+                    {
+                        "status": "success",
+                        "data": {
+                            "session_id": session_id,
+                            "response": full_response,
+                            "elapsed": round(time.time() - start_time, 2),
+                        },
+                    }
+                )
             else:
                 print(full_response)
         else:
@@ -314,8 +326,8 @@ def _chat_streaming(session_id: str, message: str, no_rag: bool, server: str | N
         streamer.disconnect()
 
     except LlxConnectionError as e:
-        output.print_error(str(e))
+        output.print_error(str(e), code="CONNECTION_ERROR")
         raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message)
+        output.print_error(e.message, code="API_ERROR")
         raise typer.Exit(1)

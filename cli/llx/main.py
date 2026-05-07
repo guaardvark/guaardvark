@@ -2,6 +2,7 @@ import os
 import typer
 
 from llx import __version__
+from llx import output
 from llx.global_opts import set_global_opts
 from llx.commands.system import health, status, init, doctor, start, stop, models_app
 from llx.commands.chat import chat
@@ -25,6 +26,7 @@ from llx.commands.tasks import tasks_app
 from llx.commands.images import images_app
 from llx.commands.videos import videos_app
 from llx.commands.launch import launch
+from llx.commands.quality import quality_app
 
 app = typer.Typer(
     name="guaardvark",
@@ -62,6 +64,7 @@ app.add_typer(websites_app, name="websites")
 app.add_typer(tasks_app, name="tasks")
 app.add_typer(images_app, name="images")
 app.add_typer(videos_app, name="videos")
+app.add_typer(quality_app, name="quality")
 
 
 def version_callback(value: bool):
@@ -80,6 +83,11 @@ def main(
     theme: str | None = typer.Option(None, "--theme", help="Color theme (default, teal, musk, hacker, vader, guaardvark)"),
     verbose: bool = typer.Option(False, "--verbose", "-V", help="Verbose output"),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress non-essential output"),
+    non_interactive: bool = typer.Option(
+        False,
+        "--non-interactive",
+        help="Do not start REPL when no command is provided",
+    ),
 ):
     set_global_opts(server=server, json_out=json_out, timeout=timeout, verbose=verbose, quiet=quiet)
     if theme:
@@ -87,6 +95,21 @@ def main(
         if theme in THEMES:
             set_active_theme(theme)
     if ctx.invoked_subcommand is None:
+        if non_interactive:
+            if json_out:
+                output.print_json(
+                    {
+                        "status": "error",
+                        "error": {
+                            "code": "NO_COMMAND_PROVIDED",
+                            "message": "No command provided in non-interactive mode.",
+                            "hint": "Pass a command or remove --non-interactive.",
+                        },
+                    }
+                )
+            else:
+                typer.echo("No command provided in non-interactive mode. Use --help for usage.", err=True)
+            raise typer.Exit(2)
         from llx.repl import launch_repl
         launch_repl()
 

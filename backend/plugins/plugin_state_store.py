@@ -64,12 +64,24 @@ class PluginStateStore:
     def _read(self) -> dict:
         try:
             if not self.path.exists():
-                return {"version": SCHEMA_VERSION, "user_enabled": {}, "running": []}
+                return {
+                    "version": SCHEMA_VERSION,
+                    "user_enabled": {},
+                    "running": [],
+                    "quarantined": {},
+                    "start_failure_counts": {},
+                }
             with open(self.path) as f:
                 raw = json.load(f) or {}
         except Exception as e:
             logger.warning(f"Could not read plugin state file ({e}); starting fresh")
-            return {"version": SCHEMA_VERSION, "user_enabled": {}, "running": []}
+            return {
+                "version": SCHEMA_VERSION,
+                "user_enabled": {},
+                "running": [],
+                "quarantined": {},
+                "start_failure_counts": {},
+            }
 
         # Legacy upgrade: pre-v1 file had only {"running": [...]}.
         if "version" not in raw:
@@ -77,10 +89,14 @@ class PluginStateStore:
                 "version": SCHEMA_VERSION,
                 "user_enabled": {},
                 "running": list(raw.get("running", [])),
+                "quarantined": dict(raw.get("quarantined", {})),
+                "start_failure_counts": dict(raw.get("start_failure_counts", {})),
             }
 
         raw.setdefault("user_enabled", {})
         raw.setdefault("running", [])
+        raw.setdefault("quarantined", {})
+        raw.setdefault("start_failure_counts", {})
         return raw
 
     def _write(self, state: dict) -> None:
@@ -95,3 +111,26 @@ class PluginStateStore:
             os.replace(tmp_path, self.path)
         except Exception as e:
             logger.warning(f"Could not save plugin state: {e}")
+
+    def is_quarantined(self, plugin_id: str) -> bool:
+        return bool(self._read().get("quarantined", {}).get(plugin_id))
+
+    def set_quarantined(self, plugin_id: str, value: bool) -> None:
+        state = self._read()
+        state.setdefault("quarantined", {})[plugin_id] = bool(value)
+        self._write(state)
+
+    def record_start_failure(self, plugin_id: str, threshold: int = 4) -> None:
+        state = self._read()
+        counts = state.setdefault("start_failure_counts", {})
+        c = int(counts.get(plugin_id, 0)) + 1
+        counts[plugin_id] = c
+        if c >= threshold:
+            state.setdefault("quarantined", {})[plugin_id] = True
+        self._write(state)
+
+    def reset_plugin_health_counters(self, plugin_id: str) -> None:
+        state = self._read()
+        if "start_failure_counts" in state and plugin_id in state["start_failure_counts"]:
+            state["start_failure_counts"].pop(plugin_id, None)
+        self._write(state)

@@ -124,7 +124,7 @@ def create_lite_app() -> Flask:
     return app
 
 
-def start_lite_server(port: int = 5000) -> None:
+def start_lite_server(port: int = 5002) -> None:
     """Start the lite server in the current process."""
     from llx.theme import make_console
     console = make_console()

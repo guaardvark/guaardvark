@@ -82,8 +82,16 @@ def print_success(message: str):
     _out.print(f"[llx.success]{ICON_SUCCESS} {message}[/llx.success]")
 
 
-def print_error(message: str):
-    """Print error to stderr."""
+def print_error(message: str, code: str = "ERROR"):
+    """Print error to stderr, or structured JSON in JSON / pipe mode."""
+    if _json_mode or is_pipe():
+        print_json(
+            {
+                "status": "error",
+                "error": {"code": code, "message": message},
+            }
+        )
+        return
     _console.print(f"[llx.error]{ICON_ERROR} Error:[/llx.error] {message}")
 
 

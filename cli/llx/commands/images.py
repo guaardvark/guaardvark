@@ -27,7 +27,7 @@ def images_list(
             batches = []
 
         if json_out or output.is_pipe():
-            output.print_json(batches)
+            output.print_json({"status": "success", "data": {"batches": batches}})
             return
 
         rows = [{
@@ -38,8 +38,11 @@ def images_list(
         } for b in batches]
         output.print_table(rows, columns=["id", "name", "images", "status"], title=f"Image Batches ({len(rows)})")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -68,15 +71,18 @@ def images_generate(
         result = data.get("data", data)
 
         if json_out or output.is_pipe():
-            output.print_json(result)
+            output.print_json({"status": "success", "data": result})
         else:
             job_id = result.get("job_id", result.get("batch_id", ""))
             output.print_success(f"Image generation started ({count} image{'s' if count > 1 else ''})")
             if job_id:
                 console.print(f"  Track with: [llx.accent]guaardvark jobs watch {job_id}[/llx.accent]")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -96,7 +102,7 @@ def images_status(
         result = data.get("data", data)
 
         if json_out or output.is_pipe():
-            output.print_json(result)
+            output.print_json({"status": "success", "data": result})
         else:
             output.print_kv({
                 "Batch ID": batch_id,
@@ -105,8 +111,11 @@ def images_status(
                 "Images": result.get("image_count", result.get("completed", 0)),
             }, title="Batch Status")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -125,17 +134,20 @@ def images_models(
         models = data.get("models", data.get("data", []))
 
         if json_out or output.is_pipe():
-            output.print_json(models)
+            output.print_json({"status": "success", "data": {"models": models}})
             return
 
         if isinstance(models, list):
             rows = [{"name": m.get("name", m) if isinstance(m, dict) else str(m)} for m in models]
             output.print_table(rows, columns=["name"], title="Image Models")
         else:
-            output.print_json(models)
+            output.print_json({"status": "success", "data": {"models": models}})
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -144,15 +156,24 @@ def images_delete(
     batch_id: str = typer.Argument(..., help="Batch ID to delete"),
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
     server: str = typer.Option(None, "--server", "-s"),
+    json_out: bool = typer.Option(False, "--json", "-j"),
 ):
     """Delete an image batch."""
     server = server or get_global_server()
-    if not force:
+    json_out = json_out or get_global_json()
+    output.set_json_mode(json_out)
+    if not force and not (json_out or output.is_pipe()):
         typer.confirm(f"Delete batch {batch_id}?", abort=True)
     try:
         api_client = get_client(server)
         api_client.delete(f"/api/batch-image/delete/{batch_id}")
-        output.print_success(f"Deleted batch {batch_id}")
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+        if json_out or output.is_pipe():
+            output.print_json({"status": "success", "data": {"batch_id": batch_id, "deleted": True}})
+        else:
+            output.print_success(f"Deleted batch {batch_id}")
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)

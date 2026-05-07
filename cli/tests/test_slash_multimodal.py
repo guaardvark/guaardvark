@@ -7,7 +7,7 @@ from unittest.mock import patch, MagicMock
 def router():
     from llx.slash import SlashRouter
     state = {
-        "server": "http://localhost:5000",
+        "server": "http://localhost:5002",
         "session_id": "test-session",
         "message_count": 0,
         "agent_mode": False,
@@ -82,4 +82,4 @@ class TestWebCommand:
     def test_web_opens_browser(self, router):
         with patch("webbrowser.open") as mock_open:
             router.dispatch("/web")
-            mock_open.assert_called_once_with("http://localhost:5173")
+            mock_open.assert_called_once_with("http://localhost:5175")

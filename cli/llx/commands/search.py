@@ -25,7 +25,7 @@ def search(
         data = client.post("/api/search/semantic", json={"query": query})
 
         if json_out or output.is_pipe():
-            output.print_json(data)
+            output.print_json({"status": "success", "data": data})
             return
 
         answer = data.get("answer", "")
@@ -39,6 +39,9 @@ def search(
             rows = [{"source": s.get("source_document", "?"), "score": f"{s.get('score', 0):.3f}"} for s in sources]
             output.print_table(rows, columns=["source", "score"])
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)

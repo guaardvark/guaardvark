@@ -1009,6 +1009,25 @@ def restore_diagnostics():
     return jsonify({"message": "Restore completed."}), 200
 
 
+@diagnostics_bp.route("/quality-scorecard", methods=["GET"])
+def get_quality_scorecard():
+    """Structured quality scorecard for KPIs, CI, and automation (see docs/quality/)."""
+    try:
+        from flask import current_app
+
+        from backend.services.quality_scorecard import build_scorecard
+
+        base_url = request.args.get("base_url")
+        payload = build_scorecard(
+            app=current_app._get_current_object(),
+            public_base_url=base_url,
+        )
+        return jsonify({"success": True, "data": payload}), 200
+    except Exception as e:
+        logger.error("quality-scorecard failed: %s", e, exc_info=True)
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @diagnostics_bp.route("/gpu-progress", methods=["GET"])
 def get_gpu_progress_metrics():
     try:
