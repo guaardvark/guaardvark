@@ -885,9 +885,11 @@ def _initialize_app_components(app):
     auto_register_blueprints(app)
 
     # Resume any in-flight productions after a crash. DB-driven — no in-memory state to lose.
+    # Note: `db` is the module-level import (line 401). Importing it locally here
+    # would silently make every other `db` reference in create_app() local-by-assignment
+    # and break the function. Don't re-import.
     try:
         from backend.services.production_service import ProductionService
-        from backend.models import db
         with app.app_context():
             resumed = ProductionService(db.session).resume_all()
             if resumed:
