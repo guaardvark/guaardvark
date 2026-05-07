@@ -304,3 +304,81 @@ def test_storyboard_approve_tolerates_unwired_dispatcher(client, app):
 def test_storyboard_approve_404(client):
     resp = client.post("/api/production/9999/storyboard/approve")
     assert resp.status_code == 404
+
+def test_regenerate_shot_increments_regen_count(client, app, monkeypatch):
+    with app.app_context():
+        from backend.models import Production, ProductionShot
+        prod = Production(name="P", script_text="x", status="awaiting_approval",
+                          current_stage="awaiting_approval", settings_json={})
+        db.session.add(prod); db.session.commit()
+        shot = ProductionShot(production_id=prod.id, scene_number=1, shot_number=1,
+                              description="x", duration_seconds=3.0, approved=True, regen_count=0)
+        db.session.add(shot); db.session.commit()
+        prod_id, shot_id = prod.id, shot.id
+
+    from backend.api import production_api
+    monkeypatch.setattr(production_api, "_dispatch_storyboard_regen",
+                        lambda sid, prompt: "regen-task-1")
+
+    resp = client.post(
+        f"/api/production/{prod_id}/storyboard/shot/{shot_id}/regenerate",
+        json={"prompt_override": "tighter framing"},
+    )
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["regen_count"] == 1
+    assert data["regen_job_id"] == "regen-task-1"
+
+    # Verify the shot is no longer approved
+    with app.app_context():
+        from backend.models import ProductionShot
+        s = db.session.get(ProductionShot, shot_id)
+        assert s.approved is False
+        assert s.regen_count == 1
+
+
+def test_regenerate_shot_404_for_unknown_shot(client, app):
+    with app.app_context():
+        from backend.models import Production
+        prod = Production(name="P", script_text="x", status="awaiting_approval",
+                          current_stage="awaiting_approval", settings_json={})
+        db.session.add(prod); db.session.commit()
+        prod_id = prod.id
+    resp = client.post(f"/api/production/{prod_id}/storyboard/shot/99999/regenerate")
+    assert resp.status_code == 404
+
+
+def test_regenerate_shot_rejects_mismatched_production(client, app):
+    """Defensive: if shot exists but belongs to a different production, 404."""
+    with app.app_context():
+        from backend.models import Production, ProductionShot
+        prod_a = Production(name="A", script_text="x", status="awaiting_approval",
+                            current_stage="awaiting_approval", settings_json={})
+        prod_b = Production(name="B", script_text="x", status="awaiting_approval",
+                            current_stage="awaiting_approval", settings_json={})
+        db.session.add_all([prod_a, prod_b]); db.session.commit()
+        shot = ProductionShot(production_id=prod_a.id, scene_number=1, shot_number=1,
+                              description="x", duration_seconds=3.0)
+        db.session.add(shot); db.session.commit()
+        prod_b_id, shot_id = prod_b.id, shot.id
+
+    resp = client.post(f"/api/production/{prod_b_id}/storyboard/shot/{shot_id}/regenerate")
+    assert resp.status_code == 404
+
+
+def test_regenerate_shot_tolerates_unwired_dispatcher(client, app):
+    with app.app_context():
+        from backend.models import Production, ProductionShot
+        prod = Production(name="P", script_text="x", status="awaiting_approval",
+                          current_stage="awaiting_approval", settings_json={})
+        db.session.add(prod); db.session.commit()
+        shot = ProductionShot(production_id=prod.id, scene_number=1, shot_number=1,
+                              description="x", duration_seconds=3.0, regen_count=0)
+        db.session.add(shot); db.session.commit()
+        prod_id, shot_id = prod.id, shot.id
+
+    resp = client.post(f"/api/production/{prod_id}/storyboard/shot/{shot_id}/regenerate")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["regen_count"] == 1
+    assert data["regen_job_id"] is None

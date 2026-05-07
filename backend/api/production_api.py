@@ -19,6 +19,11 @@ def _dispatch_lora_train(subject_id: int) -> str | None:
     raise NotImplementedError("lora_trainer plugin not yet wired (Phase B)")
 
 
+def _dispatch_storyboard_regen(shot_id: int, prompt_override: str | None) -> str | None:
+    """Dispatch a single-shot storyboard regeneration via Celery. Stub for now."""
+    raise NotImplementedError("storyboard regen Celery task not yet wired")
+
+
 @bp.post("")
 def create():
     body = request.get_json(silent=True) or {}
@@ -166,4 +171,33 @@ def approve_storyboard(prod_id):
         "production_id": prod_id,
         "current_stage": prod.current_stage,
         "shots_approved": len(shots),
+    })
+
+
+@bp.post("/<int:prod_id>/storyboard/shot/<int:shot_id>/regenerate")
+def regenerate_shot(prod_id, shot_id):
+    from backend.models import ProductionShot
+    shot = db.session.get(ProductionShot, shot_id)
+    if shot is None or shot.production_id != prod_id:
+        return jsonify({"error": "shot not found in this production"}), 404
+
+    body = request.get_json(silent=True) or {}
+    prompt_override = body.get("prompt_override")
+
+    shot.regen_count = (shot.regen_count or 0) + 1
+    shot.approved = False
+    db.session.commit()
+
+    regen_job_id: str | None = None
+    try:
+        regen_job_id = _dispatch_storyboard_regen(shot_id, prompt_override)
+    except NotImplementedError:
+        log.debug("Storyboard regen dispatch deferred (Celery task not yet wired)")
+    except Exception as e:
+        log.warning(f"Storyboard regen dispatch failed for shot {shot_id}: {e}")
+
+    return jsonify({
+        "shot_id": shot_id,
+        "regen_count": shot.regen_count,
+        "regen_job_id": regen_job_id,
     })
