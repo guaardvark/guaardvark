@@ -136,3 +136,34 @@ def cast_subject(prod_id, subject_id):
         "training_status": subj.training_status,
         "training_job_id": training_job_id,
     })
+
+
+@bp.post("/<int:prod_id>/storyboard/approve")
+def approve_storyboard(prod_id):
+    prod = db.session.get(Production, prod_id)
+    if prod is None:
+        return jsonify({"error": "production not found"}), 404
+    if prod.current_stage != "awaiting_approval":
+        return jsonify({"error": f"production is at stage '{prod.current_stage}', not awaiting_approval"}), 409
+
+    from backend.models import ProductionShot
+    shots = ProductionShot.query.filter_by(production_id=prod_id).all()
+    for s in shots:
+        s.approved = True
+    db.session.commit()
+
+    svc = ProductionService(db.session)
+    if svc.advance_if_predecessor(prod_id, expected_predecessor="awaiting_approval"):
+        try:
+            svc.dispatch_agent(prod_id, "editor")
+        except NotImplementedError:
+            log.debug("Editor dispatch deferred (swarm not yet wired)")
+        except Exception as e:
+            log.warning(f"Editor dispatch failed for production {prod_id}: {e}")
+
+    db.session.refresh(prod)
+    return jsonify({
+        "production_id": prod_id,
+        "current_stage": prod.current_stage,
+        "shots_approved": len(shots),
+    })

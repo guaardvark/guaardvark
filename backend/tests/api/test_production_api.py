@@ -248,3 +248,59 @@ def test_cast_404_for_unknown_production(client):
         "action": "use_existing_lora", "existing_lora_id": 1,
     })
     assert resp.status_code == 404
+
+def test_storyboard_approve_advances_and_dispatches(client, app, monkeypatch):
+    with app.app_context():
+        from backend.models import Production, ProductionShot
+        prod = Production(name="P", script_text="x", status="awaiting_approval",
+                          current_stage="awaiting_approval", settings_json={})
+        db.session.add(prod); db.session.commit()
+        s1 = ProductionShot(production_id=prod.id, scene_number=1, shot_number=1,
+                            description="x", duration_seconds=3.0, approved=False)
+        s2 = ProductionShot(production_id=prod.id, scene_number=1, shot_number=2,
+                            description="y", duration_seconds=3.0, approved=False)
+        db.session.add_all([s1, s2]); db.session.commit()
+        prod_id = prod.id
+
+    from backend.services.production_service import ProductionService
+    dispatched = []
+    monkeypatch.setattr(
+        ProductionService, "dispatch_agent",
+        lambda self, pid, agent: dispatched.append((pid, agent)),
+    )
+
+    resp = client.post(f"/api/production/{prod_id}/storyboard/approve")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["current_stage"] == "rendering"
+    assert data["shots_approved"] == 2
+    assert dispatched == [(prod_id, "editor")]
+
+
+def test_storyboard_approve_409_when_not_at_awaiting_approval(client, app):
+    with app.app_context():
+        from backend.models import Production
+        prod = Production(name="P", script_text="x", status="storyboard_gen",
+                          current_stage="storyboard_gen", settings_json={})
+        db.session.add(prod); db.session.commit()
+        prod_id = prod.id
+    resp = client.post(f"/api/production/{prod_id}/storyboard/approve")
+    assert resp.status_code == 409
+
+
+def test_storyboard_approve_tolerates_unwired_dispatcher(client, app):
+    with app.app_context():
+        from backend.models import Production
+        prod = Production(name="P", script_text="x", status="awaiting_approval",
+                          current_stage="awaiting_approval", settings_json={})
+        db.session.add(prod); db.session.commit()
+        prod_id = prod.id
+    # No monkeypatch — uses the real stub which raises NotImplementedError
+    resp = client.post(f"/api/production/{prod_id}/storyboard/approve")
+    assert resp.status_code == 200
+    assert resp.get_json()["current_stage"] == "rendering"
+
+
+def test_storyboard_approve_404(client):
+    resp = client.post("/api/production/9999/storyboard/approve")
+    assert resp.status_code == 404
