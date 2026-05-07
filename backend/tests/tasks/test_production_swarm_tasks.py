@@ -391,3 +391,70 @@ def test_regen_storyboard_shot_no_op_when_not_awaiting_approval(app, production)
     db.session.refresh(shot)
     assert shot.storyboard_image_path == "/tmp/old.png"
     assert mock_generator.generate_image.call_count == 0
+
+def test_run_cinematographer_retry_does_not_duplicate_shot_subjects(app, production):
+    production.current_stage = "cinematography"
+    subj = Subject(name="Alice", kind="character", description="A test character")
+    db.session.add(subj)
+    db.session.commit()
+    shot = ProductionShot(production_id=production.id, scene_number=1, shot_number=1, description="Wide shot")
+    db.session.add(shot)
+    db.session.commit()
+
+    def fake_llm(*args, **kwargs):
+        return json.dumps({
+            "plans": [
+                {
+                    "scene_number": 1,
+                    "shot_number": 1,
+                    "camera_angle": "wide",
+                    "framing": "full body",
+                    "duration_seconds": 4.5,
+                    "mood": "calm",
+                    "image_prompt": "A cafe in the morning",
+                    "subjects_in_shot": [subj.id]
+                }
+            ]
+        })
+
+    with patch("backend.celery_app.celery.send_task"):
+        run_cinematographer(production.id, llm=fake_llm)
+
+    assert ProductionShotSubject.query.filter_by(shot_id=shot.id).count() == 1
+    db.session.refresh(shot)
+    assert shot.description.count("IMAGE PROMPT:") == 1
+
+    # Reset stage and run again
+    production.current_stage = "cinematography"
+    db.session.commit()
+
+    with patch("backend.celery_app.celery.send_task"):
+        run_cinematographer(production.id, llm=fake_llm)
+
+    assert ProductionShotSubject.query.filter_by(shot_id=shot.id).count() == 1
+    db.session.refresh(shot)
+    assert shot.description.count("IMAGE PROMPT:") == 1
+
+
+def test_run_editor_failure_calls_fail_stage(app, production):
+    production.current_stage = "rendering"
+    shot = ProductionShot(
+        production_id=production.id, scene_number=1, shot_number=1,
+        description="Wide shot", storyboard_image_path="/tmp/img.png",
+        approved=True
+    )
+    db.session.add(shot)
+    db.session.commit()
+
+    mock_i2v = MagicMock()
+    mock_i2v.generate_video.side_effect = Exception("I2V failed")
+
+    with patch("backend.tasks.production_swarm_tasks.Editor") as MockEditor:
+        mock_editor_instance = MockEditor.return_value
+        mock_editor_instance.render.side_effect = Exception("I2V failed")
+
+        run_editor(production.id, i2v=mock_i2v)
+
+    db.session.refresh(production)
+    assert production.status == "failed_rendering"
+    assert "I2V failed" in str(production.error_blob)
