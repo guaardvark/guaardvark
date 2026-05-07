@@ -55,6 +55,7 @@ const SwarmPage = lazy(() => import("./pages/SwarmPage"));
 const OutreachPage = lazy(() => import("./pages/OutreachPage"));
 const VoiceChatPage = lazy(() => import("./pages/VoiceChatPage"));
 const SystemMapPage = lazy(() => import("./pages/SystemMapPage"));
+const FilmCrewPage = lazy(() => import("./pages/FilmCrewPage"));
 import Sidebar from "./components/layout/Sidebar";
 import ProgressFooterBar from "./components/layout/ProgressFooterBar";
 import { StatusProvider } from "./contexts/StatusContext";
@@ -439,6 +440,16 @@ const AppContainer = () => {
                           <AppLayout>
                             <ErrorBoundary>
                               <SwarmPage />
+                            </ErrorBoundary>
+                          </AppLayout>
+                        }
+                      />
+                      <Route
+                        path="/film-crew"
+                        element={
+                          <AppLayout>
+                            <ErrorBoundary>
+                              <FilmCrewPage />
                             </ErrorBoundary>
                           </AppLayout>
                         }
