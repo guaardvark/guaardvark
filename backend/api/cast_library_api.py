@@ -111,22 +111,29 @@ def upload_subject_refs(subject_id):
             n += 1
 
         # Stream-write with a per-file size cap so a malicious / runaway
-        # upload can't fill disk.
+        # upload can't fill disk. Anything that goes wrong inside the loop
+        # (network drop, disk full, write error) must clean up the partial
+        # file — otherwise we leave half-written turds in cast_refs/.
         written = 0
         oversized = False
-        with open(candidate, "wb") as out:
-            while True:
-                chunk = f.stream.read(64 * 1024)
-                if not chunk:
-                    break
-                written += len(chunk)
-                if written > _MAX_REF_BYTES:
-                    oversized = True
-                    break
-                out.write(chunk)
-        if oversized:
+        write_error = None
+        try:
+            with open(candidate, "wb") as out:
+                while True:
+                    chunk = f.stream.read(64 * 1024)
+                    if not chunk:
+                        break
+                    written += len(chunk)
+                    if written > _MAX_REF_BYTES:
+                        oversized = True
+                        break
+                    out.write(chunk)
+        except OSError as e:
+            write_error = e
+        if oversized or write_error is not None:
             candidate.unlink(missing_ok=True)
-            skipped.append({"name": f.filename, "reason": "too large"})
+            reason = "too large" if oversized else f"write failed: {write_error}"
+            skipped.append({"name": f.filename, "reason": reason})
             continue
         saved_paths.append(str(candidate))
 
