@@ -62,6 +62,21 @@ def create():
     }), 201
 
 
+@bp.get("")
+def list_productions():
+    productions = Production.query.order_by(Production.created_at.desc()).all()
+    return jsonify({
+        "productions": [
+            {
+                "id": p.id, "name": p.name, "status": p.status,
+                "current_stage": p.current_stage, "project_id": p.project_id,
+                "created_at": p.created_at.isoformat() if p.created_at else None,
+            }
+            for p in productions
+        ]
+    })
+
+
 @bp.get("/<int:prod_id>")
 def get_production(prod_id):
     p = db.session.get(Production, prod_id)
@@ -82,6 +97,7 @@ def get_production(prod_id):
         "project_id": p.project_id,
         "script_text": p.script_text,
         "settings_json": p.settings_json,
+        "error_blob": p.error_blob,
         "shots": shots,
     })
 

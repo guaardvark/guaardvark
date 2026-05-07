@@ -118,6 +118,20 @@ def test_get_production_returns_full_state(client, app):
     assert data["current_stage"] == "draft"
     assert data["shots"] == []
 
+def test_list_productions(client, app):
+    with app.app_context():
+        p1 = Production(name="A", script_text="x")
+        p2 = Production(name="B", script_text="y")
+        db.session.add_all([p1, p2]); db.session.commit()
+    
+    resp = client.get("/api/production")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert len(data["productions"]) >= 2
+    names = [p["name"] for p in data["productions"]]
+    assert "A" in names
+    assert "B" in names
+
 def test_cast_use_existing_lora(client, app):
     """A subject with a trained LoRA can be referenced by another."""
     with app.app_context():
