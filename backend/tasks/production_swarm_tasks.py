@@ -10,10 +10,16 @@ from backend.services.swarm.agents.casting_director import CastingDirector
 from backend.services.swarm.agents.editor import Editor
 
 
-def _default_ollama_llm(messages, model="gemma4:e4b"):
+def _default_ollama_llm(*, system: str, user: str, model: str = "gemma4:e4b") -> str:
     import ollama
-    response = ollama.chat(model=model, messages=messages)
-    return response['message']['content']
+    response = ollama.chat(
+        model=model,
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+    )
+    return response["message"]["content"]
 
 
 def create_production_swarm_tasks(celery_app: Celery):

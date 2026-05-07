@@ -366,7 +366,20 @@ def test_regenerate_shot_rejects_mismatched_production(client, app):
     assert resp.status_code == 404
 
 
-def test_regenerate_shot_tolerates_unwired_dispatcher(client, app):
+def test_regenerate_shot_dispatches_celery_task(client, app, monkeypatch):
+    sent = {}
+
+    class _FakeTask:
+        id = "fake-task-id-123"
+
+    def _fake_send_task(name, args=None, **kw):
+        sent["name"] = name
+        sent["args"] = args
+        return _FakeTask()
+
+    from backend import celery_app as celery_app_module
+    monkeypatch.setattr(celery_app_module.celery, "send_task", _fake_send_task)
+
     with app.app_context():
         from backend.models import Production, ProductionShot
         prod = Production(name="P", script_text="x", status="awaiting_approval",
@@ -381,4 +394,6 @@ def test_regenerate_shot_tolerates_unwired_dispatcher(client, app):
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["regen_count"] == 1
-    assert data["regen_job_id"] is None
+    assert data["regen_job_id"] == "fake-task-id-123"
+    assert sent["name"] == "production.regen_storyboard_shot"
+    assert sent["args"] == [shot_id, None]
