@@ -20,8 +20,10 @@ def _dispatch_lora_train(subject_id: int) -> str | None:
 
 
 def _dispatch_storyboard_regen(shot_id: int, prompt_override: str | None) -> str | None:
-    """Dispatch a single-shot storyboard regeneration via Celery. Stub for now."""
-    raise NotImplementedError("storyboard regen Celery task not yet wired")
+    """Dispatch a single-shot storyboard regeneration via Celery."""
+    from backend.celery_app import celery
+    task = celery.send_task("production.regen_storyboard_shot", args=[shot_id, prompt_override])
+    return task.id
 
 
 @bp.post("")

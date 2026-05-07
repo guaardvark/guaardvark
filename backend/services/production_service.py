@@ -118,12 +118,9 @@ class ProductionService:
         )
 
     def dispatch_agent(self, prod_id: int, agent_name: str) -> None:
-        """Hook implemented by Phase D (swarm wiring) — stub here so resume_all
-        and tests can monkeypatch this method without depending on the swarm.
-        """
-        raise NotImplementedError(
-            f"dispatch_agent({prod_id}, {agent_name}) called before swarm wiring"
-        )
+        from backend.celery_app import celery
+        task_name = f"production.run_{agent_name}"
+        celery.send_task(task_name, args=[prod_id])
 
     def resume_all(self) -> int:
         """Boot-time resume. For each non-terminal Production, dispatch the agent
