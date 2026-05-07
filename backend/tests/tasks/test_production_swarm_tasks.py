@@ -165,6 +165,36 @@ def test_run_cinematographer_dispatches_storyboard_artist_next(mock_current_app,
         mock_send_task.assert_called_once_with("production.run_storyboard_artist", args=[production.id])
 
 
+def test_run_cinematographer_drops_hallucinated_subject_ids(app, production):
+    """The LLM occasionally invents subject_ids that aren't in the set we passed.
+    We must filter those out before insert — otherwise the FK constraint blows
+    up the whole transaction and the production gets stuck."""
+    production.current_stage = "cinematography"
+    real = Subject(name="Alice", kind="character", description="real subject")
+    db.session.add(real); db.session.commit()
+    real_id = real.id
+    shot = ProductionShot(production_id=production.id, scene_number=1, shot_number=1, description="Wide")
+    db.session.add(shot); db.session.commit()
+
+    def fake_llm(*args, **kwargs):
+        return json.dumps({
+            "plans": [{
+                "scene_number": 1, "shot_number": 1,
+                "camera_angle": "wide", "framing": "full body",
+                "duration_seconds": 3.0, "mood": "calm",
+                "image_prompt": "x",
+                "subjects_in_shot": [real_id, 99999, -1],  # one real, two bogus
+            }]
+        })
+
+    with patch("backend.celery_app.celery.send_task"):
+        run_cinematographer(production.id, llm=fake_llm)
+
+    rows = ProductionShotSubject.query.filter_by(shot_id=shot.id).all()
+    assert len(rows) == 1
+    assert rows[0].subject_id == real_id
+
+
 def test_run_storyboard_artist_advances_to_awaiting_approval(app, production):
     production.current_stage = "storyboard_gen"
     shot = ProductionShot(production_id=production.id, scene_number=1, shot_number=1, description="Wide shot")

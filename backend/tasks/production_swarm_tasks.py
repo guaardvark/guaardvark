@@ -170,17 +170,18 @@ def run_cinematographer(prod_id: int, llm=None):
         return
 
     agent = Cinematographer(llm=llm)
-    
+
     shots = ProductionShot.query.filter_by(production_id=prod_id).all()
-    subjects = Subject.query.all()  # Or just subjects related to this prod? The prompt says "Subjects (with their ids)"
-    
+    subjects = Subject.query.all()
+    valid_subject_ids = {s.id for s in subjects}
+
     input_data = {
         "shots": [{"scene_number": s.scene_number, "shot_number": s.shot_number, "description": s.description} for s in shots],
         "subjects": [{"id": s.id, "name": s.name, "description": s.description} for s in subjects]
     }
-    
+
     inv = agent.invoke(input_data)
-    
+
     msg = SwarmMessage(
         production_id=prod_id,
         agent_name="cinematographer",
@@ -201,21 +202,25 @@ def run_cinematographer(prod_id: int, llm=None):
     out = inv.output
     for plan in out.plans:
         shot = ProductionShot.query.filter_by(
-            production_id=prod_id, 
-            scene_number=plan.scene_number, 
+            production_id=prod_id,
+            scene_number=plan.scene_number,
             shot_number=plan.shot_number
         ).first()
         if shot:
             shot.camera_angle = plan.camera_angle
             shot.duration_seconds = plan.duration_seconds
             shot.description = f"{shot.description}\n\nIMAGE PROMPT: {plan.image_prompt}"
-            
+
+            # M2: validate subject_ids against the set we actually passed to the
+            # LLM. Models occasionally hallucinate IDs (e.g. echoing the
+            # scene_number as a subject_id); inserting those would FK-violate.
             for subj_id in plan.subjects_in_shot:
-                pss = ProductionShotSubject(shot_id=shot.id, subject_id=subj_id)
-                db.session.add(pss)
-                
+                if subj_id not in valid_subject_ids:
+                    continue
+                db.session.add(ProductionShotSubject(shot_id=shot.id, subject_id=subj_id))
+
     db.session.commit()
-    
+
     advanced = ProductionService(db.session).advance_if_predecessor(prod_id, expected_predecessor="cinematography")
     if advanced:
         from backend.celery_app import celery
