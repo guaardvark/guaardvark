@@ -14,28 +14,39 @@ import {
   DialogActions,
   TextField,
   IconButton,
-  Tooltip
+  Tooltip,
+  Alert
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
-const StoryboardGrid = ({ productionId, currentStage, shots, onRegenerate, onApproveAll }) => {
+const StoryboardGrid = ({ productionId, currentStage, shots, onRegenerate, onApproveAll, isApproving }) => {
   const [regenShot, setRegenShot] = useState(null);
   const [promptOverride, setPromptOverride] = useState('');
   const [loading, setLoading] = useState(false);
+  const [regenError, setRegenError] = useState(null);
 
   const handleRegenClick = (shot) => {
     setRegenShot(shot);
     setPromptOverride('');
+    setRegenError(null);
+  };
+
+  const handleCloseRegen = () => {
+    setRegenShot(null);
+    setRegenError(null);
   };
 
   const handleConfirmRegen = async () => {
     setLoading(true);
+    setRegenError(null);
     try {
       await onRegenerate(regenShot.id, { prompt_override: promptOverride });
       setRegenShot(null);
     } catch (err) {
-      console.error('Regen failed', err);
+      // Keep dialog open with the error visible — closing silently and not
+      // regenerating leaves the user wondering why nothing happened.
+      setRegenError(err.response?.data?.error || 'Regeneration failed. Try again.');
     } finally {
       setLoading(false);
     }
@@ -48,13 +59,14 @@ const StoryboardGrid = ({ productionId, currentStage, shots, onRegenerate, onApp
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h6">Storyboard</Typography>
         {canApprove && (
-          <Button 
-            variant="contained" 
-            color="success" 
+          <Button
+            variant="contained"
+            color="success"
             startIcon={<CheckCircleIcon />}
             onClick={onApproveAll}
+            disabled={isApproving}
           >
-            Approve & Render
+            {isApproving ? 'Approving…' : 'Approve & Render'}
           </Button>
         )}
       </Box>
@@ -109,12 +121,17 @@ const StoryboardGrid = ({ productionId, currentStage, shots, onRegenerate, onApp
         ))}
       </Grid>
 
-      <Dialog open={!!regenShot} onClose={() => setRegenShot(null)}>
+      <Dialog open={!!regenShot} onClose={handleCloseRegen}>
         <DialogTitle>Regenerate Shot {regenShot?.scene_number}.{regenShot?.shot_number}</DialogTitle>
         <DialogContent>
           <Typography variant="body2" sx={{ mb: 2 }}>
             Optionally override the prompt for this shot. If left blank, the original description will be used.
           </Typography>
+          {regenError && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setRegenError(null)}>
+              {regenError}
+            </Alert>
+          )}
           <TextField
             fullWidth
             multiline
@@ -126,10 +143,10 @@ const StoryboardGrid = ({ productionId, currentStage, shots, onRegenerate, onApp
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setRegenShot(null)}>Cancel</Button>
-          <Button 
-            onClick={handleConfirmRegen} 
-            variant="contained" 
+          <Button onClick={handleCloseRegen}>Cancel</Button>
+          <Button
+            onClick={handleConfirmRegen}
+            variant="contained"
             disabled={loading}
           >
             {loading ? 'Rolling...' : 'Regenerate'}

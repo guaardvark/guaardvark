@@ -11,13 +11,14 @@ import StageProgress from './StageProgress';
 import CastingPanel from './CastingPanel';
 import StoryboardGrid from './StoryboardGrid';
 
-const ProductionDetail = ({ 
-  production, 
-  loading, 
-  error, 
-  onCastingConfirmed, 
-  onRegenerateShot, 
-  onApproveStoryboard 
+const ProductionDetail = ({
+  production,
+  loading,
+  error,
+  approving,
+  onCastingConfirmed,
+  onRegenerateShot,
+  onApproveStoryboard
 }) => {
   if (loading) {
     return (
@@ -75,12 +76,13 @@ const ProductionDetail = ({
 
       {['storyboard_gen', 'awaiting_approval', 'rendering', 'complete'].includes(production.current_stage) && (
         <Paper sx={{ p: 2, mb: 3 }}>
-          <StoryboardGrid 
+          <StoryboardGrid
             productionId={production.id}
             currentStage={production.current_stage}
             shots={production.shots || []}
             onRegenerate={onRegenerateShot}
             onApproveAll={onApproveStoryboard}
+            isApproving={approving}
           />
         </Paper>
       )}

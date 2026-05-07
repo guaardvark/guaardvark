@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Box, Typography, Chip, IconButton, CircularProgress, Alert } from "@mui/material";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import ImageIcon from "@mui/icons-material/Image";
@@ -38,6 +38,17 @@ const DragDropImageUpload = React.forwardRef(function DragDropImageUpload(
     setSkipped([]);
     setError(null);
   }, [staged]);
+
+  // Revoke object URLs on unmount so closing the Create Subject dialog
+  // mid-staging doesn't permanently leak preview blobs. The ref-based
+  // closure captures whatever's staged at unmount time.
+  const stagedRef = useRef(staged);
+  stagedRef.current = staged;
+  useEffect(() => {
+    return () => {
+      stagedRef.current.forEach((s) => URL.revokeObjectURL(s.previewUrl));
+    };
+  }, []);
 
   const sendToServer = useCallback(
     async (files, targetSubjectId) => {
@@ -80,6 +91,7 @@ const DragDropImageUpload = React.forwardRef(function DragDropImageUpload(
 
   const handleFiles = useCallback(
     async (fileList) => {
+      if (uploading) return;  // refuse concurrent drops mid-upload
       const files = Array.from(fileList || []);
       if (!files.length) return;
 
@@ -91,12 +103,13 @@ const DragDropImageUpload = React.forwardRef(function DragDropImageUpload(
         setStaged((prev) => [...prev, ...additions]);
       }
     },
-    [subjectId, sendToServer],
+    [subjectId, sendToServer, uploading],
   );
 
   const onDrop = (e) => {
     e.preventDefault();
     setDragOver(false);
+    if (uploading) return;
     handleFiles(e.dataTransfer?.files);
   };
 
