@@ -72,6 +72,34 @@ def _resolve_video_path(doc: DBDocument) -> Path | None:
     return resolve_document_path(doc)
 
 
+# Thumbnail URL builders — kept here so the frontend doesn't have to know
+# which endpoint serves which media kind. If we ever swap the thumbnail
+# routing (caching CDN, signed URLs, etc.) this is the only place to change.
+def _video_thumb_url(doc: DBDocument) -> str:
+    # ?document_id= form routes through resolve_document_path on the backend,
+    # so comfyui-output videos thumbnail correctly even though they live
+    # outside data/uploads/.
+    return f"/api/files/thumbnail?document_id={doc.id}"
+
+
+def _image_thumb_url(doc: DBDocument) -> str:
+    # Images are small enough that the original IS the thumbnail; the
+    # frontend can size it down with CSS. No need for a separate cache.
+    return f"/api/files/document/{doc.id}/download"
+
+
+def _decorate_with_thumbnail(doc: DBDocument, kind: str) -> dict:
+    row = doc.to_dict()
+    if kind == "video":
+        row["thumbnail_url"] = _video_thumb_url(doc)
+    elif kind == "image":
+        row["thumbnail_url"] = _image_thumb_url(doc)
+    else:
+        # Audio: no visual thumb. Frontend renders the kind-specific icon.
+        row["thumbnail_url"] = None
+    return row
+
+
 @video_overlay_bp.route("/videos", methods=["GET"])
 def list_videos():
     """List video Documents the user could overlay text onto.
@@ -90,7 +118,7 @@ def list_videos():
         .all()
     )
     return success_response({
-        "videos": [d.to_dict() for d in rows],
+        "videos": [_decorate_with_thumbnail(d, "video") for d in rows],
         "total": len(rows),
     })
 
@@ -108,7 +136,7 @@ def list_audio_library():
         .all()
     )
     return success_response({
-        "audio": [d.to_dict() for d in rows],
+        "audio": [_decorate_with_thumbnail(d, "audio") for d in rows],
         "total": len(rows),
     })
 
@@ -126,7 +154,7 @@ def list_image_library():
         .all()
     )
     return success_response({
-        "images": [d.to_dict() for d in rows],
+        "images": [_decorate_with_thumbnail(d, "image") for d in rows],
         "total": len(rows),
     })
 

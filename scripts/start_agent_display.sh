@@ -287,7 +287,7 @@ start() {
     if pgrep -f "Xvfb :$DISPLAY_NUM" > /dev/null 2>&1; then
         echo "  Xvfb already running"
     else
-        Xvfb :$DISPLAY_NUM -screen 0 $RESOLUTION -ac >/dev/null 2>&1 &
+        Xvfb :$DISPLAY_NUM -screen 0 $RESOLUTION -ac -s 0 -dpms >/dev/null 2>&1 &
         echo $! > "$PID_DIR/xvfb.pid"
         sleep 1
         echo "  Xvfb started (PID $(cat $PID_DIR/xvfb.pid))"

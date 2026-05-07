@@ -1129,21 +1129,49 @@ def download_document(doc_id):
 
 @files_bp.route("/thumbnail", methods=["GET"])
 def get_thumbnail():
-    """GET /api/files/thumbnail?path=<document_path> - Get thumbnail for an image document.
-    Looks for a thumbnail in a thumbnails/ subdirectory next to the image.
-    Falls back to serving the original image if no thumbnail exists."""
+    """GET /api/files/thumbnail - Get thumbnail for a document.
+
+    Two ways to identify the file:
+      ?path=<virtual_path>    - legacy. Joins against UPLOAD_BASE. Only
+                                works for files inside data/uploads/.
+      ?document_id=<int>      - preferred. Routes through
+                                resolve_document_path so files outside
+                                UPLOAD_BASE (e.g. plugins/comfyui/.../output)
+                                are reachable too.
+
+    Looks for a cached thumbnail in a thumbnails/ subdirectory next to
+    the source. Generates one on the fly for video files via ffmpeg.
+    Falls back to serving the original file when nothing else hits.
+    """
+    doc_id_arg = request.args.get("document_id", "").strip()
     doc_path = request.args.get("path", "").strip()
-    if not doc_path:
-        return error_response("path parameter required", 400, "NO_PATH")
 
-    if not ensure_path_is_safe(doc_path):
-        return error_response("Invalid path", 400, "INVALID_PATH")
+    doc_physical: Path | None = None
 
-    base = get_upload_base_path()
-    doc_physical = base / doc_path.lstrip("/")
-
-    if not doc_physical.exists():
-        return error_response("File not found", 404, "FILE_NOT_FOUND")
+    if doc_id_arg:
+        # The document_id path. Lets us thumbnail anything the resolver
+        # can find — including comfyui outputs that the path-based form
+        # always 404'd for.
+        try:
+            doc_id = int(doc_id_arg)
+        except ValueError:
+            return error_response("document_id must be an integer", 400, "INVALID_DOC_ID")
+        doc_row = db.session.get(DBDocument, doc_id)
+        if doc_row is None:
+            return error_response("Document not found", 404, "DOCUMENT_NOT_FOUND")
+        from backend.services.document_path_resolver import resolve_document_path
+        doc_physical = resolve_document_path(doc_row)
+        if doc_physical is None:
+            return error_response("File not found", 404, "FILE_NOT_FOUND")
+    elif doc_path:
+        if not ensure_path_is_safe(doc_path):
+            return error_response("Invalid path", 400, "INVALID_PATH")
+        base = get_upload_base_path()
+        doc_physical = base / doc_path.lstrip("/")
+        if not doc_physical.exists():
+            return error_response("File not found", 404, "FILE_NOT_FOUND")
+    else:
+        return error_response("path or document_id parameter required", 400, "NO_TARGET")
 
     # Look for thumbnail in thumbnails/ subdirectory
     parent_dir = doc_physical.parent

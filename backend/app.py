@@ -528,7 +528,7 @@ def _initialize_app_components(app):
 
     CORS(
         app,
-        origins=allowed_origins,
+        resources={r"/api/*": {"origins": allowed_origins}, r"/health*": {"origins": allowed_origins}},
         supports_credentials=supports_credentials,
         allow_headers=["Content-Type", "Authorization", "X-API-Key"],
         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],

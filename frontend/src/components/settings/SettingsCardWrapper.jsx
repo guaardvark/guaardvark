@@ -64,7 +64,8 @@ const SettingsCardWrapper = React.forwardRef(
         <Divider />
         <Box
           sx={{
-            overflowX: "hidden",
+            overflowX: "auto",
+            minWidth: 0,
             p: "15px",
           }}
         >

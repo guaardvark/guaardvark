@@ -51,7 +51,7 @@ const SettingsRow = ({ label, icon, children, stacked, ...props }) => {
       }}
       {...props}
     >
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0, flexShrink: 0 }}>
         {icon && (
           <Box sx={{ color: "text.secondary", display: "flex", opacity: 0.7 }}>
             {icon}
@@ -61,7 +61,18 @@ const SettingsRow = ({ label, icon, children, stacked, ...props }) => {
           {label}
         </Typography>
       </Box>
-      <Box sx={{ flexShrink: 0 }}>{children}</Box>
+      <Box
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          maxWidth: "100%",
+          display: "flex",
+          justifyContent: "flex-end",
+          alignItems: "center",
+        }}
+      >
+        {children}
+      </Box>
     </Box>
   );
 };

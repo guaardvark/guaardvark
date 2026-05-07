@@ -20,9 +20,6 @@ import {
   Divider,
   CircularProgress,
   Alert,
-  Tabs,
-  Tab,
-  Grid,
 } from "@mui/material";
 import {
   PlayArrow as PlayIcon,
@@ -32,9 +29,9 @@ import {
   TextFields as TextIcon,
   MovieFilter as VideoIcon,
   GraphicEq as AudioIcon,
-  Image as ImageIcon,
 } from "@mui/icons-material";
 import PageLayout from "../components/layout/PageLayout";
+import MediaLibraryPanel from "../components/videoeditor/MediaLibraryPanel";
 import { listVideoDocuments, listAudioDocuments, listImageDocuments, renderTimeline } from "../api/videoOverlayService";
 import { getJobsGate } from "../api/jobsService";
 
@@ -65,7 +62,6 @@ const VideoEditorPage = () => {
   const [mediaLibrary, setMediaLibrary] = useState([]);
   const [audioLibrary, setAudioLibrary] = useState([]);
   const [imageLibrary, setImageLibrary] = useState([]);
-  const [mediaTab, setMediaTab] = useState(0);  // 0=Video, 1=Audio, 2=Images
   const [loadingMedia, setLoadingMedia] = useState(false);
   const [videoDuration, setVideoDuration] = useState(0);  // for visual trim slider
   const [selectedItem, setSelectedItem] = useState(null);  // {type, id} for properties panel
@@ -315,89 +311,19 @@ const VideoEditorPage = () => {
       <Box sx={{ display: "flex", flexDirection: "column", height: "calc(100vh - 96px)", p: 2, gap: 2 }}>
         {/* Top half: preview + media library + properties */}
         <Box sx={{ display: "flex", gap: 2, flex: 1, minHeight: 0 }}>
-          {/* Media library — left. Tabbed icon-grid: Video / Audio / Images.
-              Each tile is draggable onto its matching timeline track. */}
-          <Paper elevation={2} sx={{ width: 280, display: "flex", flexDirection: "column", minHeight: 0 }}>
-            <Tabs
-              value={mediaTab}
-              onChange={(_, v) => setMediaTab(v)}
-              variant="fullWidth"
-              sx={{ borderBottom: 1, borderColor: "divider", minHeight: 40 }}
-            >
-              <Tab icon={<VideoIcon fontSize="small" />} label={`Video (${mediaLibrary.length})`} sx={{ minHeight: 40, textTransform: "none", fontSize: "0.75rem" }} />
-              <Tab icon={<AudioIcon fontSize="small" />} label={`Audio (${audioLibrary.length})`} sx={{ minHeight: 40, textTransform: "none", fontSize: "0.75rem" }} />
-              <Tab icon={<ImageIcon fontSize="small" />} label={`Images (${imageLibrary.length})`} sx={{ minHeight: 40, textTransform: "none", fontSize: "0.75rem" }} />
-            </Tabs>
-
-            <Box sx={{ flex: 1, p: 1, overflow: "auto" }}>
-              {loadingMedia && <CircularProgress size={20} />}
-              {(() => {
-                const list = mediaTab === 0 ? mediaLibrary : mediaTab === 1 ? audioLibrary : imageLibrary;
-                const kind = mediaTab === 0 ? "video" : mediaTab === 1 ? "audio" : "image";
-                const Icon = mediaTab === 0 ? VideoIcon : mediaTab === 1 ? AudioIcon : ImageIcon;
-                const iconColor = mediaTab === 0 ? "primary.main" : mediaTab === 1 ? TRACK_COLORS.audio : "info.main";
-                if (!loadingMedia && list.length === 0) {
-                  return (
-                    <Typography variant="caption" color="text.secondary" sx={{ p: 1, display: "block" }}>
-                      Nothing here yet. Generate via the Studio or import from Documents.
-                    </Typography>
-                  );
-                }
-                return (
-                  <Grid container spacing={1}>
-                    {list.map((item) => (
-                      <Grid item xs={6} key={`${kind}-${item.id}`}>
-                        <Paper
-                          variant="outlined"
-                          draggable
-                          onDragStart={(e) => handleDragStartMedia(e, item, kind)}
-                          onClick={() => kind === "video" && handleAddMedia(item)}
-                          sx={{
-                            p: 1,
-                            cursor: "grab",
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            gap: 0.5,
-                            "&:hover": { bgcolor: "action.hover", borderColor: iconColor },
-                            "&:active": { cursor: "grabbing" },
-                            aspectRatio: "1 / 1",
-                            justifyContent: "center",
-                            textAlign: "center",
-                          }}
-                        >
-                          {kind === "image" ? (
-                            <Box
-                              component="img"
-                              src={`${API_BASE}/files/document/${item.id}/download`}
-                              sx={{ maxWidth: "100%", maxHeight: 60, objectFit: "contain", borderRadius: 0.5 }}
-                              onError={(e) => { e.target.style.display = "none"; }}
-                            />
-                          ) : (
-                            <Icon sx={{ fontSize: 36, color: iconColor }} />
-                          )}
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              fontSize: "0.65rem",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                              width: "100%",
-                              lineHeight: 1.2,
-                            }}
-                            title={item.filename}
-                          >
-                            {item.filename}
-                          </Typography>
-                        </Paper>
-                      </Grid>
-                    ))}
-                  </Grid>
-                );
-              })()}
-            </Box>
-          </Paper>
+          {/* Media library — left. Owns its own tab/view-mode/drill state.
+              Item click + drag handlers come from the page so the timeline
+              drop-targets stay wired the way they always were. */}
+          <MediaLibraryPanel
+            videos={mediaLibrary}
+            audios={audioLibrary}
+            images={imageLibrary}
+            loading={loadingMedia}
+            onItemClick={(item, kind) => {
+              if (kind === "video") handleAddMedia(item);
+            }}
+            onItemDragStart={handleDragStartMedia}
+          />
 
           {/* Preview window — center */}
           <Paper elevation={4} sx={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
