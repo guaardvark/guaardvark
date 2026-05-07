@@ -140,7 +140,7 @@ function buildGraph(systemMap) {
     };
   }
 
-  for (const [src, targets] of Object.entries(dep)) {
+  for (const [, targets] of Object.entries(dep)) {
     for (const t of targets || []) {
       if (nodeMeta[t]) nodeMeta[t].importers++;
     }
@@ -678,7 +678,6 @@ const SystemMapCanvas = forwardRef(function SystemMapCanvas(
       if (st.raf) cancelAnimationFrame(st.raf);
       if (st.sim) st.sim.stop();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
