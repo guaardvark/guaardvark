@@ -48,6 +48,50 @@ def test_advance_succeeds_when_predecessor_matches(app):
     assert result is True
     db.session.refresh(prod)
     assert prod.current_stage == "screenwriting"
+    # status must track current_stage so Activity filter / UI see real state
+    assert prod.status == "screenwriting"
+
+
+def test_advance_keeps_status_in_sync_through_chain(app):
+    svc = ProductionService(db.session)
+    prod = svc.create(name="X", script_text="x", project_id=None)
+    chain = ["draft", "screenwriting", "casting", "cinematography",
+             "storyboard_gen", "awaiting_approval", "rendering"]
+    for predecessor in chain:
+        svc.advance_if_predecessor(prod.id, expected_predecessor=predecessor)
+    db.session.refresh(prod)
+    assert prod.current_stage == "complete"
+    assert prod.status == "complete"
+
+
+def test_fail_stage_persists_failed_status_and_error(app):
+    svc = ProductionService(db.session)
+    prod = svc.create(name="X", script_text="x", project_id=None)
+    prod.current_stage = "storyboard_gen"
+    prod.status = "storyboard_gen"
+    db.session.commit()
+
+    svc.fail_stage(prod.id, stage="storyboard_gen", error="ComfyUI timeout")
+
+    db.session.refresh(prod)
+    assert prod.status == "failed_storyboard_gen"
+    assert prod.error_blob == {"stage": "storyboard_gen", "error": "ComfyUI timeout"}
+
+
+def test_fail_stage_accepts_dict_error(app):
+    svc = ProductionService(db.session)
+    prod = svc.create(name="X", script_text="x", project_id=None)
+    error = {"type": "OOM", "shot": 3, "trace": "..."}
+    svc.fail_stage(prod.id, stage="rendering", error=error)
+    db.session.refresh(prod)
+    assert prod.status == "failed_rendering"
+    assert prod.error_blob == {"stage": "rendering", "error": error}
+
+
+def test_fail_stage_unknown_production_is_noop(app):
+    svc = ProductionService(db.session)
+    # Should not raise
+    svc.fail_stage(9999, stage="screenwriting", error="x")
 
 
 def test_advance_full_chain(app):
@@ -95,13 +139,46 @@ def test_find_non_terminal_excludes_complete_and_failed(app):
                         current_stage="complete", settings_json={})
     p_fail = Production(name="C", script_text="x", status="failed",
                         current_stage="storyboard_gen", settings_json={})
-    db.session.add_all([p_active, p_done, p_fail])
+    p_fail_stage = Production(name="D", script_text="x", status="failed_rendering",
+                              current_stage="rendering", settings_json={})
+    db.session.add_all([p_active, p_done, p_fail, p_fail_stage])
     db.session.commit()
 
     ids = {p.id for p in svc.find_non_terminal()}
     assert p_active.id in ids
     assert p_done.id not in ids
     assert p_fail.id not in ids
+    # Critical: failed_<stage> must NOT be re-dispatched on boot
+    assert p_fail_stage.id not in ids
+
+
+def test_resume_all_isolates_per_production_failures(app, monkeypatch):
+    """One production crashing during dispatch must not strand the others."""
+    p1 = Production(name="A", script_text="x", status="screenwriting",
+                    current_stage="screenwriting", settings_json={})
+    p2 = Production(name="B", script_text="x", status="storyboard_gen",
+                    current_stage="storyboard_gen", settings_json={})
+    p3 = Production(name="C", script_text="x", status="rendering",
+                    current_stage="rendering", settings_json={})
+    db.session.add_all([p1, p2, p3])
+    db.session.commit()
+
+    succeeded = []
+
+    def selective_dispatch(self, prod_id, agent_name):
+        if prod_id == p2.id:
+            raise RuntimeError("agent dispatch failed")
+        succeeded.append((prod_id, agent_name))
+
+    monkeypatch.setattr(ProductionService, "dispatch_agent", selective_dispatch)
+    svc = ProductionService(db.session)
+    count = svc.resume_all()
+
+    # p1 and p3 succeeded; p2 failed but didn't break the loop
+    assert count == 2
+    assert (p1.id, "screenwriter") in succeeded
+    assert (p3.id, "editor") in succeeded
+    assert p2.id not in [pid for pid, _ in succeeded]
 
 
 def test_resume_all_dispatches_at_current_stage(app, monkeypatch):

@@ -85,17 +85,35 @@ class ProductionService:
         if next_stage is None:
             return False
         p.current_stage = next_stage
-        if next_stage == "complete":
-            p.status = "complete"
+        # Keep status synced with the active stage so Activity/UI filters see real state.
+        p.status = next_stage
         self.s.commit()
         return True
+
+    def fail_stage(self, prod_id: int, *, stage: str, error) -> None:
+        """Persist a failed-stage status and error blob. Used by agent dispatchers
+        when an agent returns a non-OK AgentInvocation. Status becomes
+        ``failed_<stage>`` so the boot-time resumer knows to skip it.
+        """
+        p = self.s.get(Production, prod_id)
+        if p is None:
+            return
+        p.status = f"failed_{stage}"
+        p.error_blob = {"stage": stage, "error": error}
+        self.s.commit()
 
     # --- Resumability ------------------------------------------------------
 
     def find_non_terminal(self) -> list[Production]:
+        # Exclude both raw terminal statuses ("complete"/"failed") AND
+        # the per-stage failure pattern (failed_screenwriting, failed_rendering, ...).
+        # Without the like-clause, failed productions get re-dispatched every boot.
         return (
             self.s.query(Production)
-            .filter(~Production.status.in_(list(TERMINAL_STATUSES)))
+            .filter(
+                ~Production.status.in_(list(TERMINAL_STATUSES)),
+                ~Production.status.like("failed_%"),
+            )
             .all()
         )
 
@@ -112,15 +130,21 @@ class ProductionService:
         responsible for its current stage. User-gated stages are skipped (the user
         will trigger the next step from the UI).
 
-        Returns the count of productions re-dispatched.
+        Per-production dispatch failures are caught and logged so one bad row
+        can't strand the rest. Returns the count of successful dispatches.
         """
+        import logging
+        log = logging.getLogger(__name__)
         count = 0
         for p in self.find_non_terminal():
             agent = STAGE_TO_AGENT.get(p.current_stage)
             if agent is None:
                 continue
-            self.dispatch_agent(p.id, agent)
-            count += 1
+            try:
+                self.dispatch_agent(p.id, agent)
+                count += 1
+            except Exception as e:
+                log.warning(f"Resume failed for production {p.id} (stage={p.current_stage}): {e}")
         return count
 
     # --- GPU gate ----------------------------------------------------------
