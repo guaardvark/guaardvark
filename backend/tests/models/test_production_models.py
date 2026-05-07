@@ -1,7 +1,27 @@
-from backend.models import (
-    db, Production, Subject, ProductionShot,
-    ProductionShotSubject, SwarmMessage,
-)
+import pytest
+
+try:
+    from flask import Flask
+    from backend.models import (
+        db, Production, Subject, ProductionShot,
+        ProductionShotSubject, SwarmMessage,
+    )
+except Exception:
+    pytest.skip("Backend modules not available", allow_module_level=True)
+
+
+@pytest.fixture
+def app():
+    app = Flask(__name__)
+    app.config.update(
+        {"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"}
+    )
+    db.init_app(app)
+    with app.app_context():
+        db.create_all()
+        yield app
+        db.session.remove()
+        db.drop_all()
 
 
 def test_production_model_exists(app):
