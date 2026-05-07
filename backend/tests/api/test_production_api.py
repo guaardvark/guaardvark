@@ -117,3 +117,134 @@ def test_get_production_returns_full_state(client, app):
     assert data["name"] == "X"
     assert data["current_stage"] == "draft"
     assert data["shots"] == []
+
+def test_cast_use_existing_lora(client, app):
+    """A subject with a trained LoRA can be referenced by another."""
+    with app.app_context():
+        from backend.models import Subject
+        # Existing trained subject
+        trained = Subject(kind="character", name="Dean", description="x",
+                          lora_path="/loras/dean.safetensors", training_status="trained",
+                          ref_image_paths=[])
+        # New subject we want to cast
+        new_subj = Subject(kind="character", name="Dean", description="y",
+                           training_status="untrained", ref_image_paths=[])
+        # A Production
+        from backend.models import Production
+        prod = Production(name="P", script_text="x", status="casting",
+                          current_stage="casting", settings_json={})
+        db.session.add_all([trained, new_subj, prod]); db.session.commit()
+        prod_id, new_id, trained_id = prod.id, new_subj.id, trained.id
+
+    resp = client.post(f"/api/production/{prod_id}/cast/{new_id}", json={
+        "action": "use_existing_lora", "existing_lora_id": trained_id,
+    })
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["training_status"] == "trained"
+    assert data["training_job_id"] is None
+
+    # Verify DB
+    with app.app_context():
+        from backend.models import Subject
+        s = db.session.get(Subject, new_id)
+        assert s.training_status == "trained"
+        assert s.lora_path == "/loras/dean.safetensors"
+
+
+def test_cast_use_existing_lora_404_for_unknown_lora(client, app):
+    with app.app_context():
+        from backend.models import Subject, Production
+        subj = Subject(kind="character", name="X", description="x",
+                       training_status="untrained", ref_image_paths=[])
+        prod = Production(name="P", script_text="x", status="casting",
+                          current_stage="casting", settings_json={})
+        db.session.add_all([subj, prod]); db.session.commit()
+        prod_id, subj_id = prod.id, subj.id
+    resp = client.post(f"/api/production/{prod_id}/cast/{subj_id}", json={
+        "action": "use_existing_lora", "existing_lora_id": 99999,
+    })
+    assert resp.status_code == 404
+
+
+def test_cast_train_from_uploads_dispatches(client, app, monkeypatch):
+    """When dispatch succeeds, returns the task id."""
+    with app.app_context():
+        from backend.models import Subject, Production
+        subj = Subject(kind="character", name="X", description="x",
+                       training_status="untrained", ref_image_paths=[])
+        prod = Production(name="P", script_text="x", status="casting",
+                          current_stage="casting", settings_json={})
+        db.session.add_all([subj, prod]); db.session.commit()
+        prod_id, subj_id = prod.id, subj.id
+
+    from backend.api import production_api
+    monkeypatch.setattr(production_api, "_dispatch_lora_train", lambda sid: "task-abc")
+
+    resp = client.post(f"/api/production/{prod_id}/cast/{subj_id}", json={
+        "action": "train_from_uploads",
+        "ref_image_paths": ["/uploads/a.jpg", "/uploads/b.jpg"],
+    })
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["training_status"] == "training"
+    assert data["training_job_id"] == "task-abc"
+
+
+def test_cast_train_from_uploads_tolerates_unwired_dispatcher(client, app):
+    """If lora_trainer isn't wired (NotImplementedError), state still moves;
+    training_job_id is null."""
+    with app.app_context():
+        from backend.models import Subject, Production
+        subj = Subject(kind="character", name="X", description="x",
+                       training_status="untrained", ref_image_paths=[])
+        prod = Production(name="P", script_text="x", status="casting",
+                          current_stage="casting", settings_json={})
+        db.session.add_all([subj, prod]); db.session.commit()
+        prod_id, subj_id = prod.id, subj.id
+
+    resp = client.post(f"/api/production/{prod_id}/cast/{subj_id}", json={
+        "action": "train_from_uploads",
+        "ref_image_paths": ["/uploads/a.jpg"],
+    })
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["training_status"] == "training"
+    assert data["training_job_id"] is None
+
+
+def test_cast_train_from_uploads_requires_refs(client, app):
+    with app.app_context():
+        from backend.models import Subject, Production
+        subj = Subject(kind="character", name="X", description="x",
+                       training_status="untrained", ref_image_paths=[])
+        prod = Production(name="P", script_text="x", status="casting",
+                          current_stage="casting", settings_json={})
+        db.session.add_all([subj, prod]); db.session.commit()
+        prod_id, subj_id = prod.id, subj.id
+    resp = client.post(f"/api/production/{prod_id}/cast/{subj_id}", json={
+        "action": "train_from_uploads",
+    })
+    assert resp.status_code == 400
+
+
+def test_cast_invalid_action(client, app):
+    with app.app_context():
+        from backend.models import Subject, Production
+        subj = Subject(kind="character", name="X", description="x",
+                       training_status="untrained", ref_image_paths=[])
+        prod = Production(name="P", script_text="x", status="casting",
+                          current_stage="casting", settings_json={})
+        db.session.add_all([subj, prod]); db.session.commit()
+        prod_id, subj_id = prod.id, subj.id
+    resp = client.post(f"/api/production/{prod_id}/cast/{subj_id}", json={
+        "action": "telepathic_lora_acquisition",
+    })
+    assert resp.status_code == 400
+
+
+def test_cast_404_for_unknown_production(client):
+    resp = client.post("/api/production/9999/cast/1", json={
+        "action": "use_existing_lora", "existing_lora_id": 1,
+    })
+    assert resp.status_code == 404

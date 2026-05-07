@@ -10,6 +10,15 @@ bp = Blueprint("production_api", __name__, url_prefix="/api/production")
 log = logging.getLogger(__name__)
 
 
+VALID_CAST_ACTIONS = {"use_existing_lora", "train_from_uploads", "train_from_generated"}
+
+
+def _dispatch_lora_train(subject_id: int) -> str | None:
+    """Dispatch a LoRA training Celery task. Stub — will call into the
+    lora_trainer plugin once Phase B wiring lands."""
+    raise NotImplementedError("lora_trainer plugin not yet wired (Phase B)")
+
+
 @bp.post("")
 def create():
     body = request.get_json(silent=True) or {}
@@ -67,4 +76,63 @@ def get_production(prod_id):
         "script_text": p.script_text,
         "settings_json": p.settings_json,
         "shots": shots,
+    })
+
+
+@bp.post("/<int:prod_id>/cast/<int:subject_id>")
+def cast_subject(prod_id, subject_id):
+    body = request.get_json(silent=True) or {}
+    action = body.get("action")
+
+    if action not in VALID_CAST_ACTIONS:
+        return jsonify({"error": f"action must be one of {sorted(VALID_CAST_ACTIONS)}"}), 400
+
+    prod = db.session.get(Production, prod_id)
+    if prod is None:
+        return jsonify({"error": "production not found"}), 404
+
+    from backend.models import Subject
+    subj = db.session.get(Subject, subject_id)
+    if subj is None:
+        return jsonify({"error": "subject not found"}), 404
+
+    training_job_id: str | None = None
+
+    if action == "use_existing_lora":
+        existing_id = body.get("existing_lora_id")
+        if existing_id is None:
+            return jsonify({"error": "existing_lora_id is required for use_existing_lora"}), 400
+        existing = db.session.get(Subject, existing_id)
+        if existing is None or not existing.lora_path:
+            return jsonify({"error": "existing_lora_id not found or has no trained LoRA"}), 404
+        subj.lora_path = existing.lora_path
+        subj.training_status = "trained"
+
+    elif action == "train_from_uploads":
+        refs = body.get("ref_image_paths") or []
+        if not refs:
+            return jsonify({"error": "ref_image_paths is required for train_from_uploads"}), 400
+        subj.ref_image_paths = refs
+        subj.training_status = "training"
+        try:
+            training_job_id = _dispatch_lora_train(subj.id)
+        except NotImplementedError:
+            log.debug("LoRA train dispatch deferred (lora_trainer not yet wired)")
+        except Exception as e:
+            log.warning(f"LoRA train dispatch failed for subject {subj.id}: {e}")
+
+    elif action == "train_from_generated":
+        subj.training_status = "training"
+        try:
+            training_job_id = _dispatch_lora_train(subj.id)
+        except NotImplementedError:
+            log.debug("LoRA train dispatch deferred (lora_trainer not yet wired)")
+        except Exception as e:
+            log.warning(f"LoRA train dispatch failed for subject {subj.id}: {e}")
+
+    db.session.commit()
+    return jsonify({
+        "subject_id": subj.id,
+        "training_status": subj.training_status,
+        "training_job_id": training_job_id,
     })
