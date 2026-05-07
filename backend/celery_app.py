@@ -249,6 +249,13 @@ def create_celery_app():
         logger.warning(f"Could not import task scheduler Beat tasks: {e}")
 
     try:
+        from backend.tasks.production_swarm_tasks import create_production_swarm_tasks
+        create_production_swarm_tasks(celery_app)
+        logger.info("Production swarm tasks registered successfully")
+    except ImportError as e:
+        logger.warning(f"Could not import production swarm tasks: {e}")
+
+    try:
         from backend.tasks.social_outreach_tasks import (
             engage_with_subreddit,
             self_share,
