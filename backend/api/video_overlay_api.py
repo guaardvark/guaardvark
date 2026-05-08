@@ -237,18 +237,11 @@ def render_timeline_endpoint():
         return error_response("text_elements must be an array", 400, "INVALID_TEXT_ELEMENTS")
 
     # Source-named output via the resolver (Phase 3 of filename plan): pick
-    # the next free '<source>_NNN.mp4' under data/outputs/videos/editor-renders/.
+    # a unique UUID suffix to avoid collisions under concurrent renders.
     editor_renders_dir = Path("data/outputs/videos/editor-renders")
     editor_renders_dir.mkdir(parents=True, exist_ok=True)
     source_stem = Path(video_doc.filename).stem
-    output_path = None
-    for n in range(1, 1000):
-        candidate = editor_renders_dir / f"{source_stem}_{n:03d}.mp4"
-        if not candidate.exists():
-            output_path = candidate.resolve()
-            break
-    if output_path is None:
-        return error_response("Could not allocate output filename", 500, "FILENAME_ALLOCATION_FAILED")
+    output_path = (editor_renders_dir / f"{source_stem}_{uuid.uuid4().hex[:8]}.mp4").resolve()
 
     # Phase 8 of editor plan — claim the JobOperationGate for VIDEO_RENDER
     # kind so other surfaces (Activity page, Audio Studio, future Image
