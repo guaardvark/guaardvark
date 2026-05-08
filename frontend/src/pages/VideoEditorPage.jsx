@@ -32,6 +32,7 @@ import {
 } from "@mui/icons-material";
 import PageLayout from "../components/layout/PageLayout";
 import MediaLibraryPanel from "../components/videoeditor/MediaLibraryPanel";
+import OverlayLayer from "../components/videoeditor/OverlayLayer";
 import { listVideoDocuments, listAudioDocuments, listImageDocuments, renderTimeline } from "../api/videoOverlayService";
 import { getJobsGate } from "../api/jobsService";
 
@@ -356,55 +357,16 @@ const VideoEditorPage = () => {
                 </Stack>
               )}
 
-              {/* Text overlays — drag to reposition. Pointer events on the
-                  element handle the move; rotation/size still come from the
-                  Properties panel sliders. */}
-              {timeline.textElements.map((t) => (
-                <Box
-                  key={t.id}
-                  onMouseDown={(e) => {
-                    e.stopPropagation();
-                    setSelectedItem({ type: "text", id: t.id });
-                    const startX = e.clientX;
-                    const startY = e.clientY;
-                    const origX = t.x;
-                    const origY = t.y;
-                    let moved = false;
-                    const onMove = (mv) => {
-                      moved = true;
-                      const dx = mv.clientX - startX;
-                      const dy = mv.clientY - startY;
-                      handleUpdateText(t.id, { x: origX + dx, y: origY + dy });
-                    };
-                    const onUp = () => {
-                      window.removeEventListener("mousemove", onMove);
-                      window.removeEventListener("mouseup", onUp);
-                      // If the user just clicked without dragging, that's fine —
-                      // selection already happened on mousedown.
-                      void moved;
-                    };
-                    window.addEventListener("mousemove", onMove);
-                    window.addEventListener("mouseup", onUp);
-                  }}
-                  sx={{
-                    position: "absolute",
-                    left: `${t.x}px`,
-                    top: `${t.y}px`,
-                    transform: `rotate(${t.rotation}deg)`,
-                    color: t.fontColor,
-                    fontSize: `${t.fontSize}px`,
-                    fontWeight: 700,
-                    textShadow: "1px 1px 3px rgba(0,0,0,0.8)",
-                    cursor: "move",
-                    border: selectedItem?.type === "text" && selectedItem.id === t.id
-                      ? "1px dashed yellow" : "1px dashed transparent",
-                    padding: "2px 4px",
-                    userSelect: "none",
-                  }}
-                >
-                  {t.text}
-                </Box>
-              ))}
+              {/* Text overlays — drag to reposition. */}
+              <OverlayLayer
+                textElements={timeline.textElements}
+                selectedTextId={selectedItem?.type === "text" ? selectedItem.id : null}
+                onSelectText={(id) => setSelectedItem({ type: "text", id })}
+                onMoveText={(id, x, y) => setTimeline((prev) => ({
+                  ...prev,
+                  textElements: prev.textElements.map(t => t.id === id ? { ...t, x, y } : t)
+                }))}
+              />
             </Box>
 
             {/* Toolbar under the preview */}
