@@ -146,6 +146,9 @@ def _do_train(cmd):
         from safetensors.torch import save_file
         from peft import get_peft_model_state_dict
         state_dict = get_peft_model_state_dict(unet)
+        # PEFT keeps adapters in fp32 even when the base is bf16. Casting on save
+        # halves the file size with no real fidelity hit for SDXL LoRA inference.
+        state_dict = {k: v.to(_torch.bfloat16) for k, v in state_dict.items()}
         save_file(state_dict, output_path)
         
         _eprint(f"[run_trainer] saved lora to {output_path}")
