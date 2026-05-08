@@ -32,7 +32,7 @@ import {
 } from "@mui/icons-material";
 import PageLayout from "../components/layout/PageLayout";
 import MediaLibraryPanel from "../components/videoeditor/MediaLibraryPanel";
-import { listVideoDocuments, listAudioDocuments, listImageDocuments, renderTimeline } from "../api/videoOverlayService";
+import { listVideoDocuments, listAudioDocuments, listImageDocuments, renderTimeline, getRenderStatus } from "../api/videoOverlayService";
 import { getJobsGate } from "../api/jobsService";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
@@ -67,6 +67,7 @@ const VideoEditorPage = () => {
   const [selectedItem, setSelectedItem] = useState(null);  // {type, id} for properties panel
   const [previewPlaying, setPreviewPlaying] = useState(false);
   const [rendering, setRendering] = useState(false);
+  const [renderJob, setRenderJob] = useState(null);
   const [renderResult, setRenderResult] = useState(null);
   const [gate, setGate] = useState(null);
   const [error, setError] = useState(null);
@@ -235,6 +236,7 @@ const VideoEditorPage = () => {
     setRendering(true);
     setError(null);
     setRenderResult(null);
+    setRenderJob(null);
     try {
       const payload = {
         video_document_id: timeline.video.documentId,
@@ -253,18 +255,40 @@ const VideoEditorPage = () => {
         audio_document_id: timeline.audio?.documentId || null,
         audio_volume: timeline.audio?.volume ?? 1.0,
       };
-      const newDoc = await renderTimeline(payload);
-      setRenderResult({
-        ...newDoc,
-        full_url: `${API_BASE}/files/document/${newDoc.id}/download`,
-      });
+      const { job_id } = await renderTimeline(payload);
+      setRenderJob({ job_id, status: "pending", progress: 0, message: "Dispatching..." });
     } catch (e) {
       console.error("VideoEditorPage: render failed:", e);
       setError(e.response?.data?.error?.message || e.response?.data?.message || e.message || "Render failed");
-    } finally {
       setRendering(false);
     }
   };
+
+  useEffect(() => {
+    if (!renderJob?.job_id || renderJob.status === "completed" || renderJob.status === "failed") {
+      return;
+    }
+    const t = setInterval(async () => {
+      try {
+        const status = await getRenderStatus(renderJob.job_id);
+        setRenderJob(status);
+        if (status.status === "completed") {
+          setRendering(false);
+          setRenderResult({
+            id: status.document_id,
+            full_url: `${API_BASE}/files/document/${status.document_id}/download`,
+            filename: "Rendered Video",
+          });
+        } else if (status.status === "failed") {
+          setRendering(false);
+          setError(status.message || "Render failed");
+        }
+      } catch (e) {
+        console.error("Poll failed", e);
+      }
+    }, 2000);
+    return () => clearInterval(t);
+  }, [renderJob?.job_id, renderJob?.status]);
 
   // HTML5 drag-and-drop. dataTransfer carries the media-library row id +
   // kind ('video' or 'audio') so the timeline drop handler knows where to put it.
@@ -424,7 +448,7 @@ const VideoEditorPage = () => {
                 title={gate?.gpu_busy ? `GPU held by ${gate.gpu_holder?.kind} — wait for it to finish` : ""}
               >
                 {rendering
-                  ? "Rendering..."
+                  ? (renderJob?.progress != null ? `Rendering... ${renderJob.progress}%` : "Rendering...")
                   : (gate?.gpu_busy && gate?.gpu_holder?.kind !== "video_render")
                     ? `GPU busy: ${gate.gpu_holder?.kind}`
                     : "Render"}
