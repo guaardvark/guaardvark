@@ -66,6 +66,9 @@ def test_train_lora_for_subject_updates_subject_row(app, tmp_path, monkeypatch):
         s_id = s.id
 
     monkeypatch.setattr("backend.tasks.lora_trainer_tasks._output_dir", lambda: str(tmp_path))
+    # Pin mock — without this, auto-detect picks real once venv-torch exists
+    # on disk, which would actually try to load SDXL on a shared GPU and fail.
+    monkeypatch.setenv("GUAARDVARK_LORA_BACKEND", "mock")
 
     with app.app_context():
         train_subject_lora_for_subject(s_id)
