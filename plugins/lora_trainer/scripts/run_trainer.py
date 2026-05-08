@@ -88,14 +88,15 @@ def _do_train(cmd):
         images = _torch.stack(images).to("cuda", dtype=_torch.bfloat16)
         
         instance_prompt = params.get("instance_prompt", "a photo")
-        
-        from diffusers.loaders.lora_pipeline import _encode_prompt_sdxl
-        prompt_embeds, pooled_prompt_embeds = _encode_prompt_sdxl(
-            _pipeline,
+
+        # diffusers 0.34 has no public _encode_prompt_sdxl helper. The pipeline's
+        # encode_prompt returns (prompt_embeds, neg_prompt_embeds, pooled, neg_pooled).
+        # CFG off means the negatives come back as None — which is what we want.
+        prompt_embeds, _neg_embeds, pooled_prompt_embeds, _neg_pooled = _pipeline.encode_prompt(
             prompt=instance_prompt,
             device=_torch.device("cuda"),
             num_images_per_prompt=1,
-            do_classifier_free_guidance=False
+            do_classifier_free_guidance=False,
         )
         
         optimizer = _torch.optim.AdamW(
