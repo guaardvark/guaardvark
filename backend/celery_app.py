@@ -256,6 +256,13 @@ def create_celery_app():
         logger.warning(f"Could not import production swarm tasks: {e}")
 
     try:
+        from backend.tasks.lora_trainer_tasks import create_lora_trainer_tasks
+        create_lora_trainer_tasks(celery_app)
+        logger.info("LoRA trainer tasks registered successfully")
+    except ImportError as e:
+        logger.warning(f"Could not import lora_trainer tasks: {e}")
+
+    try:
         from backend.tasks.social_outreach_tasks import (
             engage_with_subreddit,
             self_share,
