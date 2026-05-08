@@ -183,6 +183,19 @@ def test_cast_use_existing_lora_404_for_unknown_lora(client, app):
 
 def test_cast_train_from_uploads_dispatches(client, app, monkeypatch):
     """When dispatch succeeds, returns the task id."""
+    sent = {}
+
+    class _FakeTask:
+        id = "fake-task-id-abc"
+
+    def _fake_send_task(name, args=None, **kw):
+        sent["name"] = name
+        sent["args"] = args
+        return _FakeTask()
+
+    from backend import celery_app as celery_app_module
+    monkeypatch.setattr(celery_app_module.celery, "send_task", _fake_send_task)
+
     with app.app_context():
         from backend.models import Subject, Production
         subj = Subject(kind="character", name="X", description="x",
@@ -192,9 +205,6 @@ def test_cast_train_from_uploads_dispatches(client, app, monkeypatch):
         db.session.add_all([subj, prod]); db.session.commit()
         prod_id, subj_id = prod.id, subj.id
 
-    from backend.api import production_api
-    monkeypatch.setattr(production_api, "_dispatch_lora_train", lambda sid: "task-abc")
-
     resp = client.post(f"/api/production/{prod_id}/cast/{subj_id}", json={
         "action": "train_from_uploads",
         "ref_image_paths": ["/uploads/a.jpg", "/uploads/b.jpg"],
@@ -202,10 +212,12 @@ def test_cast_train_from_uploads_dispatches(client, app, monkeypatch):
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["training_status"] == "training"
-    assert data["training_job_id"] == "task-abc"
+    assert data["training_job_id"] == "fake-task-id-abc"
+    assert sent["name"] == "lora_trainer.train_lora"
+    assert sent["args"] == [subj_id]
 
 
-def test_cast_train_from_uploads_tolerates_unwired_dispatcher(client, app):
+def test_cast_train_from_uploads_tolerates_unwired_dispatcher(client, app, monkeypatch):
     """If lora_trainer isn't wired (NotImplementedError), state still moves;
     training_job_id is null."""
     with app.app_context():
@@ -216,6 +228,11 @@ def test_cast_train_from_uploads_tolerates_unwired_dispatcher(client, app):
                           current_stage="casting", settings_json={})
         db.session.add_all([subj, prod]); db.session.commit()
         prod_id, subj_id = prod.id, subj.id
+
+    from backend.api import production_api
+    def _raise_not_implemented(*args, **kwargs):
+        raise NotImplementedError("lora_trainer plugin not yet wired (Phase B)")
+    monkeypatch.setattr(production_api, "_dispatch_lora_train", _raise_not_implemented)
 
     resp = client.post(f"/api/production/{prod_id}/cast/{subj_id}", json={
         "action": "train_from_uploads",
