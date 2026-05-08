@@ -33,6 +33,7 @@ from backend.models import Document as DBDocument, db
 from backend.services.output_registration import register_file
 from backend.services.video_text_overlay import VideoOverlayError, add_text_to_video
 from backend.utils.response_utils import error_response, success_response
+from backend.celery_app import celery
 
 logger = logging.getLogger(__name__)
 
@@ -243,61 +244,39 @@ def render_timeline_endpoint():
     source_stem = Path(video_doc.filename).stem
     output_path = (editor_renders_dir / f"{source_stem}_{uuid.uuid4().hex[:8]}.mp4").resolve()
 
-    # Phase 8 of editor plan — claim the JobOperationGate for VIDEO_RENDER
-    # kind so other surfaces (Activity page, Audio Studio, future Image
-    # Studio) know the GPU/CPU is busy and can show a banner / queue.
-    # On a 16 GB card this runs CPU-bound (libx264) and doesn't actually
-    # claim GPU exclusively; mark it non-exclusive so Activity-side jobs
-    # can coexist. The gate still surfaces the in-progress flag.
-    from backend.services.job_operation_gate import get_gate
-    from backend.services.job_types import JobKind
-    gate = get_gate()
-    render_id = output_path.stem  # use the source-named stem as the native id
-    gate.register_running(JobKind.VIDEO_RENDER, render_id)
+    from backend.utils.unified_progress_system import get_unified_progress, ProcessType
+    progress_system = get_unified_progress()
+    job_id = progress_system.create_process(ProcessType.VIDEO_RENDER, f"Render: {source_stem}")
 
-    from backend.services.video_timeline_render import render_timeline
-    try:
-        render_timeline(
-            video_input_path=video_path,
-            output_path=output_path,
-            text_elements=text_elements,
-            video_trim_start=payload.get("video_trim_start"),
-            video_trim_end=payload.get("video_trim_end"),
-            audio_input_path=audio_path,
-            audio_volume=audio_volume,
-        )
-    except VideoOverlayError as e:
-        logger.warning("render_timeline_endpoint failed: %s", e)
-        return error_response(str(e), 500, "RENDER_FAILED")
-    except Exception as e:
-        logger.exception("render_timeline_endpoint unexpected failure")
-        return error_response(f"{type(e).__name__}: {e}", 500, "RENDER_FAILED")
-    finally:
-        gate.unregister_running(JobKind.VIDEO_RENDER, render_id)
-
-    new_doc = register_file(
-        physical_path=str(output_path),
-        folder_name="Videos",
-        subfolder_name="Editor Renders",
-        filename=output_path.name,
-        file_type=".mp4",
-        file_metadata={
-            "source_document_id": video_doc.id,
-            "source_filename": video_doc.filename,
-            "audio_document_id": audio_doc_id,
-            "text_element_count": len(text_elements),
-            "trim_start": payload.get("video_trim_start"),
-            "trim_end": payload.get("video_trim_end"),
-        },
+    from backend.tasks.video_render_tasks import create_video_render_tasks
+    # The task function is bound to the celery app
+    celery.send_task(
+        "video_render_tasks.render_timeline_task",
+        args=(payload, str(output_path), job_id),
+        queue="renders"
     )
-    if new_doc is None:
-        return error_response("Render succeeded but Document registration failed", 500, "REGISTRATION_ERROR")
 
     return success_response(
-        data=new_doc.to_dict(),
-        message="Timeline rendered",
-        status_code=201,
+        data={"job_id": job_id, "status": "pending"},
+        message="Render dispatched",
+        status_code=202,
     )
+
+@video_overlay_bp.route("/render-status/<job_id>", methods=["GET"])
+def render_status(job_id):
+    """Polled by the frontend after dispatch; mirrors progress_system state."""
+    from backend.utils.unified_progress_system import get_unified_progress
+    progress_system = get_unified_progress()
+    proc = progress_system.get_process(job_id)
+    if proc is None:
+        return error_response("Job not found", 404, "JOB_NOT_FOUND")
+    return success_response({
+        "job_id": job_id,
+        "status": proc.status.value if hasattr(proc.status, "value") else proc.status,
+        "progress": proc.progress,
+        "message": proc.message,
+        "document_id": (proc.additional_data or {}).get("document_id"),
+    })
 
 
 @video_overlay_bp.route("/text", methods=["POST"])
