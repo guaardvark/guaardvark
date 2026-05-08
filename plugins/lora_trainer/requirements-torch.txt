@@ -1,5 +1,12 @@
-diffusers
-peft
-accelerate
-transformers
-torch
+torch==2.11.0
+torchvision==0.21.0
+diffusers==0.34.0
+peft==0.16.0
+accelerate==1.10.0
+transformers==4.50.0
+safetensors==0.5.3
+Pillow==11.2.1
+huggingface_hub==0.27.0
+# xformers is optional — speeds up attention but install is finicky on some
+# CUDA versions. Comment out if it errors during setup.
+xformers==0.0.32

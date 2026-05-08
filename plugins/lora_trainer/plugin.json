@@ -14,8 +14,8 @@
     "default_enabled": true,
     "default_auto_start": false,
     "output_dir": "data/training/loras",
-    "mock_mode": true,
-    "max_ref_images": 30
+    "max_ref_images": 30,
+    "default_backend": "auto"
   },
   "requirements": {
     "gpu": false

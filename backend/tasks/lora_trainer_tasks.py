@@ -20,12 +20,35 @@ def _output_dir() -> str:
 
 
 def _train_impl(subject_id: int) -> dict:
-    """Indirection so tests can monkeypatch this. v1 calls mock_trainer.
-    v1.1 will switch this to call the real-trainer client."""
-    from plugins.lora_trainer.mock_trainer import train_subject_lora
+    """Picks mock or real trainer based on:
+       1. GUAARDVARK_LORA_BACKEND env var (mock|real|auto, default auto)
+       2. Auto: real if plugins/lora_trainer/venv-torch/bin/python exists, else mock.
+       Logs which backend it picked."""
+    import os
     s = db.session.get(Subject, subject_id)
     if s is None:
         return {"status": "failed", "error": f"subject {subject_id} not found"}
+
+    backend = os.environ.get("GUAARDVARK_LORA_BACKEND", "auto").lower()
+    use_real = False
+    if backend == "real":
+        use_real = True
+    elif backend == "auto":
+        from plugins.lora_trainer.real_trainer import RealLoraTrainer
+        use_real = RealLoraTrainer.is_available()
+
+    if use_real:
+        from plugins.lora_trainer.real_trainer import RealLoraTrainer, _TRAINER
+        logger.info(f"lora_trainer: using REAL backend for subject {subject_id}")
+        return _TRAINER.train_subject_lora(
+            subject_id=s.id,
+            subject_name=s.name,
+            ref_image_paths=s.ref_image_paths or [],
+            output_dir=_output_dir(),
+        )
+
+    from plugins.lora_trainer.mock_trainer import train_subject_lora
+    logger.info(f"lora_trainer: using MOCK backend for subject {subject_id}")
     return train_subject_lora(
         subject_id=s.id,
         subject_name=s.name,
