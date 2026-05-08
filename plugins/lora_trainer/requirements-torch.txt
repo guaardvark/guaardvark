@@ -1,5 +1,5 @@
-torch==2.11.0
-torchvision==0.21.0
+# torch + torchvision come from the cu130 index in setup_venv.sh — not pinned
+# here because PyPI doesn't host the cu130 builds. Don't list them in this file.
 diffusers==0.34.0
 peft==0.16.0
 accelerate==1.10.0
@@ -7,6 +7,10 @@ transformers==4.50.0
 safetensors==0.5.3
 Pillow==11.2.1
 huggingface_hub==0.27.0
-# xformers is optional — speeds up attention but install is finicky on some
-# CUDA versions. Comment out if it errors during setup.
-xformers==0.0.32
+# xformers is optional — speeds up attention but the version space tracks
+# torch wheels closely and the right pin drifts. Skip it from the hard
+# requirements; install manually if you want the speedup:
+#   ./venv-torch/bin/pip install xformers
+# (Or comment in a specific pin once you've found one that matches your torch
+# build, e.g. xformers==0.0.32.post2.)
+# xformers
