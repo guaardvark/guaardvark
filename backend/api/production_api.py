@@ -14,9 +14,10 @@ VALID_CAST_ACTIONS = {"use_existing_lora", "train_from_uploads", "train_from_gen
 
 
 def _dispatch_lora_train(subject_id: int) -> str | None:
-    """Dispatch a LoRA training Celery task. Stub — will call into the
-    lora_trainer plugin once Phase B wiring lands."""
-    raise NotImplementedError("lora_trainer plugin not yet wired (Phase B)")
+    """Dispatch a LoRA training Celery task."""
+    from backend.celery_app import celery
+    task = celery.send_task("lora_trainer.train_lora", args=[subject_id])
+    return task.id
 
 
 def _dispatch_storyboard_regen(shot_id: int, prompt_override: str | None) -> str | None:
