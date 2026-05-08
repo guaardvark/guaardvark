@@ -1,0 +1,23 @@
+{
+  "id": "lora_trainer",
+  "name": "LoRA Trainer",
+  "version": "0.1.0",
+  "description": "Trains character/environment/prop LoRAs for the Film Crew. v1 ships the wiring with a mock implementation; v1.1 lands real Diffusers training in an isolated torch venv.",
+  "author": "Guaardvark",
+  "type": "service",
+  "category": "training",
+  "port": 8203,
+  "vram_estimate_mb": 18000,
+  "core": false,
+  "dependencies": [],
+  "config": {
+    "default_enabled": true,
+    "default_auto_start": false,
+    "output_dir": "data/training/loras",
+    "mock_mode": true,
+    "max_ref_images": 30
+  },
+  "requirements": {
+    "gpu": false
+  }
+}
