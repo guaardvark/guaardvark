@@ -58,6 +58,24 @@ _VALID_POSITIONS = {
 }
 
 
+def _parse_int(value, default, field):
+    """Try to parse; on ValueError return a 400-shaped tuple, otherwise the int."""
+    if value is None:
+        return default, None
+    try:
+        return int(value), None
+    except (TypeError, ValueError):
+        return None, error_response(f"{field} must be an integer", 400, "INVALID_FIELD")
+
+def _parse_float(value, default, field):
+    """Try to parse; on ValueError return a 400-shaped tuple, otherwise the float."""
+    if value is None:
+        return default, None
+    try:
+        return float(value), None
+    except (TypeError, ValueError):
+        return None, error_response(f"{field} must be a number", 400, "INVALID_FIELD")
+
 def _resolve_video_path(doc: DBDocument) -> Path | None:
     """Resolve a video Document to its on-disk bytes.
 
@@ -108,7 +126,10 @@ def list_videos():
     can't lean on it to populate a "pick a video" dropdown. This is a
     minimal, paginated-by-default list keyed off the filename extension.
     """
-    limit = min(int(request.args.get("limit", 100)), 500)
+    limit, err = _parse_int(request.args.get("limit"), 100, "limit")
+    if err:
+        return err
+    limit = min(limit, 500)
     extensions = (".mp4", ".webm", ".mov", ".mkv", ".avi")
     rows = (
         DBDocument.query
@@ -126,7 +147,10 @@ def list_videos():
 @video_overlay_bp.route("/audio-library", methods=["GET"])
 def list_audio_library():
     """List audio Documents for the editor's media library audio rail."""
-    limit = min(int(request.args.get("limit", 200)), 500)
+    limit, err = _parse_int(request.args.get("limit"), 200, "limit")
+    if err:
+        return err
+    limit = min(limit, 500)
     extensions = (".wav", ".mp3", ".ogg", ".flac", ".m4a", ".aac", ".opus")
     rows = (
         DBDocument.query
@@ -144,7 +168,10 @@ def list_audio_library():
 @video_overlay_bp.route("/image-library", methods=["GET"])
 def list_image_library():
     """List image Documents for the editor's media library image rail."""
-    limit = min(int(request.args.get("limit", 200)), 500)
+    limit, err = _parse_int(request.args.get("limit"), 200, "limit")
+    if err:
+        return err
+    limit = min(limit, 500)
     extensions = (".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff")
     rows = (
         DBDocument.query
@@ -178,6 +205,11 @@ def render_timeline_endpoint():
     Celery routing for long renders are wired in Phase 8.
     """
     payload = request.get_json(silent=True) or {}
+    
+    audio_volume, err = _parse_float(payload.get("audio_volume"), 1.0, "audio_volume")
+    if err:
+        return err
+
     video_doc_id = payload.get("video_document_id")
     if not isinstance(video_doc_id, int):
         return error_response("video_document_id (int) is required", 400, "MISSING_FIELDS")
@@ -239,7 +271,7 @@ def render_timeline_endpoint():
             video_trim_start=payload.get("video_trim_start"),
             video_trim_end=payload.get("video_trim_end"),
             audio_input_path=audio_path,
-            audio_volume=float(payload.get("audio_volume", 1.0)),
+            audio_volume=audio_volume,
         )
     except VideoOverlayError as e:
         logger.warning("render_timeline_endpoint failed: %s", e)
