@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import random
 import time
 from typing import Optional
 
@@ -25,6 +26,16 @@ from backend.services.social_outreach.reddit_outreach import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _human_pause(min_s: float = 0.3, max_s: float = 2.0) -> None:
+    """Random sleep to avoid deterministic bot timing fingerprints.
+    
+    Don't make this call site-specific — uniform jitter across all servo
+    actions is fine. Cross-platform spam filters look for *constant* delays
+    much more than for specific values.
+    """
+    time.sleep(random.uniform(min_s, max_s))
 
 
 def _draft_share(subreddit: str, link_url: str, task_id: Optional[int]) -> Optional[dict]:
@@ -102,7 +113,7 @@ def _submit_post_via_servo(subreddit: str, title: str, link_url: str) -> tuple[b
     if not click_url_result.success:
         return False, f"click_url_failed: {click_url_result.reason}"
     screen.type_text(link_url)
-    time.sleep(1)
+    _human_pause()
 
     click_title_task = (
         "On the open Reddit submit form, do this. "
@@ -113,7 +124,7 @@ def _submit_post_via_servo(subreddit: str, title: str, link_url: str) -> tuple[b
     if not click_title_result.success:
         return False, f"click_title_failed: {click_title_result.reason}"
     screen.type_text(title)
-    time.sleep(1)
+    _human_pause()
 
     submit_task = (
         "On the open Reddit submit form, do this. "

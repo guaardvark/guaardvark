@@ -15,6 +15,7 @@ If write fails twice we abort the whole pass — better to skip than thrash.
 from __future__ import annotations
 
 import logging
+import random
 import re
 import time
 from dataclasses import dataclass
@@ -35,6 +36,16 @@ SUBREDDIT_HOT_LIMIT = 10
 THREAD_COMMENT_LIMIT = 10
 MAX_THREADS_PER_PASS = 2
 SERVO_SETTLE_SECONDS = 4
+
+
+def _human_pause(min_s: float = 0.3, max_s: float = 2.0) -> None:
+    """Random sleep to avoid deterministic bot timing fingerprints.
+    
+    Don't make this call site-specific — uniform jitter across all servo
+    actions is fine. Cross-platform spam filters look for *constant* delays
+    much more than for specific values.
+    """
+    time.sleep(random.uniform(min_s, max_s))
 
 
 @dataclass
@@ -257,7 +268,7 @@ def post_comment_via_servo(permalink: str, comment_text: str) -> tuple[bool, str
         
     # Step 3: Type the text directly via python to preserve newlines and avoid prompt injection
     screen.type_text(comment_text)
-    time.sleep(1)
+    _human_pause()
     
     # Step 4: Click save
     save_task = "Find the button labeled save and click it."
