@@ -5,6 +5,16 @@ Lives here so every social-outreach surface (Discord cog, Reddit loop, self-shar
 pulls from the same source of truth. Don't fork these strings.
 """
 
+import json
+import logging
+import re
+from typing import Any, Dict, Optional
+from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
+
+import ollama
+
+logger = logging.getLogger(__name__)
+
 SITE_URL = "https://guaardvark.com"
 GITHUB_URL = "https://github.com/guaardvark/guaardvark"
 GOTHAM_RISING_URL = "https://www.youtube.com/watch?v=8MdtM3HurJo"
@@ -109,7 +119,6 @@ NO_PROMO_RULE_PATTERNS = [
 
 def find_relevant_feature(text: str) -> str | None:
     """Return the first feature key whose keyword matches the text, or None."""
-    import re
     if not text:
         return None
     lowered = text.lower()
@@ -117,3 +126,198 @@ def find_relevant_feature(text: str) -> str | None:
         if re.search(pattern, lowered, re.IGNORECASE):
             return feature
     return None
+
+
+def _ollama_json_chat(system: str, user: str, model: Optional[str] = None) -> Dict[str, Any]:
+    """One-shot Ollama call that returns parsed JSON. Best-effort.
+
+    Forces format=json so the model emits valid JSON; we still try/except
+    around the parse because models occasionally truncate or wrap.
+    """
+    if model is None:
+        from backend.config import get_default_llm
+        model = get_default_llm()
+
+    try:
+        response = ollama.chat(
+            model=model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            format="json",
+            options={"temperature": 0.6},
+        )
+    except Exception as e:
+        logger.error("ollama.chat failed: %s", e)
+        return {"draft": "", "grade": 0.0, "reason": f"LLM unavailable: {e}"}
+
+    msg = getattr(response, "message", None)
+    if msg is None and isinstance(response, dict):
+        msg = response.get("message")
+    content = getattr(msg, "content", None)
+    if content is None and isinstance(msg, dict):
+        content = msg.get("content", "")
+    raw = (content or "").strip()
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        m = re.search(r"\{.*\}", raw, re.DOTALL)
+        if m:
+            try:
+                return json.loads(m.group(0))
+            except json.JSONDecodeError:
+                pass
+        logger.warning("ollama returned non-JSON: %s", raw[:200])
+        return {"draft": "", "grade": 0.0, "reason": "model returned malformed JSON"}
+
+
+def _build_user_prompt(
+    platform: str,
+    thread_context: str,
+    target_url: Optional[str],
+    feature_hint: Optional[str],
+    tone: Optional[str] = None,
+) -> str:
+    """Compose the user-side prompt for the LLM. Keeps the system block clean."""
+    feature = feature_hint or find_relevant_feature(thread_context) or "local_ai"
+    feature_blurb = FEATURE_BLURBS.get(feature, FEATURE_BLURBS["local_ai"])
+    tone_guide = TONE_GUIDES.get((tone or "default").lower(), "").strip()
+    tone_block = f"\nTONE OVERRIDE: {tone_guide}\n" if tone_guide else ""
+
+    return f"""\
+PLATFORM: {platform}
+TARGET URL: {target_url or "(unknown)"}
+
+THREAD CONTEXT:
+\"\"\"
+{thread_context.strip()[:4000]}
+\"\"\"
+
+GUAARDVARK PITCH (one line, only paraphrase if needed):
+{GUAARDVARK_PITCH}
+
+RELEVANT FEATURE TO MENTION (only if it actually fits):
+{feature}: {feature_blurb}
+
+LINK TO INCLUDE (only if natural — don't force it):
+{SITE_URL}
+{tone_block}
+Write a comment that adds value to this thread first. If a Guaardvark mention fits, drop it as a casual reference, not a pitch. If nothing fits, return draft="" and grade < 0.3.
+
+Respond with JSON: {{"draft": "...", "grade": 0.0-1.0, "reason": "..."}}.
+"""
+
+
+def _build_share_prompt(platform: str, target: str, link_url: str) -> str:
+    framing = SHARE_FRAMING.get(platform, SHARE_FRAMING["reddit"])
+    return f"""\
+PLATFORM: {platform}
+TARGET COMMUNITY: {target}
+LINK: {link_url}
+
+GUAARDVARK PITCH:
+{GUAARDVARK_PITCH}
+
+INSTRUCTIONS:
+{framing}
+
+Respond with JSON: {{"title": "...", "body": "...", "grade": 0.0-1.0, "reason": "..."}} for reddit, or {{"draft": "...", "grade": 0.0-1.0, "reason": "..."}} for other platforms.
+"""
+
+
+def draft_outreach_text(
+    platform: str,
+    context: dict,
+    tone: Optional[str] = None,
+    mode: str = "comment",
+    feature_hint: Optional[str] = None,
+    llm: Optional[Any] = None,
+    campaign: str = "v253",
+) -> dict:
+    """Unified entry point for all outreach LLM calls.
+    
+    Guarantees OUTWARD_FACING_SYSTEM_BLOCK + audience-aware FEATURE_BLURBS
+    are always injected. Returns parsed JSON dict with keys:
+    - comment/draft: the text
+    - grade: 0.0-1.0
+    - rationale/reason: explanation
+    
+    Args:
+        platform: "reddit", "discord", "facebook", etc.
+        context: dict with keys depending on mode:
+            - comment mode: {"url", "title", "body", "thread_context"}
+            - share mode: {"target", "link_url"}
+        tone: optional tone preset from TONE_GUIDES
+        mode: "comment" or "share"
+        feature_hint: optional feature key override
+        llm: optional LLM callable (for testing)
+        campaign: UTM campaign tag (default "v253")
+    """
+    if llm is None:
+        llm = _ollama_json_chat
+    
+    if mode == "share":
+        target = context.get("target", "(unspecified)")
+        link_url = context.get("link_url", SITE_URL)
+        prompt = _build_share_prompt(platform, target, link_url)
+        result = llm(OUTWARD_FACING_SYSTEM_BLOCK, prompt)
+        
+        if platform == "reddit":
+            draft_text = json.dumps({
+                "title": result.get("title", ""),
+                "body": result.get("body", ""),
+                "link_url": link_url,
+            })
+        else:
+            draft_text = result.get("draft", "")
+    else:
+        thread_context = context.get("thread_context", "")
+        if not thread_context:
+            title = context.get("title", "")
+            body = context.get("body", "")
+            thread_context = f"{title}\n\n{body}"
+        
+        prompt = _build_user_prompt(
+            platform=platform,
+            thread_context=thread_context,
+            target_url=context.get("url"),
+            feature_hint=feature_hint,
+            tone=tone,
+        )
+        result = llm(OUTWARD_FACING_SYSTEM_BLOCK, prompt)
+        draft_text = result.get("draft", "") or result.get("comment", "")
+    
+    # Apply UTM tags to any guaardvark.com links
+    draft_text = apply_utm_tags(draft_text, platform=platform, campaign=campaign)
+    
+    return {
+        "comment": draft_text,
+        "draft": draft_text,
+        "grade": float(result.get("grade", 0.0) or 0.0),
+        "rationale": result.get("reason", "") or result.get("rationale", ""),
+        "reason": result.get("reason", "") or result.get("rationale", ""),
+    }
+
+
+GUAARDVARK_DOMAIN_PATTERN = re.compile(r"^([a-z0-9-]+\.)?guaardvark\.com$", re.IGNORECASE)
+
+
+def apply_utm_tags(text: str, *, platform: str, campaign: str) -> str:
+    """Inject UTM params on any guaardvark.com (or *.guaardvark.com) URL in text.
+    
+    Skips non-guaardvark domains (we don't tag third-party links).
+    Preserves existing query params.
+    """
+    def _tag(match):
+        url = match.group(0)
+        parsed = urlparse(url)
+        if not GUAARDVARK_DOMAIN_PATTERN.match(parsed.netloc):
+            return url
+        params = dict(parse_qsl(parsed.query, keep_blank_values=True))
+        params.setdefault("utm_source", platform)
+        params.setdefault("utm_medium", "outreach")
+        params.setdefault("utm_campaign", campaign)
+        return urlunparse(parsed._replace(query=urlencode(params)))
+    
+    return re.sub(r"https?://[^\s\)\]>'\"]+", _tag, text)

@@ -25,24 +25,12 @@ chat session, no streaming, no tools. One-shot completion that returns
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any, Dict, Optional
 
 from flask import Blueprint, jsonify, request
 
 from backend.services.social_outreach import audit, kill_switch, persona
-from backend.services.social_outreach.persona import (
-    FEATURE_BLURBS,
-    GITHUB_URL,
-    GUAARDVARK_PITCH,
-    OUTWARD_FACING_SYSTEM_BLOCK,
-    SHARE_FRAMING,
-    SITE_URL,
-    GOTHAM_RISING_URL,
-    TONE_GUIDES,
-    find_relevant_feature,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -232,111 +220,6 @@ def reject(event_id: int):
 
 # --- Draft-comment endpoint (the LLM call site) --------------------------
 
-def _ollama_json_chat(system: str, user: str, model: Optional[str] = None) -> Dict[str, Any]:
-    """One-shot Ollama call that returns parsed JSON. Best-effort.
-
-    Forces format=json so the model emits valid JSON; we still try/except
-    around the parse because models occasionally truncate or wrap.
-    """
-    import ollama
-
-    if model is None:
-        from backend.config import get_default_llm
-        model = get_default_llm()
-
-    try:
-        response = ollama.chat(
-            model=model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            format="json",
-            options={"temperature": 0.6},
-        )
-    except Exception as e:
-        logger.error("ollama.chat failed: %s", e)
-        return {"draft": "", "grade": 0.0, "reason": f"LLM unavailable: {e}"}
-
-    # ollama-python ≥0.2 returns a typed ChatResponse (Pydantic), not a dict.
-    # Older versions returned a plain dict. Support both: prefer attribute access
-    # when available, fall back to dict access for legacy SDKs.
-    msg = getattr(response, "message", None)
-    if msg is None and isinstance(response, dict):
-        msg = response.get("message")
-    content = getattr(msg, "content", None)
-    if content is None and isinstance(msg, dict):
-        content = msg.get("content", "")
-    raw = (content or "").strip()
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        # last-ditch — pull the first {...} block
-        import re
-        m = re.search(r"\{.*\}", raw, re.DOTALL)
-        if m:
-            try:
-                return json.loads(m.group(0))
-            except json.JSONDecodeError:
-                pass
-        logger.warning("ollama returned non-JSON: %s", raw[:200])
-        return {"draft": "", "grade": 0.0, "reason": "model returned malformed JSON"}
-
-
-def _build_user_prompt(
-    platform: str,
-    thread_context: str,
-    target_url: Optional[str],
-    feature_hint: Optional[str],
-    tone: Optional[str] = None,
-) -> str:
-    """Compose the user-side prompt for the LLM. Keeps the system block clean."""
-    feature = feature_hint or find_relevant_feature(thread_context) or "local_ai"
-    feature_blurb = FEATURE_BLURBS.get(feature, FEATURE_BLURBS["local_ai"])
-    tone_guide = TONE_GUIDES.get((tone or "default").lower(), "").strip()
-    tone_block = f"\nTONE OVERRIDE: {tone_guide}\n" if tone_guide else ""
-
-    return f"""\
-PLATFORM: {platform}
-TARGET URL: {target_url or "(unknown)"}
-
-THREAD CONTEXT:
-\"\"\"
-{thread_context.strip()[:4000]}
-\"\"\"
-
-GUAARDVARK PITCH (one line, only paraphrase if needed):
-{persona.GUAARDVARK_PITCH}
-
-RELEVANT FEATURE TO MENTION (only if it actually fits):
-{feature}: {feature_blurb}
-
-LINK TO INCLUDE (only if natural — don't force it):
-{SITE_URL}
-{tone_block}
-Write a comment that adds value to this thread first. If a Guaardvark mention fits, drop it as a casual reference, not a pitch. If nothing fits, return draft="" and grade < 0.3.
-
-Respond with JSON: {{"draft": "...", "grade": 0.0-1.0, "reason": "..."}}.
-"""
-
-
-def _build_share_prompt(platform: str, target: str, link_url: str) -> str:
-    framing = SHARE_FRAMING.get(platform, SHARE_FRAMING["reddit"])
-    return f"""\
-PLATFORM: {platform}
-TARGET COMMUNITY: {target}
-LINK: {link_url}
-
-GUAARDVARK PITCH:
-{persona.GUAARDVARK_PITCH}
-
-INSTRUCTIONS:
-{framing}
-
-Respond with JSON: {{"title": "...", "body": "...", "grade": 0.0-1.0, "reason": "..."}} for reddit, or {{"draft": "...", "grade": 0.0-1.0, "reason": "..."}} for other platforms.
-"""
-
-
 @social_outreach_bp.post("/draft-comment")
 def draft_comment():
     """
@@ -361,39 +244,30 @@ def draft_comment():
     target_thread_id = body.get("target_thread_id")
 
     if mode == "share":
-        target = body.get("share_target") or "(unspecified)"
-        link_url = body.get("share_link") or SITE_URL
-        prompt = _build_share_prompt(platform, target, link_url)
-        result = _ollama_json_chat(OUTWARD_FACING_SYSTEM_BLOCK, prompt)
-        # Reddit returns title+body; collapse for storage. We also stash the
-        # link_url here so an approved share posted hours later uses the URL
-        # the user actually drafted against, not whatever SITE_URL happens to
-        # be at post time.
-        if platform == "reddit":
-            draft_text = json.dumps({
-                "title": result.get("title", ""),
-                "body": result.get("body", ""),
-                "link_url": link_url,
-            })
-        else:
-            draft_text = result.get("draft", "")
-        grade = float(result.get("grade", 0.0) or 0.0)
-        reason = result.get("reason", "")
+        context = {
+            "target": body.get("share_target") or "(unspecified)",
+            "link_url": body.get("share_link") or persona.SITE_URL,
+        }
     else:
         thread_context = body.get("thread_context", "")
         if not thread_context:
             return jsonify({"error": "thread_context required"}), 400
-        prompt = _build_user_prompt(
-            platform=platform,
-            thread_context=thread_context,
-            target_url=target_url,
-            feature_hint=body.get("feature_hint"),
-            tone=body.get("tone"),
-        )
-        result = _ollama_json_chat(OUTWARD_FACING_SYSTEM_BLOCK, prompt)
-        draft_text = result.get("draft", "")
-        grade = float(result.get("grade", 0.0) or 0.0)
-        reason = result.get("reason", "")
+        context = {
+            "thread_context": thread_context,
+            "url": target_url,
+        }
+
+    result = persona.draft_outreach_text(
+        platform=platform,
+        context=context,
+        tone=body.get("tone"),
+        mode=mode,
+        feature_hint=body.get("feature_hint"),
+    )
+    
+    draft_text = result.get("draft", "")
+    grade = result.get("grade", 0.0)
+    reason = result.get("reason", "")
 
     enabled = kill_switch.is_enabled()
     supervised = kill_switch.is_supervised()
@@ -441,12 +315,12 @@ def get_snippets():
     """Pre-built copy blocks for the snippet bank in the Drafting zone.
     Read-only — these are the canonical Guaardvark pitches."""
     return jsonify({
-        "pitch": GUAARDVARK_PITCH,
-        "site_url": SITE_URL,
-        "github_url": GITHUB_URL,
-        "gotham_rising_url": GOTHAM_RISING_URL,
-        "feature_blurbs": FEATURE_BLURBS,
-        "tones": list(TONE_GUIDES.keys()),
+        "pitch": persona.GUAARDVARK_PITCH,
+        "site_url": persona.SITE_URL,
+        "github_url": persona.GITHUB_URL,
+        "gotham_rising_url": persona.GOTHAM_RISING_URL,
+        "feature_blurbs": persona.FEATURE_BLURBS,
+        "tones": list(persona.TONE_GUIDES.keys()),
     })
 
 
