@@ -38,3 +38,35 @@ def test_returns_false_when_subprocess_times_out():
         ok, err = _run_dep_reconciler_for_plugin("discord")
     assert ok is False
     assert "timed out" in err.lower()
+
+
+def test_interconnector_writes_sync_sentinel(tmp_path, monkeypatch):
+    """apply_files_atomic must write .sync_in_progress before applying files
+    and clear it after, so the dep_reconciler refuses to run mid-sync.
+
+    Structural test: the inner write loop is replaced; we only verify the
+    sentinel's lifecycle around the call.
+    """
+    from backend.services.interconnector_file_sync_service import (
+        InterconnectorFileSyncService,
+    )
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data" / "dep_reconciler").mkdir(parents=True)
+    sentinel = tmp_path / "data" / "dep_reconciler" / ".sync_in_progress"
+
+    svc = InterconnectorFileSyncService()
+
+    seen_during_apply: list[bool] = []
+
+    def fake_inner(*a, **kw):
+        seen_during_apply.append(sentinel.exists())
+        return {"ok": True, "applied": [], "rolled_back": []}
+
+    # Replace the inner method that actually moves bytes (added in Step 4 below).
+    monkeypatch.setattr(svc, "_apply_files_atomic_inner", fake_inner, raising=False)
+
+    svc.apply_files_atomic([])
+
+    assert seen_during_apply == [True], "sentinel must exist during apply"
+    assert not sentinel.exists(), "sentinel must be cleared after apply"
