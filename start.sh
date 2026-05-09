@@ -983,8 +983,9 @@ if [ -d "$CLI_DIR" ] && [ -f "$CLI_DIR/setup.py" ]; then
 fi
 
 if [ "$FAST_START" -ne 1 ]; then
-    vader_info "Installing frontend dependencies..."
-    (cd "$FRONTEND_DIR" && $NPM_CMD install >> "$SETUP_LOG" 2>&1)
+    # Frontend deps installed by the dependency reconciler (Frontend reconciler).
+    # Running `npm install` here would mutate package-lock.json on every boot,
+    # defeating our lockfile-only hash strategy.
 
     if [ "$BUILD_CHECK" -eq 1 ]; then
         check_frontend_build
@@ -1271,25 +1272,9 @@ fi
 vader_info "Setting up frontend..."
 cd "$FRONTEND_DIR" || { vader_error "Failed to cd to $FRONTEND_DIR"; exit 1; }
 
-# Sentinel set immediately after a successful install. Compare *.json against
-# THIS file rather than node_modules' directory mtime — the directory mtime
-# bumps on every npm internal write and on `git pull`/`git checkout` of any
-# nested file, which made the original check trip on every boot.
-INSTALL_SENTINEL="node_modules/.guaardvark-installed"
-if [ ! -d node_modules ]; then
-    vader_info "Installing frontend dependencies..."
-    $NPM_CMD install >> "$SETUP_LOG" 2>&1 && touch "$INSTALL_SENTINEL"
-elif [ ! -f "$INSTALL_SENTINEL" ]; then
-    # First boot after this sentinel-based check landed — trust the existing
-    # node_modules and start tracking from here. Avoids a forced reinstall.
-    touch "$INSTALL_SENTINEL"
-elif [ "package.json" -nt "$INSTALL_SENTINEL" ] || [ "package-lock.json" -nt "$INSTALL_SENTINEL" ]; then
-    vader_info "package.json changed - updating frontend dependencies..."
-    $NPM_CMD install >> "$SETUP_LOG" 2>&1 && touch "$INSTALL_SENTINEL"
-elif ! $NPM_CMD ls >/dev/null 2>&1; then
-    vader_info "Updating frontend dependencies..."
-    $NPM_CMD install >> "$SETUP_LOG" 2>&1 && touch "$INSTALL_SENTINEL"
-fi
+# Frontend dep install is owned by the dependency reconciler (lockfile-strict
+# `npm ci`). The sentinel-based block that used to live here ran a second
+# `npm install`, which mutates package-lock.json and defeats our lockfile hash.
 
 ensure_npm_package rollup-plugin-polyfill-node
 

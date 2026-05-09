@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import socket
 import subprocess
 import sys
 from pathlib import Path
@@ -23,7 +24,14 @@ class Alembic(Reconciler):
 
     @property
     def alembic_ini(self) -> Path:
-        return self.root / "backend" / "alembic.ini"
+        return self.root / "backend" / "migrations" / "alembic.ini"
+
+    @property
+    def alembic_cwd(self) -> Path:
+        # alembic.ini's `script_location = migrations` is CWD-relative, so we
+        # invoke alembic from `backend/` (the parent of `migrations/`), not
+        # from the ini's directory.
+        return self.root / "backend"
 
     def manifests(self) -> list[Path]:
         return [self.versions_dir]
@@ -35,7 +43,13 @@ class Alembic(Reconciler):
             return False
         # First-boot guard: if alembic isn't importable yet, BackendVenv runs
         # first and installs it; we'll pick up reconciliation next boot.
-        return self._alembic_importable()
+        if not self._alembic_importable():
+            return False
+        if not self._db_reachable():
+            # Postgres not up yet — schema sync happens later via scripts/schema_sync.py.
+            # We don't log a warning here; that path is part of normal start.sh flow.
+            return False
+        return True
 
     def compute_hash(self) -> str:
         from scripts.dep_reconciler.util import hash_dir
@@ -52,7 +66,7 @@ class Alembic(Reconciler):
             return self._run_subprocess(
                 [sys.executable, "-m", "alembic", "-c", str(self.alembic_ini), "upgrade", "head"],
                 log,
-                cwd=self.root,
+                cwd=self.alembic_cwd,
             )
 
     # --- helpers (test seams) ---
@@ -61,11 +75,25 @@ class Alembic(Reconciler):
     def _alembic_importable() -> bool:
         return importlib.util.find_spec("alembic") is not None
 
+    @staticmethod
+    def _db_reachable() -> bool:
+        """Quick TCP connect to Postgres host:port from env. False on any failure."""
+        host = os.environ.get("DB_HOST", "localhost")
+        try:
+            port = int(os.environ.get("DB_PORT", "5432"))
+        except ValueError:
+            return False
+        try:
+            with socket.create_connection((host, port), timeout=1.0):
+                return True
+        except (OSError, socket.timeout):
+            return False
+
     def _alembic_current(self) -> str | None:
         try:
             out = subprocess.run(
                 [sys.executable, "-m", "alembic", "-c", str(self.alembic_ini), "current"],
-                capture_output=True, text=True, timeout=15, cwd=self.root,
+                capture_output=True, text=True, timeout=15, cwd=self.alembic_cwd,
             )
         except (subprocess.TimeoutExpired, OSError):
             return None

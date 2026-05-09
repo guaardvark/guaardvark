@@ -9,7 +9,7 @@ from scripts.dep_reconciler.reconcilers.alembic import Alembic
 def fake_repo(tmp_path):
     (tmp_path / "backend" / "migrations" / "versions").mkdir(parents=True)
     (tmp_path / "backend" / "migrations" / "versions" / "001_init.py").write_text("# noop\n")
-    (tmp_path / "backend" / "alembic.ini").write_text("[alembic]\nscript_location = backend/migrations\n")
+    (tmp_path / "backend" / "migrations" / "alembic.ini").write_text("[alembic]\nscript_location = .\n")
     return tmp_path
 
 
@@ -25,13 +25,22 @@ def test_inactive_when_alembic_module_missing(fake_repo):
 
 def test_active_when_alembic_module_present(fake_repo):
     r = Alembic(fake_repo)
-    with patch.object(r, "_alembic_importable", return_value=True):
+    with patch.object(r, "_alembic_importable", return_value=True), \
+         patch.object(r, "_db_reachable", return_value=True):
         assert r.is_active()
+
+
+def test_inactive_when_db_unreachable(fake_repo):
+    r = Alembic(fake_repo)
+    with patch.object(r, "_alembic_importable", return_value=True), \
+         patch.object(r, "_db_reachable", return_value=False):
+        assert not r.is_active()
 
 
 def test_compute_hash_changes_when_versions_change(fake_repo):
     r = Alembic(fake_repo)
     with patch.object(r, "_alembic_importable", return_value=True):
+        # _db_reachable doesn't matter for compute_hash; we don't call is_active
         h1 = r.compute_hash()
         (fake_repo / "backend" / "migrations" / "versions" / "002_next.py").write_text("# next\n")
         h2 = r.compute_hash()
