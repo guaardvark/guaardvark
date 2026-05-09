@@ -711,8 +711,19 @@ def run_pass():
                 "platform": "recon",
                 "message": "Recon pass queued (scout next round-robin sub for candidates).",
             })
+        if platform == "draft":
+            # Content agent — drafts candidates into drafts. No servo, no
+            # posting. Reads status="candidate" rows, transitions to "drafted"
+            # or "rejected" based on LLM grade.
+            from backend.tasks.social_outreach_tasks import tick_draft_candidates
+            async_result = tick_draft_candidates.delay()
+            return jsonify({
+                "task_id": async_result.id,
+                "platform": "draft",
+                "message": "Content pass queued (draft up to N candidate rows).",
+            })
         return jsonify({
-            "error": f"unsupported platform '{platform}'. Use 'reddit', 'self_share', or 'recon'.",
+            "error": f"unsupported platform '{platform}'. Use 'reddit', 'self_share', 'recon', or 'draft'.",
         }), 400
     except Exception as e:
         logger.error("run_pass failed: %s", e)

@@ -114,14 +114,16 @@ class RecondAgent:
                 report["skipped_irrelevant"] += 1
                 continue
 
-            # Recon-stage payload — Content agent will replace this JSON with
-            # the actual draft text. Keeps everything in existing columns,
-            # avoids a schema migration.
+            # Recon-stage payload — Content agent reads this and drafts
+            # without a live Reddit API call. Stores enough context that
+            # each phase is self-contained. Caps comment length to keep
+            # rows reasonable; the LLM doesn't need huge comments to draft.
             extras = {
                 "title": thread.title,
                 "score": thread.score,
                 "num_comments": thread.num_comments,
                 "selftext_preview": thread.selftext[:400] if thread.selftext else "",
+                "top_comments": [c[:600] for c in comments[:5]],
             }
             audit_id = audit.log_candidate(
                 platform="reddit",

@@ -109,6 +109,23 @@ def tick_reddit_outreach(self) -> dict:
     return _with_app_context(RedditOutreachLoop().run_one_pass, sub)
 
 
+@shared_task(name="social_outreach.tick_draft_candidates", bind=True)
+def tick_draft_candidates(self) -> dict:
+    """Beat tick — Content agent drafts the oldest N candidate rows.
+
+    Reads status="candidate" rows produced by Recon, runs each through
+    persona.draft_outreach_text, transitions to "drafted" (if grade ≥ 0.7
+    and draft non-empty) or "rejected" (otherwise). No servo, no posting.
+    Disabled by default in beat schedule — fire on demand via /run-pass
+    or by enabling the schedule entry.
+    """
+    from backend.services.social_outreach.content_agent import (
+        ContentAgent,
+        DEFAULT_BATCH_SIZE,
+    )
+    return _with_app_context(ContentAgent().draft_batch, DEFAULT_BATCH_SIZE)
+
+
 @shared_task(name="social_outreach.tick_recon_reddit", bind=True)
 def tick_recon_reddit(self) -> dict:
     """Beat tick — Recon agent scouts the next outreach sub for candidates.
