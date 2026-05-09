@@ -147,9 +147,24 @@ class ServoController:
             self.screen.click(current_x, current_y, button=button)
 
             # 6. VERIFY — did the screen change?
-            time.sleep(0.3)
-            verify_shot, _ = self.screen.capture()
-            screen_changed = self._screen_changed(screenshot, verify_shot, click_pos=(current_x, current_y))
+            # Poll for up to 1.6s instead of a static 300ms wait. A click can
+            # trigger a paint on three very different timescales:
+            #   • <100ms — focus ring, button press, hover state
+            #   • ~300-600ms — Reddit textarea expand, dropdown open
+            #   • ~800-1500ms — page navigation, SPA route change, Firefox launch
+            # The old static 300ms missed the slow paths and reported them as
+            # screen_unchanged. Empirical noise floor with cursor in motion is
+            # ~0.00015 mean diff, well below the 0.005 global threshold, so
+            # adding more capture attempts can't introduce phantom successes —
+            # it only widens the legitimate-change detection window.
+            # (Gemini diagnosis 2026-05-09; see plans/.)
+            screen_changed = False
+            for poll_delay in (0.15, 0.45, 0.5, 0.5):
+                time.sleep(poll_delay)
+                verify_shot, _ = self.screen.capture()
+                if self._screen_changed(screenshot, verify_shot, click_pos=(current_x, current_y)):
+                    screen_changed = True
+                    break
 
             # Success = the screen actually changed after we clicked.
             # Previously this also counted "ballistic with no corrections" as success,
