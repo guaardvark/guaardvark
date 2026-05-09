@@ -473,11 +473,28 @@ class AgentControlService:
                             before_mean = np.array(screenshot).mean()
                             after_mean = np.array(post_shot).mean()
                             pixel_diff = abs(after_mean - before_mean)
-                            if pixel_diff < 0.05 and decision.action.action_type == "type":
-                                # Screen didn't change at all after typing — likely typed into nothing
-                                logger.warning(f"[AGENT][STEP {iteration+1}][VERIFY] Screen unchanged after type — "
-                                              f"text may not have landed in a field")
+                            # A scroll that produced no pixel delta means the page
+                            # didn't move — either we're at the bottom, the cursor
+                            # is over a non-scrollable region (sidebar, overlay), or
+                            # Firefox doesn't have keyboard focus. Treat it as a
+                            # failed action so the loop-breaker (and the LLM's next
+                            # prompt context) sees the scroll didn't help, instead
+                            # of cheerfully logging "[OK]" three times in a row
+                            # before aborting as loop_detected_no_progress.
+                            ineffective = (
+                                (decision.action.action_type == "type" and pixel_diff < 0.05)
+                                or (decision.action.action_type == "scroll" and pixel_diff < 0.01)
+                            )
+                            if ineffective:
+                                logger.warning(
+                                    f"[AGENT][STEP {iteration+1}][VERIFY] "
+                                    f"{decision.action.action_type} produced no visible change "
+                                    f"(delta={pixel_diff:.3f}) — flagging as failed so the LLM "
+                                    f"sees the previous attempt was ineffective"
+                                )
                                 result["verified"] = False
+                                result["success"] = False
+                                failed = True
                             else:
                                 result["verified"] = True
                                 logger.warning(f"[AGENT][STEP {iteration+1}][VERIFY] Screen changed after "
@@ -1236,22 +1253,39 @@ class AgentControlService:
                 steps.append(f"  {h.action.action_type}: {desc} [{status}]")
             done_lines = "Done:\n" + "\n".join(steps) + "\n"
 
-            if len(history) >= 3:
-                last3_full = [
+            # Fire the pivot at 2 identical actions, not 3. With it at 3, the
+            # loop_breaker (which also triggers at 3) had already aborted by
+            # the time the LLM would have seen this warning — so the warning
+            # never reached the model. At 2 identical, the LLM gets the
+            # warning on the iteration BEFORE the loop_breaker fires, giving
+            # it one chance to actually pivot before we abort the task.
+            if len(history) >= 2:
+                last_full = [
                     (h.action.action_type, h.action.target_description, h.action.text)
-                    for h in history[-3:]
+                    for h in history[-2:]
                 ]
-                if len(set(last3_full)) == 1:
-                    a_type, a_target, a_text = last3_full[0]
+                if len(set(last_full)) == 1:
+                    a_type, a_target, a_text = last_full[0]
                     a_desc = a_target or a_text or ""
-                    # Top-of-prompt structural override — was an inline warning
-                    # and the model treated it as advisory noise. Now it pre-empts
-                    # the task line so the next emit must change action_type or target.
+                    # Gemma4:e4b ignored a soft "you must pick something
+                    # different" — it acknowledged the warning and scrolled
+                    # again anyway. Replace the abstract instruction with
+                    # explicit options the model can copy. If it can't
+                    # deviate even from concrete choices, that's a model
+                    # ceiling, not a prompt problem.
                     pivot_block = (
-                        f"PIVOT REQUIRED. \"{a_type}: {a_desc}\" failed 3 times — "
-                        f"repeating it again is forbidden. You MUST emit a different "
-                        f"action_type (try scroll, hotkey, or wait) OR a different target. "
-                        f"State the new approach in reasoning.\n\n"
+                        f"STOP. \"{a_type}: {a_desc}\" already failed TWICE in a row. "
+                        f"Doing it a third time will hard-abort the task — you will not "
+                        f"reach the goal by repeating this action.\n"
+                        f"YOUR NEXT ACTION MUST BE EXACTLY ONE OF THESE:\n"
+                        f"  • {{\"action\": \"hotkey\", \"keys\": [\"Escape\"], \"reasoning\": \"release focus from search/address bar so scroll reaches page\"}}\n"
+                        f"  • {{\"action\": \"hotkey\", \"keys\": [\"Home\"], \"reasoning\": \"jump to top of page\"}}\n"
+                        f"  • {{\"action\": \"hotkey\", \"keys\": [\"End\"], \"reasoning\": \"jump to bottom\"}}\n"
+                        f"  • {{\"action\": \"hotkey\", \"keys\": [\"Page_Up\"], \"reasoning\": \"page up\"}}\n"
+                        f"  • {{\"action\": \"hotkey\", \"keys\": [\"Page_Down\"], \"reasoning\": \"page down\"}}\n"
+                        f"  • {{\"action\": \"click\", \"target_description\": \"comment input field\", \"reasoning\": \"focus the textarea directly\"}}\n"
+                        f"  • {{\"action\": \"click\", \"target_description\": \"reply button\", \"reasoning\": \"open reply UI\"}}\n"
+                        f"Pick one. Do not pick {a_type} again.\n\n"
                     )
 
         desktop_state = AgentControlService._get_desktop_state()
