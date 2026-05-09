@@ -95,7 +95,9 @@ const MediaLibraryPanel = ({
       return groupByFolder(activeList);
     }
     const inFolder = activeList.filter((it) => it?.folder_id === currentFolderId);
-    return groupByFolder(inFolder);
+    // The 2-deep sub-folder flatten is deferred; it needs folder.parent_id in the
+    // serialization first.
+    return { folders: [], ungrouped: inFolder };
   }, [activeList, currentFolderId]);
 
   // Auto-drill-out guard: if the drilled-into folder no longer has any
