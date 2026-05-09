@@ -109,6 +109,24 @@ def tick_reddit_outreach(self) -> dict:
     return _with_app_context(RedditOutreachLoop().run_one_pass, sub)
 
 
+@shared_task(name="social_outreach.tick_recon_reddit", bind=True)
+def tick_recon_reddit(self) -> dict:
+    """Beat tick — Recon agent scouts the next outreach sub for candidates.
+
+    Read-only: hits Reddit's public API, writes status="candidate" rows. Never
+    drafts, never posts. Safe to run on cron without supervised gates because
+    no servo path is involved. Disabled by default in celery_app.py beat
+    schedule — flip the schedule entry to enable.
+    """
+    targets = _load_targets()
+    subs = (targets.get("reddit") or {}).get("outreach_subs") or []
+    sub = _next_target("reddit_recon", subs)
+    if not sub:
+        return {"skipped": True, "reason": "no_targets"}
+    from backend.services.social_outreach.recon import RecondAgent
+    return _with_app_context(RecondAgent().scout_reddit, sub)
+
+
 @shared_task(name="social_outreach.tick_self_share", bind=True)
 def tick_self_share(self) -> dict:
     """Beat tick — pick next share sub + URL, submit a link post."""

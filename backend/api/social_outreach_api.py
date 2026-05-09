@@ -701,8 +701,18 @@ def run_pass():
                 "platform": "self_share",
                 "message": "Self-share pass queued (link post to next round-robin sub).",
             })
+        if platform == "recon":
+            # Recon agent — scouts for candidates only, never drafts/posts.
+            # Safe to run any time; no cadence gate, no servo.
+            from backend.tasks.social_outreach_tasks import tick_recon_reddit
+            async_result = tick_recon_reddit.delay()
+            return jsonify({
+                "task_id": async_result.id,
+                "platform": "recon",
+                "message": "Recon pass queued (scout next round-robin sub for candidates).",
+            })
         return jsonify({
-            "error": f"unsupported platform '{platform}'. Use 'reddit' or 'self_share'.",
+            "error": f"unsupported platform '{platform}'. Use 'reddit', 'self_share', or 'recon'.",
         }), 400
     except Exception as e:
         logger.error("run_pass failed: %s", e)
