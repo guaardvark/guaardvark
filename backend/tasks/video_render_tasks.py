@@ -7,7 +7,6 @@ from backend.services.job_types import JobKind
 from backend.utils.unified_progress_system import get_unified_progress, ProcessType
 from backend.services.video_timeline_render import render_timeline, VideoOverlayError
 from backend.services.output_registration import register_file
-from backend.api.video_overlay_api import _resolve_video_path
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +24,7 @@ def create_video_render_tasks(celery_app):
         try:
             # Need to re-fetch documents inside the worker
             from backend.app import create_app
+            from backend.api.video_overlay_api import _resolve_video_path
             app = create_app()
             with app.app_context():
                 video_doc_id = payload.get("video_document_id")

@@ -7,6 +7,8 @@ published to a queue the worker wasn't subscribed to, producing ghost task_ids.
 
 After: Both processes share the singleton from backend.celery_app.
 """
+import sys
+import importlib
 
 def test_api_task_routes_to_default_queue():
     """Tasks queued from Flask MUST land in the same queue workers consume.
@@ -57,3 +59,32 @@ def test_flask_and_worker_share_celery_instance():
                             "Flask will use its own Celery instance instead of the shared "
                             "worker singleton from backend.celery_app, causing ghost task_ids"
                         )
+
+
+def test_no_circular_import_in_celery_app(caplog):
+    """celery_app must import cleanly without partially-initialized warnings.
+    
+    The video_render_tasks import was creating a cycle through video_overlay_api
+    → celery_app, suppressed by a try/except but still logged at every startup.
+    """
+    import logging
+    
+    # Force a fresh import to catch circular import issues
+    modules_to_clear = [
+        "backend.celery_app",
+        "backend.tasks.video_render_tasks",
+    ]
+    for mod in modules_to_clear:
+        if mod in sys.modules:
+            del sys.modules[mod]
+    
+    # Capture logs during import
+    with caplog.at_level(logging.WARNING):
+        importlib.import_module("backend.celery_app")
+    
+    # Check for circular import warnings
+    for record in caplog.records:
+        if "partially initialized" in record.message.lower() or "circular import" in record.message.lower():
+            raise AssertionError(
+                f"Circular import detected in celery_app:\n{record.message}"
+            )
