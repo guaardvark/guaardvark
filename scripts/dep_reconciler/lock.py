@@ -25,6 +25,11 @@ class StateLock:
 
     @contextlib.contextmanager
     def acquire(self, *, timeout: float = 30.0, poll: float = 0.2):
+        if self._fd is not None:
+            raise RuntimeError(
+                f"StateLock at {self.path} already held by this instance — "
+                "StateLock is not reentrant; use a separate instance for nested locks"
+            )
         self.path.parent.mkdir(parents=True, exist_ok=True)
         # Open (creating if needed) for the lifetime of the lock.
         fd = open(self.path, "a+")
