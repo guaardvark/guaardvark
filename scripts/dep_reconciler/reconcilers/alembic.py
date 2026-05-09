@@ -33,8 +33,15 @@ class Alembic(Reconciler):
         # from the ini's directory.
         return self.root / "backend"
 
+    @property
+    def models_py(self) -> Path:
+        return self.root / "backend" / "models.py"
+
     def manifests(self) -> list[Path]:
-        return [self.versions_dir]
+        # models.py is the schema source-of-truth under the single-master-migration
+        # policy (scripts/schema_sync.py reads it and applies db.create_all + stamp).
+        # versions/ is included so historical migration churn still triggers a check.
+        return [self.versions_dir, self.models_py]
 
     def is_active(self) -> bool:
         if not self.versions_dir.is_dir():
@@ -52,8 +59,18 @@ class Alembic(Reconciler):
         return True
 
     def compute_hash(self) -> str:
-        from scripts.dep_reconciler.util import hash_dir
-        return hash_dir(self.versions_dir) or ""
+        # Hash both versions/ dir AND models.py so drift fires for either source
+        # changing. models.py edit without a migration file (the typical pattern
+        # under the schema-sync policy) MUST trigger a reconcile, otherwise the
+        # DB silently lags behind the model definitions.
+        import hashlib
+        from scripts.dep_reconciler.util import hash_dir, hash_file
+        h = hashlib.sha256()
+        h.update((hash_dir(self.versions_dir) or "").encode("ascii"))
+        h.update(b"\n")
+        h.update((hash_file(self.models_py) or "").encode("ascii"))
+        h.update(b"\n")
+        return f"sha256:{h.hexdigest()}"
 
     def extra_state(self) -> dict[str, object]:
         cur = self._alembic_current()

@@ -47,6 +47,25 @@ def test_compute_hash_changes_when_versions_change(fake_repo):
     assert h1 != h2
 
 
+def test_compute_hash_changes_when_models_py_changes(fake_repo):
+    """models.py edits MUST trigger drift — under the schema-sync policy,
+    models.py is the source of truth and migrations may not be authored.
+    """
+    (fake_repo / "backend" / "models.py").write_text("# v1\n")
+    r = Alembic(fake_repo)
+    h1 = r.compute_hash()
+    (fake_repo / "backend" / "models.py").write_text("# v1\nclass NewTable: pass\n")
+    h2 = r.compute_hash()
+    assert h1 != h2
+
+
+def test_compute_hash_stable_when_nothing_changes(fake_repo):
+    """Running compute_hash twice on identical state must return the same value."""
+    (fake_repo / "backend" / "models.py").write_text("# v1\n")
+    r = Alembic(fake_repo)
+    assert r.compute_hash() == r.compute_hash()
+
+
 def test_extra_state_returns_alembic_current(fake_repo):
     r = Alembic(fake_repo)
     with patch.object(r, "_alembic_current", return_value="abc123"):
