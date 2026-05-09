@@ -63,10 +63,14 @@ class Alembic(Reconciler):
         with log_path.open("a", encoding="utf-8") as log:
             log.write(f"\n=== {self.id} install @ {os.getpid()} ===\n")
             log.flush()
+            schema_sync_path = self.root / "scripts" / "schema_sync.py"
+            if not schema_sync_path.is_file():
+                log.write(f"ERROR: schema_sync.py not found at {schema_sync_path}\n")
+                return 1
             return self._run_subprocess(
-                [sys.executable, "-m", "alembic", "-c", str(self.alembic_ini), "upgrade", "head"],
+                [sys.executable, str(schema_sync_path)],
                 log,
-                cwd=self.alembic_cwd,
+                cwd=self.root,
             )
 
     # --- helpers (test seams) ---

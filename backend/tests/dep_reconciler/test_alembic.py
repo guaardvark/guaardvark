@@ -53,12 +53,34 @@ def test_extra_state_returns_alembic_current(fake_repo):
         assert r.extra_state()["alembic_head"] == "abc123"
 
 
-def test_install_runs_alembic_upgrade_head(fake_repo, tmp_path):
+def test_install_invokes_schema_sync(fake_repo, tmp_path):
+    """install() must invoke scripts/schema_sync.py, NOT alembic upgrade head.
+    
+    The codebase uses a single-master-migration policy: schema_sync.py is the
+    only tool authorized to mutate the DB schema. alembic upgrade head is
+    deprecated.
+    """
+    # The fake_repo fixture creates backend/migrations/alembic.ini etc.
+    # We also need scripts/schema_sync.py to exist for the install path to fire.
+    (fake_repo / "scripts").mkdir(exist_ok=True)
+    (fake_repo / "scripts" / "schema_sync.py").write_text("#!/usr/bin/env python3\n")
+    
     r = Alembic(fake_repo)
     with patch.object(r, "_run_subprocess", return_value=0) as m:
         rc = r.install(tmp_path / "log.txt")
     assert rc == 0
     args = m.call_args_list[0].args[0]
-    assert "alembic" in args  # python -m alembic ...
-    assert "upgrade" in args
-    assert "head" in args
+    # Must be invoking schema_sync.py, not alembic
+    assert any("schema_sync.py" in str(a) for a in args), f"expected schema_sync.py in args, got {args}"
+    # Must NOT be using alembic upgrade head
+    assert "upgrade" not in args
+    assert "head" not in args
+
+
+def test_install_fails_clearly_when_schema_sync_missing(fake_repo, tmp_path):
+    """If schema_sync.py is missing, install() should return non-zero
+    rather than silently succeeding."""
+    # Don't create scripts/schema_sync.py
+    r = Alembic(fake_repo)
+    rc = r.install(tmp_path / "log.txt")
+    assert rc != 0
