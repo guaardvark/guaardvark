@@ -41,6 +41,6 @@ class Reconciler(ABC):
     def install(self, log_path: Path) -> int:
         """Run the underlying installer. Return 0 on success, non-zero on failure."""
 
-    def extra_state(self) -> dict:
+    def extra_state(self) -> dict[str, object]:
         """Optional secondary drift dimensions (numpy major, alembic head, etc.)."""
         return {}

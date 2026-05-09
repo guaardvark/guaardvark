@@ -9,7 +9,7 @@ class _FakeReconciler(Reconciler):
     id = "fake"
     name = "Fake"
 
-    def manifests(self):
+    def manifests(self) -> list[Path]:
         return [Path("/dev/null")]
 
     def is_active(self) -> bool:
