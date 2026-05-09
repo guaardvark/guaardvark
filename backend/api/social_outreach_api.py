@@ -843,6 +843,9 @@ def record_post():
 
     Body: {audit_id, platform, posted_text, target_url, target_thread_id}
     """
+    if not kill_switch.is_enabled():
+        return jsonify({"error": "outreach disabled (kill switch)"}), 403
+    
     body = request.get_json(silent=True) or {}
     audit_id = body.get("audit_id")
     platform = body.get("platform")
