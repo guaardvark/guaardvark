@@ -17,7 +17,77 @@ LOG_DIR="$GUAARDVARK_ROOT/logs"
 DATA_DIR="$GUAARDVARK_ROOT/data/agent"
 
 AGENT_FILES_DIR="$GUAARDVARK_ROOT/data/agent/files"
-mkdir -p "$PID_DIR" "$LOG_DIR" "$DATA_DIR" "$AGENT_FILES_DIR"
+# Agent desktop dir (separate from user's ~/Desktop to avoid collision)
+# Option B: ~/.agent_desktop/ for clean separation
+AGENT_DESKTOP_DIR="$HOME/.agent_desktop"
+mkdir -p "$PID_DIR" "$LOG_DIR" "$DATA_DIR" "$AGENT_FILES_DIR" "$AGENT_DESKTOP_DIR"
+
+# ---------------------------------------------------------------------------
+# Desktop environment setup
+# ---------------------------------------------------------------------------
+
+start_wallpaper() {
+    # Set wallpaper to make display look like a normal desktop
+    # Tries wallpaper image first, falls back to solid blue color
+    local wallpaper="$GUAARDVARK_ROOT/data/agent/wallpapers/default.jpg"
+    
+    if command -v feh &>/dev/null && [ -f "$wallpaper" ]; then
+        DISPLAY=:$DISPLAY_NUM feh --bg-fill "$wallpaper" >/dev/null 2>&1 && \
+            echo "  Wallpaper set (feh)" && return 0
+    fi
+    
+    # Fallback to solid blue color via xsetroot
+    if command -v xsetroot &>/dev/null; then
+        DISPLAY=:$DISPLAY_NUM xsetroot -solid "#1e3a5f" >/dev/null 2>&1 && \
+            echo "  Wallpaper set (solid blue)" && return 0
+    fi
+    
+    echo "  WARNING: Could not set wallpaper (feh/xsetroot not found)"
+}
+
+start_desktop_icons() {
+    # Launch file manager in desktop mode to render folder/launcher icons
+    # Uses ~/.agent_desktop as the desktop dir (not ~/Desktop, to avoid
+    # affecting user's main desktop — shared HOME constraint)
+    
+    # Ensure agent desktop structure exists.
+    # Folders chosen as visual anchors for the vision model — more recognized
+    # XDG-style folders = more reliable spatial triangulation per Gemini's
+    # design review (memory: project_agent_normal_desktop.md).
+    mkdir -p "$AGENT_DESKTOP_DIR"/{Documents,Downloads,Pictures,"Outreach Drafts",Trash}
+    
+    # Create Firefox launcher icon if it doesn't exist
+    if [ ! -f "$AGENT_DESKTOP_DIR/Firefox.desktop" ]; then
+        cat > "$AGENT_DESKTOP_DIR/Firefox.desktop" << 'FIREFOXDESKTOP'
+[Desktop Entry]
+Version=1.0
+Name=Firefox
+Exec=firefox %u
+Terminal=false
+Type=Application
+Icon=firefox
+Categories=Network;WebBrowser;
+FIREFOXDESKTOP
+        chmod +x "$AGENT_DESKTOP_DIR/Firefox.desktop"
+    fi
+    
+    # Launch pcmanfm to render desktop icons
+    if command -v pcmanfm &>/dev/null; then
+        # Override XDG_DESKTOP_DIR to point pcmanfm at agent's desktop
+        DISPLAY=:$DISPLAY_NUM XDG_DESKTOP_DIR="$AGENT_DESKTOP_DIR" \
+            pcmanfm --desktop --profile=agent >/dev/null 2>&1 &
+        echo $! > "$PID_DIR/pcmanfm.pid"
+        echo "  Desktop icons started (pcmanfm)"
+    elif command -v nautilus &>/dev/null; then
+        # Nautilus fallback (if available)
+        DISPLAY=:$DISPLAY_NUM XDG_DESKTOP_DIR="$AGENT_DESKTOP_DIR" \
+            nautilus --no-default-window >/dev/null 2>&1 &
+        echo $! > "$PID_DIR/nautilus.pid"
+        echo "  Desktop icons started (nautilus)"
+    else
+        echo "  WARNING: No file manager found for desktop icons (install pcmanfm)"
+    fi
+}
 
 # ---------------------------------------------------------------------------
 # Browser detection & configuration
@@ -348,19 +418,42 @@ OBMENUX
         sleep 1
         echo "  Openbox desktop started"
 
-        # Taskbar
-        DISPLAY=:$DISPLAY_NUM tint2 &>/dev/null &
+        # Wallpaper (blue gradient to match vision model training distribution)
+        start_wallpaper
+
+        # Taskbar (use agent-specific config to avoid affecting user's main desktop)
+        local tint2_config="$HOME/.config/tint2/agent.tint2rc"
+        local tint2_template="$GUAARDVARK_ROOT/data/agent/configs/agent.tint2rc"
+        # Install the agent tint2 config from the repo on first run so fresh
+        # clones get the same look. Won't overwrite an existing customization.
+        if [ ! -f "$tint2_config" ] && [ -f "$tint2_template" ]; then
+            mkdir -p "$(dirname "$tint2_config")"
+            cp "$tint2_template" "$tint2_config"
+            echo "  Installed agent tint2 config from repo template"
+        fi
+        if [ -f "$tint2_config" ]; then
+            DISPLAY=:$DISPLAY_NUM tint2 -c "$tint2_config" &>/dev/null &
+        else
+            # Fallback to default tint2rc if agent config doesn't exist
+            DISPLAY=:$DISPLAY_NUM tint2 &>/dev/null &
+        fi
         echo $! > "$PID_DIR/tint2.pid"
         sleep 1
         echo "  Tint2 taskbar started"
 
-        # Desktop shortcut launcher — visible buttons for Firefox, Agent Files, Terminal
-        if [ -f "$GUAARDVARK_ROOT/scripts/agent_desktop_launcher.py" ]; then
-            DISPLAY=:$DISPLAY_NUM GUAARDVARK_ROOT="$GUAARDVARK_ROOT" python3 "$GUAARDVARK_ROOT/scripts/agent_desktop_launcher.py" &>/dev/null &
-            echo $! > "$PID_DIR/agent_launcher.pid"
-            sleep 1
-            echo "  Desktop launcher started"
-        fi
+        # Desktop icons (Documents, Downloads, Outreach Drafts, Firefox launcher)
+        start_desktop_icons
+        sleep 1
+
+        # Desktop shortcut launcher — DISABLED in favor of pcmanfm desktop icons
+        # The old Python launcher is no longer needed since pcmanfm renders
+        # folder icons and .desktop launchers directly on the desktop
+        # if [ -f "$GUAARDVARK_ROOT/scripts/agent_desktop_launcher.py" ]; then
+        #     DISPLAY=:$DISPLAY_NUM GUAARDVARK_ROOT="$GUAARDVARK_ROOT" python3 "$GUAARDVARK_ROOT/scripts/agent_desktop_launcher.py" &>/dev/null &
+        #     echo $! > "$PID_DIR/agent_launcher.pid"
+        #     sleep 1
+        #     echo "  Desktop launcher started"
+        # fi
     fi
 
     # Browser profile setup
@@ -415,7 +508,7 @@ stop() {
     echo "Stopping Agent Virtual Display..."
 
     # 1. Kill by PID files first
-    for proc in agent_browser agent_firefox tint2 openbox matchbox xvfb; do
+    for proc in pcmanfm nautilus agent_browser agent_firefox tint2 openbox matchbox xvfb; do
         pid_file="$PID_DIR/${proc}.pid"
         if [ -f "$pid_file" ]; then
             pid=$(cat "$pid_file")
@@ -430,7 +523,7 @@ stop() {
     pkill -f "firefox.*firefox_profile" 2>/dev/null
     pkill -f "chrom.*chromium_profile" 2>/dev/null
 
-    # 3. Kill window manager/taskbar on agent display (catches processes started without PID files)
+    # 3. Kill window manager/taskbar/desktop icons on agent display (catches processes started without PID files)
     for pid in $(pgrep -f "openbox" 2>/dev/null); do
         # Only kill openbox running on our display
         if grep -qz "DISPLAY=:$DISPLAY_NUM" /proc/$pid/environ 2>/dev/null; then
@@ -440,6 +533,11 @@ stop() {
     for pid in $(pgrep -f "tint2" 2>/dev/null); do
         if grep -qz "DISPLAY=:$DISPLAY_NUM" /proc/$pid/environ 2>/dev/null; then
             kill $pid 2>/dev/null && echo "  Killed orphan tint2 (PID $pid)"
+        fi
+    done
+    for pid in $(pgrep -f "pcmanfm.*--desktop" 2>/dev/null); do
+        if grep -qz "DISPLAY=:$DISPLAY_NUM" /proc/$pid/environ 2>/dev/null; then
+            kill $pid 2>/dev/null && echo "  Killed orphan pcmanfm (PID $pid)"
         fi
     done
 
@@ -458,6 +556,7 @@ status() {
     pgrep -f "Xvfb :$DISPLAY_NUM" > /dev/null 2>&1 && echo "  Xvfb:     RUNNING" || echo "  Xvfb:     STOPPED"
     pgrep -f "openbox" > /dev/null 2>&1 && echo "  Openbox:  RUNNING" || echo "  Openbox:  STOPPED"
     pgrep -f "tint2" > /dev/null 2>&1 && echo "  Tint2:    RUNNING" || echo "  Tint2:    STOPPED"
+    pgrep -f "pcmanfm.*--desktop" > /dev/null 2>&1 && echo "  Desktop:  RUNNING (pcmanfm)" || echo "  Desktop:  STOPPED"
 
     local browser_running=false
     case "$BROWSER" in
@@ -476,3 +575,13 @@ case "${1:-start}" in
     restart) stop; sleep 2; start ;;
     *) echo "Usage: $0 {start|stop|status|restart}" ;;
 esac
+
+# ---------------------------------------------------------------------------
+# Manual verification after running start.sh:
+# ---------------------------------------------------------------------------
+#   1. Connect noVNC at localhost:5999 (password: guaardvark)
+#   2. Should see: blue/blue-gradient wallpaper, Documents/Downloads/Outreach Drafts
+#      folder icons on desktop, clickable Firefox icon, bottom taskbar
+#   3. Take a screenshot for documentation: scrot data/training/desktop_baseline.png
+#      (or use the agent_screen_capture tool via the API)
+# ---------------------------------------------------------------------------
