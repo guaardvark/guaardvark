@@ -304,6 +304,13 @@ def create_celery_app():
         logger.warning(f"Could not import autoresearch tasks: {e}")
 
     try:
+        from backend.tasks.video_render_tasks import create_video_render_tasks
+        create_video_render_tasks(celery_app)
+        logger.info("Video render tasks registered successfully")
+    except ImportError as e:
+        logger.warning(f"Could not import video render tasks: {e}")
+
+    try:
         from backend.tasks import cluster_heartbeat_sweeper  # noqa: F401 - registers task
         logger.info("Cluster heartbeat sweeper task registered")
     except ImportError as e:

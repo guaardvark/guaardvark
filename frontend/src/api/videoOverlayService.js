@@ -61,7 +61,12 @@ export const listImageDocuments = async () => {
 export const renderTimeline = async (timeline) => {
   // timeline shape mirrors the backend endpoint's expected payload.
   const res = await axios.post(`${API_BASE}/video-overlay/render-timeline`, timeline, {
-    timeout: 600000,  // 10 min — large renders happen.
+    timeout: 30_000,  // 30s for the dispatch ack — actual render can take longer
   });
+  return res.data?.data || res.data; // { job_id, status: "pending" }
+};
+
+export const getRenderStatus = async (jobId) => {
+  const res = await axios.get(`${API_BASE}/video-overlay/render-status/${encodeURIComponent(jobId)}`);
   return res.data?.data || res.data;
 };

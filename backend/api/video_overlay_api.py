@@ -33,6 +33,7 @@ from backend.models import Document as DBDocument, db
 from backend.services.output_registration import register_file
 from backend.services.video_text_overlay import VideoOverlayError, add_text_to_video
 from backend.utils.response_utils import error_response, success_response
+from backend.celery_app import celery
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,24 @@ _VALID_POSITIONS = {
     "bottom-left", "bottom-center", "bottom-right",
 }
 
+
+def _parse_int(value, default, field):
+    """Try to parse; on ValueError return a 400-shaped tuple, otherwise the int."""
+    if value is None:
+        return default, None
+    try:
+        return int(value), None
+    except (TypeError, ValueError):
+        return None, error_response(f"{field} must be an integer", 400, "INVALID_FIELD")
+
+def _parse_float(value, default, field):
+    """Try to parse; on ValueError return a 400-shaped tuple, otherwise the float."""
+    if value is None:
+        return default, None
+    try:
+        return float(value), None
+    except (TypeError, ValueError):
+        return None, error_response(f"{field} must be a number", 400, "INVALID_FIELD")
 
 def _resolve_video_path(doc: DBDocument) -> Path | None:
     """Resolve a video Document to its on-disk bytes.
@@ -108,7 +127,10 @@ def list_videos():
     can't lean on it to populate a "pick a video" dropdown. This is a
     minimal, paginated-by-default list keyed off the filename extension.
     """
-    limit = min(int(request.args.get("limit", 100)), 500)
+    limit, err = _parse_int(request.args.get("limit"), 100, "limit")
+    if err:
+        return err
+    limit = min(limit, 500)
     extensions = (".mp4", ".webm", ".mov", ".mkv", ".avi")
     rows = (
         DBDocument.query
@@ -127,7 +149,10 @@ def list_videos():
 @video_overlay_bp.route("/audio-library", methods=["GET"])
 def list_audio_library():
     """List audio Documents for the editor's media library audio rail."""
-    limit = min(int(request.args.get("limit", 200)), 500)
+    limit, err = _parse_int(request.args.get("limit"), 200, "limit")
+    if err:
+        return err
+    limit = min(limit, 500)
     extensions = (".wav", ".mp3", ".ogg", ".flac", ".m4a", ".aac", ".opus")
     rows = (
         DBDocument.query
@@ -146,7 +171,10 @@ def list_audio_library():
 @video_overlay_bp.route("/image-library", methods=["GET"])
 def list_image_library():
     """List image Documents for the editor's media library image rail."""
-    limit = min(int(request.args.get("limit", 200)), 500)
+    limit, err = _parse_int(request.args.get("limit"), 200, "limit")
+    if err:
+        return err
+    limit = min(limit, 500)
     extensions = (".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff")
     rows = (
         DBDocument.query
@@ -181,6 +209,11 @@ def render_timeline_endpoint():
     Celery routing for long renders are wired in Phase 8.
     """
     payload = request.get_json(silent=True) or {}
+    
+    audio_volume, err = _parse_float(payload.get("audio_volume"), 1.0, "audio_volume")
+    if err:
+        return err
+
     video_doc_id = payload.get("video_document_id")
     if not isinstance(video_doc_id, int):
         return error_response("video_document_id (int) is required", 400, "MISSING_FIELDS")
@@ -208,74 +241,45 @@ def render_timeline_endpoint():
         return error_response("text_elements must be an array", 400, "INVALID_TEXT_ELEMENTS")
 
     # Source-named output via the resolver (Phase 3 of filename plan): pick
-    # the next free '<source>_NNN.mp4' under data/outputs/videos/editor-renders/.
+    # a unique UUID suffix to avoid collisions under concurrent renders.
     editor_renders_dir = Path("data/outputs/videos/editor-renders")
     editor_renders_dir.mkdir(parents=True, exist_ok=True)
     source_stem = Path(video_doc.filename).stem
-    output_path = None
-    for n in range(1, 1000):
-        candidate = editor_renders_dir / f"{source_stem}_{n:03d}.mp4"
-        if not candidate.exists():
-            output_path = candidate.resolve()
-            break
-    if output_path is None:
-        return error_response("Could not allocate output filename", 500, "FILENAME_ALLOCATION_FAILED")
+    output_path = (editor_renders_dir / f"{source_stem}_{uuid.uuid4().hex[:8]}.mp4").resolve()
 
-    # Phase 8 of editor plan — claim the JobOperationGate for VIDEO_RENDER
-    # kind so other surfaces (Activity page, Audio Studio, future Image
-    # Studio) know the GPU/CPU is busy and can show a banner / queue.
-    # On a 16 GB card this runs CPU-bound (libx264) and doesn't actually
-    # claim GPU exclusively; mark it non-exclusive so Activity-side jobs
-    # can coexist. The gate still surfaces the in-progress flag.
-    from backend.services.job_operation_gate import get_gate
-    from backend.services.job_types import JobKind
-    gate = get_gate()
-    render_id = output_path.stem  # use the source-named stem as the native id
-    gate.register_running(JobKind.VIDEO_RENDER, render_id)
+    from backend.utils.unified_progress_system import get_unified_progress, ProcessType
+    progress_system = get_unified_progress()
+    job_id = progress_system.create_process(ProcessType.VIDEO_RENDER, f"Render: {source_stem}")
 
-    from backend.services.video_timeline_render import render_timeline
-    try:
-        render_timeline(
-            video_input_path=video_path,
-            output_path=output_path,
-            text_elements=text_elements,
-            video_trim_start=payload.get("video_trim_start"),
-            video_trim_end=payload.get("video_trim_end"),
-            audio_input_path=audio_path,
-            audio_volume=float(payload.get("audio_volume", 1.0)),
-        )
-    except VideoOverlayError as e:
-        logger.warning("render_timeline_endpoint failed: %s", e)
-        return error_response(str(e), 500, "RENDER_FAILED")
-    except Exception as e:
-        logger.exception("render_timeline_endpoint unexpected failure")
-        return error_response(f"{type(e).__name__}: {e}", 500, "RENDER_FAILED")
-    finally:
-        gate.unregister_running(JobKind.VIDEO_RENDER, render_id)
-
-    new_doc = register_file(
-        physical_path=str(output_path),
-        folder_name="Videos",
-        subfolder_name="Editor Renders",
-        filename=output_path.name,
-        file_type=".mp4",
-        file_metadata={
-            "source_document_id": video_doc.id,
-            "source_filename": video_doc.filename,
-            "audio_document_id": audio_doc_id,
-            "text_element_count": len(text_elements),
-            "trim_start": payload.get("video_trim_start"),
-            "trim_end": payload.get("video_trim_end"),
-        },
+    from backend.tasks.video_render_tasks import create_video_render_tasks
+    # The task function is bound to the celery app
+    celery.send_task(
+        "video_render_tasks.render_timeline_task",
+        args=(payload, str(output_path), job_id),
+        queue="renders"
     )
-    if new_doc is None:
-        return error_response("Render succeeded but Document registration failed", 500, "REGISTRATION_ERROR")
 
     return success_response(
-        data=new_doc.to_dict(),
-        message="Timeline rendered",
-        status_code=201,
+        data={"job_id": job_id, "status": "pending"},
+        message="Render dispatched",
+        status_code=202,
     )
+
+@video_overlay_bp.route("/render-status/<job_id>", methods=["GET"])
+def render_status(job_id):
+    """Polled by the frontend after dispatch; mirrors progress_system state."""
+    from backend.utils.unified_progress_system import get_unified_progress
+    progress_system = get_unified_progress()
+    proc = progress_system.get_process(job_id)
+    if proc is None:
+        return error_response("Job not found", 404, "JOB_NOT_FOUND")
+    return success_response({
+        "job_id": job_id,
+        "status": proc.status.value if hasattr(proc.status, "value") else proc.status,
+        "progress": proc.progress,
+        "message": proc.message,
+        "document_id": (proc.additional_data or {}).get("document_id"),
+    })
 
 
 @video_overlay_bp.route("/text", methods=["POST"])
