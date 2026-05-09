@@ -36,10 +36,11 @@ def test_compute_hash_tracks_lockfile(fake_repo):
     assert h1 != h2
 
 
-def test_install_runs_npm_install(fake_repo, tmp_path):
+def test_install_runs_npm_ci(fake_repo, tmp_path):
+    """npm ci is lockfile-strict — won't silently rewrite package-lock.json."""
     r = Frontend(fake_repo)
     with patch.object(r, "_run_subprocess", return_value=0) as m:
         rc = r.install(tmp_path / "log.txt")
     assert rc == 0
     args = m.call_args_list[0].args[0]
-    assert args[:2] == ["npm", "install"]
+    assert args[:2] == ["npm", "ci"]

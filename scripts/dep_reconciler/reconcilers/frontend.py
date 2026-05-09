@@ -30,8 +30,12 @@ class Frontend(Reconciler):
         with log_path.open("a", encoding="utf-8") as log:
             log.write(f"\n=== {self.id} install @ {os.getpid()} ===\n")
             log.flush()
+            # `npm ci` is lockfile-strict: errors on drift instead of silently
+            # rewriting package-lock.json. With lockfile-only hashing, this is
+            # the correct tool — `npm install` would mutate the lockfile and
+            # register as drift on the next reconciler boot.
             return self._run_subprocess(
-                ["npm", "install"], log, cwd=self.root / "frontend"
+                ["npm", "ci"], log, cwd=self.root / "frontend"
             )
 
     @staticmethod
