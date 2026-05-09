@@ -183,10 +183,11 @@ def tick_self_share(self) -> dict:
 
 @shared_task(name="social_outreach.tick_process_approved_drafts", bind=True)
 def tick_process_approved_drafts(self) -> dict:
-    """Beat tick — process UI-approved drafts for Reddit."""
+    """Beat tick — process UI-approved drafts for Reddit and YouTube."""
     def _run():
         from backend.models import SocialOutreachLog, db
-        from backend.services.social_outreach.reddit_outreach import post_comment_via_servo, record_post_via_backend
+        from backend.services.social_outreach.reddit_outreach import post_comment_via_servo as reddit_post_comment, record_post_via_backend
+        from backend.services.social_outreach.youtube_outreach import post_youtube_comment_via_servo
         from backend.services.social_outreach.self_share import _submit_post_via_servo
         import json
         import requests
@@ -196,7 +197,7 @@ def tick_process_approved_drafts(self) -> dict:
         rows = (
             SocialOutreachLog.query
             .filter(SocialOutreachLog.status == "approved")
-            .filter(SocialOutreachLog.platform == "reddit")
+            .filter(SocialOutreachLog.platform.in_(("reddit", "youtube")))
             .order_by(SocialOutreachLog.created_at.asc())
             .limit(5)
             .all()
@@ -220,7 +221,18 @@ def tick_process_approved_drafts(self) -> dict:
                 # path tags inline at servo time. Prefer posted_text so we don't
                 # silently drop the tags Content already applied.
                 comment_text = row.posted_text or row.draft_text
-                success, reason = post_comment_via_servo(row.target_url, comment_text)
+                
+                # Branch on platform
+                if row.platform == "reddit":
+                    success, reason = reddit_post_comment(row.target_url, comment_text)
+                elif row.platform == "youtube":
+                    success, reason = post_youtube_comment_via_servo(row.target_url, comment_text, row.task_id)
+                else:
+                    # Unsupported platform — leave at approved
+                    row.status = "approved"
+                    db.session.commit()
+                    continue
+                
                 if success:
                     record_post_via_backend(row.id, row.target_url, row.target_thread_id, comment_text, row.task_id)
                     processed += 1
