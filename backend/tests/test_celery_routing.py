@@ -1,0 +1,59 @@
+"""
+Celery routing regression tests — pins the split-brain fix.
+
+Before: Flask created its own Celery via make_celery() with empty task_routes.
+Worker had a separate instance with proper routing. .delay() from Flask
+published to a queue the worker wasn't subscribed to, producing ghost task_ids.
+
+After: Both processes share the singleton from backend.celery_app.
+"""
+
+def test_api_task_routes_to_default_queue():
+    """Tasks queued from Flask MUST land in the same queue workers consume.
+
+    Before: dual Celery instances meant Flask's .delay() messages went to
+    a queue the worker wasn't listening to, producing ghost task_ids.
+    """
+    from backend.celery_app import celery
+    # Triggers task registration via shared_task decorators
+    try:
+        from backend.tasks.social_outreach_tasks import engage_with_subreddit  # noqa
+    except ImportError:
+        # social_outreach_tasks may not exist yet; skip if missing
+        import pytest
+        pytest.skip("social_outreach_tasks not available")
+    
+    route = celery.amqp.router.route(
+        {}, "social_outreach.engage_with_subreddit", args=["test"], kwargs={}
+    )
+    queue = route.get("queue")
+    queue_name = queue.name if hasattr(queue, 'name') else str(queue)
+    assert queue_name == "default", \
+        f"Task routed to {queue_name!r}, worker subscribes to 'default'"
+
+
+def test_flask_and_worker_share_celery_instance():
+    """Flask must NOT call make_celery() — split-brain bug.
+    
+    The worker uses backend.celery_app.celery. If Flask creates its own instance
+    via make_celery(), tasks queued from Flask won't reach the worker.
+    """
+    import ast
+    from pathlib import Path
+    
+    # Parse app.py and check that make_celery() is not called anywhere
+    # in create_app() or _initialize_app_components()
+    app_py = Path(__file__).parent.parent / "app.py"
+    tree = ast.parse(app_py.read_text())
+    
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name in ("create_app", "_initialize_app_components"):
+            # Look for any call to make_celery()
+            for child in ast.walk(node):
+                if isinstance(child, ast.Call):
+                    if isinstance(child.func, ast.Name) and child.func.id == "make_celery":
+                        raise AssertionError(
+                            f"{node.name}() calls make_celery() at line {child.lineno} — "
+                            "Flask will use its own Celery instance instead of the shared "
+                            "worker singleton from backend.celery_app, causing ghost task_ids"
+                        )

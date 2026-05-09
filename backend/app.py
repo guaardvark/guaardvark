@@ -343,43 +343,6 @@ def _ensure_redis_client():
         return None
 
 
-def make_celery(flask_app: Flask) -> Celery:
-    broker_url = os.environ.get(
-        "CELERY_BROKER_URL",
-        os.environ.get("REDIS_URL", "redis://localhost:6379/0"),
-    )
-    result_backend = os.environ.get("CELERY_RESULT_BACKEND", broker_url)
-
-    if config.DISABLE_CELERY:
-        root_logger.warning("Celery/Redis disabled by environment.")
-        celery_app = Celery(
-            flask_app.import_name,
-            broker="memory://",
-            backend="cache+memory://",
-        )
-        celery_app.conf.task_always_eager = True
-    else:
-        _ensure_redis_running(broker_url, fatal=True)
-        celery_app = Celery(
-            flask_app.import_name,
-            broker=broker_url,
-            backend=result_backend,
-        )
-
-    celery_app.conf.update(flask_app.config)
-    celery_app.autodiscover_tasks(["backend"], related_name="celery_tasks_isolated")
-
-    class ContextTask(celery_app.Task):
-        abstract = True
-
-        def __call__(self, *args, **kwargs):
-            with flask_app.app_context():
-                return super().__call__(*args, **kwargs)
-
-    celery_app.Task = ContextTask
-    return celery_app
-
-
 try:
     from backend.config import (
         CLIENT_LOGO_FOLDER,
@@ -461,7 +424,8 @@ def _initialize_app_components(app):
     executor = Executor(app)
     app.executor = executor
     from backend.socketio_instance import socketio, FRONTEND_URL
-    celery = make_celery(app)
+    from backend.celery_app import celery as shared_celery
+    celery = shared_celery
     
     app.logger.setLevel(
         root_logger.level
