@@ -112,6 +112,7 @@ def list_videos():
     extensions = (".mp4", ".webm", ".mov", ".mkv", ".avi")
     rows = (
         DBDocument.query
+        .options(db.joinedload(DBDocument.folder))
         .filter(db.or_(*[DBDocument.filename.ilike(f"%{ext}") for ext in extensions]))
         .order_by(DBDocument.id.desc())
         .limit(limit)
@@ -130,6 +131,7 @@ def list_audio_library():
     extensions = (".wav", ".mp3", ".ogg", ".flac", ".m4a", ".aac", ".opus")
     rows = (
         DBDocument.query
+        .options(db.joinedload(DBDocument.folder))
         .filter(db.or_(*[DBDocument.filename.ilike(f"%{ext}") for ext in extensions]))
         .order_by(DBDocument.id.desc())
         .limit(limit)
@@ -148,6 +150,7 @@ def list_image_library():
     extensions = (".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff")
     rows = (
         DBDocument.query
+        .options(db.joinedload(DBDocument.folder))
         .filter(db.or_(*[DBDocument.filename.ilike(f"%{ext}") for ext in extensions]))
         .order_by(DBDocument.id.desc())
         .limit(limit)
