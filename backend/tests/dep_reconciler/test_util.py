@@ -1,8 +1,6 @@
 import hashlib
 from pathlib import Path
 
-import pytest
-
 from scripts.dep_reconciler.util import hash_file, hash_dir
 
 
@@ -23,7 +21,7 @@ def test_hash_dir_is_deterministic(tmp_path):
     h1 = hash_dir(tmp_path)
     h2 = hash_dir(tmp_path)
     assert h1 == h2
-    assert h1.startswith("sha256:")
+    assert h1 is not None and h1.startswith("sha256:")
 
 
 def test_hash_dir_excludes_pycache(tmp_path):
