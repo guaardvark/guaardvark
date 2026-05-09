@@ -45,6 +45,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--force", action="store_true", help="re-run all active reconcilers")
     p.add_argument("--quiet", action="store_true", help="warnings/errors only")
     p.add_argument("--state-file", default="", help="override state file path")
+    p.add_argument("--repo-root", default="", help="override repository root (mainly for tests)")
     return p.parse_args(argv)
 
 
@@ -62,7 +63,7 @@ def main(argv: list[str] | None = None) -> int:
         log.info("kill switch set; skipping reconciliation")
         return 0
 
-    repo = Path.cwd()
+    repo = Path(args.repo_root).resolve() if args.repo_root else _REPO_ROOT
 
     # Sync-in-progress sentinel: refuse to run.
     sentinel = repo / "data" / "dep_reconciler" / ".sync_in_progress"
@@ -100,20 +101,24 @@ def _run(
         reconcilers = [r for r in reconcilers if r.id in only]
     active_ids = {r.id for r in reconcilers if hasattr(r, "id") and r.id}
 
-    # Orphan pruning: drop state entries for reconcilers that are no longer active.
-    # plugin:* entries get matched against the current PluginBundle members.
+    # Always look up the plugin_bundle (used for per-plugin state propagation later).
     plugin_bundle = next((r for r in reconcilers if r.id == "plugin_bundle"), None)
     member_ids = set(getattr(plugin_bundle, "members", []) or [])
-    stale = []
-    for sid in list(state.reconcilers.keys()):
-        if sid in active_ids:
-            continue
-        if sid.startswith("plugin:") and sid.split(":", 1)[1] in member_ids:
-            continue
-        stale.append(sid)
-    for sid in stale:
-        log.info("pruning orphaned state entry: %s", sid)
-        del state.reconcilers[sid]
+
+    # Orphan pruning: drop state entries for reconcilers no longer active.
+    # Skip when --only is used: a partial run shouldn't mutate state for
+    # reconcilers it didn't even consider.
+    if not only:
+        stale = []
+        for sid in list(state.reconcilers.keys()):
+            if sid in active_ids:
+                continue
+            if sid.startswith("plugin:") and sid.split(":", 1)[1] in member_ids:
+                continue
+            stale.append(sid)
+        for sid in stale:
+            log.info("pruning orphaned state entry: %s", sid)
+            del state.reconcilers[sid]
 
     # Detection pass.
     dirty: list = []
