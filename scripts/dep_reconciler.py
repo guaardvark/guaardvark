@@ -96,6 +96,32 @@ def _run(
     log: logging.Logger,
 ) -> int:
     state = load_state(state_path)
+
+    # Trust-on-upgrade: state file is empty AND we detect a populated venv.
+    # Write current hashes as initial state without re-installing.
+    if not state.reconcilers:
+        venv_marker = repo / "backend" / "venv" / "bin" / "flask"
+        trust_on_upgrade = (
+            os.environ.get("GUAARDVARK_TRUST_ON_UPGRADE") == "1"
+            or venv_marker.is_file()
+        )
+        if trust_on_upgrade:
+            log.info("trust-on-upgrade: existing venv detected, snapshotting current state")
+            preliminary_reconcilers = build_active_reconcilers(repo)
+            for recon in preliminary_reconcilers:
+                if recon.id == "torch_venv_detector":
+                    continue
+                if not recon.is_active():
+                    continue
+                state.reconcilers[recon.id] = {
+                    "manifest_hash": recon.compute_hash(),
+                    "extra": recon.extra_state(),
+                    "last_installed_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                }
+            save_state(state_path, state)
+            log.info("trust-on-upgrade: snapshot saved; no installers run")
+            return 0
+
     reconcilers = build_active_reconcilers(repo)
     if only:
         reconcilers = [r for r in reconcilers if r.id in only]
