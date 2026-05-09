@@ -1,5 +1,4 @@
 import json
-import os
 from pathlib import Path
 
 from scripts.dep_reconciler.state import (
