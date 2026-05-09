@@ -235,6 +235,19 @@ class ServoController:
         except Exception as e:
             logger.debug(f"Archive record failed (non-fatal): {e}")
 
+        # Capture failure trace for training
+        try:
+            from backend.services.training_data_collector import capture_servo_failure
+            capture_servo_failure(
+                screenshot=screenshot,
+                target_description=target_description,
+                corrections_log=all_corrections,
+                vision_model=model_name,
+                reason="screen_unchanged",
+            )
+        except Exception as e:
+            logger.debug(f"Failure trace capture failed (non-fatal): {e}")
+
         return {
             "success": False, "verified": False,
             "x": current_x, "y": current_y,

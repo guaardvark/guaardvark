@@ -39,6 +39,7 @@ data/default__vector_store.json
 data/graph_store.json
 data/conversations/sessions/
 data/training/screenshots/
+data/training/failures/
 data/training/datasets/*.jsonl
 data/training/models/
 # Servo calibration data — runtime-generated, regenerated per calibration run
