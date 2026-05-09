@@ -60,3 +60,19 @@ def test_install_returns_nonzero_when_pip_fails(fake_repo, tmp_path):
     r = BackendVenv(fake_repo)
     with patch.object(r, "_run_subprocess", return_value=1):
         assert r.install(tmp_path / "log.txt") == 1
+
+
+def test_install_invokes_pytorch_script_when_present(fake_repo, tmp_path):
+    """install_pytorch.sh must be called after the main pip install."""
+    scripts_dir = fake_repo / "scripts"
+    scripts_dir.mkdir()
+    (scripts_dir / "install_pytorch.sh").write_text("#!/bin/bash\nexit 0\n")
+    r = BackendVenv(fake_repo)
+    with patch.object(r, "_run_subprocess", return_value=0) as m, \
+         patch.object(r, "_pip_show", return_value="Version: 1.0"):
+        rc = r.install(tmp_path / "log.txt")
+    assert rc == 0
+    # Find the call to bash install_pytorch.sh
+    bash_calls = [c for c in m.call_args_list if c.args[0][0] == "bash"]
+    assert len(bash_calls) == 1
+    assert "install_pytorch.sh" in bash_calls[0].args[0][1]

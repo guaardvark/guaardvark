@@ -9,11 +9,17 @@ from pathlib import Path
 
 from scripts.dep_reconciler.base import Reconciler
 
+# Mirror the legacy start.sh CRITICAL_PACKAGES set — these are the deps
+# pip dependency resolution has been observed to silently drop on this
+# project's requirements.txt. Pinned to the same versions start.sh used.
 CRITICAL_PACKAGES = {
-    "flask": "flask",
-    "alembic": "alembic",
-    "celery": "celery",
-    "llama_index": "llama-index-core",
+    "duckduckgo_search": "duckduckgo-search==8.1.1",
+    "flask": "Flask==3.0.0",
+    "celery": "celery==5.4.0",
+    "redis": "redis==5.0.4",
+    "llama_index": "llama-index-core>=0.13.0,<0.15.0",
+    "lxml": "lxml==6.0.2",
+    "alembic": "alembic",  # Not in legacy list but needed by the Alembic reconciler
 }
 
 
@@ -72,6 +78,19 @@ class BackendVenv(Reconciler):
                     rc = self._run_subprocess([sys.executable, "-m", "pip", "install", dist_name], log)
                     if rc != 0:
                         return rc
+            # PyTorch installer (subsumes start.sh:968-973). Idempotent — the
+            # script skips installation if torch is already present at the
+            # right CUDA major version. We invoke it unconditionally on each
+            # drifted install; if torch is fine it's a no-op.
+            torch_script = self.root / "scripts" / "install_pytorch.sh"
+            if torch_script.is_file():
+                log.write(f"Running {torch_script}\n")
+                log.flush()
+                rc = self._run_subprocess(["bash", str(torch_script)], log)
+                if rc != 0:
+                    log.write(f"WARN: install_pytorch.sh exited {rc}; backend may run without GPU torch\n")
+                    # Don't fail the reconciler — torch absence is a degraded mode, not a crash.
+                    # The post-install LLM-module check will catch hard failures.
             return 0
 
     # --- helpers (test seams) ---
