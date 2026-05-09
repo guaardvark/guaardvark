@@ -103,6 +103,26 @@ def log_outreach_event(
     return row_id
 
 
+def mark_draft_aborted(audit_id: int, abort_reason: str) -> bool:
+    """Update an existing drafted row to 'aborted' status.
+
+    Preserves draft_text so the UI can show + manually-recover the draft.
+    Returns True if the row was found and updated, False if not.
+    """
+    try:
+        from backend.models import SocialOutreachLog, db
+        row = SocialOutreachLog.query.get(audit_id)
+        if row is None:
+            return False
+        row.status = "aborted"
+        row.abort_reason = abort_reason
+        db.session.commit()
+        return True
+    except Exception as e:
+        logger.error("mark_draft_aborted failed for audit_id %s: %s", audit_id, e)
+        return False
+
+
 def recent_thread_ids(platform: str, hours: int = 168) -> set[str]:
     """Thread IDs we've already touched in the window. Used for dedupe."""
     from datetime import timedelta

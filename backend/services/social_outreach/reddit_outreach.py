@@ -367,14 +367,17 @@ class RedditOutreachLoop:
                 break
             else:
                 servo_failures += 1
-                audit.log_outreach_event(
-                    platform="reddit", action="abort",
-                    target_url=thread.permalink,
-                    target_thread_id=thread.id,
-                    status="aborted",
-                    abort_reason=f"servo: {reason}",
-                    task_id=task_id,
-                )
+                if audit_id:
+                    audit.mark_draft_aborted(audit_id, f"servo: {reason}")
+                else:
+                    audit.log_outreach_event(
+                        platform="reddit", action="abort",
+                        target_url=thread.permalink,
+                        target_thread_id=thread.id,
+                        status="aborted",
+                        abort_reason=f"servo: {reason}",
+                        task_id=task_id,
+                    )
                 report["aborted"] += 1
                 if servo_failures >= kill_switch.SERVO_FAILURE_ABORT_THRESHOLD:
                     report["reason"] = "servo_threshold_hit"

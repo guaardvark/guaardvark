@@ -230,13 +230,16 @@ class SelfShareLoop:
                 logger.warning("record-post failed (post may have gone through): %s", e)
             report["posted"] += 1
         else:
-            audit.log_outreach_event(
-                platform="reddit", action="abort",
-                target_url=f"{REDDIT_BASE}/r/{subreddit}",
-                status="aborted",
-                abort_reason=f"servo: {reason}",
-                task_id=task_id,
-            )
+            if audit_id:
+                audit.mark_draft_aborted(audit_id, f"servo: {reason}")
+            else:
+                audit.log_outreach_event(
+                    platform="reddit", action="abort",
+                    target_url=f"{REDDIT_BASE}/r/{subreddit}",
+                    status="aborted",
+                    abort_reason=f"servo: {reason}",
+                    task_id=task_id,
+                )
             report["aborted"] += 1
 
         return report
