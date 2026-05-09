@@ -8,6 +8,7 @@ import shutil
 import fnmatch
 import gzip
 import base64
+from contextlib import contextmanager
 from itertools import islice
 from datetime import datetime
 from pathlib import Path
@@ -19,6 +20,25 @@ logger = logging.getLogger(__name__)
 MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024
 MAX_TOTAL_BYTES = 30 * 1024 * 1024
 MAX_FILE_COUNT = 1500
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_SENTINEL_DIR = _REPO_ROOT / "data" / "dep_reconciler"
+_SENTINEL_FILE = _SENTINEL_DIR / ".sync_in_progress"
+
+
+@contextmanager
+def _sync_in_progress_sentinel():
+    """Context manager: writes .sync_in_progress, clears on exit (success or fail).
+
+    Tells the dep_reconciler to refuse to run while we're mid-sync.
+    """
+    _SENTINEL_DIR.mkdir(parents=True, exist_ok=True)
+    _SENTINEL_FILE.write_text("syncing")
+    try:
+        yield
+    finally:
+        if _SENTINEL_FILE.exists():
+            _SENTINEL_FILE.unlink()
 
 class InterconnectorFileSyncService:
 
@@ -609,6 +629,17 @@ class InterconnectorFileSyncService:
             return True, None, stats
 
     def apply_files_atomic(
+        self,
+        files_list: List[Dict],
+        conflict_strategy: str = "last_write_wins",
+        create_backup: bool = True
+    ) -> Tuple[bool, Dict[str, Any]]:
+        with _sync_in_progress_sentinel():
+            return self._apply_files_atomic_inner(
+                files_list, conflict_strategy, create_backup
+            )
+
+    def _apply_files_atomic_inner(
         self,
         files_list: List[Dict],
         conflict_strategy: str = "last_write_wins",

@@ -8,6 +8,7 @@ import logging
 import os
 import signal
 import subprocess
+import sys
 import threading
 import time
 import requests
@@ -195,6 +196,41 @@ def _run_plugin_script(argv: list, cwd: str, timeout: int) -> dict:
 
 # Where state lives — derived from the registry's plugins_dir at construction
 # time. plugin_state.json is per-machine runtime state; see PluginStateStore.
+
+
+def _run_dep_reconciler_for_plugin(
+    plugin_id: str, *, timeout: int = 180
+) -> Tuple[bool, Optional[str]]:
+    """Synchronously run the dep_reconciler for the plugin_bundle scope.
+
+    Catches the failure mode where a user toggles a plugin in the UI without
+    restarting the backend — start.sh's reconciler invocation never runs in
+    that path, so deps would otherwise be missing when the daemon comes up.
+
+    Returns (success, error_message). On success, error_message is None.
+    On failure, returns the reconciler's stderr or an explanatory string.
+
+    Honors GUAARDVARK_SKIP_DEP_RECONCILER=1 to bypass entirely (test fixtures
+    that exercise enable_plugin without wanting the subprocess overhead).
+    """
+    if os.environ.get("GUAARDVARK_SKIP_DEP_RECONCILER") == "1":
+        return True, None
+
+    repo_root = Path(__file__).resolve().parents[2]  # backend/plugins/x.py → repo
+    entry = repo_root / "scripts" / "dep_reconciler.py"
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(entry), "--only=plugin_bundle"],
+            capture_output=True, text=True, timeout=timeout, cwd=str(repo_root),
+        )
+    except subprocess.TimeoutExpired:
+        return False, f"dep_reconciler timed out after {timeout}s installing {plugin_id}"
+    except (FileNotFoundError, OSError) as e:
+        return False, f"dep_reconciler invocation failed: {e}"
+    if proc.returncode == 0:
+        return True, None
+    return False, (proc.stderr or proc.stdout or "unknown reconciler failure").strip()
+
 
 class PluginManager:
     """
@@ -662,6 +698,26 @@ class PluginManager:
         except Exception as e:
             logger.error(f"Failed to persist user_enabled for {plugin_id}: {e}")
             return {'success': False, 'error': 'Failed to enable plugin'}
+
+        # Ensure deps are installed before the plugin can come up. Without
+        # this, a user toggling in the UI without restarting the backend
+        # skips the start.sh-driven reconciler invocation entirely and the
+        # daemon falls over on missing imports.
+        ok, err = _run_dep_reconciler_for_plugin(plugin_id)
+        if not ok:
+            # Revert so the UI accurately reflects state.
+            try:
+                self.state_store.set_user_enabled(plugin_id, False)
+            except Exception as revert_err:
+                logger.error(
+                    f"Failed to revert user_enabled for {plugin_id} after "
+                    f"reconciler failure: {revert_err}"
+                )
+            logger.error(f"dep_reconciler refused enable of {plugin_id}: {err}")
+            return {
+                'success': False,
+                'error': f'Failed to install dependencies for {plugin_id}: {err}',
+            }
 
         # Keep the in-memory metadata in sync so any code reading
         # metadata.config.enabled (until those paths are migrated to
