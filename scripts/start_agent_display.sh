@@ -468,10 +468,18 @@ OBMENUX
             *) browser_pattern="$BROWSER.*$(basename $PROFILE_DIR)" ;;
         esac
 
-        # Browser is NOT auto-launched — the agent opens it when needed
-        # via the Shortcuts panel or right-click menu. Profile is still
-        # synced so it's ready when the agent decides to open it.
-        echo "  $BROWSER_NAME profile ready (agent launches on demand)"
+        # Auto-launch browser on the virtual display if not already running
+        if pgrep -f "$browser_pattern" > /dev/null 2>&1; then
+            echo "  $BROWSER_NAME already running on :$DISPLAY_NUM"
+        else
+            local launch_cmd=$(browser_launch_cmd "$BROWSER" "$PROFILE_DIR")
+            # `env $ENV_PREFIX` so variable-expanded env assignments actually
+            # take effect — bare `$ENV_PREFIX cmd` would treat them as args.
+            env $ENV_PREFIX $launch_cmd >/dev/null 2>&1 &
+            echo $! > "$PID_DIR/agent_browser.pid"
+            sleep 2
+            echo "  $BROWSER_NAME launched on :$DISPLAY_NUM (PID $(cat $PID_DIR/agent_browser.pid))"
+        fi
     fi
 
     # VNC server (for watching the agent)

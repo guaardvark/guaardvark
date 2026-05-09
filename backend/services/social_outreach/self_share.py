@@ -63,7 +63,7 @@ def _submit_post_via_servo(subreddit: str, title: str, link_url: str) -> tuple[b
     """
     Drive Firefox on :99 to submit a link post.
 
-    Uses old.reddit.com/r/<sub>/submit which has a deterministic, simple form:
+    Uses www.reddit.com/r/<sub>/submit (modern UI matches vision model training distribution):
       - Click "link" tab (or it may default to it)
       - URL textarea
       - Title textarea
@@ -75,7 +75,7 @@ def _submit_post_via_servo(subreddit: str, title: str, link_url: str) -> tuple[b
     from backend.services.agent_control_service import get_agent_control_service
     from backend.services.local_screen_backend import LocalScreenBackend
 
-    submit_url = f"https://old.reddit.com/r/{subreddit}/submit"
+    submit_url = f"https://www.reddit.com/r/{subreddit}/submit"
 
     service = get_agent_control_service()
     if service.is_active:
@@ -90,7 +90,7 @@ def _submit_post_via_servo(subreddit: str, title: str, link_url: str) -> tuple[b
         return False, "display_unavailable"
 
     nav = service.execute_task(
-        f"navigate to old.reddit.com/r/{subreddit}/submit",
+        f"navigate to www.reddit.com/r/{subreddit}/submit",
         screen,
     )
     if not nav.success:

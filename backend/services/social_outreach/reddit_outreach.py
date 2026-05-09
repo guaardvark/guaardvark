@@ -220,10 +220,10 @@ def post_comment_via_servo(permalink: str, comment_text: str) -> tuple[bool, str
     Drive Firefox on DISPLAY=:99 to land the comment.
     Returns (success, reason).
 
-    Strategy: navigate to the thread on old.reddit.com (cleaner DOM, comment
-    textarea is high on the page and reachable in 1 click), then hand the
-    see-think-act loop a precise instruction. The agent's vision model finds
-    the comment box, clicks, types, and submits.
+    Strategy: navigate to the thread on www.reddit.com (modern UI matches
+    vision model training distribution), then hand the see-think-act loop a
+    precise instruction. The agent's vision model finds the comment box,
+    clicks, types, and submits.
 
     On failure: ServoController records success=False; we treat that as servo
     failure and abort.
@@ -231,8 +231,8 @@ def post_comment_via_servo(permalink: str, comment_text: str) -> tuple[bool, str
     from backend.services.agent_control_service import get_agent_control_service
     from backend.services.local_screen_backend import LocalScreenBackend
 
-    # old.reddit.com is the easiest target — single textarea, "save" button right below it.
-    old_url = permalink.replace("www.reddit.com", "old.reddit.com").replace("https://reddit.com", "https://old.reddit.com")
+    # www.reddit.com — modern UI; vision model finds the comment box visually.
+    target_url = permalink if permalink.startswith("https://www.reddit.com") else permalink.replace("https://reddit.com", "https://www.reddit.com").replace("https://old.reddit.com", "https://www.reddit.com")
 
     service = get_agent_control_service()
     if service.is_active:
@@ -249,7 +249,7 @@ def post_comment_via_servo(permalink: str, comment_text: str) -> tuple[bool, str
         return False, "display_unavailable"
 
     # Step 1: navigate. Use the existing navigate_url recipe.
-    nav_task = f"navigate to {old_url.replace('https://', '')}"
+    nav_task = f"navigate to {target_url.replace('https://', '')}"
     nav_result = service.execute_task(nav_task, screen)
     if not nav_result.success:
         return False, f"navigate_failed: {nav_result.reason}"
