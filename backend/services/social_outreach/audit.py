@@ -103,6 +103,38 @@ def log_outreach_event(
     return row_id
 
 
+def log_trail_only(
+    platform: str,
+    event: str,
+    target_url: Optional[str] = None,
+    target_thread_id: Optional[str] = None,
+    extra: Optional[dict[str, Any]] = None,
+) -> None:
+    """Append a marker to the audit jsonl WITHOUT writing a DB row.
+
+    Used for lifecycle signals that aren't full audit events — e.g. the
+    Recon-stage payload (feature_hint, title, sub) that gets overwritten
+    when Content promotes candidate→drafted, but is worth keeping for
+    analytics. Re-fetchable by grepping the jsonl by event name.
+    """
+    AUDIT_DIR.mkdir(parents=True, exist_ok=True)
+    record = {
+        "ts": datetime.utcnow().isoformat() + "Z",
+        "platform": platform,
+        "event": event,
+        "target_url": target_url,
+        "target_thread_id": target_thread_id,
+        "extra": extra or {},
+    }
+    try:
+        with open(AUDIT_FILE, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+    except Exception as e:
+        logger.error("audit jsonl trail write failed: %s", e)
+
+
 def log_candidate(
     platform: str,
     action: str,  # "comment" or "share"
@@ -131,24 +163,40 @@ def log_candidate(
     )
 
 
+def _detached_audit_session():
+    """Build a Session bound directly to the engine, isolated from the caller's
+    db.session. Same pattern log_outreach_event uses — keeps audit writes from
+    accidentally flushing the caller's pending ORM mutations.
+    """
+    from sqlalchemy.orm import Session
+    from backend.models import db
+    return Session(db.engine)
+
+
 def mark_drafted_from_candidate(
     audit_id: int,
     draft_text: str,
     grade_score: Optional[float] = None,
+    posted_text: Optional[str] = None,
 ) -> bool:
     """Promote a candidate row to drafted — Content agent writes the real
     text over the JSON recon payload, replaces score with draft grade.
+    `posted_text` is the UTM-tagged version Content prepared so Phase 3
+    doesn't have to re-tag at servo time.
     """
     try:
-        from backend.models import SocialOutreachLog, db
-        row = SocialOutreachLog.query.get(audit_id)
-        if row is None or row.status != "candidate":
-            return False
-        row.status = "drafted"
-        row.draft_text = draft_text
-        if grade_score is not None:
-            row.grade_score = grade_score
-        db.session.commit()
+        from backend.models import SocialOutreachLog
+        with _detached_audit_session() as s:
+            row = s.get(SocialOutreachLog, audit_id)
+            if row is None or row.status != "candidate":
+                return False
+            row.status = "drafted"
+            row.draft_text = draft_text
+            if grade_score is not None:
+                row.grade_score = grade_score
+            if posted_text is not None:
+                row.posted_text = posted_text
+            s.commit()
         return True
     except Exception as e:
         logger.error("mark_drafted_from_candidate failed for audit_id %s: %s", audit_id, e)
@@ -160,13 +208,14 @@ def mark_rejected(audit_id: int, reason: str) -> bool:
     sub bans self-promo discovered late, etc.). Preserves draft_text for audit.
     """
     try:
-        from backend.models import SocialOutreachLog, db
-        row = SocialOutreachLog.query.get(audit_id)
-        if row is None:
-            return False
-        row.status = "rejected"
-        row.abort_reason = reason
-        db.session.commit()
+        from backend.models import SocialOutreachLog
+        with _detached_audit_session() as s:
+            row = s.get(SocialOutreachLog, audit_id)
+            if row is None:
+                return False
+            row.status = "rejected"
+            row.abort_reason = reason
+            s.commit()
         return True
     except Exception as e:
         logger.error("mark_rejected failed for audit_id %s: %s", audit_id, e)
@@ -180,13 +229,14 @@ def mark_draft_aborted(audit_id: int, abort_reason: str) -> bool:
     Returns True if the row was found and updated, False if not.
     """
     try:
-        from backend.models import SocialOutreachLog, db
-        row = SocialOutreachLog.query.get(audit_id)
-        if row is None:
-            return False
-        row.status = "aborted"
-        row.abort_reason = abort_reason
-        db.session.commit()
+        from backend.models import SocialOutreachLog
+        with _detached_audit_session() as s:
+            row = s.get(SocialOutreachLog, audit_id)
+            if row is None:
+                return False
+            row.status = "aborted"
+            row.abort_reason = abort_reason
+            s.commit()
         return True
     except Exception as e:
         logger.error("mark_draft_aborted failed for audit_id %s: %s", audit_id, e)

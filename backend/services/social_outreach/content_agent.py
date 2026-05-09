@@ -21,28 +21,64 @@ import json
 import logging
 from typing import Optional
 
-from backend.services.social_outreach import audit, persona
+from backend.services.social_outreach import audit, external_grader, persona
 
 logger = logging.getLogger(__name__)
 
 
 MIN_GRADE = 0.7
-"""Drafts below this score get rejected. Matches the threshold the existing
+"""Drafts below this self-grade get rejected. Matches the threshold the existing
 draft-comment endpoint uses for the would_post gate so we stay consistent."""
+
+MIN_EXTERNAL_GRADE = 0.5
+"""Second-opinion threshold (different model, rubric-based). Lower than the
+self-grade threshold because the rubric is binary on each axis (each item is
+0 or 1) — 0.5 means "passes 2 of 4". Below this we reject even if the
+self-grade was high. If the external grader is unavailable (model not loaded,
+call failed) we skip this gate; treat-as-pass keeps the pipeline moving rather
+than blocking on infra problems."""
 
 DEFAULT_BATCH_SIZE = 5
 """How many candidates one tick processes. Keep small — each draft is an LLM
 call and we don't want a single tick blocking the worker for minutes."""
 
 
+def _format_age(created_utc: float) -> str:
+    """Render a thread's age as a short string ("3h", "2d") for the LLM.
+    Skips the call if created_utc is missing/zero so legacy candidate rows
+    written before this field existed don't spam "55 years ago"."""
+    if not created_utc:
+        return "unknown"
+    import time
+    delta = time.time() - float(created_utc)
+    if delta < 0 or delta > 365 * 24 * 3600:
+        return "unknown"
+    hours = delta / 3600.0
+    if hours < 1:
+        return f"{int(delta // 60)}m"
+    if hours < 48:
+        return f"{int(hours)}h"
+    return f"{int(hours // 24)}d"
+
+
 def _build_thread_context(payload: dict) -> str:
     """Reconstruct the same thread_context shape that reddit_outreach.draft_via_backend
     sends to /draft-comment. Recon stored title/selftext/top_comments inline so
-    Content can rebuild the context without hitting Reddit again."""
+    Content can rebuild the context without hitting Reddit again. Subreddit and
+    age are added so the drafter can match the sub's voice and frame the comment
+    relative to the thread's freshness — Gemma4 specifically asked for both."""
     title = payload.get("title", "")
     selftext = payload.get("selftext_preview", "") or "(link-only post)"
     comments = payload.get("top_comments", []) or []
+    subreddit = payload.get("subreddit", "")
+    age = _format_age(payload.get("created_utc", 0))
+    header_lines = []
+    if subreddit:
+        header_lines.append(f"SUBREDDIT: r/{subreddit}")
+    header_lines.append(f"THREAD AGE: {age}")
+    header = "\n".join(header_lines)
     return (
+        f"{header}\n\n"
         f"TITLE: {title}\n\n"
         f"OP BODY:\n{selftext}\n\n"
         f"TOP COMMENTS:\n" + "\n---\n".join(comments[:5])
@@ -74,6 +110,13 @@ class ContentAgent:
                 "grade": None,
                 "reason": f"already {row.status}, not candidate",
             }
+
+        # Defense in depth — Recon emits action="comment" today and self_share
+        # emits "share". An unknown action shouldn't silently be drafted as a
+        # share. Fail loud now; better than a phantom "share" with garbage text.
+        if row.action not in ("comment", "share"):
+            audit.mark_rejected(audit_id, f"unsupported action: {row.action!r}")
+            return {"status": "rejected", "grade": None, "reason": "unsupported_action"}
 
         try:
             payload = json.loads(row.draft_text or "{}")
@@ -107,6 +150,22 @@ class ContentAgent:
             audit.mark_rejected(audit_id, f"grade_too_low:{grade:.2f}")
             return {"status": "rejected", "grade": grade, "reason": "grade_too_low"}
 
+        # Second-opinion grade — different model family, rubric-based, blind to
+        # the self-grade. Drafter is biased toward its own output; this catches
+        # generic, off-tone, or oversold comments that the writer rated highly.
+        # If the grader is unavailable (model not loaded, network blip) we
+        # skip the gate rather than blocking the pipeline on infra issues.
+        ext = external_grader.grade_draft_externally(draft_text, thread_context)
+        if not ext.get("skipped") and ext.get("grade", 0.0) < MIN_EXTERNAL_GRADE:
+            reason = f"external_grade_too_low:{ext['grade']:.2f} ({ext.get('reason', '')[:120]})"
+            audit.mark_rejected(audit_id, reason)
+            return {
+                "status": "rejected",
+                "grade": grade,
+                "reason": "external_grade_too_low",
+                "external": ext,
+            }
+
         # UTM-tag any guaardvark.com links the LLM wrote, same as the
         # existing /draft-comment endpoint does. Tagging at the draft
         # boundary catches every URL — including ones the user may later
@@ -116,15 +175,43 @@ class ContentAgent:
         )
 
         # Store posted_text alongside the draft so the Outreach agent
-        # doesn't have to re-tag at servo time.
-        from backend.models import db
-        row.draft_text = draft_text
-        row.posted_text = posted_text
-        row.grade_score = grade
-        row.status = "drafted"
-        db.session.commit()
+        # doesn't have to re-tag at servo time. Goes through the audit
+        # helper (detached session) so we don't accidentally flush other
+        # caller-pending mutations under celery.
+        promoted = audit.mark_drafted_from_candidate(
+            audit_id,
+            draft_text=draft_text,
+            grade_score=grade,
+            posted_text=posted_text,
+        )
+        if not promoted:
+            # Race: someone else moved it out of "candidate" between fetch
+            # and update. Re-checking the current state would be a best-effort
+            # second hop; for now just report the skip.
+            return {"status": "skipped", "grade": grade, "reason": "race_lost_during_promotion"}
 
-        return {"status": "drafted", "grade": grade, "reason": None}
+        # Trail recon-stage signals into the audit jsonl so they survive past
+        # the candidate→drafted column overwrite. jsonl-only (no new DB row),
+        # queryable from disk for analytics: which feature_hints get drafted vs
+        # rejected, which subs convert best, etc.
+        audit.log_trail_only(
+            platform=row.platform,
+            event="candidate_promoted",
+            target_url=row.target_url,
+            target_thread_id=row.target_thread_id,
+            extra={
+                "audit_id": audit_id,
+                "feature_hint": feature_hint,
+                "title": payload.get("title"),
+                "subreddit": payload.get("subreddit"),
+                "self_grade": grade,
+                "external_grade": ext.get("grade"),
+                "external_skipped": ext.get("skipped", False),
+                "external_reason": ext.get("reason", ""),
+            },
+        )
+
+        return {"status": "drafted", "grade": grade, "reason": None, "external": ext}
 
     def draft_batch(self, batch_size: int = DEFAULT_BATCH_SIZE) -> dict:
         """Walk the oldest N candidate rows and draft each. Returns a summary.

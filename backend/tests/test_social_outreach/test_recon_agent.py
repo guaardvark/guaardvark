@@ -21,6 +21,17 @@ from backend.services.social_outreach.recon import (
 from backend.services.social_outreach.reddit_outreach import RedditThread
 
 
+@pytest.fixture(autouse=True)
+def mock_relevance_grader():
+    """Default-mock the LLM relevance scorer to skipped=True so existing tests
+    don't depend on Ollama. Tests that care about the gate override locally."""
+    with patch(
+        "backend.services.social_outreach.recon.external_grader.score_thread_relevance",
+        return_value={"grade": 0.0, "skipped": True, "model": None, "reason": "test_default"},
+    ):
+        yield
+
+
 @pytest.fixture
 def app():
     """Flask app with in-memory database."""
@@ -166,6 +177,70 @@ def test_scout_reddit_respects_max_candidates(app):
         report = RecondAgent().scout_reddit("LocalLLaMA", max_candidates=2)
         assert report["candidates"] == 2
         assert SocialOutreachLog.query.count() == 2
+
+
+def test_scout_reddit_skips_by_llm_when_relevance_grade_low(app):
+    """LLM relevance judge says no → row is NOT emitted, skipped_by_llm++."""
+    thread = _thread("hostile1", "Why I hate local LLMs", score=400)
+    with app.app_context(), \
+            patch("backend.services.social_outreach.recon.kill_switch.is_enabled", return_value=True), \
+            patch("backend.services.social_outreach.recon.fetch_subreddit_rules", return_value=[]), \
+            patch("backend.services.social_outreach.recon.fetch_hot_threads", return_value=[thread]), \
+            patch("backend.services.social_outreach.recon.fetch_thread_comments", return_value=["awful experience"]), \
+            patch("backend.services.social_outreach.recon.thread_is_relevant", return_value="local_llm"), \
+            patch(
+                "backend.services.social_outreach.recon.external_grader.score_thread_relevance",
+                return_value={"grade": 0.2, "skipped": False, "verdict": "skip", "reason": "OP is venting"},
+            ):
+        report = RecondAgent().scout_reddit("LocalLLaMA")
+        assert report["candidates"] == 0
+        assert report["skipped_by_llm"] == 1
+        assert SocialOutreachLog.query.count() == 0
+
+
+def test_scout_reddit_passes_when_llm_relevance_grade_high(app):
+    """LLM grades ≥ MIN_RELEVANCE_GRADE → emit candidate."""
+    thread = _thread("good1", "How do you keep VRAM under control with Qwen?", score=200)
+    with app.app_context(), \
+            patch("backend.services.social_outreach.recon.kill_switch.is_enabled", return_value=True), \
+            patch("backend.services.social_outreach.recon.fetch_subreddit_rules", return_value=[]), \
+            patch("backend.services.social_outreach.recon.fetch_hot_threads", return_value=[thread]), \
+            patch("backend.services.social_outreach.recon.fetch_thread_comments", return_value=[]), \
+            patch("backend.services.social_outreach.recon.thread_is_relevant", return_value="vram"), \
+            patch(
+                "backend.services.social_outreach.recon.external_grader.score_thread_relevance",
+                return_value={"grade": 0.85, "skipped": False, "verdict": "good_fit", "reason": "asking for advice"},
+            ):
+        report = RecondAgent().scout_reddit("LocalLLaMA")
+        assert report["candidates"] == 1
+        assert report["skipped_by_llm"] == 0
+        # Relevance grade is preserved in the JSON payload
+        import json
+        row = SocialOutreachLog.query.first()
+        payload = json.loads(row.draft_text)
+        assert payload["relevance_grade"] == 0.85
+        assert "good_fit" not in payload  # verdict isn't kept, only grade + reason
+        assert payload["relevance_reason"].startswith("asking")
+
+
+def test_scout_reddit_treats_grader_skipped_as_pass(app):
+    """If the relevance grader is unavailable (model not loaded), don't block.
+    Emit the candidate based on keyword match alone — same behavior as before
+    the LLM gate existed."""
+    thread = _thread("nomodel1", "Local AI thoughts", score=100)
+    with app.app_context(), \
+            patch("backend.services.social_outreach.recon.kill_switch.is_enabled", return_value=True), \
+            patch("backend.services.social_outreach.recon.fetch_subreddit_rules", return_value=[]), \
+            patch("backend.services.social_outreach.recon.fetch_hot_threads", return_value=[thread]), \
+            patch("backend.services.social_outreach.recon.fetch_thread_comments", return_value=[]), \
+            patch("backend.services.social_outreach.recon.thread_is_relevant", return_value="local_ai"), \
+            patch(
+                "backend.services.social_outreach.recon.external_grader.score_thread_relevance",
+                return_value={"grade": 0.0, "skipped": True, "model": None, "reason": "no_grader_model_loaded"},
+            ):
+        report = RecondAgent().scout_reddit("LocalLLaMA")
+        assert report["candidates"] == 1
+        assert report["skipped_by_llm"] == 0
 
 
 def test_dedupe_includes_drafted_and_posted_not_aborted(app):

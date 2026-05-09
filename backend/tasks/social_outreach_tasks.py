@@ -193,9 +193,14 @@ def tick_process_approved_drafts(self) -> dict:
             db.session.commit()
 
             if row.action == "comment":
-                success, reason = post_comment_via_servo(row.target_url, row.draft_text)
+                # Pipeline (Phase 2) writes UTM-tagged copy into posted_text; legacy
+                # /draft-comment rows leave posted_text NULL and the engage_with
+                # path tags inline at servo time. Prefer posted_text so we don't
+                # silently drop the tags Content already applied.
+                comment_text = row.posted_text or row.draft_text
+                success, reason = post_comment_via_servo(row.target_url, comment_text)
                 if success:
-                    record_post_via_backend(row.id, row.target_url, row.target_thread_id, row.draft_text, row.task_id)
+                    record_post_via_backend(row.id, row.target_url, row.target_thread_id, comment_text, row.task_id)
                     processed += 1
             elif row.action == "share":
                 from backend.services.social_outreach.persona import SITE_URL

@@ -32,6 +32,7 @@ def test_mark_draft_aborted_preserves_draft_text(app):
         ok = audit.mark_draft_aborted(rid, "servo: click_save_failed: timeout")
         assert ok is True
         
+        db.session.expire_all()
         updated = SocialOutreachLog.query.get(rid)
         assert updated.status == "aborted"
         assert updated.abort_reason == "servo: click_save_failed: timeout"
@@ -95,6 +96,7 @@ def test_run_one_pass_servo_fail_updates_existing_row_not_create_new(app):
         loop.run_one_pass("test_subreddit")
         
         # Verify only one row exists and it's aborted
+        db.session.expire_all()
         all_rows = SocialOutreachLog.query.all()
         assert len(all_rows) == 1
         assert all_rows[0].id == rid
@@ -140,6 +142,7 @@ def test_self_share_loop_servo_fail_updates_existing_row(app):
         loop.run_one_pass("test_subreddit", "https://guaardvark.com")
         
         # Verify
+        db.session.expire_all()
         updated = SocialOutreachLog.query.get(rid)
         assert updated.status == "aborted"
         assert updated.abort_reason == "servo: submit_timeout"

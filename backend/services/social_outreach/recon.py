@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from backend.services.social_outreach import audit, kill_switch
+from backend.services.social_outreach import audit, external_grader, kill_switch
 from backend.services.social_outreach.reddit_outreach import (
     REDDIT_BASE,
     fetch_hot_threads,
@@ -41,6 +41,13 @@ DEFAULT_CANDIDATES_PER_PASS = 3
 """How many candidates a single pass will emit at most. Recon is cheap so we
 can be greedy, but keep it small enough that human review of the queue stays
 tractable."""
+
+MIN_RELEVANCE_GRADE = 0.5
+"""Threshold for the LLM relevance judge. The keyword filter is regex-only and
+can't tell "I love local AI" from "I hate local AI" — the LLM sees context
+and rules out hostile/off-topic threads. Below this we skip without queuing.
+Same skipped-as-pass behavior as the Content grader: if the relevance model
+is unavailable we fall through to keyword-only behavior."""
 
 
 class RecondAgent:
@@ -73,6 +80,7 @@ class RecondAgent:
             "candidates": 0,
             "skipped_dedupe": 0,
             "skipped_irrelevant": 0,
+            "skipped_by_llm": 0,
             "reason": None,
         }
 
@@ -114,6 +122,28 @@ class RecondAgent:
                 report["skipped_irrelevant"] += 1
                 continue
 
+            # LLM relevance judge — the keyword match got us here, but it
+            # can't tell "I love qwen" from "qwen is broken trash" or
+            # "OP already solved it, no comment needed". A short LLM call
+            # spends a second to filter out the false positives that would
+            # otherwise burn drafting tokens later. Skipped-as-pass behavior
+            # if the model isn't loaded.
+            relevance = external_grader.score_thread_relevance(
+                title=thread.title,
+                selftext=thread.selftext,
+                top_comments=comments,
+                feature_hint=feature_hint,
+                subreddit=subreddit,
+            )
+            if not relevance.get("skipped") and relevance.get("grade", 0.0) < MIN_RELEVANCE_GRADE:
+                report["skipped_by_llm"] += 1
+                logger.info(
+                    "recon: r/%s thread=%s skipped by LLM (grade=%.2f, reason=%s)",
+                    subreddit, thread.id, relevance.get("grade", 0.0),
+                    relevance.get("reason", "")[:80],
+                )
+                continue
+
             # Recon-stage payload — Content agent reads this and drafts
             # without a live Reddit API call. Stores enough context that
             # each phase is self-contained. Caps comment length to keep
@@ -124,6 +154,18 @@ class RecondAgent:
                 "num_comments": thread.num_comments,
                 "selftext_preview": thread.selftext[:400] if thread.selftext else "",
                 "top_comments": [c[:600] for c in comments[:5]],
+                # Content reads these to adjust tone (per-sub voice) and
+                # timeliness framing (a 30-min-old thread is hot, a 12-hour
+                # old one isn't). created_utc is unix seconds; Content
+                # converts to a human-readable "age" string.
+                "subreddit": subreddit,
+                "created_utc": thread.created_utc,
+                # Preserve the LLM's relevance verdict so Content has the
+                # original "why we picked this thread" rationale available
+                # in the prompt context if it wants it.
+                "relevance_grade": relevance.get("grade"),
+                "relevance_reason": relevance.get("reason", "")[:200],
+                "relevance_skipped": relevance.get("skipped", False),
             }
             audit_id = audit.log_candidate(
                 platform="reddit",
