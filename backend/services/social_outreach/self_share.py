@@ -16,7 +16,7 @@ from typing import Optional
 
 import requests
 
-from backend.services.social_outreach import audit, kill_switch
+from backend.services.social_outreach import audit, kill_switch, persona
 from backend.services.social_outreach.reddit_outreach import (
     REDDIT_BASE,
     fetch_subreddit_rules,
@@ -204,7 +204,12 @@ class SelfShareLoop:
             report["reason"] = "empty_title"
             return report
 
-        success, reason = _submit_post_via_servo(subreddit, title, link_url)
+        # Tag the link with UTM before it actually goes into the URL field.
+        # Self-share posts the URL itself as the "content" — it's where ROI
+        # tracking matters most.
+        tagged_link_url = persona.apply_utm_tags(link_url, platform="reddit", campaign="v253")
+
+        success, reason = _submit_post_via_servo(subreddit, title, tagged_link_url)
         audit_id = draft.get("audit_id")
 
         if success:
@@ -214,7 +219,7 @@ class SelfShareLoop:
                     json={
                         "audit_id": audit_id,
                         "platform": "reddit",
-                        "posted_text": f"{title}\n{link_url}",
+                        "posted_text": f"{title}\n{tagged_link_url}",
                         "target_url": f"{REDDIT_BASE}/r/{subreddit}",
                         "target_thread_id": None,
                         "task_id": task_id,

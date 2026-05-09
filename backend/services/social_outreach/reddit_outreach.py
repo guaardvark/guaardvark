@@ -352,9 +352,16 @@ class RedditOutreachLoop:
             draft_text = draft_result.get("draft", "").strip()
             audit_id = draft_result.get("audit_id")
 
-            success, reason = post_comment_via_servo(thread.permalink, draft_text)
+            # Belt-and-suspenders UTM: persona.draft_outreach_text already tags
+            # LLM-generated guaardvark.com links, but a draft may have been
+            # edited via the UI (snippet inserts, hand-typed URLs) since then.
+            # Tagging at the servo boundary catches every URL regardless of
+            # how it got into the text.
+            posted_text = persona.apply_utm_tags(draft_text, platform="reddit", campaign="v253")
+
+            success, reason = post_comment_via_servo(thread.permalink, posted_text)
             if success:
-                record_post_via_backend(audit_id, thread.permalink, thread.id, draft_text, task_id)
+                record_post_via_backend(audit_id, thread.permalink, thread.id, posted_text, task_id)
                 report["posted"] += 1
                 # Cadence enforced inside record-post; one post per pass is the cap anyway.
                 break

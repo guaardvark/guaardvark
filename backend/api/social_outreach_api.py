@@ -727,6 +727,13 @@ def record_post():
     if not platform:
         return jsonify({"error": "platform required"}), 400
 
+    # Belt-and-suspenders: tag any guaardvark.com URL in the recorded text
+    # even if the caller forgot to. The actual POSTED bytes were already
+    # tagged at the servo boundary (see reddit_outreach / self_share); this
+    # ensures the audit log matches what went out.
+    if posted_text:
+        posted_text = persona.apply_utm_tags(posted_text, platform=platform, campaign="v253")
+
     kill_switch.record_post(platform)
 
     if audit_id:
