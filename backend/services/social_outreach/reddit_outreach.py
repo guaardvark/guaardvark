@@ -255,17 +255,32 @@ def post_comment_via_servo(permalink: str, comment_text: str) -> tuple[bool, str
         return False, f"navigate_failed: {nav_result.reason}"
     time.sleep(SERVO_SETTLE_SECONDS)
 
+    # Drop keyboard focus from the search bar — Reddit's header places focus
+    # there on permalink load and the search input absorbs scroll-wheel events
+    # (xdotool's button 4/5 click goes to the focused window, not the cursor's
+    # position). Without this, the first scroll moves the page a hair before
+    # focus snaps back to search and subsequent scrolls produce delta=0 ->
+    # the agent loops and aborts. (Confirmed via screenshot 2026-05-09:
+    # /tmp/agent-current-state.png showed the search box yellow-outlined as
+    # focused while the agent was supposedly scrolling.)
+    screen.hotkey("Escape")
+    time.sleep(1.0)
+
     # Step 2: open + focus the comment composer.
-    # On www.reddit, the placeholder "Add a comment" sits below the post body
-    # and below the post action bar (vote/share). Usually below the fold,
-    # so the agent will need to scroll. We carefully word this so it doesn't
-    # match the scroll_down recipe trigger (regex: scroll\s+down) — that recipe
-    # is single-step and would short-circuit our multi-step task as "done"
-    # without ever clicking the composer. Putting other words between
-    # "scroll" and any direction keeps the recipe matcher inert.
+    # On www.reddit, the placeholder "Add a comment" sits BELOW the post body
+    # but ABOVE the comments list — auto-scroll-on-permalink can land us
+    # mid-comments and the LLM's prior is "more content is below" even when
+    # the textarea is above the current viewport. Be explicit about the
+    # spatial relation. Words between "scroll" and any direction keep the
+    # scroll_down recipe matcher (regex: scroll\s+down) inert so this
+    # multi-step task isn't short-circuited as "done" after one scroll.
     find_task = (
-        "1) Find the comment input box on the thread. "
-        "If it isn't on screen, page the view to bring it into view. "
+        "1) Find the comment input box on the thread. The composer sits "
+        "below the post body but ABOVE the comments list — if the screen "
+        "is showing comments and replies, the box is UPWARD from your current "
+        "view. To move UPWARD use action=hotkey with keys=['Page_Up'] or "
+        "keys=['Home']. DO NOT use action=scroll for moving up — the scroll "
+        "action moves DOWN by default and will undo your Page_Up progress. "
         "2) Click the comment input box to open and focus it. "
         "3) Say done when the cursor is inside the text area."
     )
