@@ -791,32 +791,6 @@ run_health_checks() {
     fi
 }
 
-ensure_pip_requirements() {
-    local req_file="$1"
-    [ -f "$req_file" ] || return 0
-    
-    if [ "$FAST_START" -eq 1 ]; then
-        return 0
-    fi
-    
-    while IFS= read -r line || [ -n "$line" ]; do
-        line="${line%%#*}"
-        line="${line%% *}"
-        [ -z "$line" ] && continue
-        local pkg="$line"
-        pkg="${pkg%%==*}"
-        pkg="${pkg%%>=*}"
-        pkg="${pkg%%<=*}"
-        pkg="${pkg%%>*}"
-        pkg="${pkg%%<*}"
-        pkg="${pkg%%!=*}"
-        pkg="${pkg%%~=*}"
-        if ! pip show "$pkg" >/dev/null 2>&1; then
-            pip install "$line" >> "$SETUP_LOG" 2>&1
-        fi
-    done < "$req_file"
-}
-
 ensure_npm_package() {
     local pkg="$1"
     npm ls --prefix "$FRONTEND_DIR" --depth=0 "$pkg" >/dev/null 2>&1 || \
@@ -955,90 +929,25 @@ fi
 
 source "$VENV_DIR/bin/activate" || { vader_error "Failed to activate venv"; exit 1; }
 
-if [ ! -f "$VENV_DIR/.deps_installed" ] && [ "$FAST_START" -ne 1 ]; then
-    FIRST_SETUP_DONE=0
-    vader_info "Installing base backend requirements..."
-    
-    if [ -f "$BACKEND_DIR/requirements-base.txt" ]; then
-        pip install -r "$BACKEND_DIR/requirements-base.txt" >> "$SETUP_LOG" 2>&1
-    else
-        pip install -r "$BACKEND_DIR/requirements.txt" >> "$SETUP_LOG" 2>&1
-    fi
-    
-    vader_info "Detecting GPU and installing PyTorch..."
-    if [ -f "$GUAARDVARK_ROOT/scripts/install_pytorch.sh" ]; then
-        bash "$GUAARDVARK_ROOT/scripts/install_pytorch.sh" 2>&1 | tee -a "$SETUP_LOG"
-    else
-        vader_warn "PyTorch install script not found - using CPU fallback"
-        pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu 2>&1 | tee -a "$SETUP_LOG"
-    fi
-    
-    NP_MAJOR=$($PYTHON_CMD - <<'EOF'
-import numpy, sys
-print(numpy.__version__.split('.')[0])
-EOF
-    )
-    if [ "$NP_MAJOR" -ge 2 ]; then
-        vader_warn "NumPy $NP_MAJOR.x detected; forcing reinstall of pinned packages."
-        if [ -f "$BACKEND_DIR/requirements-base.txt" ]; then
-            pip install --force-reinstall -r "$BACKEND_DIR/requirements-base.txt" >> "$SETUP_LOG" 2>&1
-        else
-            pip install --force-reinstall -r "$BACKEND_DIR/requirements.txt" >> "$SETUP_LOG" 2>&1
-        fi
-    fi
-
-    # Verify critical packages that pip dependency resolution may silently drop
-    # Use version pins to ensure correct versions (not just latest)
-    declare -A CRITICAL_PACKAGES=(
-        ["duckduckgo-search"]="duckduckgo-search==8.1.1"
-        ["flask"]="Flask==3.0.0"
-        ["celery"]="celery==5.4.0"
-        ["redis"]="redis==5.0.4"
-        ["llama-index-core"]="llama-index-core>=0.13.0,<0.15.0"
-        ["lxml"]="lxml==6.0.2"
-    )
-    for pkg in "${!CRITICAL_PACKAGES[@]}"; do
-        if ! pip show "$pkg" >/dev/null 2>&1; then
-            vader_warn "Critical package $pkg missing after requirements install — installing individually..."
-            pip install "${CRITICAL_PACKAGES[$pkg]}" >> "$SETUP_LOG" 2>&1
-        fi
-    done
-
-    touch "$VENV_DIR/.deps_installed"
-
-    if command_exists "nvidia-smi"; then
-        nvidia-smi --query-gpu=uuid --format=csv,noheader 2>/dev/null | head -1 > "$VENV_DIR/.gpu_hw_id"
+# Dependency reconciler — single source of truth for backend/frontend/cli/plugin/alembic deps.
+# Replaces the legacy .deps_installed sentinel and four scattered install blocks.
+if [ "$GUAARDVARK_DEP_RECONCILER" != "disabled" ] && [ "$FAST_START" -ne 1 ]; then
+    vader_info "Reconciling dependencies..."
+    if ! python "$GUAARDVARK_ROOT/scripts/dep_reconciler.py" 2>&1 | tee -a "$SETUP_LOG"; then
+        vader_error "Dependency reconciliation failed. Backend will not start."
+        vader_error "See logs/dep_reconciler.log for the full output."
+        exit 1
     fi
 fi
 deactivate
 
 # --- CLI tool setup ---
+# Pip install is handled by the dependency reconciler (cli_venv).
+# This block only handles the symlink installation into ~/.local/bin.
 CLI_DIR="$SCRIPT_DIR/cli"
 CLI_VENV_DIR="$VENV_DIR"
 if [ -d "$CLI_DIR" ] && [ -f "$CLI_DIR/setup.py" ]; then
     if [ -d "$CLI_VENV_DIR" ]; then
-        source "$CLI_VENV_DIR/bin/activate"
-        if [ ! -f "$CLI_VENV_DIR/.cli_deps_installed" ] && [ "$FAST_START" -ne 1 ]; then
-            vader_info "Installing CLI tool (guaardvark)..."
-            pip install --upgrade pip setuptools >> "$SETUP_LOG" 2>&1
-            pip install -e "$CLI_DIR" >> "$SETUP_LOG" 2>&1
-            if [ $? -eq 0 ]; then
-                touch "$CLI_VENV_DIR/.cli_deps_installed"
-                vader_success "CLI tool installed"
-            else
-                vader_warn "CLI tool installation failed - check $SETUP_LOG"
-            fi
-        elif [ "$FAST_START" -ne 1 ]; then
-            # Re-check if requirements changed
-            if [ "$CLI_DIR/requirements.txt" -nt "$CLI_VENV_DIR/.cli_deps_installed" ] || \
-               [ "$CLI_DIR/setup.py" -nt "$CLI_VENV_DIR/.cli_deps_installed" ]; then
-                vader_info "CLI dependencies changed - reinstalling..."
-                pip install -e "$CLI_DIR" >> "$SETUP_LOG" 2>&1
-                touch "$CLI_VENV_DIR/.cli_deps_installed"
-            fi
-        fi
-        deactivate
-
         # Symlink CLI commands into ~/.local/bin so they work system-wide
         LOCAL_BIN="$HOME/.local/bin"
         mkdir -p "$LOCAL_BIN"
@@ -1327,96 +1236,6 @@ if [ ! -f "$VENV_DIR/bin/activate" ]; then
     fi
 fi
 
-vader_info "Activating Python venv..."
-source "$VENV_DIR/bin/activate" || { vader_error "Failed to activate venv."; cd "$SCRIPT_DIR"; exit 1; }
-
-SENTINEL="$VENV_DIR/.deps_installed"
-
-if [ -f "$SENTINEL" ] && [ "$BACKEND_DIR/requirements.txt" -nt "$SENTINEL" ]; then
-    vader_info "requirements.txt changed - updating backend dependencies..."
-    if [ -f "$BACKEND_DIR/requirements-base.txt" ]; then
-        pip install -r "$BACKEND_DIR/requirements-base.txt" >> "$SETUP_LOG" 2>&1
-    else
-        pip install -r "$BACKEND_DIR/requirements.txt" >> "$SETUP_LOG" 2>&1
-    fi
-    touch "$SENTINEL"
-
-    # Verify critical packages that pip dependency resolution may silently drop
-    # Use version pins to ensure correct versions (not just latest)
-    declare -A CRITICAL_PACKAGES_2=(
-        ["duckduckgo-search"]="duckduckgo-search==8.1.1"
-        ["flask"]="Flask==3.0.0"
-        ["celery"]="celery==5.4.0"
-        ["redis"]="redis==5.0.4"
-        ["llama-index-core"]="llama-index-core>=0.13.0,<0.15.0"
-        ["lxml"]="lxml==6.0.2"
-    )
-    for pkg in "${!CRITICAL_PACKAGES_2[@]}"; do
-        if ! pip show "$pkg" >/dev/null 2>&1; then
-            vader_warn "Critical package $pkg missing after requirements install — installing individually..."
-            pip install "${CRITICAL_PACKAGES_2[$pkg]}" >> "$SETUP_LOG" 2>&1
-        fi
-    done
-fi
-
-if [ -f "$BACKEND_DIR/requirements-base.txt" ]; then
-    ensure_pip_requirements "$BACKEND_DIR/requirements-base.txt"
-else
-    ensure_pip_requirements "$BACKEND_DIR/requirements.txt"
-fi
-
-if command_exists "nvidia-smi"; then
-    CURRENT_GPU=$(nvidia-smi --query-gpu=uuid --format=csv,noheader 2>/dev/null | head -1)
-    if [ -n "$CURRENT_GPU" ]; then
-        if [ -f "$VENV_DIR/.gpu_hw_id" ]; then
-            SAVED_GPU=$(cat "$VENV_DIR/.gpu_hw_id" 2>/dev/null)
-            if [ "$CURRENT_GPU" != "$SAVED_GPU" ]; then
-                vader_info "GPU hardware change detected. Reinstalling PyTorch..."
-                bash "$GUAARDVARK_ROOT/scripts/install_pytorch.sh" >> "$SETUP_LOG" 2>&1
-                echo "$CURRENT_GPU" > "$VENV_DIR/.gpu_hw_id"
-            fi
-        else
-            echo "$CURRENT_GPU" > "$VENV_DIR/.gpu_hw_id"
-        fi
-    fi
-fi
-
-if [ ! -f "$SENTINEL" ]; then
-    vader_error "Backend dependencies missing. Exiting."
-    deactivate
-    cd "$SCRIPT_DIR"
-    exit 1
-fi
-
-vader_info "Verifying LLM-related Python modules..."
-LLM_MODULES=(llama_index.core)
-MISSING_LLM_MODULES=()
-for mod in "${LLM_MODULES[@]}"; do
-    python - <<EOF >> /dev/null 2>&1
-import sys
-try:
-    import $mod
-    sys.exit(0)
-except ImportError:
-    sys.exit(1)
-EOF
-    if [ $? -ne 0 ]; then
-        MISSING_LLM_MODULES+=("$mod")
-    fi
-done
-
-if [ ${#MISSING_LLM_MODULES[@]} -gt 0 ]; then
-    vader_warn "Missing LLM modules: ${MISSING_LLM_MODULES[*]}"
-    vader_info "Auto-installing LLM requirements..."
-    ensure_pip_requirements "$BACKEND_DIR/requirements.txt"
-fi
-
-if [ "$WITH_LLM" -eq 1 ]; then
-    ensure_pip_requirements "$BACKEND_DIR/requirements.txt"
-fi
-
-vader_info "Deactivating venv for now."
-deactivate
 cd "$SCRIPT_DIR"
 
 # ---- cluster: hardware profile ------------------------------------------

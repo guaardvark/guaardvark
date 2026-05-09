@@ -136,3 +136,6 @@ frontend/public/*.onnx
 training/models/
 unsloth_compiled_cache/
 plugins/upscaling/models/*.pth
+
+# Dependency reconciler runtime state (per-machine)
+data/dep_reconciler/
