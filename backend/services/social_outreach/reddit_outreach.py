@@ -257,12 +257,15 @@ def post_comment_via_servo(permalink: str, comment_text: str) -> tuple[bool, str
 
     # Step 2: open + focus the comment composer.
     # On www.reddit, the placeholder "Add a comment" sits below the post body
-    # and below the post action bar (vote/share). Usually below the fold —
-    # have to scroll first. Then click into it so the cursor is inside the
-    # text area before typing, otherwise xdotool fires keys at whatever has
-    # focus (URL bar, page body, etc.) and the first chars get eaten.
+    # and below the post action bar (vote/share). Usually below the fold,
+    # so the agent will need to scroll. We carefully word this so it doesn't
+    # match the scroll_down recipe trigger (regex: scroll\s+down) — that recipe
+    # is single-step and would short-circuit our multi-step task as "done"
+    # without ever clicking the composer. Putting other words between
+    # "scroll" and any direction keeps the recipe matcher inert.
     find_task = (
-        "1) Scroll down until the comment input box is visible. "
+        "1) Find the comment input box on the thread. "
+        "If it isn't on screen, page the view to bring it into view. "
         "2) Click the comment input box to open and focus it. "
         "3) Say done when the cursor is inside the text area."
     )

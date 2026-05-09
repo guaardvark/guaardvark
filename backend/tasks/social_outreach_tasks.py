@@ -202,6 +202,13 @@ def tick_process_approved_drafts(self) -> dict:
                 if success:
                     record_post_via_backend(row.id, row.target_url, row.target_thread_id, comment_text, row.task_id)
                     processed += 1
+                else:
+                    # Move the row to "aborted" so it doesn't stay stuck at
+                    # "processing" forever. The user can re-approve via UI to
+                    # retry — far better UX than the original "human deals
+                    # with it" comment that left rows in limbo.
+                    from backend.services.social_outreach.audit import mark_draft_aborted
+                    mark_draft_aborted(row.id, f"servo: {reason}")
             elif row.action == "share":
                 from backend.services.social_outreach.persona import SITE_URL
                 payload = {}
@@ -241,5 +248,15 @@ def tick_process_approved_drafts(self) -> dict:
                         except Exception as e:
                             logger.warning("record-post failed: %s", e)
                         processed += 1
+                    else:
+                        # Same recovery path as the comment branch — abort
+                        # cleanly so the row isn't stranded at "processing".
+                        from backend.services.social_outreach.audit import mark_draft_aborted
+                        mark_draft_aborted(row.id, f"servo: {reason}")
+                else:
+                    # Couldn't even attempt — sub or title missing. Mark
+                    # aborted with a clear reason so the user can fix the row.
+                    from backend.services.social_outreach.audit import mark_draft_aborted
+                    mark_draft_aborted(row.id, "share row missing subreddit or title")
         return {"processed": processed}
     return _with_app_context(_run)
