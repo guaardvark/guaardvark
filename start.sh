@@ -109,7 +109,6 @@ OLLAMA_SERVICE_NAME="ollama"
 BACKEND_DIR="$SCRIPT_DIR/backend"
 FRONTEND_DIR="$SCRIPT_DIR/frontend"
 VENV_DIR="$BACKEND_DIR/venv"
-WITH_LLM="${WITH_LLM:-0}"
 CACHE_DIR="$SCRIPT_DIR/.start_cache"
 mkdir -p "$CACHE_DIR"
 
@@ -933,8 +932,10 @@ source "$VENV_DIR/bin/activate" || { vader_error "Failed to activate venv"; exit
 # Replaces the legacy .deps_installed sentinel and four scattered install blocks.
 if [ "$GUAARDVARK_DEP_RECONCILER" != "disabled" ] && [ "$FAST_START" -ne 1 ]; then
     vader_info "Reconciling dependencies..."
-    if ! python "$GUAARDVARK_ROOT/scripts/dep_reconciler.py" 2>&1 | tee -a "$SETUP_LOG"; then
-        vader_error "Dependency reconciliation failed. Backend will not start."
+    python "$GUAARDVARK_ROOT/scripts/dep_reconciler.py" 2>&1 | tee -a "$SETUP_LOG"
+    reconciler_rc=${PIPESTATUS[0]}
+    if [ "$reconciler_rc" -ne 0 ]; then
+        vader_error "Dependency reconciliation failed (exit $reconciler_rc). Backend will not start."
         vader_error "See logs/dep_reconciler.log for the full output."
         exit 1
     fi

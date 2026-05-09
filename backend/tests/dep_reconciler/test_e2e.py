@@ -25,8 +25,11 @@ def fake_repo(tmp_path):
 
 
 def _run(repo, state_file, **extra_env):
+    # Strip GUAARDVARK_* from inherited env so test results aren't
+    # contaminated by the developer's local kill-switch settings.
+    base = {k: v for k, v in os.environ.items() if not k.startswith("GUAARDVARK_")}
     env = {
-        **os.environ,
+        **base,
         "PYTHONPATH": str(REPO_ROOT),
         "GUAARDVARK_DEP_STATE_FILE": str(state_file),
         # Force trust-on-upgrade so we don't actually run pip in tests.
