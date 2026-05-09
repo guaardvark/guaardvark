@@ -3,7 +3,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from scripts.dep_reconciler.base import Reconciler
 
 
 def classify_plugin_venv_mode(plugin_dir: Path) -> Literal["isolated", "shared"]:
@@ -34,7 +37,7 @@ def enabled_plugin_ids(plugin_state_path: Path) -> list[str]:
             if isinstance(cfg, dict) and cfg.get("user_enabled") is True]
 
 
-def build_active_reconcilers(repo_root: Path) -> list:
+def build_active_reconcilers(repo_root: Path) -> list["Reconciler"]:
     """Return [BackendVenv, Alembic, PluginBundle, Frontend, CliVenv, TorchVenvDetector] in run order.
 
     Lazy-imports the concrete reconciler classes — they live in submodules
@@ -60,6 +63,8 @@ def build_active_reconcilers(repo_root: Path) -> list:
         and any((plugins_dir / pid).glob("requirements*.txt"))
     ]
 
+    # Note: TorchVenvDetector isn't strictly a Reconciler subclass; the entry
+    # point branches on r.id == "torch_venv_detector" before treating it as one.
     return [
         BackendVenv(repo_root),
         Alembic(repo_root),
