@@ -32,6 +32,8 @@ class JobKind(str, Enum):
     DEMO = "demo"
     BATCH_CSV = "batch_csv"             # batch_job_rows (bare SQL)
     VIDEO_RENDER = "video_render"       # editor renders (lands in Phase 7 of editor plan)
+    PRODUCTION = "production"           # ViMax-style production pipeline parent
+    LORA_TRAIN = "lora_train"           # Per-Subject LoRA training (child of PRODUCTION)
     UNIFIED_PROGRESS = "unified"        # in-memory-only process
 
 

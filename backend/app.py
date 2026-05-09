@@ -884,6 +884,22 @@ def _initialize_app_components(app):
     from backend.utils.blueprint_discovery import auto_register_blueprints
     auto_register_blueprints(app)
 
+    # Resume any in-flight productions after a crash. DB-driven — no in-memory state to lose.
+    # Note: `db` is the module-level import (line 401). Importing it locally here
+    # would silently make every other `db` reference in create_app() local-by-assignment
+    # and break the function. Don't re-import.
+    try:
+        from backend.services.production_service import ProductionService
+        with app.app_context():
+            resumed = ProductionService(db.session).resume_all()
+            if resumed:
+                app.logger.info(f"Production pipeline resumed {resumed} in-flight production(s) from DB state")
+    except NotImplementedError:
+        # Swarm dispatch not yet wired (Phase D). Production rows past 'draft' won't auto-resume yet.
+        app.logger.debug("Production resume skipped — swarm dispatch not yet wired")
+    except Exception as e:
+        app.logger.warning(f"Production resume failed (non-critical): {e}")
+
     from backend.middleware.cluster_proxy_middleware import cluster_proxy_before_request
     app.before_request(cluster_proxy_before_request)
 

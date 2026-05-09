@@ -37,6 +37,8 @@ export const JOB_KINDS_FOR_ACTIVITY_PAGE = [
   JOB_KINDS.EXPERIMENT,
   JOB_KINDS.DEMO,
   JOB_KINDS.UNIFIED_PROGRESS,
+  'production',
+  'lora_train',
 ];
 
 export const JOB_STATUSES = ["pending", "running", "paused", "completed", "failed", "cancelled"];

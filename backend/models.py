@@ -2496,3 +2496,149 @@ class JobHistory(db.Model):
             "metadata": self.job_metadata or {},
             "recorded_at": self.recorded_at.isoformat() if self.recorded_at else None,
         }
+
+
+class Production(db.Model):
+    """A ViMax-style production run. Owns the swarm pipeline state."""
+    __tablename__ = "productions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(
+        db.Integer,
+        db.ForeignKey("projects.id", name="fk_production_project_id", ondelete="SET NULL"),
+        nullable=True, index=True,
+    )
+    name = db.Column(db.String(255), nullable=False)
+    script_text = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(64), nullable=False, default="draft", index=True)
+    current_stage = db.Column(db.String(64), nullable=False, default="draft")
+    settings_json = db.Column(db.JSON, nullable=False, default=dict)
+    error_blob = db.Column(db.JSON, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now())
+    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.now(), onupdate=db.func.now())
+
+    project = db.relationship("Project", backref="productions")
+
+
+class Subject(db.Model):
+    """A trainable LoRA subject — character, environment, or prop. Reusable across productions (Cast Library)."""
+    __tablename__ = "subjects"
+
+    id = db.Column(db.Integer, primary_key=True)
+    kind = db.Column(db.String(32), nullable=False, index=True)  # character | environment | prop
+    name = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    ref_image_paths = db.Column(db.JSON, nullable=False, default=list)
+    lora_path = db.Column(db.String(512), nullable=True)
+    lora_version = db.Column(db.Integer, nullable=False, default=0)
+    training_status = db.Column(db.String(32), nullable=False, default="untrained", index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now())
+    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.now(), onupdate=db.func.now())
+
+
+class ProductionSubject(db.Model):
+    """Subjects a Production needs — populated by the Screenwriter task.
+    Distinct from ProductionShotSubject, which is a per-shot LoRA stack."""
+    __tablename__ = "production_subjects"
+
+    id = db.Column(db.Integer, primary_key=True)
+    production_id = db.Column(
+        db.Integer,
+        db.ForeignKey("productions.id", name="fk_production_subject_production_id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    subject_id = db.Column(
+        db.Integer,
+        db.ForeignKey("subjects.id", name="fk_production_subject_subject_id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now())
+    __table_args__ = (db.UniqueConstraint("production_id", "subject_id", name="uq_production_subject"),)
+
+    production = db.relationship(
+        "Production",
+        backref=db.backref("production_subjects", cascade="all, delete-orphan"),
+    )
+    subject = db.relationship("Subject")
+
+
+class ProductionShot(db.Model):
+    """One shot in a production. Storyboard image, then I2V clip."""
+    __tablename__ = "production_shots"
+
+    id = db.Column(db.Integer, primary_key=True)
+    production_id = db.Column(
+        db.Integer,
+        db.ForeignKey("productions.id", name="fk_production_shot_production_id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    scene_number = db.Column(db.Integer, nullable=False)
+    shot_number = db.Column(db.Integer, nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    camera_angle = db.Column(db.String(128), nullable=True)
+    duration_seconds = db.Column(db.Float, nullable=False, default=3.0)
+    dialogue_text = db.Column(db.Text, nullable=True)
+    voice_subject_id = db.Column(
+        db.Integer,
+        db.ForeignKey("subjects.id", name="fk_production_shot_voice_subject_id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    storyboard_image_path = db.Column(db.String(512), nullable=True)
+    video_clip_path = db.Column(db.String(512), nullable=True)
+    approved = db.Column(db.Boolean, nullable=False, default=False)
+    regen_count = db.Column(db.Integer, nullable=False, default=0)
+
+    production = db.relationship(
+        "Production",
+        backref=db.backref("shots", cascade="all, delete-orphan"),
+    )
+
+
+class ProductionShotSubject(db.Model):
+    """Join — which Subjects' LoRAs stack on this shot's generation."""
+    __tablename__ = "production_shot_subjects"
+
+    id = db.Column(db.Integer, primary_key=True)
+    shot_id = db.Column(
+        db.Integer,
+        db.ForeignKey("production_shots.id", name="fk_pss_shot_id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    subject_id = db.Column(
+        db.Integer,
+        db.ForeignKey("subjects.id", name="fk_pss_subject_id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+
+    shot = db.relationship(
+        "ProductionShot",
+        backref=db.backref("shot_subjects", cascade="all, delete-orphan"),
+    )
+
+
+class SwarmMessage(db.Model):
+    """One agent invocation: input, output, timing, model. Observability table — SELECT to debug."""
+    __tablename__ = "swarm_messages"
+
+    id = db.Column(db.Integer, primary_key=True)
+    production_id = db.Column(
+        db.Integer,
+        db.ForeignKey("productions.id", name="fk_swarm_message_production_id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    agent_name = db.Column(db.String(64), nullable=False, index=True)
+    input_json = db.Column(db.JSON, nullable=False)
+    output_json = db.Column(db.JSON, nullable=True)
+    latency_ms = db.Column(db.Integer, nullable=True)
+    model = db.Column(db.String(128), nullable=True)
+    tokens_in = db.Column(db.Integer, nullable=True)
+    tokens_out = db.Column(db.Integer, nullable=True)
+    status = db.Column(db.String(32), nullable=False, default="ok")  # ok | parse_error | timeout | error
+    error_text = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now(), index=True)
+
+    production = db.relationship(
+        "Production",
+        backref=db.backref("swarm_messages", cascade="all, delete-orphan"),
+    )
+
