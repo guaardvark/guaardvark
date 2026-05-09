@@ -61,6 +61,34 @@ def test_flask_and_worker_share_celery_instance():
                         )
 
 
+def test_shared_task_resolves_to_configured_celery_app():
+    """@shared_task decorators MUST bind to the configured backend.celery_app.celery,
+    not a default empty Celery() that the lib creates on first lookup.
+
+    Without celery.set_default() in celery_app.py, @shared_task in modules
+    imported before celery_app falls through to an unconfigured default,
+    and .delay() messages route to the literal 'celery' queue instead of
+    the routed 'default' queue — producing ghost task_ids that the worker
+    never receives.
+    """
+    # Force fresh import order so we catch the bug if it returns
+    for mod in ("backend.tasks.social_outreach_tasks", "backend.celery_app"):
+        if mod in sys.modules:
+            del sys.modules[mod]
+
+    # Import task FIRST (worst case — shared_task binds before celery_app loads)
+    from backend.tasks.social_outreach_tasks import engage_with_subreddit
+    # Then import celery_app
+    from backend.celery_app import celery as configured
+
+    assert engage_with_subreddit.app is configured, (
+        f"@shared_task bound to a different Celery instance "
+        f"(id={id(engage_with_subreddit.app)}) than the configured one "
+        f"(id={id(configured)}). celery.set_default() in celery_app.py "
+        f"is missing or being undone."
+    )
+
+
 def test_no_circular_import_in_celery_app(caplog):
     """celery_app must import cleanly without partially-initialized warnings.
     

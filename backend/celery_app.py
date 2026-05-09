@@ -321,3 +321,15 @@ def create_celery_app():
 
 
 celery = create_celery_app()
+
+# CRITICAL: make this Celery instance the "current app" so @shared_task
+# decorators throughout the codebase bind to it (not to a default empty
+# Celery() that Celery's lib creates on first lookup). Without this, tasks
+# defined via @shared_task in any module imported BEFORE celery_app — or
+# where the import order is non-deterministic — fall through to a default
+# instance with no task_routes config, and .delay() messages get published
+# to the literal "celery" queue instead of "default" where the worker
+# subscribes. The user-visible symptom: /run-pass returns task_ids that
+# never execute (ghost tasks). See test_celery_routing.py for the
+# regression that catches this.
+celery.set_default()
