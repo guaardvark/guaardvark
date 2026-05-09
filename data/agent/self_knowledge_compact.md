@@ -45,3 +45,6 @@ When you need to click any of these, describe what you see ("the orange Firefox 
 ## xdotool key names (use these literal strings)
 - Return (not "enter"), Escape (not "esc"), Tab, BackSpace, Delete
 - Modifier keys: ctrl, alt, shift, super
+
+## Recovering from a stuck loop
+If a critical step (scrolling, finding, or clicking) fails three times, assume the required element is off-screen or the page structure has changed. Instead of repeating the last action, attempt a broader context change — scroll the viewport, or re-run the initial navigation recipe — before another click attempt.

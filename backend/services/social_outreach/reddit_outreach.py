@@ -255,26 +255,36 @@ def post_comment_via_servo(permalink: str, comment_text: str) -> tuple[bool, str
         return False, f"navigate_failed: {nav_result.reason}"
     time.sleep(SERVO_SETTLE_SECONDS)
 
-    # Step 2: find and click the comment box
+    # Step 2: open + focus the comment composer.
+    # On www.reddit, the placeholder "Add a comment" sits below the post body
+    # and below the post action bar (vote/share). Usually below the fold —
+    # have to scroll first. Then click into it so the cursor is inside the
+    # text area before typing, otherwise xdotool fires keys at whatever has
+    # focus (URL bar, page body, etc.) and the first chars get eaten.
     find_task = (
-        "On the open Reddit thread, do these steps in order. "
-        "1) Find the comment textarea below the post body. "
-        "2) Click inside the textarea. "
-        "3) Say done."
+        "1) Scroll down until the comment input box is visible. "
+        "2) Click the comment input box to open and focus it. "
+        "3) Say done when the cursor is inside the text area."
     )
     find_result = service.execute_task(find_task, screen)
     if not find_result.success:
         return False, f"find_comment_box_failed: {find_result.reason}"
-        
+
+    # Settle so Firefox finishes focusing the textarea before keystrokes start —
+    # without this, ~25 leading chars get dropped into the void.
+    time.sleep(SERVO_SETTLE_SECONDS)
+
     # Step 3: Type the text directly via python to preserve newlines and avoid prompt injection
     screen.type_text(comment_text)
     _human_pause()
-    
-    # Step 4: Click save
-    save_task = "Find the button labeled save and click it."
+
+    # Step 4: Click submit. The composer has a Cancel + Comment button pair
+    # at the bottom — the Comment one next to Cancel is the submit. The
+    # standalone "Comment" button on the post body just re-opens the composer.
+    save_task = "Click the Comment button next to the Cancel button inside the comment composer to submit."
     save_result = service.execute_task(save_task, screen)
     if not save_result.success:
-        return False, f"click_save_failed: {save_result.reason}"
+        return False, f"click_submit_failed: {save_result.reason}"
 
     return True, "ok"
 

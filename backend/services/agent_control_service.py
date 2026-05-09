@@ -15,6 +15,7 @@ import json
 import logging
 import os
 import queue
+import re
 import threading
 import time
 from dataclasses import dataclass, field
@@ -62,6 +63,11 @@ class AgentAction:
     scroll_amount: int = 0  # For scroll actions
     reasoning: str = ""  # Why the agent chose this action
     confidence: float = 1.0  # Confidence score (0.0 to 1.0)
+    # When action_type == "done": short, vision-verifiable description of the
+    # screen state that proves the task is complete (e.g. "cursor blinking
+    # inside the comment text area", "comment now appears in thread"). Empty
+    # or trivial values are rejected — see done-handling guard.
+    success_proof: str = ""
 
 
 @dataclass
@@ -117,6 +123,10 @@ class AgentControlService:
         self._current_iteration: int = 0
         self._action_history: List[ActionStep] = []
         self._last_result: Optional[AgentResult] = None
+        # Cached per-iteration DOM snapshot (Firefox via Bidi). Refreshed once per
+        # see-think-act tick; used by both the prompt builder and the click-time
+        # DOM-match guard so the two share a consistent view.
+        self._dom_snapshot: Optional[Any] = None
         self._lock = threading.Lock()
         self.config = AgentControlConfig()
 
@@ -275,6 +285,9 @@ class AgentControlService:
                 unified_model = self._get_unified_model()
 
                 if unified_model:
+                    # Refresh DOM once per iteration so the prompt builder and
+                    # the click-time DOM-match guard see the same elements.
+                    self._refresh_dom_snapshot()
                     # UNIFIED MODE: Compact prompt — vision model sees screenshot + short context
                     unified_prompt = self._build_unified_prompt(task, self._action_history, training_mode=training_mode)
                     # Persistent cross-session knowledge rides the system slot,
@@ -360,8 +373,36 @@ class AgentControlService:
                                 total_time_seconds=time.time() - start_time
                             ))
 
+                    # Guard: require a non-trivial success_proof — the model must
+                    # echo the visible state that proves completion. Empty or
+                    # generic "task done" / "n/a" answers are rejected as phantom
+                    # success. Only enforced for vision-capable models that get
+                    # the success_proof requirement in their prompt.
+                    proof = (decision.action.success_proof or "").strip()
+                    proof_lc = proof.lower()
+                    trivial_proofs = {"", "n/a", "na", "task complete", "done", "task done", "ok", "complete"}
+                    enforce_proof = bool(self._get_unified_model())
+                    if enforce_proof and proof_lc in trivial_proofs:
+                        logger.warning(
+                            f"[AGENT][DONE] Rejected — success_proof empty or trivial "
+                            f"(got: {proof!r}). Treating as failed step."
+                        )
+                        decision.task_complete = False
+                        # Record the rejected done as a failed step so the loop
+                        # breaker / max_failures can still trip on persistent retries.
+                        self._action_history.append(ActionStep(
+                            iteration=iteration,
+                            scene_description=scene_desc or "no scene",
+                            action=decision.action,
+                            result={"success": False, "reason": "missing_success_proof"},
+                            failed=True,
+                        ))
+                        consecutive_failures += 1
+                        continue
+
                     logger.warning(f"[AGENT][DONE] Task complete after {iteration+1} steps, "
-                                  f"{time.time() - start_time:.1f}s")
+                                  f"{time.time() - start_time:.1f}s "
+                                  f"(proof: {proof[:80]!r})")
                     return self._store_and_return(AgentResult(
                         success=True, reason="completed",
                         steps=self._action_history,
@@ -388,14 +429,25 @@ class AgentControlService:
 
                     # For generic area targets (desktop, empty space), click center-screen
                     # instead of asking the vision model to locate "the desktop"
-                    import re as _re
-                    if _re.search(r'(?:desktop|empty|blank|background|open area|center|middle)\s*(?:area|space|screen)?', target, _re.IGNORECASE):
+                    if re.search(r'(?:desktop|empty|blank|background|open area|center|middle)\s*(?:area|space|screen)?', target, re.IGNORECASE):
                         sw, sh = screen.screen_size()
                         cx, cy = sw // 2, sh // 2
                         screen.click(cx, cy, button=button)
                         decision.action.coordinates = (cx, cy)
                         result = {"success": True}
                         failed = False
+                    elif not self._dom_match(target):
+                        # DOM is fresh, has elements, none match the target — clicking
+                        # blindly would have the servo fabricate coords or land at (0,0).
+                        # Fail this step so the next iteration sees [FAIL] and can pivot
+                        # (typically by scrolling to bring the target into the DOM).
+                        logger.warning(
+                            f"[AGENT][STEP {iteration+1}][DOM-GUARD] No DOM element matches "
+                            f"target=\"{target}\" — refusing click. Try scroll first."
+                        )
+                        decision.action.coordinates = (0, 0)
+                        result = {"success": False, "reason": "no_dom_match"}
+                        failed = True
                     else:
                         servo_result = servo.click_target(target, button=button, single_attempt=training_mode)
                         decision.action.coordinates = (servo_result.get("x", 0), servo_result.get("y", 0))
@@ -473,14 +525,17 @@ class AgentControlService:
                         for h in self._action_history[-3:]
                     ]
                     if len(set(last3)) == 1 and last3[0][0] != "wait":
+                        # Was returning success=True, which fed phantom-posts into the
+                        # outreach pipeline (caller's "if not result.success" never tripped).
+                        # Repeating an action 3x is evidence of stuck, not done.
                         logger.warning(
                             f"[AGENT][LOOP] Same action repeated 3x: "
                             f"{last3[0][0]} \"{last3[0][1] or last3[0][2]}\". "
-                            f"Forcing task complete."
+                            f"Aborting as failure."
                         )
                         return self._store_and_return(AgentResult(
-                            success=True,
-                            reason="completed (loop detected — action repeated 3 times)",
+                            success=False,
+                            reason="loop_detected_no_progress",
                             steps=self._action_history,
                             total_time_seconds=time.time() - start_time
                         ))
@@ -1114,8 +1169,56 @@ class AgentControlService:
         _time.sleep(0.5)
         return "handled"
 
-    @staticmethod
-    def _build_unified_prompt(task: str, history, training_mode: bool = False) -> str:
+    def _refresh_dom_snapshot(self) -> None:
+        """Pull a fresh DOM snapshot from Firefox once per iteration.
+
+        Stored on the instance so the prompt builder and the click-time DOM-match
+        guard see the same elements. Silently no-ops when the unified model isn't
+        gemma4 or when Bidi/Firefox isn't reachable — both fall through to
+        coordinate-only vision flow.
+        """
+        self._dom_snapshot = None
+        try:
+            unified_model = self._get_unified_model()
+            if unified_model and "gemma4" in unified_model.lower():
+                from backend.services.dom_metadata_extractor import DOMMetadataExtractor
+                snapshot = DOMMetadataExtractor.get_instance().extract()
+                if snapshot.success and snapshot.elements:
+                    self._dom_snapshot = snapshot
+        except Exception:
+            pass
+
+    def _dom_match(self, target_description: str) -> bool:
+        """True if target_description plausibly maps to a visible DOM element.
+
+        Only meaningful when self._dom_snapshot is fresh and has elements; when
+        the snapshot is missing (no Firefox / non-Bidi page) returns True so we
+        don't block clicks on screens we can't introspect.
+        """
+        snap = self._dom_snapshot
+        if not snap or not getattr(snap, "elements", None):
+            return True
+        target = (target_description or "").strip().lower()
+        if not target:
+            return True
+        # Fuzzy substring match across element text + tag + element_type. The
+        # vision model gets short labels like "Comment button" or "text input
+        # field" — usually one of the words shows up in element.text or .tag.
+        target_words = [w for w in re.split(r"[^a-z0-9]+", target) if len(w) >= 3]
+        if not target_words:
+            return True
+        for el in snap.elements:
+            haystack = " ".join(filter(None, [
+                getattr(el, "text", "") or "",
+                getattr(el, "tag", "") or "",
+                getattr(el, "element_type", "") or "",
+                getattr(el, "name", "") or "",
+            ])).lower()
+            if any(w in haystack for w in target_words):
+                return True
+        return False
+
+    def _build_unified_prompt(self, task: str, history, training_mode: bool = False) -> str:
         """Build a compact prompt for unified vision+decision models.
 
         Shorter prompts = better detection accuracy. Only include what the model
@@ -1123,7 +1226,7 @@ class AgentControlService:
         """
         # Last 3 actions only — enough for context, not enough to overwhelm
         done_lines = ""
-        loop_warning = ""
+        pivot_block = ""
         if history:
             recent = history[-3:]
             steps = []
@@ -1134,23 +1237,35 @@ class AgentControlService:
             done_lines = "Done:\n" + "\n".join(steps) + "\n"
 
             if len(history) >= 3:
-                last3 = [(h.action.action_type, h.action.text) for h in history[-3:]]
-                if len(set(last3)) == 1:
-                    loop_warning = "\nYou repeated the same action 3 times. Do something DIFFERENT.\n"
+                last3_full = [
+                    (h.action.action_type, h.action.target_description, h.action.text)
+                    for h in history[-3:]
+                ]
+                if len(set(last3_full)) == 1:
+                    a_type, a_target, a_text = last3_full[0]
+                    a_desc = a_target or a_text or ""
+                    # Top-of-prompt structural override — was an inline warning
+                    # and the model treated it as advisory noise. Now it pre-empts
+                    # the task line so the next emit must change action_type or target.
+                    pivot_block = (
+                        f"PIVOT REQUIRED. \"{a_type}: {a_desc}\" failed 3 times — "
+                        f"repeating it again is forbidden. You MUST emit a different "
+                        f"action_type (try scroll, hotkey, or wait) OR a different target. "
+                        f"State the new approach in reasoning.\n\n"
+                    )
 
         desktop_state = AgentControlService._get_desktop_state()
 
-        # DOM metadata — interactive elements with screen coordinates
+        # DOM metadata — interactive elements with screen coordinates.
+        # Snapshot is refreshed by execute_task() before this call so the
+        # click-time guard sees the same elements the LLM saw.
         dom_block = ""
-        try:
-            unified_model = AgentControlService._get_unified_model()
-            if unified_model and "gemma4" in unified_model.lower():
+        if self._dom_snapshot is not None:
+            try:
                 from backend.services.dom_metadata_extractor import DOMMetadataExtractor
-                snapshot = DOMMetadataExtractor.get_instance().extract()
-                if snapshot.success and snapshot.elements:
-                    dom_block = DOMMetadataExtractor.format_for_prompt(snapshot) + "\n\n"
-        except Exception:
-            pass
+                dom_block = DOMMetadataExtractor.format_for_prompt(self._dom_snapshot) + "\n\n"
+            except Exception:
+                pass
 
         training_override = ""
         if training_mode:
@@ -1164,15 +1279,17 @@ class AgentControlService:
             "Step 1 done is forbidden."
         )
 
-        return f"""Task: {task}
+        return f"""{pivot_block}Task: {task}
 
 {desktop_state}
-{dom_block}{done_lines}{loop_warning}{training_override}Step {len(history) + 1}. ONE next action. {confidence}
+{dom_block}{done_lines}{training_override}Step {len(history) + 1}. ONE next action. {confidence}
 
 target_description rules: SHORT label, ≤4 words, one distinctive adjective. Examples: "orange Firefox button", "chat input field", "Send button", "desktop background". NOT "the orange Firefox flame in the top-left Shortcuts panel" — multi-clause descriptions break the vision detector and land at (0,0).
 
+done rule: when action="done", success_proof MUST describe the visible state that proves the task is complete (e.g. "cursor inside text area", "comment now visible in thread"). Empty or generic ("n/a", "task done") is rejected.
+
 Reply ONLY with JSON:
-{{"action": "click|right_click|type|hotkey|scroll|wait|done", "target_description": "...", "text": "literal value only", "keys": ["ctrl","t"], "reasoning": "why"}}"""
+{{"action": "click|right_click|type|hotkey|scroll|wait|done", "target_description": "...", "text": "literal value only", "keys": ["ctrl","t"], "reasoning": "why", "success_proof": "visible state proving done (only when action=done)"}}"""
 
     @staticmethod
     def _get_unified_model() -> str:
@@ -1748,7 +1865,9 @@ Screen: {scene}
 
             if action_type == "done":
                 decision.task_complete = True
+                decision.action.action_type = "done"
                 decision.action.reasoning = data.get("reasoning", "")
+                decision.action.success_proof = (data.get("success_proof") or "").strip()
                 return decision
 
             # Sanitize text field — models sometimes parrot instruction text
