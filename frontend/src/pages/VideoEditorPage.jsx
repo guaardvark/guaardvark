@@ -32,6 +32,8 @@ import {
 } from "@mui/icons-material";
 import PageLayout from "../components/layout/PageLayout";
 import MediaLibraryPanel from "../components/videoeditor/MediaLibraryPanel";
+import OverlayLayer from "../components/videoeditor/OverlayLayer";
+import { useTimelineHistory } from "../components/videoeditor/useTimelineHistory";
 import { listVideoDocuments, listAudioDocuments, listImageDocuments, renderTimeline } from "../api/videoOverlayService";
 import { getJobsGate } from "../api/jobsService";
 
@@ -53,11 +55,7 @@ const _emptyTimeline = () => ({
 });
 
 const VideoEditorPage = () => {
-  const [timeline, setTimeline] = useState(_emptyTimeline());
-  // Phase 10 polish — single-step undo. Push the previous state on every
-  // mutation; restore it on Cmd/Ctrl+Z. Single level is "enough" per the
-  // plan §10 (deeper history would need a proper undo stack abstraction).
-  const undoSnapshotRef = useRef(null);
+  const { timeline, commitTimeline, handleUndo, pendingSnapshotRef } = useTimelineHistory(_emptyTimeline());
   const videoElRef = useRef(null);
   const [mediaLibrary, setMediaLibrary] = useState([]);
   const [audioLibrary, setAudioLibrary] = useState([]);
@@ -117,7 +115,7 @@ const VideoEditorPage = () => {
   // Click a media item → add it to the timeline. Phase 6 replaces this
   // with drag-and-drop into specific track lanes.
   const handleAddMedia = (mediaItem) => {
-    setTimeline((prev) => ({
+    commitTimeline((prev) => ({
       ...prev,
       video: {
         documentId: mediaItem.id,
@@ -133,8 +131,7 @@ const VideoEditorPage = () => {
   // react-moveable; for now click-to-place + edit-in-properties.
   const handleAddText = useCallback((x, y) => {
     const newId = `text_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    setTimeline((prev) => {
-      undoSnapshotRef.current = prev;
+    commitTimeline((prev) => {
       return {
         ...prev,
         textElements: [
@@ -157,8 +154,7 @@ const VideoEditorPage = () => {
   }, []);
 
   const handleDeleteText = (textId) => {
-    setTimeline((prev) => {
-      undoSnapshotRef.current = prev;
+    commitTimeline((prev) => {
       return {
         ...prev,
         textElements: prev.textElements.filter((t) => t.id !== textId),
@@ -169,12 +165,7 @@ const VideoEditorPage = () => {
     }
   };
 
-  const handleUndo = useCallback(() => {
-    if (undoSnapshotRef.current) {
-      setTimeline(undoSnapshotRef.current);
-      undoSnapshotRef.current = null;
-    }
-  }, []);
+
 
   // Keyboard shortcuts: space toggles play/pause on the preview video,
   // Delete removes the selected text element, Cmd/Ctrl+Z undoes the last
@@ -207,7 +198,7 @@ const VideoEditorPage = () => {
   }, [selectedItem, handleUndo]);
 
   const handleUpdateText = (textId, patch) => {
-    setTimeline((prev) => ({
+    commitTimeline((prev) => ({
       ...prev,
       textElements: prev.textElements.map((t) =>
         t.id === textId ? { ...t, ...patch } : t,
@@ -278,7 +269,7 @@ const VideoEditorPage = () => {
     try {
       const data = JSON.parse(e.dataTransfer.getData("application/json"));
       if (data.kind !== "video") return;
-      setTimeline((prev) => ({
+      commitTimeline((prev) => ({
         ...prev,
         video: { documentId: data.id, documentFilename: data.filename, trimStart: 0, trimEnd: null },
       }));
@@ -292,7 +283,7 @@ const VideoEditorPage = () => {
     try {
       const data = JSON.parse(e.dataTransfer.getData("application/json"));
       if (data.kind !== "audio") return;
-      setTimeline((prev) => ({
+      commitTimeline((prev) => ({
         ...prev,
         audio: { documentId: data.id, documentFilename: data.filename, volume: 1.0, startOffset: 0 },
       }));
@@ -341,7 +332,7 @@ const VideoEditorPage = () => {
                     const dur = e.target.duration;
                     if (dur && isFinite(dur)) {
                       setVideoDuration(dur);
-                      setTimeline((prev) => prev.video && prev.video.trimEnd == null
+                      commitTimeline((prev) => prev.video && prev.video.trimEnd == null
                         ? { ...prev, video: { ...prev.video, trimEnd: dur } }
                         : prev,
                       );
@@ -356,55 +347,16 @@ const VideoEditorPage = () => {
                 </Stack>
               )}
 
-              {/* Text overlays — drag to reposition. Pointer events on the
-                  element handle the move; rotation/size still come from the
-                  Properties panel sliders. */}
-              {timeline.textElements.map((t) => (
-                <Box
-                  key={t.id}
-                  onMouseDown={(e) => {
-                    e.stopPropagation();
-                    setSelectedItem({ type: "text", id: t.id });
-                    const startX = e.clientX;
-                    const startY = e.clientY;
-                    const origX = t.x;
-                    const origY = t.y;
-                    let moved = false;
-                    const onMove = (mv) => {
-                      moved = true;
-                      const dx = mv.clientX - startX;
-                      const dy = mv.clientY - startY;
-                      handleUpdateText(t.id, { x: origX + dx, y: origY + dy });
-                    };
-                    const onUp = () => {
-                      window.removeEventListener("mousemove", onMove);
-                      window.removeEventListener("mouseup", onUp);
-                      // If the user just clicked without dragging, that's fine —
-                      // selection already happened on mousedown.
-                      void moved;
-                    };
-                    window.addEventListener("mousemove", onMove);
-                    window.addEventListener("mouseup", onUp);
-                  }}
-                  sx={{
-                    position: "absolute",
-                    left: `${t.x}px`,
-                    top: `${t.y}px`,
-                    transform: `rotate(${t.rotation}deg)`,
-                    color: t.fontColor,
-                    fontSize: `${t.fontSize}px`,
-                    fontWeight: 700,
-                    textShadow: "1px 1px 3px rgba(0,0,0,0.8)",
-                    cursor: "move",
-                    border: selectedItem?.type === "text" && selectedItem.id === t.id
-                      ? "1px dashed yellow" : "1px dashed transparent",
-                    padding: "2px 4px",
-                    userSelect: "none",
-                  }}
-                >
-                  {t.text}
-                </Box>
-              ))}
+              {/* Text overlays — drag to reposition. */}
+              <OverlayLayer
+                textElements={timeline.textElements}
+                selectedTextId={selectedItem?.type === "text" ? selectedItem.id : null}
+                onSelectText={(id) => setSelectedItem({ type: "text", id })}
+                onMoveText={(id, x, y) => commitTimeline((prev) => ({
+                  ...prev,
+                  textElements: prev.textElements.map(t => t.id === id ? { ...t, x, y } : t)
+                }))}
+              />
             </Box>
 
             {/* Toolbar under the preview */}
@@ -535,7 +487,7 @@ const VideoEditorPage = () => {
                       size="small"
                       icon={<VideoIcon fontSize="small" />}
                       label={timeline.video.documentFilename || `Document #${timeline.video.documentId}`}
-                      onDelete={() => setTimeline((p) => ({ ...p, video: null }))}
+                      onDelete={() => commitTimeline((p) => ({ ...p, video: null }))}
                       sx={{ flexShrink: 0 }}
                     />
                     {videoDuration > 0 && (
@@ -552,9 +504,16 @@ const VideoEditorPage = () => {
                           min={0}
                           max={videoDuration}
                           step={0.1}
+                          onMouseDown={() => {
+                            commitTimeline(p => p);
+                            pendingSnapshotRef.current = true;
+                          }}
+                          onMouseUp={() => {
+                            pendingSnapshotRef.current = false;
+                          }}
                           onChange={(_e, v) => {
                             const [start, end] = Array.isArray(v) ? v : [v, v];
-                            setTimeline((prev) => ({
+                            commitTimeline((prev) => ({
                               ...prev,
                               video: { ...prev.video, trimStart: start, trimEnd: end },
                             }));
@@ -608,7 +567,7 @@ const VideoEditorPage = () => {
                     size="small"
                     icon={<AudioIcon fontSize="small" />}
                     label={timeline.audio.documentFilename || `Audio #${timeline.audio.documentId}`}
-                    onDelete={() => setTimeline((p) => ({ ...p, audio: null }))}
+                    onDelete={() => commitTimeline((p) => ({ ...p, audio: null }))}
                   />
                 ) : (
                   <Typography variant="caption" color="text.secondary">Drag an audio file here</Typography>
