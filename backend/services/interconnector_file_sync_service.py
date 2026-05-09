@@ -21,7 +21,8 @@ MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024
 MAX_TOTAL_BYTES = 30 * 1024 * 1024
 MAX_FILE_COUNT = 1500
 
-_SENTINEL_DIR = Path("data") / "dep_reconciler"
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_SENTINEL_DIR = _REPO_ROOT / "data" / "dep_reconciler"
 _SENTINEL_FILE = _SENTINEL_DIR / ".sync_in_progress"
 
 
