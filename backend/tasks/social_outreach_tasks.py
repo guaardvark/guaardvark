@@ -144,6 +144,28 @@ def tick_recon_reddit(self) -> dict:
     return _with_app_context(RecondAgent().scout_reddit, sub)
 
 
+@shared_task(name="social_outreach.tick_recon_youtube", bind=True)
+def tick_recon_youtube(self) -> dict:
+    """Beat tick — Recon agent scouts YouTube via web_search for candidates.
+
+    Read-only: pulls a DDG result page filtered to site:youtube.com, writes
+    status="candidate" rows for video URLs. Never drafts, never posts. Safe
+    to run on cron — same kill-switch gate as the reddit recon. Disabled by
+    default in celery_app.py beat schedule.
+
+    Round-robins through `youtube.keyword_profiles` in social_outreach_targets.json
+    so successive ticks scan different angles of the keyword space rather
+    than repeatedly hitting the same query.
+    """
+    targets = _load_targets()
+    profiles = (targets.get("youtube") or {}).get("keyword_profiles") or []
+    profile = _next_target("youtube_recon", profiles)
+    if not profile:
+        return {"skipped": True, "reason": "no_targets"}
+    from backend.services.social_outreach.recon import RecondAgent
+    return _with_app_context(RecondAgent().scout_youtube, profile)
+
+
 @shared_task(name="social_outreach.tick_self_share", bind=True)
 def tick_self_share(self) -> dict:
     """Beat tick — pick next share sub + URL, submit a link post."""
