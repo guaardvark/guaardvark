@@ -413,8 +413,8 @@ class AgentControlService:
                     # Persistent cross-session knowledge rides the system slot,
                     # not the user prompt — keeps the per-step prompt small
                     # enough to hold the model in instructed mode while still
-                    # carrying URL routes, Firefox button location, recipe
-                    # index, etc. into every decision.
+                    # carrying URL routes, desktop layout cues, recipe index,
+                    # etc. into every decision.
                     persistent_system = self._build_persistent_knowledge_system()
                     if persistent_system:
                         logger.warning(
@@ -1540,7 +1540,7 @@ class AgentControlService:
 {world_block}
 {dom_block}{done_lines}{training_override}Step {len(history) + 1}. ONE next action. After Act the system ALWAYS re-captures the screen (re-See) before your next Think. {confidence}
 
-target_description rules: SHORT label, ≤4 words, one distinctive adjective. Examples: "orange Firefox button", "chat input field", "Send button", "desktop background". NOT "the orange Firefox flame in the top-left Shortcuts panel" — multi-clause descriptions break the vision detector and land at (0,0).
+target_description rules: SHORT label, ≤4 words, one distinctive adjective. Examples: "Firefox icon", "chat input field", "Send button", "desktop background". NOT "the Firefox icon with the flame graphic on the left side of the screen" — multi-clause descriptions break the vision detector and land at (0,0).
 
 done rule: when action="done", success_proof MUST describe the visible state that proves the task is complete (e.g. "cursor inside text area", "comment now visible in thread"). Empty or generic ("n/a", "task done") is rejected. This rule applies to all models and paths.
 
@@ -1610,9 +1610,9 @@ Reply ONLY with JSON:
         """Render the recipe library as a one-line-per-recipe index for the
         agent's decision prompt. Recipes that match a task are auto-executed
         before the LLM ever sees the prompt — but listing them by description
-        tells the LLM what shortcuts exist, so it can phrase its own steps the
-        same way (e.g. 'click the orange Firefox button' instead of pixel
-        hunting).
+        tells the LLM what shortcuts exist, so it can phrase its own steps in
+        terms of intent ('open Firefox via the visible launcher' or 'open via
+        Ctrl+L on a focused window') rather than memorized pixel hunts.
         """
         recipes = cls._load_recipes()
         if not recipes:
