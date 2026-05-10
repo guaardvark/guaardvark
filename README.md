@@ -65,6 +65,20 @@ A full creative-professional AI workstation, all running locally:
   <em>Agent Swarm — parse a plan, spawn parallel agents in isolated git worktrees, resolve the dependency DAG, merge back to main.</em>
 </p>
 
+### Why local?
+
+|                          | Cloud platforms                            | **Guaardvark**                            |
+|--------------------------|--------------------------------------------|-------------------------------------------|
+| **Where your data lives** | Their servers                              | Your machine. Period.                     |
+| **Per-token / per-minute fees** | Always on the meter                  | Free. Generate all night if you want.     |
+| **Content policy**        | Their rules                                | Your rules.                               |
+| **Custom models / LoRAs** | Whatever they expose                       | Any GGUF, any LoRA, any embedding model   |
+| **Works offline**         | No                                         | Yes. Flight Mode tested end-to-end.       |
+| **Agents drive a real desktop** | Sandboxed browsers                   | Real Ubuntu/XFCE on your hardware         |
+| **Swarms of parallel agents** | Per-task billing scales nastily        | 20 agents in parallel; only cost is power |
+| **Multi-machine clusters** | "Talk to sales"                            | Built-in. Master/client, approval gates   |
+| **Lock-in**               | Migrate at your own risk                   | It's your computer. Move it whenever.     |
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/guaardvark/guaardvark/actions/workflows/ci.yml/badge.svg)](https://github.com/guaardvark/guaardvark/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/guaardvark?label=PyPI&color=blue)](https://pypi.org/project/guaardvark/)
@@ -109,11 +123,13 @@ Every message is routed through a three-tier decision engine that picks the fast
 
 ### Autonomous Screen Agents
 
-Guaardvark agents control a real virtual desktop (Xvfb + openbox at 1280x720). They see the screen through vision models, move the mouse, click buttons, type text, navigate browsers, and verify their own actions.
+Guaardvark agents control a **real Ubuntu desktop** (Xvfb + XFCE at 1024×1024) — exactly what the model would see if you VNC'd into the box from another machine. Same Applications menu, same desktop icons, same taskbar. Agents see the screen through vision models, move the mouse, click buttons, type text, navigate browsers, and verify their own actions.
 
+- **Real XFCE session** — not a custom widget panel. `xfce4-session` runs on the virtual display via a scrubbed environment, with isolated `XDG_DESKTOP_DIR` and `XDG_CONFIG_HOME` so the agent's desktop, file manager, and configs never collide with the user's. Vision models recognize the layout instantly because it's standard Ubuntu.
 - **Unified vision brain** — Gemma4 sees the screen and decides the next action in a single inference call. Qwen3-VL handles coordinate estimation. Both calibrated per-model with tracked scale factors.
 - **Closed-loop servo targeting** — three-attempt adaptive strategy: ballistic move → single correction with crosshair overlay → full corrections with zoom-cropped analysis around the cursor
-- **45+ deterministic recipes** — browser navigation, tabs, scroll, search, find, zoom, copy/paste — all execute instantly from a JSON recipe library, bypassing the vision loop entirely
+- **Live per-iteration reasoning stream** — every Think step (action, target, full reasoning, pivots when the loop gets stuck) streams into chat in real-time. No more 30-second blackouts followed by a single "completed" line. The trail persists in history so you can audit any run.
+- **45+ deterministic recipes** — browser navigation, tabs, scroll, search, find, zoom, copy/paste — all execute instantly from a JSON recipe library, bypassing the vision loop entirely. Recipes carry optional `preconditions` (visibility checks) so they're skipped cleanly when their UI isn't on screen.
 - **Obstacle detection** — handles popups, permission dialogs, and notification bars with automatic thinking model escalation
 - **Self-QA sweep** — agent navigates every page of its own UI and reports what's working and what's broken
 - **Live agent monitor** — real-time SEE/THINK/ACT transcript of every decision the agent makes
@@ -139,6 +155,27 @@ Launch multiple AI coding agents in parallel, each working in an isolated git wo
 - **Built-in templates** — REST API scaffold, refactor-and-extract, test coverage expansion, Flight Mode demo
 - **Up to 20 concurrent agents** — configurable limit with automatic slot management
 - **Live dashboard** — real-time status, per-task logs, cost breakdown, elapsed time, disk usage
+
+### Film Crew — End-to-End Production Pipeline
+
+Five specialized agents collaborate to turn a one-line idea into a finished video. Built on the Swarm Orchestrator, so every role runs in parallel where possible and merges back deterministically.
+
+| Role | What It Does |
+|------|--------------|
+| **Screenwriter** | Generates the script + scene breakdown from a logline |
+| **Casting** | Assigns characters to LoRAs (via the LoRA Trainer plugin) or stock characters |
+| **Cinematographer** | Produces a shot list with camera moves, framing, and lens choices |
+| **Storyboard** | Generates keyframe images for every shot via the image pipeline |
+| **Editor** | Assembles the generated clips into a finished video via the Video Editor |
+
+The **LoRA Trainer plugin** ships alongside — train character/environment/prop LoRAs from reference images on your local GPU (bf16, ~46 MB per LoRA) and route them automatically to the Casting agent.
+
+### Model Context Protocol (MCP)
+
+Guaardvark speaks MCP both ways — exposes its tools to any MCP client (Claude Desktop, Cursor, IDE plugins) and calls tools from any MCP server you connect.
+
+- **As a server** — `backend/mcp/` runs a stdio MCP server. **23 native tools** exposed (chat, RAG, files, image generation, agent control) plus **58 output resources** (file contents, generated images, search results) accessible via MCP's resource protocol. Tested against Claude Desktop end-to-end.
+- **As a client** — `mcp_connect` registers external MCP servers at runtime, `mcp_execute` calls any tool on a connected server, and the live tool inventory surfaces in the chat LLM's tool list so models can pick MCP tools by name without going through `mcp_execute`.
 
 ### Video Generation Pipeline
 
@@ -277,6 +314,8 @@ A supervised, auditable framework for drafting and posting authentic comments on
 - **ReACT agent loop** — iterative reasoning, action, observation with tool execution guard and circuit breaker
 - **Streaming responses** via Socket.IO with conversational fast-path (~700ms)
 - **Tool call transparency** — collapsible tool call cards showing parameters, results, timing, and success/error status inline in chat
+- **Agent mode toggle** — `/agent` flips the session into screen-control mode (every message becomes a task); `/chat` (or `/exit`) flips back. Sticky per session, mode stored server-side, orange chip in the UI shows when active.
+- **Per-iteration thinking display** — screen-control tasks stream every Think step (action, target, full reasoning) into chat as the loop runs. Persists in history.
 - Runtime model switching — swap LLMs through the UI, GPU memory managed automatically
 - Voice interface — Whisper.cpp STT + Piper TTS with narration and voiceover
 - Session history with search, grouping, previews, and persistent tool call data
@@ -364,7 +403,8 @@ A supervised, auditable framework for drafting and posting authentic comments on
 
 ### Plugin System
 - **Managed plugins** with health monitoring, port-based orphan cleanup, and auto-restore on restart
-- Ollama, ComfyUI, Vision Pipeline, Audio Foundry, Upscaling, Swarm Orchestrator, Discord
+- **Manifest vs. runtime-state separation** — `plugin.json` is a static manifest (same bytes on every machine); live state (enabled, auto_start, config) lives in `data/plugin_state.json` (gitignored). Toggling from the UI writes only to runtime state — the manifest never mutates
+- **Available plugins**: Ollama, ComfyUI, Audio Foundry, Vision Pipeline, Upscaling, Swarm Orchestrator, LoRA Trainer, Discord Bot, GPU Embedding, Training
 - **System Resource Orchestrator** arbitrates VRAM between plugins so they don't trample each other
 - **CPU Offload** for models that don't fit in VRAM
 - Live GPU + CPU resource monitor, persistent across the UI
@@ -381,6 +421,17 @@ A supervised, auditable framework for drafting and posting authentic comments on
 - **Auto Researcher** — autonomous RAG-pipeline optimizer that experiments with parameters, keeps wins, reverts losses
 - **Pending Fixes queue** — stage, review, approve, or reject proposed code changes
 - **Cross-machine learning** — fixes propagate to all connected Interconnector nodes
+
+### System Mapper
+- **Constellation view** — d3-force-driven visualization of the entire codebase (700+ nodes in the current repo)
+- **Dependency + reachability analysis** — Python import graph + JS module graph + cross-language references, plus dead-code detection for files imported but never executed
+- **Lifecycle tagging** — every file gets `live` / `dormant` / `stale` based on usage patterns; drives ongoing cleanup work
+- **AI-navigable** — agents use the map to understand the codebase before making changes
+
+### Dependency Reconciler
+- **Branch-aware sync** — on `git checkout`, inspects venv / requirements.txt / Alembic head / package.json and re-syncs only what differs between branches
+- **Single-master migrations** — `schema_sync.py` is the authoritative schema source; saves you from "I just switched branches and now nothing works"
+- **TDD-driven** — 87 tests cover branch switches, partial states, and rollback scenarios
 
 ### Backup & Restore
 - Granular per-area backups (data only, full, code) or single-shot full system
@@ -513,27 +564,32 @@ guaardvark files upload report.pdf      # Upload and index
 ## Architecture
 
 ```
-Browser / CLI (PyPI: guaardvark)
-    | HTTP + WebSocket
+Browser / CLI (PyPI: guaardvark) / MCP Client (Claude Desktop, Cursor, etc.)
+    | HTTP + WebSocket / stdio MCP
     v
-Flask (68 REST blueprints + GraphQL + Socket.IO)
+Flask (68+ REST blueprints + GraphQL + Socket.IO) · MCP Server (23 tools, 58 resources)
     |
     +-- AgentBrain (3-tier routing: Reflex → Instinct → Deliberation)
     |
 Service Layer (48 modules)
-|-- Agent Executor (ReACT loop + 57 tools + BrainState)
-|-- RAG Pipeline (LlamaIndex + hybrid retrieval)
+|-- Agent Executor (ReACT loop + 60+ tools + BrainState)
+|-- Screen Control (See-Think-Act-Verify + per-iteration reasoning stream)
+|-- RAG Pipeline (LlamaIndex + hybrid retrieval + Auto Researcher)
 |-- Self-Improvement Engine (detect → fix → verify → broadcast)
-|-- Generation Services (image, video, voice, content)
+|-- Generation Services (image, video, music, voice, content)
 |-- Swarm Orchestrator (parallel agents + git worktree isolation)
+|-- Film Crew (5-role production swarm + LoRA Trainer)
 |-- Servo Controller (closed-loop vision targeting + calibration)
 |-- Vision Pipeline (frame analysis + camera capture)
-\-- Interconnector (multi-machine sync)
+|-- System Mapper (codebase constellation + dependency / reachability)
+|-- Dependency Reconciler (branch-aware venv / migration / npm sync)
+\-- Interconnector (multi-machine sync + cluster bridge)
     |
-+---+---+---+---+
-v   v   v   v   v
-PostgreSQL  Redis  Ollama  Virtual Display  ComfyUI
-            Celery         (Xvfb :99)
++---+---+---+---+---+
+v   v   v   v   v   v
+PostgreSQL  Redis  Ollama  Agent Display    ComfyUI
+            Celery         (Xvfb :99 + XFCE)
+                           x11vnc :5999
 ```
 
 **Frontend:** React 18 · Vite · Material-UI v5 · Zustand · Apollo Client · Monaco Editor · Socket.IO  

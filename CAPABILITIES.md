@@ -1,6 +1,6 @@
 # Guaardvark — Full Capabilities List
 
-**Version 2.5.1** · [guaardvark.com](https://guaardvark.com)
+**Version 2.5.3** · [guaardvark.com](https://guaardvark.com)
 
 This document is a comprehensive reference of everything Guaardvark can do. For a quick overview, see [README.md](README.md).
 
@@ -9,13 +9,20 @@ This document is a comprehensive reference of everything Guaardvark can do. For 
 ## Table of Contents
 
 - [AI Chat & Conversation](#ai-chat--conversation)
+- [AgentBrain — Three-Tier Routing](#agentbrain--three-tier-routing)
 - [RAG & Document Intelligence](#rag--document-intelligence)
-- [Self-Improvement Engine](#self-improvement-engine)
 - [RAG Autoresearch](#rag-autoresearch)
+- [Self-Improvement Engine](#self-improvement-engine)
+- [Lesson Pearls & Memory](#lesson-pearls--memory)
+- [Autonomous Screen Agents](#autonomous-screen-agents)
 - [Agent & Code Tools](#agent--code-tools)
+- [MCP Integration](#mcp-integration)
 - [Image & Video Generation](#image--video-generation)
-  - [Video Generation](#video-generation)
-  - [Image Generation](#image-generation)
+- [Audio Studio (Audio Foundry)](#audio-studio-audio-foundry)
+- [Video Editor — Shotcut-lite](#video-editor--shotcut-lite)
+- [Outreach System](#outreach-system)
+- [Swarm Orchestrator & Film Crew](#swarm-orchestrator--film-crew)
+- [GPU Image & Video Upscaling](#gpu-image--video-upscaling)
 - [Content Generation Pipelines](#content-generation-pipelines)
 - [Voice Interface](#voice-interface)
 - [File & Document Management](#file--document-management)
@@ -33,16 +40,28 @@ This document is a comprehensive reference of everything Guaardvark can do. For 
 
 ## AI Chat & Conversation
 
-Guaardvark's chat system is the primary interface for interacting with your AI. Two pipelines handle different use cases:
+Guaardvark's chat system is the primary interface for interacting with your AI. Two pipelines handle different use cases.
 
 ### Core Chat
 - **Streaming responses** via Socket.IO — tokens appear in real-time as the model generates
 - **Conversational fast-path** — simple messages (greetings, follow-ups) skip RAG and tool routing entirely, responding in ~700ms instead of 25+ seconds
 - **Intent routing** — automatically detects whether a message needs RAG retrieval, tool use, or a direct conversational response
 - **Per-project sessions** — chat context is isolated by project; switching projects gives you a clean context with that project's documents
-- **Session persistence** — conversation history persists across page reloads and browser sessions
+- **Session persistence** — conversation history persists across page reloads and browser sessions; sessions also have a `mode` field stored server-side
 - **System prompts (Rules)** — customizable system prompts that shape AI behavior, manageable via the Rules page
 - **Multi-model support** — switch between any Ollama model at runtime without restarting
+
+### Agent Mode (`/agent` and `/chat`)
+- **Modal session toggle** — type `/agent` to flip the session into screen-control mode (every message becomes a screen-control task); `/chat` (or `/exit`) flips back
+- **Sticky** — the mode lives on the session, not the message — survives reloads
+- **Visible cue** — agent-mode sessions show an orange chip above the chat input
+- **Speak AND act** — agent-mode messages still route through the chat LLM, so the model narrates briefly, calls `agent_task_execute`, and summarizes the result
+
+### Per-Iteration Thinking Display
+- **Live reasoning trail** — for screen-control tasks, the agent loop's per-step thinking streams into the chat as it happens (no more 30+ second blackouts followed by a single "completed" line)
+- **What you see** — each iteration shows action label + full reasoning ("Step 8 — click: I see the address bar and want to clear it…")
+- **Pivots and stuck-loop signals** also stream — when the loop forces a wait after a repeated failure, that decision is visible
+- **Persists in history** — the trail stays in the message after streaming completes, so you can scroll back and audit the run
 
 ### Model Management
 - **Runtime model switching** — change the active LLM through Settings; the old model is unloaded from VRAM before the new one loads (prevents OOM)
@@ -50,6 +69,35 @@ Guaardvark's chat system is the primary interface for interacting with your AI. 
 - **Live health detection** — dashboard probes Ollama on every request to show actual model availability (not a stale startup flag)
 - **KV cache optimization** — `num_keep: -1` locks the system prompt prefix in Ollama's KV cache, making follow-up turns faster
 - **GPU VRAM monitoring** — real-time VRAM usage bar with loaded model indicators in Settings
+
+---
+
+## AgentBrain — Three-Tier Routing
+
+A neural router that decides how much work a message deserves before any tools fire. Saves seconds per turn on simple questions and unlocks deeper deliberation when it's warranted.
+
+### The Three Tiers
+
+| Tier | Name | Latency | LLM Calls | When It Fires |
+|------|------|---------|-----------|---------------|
+| 1 | **Reflex** | <100ms | 0 | Media commands, greetings, exact-match recipes |
+| 2 | **Instinct** | 1–3s | 1 | Most requests — single LLM call with relevant tools in scope |
+| 3 | **Deliberation** | 5–30s | 3–10 | Multi-step reasoning (full ReACT loop) |
+
+### Routing Signals
+- Pre-computed reflex table for fast literal matches
+- Conversational classifier filters out small-talk before tools get loaded
+- Semantic tool selection picks the right ≤15 tools for the message
+- Screen-active flag gates desktop/agent tools so they only appear when relevant
+
+### Gemma4 Direct Path
+- When the active model is Gemma4 (native vision + tool use) AND the agent screen is active, the brain skips ReACT bloat and sends Gemma4 a minimal prompt with a screenshot + the task
+- Gemma4 returns JSON action steps directly; the loop executes them
+- For chat without screen actions, Gemma4 responds normally
+
+### Configuration
+- Toggle via `AGENT_BRAIN_ENABLED` in `backend/config.py`
+- Falls back gracefully to the legacy UnifiedChatEngine path if brain state isn't ready
 
 ---
 
@@ -73,7 +121,26 @@ Retrieval-Augmented Generation grounds chat responses in your actual documents.
 - **Automatic on upload** — files are indexed when uploaded through the UI or API
 - **Bulk indexing** — "Index All" button processes the entire document library
 - **Code-specific indexing** — detects programming languages, extracts imports/classes/functions, chunks by logical boundaries
+- **GPU-accelerated indexing** — optional GPU Embedding plugin offloads embedding generation to CUDA with CPU fallback
 - **Progress tracking** — real-time progress bar during indexing operations via Socket.IO
+
+---
+
+## RAG Autoresearch
+
+An autonomous optimization loop that continuously improves RAG retrieval quality.
+
+### How It Works
+1. **Eval harness** — generates evaluation pairs (query + expected answer) and scores retrieval with LLM-as-judge (relevance, grounding, completeness)
+2. **Experiment agent** — proposes parameter changes (chunk size, overlap, top-k, similarity threshold)
+3. **Orchestrator** — runs experiments, compares scores, keeps improvements, reverts regressions
+4. **Phase system** — Phase 1 (query-time params), Phase 2 (index-time params), Phase 3 (model-level)
+
+### Features
+- **Celery Beat scheduling** — idle detection triggers experiments when system isn't busy
+- **Crash protection** — 3 consecutive failures automatically stops the loop
+- **Dashboard card** — shows experiment status, history, and current optimization parameters
+- **Settings integration** — configure experiment limits, scoring thresholds, and scheduling
 
 ---
 
@@ -96,6 +163,7 @@ Guaardvark can autonomously test itself, find bugs, and fix them.
 - **Codebase lock** — toggle in Settings prevents self-improvement from modifying any files
 - **Return code verification** — checks pytest exit code, not just parsed failures
 - **Run history** — all runs recorded in database with status, duration, changes made, and test results
+- **Pending fixes queue** — proposed changes can require user approval before applying
 
 ### Live Progress
 - **Socket.IO events** at each stage: `starting`, `testing`, `analyzed`, `fixing`, `complete`, `error`
@@ -104,21 +172,61 @@ Guaardvark can autonomously test itself, find bugs, and fix them.
 
 ---
 
-## RAG Autoresearch
+## Lesson Pearls & Memory
 
-An autonomous optimization loop that continuously improves RAG retrieval quality.
+A user-curated memory system that captures successful agent runs and makes them available in future sessions.
 
-### How It Works
-1. **Eval harness** — generates evaluation pairs (query + expected answer) and scores retrieval with LLM-as-judge (relevance, grounding, completeness)
-2. **Experiment agent** — proposes parameter changes (chunk size, overlap, top-k, similarity threshold)
-3. **Orchestrator** — runs experiments, compares scores, keeps improvements, reverts regressions
-4. **Phase system** — Phase 1 (query-time params), Phase 2 (index-time params), Phase 3 (model-level)
+### Begin / End Lesson
+- **Bracket a successful run** — slash commands or buttons mark the start and end of a teachable sequence
+- **Distiller** — at End Lesson, an LLM summarizes what happened into a single durable lesson
+- **Saved as AgentMemory** — lessons of type `lesson_summary` get loaded into the system prompt next session
+- **Editable rows** — fix or remove a misperceived lesson without re-recording
 
-### Features
-- **Celery Beat scheduling** — idle detection triggers experiments when system isn't busy
-- **Crash protection** — 3 consecutive failures automatically stops the loop
-- **Dashboard card** — shows experiment status, history, and current optimization parameters
-- **Settings integration** — configure experiment limits, scoring thresholds, and scheduling
+### Vision-Actionable Knowledge (LEARNING_PRINCIPLES.md)
+- **Stored knowledge describes WHAT to look for**, not where it sits (no pixel coordinates)
+- **Short labels for the servo** (≤4 words), rich context for the brain
+- **Recipes, lessons, traces, memories** all bound by the same contract
+
+### Memory Surfaces
+- **MEMORY_BLOCK** — recent memories substituted into the system prompt at decision time
+- **Memory Management Section** in Settings — browse, edit, delete saved memories
+- **Live recall** — when a memory matches the current context, the LLM can quote it directly
+
+---
+
+## Autonomous Screen Agents
+
+Guaardvark drives a real Ubuntu desktop on a virtual display — clicking, typing, scrolling, and reading the screen like a human user. Used for outreach, file management, web research, and anything the model can't accomplish via API alone.
+
+### Virtual Display
+- **Xvfb on `:99`** — 1024×1024 headless X server, isolated from the user's real session
+- **Full XFCE desktop** — `xfce4-session` running via `dbus-run-session` with a scrubbed environment; standard Applications menu, desktop icons, taskbar, file manager (Thunar). Vision models recognize it instantly because it looks like any other Ubuntu desktop
+- **VNC viewer** — x11vnc on port 5999 (password-protected) lets the user watch the agent live, embedded in the frontend as a draggable card
+- **Isolated XDG dirs** — agent's `~/.agent_desktop/`, dedicated `XDG_CONFIG_HOME`, dedicated `XDG_RUNTIME_DIR`. The user's real desktop and configs are invisible to the agent
+
+### See-Think-Act-Verify Loop
+- **SEE** — screen capture (mss) + optional DOM extraction (Firefox CDP/BiDi)
+- **THINK** — Gemma4 (or other unified VLM) decides the next action, returning JSON with `action`, `target_description`, `text/keys`, `reasoning`, and `success_proof`
+- **ACT** — execute via the servo (vision-targeted click) or direct (type/hotkey/scroll)
+- **VERIFY** — post-action screenshot delta; failed steps flag the LLM that the attempt didn't change the screen
+- **Recipes** — known-good action sequences in `data/agent/recipes.json` execute deterministically before the loop is ever invoked, with optional `preconditions` (visibility checks) that skip recipes when their UI isn't on screen
+- **Strategy cooldowns** — repeated failures on the same action class force the loop to wait and re-observe before retrying
+
+### Servo Controller
+- **Vision-targeted clicking** — the servo asks the vision model "where is X on this screen?" and clicks the returned coordinates
+- **Visibility guard** — pre-click "do you actually see this?" check rejects hallucinated targets before the cursor moves
+- **Per-model calibration** — `MODEL_VISION_CONFIGS` in `servo_knowledge_store.py` maps each chat model to its preferred eyes (qwen3-vl:2b, moondream, etc.) and any scale-factor calibration learned over time
+- **Failure capture** — exhausted click attempts save the screenshot + corrections log to `data/training/failures/` for offline review
+
+### Training Data Capture
+- **Every click recorded** to `data/training/knowledge/servo_archive.jsonl` — target description, raw coords, scaled coords, actual click position, success/failure, model, attempt #, time taken
+- **Self-improvement engine** reads the archive to refine calibration
+- **Optional Comments/Vision Trainer pages** — interactive practice modes that keep the servo clicking long after a normal task would have stopped
+
+### Agent Tools
+- `agent_task_execute` — full natural-language screen task (drives the full SEE-THINK-ACT loop)
+- `agent_screen_capture` — single screenshot of the virtual display
+- `agent_mode_start` / `agent_mode_stop` — open/close the session (internal; the LLM should call `agent_task_execute` directly)
 
 ---
 
@@ -132,18 +240,43 @@ A ReACT-loop agent that can autonomously work with code and the system.
 - **List files** — explore directory structure (configurable depth up to 5 levels)
 - **Execute code** — run Python/shell commands and inspect output
 - **Web search** — search the internet for information
-- **Browser automation** — navigate websites, fill forms, take screenshots
+- **Browser automation** — navigate websites, fill forms, take screenshots (via Playwright, separate from the screen-control agent)
 
 ### Safety Features
 - **Circuit breaker** — after 2 consecutive failures, a tool is temporarily blocked
 - **Duplicate detection** — hash-based detection prevents the agent from making identical tool calls
 - **Fallback suggestions** — when a tool fails, the system suggests alternative approaches
 - **Iteration limits** — configurable maximum iterations per agent run
+- **Tool approval gates** — dangerous tools (file write, shell exec) can require human approval per call
 
 ### Code Editor Page
 - **Monaco Editor** — VS Code-quality editing in the browser with syntax highlighting for 50+ languages
 - **Multi-file tabs** — open and edit multiple files simultaneously
 - **File tree** — browse project structure in a sidebar
+- **AI assistant pane** — chat with the agent about the open file
+
+### Uncle Claude Escalation
+- When the local model is stuck, Guaardvark can escalate to the Anthropic API (Claude) for a second opinion
+- Token budget tracked and surfaced in the Dashboard's Family card
+- Toggleable per-session; never auto-fires without configuration
+
+---
+
+## MCP Integration
+
+Guaardvark speaks Model Context Protocol — both as a server (exposing its tools to external clients) and as a client (calling tools from external MCP servers).
+
+### MCP Server (Phase 1)
+- **Stdio transport** — `backend/mcp/` runs an MCP server that any MCP-compatible client (Claude Desktop, Cursor, etc.) can connect to
+- **23 native tools exposed** — covers chat, RAG, file management, image generation, agent control
+- **58 output resources** — file contents, generated images, search results, etc., available via MCP's resource protocol
+- **Tested against Claude Desktop** — works end-to-end
+
+### MCP Client
+- **`mcp_connect` tool** — register external MCP servers at runtime
+- **`mcp_execute` tool** — call any tool on a connected server
+- **Live inventory** — connected-server tools surface in the chat LLM's tool list so it can pick them by name without going through `mcp_execute`
+- **State sync** — `mcp_get_state`, `mcp_disconnect`, etc. for managing connections
 
 ---
 
@@ -156,6 +289,7 @@ A ReACT-loop agent that can autonomously work with code and the system.
 - **Celery background processing** — generation runs as async jobs with progress tracking
 - **Image library** — dedicated page with thumbnail grid, lightbox preview, keyboard navigation, batch operations
 - **Image model management** — ImageModelsModal for downloading and managing Stable Diffusion checkpoints
+- **Inline images in chat** — when the chat generates an image, it appears inline and persists in history with the assistant message
 
 ### Video Generation
 
@@ -193,12 +327,139 @@ Full video generation pipeline running locally via ComfyUI with multiple model b
 - **Real-time progress** — live progress bar with percentage and step count during generation
 - **Video gallery** — browse, preview, rename, download, and delete generated videos
 - **Advanced Editor** — one-click launch to ComfyUI's full node-based workflow editor, themed with the Guaardvark color scheme
+- **Batch queue** — queue / cancel / interrupt running jobs
 
 #### Model Management (VideoModelsModal)
 - Browse all available video models with installed/available status
 - Download models from HuggingFace with real-time progress bars showing speed (MB/s), downloaded/total size
 - Models include: Wan2.2 GGUF checkpoints (HighNoise + LowNoise), Wan VAE, CogVideoX weights, RIFE 4.9, Real-ESRGAN 2x
 - Accessible from the Video Generator page and Settings page
+
+---
+
+## Audio Studio (Audio Foundry)
+
+Local audio generation for voiceover, music, ambience, and effects. Shipped as the `audio_foundry` plugin.
+
+### Voiceover
+- **Chatterbox** — expressive neural TTS with style/emotion control
+- **Kokoro-82M** — fast, light, multilingual TTS (English + Spanish voices, more languages on the model side)
+- **Piper** — local neural TTS fallback for environments where the heavier engines aren't appropriate
+- **Streaming output** — audio chunks stream to the browser as the engine produces them
+
+### Music Generation
+- **ACE-Step v1 (3.5B)** — full-song generation with vocals; runs locally on GPU
+- **Suno-compatible workflow** — same prompt shape as Suno's hosted service, but local
+
+### Sound Effects / Ambience
+- **Stable Audio Open** — generate sound effects and ambience tracks via diffusion
+- **Negative prompts** supported for filtering out unwanted sonic textures
+- **Guidance scale + steps** configurable per generation
+
+### Dual-Venv Architecture
+- **`venv-music/`** — torch-sensitive ML packages live in an isolated env so the main backend isn't dragged through every torch upgrade
+- **Daemon mode** — the audio engine runs as a long-lived daemon; the backend talks to it over HTTP/socket so model load happens once
+- **OOM-safe** — model unload/swap is explicit, no silent CPU fallback
+
+### Audio Library
+- **DocumentsPage audio player** — preview, rename, organize generated audio files alongside everything else
+- **Filename uniqueness** — migration 005 ensures generated audio doesn't collide with imports
+
+---
+
+## Video Editor — Shotcut-lite
+
+A non-linear video editor built into Guaardvark for assembling generated clips into finished videos.
+
+### Timeline
+- **Multi-track timeline** — video, audio, overlay
+- **Drag-and-drop clips** from the Media Library directly onto the timeline
+- **Trim, split, ripple-delete** standard timeline operations
+- **Keyboard shortcuts** — J/K/L playback, arrow-key nudging, etc.
+- **1-step undo** with on-screen indicator
+
+### Audio
+- **Audio Foundry track** — generate voiceover or music directly into a timeline track
+- **Mix volume per clip / per track**
+
+### Media Library
+- **Project-scoped media bin** — clips from prior video generations show up automatically
+- **N+1 fix** — bulk-loaded thumbnails (no per-clip request storm)
+
+### Export
+- **Celery async render** — long renders run in the background, progress visible in the footer bar
+- **UUID-tracked jobs** — each render gets a stable ID for status polling
+- **MP4 / WebM** output
+
+### Orchestrator Integration
+- The video editor can be driven by the Production Pipeline (Film Crew) — agents drop generated clips into the timeline automatically
+
+---
+
+## Outreach System
+
+Supervised AI for social-media engagement. Three-phase pipeline that drafts comments and posts but gates every public action behind explicit user approval.
+
+### Three Phases
+1. **Recon** — search for candidate posts/threads (YouTube, Reddit, Discord) matching configured topic targets. Uses web search + light LLM filtering. Outputs candidates to a queue; **never posts**
+2. **Content** — for each candidate, an LLM drafts a comment in the user's voice with persona enforcement. Outputs drafts; **never posts**
+3. **Outreach** — when the user reviews and approves a draft, the screen-control agent navigates to the target page and submits the comment
+
+### Safety
+- **Kill switch** — single toggle that halts all outreach activity immediately
+- **Dual grader** — drafts get scored by two independent LLMs; low-scoring drafts get rejected before they reach the user
+- **DOM-GUARD** — the posting agent verifies the target element exists in the DOM before clicking (rejects hallucinated post buttons)
+- **Persona enforcement** — central persona.draft_outreach_text ensures drafts sound like the user, not like an AI
+- **UTM tagging** — every guaardvark.com link in an outbound post is tagged so attribution survives
+- **Randomized jitter** — type and click delays vary to avoid robotic patterns
+- **Cadence + dedup** — per-platform cadence limits and content-hash dedup prevent spam
+
+### Surfaces
+- **Outreach Review page** at `localhost:5175/outreach` — queued drafts with approve/reject/edit controls
+- **Activity feed** — agent-driven outreach work shows up in the unified Jobs/Activity surface
+- **Telemetry** — recon/content/outreach metrics streamed to the dashboard
+
+---
+
+## Swarm Orchestrator & Film Crew
+
+Parallel AI agent execution across isolated worktrees. Each agent gets its own git branch and workspace; results merge back cleanly.
+
+### Swarm Orchestrator
+- **Isolated worktrees** — each agent works in `.swarm-worktrees/<swarm-id>/<task>/`
+- **Parallel task execution** — N agents run simultaneously on independent slices of work
+- **Cherry-pick integration** — successful results integrate via git cherry-pick; failed branches leave no trace
+- **Deadlock detection** — circular dependencies between agents flagged before they hang the swarm
+- **Local backend optional** — can run via Ollama's built-in Claude Code integration (free, offline) or via Anthropic API
+
+### Film Crew (Production Pipeline)
+Five-agent swarm for coordinated media generation:
+- **Screenwriter** — generates the script + scene breakdown from a logline
+- **Casting** — assigns characters to LoRAs (trained via the LoRA Trainer plugin) or stock characters
+- **Cinematographer** — produces shot list with camera moves, framing, lens choices
+- **Storyboard** — generates keyframe images for each shot via the image generation pipeline
+- **Editor** — assembles generated clips into the final video via the Video Editor
+
+### LoRA Trainer Plugin
+- **Character / environment / prop LoRAs** trained from reference images
+- **CUDA daemon** with bf16 precision (~46 MB per LoRA, down from 93 MB in v1.0)
+- **Real-torch isolation** — separate venv prevents torch version conflicts with the main backend
+
+---
+
+## GPU Image & Video Upscaling
+
+Dedicated upscaling plugin for sharpening generated content to 4K/8K.
+
+### Models
+- **Real-ESRGAN 2x / 4x** — proven anime/photo upscaler
+- **Custom checkpoints** — drop-in via the model browser
+
+### Pipeline
+- **`upscaling` plugin** — runs as its own GPU service (port 8202); accepts image or video, returns upscaled output
+- **spandrel + torch.compile** — fused inference for speed
+- **Integrated with video pipeline** — Cinema-tier output uses the upscaler as a post-processing step
+- **Standalone usage** — upscale any image or video from the Documents page
 
 ---
 
@@ -221,10 +482,13 @@ Full video generation pipeline running locally via ComfyUI with multiple model b
 - **Whisper.cpp** — compiled from source on first startup for optimal performance
 - **Real-time transcription** — stream audio from microphone, get text in real-time
 - **Auto-install** — `cmake` and build tools are automatically installed if missing
+- **Wake word listening** — optional, configurable wake phrase
 
 ### Text-to-Speech
 - **Piper TTS** — local neural text-to-speech with multiple voice models
+- **Kokoro / Chatterbox** — heavier engines available via the Audio Foundry plugin
 - **Streaming output** — audio generated and streamed as the response is produced
+- **Narrate button** — every assistant message gets a one-click TTS playback control
 
 ---
 
@@ -258,6 +522,11 @@ The Documents page provides a desktop-style file management experience.
 - **Path breadcrumbs** — click any segment to navigate up the folder tree
 - **Root navigation** — Home button returns to desktop view
 
+### Backup & Restore
+- **Granular backup** — Data Backup (uploads/logos/training data), Code Backup, Full Backup
+- **Schema-migration-aware** — restores adapt to schema diffs across versions
+- **Cross-version compatible** — backups taken on one Guaardvark version restore cleanly to another
+
 ---
 
 ## Dashboard & Monitoring
@@ -268,12 +537,14 @@ The dashboard provides a live overview of system status.
 - **Family & Self-Improvement** — Uncle Claude status, self-improvement toggle, recent run history, token budget, live progress bar during self-checks
 - **RAG Autoresearch** — experiment status, history, optimization parameters
 - **Semantic Search** — quick search across all indexed documents
+- **Drag-and-drop grid** — rearrange the dashboard layout to your taste
 
 ### System Health
 - **Model status** — active model name and loading state shown in page headers
 - **LLM ready indicator** — live Ollama probe (not a stale startup flag)
 - **GPU resources** — VRAM usage bar with loaded model chips in Settings
 - **Plugins page** — dedicated GPU service management page with VRAM budget bar, per-plugin controls, log viewer, and conflict detection
+- **Activity / Jobs feed** — unified view of running and recent background jobs (indexing, generation, outreach, etc.)
 
 ---
 
@@ -333,6 +604,10 @@ Connect multiple Guaardvark instances into a coordinated family.
 - **Learning broadcast** — self-improvement fixes automatically shared with family members
 - **Node registration** — clients register with master, reporting capabilities and status
 
+### Cluster Foundation
+- **Socket.IO chat bridge** — cross-node streaming chat (Phase 3 wired; awaits a frontend/middleware enable for full end-to-end)
+- **Dependency-graph aware** — the cluster knows which nodes have which models loaded
+
 ### Management
 - **Toggle from Settings** — enable/disable without opening configuration modal
 - **Node status dashboard** — see all connected nodes, their status, and capabilities
@@ -358,14 +633,17 @@ Connect multiple Guaardvark instances into a coordinated family.
 
 | Tool | Backend | Description |
 |------|---------|-------------|
-| Browser | Playwright | Navigate, click, fill forms, screenshot, extract content |
-| Desktop | pyautogui | Mouse, keyboard, screen capture, window management |
+| Browser (headless) | Playwright | Navigate, click, fill forms, screenshot, extract content — for tasks that don't need a visible screen |
+| Screen agent | xdotool + mss + Gemma4 | Drives the visible `:99` desktop end-to-end; clicks, types, reads the screen with vision |
+| Desktop (host) | pyautogui | Mouse, keyboard, screen capture on the host display (off by default for security) |
 | MCP | Protocol | Connect to any MCP-compatible tool server |
 
 ```bash
 GUAARDVARK_BROWSER_AUTOMATION=true
 GUAARDVARK_DESKTOP_AUTOMATION=true   # Off by default (security)
 GUAARDVARK_MCP_ENABLED=true
+GUAARDVARK_AGENT_DISPLAY=99          # Override virtual display number
+GUAARDVARK_AGENT_BROWSER=firefox     # Override agent's browser
 ```
 
 ---
@@ -394,6 +672,11 @@ llx rules list                  # List system prompts
 llx                             # Interactive REPL
 ```
 
+### Quality Roadmap (v2.5.3)
+- **Standardized JSON contracts** for all automation outputs
+- **Quality gates** — every release runs the CLI against a fixture suite before publishing
+- **Cross-platform PATH handling** — wrapper scripts work on macOS, Linux, WSL
+
 ---
 
 ## Plugin System
@@ -403,15 +686,27 @@ Plugin-based GPU service management with live monitoring and conflict detection.
 ### Architecture
 Each plugin lives in `plugins/<name>/` with a `plugin.json` manifest declaring its service type, port, VRAM estimate, health endpoints, and configuration. Plugins are loaded automatically at startup.
 
+**Manifest vs. runtime state separation:** `plugin.json` is a static manifest — same bytes on every machine. Live runtime state (`enabled`, `auto_start`, per-machine config) lives in `data/plugin_state.json` (gitignored). Toggling a plugin from the `/plugins` UI writes only to the runtime state file; the manifest is never mutated at runtime.
+
 ### Available Plugins
-- **Ollama** — local LLM inference server. Powers chat, RAG, agents, and text generation. VRAM estimate: ~8 GB
-- **ComfyUI** — GPU-accelerated image and video generation server. Supports Wan2.2, CogVideoX, SVD, RIFE interpolation, and Real-ESRGAN upscaling workflows. VRAM estimate: ~6 GB
-- **GPU Embedding** — GPU-accelerated text embeddings for faster document indexing. Uses the system's Ollama embedding model with CPU fallback
+
+| Plugin | Port | Purpose |
+|---|---|---|
+| **Ollama** | 11434 | Local LLM and embedding inference (chat, RAG, agents) |
+| **ComfyUI** | 8188 | Image + video generation (Wan2.2, CogVideoX, SVD, RIFE, Real-ESRGAN) |
+| **Audio Foundry** | — | Voiceover (Chatterbox / Kokoro / Piper), music (ACE-Step / Suno), SFX/ambience (Stable Audio Open). Dual-venv with torch isolation |
+| **Upscaling** | 8202 | GPU image/video upscaling via spandrel + torch.compile |
+| **Vision Pipeline** | 8201 | Real-time scene narration, camera feed, video chat input |
+| **Swarm** | 8210 | Parallel agent orchestration in isolated worktrees |
+| **LoRA Trainer** | — | Train character/environment/prop LoRAs for the Film Crew (CUDA, bf16) |
+| **Discord Bot** | 8200 | Discord bot integration — chat, image generation, search via Guaardvark backend |
+| **GPU Embedding** | 5002 | GPU-accelerated text embeddings for faster indexing (CPU fallback) |
+| **Training** | — | Vision/servo training data collection and dataset management |
 
 ### Plugins Page (GPU Management)
 - **Plugin cards** — each plugin shows name, description, version, status (running/stopped/starting/error), and health indicator
 - **Start/Stop controls** — toggle individual GPU services on and off
-- **Enable/Disable** — persistently enable or disable plugins across restarts
+- **Enable/Disable** — persistently enable or disable plugins across restarts (writes to `plugin_state.json`)
 - **Per-plugin log viewer** — expandable log panel shows recent output from each service
 - **Plugin configuration** — edit plugin settings (URL, timeout, model, batch size) through inline config panels
 
@@ -445,8 +740,8 @@ Plugins can register:
 ## System Architecture
 
 ### Backend Stack
-- **Flask 3.0** — HTTP server with 68 REST API blueprints
-- **SQLAlchemy + PostgreSQL** — ORM with Alembic migrations (auto-provisioned on first run)
+- **Flask 3.0** — HTTP server with 68+ REST API blueprints (auto-discovered)
+- **SQLAlchemy + PostgreSQL** — ORM with 42 models; Alembic migrations + a custom `schema_sync.py` (single master)
 - **Celery + Redis** — async task processing with two worker pools (main + training/GPU)
 - **LlamaIndex** — RAG pipeline with vector storage, entity extraction, hybrid retrieval
 - **Ollama** — local LLM and embedding model inference (managed plugin)
@@ -462,8 +757,15 @@ Plugins can register:
 - **Monaco Editor** — code editing
 - **Socket.IO client** — real-time updates
 
+### System Mapper
+- **Constellation view** — d3-force-driven visualization of the codebase (~712 nodes across the current repo)
+- **Dependency analysis** — Python import graph + JS module graph + cross-language references
+- **Reachability analysis** — flags files that are imported but never executed (stale candidates)
+- **Lifecycle tagging** — every file gets `live` / `dormant` / `stale` based on usage patterns
+- **Codebase audits** — generates reports that drive cleanup work
+
 ### Key Design Patterns
-- **Modular API layer** — each feature gets its own Flask blueprint
+- **Modular API layer** — each feature gets its own Flask blueprint, auto-discovered via `blueprint_discovery.py`
 - **Service layer** — business logic separated from HTTP handlers
 - **Unified progress system** — all background operations report progress through a single Socket.IO channel
 - **Environment isolation** — multiple instances can run on the same machine without interference
@@ -490,6 +792,7 @@ First run:
 7. Builds frontend
 8. Starts Flask, Celery workers, and Vite dev server
 9. Runs health checks
+10. Auto-starts the agent's virtual display (`:99`) with XFCE if `xfce4` is installed
 
 ### Subsequent Runs
 ```bash
@@ -497,6 +800,20 @@ First run:
 ./start.sh --fast   # Skip all checks, fastest possible startup
 ./stop.sh           # Stop all services
 ```
+
+### Agent Display
+```bash
+./scripts/start_agent_display.sh start    # Bring up Xvfb + XFCE on :99
+./scripts/start_agent_display.sh stop     # Tear it down
+./scripts/start_agent_display.sh status   # Health check
+```
+Requires `sudo apt install xfce4 dbus-x11` on first setup.
+
+### Dependency Reconciler
+- **Branch-aware sync** — on `git checkout`, the reconciler inspects venv / requirements.txt / alembic head / package.json and re-syncs only what changed
+- **Single-master-migration policy** — `schema_sync.py` is the authoritative migrator; `alembic upgrade head` is deprecated for application use
+- **TDD-driven** — 87 tests cover the reconciler's behavior across branch switches, partial states, and rollback scenarios
+- Drops the "I just switched branches and now nothing works" failure mode
 
 ### Environment Isolation
 - Process tracking via PID files — only kills processes from this installation
@@ -510,6 +827,8 @@ All logs in `logs/`:
 - `celery_training.log` — Training/GPU worker
 - `frontend.log` — Vite dev server
 - `setup.log` — Dependency installation
+- `xfce_agent.log` — Agent's XFCE session output
+- `x11vnc_agent.log` — VNC server for the agent display
 - `test_results/` — Test execution output
 
 ---
