@@ -1966,7 +1966,8 @@ const ChatPage = () => {
               setIsStreamingMessage(false);
               setIsSending(false);
 
-              if (result.content || result.generatedImages?.length > 0 || result.toolCalls?.length > 0) {
+              const hasAgentTrail = (result.agentThinkingSteps?.length || 0) > 0;
+              if (result.content || result.generatedImages?.length > 0 || result.toolCalls?.length > 0 || hasAgentTrail) {
                 const completedMessage = {
                   id: `asst_unified_${Date.now()}`,
                   role: "assistant",
@@ -1976,6 +1977,7 @@ const ChatPage = () => {
                   timestamp: new Date().toISOString(),
                   generatedImages: result.generatedImages || [],
                   thinkingText: result.thinkingText || "",
+                  agentThinkingSteps: result.agentThinkingSteps || [],
                   iterations: result.iterations || 0,
                 };
                 setMessages((prev) => [...prev, completedMessage]);

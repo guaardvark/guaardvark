@@ -118,7 +118,17 @@ class AgentTaskExecuteTool(BaseTool):
                 task,
                 _re.IGNORECASE,
             ))
-            result = service.execute_task(task, screen, training_mode=training_mode)
+            # Pull the chat session's emit_fn (set by unified_chat_engine
+            # before tool dispatch) so the see-think-act loop can stream
+            # per-step reasoning into the chat instead of going dark for
+            # the entire 30+ second loop.
+            from backend.services.agent_control_service import get_chat_emit_fn
+            chat_emit = get_chat_emit_fn()
+            result = service.execute_task(
+                task, screen,
+                training_mode=training_mode,
+                emit_fn=chat_emit,
+            )
 
             # Post-task analysis: quick snapshot of what the screen shows now.
             # Keep it fast — users shouldn't wait 5s after the task is already done.

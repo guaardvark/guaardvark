@@ -428,6 +428,40 @@ const MessageItem = ({ message, sessionId: sessionIdProp }) => {
           </Box>
         )}
 
+        {/* Agent loop reasoning trail — same shape as the live streaming view
+            (yellow left-border + italic caption per step) so scrolling back
+            looks identical to watching it happen. */}
+        {message.agentThinkingSteps && message.agentThinkingSteps.length > 0 && (
+          <Box sx={{ mb: 1, mt: 0.5 }}>
+            {message.agentThinkingSteps.map((step, idx) => (
+              <Box
+                key={`agent-step-${idx}`}
+                sx={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 1,
+                  mb: 0.5,
+                  pl: 1,
+                  borderLeft: 2,
+                  borderColor: "warning.main",
+                  opacity: 0.9,
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ fontStyle: "italic", whiteSpace: "pre-wrap", fontSize: "0.7rem" }}
+                >
+                  <Box component="span" sx={{ color: "warning.main", fontWeight: 600, mr: 0.5 }}>
+                    Step {step.iteration}{step.label ? ` — ${step.label}` : ""}:
+                  </Box>
+                  {step.reasoning}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        )}
+
         {/* Unified chat tool call cards (displayed inline before the response text) */}
         {message.isUnifiedChat && message.toolCalls && message.toolCalls.length > 0 && (
           <Box sx={{ mb: 1 }}>

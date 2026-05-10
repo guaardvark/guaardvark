@@ -570,7 +570,7 @@ class AgentBrain:
                 from backend.services.agent_control_service import AgentControlService
                 screen = LocalScreenBackend()
                 acs = AgentControlService()
-                agent_result = acs.execute_task(message, screen)
+                agent_result = acs.execute_task(message, screen, emit_fn=emit_fn)
                 response = agent_result.reason or ("Task completed." if agent_result.success else "Task failed.")
                 if thinking:
                     emit_fn("chat:token", {"content": f"*{thinking[:200]}*\n\n", "session_id": session_id})

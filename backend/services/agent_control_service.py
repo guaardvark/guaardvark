@@ -20,7 +20,27 @@ import threading
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Chat emit-fn handoff: the unified chat engine and agent_task_execute tool
+# don't share a call stack — the LLM picks the tool, the registry invokes
+# it, and only then do we need to know which session's chat:thinking events
+# to emit. Each chat session runs on its own thread (and agent tools are
+# SERIAL within a session), so a threading.local is the cleanest bridge.
+# ────────────────────────────────────────────────────────────────────────────
+_chat_emit_local = threading.local()
+
+
+def set_chat_emit_fn(fn: Optional[Callable]) -> None:
+    """Stash the current chat session's emit_fn for tools that want to stream
+    back. Always called paired with a clear in finally — see chat engine."""
+    _chat_emit_local.emit_fn = fn
+
+
+def get_chat_emit_fn() -> Optional[Callable]:
+    return getattr(_chat_emit_local, "emit_fn", None)
 
 from PIL import Image
 
@@ -170,6 +190,50 @@ class AgentControlService:
         self._lock = threading.Lock()
         self.config = AgentControlConfig()
         self._debug_run_id = ""
+        self._emit_fn: Optional[Callable] = None  # set per-task by execute_task
+
+    def _emit_thinking(self, iteration: int, label: str, reasoning: str) -> None:
+        """Stream a per-step reasoning blob to the chat. No-ops when emit_fn unset
+        (CLI/tests/legacy callers). Errors are swallowed — the loop must not be
+        derailed by a flaky socket."""
+        emit = self._emit_fn
+        if not emit:
+            return
+        try:
+            emit("chat:thinking", {
+                "iteration": int(iteration),
+                "status": label,
+                "reasoning": reasoning or "",
+                "source": "agent_loop",
+            })
+        except Exception as e:
+            logger.debug(f"_emit_thinking failed (non-fatal): {e}")
+
+    @staticmethod
+    def _build_action_label(action) -> str:
+        """One-line human label for the chat's thinking spinner. Keeps the
+        live status bar readable; full reasoning is shipped in the `reasoning`
+        field for the trail."""
+        kind = getattr(action, "action_type", "") or ""
+        target = (getattr(action, "target_description", "") or "").strip()
+        text = (getattr(action, "text", "") or "").strip()
+        if kind == "click" and target:
+            return f"click — {target[:60]}"
+        if kind == "type" and text:
+            preview = text[:40] + ("…" if len(text) > 40 else "")
+            return f"type — {preview!r}"
+        if kind == "type":
+            return f"type — into {target[:40] or 'focused field'}"
+        if kind == "hotkey":
+            keys = getattr(action, "keys", None) or []
+            return f"hotkey — {'+'.join(keys) or '(none)'}"
+        if kind == "scroll":
+            return "scroll"
+        if kind == "wait":
+            return "wait"
+        if kind == "done":
+            return "done"
+        return kind or "thinking"
 
     @property
     def is_active(self) -> bool:
@@ -216,7 +280,8 @@ class AgentControlService:
             "last_result": last,
         }
 
-    def execute_task(self, task: str, screen, mouse_only: bool = False, training_mode: bool = False) -> AgentResult:
+    def execute_task(self, task: str, screen, mouse_only: bool = False, training_mode: bool = False,
+                     emit_fn: Optional[Callable] = None) -> AgentResult:
         """
         Execute a task using the see-think-act loop.
 
@@ -226,11 +291,16 @@ class AgentControlService:
             mouse_only: If True, disable keyboard shortcuts — pure mouse clicks only
             training_mode: If True, keep clicking forever — no early done, no loop breaker,
                           extended iterations and timeout. For vision trainer practice.
+            emit_fn: Optional callback (event_name, payload_dict) for streaming the
+                    loop's per-step reasoning back to the chat. When set, the loop
+                    fires `chat:thinking` after each [THINK] decision so the user
+                    sees the agent's reasoning live instead of digging through logs.
 
         Returns:
             AgentResult with success status and action history
         """
         self._mouse_only = mouse_only
+        self._emit_fn = emit_fn
         self._training_mode = training_mode
         from backend.services.servo_controller import ServoController
         from backend.services.training_data_collector import TrainingDataCollector
@@ -403,6 +473,11 @@ class AgentControlService:
                               f"text=\"{decision.action.text or ''}\" "
                               f"keys={decision.action.keys or ''} "
                               f"reasoning=\"{decision.action.reasoning or ''}\"")
+                self._emit_thinking(
+                    iteration=iteration + 1,
+                    label=self._build_action_label(decision.action),
+                    reasoning=decision.action.reasoning or "",
+                )
 
                 if decision.task_complete and training_mode:
                     # Training mode: ignore "done" — force the model to keep clicking
@@ -484,6 +559,11 @@ class AgentControlService:
                     logger.warning(
                         f"[AGENT][STEP {iteration+1}][PIVOT] Blocking repeated strategy "
                         f"'{blocked}' for {blocked_steps} more step(s); forcing wait"
+                    )
+                    self._emit_thinking(
+                        iteration=iteration + 1,
+                        label=f"pivot — '{blocked}' blocked, waiting",
+                        reasoning=f"Strategy '{blocked}' failed repeatedly; forcing wait+re-observe before trying a new tactic.",
                     )
                     decision.action.action_type = "wait"
                     decision.action.scroll_amount = 1

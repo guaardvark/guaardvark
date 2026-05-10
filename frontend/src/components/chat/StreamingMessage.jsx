@@ -27,6 +27,11 @@ const UPLOAD_BASE_URL = BASE_URL + "/uploads";
 const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref) => {
   const [status, setStatus] = useState("idle"); // idle | thinking | streaming | complete | error
   const [thinkingText, setThinkingText] = useState("");
+  // agentThinkingSteps captures the agent loop's per-iteration reasoning
+  // streamed via chat:thinking events from agent_control_service. Each entry:
+  // {iteration, label, reasoning}. Distinct from `thinkingText` which is the
+  // single-line live status (e.g. "Calling LLM...").
+  const [agentThinkingSteps, setAgentThinkingSteps] = useState([]);
   const [toolCalls, setToolCalls] = useState([]); // [{tool, params, result, durationMs, isPending, outputChunks, requiresApproval}]
   const [content, setContent] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
@@ -45,17 +50,20 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
   const contentRef = useRef(content);
   const toolCallsRef = useRef(toolCalls);
   const thinkingTextRef = useRef("");
+  const agentStepsRef = useRef([]);
 
   useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
   useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
   useEffect(() => { contentRef.current = content; }, [content]);
   useEffect(() => { toolCallsRef.current = toolCalls; }, [toolCalls]);
+  useEffect(() => { agentStepsRef.current = agentThinkingSteps; }, [agentThinkingSteps]);
 
   useImperativeHandle(ref, () => ({
     getPartialState: () => ({
       content: contentRef.current,
       toolCalls: toolCallsRef.current,
-      images: imagesRef.current || []
+      images: imagesRef.current || [],
+      agentThinkingSteps: agentStepsRef.current,
     })
   }));
 
@@ -72,6 +80,19 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
       const text = data.status || `Iteration ${data.iteration}...`;
       setThinkingText(text);
       thinkingTextRef.current = text;
+      // Agent-loop reasoning gets appended as a step so the user sees the
+      // full chain ("step 8: clear address bar... step 9: previous attempt
+      // failed... step 10: try Backspace") instead of just the latest line.
+      if (data.source === "agent_loop" && data.reasoning) {
+        setAgentThinkingSteps((prev) => [
+          ...prev,
+          {
+            iteration: data.iteration,
+            label: data.status || "",
+            reasoning: data.reasoning,
+          },
+        ]);
+      }
     });
 
     chatService.onToolCall((data) => {
@@ -201,6 +222,10 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
           // status into history caused MessageItem's live spinner to never
           // stop, because its only guard is thinkingText && toolCalls.length.
           thinkingText: "",
+          // The agent-loop reasoning trail. Persists so the user can scroll
+          // back and see what the agent was thinking on each step instead
+          // of only the post-loop summary.
+          agentThinkingSteps: agentStepsRef.current,
         });
       }
     });
@@ -339,6 +364,40 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
             <Typography variant="body2" color="text.secondary">
               {pendingApproval ? "Waiting for your approval..." : thinkingText}
             </Typography>
+          </Box>
+        )}
+
+        {/* Agent loop's per-iteration reasoning, streamed live from
+            agent_control_service. Visible as the agent works through the
+            see-think-act loop so the user knows what it's trying. */}
+        {agentThinkingSteps.length > 0 && (
+          <Box sx={{ mb: 1, mt: 0.5 }}>
+            {agentThinkingSteps.map((step, idx) => (
+              <Box
+                key={`agent-step-${idx}`}
+                sx={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 1,
+                  mb: 0.5,
+                  pl: 1,
+                  borderLeft: 2,
+                  borderColor: "warning.main",
+                  opacity: 0.9,
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ fontStyle: "italic", whiteSpace: "pre-wrap", fontSize: "0.7rem" }}
+                >
+                  <Box component="span" sx={{ color: "warning.main", fontWeight: 600, mr: 0.5 }}>
+                    Step {step.iteration}{step.label ? ` — ${step.label}` : ""}:
+                  </Box>
+                  {step.reasoning}
+                </Typography>
+              </Box>
+            ))}
           </Box>
         )}
 

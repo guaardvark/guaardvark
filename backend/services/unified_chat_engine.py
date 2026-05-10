@@ -1201,7 +1201,7 @@ class UnifiedChatEngine:
             def _exec_one(job_index: int):
                 """Worker: run one tool call, return (index, result, duration_ms)."""
                 _, t_name, t_params = tool_jobs[job_index]
-                
+
                 def on_output(chunk: str):
                     with _emit_lock:
                         emit_fn("chat:tool_output_chunk", {
@@ -1210,6 +1210,12 @@ class UnifiedChatEngine:
                             "iteration": iteration
                         })
 
+                # Hand the session's chat emitter to any tool that wants to
+                # stream sub-progress back (notably agent_task_execute, which
+                # otherwise blocks 30+ seconds with zero feedback while the
+                # see-think-act loop runs).
+                from backend.services.agent_control_service import set_chat_emit_fn
+                set_chat_emit_fn(emit_fn)
                 t0 = time.time()
                 try:
                     res = self.registry.execute_tool(t_name, on_output=on_output, **t_params)
@@ -1220,6 +1226,8 @@ class UnifiedChatEngine:
                     )
                     from backend.services.agent_tools import ToolResult
                     res = ToolResult(success=False, output=None, error=str(exc))
+                finally:
+                    set_chat_emit_fn(None)
                 return job_index, res, int((time.time() - t0) * 1000)
 
             results_by_index: dict = {}   # job_index -> (result, duration_ms)
