@@ -230,6 +230,51 @@ class AgentScreenCaptureTool(BaseTool):
             return ToolResult(success=False, error=str(e))
 
 
+class AgentReadTextFromElementTool(BaseTool):
+    name = "agent_read_text_from_element"
+    description = (
+        "OCR-read the literal text rendered inside a screen region. Use this when you "
+        "need ground truth about what is actually shown in a text field — for example, "
+        "to verify a long string was typed correctly. Bypasses the vision LLM, which "
+        "may otherwise fill in field contents from history rather than from pixels."
+    )
+    parameters = {
+        "x": ToolParameter(name="x", type="integer", required=True, description="Left edge of the region in screen pixels."),
+        "y": ToolParameter(name="y", type="integer", required=True, description="Top edge of the region in screen pixels."),
+        "width": ToolParameter(name="width", type="integer", required=True, description="Region width in pixels."),
+        "height": ToolParameter(name="height", type="integer", required=True, description="Region height in pixels."),
+    }
+
+    def execute(self, **kwargs) -> ToolResult:
+        try:
+            x = int(kwargs.get("x", 0))
+            y = int(kwargs.get("y", 0))
+            width = int(kwargs.get("width", 0))
+            height = int(kwargs.get("height", 0))
+        except (TypeError, ValueError) as e:
+            return ToolResult(success=False, error=f"Invalid bbox parameters: {e}")
+
+        if width <= 0 or height <= 0:
+            return ToolResult(success=False, error="width and height must be positive")
+
+        try:
+            _ensure_agent_display()
+            from backend.services.local_screen_backend import LocalScreenBackend
+
+            screen = LocalScreenBackend()
+            result = screen.read_text_region(x, y, width, height)
+            if result.get("success"):
+                return ToolResult(
+                    success=True,
+                    output=result.get("text", ""),
+                    metadata={"bbox": result.get("bbox")},
+                )
+            return ToolResult(success=False, error=result.get("error", "OCR failed"))
+        except Exception as e:
+            logger.error(f"agent_read_text_from_element error: {e}", exc_info=True)
+            return ToolResult(success=False, error=str(e))
+
+
 class AgentStatusTool(BaseTool):
     name = "agent_status"
     description = "Get the current status of the agent vision control system."

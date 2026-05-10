@@ -29,27 +29,72 @@ MAX_ELEMENTS = 50  # cap to keep prompt concise
 
 # JavaScript that runs inside Firefox to enumerate interactive elements
 # and return their bounding boxes in viewport coordinates.
+#
+# Walks open shadow DOMs in addition to the light DOM — modern Reddit puts
+# the "Add a comment" composer inside a `<faceplate-textarea>` Web Component
+# whose contenteditable lives in shadow root. A plain document.querySelectorAll
+# misses it entirely. Same shadow walk catches YouTube's `<ytd-comment-simplebox-renderer>`,
+# Twitter's `<div contenteditable>` inside their composer shells, etc.
+#
+# Also includes Reddit-specific custom elements (faceplate-textarea,
+# shreddit-composer) and anything with a "comment"-related placeholder/aria
+# label so the LLM has a clickable target even when the element doesn't
+# match the generic selectors.
 EXTRACT_JS = """(() => {
-  const selectors = 'a,button,input,textarea,select,[role="button"],[role="link"],[role="tab"],[role="menuitem"],[contenteditable="true"]';
-  const els = document.querySelectorAll(selectors);
+  const selectors = 'a,button,input,textarea,select,[role="button"],[role="link"],[role="tab"],[role="menuitem"],[contenteditable="true"],faceplate-textarea,shreddit-composer,ytd-comment-simplebox-renderer,div[contenteditable]';
   const results = [];
   const seen = new Set();
-  for (const el of els) {
-    if (results.length >= """ + str(MAX_ELEMENTS) + """) break;
-    const rect = el.getBoundingClientRect();
-    if (rect.width < 5 || rect.height < 5) continue;
-    if (rect.bottom < 0 || rect.top > window.innerHeight) continue;
-    if (rect.right < 0 || rect.left > window.innerWidth) continue;
-    const style = getComputedStyle(el);
-    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') continue;
+
+  // Recurse into open shadow roots so custom Web Components are reachable.
+  // Closed shadows are unreachable by design — nothing to do about those.
+  const collectAll = (root) => {
+    let nodes;
+    try {
+      nodes = root.querySelectorAll(selectors);
+    } catch (e) {
+      return;
+    }
+    for (const el of nodes) {
+      addIfInteractive(el);
+      if (el.shadowRoot) collectAll(el.shadowRoot);
+    }
+    // Walk all descendants for shadow roots even on non-matching elements.
+    // querySelectorAll('*') is heavy but we cap MAX_ELEMENTS so the tail
+    // exits early in practice.
+    const all = root.querySelectorAll('*');
+    for (const el of all) {
+      if (el.shadowRoot) collectAll(el.shadowRoot);
+    }
+  };
+
+  // Heuristic match for "Add a comment"-style targets even when the
+  // element doesn't match the generic selectors above (Reddit / YouTube
+  // sometimes wrap composer hooks in odd elements).
+  const looksLikeComposer = (el) => {
+    const ph = (el.getAttribute && el.getAttribute('placeholder')) || '';
+    const al = (el.getAttribute && el.getAttribute('aria-label')) || '';
+    const t  = (el.textContent || '').slice(0, 60);
+    return /add\\s+a\\s+comment|join\\s+the\\s+conversation|write\\s+a\\s+reply|leave\\s+a\\s+comment/i.test(ph + ' ' + al + ' ' + t);
+  };
+
+  const addIfInteractive = (el) => {
+    if (results.length >= """ + str(MAX_ELEMENTS) + """) return;
+    let rect;
+    try { rect = el.getBoundingClientRect(); } catch (e) { return; }
+    if (rect.width < 5 || rect.height < 5) return;
+    if (rect.bottom < 0 || rect.top > window.innerHeight) return;
+    if (rect.right < 0 || rect.left > window.innerWidth) return;
+    let style;
+    try { style = getComputedStyle(el); } catch (e) { return; }
+    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return;
     const text = (el.textContent || el.getAttribute('aria-label') || el.getAttribute('placeholder') || el.getAttribute('title') || '').trim().replace(/\\s+/g, ' ').slice(0, 80);
     const key = el.tagName + '|' + Math.round(rect.x) + '|' + Math.round(rect.y) + '|' + text.slice(0,20);
-    if (seen.has(key)) continue;
+    if (seen.has(key)) return;
     seen.add(key);
     results.push({
       tag: el.tagName.toLowerCase(),
       text: text,
-      type: el.type || el.getAttribute('role') || '',
+      type: el.type || el.getAttribute('role') || (looksLikeComposer(el) ? 'composer' : ''),
       x: Math.round(rect.x), y: Math.round(rect.y),
       w: Math.round(rect.width), h: Math.round(rect.height),
       cx: Math.round(rect.x + rect.width / 2),
@@ -59,7 +104,9 @@ EXTRACT_JS = """(() => {
       href: (el.href || '').slice(0, 200),
       focused: document.activeElement === el
     });
-  }
+  };
+
+  collectAll(document);
   const chrome = {
     screenX: window.screenX || 0,
     screenY: window.screenY || 0,

@@ -432,10 +432,10 @@ OBMENUX
             echo "  Installed agent tint2 config from repo template"
         fi
         if [ -f "$tint2_config" ]; then
-            DISPLAY=:$DISPLAY_NUM tint2 -c "$tint2_config" &>/dev/null &
+            DISPLAY=:$DISPLAY_NUM XDG_DATA_DIRS="$GUAARDVARK_ROOT/data/agent/desktop:$XDG_DATA_DIRS" tint2 -c "$tint2_config" &>/dev/null &
         else
             # Fallback to default tint2rc if agent config doesn't exist
-            DISPLAY=:$DISPLAY_NUM tint2 &>/dev/null &
+            DISPLAY=:$DISPLAY_NUM XDG_DATA_DIRS="$GUAARDVARK_ROOT/data/agent/desktop:$XDG_DATA_DIRS" tint2 &>/dev/null &
         fi
         echo $! > "$PID_DIR/tint2.pid"
         sleep 1

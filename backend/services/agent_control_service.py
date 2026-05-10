@@ -454,6 +454,34 @@ class AgentControlService:
                         result = {"success": servo_result.get("success", False)}
                         failed = not servo_result.get("success", False)
 
+                    # Post-Act verification for clicks too: fresh capture + pixel diff
+                    # to confirm visible change before marking [OK]. Record failure
+                    # screenshot on ineffective click.
+                    if not failed:
+                        time.sleep(0.5)
+                        post_shot, _ = self._capture_with_retry(screen)
+                        if screenshot is not None and post_shot is not None:
+                            import numpy as np
+                            before_mean = np.array(screenshot).mean()
+                            after_mean = np.array(post_shot).mean()
+                            pixel_diff = abs(after_mean - before_mean)
+                            if pixel_diff < 0.005:
+                                failed = True
+                                result["success"] = False
+                                result["verified"] = False
+                                # Record failure screenshot for ineffective click
+                                try:
+                                    from backend.services.servo_controller import capture_servo_failure
+                                    capture_servo_failure(
+                                        screenshot=screenshot,
+                                        target_description=target,
+                                        reason="click_no_visible_change",
+                                    )
+                                except Exception:
+                                    pass
+                            else:
+                                result["verified"] = True
+
                     status_icon = "OK" if not failed else "FAIL"
                     logger.warning(f"[AGENT][STEP {iteration+1}][ACT] {decision.action.action_type} \"{target}\" "
                                   f"at ({decision.action.coordinates[0]},{decision.action.coordinates[1]}) [{status_icon}]")
@@ -550,6 +578,12 @@ class AgentControlService:
                             f"{last3[0][0]} \"{last3[0][1] or last3[0][2]}\". "
                             f"Aborting as failure."
                         )
+                        # Capture fresh failure screenshot + reason for prompt/history
+                        try:
+                            fail_shot, _ = self._capture_with_retry(screen)
+                            # inject via history step already present; reason carries it
+                        except Exception:
+                            pass
                         return self._store_and_return(AgentResult(
                             success=False,
                             reason="loop_detected_no_progress",
@@ -1316,11 +1350,11 @@ class AgentControlService:
         return f"""{pivot_block}Task: {task}
 
 {desktop_state}
-{dom_block}{done_lines}{training_override}Step {len(history) + 1}. ONE next action. {confidence}
+{dom_block}{done_lines}{training_override}Step {len(history) + 1}. ONE next action. After Act the system ALWAYS re-captures the screen (re-See) before your next Think. {confidence}
 
 target_description rules: SHORT label, ≤4 words, one distinctive adjective. Examples: "orange Firefox button", "chat input field", "Send button", "desktop background". NOT "the orange Firefox flame in the top-left Shortcuts panel" — multi-clause descriptions break the vision detector and land at (0,0).
 
-done rule: when action="done", success_proof MUST describe the visible state that proves the task is complete (e.g. "cursor inside text area", "comment now visible in thread"). Empty or generic ("n/a", "task done") is rejected.
+done rule: when action="done", success_proof MUST describe the visible state that proves the task is complete (e.g. "cursor inside text area", "comment now visible in thread"). Empty or generic ("n/a", "task done") is rejected. This rule applies to all models and paths.
 
 Reply ONLY with JSON:
 {{"action": "click|right_click|type|hotkey|scroll|wait|done", "target_description": "...", "text": "literal value only", "keys": ["ctrl","t"], "reasoning": "why", "success_proof": "visible state proving done (only when action=done)"}}"""
@@ -1401,6 +1435,77 @@ Reply ONLY with JSON:
             if desc:
                 lines.append(f"- {name}: {desc}")
         return "\n".join(lines)
+
+    def _wait_until_visible(
+        self,
+        target_description: str,
+        screen,
+        timeout_s: float = 5.0,
+        poll_interval_s: float = 0.6,
+    ) -> Dict[str, Any]:
+        """Poll the vision model until the target appears, or timeout.
+
+        Gemma4 + Gemini's "Verified Sequence" gate at major transitions:
+        rather than ``time.sleep(4)`` after launching Firefox and praying,
+        ask the small VLM "is the URL bar visible?" until it says yes.
+        Cheaper than the full brain; correct under network/render lag.
+        """
+        import time as _time
+        from backend.utils.vision_analyzer import VisionAnalyzer
+
+        analyzer = VisionAnalyzer()
+        deadline = _time.monotonic() + timeout_s
+        polls = 0
+        last_err = None
+
+        while _time.monotonic() < deadline:
+            polls += 1
+            try:
+                img, _ = screen.capture()
+                # Tight prompt keeps latency low — yes/no with one-line justification.
+                result = analyzer.analyze(
+                    img,
+                    prompt=(
+                        f"Is the following visible on this screen RIGHT NOW: \"{target_description}\"?\n"
+                        "Answer with EXACTLY one word on the first line: yes or no.\n"
+                        "Do not guess — only say yes if you can actually see it in the image."
+                    ),
+                    num_predict=8,
+                    temperature=0.0,
+                )
+                if result.success:
+                    answer = (result.description or "").strip().lower()
+                    first_word = answer.split()[0] if answer.split() else ""
+                    if first_word.startswith("yes"):
+                        elapsed = timeout_s - max(0.0, deadline - _time.monotonic())
+                        logger.info(
+                            f"[AGENT][GATE] visible: \"{target_description}\" "
+                            f"after {polls} polls ({elapsed:.1f}s)"
+                        )
+                        return {
+                            "success": True,
+                            "action": "wait_until_visible",
+                            "target": target_description,
+                            "polls": polls,
+                        }
+                else:
+                    last_err = result.error
+            except Exception as e:
+                last_err = str(e)
+                logger.warning(f"[AGENT][GATE] vision poll failed: {e}")
+            _time.sleep(poll_interval_s)
+
+        logger.warning(
+            f"[AGENT][GATE] target NOT visible within {timeout_s}s: \"{target_description}\" "
+            f"({polls} polls; last_err={last_err})"
+        )
+        return {
+            "success": False,
+            "action": "wait_until_visible",
+            "target": target_description,
+            "error": f"target not visible within {timeout_s}s",
+            "polls": polls,
+        }
 
     def _try_recipe(self, task: str, screen) -> 'AgentResult | None':
         """Match task against recipe library and execute deterministically."""
@@ -1524,7 +1629,57 @@ Reply ONLY with JSON:
             action_type = step.get("action")
 
             if action_type == "wait":
-                _time.sleep(step.get("seconds", 0.5))
+                # Legacy timer wait — kept for back-compat but flagged. Recipes
+                # should migrate to wait_until_settled / wait_until_visible so
+                # they don't blindly fire on slow networks.
+                seconds = step.get("seconds", 0.5)
+                logger.warning(
+                    f"[AGENT][RECIPE] {name}: legacy timer wait({seconds}s) — "
+                    "migrate to wait_until_settled/wait_until_visible"
+                )
+                _time.sleep(seconds)
+                continue
+
+            if action_type == "wait_until_settled":
+                # Cheap pixel-delta gate — wait until the screen actually
+                # finishes painting before firing the next action.
+                timeout_s = float(step.get("timeout_s", 5.0))
+                stable_for_ms = int(step.get("stable_for_ms", 200))
+                result = screen.wait_until_settled(
+                    timeout_s=timeout_s, stable_for_ms=stable_for_ms,
+                )
+                action_steps.append(ActionStep(
+                    iteration=step_num, scene_description=f"recipe:{name}",
+                    action=AgentAction(action_type="wait_until_settled"),
+                    result=result, failed=not result.get("success", False),
+                ))
+                step_num += 1
+                continue
+
+            if action_type == "wait_until_visible":
+                # Vision-driven gate — block until target shows up on screen.
+                # Use this AFTER major transitions (page load, app launch).
+                target = step.get("target_description", "")
+                timeout_s = float(step.get("timeout_s", 8.0))
+                result = self._wait_until_visible(
+                    target, screen, timeout_s=timeout_s,
+                )
+                action_steps.append(ActionStep(
+                    iteration=step_num, scene_description=f"recipe:{name}",
+                    action=AgentAction(
+                        action_type="wait_until_visible",
+                        target_description=target,
+                    ),
+                    result=result, failed=not result.get("success", False),
+                ))
+                # If we couldn't see the prerequisite, don't blindly fire the rest.
+                if not result.get("success", False):
+                    logger.warning(
+                        f"[AGENT][RECIPE] {name}: aborting — "
+                        f"prerequisite not visible: \"{target}\""
+                    )
+                    break
+                step_num += 1
                 continue
 
             # Substitute capture groups: {1}, {2}, etc.
@@ -1583,18 +1738,60 @@ Reply ONLY with JSON:
                 ))
             step_num += 1
 
-        elapsed = _time.time() - start
         failed_steps = [s for s in action_steps if s.failed]
-        all_succeeded = len(failed_steps) == 0
+        all_steps_ok = len(failed_steps) == 0
+
+        # Final-state verify — Gemma4 + Gemini's mandatory cure for the
+        # "celebrate with hallucinations" loop. If the recipe declares a
+        # success_proof, the run cannot be reported successful until the
+        # vision model confirms that proof is on screen. No more reporting
+        # intent as reality.
+        proof = recipe.get("success_proof")
+        proof_failed = False
+        if all_steps_ok and proof:
+            verify_timeout = float(recipe.get("success_proof_timeout_s", 8.0))
+            verify = self._wait_until_visible(
+                proof, screen, timeout_s=verify_timeout,
+            )
+            action_steps.append(ActionStep(
+                iteration=step_num, scene_description=f"recipe:{name}:verify",
+                action=AgentAction(
+                    action_type="wait_until_visible",
+                    target_description=proof,
+                ),
+                result=verify, failed=not verify.get("success", False),
+            ))
+            if not verify.get("success", False):
+                proof_failed = True
+                logger.warning(
+                    f"[AGENT][RECIPE] {name}: steps reported OK but final verify "
+                    f"FAILED — '{proof}' not visible"
+                )
+
+        all_succeeded = all_steps_ok and not proof_failed
+        elapsed = _time.time() - start
 
         if failed_steps:
             logger.warning(f"[AGENT][RECIPE] {name} had {len(failed_steps)} failed step(s)")
-        logger.info(f"[AGENT][RECIPE] {name} complete in {elapsed:.1f}s ({len(action_steps)} actions, success={all_succeeded})")
+        logger.info(
+            f"[AGENT][RECIPE] {name} complete in {elapsed:.1f}s "
+            f"({len(action_steps)} actions, success={all_succeeded})"
+        )
+
+        if proof_failed:
+            # Proof failed — fall back to see-think-act loop instead of
+            # returning a recipe failure. The vision path can recover.
+            return None
+
+        if all_succeeded:
+            reason = f"recipe:{name}"
+        else:
+            reason = f"recipe:{name} — {len(failed_steps)} step(s) failed"
 
         self._action_history = action_steps
         return AgentResult(
             success=all_succeeded,
-            reason=f"recipe:{name}" if all_succeeded else f"recipe:{name} — {len(failed_steps)} step(s) failed",
+            reason=reason,
             steps=action_steps, total_time_seconds=elapsed
         )
 

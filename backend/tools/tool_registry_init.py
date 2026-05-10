@@ -548,6 +548,7 @@ def register_agent_control_tools() -> List[str]:
             AgentModeStopTool,
             AgentTaskExecuteTool,
             AgentScreenCaptureTool,
+            AgentReadTextFromElementTool,
             AgentStatusTool,
         )
 
@@ -570,6 +571,11 @@ def register_agent_control_tools() -> List[str]:
         registered.append("agent_screen_capture")
         _tool_categories["agent_screen_capture"] = category
         logger.info("Registered: AgentScreenCaptureTool")
+
+        register_tool(AgentReadTextFromElementTool())
+        registered.append("agent_read_text_from_element")
+        _tool_categories["agent_read_text_from_element"] = category
+        logger.info("Registered: AgentReadTextFromElementTool")
 
         register_tool(AgentStatusTool())
         registered.append("agent_status")

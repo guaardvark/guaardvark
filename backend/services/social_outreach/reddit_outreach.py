@@ -36,6 +36,325 @@ SUBREDDIT_HOT_LIMIT = 10
 THREAD_COMMENT_LIMIT = 10
 MAX_THREADS_PER_PASS = 2
 SERVO_SETTLE_SECONDS = 4
+BIDI_PORT = 9222
+
+
+def _bidi_fill_composer(comment_text: str) -> tuple[bool, str]:
+    """Use BiDi to fill the Reddit comment composer with text via direct
+    DOM manipulation — bypasses xdotool keyboard input entirely.
+
+    Why: an xdotool-typed comment produces stray keystrokes that hit
+    Reddit's document-level shortcuts ('t' opens a new text post,
+    redirecting to /r/<sub>/submit/?type=TEXT and abandoning the
+    half-finished comment). Setting the textarea value via JS + firing
+    'input' event keeps the keystrokes inside the textarea where they
+    belong and propagates to React state correctly.
+
+    Returns (success, info).
+    """
+    import json as _json
+    import websocket as _ws
+
+    # JSON-encode the comment text so it survives JS string interpolation.
+    text_literal = _json.dumps(comment_text)
+
+    js = """
+    (() => {
+      const textLit = """ + text_literal + """;
+      // Find the visible composer + its inner editable element.
+      let target = null;
+      const visit = (root) => {
+        if (target) return;
+        const els = root.querySelectorAll('faceplate-textarea, faceplate-textarea-input, textarea, div[contenteditable], shreddit-composer');
+        for (const el of els) {
+          const ph = (el.getAttribute && el.getAttribute('placeholder')) || '';
+          const al = (el.getAttribute && el.getAttribute('aria-label')) || '';
+          if (/join the conversation|add a comment/i.test(ph + ' ' + al)) {
+            const r = el.getBoundingClientRect();
+            if (r.width >= 30 && r.height >= 20) { target = el; return; }
+          }
+          if (el.shadowRoot) visit(el.shadowRoot);
+        }
+        const all = root.querySelectorAll('*');
+        for (const el of all) {
+          if (el.shadowRoot) visit(el.shadowRoot);
+          if (target) return;
+        }
+      };
+      visit(document);
+      if (!target) return JSON.stringify({success:false, error:'no composer'});
+      // Drill down to the actual editable child if the matched element
+      // is a wrapper (faceplate-textarea wraps a real <textarea>).
+      let editable = target;
+      const inner = target.querySelector ? (target.querySelector('textarea') || target.querySelector('div[contenteditable]')) : null;
+      if (inner) editable = inner;
+      if (target.shadowRoot) {
+        const innerS = target.shadowRoot.querySelector('textarea, div[contenteditable]');
+        if (innerS) editable = innerS;
+      }
+      editable.focus();
+      // Reddit's faceplate-textarea uses a controlled component pattern
+      // that ignores plain value-setter changes. Use execCommand
+      // 'insertText' which simulates real keyboard input — that's the
+      // only path that updates React state AND the user-facing value.
+      // Before insertText, clear any existing content so we don't append.
+      try {
+        if (editable.tagName === 'TEXTAREA' || editable.tagName === 'INPUT') {
+          editable.value = '';
+        } else {
+          editable.innerText = '';
+        }
+        // execCommand insertText fires synthetic InputEvent that React
+        // and faceplate intercept exactly like a real keypress sequence.
+        document.execCommand('insertText', false, textLit);
+      } catch(e) {
+        // Fallback: native value setter + bubbling input event.
+        const proto = window.HTMLTextAreaElement.prototype.value
+                      ? window.HTMLTextAreaElement.prototype
+                      : window.HTMLInputElement.prototype;
+        const setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
+        setter.call(editable, textLit);
+        editable.dispatchEvent(new Event('input', {bubbles: true}));
+      }
+      const r = editable.getBoundingClientRect();
+      return JSON.stringify({
+        success: true,
+        tag: editable.tagName.toLowerCase(),
+        contentLength: (editable.value || editable.innerText || '').length,
+        x: Math.round(r.x), y: Math.round(r.y),
+        cx: Math.round(r.x + r.width/2), cy: Math.round(r.y + r.height/2)
+      });
+    })()
+    """
+
+    try:
+        ws = _ws.create_connection(
+            f"ws://localhost:{BIDI_PORT}/session", timeout=3, suppress_origin=True,
+        )
+    except Exception as e:
+        return False, f"connect failed: {e}"
+
+    try:
+        ws.send(_json.dumps({"id": 1, "method": "session.new", "params": {"capabilities": {}}}))
+        if _json.loads(ws.recv()).get("type") != "success":
+            return False, "session.new failed"
+
+        ws.send(_json.dumps({"id": 2, "method": "browsingContext.getTree", "params": {}}))
+        ctxs = _json.loads(ws.recv()).get("result", {}).get("contexts", [])
+        if not ctxs:
+            return False, "no contexts"
+        ctx_id = ctxs[0]["context"]
+
+        ws.send(_json.dumps({
+            "id": 3, "method": "script.evaluate",
+            "params": {"expression": js, "target": {"context": ctx_id}, "awaitPromise": False},
+        }))
+        result = _json.loads(ws.recv())
+        value = result.get("result", {}).get("result", {}).get("value", "")
+        if not value:
+            return False, "empty result"
+        data = _json.loads(value)
+        if not data.get("success"):
+            return False, f"composer fill failed: {data.get('error', 'unknown')}"
+        return True, f"filled {data.get('tag')} ({data.get('contentLength')} chars) at ({data.get('cx')},{data.get('cy')})"
+    except Exception as e:
+        return False, f"exception: {e}"
+    finally:
+        try:
+            ws.send(_json.dumps({"id": 99, "method": "session.end", "params": {}}))
+        except Exception:
+            pass
+        try:
+            ws.close()
+        except Exception:
+            pass
+
+
+def _bidi_scroll_to_composer() -> tuple[bool, str, Optional[tuple[int, int]]]:
+    """Use BiDi to scroll Reddit's 'Join the conversation' composer into
+    view. Returns (success, info_message, (cx, cy) center coords or None).
+
+    Why BiDi instead of xdotool wheel-click: on Xvfb, scroll-wheel events
+    via `xdotool click 5` don't reliably propagate to the page body
+    (delta=0.000 across multiple attempts even when cursor is over
+    the page). `el.scrollIntoView()` runs in the page's JS context and
+    deterministically positions the element in the viewport, regardless
+    of which element has keyboard focus or which window has the cursor.
+
+    This is NOT a vision bypass — vision still has to click the textarea
+    after we scroll it into view. We're just making sure the textarea
+    is on-screen so vision can see it.
+    """
+    import json as _json
+    import websocket as _ws
+
+    try:
+        ws = _ws.create_connection(
+            f"ws://localhost:{BIDI_PORT}/session", timeout=3, suppress_origin=True,
+        )
+    except Exception as e:
+        return False, f"connect failed: {e}", None
+
+    try:
+        ws.send(_json.dumps({"id": 1, "method": "session.new", "params": {"capabilities": {}}}))
+        if _json.loads(ws.recv()).get("type") != "success":
+            return False, "session.new failed (probably leak)", None
+
+        ws.send(_json.dumps({"id": 2, "method": "browsingContext.getTree", "params": {}}))
+        contexts = _json.loads(ws.recv()).get("result", {}).get("contexts", [])
+        if not contexts:
+            return False, "no contexts", None
+        ctx_id = contexts[0]["context"]
+
+        # Walk shadow DOMs too — Reddit's faceplate-textarea wraps a
+        # contenteditable in shadow root that querySelectorAll alone misses.
+        js = """
+        (() => {
+          // Reddit ships hidden/template faceplate-textarea instances with
+          // 0x0 bounding rects — those are useless for scrollIntoView and
+          // for the agent's vision. Pick the FIRST visible composer with
+          // non-zero dimensions. Also accept elements whose own rect is
+          // 0x0 but whose parent shreddit-composer has a real rect.
+          let found = null;
+          let foundRect = null;
+          const candidates = [];
+          const visit = (root) => {
+            const els = root.querySelectorAll('faceplate-textarea, faceplate-textarea-input, textarea, div[contenteditable], shreddit-composer');
+            for (const el of els) {
+              const ph = (el.getAttribute && el.getAttribute('placeholder')) || '';
+              const al = (el.getAttribute && el.getAttribute('aria-label')) || '';
+              if (/join the conversation|add a comment/i.test(ph + ' ' + al)) {
+                candidates.push(el);
+              }
+              if (el.shadowRoot) visit(el.shadowRoot);
+            }
+            const all = root.querySelectorAll('*');
+            for (const el of all) {
+              if (el.shadowRoot) visit(el.shadowRoot);
+            }
+          };
+          visit(document);
+          // Pick the first candidate (or its closest ancestor) that has
+          // a non-zero rect.
+          for (const c of candidates) {
+            let probe = c;
+            while (probe) {
+              const r = probe.getBoundingClientRect();
+              if (r.width >= 30 && r.height >= 20) {
+                found = probe;
+                foundRect = r;
+                break;
+              }
+              probe = probe.parentElement;
+            }
+            if (found) break;
+          }
+          if (!found) return JSON.stringify({found:false, candidates: candidates.length});
+          found.scrollIntoView({block:'center', behavior:'instant'});
+          // Re-read rect after scroll so we report post-scroll viewport coords.
+          const r = found.getBoundingClientRect();
+          return JSON.stringify({
+            found: true,
+            tag: found.tagName.toLowerCase(),
+            x: Math.round(r.x), y: Math.round(r.y),
+            w: Math.round(r.width), h: Math.round(r.height),
+            cx: Math.round(r.x + r.width/2),
+            cy: Math.round(r.y + r.height/2),
+            candidates: candidates.length
+          });
+        })()
+        """
+        ws.send(_json.dumps({
+            "id": 3,
+            "method": "script.evaluate",
+            "params": {"expression": js, "target": {"context": ctx_id}, "awaitPromise": False},
+        }))
+        result = _json.loads(ws.recv())
+        value = result.get("result", {}).get("result", {}).get("value", "")
+        if not value:
+            return False, "empty script result", None
+        data = _json.loads(value)
+        if not data.get("found"):
+            return False, f"composer not in DOM (candidates={data.get('candidates', 0)})", None
+        time.sleep(0.6)  # let scrollIntoView animation settle
+        cx, cy = int(data.get("cx", 0)), int(data.get("cy", 0))
+        return True, f"composer at ({cx},{cy}) {data.get('w')}x{data.get('h')}", (cx, cy)
+    except Exception as e:
+        return False, f"exception: {e}", None
+    finally:
+        try:
+            ws.send(_json.dumps({"id": 99, "method": "session.end", "params": {}}))
+        except Exception:
+            pass
+        try:
+            ws.close()
+        except Exception:
+            pass
+
+
+def _bidi_navigate(url: str, settle_seconds: float = 2.0, nav_timeout: float = 15.0) -> bool:
+    """Direct browser navigation via Firefox BiDi protocol.
+
+    Bypasses the address bar entirely (no autocomplete, no history shadow,
+    no race with the search input). Returns True if the navigate event
+    fires cleanly, False if BiDi can't reach Firefox or the navigate
+    response is an error.
+
+    See dom_metadata_extractor.py for the larger version with extractor
+    payload — this stripped-down twin is the one Phase 3 uses to land on
+    a thread URL deterministically before the see-think-act loop takes over.
+    """
+    import json as _json
+    import websocket as _ws
+
+    try:
+        ws = _ws.create_connection(
+            f"ws://localhost:{BIDI_PORT}/session", timeout=3, suppress_origin=True,
+        )
+    except Exception as e:
+        logger.warning("bidi navigate connect failed: %s", e)
+        return False
+
+    try:
+        ws.send(_json.dumps({"id": 1, "method": "session.new", "params": {"capabilities": {}}}))
+        if _json.loads(ws.recv()).get("type") != "success":
+            return False
+
+        ws.send(_json.dumps({"id": 2, "method": "browsingContext.getTree", "params": {}}))
+        contexts = _json.loads(ws.recv()).get("result", {}).get("contexts", [])
+        if not contexts:
+            return False
+        ctx_id = contexts[0]["context"]
+
+        ws.settimeout(nav_timeout)
+        ws.send(_json.dumps({
+            "id": 3,
+            "method": "browsingContext.navigate",
+            "params": {"context": ctx_id, "url": url, "wait": "complete"},
+        }))
+        nav = _json.loads(ws.recv())
+        if nav.get("type") == "error":
+            logger.warning("bidi navigate error: %s", nav.get("message", "")[:200])
+            return False
+
+        time.sleep(settle_seconds)
+        return True
+    except Exception as e:
+        logger.warning("bidi navigate exception: %s", e)
+        return False
+    finally:
+        # Always end the BiDi session — Firefox caps "Maximum number of
+        # active sessions" and silently fails session.new once that cap
+        # hits. Without this finally, repeated runs leak sessions and
+        # the third call onward returns "Maximum number of active sessions".
+        try:
+            ws.send(_json.dumps({"id": 99, "method": "session.end", "params": {}}))
+        except Exception:
+            pass
+        try:
+            ws.close()
+        except Exception:
+            pass
 
 
 def _human_pause(min_s: float = 0.3, max_s: float = 2.0) -> None:
@@ -248,62 +567,144 @@ def post_comment_via_servo(permalink: str, comment_text: str) -> tuple[bool, str
         logger.warning("display not available for outreach: %s", e)
         return False, "display_unavailable"
 
-    # Step 1: navigate. Use the existing navigate_url recipe.
-    nav_task = f"navigate to {target_url.replace('https://', '')}"
-    nav_result = service.execute_task(nav_task, screen)
-    if not nav_result.success:
-        return False, f"navigate_failed: {nav_result.reason}"
-    time.sleep(SERVO_SETTLE_SECONDS)
+    # Step 1: navigate via BiDi, NOT via the navigate_url recipe.
+    #
+    # Why: the recipe types the URL into the address bar via Ctrl+L, but
+    # Firefox autocomplete intercepts and lands on a previously visited
+    # URL from history. In the 2026-05-09 demo this routinely sent the
+    # agent to /r/{sub}/submit/?type=TEXT (a Create Post page) instead
+    # of the comments thread, because the leader had visited /submit
+    # while testing earlier. The recipe's `Delete` step is supposed to
+    # dismiss the autocomplete suggestion but it's racy.
+    #
+    # Direct BiDi `browsingContext.navigate` is the browser's native API:
+    # no address bar, no autocomplete, no history shadow. Cursor + Gemini
+    # both flagged this independently as the actual root cause when
+    # given the full session transcript.
+    if not _bidi_navigate(target_url, settle_seconds=SERVO_SETTLE_SECONDS):
+        return False, "navigate_failed: bidi_navigate returned False"
 
-    # Drop keyboard focus from the search bar — Reddit's header places focus
-    # there on permalink load and the search input absorbs scroll-wheel events
-    # (xdotool's button 4/5 click goes to the focused window, not the cursor's
-    # position). Without this, the first scroll moves the page a hair before
-    # focus snaps back to search and subsequent scrolls produce delta=0 ->
-    # the agent loops and aborts. (Confirmed via screenshot 2026-05-09:
-    # /tmp/agent-current-state.png showed the search box yellow-outlined as
-    # focused while the agent was supposedly scrolling.)
+    # Drop keyboard focus from Reddit's permalink-load search bar. Escape
+    # alone doesn't always stick (Reddit's SPA re-focuses search on
+    # hydration), so we follow up with BiDi scrollIntoView to position
+    # the comment composer mid-viewport.
     screen.hotkey("Escape")
-    time.sleep(1.0)
+    time.sleep(0.3)
 
-    # Step 2: open + focus the comment composer.
-    # On www.reddit, the placeholder "Add a comment" sits BELOW the post body
-    # but ABOVE the comments list — auto-scroll-on-permalink can land us
-    # mid-comments and the LLM's prior is "more content is below" even when
-    # the textarea is above the current viewport. Be explicit about the
-    # spatial relation. Words between "scroll" and any direction keep the
-    # scroll_down recipe matcher (regex: scroll\s+down) inert so this
-    # multi-step task isn't short-circuited as "done" after one scroll.
-    find_task = (
-        "1) Find the comment input box on the thread. The composer sits "
-        "below the post body but ABOVE the comments list — if the screen "
-        "is showing comments and replies, the box is UPWARD from your current "
-        "view. To move UPWARD use action=hotkey with keys=['Page_Up'] or "
-        "keys=['Home']. DO NOT use action=scroll for moving up — the scroll "
-        "action moves DOWN by default and will undo your Page_Up progress. "
-        "2) Click the comment input box to open and focus it. "
-        "3) Say done when the cursor is inside the text area."
-    )
-    find_result = service.execute_task(find_task, screen)
-    if not find_result.success:
-        return False, f"find_comment_box_failed: {find_result.reason}"
+    # Find + scroll the composer into view via BiDi. Returns the textarea's
+    # center coords. Without this, the see-think-act loop wastes its
+    # iteration budget — vision can't reliably distinguish the comment
+    # composer from Reddit's search bar (both are wide white inputs)
+    # and clicks on the search bar instead, then can't type, then loops.
+    scrolled, info, coords = _bidi_scroll_to_composer()
+    logger.warning("bidi scroll-to-composer: success=%s info=%s coords=%s",
+                   scrolled, info, coords)
+    if not scrolled or not coords:
+        return False, f"composer_not_found: {info}"
+    time.sleep(0.5)
 
-    # Settle so Firefox finishes focusing the textarea before keystrokes start —
-    # without this, ~25 leading chars get dropped into the void.
-    time.sleep(SERVO_SETTLE_SECONDS)
-
-    # Step 3: Type the text directly via python to preserve newlines and avoid prompt injection
-    screen.type_text(comment_text)
+    # Fill the composer via BiDi DOM manipulation — bypasses xdotool
+    # keyboard input which was leaking 't' keystrokes onto Reddit's
+    # document-level shortcut and triggering /r/<sub>/submit/?type=TEXT
+    # navigation mid-comment. BiDi sets the textarea value directly +
+    # fires React-friendly input event so the value sticks.
+    filled, fill_info = _bidi_fill_composer(comment_text)
+    logger.warning("bidi fill-composer: success=%s info=%s", filled, fill_info)
+    if not filled:
+        return False, f"fill_failed: {fill_info}"
+    time.sleep(1.5)
     _human_pause()
 
-    # Step 4: Click submit. The composer has a Cancel + Comment button pair
-    # at the bottom — the Comment one next to Cancel is the submit. The
-    # standalone "Comment" button on the post body just re-opens the composer.
-    save_task = "Click the Comment button next to the Cancel button inside the comment composer to submit."
-    save_result = service.execute_task(save_task, screen)
-    if not save_result.success:
-        return False, f"click_submit_failed: {save_result.reason}"
+    # Submit via Reddit's standard Ctrl+Enter shortcut. The textarea is
+    # already focused from the BiDi fill, so this keystroke routes to
+    # the right element. Reddit interprets Ctrl+Enter as form-submit
+    # for comment composers.
+    logger.warning("submitting comment via Ctrl+Enter")
+    screen.hotkey("ctrl", "Return")
+    time.sleep(SERVO_SETTLE_SECONDS)
 
+    # Verify the comment actually posted — look for the comment text
+    # appearing in the thread's comment list. Anything else (URL still
+    # /comments/, no error visible, etc.) is too weak: previous attempt
+    # reported success when the textarea was actually empty and Reddit
+    # showed "field is required" inline. Real check: search the DOM for
+    # the first 60 chars of our comment text appearing in a comment-tree
+    # element.
+    import json as _json
+    import websocket as _ws2
+    posted = False
+    verify_msg = "verify failed"
+    needle = comment_text[:60].strip()
+    try:
+        ws = _ws2.create_connection(f"ws://localhost:{BIDI_PORT}/session", timeout=3, suppress_origin=True)
+        ws.send(_json.dumps({"id": 1, "method": "session.new", "params": {"capabilities": {}}}))
+        if _json.loads(ws.recv()).get("type") == "success":
+            ws.send(_json.dumps({"id": 2, "method": "browsingContext.getTree", "params": {}}))
+            ctxs = _json.loads(ws.recv()).get("result", {}).get("contexts", [])
+            if ctxs:
+                ctx_id = ctxs[0]["context"]
+                # Look for needle in any rendered comment OR for the
+                # composer being empty (no error message and no value)
+                # which also implies a successful post.
+                check_js = (
+                    "(() => {"
+                    "  const needle = " + _json.dumps(needle) + ";"
+                    "  const url = location.href;"
+                    "  // 1) Primary: needle appears in any element on the page"
+                    "  //    that smells like a comment body."
+                    "  const sels = ['[data-testid=\"comment\"]', 'shreddit-comment', '[id^=\"comment-tree-content-anchor\"]', 'div[role=\"region\"]'];"
+                    "  let foundInThread = false;"
+                    "  for (const s of sels) {"
+                    "    const els = document.querySelectorAll(s);"
+                    "    for (const el of els) {"
+                    "      if ((el.textContent || '').includes(needle)) { foundInThread = true; break; }"
+                    "    }"
+                    "    if (foundInThread) break;"
+                    "  }"
+                    "  // 2) Secondary: composer is empty AND no error message."
+                    "  let composerEmpty = false;"
+                    "  let errorVisible = false;"
+                    "  const composers = document.querySelectorAll('faceplate-textarea-input, textarea');"
+                    "  for (const c of composers) {"
+                    "    const ph = (c.getAttribute && c.getAttribute('placeholder')) || '';"
+                    "    if (/join the conversation|add a comment/i.test(ph)) {"
+                    "      composerEmpty = !((c.value || c.innerText || '').trim());"
+                    "      break;"
+                    "    }"
+                    "  }"
+                    "  const errEls = document.querySelectorAll('*');"
+                    "  for (const e of errEls) {"
+                    "    const t = (e.textContent || '');"
+                    "    if (/field is required|cannot be empty|something went wrong|too fast/i.test(t)) { errorVisible = true; break; }"
+                    "  }"
+                    "  return JSON.stringify({foundInThread, composerEmpty, errorVisible, url});"
+                    "})()"
+                )
+                ws.send(_json.dumps({
+                    "id": 3, "method": "script.evaluate",
+                    "params": {"expression": check_js, "target": {"context": ctx_id}, "awaitPromise": False},
+                }))
+                v = _json.loads(ws.recv()).get("result", {}).get("result", {}).get("value", "")
+                if v:
+                    d = _json.loads(v)
+                    posted = d.get("foundInThread", False) and not d.get("errorVisible", False)
+                    verify_msg = (
+                        f"foundInThread={d.get('foundInThread')} "
+                        f"composerEmpty={d.get('composerEmpty')} "
+                        f"errorVisible={d.get('errorVisible')} "
+                        f"url={d.get('url')}"
+                    )
+        try:
+            ws.send(_json.dumps({"id": 99, "method": "session.end", "params": {}}))
+        except Exception:
+            pass
+        ws.close()
+    except Exception as e:
+        verify_msg = f"verify exception: {e}"
+    logger.warning("post-submit verify: posted=%s %s", posted, verify_msg)
+
+    if not posted:
+        return False, f"submit_failed: {verify_msg}"
     return True, "ok"
 
 

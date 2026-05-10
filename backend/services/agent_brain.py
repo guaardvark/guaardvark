@@ -563,54 +563,17 @@ class AgentBrain:
             actions = self._parse_gemma4_actions(response)
 
             if actions:
-                import time as _action_time
-                # Gemma4 is requesting screen actions — execute them all in sequence
+                # Delegate to the robust execute_task loop so Gemma4 benefits from
+                # full See-Think-Act-Verify, success_proof, persistent knowledge,
+                # and failure handling instead of direct LocalScreenBackend calls.
+                from backend.services.local_screen_backend import LocalScreenBackend
+                from backend.services.agent_control_service import AgentControlService
+                screen = LocalScreenBackend()
+                acs = AgentControlService()
+                agent_result = acs.execute_task(message, screen)
+                response = agent_result.reason or ("Task completed." if agent_result.success else "Task failed.")
                 if thinking:
                     emit_fn("chat:token", {"content": f"*{thinking[:200]}*\n\n", "session_id": session_id})
-
-                results = []
-                for i, action_item in enumerate(actions):
-                    action_type = action_item.get("action", "")
-                    target = action_item.get("target", action_item.get("text", ""))
-
-                    # Show what we're about to do
-                    if action_type == "click":
-                        x, y = action_item.get("x", "?"), action_item.get("y", "?")
-                        emit_fn("chat:token", {"content": f"Clicking: {target} ({x},{y})\n", "session_id": session_id})
-                    elif action_type == "type":
-                        emit_fn("chat:token", {"content": f"Typing: {target}\n", "session_id": session_id})
-                    elif action_type == "hotkey":
-                        keys = action_item.get("keys", [])
-                        emit_fn("chat:token", {"content": f"Pressing: {'+'.join(keys)}\n", "session_id": session_id})
-                    elif action_type == "navigate":
-                        emit_fn("chat:token", {"content": f"Navigating: {action_item.get('url', target)}\n", "session_id": session_id})
-                    elif action_type == "generate_image":
-                        emit_fn("chat:token", {"content": f"Generating image: {action_item.get('prompt', '')[:80]}\n", "session_id": session_id})
-                    elif action_type == "screenshot":
-                        emit_fn("chat:token", {"content": "Taking screenshot...\n", "session_id": session_id})
-
-                    # Execute
-                    exec_result = self._execute_gemma4_action(
-                        action_item, message, session_id, emit_fn, app
-                    )
-                    if exec_result:
-                        results.append(exec_result)
-
-                    # Track generated images for chat persistence
-                    if action_type == "generate_image" and exec_result and "failed" not in exec_result.lower():
-                        generated_images.append({
-                            "url": action_item.get("_image_url", ""),
-                            "alt": f"Generated: {action_item.get('prompt', '')[:60]}",
-                            "caption": action_item.get("prompt", ""),
-                        })
-
-                    # Pause between actions — gives the screen time to update
-                    # and makes demo recordings watchable. 1s is enough for
-                    # humans to follow along without feeling sluggish.
-                    if i < len(actions) - 1:
-                        _action_time.sleep(1.0)
-
-                response = "\n".join(results) if results else "Actions completed."
                 emit_fn("chat:token", {"content": f"\n{response}", "session_id": session_id})
             else:
                 # Regular conversation — stream the buffered response to the user

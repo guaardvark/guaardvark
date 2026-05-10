@@ -1,7 +1,7 @@
 {
   "_meta": {
     "description": "Deterministic action recipes for the Guaardvark agent. These skip the see-think-act loop entirely.",
-    "format": "Each recipe has trigger patterns (regex) and a sequence of steps (hotkey/type/click/wait).",
+    "format": "Each recipe has trigger patterns (regex) and a sequence of steps. Steps may be hotkey/type/click for actions, or wait_until_settled/wait_until_visible for vision-gated waiting. Recipes can also declare a top-level success_proof \u2014 a vision-readable description that must be visible before the recipe is reported successful. Legacy `wait` steps still work but log a deprecation warning.",
     "timing": "wait values are in seconds"
   },
   "open_firefox": {
@@ -14,7 +14,7 @@
       {
         "action": "click",
         "target_description": "orange Firefox button",
-        "_comment": "Vision-driven — servo finds the icon on the current frame"
+        "_comment": "Vision-driven \u2014 servo finds the icon on the current frame"
       },
       {
         "action": "wait",
@@ -32,7 +32,7 @@
       {
         "action": "click",
         "target_description": "orange Firefox button",
-        "_comment": "Vision-driven — servo finds the icon on the current frame"
+        "_comment": "Vision-driven \u2014 servo finds the icon on the current frame"
       },
       {
         "action": "wait",
@@ -81,7 +81,7 @@
     ]
   },
   "navigate_url": {
-    "description": "Navigate to a domain-shaped URL in the current tab. Hostname must contain a dot OR port — bare words like 'open settings' or 'go to youtube' route to their dedicated recipes instead.",
+    "description": "Navigate to a domain-shaped URL in the current tab. Hostname must contain a dot OR port \u2014 bare words like 'open settings' or 'go to youtube' route to their dedicated recipes instead.",
     "triggers": [
       "^(?:navigate|go)\\s+to\\s+(?:https?://)?(\\w[\\w.-]*\\.[\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*$",
       "^(?:navigate|go)\\s+to\\s+(?:https?://)?([\\w.-]+:[0-9]+(?:/\\S*?)?)\\s*$",
@@ -98,8 +98,9 @@
         ]
       },
       {
-        "action": "wait",
-        "seconds": 0.3
+        "action": "wait_until_settled",
+        "timeout_s": 1.0,
+        "stable_for_ms": 150
       },
       {
         "action": "hotkey",
@@ -109,8 +110,9 @@
         ]
       },
       {
-        "action": "wait",
-        "seconds": 0.5
+        "action": "wait_until_visible",
+        "target_description": "URL address bar with text selected or empty and ready for typing",
+        "timeout_s": 4.0
       },
       {
         "action": "hotkey",
@@ -120,16 +122,18 @@
         ]
       },
       {
-        "action": "wait",
-        "seconds": 0.2
+        "action": "wait_until_settled",
+        "timeout_s": 1.0,
+        "stable_for_ms": 150
       },
       {
         "action": "type",
         "text": "http://{1}"
       },
       {
-        "action": "wait",
-        "seconds": 0.3
+        "action": "wait_until_settled",
+        "timeout_s": 1.0,
+        "stable_for_ms": 150
       },
       {
         "action": "hotkey",
@@ -138,20 +142,19 @@
         ]
       },
       {
-        "action": "wait",
-        "seconds": 0.2
+        "action": "wait_until_settled",
+        "timeout_s": 0.8,
+        "stable_for_ms": 150
       },
       {
         "action": "hotkey",
         "keys": [
           "Return"
         ]
-      },
-      {
-        "action": "wait",
-        "seconds": 3
       }
-    ]
+    ],
+    "success_proof": "browser address bar showing a loaded page (not a blank tab or error)",
+    "success_proof_timeout_s": 12.0
   },
   "new_tab": {
     "description": "Open a new blank tab",
@@ -803,11 +806,13 @@
       {
         "action": "click",
         "target_description": "orange Firefox button",
-        "_comment": "Vision-driven — focuses if open, launches if not"
+        "_comment": "Vision-driven \u2014 focuses if open, launches if not"
       },
       {
-        "action": "wait",
-        "seconds": 4
+        "action": "wait_until_visible",
+        "target_description": "Firefox browser window with URL bar visible",
+        "timeout_s": 12.0,
+        "_comment": "Don't fire next steps until Firefox is actually up"
       },
       {
         "action": "hotkey",
@@ -816,8 +821,9 @@
         ]
       },
       {
-        "action": "wait",
-        "seconds": 0.3
+        "action": "wait_until_settled",
+        "timeout_s": 2.0,
+        "stable_for_ms": 200
       },
       {
         "action": "hotkey",
@@ -827,8 +833,9 @@
         ]
       },
       {
-        "action": "wait",
-        "seconds": 0.5
+        "action": "wait_until_visible",
+        "target_description": "URL address bar with text selected or empty and ready for typing",
+        "timeout_s": 4.0
       },
       {
         "action": "hotkey",
@@ -838,28 +845,28 @@
         ]
       },
       {
-        "action": "wait",
-        "seconds": 0.2
+        "action": "wait_until_settled",
+        "timeout_s": 1.0,
+        "stable_for_ms": 150
       },
       {
         "action": "type",
         "text": "https://www.youtube.com/results?search_query={1}"
       },
       {
-        "action": "wait",
-        "seconds": 0.3
+        "action": "wait_until_settled",
+        "timeout_s": 1.5,
+        "stable_for_ms": 200
       },
       {
         "action": "hotkey",
         "keys": [
           "Return"
         ]
-      },
-      {
-        "action": "wait",
-        "seconds": 4
       }
-    ]
+    ],
+    "success_proof": "YouTube search results page with video thumbnails visible",
+    "success_proof_timeout_s": 15.0
   },
   "open_guaardvark": {
     "description": "Open the Guaardvark frontend application",
@@ -979,7 +986,7 @@
     ]
   },
   "open_youtube": {
-    "description": "Open YouTube — opens Firefox first if no browser is running",
+    "description": "Open YouTube \u2014 opens Firefox first if no browser is running",
     "triggers": [
       "^(?:open|go\\s+to|launch|navigate\\s+to|visit)\\s+(?:the\\s+)?youtube(?:\\.com)?\\s*$",
       "^youtube\\s*$"
@@ -988,11 +995,12 @@
       {
         "action": "click",
         "target_description": "orange Firefox button",
-        "_comment": "Vision-driven — opens or focuses Firefox"
+        "_comment": "Vision-driven \u2014 opens or focuses Firefox"
       },
       {
-        "action": "wait",
-        "seconds": 4
+        "action": "wait_until_visible",
+        "target_description": "Firefox browser window with URL bar visible",
+        "timeout_s": 12.0
       },
       {
         "action": "hotkey",
@@ -1001,8 +1009,9 @@
         ]
       },
       {
-        "action": "wait",
-        "seconds": 0.3
+        "action": "wait_until_settled",
+        "timeout_s": 2.0,
+        "stable_for_ms": 200
       },
       {
         "action": "hotkey",
@@ -1012,8 +1021,9 @@
         ]
       },
       {
-        "action": "wait",
-        "seconds": 0.5
+        "action": "wait_until_visible",
+        "target_description": "URL address bar with text selected or empty and ready for typing",
+        "timeout_s": 4.0
       },
       {
         "action": "hotkey",
@@ -1023,31 +1033,31 @@
         ]
       },
       {
-        "action": "wait",
-        "seconds": 0.2
+        "action": "wait_until_settled",
+        "timeout_s": 1.0,
+        "stable_for_ms": 150
       },
       {
         "action": "type",
         "text": "https://www.youtube.com/"
       },
       {
-        "action": "wait",
-        "seconds": 0.3
+        "action": "wait_until_settled",
+        "timeout_s": 1.5,
+        "stable_for_ms": 200
       },
       {
         "action": "hotkey",
         "keys": [
           "Return"
         ]
-      },
-      {
-        "action": "wait",
-        "seconds": 3
       }
-    ]
+    ],
+    "success_proof": "YouTube home page with the YouTube logo and video thumbnails visible",
+    "success_proof_timeout_s": 15.0
   },
   "open_reddit": {
-    "description": "Open Reddit homepage — opens Firefox first if no browser is running",
+    "description": "Open Reddit homepage \u2014 opens Firefox first if no browser is running",
     "triggers": [
       "^(?:open|go\\s+to|launch|navigate\\s+to|visit)\\s+(?:the\\s+)?reddit(?:\\.com)?\\s*$",
       "^reddit\\s*$"
@@ -1056,7 +1066,7 @@
       {
         "action": "click",
         "target_description": "orange Firefox button",
-        "_comment": "Vision-driven — opens or focuses Firefox"
+        "_comment": "Vision-driven \u2014 opens or focuses Firefox"
       },
       {
         "action": "wait",
@@ -1124,7 +1134,7 @@
       {
         "action": "click",
         "target_description": "orange Firefox button",
-        "_comment": "Vision-driven — opens or focuses Firefox"
+        "_comment": "Vision-driven \u2014 opens or focuses Firefox"
       },
       {
         "action": "wait",
@@ -1192,7 +1202,7 @@
       {
         "action": "click",
         "target_description": "chat input field",
-        "_comment": "Vision-driven — finds the chat input regardless of page size"
+        "_comment": "Vision-driven \u2014 finds the chat input regardless of page size"
       },
       {
         "action": "wait",
@@ -1219,7 +1229,7 @@
     ]
   },
   "take_screenshot": {
-    "description": "Take a screenshot (no-op — the capture endpoint handles this)",
+    "description": "Take a screenshot (no-op \u2014 the capture endpoint handles this)",
     "triggers": [
       "^(?:take|capture|grab)\\s+(?:a\\s+)?screenshot\\s*$",
       "^screenshot\\s*$",
@@ -1229,7 +1239,7 @@
       {
         "action": "wait",
         "seconds": 0.1,
-        "_comment": "No-op — screenshot taken by capture endpoint"
+        "_comment": "No-op \u2014 screenshot taken by capture endpoint"
       }
     ]
   },
@@ -1299,7 +1309,7 @@
         "action": "click",
         "target_description": "desktop background",
         "button": "right",
-        "_comment": "Vision-driven — finds an empty desktop region"
+        "_comment": "Vision-driven \u2014 finds an empty desktop region"
       },
       {
         "action": "wait",
