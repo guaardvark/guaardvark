@@ -27,10 +27,14 @@ class UnifiedChatService {
    * Send a message via HTTP. Response arrives via Socket.IO events.
    */
   async sendMessage(sessionId, message, options = {}, imageBase64 = null, isVoiceMessage = false) {
-    // Read the live AgentScreenViewer state from Zustand without subscribing
-    // — getState() is the official escape hatch for non-component code. The
-    // backend gates Gemma4 direct path and screen tools on this flag.
-    const agentScreenActive = useAppStore.getState().agentScreenOpen === true;
+    // The backend gates Gemma4 direct path and screen tools on this flag.
+    // Trigger when EITHER the screen viewer is open (user is watching live)
+    // OR the session is in agent mode (sticky /agent toggle) — both cases
+    // mean "the model should be able to drive the virtual screen".
+    const store = useAppStore.getState();
+    const screenOpen = store.agentScreenOpen === true;
+    const inAgentMode = store.getSessionMode?.(sessionId) === "agent";
+    const agentScreenActive = screenOpen || inAgentMode;
     const body = {
       session_id: sessionId,
       message,

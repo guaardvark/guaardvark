@@ -359,10 +359,10 @@ async function handleDbRule(name, args, { addMessage }) {
 // /agent and /chat — modal session toggle
 //
 // The session has a `mode` ("chat" | "agent") that lives on the backend.
-// `/agent` flips it to "agent" and (with args) optionally fires the first
-// task right away. `/chat` (and its alias `/exit`) flips it back. Once in
-// agent mode, ChatInput routes every non-slash message straight to
-// /api/agent-control/execute — no chat LLM, no ambiguity.
+// `/agent` flips it to "agent" and (with args) sends the first task as
+// a normal chat message — agent mode routes through the chat LLM so the
+// model can both speak AND act (Gemma4 direct path picks it up via
+// agent_screen_active=true). `/chat` (alias `/exit`) flips back.
 //
 // Slash commands themselves work in either mode; flipping the mode is
 // always a slash, never a natural-language ask.
@@ -381,7 +381,7 @@ async function _patchSessionMode(sessionId, mode) {
   return res.json();
 }
 
-async function handleAgent(args, { addMessage, chatState }) {
+async function handleAgent(args, { addMessage, onSendMessage, chatState }) {
   const sessionId = chatState?.sessionId;
   if (!sessionId) {
     addMessage({
@@ -395,13 +395,6 @@ async function handleAgent(args, { addMessage, chatState }) {
 
   const currentMode = useAppStore.getState().getSessionMode(sessionId);
   const trimmedArgs = (args || "").trim();
-
-  // Echo the slash to chat so the user sees what fired
-  addMessage({
-    role: "user",
-    content: trimmedArgs ? `/agent ${trimmedArgs}` : "/agent",
-    tempId: `agent-user-${Date.now()}`,
-  });
 
   // Flip the mode (PATCH backend + cache locally) unless we're already there
   if (currentMode !== "agent") {
@@ -419,47 +412,35 @@ async function handleAgent(args, { addMessage, chatState }) {
     }
   }
 
-  // No task → just announce the mode
+  // No task → just announce the mode (echo the bare slash so the user sees it)
   if (!trimmedArgs) {
+    addMessage({
+      role: "user",
+      content: "/agent",
+      tempId: `agent-user-${Date.now()}`,
+    });
     addMessage({
       role: "system",
       content: currentMode === "agent"
         ? "Already in **agent mode**. Type a screen-control task, or use `/chat` to exit."
-        : "Switched to **agent mode** — every message in this session is now a screen-control task. Type `/chat` to exit.",
+        : "Switched to **agent mode** — messages route through the agent (it'll speak and act). Type `/chat` to exit.",
       tempId: `agent-ok-${Date.now()}`,
       type: "command",
     });
     return { handled: true };
   }
 
-  // Task provided → fire it immediately via the agent loop
-  try {
-    const res = await fetch("/api/agent-control/execute", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ task: trimmedArgs }),
-    });
-    const data = await res.json();
-    if (data.success) {
-      addMessage({
-        role: "system",
-        content: `**Agent mode** active. Task started: _${trimmedArgs}_  \nWatch the agent screen for progress.`,
-        tempId: `agent-fire-${Date.now()}`,
-        type: "command",
-      });
-    } else {
-      addMessage({
-        role: "system",
-        content: `Task rejected: ${data.error || "unknown error"}${data.error === "Agent already active" ? " — wait for the current run or use the kill switch." : ""}`,
-        tempId: `agent-fire-fail-${Date.now()}`,
-        type: "command",
-      });
-    }
-  } catch (err) {
+  // Task provided → send it as a normal chat message. The chat LLM (or
+  // Gemma4 direct path) handles speaking + acting. onSendMessage adds the
+  // user bubble itself, so we don't echo the slash — the bare task text
+  // is what the model should see, not "/agent click the button".
+  if (typeof onSendMessage === "function") {
+    onSendMessage(trimmedArgs, null);
+  } else {
     addMessage({
       role: "system",
-      content: `Task failed: ${err.message}`,
-      tempId: `agent-fire-err-${Date.now()}`,
+      content: "Internal error: onSendMessage unavailable in this context.",
+      tempId: `agent-no-send-${Date.now()}`,
       type: "command",
     });
   }

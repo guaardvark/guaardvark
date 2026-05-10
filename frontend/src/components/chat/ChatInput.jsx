@@ -1004,61 +1004,12 @@ Please try a different image or check if the vision model is properly loaded.`;
       const file = fileRef.current?.files?.[0] || null;
       if (!currentText.trim() && !file) return;
 
-      // Agent mode: every non-slash message becomes a screen-control task,
-      // bypassing the chat LLM entirely. The session's mode flag is the
-      // sticky signal; flip via /agent and /chat slash commands.
-      //
-      // The user bubble carries `mode: "agent"` so MessageItem renders it
-      // with the orange outline. We deliberately do NOT inject a "task
-      // started" system bubble on success — the bubble itself + the orange
-      // chip above the input are signal enough, and adding a notification
-      // per send would clutter the chat.
-      if (agentModeActive && currentText.trim()) {
-        const task = currentText.trim();
-        if (onAddMessage) {
-          onAddMessage({
-            role: "user",
-            content: task,
-            tempId: `agent-task-${Date.now()}`,
-            mode: "agent",
-          });
-        }
-        setInputText("");
-        if (inputRef.current) {
-          inputRef.current.value = "";
-          inputRef.current.focus();
-        }
-        try {
-          const res = await fetch("/api/agent-control/execute", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ task }),
-          });
-          const data = await res.json();
-          // Only surface a system bubble on FAILURE — success is silent;
-          // the orange task bubble + agent screen are the feedback channel.
-          if (!data.success && onAddMessage) {
-            onAddMessage({
-              role: "system",
-              content: `Task rejected: ${data.error || "unknown error"}${data.error === "Agent already active" ? " — wait for the current run or use the kill switch." : ""}`,
-              tempId: `agent-fail-${Date.now()}`,
-              type: "command",
-              mode: "agent",
-            });
-          }
-        } catch (err) {
-          if (onAddMessage) {
-            onAddMessage({
-              role: "system",
-              content: `Task failed: ${err.message}`,
-              tempId: `agent-err-${Date.now()}`,
-              type: "command",
-              mode: "agent",
-            });
-          }
-        }
-        return;
-      }
+      // Agent mode: messages flow through the normal chat pipeline so the
+      // LLM can both speak AND act. The session's `mode === "agent"` flag
+      // makes unifiedChatService flip `agent_screen_active: true`, which
+      // activates the Gemma4 direct path and exposes the screen tools.
+      // The orange chip above the input + the user bubble's `mode: "agent"`
+      // marker are the visual signal that we're in agent mode.
 
       // Input validation and sanitization
       const sanitizedInput = currentText.trim();
