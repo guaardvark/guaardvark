@@ -18,7 +18,7 @@ import queue
 import re
 import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -102,6 +102,38 @@ class AgentResult:
     task: str = ""  # the user-facing task string this result is for
 
 
+@dataclass
+class WorldState:
+    """Compact per-iteration environment snapshot for decision grounding."""
+    timestamp_iso: str = ""
+    desktop_state: str = ""
+    dom_url: str = ""
+    dom_title: str = ""
+    dom_element_count: int = 0
+    cursor_pos: Tuple[int, int] = (0, 0)
+    last_action: str = ""
+    last_action_status: str = ""
+    scene_hint: str = ""
+    progress_label: str = ""
+    progress_confidence: float = 0.0
+    progress_evidence: str = ""
+    progress_next_hint: str = ""
+    learned_recovery_hint: str = ""
+    blocked_actions: str = ""
+    current_subgoal: str = ""
+    next_subgoal: str = ""
+    subgoal_completion_signal: str = ""
+
+
+@dataclass
+class ProgressSignal:
+    """Structured outcome signal from the previous action."""
+    label: str = "unknown"
+    confidence: float = 0.0
+    evidence: str = ""
+    next_hint: str = ""
+
+
 class AgentControlService:
     """
     Master-side orchestration service for Agent Vision Control.
@@ -127,8 +159,35 @@ class AgentControlService:
         # see-think-act tick; used by both the prompt builder and the click-time
         # DOM-match guard so the two share a consistent view.
         self._dom_snapshot: Optional[Any] = None
+        self._world_state: Optional[WorldState] = None
+        self._last_progress_signal: Optional[ProgressSignal] = None
+        self._strategy_cooldowns: Dict[str, int] = {}
+        self._last_failed_strategy: str = ""
+        self._same_strategy_failures: int = 0
+        self._pending_failure_label: str = ""
+        self._recovery_memory: Dict[str, Dict[str, int]] = {}
+        self._recipe_fallback_note: str = ""
         self._lock = threading.Lock()
         self.config = AgentControlConfig()
+        self._debug_run_id = ""
+
+    def _debug_emit(self, hypothesis_id: str, location: str, message: str, data: Dict[str, Any]) -> None:
+        # region agent log
+        try:
+            payload = {
+                "sessionId": "aa957d",
+                "runId": self._debug_run_id or f"run-{int(time.time() * 1000)}",
+                "hypothesisId": hypothesis_id,
+                "location": location,
+                "message": message,
+                "data": data,
+                "timestamp": int(time.time() * 1000),
+            }
+            with open("/home/llamax1/LLAMAX8/.cursor/debug-aa957d.log", "a", encoding="utf-8") as f:
+                f.write(json.dumps(payload, ensure_ascii=True) + "\n")
+        except Exception:
+            pass
+        # endregion
 
     @property
     def is_active(self) -> bool:
@@ -222,6 +281,7 @@ class AgentControlService:
             self._current_task = task
             self._current_iteration = 0
             self._action_history = []
+            self._recipe_fallback_note = ""
 
         # Pick the vision model for servo coordinate estimation.
         # If vision_model is None, the model does its own coords — no middleman.
@@ -242,6 +302,17 @@ class AgentControlService:
         servo = ServoController(screen, analyzer, collector=collector, vision_config=vision_config)
         consecutive_failures = 0
         start_time = time.time()
+        self._debug_run_id = f"run-{int(start_time * 1000)}"
+        self._debug_emit(
+            "H2",
+            "agent_control_service.py:execute_task:start",
+            "Task start",
+            {
+                "task": task[:200],
+                "unified_model": self._get_unified_model(),
+                "screen_display": getattr(screen, "display", "unknown"),
+            },
+        )
 
         # Check for recipe match — skip see-think-act loop for known patterns
         recipe_result = self._try_recipe(task, screen)
@@ -255,6 +326,7 @@ class AgentControlService:
 
         try:
             for iteration in range(max_iters):
+                self._tick_strategy_cooldowns()
                 if self._killed:
                     return self._store_and_return(AgentResult(
                         success=False, reason="killed",
@@ -278,6 +350,16 @@ class AgentControlService:
                 # 1. SEE — Capture screenshot
                 screenshot, cursor_pos = self._capture_with_retry(screen)
                 logger.warning(f"[AGENT][STEP {iteration+1}][SEE] Capturing screen, cursor at {cursor_pos}")
+                self._debug_emit(
+                    "H2",
+                    "agent_control_service.py:execute_task:see",
+                    "SEE capture",
+                    {
+                        "iteration": iteration + 1,
+                        "cursor_pos": cursor_pos,
+                        "image_size": getattr(screenshot, "size", None),
+                    },
+                )
 
                 scene_desc = ""  # Will be populated by either unified or split path
 
@@ -288,8 +370,24 @@ class AgentControlService:
                     # Refresh DOM once per iteration so the prompt builder and
                     # the click-time DOM-match guard see the same elements.
                     self._refresh_dom_snapshot()
+                    self._world_state = self._build_world_state(cursor_pos=cursor_pos, scene_hint="")
+                    self._debug_emit(
+                        "H1",
+                        "agent_control_service.py:execute_task:dom",
+                        "DOM snapshot refreshed",
+                        {
+                            "iteration": iteration + 1,
+                            "dom_count": len(getattr(self._dom_snapshot, "elements", []) or []),
+                            "dom_url": getattr(self._dom_snapshot, "url", ""),
+                        },
+                    )
                     # UNIFIED MODE: Compact prompt — vision model sees screenshot + short context
-                    unified_prompt = self._build_unified_prompt(task, self._action_history, training_mode=training_mode)
+                    unified_prompt = self._build_unified_prompt(
+                        task,
+                        self._action_history,
+                        world_state=self._world_state,
+                        training_mode=training_mode,
+                    )
                     # Persistent cross-session knowledge rides the system slot,
                     # not the user prompt — keeps the per-step prompt small
                     # enough to hold the model in instructed mode while still
@@ -324,6 +422,10 @@ class AgentControlService:
                         continue
                     scene_desc = scene.description[:200].replace('\n', ' ')
                     logger.warning(f"[AGENT][STEP {iteration+1}][SEE] {scene_desc}")
+                    self._world_state = self._build_world_state(
+                        cursor_pos=cursor_pos,
+                        scene_hint=scene_desc,
+                    )
 
                     # 2b. ASSESS — Check for obstacles before proceeding
                     obstacle = self._assess_obstacles(scene.description, analyzer, screen, iteration)
@@ -336,7 +438,7 @@ class AgentControlService:
 
                     # 3. THINK — Text LLM decides next action
                     decision_prompt = self._build_decision_prompt(
-                        task, scene.description, self._action_history
+                        task, scene.description, self._action_history, world_state=self._world_state
                     )
                     decision_result = analyzer.text_query(decision_prompt)
                     if not decision_result.success:
@@ -349,6 +451,18 @@ class AgentControlService:
                               f"text=\"{decision.action.text or ''}\" "
                               f"keys={decision.action.keys or ''} "
                               f"reasoning=\"{decision.action.reasoning or ''}\"")
+                self._debug_emit(
+                    "H10",
+                    "agent_control_service.py:execute_task:decision",
+                    "Decision chosen",
+                    {
+                        "iteration": iteration + 1,
+                        "action": decision.action.action_type,
+                        "target": decision.action.target_description or "",
+                        "text": (decision.action.text or "")[:120],
+                        "keys": decision.action.keys or [],
+                    },
+                )
 
                 if decision.task_complete and training_mode:
                     # Training mode: ignore "done" — force the model to keep clicking
@@ -395,8 +509,22 @@ class AgentControlService:
                             scene_description=scene_desc or "no scene",
                             action=decision.action,
                             result={"success": False, "reason": "missing_success_proof"},
+                            verification="done proof missing/trivial",
                             failed=True,
                         ))
+                        self._last_progress_signal = self._semantic_progress_signal(
+                            decision.action,
+                            {"success": False, "reason": "missing_success_proof"},
+                            failed=True,
+                            pixel_diff=None,
+                        )
+                        self._record_failure_label(self._last_progress_signal.label)
+                        self._debug_emit(
+                            "H4",
+                            "agent_control_service.py:execute_task:done_reject",
+                            "Done rejected due trivial proof",
+                            {"iteration": iteration + 1, "proof": proof},
+                        )
                         consecutive_failures += 1
                         continue
 
@@ -414,6 +542,24 @@ class AgentControlService:
                     consecutive_failures += 1
                     continue
 
+                # Strategy-level anti-looping: if an action class failed repeatedly,
+                # put it on short cooldown and force a pivot step.
+                blocked_steps = self._strategy_cooldowns.get(decision.action.action_type, 0)
+                if blocked_steps > 0 and decision.action.action_type not in ("done", "wait"):
+                    blocked = decision.action.action_type
+                    logger.warning(
+                        f"[AGENT][STEP {iteration+1}][PIVOT] Blocking repeated strategy "
+                        f"'{blocked}' for {blocked_steps} more step(s); forcing wait"
+                    )
+                    decision.action.action_type = "wait"
+                    decision.action.scroll_amount = 1
+                    decision.action.reasoning = (
+                        f"strategy cooldown active for {blocked}; wait and re-observe before new tactic"
+                    )
+                    decision.action.target_description = ""
+                    decision.action.text = ""
+                    decision.action.keys = []
+
                 # 4. ACT — Execute via servo (for clicks) or direct (for type/hotkey/scroll)
                 # In mouse_only mode, reject any non-click action
                 if getattr(self, '_mouse_only', False) and decision.action.action_type not in ("click", "right_click", "done"):
@@ -426,6 +572,7 @@ class AgentControlService:
                 if decision.action.action_type in ("click", "right_click"):
                     button = "right" if decision.action.action_type == "right_click" else "left"
                     target = decision.action.target_description
+                    pixel_diff_value: Optional[float] = None
 
                     # For generic area targets (desktop, empty space), click center-screen
                     # instead of asking the vision model to locate "the desktop"
@@ -448,6 +595,16 @@ class AgentControlService:
                         decision.action.coordinates = (0, 0)
                         result = {"success": False, "reason": "no_dom_match"}
                         failed = True
+                        self._debug_emit(
+                            "H1",
+                            "agent_control_service.py:execute_task:dom_guard",
+                            "DOM guard rejected click",
+                            {
+                                "iteration": iteration + 1,
+                                "target": target,
+                                "dom_count": len(getattr(self._dom_snapshot, "elements", []) or []),
+                            },
+                        )
                     else:
                         servo_result = servo.click_target(target, button=button, single_attempt=training_mode)
                         decision.action.coordinates = (servo_result.get("x", 0), servo_result.get("y", 0))
@@ -465,6 +622,7 @@ class AgentControlService:
                             before_mean = np.array(screenshot).mean()
                             after_mean = np.array(post_shot).mean()
                             pixel_diff = abs(after_mean - before_mean)
+                            pixel_diff_value = float(pixel_diff)
                             if pixel_diff < 0.005:
                                 failed = True
                                 result["success"] = False
@@ -488,6 +646,7 @@ class AgentControlService:
                 else:
                     result = self._execute_action(decision.action, screen)
                     failed = not result.get("success", False)
+                    pixel_diff_value: Optional[float] = None
 
                     # Post-action observation: wait for the UI to update, then
                     # take a verification screenshot so the NEXT iteration's
@@ -501,6 +660,7 @@ class AgentControlService:
                             before_mean = np.array(screenshot).mean()
                             after_mean = np.array(post_shot).mean()
                             pixel_diff = abs(after_mean - before_mean)
+                            pixel_diff_value = float(pixel_diff)
                             # A scroll that produced no pixel delta means the page
                             # didn't move — either we're at the bottom, the cursor
                             # is over a non-scrollable region (sidebar, overlay), or
@@ -512,6 +672,19 @@ class AgentControlService:
                             ineffective = (
                                 (decision.action.action_type == "type" and pixel_diff < 0.05)
                                 or (decision.action.action_type == "scroll" and pixel_diff < 0.01)
+                            )
+                            self._debug_emit(
+                                "H12",
+                                "agent_control_service.py:execute_task:nonclick_verify",
+                                "Non-click verification",
+                                {
+                                    "iteration": iteration + 1,
+                                    "action": decision.action.action_type,
+                                    "pixel_diff": round(float(pixel_diff), 5),
+                                    "ineffective": bool(ineffective),
+                                    "text": (decision.action.text or "")[:120],
+                                    "keys": decision.action.keys or [],
+                                },
                             )
                             if ineffective:
                                 logger.warning(
@@ -533,15 +706,45 @@ class AgentControlService:
                     logger.warning(f"[AGENT][STEP {iteration+1}][ACT] {decision.action.action_type} "
                                   f"\"{detail}\" [{status_icon}]")
 
+                signal = self._semantic_progress_signal(
+                    decision.action,
+                    result,
+                    failed=failed,
+                    pixel_diff=pixel_diff_value,
+                )
+                self._last_progress_signal = signal
+                result["semantic_progress"] = asdict(signal)
+                self._record_strategy_outcome(decision.action, failed)
+                self._record_recovery_memory(signal, decision.action, failed)
+
                 # 5. RECORD step
                 step = ActionStep(
                     iteration=iteration,
                     scene_description=scene_desc or "no scene",
                     action=decision.action,
                     result=result,
+                    verification=signal.evidence,
                     failed=failed,
                 )
                 self._action_history.append(step)
+                if len(self._action_history) >= 2:
+                    last2 = self._action_history[-2:]
+                    if (
+                        last2[0].action.action_type == "type"
+                        and last2[1].action.action_type == "type"
+                        and (last2[0].action.text or "") == (last2[1].action.text or "")
+                    ):
+                        self._debug_emit(
+                            "H13",
+                            "agent_control_service.py:execute_task:type_repeat",
+                            "Repeated identical type action",
+                            {
+                                "iteration": iteration + 1,
+                                "text": (last2[1].action.text or "")[:120],
+                                "prev_failed": bool(last2[0].failed),
+                                "curr_failed": bool(last2[1].failed),
+                            },
+                        )
 
                 # 5b. EARLY DONE — after a successful action, check if the
                 # task goal is obviously met based on desktop state. Saves
@@ -598,6 +801,12 @@ class AgentControlService:
                     if consecutive_failures >= max_failures:
                         logger.warning(f"Kill switch: {consecutive_failures} consecutive failures")
                         self.kill()
+                        self._debug_emit(
+                            "H5",
+                            "agent_control_service.py:execute_task:max_failures",
+                            "Max failures triggered",
+                            {"iteration": iteration + 1, "consecutive_failures": consecutive_failures},
+                        )
                         return self._store_and_return(AgentResult(
                             success=False, reason="max_failures",
                             steps=self._action_history,
@@ -923,6 +1132,9 @@ class AgentControlService:
 
     def _store_and_return(self, result: AgentResult) -> AgentResult:
         """Store result for status reporting and return it."""
+        if self._recipe_fallback_note:
+            result.reason = f"{result.reason} ({self._recipe_fallback_note})"
+            self._recipe_fallback_note = ""
         if not result.task:
             # Stamp the task so consumers (e.g. Phase 3 inducer) can match the
             # result against later feedback without depending on _current_task,
@@ -1269,7 +1481,13 @@ class AgentControlService:
                 return True
         return False
 
-    def _build_unified_prompt(self, task: str, history, training_mode: bool = False) -> str:
+    def _build_unified_prompt(
+        self,
+        task: str,
+        history,
+        world_state: Optional[WorldState] = None,
+        training_mode: bool = False,
+    ) -> str:
         """Build a compact prompt for unified vision+decision models.
 
         Shorter prompts = better detection accuracy. Only include what the model
@@ -1322,6 +1540,7 @@ class AgentControlService:
                         f"Pick one. Do not pick {a_type} again.\n\n"
                     )
 
+
         desktop_state = AgentControlService._get_desktop_state()
 
         # DOM metadata — interactive elements with screen coordinates.
@@ -1346,10 +1565,12 @@ class AgentControlService:
             "Screen mid-load or transient: wait, do not quit. "
             "Step 1 done is forbidden."
         )
+        world_block = self._format_world_state_for_prompt(world_state or self._world_state)
 
         return f"""{pivot_block}Task: {task}
 
 {desktop_state}
+{world_block}
 {dom_block}{done_lines}{training_override}Step {len(history) + 1}. ONE next action. After Act the system ALWAYS re-captures the screen (re-See) before your next Think. {confidence}
 
 target_description rules: SHORT label, ≤4 words, one distinctive adjective. Examples: "orange Firefox button", "chat input field", "Send button", "desktop background". NOT "the orange Firefox flame in the top-left Shortcuts panel" — multi-clause descriptions break the vision detector and land at (0,0).
@@ -1778,15 +1999,19 @@ Reply ONLY with JSON:
             f"({len(action_steps)} actions, success={all_succeeded})"
         )
 
-        if proof_failed:
-            # Proof failed — fall back to see-think-act loop instead of
-            # returning a recipe failure. The vision path can recover.
+        if not all_succeeded:
+            # Any recipe miss should degrade into adaptive see-think-act, not a
+            # hard failure. Recipes are shortcuts, never the only path.
+            logger.warning(
+                f"[AGENT][RECIPE] {name}: falling back to adaptive loop "
+                f"(proof_failed={proof_failed}, failed_steps={len(failed_steps)})"
+            )
+            self._recipe_fallback_note = (
+                f"recipe_fallback:{name},proof_failed={proof_failed},failed_steps={len(failed_steps)}"
+            )
             return None
 
-        if all_succeeded:
-            reason = f"recipe:{name}"
-        else:
-            reason = f"recipe:{name} — {len(failed_steps)} step(s) failed"
+        reason = f"recipe:{name}"
 
         self._action_history = action_steps
         return AgentResult(
@@ -2002,7 +2227,313 @@ Reply ONLY with JSON:
             prompt += f"\nLast: {last.action.action_type} {desc} [{status}]"
         return prompt
 
-    def _build_decision_prompt(self, task, scene, history):
+    def _build_world_state(self, cursor_pos: Tuple[int, int], scene_hint: str = "") -> WorldState:
+        """Construct the grounded state packet for the current loop iteration."""
+        last_action = ""
+        last_action_status = ""
+        if self._action_history:
+            step = self._action_history[-1]
+            detail = step.action.target_description or step.action.text or ""
+            last_action = f"{step.action.action_type} {detail}".strip()
+            last_action_status = "FAIL" if step.failed else "OK"
+
+        dom_url = ""
+        dom_title = ""
+        dom_count = 0
+        if self._dom_snapshot is not None:
+            dom_url = getattr(self._dom_snapshot, "url", "") or ""
+            dom_title = getattr(self._dom_snapshot, "title", "") or ""
+            dom_count = len(getattr(self._dom_snapshot, "elements", []) or [])
+        signal = self._last_progress_signal or ProgressSignal()
+        blocked = self._format_strategy_cooldowns()
+        learned_hint = self._best_recovery_hint(signal.label)
+        current_subgoal, next_subgoal = self._infer_subgoals(
+            task=self._current_task or "",
+            signal=signal,
+            history=self._action_history,
+        )
+        next_hint = signal.next_hint
+        if learned_hint:
+            next_hint = (
+                f"{next_hint}; learned recovery: {learned_hint}"
+                if next_hint
+                else f"learned recovery: {learned_hint}"
+            )
+
+        return WorldState(
+            timestamp_iso=datetime.utcnow().isoformat(timespec="seconds") + "Z",
+            desktop_state=self._get_desktop_state(),
+            dom_url=dom_url,
+            dom_title=dom_title,
+            dom_element_count=dom_count,
+            cursor_pos=cursor_pos,
+            last_action=last_action,
+            last_action_status=last_action_status,
+            scene_hint=(scene_hint or "")[:220],
+            progress_label=signal.label,
+            progress_confidence=signal.confidence,
+            progress_evidence=signal.evidence,
+            progress_next_hint=next_hint,
+            learned_recovery_hint=learned_hint,
+            blocked_actions=blocked,
+            current_subgoal=current_subgoal,
+            next_subgoal=next_subgoal,
+            subgoal_completion_signal=signal.evidence,
+        )
+
+    @staticmethod
+    def _is_failure_label(label: str) -> bool:
+        return label in {
+            "target_not_visible",
+            "completion_unproven",
+            "input_not_applied",
+            "click_no_effect",
+            "scroll_no_effect",
+            "action_failed",
+        }
+
+    def _record_failure_label(self, label: str) -> None:
+        if self._is_failure_label(label):
+            self._pending_failure_label = label
+
+    def _action_recovery_key(self, action: AgentAction) -> str:
+        action_type = (action.action_type or "").strip().lower()
+        if action_type == "hotkey" and action.keys:
+            return f"hotkey:{'+'.join(action.keys[:2])}"
+        if action_type in ("click", "right_click"):
+            target = (action.target_description or "").strip().lower()
+            return f"{action_type}:{target[:24]}" if target else action_type
+        return action_type or "unknown"
+
+    def _record_recovery_memory(self, signal: ProgressSignal, action: AgentAction, failed: bool) -> None:
+        """Learn what action tended to recover from specific failure labels."""
+        if failed:
+            self._record_failure_label(signal.label)
+            return
+
+        action_type = (action.action_type or "").strip().lower()
+        if action_type in ("", "done", "wait"):
+            return
+        if not self._pending_failure_label:
+            return
+        bucket = self._recovery_memory.setdefault(self._pending_failure_label, {})
+        key = self._action_recovery_key(action)
+        bucket[key] = bucket.get(key, 0) + 1
+        self._pending_failure_label = ""
+
+    def _best_recovery_hint(self, current_label: str) -> str:
+        """Return highest-signal learned recovery for the current failure label."""
+        label = current_label if self._is_failure_label(current_label) else self._pending_failure_label
+        if not label:
+            return ""
+        bucket = self._recovery_memory.get(label) or {}
+        if not bucket:
+            return ""
+        best_action, count = max(bucket.items(), key=lambda kv: kv[1])
+        if count < 2:
+            # Require at least 2 wins before we tell the model to trust it.
+            return ""
+        return f"after {label}, {best_action} worked ({count}x)"
+
+    def _task_milestones(self, task: str) -> List[str]:
+        """Generate lightweight milestone templates from task intent."""
+        task_lc = (task or "").lower()
+        if any(w in task_lc for w in ("open ", "navigate", "go to", "url", "http", "www", "browser")):
+            return [
+                "establish browser/app focus",
+                "reach destination view",
+                "perform requested interaction",
+                "verify visible completion state",
+            ]
+        if any(w in task_lc for w in ("type", "write", "comment", "reply", "email", "message", "post")):
+            return [
+                "focus intended input area",
+                "enter requested content",
+                "submit or apply the content",
+                "verify the content is visibly present",
+            ]
+        return [
+            "locate relevant UI region",
+            "perform next required interaction",
+            "observe visible progress",
+            "verify completion evidence",
+        ]
+
+    def _infer_subgoals(
+        self,
+        task: str,
+        signal: ProgressSignal,
+        history: List[ActionStep],
+    ) -> Tuple[str, str]:
+        """Infer current/next subgoal from task intent + latest progress."""
+        milestones = self._task_milestones(task)
+        current_idx = 0 if not history else 1
+
+        if signal.label in ("progress_confirmed", "partial_progress"):
+            current_idx = min(current_idx + 1, len(milestones) - 1)
+        elif signal.label in ("target_not_visible", "scroll_no_effect"):
+            return (
+                "recover visibility/focus for target controls",
+                milestones[min(1, len(milestones) - 1)],
+            )
+        elif signal.label == "completion_unproven":
+            return (
+                "produce concrete completion evidence",
+                "re-check completion with explicit visible proof",
+            )
+
+        current = milestones[current_idx]
+        next_goal = milestones[min(current_idx + 1, len(milestones) - 1)]
+        return current, next_goal
+
+    def _tick_strategy_cooldowns(self) -> None:
+        """Age out temporary action-class blocks."""
+        if not self._strategy_cooldowns:
+            return
+        updated: Dict[str, int] = {}
+        for action_type, remaining in self._strategy_cooldowns.items():
+            next_remaining = int(remaining) - 1
+            if next_remaining > 0:
+                updated[action_type] = next_remaining
+        self._strategy_cooldowns = updated
+
+    def _record_strategy_outcome(self, action: AgentAction, failed: bool) -> None:
+        """Track repeated failed strategies and apply short cooldowns."""
+        action_type = (action.action_type or "").strip().lower()
+        if action_type in ("", "done", "wait"):
+            return
+        if failed:
+            if self._last_failed_strategy == action_type:
+                self._same_strategy_failures += 1
+            else:
+                self._last_failed_strategy = action_type
+                self._same_strategy_failures = 1
+            if self._same_strategy_failures >= 2:
+                # Short cooldown so the model must try a different tactic.
+                self._strategy_cooldowns[action_type] = max(
+                    self._strategy_cooldowns.get(action_type, 0),
+                    2,
+                )
+        else:
+            if self._last_failed_strategy == action_type:
+                self._last_failed_strategy = ""
+                self._same_strategy_failures = 0
+
+    def _format_strategy_cooldowns(self) -> str:
+        """Human-readable strategy blocks for prompt context."""
+        if not self._strategy_cooldowns:
+            return "none"
+        items = [
+            f"{action_type}:{remaining}"
+            for action_type, remaining in sorted(self._strategy_cooldowns.items())
+        ]
+        return ", ".join(items)
+
+    def _semantic_progress_signal(
+        self,
+        action: AgentAction,
+        result: Dict[str, Any],
+        failed: bool,
+        pixel_diff: Optional[float],
+    ) -> ProgressSignal:
+        """Convert low-level verification into an LLM-friendly progress signal."""
+        action_type = (action.action_type or "").strip().lower()
+        reason = (result.get("reason") or "").strip().lower()
+        verified = bool(result.get("verified"))
+
+        if not failed and verified:
+            evidence = f"{action_type} verified with visible change"
+            if pixel_diff is not None:
+                evidence += f" (delta={pixel_diff:.3f})"
+            return ProgressSignal(
+                label="progress_confirmed",
+                confidence=0.95,
+                evidence=evidence,
+                next_hint="continue toward next visible sub-goal",
+            )
+
+        if failed:
+            if reason == "no_dom_match":
+                return ProgressSignal(
+                    label="target_not_visible",
+                    confidence=0.95,
+                    evidence="target label not found in current DOM snapshot",
+                    next_hint="change viewport or choose a currently visible target",
+                )
+            if reason == "missing_success_proof":
+                return ProgressSignal(
+                    label="completion_unproven",
+                    confidence=0.9,
+                    evidence="done was rejected because visible proof was missing",
+                    next_hint="perform one more action that creates an obvious visible completion state",
+                )
+            if action_type == "type":
+                return ProgressSignal(
+                    label="input_not_applied",
+                    confidence=0.85,
+                    evidence="typed text did not produce a meaningful visual update",
+                    next_hint="focus the intended input first, then type once",
+                )
+            if action_type in ("click", "right_click"):
+                return ProgressSignal(
+                    label="click_no_effect",
+                    confidence=0.85,
+                    evidence="click did not produce visible UI state change",
+                    next_hint="pick a different target or reveal a hidden control first",
+                )
+            if action_type == "scroll":
+                return ProgressSignal(
+                    label="scroll_no_effect",
+                    confidence=0.85,
+                    evidence="scroll did not move visible content",
+                    next_hint="focus the main pane or use a different navigation action",
+                )
+            return ProgressSignal(
+                label="action_failed",
+                confidence=0.8,
+                evidence=reason or "action returned unsuccessful result",
+                next_hint="choose a different action strategy",
+            )
+
+        # Success without explicit verification is still useful, just less certain.
+        evidence = "action reported success"
+        if pixel_diff is not None:
+            evidence += f" (delta={pixel_diff:.3f})"
+        return ProgressSignal(
+            label="partial_progress",
+            confidence=0.65,
+            evidence=evidence,
+            next_hint="verify with a follow-up action aligned to the goal",
+        )
+
+    def _format_world_state_for_prompt(self, world_state: Optional[WorldState]) -> str:
+        """Render world-state as short, stable prompt context."""
+        if not world_state:
+            return ""
+
+        lines = [
+            "WorldState:",
+            f"- timestamp: {world_state.timestamp_iso}",
+            f"- cursor: {world_state.cursor_pos}",
+            f"- dom_url: {world_state.dom_url or 'n/a'}",
+            f"- dom_title: {world_state.dom_title or 'n/a'}",
+            f"- dom_elements: {world_state.dom_element_count}",
+            f"- last_action: {world_state.last_action or 'none'} [{world_state.last_action_status or 'n/a'}]",
+            f"- progress: {world_state.progress_label or 'unknown'} (conf={world_state.progress_confidence:.2f})",
+            f"- progress_evidence: {world_state.progress_evidence or 'n/a'}",
+            f"- next_hint: {world_state.progress_next_hint or 'n/a'}",
+            f"- learned_recovery: {world_state.learned_recovery_hint or 'none'}",
+            f"- blocked_actions: {world_state.blocked_actions or 'none'}",
+            f"- current_subgoal: {world_state.current_subgoal or 'n/a'}",
+            f"- next_subgoal: {world_state.next_subgoal or 'n/a'}",
+            f"- subgoal_signal: {world_state.subgoal_completion_signal or 'n/a'}",
+        ]
+        if world_state.scene_hint:
+            lines.append(f"- scene_hint: {world_state.scene_hint}")
+        lines.append("")
+        return "\n".join(lines)
+
+    def _build_decision_prompt(self, task, scene, history, world_state: Optional[WorldState] = None):
         """Build the prompt for the LLM to decide the next action."""
         history_text = ""
         if history:
@@ -2035,6 +2566,7 @@ Reply ONLY with JSON:
 {{"action": "click|right_click|type|hotkey|scroll|done", "target_description": "...", "text": "literal value only", "keys": ["ctrl","l"], "reasoning": "why"}}"""
 
         desktop_state = self._get_desktop_state()
+        world_block = self._format_world_state_for_prompt(world_state or self._world_state)
 
         # Persistent knowledge — loaded once per call, stable across sessions.
         # This is the cross-session memory: what the agent has learned about
@@ -2071,6 +2603,7 @@ Reply ONLY with JSON:
 Task: {task}
 
 {desktop_state}
+{world_block}
 
 Screen: {scene}
 
