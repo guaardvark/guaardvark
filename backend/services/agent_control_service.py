@@ -171,24 +171,6 @@ class AgentControlService:
         self.config = AgentControlConfig()
         self._debug_run_id = ""
 
-    def _debug_emit(self, hypothesis_id: str, location: str, message: str, data: Dict[str, Any]) -> None:
-        # region agent log
-        try:
-            payload = {
-                "sessionId": "aa957d",
-                "runId": self._debug_run_id or f"run-{int(time.time() * 1000)}",
-                "hypothesisId": hypothesis_id,
-                "location": location,
-                "message": message,
-                "data": data,
-                "timestamp": int(time.time() * 1000),
-            }
-            with open("/home/llamax1/LLAMAX8/.cursor/debug-aa957d.log", "a", encoding="utf-8") as f:
-                f.write(json.dumps(payload, ensure_ascii=True) + "\n")
-        except Exception:
-            pass
-        # endregion
-
     @property
     def is_active(self) -> bool:
         return self._active
@@ -303,16 +285,6 @@ class AgentControlService:
         consecutive_failures = 0
         start_time = time.time()
         self._debug_run_id = f"run-{int(start_time * 1000)}"
-        self._debug_emit(
-            "H2",
-            "agent_control_service.py:execute_task:start",
-            "Task start",
-            {
-                "task": task[:200],
-                "unified_model": self._get_unified_model(),
-                "screen_display": getattr(screen, "display", "unknown"),
-            },
-        )
 
         # Check for recipe match — skip see-think-act loop for known patterns
         recipe_result = self._try_recipe(task, screen)
@@ -350,16 +322,6 @@ class AgentControlService:
                 # 1. SEE — Capture screenshot
                 screenshot, cursor_pos = self._capture_with_retry(screen)
                 logger.warning(f"[AGENT][STEP {iteration+1}][SEE] Capturing screen, cursor at {cursor_pos}")
-                self._debug_emit(
-                    "H2",
-                    "agent_control_service.py:execute_task:see",
-                    "SEE capture",
-                    {
-                        "iteration": iteration + 1,
-                        "cursor_pos": cursor_pos,
-                        "image_size": getattr(screenshot, "size", None),
-                    },
-                )
 
                 scene_desc = ""  # Will be populated by either unified or split path
 
@@ -371,16 +333,6 @@ class AgentControlService:
                     # the click-time DOM-match guard see the same elements.
                     self._refresh_dom_snapshot()
                     self._world_state = self._build_world_state(cursor_pos=cursor_pos, scene_hint="")
-                    self._debug_emit(
-                        "H1",
-                        "agent_control_service.py:execute_task:dom",
-                        "DOM snapshot refreshed",
-                        {
-                            "iteration": iteration + 1,
-                            "dom_count": len(getattr(self._dom_snapshot, "elements", []) or []),
-                            "dom_url": getattr(self._dom_snapshot, "url", ""),
-                        },
-                    )
                     # UNIFIED MODE: Compact prompt — vision model sees screenshot + short context
                     unified_prompt = self._build_unified_prompt(
                         task,
@@ -451,18 +403,6 @@ class AgentControlService:
                               f"text=\"{decision.action.text or ''}\" "
                               f"keys={decision.action.keys or ''} "
                               f"reasoning=\"{decision.action.reasoning or ''}\"")
-                self._debug_emit(
-                    "H10",
-                    "agent_control_service.py:execute_task:decision",
-                    "Decision chosen",
-                    {
-                        "iteration": iteration + 1,
-                        "action": decision.action.action_type,
-                        "target": decision.action.target_description or "",
-                        "text": (decision.action.text or "")[:120],
-                        "keys": decision.action.keys or [],
-                    },
-                )
 
                 if decision.task_complete and training_mode:
                     # Training mode: ignore "done" — force the model to keep clicking
@@ -519,12 +459,6 @@ class AgentControlService:
                             pixel_diff=None,
                         )
                         self._record_failure_label(self._last_progress_signal.label)
-                        self._debug_emit(
-                            "H4",
-                            "agent_control_service.py:execute_task:done_reject",
-                            "Done rejected due trivial proof",
-                            {"iteration": iteration + 1, "proof": proof},
-                        )
                         consecutive_failures += 1
                         continue
 
@@ -595,16 +529,6 @@ class AgentControlService:
                         decision.action.coordinates = (0, 0)
                         result = {"success": False, "reason": "no_dom_match"}
                         failed = True
-                        self._debug_emit(
-                            "H1",
-                            "agent_control_service.py:execute_task:dom_guard",
-                            "DOM guard rejected click",
-                            {
-                                "iteration": iteration + 1,
-                                "target": target,
-                                "dom_count": len(getattr(self._dom_snapshot, "elements", []) or []),
-                            },
-                        )
                     else:
                         servo_result = servo.click_target(target, button=button, single_attempt=training_mode)
                         decision.action.coordinates = (servo_result.get("x", 0), servo_result.get("y", 0))
@@ -673,19 +597,6 @@ class AgentControlService:
                                 (decision.action.action_type == "type" and pixel_diff < 0.05)
                                 or (decision.action.action_type == "scroll" and pixel_diff < 0.01)
                             )
-                            self._debug_emit(
-                                "H12",
-                                "agent_control_service.py:execute_task:nonclick_verify",
-                                "Non-click verification",
-                                {
-                                    "iteration": iteration + 1,
-                                    "action": decision.action.action_type,
-                                    "pixel_diff": round(float(pixel_diff), 5),
-                                    "ineffective": bool(ineffective),
-                                    "text": (decision.action.text or "")[:120],
-                                    "keys": decision.action.keys or [],
-                                },
-                            )
                             if ineffective:
                                 logger.warning(
                                     f"[AGENT][STEP {iteration+1}][VERIFY] "
@@ -727,24 +638,6 @@ class AgentControlService:
                     failed=failed,
                 )
                 self._action_history.append(step)
-                if len(self._action_history) >= 2:
-                    last2 = self._action_history[-2:]
-                    if (
-                        last2[0].action.action_type == "type"
-                        and last2[1].action.action_type == "type"
-                        and (last2[0].action.text or "") == (last2[1].action.text or "")
-                    ):
-                        self._debug_emit(
-                            "H13",
-                            "agent_control_service.py:execute_task:type_repeat",
-                            "Repeated identical type action",
-                            {
-                                "iteration": iteration + 1,
-                                "text": (last2[1].action.text or "")[:120],
-                                "prev_failed": bool(last2[0].failed),
-                                "curr_failed": bool(last2[1].failed),
-                            },
-                        )
 
                 # 5b. EARLY DONE — after a successful action, check if the
                 # task goal is obviously met based on desktop state. Saves
@@ -801,12 +694,6 @@ class AgentControlService:
                     if consecutive_failures >= max_failures:
                         logger.warning(f"Kill switch: {consecutive_failures} consecutive failures")
                         self.kill()
-                        self._debug_emit(
-                            "H5",
-                            "agent_control_service.py:execute_task:max_failures",
-                            "Max failures triggered",
-                            {"iteration": iteration + 1, "consecutive_failures": consecutive_failures},
-                        )
                         return self._store_and_return(AgentResult(
                             success=False, reason="max_failures",
                             steps=self._action_history,

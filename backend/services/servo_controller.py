@@ -59,24 +59,6 @@ class ServoController:
         self.screen_w, self.screen_h = self.screen.screen_size()
         logger.info(f"Servo initialized for {self.screen_w}x{self.screen_h} screen")
 
-    def _debug_emit(self, hypothesis_id: str, location: str, message: str, data: Dict[str, Any]) -> None:
-        # region agent log
-        try:
-            payload = {
-                "sessionId": "aa957d",
-                "runId": f"run-{int(time.time() * 1000)}",
-                "hypothesisId": hypothesis_id,
-                "location": location,
-                "message": message,
-                "data": data,
-                "timestamp": int(time.time() * 1000),
-            }
-            with open("/home/llamax1/LLAMAX8/.cursor/debug-aa957d.log", "a", encoding="utf-8") as f:
-                f.write(json.dumps(payload, ensure_ascii=True) + "\n")
-        except Exception:
-            pass
-        # endregion
-
     def click_target(self, target_description: str, button: str = "left", single_attempt: bool = False) -> Dict[str, Any]:
         """
         Click on a described target element using the adaptive servo loop.
@@ -403,12 +385,6 @@ class ServoController:
         )
         if check.success:
             answer = check.description.strip().lower()
-            self._debug_emit(
-                "H3",
-                "servo_controller.py:_estimate_coordinates:visibility_check",
-                "Visibility guard response",
-                {"target": target, "answer": answer[:120]},
-            )
             if answer.startswith("no") or "not visible" in answer or "don't see" in answer:
                 logger.info(f"Servo: target not visible (\"{target}\"), skipping click")
                 return None
@@ -427,20 +403,8 @@ class ServoController:
         if coords is None:
             # Fall back to legacy {"x","y"} format
             coords = self._parse_coordinates(result.description)
-            self._debug_emit(
-                "H4",
-                "servo_controller.py:_estimate_coordinates:parse_fallback",
-                "Detection parse fallback",
-                {"target": target, "raw_prefix": result.description[:200]},
-            )
 
         if coords is None:
-            self._debug_emit(
-                "H4",
-                "servo_controller.py:_estimate_coordinates:parse_failed",
-                "Detection parse failed",
-                {"target": target, "raw_prefix": result.description[:200]},
-            )
             return None
 
         raw_x, raw_y = coords

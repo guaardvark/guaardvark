@@ -27,25 +27,6 @@ CDP_TIMEOUT = 3  # seconds — fast fail if CDP isn't available
 CACHE_TTL = 1.0  # seconds — one agent step reuses the same snapshot
 MAX_ELEMENTS = 50  # cap to keep prompt concise
 
-
-def _debug_emit(hypothesis_id: str, location: str, message: str, data: Dict[str, Any]) -> None:
-    # region agent log
-    try:
-        payload = {
-            "sessionId": "aa957d",
-            "runId": f"run-{int(time.time() * 1000)}",
-            "hypothesisId": hypothesis_id,
-            "location": location,
-            "message": message,
-            "data": data,
-            "timestamp": int(time.time() * 1000),
-        }
-        with open("/home/llamax1/LLAMAX8/.cursor/debug-aa957d.log", "a", encoding="utf-8") as f:
-            f.write(json.dumps(payload, ensure_ascii=True) + "\n")
-    except Exception:
-        pass
-    # endregion
-
 # JavaScript that runs inside Firefox to enumerate interactive elements
 # and return their bounding boxes in viewport coordinates.
 #
@@ -222,7 +203,6 @@ class DOMMetadataExtractor:
         try:
             ws = _ws.create_connection(WS_URL, timeout=CDP_TIMEOUT, suppress_origin=True)
         except Exception as e:
-            _debug_emit("H7", "dom_metadata_extractor.py:_extract_impl:bidi_connect_fail", "BiDi connect failed", {"error": str(e)[:200]})
             return DOMSnapshot(success=False, error=f"BiDi connect failed: {e}")
 
         try:
@@ -236,12 +216,6 @@ class DOMMetadataExtractor:
             ws.send(json.dumps({"id": 2, "method": "browsingContext.getTree", "params": {}}))
             tree = json.loads(ws.recv())
             contexts = tree.get("result", {}).get("contexts", [])
-            _debug_emit(
-                "H7",
-                "dom_metadata_extractor.py:_extract_impl:context_tree",
-                "BiDi context tree",
-                {"context_count": len(contexts), "first_context": (contexts[0]["context"] if contexts else "")},
-            )
             if not contexts:
                 return DOMSnapshot(success=False, error="No browsing contexts")
 
@@ -258,12 +232,6 @@ class DOMMetadataExtractor:
                 }
             }))
             result = json.loads(ws.recv())
-            _debug_emit(
-                "H8",
-                "dom_metadata_extractor.py:_extract_impl:evaluate_result",
-                "Evaluate response received",
-                {"result_type": result.get("type", ""), "has_result": "result" in result},
-            )
 
         except Exception as e:
             return DOMSnapshot(success=False, error=f"BiDi evaluate failed: {e}")
@@ -286,12 +254,6 @@ class DOMMetadataExtractor:
             # DOM extraction looks "healthy" while yielding zero anchors.
             # Recover once by navigating to about:home and re-running extraction.
             if data.get("url") == "about:blank":
-                _debug_emit(
-                    "H11",
-                    "dom_metadata_extractor.py:_extract_impl:blank_recover_start",
-                    "about:blank detected, attempting recovery nav",
-                    {"url": data.get("url", "")},
-                )
                 recovered = self._recover_blank_page_once()
                 if recovered:
                     data = recovered
@@ -322,16 +284,6 @@ class DOMMetadataExtractor:
                 ))
 
             logger.info(f"DOM extracted: {len(elements)} elements from {data.get('title', '?')}")
-            _debug_emit(
-                "H8",
-                "dom_metadata_extractor.py:_extract_impl:parsed_dom",
-                "DOM parse summary",
-                {
-                    "url": data.get("url", "")[:200],
-                    "title": data.get("title", "")[:120],
-                    "elements_count": len(elements),
-                },
-            )
 
             return DOMSnapshot(
                 url=data.get("url", ""),
@@ -351,19 +303,16 @@ class DOMMetadataExtractor:
         try:
             ws2 = _ws.create_connection(WS_URL, timeout=CDP_TIMEOUT, suppress_origin=True)
         except Exception as e:
-            _debug_emit("H11", "dom_metadata_extractor.py:_recover_blank_page_once:connect_fail", "Recovery connect failed", {"error": str(e)[:200]})
             return None
         try:
             ws2.send(json.dumps({"id": 1, "method": "session.new", "params": {"capabilities": {}}}))
             session = json.loads(ws2.recv())
             if session.get("type") != "success":
-                _debug_emit("H11", "dom_metadata_extractor.py:_recover_blank_page_once:session_fail", "Recovery session failed", {"message": str(session)[:200]})
                 return None
             ws2.send(json.dumps({"id": 2, "method": "browsingContext.getTree", "params": {}}))
             tree = json.loads(ws2.recv())
             contexts = tree.get("result", {}).get("contexts", [])
             if not contexts:
-                _debug_emit("H11", "dom_metadata_extractor.py:_recover_blank_page_once:no_context", "Recovery has no contexts", {})
                 return None
             ctx_id = contexts[0]["context"]
             ws2.send(json.dumps({
@@ -384,22 +333,10 @@ class DOMMetadataExtractor:
             recover_result = json.loads(ws2.recv())
             recover_value = recover_result.get("result", {}).get("result", {}).get("value", "")
             if not recover_value:
-                _debug_emit("H11", "dom_metadata_extractor.py:_recover_blank_page_once:empty_result", "Recovery evaluate empty", {})
                 return None
             data = json.loads(recover_value)
-            _debug_emit(
-                "H11",
-                "dom_metadata_extractor.py:_recover_blank_page_once:success",
-                "Recovery evaluate succeeded",
-                {
-                    "url_after": data.get("url", "")[:200],
-                    "title_after": data.get("title", "")[:120],
-                    "elements_after": len(data.get("elements", []) or []),
-                },
-            )
             return data
         except Exception as e:
-            _debug_emit("H11", "dom_metadata_extractor.py:_recover_blank_page_once:error", "Recovery flow failed", {"error": str(e)[:200]})
             return None
         finally:
             try:
