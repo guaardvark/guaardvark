@@ -23,70 +23,68 @@ AGENT_DESKTOP_DIR="$HOME/.agent_desktop"
 mkdir -p "$PID_DIR" "$LOG_DIR" "$DATA_DIR" "$AGENT_FILES_DIR" "$AGENT_DESKTOP_DIR"
 
 # ---------------------------------------------------------------------------
-# Desktop environment setup
+# Desktop environment setup — XFCE on Xvfb
+#
+# What used to be a hodgepodge (openbox + tint2 + xsetroot wallpaper +
+# pcmanfm --desktop for icons + a custom tkinter launcher) is now a single
+# real XFCE session running on :99. Same display surface the user would
+# see if they VNC'd into the box — vision models recognize a normal Ubuntu
+# desktop instantly.
+#
+# Wallpaper, panel, desktop icons, app menu, file manager (Thunar), and
+# right-click menu all come from XFCE itself. No more custom widgets.
 # ---------------------------------------------------------------------------
 
-start_wallpaper() {
-    # Set wallpaper to make display look like a normal desktop
-    # Tries wallpaper image first, falls back to solid blue color
-    local wallpaper="$GUAARDVARK_ROOT/data/agent/wallpapers/default.jpg"
-    
-    if command -v feh &>/dev/null && [ -f "$wallpaper" ]; then
-        DISPLAY=:$DISPLAY_NUM feh --bg-fill "$wallpaper" >/dev/null 2>&1 && \
-            echo "  Wallpaper set (feh)" && return 0
+start_xfce_session() {
+    # Start an XFCE session on the virtual display via dbus-run-session,
+    # which gives XFCE the per-session DBus it expects without a real
+    # login manager (gdm3/lightdm). Works under Xvfb when the inherited
+    # host-session env is scrubbed first.
+    #
+    # Why `env -i` here: a naive launch inherits DBUS_SESSION_BUS_ADDRESS,
+    # XDG_SESSION_ID/TYPE, XDG_RUNTIME_DIR, etc. from the user's host GNOME
+    # session — xfce4-session sees those and refuses to start with
+    # "Another session manager is already running", and xfconfd dies fighting
+    # for the org.xfce.Xfconf name on the wrong DBus. Clean slate fixes it.
+    #
+    # Why a dedicated XDG_RUNTIME_DIR: gvfs/at-spi/xdg-app-helper all want
+    # to mount/socket under XDG_RUNTIME_DIR. Sharing /run/user/$UID with
+    # the host session triggers `Permission denied` and partial brokenness.
+    if pgrep -f "xfce4-session" > /dev/null 2>&1; then
+        # Only count it if it's on OUR display — host session is also xfce-shaped.
+        for pid in $(pgrep -f "xfce4-session" 2>/dev/null); do
+            if grep -qaz "DISPLAY=:$DISPLAY_NUM" /proc/$pid/environ 2>/dev/null; then
+                echo "  XFCE session already running on :$DISPLAY_NUM (PID $pid)"
+                return 0
+            fi
+        done
     fi
-    
-    # Fallback to solid blue color via xsetroot
-    if command -v xsetroot &>/dev/null; then
-        DISPLAY=:$DISPLAY_NUM xsetroot -solid "#1e3a5f" >/dev/null 2>&1 && \
-            echo "  Wallpaper set (solid blue)" && return 0
-    fi
-    
-    echo "  WARNING: Could not set wallpaper (feh/xsetroot not found)"
-}
 
-start_desktop_icons() {
-    # Launch file manager in desktop mode to render folder/launcher icons
-    # Uses ~/.agent_desktop as the desktop dir (not ~/Desktop, to avoid
-    # affecting user's main desktop — shared HOME constraint)
-    
-    # Ensure agent desktop structure exists.
-    # Folders chosen as visual anchors for the vision model — more recognized
-    # XDG-style folders = more reliable spatial triangulation per Gemini's
-    # design review (memory: project_agent_normal_desktop.md).
-    mkdir -p "$AGENT_DESKTOP_DIR"/{Documents,Downloads,Pictures,"Outreach Drafts",Trash}
-    
-    # Create Firefox launcher icon if it doesn't exist
-    if [ ! -f "$AGENT_DESKTOP_DIR/Firefox.desktop" ]; then
-        cat > "$AGENT_DESKTOP_DIR/Firefox.desktop" << 'FIREFOXDESKTOP'
-[Desktop Entry]
-Version=1.0
-Name=Firefox
-Exec=firefox %u
-Terminal=false
-Type=Application
-Icon=firefox
-Categories=Network;WebBrowser;
-FIREFOXDESKTOP
-        chmod +x "$AGENT_DESKTOP_DIR/Firefox.desktop"
-    fi
-    
-    # Launch pcmanfm to render desktop icons
-    if command -v pcmanfm &>/dev/null; then
-        # Override XDG_DESKTOP_DIR to point pcmanfm at agent's desktop
-        DISPLAY=:$DISPLAY_NUM XDG_DESKTOP_DIR="$AGENT_DESKTOP_DIR" \
-            pcmanfm --desktop --profile=agent >/dev/null 2>&1 &
-        echo $! > "$PID_DIR/pcmanfm.pid"
-        echo "  Desktop icons started (pcmanfm)"
-    elif command -v nautilus &>/dev/null; then
-        # Nautilus fallback (if available)
-        DISPLAY=:$DISPLAY_NUM XDG_DESKTOP_DIR="$AGENT_DESKTOP_DIR" \
-            nautilus --no-default-window >/dev/null 2>&1 &
-        echo $! > "$PID_DIR/nautilus.pid"
-        echo "  Desktop icons started (nautilus)"
-    else
-        echo "  WARNING: No file manager found for desktop icons (install pcmanfm)"
-    fi
+    local agent_runtime_dir="/tmp/xdg-runtime-agent-$DISPLAY_NUM"
+    mkdir -p "$agent_runtime_dir"
+    chmod 700 "$agent_runtime_dir"
+
+    # env -i wipes the inherited environment; we re-inject only what XFCE
+    # legitimately needs. Notably absent: DBUS_SESSION_BUS_ADDRESS,
+    # XDG_SESSION_*, GNOME_*, WAYLAND_DISPLAY, DESKTOP_SESSION.
+    env -i \
+        HOME="$HOME" \
+        USER="$USER" \
+        LOGNAME="${LOGNAME:-$USER}" \
+        SHELL="${SHELL:-/bin/bash}" \
+        PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+        LANG="${LANG:-en_US.UTF-8}" \
+        LC_ALL="${LC_ALL:-en_US.UTF-8}" \
+        DISPLAY=":$DISPLAY_NUM" \
+        XDG_RUNTIME_DIR="$agent_runtime_dir" \
+        XDG_CURRENT_DESKTOP="XFCE" \
+        XDG_SESSION_DESKTOP="xfce" \
+        dbus-run-session -- startxfce4 \
+        >> "$LOG_DIR/xfce_agent.log" 2>&1 &
+    echo $! > "$PID_DIR/xfce.pid"
+    # Give the session a moment to bring up xfwm4, xfdesktop, xfce4-panel.
+    sleep 3
+    echo "  XFCE session started (PID $(cat $PID_DIR/xfce.pid), log: $LOG_DIR/xfce_agent.log)"
 }
 
 # ---------------------------------------------------------------------------
@@ -363,123 +361,19 @@ start() {
         echo "  Xvfb started (PID $(cat $PID_DIR/xvfb.pid))"
     fi
 
-    # Desktop environment (openbox + tint2 = real desktop with taskbar and right-click menu)
-    if pgrep -f "openbox" > /dev/null 2>&1; then
-        echo "  Openbox already running"
-    else
-        # Build browser launch command for the menu
-        local browser_cmd=$(browser_launch_cmd "$BROWSER" "$PROFILE_DIR")
-        local browser_gvk_cmd=$(browser_launch_cmd "$BROWSER" "$PROFILE_DIR" "http://localhost:5175")
-        local menu_env="env $ENV_PREFIX"
+    # Desktop environment — single XFCE session brings up wallpaper, panel,
+    # desktop icons, app menu, and Thunar file manager. Replaces the previous
+    # openbox + tint2 + wallpaper + pcmanfm + custom tkinter launcher stack.
+    start_xfce_session
 
-        mkdir -p "$HOME/.config/openbox"
-        cat > "$HOME/.config/openbox/menu.xml" << OBMENUX
-<?xml version="1.0" encoding="utf-8"?>
-<openbox_menu xmlns="http://openbox.org/3.4/menu">
-  <menu id="root-menu" label="Guaardvark Agent">
-    <item label="$BROWSER_NAME">
-      <action name="Execute">
-        <execute>$menu_env $browser_cmd</execute>
-      </action>
-    </item>
-    <separator label="Tools"/>
-    <item label="Agent Files">
-      <action name="Execute">
-        <execute>pcmanfm $AGENT_FILES_DIR</execute>
-      </action>
-    </item>
-    <item label="File Manager">
-      <action name="Execute">
-        <execute>pcmanfm --new-win</execute>
-      </action>
-    </item>
-    <item label="Drawing">
-      <action name="Execute">
-        <execute>$menu_env drawing</execute>
-      </action>
-    </item>
-    <item label="Terminal">
-      <action name="Execute">
-        <execute>xterm -fa Monospace -fs 12</execute>
-      </action>
-    </item>
-    <separator/>
-    <item label="Guaardvark">
-      <action name="Execute">
-        <execute>$menu_env $browser_gvk_cmd</execute>
-      </action>
-    </item>
-  </menu>
-</openbox_menu>
-OBMENUX
-
-        DISPLAY=:$DISPLAY_NUM openbox >/dev/null 2>&1 &
-        echo $! > "$PID_DIR/openbox.pid"
-        sleep 1
-        echo "  Openbox desktop started"
-
-        # Wallpaper (blue gradient to match vision model training distribution)
-        start_wallpaper
-
-        # Taskbar (use agent-specific config to avoid affecting user's main desktop)
-        local tint2_config="$HOME/.config/tint2/agent.tint2rc"
-        local tint2_template="$GUAARDVARK_ROOT/data/agent/configs/agent.tint2rc"
-        # Install the agent tint2 config from the repo on first run so fresh
-        # clones get the same look. Won't overwrite an existing customization.
-        if [ ! -f "$tint2_config" ] && [ -f "$tint2_template" ]; then
-            mkdir -p "$(dirname "$tint2_config")"
-            cp "$tint2_template" "$tint2_config"
-            echo "  Installed agent tint2 config from repo template"
-        fi
-        if [ -f "$tint2_config" ]; then
-            DISPLAY=:$DISPLAY_NUM XDG_DATA_DIRS="$GUAARDVARK_ROOT/data/agent/desktop:$XDG_DATA_DIRS" tint2 -c "$tint2_config" &>/dev/null &
-        else
-            # Fallback to default tint2rc if agent config doesn't exist
-            DISPLAY=:$DISPLAY_NUM XDG_DATA_DIRS="$GUAARDVARK_ROOT/data/agent/desktop:$XDG_DATA_DIRS" tint2 &>/dev/null &
-        fi
-        echo $! > "$PID_DIR/tint2.pid"
-        sleep 1
-        echo "  Tint2 taskbar started"
-
-        # Desktop icons (Documents, Downloads, Outreach Drafts, Firefox launcher)
-        start_desktop_icons
-        sleep 1
-
-        # Desktop shortcut launcher — DISABLED in favor of pcmanfm desktop icons
-        # The old Python launcher is no longer needed since pcmanfm renders
-        # folder icons and .desktop launchers directly on the desktop
-        # if [ -f "$GUAARDVARK_ROOT/scripts/agent_desktop_launcher.py" ]; then
-        #     DISPLAY=:$DISPLAY_NUM GUAARDVARK_ROOT="$GUAARDVARK_ROOT" python3 "$GUAARDVARK_ROOT/scripts/agent_desktop_launcher.py" &>/dev/null &
-        #     echo $! > "$PID_DIR/agent_launcher.pid"
-        #     sleep 1
-        #     echo "  Desktop launcher started"
-        # fi
-    fi
-
-    # Browser profile setup
+    # Browser profile prep ONLY. We sync cookies/session into the agent's
+    # profile dir so when the agent decides to launch Firefox itself (via
+    # the XFCE app menu, a .desktop shortcut, or its own click logic), it
+    # gets the user's logged-in profile. We do NOT auto-launch the browser
+    # — the agent boots to a clean desktop and opens what it needs.
     if [ -n "$BROWSER" ]; then
         sync_browser_session "$BROWSER" "$PROFILE_DIR"
         init_browser_profile "$BROWSER" "$PROFILE_DIR"
-
-        # Auto-launch browser on the virtual display if not already running
-        local browser_pattern
-        case "$BROWSER" in
-            firefox|firefox-esr) browser_pattern="firefox.*$(basename $PROFILE_DIR)" ;;
-            *) browser_pattern="$BROWSER.*$(basename $PROFILE_DIR)" ;;
-        esac
-
-        # Auto-launch browser on the virtual display if not already running
-        if pgrep -f "$browser_pattern" > /dev/null 2>&1; then
-            echo "  $BROWSER_NAME already running on :$DISPLAY_NUM"
-        else
-            local launch_cmd=$(browser_launch_cmd "$BROWSER" "$PROFILE_DIR")
-            # `env $ENV_PREFIX` so variable-expanded env assignments actually
-            # take effect — bare `$ENV_PREFIX cmd` would treat them as args.
-            env $ENV_PREFIX $launch_cmd >/dev/null 2>&1 &
-            echo $! > "$PID_DIR/agent_browser.pid"
-            sleep 2
-            echo "  $BROWSER_NAME launched on :$DISPLAY_NUM (PID $(cat $PID_DIR/agent_browser.pid))"
-        fi
     fi
 
     # VNC server (for watching the agent)
@@ -515,8 +409,22 @@ OBMENUX
 stop() {
     echo "Stopping Agent Virtual Display..."
 
-    # 1. Kill by PID files first
-    for proc in pcmanfm nautilus agent_browser agent_firefox tint2 openbox matchbox xvfb; do
+    # Helper: kill processes by pattern only when they're on OUR display.
+    # Each process gets its own /proc/$pid/environ scan so we don't touch
+    # the user's host-session XFCE (which is also xfce4-session, just on a
+    # different DISPLAY).
+    kill_on_agent_display() {
+        local pattern="$1" label="$2"
+        for pid in $(pgrep -f "$pattern" 2>/dev/null); do
+            if grep -qaz "DISPLAY=:$DISPLAY_NUM" /proc/$pid/environ 2>/dev/null; then
+                kill $pid 2>/dev/null && echo "  Killed $label (PID $pid)"
+            fi
+        done
+    }
+
+    # 1. PID files first (clean shutdown path).
+    for proc in xfce agent_browser agent_firefox \
+                pcmanfm nautilus tint2 openbox matchbox xvfb; do
         pid_file="$PID_DIR/${proc}.pid"
         if [ -f "$pid_file" ]; then
             pid=$(cat "$pid_file")
@@ -525,31 +433,24 @@ stop() {
         fi
     done
 
-    # 2. Fallback: kill by process pattern (catches orphans from stale PID files)
-    pkill -f "Xvfb :$DISPLAY_NUM" 2>/dev/null && echo "  Killed orphan Xvfb" || true
-    pkill -f "x11vnc.*-rfbport $VNC_PORT" 2>/dev/null && echo "  Stopped x11vnc" || echo "  x11vnc not running"
-    pkill -f "firefox.*firefox_profile" 2>/dev/null
+    # 2. XFCE session — scoped strictly to our DISPLAY so the host session survives.
+    for pat in xfce4-session xfdesktop xfce4-panel xfwm4 xfsettingsd xfce4-power-manager \
+               xfconfd Thunar xfce4-notifyd light-locker; do
+        kill_on_agent_display "$pat" "$pat"
+    done
+
+    # 3. Window-manager / panel orphans from older runs (no PID files).
+    kill_on_agent_display "openbox" "orphan openbox"
+    kill_on_agent_display "tint2" "orphan tint2"
+    kill_on_agent_display "pcmanfm.*--desktop" "orphan pcmanfm"
+
+    # 4. Browser + display server + VNC.
+    pkill -f "firefox.*firefox_profile" 2>/dev/null && echo "  Stopped agent Firefox" || true
     pkill -f "chrom.*chromium_profile" 2>/dev/null
+    pkill -f "Xvfb :$DISPLAY_NUM" 2>/dev/null && echo "  Killed Xvfb :$DISPLAY_NUM" || true
+    pkill -f "x11vnc.*-rfbport $VNC_PORT" 2>/dev/null && echo "  Stopped x11vnc" || echo "  x11vnc not running"
 
-    # 3. Kill window manager/taskbar/desktop icons on agent display (catches processes started without PID files)
-    for pid in $(pgrep -f "openbox" 2>/dev/null); do
-        # Only kill openbox running on our display
-        if grep -qz "DISPLAY=:$DISPLAY_NUM" /proc/$pid/environ 2>/dev/null; then
-            kill $pid 2>/dev/null && echo "  Killed orphan openbox (PID $pid)"
-        fi
-    done
-    for pid in $(pgrep -f "tint2" 2>/dev/null); do
-        if grep -qz "DISPLAY=:$DISPLAY_NUM" /proc/$pid/environ 2>/dev/null; then
-            kill $pid 2>/dev/null && echo "  Killed orphan tint2 (PID $pid)"
-        fi
-    done
-    for pid in $(pgrep -f "pcmanfm.*--desktop" 2>/dev/null); do
-        if grep -qz "DISPLAY=:$DISPLAY_NUM" /proc/$pid/environ 2>/dev/null; then
-            kill $pid 2>/dev/null && echo "  Killed orphan pcmanfm (PID $pid)"
-        fi
-    done
-
-    # 4. Last resort: kill anything still holding the VNC port
+    # 5. Last resort: free the VNC port if anything still holds it.
     local port_holder=$(lsof -ti :$VNC_PORT 2>/dev/null)
     if [ -n "$port_holder" ]; then
         kill $port_holder 2>/dev/null && echo "  Killed process holding port $VNC_PORT (PID $port_holder)"
@@ -562,16 +463,24 @@ status() {
     echo "Agent Virtual Display Status:"
     echo "  Browser:  $BROWSER_NAME ($BROWSER)"
     pgrep -f "Xvfb :$DISPLAY_NUM" > /dev/null 2>&1 && echo "  Xvfb:     RUNNING" || echo "  Xvfb:     STOPPED"
-    pgrep -f "openbox" > /dev/null 2>&1 && echo "  Openbox:  RUNNING" || echo "  Openbox:  STOPPED"
-    pgrep -f "tint2" > /dev/null 2>&1 && echo "  Tint2:    RUNNING" || echo "  Tint2:    STOPPED"
-    pgrep -f "pcmanfm.*--desktop" > /dev/null 2>&1 && echo "  Desktop:  RUNNING (pcmanfm)" || echo "  Desktop:  STOPPED"
+
+    # XFCE on OUR display only — pgrep would otherwise hit the user's
+    # host session too.
+    local xfce_pid=""
+    for pid in $(pgrep -f "xfce4-session" 2>/dev/null); do
+        if grep -qaz "DISPLAY=:$DISPLAY_NUM" /proc/$pid/environ 2>/dev/null; then
+            xfce_pid=$pid
+            break
+        fi
+    done
+    [ -n "$xfce_pid" ] && echo "  XFCE:     RUNNING (PID $xfce_pid)" || echo "  XFCE:     STOPPED"
 
     local browser_running=false
     case "$BROWSER" in
         firefox|firefox-esr) pgrep -f "firefox.*firefox_profile" > /dev/null 2>&1 && browser_running=true ;;
         *) pgrep -f "$BROWSER.*$(basename $PROFILE_DIR)" > /dev/null 2>&1 && browser_running=true ;;
     esac
-    $browser_running && echo "  Browser:  RUNNING" || echo "  Browser:  STOPPED"
+    $browser_running && echo "  Browser:  RUNNING" || echo "  Browser:  STOPPED (agent will launch on demand)"
 
     pgrep -f "x11vnc.*-rfbport $VNC_PORT" > /dev/null 2>&1 && echo "  x11vnc:   RUNNING (port $VNC_PORT)" || echo "  x11vnc:   STOPPED"
 }
