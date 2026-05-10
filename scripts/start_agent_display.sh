@@ -40,6 +40,24 @@ seed_agent_desktop() {
     # vision model recognizes (Documents, Downloads, Pictures, Trash —
     # standard XDG names). Idempotent.
     mkdir -p "$AGENT_DESKTOP_DIR"/{Documents,Downloads,Pictures,"Outreach Drafts",Trash}
+
+    # Firefox launcher icon. Without this, fresh clones boot to a desktop
+    # with folder icons but no app launcher — and every prompt/recipe that
+    # says "click the Firefox icon on the desktop" becomes priming for
+    # hallucination. Created idempotently so existing installs stay put.
+    if [ ! -f "$AGENT_DESKTOP_DIR/Firefox.desktop" ]; then
+        cat > "$AGENT_DESKTOP_DIR/Firefox.desktop" << 'FIREFOXDESKTOP'
+[Desktop Entry]
+Version=1.0
+Name=Firefox
+Exec=firefox %u
+Terminal=false
+Type=Application
+Icon=firefox
+Categories=Network;WebBrowser;
+FIREFOXDESKTOP
+        chmod +x "$AGENT_DESKTOP_DIR/Firefox.desktop"
+    fi
 }
 
 write_agent_xdg_user_dirs() {

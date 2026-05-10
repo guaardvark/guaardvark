@@ -59,6 +59,12 @@ data/agent/desktop/
 data/agent/firefox_profile/
 data/agent/firefox_extension/
 
+# Agent XFCE runtime state — xfconf settings, panel layout, desktop-icon
+# positions. Written by xfce4-session on every launch; per-machine, never
+# meant to be tracked. The directory itself is auto-created by
+# start_agent_display.sh on first run.
+data/agent/xfce_config/
+
 # Stray local scratch files (do not commit)
 /1_logo.png
 /doc.txt
