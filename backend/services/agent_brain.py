@@ -458,10 +458,10 @@ class AgentBrain:
             user_msg = {"role": "user", "content": message}
 
             # Gemma4's eyes — but only when the message could plausibly be
-            # about screen state. Attaching a 1280x720 screenshot to every
-            # "hello" was starving inference (5+ minutes for first token on
-            # CPU/GPU split). For pure chat we skip the screenshot entirely;
-            # for everything else we downscale hard before sending.
+            # about screen state. Attaching a full-resolution screenshot to
+            # every "hello" was starving inference (5+ minutes for first
+            # token on CPU/GPU split). For pure chat we skip the screenshot
+            # entirely; for everything else we downscale hard before sending.
             needs_screen = not NO_SCREEN_CONTEXT.match(message.strip())
             if needs_screen:
                 try:
@@ -470,8 +470,10 @@ class AgentBrain:
                     screenshot, _ = screen.capture()
                     import base64
                     from io import BytesIO
-                    # Quarter the pixel count vs native 1280x720 — keeps UI
-                    # elements legible to the model but cuts vision-token cost.
+                    # Downscale the screenshot to keep UI elements legible
+                    # to the model while cutting vision-token cost. The
+                    # native display is 1024x1024; we ship a much smaller
+                    # thumbnail.
                     screenshot.thumbnail((640, 360))
                     buf = BytesIO()
                     screenshot.save(buf, format="JPEG", quality=70)
