@@ -431,23 +431,52 @@ const MessageItem = ({ message, sessionId: sessionIdProp }) => {
         {/* Unified chat tool call cards (displayed inline before the response text) */}
         {message.isUnifiedChat && message.toolCalls && message.toolCalls.length > 0 && (
           <Box sx={{ mb: 1 }}>
-            {message.toolCalls.map((step, stepIdx) =>
-              (step.tool_calls || []).map((tc, tcIdx) => (
-                <ToolCallCard
-                  key={`${stepIdx}-${tcIdx}`}
-                  toolName={tc.tool_name}
-                  params={tc.params}
-                  result={tc.success != null ? {
-                    success: tc.success,
-                    output: tc.output_preview,
-                    error: tc.success ? null : tc.output_preview,
-                  } : null}
-                  durationMs={tc.duration_ms}
-                  isPending={false}
-                  sessionId={effectiveSessionId}
-                />
-              ))
-            )}
+            {message.toolCalls.map((step, stepIdx) => (
+              <Box key={`step-${stepIdx}`}>
+                {/* Per-iteration thinking: the agent's reasoning for this step */}
+                {step.thoughts && step.thoughts.trim() && (
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 1,
+                      mb: 0.75,
+                      mt: stepIdx === 0 ? 0 : 0.5,
+                      pl: 1,
+                      borderLeft: 2,
+                      borderColor: "warning.main",
+                      opacity: 0.85,
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ fontStyle: "italic", whiteSpace: "pre-wrap", fontSize: "0.7rem" }}
+                    >
+                      <Box component="span" sx={{ color: "warning.main", fontWeight: 600, mr: 0.5 }}>
+                        Step {step.iteration ?? stepIdx + 1}:
+                      </Box>
+                      {step.thoughts.trim()}
+                    </Typography>
+                  </Box>
+                )}
+                {(step.tool_calls || []).map((tc, tcIdx) => (
+                  <ToolCallCard
+                    key={`${stepIdx}-${tcIdx}`}
+                    toolName={tc.tool_name}
+                    params={tc.params}
+                    result={tc.success != null ? {
+                      success: tc.success,
+                      output: tc.output_preview,
+                      error: tc.success ? null : tc.output_preview,
+                    } : null}
+                    durationMs={tc.duration_ms}
+                    isPending={false}
+                    sessionId={effectiveSessionId}
+                  />
+                ))}
+              </Box>
+            ))}
           </Box>
         )}
 

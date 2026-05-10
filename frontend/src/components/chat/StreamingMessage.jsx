@@ -179,7 +179,7 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
         const streamingSteps = toolCallsRef.current.length > 0
           ? [{
               iteration: 1,
-              thoughts: "",
+              thoughts: thinkingTextRef.current || "",
               tool_calls: toolCallsRef.current.map((tc) => ({
                 tool_name: tc.tool,
                 params: tc.params,
