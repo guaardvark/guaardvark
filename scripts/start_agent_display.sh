@@ -61,7 +61,16 @@ Type=Application
 Icon=firefox
 Categories=Network;WebBrowser;
 FIREFOXDESKTOP
-        chmod +x "$AGENT_DESKTOP_DIR/Firefox.desktop"
+    fi
+    # XFCE 4.18+ pops an "Untrusted application launcher" dialog unless the
+    # file is executable AND its metadata::xfce-exe-checksum matches the
+    # current SHA-256 of its contents. The Mark Executable button in that
+    # dialog only does the chmod, not the checksum — so it keeps returning.
+    # Set both here, every start, so the dialog stops appearing.
+    chmod +x "$AGENT_DESKTOP_DIR/Firefox.desktop"
+    if command -v gio >/dev/null 2>&1; then
+        ff_sha=$(sha256sum "$AGENT_DESKTOP_DIR/Firefox.desktop" | awk '{print $1}')
+        gio set "$AGENT_DESKTOP_DIR/Firefox.desktop" metadata::xfce-exe-checksum "$ff_sha" 2>/dev/null || true
     fi
 }
 
@@ -118,6 +127,42 @@ XDGDIRS
     fi
 }
 
+ensure_xfdesktop_single_click() {
+    # xfdesktop defaults to double-click-to-activate desktop icons. The
+    # vision agent's servo sends a single click — XFCE treats it as a
+    # "select" (subtle highlight, below the pixel-diff threshold), and
+    # the see-think-act loop flags every icon launch as failed. Flipping
+    # /desktop-icons/single-click=true lets one click fire the launcher.
+    #
+    # We write directly into the per-channel XML so the setting is in
+    # place before xfconfd starts; doing it via xfconf-query would need
+    # the agent's DBUS_SESSION_BUS_ADDRESS, which only exists after the
+    # XFCE session is already running.
+    local channel_dir="$1/xfce4/xfconf/xfce-perchannel-xml"
+    local channel_file="$channel_dir/xfce4-desktop.xml"
+    mkdir -p "$channel_dir"
+    if [ ! -f "$channel_file" ]; then
+        cat > "$channel_file" << 'XFCEDESKTOPXML'
+<?xml version="1.0" encoding="UTF-8"?>
+
+<channel name="xfce4-desktop" version="1.0">
+  <property name="desktop-icons" type="empty">
+    <property name="single-click" type="bool" value="true"/>
+  </property>
+</channel>
+XFCEDESKTOPXML
+        return 0
+    fi
+    if grep -q 'name="single-click"' "$channel_file"; then
+        return 0
+    fi
+    if grep -q 'name="desktop-icons"' "$channel_file"; then
+        sed -i 's|<property name="desktop-icons" type="empty">|<property name="desktop-icons" type="empty">\n    <property name="single-click" type="bool" value="true"/>|' "$channel_file"
+    else
+        sed -i 's|</channel>|  <property name="desktop-icons" type="empty">\n    <property name="single-click" type="bool" value="true"/>\n  </property>\n</channel>|' "$channel_file"
+    fi
+}
+
 start_xfce_session() {
     # Start an XFCE session on the virtual display via dbus-run-session,
     # which gives XFCE the per-session DBus it expects without a real
@@ -161,6 +206,7 @@ start_xfce_session() {
 
     seed_agent_desktop
     write_agent_xdg_user_dirs "$agent_config_home"
+    ensure_xfdesktop_single_click "$agent_config_home"
 
     # env -i wipes the inherited environment; we re-inject only what XFCE
     # legitimately needs. Notably absent: DBUS_SESSION_BUS_ADDRESS,
