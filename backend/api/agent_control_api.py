@@ -62,11 +62,22 @@ def execute_task():
         mouse_only = data.get("mouse_only", False)
         training_mode = data.get("training_mode", False)
 
+        # Capture the Flask app so the worker thread can push an app context.
+        # Without this, anything inside execute_task that touches db.session
+        # (Phase 4 belief-update memory writes, future DB-backed lessons) fails
+        # with "Working outside of application context". Existing in-loop
+        # writes wrap themselves in current_app.app_context(); pushing once
+        # at the thread boundary makes that pattern optional rather than
+        # required for everything downstream.
+        from flask import current_app
+        flask_app = current_app._get_current_object()
+
         # Run in background thread so the API doesn't block
         def run_task():
-            result = service.execute_task(task, screen, mouse_only=mouse_only, training_mode=training_mode)
-            logger.info(f"Task completed: success={result.success}, reason={result.reason}, "
-                       f"steps={len(result.steps)}, time={result.total_time_seconds:.1f}s")
+            with flask_app.app_context():
+                result = service.execute_task(task, screen, mouse_only=mouse_only, training_mode=training_mode)
+                logger.info(f"Task completed: success={result.success}, reason={result.reason}, "
+                           f"steps={len(result.steps)}, time={result.total_time_seconds:.1f}s")
 
         thread = threading.Thread(target=run_task, daemon=True)
         thread.start()
