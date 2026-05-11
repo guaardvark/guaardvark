@@ -24,7 +24,7 @@ def test_capture_servo_failure_writes_image_and_metadata(tmp_path, monkeypatch):
     img = Image.new("RGB", (100, 100), color="red")
     out = tdc.capture_servo_failure(
         screenshot=img,
-        target_description="orange Firefox button",
+        target_description="primary submit button",
         corrections_log=["attempt 1 missed", "attempt 2 missed"],
         vision_model="gemma4:e4b",
         reason="screen_unchanged",
@@ -38,7 +38,7 @@ def test_capture_servo_failure_writes_image_and_metadata(tmp_path, monkeypatch):
     assert sidecar.exists()
     
     meta = json.loads(sidecar.read_text())
-    assert meta["target_description"] == "orange Firefox button"
+    assert meta["target_description"] == "primary submit button"
     assert meta["vision_model"] == "gemma4:e4b"
     assert meta["reason"] == "screen_unchanged"
     assert len(meta["corrections_log"]) == 2

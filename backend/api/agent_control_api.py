@@ -481,8 +481,8 @@ def _induce_candidate_recipe(app, session_id: str, feedback_task: str):
                 '  Wait:   {"action": "wait", "seconds": <float>}\n\n'
                 "Hard rules:\n"
                 "- target_description MUST be a SHORT, conventional UI label "
-                "  (≤4 words, one distinctive adjective): 'orange Firefox button', "
-                "  'chat input field', 'Send button'. Long descriptions break the "
+                "  (≤4 words, one distinctive adjective): 'primary submit button', "
+                "  'chat input field', 'main navigation icon'. Long descriptions break the "
                 "  vision detector. Long-form context belongs in self_knowledge_compact.md, "
                 "  not in target_description.\n"
                 "- NEVER include pixel coordinates (x, y) — vision finds targets per-frame. "

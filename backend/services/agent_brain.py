@@ -738,7 +738,8 @@ class AgentBrain:
                         return (
                             f"Tried to click '{target}' via vision but couldn't find "
                             f"it on the current screen. Try a shorter, more "
-                            f"distinctive label (e.g. 'orange Firefox button') or "
+                            f"distinctive label (one short phrase naming what you "
+                            f"actually see — color, shape, or label text) or "
                             f"check whether the target is actually visible."
                         )
                     except Exception as e:

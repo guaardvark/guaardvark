@@ -12,7 +12,7 @@
     "description": "Type and send a message in the chat",
     "prerequisite": "Must be on localhost:5175/chat",
     "steps": [
-      {"action": "click", "target_description": "the text input field at the bottom of the chat page", "reasoning": "Click to focus the chat input field at y=660"},
+      {"action": "click", "target_description": "the chat input field at the bottom of the page", "reasoning": "Click to focus the chat input — describe what you actually see; the placeholder text usually starts with 'Type your message...'"},
       {"action": "type", "text": "{message}", "reasoning": "Type the message"},
       {"action": "hotkey", "keys": ["Return"], "reasoning": "Send the message"},
       {"action": "done", "reasoning": "Message sent, response should appear"}
@@ -52,11 +52,12 @@
     ]
   },
   "open_firefox_from_desktop": {
-    "description": "Open Firefox browser from the Shortcuts panel",
-    "prerequisite": "No browser visible — you see a dark desktop with a Shortcuts panel at the top-left",
+    "description": "Open Firefox from the XFCE desktop",
+    "prerequisite": "The desktop is visible (no window covering it) and you can see a Firefox icon (with a flame) in the column of icons down the left edge",
+    "preconditions": ["desktop_visible", "firefox_icon_visible"],
     "steps": [
-      {"action": "click", "target_description": "the big orange Firefox button in the Shortcuts panel at top-left", "reasoning": "Click the orange Firefox button — it's the largest, most visible button"},
-      {"action": "done", "reasoning": "Firefox is now opening with CDP enabled, wait for it to load"}
+      {"action": "click", "target_description": "the Firefox icon (flame) in the desktop column on the left", "reasoning": "Describe what you actually see — the flame icon among the desktop icons. If you don't see it, this recipe doesn't apply; pick another path."},
+      {"action": "done", "reasoning": "Firefox is now opening; wait for the window to render"}
     ]
   },
   "youtube_search_and_watch": {

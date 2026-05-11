@@ -154,6 +154,25 @@ class ProgressSignal:
     next_hint: str = ""
 
 
+@dataclass
+class FailureReport:
+    """Structured evidence for a failed step, fed back into the THINK prompt.
+
+    Replaces the thin "previous attempt failed" signal with concrete data
+    the model can reason about: what it tried, what the servo aimed at,
+    how the screen reacted, whether the target was even visible. The
+    cause_hypothesis is the loop's best guess based on the other fields.
+    """
+    iteration: int = 0
+    action_type: str = ""              # click | type | hotkey | scroll | wait | done
+    expected_target: str = ""          # what the model named
+    attempted_at_coords: Tuple[int, int] = (0, 0)  # (0,0) for non-click actions
+    screen_delta: float = 0.0          # post-action pixel diff (0.0 = unchanged)
+    visibility_check: str = ""         # "" until Phase-3 re-grounding fills it
+    dom_match: bool = False            # did DOM extraction find a matching element?
+    cause_hypothesis: str = ""         # one-liner derived from the other fields
+
+
 class AgentControlService:
     """
     Master-side orchestration service for Agent Vision Control.
@@ -186,6 +205,20 @@ class AgentControlService:
         self._same_strategy_failures: int = 0
         self._pending_failure_label: str = ""
         self._recovery_memory: Dict[str, Dict[str, int]] = {}
+        # Rolling window of structured failure reports for prompt context.
+        # Replaces the model's "previous attempt failed" guess with concrete
+        # evidence: what it tried, where the servo aimed, screen reaction,
+        # whether the target was even visible. Capped to last N to keep the
+        # prompt bounded — old failures rot in usefulness anyway.
+        self._failure_reports: List[FailureReport] = []
+        self._failure_reports_cap: int = 5
+        # Counter of consecutive same-target failures, used by Phase-3
+        # re-grounding to fire once per "stuck cluster" instead of every step.
+        self._stuck_target: str = ""
+        self._stuck_target_count: int = 0
+        # Latest WORLD_OBSERVED block from a re-grounding pass, injected into
+        # the next THINK prompt. Cleared after the model has seen it once.
+        self._pending_world_observed: str = ""
         self._recipe_fallback_note: str = ""
         self._lock = threading.Lock()
         self.config = AgentControlConfig()
@@ -707,6 +740,26 @@ class AgentControlService:
                 result["semantic_progress"] = asdict(signal)
                 self._record_strategy_outcome(decision.action, failed)
                 self._record_recovery_memory(signal, decision.action, failed)
+                self._record_failure_report(
+                    iteration=iteration + 1,
+                    action=decision.action,
+                    result=result,
+                    pixel_diff=pixel_diff_value or 0.0,
+                    failed=failed,
+                )
+                # Phase-3 re-grounding: when the model has failed twice on
+                # the same target_description, fire a no-context vision pass
+                # so the next THINK prompt carries the model's own un-primed
+                # list of what's on screen. One re-ground per stuck cluster;
+                # the counter resets when the target changes.
+                if (
+                    self._stuck_target_count == 2
+                    and self._stuck_target
+                    and not self._pending_world_observed
+                ):
+                    observation = self._observe_only_pass(screen)
+                    if observation:
+                        self._pending_world_observed = observation
 
                 # 5. RECORD step
                 step = ActionStep(
@@ -1533,14 +1586,24 @@ class AgentControlService:
             "Step 1 done is forbidden."
         )
         world_block = self._format_world_state_for_prompt(world_state or self._world_state)
+        failure_block = self._format_failure_history()
+        if failure_block:
+            failure_block = failure_block + "\n\n"
+        # Re-grounding output, when a stuck cluster fired one. Cleared after
+        # the model has seen it so the next prompt isn't padded with stale
+        # observation.
+        world_observed_block = ""
+        if self._pending_world_observed:
+            world_observed_block = self._pending_world_observed + "\n\n"
+            self._pending_world_observed = ""
 
         return f"""{pivot_block}Task: {task}
 
 {desktop_state}
 {world_block}
-{dom_block}{done_lines}{training_override}Step {len(history) + 1}. ONE next action. After Act the system ALWAYS re-captures the screen (re-See) before your next Think. {confidence}
+{world_observed_block}{failure_block}{dom_block}{done_lines}{training_override}Step {len(history) + 1}. ONE next action. After Act the system ALWAYS re-captures the screen (re-See) before your next Think. {confidence}
 
-target_description rules: SHORT label, ≤4 words, one distinctive adjective. Examples: "orange Firefox button", "chat input field", "Send button", "desktop background". NOT "the orange Firefox flame in the top-left Shortcuts panel" — multi-clause descriptions break the vision detector and land at (0,0).
+target_description rules: SHORT label, ≤4 words, one distinctive adjective. Examples: "primary submit button", "chat input field", "main navigation icon", "desktop background". NOT a multi-clause description with position phrases — long descriptions break the vision detector and land at (0,0). Describe one shape (color, label, or icon), not a sentence.
 
 done rule: when action="done", success_proof MUST describe the visible state that proves the task is complete (e.g. "cursor inside text area", "comment now visible in thread"). Empty or generic ("n/a", "task done") is rejected. This rule applies to all models and paths.
 
@@ -1611,8 +1674,8 @@ Reply ONLY with JSON:
         agent's decision prompt. Recipes that match a task are auto-executed
         before the LLM ever sees the prompt — but listing them by description
         tells the LLM what shortcuts exist, so it can phrase its own steps the
-        same way (e.g. 'click the orange Firefox button' instead of pixel
-        hunting).
+        same way (vision-actionable description of what's on screen) instead of
+        pixel hunting.
         """
         recipes = cls._load_recipes()
         if not recipes:
@@ -1734,10 +1797,52 @@ Reply ONLY with JSON:
                     if recipe_name in ("open_firefox",) and self._is_firefox_running(screen):
                         logger.warning(f"[AGENT][RECIPE] Skipping '{recipe_name}' — Firefox already running, focusing it")
                         return self._focus_firefox(screen)
+                    # Recipes can declare preconditions for the UI state they assume.
+                    # When the world doesn't match (e.g. Firefox is already up but the
+                    # recipe wants to click a desktop launcher), skip — the see-think-act
+                    # loop will handle it via vision instead of running a brittle script
+                    # against a screen that doesn't match the recipe's assumptions.
+                    if not self._preconditions_pass(recipe, screen):
+                        logger.warning(
+                            f"[AGENT][RECIPE] Skipping '{recipe_name}' — preconditions not met "
+                            f"({recipe.get('preconditions')}); deferring to vision loop"
+                        )
+                        continue
                     logger.warning(f"[AGENT][RECIPE] Matched '{recipe_name}': {recipe['description']}")
                     return self._execute_recipe(recipe_name, recipe, match, screen)
 
         return None
+
+    def _preconditions_pass(self, recipe: dict, screen) -> bool:
+        """Cheap precondition check before a recipe runs.
+
+        Recipes declare a `preconditions` list of named gates. Each gate
+        answers a yes/no question about the world; if any gate says no,
+        the recipe is skipped and control falls back to the agent's
+        see-think-act loop. Keep gates *cheap* — they run on every
+        trigger match, on the hot path. No vision calls here.
+        """
+        conditions = recipe.get("preconditions") or []
+        if not conditions:
+            return True
+        for cond in conditions:
+            if cond == "firefox_not_running":
+                if self._is_firefox_running(screen):
+                    return False
+            elif cond == "firefox_running":
+                if not self._is_firefox_running(screen):
+                    return False
+            elif cond == "desktop_visible":
+                # Best-effort heuristic: a Firefox window on top usually
+                # covers the desktop column, so treat firefox_running as
+                # "desktop probably not visible". Cheaper than a VLM call.
+                if self._is_firefox_running(screen):
+                    return False
+            else:
+                # Unknown precondition — log and proceed; don't block
+                # the recipe on a typo'd gate name.
+                logger.warning(f"[AGENT][RECIPE] Unknown precondition '{cond}' — ignoring")
+        return True
 
     def _is_firefox_running(self, screen) -> bool:
         """Check if Firefox has a window on the virtual display."""
@@ -2271,6 +2376,187 @@ Reply ONLY with JSON:
             target = (action.target_description or "").strip().lower()
             return f"{action_type}:{target[:24]}" if target else action_type
         return action_type or "unknown"
+
+    def _record_failure_report(
+        self,
+        iteration: int,
+        action: AgentAction,
+        result: Dict[str, Any],
+        pixel_diff: float,
+        failed: bool,
+    ) -> None:
+        """Collate evidence about a failed step into a FailureReport.
+
+        Stores in a rolling window the model can read on its next THINK pass.
+        No-op on successful actions — the report is a *failure* artifact;
+        recording successes here would just dilute the signal.
+        """
+        if not failed:
+            return
+        action_type = (action.action_type or "").strip().lower()
+        target = (action.target_description or "").strip()
+
+        # Servo records click coords in result on success; on failure the
+        # result may carry a "last_attempted" or just be empty. Don't
+        # invent coords — leave (0, 0) when we don't know.
+        coords = (0, 0)
+        if action_type == "click":
+            try:
+                x = int(result.get("x") or result.get("last_x") or 0)
+                y = int(result.get("y") or result.get("last_y") or 0)
+                coords = (x, y)
+            except (TypeError, ValueError):
+                coords = (0, 0)
+
+        # DOM match: check whether the cached DOM snapshot contains any
+        # element whose text matches the target. Cheap substring scan —
+        # the snapshot was built earlier this iteration.
+        dom_match = False
+        if target and self._dom_snapshot:
+            try:
+                elements = getattr(self._dom_snapshot, "elements", None) or []
+                target_lc = target.lower()
+                for el in elements:
+                    text = ((getattr(el, "text", "") or "") + " "
+                            + (getattr(el, "tag", "") or ""))
+                    if target_lc in text.lower():
+                        dom_match = True
+                        break
+            except Exception:
+                dom_match = False
+
+        # Derive a one-line cause hypothesis from the other fields. The
+        # model gets this as a quick read; it can still override based
+        # on its own reasoning.
+        if action_type == "click" and not dom_match and pixel_diff < 0.005:
+            cause = "target likely not on screen (no DOM match, no pixel change)"
+        elif action_type == "click" and pixel_diff < 0.005:
+            cause = "click registered but no screen change"
+        elif action_type == "click":
+            cause = "click landed but didn't produce the expected outcome"
+        elif action_type == "type" and pixel_diff < 0.005:
+            cause = "type produced no visible change — field probably wasn't focused"
+        elif action_type == "scroll" and pixel_diff < 0.005:
+            cause = "scroll did nothing — viewport at limit or not focused"
+        else:
+            cause = f"{action_type} reported failed"
+
+        report = FailureReport(
+            iteration=iteration,
+            action_type=action_type,
+            expected_target=target,
+            attempted_at_coords=coords,
+            screen_delta=float(pixel_diff or 0.0),
+            visibility_check="",  # filled by Phase-3 re-grounding when it fires
+            dom_match=dom_match,
+            cause_hypothesis=cause,
+        )
+        self._failure_reports.append(report)
+        # Keep only the most recent N — older failures lose context value.
+        if len(self._failure_reports) > self._failure_reports_cap:
+            self._failure_reports = self._failure_reports[-self._failure_reports_cap:]
+
+        # Maintain the stuck-target counter for Phase-3 re-grounding.
+        if target and target == self._stuck_target:
+            self._stuck_target_count += 1
+        else:
+            self._stuck_target = target
+            self._stuck_target_count = 1
+
+    def _observe_only_pass(self, screen) -> str:
+        """Re-grounding vision call with no task bias.
+
+        Captures a fresh screenshot and asks the vision model to enumerate
+        the prominent interactive elements it sees, with no system prompt,
+        no self_knowledge context, and no task. The model's own observation
+        becomes a WORLD_OBSERVED block injected into the next THINK prompt,
+        so the decider can see its own un-primed list of what's on screen.
+
+        Returns "" on any failure — re-grounding is best-effort; if it
+        fails the loop continues with stale state rather than blocking.
+        Fires only when the loop detects a stuck cluster (≥2 consecutive
+        same-target failures); see _record_failure_report bookkeeping.
+        """
+        try:
+            shot, _ = self._capture_with_retry(screen)
+        except Exception as e:
+            logger.warning(f"[AGENT][REGROUND] capture failed: {e}")
+            return ""
+
+        try:
+            from backend.utils.vision_analyzer import VisionAnalyzer
+            # Use the unified VLM if available (gemma4 can see itself); the
+            # VisionAnalyzer default (qwen3-vl:2b) is the safe fallback if not.
+            unified = AgentControlService._get_unified_model()
+            analyzer = VisionAnalyzer(default_model=unified) if unified else VisionAnalyzer()
+            prompt = (
+                "List the 5 to 10 most prominent interactive elements you "
+                "can actually see in this screenshot. No task context, no "
+                "guessing about elements that might be there. Use short "
+                "labels of 3 to 5 words each. One per line. No bullets, "
+                "no numbering, no commentary."
+            )
+            # NB: explicitly no `system=` arg — the whole point is observation
+            # without the agent's own priming. Temperature low for a faithful
+            # readout, not a creative list.
+            result = analyzer.analyze(
+                shot, prompt, num_predict=180, temperature=0.1, think=False,
+            )
+        except Exception as e:
+            logger.warning(f"[AGENT][REGROUND] vision call raised: {e}")
+            return ""
+
+        if not result.success or not result.description:
+            logger.warning(
+                f"[AGENT][REGROUND] vision call returned empty: {result.error or 'no content'}"
+            )
+            return ""
+
+        # Trim to first 12 non-empty lines defensively; some models ignore
+        # the "no numbering" instruction and emit a stream that runs long.
+        observed_lines = [ln.strip(" -*•\t") for ln in result.description.splitlines()]
+        observed_lines = [ln for ln in observed_lines if ln][:12]
+        if not observed_lines:
+            return ""
+        body = "\n".join(f"- {ln}" for ln in observed_lines)
+        logger.warning(
+            f"[AGENT][REGROUND] observed {len(observed_lines)} element(s) "
+            f"(stuck target was '{self._stuck_target}')"
+        )
+        return (
+            "WORLD_OBSERVED (fresh capture, no task bias, no priming):\n"
+            f"{body}\n"
+            "When WORLD_OBSERVED contradicts what you remembered or expected, "
+            "trust WORLD_OBSERVED. Pick a target from this list or describe "
+            "what you actually see — do not retry an element that isn't here."
+        )
+
+    def _format_failure_history(self) -> str:
+        """Render the recent FailureReport window as a compact prompt block.
+
+        Returns "" when no failures recorded — keep the prompt clean. The
+        model only needs evidence when there's evidence; padding the prompt
+        with "no recent failures" trains it to gloss over the section.
+        """
+        if not self._failure_reports:
+            return ""
+        lines = ["Recent failures (read as evidence, not a story):"]
+        for r in self._failure_reports[-self._failure_reports_cap:]:
+            target_str = f'"{r.expected_target}"' if r.expected_target else "(none)"
+            coords_str = (
+                f" at {r.attempted_at_coords}" if r.attempted_at_coords != (0, 0) else ""
+            )
+            dom_str = "dom_match=true" if r.dom_match else "dom_match=false"
+            lines.append(
+                f"- Step {r.iteration} {r.action_type} {target_str}{coords_str} "
+                f"→ delta={r.screen_delta:.3f}, {dom_str} → {r.cause_hypothesis}"
+            )
+        lines.append(
+            "If a failure says the target was not on screen, do NOT retry the "
+            "same target — describe what you actually see and pick a different "
+            "action."
+        )
+        return "\n".join(lines)
 
     def _record_recovery_memory(self, signal: ProgressSignal, action: AgentAction, failed: bool) -> None:
         """Learn what action tended to recover from specific failure labels."""

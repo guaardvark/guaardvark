@@ -5,16 +5,17 @@
     "timing": "wait values are in seconds"
   },
   "open_firefox": {
-    "description": "Open browser via the big orange Firefox button in the Shortcuts panel (top-left)",
+    "description": "Open Firefox by clicking its desktop icon (the column down the left edge of the XFCE desktop)",
     "triggers": [
       "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s*$",
       "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s+(?:browser)?\\s*$"
     ],
+    "preconditions": ["firefox_not_running"],
     "steps": [
       {
         "action": "click",
-        "target_description": "orange Firefox button",
-        "_comment": "Vision-driven \u2014 servo finds the icon on the current frame"
+        "target_description": "Firefox icon (flame) on the desktop",
+        "_comment": "Vision-driven \u2014 servo finds the flame icon among the desktop icons"
       },
       {
         "action": "wait",
@@ -23,16 +24,17 @@
     ]
   },
   "open_firefox_and_navigate": {
-    "description": "Open browser via Shortcuts panel and navigate to a URL",
+    "description": "Open Firefox from the desktop and navigate to a URL",
     "triggers": [
       "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s+(?:and\\s+)?(?:go|navigate)\\s+(?:to\\s+)?(?:https?://)?([\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*$",
       "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s+(?:to|at|on)\\s+(?:https?://)?([\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*$"
     ],
+    "preconditions": ["firefox_not_running"],
     "steps": [
       {
         "action": "click",
-        "target_description": "orange Firefox button",
-        "_comment": "Vision-driven \u2014 servo finds the icon on the current frame"
+        "target_description": "Firefox icon (flame) on the desktop",
+        "_comment": "Vision-driven \u2014 servo finds the flame icon among the desktop icons"
       },
       {
         "action": "wait",
@@ -802,11 +804,12 @@
       "^(?:search|find|look\\s+up|look\\s+for|show\\s+me)\\s+(?:the\\s+)?(?:latest\\s+|newest\\s+|recent\\s+|top\\s+)?(.+?)\\s+(?:on|in|via|using)\\s+youtube\\s*$",
       "^(?:youtube\\s+)?(?:videos?|clips?)\\s+(?:about|on|of|for)\\s+(.+?)\\s*$"
     ],
+    "preconditions": ["firefox_not_running"],
     "steps": [
       {
         "action": "click",
-        "target_description": "orange Firefox button",
-        "_comment": "Vision-driven \u2014 focuses if open, launches if not"
+        "target_description": "Firefox icon (flame) on the desktop",
+        "_comment": "Vision-driven \u2014 only fires when Firefox isn't already running; preconditions gate this out otherwise"
       },
       {
         "action": "wait_until_visible",
@@ -991,11 +994,12 @@
       "^(?:open|go\\s+to|launch|navigate\\s+to|visit)\\s+(?:the\\s+)?youtube(?:\\.com)?\\s*$",
       "^youtube\\s*$"
     ],
+    "preconditions": ["firefox_not_running"],
     "steps": [
       {
         "action": "click",
-        "target_description": "orange Firefox button",
-        "_comment": "Vision-driven \u2014 opens or focuses Firefox"
+        "target_description": "Firefox icon (flame) on the desktop",
+        "_comment": "Vision-driven \u2014 only fires when Firefox isn't already running"
       },
       {
         "action": "wait_until_visible",
@@ -1057,16 +1061,17 @@
     "success_proof_timeout_s": 15.0
   },
   "open_reddit": {
-    "description": "Open Reddit homepage \u2014 opens Firefox first if no browser is running",
+    "description": "Open Reddit homepage \u2014 fires only when Firefox is not yet running; otherwise the loop handles it via Ctrl+L",
     "triggers": [
       "^(?:open|go\\s+to|launch|navigate\\s+to|visit)\\s+(?:the\\s+)?reddit(?:\\.com)?\\s*$",
       "^reddit\\s*$"
     ],
+    "preconditions": ["firefox_not_running"],
     "steps": [
       {
         "action": "click",
-        "target_description": "orange Firefox button",
-        "_comment": "Vision-driven \u2014 opens or focuses Firefox"
+        "target_description": "Firefox icon (flame) on the desktop",
+        "_comment": "Vision-driven \u2014 only fires when Firefox isn't already running"
       },
       {
         "action": "wait",
@@ -1125,16 +1130,17 @@
     ]
   },
   "open_subreddit": {
-    "description": "Open a specific subreddit by name (e.g. r/LocalLLaMA)",
+    "description": "Open a specific subreddit by name (e.g. r/LocalLLaMA) \u2014 fires only when Firefox is not yet running",
     "triggers": [
       "^(?:open|go\\s+to|visit|navigate\\s+to)\\s+r/(\\w+)\\s*$",
       "^(?:open|go\\s+to)\\s+(?:the\\s+)?(?:reddit\\s+)?subreddit\\s+r?/?(\\w+)\\s*$"
     ],
+    "preconditions": ["firefox_not_running"],
     "steps": [
       {
         "action": "click",
-        "target_description": "orange Firefox button",
-        "_comment": "Vision-driven \u2014 opens or focuses Firefox"
+        "target_description": "Firefox icon (flame) on the desktop",
+        "_comment": "Vision-driven \u2014 only fires when Firefox isn't already running"
       },
       {
         "action": "wait",
