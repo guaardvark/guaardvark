@@ -1,11 +1,11 @@
 {
   "_meta": {
     "description": "Deterministic action recipes for the Guaardvark agent. These skip the see-think-act loop entirely.",
-    "format": "Each recipe has trigger patterns (regex) and a sequence of steps. Steps may be hotkey/type/click for actions, or wait_until_settled/wait_until_visible for vision-gated waiting. Recipes can also declare a top-level success_proof — a vision-readable description that must be visible before the recipe is reported successful. Legacy `wait` steps still work but log a deprecation warning.",
+    "format": "Each recipe has trigger patterns (regex) and a sequence of steps. Steps may be hotkey/type/click for actions, or wait_until_settled/wait_until_visible for vision-gated waiting. Recipes can also declare a top-level success_proof \u2014 a vision-readable description that must be visible before the recipe is reported successful. Legacy `wait` steps still work but log a deprecation warning.",
     "timing": "wait values are in seconds"
   },
   "open_firefox": {
-    "description": "Open Firefox via its desktop icon",
+    "description": "Open browser via the big orange Firefox button in the Shortcuts panel (top-left)",
     "triggers": [
       "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s*$",
       "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s+(?:browser)?\\s*$"
@@ -13,8 +13,8 @@
     "steps": [
       {
         "action": "click",
-        "target_description": "Firefox icon",
-        "_comment": "Vision-driven — servo finds the icon on the current frame"
+        "target_description": "orange Firefox button",
+        "_comment": "Vision-driven \u2014 servo finds the icon on the current frame"
       },
       {
         "action": "wait",
@@ -23,7 +23,7 @@
     ]
   },
   "open_firefox_and_navigate": {
-    "description": "Open Firefox via its desktop icon and navigate to a URL",
+    "description": "Open browser via Shortcuts panel and navigate to a URL",
     "triggers": [
       "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s+(?:and\\s+)?(?:go|navigate)\\s+(?:to\\s+)?(?:https?://)?([\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*$",
       "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s+(?:to|at|on)\\s+(?:https?://)?([\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*$"
@@ -31,8 +31,8 @@
     "steps": [
       {
         "action": "click",
-        "target_description": "Firefox icon",
-        "_comment": "Vision-driven — servo finds the icon on the current frame"
+        "target_description": "orange Firefox button",
+        "_comment": "Vision-driven \u2014 servo finds the icon on the current frame"
       },
       {
         "action": "wait",
@@ -81,7 +81,7 @@
     ]
   },
   "navigate_url": {
-    "description": "Navigate to a domain-shaped URL in the current tab. Hostname must contain a dot OR port — bare words like 'open settings' or 'go to youtube' route to their dedicated recipes instead.",
+    "description": "Navigate to a domain-shaped URL in the current tab. Hostname must contain a dot OR port \u2014 bare words like 'open settings' or 'go to youtube' route to their dedicated recipes instead.",
     "triggers": [
       "^(?:navigate|go)\\s+to\\s+(?:https?://)?(\\w[\\w.-]*\\.[\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*$",
       "^(?:navigate|go)\\s+to\\s+(?:https?://)?([\\w.-]+:[0-9]+(?:/\\S*?)?)\\s*$",
@@ -805,8 +805,8 @@
     "steps": [
       {
         "action": "click",
-        "target_description": "Firefox icon",
-        "_comment": "Vision-driven — focuses if open, launches if not"
+        "target_description": "orange Firefox button",
+        "_comment": "Vision-driven \u2014 focuses if open, launches if not"
       },
       {
         "action": "wait_until_visible",
@@ -986,7 +986,7 @@
     ]
   },
   "open_youtube": {
-    "description": "Open YouTube — opens Firefox first if no browser is running",
+    "description": "Open YouTube \u2014 opens Firefox first if no browser is running",
     "triggers": [
       "^(?:open|go\\s+to|launch|navigate\\s+to|visit)\\s+(?:the\\s+)?youtube(?:\\.com)?\\s*$",
       "^youtube\\s*$"
@@ -994,8 +994,8 @@
     "steps": [
       {
         "action": "click",
-        "target_description": "Firefox icon",
-        "_comment": "Vision-driven — opens or focuses Firefox"
+        "target_description": "orange Firefox button",
+        "_comment": "Vision-driven \u2014 opens or focuses Firefox"
       },
       {
         "action": "wait_until_visible",
@@ -1057,7 +1057,7 @@
     "success_proof_timeout_s": 15.0
   },
   "open_reddit": {
-    "description": "Open Reddit homepage — opens Firefox first if no browser is running",
+    "description": "Open Reddit homepage \u2014 opens Firefox first if no browser is running",
     "triggers": [
       "^(?:open|go\\s+to|launch|navigate\\s+to|visit)\\s+(?:the\\s+)?reddit(?:\\.com)?\\s*$",
       "^reddit\\s*$"
@@ -1065,8 +1065,8 @@
     "steps": [
       {
         "action": "click",
-        "target_description": "Firefox icon",
-        "_comment": "Vision-driven — opens or focuses Firefox"
+        "target_description": "orange Firefox button",
+        "_comment": "Vision-driven \u2014 opens or focuses Firefox"
       },
       {
         "action": "wait",
@@ -1133,8 +1133,8 @@
     "steps": [
       {
         "action": "click",
-        "target_description": "Firefox icon",
-        "_comment": "Vision-driven — opens or focuses Firefox"
+        "target_description": "orange Firefox button",
+        "_comment": "Vision-driven \u2014 opens or focuses Firefox"
       },
       {
         "action": "wait",
@@ -1202,7 +1202,7 @@
       {
         "action": "click",
         "target_description": "chat input field",
-        "_comment": "Vision-driven — finds the chat input regardless of page size"
+        "_comment": "Vision-driven \u2014 finds the chat input regardless of page size"
       },
       {
         "action": "wait",
@@ -1229,7 +1229,7 @@
     ]
   },
   "take_screenshot": {
-    "description": "Take a screenshot (no-op — the capture endpoint handles this)",
+    "description": "Take a screenshot (no-op \u2014 the capture endpoint handles this)",
     "triggers": [
       "^(?:take|capture|grab)\\s+(?:a\\s+)?screenshot\\s*$",
       "^screenshot\\s*$",
@@ -1239,7 +1239,7 @@
       {
         "action": "wait",
         "seconds": 0.1,
-        "_comment": "No-op — screenshot taken by capture endpoint"
+        "_comment": "No-op \u2014 screenshot taken by capture endpoint"
       }
     ]
   },
@@ -1309,7 +1309,7 @@
         "action": "click",
         "target_description": "desktop background",
         "button": "right",
-        "_comment": "Vision-driven — finds an empty desktop region"
+        "_comment": "Vision-driven \u2014 finds an empty desktop region"
       },
       {
         "action": "wait",

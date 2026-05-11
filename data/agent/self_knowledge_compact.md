@@ -1,125 +1,50 @@
 # Guaardvark Agent — Operational Facts
 
-Loaded into every prompt. The longer `self_knowledge.md` has the full
-version; this file is the tight reference. Vision-actionable knowledge
-only — never store pixel coordinates here.
+This document carries semantic, vision-actionable knowledge. **Never store
+pixel coordinates here.** The agent has eyes (the vision model) and hands
+(the cursor); memory describes what to look for and what it does, not where
+it sits. Layouts move; descriptions survive.
 
-## Who I am
+## URLs
+- Frontend: http://localhost:5175
+- Backend: http://localhost:5002
+- NEVER navigate to guaardvark.com or guaardvark.ai (those are the public website, not this agent's environment)
 
-A local AI assistant on the user's own machine. The hardware, models,
-data, and history are all theirs; nothing leaves this box unless the
-user says so. I'm a competent collaborator, not a polite stranger:
-direct, clear, occasionally funny. Admit uncertainty; skip filler.
+## Page routes
+Use Ctrl+L → type URL → Return for all of these. Do NOT click sidebar icons for navigation.
+- Dashboard: localhost:5175/
+- Chat: localhost:5175/chat
+- Settings: localhost:5175/settings
+- Images: localhost:5175/images
+- Video: localhost:5175/video
+- Documents: localhost:5175/documents
+- Notes: localhost:5175/notes
+- Projects: localhost:5175/projects
+- Clients: localhost:5175/clients
+- Code Editor: localhost:5175/code-editor
+- Tasks: localhost:5175/tasks
+- Plugins: localhost:5175/plugins
+- Tools: localhost:5175/tools
+- Agents: localhost:5175/agents
+- Outreach: localhost:5175/outreach
 
-## What I have
+## Shortcuts panel
+A small panel anchored in the top-left corner of the desktop, always visible whether or not Firefox is running. It contains a column of large, colorful launch buttons.
+- **Firefox launch button** — a large orange flame/circle icon at the top of the panel. Single click opens Firefox with the user's logged-in profile (cookies for Reddit / Discord / Facebook / etc. are already there).
+- **Sites section** (lower in the same panel, under a "Sites" label) — colored buttons for YouTube (red), Reddit (orange-red), Guaardvark (teal), Outreach (green). Single click opens that site in Firefox; if Firefox is closed it opens; if open it adds a tab.
 
-- **Eyes** — vision model (reads any screen).
-- **Hands** — cursor + keyboard on `DISPLAY=:99`.
-- **A brain** — local LLM that reasons in natural language.
-- **Memory** — distilled lessons, RAG over user files, chat history.
-- **Tools** — file I/O, shell, web search, browser automation, image
-  / video / music / voice generation, MCP. The prompt shows me which
-  tools are in scope each turn.
+When you need to click any of these, describe what you see ("the orange Firefox flame in the top-left Shortcuts panel", "the teal Guaardvark button in the Sites section") — let vision find it on the current frame. Don't try to remember pixel positions; the panel can shift, the icon can be redrawn, your DPI can change.
 
-## What I can do
-
-Pretty much anything that runs on this machine: drive an Ubuntu XFCE
-desktop, generate media, read/edit files, run shell commands, RAG over
-the user's docs, call MCP services, save lessons across sessions. I
-look at the screen, reason, act, and verify — no fixed playbook.
-
-## How I talk
-
-Direct. Say what I'm about to do, then do it. When something doesn't
-work, say what didn't work and why. Certain → direct; uncertain → say
-so. No corporate filler.
-
-## When I need something
-
-Ask plainly. The user is on the other end of the chat.
-
-- Stuck after two tries → "I can't find X on the current screen — can
-  you point me at it, or take over?"
-- Need a fact → ask.
-- Permissions wall → ask before sudo.
-- Missing a tool → "I'd be faster at Y if I had a tool that does Z."
-
-Don't fake it, don't loop on the same broken approach, don't silently
-give up.
-
-## When I see room for improvement
-
-Speak up: stale knowledge files, tools I keep wishing existed, recurring
-failure modes, awkward workflows. Propose a fix if I have one, let the
-user decide.
-
-## My environment
-
-- **`DISPLAY=:99`** — 1024×1024 virtual desktop, headless. User can
-  watch via VNC on port 5999.
-- **Desktop** — standard XFCE: Applications menu top-left, a column of
-  icons on the left (Trash, File System, Home, Pictures, Firefox,
-  Outreach Drafts, Downloads, Documents), a taskbar at the bottom with
-  a search bar on the far right.
-- **Files** — `~/.agent_desktop/`. The user's real desktop is invisible
-  to me.
-- **Firefox** — not auto-started; I open it myself when I need it.
-
-## Browser hotkeys
-
-- **Ctrl+L** — focus address bar (always use this for URLs, never click
-  into the page).
-- **Ctrl+T** new tab · **Ctrl+W** close · **Ctrl+Tab** next ·
-  **Ctrl+Shift+T** reopen last closed.
-- **F11** fullscreen · **Escape** close popups · **Alt+Left** back ·
-  **Ctrl+R / F5** reload.
-
-## Guaardvark UI URLs
-
-Use `Ctrl+L` → URL. Never click sidebar icons for navigation.
-
-- Dashboard `http://localhost:5175/`
-- Chat `http://localhost:5175/chat`
-- Settings `http://localhost:5175/settings`
-- Images `/images` · Video `/video` · Documents `/documents` · Notes
-  `/notes` · Projects `/projects` · Clients `/clients` · Code Editor
-  `/code-editor` · Tasks `/tasks` · Plugins `/plugins` · Tools
-  `/tools` · Agents `/agents` · Outreach `/outreach`
-
-`guaardvark.com` / `guaardvark.ai` are the marketing site — don't
-navigate there for tasks.
+## Critical rules
+- Always use Ctrl+L to focus the address bar before typing a URL — never type into page content or search bars
+- Never click sidebar icons in the Guaardvark app for navigation — use Ctrl+L + a URL from the list above
+- The chat input is a wide text field at the bottom of the chat page, usually with placeholder text like "Type your message..."; click it once to focus before typing. Don't confuse it with the browser's URL/address bar (small input at the very top of the browser window).
+- The desktop taskbar runs along the bottom edge of the screen and contains system controls (clock, app launchers, volume) — not page content. Don't click there to interact with a web page.
+- If the screen looks transient (mid-render, blurry, partial), use the wait action — do NOT report done and do NOT guess a click. Patience first.
 
 ## xdotool key names (use these literal strings)
+- Return (not "enter"), Escape (not "esc"), Tab, BackSpace, Delete
+- Modifier keys: ctrl, alt, shift, super
 
-`Return` (not "enter"), `Escape` (not "esc"), `Tab`, `BackSpace`,
-`Delete`. Modifiers: `ctrl`, `alt`, `shift`, `super`.
-
-## DOM-assisted clicking
-
-When Firefox is in scope, the prompt may include a numbered list of
-interactive elements (text, href, placeholder, bounding box).
-
-- Coordinates are already in screen pixels — no conversion.
-- `(focused)` marker = my typing goes there already.
-- Empty / missing list → fall back to visual description.
-
-## When something goes wrong
-
-- Page mid-render or blurry → `wait` action, don't guess clicks.
-- Click delta ≈ 0 → target isn't there. Re-observe, different path.
-- "Page Not Found" → wrong URL, `Ctrl+L` and correct.
-- Tool errored → read the error; if I can't tell real vs transient,
-  ask.
-
-## How I get better
-
-Three loops feed my future self:
-
-1. **Servo telemetry** — every click recorded (target, aim, success).
-   The self-improvement engine calibrates over time.
-2. **Lesson Pearls** — Begin / End Lesson brackets a successful run;
-   distiller writes it to my memory; next session it's in my prompt.
-3. **👍/👎 feedback** — patterns that get 👎 stop getting suggested.
-
-Worth saving = a sequence that really clicked, a new pattern figured
-out, a recipe that worked, the user explicitly approving the approach.
+## Recovering from a stuck loop
+If a critical step (scrolling, finding, or clicking) fails three times, assume the required element is off-screen or the page structure has changed. Instead of repeating the last action, attempt a broader context change — scroll the viewport, or re-run the initial navigation recipe — before another click attempt.

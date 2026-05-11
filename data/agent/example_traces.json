@@ -12,7 +12,7 @@
     "description": "Type and send a message in the chat",
     "prerequisite": "Must be on localhost:5175/chat",
     "steps": [
-      {"action": "click", "target_description": "the text input field at the bottom of the chat page", "reasoning": "Click to focus the chat input field"},
+      {"action": "click", "target_description": "the text input field at the bottom of the chat page", "reasoning": "Click to focus the chat input field at y=660"},
       {"action": "type", "text": "{message}", "reasoning": "Type the message"},
       {"action": "hotkey", "keys": ["Return"], "reasoning": "Send the message"},
       {"action": "done", "reasoning": "Message sent, response should appear"}
@@ -52,11 +52,11 @@
     ]
   },
   "open_firefox_from_desktop": {
-    "description": "Open Firefox from the desktop",
-    "prerequisite": "Firefox is not currently visible on screen; the XFCE desktop is showing.",
+    "description": "Open Firefox browser from the Shortcuts panel",
+    "prerequisite": "No browser visible — you see a dark desktop with a Shortcuts panel at the top-left",
     "steps": [
-      {"action": "click", "target_description": "Firefox icon", "reasoning": "Click the Firefox icon (the flame graphic) in the column of desktop icons on the left."},
-      {"action": "done", "reasoning": "Firefox is now opening with CDP enabled — wait for the window to render.", "success_proof": "Firefox window is now visible on screen"}
+      {"action": "click", "target_description": "the big orange Firefox button in the Shortcuts panel at top-left", "reasoning": "Click the orange Firefox button — it's the largest, most visible button"},
+      {"action": "done", "reasoning": "Firefox is now opening with CDP enabled, wait for it to load"}
     ]
   },
   "youtube_search_and_watch": {

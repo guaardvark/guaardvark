@@ -245,7 +245,7 @@ class AgentBrain:
             #    (1) image_data present — user pasted an image. ALWAYS use the
             #        vision prompt regardless of agent-screen state, because
             #        the user explicitly wants the model to look at the image.
-            #    (2) vision-sounding text ("click the Firefox icon") AND the
+            #    (2) vision-sounding text ("click the Firefox button") AND the
             #        agent screen is being watched. Without the screen, those
             #        requests route through normal Instinct so the model can
             #        explain that nothing is being viewed, rather than
@@ -737,10 +737,9 @@ class AgentBrain:
                             return f"Clicked {target} at ({cx},{cy})"
                         return (
                             f"Tried to click '{target}' via vision but couldn't find "
-                            f"it on the current screen. The element may not be visible "
-                            f"right now — re-observe what's actually on screen and "
-                            f"pick a different path. If you do try again, use a "
-                            f"shorter description (≤4 words, one distinctive color/shape)."
+                            f"it on the current screen. Try a shorter, more "
+                            f"distinctive label (e.g. 'orange Firefox button') or "
+                            f"check whether the target is actually visible."
                         )
                     except Exception as e:
                         logger.warning(f"Vision-fallback click failed for {target!r}: {e}")
