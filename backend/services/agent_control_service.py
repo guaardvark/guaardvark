@@ -173,6 +173,32 @@ class FailureReport:
     cause_hypothesis: str = ""         # one-liner derived from the other fields
 
 
+@dataclass
+class Expectation:
+    """One belief about what should be visible on screen this session.
+
+    Phase 4 of see-think-act-remember. The agent's knowledge files claim
+    "the desktop has these icons; the launcher menu lives in the top-left."
+    Each such claim is an Expectation — a hypothesis we test against the
+    fresh WORLD_OBSERVED block from Phase-3 re-grounding. When the
+    observation contradicts the expectation (claimed visible, not seen),
+    a row gets appended to _expectation_log; at task end the log distils
+    into one-line lessons that persist as belief_update memories.
+
+    source + source_line carry provenance so Phase 5 can later propose
+    a permanent edit to the knowledge file. source="model_belief" means
+    the model invented the element on its own (it's not in any doc); we
+    still record it as evidence for the next session prompt, but Phase 5
+    has nothing to edit so it skips those rows.
+    """
+    element: str = ""                  # short name of the claimed element
+    expected_visible: bool = True
+    observed_visible: bool = False
+    source: str = ""                   # "self_knowledge_compact.md" | "model_belief" | ...
+    source_line: Optional[int] = None  # line in source file, None for model_belief
+    confidence: float = 0.5            # 0..1; how strongly the source asserted it
+
+
 class AgentControlService:
     """
     Master-side orchestration service for Agent Vision Control.
@@ -219,6 +245,17 @@ class AgentControlService:
         # Latest WORLD_OBSERVED block from a re-grounding pass, injected into
         # the next THINK prompt. Cleared after the model has seen it once.
         self._pending_world_observed: str = ""
+        # Phase 4: session belief log. Each contradiction between an expected
+        # element (from self_knowledge / recipes) and a fresh WORLD_OBSERVED
+        # appends a row. Distilled at task end into belief_update memories
+        # so the *next* session prompt has the lesson. Cap on writes lives
+        # in _distill_lessons (5 per session); this in-memory list is
+        # naturally session-scoped — discarded with the service instance.
+        self._expectation_log: List[Expectation] = []
+        # Cache derived expectations once per session — the knowledge files
+        # don't change mid-run, and the parser walks every line. Lazily
+        # populated by _derive_session_expectations.
+        self._session_expectations: Optional[List[Expectation]] = None
         self._recipe_fallback_note: str = ""
         self._lock = threading.Lock()
         self.config = AgentControlConfig()
@@ -367,6 +404,11 @@ class AgentControlService:
             self._current_iteration = 0
             self._action_history = []
             self._recipe_fallback_note = ""
+            # Phase 4: session state is task-scoped. Re-parse the knowledge
+            # files in case they were edited between runs; reset the log so
+            # last task's contradictions don't bleed into this one's lessons.
+            self._expectation_log = []
+            self._session_expectations = None
 
         # Pick the vision model for servo coordinate estimation.
         # If vision_model is None, the model does its own coords — no middleman.
@@ -760,6 +802,21 @@ class AgentControlService:
                     observation = self._observe_only_pass(screen)
                     if observation:
                         self._pending_world_observed = observation
+                        # Phase 4: feed the fresh observation through the
+                        # session belief tracker. Each claimed-visible element
+                        # that's missing from the observation lands in
+                        # _expectation_log; at task end the log distils into
+                        # belief_update memories that surface in the next
+                        # session's system prompt.
+                        try:
+                            self._record_expectation_contradictions(
+                                self._derive_session_expectations(),
+                                observation,
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                f"[AGENT][BELIEF] contradiction-record failed: {e}"
+                            )
 
                 # 5. RECORD step
                 step = ActionStep(
@@ -1155,6 +1212,14 @@ class AgentControlService:
         if self._recipe_fallback_note:
             result.reason = f"{result.reason} ({self._recipe_fallback_note})"
             self._recipe_fallback_note = ""
+        # Phase 4: persist session beliefs as belief_update memories. Lives
+        # in this chokepoint so every task-exit path captures them, including
+        # early-done, recipe-shortcut, and error returns. Errors swallowed —
+        # a memory hiccup must never block task completion.
+        try:
+            self._write_session_lessons()
+        except Exception as e:
+            logger.debug(f"[AGENT][BELIEF] lesson-write skipped: {e}")
         if not result.task:
             # Stamp the task so consumers (e.g. Phase 3 inducer) can match the
             # result against later feedback without depending on _current_task,
@@ -2557,6 +2622,284 @@ Reply ONLY with JSON:
             "action."
         )
         return "\n".join(lines)
+
+    # ------------------------------------------------------------------
+    # Phase 4 — session belief tracker + lesson generation
+    # ------------------------------------------------------------------
+    #
+    # The agent's knowledge files (data/agent/self_knowledge_compact.md,
+    # data/agent/recipes.json) claim certain UI elements are present on
+    # the XFCE desktop. Phase 1 already softened "always visible" into
+    # "typically visible" hedging language, but the elements are still
+    # listed — and the model still primes on them. Phase 4 closes the
+    # gap by tracking which claims survive contact with the actual screen:
+    #
+    #   1. _derive_session_expectations() parses the knowledge files once
+    #      per session into a list of Expectation rows with source provenance.
+    #   2. After each Phase-3 re-grounding pass, _record_expectation_contradictions
+    #      compares the claimed elements against the fresh WORLD_OBSERVED
+    #      block. Each "claimed visible, not observed" pair appends to
+    #      _expectation_log. Stuck-target hallucinations (model said X, X is
+    #      not in any doc, X is not on screen) are also logged with
+    #      source="model_belief" for next-session context.
+    #   3. At task end, _distill_lessons() collapses _expectation_log into
+    #      <=5 lessons, dedup'd by element name. Each lesson becomes an
+    #      AgentMemory row of type "belief_update" via memory_api.add_memory.
+    #   4. Future sessions see the lesson through the existing
+    #      get_memories_for_context loader — no extra wiring needed.
+    #
+    # Phase 5 (lesson_reconciler) consumes the belief_update memories
+    # across sessions and proposes pending_fixes when ≥3 sessions agree
+    # the same source-line claim was wrong.
+
+    _DESKTOP_ICON_HEADER_PATTERNS = (
+        "desktop icons typically present",
+        "desktop icons present along",
+    )
+
+    def _derive_session_expectations(self) -> List[Expectation]:
+        """Parse agent knowledge files into structured Expectation rows.
+
+        Walks data/agent/self_knowledge_compact.md for the "Desktop icons …"
+        bullet block — each bullet becomes an Expectation with the source
+        file and the line number where the bullet lives. Deduped by
+        lowercased element name. Cached on the service instance so the
+        parser only runs once per task.
+
+        Errors (file missing, permission denied, malformed) degrade to an
+        empty list — Phase 4 is opportunistic. If we can't derive
+        expectations, we still record model_belief contradictions from
+        stuck_target.
+        """
+        if self._session_expectations is not None:
+            return self._session_expectations
+
+        expectations: List[Expectation] = []
+        seen: set = set()
+
+        try:
+            from backend.config import GUAARDVARK_ROOT
+            path = os.path.join(GUAARDVARK_ROOT, "data", "agent", "self_knowledge_compact.md")
+            with open(path, encoding="utf-8") as f:
+                lines = f.read().splitlines()
+        except Exception as e:
+            logger.warning(f"[AGENT][BELIEF] could not load self_knowledge_compact.md: {e}")
+            self._session_expectations = expectations
+            return expectations
+
+        # Find the "Desktop icons …" header and collect subsequent bullet lines
+        # until a blank line / non-bullet line / next header.
+        in_block = False
+        for idx, raw in enumerate(lines, start=1):
+            line = raw.strip()
+            lower = line.lower()
+            if not in_block:
+                if any(p in lower for p in self._DESKTOP_ICON_HEADER_PATTERNS):
+                    in_block = True
+                continue
+            # In the bullet block — collect until exit.
+            if not line:
+                # Blank line ends the block (markdown convention).
+                break
+            if line.startswith("#"):
+                break
+            if not line.startswith("-"):
+                # Bullet block over.
+                break
+            element = line.lstrip("- ").strip()
+            if not element:
+                continue
+            key = element.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            expectations.append(Expectation(
+                element=element,
+                expected_visible=True,
+                observed_visible=False,
+                source="self_knowledge_compact.md",
+                source_line=idx,
+                confidence=0.5,  # hedge language softens the assertion
+            ))
+
+        self._session_expectations = expectations
+        return expectations
+
+    @staticmethod
+    def _significant_tokens(text: str) -> List[str]:
+        """Strip stopwords / UI-noise words; return the rest, lowercased.
+
+        Used by the substring-match step in _record_expectation_contradictions.
+        "Firefox flame icon" → ["firefox", "flame"]. Lets a WORLD_OBSERVED
+        entry of "firefox window in focus" still count as 'observed'."""
+        noise = {
+            "the", "a", "an", "and", "or", "of", "on", "in", "to", "with",
+            "icon", "button", "panel", "menu", "section", "area", "bar",
+            "item", "element", "control", "widget", "label", "field",
+            "this", "that", "it",
+        }
+        cleaned = re.sub(r"[(),./\\]+", " ", text.lower())
+        return [t for t in cleaned.split() if t and len(t) > 2 and t not in noise]
+
+    def _record_expectation_contradictions(
+        self,
+        expectations: List[Expectation],
+        world_observed: str,
+    ) -> None:
+        """Compare expectations against a WORLD_OBSERVED block.
+
+        Each expected-visible element that has no token overlap with the
+        observed list becomes a contradiction row in _expectation_log.
+        Also logs the current stuck_target (if any) as a model_belief
+        contradiction so we capture hallucinated targets that aren't
+        listed in any knowledge file.
+
+        Empty world_observed → no-op. Re-grounding failed; we don't have
+        evidence either way and false-positive contradictions would poison
+        Phase 5.
+        """
+        body = (world_observed or "").strip()
+        if not body:
+            return
+
+        observed_text = body.lower()
+
+        for exp in expectations:
+            if not exp.expected_visible:
+                continue
+            tokens = self._significant_tokens(exp.element)
+            if not tokens:
+                continue
+            element_seen = any(tok in observed_text for tok in tokens)
+            if element_seen:
+                continue
+            # Contradiction — copy the expectation with observed_visible=False
+            # so we preserve the source provenance for Phase 5.
+            self._expectation_log.append(Expectation(
+                element=exp.element,
+                expected_visible=True,
+                observed_visible=False,
+                source=exp.source,
+                source_line=exp.source_line,
+                confidence=exp.confidence,
+            ))
+
+        # Model-belief contradiction: the model's stuck target isn't in any
+        # knowledge file (so not in `expectations`) and isn't on screen either.
+        # Record it under source="model_belief" so the lesson reaches the
+        # next session but Phase 5 skips it (no file to edit).
+        stuck = (self._stuck_target or "").strip()
+        if stuck and self._stuck_target_count >= 2:
+            stuck_tokens = self._significant_tokens(stuck)
+            already_logged = any(
+                e.element.lower() == stuck.lower() for e in self._expectation_log
+            )
+            stuck_seen = any(tok in observed_text for tok in stuck_tokens) if stuck_tokens else True
+            if not stuck_seen and not already_logged:
+                self._expectation_log.append(Expectation(
+                    element=stuck,
+                    expected_visible=True,
+                    observed_visible=False,
+                    source="model_belief",
+                    source_line=None,
+                    confidence=0.3,
+                ))
+
+    _MAX_LESSONS_PER_SESSION = 5
+
+    def _distill_lessons(self) -> List[Dict[str, Any]]:
+        """Collapse _expectation_log into <=5 unique-element lessons.
+
+        Filters to actual contradictions (expected_visible=True AND
+        observed_visible=False). Dedups by lowercased element name.
+        Returns a list of dicts with the fields agent_control_service
+        needs to write a belief_update memory:
+          {element, source, source_line, content}
+
+        The content string is the human-readable lesson body that lands
+        in AgentMemory.content and gets picked up by the next session's
+        prompt builder.
+        """
+        seen: set = set()
+        lessons: List[Dict[str, Any]] = []
+        for exp in self._expectation_log:
+            if not exp.expected_visible or exp.observed_visible:
+                continue
+            key = exp.element.strip().lower()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            content = (
+                f"\"{exp.element}\" was not visible during this session — "
+                f"verify it's actually on screen before assuming it's there."
+            )
+            lessons.append({
+                "element": exp.element,
+                "source": exp.source,
+                "source_line": exp.source_line,
+                "content": content,
+            })
+            if len(lessons) >= self._MAX_LESSONS_PER_SESSION:
+                break
+        return lessons
+
+    def _write_session_lessons(self, session_id: Optional[str] = None) -> int:
+        """Persist distilled lessons as belief_update memories.
+
+        Called at task end. Each lesson becomes one AgentMemory row via
+        the in-process memory_api.add_memory helper. Tags carry the
+        source provenance (file:line) so Phase 5's reconciler can group
+        by source-line. Errors are logged but don't bubble — a failed
+        memory write must never break task completion.
+
+        Returns the number of memories actually persisted.
+        """
+        lessons = self._distill_lessons()
+        if not lessons:
+            return 0
+
+        try:
+            from backend.api.memory_api import add_memory
+        except Exception as e:
+            logger.warning(f"[AGENT][BELIEF] memory_api unavailable: {e}")
+            return 0
+
+        written = 0
+        for lesson in lessons:
+            src = lesson.get("source") or ""
+            src_line = lesson.get("source_line")
+            element_tag = (lesson.get("element") or "").strip().lower()
+            tags = ["belief_update"]
+            if element_tag:
+                tags.append(element_tag)
+            if src:
+                tags.append(
+                    f"src:{src}:{src_line}" if src_line is not None else f"src:{src}"
+                )
+            try:
+                mem = add_memory(
+                    content=lesson["content"],
+                    memory_type="belief_update",
+                    source="agent",
+                    importance=0.55,
+                    session_id=session_id,
+                    tags=tags,
+                )
+                if mem is not None:
+                    written += 1
+            except Exception as e:
+                # Don't let a DB hiccup crash task completion.
+                logger.warning(
+                    f"[AGENT][BELIEF] failed to write lesson for "
+                    f"{lesson.get('element')!r}: {e}"
+                )
+
+        if written:
+            logger.warning(
+                f"[AGENT][BELIEF] wrote {written} belief_update memor"
+                f"{'y' if written == 1 else 'ies'} this session"
+            )
+        return written
 
     def _record_recovery_memory(self, signal: ProgressSignal, action: AgentAction, failed: bool) -> None:
         """Learn what action tended to recover from specific failure labels."""

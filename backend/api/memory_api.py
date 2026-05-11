@@ -18,6 +18,50 @@ logger = logging.getLogger(__name__)
 memory_bp = Blueprint("memory", __name__, url_prefix="/api/memory")
 
 
+def add_memory(
+    content: str,
+    memory_type: str = "note",
+    source: str = "manual",
+    importance: float = 0.5,
+    session_id=None,
+    tags=None,
+):
+    """In-process callable for writing a memory row.
+
+    The HTTP route `POST /api/memory` is a thin wrapper around this; everything
+    else inside the app (agent_control_service belief writes, lesson distillers,
+    background reconcilers) should call this directly rather than POSTing to
+    itself. Single source of truth for the column defaults + side effects.
+
+    Returns the created AgentMemory on success, or None on blank content /
+    DB error. Errors are logged; the caller decides whether a failed memory
+    write is fatal (usually not).
+    """
+    body = (content or "").strip()
+    if not body:
+        return None
+    tags_list = list(tags) if tags else []
+    mem_id = uuid.uuid4().hex[:12]
+    try:
+        memory = AgentMemory(
+            id=mem_id,
+            content=body,
+            source=source,
+            session_id=session_id,
+            tags=json.dumps(tags_list) if tags_list else None,
+            type=memory_type,
+            importance=importance,
+        )
+        db.session.add(memory)
+        db.session.commit()
+        logger.info(f"Memory saved: {mem_id} ({memory.type}) from {memory.source}")
+        return memory
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Failed to save memory: {e}")
+        return None
+
+
 @memory_bp.route("", methods=["POST"])
 def save_memory():
     """
@@ -30,28 +74,17 @@ def save_memory():
     if not data or not data.get("content", "").strip():
         return jsonify({"success": False, "error": "Content is required"}), 400
 
-    tags = data.get("tags", [])
-    mem_id = uuid.uuid4().hex[:12]
-    
-    try:
-        memory = AgentMemory(
-            id=mem_id,
-            content=data["content"].strip(),
-            source=data.get("source", "manual"),  # manual, chat, cli, auto, agent
-            session_id=data.get("session_id"),
-            tags=json.dumps(tags) if tags else None,
-            type=data.get("type", "note"),  # note, fact, instruction, snippet
-            importance=data.get("importance", 0.5)
-        )
-        db.session.add(memory)
-        db.session.commit()
-        
-        logger.info(f"Memory saved: {mem_id} ({memory.type}) from {memory.source}")
-        return jsonify({"success": True, "memory": memory.to_dict()}), 201
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Failed to save memory: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
+    memory = add_memory(
+        content=data["content"],
+        memory_type=data.get("type", "note"),
+        source=data.get("source", "manual"),
+        importance=data.get("importance", 0.5),
+        session_id=data.get("session_id"),
+        tags=data.get("tags", []),
+    )
+    if memory is None:
+        return jsonify({"success": False, "error": "Failed to save memory"}), 500
+    return jsonify({"success": True, "memory": memory.to_dict()}), 201
 
 
 @memory_bp.route("", methods=["GET"])
