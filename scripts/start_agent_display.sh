@@ -20,6 +20,11 @@ AGENT_FILES_DIR="$GUAARDVARK_ROOT/data/agent/files"
 # Agent desktop dir (separate from user's ~/Desktop to avoid collision)
 # Option B: ~/.agent_desktop/ for clean separation
 AGENT_DESKTOP_DIR="$HOME/.agent_desktop"
+# Wrapper that launches Firefox with --profile=<agent profile> and Wayland-X11
+# env hygiene. Every Firefox launcher (desktop icon, panel, future tools) MUST
+# go through this — invoking /usr/bin/firefox directly grabs the user's default
+# profile and locks it, breaking the user's normal Firefox.
+AGENT_FIREFOX_LAUNCHER="$GUAARDVARK_ROOT/scripts/agent_firefox_launch.sh"
 mkdir -p "$PID_DIR" "$LOG_DIR" "$DATA_DIR" "$AGENT_FILES_DIR" "$AGENT_DESKTOP_DIR"
 
 # ---------------------------------------------------------------------------
@@ -46,11 +51,11 @@ seed_agent_desktop() {
     # says "click the Firefox icon on the desktop" becomes priming for
     # hallucination. Created idempotently so existing installs stay put.
     if [ ! -f "$AGENT_DESKTOP_DIR/Firefox.desktop" ]; then
-        cat > "$AGENT_DESKTOP_DIR/Firefox.desktop" << 'FIREFOXDESKTOP'
+        cat > "$AGENT_DESKTOP_DIR/Firefox.desktop" << FIREFOXDESKTOP
 [Desktop Entry]
 Version=1.0
 Name=Firefox
-Exec=firefox %u
+Exec=$AGENT_FIREFOX_LAUNCHER
 Terminal=false
 Type=Application
 Icon=firefox
@@ -58,6 +63,31 @@ Categories=Network;WebBrowser;
 FIREFOXDESKTOP
         chmod +x "$AGENT_DESKTOP_DIR/Firefox.desktop"
     fi
+}
+
+seed_agent_panel_firefox() {
+    # XFCE's default panel ships a "Web Browser" launcher whose Exec is
+    # `exo-open --launch WebBrowser`. That dispatcher resolves to the system
+    # /usr/share/applications/firefox.desktop, which calls plain `firefox` —
+    # no --profile, no env hygiene — so the agent's bottom-bar Firefox icon
+    # ends up grabbing the host user's default profile and locking it.
+    # ("Firefox is already running, but is not responding" on the user side.)
+    #
+    # Sweep any panel launcher whose Exec matches that dispatcher and rewrite
+    # it to call our wrapper directly. Idempotent — only patches files that
+    # still have the broken Exec, leaves already-fixed ones alone.
+    local panel_dir="$1/xfce4/panel"
+    [ -d "$panel_dir" ] || return 0
+    while IFS= read -r -d '' launcher; do
+        if grep -q '^Exec=exo-open --launch WebBrowser' "$launcher"; then
+            sed -i \
+                -e "s|^Exec=exo-open --launch WebBrowser.*|Exec=$AGENT_FIREFOX_LAUNCHER|" \
+                -e 's|^Icon=org.xfce.webbrowser$|Icon=firefox|' \
+                -e 's|^Name=Web Browser$|Name=Firefox|' \
+                -e 's|^Comment=Browse the web$|Comment=Open Firefox in the agent'"'"'s isolated profile|' \
+                "$launcher"
+        fi
+    done < <(find "$panel_dir" -name '*.desktop' -print0 2>/dev/null)
 }
 
 write_agent_xdg_user_dirs() {
@@ -109,6 +139,12 @@ start_xfce_session() {
     # dir means the agent's XFCE can't trample any future host XFCE config,
     # and vice versa. The agent's settings are also backed up cleanly with
     # the rest of data/agent/.
+    local agent_config_home="$DATA_DIR/xfce_config"
+    # Run the panel-launcher patch every invocation, even on the early-return
+    # path below: previous start_agent_display.sh runs (before this fix landed)
+    # left bad Exec lines on disk, and a no-op restart should heal them.
+    seed_agent_panel_firefox "$agent_config_home"
+
     if pgrep -f "xfce4-session" > /dev/null 2>&1; then
         # Only count it if it's on OUR display — host session is also xfce-shaped.
         for pid in $(pgrep -f "xfce4-session" 2>/dev/null); do
@@ -123,7 +159,6 @@ start_xfce_session() {
     mkdir -p "$agent_runtime_dir"
     chmod 700 "$agent_runtime_dir"
 
-    local agent_config_home="$DATA_DIR/xfce_config"
     seed_agent_desktop
     write_agent_xdg_user_dirs "$agent_config_home"
 
@@ -152,6 +187,9 @@ start_xfce_session() {
     echo $! > "$PID_DIR/xfce.pid"
     # Give the session a moment to bring up xfwm4, xfdesktop, xfce4-panel.
     sleep 3
+    # On a true fresh install the panel files don't exist until xfce4-panel
+    # writes them above; re-run the patch now that they should be on disk.
+    seed_agent_panel_firefox "$agent_config_home"
     echo "  XFCE session started (PID $(cat $PID_DIR/xfce.pid), log: $LOG_DIR/xfce_agent.log)"
     echo "  Agent desktop:    $AGENT_DESKTOP_DIR"
     echo "  Agent XFCE config: $agent_config_home"
