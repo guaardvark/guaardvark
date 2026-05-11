@@ -181,3 +181,66 @@ class TestServoController(unittest.TestCase):
         img_b = Image.new("RGB", (1024, 1024), color=(200, 200, 200))
         assert ServoController._screen_changed(img_a, img_b) is True
         assert ServoController._screen_changed(img_a, img_a) is False
+
+
+class TestParseDetectionCoordOrder(unittest.TestCase):
+    """vision_config['coord_order'] decides how box_2d / point arrays are read.
+
+    Gemma4 via Ollama returns coordinates in Google's published box_2d format,
+    which is y-first: [y1, x1, y2, x2]. The 'empirically verified xy-first'
+    comment in the prior code was wrong and produced the 2026-05 click-cluster
+    bug where every servo aim landed on the top-centre wallpaper regardless
+    of the actual target.
+    """
+
+    def _servo(self, coord_order="xy", internal_width=0):
+        # Bypass __init__ so the test stays a pure parse check — no screen,
+        # no analyzer, no live config detection.
+        from backend.services.servo_controller import ServoController
+        s = ServoController.__new__(ServoController)
+        s._vision_config = {
+            "coord_order": coord_order,
+            "internal_width": internal_width,
+            "scale_x": 1.0,
+            "scale_y": 1.0,
+        }
+        s.screen_w = 1000
+        s.screen_h = 1000
+        return s
+
+    def test_box_2d_xy_order_reads_x_first(self):
+        s = self._servo(coord_order="xy")
+        coords = s._parse_detection_response(
+            '```json\n[{"box_2d": [599, 37, 631, 83], "label": "Firefox"}]\n```'
+        )
+        # [x1, y1, x2, y2] → center (615, 60)
+        self.assertEqual(coords, (615, 60))
+
+    def test_box_2d_yx_order_reads_y_first(self):
+        s = self._servo(coord_order="yx")
+        coords = s._parse_detection_response(
+            '```json\n[{"box_2d": [599, 37, 631, 83], "label": "Firefox"}]\n```'
+        )
+        # [y1, x1, y2, x2] → center (60, 615)
+        self.assertEqual(coords, (60, 615))
+
+    def test_point_xy_order_reads_x_first(self):
+        s = self._servo(coord_order="xy")
+        coords = s._parse_detection_response('[{"point": [614, 64], "label": "X"}]')
+        self.assertEqual(coords, (614, 64))
+
+    def test_point_yx_order_reads_y_first(self):
+        s = self._servo(coord_order="yx")
+        coords = s._parse_detection_response('[{"point": [614, 64], "label": "X"}]')
+        self.assertEqual(coords, (64, 614))
+
+    def test_box_2d_with_internal_grid_and_yx(self):
+        # Some models (qwen3-vl variants) normalize to 1024; when y-first the
+        # scaling still has to apply to the right axis.
+        s = self._servo(coord_order="yx", internal_width=1000)
+        coords = s._parse_detection_response(
+            '[{"box_2d": [500, 100, 600, 200], "label": "X"}]'
+        )
+        # y1=500,x1=100,y2=600,x2=200 → norm centres (cx=0.15, cy=0.55)
+        # → on 1000x1000 screen: (150, 550)
+        self.assertEqual(coords, (150, 550))

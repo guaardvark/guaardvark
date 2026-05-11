@@ -462,29 +462,47 @@ class ServoController:
 
             entry = data[0]
 
-            # Format 1: "point" — raw pixel coordinates [x, y]
+            # Axis order varies by model. Google's published box_2d format is
+            # y-first ([y1, x1, y2, x2]); some adapters emit x-first. The
+            # vision_config's coord_order field decides — "xy" reads the array
+            # as [x1, y1, x2, y2] / [x, y], "yx" reads it as [y1, x1, y2, x2]
+            # / [y, x]. Default is xy for back-compat with non-Gemma models;
+            # Gemma4 explicitly sets "yx" in MODEL_VISION_CONFIGS.
+            coord_order = (self._vision_config or {}).get("coord_order", "xy")
+            yx = coord_order == "yx"
+
+            # Format 1: "point"
             point = entry.get("point")
             if point and len(point) == 2:
-                x, y = int(point[0]), int(point[1])
-                logger.info(f"Servo: point [{point[0]},{point[1]}] → ({x},{y}) label=\"{entry.get('label', '?')}\"")
-                return (x, y)
+                px, py = (int(point[1]), int(point[0])) if yx else (int(point[0]), int(point[1]))
+                logger.info(
+                    f"Servo: point {point} order={coord_order} → ({px},{py}) "
+                    f"label=\"{entry.get('label', '?')}\""
+                )
+                return (px, py)
 
-            # Format 2: bounding box normalized to model's internal grid
-            # Gemma4 via Ollama: [x1,y1,x2,y2] (empirically verified, not y-first like Google HF spec)
+            # Format 2: bounding box, optionally normalized to model's grid
             box = entry.get("box_2d") or entry.get("bbox_2d")
             if box and len(box) == 4:
-                grid = self._vision_config.get("internal_width", 1000)
-                if grid > 0:
-                    norm = [int(c) / grid for c in box]
-                    cx = int(((norm[0] + norm[2]) / 2) * self.screen_w)
-                    cy = int(((norm[1] + norm[3]) / 2) * self.screen_h)
+                # Re-key the four numbers to (x1, y1, x2, y2) regardless of
+                # which order the model emitted them in.
+                if yx:
+                    y1, x1, y2, x2 = (int(c) for c in box)
                 else:
-                    # Raw pixel mode (internal_width: 0)
-                    cx = int((int(box[0]) + int(box[2])) / 2)
-                    cy = int((int(box[1]) + int(box[3])) / 2)
-                
+                    x1, y1, x2, y2 = (int(c) for c in box)
+
+                grid = self._vision_config.get("internal_width", 1000) if self._vision_config else 1000
+                if grid > 0:
+                    cx = int(((x1 + x2) / 2 / grid) * self.screen_w)
+                    cy = int(((y1 + y2) / 2 / grid) * self.screen_h)
+                else:
+                    # Raw pixel mode (internal_width: 0) — model returns
+                    # screen-space coords directly, no scaling.
+                    cx = (x1 + x2) // 2
+                    cy = (y1 + y2) // 2
+
                 logger.info(
-                    f"Servo: box {box} (grid={grid}) → center ({cx},{cy}) "
+                    f"Servo: box {box} order={coord_order} grid={grid} → center ({cx},{cy}) "
                     f"label=\"{entry.get('label', '?')}\""
                 )
                 return (cx, cy)

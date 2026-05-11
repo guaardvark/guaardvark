@@ -79,8 +79,8 @@ MODEL_VISION_CONFIGS = {
         "scale_y": 1.0,                  # Identity scale for raw pixel mode
         "offset_x": 0,
         "offset_y": 0,
-        "native_pointing": True,         # uses box_2d [x1, y1, x2, y2] format natively
-        "coord_order": "xy",             # Ollama's gemma4 runner: [x1,y1,x2,y2]
+        "native_pointing": True,         # uses box_2d natively
+        "coord_order": "yx",             # Gemma4 via Ollama returns Google's box_2d format: [y1, x1, y2, x2]
         "source": "raw_pixel_mode_2026_04_10",
         "notes": "1000x1000 square screen — matches Gemma4's published box_2d grid (Google normalises to 1000). Identity scale. A 2026-05 bump to 1024x1024 produced X-axis clustering around the screen centre; reverted 2026-05-11.",
     },
