@@ -6,11 +6,15 @@
 #   GUAARDVARK_AGENT_BROWSER   - Browser to use: firefox|chromium|chrome (auto-detected if unset)
 #   GUAARDVARK_AGENT_DISPLAY   - X display number (default: 99)
 #   GUAARDVARK_AGENT_VNC_PORT  - VNC port (default: 5999)
-#   GUAARDVARK_AGENT_RESOLUTION - Display resolution (default: 1024x1024x24)
+#   GUAARDVARK_AGENT_RESOLUTION - Display resolution (default: 1000x1000x24)
 
 GUAARDVARK_ROOT="${GUAARDVARK_ROOT:-$(dirname $(dirname $(readlink -f $0)))}"
 DISPLAY_NUM="${GUAARDVARK_AGENT_DISPLAY:-99}"
-RESOLUTION="${GUAARDVARK_AGENT_RESOLUTION:-1024x1024x24}"
+# 1000x1000 matches Gemma4's internal coordinate grid (Google's box_2d format
+# normalizes to 1000). Identity mapping at this resolution — no scaling. A
+# bump to 1024x1024 in May 2026 introduced a quiet drift that left all servo
+# clicks clustered around screen X-center (Gemma4's "I'm unsure" default).
+RESOLUTION="${GUAARDVARK_AGENT_RESOLUTION:-1000x1000x24}"
 VNC_PORT="${GUAARDVARK_AGENT_VNC_PORT:-5999}"
 PID_DIR="$GUAARDVARK_ROOT/pids"
 LOG_DIR="$GUAARDVARK_ROOT/logs"

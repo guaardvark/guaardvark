@@ -406,7 +406,7 @@ class LocalScreenBackend(ScreenInterface):
                 return (int(parts[0]), int(parts[1]))
         except Exception:
             pass
-        return (1024, 1024)  # Default to what start_agent_display.sh creates
+        return (1000, 1000)  # Default to what start_agent_display.sh creates — matches Gemma4's box_2d grid
 
     def cursor_position(self) -> Tuple[int, int]:
         """Return cursor position on the virtual display."""

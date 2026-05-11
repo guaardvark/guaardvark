@@ -364,11 +364,14 @@ class ServoController:
 
         Priority: DOM metadata → native detection (full-size image) → legacy fallback.
 
-        CRITICAL: The image must be sent at FULL resolution (1024x1024).
+        CRITICAL: The image must be sent at FULL resolution (1000x1000).
         Through Ollama with think:false, Gemma4 returns box_2d coordinates
-        normalized to 1024. With a 1024x1024 screen, coord/1024*1024 = identity.
-        Empirically verified 2026-04-10: full-size → 35px error (HIT),
-        resized → 263px error (MISS).
+        normalized to 1000 (Google's published spec). With a 1000x1000 screen,
+        coord/1000*1000 = identity. Empirically verified 2026-04-10 on the
+        old 1280x720 layout: full-size → 35px error (HIT),
+        resized → 263px error (MISS). The 2026-05-11 1024 drift centred every
+        bbox around X≈600 — symptom of a model that knows the target exists
+        but lost the grid mapping.
         """
         # Try DOM shortcut first — instant if Firefox has the element
         dom_coords = self._lookup_dom_coordinates(target)
