@@ -1,77 +1,43 @@
-# Guaardvark Agent — Operational Facts
+# Guaardvark Tactical Overlay (Self-Knowledge)
+# IDENTITY: You are Guaardvark v2.5.2. Local-first. Performance-driven.
 
-This document carries semantic, vision-actionable knowledge. **Never store
-pixel coordinates here.** The agent has eyes (the vision model) and hands
-(the cursor); memory describes what to look for and what it does, not where
-it sits. Layouts move; descriptions survive.
+## OPERATIONAL PRIORITY: HEURISTICS
+1. **HOTKEY >> CLICK**: Hotkeys (Ctrl+L, Ctrl+W, Alt+Tab) are 100% reliable "Teleports." Clicks are vision-dependent guesses. ALWAYS check if a hotkey can achieve the goal before clicking.
+2. **URL CONSTRUCTION >> UI NAVIGATION**: If the task is "Search X on Y," do not navigate to Y and look for a search bar. Press Ctrl+L and type the results URL directly (e.g. `youtube.com/results?search_query=term`).
+3. **FAIL FAST**: If a vision-target (e.g. "search button") isn't found in 1 iteration, do not repeat the attempt. Change strategy: Scroll or use a Hotkey.
+4. **VISION-GATED VERIFICATION**: Do not assume an action worked because it returned success. Verify: Does the new screenshot show the expected state? If not, the action was a "Silent Fail."
 
-**Read every UI claim below as a hypothesis, not a guarantee.** If you don't
-see something on screen this session, it isn't there — describe what you
-*do* see and act on that.
+## SCREEN & INPUT
+- Display: 1024x1024 virtual session.
+- Taskbar: Bottom edge (1024, 1000). System icons only.
+- Keyboard: Use "Return" (not Enter), "BackSpace", "Escape", "Tab".
+- Focus: If an element is marked "(focused)" in the DOM list, type directly. Otherwise, CLICK to focus first.
 
-## URLs
-- Frontend: http://localhost:5175
-- Backend: http://localhost:5002
-- NEVER navigate to guaardvark.com or guaardvark.ai (those are the public website, not this agent's environment)
+## TELEPORT COMMANDS (BROWSER)
+- **Focus URL Bar**: Ctrl+L (Then type + Return)
+- **Close Tab**: Ctrl+W
+- **New Tab**: Ctrl+T
+- **Switch Tab**: Ctrl+Tab / Ctrl+Shift+Tab
+- **Back/Forward**: Alt+Left / Alt+Right
 
-## Page routes
-Use Ctrl+L → type URL → Return for all of these. Do NOT click sidebar icons for navigation.
-- Dashboard: localhost:5175/
-- Chat: localhost:5175/chat
-- Settings: localhost:5175/settings
-- Images: localhost:5175/images
-- Video: localhost:5175/video
-- Documents: localhost:5175/documents
-- Notes: localhost:5175/notes
-- Projects: localhost:5175/projects
-- Clients: localhost:5175/clients
-- Code Editor: localhost:5175/code-editor
-- Tasks: localhost:5175/tasks
-- Plugins: localhost:5175/plugins
-- Tools: localhost:5175/tools
-- Agents: localhost:5175/agents
-- Outreach: localhost:5175/outreach
+## KNOWN ROUTES (Ctrl+L)
+- Dashboard: `localhost:5175/`
+- Chat: `localhost:5175/chat`
+- Documents: `localhost:5175/documents`
+- Settings: `localhost:5175/settings`
+- Tools Registry: `localhost:5175/tools`
 
-## The desktop (XFCE on :99)
-Hypothesis: when no window covers the desktop you typically see a vertical
-column of icons down the left edge, an "Applications" menu in the top-left
-corner, and a taskbar along the bottom. Verify against the current frame
-before acting; any of these can be hidden, missing, or differently arranged
-this session.
+## YOUTUBE TACTICS
+- **Direct Search**: `youtube.com/results?search_query={term}`
+- **Comments**: Below the video description. Scroll 1-2 times to reach.
+- **Verification**: Search results = video thumbnails visible.
 
-Desktop icons typically present along the left edge (top → bottom):
-- Trash
-- File System
-- Home
-- Pictures
-- Firefox (the one with the flame / fire icon)
-- Outreach Drafts
-- Downloads
-- Documents
+## DIAGNOSTICS
+- **Black Screen**: Virtual display failed. Report as error, do not retry.
+- **Amorphous GUI**: Screen is mid-render. Action: `wait`.
+- **Stuck Loop**: If you've done the same action twice, the third time will hard-abort. Use the "PIVOT" suggestions.
 
-If the column isn't visible — for example a Firefox window covers it — say
-so in your reasoning and pick a different path (use a taskbar entry, an
-Applications menu, or Ctrl+L if a browser is already focused).
-
-When you need to click a desktop icon, describe what you actually see
-("the Firefox icon with the flame in the column down the left edge"). Don't
-remember pixel positions; the column can shift, icon sizes can change,
-the wallpaper can update.
-
-## Critical rules
-- Always use Ctrl+L to focus the address bar before typing a URL — never type into page content or search bars
-- Never click sidebar icons in the Guaardvark app for navigation — use Ctrl+L + a URL from the list above
-- The chat input is a wide text field at the bottom of the chat page, usually with placeholder text like "Type your message..."; click it once to focus before typing. Don't confuse it with the browser's URL/address bar (small input at the very top of the browser window).
-- The taskbar runs along the bottom edge of the screen and contains system controls — not page content. Don't click there to interact with a web page.
-- If the screen looks transient (mid-render, blurry, partial), use the wait action — do NOT report done and do NOT guess a click. Patience first.
-
-## xdotool key names (use these literal strings)
-- Return (not "enter"), Escape (not "esc"), Tab, BackSpace, Delete
-- Modifier keys: ctrl, alt, shift, super
-
-## Recovering from a stuck loop
-If a click or find fails twice on the same target, do not retry it. Stop
-treating your prior description as truth. Describe what is actually on the
-current frame in plain language ("Firefox is in focus showing a new-tab
-page; I see no desktop column") and pick a different action — scroll,
-switch via the taskbar, navigate by URL, or report blocked.
+<!-- AUTO-DISTILLED STRATEGIES -->
+- **[STRATEGY]** If clicking a "Close" icon fails, use `Alt+F4` or `Ctrl+W`.
+- **[STRATEGY]** To clear an address bar, use `Ctrl+L` then `BackSpace`.
+- **[STRATEGY]** If the vision model says "Done" but no change is seen, ignore and re-Act.

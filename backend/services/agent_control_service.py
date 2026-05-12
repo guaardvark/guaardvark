@@ -96,6 +96,7 @@ class AgentDecision:
     action: AgentAction = field(default_factory=AgentAction)
     task_complete: bool = False
     stuck: bool = False
+    status: str = "IN_PROGRESS"  # INITIAL, IN_PROGRESS, COMPLETE
     confidence: float = 1.0  # Overall decision confidence
     raw_output: str = ""
 
@@ -237,7 +238,7 @@ class AgentControlService:
         # whether the target was even visible. Capped to last N to keep the
         # prompt bounded — old failures rot in usefulness anyway.
         self._failure_reports: List[FailureReport] = []
-        self._failure_reports_cap: int = 5
+        self._failure_reports_cap: int = 10
         # Counter of consecutive same-target failures, used by Phase-3
         # re-grounding to fire once per "stuck cluster" instead of every step.
         self._stuck_target: str = ""
@@ -1622,7 +1623,7 @@ class AgentControlService:
                         f"  • {{\"action\": \"hotkey\", \"keys\": [\"Page_Down\"], \"reasoning\": \"page down\"}}\n"
                         f"  • {{\"action\": \"click\", \"target_description\": \"comment input field\", \"reasoning\": \"focus the textarea directly\"}}\n"
                         f"  • {{\"action\": \"click\", \"target_description\": \"reply button\", \"reasoning\": \"open reply UI\"}}\n"
-                        f"Pick one. Do not pick {a_type} again.\n\n"
+                        f"Pick one. Do not pick the exact same \"{a_type}: {a_desc}\" again.\n\n"
                     )
 
 
@@ -1646,10 +1647,34 @@ class AgentControlService:
         # One-line confidence rules. Kept terse on purpose — verbose
         # prompt text leaks into typed actions when the model parrots context.
         confidence = (
-            "Web task + no browser visible: open Firefox first. "
+            "Web task + no browser visible: open Firefox FIRST by clicking the icon. "
             "Screen mid-load or transient: wait, do not quit. "
             "Step 1 done is forbidden."
         )
+
+        browser_visible = "firefox" in desktop_state.lower()
+        is_web_task = any(w in task.lower() for w in ["google", "youtube", "reddit", "search", "navigate", "url", "http", "browser", "website", "web page"])
+        
+        if not browser_visible and is_web_task:
+            confidence = (
+                "NO BROWSER VISIBLE: You MUST click the Firefox icon on the desktop first. "
+                "Ctrl+L will NOT work until a browser window is on screen. "
+                "Step 1 done is forbidden."
+            )
+        elif not browser_visible:
+            # Not a web task (or at least doesn't look like one), don't force Firefox
+            confidence = "No browser visible, but task doesn't explicitly require one. Step 1 done is forbidden."
+        else:
+            # Browser is already open
+            confidence = "Browser is visible. " + confidence
+
+        state_management = (
+            "State Management: You must track task status (INITIAL -> IN_PROGRESS -> COMPLETE). "
+            "If the goal has been achieved (e.g. search results are visible and match the task), "
+            "you MUST immediately set status='COMPLETE' and action='done' without performing "
+            "any additional waiting, scrolling, or hotkey actions. Prioritize the goal over process."
+        )
+
         world_block = self._format_world_state_for_prompt(world_state or self._world_state)
         failure_block = self._format_failure_history()
         if failure_block:
@@ -1668,12 +1693,14 @@ class AgentControlService:
 {world_block}
 {world_observed_block}{failure_block}{dom_block}{done_lines}{training_override}Step {len(history) + 1}. ONE next action. After Act the system ALWAYS re-captures the screen (re-See) before your next Think. {confidence}
 
-target_description rules: SHORT label, ≤4 words, one distinctive adjective. Examples: "primary submit button", "chat input field", "main navigation icon", "desktop background". NOT a multi-clause description with position phrases — long descriptions break the vision detector and land at (0,0). Describe one shape (color, label, or icon), not a sentence.
+{state_management}
+
+target_description rules: SHORT label, ≤6 words, one distinctive adjective. Examples: "primary submit button", "chat input field", "main navigation icon", "desktop background". NOT a multi-clause description with position phrases — long descriptions break the vision detector and land at (0,0). Describe one shape (color, label, or icon), not a sentence.
 
 done rule: when action="done", success_proof MUST describe the visible state that proves the task is complete (e.g. "cursor inside text area", "comment now visible in thread"). Empty or generic ("n/a", "task done") is rejected. This rule applies to all models and paths.
 
 Reply ONLY with JSON:
-{{"action": "click|right_click|type|hotkey|scroll|wait|done", "target_description": "...", "text": "literal value only", "keys": ["ctrl","t"], "reasoning": "why", "success_proof": "visible state proving done (only when action=done)"}}"""
+{{"status": "IN_PROGRESS|COMPLETE", "action": "click|right_click|type|hotkey|scroll|wait|done", "target_description": "...", "text": "literal value only", "keys": ["ctrl","t"], "reasoning": "why", "success_proof": "visible state proving done (only when action=done)"}}"""
 
     @staticmethod
     def _get_unified_model() -> str:
@@ -2555,17 +2582,17 @@ Reply ONLY with JSON:
             unified = AgentControlService._get_unified_model()
             analyzer = VisionAnalyzer(default_model=unified) if unified else VisionAnalyzer()
             prompt = (
-                "List the 5 to 10 most prominent interactive elements you "
+                "Enumerate every interactive element, icon, and window you "
                 "can actually see in this screenshot. No task context, no "
-                "guessing about elements that might be there. Use short "
-                "labels of 3 to 5 words each. One per line. No bullets, "
-                "no numbering, no commentary."
+                "guessing about elements that might be there. Describe exactly "
+                "what is visible. Use short labels of 3 to 5 words each. "
+                "One per line. No bullets, no numbering, no commentary."
             )
             # NB: explicitly no `system=` arg — the whole point is observation
             # without the agent's own priming. Temperature low for a faithful
             # readout, not a creative list.
             result = analyzer.analyze(
-                shot, prompt, num_predict=180, temperature=0.1, think=False,
+                shot, prompt, num_predict=512, temperature=0.1, think=False,
             )
         except Exception as e:
             logger.warning(f"[AGENT][REGROUND] vision call raised: {e}")
@@ -2805,10 +2832,10 @@ Reply ONLY with JSON:
                     confidence=0.3,
                 ))
 
-    _MAX_LESSONS_PER_SESSION = 5
+    _MAX_LESSONS_PER_SESSION = 10
 
     def _distill_lessons(self) -> List[Dict[str, Any]]:
-        """Collapse _expectation_log into <=5 unique-element lessons.
+        """Collapse _expectation_log into <=10 unique-element lessons.
 
         Filters to actual contradictions (expected_visible=True AND
         observed_visible=False). Dedups by lowercased element name.
@@ -3150,16 +3177,24 @@ Reply ONLY with JSON:
 
         mouse_only = getattr(self, '_mouse_only', False)
 
+        state_management = (
+            "State Management: You must track task status (INITIAL -> IN_PROGRESS -> COMPLETE). "
+            "If the goal has been achieved, you MUST immediately set status='COMPLETE' and "
+            "action='done' without performing any waiting or hotkey actions. Prioritize the goal over process."
+        )
+
         if mouse_only:
-            rules = """MOUSE ONLY. Actions: click, right_click, done.
+            rules = f"""MOUSE ONLY. Actions: click, right_click, done.
+{state_management}
 
 Reply ONLY with JSON:
-{{"action": "click|right_click|done", "target_description": "...", "reasoning": "why"}}"""
+{{"status": "IN_PROGRESS|COMPLETE", "action": "click|right_click|done", "target_description": "...", "reasoning": "why"}}"""
         else:
-            rules = """One action per step. After typing a URL, press Return.
+            rules = f"""One action per step. After typing a URL, press Return.
+{state_management}
 
 Reply ONLY with JSON:
-{{"action": "click|right_click|type|hotkey|scroll|done", "target_description": "...", "text": "literal value only", "keys": ["ctrl","l"], "reasoning": "why"}}"""
+{{"status": "IN_PROGRESS|COMPLETE", "action": "click|right_click|type|hotkey|scroll|wait|done", "target_description": "...", "text": "literal value only", "keys": ["ctrl","l"], "reasoning": "why"}}"""
 
         desktop_state = self._get_desktop_state()
         world_block = self._format_world_state_for_prompt(world_state or self._world_state)
@@ -3222,12 +3257,16 @@ Screen: {scene}
 
             data = json.loads(text)
             action_type = data.get("action", "").lower().strip()
+            status = (data.get("status") or "IN_PROGRESS").upper().strip()
+            decision.status = status
 
-            if action_type == "done":
+            if action_type == "done" or status == "COMPLETE":
                 decision.task_complete = True
                 decision.action.action_type = "done"
                 decision.action.reasoning = data.get("reasoning", "")
                 decision.action.success_proof = (data.get("success_proof") or "").strip()
+                if status == "COMPLETE" and action_type != "done":
+                    logger.warning(f"[AGENT][PARSER] Forced completion: status='COMPLETE' but action='{action_type}'")
                 return decision
 
             # Sanitize text field — models sometimes parrot instruction text
@@ -3245,12 +3284,22 @@ Screen: {scene}
                     r'^(?:type|enter|search|input|write|put)\s+', '', raw_text, flags=_re.IGNORECASE
                 ).strip().strip("'\"")
 
+            # Sanitize keys — models sometimes output just the modifier (e.g. ["ctrl"])
+            keys = data.get("keys", [])
+            if action_type == "hotkey" and keys:
+                modifiers = {"ctrl", "alt", "shift", "super", "win", "meta"}
+                if len(keys) == 1 and keys[0].lower() in modifiers:
+                    logger.warning(f"[AGENT][PARSER] Rejecting modifier-only hotkey: {keys}")
+                    keys = []
+                    # If it was just a modifier, it's effectively a 'wait' or a 'stuck' signal
+                    action_type = "wait"
+
             action = AgentAction(
                 action_type=action_type,
                 target_cell=data.get("target_cell", ""),
                 target_description=data.get("target_description", ""),
                 text=raw_text,
-                keys=data.get("keys", []),
+                keys=keys,
                 scroll_amount=data.get("scroll_amount", 0),
                 reasoning=data.get("reasoning", ""),
             )

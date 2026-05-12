@@ -159,10 +159,11 @@ class ServoController:
             # it only widens the legitimate-change detection window.
             # (Gemini diagnosis 2026-05-09; see plans/.)
             screen_changed = False
-            for poll_delay in (0.15, 0.45, 0.5, 0.5):
+            for poll_delay in (0.2, 0.4, 0.4, 0.4, 0.4):
                 time.sleep(poll_delay)
                 verify_shot, _ = self.screen.capture()
-                if self._screen_changed(screenshot, verify_shot, click_pos=(current_x, current_y)):
+                # Use a slightly more sensitive threshold for global change (0.004)
+                if self._screen_changed(screenshot, verify_shot, click_pos=(current_x, current_y), threshold=0.004):
                     screen_changed = True
                     break
 
@@ -200,6 +201,7 @@ class ServoController:
                     corrections=corrections_made,
                     attempt=attempt,
                     time_ms=elapsed_ms,
+                    screen_size=(self.screen_w, self.screen_h),
                     correction_log=correction_log,
                 )
             except Exception as e:
@@ -437,7 +439,7 @@ class ServoController:
 
         box_2d coordinates are normalized to the model's internal grid:
           Gemma4: 1000 (confirmed by Google docs)
-          qwen3-vl: 1024
+          qwen3-vl: 1000 (Google standard)
         The divisor comes from vision_config["internal_width"].
         """
         try:
@@ -451,42 +453,59 @@ class ServoController:
                 end = text.index("```", start)
                 text = text[start:end].strip()
 
+            # Find the first valid JSON structure (array or object)
+            obj_start = text.find("{")
             arr_start = text.find("[")
-            arr_end = text.rfind("]") + 1
-            if arr_start < 0 or arr_end <= arr_start:
+            
+            if obj_start >= 0 and (arr_start < 0 or obj_start < arr_start):
+                start = obj_start
+                end = text.rfind("}") + 1
+            elif arr_start >= 0:
+                start = arr_start
+                end = text.rfind("]") + 1
+            else:
+                return None
+                
+            if start < 0 or end <= start:
                 return None
 
-            data = json.loads(text[arr_start:arr_end])
-            if not data or not isinstance(data, list):
+            data = json.loads(text[start:end])
+            
+            if isinstance(data, list) and data:
+                entry = data[0]
+                if not isinstance(entry, dict):
+                    return None
+            elif isinstance(data, dict):
+                entry = data
+            else:
                 return None
 
-            entry = data[0]
-
-            # Axis order varies by model. Google's published box_2d format is
-            # y-first ([y1, x1, y2, x2]); some adapters emit x-first. The
-            # vision_config's coord_order field decides — "xy" reads the array
-            # as [x1, y1, x2, y2] / [x, y], "yx" reads it as [y1, x1, y2, x2]
-            # / [y, x]. Default is xy for back-compat with non-Gemma models;
-            # Gemma4 explicitly sets "yx" in MODEL_VISION_CONFIGS.
+            # Axis order varies *by format*, not just by model:
+            #   - "point" is x-first across every model we've tested
+            #     (Gemma4, qwen3-vl, moondream all return [x, y]).
+            #   - "box_2d" follows Google's published format which is
+            #     y-first ([y1, x1, y2, x2]). Some adapters re-emit it
+            #     x-first, so the order is config-driven.
+            # vision_config.coord_order applies only to box_2d / bbox_2d.
+            # "xy" → [x1, y1, x2, y2]; "yx" → [y1, x1, y2, x2]. Default is
+            # xy for back-compat. Gemma4 explicitly sets "yx".
             coord_order = (self._vision_config or {}).get("coord_order", "xy")
-            yx = coord_order == "yx"
 
-            # Format 1: "point"
+            # Format 1: "point" — always [x, y], all models.
             point = entry.get("point")
             if point and len(point) == 2:
-                px, py = (int(point[1]), int(point[0])) if yx else (int(point[0]), int(point[1]))
+                px, py = int(point[0]), int(point[1])
                 logger.info(
-                    f"Servo: point {point} order={coord_order} → ({px},{py}) "
+                    f"Servo: point {point} → ({px},{py}) "
                     f"label=\"{entry.get('label', '?')}\""
                 )
                 return (px, py)
 
-            # Format 2: bounding box, optionally normalized to model's grid
+            # Format 2: bounding box, optionally normalized to model's grid.
+            # coord_order decides the axis order of the four numbers.
             box = entry.get("box_2d") or entry.get("bbox_2d")
             if box and len(box) == 4:
-                # Re-key the four numbers to (x1, y1, x2, y2) regardless of
-                # which order the model emitted them in.
-                if yx:
+                if coord_order == "yx":
                     y1, x1, y2, x2 = (int(c) for c in box)
                 else:
                     x1, y1, x2, y2 = (int(c) for c in box)
@@ -496,10 +515,12 @@ class ServoController:
                     cx = int(((x1 + x2) / 2 / grid) * self.screen_w)
                     cy = int(((y1 + y2) / 2 / grid) * self.screen_h)
                 else:
-                    # Raw pixel mode (internal_width: 0) — model returns
-                    # screen-space coords directly, no scaling.
                     cx = (x1 + x2) // 2
                     cy = (y1 + y2) // 2
+                
+                if x1 == 0 and x2 == 0 and y1 == 0 and y2 == 0:
+                    logger.warning(f"Servo: box [0,0,0,0] received (ignoring as null detection)")
+                    return None
 
                 logger.info(
                     f"Servo: box {box} order={coord_order} grid={grid} → center ({cx},{cy}) "

@@ -10,7 +10,9 @@
       "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s*$",
       "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s+(?:browser)?\\s*$"
     ],
-    "preconditions": ["firefox_not_running"],
+    "preconditions": [
+      "firefox_not_running"
+    ],
     "steps": [
       {
         "action": "click",
@@ -18,18 +20,21 @@
         "_comment": "Vision-driven \u2014 servo finds the flame icon among the desktop icons"
       },
       {
-        "action": "wait",
-        "seconds": 5
+        "action": "wait_until_visible",
+        "target_description": "Firefox browser window with URL bar",
+        "timeout_s": 8.0
       }
     ]
   },
   "open_firefox_and_navigate": {
     "description": "Open Firefox from the desktop and navigate to a URL",
     "triggers": [
-      "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s+(?:and\\s+)?(?:go|navigate)\\s+(?:to\\s+)?(?:https?://)?([\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*$",
-      "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s+(?:to|at|on)\\s+(?:https?://)?([\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*$"
+      "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s+(?:and\\s+)?(?:go|navigate)\\s+(?:to\\s+)?(?:https?://)?([\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)(?:\\s+please)?\\s*$",
+      "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s+(?:to|at|on)\\s+(?:https?://)?([\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)(?:\\s+please)?\\s*$"
     ],
-    "preconditions": ["firefox_not_running"],
+    "preconditions": [
+      "firefox_not_running"
+    ],
     "steps": [
       {
         "action": "click",
@@ -37,8 +42,9 @@
         "_comment": "Vision-driven \u2014 servo finds the flame icon among the desktop icons"
       },
       {
-        "action": "wait",
-        "seconds": 5
+        "action": "wait_until_visible",
+        "target_description": "Firefox browser window with URL bar",
+        "timeout_s": 8.0
       },
       {
         "action": "hotkey",
@@ -48,8 +54,9 @@
         ]
       },
       {
-        "action": "wait",
-        "seconds": 0.5
+        "action": "wait_until_settled",
+        "timeout_s": 1.0,
+        "stable_for_ms": 200
       },
       {
         "action": "hotkey",
@@ -59,16 +66,8 @@
         ]
       },
       {
-        "action": "wait",
-        "seconds": 0.2
-      },
-      {
         "action": "type",
         "text": "{1}"
-      },
-      {
-        "action": "wait",
-        "seconds": 0.3
       },
       {
         "action": "hotkey",
@@ -77,8 +76,9 @@
         ]
       },
       {
-        "action": "wait",
-        "seconds": 3
+        "action": "wait_until_settled",
+        "timeout_s": 5.0,
+        "stable_for_ms": 300
       }
     ]
   },
@@ -228,8 +228,8 @@
   "close_firefox": {
     "description": "Close the Firefox browser entirely",
     "triggers": [
-      "^(?:close|quit|exit|kill|shut\\s*down|stop)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s*$",
-      "^(?:close|quit|exit|kill)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s+(?:browser|window)?\\s*$"
+      "^(?:close|quit|exit|kill|shut\\s*down|stop)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser|browsers)(?:\\s+on\\s+your\\s+screen)?(?:\\s+please)?\\s*$",
+      "^(?:close|quit|exit|kill)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser|browsers)\\s+(?:browser|window|on\\s+screen)?(?:\\s+please)?\\s*$"
     ],
     "steps": [
       {
@@ -798,35 +798,23 @@
     ]
   },
   "youtube_search": {
-    "description": "Open Firefox if needed and search YouTube for the topic",
+    "description": "Open Firefox and direct navigate to YouTube search results",
     "triggers": [
-      "(?:youtube|search\\s+youtube)\\s+(?:for\\s+)?[\"']?(.+?)[\"']?\\s*$",
-      "^(?:search|find|look\\s+up|look\\s+for|show\\s+me)\\s+(?:the\\s+)?(?:latest\\s+|newest\\s+|recent\\s+|top\\s+)?(.+?)\\s+(?:on|in|via|using)\\s+youtube\\s*$",
-      "^(?:youtube\\s+)?(?:videos?|clips?)\\s+(?:about|on|of|for)\\s+(.+?)\\s*$"
+      "(?:youtube|search\\s+youtube)\\s+(?:for\\s+)?[\"']?(.+?)[\"']?(?:\\s+please)?\\s*$",
+      "^(?:search|find|look\\s+up|look\\s+for|show\\s+me)\\s+(?:the\\s+)?(?:latest\\s+|newest\\s+|recent\\s+|top\\s+)?(.+?)\\s+(?:on|in|via|using)\\s+youtube(?:\\s+please)?\\s*$",
+      "^(?:youtube\\s+)?(?:videos?|clips?)\\s+(?:about|on|of|for|regarding)\\s+(.+?)(?:\\s+please)?\\s*$",
+      "^(?:open|go\\s+to|navigate\\s+to)\\s+youtube\\s+and\\s+search\\s+(?:for\\s+)?(.+?)(?:\\s+please)?\\s*$"
     ],
-    "preconditions": ["firefox_not_running"],
     "steps": [
       {
         "action": "click",
         "target_description": "Firefox icon (flame) on the desktop",
-        "_comment": "Vision-driven \u2014 only fires when Firefox isn't already running; preconditions gate this out otherwise"
+        "_comment": "If already open, AgentControlService will focus it instead"
       },
       {
         "action": "wait_until_visible",
-        "target_description": "Firefox browser window with URL bar visible",
-        "timeout_s": 12.0,
-        "_comment": "Don't fire next steps until Firefox is actually up"
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "Escape"
-        ]
-      },
-      {
-        "action": "wait_until_settled",
-        "timeout_s": 2.0,
-        "stable_for_ms": 200
+        "target_description": "Firefox browser window with URL bar",
+        "timeout_s": 8.0
       },
       {
         "action": "hotkey",
@@ -836,36 +824,24 @@
         ]
       },
       {
-        "action": "wait_until_visible",
-        "target_description": "URL address bar with text selected or empty and ready for typing",
-        "timeout_s": 4.0
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "a"
-        ]
-      },
-      {
         "action": "wait_until_settled",
         "timeout_s": 1.0,
-        "stable_for_ms": 150
+        "stable_for_ms": 200
       },
       {
         "action": "type",
         "text": "https://www.youtube.com/results?search_query={1}"
       },
       {
-        "action": "wait_until_settled",
-        "timeout_s": 1.5,
-        "stable_for_ms": 200
-      },
-      {
         "action": "hotkey",
         "keys": [
           "Return"
         ]
+      },
+      {
+        "action": "wait_until_visible",
+        "target_description": "YouTube search results with video thumbnails",
+        "timeout_s": 10.0
       }
     ],
     "success_proof": "YouTube search results page with video thumbnails visible",
@@ -994,7 +970,9 @@
       "^(?:open|go\\s+to|launch|navigate\\s+to|visit)\\s+(?:the\\s+)?youtube(?:\\.com)?\\s*$",
       "^youtube\\s*$"
     ],
-    "preconditions": ["firefox_not_running"],
+    "preconditions": [
+      "firefox_not_running"
+    ],
     "steps": [
       {
         "action": "click",
@@ -1066,7 +1044,9 @@
       "^(?:open|go\\s+to|launch|navigate\\s+to|visit)\\s+(?:the\\s+)?reddit(?:\\.com)?\\s*$",
       "^reddit\\s*$"
     ],
-    "preconditions": ["firefox_not_running"],
+    "preconditions": [
+      "firefox_not_running"
+    ],
     "steps": [
       {
         "action": "click",
@@ -1135,7 +1115,9 @@
       "^(?:open|go\\s+to|visit|navigate\\s+to)\\s+r/(\\w+)\\s*$",
       "^(?:open|go\\s+to)\\s+(?:the\\s+)?(?:reddit\\s+)?subreddit\\s+r?/?(\\w+)\\s*$"
     ],
-    "preconditions": ["firefox_not_running"],
+    "preconditions": [
+      "firefox_not_running"
+    ],
     "steps": [
       {
         "action": "click",

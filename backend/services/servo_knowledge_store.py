@@ -82,7 +82,7 @@ MODEL_VISION_CONFIGS = {
         "native_pointing": True,         # uses box_2d natively
         "coord_order": "yx",             # Gemma4 via Ollama returns Google's box_2d format: [y1, x1, y2, x2]
         "source": "raw_pixel_mode_2026_04_10",
-        "notes": "1000x1000 square screen — matches Gemma4's published box_2d grid (Google normalises to 1000). Identity scale. A 2026-05 bump to 1024x1024 produced X-axis clustering around the screen centre; reverted 2026-05-11.",
+        "notes": "1000x1000 square screen — matches Gemma4's published box_2d grid (Google normalises to 1000). Identity scale.",
     },
     "qwen3-vl:4b-instruct": {
         "has_vision": True,

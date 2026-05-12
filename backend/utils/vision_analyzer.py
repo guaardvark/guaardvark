@@ -208,7 +208,7 @@ class VisionAnalyzer:
             image = image.resize((self.max_width, new_height), Image.LANCZOS)
 
         buffer = BytesIO()
-        image.convert("RGB").save(buffer, format="JPEG", quality=70)
+        image.convert("RGB").save(buffer, format="JPEG", quality=90)
         return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
     def analyze(
@@ -337,7 +337,7 @@ class VisionAnalyzer:
 
         # Encode WITHOUT resize — just JPEG compress
         buffer = BytesIO()
-        image.convert("RGB").save(buffer, format="JPEG", quality=70)
+        image.convert("RGB").save(buffer, format="JPEG", quality=90)
         image_b64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
         try:
