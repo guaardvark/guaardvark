@@ -26,7 +26,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 from mlt import analyze as analyze_mod
-from mlt.clip_hash import cache_path_for
+from mlt.clip_hash import cache_path_for, hash_clip
+from mlt.frame_sampler import sample_frames
 from mlt.song_structure import analyze_song
 
 from service.crew_interface import (
@@ -206,7 +207,9 @@ def _vision_analyze_all_clips(
     crew: CrewInterface,
     cache_dir: Path,
     progress_cb,
+    n_frames: int = 3,
 ) -> list[ClipAnalysis]:
+    """Sample frames + call Art Director, caching by content hash."""
     cache_dir.mkdir(parents=True, exist_ok=True)
     out: list[ClipAnalysis] = []
     total = max(1, len(req.bin_clips))
@@ -214,14 +217,22 @@ def _vision_analyze_all_clips(
     for i, clip in enumerate(req.bin_clips):
         if progress_cb:
             progress_cb(0.60 + 0.28 * (i / total), f"Art Director: {Path(clip.source_path).name}")
+
         cache_file = cache_path_for(clip.source_path, cache_dir)
         cached = _read_cached_analysis(cache_file, clip)
         if cached is not None:
             out.append(cached)
             continue
 
+        # Sample frames into a per-clip subdir so they're reusable / inspectable.
+        clip_hash = hash_clip(clip.source_path)
+        frames_dir = cache_dir / "frames" / clip_hash
+        frames = sample_frames(clip.source_path, frames_dir, n_frames=n_frames)
+        if not frames:
+            logger.warning("no frames sampled for %s — using neutral defaults", clip.source_path)
+
         analysis = crew.analyze_clip(
-            frames=[],  # A3 will pass real sampled frames; A1's LocalArtDirector returns neutral defaults
+            frames=[f.path for f in frames],
             clip_id=clip.clip_id,
             source_path=clip.source_path,
             recipe=req.style_recipe,

@@ -140,15 +140,23 @@ class CrewInterface(Protocol):
 
 
 class LocalArtDirector:
-    """v1 — runs in-process. Vision call wires up in A3; A1 returns neutral defaults.
+    """v1 in-process implementation. analyze_clip calls qwen3-vl via Ollama on
+    sampled frames; arrange delegates to the rule-based arranger.
 
-    The scaffold exists now so call sites (jobs_pipeline.py, app.py) can be
-    written against the final shape. Replacing the analyze_clip body with the
-    real qwen3-vl call in A3 won't touch anything upstream.
+    Filter palette honored when present in the recipe — caller passes the
+    recipe in, we expose the allowed slugs to the model so its
+    `recommended_filter` choices stay in-style.
     """
 
-    def __init__(self, ollama_url: str = "http://localhost:11434") -> None:
+    def __init__(
+        self,
+        ollama_url: str = "http://localhost:11434",
+        vision_model: str = "qwen3-vl:4b-instruct",
+        vision_timeout_s: float = 60.0,
+    ) -> None:
         self.ollama_url = ollama_url
+        self.vision_model = vision_model
+        self.vision_timeout_s = vision_timeout_s
 
     def analyze_clip(
         self,
@@ -157,17 +165,33 @@ class LocalArtDirector:
         source_path: str,
         recipe: Optional[dict[str, Any]] = None,
     ) -> ClipAnalysis:
-        # A1: return neutral. A3: real qwen3-vl call.
+        from service.art_director import analyze_frames
+        from mlt.filters import PRESETS as FILTER_PRESETS
+
+        # Constrain available filters to the recipe palette if one is set;
+        # otherwise expose the full catalog.
+        if recipe and recipe.get("filter_palette"):
+            available_slugs = list(recipe["filter_palette"])
+        else:
+            available_slugs = list(FILTER_PRESETS.keys())
+
+        analysis = analyze_frames(
+            frames,
+            available_filter_slugs=available_slugs,
+            model=self.vision_model,
+            ollama_url=self.ollama_url,
+            timeout_s=self.vision_timeout_s,
+        )
         return ClipAnalysis(
             clip_id=clip_id,
             source_path=source_path,
-            subject="abstract",
-            energy="medium",
-            dominant_palette="neutral",
-            motion="medium",
-            mood="uplifting",
-            recommended_filter="none",
-            best_section_fit=["any"],
+            subject=analysis["subject"],
+            energy=analysis["energy"],
+            dominant_palette=analysis["dominant_palette"],
+            motion=analysis["motion"],
+            mood=analysis["mood"],
+            recommended_filter=analysis["recommended_filter"],
+            best_section_fit=analysis["best_section_fit"],
         )
 
     def arrange(
@@ -178,8 +202,6 @@ class LocalArtDirector:
         recipe: Optional[dict[str, Any]] = None,
         seed: int = 0,
     ) -> Arrangement:
-        # Concrete arrangement logic lives in mlt/arranger.py so it can be
-        # tested in isolation; this just delegates.
         from mlt.arranger import arrange_from_analysis
 
         return arrange_from_analysis(
