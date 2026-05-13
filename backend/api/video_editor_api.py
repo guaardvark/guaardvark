@@ -148,6 +148,30 @@ def shotcut_compose():
     return jsonify(body), status_code
 
 
+@video_editor_bp.route("/shotcut/compose-arrangement", methods=["POST"])
+def shotcut_compose_arrangement():
+    """Multi-clip render path. Resolves the song document_id if provided."""
+    payload = flask_request.get_json(silent=True) or {}
+    if "song_document_id" in payload and not payload.get("audio_path"):
+        resolved = _resolve_document(payload.pop("song_document_id"))
+        if resolved:
+            payload["audio_path"] = resolved
+    body, status_code = _proxy_post("/shotcut/compose-arrangement", payload, timeout=RENDER_TIMEOUT)
+    return jsonify(body), status_code
+
+
+@video_editor_bp.route("/catalog/filters", methods=["GET"])
+def list_filter_catalog():
+    body, status_code = _proxy_get("/catalog/filters")
+    return jsonify(body), status_code
+
+
+@video_editor_bp.route("/catalog/transitions", methods=["GET"])
+def list_transition_catalog():
+    body, status_code = _proxy_get("/catalog/transitions")
+    return jsonify(body), status_code
+
+
 # ---------- A1 endpoints: bin-driven Plan pipeline ---------------------------
 
 @video_editor_bp.route("/recipes", methods=["GET"])

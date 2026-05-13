@@ -41,24 +41,42 @@ export const getPlanJob = async (jobId) => {
   return res.data;
 };
 
-// Render: hand the arrangement straight to /shotcut/compose. Single video at a
-// time in A1 — wired with the arrangement's first clip and a video_path. A2
-// will switch to a multi-clip compose body when timeline_compose supports it.
-export const renderFromArrangement = async ({
-  video_path,
+// A2: full arrangement render — multi-clip + per-clip filters + transitions.
+// Plugin emits .mlt + .mp4 in one synchronous call (~seconds for short songs).
+export const renderArrangement = async ({
+  arrangement,
+  song_document_id,
   audio_path,
-  text_elements = [],
-  video_trim_start = 0,
-  video_trim_end = null,
   audio_volume = 1.0,
+  song_duration_seconds,
+  fps_num = 30,
+  fps_den = 1,
+  width = 1920,
+  height = 1080,
   render_mp4 = true,
 }) => {
-  const res = await axios.post(`${API_BASE}/video-editor/shotcut/compose`, {
-    video_path, audio_path, text_elements,
-    video_trim_start, video_trim_end, audio_volume,
-    render_mp4, register: true,
-  });
+  const body = {
+    arrangement,
+    audio_volume,
+    song_duration_seconds,
+    fps_num, fps_den, width, height,
+    render_mp4,
+    register: true,
+  };
+  if (song_document_id) body.song_document_id = song_document_id;
+  if (audio_path) body.audio_path = audio_path;
+  const res = await axios.post(`${API_BASE}/video-editor/shotcut/compose-arrangement`, body);
   return res.data;
+};
+
+export const listFilterCatalog = async () => {
+  const res = await axios.get(`${API_BASE}/video-editor/catalog/filters`);
+  return res.data?.categories || {};
+};
+
+export const listTransitionCatalog = async () => {
+  const res = await axios.get(`${API_BASE}/video-editor/catalog/transitions`);
+  return res.data?.transitions || [];
 };
 
 export const openInShotcut = async (mlt_path) => {

@@ -40,7 +40,7 @@ import ArrangementPreview from "../components/videoeditor/ArrangementPreview";
 import { usePlanJob } from "../components/videoeditor/usePlanJob";
 import { useTimelineHistory } from "../components/videoeditor/useTimelineHistory";
 import { listVideoDocuments, listAudioDocuments, listImageDocuments } from "../api/videoOverlayService";
-import { listStyleRecipes, renderFromArrangement, openInShotcut } from "../api/videoEditorService";
+import { listStyleRecipes, renderArrangement, openInShotcut } from "../api/videoEditorService";
 import { getJobsGate } from "../api/jobsService";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
@@ -319,29 +319,22 @@ const VideoEditorPage = () => {
     });
   }, [canPlan, planJob, timeline.bin, timeline.song, scanMode, styleRecipeName]);
 
-  // A1 render: single-clip mode for now. We hand the FIRST arranged clip
-  // through /shotcut/compose with the song as audio replacement. Multi-clip
-  // arrangements land in A2 when timeline_compose grows multi-chain support.
+  // A2 render: full multi-clip arrangement with per-clip filters + transitions.
+  // Plugin synthesizes the .mlt and renders to .mp4 in one synchronous call.
   const handleRender = useCallback(async () => {
     const arr = planJob.result?.arrangement;
     if (!arr || arr.clips.length === 0) {
       setError("Hit Plan first — no arrangement to render yet.");
       return;
     }
-    const songResult = planJob.result?.song;
-    const firstClip = arr.clips[0];
     setRendering(true);
     setError(null);
     try {
-      const res = await renderFromArrangement({
-        video_path: firstClip.source_path,
-        audio_path: timeline.song
-          ? `__resolve_document__${timeline.song.documentId}`  // sentinel; plugin uses video_path's audio if blank
-          : null,
-        text_elements: [],  // A2 will plumb through arr's filters as text/filter chain
-        video_trim_start: firstClip.source_in,
-        video_trim_end: firstClip.source_out,
+      const res = await renderArrangement({
+        arrangement: arr,
+        song_document_id: timeline.song?.documentId,
         audio_volume: timeline.song?.volume ?? 1.0,
+        song_duration_seconds: planJob.result?.song?.duration_seconds,
         render_mp4: true,
       });
       setRenderResult(res);

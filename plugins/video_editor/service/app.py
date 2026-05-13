@@ -31,7 +31,9 @@ from mlt.frame_math import FrameRate
 from mlt.mlt_parser import MediaAsset, ProjectProfile
 from mlt.mlt_writer import plan_cuts_from_beats, write_project
 from mlt.render import MeltNotFound, render_mlt
-from mlt.timeline_compose import compose_timeline, timeline_from_payload
+from mlt.timeline_compose import compose_arrangement, compose_timeline, timeline_from_payload
+from mlt.filters import PRESET_CATEGORIES as FILTER_CATEGORIES
+from mlt.transitions import PRESETS as TRANSITION_PRESETS
 
 from service.config_loader import load_config
 from service.crew_interface import LocalArtDirector
@@ -116,6 +118,21 @@ class VisionScanBody(BaseModel):
     """A3 will run real qwen3-vl here; A1 stub returns neutral defaults."""
 
     clip_paths: list[str] = Field(..., min_length=1)
+
+
+class ComposeArrangementBody(BaseModel):
+    """Multi-clip render path used by VideoEditorPage after Plan completes."""
+
+    arrangement: dict[str, Any]                # full Arrangement.to_dict()
+    audio_path: Optional[str] = None
+    audio_volume: float = 1.0
+    song_duration_seconds: Optional[float] = None
+    fps_num: int = 30
+    fps_den: int = 1
+    width: int = 1920
+    height: int = 1080
+    render_mp4: bool = True
+    register: bool = True
 
 
 class ShotcutComposeRequest(BaseModel):
@@ -492,3 +509,102 @@ def open_in_shotcut(body: OpenInShotcutBody) -> dict[str, Any]:
     # Detached spawn — we don't track it.
     subprocess.Popen([shotcut_bin, str(mlt_path)], start_new_session=True)
     return {"launched": str(mlt_path)}
+
+
+# ---------- A2: multi-clip arrangement render --------------------------------
+
+
+@app.get("/catalog/filters")
+def list_filter_catalog() -> dict[str, Any]:
+    return {"categories": {cat: list(slugs) for cat, slugs in FILTER_CATEGORIES.items()}}
+
+
+@app.get("/catalog/transitions")
+def list_transition_catalog() -> dict[str, Any]:
+    return {"transitions": list(TRANSITION_PRESETS.keys())}
+
+
+@app.post("/shotcut/compose-arrangement")
+def shotcut_compose_arrangement(body: ComposeArrangementBody) -> dict[str, Any]:
+    """Render a full Arrangement (multi-clip + filters + transitions) to .mlt + .mp4."""
+    clips = body.arrangement.get("clips") or []
+    if not clips:
+        raise HTTPException(status_code=400, detail="arrangement has no clips")
+
+    # All source paths must exist.
+    sources = list({c["source_path"] for c in clips if c.get("source_path")})
+    _require_paths(*sources)
+    if body.audio_path:
+        _require_paths(body.audio_path)
+
+    profile = ProjectProfile(
+        frame_rate=FrameRate(body.fps_num, body.fps_den),
+        width=body.width,
+        height=body.height,
+    )
+
+    mlt_dir = Path(_paths["mlt_projects"])
+    mlt_dir.mkdir(parents=True, exist_ok=True)
+    mlt_path = mlt_dir / f"arrangement_{uuid.uuid4().hex[:12]}.mlt"
+
+    compose_arrangement(
+        arrangement_clips=clips,
+        audio_path=body.audio_path,
+        output_path=mlt_path,
+        profile=profile,
+        audio_volume=body.audio_volume,
+        song_duration_seconds=body.song_duration_seconds,
+    )
+
+    response: dict[str, Any] = {
+        "mlt_path": str(mlt_path),
+        "clip_count": len(clips),
+        "rendered_mp4": None,
+        "documents": [],
+    }
+
+    if body.register:
+        doc = register_output(
+            mlt_path,
+            backend_url=_runtime.get("registration", {}).get("backend_url", "http://localhost:5002"),
+            folder=_runtime.get("registration", {}).get("folder", "Videos"),
+            file_metadata={
+                "kind": "mlt_arrangement",
+                "clip_count": len(clips),
+                "style_recipe": body.arrangement.get("style_recipe_name"),
+                "seed": body.arrangement.get("seed"),
+            },
+        )
+        if doc:
+            response["documents"].append(doc)
+
+    if body.render_mp4:
+        melt_path = _runtime.get("melt", {}).get("resolved_path", "") or "melt"
+        renders_dir = Path(_paths["renders"])
+        renders_dir.mkdir(parents=True, exist_ok=True)
+        mp4_path = renders_dir / (mlt_path.stem + ".mp4")
+        try:
+            render = render_mlt(
+                mlt_path, mp4_path, melt_path=melt_path,
+                vcodec=_runtime.get("melt", {}).get("default_vcodec", "libx264"),
+                acodec=_runtime.get("melt", {}).get("default_acodec", "aac"),
+            )
+        except MeltNotFound as e:
+            raise HTTPException(status_code=500, detail=f"melt unavailable: {e}") from e
+        response["rendered_mp4"] = str(render.output_path)
+        if body.register:
+            doc = register_output(
+                render.output_path,
+                backend_url=_runtime.get("registration", {}).get("backend_url", "http://localhost:5002"),
+                folder=_runtime.get("registration", {}).get("folder", "Videos"),
+                file_metadata={
+                    "kind": "arrangement_render",
+                    "clip_count": len(clips),
+                    "duration_seconds": render.duration_seconds,
+                    "style_recipe": body.arrangement.get("style_recipe_name"),
+                },
+            )
+            if doc:
+                response["documents"].append(doc)
+
+    return response
