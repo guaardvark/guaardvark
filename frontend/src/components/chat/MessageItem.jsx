@@ -25,6 +25,7 @@ import { BASE_URL } from "../../api/apiClient";
 import AgentResultDisplay from "./AgentResultDisplay";
 import { StatusChip } from "../../utils/familyColors";
 import ToolCallCard from "./ToolCallCard";
+import ThinkingStepCard from "./ThinkingStepCard";
 import ImageLightbox from "../images/ImageLightbox";
 import NarrateButton from "../common/NarrateButton";
 
@@ -428,36 +429,17 @@ const MessageItem = ({ message, sessionId: sessionIdProp }) => {
           </Box>
         )}
 
-        {/* Agent loop reasoning trail — same shape as the live streaming view
-            (yellow left-border + italic caption per step) so scrolling back
-            looks identical to watching it happen. */}
+        {/* Agent loop reasoning trail — collapsible cards mirroring the live
+            streaming view so scrolling back looks identical to watching it. */}
         {message.agentThinkingSteps && message.agentThinkingSteps.length > 0 && (
           <Box sx={{ mb: 1, mt: 0.5 }}>
             {message.agentThinkingSteps.map((step, idx) => (
-              <Box
+              <ThinkingStepCard
                 key={`agent-step-${idx}`}
-                sx={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 1,
-                  mb: 0.5,
-                  pl: 1,
-                  borderLeft: 2,
-                  borderColor: "warning.main",
-                  opacity: 0.9,
-                }}
-              >
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ fontStyle: "italic", whiteSpace: "pre-wrap", fontSize: "0.7rem" }}
-                >
-                  <Box component="span" sx={{ color: "warning.main", fontWeight: 600, mr: 0.5 }}>
-                    Step {step.iteration}{step.label ? ` — ${step.label}` : ""}:
-                  </Box>
-                  {step.reasoning}
-                </Typography>
-              </Box>
+                iteration={step.iteration}
+                label={step.label}
+                reasoning={step.reasoning}
+              />
             ))}
           </Box>
         )}

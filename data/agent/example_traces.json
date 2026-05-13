@@ -1,67 +1,36 @@
 {
-  "navigate_to_page": {
-    "description": "Navigate to any Guaardvark page by URL",
-    "steps": [
-      {"action": "hotkey", "keys": ["ctrl", "l"], "reasoning": "Focus the address bar"},
-      {"action": "type", "text": "localhost:5175/{page}", "reasoning": "Type the page URL"},
-      {"action": "hotkey", "keys": ["Return"], "reasoning": "Navigate to the page"},
-      {"action": "done", "reasoning": "Page loaded successfully"}
-    ]
-  },
-  "send_chat_message": {
-    "description": "Type and send a message in the chat",
-    "prerequisite": "Must be on localhost:5175/chat",
-    "steps": [
-      {"action": "click", "target_description": "the chat input field at the bottom of the page", "reasoning": "Click to focus the chat input — describe what you actually see; the placeholder text usually starts with 'Type your message...'"},
-      {"action": "type", "text": "{message}", "reasoning": "Type the message"},
-      {"action": "hotkey", "keys": ["Return"], "reasoning": "Send the message"},
-      {"action": "done", "reasoning": "Message sent, response should appear"}
-    ]
-  },
-  "open_past_chats": {
-    "description": "Open the past chats modal and select a chat",
-    "prerequisite": "Must be on localhost:5175/chat",
-    "steps": [
-      {"action": "click", "target_description": "the clock/history icon in the top bar of the chat page", "reasoning": "Open the past chats modal"},
-      {"action": "click", "target_description": "a chat session in the modal list", "reasoning": "Select a past chat"},
-      {"action": "done", "reasoning": "Chat history loaded"}
-    ]
-  },
-  "check_narration": {
-    "description": "Test the narration feature on a chat message",
-    "prerequisite": "Must be on localhost:5175/chat with at least one assistant message visible",
-    "steps": [
-      {"action": "click", "target_description": "the speaker/narrate icon on an assistant message", "reasoning": "Click narrate to generate audio"},
-      {"action": "done", "reasoning": "Audio player should appear below the message"}
-    ]
-  },
-  "navigate_to_settings": {
-    "description": "Go to the settings page",
-    "steps": [
-      {"action": "hotkey", "keys": ["ctrl", "l"], "reasoning": "Focus address bar"},
-      {"action": "type", "text": "localhost:5175/settings", "reasoning": "Type settings URL"},
-      {"action": "hotkey", "keys": ["Return"], "reasoning": "Navigate"},
-      {"action": "done", "reasoning": "Settings page loaded with configuration cards"}
-    ]
-  },
-  "close_popup": {
-    "description": "Close a popup or modal dialog",
-    "steps": [
-      {"action": "hotkey", "keys": ["Escape"], "reasoning": "Press Escape to close the popup/modal"},
-      {"action": "done", "reasoning": "Popup closed"}
-    ]
-  },
   "open_firefox_from_desktop": {
     "description": "Open Firefox from the XFCE desktop",
-    "prerequisite": "The desktop is visible (no window covering it) and you can see a Firefox icon (with a flame) in the column of icons down the left edge",
+    "prerequisite": "The desktop is visible (no window covering it) and you can see a Firefox icon (circular orange) somewhere among the icons on the desktop",
     "preconditions": ["desktop_visible", "firefox_icon_visible"],
     "steps": [
-      {"action": "click", "target_description": "the Firefox icon (flame) in the desktop column on the left", "reasoning": "Describe what you actually see — the flame icon among the desktop icons. If you don't see it, this recipe doesn't apply; pick another path."},
+      {"action": "click", "target_description": "the Firefox icon (circular orange)", "reasoning": "Look at the desktop and find the Firefox icon among the icons that are there. Don't assume where it is — just look. If you don't see it, this recipe doesn't apply; pick another path."},
       {"action": "done", "reasoning": "Firefox is now opening; wait for the window to render"}
+    ]
+  },
+  "navigate_to_url": {
+    "description": "Open a URL in the active browser window",
+    "prerequisite": "A browser window is the active window — you can see its address bar",
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "l"], "reasoning": "Focus the address bar — Ctrl+L works in Firefox, Chrome, and every mainstream browser"},
+      {"action": "type", "text": "{url}", "reasoning": "Type the destination URL (no scheme needed; the browser fills in https://)"},
+      {"action": "hotkey", "keys": ["Return"], "reasoning": "Submit and navigate"},
+      {"action": "done", "reasoning": "Page should load — verify by looking at what's actually on screen, not by assuming"}
+    ]
+  },
+  "google_search": {
+    "description": "Run a Google search from the address bar",
+    "prerequisite": "A browser window is the active window. Default search engine is Google (true in stock Firefox).",
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "l"], "reasoning": "Focus the address bar — typing a non-URL here runs a search via the default engine"},
+      {"action": "type", "text": "{query}", "reasoning": "Type the search query directly; no need to visit google.com first"},
+      {"action": "hotkey", "keys": ["Return"], "reasoning": "Submit"},
+      {"action": "done", "reasoning": "Search results page should load"}
     ]
   },
   "youtube_search_and_watch": {
     "description": "Search YouTube and watch a video",
+    "prerequisite": "A browser window is the active window",
     "steps": [
       {"action": "hotkey", "keys": ["ctrl", "l"], "reasoning": "Focus address bar"},
       {"action": "type", "text": "youtube.com", "reasoning": "Type YouTube URL"},
@@ -82,6 +51,48 @@
       {"action": "type", "text": "{comment_text}", "reasoning": "Type the comment"},
       {"action": "click", "target_description": "the Comment button to submit the comment", "reasoning": "Click the Comment button to post"},
       {"action": "done", "reasoning": "Comment posted successfully"}
+    ]
+  },
+  "reddit_browse_subreddit": {
+    "description": "Open a specific subreddit on Reddit",
+    "prerequisite": "A browser window is the active window",
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "l"], "reasoning": "Focus address bar"},
+      {"action": "type", "text": "reddit.com/r/{subreddit}", "reasoning": "Subreddit URLs follow this pattern — typing it directly is faster than clicking through Reddit's UI"},
+      {"action": "hotkey", "keys": ["Return"], "reasoning": "Navigate"},
+      {"action": "done", "reasoning": "Subreddit feed should load — verify by looking at the post list"}
+    ]
+  },
+  "check_gmail": {
+    "description": "Open Gmail to check email",
+    "prerequisite": "A browser window is the active window. If the current session isn't signed into Google, a sign-in screen will appear instead of the inbox — that's a separate task.",
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "l"], "reasoning": "Focus address bar"},
+      {"action": "type", "text": "mail.google.com", "reasoning": "Gmail's URL"},
+      {"action": "hotkey", "keys": ["Return"], "reasoning": "Navigate"},
+      {"action": "done", "reasoning": "Inbox should be visible with a list of messages. If you see a sign-in screen instead, sign-in is a separate flow."}
+    ]
+  },
+  "close_popup": {
+    "description": "Close a popup or modal dialog",
+    "steps": [
+      {"action": "hotkey", "keys": ["Escape"], "reasoning": "Press Escape to close the popup/modal — works for most browser dialogs and web modals"},
+      {"action": "done", "reasoning": "Popup closed"}
+    ]
+  },
+  "single_click_done_pattern": {
+    "description": "When the task is 'click the X' (singular), one successful click completes the task — call done on the next step. Do not re-click for confirmation.",
+    "prerequisite": "Task wording asks for a single action: 'click the star', 'click once', 'click the icon'. No multi-step sequence implied.",
+    "steps": [
+      {"action": "click", "target_description": "the target named in the task", "reasoning": "Locate the target by visible description and click once. The servo handles the actual click — your job is to name what you see, not to retry."},
+      {"action": "done", "reasoning": "Previous step shows [OK] in the action history — the click happened, the servo confirmed it. Task was 'click X' — one click, one task, complete. The target may no longer be visible (an app launched and is now rendering, a menu opened and the original element is now behind it, the element changed state) — that is normal and is itself proof of success. Do NOT re-click: re-clicking a successful action duplicates side effects (Firefox opens twice, text submits twice, a form posts twice). The task description persisting in the prompt is the task HEADER, not a request to redo the action. The action history is the source of truth — if it says [OK] for the click you just made, that click happened. success_proof should describe the visible aftermath: 'Firefox window now visible', 'menu appeared and target no longer in original location', etc."}
+    ]
+  },
+  "prior_ok_means_advance_not_repeat": {
+    "description": "How to read [OK] in your own action history. A successful prior step is grounds to move forward (or call done), never grounds to repeat it.",
+    "prerequisite": "Action history shows the previous step ended in [OK].",
+    "steps": [
+      {"action": "done", "reasoning": "Previous action returned [OK]. That is the servo (or input layer) confirming the requested action physically happened: cursor clicked at the right coordinates, keys were typed, hotkey fired. If the task was a single-shot instruction and [OK] is in history, the task is complete — call done. Do not interpret 'I can still see the task description in my prompt' as 'I should retry to confirm.' The task description is always there; the action history is what changes. If after [OK] you cannot point to a specific visible CHANGE that still needs to happen on screen to satisfy the task, you are done. Repeating a successful click/type/hotkey produces duplicate side effects and breaks the task contract."}
     ]
   }
 }

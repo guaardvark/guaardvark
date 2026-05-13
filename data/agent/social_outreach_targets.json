@@ -13,16 +13,6 @@
       "selfhosted"
     ]
   },
-  "youtube": {
-    "_note": "Recon-only for now — Phase 3 servo posting on YouTube isn't wired yet, so candidates here will sit in `drafted` until reviewed manually. Each entry is a free-form search profile; recon prepends 'site:youtube.com'. Profiles tuned for video-first ranking — bare phrases like 'ComfyUI tutorial' surfaced playlists/channels in DDG; adding 'walkthrough' / verbs / a year hint pulls actual /watch?v= URLs.",
-    "keyword_profiles": [
-      "Ollama tutorial 2026",
-      "run LLM locally",
-      "ComfyUI workflow walkthrough",
-      "self-hosted AI guide 2026",
-      "local stable diffusion install"
-    ]
-  },
   "discord": {
     "channels": []
   },

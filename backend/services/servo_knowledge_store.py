@@ -74,15 +74,15 @@ MODEL_VISION_CONFIGS = {
     "gemma4:e4b": {
         "has_vision": True,
         "vision_model": None,            # gemma4 does its own coordinate estimation — no middleman
-        "internal_width": 0,             # Gemma4 via Ollama returns raw pixel coords (no normalization)
-        "scale_x": 1.0,                  # Identity scale for raw pixel mode
-        "scale_y": 1.0,                  # Identity scale for raw pixel mode
+        "internal_width": 1000,          # Gemma4 via Ollama returns box_2d normalized to 1000 (Google standard) — parser denormalizes to actual screen pixels
+        "scale_x": 1.0,
+        "scale_y": 1.0,
         "offset_x": 0,
         "offset_y": 0,
         "native_pointing": True,         # uses box_2d natively
         "coord_order": "yx",             # Gemma4 via Ollama returns Google's box_2d format: [y1, x1, y2, x2]
-        "source": "raw_pixel_mode_2026_04_10",
-        "notes": "1000x1000 square screen — matches Gemma4's published box_2d grid (Google normalises to 1000). Identity scale.",
+        "source": "google_box_2d_normalized_1000_2026_05_11",
+        "notes": "Gemma4 via Ollama returns box_2d normalized to 1000 (Google standard). Parser denormalizes: (coord/1000)*screen_size. Works on any screen resolution.",
     },
     "qwen3-vl:4b-instruct": {
         "has_vision": True,

@@ -20,6 +20,7 @@ import { a11yDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { useAppStore } from "../../stores/useAppStore";
 import { BASE_URL } from "../../api/apiClient";
 import ToolCallCard from "./ToolCallCard";
+import ThinkingStepCard from "./ThinkingStepCard";
 import ImageLightbox from "../images/ImageLightbox";
 
 const UPLOAD_BASE_URL = BASE_URL + "/uploads";
@@ -368,35 +369,17 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
         )}
 
         {/* Agent loop's per-iteration reasoning, streamed live from
-            agent_control_service. Visible as the agent works through the
-            see-think-act loop so the user knows what it's trying. */}
+            agent_control_service. Each step is a collapsible card so the
+            user can scan headlines and expand the ones they care about. */}
         {agentThinkingSteps.length > 0 && (
           <Box sx={{ mb: 1, mt: 0.5 }}>
             {agentThinkingSteps.map((step, idx) => (
-              <Box
+              <ThinkingStepCard
                 key={`agent-step-${idx}`}
-                sx={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 1,
-                  mb: 0.5,
-                  pl: 1,
-                  borderLeft: 2,
-                  borderColor: "warning.main",
-                  opacity: 0.9,
-                }}
-              >
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ fontStyle: "italic", whiteSpace: "pre-wrap", fontSize: "0.7rem" }}
-                >
-                  <Box component="span" sx={{ color: "warning.main", fontWeight: 600, mr: 0.5 }}>
-                    Step {step.iteration}{step.label ? ` — ${step.label}` : ""}:
-                  </Box>
-                  {step.reasoning}
-                </Typography>
-              </Box>
+                iteration={step.iteration}
+                label={step.label}
+                reasoning={step.reasoning}
+              />
             ))}
           </Box>
         )}

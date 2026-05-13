@@ -6,27 +6,41 @@ import {
   Button,
   TextField,
   IconButton,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
-  ListItemSecondaryAction,
   Chip,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   CircularProgress,
-  Divider,
   Alert,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Tooltip,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import AddIcon from "@mui/icons-material/Add";
 import SearchIcon from "@mui/icons-material/Search";
 import MemoryIcon from "@mui/icons-material/Memory";
-import EditIcon from "@mui/icons-material/Edit";
 import SettingsSection from "./SettingsSection";
 import LessonSummaryModal from "../modals/LessonSummaryModal";
+
+// Compact spreadsheet-style timestamp: "MM/DD HH:MM:SS". Full ISO available
+// on hover via title attribute for forensic detail.
+const formatTimestamp = (iso) => {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  const ss = String(d.getSeconds()).padStart(2, "0");
+  return `${mm}/${dd} ${hh}:${mi}:${ss}`;
+};
 
 // Use the same VITE_API_BASE_URL pattern as other components (DirectoryPicker,
 // ImageBatchWindow, TaskQueueIndicator, etc). Default to relative "/api" so the
@@ -253,7 +267,7 @@ const MemoryManagementSection = () => {
         <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
       )}
 
-      <Paper variant="outlined" sx={{ maxHeight: 400, overflow: "auto" }}>
+      <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 480 }}>
         {loading ? (
           <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
             <CircularProgress />
@@ -263,85 +277,87 @@ const MemoryManagementSection = () => {
             <Typography>No memories found.</Typography>
           </Box>
         ) : (
-          <List disablePadding>
-            {memories.map((memory, index) => {
-              const lesson = parseLesson(memory);
-              return (
-                <React.Fragment key={memory.id}>
-                  {index > 0 && <Divider />}
-                  {lesson ? (
-                    // Lesson card: whole row is a click target that opens the
-                    // LessonSummaryModal. Mirrors the modal's header style so
-                    // the identity of each lesson feels continuous between list
-                    // and detail view.
-                    <ListItem disablePadding secondaryAction={
-                      <IconButton edge="end" aria-label="delete" onClick={(e) => { e.stopPropagation(); handleDelete(memory.id); }} color="error">
-                        <CloseIcon />
+          // Spreadsheet-style memory table. Clicking any row opens the existing
+          // edit modal (lesson_summary memories go to LessonSummaryModal,
+          // everything else to the plain-text dialog) — that's the only way to
+          // edit now that the pencil icon is gone. Delete (X) is the only inline action.
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem", width: 130 }}>When</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem" }}>Content</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem", width: 100 }}>Type</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem", width: 110 }}>Source</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem" }}>Tags</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem", width: 48 }} align="right"></TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {memories.map((memory) => {
+                const lesson = parseLesson(memory);
+                const contentDisplay = lesson
+                  ? `${lesson.title} (${lesson.stepCount} step${lesson.stepCount === 1 ? "" : "s"}${lesson.paramCount > 0 ? `, ${lesson.paramCount} param${lesson.paramCount === 1 ? "" : "s"}` : ""})`
+                  : memory.content;
+                const typeLabel = lesson ? "lesson" : (memory.type || "—");
+                return (
+                  <TableRow
+                    key={memory.id}
+                    hover
+                    onClick={() => openEditForMemory(memory)}
+                    sx={{ cursor: "pointer", "& td": { py: 0.5, fontSize: "0.75rem" } }}
+                  >
+                    <TableCell sx={{ fontFamily: "monospace", whiteSpace: "nowrap" }}>
+                      <Tooltip title={new Date(memory.created_at).toLocaleString()} placement="top" arrow>
+                        <span>{formatTimestamp(memory.created_at)}</span>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        maxWidth: 360,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        fontWeight: lesson ? 600 : 400,
+                      }}
+                    >
+                      <Tooltip title={memory.content} placement="top-start" arrow>
+                        <span>{contentDisplay}</span>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell>
+                      <Chip size="small" label={typeLabel} sx={{ height: 18, fontSize: "0.65rem" }} />
+                    </TableCell>
+                    <TableCell sx={{ color: "text.secondary" }}>{memory.source || "—"}</TableCell>
+                    <TableCell sx={{ maxWidth: 220, overflow: "hidden" }}>
+                      <Box sx={{ display: "flex", gap: 0.5, flexWrap: "nowrap", overflow: "hidden" }}>
+                        {(memory.tags || []).map((tag, i) => (
+                          <Chip
+                            key={i}
+                            size="small"
+                            label={tag}
+                            variant="outlined"
+                            sx={{ height: 18, fontSize: "0.6rem" }}
+                          />
+                        ))}
+                      </Box>
+                    </TableCell>
+                    <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                      <IconButton
+                        size="small"
+                        aria-label="delete"
+                        onClick={() => handleDelete(memory.id)}
+                        color="error"
+                      >
+                        <CloseIcon fontSize="small" />
                       </IconButton>
-                    }>
-                      <ListItemButton onClick={() => openEditForMemory(memory)} sx={{ py: 1.5 }}>
-                        <ListItemText
-                          disableTypography
-                          primary={
-                            <Typography
-                              sx={{
-                                fontWeight: 700,
-                                letterSpacing: "0.04em",
-                                textTransform: "uppercase",
-                                fontSize: "0.95rem",
-                              }}
-                            >
-                              {lesson.title}
-                            </Typography>
-                          }
-                          secondary={
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5, flexWrap: "wrap" }}>
-                              <Typography variant="caption" color="text.secondary">
-                                {lesson.stepCount} step{lesson.stepCount === 1 ? "" : "s"}
-                                {lesson.paramCount > 0 && ` • ${lesson.paramCount} parameter${lesson.paramCount === 1 ? "" : "s"}`}
-                                {" • "}{new Date(memory.created_at).toLocaleDateString()}
-                              </Typography>
-                              <Chip size="small" label="lesson" sx={{ height: 20, fontSize: "0.7rem" }} />
-                              {memory.tags && memory.tags.map((tag, i) => (
-                                <Chip key={i} size="small" label={tag} variant="outlined" sx={{ height: 20, fontSize: "0.7rem" }} />
-                              ))}
-                            </Box>
-                          }
-                        />
-                      </ListItemButton>
-                    </ListItem>
-                  ) : (
-                    <ListItem>
-                      <ListItemText
-                        primary={memory.content}
-                        secondary={
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5, flexWrap: "wrap" }}>
-                            <Typography variant="caption" color="text.secondary">
-                              {new Date(memory.created_at).toLocaleDateString()} • Source: {memory.source}
-                            </Typography>
-                            <Chip size="small" label={memory.type} sx={{ height: 20, fontSize: "0.7rem" }} />
-                            {memory.tags && memory.tags.map((tag, i) => (
-                              <Chip key={i} size="small" label={tag} variant="outlined" sx={{ height: 20, fontSize: "0.7rem" }} />
-                            ))}
-                          </Box>
-                        }
-                      />
-                      <ListItemSecondaryAction>
-                        <IconButton edge="end" aria-label="edit" onClick={() => openEditForMemory(memory)} sx={{ mr: 0.5 }}>
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton edge="end" aria-label="delete" onClick={() => handleDelete(memory.id)} color="error">
-                          <CloseIcon />
-                        </IconButton>
-                      </ListItemSecondaryAction>
-                    </ListItem>
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </List>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         )}
-      </Paper>
+      </TableContainer>
 
       {memories.length > 0 && (
         <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end" }}>
@@ -420,6 +436,20 @@ const MemoryManagementSection = () => {
           />
         </DialogContent>
         <DialogActions>
+          <Button
+            size="small"
+            color="error"
+            disabled={savingEdit}
+            sx={{ mr: "auto" }}
+            onClick={async () => {
+              const id = editTarget?.id;
+              if (!id) return;
+              setEditTarget(null);
+              await handleDelete(id);
+            }}
+          >
+            Delete
+          </Button>
           <Button onClick={() => setEditTarget(null)} disabled={savingEdit}>Cancel</Button>
           <Button
             onClick={handleSavePlainEdit}
@@ -434,6 +464,12 @@ const MemoryManagementSection = () => {
       {/* Structured step editor for lesson_summary memories */}
       <LessonSummaryModal
         open={!!lessonEdit}
+        onDelete={async () => {
+          const id = lessonEdit?.memoryId;
+          if (!id) return;
+          setLessonEdit(null);
+          await handleDelete(id);
+        }}
         onClose={() => setLessonEdit(null)}
         memoryId={lessonEdit?.memoryId}
         initialTitle={lessonEdit?.title}

@@ -4749,7 +4749,7 @@ def get_chat_history(session_id: str):
             if msg.extra_data and isinstance(msg.extra_data, dict):
                 for key in ('imageUrl', 'imageFileName', 'messageType',
                             'relatedImageUrl', 'imageAnalysis', 'analysisDetails',
-                            'generatedImages'):
+                            'generatedImages', 'agentThinkingSteps'):
                     if key in msg.extra_data:
                         msg_data[key] = msg.extra_data[key]
                 # Restore tool call steps for unified chat rendering

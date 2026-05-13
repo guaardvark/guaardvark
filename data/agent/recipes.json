@@ -1,1347 +1,543 @@
 {
   "_meta": {
-    "description": "Deterministic action recipes for the Guaardvark agent. These skip the see-think-act loop entirely.",
-    "format": "Each recipe has trigger patterns (regex) and a sequence of steps. Steps may be hotkey/type/click for actions, or wait_until_settled/wait_until_visible for vision-gated waiting. Recipes can also declare a top-level success_proof \u2014 a vision-readable description that must be visible before the recipe is reported successful. Legacy `wait` steps still work but log a deprecation warning.",
-    "timing": "wait values are in seconds"
+    "description": "Deterministic action recipes for the Guaardvark agent. Each recipe matches a user task via case-insensitive regex and executes a fixed sequence of steps, skipping the see-think-act LLM loop entirely.",
+    "format": "Each recipe has `triggers` (regex patterns) and `steps`. Steps may be: hotkey, type, click for actions; wait_until_settled or wait_until_visible for vision-gated waits. A recipe with `success_proof` validates completion via a vision check before reporting success; without it, the recipe is terminal (fire-and-trust — servo/keyboard success IS task completion, no fallback to the LLM loop).",
+    "design": "Prefer terminal recipes (no success_proof) for atomic actions. Use vision-gated verification only when post-action state confirmation is genuinely required and the model can be relied on to recognize the proof.",
+    "timing": "wait values are in seconds. Placeholder {1}, {2}, ... in step text/target fields substitutes regex capture groups.",
+    "ordering": "Recipes are evaluated in dict order. More specific recipes (e.g. click_star_icon) must come before generic catch-alls (e.g. navigate_url_generic) so the specific match wins."
   },
-  "open_firefox": {
-    "description": "Open Firefox by clicking its desktop icon (the column down the left edge of the XFCE desktop)",
+
+  "click_firefox_icon": {
+    "description": "Click the desktop Firefox launcher. One click, done. Fire-and-trust: the servo's click success is the task completion signal.",
+    "_note": "Triggers cover both 'firefox' phrasings (current icon) AND 'star' phrasings (legacy, from when the icon was temporarily a star for testing). Vision target is now 'Firefox icon' to match what's actually on screen.",
     "triggers": [
-      "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s*$",
-      "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s+(?:browser)?\\s*$"
-    ],
-    "preconditions": [
-      "firefox_not_running"
+      "^(?:please\\s+)?click\\s+(?:on\\s+)?(?:the\\s+)?(?:orange\\s+|red\\s+|big\\s+|little\\s+)?firefox(?:\\s+icon)?(?:\\s+on\\s+(?:the|your)\\s+(?:screen|desktop))?(?:\\s+once)?(?:\\s+please)?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?(?:open|launch|start)\\s+(?:the\\s+)?firefox(?:\\s+browser)?(?:\\s+icon)?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?click\\s+(?:on\\s+)?(?:the\\s+)?(?:firefox|browser)\\s+launcher\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?click\\s+(?:on\\s+)?(?:the\\s+)?(?:yellow\\s+|orange\\s+|gold\\s+|big\\s+|little\\s+)?star(?:\\s+icon)?(?:\\s+on\\s+(?:the|your)\\s+(?:screen|desktop))?(?:\\s+once)?(?:\\s+please)?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?tap\\s+(?:on\\s+)?(?:the\\s+)?(?:yellow\\s+|orange\\s+|gold\\s+)?star(?:\\s+icon)?(?:\\s+on\\s+(?:the|your)\\s+(?:screen|desktop))?(?:\\s+please)?\\s*[.!?]?\\s*$"
     ],
     "steps": [
-      {
-        "action": "click",
-        "target_description": "Firefox icon (flame) on the desktop",
-        "_comment": "Vision-driven \u2014 servo finds the flame icon among the desktop icons"
-      },
-      {
-        "action": "wait_until_visible",
-        "target_description": "Firefox browser window with URL bar",
-        "timeout_s": 8.0
-      }
+      {"action": "click", "target_description": "the Firefox icon on the desktop"}
     ]
   },
-  "open_firefox_and_navigate": {
-    "description": "Open Firefox from the desktop and navigate to a URL",
-    "triggers": [
-      "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s+(?:and\\s+)?(?:go|navigate)\\s+(?:to\\s+)?(?:https?://)?([\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)(?:\\s+please)?\\s*$",
-      "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s+(?:to|at|on)\\s+(?:https?://)?([\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)(?:\\s+please)?\\s*$"
-    ],
-    "preconditions": [
-      "firefox_not_running"
-    ],
-    "steps": [
-      {
-        "action": "click",
-        "target_description": "Firefox icon (flame) on the desktop",
-        "_comment": "Vision-driven \u2014 servo finds the flame icon among the desktop icons"
-      },
-      {
-        "action": "wait_until_visible",
-        "target_description": "Firefox browser window with URL bar",
-        "timeout_s": 8.0
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "l"
-        ]
-      },
-      {
-        "action": "wait_until_settled",
-        "timeout_s": 1.0,
-        "stable_for_ms": 200
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "a"
-        ]
-      },
-      {
-        "action": "type",
-        "text": "{1}"
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "Return"
-        ]
-      },
-      {
-        "action": "wait_until_settled",
-        "timeout_s": 5.0,
-        "stable_for_ms": 300
-      }
-    ]
-  },
-  "navigate_url": {
-    "description": "Navigate to a domain-shaped URL in the current tab. Hostname must contain a dot OR port \u2014 bare words like 'open settings' or 'go to youtube' route to their dedicated recipes instead.",
-    "triggers": [
-      "^(?:navigate|go)\\s+to\\s+(?:https?://)?(\\w[\\w.-]*\\.[\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*$",
-      "^(?:navigate|go)\\s+to\\s+(?:https?://)?([\\w.-]+:[0-9]+(?:/\\S*?)?)\\s*$",
-      "^open\\s+(?:https?://)?(\\w[\\w.-]*\\.[\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*$",
-      "^open\\s+(?:https?://)?([\\w.-]+:[0-9]+(?:/\\S*?)?)\\s*$",
-      "^visit\\s+(?:https?://)?(\\w[\\w.-]*\\.[\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*$",
-      "^visit\\s+(?:https?://)?([\\w.-]+:[0-9]+(?:/\\S*?)?)\\s*$"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "Escape"
-        ]
-      },
-      {
-        "action": "wait_until_settled",
-        "timeout_s": 1.0,
-        "stable_for_ms": 150
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "l"
-        ]
-      },
-      {
-        "action": "wait_until_visible",
-        "target_description": "URL address bar with text selected or empty and ready for typing",
-        "timeout_s": 4.0
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "a"
-        ]
-      },
-      {
-        "action": "wait_until_settled",
-        "timeout_s": 1.0,
-        "stable_for_ms": 150
-      },
-      {
-        "action": "type",
-        "text": "http://{1}"
-      },
-      {
-        "action": "wait_until_settled",
-        "timeout_s": 1.0,
-        "stable_for_ms": 150
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "Delete"
-        ]
-      },
-      {
-        "action": "wait_until_settled",
-        "timeout_s": 0.8,
-        "stable_for_ms": 150
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "Return"
-        ]
-      }
-    ],
-    "success_proof": "browser address bar showing a loaded page (not a blank tab or error)",
-    "success_proof_timeout_s": 12.0
-  },
-  "new_tab": {
-    "description": "Open a new blank tab",
-    "triggers": [
-      "^open\\s+(?:a\\s+)?new\\s+tab\\s*$",
-      "^new\\s+tab\\s*$"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "t"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.5
-      }
-    ]
-  },
-  "new_tab_to_url": {
-    "description": "Open a new tab and navigate to a URL",
-    "triggers": [
-      "^open\\s+(?:a\\s+)?new\\s+tab\\s+(?:to|with|at|for)\\s+(?:https?://)?([\\w.-]+\\.[\\w]+\\S*?)\\s*$"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "t"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.8
-      },
-      {
-        "action": "type",
-        "text": "http://{1}"
-      },
-      {
-        "action": "wait",
-        "seconds": 0.3
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "Delete"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.2
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "Return"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 3
-      }
-    ]
-  },
-  "close_firefox": {
-    "description": "Close the Firefox browser entirely",
-    "triggers": [
-      "^(?:close|quit|exit|kill|shut\\s*down|stop)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser|browsers)(?:\\s+on\\s+your\\s+screen)?(?:\\s+please)?\\s*$",
-      "^(?:close|quit|exit|kill)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser|browsers)\\s+(?:browser|window|on\\s+screen)?(?:\\s+please)?\\s*$"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "q"
-        ],
-        "_comment": "Ctrl+Q quits Firefox entirely"
-      },
-      {
-        "action": "wait",
-        "seconds": 1
-      }
-    ]
-  },
-  "close_all_tabs": {
-    "description": "Close all tabs except the current one",
-    "triggers": [
-      "close\\s+all\\s+(?:the\\s+)?(?:other\\s+)?tabs",
-      "close\\s+(?:the\\s+)?other\\s+tabs"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "shift",
-          "w"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 2
-      }
-    ]
-  },
-  "close_tab": {
-    "description": "Close the current browser tab",
-    "triggers": [
-      "close\\s+(?:the\\s+|this\\s+|that\\s+)?(?:current\\s+)?tab",
-      "^close\\s+(?:this|it)\\s*$"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "w"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.5
-      }
-    ]
-  },
-  "switch_tab": {
-    "description": "Switch to a specific tab by number",
-    "triggers": [
-      "switch\\s+to\\s+tab\\s+(\\d)"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "{1}"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.3
-      }
-    ]
-  },
-  "next_tab": {
-    "description": "Switch to the next tab",
-    "triggers": [
-      "(?:next|right)\\s+tab"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "Tab"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.3
-      }
-    ]
-  },
-  "prev_tab": {
-    "description": "Switch to the previous tab",
-    "triggers": [
-      "(?:prev|previous|left)\\s+tab"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "shift",
-          "Tab"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.3
-      }
-    ]
-  },
-  "reopen_tab": {
-    "description": "Reopen the last closed tab",
-    "triggers": [
-      "reopen\\s+(?:the\\s+)?(?:last\\s+)?(?:closed\\s+)?tab",
-      "undo\\s+close\\s+tab"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "shift",
-          "t"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 1
-      }
-    ]
-  },
-  "go_back": {
-    "description": "Go back one page in browser history",
-    "triggers": [
-      "^go\\s+back\\s*$",
-      "^back\\s*$",
-      "^previous\\s+page\\s*$"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "alt",
-          "Left"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 1
-      }
-    ]
-  },
-  "go_forward": {
-    "description": "Go forward one page in browser history",
-    "triggers": [
-      "^go\\s+forward\\s*$",
-      "^forward\\s*$"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "alt",
-          "Right"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 1
-      }
-    ]
-  },
-  "refresh_page": {
-    "description": "Refresh the current page",
-    "triggers": [
-      "refresh\\s+(?:the\\s+)?page",
-      "^reload\\s*$",
-      "^refresh\\s*$"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "F5"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 2
-      }
-    ]
-  },
-  "scroll_down": {
-    "description": "Scroll down the page",
-    "triggers": [
-      "scroll\\s+down",
-      "page\\s+down"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "Page_Down"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.5
-      }
-    ]
-  },
-  "scroll_up": {
-    "description": "Scroll up the page",
-    "triggers": [
-      "scroll\\s+up",
-      "page\\s+up"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "Page_Up"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.5
-      }
-    ]
-  },
-  "scroll_to_top": {
-    "description": "Scroll to the top of the page",
-    "triggers": [
-      "scroll\\s+to\\s+(?:the\\s+)?top",
-      "^top\\s+of\\s+page$"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "Home"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.5
-      }
-    ]
-  },
-  "scroll_to_bottom": {
-    "description": "Scroll to the bottom of the page",
-    "triggers": [
-      "scroll\\s+to\\s+(?:the\\s+)?bottom",
-      "^bottom\\s+of\\s+page$"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "End"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.5
-      }
-    ]
-  },
-  "find_on_page": {
-    "description": "Open find bar and search for text on the page",
-    "triggers": [
-      "find\\s+[\"']?(.+?)[\"']?\\s+on\\s+(?:the\\s+)?page",
-      "search\\s+(?:for\\s+)?[\"']?(.+?)[\"']?\\s+on\\s+(?:the\\s+)?page"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "f"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.5
-      },
-      {
-        "action": "type",
-        "text": "{1}"
-      },
-      {
-        "action": "wait",
-        "seconds": 0.3
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "Return"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.5
-      }
-    ]
-  },
-  "close_find_bar": {
-    "description": "Close the find bar",
-    "triggers": [
-      "close\\s+(?:the\\s+)?find",
-      "close\\s+(?:the\\s+)?search\\s+bar"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "Escape"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.3
-      }
-    ]
-  },
-  "fullscreen": {
-    "description": "Toggle fullscreen mode",
-    "triggers": [
-      "toggle\\s+full\\s*screen",
-      "^full\\s*screen\\s*$",
-      "enter\\s+full\\s*screen",
-      "exit\\s+full\\s*screen"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "F11"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.5
-      }
-    ]
-  },
-  "zoom_in": {
-    "description": "Zoom in on the page",
-    "triggers": [
-      "zoom\\s+in"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "plus"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.3
-      }
-    ]
-  },
-  "zoom_out": {
-    "description": "Zoom out on the page",
-    "triggers": [
-      "zoom\\s+out"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "minus"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.3
-      }
-    ]
-  },
-  "zoom_reset": {
-    "description": "Reset zoom to 100%",
-    "triggers": [
-      "reset\\s+zoom",
-      "zoom\\s+reset",
-      "zoom\\s+100"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "0"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.3
-      }
-    ]
-  },
-  "select_all": {
-    "description": "Select all text on the page or in a field",
-    "triggers": [
-      "select\\s+all"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "a"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.2
-      }
-    ]
-  },
-  "copy": {
-    "description": "Copy selected text",
-    "triggers": [
-      "^copy\\s*$",
-      "copy\\s+(?:the\\s+)?(?:selected\\s+)?text"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "c"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.2
-      }
-    ]
-  },
-  "paste": {
-    "description": "Paste clipboard contents",
-    "triggers": [
-      "^paste\\s*$",
-      "paste\\s+(?:the\\s+)?text"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "v"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.2
-      }
-    ]
-  },
-  "undo": {
-    "description": "Undo last action",
-    "triggers": [
-      "^undo\\s*$"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "z"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.2
-      }
-    ]
-  },
-  "dismiss_popup": {
-    "description": "Dismiss a popup, dialog, or notification",
-    "triggers": [
-      "dismiss\\s+(?:the\\s+)?popup",
-      "close\\s+(?:the\\s+)?popup",
-      "close\\s+(?:the\\s+)?dialog",
-      "dismiss\\s+(?:the\\s+)?notification"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "Escape"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.5
-      }
-    ]
-  },
-  "google_search": {
-    "description": "Navigate to Google and search for something",
-    "triggers": [
-      "(?:google|search\\s+(?:for|google))\\s+[\"']?(.+?)[\"']?\\s*$"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "Escape"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.3
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "l"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.5
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "a"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.2
-      },
-      {
-        "action": "type",
-        "text": "https://www.google.com/search?q={1}"
-      },
-      {
-        "action": "wait",
-        "seconds": 0.3
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "Return"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 3
-      }
-    ]
-  },
-  "youtube_search": {
-    "description": "Open Firefox and direct navigate to YouTube search results",
-    "triggers": [
-      "(?:youtube|search\\s+youtube)\\s+(?:for\\s+)?[\"']?(.+?)[\"']?(?:\\s+please)?\\s*$",
-      "^(?:search|find|look\\s+up|look\\s+for|show\\s+me)\\s+(?:the\\s+)?(?:latest\\s+|newest\\s+|recent\\s+|top\\s+)?(.+?)\\s+(?:on|in|via|using)\\s+youtube(?:\\s+please)?\\s*$",
-      "^(?:youtube\\s+)?(?:videos?|clips?)\\s+(?:about|on|of|for|regarding)\\s+(.+?)(?:\\s+please)?\\s*$",
-      "^(?:open|go\\s+to|navigate\\s+to)\\s+youtube\\s+and\\s+search\\s+(?:for\\s+)?(.+?)(?:\\s+please)?\\s*$"
-    ],
-    "steps": [
-      {
-        "action": "click",
-        "target_description": "Firefox icon (flame) on the desktop",
-        "_comment": "If already open, AgentControlService will focus it instead"
-      },
-      {
-        "action": "wait_until_visible",
-        "target_description": "Firefox browser window with URL bar",
-        "timeout_s": 8.0
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "l"
-        ]
-      },
-      {
-        "action": "wait_until_settled",
-        "timeout_s": 1.0,
-        "stable_for_ms": 200
-      },
-      {
-        "action": "type",
-        "text": "https://www.youtube.com/results?search_query={1}"
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "Return"
-        ]
-      },
-      {
-        "action": "wait_until_visible",
-        "target_description": "YouTube search results with video thumbnails",
-        "timeout_s": 10.0
-      }
-    ],
-    "success_proof": "YouTube search results page with video thumbnails visible",
-    "success_proof_timeout_s": 15.0
-  },
-  "open_guaardvark": {
-    "description": "Open the Guaardvark frontend application",
-    "triggers": [
-      "^(?:open|go\\s+to|navigate\\s+to|launch)\\s+(?:the\\s+)?(?:guaardvark|app|application|dashboard|frontend)\\s*$",
-      "^(?:open|go\\s+to)\\s+(?:the\\s+)?(?:guaardvark\\s+)?(?:dashboard|app|ui)\\s*$"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "Escape"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.3
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "l"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.5
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "a"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.2
-      },
-      {
-        "action": "type",
-        "text": "http://localhost:5175"
-      },
-      {
-        "action": "wait",
-        "seconds": 0.3
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "Return"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 3
-      }
-    ]
-  },
-  "open_guaardvark_page": {
-    "description": "Open a specific Guaardvark page (chat, settings, images, etc.)",
-    "triggers": [
-      "^(?:open|go\\s+to|navigate\\s+to)\\s+(?:the\\s+)?(?:guaardvark\\s+)?(chat|settings|images|video|documents|notes|clients|projects|websites|rules|tools|agents|plugins|tasks|outreach)(?:\\s+page)?\\s*$"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "Escape"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.3
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "l"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.5
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "a"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.2
-      },
-      {
-        "action": "type",
-        "text": "http://localhost:5175/{1}"
-      },
-      {
-        "action": "wait",
-        "seconds": 0.3
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "Return"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 3
-      }
-    ]
-  },
-  "open_youtube": {
-    "description": "Open YouTube \u2014 opens Firefox first if no browser is running",
-    "triggers": [
-      "^(?:open|go\\s+to|launch|navigate\\s+to|visit)\\s+(?:the\\s+)?youtube(?:\\.com)?\\s*$",
-      "^youtube\\s*$"
-    ],
-    "preconditions": [
-      "firefox_not_running"
-    ],
-    "steps": [
-      {
-        "action": "click",
-        "target_description": "Firefox icon (flame) on the desktop",
-        "_comment": "Vision-driven \u2014 only fires when Firefox isn't already running"
-      },
-      {
-        "action": "wait_until_visible",
-        "target_description": "Firefox browser window with URL bar visible",
-        "timeout_s": 12.0
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "Escape"
-        ]
-      },
-      {
-        "action": "wait_until_settled",
-        "timeout_s": 2.0,
-        "stable_for_ms": 200
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "l"
-        ]
-      },
-      {
-        "action": "wait_until_visible",
-        "target_description": "URL address bar with text selected or empty and ready for typing",
-        "timeout_s": 4.0
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "a"
-        ]
-      },
-      {
-        "action": "wait_until_settled",
-        "timeout_s": 1.0,
-        "stable_for_ms": 150
-      },
-      {
-        "action": "type",
-        "text": "https://www.youtube.com/"
-      },
-      {
-        "action": "wait_until_settled",
-        "timeout_s": 1.5,
-        "stable_for_ms": 200
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "Return"
-        ]
-      }
-    ],
-    "success_proof": "YouTube home page with the YouTube logo and video thumbnails visible",
-    "success_proof_timeout_s": 15.0
-  },
-  "open_reddit": {
-    "description": "Open Reddit homepage \u2014 fires only when Firefox is not yet running; otherwise the loop handles it via Ctrl+L",
-    "triggers": [
-      "^(?:open|go\\s+to|launch|navigate\\s+to|visit)\\s+(?:the\\s+)?reddit(?:\\.com)?\\s*$",
-      "^reddit\\s*$"
-    ],
-    "preconditions": [
-      "firefox_not_running"
-    ],
-    "steps": [
-      {
-        "action": "click",
-        "target_description": "Firefox icon (flame) on the desktop",
-        "_comment": "Vision-driven \u2014 only fires when Firefox isn't already running"
-      },
-      {
-        "action": "wait",
-        "seconds": 4
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "Escape"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.3
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "l"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.5
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "a"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.2
-      },
-      {
-        "action": "type",
-        "text": "https://www.reddit.com/"
-      },
-      {
-        "action": "wait",
-        "seconds": 0.3
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "Return"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 3
-      }
-    ]
-  },
-  "open_subreddit": {
-    "description": "Open a specific subreddit by name (e.g. r/LocalLLaMA) \u2014 fires only when Firefox is not yet running",
-    "triggers": [
-      "^(?:open|go\\s+to|visit|navigate\\s+to)\\s+r/(\\w+)\\s*$",
-      "^(?:open|go\\s+to)\\s+(?:the\\s+)?(?:reddit\\s+)?subreddit\\s+r?/?(\\w+)\\s*$"
-    ],
-    "preconditions": [
-      "firefox_not_running"
-    ],
-    "steps": [
-      {
-        "action": "click",
-        "target_description": "Firefox icon (flame) on the desktop",
-        "_comment": "Vision-driven \u2014 only fires when Firefox isn't already running"
-      },
-      {
-        "action": "wait",
-        "seconds": 4
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "Escape"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.3
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "l"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.5
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "a"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.2
-      },
-      {
-        "action": "type",
-        "text": "https://www.reddit.com/r/{1}/"
-      },
-      {
-        "action": "wait",
-        "seconds": 0.3
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "Return"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 3
-      }
-    ]
-  },
-  "type_in_chat": {
-    "description": "Type a message in the Guaardvark chat input and send it",
-    "triggers": [
-      "^(?:type|send|write|say)\\s+(?:in\\s+chat\\s+)?[\"'](.+?)[\"']\\s*$",
-      "^(?:send|type)\\s+(?:the\\s+)?message\\s+[\"'](.+?)[\"']\\s*$"
-    ],
-    "steps": [
-      {
-        "action": "click",
-        "target_description": "chat input field",
-        "_comment": "Vision-driven \u2014 finds the chat input regardless of page size"
-      },
-      {
-        "action": "wait",
-        "seconds": 0.5
-      },
-      {
-        "action": "type",
-        "text": "{1}"
-      },
-      {
-        "action": "wait",
-        "seconds": 0.3
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "Return"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 2
-      }
-    ]
-  },
-  "take_screenshot": {
-    "description": "Take a screenshot (no-op \u2014 the capture endpoint handles this)",
-    "triggers": [
-      "^(?:take|capture|grab)\\s+(?:a\\s+)?screenshot\\s*$",
-      "^screenshot\\s*$",
-      "^what(?:'s|\\s+is)\\s+on\\s+(?:the\\s+)?screen\\s*$"
-    ],
-    "steps": [
-      {
-        "action": "wait",
-        "seconds": 0.1,
-        "_comment": "No-op \u2014 screenshot taken by capture endpoint"
-      }
-    ]
-  },
-  "open_new_tab_and_go_to_guaardvark": {
-    "description": "Open a new tab to the Guaardvark app",
-    "triggers": [
-      "^(?:open\\s+)?(?:a\\s+)?new\\s+tab\\s+(?:to|with|for)\\s+(?:the\\s+)?(?:guaardvark|app|dashboard)\\s*$"
-    ],
-    "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "t"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.8
-      },
-      {
-        "action": "type",
-        "text": "http://localhost:5175"
-      },
-      {
-        "action": "wait",
-        "seconds": 0.3
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "Return"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 3
-      }
-    ]
-  },
-  "click_coordinates": {
-    "description": "Click at specific x,y coordinates on screen",
-    "triggers": [
-      "^click\\s+(?:at\\s+)?(?:\\()?\\s*(\\d+)\\s*[,x]\\s*(\\d+)\\s*(?:\\))?\\s*$",
-      "^click\\s+(\\d+)\\s+(\\d+)\\s*$"
-    ],
-    "steps": [
-      {
-        "action": "click",
-        "x": "{1}",
-        "y": "{2}"
-      },
-      {
-        "action": "wait",
-        "seconds": 0.5
-      }
-    ]
-  },
-  "right_click": {
-    "description": "Right-click at center of screen (opens desktop/context menu)",
-    "triggers": [
-      "^right\\s*click\\s*$",
-      "^right\\s*click\\s+(?:the\\s+)?(?:desktop|screen|background)\\s*$"
-    ],
-    "steps": [
-      {
-        "action": "click",
-        "target_description": "desktop background",
-        "button": "right",
-        "_comment": "Vision-driven \u2014 finds an empty desktop region"
-      },
-      {
-        "action": "wait",
-        "seconds": 0.5
-      }
-    ]
-  },
+
   "press_enter": {
-    "description": "Press Enter key",
+    "description": "Press the Enter / Return key.",
     "triggers": [
-      "^(?:press|hit)\\s+(?:the\\s+)?enter\\s*$",
-      "^enter\\s*$"
+      "^(?:please\\s+)?(?:press|hit|tap|push)\\s+(?:the\\s+)?(?:enter|return)(?:\\s+key)?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?(?:submit|confirm)\\s*[.!?]?\\s*$"
     ],
     "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "Return"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.3
-      }
+      {"action": "hotkey", "keys": ["Return"]}
     ]
   },
+
   "press_escape": {
-    "description": "Press Escape key",
+    "description": "Press the Escape key. Closes most popups, modals, and dropdown menus.",
     "triggers": [
-      "^(?:press|hit)\\s+(?:the\\s+)?escape\\s*$",
-      "^escape\\s*$",
-      "^cancel\\s*$"
+      "^(?:please\\s+)?(?:press|hit|tap|push)\\s+(?:the\\s+)?(?:escape|esc)(?:\\s+key)?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?(?:cancel|dismiss|close)\\s+(?:the\\s+)?(?:popup|dialog|modal|prompt)\\s*[.!?]?\\s*$"
     ],
     "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "Escape"
-        ]
-      },
-      {
-        "action": "wait",
-        "seconds": 0.3
-      }
+      {"action": "hotkey", "keys": ["Escape"]}
+    ]
+  },
+
+  "select_all": {
+    "description": "Select all content in the focused field/page via Ctrl+A.",
+    "triggers": [
+      "^(?:please\\s+)?select\\s+all\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?(?:ctrl|control)\\s*\\+?\\s*a\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "a"]}
+    ]
+  },
+
+  "copy_selection": {
+    "description": "Copy the current selection to the clipboard via Ctrl+C.",
+    "triggers": [
+      "^(?:please\\s+)?copy(?:\\s+(?:that|this|it|the\\s+selection|selected\\s+text))?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?(?:ctrl|control)\\s*\\+?\\s*c\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "c"]}
+    ]
+  },
+
+  "paste_clipboard": {
+    "description": "Paste the clipboard at the cursor via Ctrl+V.",
+    "triggers": [
+      "^(?:please\\s+)?paste(?:\\s+(?:it|that|here|the\\s+clipboard))?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?(?:ctrl|control)\\s*\\+?\\s*v\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "v"]}
+    ]
+  },
+
+  "cut_selection": {
+    "description": "Cut the current selection to the clipboard via Ctrl+X.",
+    "triggers": [
+      "^(?:please\\s+)?cut(?:\\s+(?:that|this|it|the\\s+selection|selected\\s+text))?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?(?:ctrl|control)\\s*\\+?\\s*x\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "x"]}
+    ]
+  },
+
+  "undo": {
+    "description": "Undo last action via Ctrl+Z.",
+    "triggers": [
+      "^(?:please\\s+)?undo(?:\\s+(?:that|this|last|it))?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?(?:ctrl|control)\\s*\\+?\\s*z\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "z"]}
+    ]
+  },
+
+  "redo": {
+    "description": "Redo last undone action via Ctrl+Shift+Z.",
+    "triggers": [
+      "^(?:please\\s+)?redo(?:\\s+(?:that|this|last|it))?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?(?:ctrl|control)\\s*\\+?\\s*shift\\s*\\+?\\s*z\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "shift", "z"]}
+    ]
+  },
+
+  "close_window": {
+    "description": "Close the current window/tab/browser via Ctrl+W.",
+    "triggers": [
+      "^(?:please\\s+)?close\\s+(?:the\\s+|this\\s+|current\\s+)?(?:window|tab|browser)\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?close\\s+(?:the\\s+|this\\s+)?firefox\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?close\\s+this\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "w"]}
+    ]
+  },
+
+  "new_tab": {
+    "description": "Open a new browser tab via Ctrl+T.",
+    "triggers": [
+      "^(?:please\\s+)?(?:open\\s+(?:a\\s+)?)?new\\s+(?:browser\\s+)?tab\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?open\\s+(?:a\\s+)?new\\s+tab\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "t"]}
+    ]
+  },
+
+  "new_window": {
+    "description": "Open a new browser window via Ctrl+N.",
+    "triggers": [
+      "^(?:please\\s+)?(?:open\\s+)?(?:a\\s+)?new\\s+(?:browser\\s+)?window\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "n"]}
+    ]
+  },
+
+  "next_tab": {
+    "description": "Switch to the next browser tab via Ctrl+Tab.",
+    "triggers": [
+      "^(?:please\\s+)?(?:go\\s+to\\s+|switch\\s+to\\s+)?(?:the\\s+)?next\\s+tab\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "Tab"]}
+    ]
+  },
+
+  "previous_tab": {
+    "description": "Switch to the previous browser tab via Ctrl+Shift+Tab.",
+    "triggers": [
+      "^(?:please\\s+)?(?:go\\s+to\\s+|switch\\s+to\\s+)?(?:the\\s+)?(?:previous|prev|last)\\s+tab\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "shift", "Tab"]}
+    ]
+  },
+
+  "reopen_closed_tab": {
+    "description": "Reopen the most recently closed tab via Ctrl+Shift+T.",
+    "triggers": [
+      "^(?:please\\s+)?(?:reopen|restore)\\s+(?:the\\s+)?(?:last\\s+|closed\\s+|recently\\s+closed\\s+)?tab\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?undo\\s+close\\s+tab\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "shift", "t"]}
+    ]
+  },
+
+  "focus_address_bar": {
+    "description": "Focus the browser address bar via Ctrl+L.",
+    "triggers": [
+      "^(?:please\\s+)?(?:focus|click|select|go\\s+to)\\s+(?:on\\s+)?(?:the\\s+)?(?:address\\s+bar|url\\s+bar|location\\s+bar|address\\s+field|search\\s+bar)\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "l"]}
+    ]
+  },
+
+  "refresh_page": {
+    "description": "Refresh the current page via Ctrl+R.",
+    "triggers": [
+      "^(?:please\\s+)?(?:refresh|reload)(?:\\s+(?:the\\s+)?(?:page|tab|browser|window))?\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "r"]}
+    ]
+  },
+
+  "go_back": {
+    "description": "Navigate back one page via Alt+Left.",
+    "triggers": [
+      "^(?:please\\s+)?(?:go\\s+back|navigate\\s+back|back)(?:\\s+(?:one\\s+page|a\\s+page))?\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["alt", "Left"]}
+    ]
+  },
+
+  "go_forward": {
+    "description": "Navigate forward one page via Alt+Right.",
+    "triggers": [
+      "^(?:please\\s+)?(?:go\\s+forward|navigate\\s+forward|forward)(?:\\s+(?:one\\s+page|a\\s+page))?\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["alt", "Right"]}
+    ]
+  },
+
+  "scroll_down": {
+    "description": "Scroll down via Page Down.",
+    "triggers": [
+      "^(?:please\\s+)?scroll\\s+down(?:\\s+a\\s+(?:bit|little|page))?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?page\\s+down\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["Page_Down"]}
+    ]
+  },
+
+  "scroll_up": {
+    "description": "Scroll up via Page Up.",
+    "triggers": [
+      "^(?:please\\s+)?scroll\\s+up(?:\\s+a\\s+(?:bit|little|page))?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?page\\s+up\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["Page_Up"]}
+    ]
+  },
+
+  "scroll_to_top": {
+    "description": "Scroll to the top of the page via Ctrl+Home.",
+    "triggers": [
+      "^(?:please\\s+)?scroll\\s+(?:to\\s+(?:the\\s+)?top|to\\s+top|up\\s+all\\s+the\\s+way)\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?(?:go\\s+to|jump\\s+to)\\s+(?:the\\s+)?top\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "Home"]}
+    ]
+  },
+
+  "scroll_to_bottom": {
+    "description": "Scroll to the bottom of the page via Ctrl+End.",
+    "triggers": [
+      "^(?:please\\s+)?scroll\\s+(?:to\\s+(?:the\\s+)?bottom|to\\s+bottom|down\\s+all\\s+the\\s+way)\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?(?:go\\s+to|jump\\s+to)\\s+(?:the\\s+)?bottom\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "End"]}
+    ]
+  },
+
+  "find_on_page": {
+    "description": "Open the browser find-on-page search via Ctrl+F.",
+    "triggers": [
+      "^(?:please\\s+)?(?:find|search)\\s+(?:on\\s+)?(?:this\\s+|the\\s+)?page\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?ctrl\\s*\\+?\\s*f\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "f"]}
+    ]
+  },
+
+  "bookmark_page": {
+    "description": "Bookmark the current page via Ctrl+D.",
+    "triggers": [
+      "^(?:please\\s+)?bookmark(?:\\s+(?:this|the))?\\s*(?:page|site|tab)?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?(?:save|add)\\s+(?:this\\s+|the\\s+)?(?:bookmark|to\\s+bookmarks)\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "d"]}
+    ]
+  },
+
+  "view_source": {
+    "description": "View page source via Ctrl+U.",
+    "triggers": [
+      "^(?:please\\s+)?(?:view|show|open)\\s+(?:the\\s+|page\\s+)?source(?:\\s+code)?\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "u"]}
+    ]
+  },
+
+  "dev_tools": {
+    "description": "Open browser developer tools via F12.",
+    "triggers": [
+      "^(?:please\\s+)?(?:open|show)\\s+(?:the\\s+)?dev(?:eloper)?\\s+tools\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?open\\s+inspector\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["F12"]}
+    ]
+  },
+
+  "zoom_in": {
+    "description": "Zoom in the current page via Ctrl++.",
+    "triggers": [
+      "^(?:please\\s+)?zoom\\s+in\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?(?:make\\s+(?:it|the\\s+page)\\s+)?bigger\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "plus"]}
+    ]
+  },
+
+  "zoom_out": {
+    "description": "Zoom out the current page via Ctrl+-.",
+    "triggers": [
+      "^(?:please\\s+)?zoom\\s+out\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?(?:make\\s+(?:it|the\\s+page)\\s+)?smaller\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "minus"]}
+    ]
+  },
+
+  "reset_zoom": {
+    "description": "Reset zoom to 100% via Ctrl+0.",
+    "triggers": [
+      "^(?:please\\s+)?reset\\s+(?:the\\s+)?zoom\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?zoom\\s+to\\s+(?:100|default|normal)\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "0"]}
+    ]
+  },
+
+  "go_to_youtube": {
+    "description": "Navigate to YouTube. Focus address bar, type URL, press Return. Terminal — no proof needed; user sees the result.",
+    "triggers": [
+      "^(?:please\\s+)?(?:go\\s+to|open|visit|navigate\\s+to|launch|head\\s+to)\\s+(?:the\\s+)?youtube(?:\\.com)?\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "type", "text": "youtube.com"},
+      {"action": "hotkey", "keys": ["Return"]}
+    ]
+  },
+
+  "go_to_google": {
+    "description": "Navigate to Google.",
+    "triggers": [
+      "^(?:please\\s+)?(?:go\\s+to|open|visit|navigate\\s+to)\\s+google(?:\\.com)?\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "type", "text": "google.com"},
+      {"action": "hotkey", "keys": ["Return"]}
+    ]
+  },
+
+  "go_to_gmail": {
+    "description": "Navigate to Gmail.",
+    "triggers": [
+      "^(?:please\\s+)?(?:go\\s+to|open|check|visit|navigate\\s+to)\\s+gmail(?:\\.com)?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?(?:open|check)\\s+(?:my\\s+)?(?:email|inbox)\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "type", "text": "mail.google.com"},
+      {"action": "hotkey", "keys": ["Return"]}
+    ]
+  },
+
+  "go_to_reddit": {
+    "description": "Navigate to Reddit.",
+    "triggers": [
+      "^(?:please\\s+)?(?:go\\s+to|open|visit|navigate\\s+to)\\s+reddit(?:\\.com)?\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "type", "text": "reddit.com"},
+      {"action": "hotkey", "keys": ["Return"]}
+    ]
+  },
+
+  "go_to_github": {
+    "description": "Navigate to GitHub.",
+    "triggers": [
+      "^(?:please\\s+)?(?:go\\s+to|open|visit|navigate\\s+to)\\s+github(?:\\.com)?\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "type", "text": "github.com"},
+      {"action": "hotkey", "keys": ["Return"]}
+    ]
+  },
+
+  "go_to_twitter": {
+    "description": "Navigate to X (formerly Twitter).",
+    "triggers": [
+      "^(?:please\\s+)?(?:go\\s+to|open|visit|navigate\\s+to)\\s+(?:twitter|x)(?:\\.com)?\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "type", "text": "x.com"},
+      {"action": "hotkey", "keys": ["Return"]}
+    ]
+  },
+
+  "go_to_wikipedia": {
+    "description": "Navigate to Wikipedia.",
+    "triggers": [
+      "^(?:please\\s+)?(?:go\\s+to|open|visit|navigate\\s+to)\\s+wikipedia(?:\\.org)?\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "type", "text": "wikipedia.org"},
+      {"action": "hotkey", "keys": ["Return"]}
+    ]
+  },
+
+  "search_youtube": {
+    "description": "Search YouTube for a query. Skips the search-box-click dance by going directly to youtube.com/results?search_query=…",
+    "triggers": [
+      "^(?:please\\s+)?search\\s+youtube\\s+for\\s+['\"]?(.+?)['\"]?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?youtube\\s+search\\s+(?:for\\s+)?['\"]?(.+?)['\"]?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?(?:find|look\\s+up|look\\s+for)\\s+['\"]?(.+?)['\"]?\\s+on\\s+youtube\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "type", "text": "youtube.com/results?search_query={1}"},
+      {"action": "hotkey", "keys": ["Return"]}
+    ]
+  },
+
+  "search_google": {
+    "description": "Search Google for a query via direct URL (google.com/search?q=…).",
+    "triggers": [
+      "^(?:please\\s+)?search\\s+google\\s+for\\s+['\"]?(.+?)['\"]?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?google\\s+(?:search\\s+(?:for\\s+)?)?['\"]?(.+?)['\"]?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?(?:find|look\\s+up|look\\s+for)\\s+['\"]?(.+?)['\"]?\\s+on\\s+google\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "type", "text": "google.com/search?q={1}"},
+      {"action": "hotkey", "keys": ["Return"]}
+    ]
+  },
+
+  "search_wikipedia": {
+    "description": "Search Wikipedia for a topic via direct URL.",
+    "triggers": [
+      "^(?:please\\s+)?search\\s+wikipedia\\s+for\\s+['\"]?(.+?)['\"]?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?wikipedia\\s+(?:search\\s+(?:for\\s+)?)?['\"]?(.+?)['\"]?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?(?:look\\s+up|read\\s+about)\\s+['\"]?(.+?)['\"]?\\s+on\\s+wikipedia\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "type", "text": "en.wikipedia.org/wiki/Special:Search?search={1}"},
+      {"action": "hotkey", "keys": ["Return"]}
+    ]
+  },
+
+  "search_reddit": {
+    "description": "Search Reddit for a query via direct URL.",
+    "triggers": [
+      "^(?:please\\s+)?search\\s+reddit\\s+for\\s+['\"]?(.+?)['\"]?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?reddit\\s+search\\s+(?:for\\s+)?['\"]?(.+?)['\"]?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?(?:find|look\\s+up|look\\s+for)\\s+['\"]?(.+?)['\"]?\\s+on\\s+reddit\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "type", "text": "reddit.com/search?q={1}"},
+      {"action": "hotkey", "keys": ["Return"]}
+    ]
+  },
+
+  "search_github": {
+    "description": "Search GitHub for code/repos/users via direct URL.",
+    "triggers": [
+      "^(?:please\\s+)?search\\s+github\\s+for\\s+['\"]?(.+?)['\"]?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?github\\s+search\\s+(?:for\\s+)?['\"]?(.+?)['\"]?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?(?:find|look\\s+up|look\\s+for)\\s+['\"]?(.+?)['\"]?\\s+on\\s+github\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "type", "text": "github.com/search?q={1}"},
+      {"action": "hotkey", "keys": ["Return"]}
+    ]
+  },
+
+  "search_gmail": {
+    "description": "Search Gmail for messages via direct URL.",
+    "triggers": [
+      "^(?:please\\s+)?search\\s+(?:my\\s+)?(?:gmail|email|inbox)\\s+for\\s+['\"]?(.+?)['\"]?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?(?:find|look\\s+up)\\s+['\"]?(.+?)['\"]?\\s+in\\s+(?:my\\s+)?(?:gmail|email|inbox)\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "type", "text": "mail.google.com/mail/u/0/#search/{1}"},
+      {"action": "hotkey", "keys": ["Return"]}
+    ]
+  },
+
+  "search_twitter": {
+    "description": "Search X (formerly Twitter) via direct URL.",
+    "triggers": [
+      "^(?:please\\s+)?search\\s+(?:twitter|x)\\s+for\\s+['\"]?(.+?)['\"]?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?(?:twitter|x)\\s+search\\s+(?:for\\s+)?['\"]?(.+?)['\"]?\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "type", "text": "x.com/search?q={1}"},
+      {"action": "hotkey", "keys": ["Return"]}
+    ]
+  },
+
+  "search_duckduckgo": {
+    "description": "Search DuckDuckGo via direct URL.",
+    "triggers": [
+      "^(?:please\\s+)?search\\s+(?:duckduckgo|ddg)\\s+for\\s+['\"]?(.+?)['\"]?\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?(?:duckduckgo|ddg)\\s+(?:search\\s+(?:for\\s+)?)?['\"]?(.+?)['\"]?\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "type", "text": "duckduckgo.com/?q={1}"},
+      {"action": "hotkey", "keys": ["Return"]}
+    ]
+  },
+
+  "navigate_url_generic": {
+    "description": "Navigate to any URL or domain. Handles bare domains (example.com), URLs with paths (example.com/foo), and ports (localhost:5002).",
+    "triggers": [
+      "^(?:please\\s+)?(?:go\\s+to|open|visit|navigate\\s+to)\\s+(?:https?://)?(\\w[\\w.-]*\\.[\\w.-]+(?::[0-9]+)?(?:/\\S*?)?)\\s*[.!?]?\\s*$",
+      "^(?:please\\s+)?(?:go\\s+to|open|visit|navigate\\s+to)\\s+(?:https?://)?([\\w.-]+:[0-9]+(?:/\\S*?)?)\\s*[.!?]?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "type", "text": "{1}"},
+      {"action": "hotkey", "keys": ["Return"]}
     ]
   }
 }

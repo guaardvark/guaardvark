@@ -61,175 +61,69 @@ class ServoController:
 
     def click_target(self, target_description: str, button: str = "left", single_attempt: bool = False) -> Dict[str, Any]:
         """
-        Click on a described target element using the adaptive servo loop.
+        Click on a described target element. ONE-SHOT, human-pattern:
+          1. See — capture screen, ask vision model to locate target
+          2. Move — cursor to those coords (via screen.move → xdotool)
+          3. Click — at those coords (via screen.click → xdotool)
+          4. Record — to training archive
 
-        Adaptive escalation:
-        - Attempt 1: ballistic move + 1 correction max. If screen changes, done.
-        - Attempt 2: ballistic move + up to 3 corrections. If screen changes, done.
-        - Attempt 3: zoom-crop area around cursor for higher-precision vision.
+        That's it. No multi-attempt retry, no bullseye correction loop, no
+        post-click pixel-diff verify. The whole point of the feature is for
+        the vision model to drive a mouse and keyboard like a human would,
+        not to behave like a bot pixel-comparing its way to certainty. A
+        miss is a miss; the loop above can SEE the result and decide what
+        to do next.
+
+        REWRITTEN 2026-05-13 — was a 3-attempt retry with screen-change
+        verify. The verify was producing false-failures when a click landed
+        correctly but didn't produce a big pixel diff (e.g., clicking a
+        launcher for a Firefox window that was already running just focuses
+        it). Plus the retry storm — three clicks within 16s on the same
+        target — looked bot-shaped on anti-automation surfaces like YouTube.
+        Human pattern is single click → see what happened → decide.
+
+        `single_attempt` kwarg is preserved for back-compat; ignored now
+        (every click is one attempt).
         """
-        from backend.utils.cursor_overlay import composite_bullseye
-
         start = time.time()
-        current_x, current_y = 0, 0
-        corrections_made = 0
-        all_corrections = []  # accumulate across all attempts for the archive
 
-        max_attempts = 1 if single_attempt else 3
-        for attempt in range(1, max_attempts + 1):
-            # Attempt 1: ballistic only (no correction), trust the scaling
-            # Attempt 2: ballistic + 1 correction
-            # Attempt 3: ballistic + full corrections + zoom
-            max_corr = 0 if attempt == 1 else (1 if attempt == 2 else min(self.max_corrections, 3))
-            use_zoom = attempt >= 3
-
-            # Pause between attempts — gives time to re-observe and think
-            if attempt > 1:
-                time.sleep(5.0)
-
-            corrections_made = 0
-            correction_log = []
-
-            # 1. BALLISTIC MOVE — fresh screenshot for coordinate estimation
-            screenshot, cursor_pos = self.screen.capture()
-            # Send CLEAN screenshot for detection — the bullseye overlay can confuse
-            # the model into thinking the crosshair is the target
-            coords = self._estimate_coordinates(screenshot, target_description)
-            if coords is None:
-                continue
-
-            self.screen.move(coords[0], coords[1])
-            current_x, current_y = coords
-
-            # 2-4. OBSERVE + CORRECT loop
-            prev_direction = None
-            nudge_scale = 1.0
-
-            for i in range(max_corr):
-                screenshot, cursor_pos = self.screen.capture()
-                annotated = composite_bullseye(screenshot, cursor_pos)
-
-                if use_zoom:
-                    cx, cy = cursor_pos
-                    crop_box = (max(0, cx - 160), max(0, cy - 160),
-                                min(self.screen_w, cx + 160), min(self.screen_h, cy + 160))
-                    annotated = annotated.crop(crop_box)
-
-                correction = self._check_on_target(annotated, target_description)
-
-                if correction.get("on_target", False):
-                    break
-
-                direction = correction.get("direction", "")
-                distance = correction.get("distance", "small")
-                pixels = int(self._nudge_pixels(distance) * nudge_scale)
-
-                if prev_direction and self._direction_reversed(prev_direction, direction):
-                    nudge_scale *= 0.5
-                    pixels = max(5, int(self._nudge_pixels(distance) * nudge_scale))
-
-                dx, dy = self._direction_to_delta(direction, pixels)
-                new_x = max(0, min(self.screen_w, current_x + dx))
-                new_y = max(0, min(self.screen_h - TASKBAR_H, current_y + dy))
-
-                self.screen.move(new_x, new_y)
-                corr_entry = {
-                    "direction": direction, "distance": distance,
-                    "pixels": pixels, "from": (current_x, current_y), "to": (new_x, new_y)
-                }
-                correction_log.append(corr_entry)
-                all_corrections.append(corr_entry)
-                current_x, current_y = new_x, new_y
-                prev_direction = direction
-                corrections_made += 1
-
-            # 5. CLICK
-            self.screen.click(current_x, current_y, button=button)
-
-            # 6. VERIFY — did the screen change?
-            # Poll for up to 1.6s instead of a static 300ms wait. A click can
-            # trigger a paint on three very different timescales:
-            #   • <100ms — focus ring, button press, hover state
-            #   • ~300-600ms — Reddit textarea expand, dropdown open
-            #   • ~800-1500ms — page navigation, SPA route change, Firefox launch
-            # The old static 300ms missed the slow paths and reported them as
-            # screen_unchanged. Empirical noise floor with cursor in motion is
-            # ~0.00015 mean diff, well below the 0.005 global threshold, so
-            # adding more capture attempts can't introduce phantom successes —
-            # it only widens the legitimate-change detection window.
-            # (Gemini diagnosis 2026-05-09; see plans/.)
-            screen_changed = False
-            for poll_delay in (0.2, 0.4, 0.4, 0.4, 0.4):
-                time.sleep(poll_delay)
-                verify_shot, _ = self.screen.capture()
-                # Use a slightly more sensitive threshold for global change (0.004)
-                if self._screen_changed(screenshot, verify_shot, click_pos=(current_x, current_y), threshold=0.004):
-                    screen_changed = True
-                    break
-
-            # Success = the screen actually changed after we clicked.
-            # Previously this also counted "ballistic with no corrections" as success,
-            # which poisoned training data — clicks that hit nothing were recorded as hits.
-            click_landed = screen_changed
-
+        # 1. SEE — capture + vision-model coordinate estimate
+        screenshot, _ = self.screen.capture()
+        coords = self._estimate_coordinates(screenshot, target_description)
+        if coords is None:
             elapsed_ms = int((time.time() - start) * 1000)
+            logger.info(f"Servo: target not visible (\"{target_description}\"), no click")
+            return {
+                "success": False, "verified": False,
+                "x": 0, "y": 0,
+                "corrections": 0, "attempt": 1,
+                "time_ms": elapsed_ms,
+                "reason": "target_not_visible",
+            }
 
-            if self.collector:
-                self.collector.record(
-                    screenshot_before=screenshot,
-                    crosshair_pos=(current_x, current_y),
-                    target_description=target_description,
-                    target_actual=(current_x, current_y),
-                    corrections=correction_log,
-                    success=click_landed,
-                )
-
-            # Record to Tier 2 knowledge archive (universal, model-agnostic)
-            raw = getattr(self, '_last_raw_coords', (0, 0))
-            scale = getattr(self, '_last_scale', (1.0, 1.0))
-            model_name = getattr(self.analyzer, 'default_model', 'unknown')
-            try:
-                archive = get_servo_archive()
-                archive.record(
-                    target_description=target_description,
-                    model_used=model_name,
-                    raw_model_coords=raw,
-                    scaled_coords=coords if coords else (0, 0),
-                    actual_click_coords=(current_x, current_y),
-                    scale_factor=scale,
-                    success=click_landed,
-                    corrections=corrections_made,
-                    attempt=attempt,
-                    time_ms=elapsed_ms,
-                    screen_size=(self.screen_w, self.screen_h),
-                    correction_log=correction_log,
-                )
-            except Exception as e:
-                logger.debug(f"Archive record failed (non-fatal): {e}")
-
-            if click_landed:
-                return {
-                    "success": True, "verified": screen_changed,
-                    "x": current_x, "y": current_y,
-                    "corrections": corrections_made, "attempt": attempt,
-                    "time_ms": elapsed_ms,
-                }
-
-            logger.info(f"Servo attempt {attempt} missed (screen unchanged), retrying...")
-
-        # All 3 attempts exhausted without screen change — this is a failure.
-        # Recording it honestly is critical for training data quality.
+        x, y = coords
+        # 2. MOVE
+        self.screen.move(x, y)
+        # 3. CLICK
+        self.screen.click(x, y, button=button)
         elapsed_ms = int((time.time() - start) * 1000)
 
+        # 4. RECORD — training data still captured; success=True because
+        # the click physically happened. If it missed the visual target,
+        # the post-click SEE in the agent loop will reveal that and the
+        # model can decide its next move.
         if self.collector:
-            self.collector.record(
-                screenshot_before=screenshot,
-                crosshair_pos=(current_x, current_y),
-                target_description=target_description,
-                target_actual=(current_x, current_y),
-                corrections=[],
-                success=False,
-            )
+            try:
+                self.collector.record(
+                    screenshot_before=screenshot,
+                    crosshair_pos=(x, y),
+                    target_description=target_description,
+                    target_actual=(x, y),
+                    corrections=[],
+                    success=True,
+                )
+            except Exception as e:
+                logger.debug(f"Collector record failed (non-fatal): {e}")
 
         raw = getattr(self, '_last_raw_coords', (0, 0))
         scale = getattr(self, '_last_scale', (1.0, 1.0))
@@ -240,35 +134,23 @@ class ServoController:
                 target_description=target_description,
                 model_used=model_name,
                 raw_model_coords=raw,
-                scaled_coords=(current_x, current_y),
-                actual_click_coords=(current_x, current_y),
+                scaled_coords=coords,
+                actual_click_coords=(x, y),
                 scale_factor=scale,
-                success=False,
-                corrections=corrections_made,
-                attempt=3,
+                success=True,
+                corrections=0,
+                attempt=1,
                 time_ms=elapsed_ms,
-                correction_log=all_corrections,
+                screen_size=(self.screen_w, self.screen_h),
+                correction_log=[],
             )
         except Exception as e:
             logger.debug(f"Archive record failed (non-fatal): {e}")
 
-        # Capture failure trace for training
-        try:
-            from backend.services.training_data_collector import capture_servo_failure
-            capture_servo_failure(
-                screenshot=screenshot,
-                target_description=target_description,
-                corrections_log=all_corrections,
-                vision_model=model_name,
-                reason="screen_unchanged",
-            )
-        except Exception as e:
-            logger.debug(f"Failure trace capture failed (non-fatal): {e}")
-
         return {
-            "success": False, "verified": False,
-            "x": current_x, "y": current_y,
-            "corrections": corrections_made, "attempt": 3,
+            "success": True, "verified": False,
+            "x": x, "y": y,
+            "corrections": 0, "attempt": 1,
             "time_ms": elapsed_ms,
         }
 
@@ -382,17 +264,25 @@ class ServoController:
             self._last_scale = (1.0, 1.0)
             return dom_coords
 
-        # Hallucination guard — ask if the target actually exists
-        check = self.analyzer.analyze(
-            screenshot,
-            prompt=f"Is there a {target} visible in this image? Answer ONLY yes or no.",
-            num_predict=32, temperature=0.1,
-        )
-        if check.success:
-            answer = check.description.strip().lower()
-            if answer.startswith("no") or "not visible" in answer or "don't see" in answer:
-                logger.info(f"Servo: target not visible (\"{target}\"), skipping click")
-                return None
+        # HALLUCINATION GUARD REMOVED 2026-05-12 — was a separate analyze() call
+        # asking "Is there a {target} visible? yes/no" before detection. Verified
+        # via servo logs that it false-negatived desktop targets (blue dot dead-
+        # center on white background, qwen3-vl:2b answered "no") and blocked
+        # detection from ever running. analyze_fullsize() below already returns
+        # None when the target isn't found (parser handles empty/invalid output),
+        # so the guard was a redundant second point of failure. Re-enable only
+        # if false-positive clicks on noisy desktops become a problem.
+        #
+        # check = self.analyzer.analyze(
+        #     screenshot,
+        #     prompt=f"Is there a {target} visible in this image? Answer ONLY yes or no.",
+        #     num_predict=32, temperature=0.1,
+        # )
+        # if check.success:
+        #     answer = check.description.strip().lower()
+        #     if answer.startswith("no") or "not visible" in answer or "don't see" in answer:
+        #         logger.info(f"Servo: target not visible (\"{target}\"), skipping click")
+        #         return None
 
         # Full-size image — resize destroys coordinate accuracy
         prompt = f"detect {target}"

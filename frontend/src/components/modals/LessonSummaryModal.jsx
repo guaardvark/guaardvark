@@ -34,6 +34,7 @@ export default function LessonSummaryModal({
   initialSteps,
   initialParameters,
   onSaved,
+  onDelete,
 }) {
   const [title, setTitle] = useState('');
   const [steps, setSteps] = useState([]);
@@ -344,6 +345,17 @@ export default function LessonSummaryModal({
         )}
       </DialogContent>
       <DialogActions>
+        {onDelete && (
+          <Button
+            size="small"
+            color="error"
+            disabled={saving}
+            sx={{ mr: 'auto' }}
+            onClick={onDelete}
+          >
+            Delete
+          </Button>
+        )}
         <Button onClick={onClose} disabled={saving}>
           Cancel
         </Button>
@@ -374,4 +386,5 @@ LessonSummaryModal.propTypes = {
     })
   ),
   onSaved: PropTypes.func,
+  onDelete: PropTypes.func,
 };

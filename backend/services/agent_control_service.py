@@ -465,6 +465,14 @@ class AgentControlService:
                 if training_mode and iteration > 0:
                     time.sleep(5.0)
 
+                # BREATHE — inter-iteration cool-down so the screen settles and
+                # the agent doesn't chase its own success/X-mark animations.
+                # 2.1s, deliberately odd to stand out on grep. Skipped on iter 0
+                # (no prior action) and when training_mode already paused.
+                if iteration > 0 and not training_mode:
+                    logger.warning(f"[AGENT][STEP {iteration+1}][BREATHE] pausing 2.1s before next See")
+                    time.sleep(2.1)
+
                 # 1. SEE — Capture screenshot
                 screenshot, cursor_pos = self._capture_with_retry(screen)
                 logger.warning(f"[AGENT][STEP {iteration+1}][SEE] Capturing screen, cursor at {cursor_pos}")
@@ -691,34 +699,16 @@ class AgentControlService:
                         result = {"success": servo_result.get("success", False)}
                         failed = not servo_result.get("success", False)
 
-                    # Post-Act verification for clicks too: fresh capture + pixel diff
-                    # to confirm visible change before marking [OK]. Record failure
-                    # screenshot on ineffective click.
-                    if not failed:
-                        time.sleep(0.5)
-                        post_shot, _ = self._capture_with_retry(screen)
-                        if screenshot is not None and post_shot is not None:
-                            import numpy as np
-                            before_mean = np.array(screenshot).mean()
-                            after_mean = np.array(post_shot).mean()
-                            pixel_diff = abs(after_mean - before_mean)
-                            pixel_diff_value = float(pixel_diff)
-                            if pixel_diff < 0.005:
-                                failed = True
-                                result["success"] = False
-                                result["verified"] = False
-                                # Record failure screenshot for ineffective click
-                                try:
-                                    from backend.services.servo_controller import capture_servo_failure
-                                    capture_servo_failure(
-                                        screenshot=screenshot,
-                                        target_description=target,
-                                        reason="click_no_visible_change",
-                                    )
-                                except Exception:
-                                    pass
-                            else:
-                                result["verified"] = True
+                    # CLICK POST-VERIFY DISABLED 2026-05-12 — reverted to April 13
+                    # behavior. The 0.5s + 0.005 pixel-diff check added in commit
+                    # 2cac26a was producing false negatives on slow-launching apps
+                    # (Firefox: 1-5s to render), marking valid clicks as FAILED and
+                    # driving the agent into retry loops. Servo's own success flag
+                    # is now the sole arbiter of [OK]/[FAIL] for clicks, matching
+                    # the working state from the voice-chat demo era.
+                    # Phantom-success protection migrates to Option C
+                    # (_wait_until_visible polling) in a follow-up — see
+                    # agent_control_service.py:1796 for the existing helper.
 
                     status_icon = "OK" if not failed else "FAIL"
                     logger.warning(f"[AGENT][STEP {iteration+1}][ACT] {decision.action.action_type} \"{target}\" "
@@ -1357,16 +1347,22 @@ class AgentControlService:
         return arr.mean() < 10  # Average pixel value below 10 = effectively black
 
     def _capture_with_retry(self, screen, max_retries: int = 3) -> Tuple[Image.Image, Tuple[int, int]]:
-        """Capture screenshot with black frame detection and retry."""
-        for attempt in range(max_retries):
-            screenshot, cursor_pos = screen.capture()
-            if not self._is_black_frame(screenshot):
-                return screenshot, cursor_pos
-            logger.warning(f"Black frame detected (attempt {attempt + 1}/{max_retries}), retrying...")
-            time.sleep(1.5)
-        # Still black after retries — return it anyway, let the vision model deal with it
-        logger.error("Display appears black after retries — virtual screen may need restart")
-        return screenshot, cursor_pos
+        """Capture screenshot — black-frame retry disabled pending diagnosis of suspected frame-tearing artifacts."""
+        return screen.capture()
+        # ----- BLACK-FRAME RETRY DISABLED 2026-05-12 -----
+        # Original code retried on black captures, but we suspect the trigger
+        # was the old dark desktop background (no longer in use) and that any
+        # current "black" captures are actually torn frames mid-redraw.
+        # Re-enable only if vision degrades without it.
+        #
+        # for attempt in range(max_retries):
+        #     screenshot, cursor_pos = screen.capture()
+        #     if not self._is_black_frame(screenshot):
+        #         return screenshot, cursor_pos
+        #     logger.warning(f"Black frame detected (attempt {attempt + 1}/{max_retries}), retrying...")
+        #     time.sleep(1.5)
+        # logger.error("Display appears black after retries — virtual screen may need restart")
+        # return screenshot, cursor_pos
 
     def _execute_action(self, action: AgentAction, screen) -> Dict[str, Any]:
         """Execute a single agent action via the screen interface."""
@@ -1395,9 +1391,9 @@ class AgentControlService:
 
             elif action.action_type == "wait":
                 # Patience action — for transient screens (mid-load, focus loss,
-                # animation in flight). Defaults to 1.5s; the model can ask
-                # for longer by stuffing seconds into scroll_amount.
-                seconds = max(0.3, min(float(action.scroll_amount or 1.5), 8.0))
+                # animation in flight). Floor 2.1s (deliberately odd so it
+                # stands out on grep); model can request longer via scroll_amount.
+                seconds = max(2.1, min(float(action.scroll_amount or 1.5), 8.0))
                 time.sleep(seconds)
                 return {"success": True, "waited": seconds}
 
@@ -1926,7 +1922,7 @@ Reply ONLY with JSON:
                     return False
             elif cond == "desktop_visible":
                 # Best-effort heuristic: a Firefox window on top usually
-                # covers the desktop column, so treat firefox_running as
+                # covers the desktop, so treat firefox_running as
                 # "desktop probably not visible". Cheaper than a VLM call.
                 if self._is_firefox_running(screen):
                     return False
@@ -2891,35 +2887,49 @@ Reply ONLY with JSON:
             logger.warning(f"[AGENT][BELIEF] memory_api unavailable: {e}")
             return 0
 
+        # execute_task is callable from threads/callers that don't push a Flask
+        # app context (chat-tool path via agent_control_tools, agent_brain,
+        # social_outreach scripts). add_memory's db.session.commit() needs one,
+        # so push defensively here. Redundant stacking is documented harmless
+        # in commit 268387d.
+        from flask import has_app_context
+        from contextlib import nullcontext
+        if has_app_context():
+            ctx = nullcontext()
+        else:
+            from backend.app import app as _flask_app
+            ctx = _flask_app.app_context()
+
         written = 0
-        for lesson in lessons:
-            src = lesson.get("source") or ""
-            src_line = lesson.get("source_line")
-            element_tag = (lesson.get("element") or "").strip().lower()
-            tags = ["belief_update"]
-            if element_tag:
-                tags.append(element_tag)
-            if src:
-                tags.append(
-                    f"src:{src}:{src_line}" if src_line is not None else f"src:{src}"
-                )
-            try:
-                mem = add_memory(
-                    content=lesson["content"],
-                    memory_type="belief_update",
-                    source="agent",
-                    importance=0.55,
-                    session_id=session_id,
-                    tags=tags,
-                )
-                if mem is not None:
-                    written += 1
-            except Exception as e:
-                # Don't let a DB hiccup crash task completion.
-                logger.warning(
-                    f"[AGENT][BELIEF] failed to write lesson for "
-                    f"{lesson.get('element')!r}: {e}"
-                )
+        with ctx:
+            for lesson in lessons:
+                src = lesson.get("source") or ""
+                src_line = lesson.get("source_line")
+                element_tag = (lesson.get("element") or "").strip().lower()
+                tags = ["belief_update"]
+                if element_tag:
+                    tags.append(element_tag)
+                if src:
+                    tags.append(
+                        f"src:{src}:{src_line}" if src_line is not None else f"src:{src}"
+                    )
+                try:
+                    mem = add_memory(
+                        content=lesson["content"],
+                        memory_type="belief_update",
+                        source="agent",
+                        importance=0.55,
+                        session_id=session_id,
+                        tags=tags,
+                    )
+                    if mem is not None:
+                        written += 1
+                except Exception as e:
+                    # Don't let a DB hiccup crash task completion.
+                    logger.warning(
+                        f"[AGENT][BELIEF] failed to write lesson for "
+                        f"{lesson.get('element')!r}: {e}"
+                    )
 
         if written:
             logger.warning(

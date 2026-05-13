@@ -19,8 +19,8 @@ class SaveMemoryTool(BaseTool):
     name = "save_memory"
     description = "Save a fact, user preference, or instruction to long-term memory. Use this to remember things the user tells you about themselves, their projects, or how they want you to behave."
     is_dangerous = False
-    requires_approval = True  # Require approval so user knows what is being saved
-    
+    requires_approval = False
+
     parameters = {
         "content": ToolParameter(
             name="content",
@@ -77,7 +77,7 @@ class SaveMemoryTool(BaseTool):
             return ToolResult(
                 success=True,
                 output=f"Successfully saved to long-term memory (ID: {mem_id}).",
-                data={"id": mem_id, "content": content}
+                metadata={"id": mem_id, "content": content}
             )
         except Exception as e:
             db.session.rollback()
@@ -123,7 +123,7 @@ class SearchMemoryTool(BaseTool):
                 return ToolResult(
                     success=True,
                     output=f"No memories found matching '{query}'.",
-                    data={"results": []}
+                    metadata={"results": []}
                 )
                 
             results = []
@@ -135,7 +135,7 @@ class SearchMemoryTool(BaseTool):
             return ToolResult(
                 success=True,
                 output="\n".join(output_lines),
-                data={"results": results}
+                metadata={"results": results}
             )
         except Exception as e:
             logger.error(f"Failed to search memory: {e}")
@@ -178,7 +178,7 @@ class DeleteMemoryTool(BaseTool):
             return ToolResult(
                 success=True,
                 output=f"Successfully deleted memory: '{content}'",
-                data={"deleted_id": memory_id}
+                metadata={"deleted_id": memory_id}
             )
         except Exception as e:
             db.session.rollback()

@@ -194,6 +194,16 @@ start_xfce_session() {
     # left bad Exec lines on disk, and a no-op restart should heal them.
     seed_agent_panel_firefox "$agent_config_home"
 
+    # Re-stamp the desktop launchers on EVERY invocation too, not just on cold
+    # start. Mid-session edits to Firefox.desktop (e.g. icon swaps) change the
+    # file's SHA-256 but leave the stored xfce-exe-checksum xattr pointing at
+    # the old hash, which traps every click in XFCE 4.18+'s "Untrusted
+    # application launcher" dialog. seed_agent_desktop is idempotent: it only
+    # writes Firefox.desktop if missing, but always re-applies chmod +x and
+    # gio set metadata::xfce-exe-checksum. Running it here heals stale trust
+    # even when the XFCE session is already up and we early-return below.
+    seed_agent_desktop
+
     if pgrep -f "xfce4-session" > /dev/null 2>&1; then
         # Only count it if it's on OUR display — host session is also xfce-shaped.
         for pid in $(pgrep -f "xfce4-session" 2>/dev/null); do
@@ -208,7 +218,6 @@ start_xfce_session() {
     mkdir -p "$agent_runtime_dir"
     chmod 700 "$agent_runtime_dir"
 
-    seed_agent_desktop
     write_agent_xdg_user_dirs "$agent_config_home"
     ensure_xfdesktop_single_click "$agent_config_home"
 
@@ -534,25 +543,18 @@ start() {
         init_browser_profile "$BROWSER" "$PROFILE_DIR"
     fi
 
-    # VNC server (for watching the agent)
+    # VNC server (for watching the agent) — passwordless, localhost-only.
+    # Local single-user machine; -localhost binds 127.0.0.1 only, so the
+    # network boundary is the security boundary. No password to type.
     if pgrep -f "x11vnc.*-rfbport $VNC_PORT" > /dev/null 2>&1; then
         echo "  x11vnc already running"
     else
-        # Auto-generate VNC password on first run
-        VNC_PASSWD_FILE="$GUAARDVARK_ROOT/data/.vnc_passwd"
-        if [ ! -f "$VNC_PASSWD_FILE" ]; then
-            VNC_PASS="guaardvark"
-            x11vnc -storepasswd "$VNC_PASS" "$VNC_PASSWD_FILE" 2>/dev/null
-            chmod 600 "$VNC_PASSWD_FILE"
-            echo "  VNC password set to: $VNC_PASS"
-        fi
-
         env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE \
             DISPLAY=:$DISPLAY_NUM \
-            x11vnc -rfbauth "$VNC_PASSWD_FILE" -localhost -forever -shared -rfbport $VNC_PORT \
+            x11vnc -nopw -localhost -forever -shared -rfbport $VNC_PORT \
             -bg -o "$LOG_DIR/x11vnc_agent.log" >/dev/null 2>&1
         sleep 1
-        echo "  x11vnc started on port $VNC_PORT (password-protected)"
+        echo "  x11vnc started on port $VNC_PORT (passwordless, localhost-only)"
     fi
 
     echo ""

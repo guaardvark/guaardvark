@@ -645,7 +645,16 @@ const ChatPage = () => {
               .map((msg) => ({
                 ...msg,
                 isLocal: false,
-                status: "persisted"
+                status: "persisted",
+                // Hydrate fields that MessageItem reads as top-level props from
+                // their persisted form inside extra_data. The backend saves
+                // agentThinkingSteps and tool-call steps under extra_data on
+                // the LLMMessage row; without this hydration both vanish on
+                // hard refresh because MessageItem looks at message.toolCalls /
+                // message.agentThinkingSteps directly.
+                toolCalls: msg.toolCalls ?? msg.extra_data?.steps,
+                agentThinkingSteps: msg.agentThinkingSteps ?? msg.extra_data?.agentThinkingSteps,
+                generatedImages: msg.generatedImages ?? msg.extra_data?.generatedImages,
               }));
 
             const allMessages = [...currentMessages, ...historyMessages];

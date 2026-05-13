@@ -1422,6 +1422,16 @@ class UnifiedChatEngine:
             extra_data = {"steps": steps, "iterations": iteration} if steps else {}
             if generated_images:
                 extra_data["generatedImages"] = generated_images
+            # Pull agent-loop thinking steps emitted during this turn so they
+            # survive hard refresh. Empty list if no agent task ran. Drains the
+            # service's accumulator so the next turn starts fresh.
+            try:
+                from backend.services.agent_control_service import get_agent_control_service
+                agent_thinking_steps = get_agent_control_service().drain_thinking_steps()
+                if agent_thinking_steps:
+                    extra_data["agentThinkingSteps"] = agent_thinking_steps
+            except Exception as e:
+                logger.debug(f"Could not drain agent thinking steps for save: {e}")
             self._save_message(session_id, "assistant", clean_response, extra_data=extra_data or None)
 
         return {

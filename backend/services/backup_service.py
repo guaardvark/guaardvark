@@ -882,12 +882,18 @@ def create_full_backup(name: str | None = None) -> str:
                 "data/uploads/",       # User uploaded files
                 "data/context/",       # Conversation context JSON files
                 "data/conversations/", # Conversation session JSON files
+                "data/training/datasets/",    # Training datasets (JSONL)
+                "data/training/failures/",    # Servo failure logs (forensics + future training)
                 "data/training/knowledge/",   # Learned calibration data, feedback, servo archive
                 "data/training/servo_logs/",  # Interaction logs for future fine-tuning
                 "data/memory/",        # User-saved memories (memories.jsonl)
                 "data/agent/",         # Agent self-knowledge, recipes, files
+                "data/cluster/",       # Cluster config
+                "data/dep_reconciler/", # Dependency reconciler state
+                "data/social_outreach/", # Outreach data
                 # NOTE: data/models/ excluded - models can be downloaded on new machine
                 # NOTE: data/training/screenshots/ excluded - ephemeral, regenerated at runtime
+                # NOTE: data/cache/ excluded - vector store cache, regenerated at runtime
             ]
             
             # State JSON files in data root (explicit list to avoid temporary files)
@@ -901,6 +907,12 @@ def create_full_backup(name: str | None = None) -> str:
                 "data/graph_store.json",
                 "data/index_store.json",
                 "data/docstore.json",
+                "data/active_model.json",
+                "data/agent_state.json",
+                "data/plugin_state.json",
+                "data/rag_experiment_config.json",
+                "data/sticky_notes_state.json",
+                "data/images_windows_state.json",
             ]
 
             # Empty directories to create (for runtime use on new machine)
