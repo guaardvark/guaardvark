@@ -37,6 +37,7 @@ import BinPanel from "../components/videoeditor/BinPanel";
 import SongSlot from "../components/videoeditor/SongSlot";
 import ScanModeSelector from "../components/videoeditor/ScanModeSelector";
 import ArrangementPreview from "../components/videoeditor/ArrangementPreview";
+import DirectorsNotesPanel from "../components/videoeditor/DirectorsNotesPanel";
 import { usePlanJob } from "../components/videoeditor/usePlanJob";
 import { useTimelineHistory } from "../components/videoeditor/useTimelineHistory";
 import { listVideoDocuments, listAudioDocuments, listImageDocuments } from "../api/videoOverlayService";
@@ -80,6 +81,11 @@ const VideoEditorPage = () => {
   const planJob = usePlanJob();
   const [gate, setGate] = useState(null);
   const [error, setError] = useState(null);
+
+  // Director's Notes overrides — keyed by clip_id. Local until next Plan.
+  // Each value is a Partial<ClipAnalysis> patch the user has applied on top
+  // of the Art Director's output.
+  const [clipOverrides, setClipOverrides] = useState({});
 
   // Phase 8 — poll the JobOperationGate so the Render button knows whether
   // another exclusive job (training, etc.) is mid-flight. Refreshes every
@@ -272,6 +278,23 @@ const VideoEditorPage = () => {
     return timeline.textElements.find((t) => t.id === selectedItem.id) || null;
   }, [selectedItem, timeline.textElements]);
 
+  // The merged analysis for the selected bin clip (AI output + local overrides).
+  const selectedClipAnalysis = useMemo(() => {
+    if (selectedItem?.type !== "bin") return null;
+    const analyses = planJob.result?.clip_analyses || [];
+    const base = analyses.find((a) => a.clip_id === selectedItem.id);
+    if (!base) return null;
+    return { ...base, ...(clipOverrides[selectedItem.id] || {}) };
+  }, [selectedItem, planJob.result, clipOverrides]);
+
+  const handleClipOverride = useCallback((patch) => {
+    if (!selectedItem || selectedItem.type !== "bin") return;
+    setClipOverrides((prev) => ({
+      ...prev,
+      [selectedItem.id]: { ...(prev[selectedItem.id] || {}), ...patch },
+    }));
+  }, [selectedItem]);
+
   // Load style recipes once on mount.
   useEffect(() => {
     listStyleRecipes()
@@ -458,16 +481,27 @@ const VideoEditorPage = () => {
             </Stack>
           </Paper>
 
-          {/* Properties panel — right */}
-          <Paper elevation={2} sx={{ width: 280, p: 2, overflow: "auto" }}>
-            <Typography variant="subtitle2" fontWeight="bold" mb={1}>Properties</Typography>
+          {/* Properties panel — right. Shows Director's Notes for a selected
+              bin clip, or text-overlay properties for a selected text element. */}
+          <Paper elevation={2} sx={{ width: 280, p: 0, overflow: "auto" }}>
             {!selectedItem && (
-              <Typography variant="caption" color="text.secondary">
-                Select a text overlay or timeline clip.
-              </Typography>
+              <Box sx={{ p: 2 }}>
+                <Typography variant="subtitle2" fontWeight="bold" mb={1}>Properties</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Select a bin clip or text overlay.
+                </Typography>
+              </Box>
+            )}
+            {selectedItem?.type === "bin" && (
+              <DirectorsNotesPanel
+                clipAnalysis={selectedClipAnalysis}
+                onOverride={handleClipOverride}
+                onReanalyze={undefined}
+              />
             )}
             {selectedText && (
-              <Stack spacing={2}>
+              <Stack spacing={2} sx={{ p: 2 }}>
+                <Typography variant="subtitle2" fontWeight="bold">Text properties</Typography>
                 <TextField
                   size="small"
                   fullWidth

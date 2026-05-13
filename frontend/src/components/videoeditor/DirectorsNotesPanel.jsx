@@ -1,0 +1,141 @@
+// Right-rail override panel for the Art Director's per-clip decisions.
+// Shows the chosen tags as editable chips + a filter dropdown + a
+// "Re-analyze" affordance (placeholder for A3+ cache bust).
+//
+// v1 keeps the override edits LOCAL to the page state — the next Plan run
+// will overwrite them. v2 will persist overrides into the plan job so a
+// Re-plan respects them.
+
+import React, { useState, useMemo } from "react";
+import {
+  Box, Stack, Typography, Chip, Select, MenuItem, FormControl, InputLabel,
+  Button, Divider, Tooltip,
+} from "@mui/material";
+import { Refresh as RefreshIcon } from "@mui/icons-material";
+
+const SUBJECTS  = ["wide-landscape", "character-closeup", "object-detail", "crowd", "text-or-ui", "abstract"];
+const ENERGIES  = ["calm", "medium", "high", "frenetic"];
+const PALETTES  = ["warm", "cool", "neutral", "high-contrast"];
+const MOTIONS   = ["static", "slow", "medium", "fast"];
+const MOODS     = ["uplifting", "tense", "nostalgic", "aggressive", "mysterious", "playful"];
+const SECTIONS  = ["intro", "build", "drop", "outro", "any"];
+
+const FILTER_SLUGS = [
+  "none",
+  // Color
+  "warm-tint", "cool-tint", "high-contrast-bw", "sepia", "desaturate",
+  // Motion
+  "slow-zoom-in", "vertigo", "pan-left",
+  // Stylize
+  "oldfilm", "vignette", "glow",
+  // Glitch
+  "pixelate", "wave-distort",
+];
+
+// One cycling chip — clicking advances to the next allowed value.
+function CycleChip({ label, value, options, onChange }) {
+  const idx = Math.max(0, options.indexOf(value));
+  const next = options[(idx + 1) % options.length];
+  return (
+    <Tooltip title={`Click to cycle to "${next}"`}>
+      <Chip
+        size="small"
+        label={`${label}: ${value}`}
+        onClick={() => onChange(next)}
+        sx={{ cursor: "pointer", "&:hover": { backgroundColor: "action.hover" } }}
+      />
+    </Tooltip>
+  );
+}
+
+const DirectorsNotesPanel = ({
+  clipAnalysis,   // ClipAnalysis dict from planJob.result.clip_analyses
+  onOverride,    // (patch: Partial<ClipAnalysis>) => void
+  onReanalyze,   // () => void   — cache bust + re-Plan-this-clip
+}) => {
+  if (!clipAnalysis) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Typography variant="caption" color="text.secondary">
+          Select a clip in the Bin to see the Art Director&apos;s read.
+        </Typography>
+      </Box>
+    );
+  }
+
+  const set = (key) => (val) => onOverride({ [key]: val });
+
+  return (
+    <Box sx={{ p: 1.5, display: "flex", flexDirection: "column", gap: 1.25 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Typography variant="subtitle2" fontWeight="bold">Director&apos;s Notes</Typography>
+        {clipAnalysis.cached && (
+          <Chip size="small" label="cached" variant="outlined" sx={{ height: 18, fontSize: "0.65rem" }} />
+        )}
+      </Stack>
+
+      <Stack spacing={0.5}>
+        <CycleChip label="subject"  value={clipAnalysis.subject}          options={SUBJECTS}  onChange={set("subject")} />
+        <CycleChip label="energy"   value={clipAnalysis.energy}           options={ENERGIES}  onChange={set("energy")} />
+        <CycleChip label="palette"  value={clipAnalysis.dominant_palette} options={PALETTES}  onChange={set("dominant_palette")} />
+        <CycleChip label="motion"   value={clipAnalysis.motion}           options={MOTIONS}   onChange={set("motion")} />
+        <CycleChip label="mood"     value={clipAnalysis.mood}             options={MOODS}     onChange={set("mood")} />
+      </Stack>
+
+      <Divider />
+
+      <FormControl size="small" fullWidth>
+        <InputLabel>Recommended filter</InputLabel>
+        <Select
+          label="Recommended filter"
+          value={clipAnalysis.recommended_filter || "none"}
+          onChange={(e) => set("recommended_filter")(e.target.value)}
+        >
+          {FILTER_SLUGS.map((slug) => (
+            <MenuItem key={slug} value={slug}>{slug}</MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+
+      <Box>
+        <Typography variant="caption" color="text.secondary">Best fit for</Typography>
+        <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 0.5 }}>
+          {SECTIONS.map((s) => {
+            const selected = (clipAnalysis.best_section_fit || []).includes(s);
+            return (
+              <Chip
+                key={s}
+                size="small"
+                label={s}
+                color={selected ? "primary" : "default"}
+                variant={selected ? "filled" : "outlined"}
+                onClick={() => {
+                  const cur = clipAnalysis.best_section_fit || [];
+                  const next = cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s];
+                  set("best_section_fit")(next.length ? next : ["any"]);
+                }}
+                sx={{ mb: 0.5 }}
+              />
+            );
+          })}
+        </Stack>
+      </Box>
+
+      <Button
+        size="small"
+        variant="outlined"
+        startIcon={<RefreshIcon />}
+        onClick={onReanalyze}
+        disabled={!onReanalyze}
+      >
+        Re-analyze this clip
+      </Button>
+
+      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+        Overrides are local until the next Plan. Click Plan again to use the recipe + your edits.
+      </Typography>
+    </Box>
+  );
+};
+
+export default DirectorsNotesPanel;
