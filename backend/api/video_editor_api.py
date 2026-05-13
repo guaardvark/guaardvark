@@ -1,0 +1,148 @@
+"""Video Editor API — proxy blueprint for the video_editor plugin service.
+
+Modeled on audio_foundry_api.py: thin forwarder to the FastAPI service on 8207.
+Auto-discovered by backend.utils.blueprint_discovery.
+
+Resolves Document IDs to absolute paths before forwarding — frontend callers
+pass `document_id` for audio_path / video_paths and we substitute the on-disk
+file path the plugin actually opens.
+"""
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+from typing import Any, Optional
+
+import requests
+from flask import Blueprint, jsonify, request as flask_request
+
+logger = logging.getLogger(__name__)
+
+video_editor_bp = Blueprint("video_editor", __name__, url_prefix="/api/video-editor")
+
+PLUGIN_URL = "http://127.0.0.1:8207"
+QUICK_TIMEOUT = 10        # /health, /status, /config, /jobs
+RENDER_TIMEOUT = 1200     # /beat-sync/render returns a job_id immediately,
+                          # but a synchronous melt encode can take ~minutes;
+                          # keep generous in case render_mp4=true is requested.
+
+
+def _proxy_get(path: str, timeout: int = QUICK_TIMEOUT):
+    try:
+        resp = requests.get(f"{PLUGIN_URL}{path}", timeout=timeout)
+        return resp.json(), resp.status_code
+    except requests.ConnectionError:
+        return {"error": "Video Editor service not running"}, 503
+    except Exception as e:  # noqa: BLE001
+        logger.exception("Video Editor GET %s failed", path)
+        return {"error": str(e)}, 500
+
+
+def _proxy_post(path: str, json_data: dict, timeout: int):
+    try:
+        resp = requests.post(f"{PLUGIN_URL}{path}", json=json_data, timeout=timeout)
+        return resp.json(), resp.status_code
+    except requests.ConnectionError:
+        return {"error": "Video Editor service not running"}, 503
+    except requests.Timeout:
+        return {"error": f"Video Editor request timed out after {timeout}s"}, 504
+    except Exception as e:  # noqa: BLE001
+        logger.exception("Video Editor POST %s failed", path)
+        return {"error": str(e)}, 500
+
+
+def _resolve_document(doc_id: Any) -> Optional[str]:
+    """Resolve a Document row by id to its absolute path. Returns None if missing."""
+    if not doc_id:
+        return None
+    try:
+        from backend.models import Document  # local import — avoid cycle on module load
+    except ImportError:
+        return None
+    doc = Document.query.get(doc_id)
+    if not doc:
+        return None
+    path = doc.file_path or doc.path or doc.filename
+    if not path:
+        return None
+    p = Path(path)
+    return str(p.resolve() if p.is_absolute() else (Path.cwd() / p).resolve())
+
+
+def _expand_paths(payload: dict[str, Any]) -> dict[str, Any]:
+    """In-place: replace document_id / video_document_ids with absolute file paths.
+
+    Frontend may send either `audio_path` (string) or `audio_document_id` (int).
+    Same for the video pool.
+    """
+    if "audio_document_id" in payload and not payload.get("audio_path"):
+        resolved = _resolve_document(payload.pop("audio_document_id"))
+        if resolved:
+            payload["audio_path"] = resolved
+
+    if "video_document_ids" in payload and not payload.get("video_paths"):
+        ids = payload.pop("video_document_ids") or []
+        paths = [_resolve_document(d) for d in ids]
+        payload["video_paths"] = [p for p in paths if p]
+
+    return payload
+
+
+# ---------- read-side ---------------------------------------------------------
+
+@video_editor_bp.route("/health", methods=["GET"])
+def health():
+    body, status = _proxy_get("/health")
+    return jsonify(body), status
+
+
+@video_editor_bp.route("/status", methods=["GET"])
+def status():
+    body, status_code = _proxy_get("/status")
+    return jsonify(body), status_code
+
+
+@video_editor_bp.route("/config", methods=["GET"])
+def config():
+    body, status_code = _proxy_get("/config")
+    return jsonify(body), status_code
+
+
+@video_editor_bp.route("/jobs", methods=["GET"])
+def list_jobs():
+    body, status_code = _proxy_get(f"/jobs?limit={flask_request.args.get('limit', 50)}")
+    return jsonify(body), status_code
+
+
+@video_editor_bp.route("/jobs/<job_id>", methods=["GET"])
+def get_job(job_id: str):
+    body, status_code = _proxy_get(f"/jobs/{job_id}")
+    return jsonify(body), status_code
+
+
+# ---------- write-side --------------------------------------------------------
+
+@video_editor_bp.route("/beat-sync/render", methods=["POST"])
+def beat_sync_render():
+    payload = flask_request.get_json(silent=True) or {}
+    payload = _expand_paths(payload)
+    body, status_code = _proxy_post("/beat-sync/render", payload, timeout=RENDER_TIMEOUT)
+    return jsonify(body), status_code
+
+
+@video_editor_bp.route("/auto-editor/trim", methods=["POST"])
+def auto_editor_trim():
+    payload = flask_request.get_json(silent=True) or {}
+    if "document_id" in payload and not payload.get("input_path"):
+        resolved = _resolve_document(payload.pop("document_id"))
+        if resolved:
+            payload["input_path"] = resolved
+    body, status_code = _proxy_post("/auto-editor/trim", payload, timeout=RENDER_TIMEOUT)
+    return jsonify(body), status_code
+
+
+@video_editor_bp.route("/shotcut/compose", methods=["POST"])
+def shotcut_compose():
+    payload = flask_request.get_json(silent=True) or {}
+    body, status_code = _proxy_post("/shotcut/compose", payload, timeout=QUICK_TIMEOUT)
+    return jsonify(body), status_code

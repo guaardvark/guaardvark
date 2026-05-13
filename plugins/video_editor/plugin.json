@@ -1,0 +1,37 @@
+{
+  "id": "video_editor",
+  "name": "Video Editor",
+  "version": "0.1.0",
+  "description": "MLT/Shotcut + auto-editor backend for the Guaardvark Video Editor. Builds beat-synced timelines (librosa) and renders via melt. CPU pipeline; no VRAM required by default.",
+  "author": "Guaardvark",
+  "type": "service",
+  "category": "editing",
+  "port": 8207,
+  "vram_estimate_mb": 0,
+  "core": false,
+  "dependencies": [],
+  "config": {
+    "service_url": "http://127.0.0.1:8207",
+    "timeout": 300,
+    "fallback_enabled": false,
+    "default_enabled": false,
+    "default_auto_start": false,
+    "output_dir": "data/outputs/videos",
+    "mlt_projects_dir": "data/outputs/videos/mlt-projects",
+    "renders_dir": "data/outputs/videos/editor-renders"
+  },
+  "requirements": {
+    "gpu": false,
+    "cuda": false,
+    "system_binaries": ["melt", "auto-editor"]
+  },
+  "endpoints": {
+    "health": "/health",
+    "status": "/status",
+    "config": "/config",
+    "beat_sync_render": "/beat-sync/render",
+    "auto_editor_trim": "/auto-editor/trim",
+    "shotcut_compose": "/shotcut/compose",
+    "job_get": "/jobs/{id}"
+  }
+}
