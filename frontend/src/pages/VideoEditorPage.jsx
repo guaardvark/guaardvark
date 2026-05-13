@@ -29,6 +29,7 @@ import {
   GraphicEq as AudioIcon,
   AutoAwesome as PlanIcon,
   OpenInNew as ShotcutIcon,
+  RocketLaunch as QuickRenderIcon,
 } from "@mui/icons-material";
 import PageLayout from "../components/layout/PageLayout";
 import MediaLibraryPanel from "../components/videoeditor/MediaLibraryPanel";
@@ -86,6 +87,10 @@ const VideoEditorPage = () => {
   // Each value is a Partial<ClipAnalysis> patch the user has applied on top
   // of the Art Director's output.
   const [clipOverrides, setClipOverrides] = useState({});
+
+  // Quick Render: when true, the next planJob.result triggers a Render
+  // automatically. Cleared on completion or error.
+  const [quickRenderPending, setQuickRenderPending] = useState(false);
 
   // Phase 8 — poll the JobOperationGate so the Render button knows whether
   // another exclusive job (training, etc.) is mid-flight. Refreshes every
@@ -278,6 +283,21 @@ const VideoEditorPage = () => {
     return timeline.textElements.find((t) => t.id === selectedItem.id) || null;
   }, [selectedItem, timeline.textElements]);
 
+  // Bin-tile warnings: parse planJob.result.warnings and route to the right clip.
+  // Warnings come in the shape "filename: rest of message" — match by basename.
+  const warningsByClipId = useMemo(() => {
+    const map = {};
+    const warnings = planJob.result?.warnings || [];
+    if (!warnings.length) return map;
+    for (const c of timeline.bin) {
+      const base = (c.filename || "").split("/").pop();
+      if (!base) continue;
+      const hit = warnings.find((w) => w.startsWith(base + ":"));
+      if (hit) map[c.clipId] = hit.slice(base.length + 1).trim();
+    }
+    return map;
+  }, [planJob.result, timeline.bin]);
+
   // The merged analysis for the selected bin clip (AI output + local overrides).
   const selectedClipAnalysis = useMemo(() => {
     if (selectedItem?.type !== "bin") return null;
@@ -342,6 +362,12 @@ const VideoEditorPage = () => {
       clip_overrides: clipOverrides,
     });
   }, [canPlan, planJob, timeline.bin, timeline.song, scanMode, styleRecipeName, clipOverrides]);
+
+  const handleQuickRender = useCallback(() => {
+    if (!canPlan) return;
+    setQuickRenderPending(true);
+    handlePlan();
+  }, [canPlan, handlePlan]);
 
   // Re-analyze a single clip: drops cache, re-samples frames, fresh qwen3-vl.
   // The new analysis replaces both the cached value and the current planJob's
@@ -423,6 +449,17 @@ const VideoEditorPage = () => {
       setRendering(false);
     }
   }, [planJob.result, timeline.song]);
+
+  // Quick Render: when planJob lands with a result and we're pending, chain into Render.
+  useEffect(() => {
+    if (!quickRenderPending) return;
+    if (planJob.result && !planJob.planning && !rendering) {
+      setQuickRenderPending(false);
+      handleRender();
+    } else if (planJob.error) {
+      setQuickRenderPending(false);
+    }
+  }, [quickRenderPending, planJob.result, planJob.planning, planJob.error, rendering]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleOpenInShotcut = useCallback(async () => {
     if (!renderResult?.mlt_path) return;
@@ -510,7 +547,9 @@ const VideoEditorPage = () => {
                     onClick={handlePlan}
                     disabled={!canPlan}
                   >
-                    {planJob.planning ? `Planning... ${Math.round((planJob.job?.progress || 0) * 100)}%` : "Plan"}
+                    {planJob.planning && !quickRenderPending
+                      ? `Planning... ${Math.round((planJob.job?.progress || 0) * 100)}%`
+                      : "Plan"}
                   </Button>
                 </span>
               </Tooltip>
@@ -520,9 +559,28 @@ const VideoEditorPage = () => {
                     variant="contained"
                     startIcon={rendering ? <CircularProgress size={20} color="inherit" /> : <RenderIcon />}
                     onClick={handleRender}
-                    disabled={!planJob.result || rendering}
+                    disabled={!planJob.result || rendering || quickRenderPending}
                   >
                     {rendering ? "Rendering..." : "Render"}
+                  </Button>
+                </span>
+              </Tooltip>
+              <Tooltip title="Plan + Render in one click. The Batch Video Generator pattern — set it and forget it.">
+                <span>
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    startIcon={
+                      (planJob.planning || rendering) && quickRenderPending
+                        ? <CircularProgress size={20} color="inherit" />
+                        : <QuickRenderIcon />
+                    }
+                    onClick={handleQuickRender}
+                    disabled={!canPlan || rendering || quickRenderPending}
+                  >
+                    {quickRenderPending
+                      ? (rendering ? "Rendering..." : `Planning... ${Math.round((planJob.job?.progress || 0) * 100)}%`)
+                      : "Quick Render"}
                   </Button>
                 </span>
               </Tooltip>
@@ -635,6 +693,7 @@ const VideoEditorPage = () => {
               onAdd={handleBinAdd}
               onAddMany={handleBinAddMany}
               onRemove={handleBinRemove}
+              warningsByClipId={warningsByClipId}
             />
           </Box>
 

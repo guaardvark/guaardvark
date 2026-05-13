@@ -3,8 +3,8 @@
 // drag-out (the bin owns its clips once they're in).
 
 import React from "react";
-import { Box, IconButton, Tooltip, Typography } from "@mui/material";
-import { Close as CloseIcon } from "@mui/icons-material";
+import { Box, IconButton, Tooltip, Typography, Chip } from "@mui/material";
+import { Close as CloseIcon, WarningAmber as WarningIcon } from "@mui/icons-material";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -43,7 +43,7 @@ function KeptRangesStrip({ keptRanges, durationSeconds }) {
   );
 }
 
-const BinClipTile = ({ clip, selected, onSelect, onRemove }) => {
+const BinClipTile = ({ clip, selected, onSelect, onRemove, warning }) => {
   const thumbUrl = clip.documentId
     ? `${API_BASE}/files/thumbnail?document_id=${clip.documentId}`
     : null;
@@ -89,6 +89,23 @@ const BinClipTile = ({ clip, selected, onSelect, onRemove }) => {
           <CloseIcon sx={{ fontSize: 14 }} />
         </IconButton>
       </Tooltip>
+      {warning && (
+        <Tooltip title={warning}>
+          <Chip
+            size="small"
+            icon={<WarningIcon sx={{ fontSize: 14 }} />}
+            label="scan"
+            color="warning"
+            sx={{
+              position: "absolute",
+              top: 2, left: 2,
+              height: 18,
+              fontSize: "0.65rem",
+              "& .MuiChip-icon": { ml: 0.5, mr: -0.5 },
+            }}
+          />
+        </Tooltip>
+      )}
       <Typography
         variant="caption"
         sx={{ display: "block", mt: 0.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}

@@ -8,7 +8,7 @@
 
 import React, { useState, useMemo } from "react";
 import {
-  Box, Stack, Typography, Chip, Select, MenuItem, FormControl, InputLabel,
+  Box, Stack, Typography, Chip,
   Button, Divider, Tooltip, CircularProgress,
 } from "@mui/material";
 import { Refresh as RefreshIcon } from "@mui/icons-material";
@@ -21,17 +21,12 @@ const MOTIONS   = ["static", "slow", "medium", "fast"];
 const MOODS     = ["uplifting", "tense", "nostalgic", "aggressive", "mysterious", "playful"];
 const SECTIONS  = ["intro", "build", "drop", "outro", "any"];
 
-const FILTER_SLUGS = [
-  "none",
-  // Color
-  "warm-tint", "cool-tint", "high-contrast-bw", "sepia", "desaturate",
-  // Motion
-  "slow-zoom-in", "vertigo", "pan-left",
-  // Stylize
-  "oldfilm", "vignette", "glow",
-  // Glitch
-  "pixelate", "wave-distort",
-];
+const FILTER_CATEGORIES = {
+  Color:   ["warm-tint", "cool-tint", "high-contrast-bw", "sepia", "desaturate"],
+  Motion:  ["slow-zoom-in", "vertigo", "pan-left"],
+  Stylize: ["oldfilm", "vignette", "glow"],
+  Glitch:  ["pixelate", "wave-distort"],
+};
 
 // One cycling chip — clicking advances to the next allowed value.
 function CycleChip({ label, value, options, onChange }) {
@@ -110,18 +105,42 @@ const DirectorsNotesPanel = ({
 
       <Divider />
 
-      <FormControl size="small" fullWidth>
-        <InputLabel>Recommended filter</InputLabel>
-        <Select
-          label="Recommended filter"
-          value={clipAnalysis.recommended_filter || "none"}
-          onChange={(e) => set("recommended_filter")(e.target.value)}
-        >
-          {FILTER_SLUGS.map((slug) => (
-            <MenuItem key={slug} value={slug}>{slug}</MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+      <Box>
+        <Typography variant="caption" color="text.secondary">Filter</Typography>
+        <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 0.5 }}>
+          <Chip
+            size="small"
+            label="none"
+            color={(clipAnalysis.recommended_filter || "none") === "none" ? "primary" : "default"}
+            variant={(clipAnalysis.recommended_filter || "none") === "none" ? "filled" : "outlined"}
+            onClick={() => set("recommended_filter")("none")}
+            sx={{ mb: 0.5 }}
+          />
+        </Stack>
+        {Object.entries(FILTER_CATEGORIES).map(([cat, slugs]) => (
+          <Box key={cat} sx={{ mt: 0.75 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.65rem", textTransform: "uppercase" }}>
+              {cat}
+            </Typography>
+            <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 0.25 }}>
+              {slugs.map((slug) => {
+                const selected = clipAnalysis.recommended_filter === slug;
+                return (
+                  <Chip
+                    key={slug}
+                    size="small"
+                    label={slug}
+                    color={selected ? "primary" : "default"}
+                    variant={selected ? "filled" : "outlined"}
+                    onClick={() => set("recommended_filter")(slug)}
+                    sx={{ mb: 0.5 }}
+                  />
+                );
+              })}
+            </Stack>
+          </Box>
+        ))}
+      </Box>
 
       <Box>
         <Typography variant="caption" color="text.secondary">Best fit for</Typography>
