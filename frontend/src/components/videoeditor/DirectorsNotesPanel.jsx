@@ -9,9 +9,10 @@
 import React, { useState, useMemo } from "react";
 import {
   Box, Stack, Typography, Chip, Select, MenuItem, FormControl, InputLabel,
-  Button, Divider, Tooltip,
+  Button, Divider, Tooltip, CircularProgress,
 } from "@mui/material";
 import { Refresh as RefreshIcon } from "@mui/icons-material";
+import { frameThumbnailUrl } from "../../api/videoEditorService";
 
 const SUBJECTS  = ["wide-landscape", "character-closeup", "object-detail", "crowd", "text-or-ui", "abstract"];
 const ENERGIES  = ["calm", "medium", "high", "frenetic"];
@@ -51,7 +52,9 @@ function CycleChip({ label, value, options, onChange }) {
 const DirectorsNotesPanel = ({
   clipAnalysis,   // ClipAnalysis dict from planJob.result.clip_analyses
   onOverride,    // (patch: Partial<ClipAnalysis>) => void
-  onReanalyze,   // () => void   — cache bust + re-Plan-this-clip
+  onReanalyze,   // () => void   — cache bust + re-vision-this-clip
+  rescanning = false,
+  clipHash,       // string — needed to build frame thumbnail URLs (optional)
 }) => {
   if (!clipAnalysis) {
     return (
@@ -73,6 +76,29 @@ const DirectorsNotesPanel = ({
           <Chip size="small" label="cached" variant="outlined" sx={{ height: 18, fontSize: "0.65rem" }} />
         )}
       </Stack>
+
+      {clipHash && (
+        <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
+          {[0, 1, 2].map((i) => (
+            <Box
+              key={i}
+              component="img"
+              src={frameThumbnailUrl(clipHash, i)}
+              alt={`frame ${i + 1}`}
+              sx={{
+                width: "33%",
+                aspectRatio: "16/9",
+                objectFit: "cover",
+                borderRadius: 0.5,
+                border: 1,
+                borderColor: "divider",
+                backgroundColor: "background.default",
+              }}
+              onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+            />
+          ))}
+        </Stack>
+      )}
 
       <Stack spacing={0.5}>
         <CycleChip label="subject"  value={clipAnalysis.subject}          options={SUBJECTS}  onChange={set("subject")} />
@@ -124,11 +150,11 @@ const DirectorsNotesPanel = ({
       <Button
         size="small"
         variant="outlined"
-        startIcon={<RefreshIcon />}
+        startIcon={rescanning ? <CircularProgress size={16} /> : <RefreshIcon />}
         onClick={onReanalyze}
-        disabled={!onReanalyze}
+        disabled={!onReanalyze || rescanning}
       >
-        Re-analyze this clip
+        {rescanning ? "Re-analyzing..." : "Re-analyze this clip"}
       </Button>
 
       <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>

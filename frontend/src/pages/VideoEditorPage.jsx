@@ -41,7 +41,7 @@ import DirectorsNotesPanel from "../components/videoeditor/DirectorsNotesPanel";
 import { usePlanJob } from "../components/videoeditor/usePlanJob";
 import { useTimelineHistory } from "../components/videoeditor/useTimelineHistory";
 import { listVideoDocuments, listAudioDocuments, listImageDocuments } from "../api/videoOverlayService";
-import { listStyleRecipes, renderArrangement, openInShotcut } from "../api/videoEditorService";
+import { listStyleRecipes, renderArrangement, openInShotcut, rescanClip, getClipHash } from "../api/videoEditorService";
 import { getJobsGate } from "../api/jobsService";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
@@ -339,8 +339,63 @@ const VideoEditorPage = () => {
       scan_mode: scanMode,
       style_recipe_name: styleRecipeName,
       seed: Math.floor(Math.random() * 1_000_000),
+      clip_overrides: clipOverrides,
     });
-  }, [canPlan, planJob, timeline.bin, timeline.song, scanMode, styleRecipeName]);
+  }, [canPlan, planJob, timeline.bin, timeline.song, scanMode, styleRecipeName, clipOverrides]);
+
+  // Re-analyze a single clip: drops cache, re-samples frames, fresh qwen3-vl.
+  // The new analysis replaces both the cached value and the current planJob's
+  // clip_analyses entry so the UI updates without a full re-Plan.
+  const [rescanInFlight, setRescanInFlight] = useState(null);  // clip_id currently being re-analyzed
+  const handleReanalyze = useCallback(async () => {
+    if (!selectedItem || selectedItem.type !== "bin") return;
+    const clip = timeline.bin.find((c) => c.clipId === selectedItem.id);
+    if (!clip?.documentId) return;
+    setRescanInFlight(clip.clipId);
+    setError(null);
+    try {
+      const res = await rescanClip({
+        document_id: clip.documentId,
+        style_recipe_name: styleRecipeName,
+      });
+      // Clear any local override since it'd shadow the fresh AI read.
+      setClipOverrides((prev) => {
+        const next = { ...prev };
+        delete next[clip.clipId];
+        return next;
+      });
+      // Patch the planJob result so the panel updates immediately. We don't
+      // have a setter from the hook, so this is intentionally optimistic:
+      // the next Plan run picks up the new cache anyway.
+      if (planJob.result?.clip_analyses) {
+        const idx = planJob.result.clip_analyses.findIndex((a) => a.clip_id === clip.clipId);
+        if (idx >= 0) {
+          planJob.result.clip_analyses[idx] = {
+            ...res.analysis,
+            clip_id: clip.clipId,
+            source_path: planJob.result.clip_analyses[idx].source_path,
+          };
+        }
+      }
+    } catch (e) {
+      console.error("rescan failed:", e);
+      setError(e.response?.data?.error?.message || e.message || "Re-analyze failed");
+    } finally {
+      setRescanInFlight(null);
+    }
+  }, [selectedItem, timeline.bin, styleRecipeName, planJob.result]);
+
+  // Resolve the clip hash for the selected bin clip so DirectorsNotesPanel
+  // can build frame-thumbnail URLs. Cached per documentId.
+  const [clipHashByDocId, setClipHashByDocId] = useState({});
+  useEffect(() => {
+    if (selectedItem?.type !== "bin") return;
+    const clip = timeline.bin.find((c) => c.clipId === selectedItem.id);
+    if (!clip?.documentId || clipHashByDocId[clip.documentId]) return;
+    getClipHash({ document_id: clip.documentId })
+      .then((h) => h && setClipHashByDocId((prev) => ({ ...prev, [clip.documentId]: h })))
+      .catch((e) => console.warn("clip-hash lookup failed:", e));
+  }, [selectedItem, timeline.bin, clipHashByDocId]);
 
   // A2 render: full multi-clip arrangement with per-clip filters + transitions.
   // Plugin synthesizes the .mlt and renders to .mp4 in one synchronous call.
@@ -496,7 +551,12 @@ const VideoEditorPage = () => {
               <DirectorsNotesPanel
                 clipAnalysis={selectedClipAnalysis}
                 onOverride={handleClipOverride}
-                onReanalyze={undefined}
+                onReanalyze={handleReanalyze}
+                rescanning={rescanInFlight === selectedItem.id}
+                clipHash={(() => {
+                  const clip = timeline.bin.find((c) => c.clipId === selectedItem.id);
+                  return clip?.documentId ? clipHashByDocId[clip.documentId] : null;
+                })()}
               />
             )}
             {selectedText && (

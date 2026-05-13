@@ -16,6 +16,7 @@ immediately.
 
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from pathlib import Path
@@ -108,6 +109,17 @@ class PlanBody(BaseModel):
     margin: str = "0.2sec"
     style_recipe_name: str = "default"
     seed: int = 0
+    # Director's Notes overrides keyed by clip_id; merged into the vision
+    # output before arranging. Empty dict = pure AI output, no edits.
+    clip_overrides: dict[str, dict[str, Any]] = Field(default_factory=dict)
+
+
+class RescanClipBody(BaseModel):
+    """Force a fresh qwen3-vl pass on a single clip — busts the cache first."""
+
+    source_path: str
+    style_recipe_name: str = "default"
+    n_frames: int = Field(3, ge=1, le=10)
 
 
 class OpenInShotcutBody(BaseModel):
@@ -449,6 +461,7 @@ def submit_plan(body: PlanBody) -> dict[str, Any]:
         margin=body.margin,
         style_recipe=recipe_dict,
         seed=body.seed,
+        clip_overrides=body.clip_overrides or {},
     )
 
     analyze_dir = Path(_paths["mlt_projects"]).parent / "auto-editor-scans"
@@ -608,3 +621,91 @@ def shotcut_compose_arrangement(body: ComposeArrangementBody) -> dict[str, Any]:
                 response["documents"].append(doc)
 
     return response
+
+
+# ---------- Re-analyze single clip + serve sampled frames -------------------
+
+
+@app.post("/vision/rescan-clip")
+def rescan_clip(body: RescanClipBody) -> dict[str, Any]:
+    """Force-bust the cache and re-run vision analysis on one clip.
+
+    Returns the fresh ClipAnalysis. Used by Director's Notes "Re-analyze"
+    button when the user thinks the AI's read was wrong.
+    """
+    from mlt.clip_hash import cache_path_for, hash_clip
+    from mlt.frame_sampler import sample_frames
+
+    _require_paths(body.source_path)
+
+    recipe = load_recipe(body.style_recipe_name)
+    recipe_dict = recipe.to_dict() if recipe else None
+
+    vision_cache_dir = Path(_paths["mlt_projects"]).parent / "clip-scans"
+    cache_file = cache_path_for(body.source_path, vision_cache_dir)
+    if cache_file.exists():
+        cache_file.unlink()
+
+    clip_hash = hash_clip(body.source_path)
+    frames_dir = vision_cache_dir / "frames" / clip_hash
+    # Also clear stale sampled frames so the new pass produces consistent input.
+    if frames_dir.exists():
+        for f in frames_dir.glob("*.jpg"):
+            f.unlink()
+
+    sampled = sample_frames(body.source_path, frames_dir, n_frames=body.n_frames)
+    analysis = _crew.analyze_clip(
+        frames=[f.path for f in sampled],
+        clip_id=Path(body.source_path).stem,
+        source_path=body.source_path,
+        recipe=recipe_dict,
+    )
+    # Persist for next Plan run.
+    cache_file.parent.mkdir(parents=True, exist_ok=True)
+    cache_file.write_text(json.dumps(analysis.to_dict(), indent=2))
+
+    return {
+        "analysis": analysis.to_dict(),
+        "frames": [str(f.path) for f in sampled],
+        "frame_count": len(sampled),
+    }
+
+
+@app.get("/vision/frames/{clip_hash}/{frame_index}")
+def get_sampled_frame(clip_hash: str, frame_index: int):
+    """Return one sampled frame JPEG. Used by Director's Notes thumbnail strip."""
+    from fastapi.responses import FileResponse
+
+    if not clip_hash.replace("_", "").isalnum():
+        raise HTTPException(status_code=400, detail="invalid clip_hash")
+    if frame_index < 0 or frame_index > 99:
+        raise HTTPException(status_code=400, detail="frame_index out of range")
+
+    frames_dir = (Path(_paths["mlt_projects"]).parent / "clip-scans" / "frames" / clip_hash).resolve()
+    # Path-traversal guard: the resolved dir must be under clip-scans/frames.
+    allowed_root = (Path(_paths["mlt_projects"]).parent / "clip-scans" / "frames").resolve()
+    try:
+        frames_dir.relative_to(allowed_root)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="invalid clip_hash")
+
+    if not frames_dir.is_dir():
+        raise HTTPException(status_code=404, detail=f"no frames for {clip_hash}")
+
+    matches = sorted(frames_dir.glob(f"*__f{frame_index}.jpg"))
+    if not matches:
+        raise HTTPException(status_code=404, detail=f"frame {frame_index} not sampled")
+    return FileResponse(matches[0], media_type="image/jpeg")
+
+
+@app.post("/vision/clip-hash")
+def get_clip_hash(body: dict[str, Any]) -> dict[str, Any]:
+    """Return the cache hash for a given source path — lets the frontend
+    build the /vision/frames/{hash}/{i} URL without duplicating the hash logic."""
+    from mlt.clip_hash import hash_clip
+
+    source_path = body.get("source_path")
+    if not source_path:
+        raise HTTPException(status_code=400, detail="source_path required")
+    _require_paths(source_path)
+    return {"hash": hash_clip(source_path), "source_path": source_path}

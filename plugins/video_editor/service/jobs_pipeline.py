@@ -57,6 +57,9 @@ class PlanRequest:
     margin: str = "0.2sec"
     style_recipe: Optional[dict[str, Any]] = None
     seed: int = 0
+    # Director's Notes overrides — applied AFTER vision analysis, BEFORE arranging.
+    # Shape: {clip_id: {field: value, ...}}. Empty dict = no overrides.
+    clip_overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 @dataclass
@@ -117,6 +120,12 @@ def run_plan(
         cache_dir=vision_cache_dir,
         progress_cb=progress_cb,
     )
+
+    # Apply Director's Notes overrides on top of the vision output. Overrides
+    # are NOT persisted to the cache file — they're per-Plan-call. Re-plan
+    # with the same overrides reapplies them; clearing the page state clears.
+    if req.clip_overrides:
+        _apply_overrides(clip_analyses, req.clip_overrides)
 
     if progress_cb:
         progress_cb(0.90, "Arranging")
@@ -265,3 +274,24 @@ def _read_cached_analysis(cache_file: Path, clip: BinClip) -> Optional[ClipAnaly
 
 def _write_cached_analysis(cache_file: Path, analysis: ClipAnalysis) -> None:
     cache_file.write_text(json.dumps(analysis.to_dict(), indent=2))
+
+
+_OVERRIDABLE_FIELDS = (
+    "subject", "energy", "dominant_palette", "motion", "mood",
+    "recommended_filter", "best_section_fit",
+)
+
+
+def _apply_overrides(
+    analyses: list[ClipAnalysis],
+    overrides: dict[str, dict[str, Any]],
+) -> None:
+    """Mutate `analyses` in-place with the user's per-clip patch values."""
+    by_id = {a.clip_id: a for a in analyses}
+    for clip_id, patch in overrides.items():
+        target = by_id.get(clip_id)
+        if not target or not isinstance(patch, dict):
+            continue
+        for field_name in _OVERRIDABLE_FIELDS:
+            if field_name in patch:
+                setattr(target, field_name, patch[field_name])

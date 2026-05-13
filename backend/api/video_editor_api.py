@@ -172,6 +172,49 @@ def list_transition_catalog():
     return jsonify(body), status_code
 
 
+@video_editor_bp.route("/vision/rescan-clip", methods=["POST"])
+def rescan_clip():
+    """Force-bust the cache for one clip and re-run vision analysis."""
+    payload = flask_request.get_json(silent=True) or {}
+    if "document_id" in payload and not payload.get("source_path"):
+        resolved = _resolve_document(payload.pop("document_id"))
+        if resolved:
+            payload["source_path"] = resolved
+    body, status_code = _proxy_post("/vision/rescan-clip", payload, timeout=RENDER_TIMEOUT)
+    return jsonify(body), status_code
+
+
+@video_editor_bp.route("/vision/clip-hash", methods=["POST"])
+def get_clip_hash():
+    """Resolve a clip's content hash for building frame-thumbnail URLs."""
+    payload = flask_request.get_json(silent=True) or {}
+    if "document_id" in payload and not payload.get("source_path"):
+        resolved = _resolve_document(payload.pop("document_id"))
+        if resolved:
+            payload["source_path"] = resolved
+    body, status_code = _proxy_post("/vision/clip-hash", payload, timeout=QUICK_TIMEOUT)
+    return jsonify(body), status_code
+
+
+@video_editor_bp.route("/vision/frames/<clip_hash>/<int:frame_index>", methods=["GET"])
+def get_sampled_frame(clip_hash: str, frame_index: int):
+    """Stream a sampled JPEG frame from the plugin to the browser."""
+    import requests
+    try:
+        resp = requests.get(
+            f"{PLUGIN_URL}/vision/frames/{clip_hash}/{frame_index}",
+            timeout=QUICK_TIMEOUT,
+            stream=False,
+        )
+    except requests.ConnectionError:
+        return jsonify({"error": "Video Editor service not running"}), 503
+
+    if resp.status_code != 200:
+        return jsonify({"error": f"plugin returned {resp.status_code}"}), resp.status_code
+    from flask import Response
+    return Response(resp.content, mimetype="image/jpeg")
+
+
 # ---------- A1 endpoints: bin-driven Plan pipeline ---------------------------
 
 @video_editor_bp.route("/recipes", methods=["GET"])

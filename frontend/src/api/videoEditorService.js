@@ -24,16 +24,41 @@ export const submitPlan = async ({
   margin = "0.2sec",
   style_recipe_name = "Default",
   seed = 0,
+  clip_overrides = {},
 }) => {
   const body = {
     bin_clips, scan_mode, audio_threshold, motion_threshold, margin,
     style_recipe_name, seed,
+    clip_overrides,
   };
   if (song_document_id) body.song_document_id = song_document_id;
   if (song_path) body.song_path = song_path;
   const res = await axios.post(`${API_BASE}/video-editor/plan`, body);
   return res.data;
 };
+
+// Force-bust the cache for one clip and re-run vision analysis.
+// Returns { analysis: ClipAnalysis, frames: [paths], frame_count }.
+export const rescanClip = async ({ document_id, source_path, style_recipe_name = "Default", n_frames = 3 }) => {
+  const body = { style_recipe_name, n_frames };
+  if (document_id) body.document_id = document_id;
+  if (source_path) body.source_path = source_path;
+  const res = await axios.post(`${API_BASE}/video-editor/vision/rescan-clip`, body);
+  return res.data;
+};
+
+// Resolve a clip's hash so we can build frame thumbnail URLs.
+export const getClipHash = async ({ document_id, source_path }) => {
+  const body = {};
+  if (document_id) body.document_id = document_id;
+  if (source_path) body.source_path = source_path;
+  const res = await axios.post(`${API_BASE}/video-editor/vision/clip-hash`, body);
+  return res.data?.hash || null;
+};
+
+// URL builder for one sampled frame.
+export const frameThumbnailUrl = (clipHash, frameIndex) =>
+  `${API_BASE}/video-editor/vision/frames/${encodeURIComponent(clipHash)}/${frameIndex}`;
 
 // Poll job state. Returns the full Job dict with .status, .progress, .result.
 export const getPlanJob = async (jobId) => {
