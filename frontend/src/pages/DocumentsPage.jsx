@@ -987,6 +987,26 @@ const DocumentsPage = () => {
   const foldedWindows = windows.filter(w => w.state === 'folded');
   const activeWindows = windows.filter(w => w.state === 'minimized' || w.state === 'maximized');
 
+  // Build a dataTransfer payload for desktop icon drags. If the dragged icon is part
+  // of a multi-selection, ship the whole set; otherwise just the one item.
+  const buildDesktopDragPayload = (thisItemKey, fallbackItem) => {
+    if (desktopSelection.size <= 1 || !desktopSelection.has(thisItemKey)) {
+      return [fallbackItem];
+    }
+    return Array.from(desktopSelection).map(k => {
+      const [type, idStr] = k.split('-');
+      const id = parseInt(idStr);
+      if (type === 'folder') {
+        const w = foldedWindows.find(fw => fw.folderId === id);
+        if (!w) return null;
+        return { id, itemType: 'folder', name: w.folder.name, path: w.folder.path };
+      }
+      const f = rootFiles.find(rf => rf.id === id);
+      if (!f) return null;
+      return { id, itemType: 'file', name: f.filename, filename: f.filename, path: f.path };
+    }).filter(Boolean);
+  };
+
   // Auto-arrange all windows - intelligently pick columns based on count
   const handleArrangeWindows = useCallback(() => {
     const activeWindowList = windows.filter(w => w.state === 'maximized' || w.state === 'minimized');
@@ -1077,18 +1097,18 @@ const DocumentsPage = () => {
   }, [foldedWindows, rootFiles, windows, windowLayout, windowColors, windowZIndex, maxZIndex, RGL_WIDTH_PROP_PX]);
 
   // Context menu handlers
-  const handleContextMenu = useCallback((e, item = null, type = 'desktop') => {
+  // Right-click handler. `surface` tells us where the click physically happened —
+  // 'desktop' for icons/space on the desktop, 'window' for anything inside a folder
+  // window. Without it, type='folder' couldn't distinguish a desktop folder icon
+  // from an in-window subfolder, and copy/cut would key off the wrong selection slot.
+  const handleContextMenu = useCallback((e, item = null, type = 'desktop', surface = 'desktop') => {
     e.preventDefault();
     e.stopPropagation();
-    if (type === 'folder' || type === 'folder-window') {
-      setActiveContext({
-        type: 'folder',
-        path: item?.path || '/',
-        folderId: item?.id,
-      });
-    } else {
+    if (surface === 'desktop') {
       setDesktopContext();
     }
+    // For surface='window', the folder window's onMouseDown has already set
+    // activeContext to that window — don't clobber it from the item type.
     setContextMenu({ top: e.clientY, left: e.clientX });
     setContextMenuType(type);
     setContextMenuItem(item);
@@ -1968,12 +1988,14 @@ const DocumentsPage = () => {
                 draggable
                 onDragStart={(e) => {
                   setDesktopContext();
-                  e.dataTransfer.setData('text/plain', JSON.stringify([{
+                  const fallback = {
                     id: window.folderId,
                     itemType: 'folder',
                     name: window.folder.name,
                     path: window.folder.path,
-                  }]));
+                  };
+                  const payload = buildDesktopDragPayload(`folder-${window.folderId}`, fallback);
+                  e.dataTransfer.setData('text/plain', JSON.stringify(payload));
                   e.dataTransfer.effectAllowed = 'move';
                 }}
                 onDragEnd={(e) => {
@@ -2036,7 +2058,7 @@ const DocumentsPage = () => {
                       e.stopPropagation();
                       handleFolderExpand(window.id);
                     }}
-                    onContextMenu={(e) => handleContextMenu(e, window.folder, 'folder')}
+                    onContextMenu={(e) => handleContextMenu(e, window.folder, 'folder', 'desktop')}
                     sx={{ p: 2, textAlign: 'center' }}
                   >
                     <CardContent sx={{ p: 0 }}>
@@ -2100,13 +2122,15 @@ const DocumentsPage = () => {
                 draggable
                 onDragStart={(e) => {
                   setDesktopContext();
-                  e.dataTransfer.setData('text/plain', JSON.stringify([{
+                  const fallback = {
                     id: file.id,
                     itemType: 'file',
                     filename: file.filename,
                     name: file.filename,
                     path: file.path,
-                  }]));
+                  };
+                  const payload = buildDesktopDragPayload(`file-${file.id}`, fallback);
+                  e.dataTransfer.setData('text/plain', JSON.stringify(payload));
                   e.dataTransfer.effectAllowed = 'move';
                 }}
                 onDragEnd={(e) => {
@@ -2180,7 +2204,7 @@ const DocumentsPage = () => {
                         window.open(`${API_BASE}/document/${file.id}/download`, '_blank');
                       }
                     }}
-                    onContextMenu={(e) => handleContextMenu(e, file, 'file')}
+                    onContextMenu={(e) => handleContextMenu(e, file, 'file', 'desktop')}
                     sx={{ p: 2, textAlign: 'center' }}
                   >
                     <CardContent sx={{ p: 0 }}>
@@ -2333,7 +2357,7 @@ const DocumentsPage = () => {
                           window.open(`${API_BASE}/document/${file.id}/download`, '_blank');
                         }
                       }}
-                      onContextMenu={handleContextMenu}
+                      onContextMenu={(e, item, type) => handleContextMenu(e, item, type, 'window')}
                       onFocusContext={setActiveContext}
                       refreshKey={folderRefreshKeys[window.folderId] || 0}
                       folderColors={folderIdToColor}

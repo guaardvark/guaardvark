@@ -247,7 +247,10 @@ const FolderContents = ({
   const handleSelectionMouseDown = useCallback((e) => {
     // Only start selection on left click on empty area
     if (e.button !== 0) return;
-    if (e.target.closest('.MuiListItem-root') || e.target.closest('.MuiCard-root')) return;
+    // List-view rows (.MuiTableRow-root) need this too — without it, mousedown
+    // on a row starts a rubber-band that collapses multi-selection right before
+    // HTML5 dragstart fires, and only the dragged row ends up in dataTransfer.
+    if (e.target.closest('.MuiListItem-root') || e.target.closest('.MuiCard-root') || e.target.closest('.MuiTableRow-root')) return;
     if (onFocusContext) {
       onFocusContext({ type: 'folder', path: currentPath || folder.path, folderId: folder.id });
     }
