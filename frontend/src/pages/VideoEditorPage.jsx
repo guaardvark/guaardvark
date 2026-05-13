@@ -20,6 +20,9 @@ import {
   Divider,
   CircularProgress,
   Alert,
+  ToggleButton,
+  ToggleButtonGroup,
+  Tooltip,
 } from "@mui/material";
 import {
   PlayArrow as PlayIcon,
@@ -67,6 +70,9 @@ const VideoEditorPage = () => {
   const [rendering, setRendering] = useState(false);
   const [renderJob, setRenderJob] = useState(null);
   const [renderResult, setRenderResult] = useState(null);
+  // "ffmpeg" (default, single-pass) | "mlt" (Shotcut/MLT plugin — emits a .mlt
+  // alongside the .mp4 so the user can refine in Shotcut afterwards).
+  const [renderBackend, setRenderBackend] = useState("ffmpeg");
   const [gate, setGate] = useState(null);
   const [error, setError] = useState(null);
 
@@ -245,6 +251,10 @@ const VideoEditorPage = () => {
         })),
         audio_document_id: timeline.audio?.documentId || null,
         audio_volume: timeline.audio?.volume ?? 1.0,
+        // "ffmpeg" → single-pass ffmpeg filter_complex (default, fastest).
+        // "mlt" → Shotcut/MLT plugin: emits a .mlt project alongside the .mp4
+        // so the user can open and refine in Shotcut.
+        backend: renderBackend,
       };
       const { job_id } = await renderTimeline(payload);
       setRenderJob({ job_id, status: "pending", progress: 0, message: "Dispatching..." });
@@ -392,6 +402,23 @@ const VideoEditorPage = () => {
                 Add Text
               </Button>
               <Box sx={{ flexGrow: 1 }} />
+              <Tooltip title={
+                renderBackend === "mlt"
+                  ? "Shotcut/MLT — also emits a .mlt project you can open in Shotcut to refine"
+                  : "FFmpeg — single-pass, fastest"
+              }>
+                <ToggleButtonGroup
+                  size="small"
+                  value={renderBackend}
+                  exclusive
+                  onChange={(_, val) => { if (val) setRenderBackend(val); }}
+                  disabled={rendering}
+                  aria-label="Render engine"
+                >
+                  <ToggleButton value="ffmpeg" sx={{ textTransform: "none", px: 1.5 }}>FFmpeg</ToggleButton>
+                  <ToggleButton value="mlt" sx={{ textTransform: "none", px: 1.5 }}>Shotcut</ToggleButton>
+                </ToggleButtonGroup>
+              </Tooltip>
               <Button
                 variant="contained"
                 startIcon={rendering ? <CircularProgress size={20} color="inherit" /> : <RenderIcon />}

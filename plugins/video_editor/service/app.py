@@ -31,6 +31,7 @@ from mlt.frame_math import FrameRate
 from mlt.mlt_parser import MediaAsset, ProjectProfile
 from mlt.mlt_writer import plan_cuts_from_beats, write_project
 from mlt.render import MeltNotFound, render_mlt
+from mlt.timeline_compose import compose_timeline, timeline_from_payload
 
 from service.config_loader import load_config
 from service.jobs import Job, JobTable
@@ -85,13 +86,30 @@ class AutoEditorRequest(BaseModel):
 
 
 class ShotcutComposeRequest(BaseModel):
-    """Placeholder for M3 — generic timeline JSON → .mlt."""
+    """Generic VideoEditorPage-style timeline → .mlt (and optional .mp4).
 
-    timeline: dict[str, Any]
+    Mirrors the shape the existing Flask /api/video-overlay/render-timeline
+    endpoint already consumes; paths are absolute (Flask proxy resolves
+    document_id → path before forwarding).
+    """
+
+    video_path: str
+    audio_path: Optional[str] = None
+    video_trim_start: float = 0.0
+    video_trim_end: Optional[float] = None
+    audio_volume: float = 1.0
+    text_elements: list[dict[str, Any]] = Field(default_factory=list)
+
     fps_num: int = 30
     fps_den: int = 1
     width: int = 1920
     height: int = 1080
+
+    video_source_duration_seconds: Optional[float] = Field(
+        None, description="Hint: video source duration so trim_end=None falls back here."
+    )
+    render_mp4: bool = Field(False)
+    register: bool = Field(True)
 
 
 # ---------- read endpoints ---------------------------------------------------
@@ -190,11 +208,72 @@ def auto_editor_trim(req: AutoEditorRequest) -> dict[str, Any]:
 
 @app.post("/shotcut/compose")
 def shotcut_compose(req: ShotcutComposeRequest) -> dict[str, Any]:
-    """M3 placeholder. Accepts a timeline JSON, emits .mlt — not yet wired."""
-    raise HTTPException(
-        status_code=501,
-        detail="/shotcut/compose lands in M3. Use /beat-sync/render for now.",
+    """Compose a VideoEditorPage timeline into a .mlt; optionally render MP4."""
+    _require_paths(req.video_path)
+    if req.audio_path:
+        _require_paths(req.audio_path)
+
+    profile = ProjectProfile(
+        frame_rate=FrameRate(req.fps_num, req.fps_den),
+        width=req.width,
+        height=req.height,
     )
+
+    timeline = timeline_from_payload(req.model_dump())
+    mlt_dir = Path(_paths["mlt_projects"])
+    mlt_dir.mkdir(parents=True, exist_ok=True)
+    mlt_path = mlt_dir / f"timeline_{uuid.uuid4().hex[:12]}.mlt"
+    compose_timeline(
+        timeline,
+        mlt_path,
+        profile,
+        video_source_duration_seconds=req.video_source_duration_seconds,
+    )
+
+    response: dict[str, Any] = {
+        "mlt_path": str(mlt_path),
+        "text_overlay_count": len(timeline.text_elements),
+        "rendered_mp4": None,
+        "documents": [],
+    }
+
+    if req.register:
+        doc = register_output(
+            mlt_path,
+            backend_url=_runtime.get("registration", {}).get("backend_url", "http://localhost:5002"),
+            folder=_runtime.get("registration", {}).get("folder", "Videos"),
+            file_metadata={"kind": "mlt_timeline", "text_overlays": len(timeline.text_elements)},
+        )
+        if doc:
+            response["documents"].append(doc)
+
+    if req.render_mp4:
+        melt_path = _runtime.get("melt", {}).get("resolved_path", "") or "melt"
+        renders_dir = Path(_paths["renders"])
+        renders_dir.mkdir(parents=True, exist_ok=True)
+        mp4_path = renders_dir / (mlt_path.stem + ".mp4")
+        try:
+            render = render_mlt(
+                mlt_path,
+                mp4_path,
+                melt_path=melt_path,
+                vcodec=_runtime.get("melt", {}).get("default_vcodec", "libx264"),
+                acodec=_runtime.get("melt", {}).get("default_acodec", "aac"),
+            )
+        except MeltNotFound as e:
+            raise HTTPException(status_code=500, detail=f"melt unavailable: {e}") from e
+        response["rendered_mp4"] = str(render.output_path)
+        if req.register:
+            doc = register_output(
+                render.output_path,
+                backend_url=_runtime.get("registration", {}).get("backend_url", "http://localhost:5002"),
+                folder=_runtime.get("registration", {}).get("folder", "Videos"),
+                file_metadata={"kind": "mlt_render", "text_overlays": len(timeline.text_elements)},
+            )
+            if doc:
+                response["documents"].append(doc)
+
+    return response
 
 
 # ---------- internals --------------------------------------------------------

@@ -240,6 +240,18 @@ def render_timeline_endpoint():
     if not isinstance(text_elements, list):
         return error_response("text_elements must be an array", 400, "INVALID_TEXT_ELEMENTS")
 
+    # Render backend selector. "ffmpeg" (default) uses the single-pass ffmpeg
+    # filter_complex path; "mlt" delegates to the video_editor plugin (Shotcut/MLT).
+    # The plugin produces both a .mlt project (openable in Shotcut for refinement)
+    # and the final .mp4.
+    backend_choice = (payload.get("backend") or "ffmpeg").lower()
+    if backend_choice not in ("ffmpeg", "mlt"):
+        return error_response(
+            f"backend must be 'ffmpeg' or 'mlt', got {backend_choice!r}",
+            400,
+            "INVALID_BACKEND",
+        )
+
     # Source-named output via the resolver (Phase 3 of filename plan): pick
     # a unique UUID suffix to avoid collisions under concurrent renders.
     editor_renders_dir = Path("data/outputs/videos/editor-renders")
@@ -249,14 +261,20 @@ def render_timeline_endpoint():
 
     from backend.utils.unified_progress_system import get_unified_progress, ProcessType
     progress_system = get_unified_progress()
-    job_id = progress_system.create_process(ProcessType.VIDEO_RENDER, f"Render: {source_stem}")
+    job_id = progress_system.create_process(
+        ProcessType.VIDEO_RENDER,
+        f"Render ({backend_choice}): {source_stem}",
+    )
 
-    from backend.tasks.video_render_tasks import create_video_render_tasks
-    # The task function is bound to the celery app
+    task_name = (
+        "video_render_tasks.mlt_render_timeline_task"
+        if backend_choice == "mlt"
+        else "video_render_tasks.render_timeline_task"
+    )
     celery.send_task(
-        "video_render_tasks.render_timeline_task",
+        task_name,
         args=(payload, str(output_path), job_id),
-        queue="renders"
+        queue="renders",
     )
 
     return success_response(
