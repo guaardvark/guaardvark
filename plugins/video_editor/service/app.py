@@ -34,8 +34,11 @@ from mlt.render import MeltNotFound, render_mlt
 from mlt.timeline_compose import compose_timeline, timeline_from_payload
 
 from service.config_loader import load_config
+from service.crew_interface import LocalArtDirector
 from service.jobs import Job, JobTable
+from service.jobs_pipeline import BinClip, PlanRequest, run_plan
 from service.registration import register_output
+from service.style_recipe_loader import list_recipes, load_recipe
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s: %(message)s")
@@ -48,6 +51,9 @@ _jobs = JobTable(
     max_entries=_runtime.get("jobs", {}).get("max_entries", 200),
     worker_threads=_runtime.get("jobs", {}).get("worker_threads", 2),
 )
+
+# v1 Crew implementation. Swap to FilmCrewClient when plugins/film_crew/ lands.
+_crew = LocalArtDirector(ollama_url="http://localhost:11434")
 
 app = FastAPI(
     title="Video Editor",
@@ -83,6 +89,33 @@ class AutoEditorRequest(BaseModel):
     margin: str = Field("0.2sec")
     mode: str = Field("mp4", pattern="^(mp4|kdenlive)$")
     register: bool = Field(False)
+
+
+class PlanBinClip(BaseModel):
+    clip_id: str
+    source_path: str
+    document_id: Optional[int] = None
+
+
+class PlanBody(BaseModel):
+    bin_clips: list[PlanBinClip] = Field(..., min_length=1)
+    song_path: str
+    scan_mode: str = Field("both-and", pattern="^(audio|motion|both-or|both-and)$")
+    audio_threshold: float = Field(0.04, ge=0.0, le=1.0)
+    motion_threshold: float = Field(0.02, ge=0.0, le=1.0)
+    margin: str = "0.2sec"
+    style_recipe_name: str = "default"
+    seed: int = 0
+
+
+class OpenInShotcutBody(BaseModel):
+    mlt_path: str
+
+
+class VisionScanBody(BaseModel):
+    """A3 will run real qwen3-vl here; A1 stub returns neutral defaults."""
+
+    clip_paths: list[str] = Field(..., min_length=1)
 
 
 class ShotcutComposeRequest(BaseModel):
@@ -370,3 +403,92 @@ def _do_beat_sync_render(job: Job, req: BeatSyncRequest) -> dict[str, Any]:
                 result["documents"].append(doc)
 
     return result
+
+
+# ---------- Plan pipeline ---------------------------------------------------
+
+
+@app.get("/recipes")
+def list_style_recipes() -> dict[str, Any]:
+    """List available Style Recipes (data/agent/style_recipes/*.json)."""
+    return {"recipes": [r.to_dict() for r in list_recipes()]}
+
+
+@app.post("/plan")
+def submit_plan(body: PlanBody) -> dict[str, Any]:
+    """Submit a Plan job: bin + song + scan_mode → arrangement.json (async)."""
+    _require_paths(body.song_path, *[c.source_path for c in body.bin_clips])
+
+    recipe = load_recipe(body.style_recipe_name)
+    recipe_dict = recipe.to_dict() if recipe else None
+
+    plan_req = PlanRequest(
+        bin_clips=[BinClip(clip_id=c.clip_id, source_path=c.source_path, document_id=c.document_id)
+                   for c in body.bin_clips],
+        song_path=body.song_path,
+        scan_mode=body.scan_mode,
+        audio_threshold=body.audio_threshold,
+        motion_threshold=body.motion_threshold,
+        margin=body.margin,
+        style_recipe=recipe_dict,
+        seed=body.seed,
+    )
+
+    analyze_dir = Path(_paths["mlt_projects"]).parent / "auto-editor-scans"
+    vision_cache_dir = Path(_paths["mlt_projects"]).parent / "clip-scans"
+
+    def task(job: Job) -> dict[str, Any]:
+        def progress(pct: float, message: str) -> None:
+            job.progress = pct
+            logger.info("plan job %s: %.0f%% %s", job.id, pct * 100, message)
+
+        result = run_plan(
+            plan_req,
+            crew=_crew,
+            analyze_out_dir=analyze_dir,
+            vision_cache_dir=vision_cache_dir,
+            progress_cb=progress,
+        )
+        return result.to_dict()
+
+    job = _jobs.submit("plan", task)
+    return {"job_id": job.id, "status": job.status}
+
+
+@app.post("/vision/scan-clips")
+def vision_scan_clips(body: VisionScanBody) -> dict[str, Any]:
+    """Per-clip vision analysis. A1: neutral defaults via LocalArtDirector. A3: qwen3-vl."""
+    _require_paths(*body.clip_paths)
+    out: list[dict[str, Any]] = []
+    for p in body.clip_paths:
+        analysis = _crew.analyze_clip(frames=[], clip_id=Path(p).stem, source_path=p)
+        out.append(analysis.to_dict())
+    return {"analyses": out}
+
+
+@app.post("/open-in-shotcut")
+def open_in_shotcut(body: OpenInShotcutBody) -> dict[str, Any]:
+    """Spawn Shotcut on a .mlt file. Path must live under the configured mlt_projects dir."""
+    import shutil
+    import subprocess
+
+    mlt_path = Path(body.mlt_path).resolve()
+    if not mlt_path.exists():
+        raise HTTPException(status_code=404, detail=f"mlt not found: {mlt_path}")
+
+    allowed_root = Path(_paths["mlt_projects"]).resolve()
+    try:
+        mlt_path.relative_to(allowed_root)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"mlt path must be under {allowed_root}",
+        )
+
+    shotcut_bin = shutil.which("shotcut")
+    if not shotcut_bin:
+        raise HTTPException(status_code=500, detail="shotcut binary not on PATH")
+
+    # Detached spawn — we don't track it.
+    subprocess.Popen([shotcut_bin, str(mlt_path)], start_new_session=True)
+    return {"launched": str(mlt_path)}

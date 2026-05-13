@@ -146,3 +146,63 @@ def shotcut_compose():
     payload = flask_request.get_json(silent=True) or {}
     body, status_code = _proxy_post("/shotcut/compose", payload, timeout=QUICK_TIMEOUT)
     return jsonify(body), status_code
+
+
+# ---------- A1 endpoints: bin-driven Plan pipeline ---------------------------
+
+@video_editor_bp.route("/recipes", methods=["GET"])
+def list_recipes():
+    body, status_code = _proxy_get("/recipes")
+    return jsonify(body), status_code
+
+
+@video_editor_bp.route("/plan", methods=["POST"])
+def submit_plan():
+    """Bin + song → arrangement. Resolves bin clip document_ids to paths first."""
+    payload = flask_request.get_json(silent=True) or {}
+
+    # Expand bin_clips' document_id → source_path
+    expanded_bin: list[dict[str, Any]] = []
+    for entry in payload.get("bin_clips") or []:
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("source_path"):
+            expanded_bin.append(entry)
+            continue
+        doc_id = entry.get("document_id")
+        if doc_id:
+            path = _resolve_document(doc_id)
+            if path:
+                expanded_bin.append({
+                    "clip_id": entry.get("clip_id") or f"doc{doc_id}",
+                    "source_path": path,
+                    "document_id": doc_id,
+                })
+    payload["bin_clips"] = expanded_bin
+
+    # Expand song
+    if not payload.get("song_path") and payload.get("song_document_id"):
+        path = _resolve_document(payload["song_document_id"])
+        if path:
+            payload["song_path"] = path
+
+    body, status_code = _proxy_post("/plan", payload, timeout=RENDER_TIMEOUT)
+    return jsonify(body), status_code
+
+
+@video_editor_bp.route("/vision/scan-clips", methods=["POST"])
+def vision_scan_clips():
+    """A1: returns neutral defaults. A3: real qwen3-vl call inside the plugin."""
+    payload = flask_request.get_json(silent=True) or {}
+    if "document_ids" in payload and not payload.get("clip_paths"):
+        ids = payload.pop("document_ids") or []
+        payload["clip_paths"] = [p for p in (_resolve_document(d) for d in ids) if p]
+    body, status_code = _proxy_post("/vision/scan-clips", payload, timeout=RENDER_TIMEOUT)
+    return jsonify(body), status_code
+
+
+@video_editor_bp.route("/open-in-shotcut", methods=["POST"])
+def open_in_shotcut():
+    payload = flask_request.get_json(silent=True) or {}
+    body, status_code = _proxy_post("/open-in-shotcut", payload, timeout=QUICK_TIMEOUT)
+    return jsonify(body), status_code

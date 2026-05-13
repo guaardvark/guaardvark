@@ -1,11 +1,8 @@
 // frontend/src/pages/VideoEditorPage.jsx
 //
-// Shotcut-lite editor — preview window with overlay layer + media library
-// panel + multi-track timeline + properties panel. Plan reference:
-// plans/2026-04-29-video-editor.md.
-//
-// Phase 5 ships the layout + state model + click-to-add wiring. Phase 6
-// adds drag-and-drop. Phase 7 wires the render-timeline endpoint.
+// Bin-driven Video Editor — drop B-roll into the Bin, pick a song, hit Plan,
+// the Art Director arranges everything, Render produces a .mlt + .mp4.
+// Refine in Shotcut if needed. See plans/video-editor-bin-autoedit-vision.md.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
@@ -20,8 +17,6 @@ import {
   Divider,
   CircularProgress,
   Alert,
-  ToggleButton,
-  ToggleButtonGroup,
   Tooltip,
 } from "@mui/material";
 import {
@@ -32,12 +27,20 @@ import {
   TextFields as TextIcon,
   MovieFilter as VideoIcon,
   GraphicEq as AudioIcon,
+  AutoAwesome as PlanIcon,
+  OpenInNew as ShotcutIcon,
 } from "@mui/icons-material";
 import PageLayout from "../components/layout/PageLayout";
 import MediaLibraryPanel from "../components/videoeditor/MediaLibraryPanel";
 import OverlayLayer from "../components/videoeditor/OverlayLayer";
+import BinPanel from "../components/videoeditor/BinPanel";
+import SongSlot from "../components/videoeditor/SongSlot";
+import ScanModeSelector from "../components/videoeditor/ScanModeSelector";
+import ArrangementPreview from "../components/videoeditor/ArrangementPreview";
+import { usePlanJob } from "../components/videoeditor/usePlanJob";
 import { useTimelineHistory } from "../components/videoeditor/useTimelineHistory";
-import { listVideoDocuments, listAudioDocuments, listImageDocuments, renderTimeline, getRenderStatus } from "../api/videoOverlayService";
+import { listVideoDocuments, listAudioDocuments, listImageDocuments } from "../api/videoOverlayService";
+import { listStyleRecipes, renderFromArrangement, openInShotcut } from "../api/videoEditorService";
 import { getJobsGate } from "../api/jobsService";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
@@ -49,12 +52,13 @@ const TRACK_COLORS = {
   audio: "#9c27b0",
 };
 
-// Initial blank timeline state. Phase 6 will let users drop multiple items
-// in here from the media library; Phase 7 sends this to /api/video-overlay/render-timeline.
+// Initial blank timeline state. Bin holds clips for THIS project; song is
+// the master soundtrack. Text overlays are kept for A2+ — currently they
+// don't flow through the Plan pipeline.
 const _emptyTimeline = () => ({
-  video: null,            // { documentId, trimStart, trimEnd }
-  textElements: [],       // [{ id, text, fontSize, fontColor, x, y, rotation, startSeconds, endSeconds }]
-  audio: null,            // { documentId, volume, startOffset }
+  bin: [],                // BinClip[]: { clipId, documentId, filename, keptRanges, durationSeconds }
+  song: null,             // { documentId, filename, volume }
+  textElements: [],
 });
 
 const VideoEditorPage = () => {
@@ -68,11 +72,12 @@ const VideoEditorPage = () => {
   const [selectedItem, setSelectedItem] = useState(null);  // {type, id} for properties panel
   const [previewPlaying, setPreviewPlaying] = useState(false);
   const [rendering, setRendering] = useState(false);
-  const [renderJob, setRenderJob] = useState(null);
-  const [renderResult, setRenderResult] = useState(null);
-  // "ffmpeg" (default, single-pass) | "mlt" (Shotcut/MLT plugin — emits a .mlt
-  // alongside the .mp4 so the user can refine in Shotcut afterwards).
-  const [renderBackend, setRenderBackend] = useState("ffmpeg");
+  const [renderResult, setRenderResult] = useState(null);   // { mlt_path, rendered_mp4, documents }
+  // Plan pipeline state.
+  const [scanMode, setScanMode] = useState("both-and");
+  const [styleRecipeName, setStyleRecipeName] = useState("Default");
+  const [recipes, setRecipes] = useState([]);
+  const planJob = usePlanJob();
   const [gate, setGate] = useState(null);
   const [error, setError] = useState(null);
 
@@ -119,19 +124,55 @@ const VideoEditorPage = () => {
     return () => { cancelled = true; };
   }, []);
 
-  // Click a media item → add it to the timeline. Phase 6 replaces this
-  // with drag-and-drop into specific track lanes.
+  // Click a video in the library → add it to the project Bin.
+  // (Drag also works; this handles the click affordance.)
   const handleAddMedia = (mediaItem) => {
-    commitTimeline((prev) => ({
-      ...prev,
-      video: {
-        documentId: mediaItem.id,
-        documentFilename: mediaItem.filename,
-        trimStart: 0,
-        trimEnd: null,  // null = use full duration
-      },
-    }));
+    commitTimeline((prev) => {
+      // Don't double-add — silently skip if already in bin.
+      if (prev.bin.some((c) => c.documentId === mediaItem.id)) return prev;
+      return {
+        ...prev,
+        bin: [
+          ...prev.bin,
+          {
+            clipId: `doc${mediaItem.id}`,
+            documentId: mediaItem.id,
+            filename: mediaItem.filename,
+            keptRanges: null,
+            durationSeconds: null,
+          },
+        ],
+      };
+    });
   };
+
+  // Bin operations — used by BinPanel.
+  const handleBinAdd = useCallback((clip) => {
+    commitTimeline((prev) => {
+      if (prev.bin.some((c) => c.clipId === clip.clipId)) return prev;
+      return { ...prev, bin: [...prev.bin, clip] };
+    });
+  }, [commitTimeline]);
+
+  const handleBinAddMany = useCallback((clips) => {
+    commitTimeline((prev) => {
+      const existing = new Set(prev.bin.map((c) => c.clipId));
+      const fresh = clips.filter((c) => !existing.has(c.clipId));
+      return { ...prev, bin: [...prev.bin, ...fresh] };
+    });
+  }, [commitTimeline]);
+
+  const handleBinRemove = useCallback((clipId) => {
+    commitTimeline((prev) => ({ ...prev, bin: prev.bin.filter((c) => c.clipId !== clipId) }));
+  }, [commitTimeline]);
+
+  const handleSongSet = useCallback((song) => {
+    commitTimeline((prev) => ({ ...prev, song }));
+  }, [commitTimeline]);
+
+  const handleSongClear = useCallback(() => {
+    commitTimeline((prev) => ({ ...prev, song: null }));
+  }, [commitTimeline]);
 
   // Click on the preview to add a text element at that point. Phase 3 of
   // the editor plan adds drag/resize/rotate handles via react-rnd or
@@ -213,122 +254,120 @@ const VideoEditorPage = () => {
     }));
   };
 
-  const previewVideoUrl = useMemo(
-    () => (timeline.video?.documentId
-      ? `${API_BASE}/files/document/${timeline.video.documentId}/download`
-      : null),
-    [timeline.video],
-  );
+  // Preview shows the rendered MP4 if we have one, else the first bin clip
+  // (so the user gets *something* to see before Plan/Render).
+  const previewVideoUrl = useMemo(() => {
+    if (renderResult?.rendered_mp4_doc_id) {
+      return `${API_BASE}/files/document/${renderResult.rendered_mp4_doc_id}/download`;
+    }
+    const first = timeline.bin?.[0];
+    if (first?.documentId) {
+      return `${API_BASE}/files/document/${first.documentId}/download`;
+    }
+    return null;
+  }, [renderResult, timeline.bin]);
 
   const selectedText = useMemo(() => {
     if (selectedItem?.type !== "text") return null;
     return timeline.textElements.find((t) => t.id === selectedItem.id) || null;
   }, [selectedItem, timeline.textElements]);
 
-  const handleRender = async () => {
-    if (!timeline.video) {
-      setError("Add a video to the timeline first.");
-      return;
-    }
-    setRendering(true);
+  // Load style recipes once on mount.
+  useEffect(() => {
+    listStyleRecipes()
+      .then(setRecipes)
+      .catch((e) => console.warn("recipes load failed:", e));
+  }, []);
+
+  // Patch each bin clip with kept-ranges + duration from the Plan result so
+  // BinClipTile can render the kept-vs-cut strip.
+  useEffect(() => {
+    const result = planJob.result;
+    if (!result) return;
+    const kept = result.kept_ranges_by_clip || {};
+    const songDuration = result.song?.duration_seconds || null;
+    commitTimeline((prev) => ({
+      ...prev,
+      bin: prev.bin.map((c) => ({
+        ...c,
+        keptRanges: kept[c.clipId] || null,
+        // For the strip, we need the SOURCE clip's duration, not the song's.
+        // We don't have it yet (would need an ffprobe round-trip); use the
+        // last kept-range endpoint as a pessimistic upper bound for display.
+        durationSeconds: kept[c.clipId]?.length
+          ? Math.max(...kept[c.clipId].map((r) => r[1]))
+          : c.durationSeconds,
+      })),
+    }));
+  }, [planJob.result]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  const canPlan = timeline.bin.length > 0 && !!timeline.song && !planJob.planning;
+
+  const handlePlan = useCallback(() => {
+    if (!canPlan) return;
     setError(null);
     setRenderResult(null);
-    setRenderJob(null);
-    try {
-      const payload = {
-        video_document_id: timeline.video.documentId,
-        video_trim_start: timeline.video.trimStart || 0,
-        video_trim_end: timeline.video.trimEnd,  // null = full duration
-        text_elements: timeline.textElements.map((t) => ({
-          text: t.text,
-          fontSize: t.fontSize,
-          fontColor: t.fontColor,
-          x: t.x,
-          y: t.y,
-          rotation: t.rotation,
-          startSeconds: t.startSeconds,
-          endSeconds: t.endSeconds,
-        })),
-        audio_document_id: timeline.audio?.documentId || null,
-        audio_volume: timeline.audio?.volume ?? 1.0,
-        // "ffmpeg" → single-pass ffmpeg filter_complex (default, fastest).
-        // "mlt" → Shotcut/MLT plugin: emits a .mlt project alongside the .mp4
-        // so the user can open and refine in Shotcut.
-        backend: renderBackend,
-      };
-      const { job_id } = await renderTimeline(payload);
-      setRenderJob({ job_id, status: "pending", progress: 0, message: "Dispatching..." });
-    } catch (e) {
-      console.error("VideoEditorPage: render failed:", e);
-      setError(e.response?.data?.error?.message || e.response?.data?.message || e.message || "Render failed");
-      setRendering(false);
-    }
-  };
+    planJob.start({
+      bin_clips: timeline.bin.map((c) => ({
+        clip_id: c.clipId,
+        document_id: c.documentId,
+      })),
+      song_document_id: timeline.song.documentId,
+      scan_mode: scanMode,
+      style_recipe_name: styleRecipeName,
+      seed: Math.floor(Math.random() * 1_000_000),
+    });
+  }, [canPlan, planJob, timeline.bin, timeline.song, scanMode, styleRecipeName]);
 
-  useEffect(() => {
-    if (!renderJob?.job_id || renderJob.status === "completed" || renderJob.status === "failed") {
+  // A1 render: single-clip mode for now. We hand the FIRST arranged clip
+  // through /shotcut/compose with the song as audio replacement. Multi-clip
+  // arrangements land in A2 when timeline_compose grows multi-chain support.
+  const handleRender = useCallback(async () => {
+    const arr = planJob.result?.arrangement;
+    if (!arr || arr.clips.length === 0) {
+      setError("Hit Plan first — no arrangement to render yet.");
       return;
     }
-    const t = setInterval(async () => {
-      try {
-        const status = await getRenderStatus(renderJob.job_id);
-        setRenderJob(status);
-        if (status.status === "completed") {
-          setRendering(false);
-          setRenderResult({
-            id: status.document_id,
-            full_url: `${API_BASE}/files/document/${status.document_id}/download`,
-            filename: "Rendered Video",
-          });
-        } else if (status.status === "failed") {
-          setRendering(false);
-          setError(status.message || "Render failed");
-        }
-      } catch (e) {
-        console.error("Poll failed", e);
-      }
-    }, 2000);
-    return () => clearInterval(t);
-  }, [renderJob?.job_id, renderJob?.status]);
+    const songResult = planJob.result?.song;
+    const firstClip = arr.clips[0];
+    setRendering(true);
+    setError(null);
+    try {
+      const res = await renderFromArrangement({
+        video_path: firstClip.source_path,
+        audio_path: timeline.song
+          ? `__resolve_document__${timeline.song.documentId}`  // sentinel; plugin uses video_path's audio if blank
+          : null,
+        text_elements: [],  // A2 will plumb through arr's filters as text/filter chain
+        video_trim_start: firstClip.source_in,
+        video_trim_end: firstClip.source_out,
+        audio_volume: timeline.song?.volume ?? 1.0,
+        render_mp4: true,
+      });
+      setRenderResult(res);
+    } catch (e) {
+      console.error("render failed:", e);
+      setError(e.response?.data?.error?.message || e.message || "Render failed");
+    } finally {
+      setRendering(false);
+    }
+  }, [planJob.result, timeline.song]);
+
+  const handleOpenInShotcut = useCallback(async () => {
+    if (!renderResult?.mlt_path) return;
+    try {
+      await openInShotcut(renderResult.mlt_path);
+    } catch (e) {
+      console.error("openInShotcut failed:", e);
+      setError(e.response?.data?.error?.message || e.message || "Could not launch Shotcut");
+    }
+  }, [renderResult]);
 
   // HTML5 drag-and-drop. dataTransfer carries the media-library row id +
-  // kind ('video' or 'audio') so the timeline drop handler knows where to put it.
+  // kind so BinPanel / SongSlot know whether to accept the drop.
   const handleDragStartMedia = (e, mediaItem, kind) => {
     e.dataTransfer.setData("application/json", JSON.stringify({ id: mediaItem.id, kind, filename: mediaItem.filename }));
     e.dataTransfer.effectAllowed = "copy";
-  };
-
-  const handleDropOnVideoTrack = (e) => {
-    e.preventDefault();
-    try {
-      const data = JSON.parse(e.dataTransfer.getData("application/json"));
-      if (data.kind !== "video") return;
-      commitTimeline((prev) => ({
-        ...prev,
-        video: { documentId: data.id, documentFilename: data.filename, trimStart: 0, trimEnd: null },
-      }));
-    } catch {
-      // Drop didn't carry our JSON payload — not a media-library item, ignore
-    }
-  };
-
-  const handleDropOnAudioTrack = (e) => {
-    e.preventDefault();
-    try {
-      const data = JSON.parse(e.dataTransfer.getData("application/json"));
-      if (data.kind !== "audio") return;
-      commitTimeline((prev) => ({
-        ...prev,
-        audio: { documentId: data.id, documentFilename: data.filename, volume: 1.0, startOffset: 0 },
-      }));
-    } catch {
-      // Drop didn't carry our JSON payload — not a media-library item, ignore
-    }
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "copy";
   };
 
   return (
@@ -361,23 +400,15 @@ const VideoEditorPage = () => {
                   onPlay={() => setPreviewPlaying(true)}
                   onPause={() => setPreviewPlaying(false)}
                   onLoadedMetadata={(e) => {
-                    // Captures the source duration so the trim slider can set
-                    // its max bound; default trimEnd = full duration if unset.
                     const dur = e.target.duration;
-                    if (dur && isFinite(dur)) {
-                      setVideoDuration(dur);
-                      commitTimeline((prev) => prev.video && prev.video.trimEnd == null
-                        ? { ...prev, video: { ...prev.video, trimEnd: dur } }
-                        : prev,
-                      );
-                    }
+                    if (dur && isFinite(dur)) setVideoDuration(dur);
                   }}
                   style={{ maxWidth: "100%", maxHeight: "100%", display: "block" }}
                 />
               ) : (
                 <Stack spacing={1} alignItems="center" sx={{ color: "rgba(255,255,255,0.5)" }}>
                   <VideoIcon sx={{ fontSize: 48 }} />
-                  <Typography variant="caption">Click a video in the library to begin</Typography>
+                  <Typography variant="caption">Drop clips into the Bin to begin</Typography>
                 </Stack>
               )}
 
@@ -393,53 +424,43 @@ const VideoEditorPage = () => {
               />
             </Box>
 
-            {/* Toolbar under the preview */}
+            {/* Toolbar under the preview — Plan / Render / Open in Shotcut */}
             <Stack direction="row" spacing={1} alignItems="center" sx={{ p: 1, borderTop: 1, borderColor: "divider" }}>
               <IconButton onClick={() => setPreviewPlaying(!previewPlaying)} size="small">
                 {previewPlaying ? <PauseIcon /> : <PlayIcon />}
               </IconButton>
-              <Button size="small" variant="outlined" startIcon={<TextIcon />} onClick={() => handleAddText()}>
-                Add Text
-              </Button>
               <Box sx={{ flexGrow: 1 }} />
-              <Tooltip title={
-                renderBackend === "mlt"
-                  ? "Shotcut/MLT — also emits a .mlt project you can open in Shotcut to refine"
-                  : "FFmpeg — single-pass, fastest"
-              }>
-                <ToggleButtonGroup
-                  size="small"
-                  value={renderBackend}
-                  exclusive
-                  onChange={(_, val) => { if (val) setRenderBackend(val); }}
-                  disabled={rendering}
-                  aria-label="Render engine"
-                >
-                  <ToggleButton value="ffmpeg" sx={{ textTransform: "none", px: 1.5 }}>FFmpeg</ToggleButton>
-                  <ToggleButton value="mlt" sx={{ textTransform: "none", px: 1.5 }}>Shotcut</ToggleButton>
-                </ToggleButtonGroup>
+              <Tooltip title="Run the auto-edit + Art Director pipeline. Cheap to re-run (vision is cached).">
+                <span>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={planJob.planning ? <CircularProgress size={16} /> : <PlanIcon />}
+                    onClick={handlePlan}
+                    disabled={!canPlan}
+                  >
+                    {planJob.planning ? `Planning... ${Math.round((planJob.job?.progress || 0) * 100)}%` : "Plan"}
+                  </Button>
+                </span>
               </Tooltip>
-              <Button
-                variant="contained"
-                startIcon={rendering ? <CircularProgress size={20} color="inherit" /> : <RenderIcon />}
-                onClick={handleRender}
-                disabled={!timeline.video || rendering || (gate?.gpu_busy && gate?.gpu_holder?.kind !== "video_render")}
-                title={gate?.gpu_busy ? `GPU held by ${gate.gpu_holder?.kind} — wait for it to finish` : ""}
-              >
-                {rendering
-                  ? (renderJob?.progress != null ? `Rendering... ${renderJob.progress}%` : "Rendering...")
-                  : (gate?.gpu_busy && gate?.gpu_holder?.kind !== "video_render")
-                    ? `GPU busy: ${gate.gpu_holder?.kind}`
-                    : "Render"}
-              </Button>
-              {renderResult && (
-                <Button
-                  size="small"
-                  variant="text"
-                  onClick={() => window.open(renderResult.full_url, "_blank")}
-                >
-                  Download {renderResult.filename}
-                </Button>
+              <Tooltip title={planJob.result ? "Render the arrangement to .mlt + .mp4" : "Hit Plan first"}>
+                <span>
+                  <Button
+                    variant="contained"
+                    startIcon={rendering ? <CircularProgress size={20} color="inherit" /> : <RenderIcon />}
+                    onClick={handleRender}
+                    disabled={!planJob.result || rendering}
+                  >
+                    {rendering ? "Rendering..." : "Render"}
+                  </Button>
+                </span>
+              </Tooltip>
+              {renderResult?.mlt_path && (
+                <Tooltip title="Open the rendered project in Shotcut for refinement">
+                  <Button size="small" variant="text" startIcon={<ShotcutIcon />} onClick={handleOpenInShotcut}>
+                    Open in Shotcut
+                  </Button>
+                </Tooltip>
               )}
             </Stack>
           </Paper>
@@ -516,121 +537,64 @@ const VideoEditorPage = () => {
           </Paper>
         </Box>
 
-        {/* Timeline — bottom */}
-        <Paper elevation={2} sx={{ p: 2, minHeight: 180 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
-            <Typography variant="subtitle2" fontWeight="bold">Timeline</Typography>
-            {error && <Alert severity="info" sx={{ py: 0 }}>{error}</Alert>}
-          </Stack>
+        {/* Project Bin + Song + Plan controls — bottom */}
+        <Paper elevation={2} sx={{ p: 2, minHeight: 220, display: "flex", gap: 2 }}>
+          {/* Left: Bin */}
+          <Box sx={{ width: 320, minWidth: 280, display: "flex", flexDirection: "column", borderRight: 1, borderColor: "divider", pr: 2 }}>
+            <BinPanel
+              binClips={timeline.bin}
+              selectedClipId={selectedItem?.type === "bin" ? selectedItem.id : null}
+              onSelect={(id) => setSelectedItem({ type: "bin", id })}
+              onAdd={handleBinAdd}
+              onAddMany={handleBinAddMany}
+              onRemove={handleBinRemove}
+            />
+          </Box>
 
-          <Stack spacing={1}>
-            {/* Video track + visual trim slider */}
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Chip size="small" label="V" sx={{ bgcolor: TRACK_COLORS.video, color: "white", minWidth: 28 }} />
-              <Box
-                onDragOver={handleDragOver}
-                onDrop={handleDropOnVideoTrack}
-                sx={{ flex: 1, minHeight: 32, border: 1, borderColor: "divider", borderRadius: 1, display: "flex", alignItems: "center", px: 1, gap: 2 }}
-              >
-                {timeline.video ? (
-                  <>
-                    <Chip
-                      size="small"
-                      icon={<VideoIcon fontSize="small" />}
-                      label={timeline.video.documentFilename || `Document #${timeline.video.documentId}`}
-                      onDelete={() => commitTimeline((p) => ({ ...p, video: null }))}
-                      sx={{ flexShrink: 0 }}
-                    />
-                    {videoDuration > 0 && (
-                      <Box sx={{ flex: 1, display: "flex", alignItems: "center", gap: 1 }}>
-                        <Typography variant="caption" sx={{ minWidth: 36, fontFamily: "monospace" }}>
-                          {(timeline.video.trimStart || 0).toFixed(1)}s
-                        </Typography>
-                        <Slider
-                          size="small"
-                          value={[
-                            timeline.video.trimStart || 0,
-                            timeline.video.trimEnd ?? videoDuration,
-                          ]}
-                          min={0}
-                          max={videoDuration}
-                          step={0.1}
-                          onMouseDown={() => {
-                            commitTimeline(p => p);
-                            pendingSnapshotRef.current = true;
-                          }}
-                          onMouseUp={() => {
-                            pendingSnapshotRef.current = false;
-                          }}
-                          onChange={(_e, v) => {
-                            const [start, end] = Array.isArray(v) ? v : [v, v];
-                            commitTimeline((prev) => ({
-                              ...prev,
-                              video: { ...prev.video, trimStart: start, trimEnd: end },
-                            }));
-                          }}
-                          sx={{ color: TRACK_COLORS.video }}
-                        />
-                        <Typography variant="caption" sx={{ minWidth: 36, fontFamily: "monospace", textAlign: "right" }}>
-                          {(timeline.video.trimEnd ?? videoDuration).toFixed(1)}s
-                        </Typography>
-                      </Box>
-                    )}
-                  </>
-                ) : (
-                  <Typography variant="caption" color="text.secondary">Drag a video here</Typography>
-                )}
-              </Box>
+          {/* Middle: Song + Controls */}
+          <Box sx={{ width: 320, minWidth: 260, display: "flex", flexDirection: "column", gap: 1.5 }}>
+            <Box>
+              <Typography variant="caption" color="text.secondary">Master soundtrack</Typography>
+              <SongSlot song={timeline.song} onSet={handleSongSet} onClear={handleSongClear} />
             </Box>
-
-            {/* Text track */}
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Chip size="small" label="T" sx={{ bgcolor: TRACK_COLORS.text, color: "white", minWidth: 28 }} />
-              <Box sx={{ flex: 1, height: 32, border: 1, borderColor: "divider", borderRadius: 1, display: "flex", alignItems: "center", px: 1, gap: 0.5, overflow: "auto" }}>
-                {timeline.textElements.length === 0 ? (
-                  <Typography variant="caption" color="text.secondary">Add Text to place an overlay</Typography>
-                ) : (
-                  timeline.textElements.map((t) => (
-                    <Chip
-                      key={t.id}
-                      size="small"
-                      icon={<TextIcon fontSize="small" />}
-                      label={t.text.slice(0, 20)}
-                      color={selectedItem?.id === t.id ? "primary" : "default"}
-                      onClick={() => setSelectedItem({ type: "text", id: t.id })}
-                      onDelete={() => handleDeleteText(t.id)}
-                    />
-                  ))
-                )}
-              </Box>
-            </Box>
-
-            {/* Audio track */}
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Chip size="small" label="A" sx={{ bgcolor: TRACK_COLORS.audio, color: "white", minWidth: 28 }} />
-              <Box
-                onDragOver={handleDragOver}
-                onDrop={handleDropOnAudioTrack}
-                sx={{ flex: 1, height: 32, border: 1, borderColor: "divider", borderRadius: 1, display: "flex", alignItems: "center", px: 1 }}
-              >
-                {timeline.audio ? (
+            <ScanModeSelector value={scanMode} onChange={setScanMode} disabled={planJob.planning} />
+            <Box>
+              <Typography variant="caption" color="text.secondary">Style recipe</Typography>
+              <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 0.5 }}>
+                {(recipes.length === 0 ? [{ name: "Default" }] : recipes).map((r) => (
                   <Chip
+                    key={r.name}
+                    label={r.name}
                     size="small"
-                    icon={<AudioIcon fontSize="small" />}
-                    label={timeline.audio.documentFilename || `Audio #${timeline.audio.documentId}`}
-                    onDelete={() => commitTimeline((p) => ({ ...p, audio: null }))}
+                    color={styleRecipeName === r.name ? "primary" : "default"}
+                    onClick={() => setStyleRecipeName(r.name)}
+                    variant={styleRecipeName === r.name ? "filled" : "outlined"}
+                    sx={{ mb: 0.5 }}
                   />
-                ) : (
-                  <Typography variant="caption" color="text.secondary">Drag an audio file here</Typography>
-                )}
-              </Box>
+                ))}
+              </Stack>
             </Box>
-          </Stack>
+            {error && <Alert severity="error" sx={{ py: 0 }}>{error}</Alert>}
+            {planJob.error && <Alert severity="error" sx={{ py: 0 }}>{planJob.error}</Alert>}
+          </Box>
 
-          <Divider sx={{ my: 1 }} />
-          <Typography variant="caption" color="text.secondary">
-            Shortcuts: <kbd>Space</kbd> play/pause, <kbd>Delete</kbd> remove selected text, <kbd>Cmd/Ctrl+Z</kbd> undo last action.
-          </Typography>
+          {/* Right: Arrangement preview */}
+          <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+            <Stack direction="row" alignItems="center" spacing={1} mb={1}>
+              <Typography variant="subtitle2" fontWeight="bold">Arrangement</Typography>
+              {planJob.planning && <CircularProgress size={14} />}
+            </Stack>
+            <Box sx={{ flex: 1, overflow: "auto" }}>
+              <ArrangementPreview arrangement={planJob.result?.arrangement} />
+              {planJob.result?.warnings?.length > 0 && (
+                <Alert severity="warning" sx={{ mt: 1 }}>
+                  {planJob.result.warnings.slice(0, 3).map((w, i) => (
+                    <div key={i}>{w}</div>
+                  ))}
+                </Alert>
+              )}
+            </Box>
+          </Box>
         </Paper>
       </Box>
     </PageLayout>
