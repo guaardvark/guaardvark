@@ -20,7 +20,7 @@ import { a11yDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { useAppStore } from "../../stores/useAppStore";
 import { BASE_URL } from "../../api/apiClient";
 import ToolCallCard from "./ToolCallCard";
-import ThinkingStepCard from "./ThinkingStepCard";
+import AgentThinkingTrail from "./AgentThinkingTrail";
 import ImageLightbox from "../images/ImageLightbox";
 
 const UPLOAD_BASE_URL = BASE_URL + "/uploads";
@@ -369,18 +369,11 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
         )}
 
         {/* Agent loop's per-iteration reasoning, streamed live from
-            agent_control_service. Each step is a collapsible card so the
-            user can scan headlines and expand the ones they care about. */}
+            agent_control_service. One collapsible holds every step so the
+            chat thread isn't dominated by a long stack of accordions. */}
         {agentThinkingSteps.length > 0 && (
           <Box sx={{ mb: 1, mt: 0.5 }}>
-            {agentThinkingSteps.map((step, idx) => (
-              <ThinkingStepCard
-                key={`agent-step-${idx}`}
-                iteration={step.iteration}
-                label={step.label}
-                reasoning={step.reasoning}
-              />
-            ))}
+            <AgentThinkingTrail steps={agentThinkingSteps} />
           </Box>
         )}
 

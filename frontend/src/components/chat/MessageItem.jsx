@@ -25,7 +25,7 @@ import { BASE_URL } from "../../api/apiClient";
 import AgentResultDisplay from "./AgentResultDisplay";
 import { StatusChip } from "../../utils/familyColors";
 import ToolCallCard from "./ToolCallCard";
-import ThinkingStepCard from "./ThinkingStepCard";
+import AgentThinkingTrail from "./AgentThinkingTrail";
 import ImageLightbox from "../images/ImageLightbox";
 import NarrateButton from "../common/NarrateButton";
 
@@ -429,18 +429,11 @@ const MessageItem = ({ message, sessionId: sessionIdProp }) => {
           </Box>
         )}
 
-        {/* Agent loop reasoning trail — collapsible cards mirroring the live
-            streaming view so scrolling back looks identical to watching it. */}
+        {/* Agent loop reasoning trail — one collapsible holding every step,
+            so a long see-think-act run doesn't stack N accordions. */}
         {message.agentThinkingSteps && message.agentThinkingSteps.length > 0 && (
           <Box sx={{ mb: 1, mt: 0.5 }}>
-            {message.agentThinkingSteps.map((step, idx) => (
-              <ThinkingStepCard
-                key={`agent-step-${idx}`}
-                iteration={step.iteration}
-                label={step.label}
-                reasoning={step.reasoning}
-              />
-            ))}
+            <AgentThinkingTrail steps={message.agentThinkingSteps} />
           </Box>
         )}
 
