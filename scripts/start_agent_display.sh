@@ -131,6 +131,90 @@ XDGDIRS
     fi
 }
 
+ensure_xfwm4_no_compositing() {
+    # xfwm4 ships with use_compositing=true by default. On Xvfb (which only
+    # has Mesa's software GLX, no real GPU), that compositor leaves visible
+    # window trails / streaks behind moved or resized windows — DAMAGE events
+    # fire but the unaccelerated compositor can't keep up, so unrepainted
+    # regions stay on screen. The May 2026 servo screenshots showed stacked
+    # ghost title bars across the desktop because of this.
+    #
+    # Flip compositing off. xfwm4 falls back to plain X drawing, which Xvfb
+    # handles natively — no trails, no GL path involved.
+    local channel_dir="$1/xfce4/xfconf/xfce-perchannel-xml"
+    local channel_file="$channel_dir/xfwm4.xml"
+    mkdir -p "$channel_dir"
+    if [ ! -f "$channel_file" ]; then
+        cat > "$channel_file" << 'XFWM4XML'
+<?xml version="1.0" encoding="UTF-8"?>
+
+<channel name="xfwm4" version="1.0">
+  <property name="general" type="empty">
+    <property name="use_compositing" type="bool" value="false"/>
+  </property>
+</channel>
+XFWM4XML
+        return 0
+    fi
+    if grep -q 'name="use_compositing"' "$channel_file"; then
+        sed -i 's|<property name="use_compositing" type="bool" value="true"/>|<property name="use_compositing" type="bool" value="false"/>|' "$channel_file"
+    else
+        sed -i 's|</channel>|  <property name="general" type="empty">\n    <property name="use_compositing" type="bool" value="false"/>\n  </property>\n</channel>|' "$channel_file"
+    fi
+}
+
+seed_agent_autostart_overrides() {
+    # /etc/xdg/autostart/*.desktop entries fire when xfce4-session starts.
+    # Drop Hidden=true overrides into the agent's XDG_CONFIG_HOME/autostart/
+    # with the same basename — XFCE merges the two and short-circuits the
+    # system entry. Scoped to the agent's config dir, so the host GNOME
+    # session is untouched.
+    #
+    # Targets are the autostart entries responsible for the dbus connection
+    # leak documented in stop()/section 2b:
+    #   geoclue-demo-agent              → geoclue-2.0/demos/agent
+    #   tracker-miner-fs-3              → tracker-miner-fs (desktop-search indexer)
+    #   org.gnome.Evolution-alarm-notify → pulls evolution-source-registry,
+    #                                      evolution-calendar-factory,
+    #                                      evolution-addressbook-factory
+    #
+    # Suppressing the autostart means the helpers never spawn — the kill
+    # loop in section 2b stays as belt-and-suspenders for legacy sessions.
+    local autostart_dir="$1/autostart"
+    mkdir -p "$autostart_dir"
+    for name in geoclue-demo-agent tracker-miner-fs-3 org.gnome.Evolution-alarm-notify; do
+        [ -f "/etc/xdg/autostart/$name.desktop" ] || continue
+        cat > "$autostart_dir/$name.desktop" << OVERRIDE
+[Desktop Entry]
+Type=Application
+Name=$name (disabled for agent display)
+Hidden=true
+NoDisplay=true
+X-GNOME-Autostart-enabled=false
+OVERRIDE
+    done
+}
+
+seed_agent_dbus_service_overrides() {
+    # The agent's session bus (spun up by dbus-run-session) reads service
+    # files from XDG_DATA_HOME/dbus-1/services first, then XDG_DATA_DIRS,
+    # then /usr/share. Dropping a service file with the same Name= here
+    # overrides the system one for the agent's bus only.
+    #
+    # xdg-desktop-portal is D-Bus-activated (no autostart entry), triggered
+    # by Firefox file dialogs and GTK apps that opt into portals. Pointing
+    # its Exec at /bin/false makes activation fail benignly — Firefox falls
+    # back to its native GtkFileChooser, Thunar likewise has non-portal
+    # paths. No portal = no xdg-desktop-portal-gnome/gtk backend either.
+    local services_dir="$1/dbus-1/services"
+    mkdir -p "$services_dir"
+    cat > "$services_dir/org.freedesktop.portal.Desktop.service" << 'PORTALOVERRIDE'
+[D-BUS Service]
+Name=org.freedesktop.portal.Desktop
+Exec=/bin/false
+PORTALOVERRIDE
+}
+
 ensure_xfdesktop_single_click() {
     # xfdesktop defaults to double-click-to-activate desktop icons. The
     # vision agent's servo sends a single click — XFCE treats it as a
@@ -189,10 +273,17 @@ start_xfce_session() {
     # and vice versa. The agent's settings are also backed up cleanly with
     # the rest of data/agent/.
     local agent_config_home="$DATA_DIR/xfce_config"
+    local agent_data_home="$DATA_DIR/data_home"
     # Run the panel-launcher patch every invocation, even on the early-return
     # path below: previous start_agent_display.sh runs (before this fix landed)
     # left bad Exec lines on disk, and a no-op restart should heal them.
     seed_agent_panel_firefox "$agent_config_home"
+
+    # Same idempotent heal-on-every-invocation pattern for the dbus-leak
+    # suppression files. Cheap, and lets older installs pick up the new
+    # overrides without a rebuild.
+    seed_agent_autostart_overrides "$agent_config_home"
+    seed_agent_dbus_service_overrides "$agent_data_home"
 
     # Re-stamp the desktop launchers on EVERY invocation too, not just on cold
     # start. Mid-session edits to Firefox.desktop (e.g. icon swaps) change the
@@ -220,6 +311,7 @@ start_xfce_session() {
 
     write_agent_xdg_user_dirs "$agent_config_home"
     ensure_xfdesktop_single_click "$agent_config_home"
+    ensure_xfwm4_no_compositing "$agent_config_home"
 
     # env -i wipes the inherited environment; we re-inject only what XFCE
     # legitimately needs. Notably absent: DBUS_SESSION_BUS_ADDRESS,
@@ -227,6 +319,12 @@ start_xfce_session() {
     # XDG_DESKTOP_DIR pins xfdesktop to the agent's dir directly (some
     # versions of glib's g_get_user_special_dir read the env var before
     # falling back to user-dirs.dirs; we set both for belt-and-suspenders).
+    # XDG_DATA_HOME points at an agent-private data dir so the dbus service
+    # override (seed_agent_dbus_service_overrides) actually wins over
+    # /usr/share/dbus-1/services on the agent's session bus.
+    # GIO_USE_VOLUME_MONITOR=unix tells GIO to use only its built-in unix
+    # monitor — gvfs-{udisks2,afc,goa,gphoto2,mtp}-volume-monitor are never
+    # queried, never D-Bus-activated, never leak.
     env -i \
         HOME="$HOME" \
         USER="$USER" \
@@ -238,9 +336,11 @@ start_xfce_session() {
         DISPLAY=":$DISPLAY_NUM" \
         XDG_RUNTIME_DIR="$agent_runtime_dir" \
         XDG_CONFIG_HOME="$agent_config_home" \
+        XDG_DATA_HOME="$agent_data_home" \
         XDG_DESKTOP_DIR="$AGENT_DESKTOP_DIR" \
         XDG_CURRENT_DESKTOP="XFCE" \
         XDG_SESSION_DESKTOP="xfce" \
+        GIO_USE_VOLUME_MONITOR=unix \
         dbus-run-session -- startxfce4 \
         >> "$LOG_DIR/xfce_agent.log" 2>&1 &
     echo $! > "$PID_DIR/xfce.pid"
@@ -596,6 +696,20 @@ stop() {
     # 2. XFCE session — scoped strictly to our DISPLAY so the host session survives.
     for pat in xfce4-session xfdesktop xfce4-panel xfwm4 xfsettingsd xfce4-power-manager \
                xfconfd Thunar xfce4-notifyd light-locker; do
+        kill_on_agent_display "$pat" "$pat"
+    done
+
+    # 2b. Systemd-spawned helpers that XFCE pulls in via xdg-autostart / portal /
+    # gvfs activation. They run under user@1000.service, not the XFCE session,
+    # so they survive xfce4-session teardown — that's the source of the dbus
+    # connection leak ("LimitsExceeded for UID 1000") after many restarts.
+    # The kill_on_agent_display helper checks /proc/$pid/environ for DISPLAY=:99
+    # so the user's real GNOME session is never touched.
+    for pat in evolution-source-registry evolution-calendar-factory \
+               evolution-addressbook-factory gvfs-udisks2-volume-monitor \
+               gvfs-afc-volume-monitor gvfs-goa-volume-monitor gvfs-gphoto2-volume-monitor \
+               gvfs-mtp-volume-monitor goa-daemon "geoclue-2.0/demos/agent" \
+               xdg-desktop-portal tracker-miner-fs xfce-polkit; do
         kill_on_agent_display "$pat" "$pat"
     done
 

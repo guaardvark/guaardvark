@@ -11,6 +11,7 @@ import logging
 import os
 import shutil
 import subprocess
+import threading
 import time
 from typing import Any, Dict, List, Tuple
 
@@ -24,6 +25,8 @@ logger = logging.getLogger(__name__)
 
 class LocalScreenBackend(ScreenInterface):
     """Screen control via xdotool (input) and mss (capture) targeting a virtual display."""
+
+    _capture_lock = threading.Lock()
 
     def __init__(self, display: str = None):
         self.display = display or os.environ.get("GUAARDVARK_AGENT_DISPLAY", ":99")
@@ -82,27 +85,28 @@ class LocalScreenBackend(ScreenInterface):
 
     def capture(self) -> Tuple[Image.Image, Tuple[int, int]]:
         """Capture screenshot from the virtual display via mss."""
-        # mss respects the DISPLAY env var when constructed with it
-        env_backup = os.environ.get("DISPLAY")
-        os.environ["DISPLAY"] = self.display
-        try:
-            with mss.mss() as sct:
-                if len(sct.monitors) < 2:
-                    raise IndexError(
-                        f"No monitors found on display {self.display} — is Xvfb running?"
-                    )
-                monitor = sct.monitors[1]
-                sct_img = sct.grab(monitor)
-                if sct_img.size.width == 0 or sct_img.size.height == 0:
-                    raise RuntimeError(
-                        f"Captured empty frame ({sct_img.size.width}x{sct_img.size.height})"
-                    )
-                image = Image.frombytes("RGB", sct_img.size, sct_img.rgb)
-        finally:
-            if env_backup:
-                os.environ["DISPLAY"] = env_backup
-            elif "DISPLAY" in os.environ:
-                del os.environ["DISPLAY"]
+        # mss reads DISPLAY from process env, so guard the temporary mutation.
+        with self._capture_lock:
+            env_backup = os.environ.get("DISPLAY")
+            os.environ["DISPLAY"] = self.display
+            try:
+                with mss.mss() as sct:
+                    if len(sct.monitors) < 2:
+                        raise IndexError(
+                            f"No monitors found on display {self.display} — is Xvfb running?"
+                        )
+                    monitor = sct.monitors[1]
+                    sct_img = sct.grab(monitor)
+                    if sct_img.size.width == 0 or sct_img.size.height == 0:
+                        raise RuntimeError(
+                            f"Captured empty frame ({sct_img.size.width}x{sct_img.size.height})"
+                        )
+                    image = Image.frombytes("RGB", sct_img.size, sct_img.rgb)
+            finally:
+                if env_backup is not None:
+                    os.environ["DISPLAY"] = env_backup
+                elif "DISPLAY" in os.environ:
+                    del os.environ["DISPLAY"]
 
         cursor_pos = self.cursor_position()
         return image, cursor_pos
@@ -136,7 +140,10 @@ class LocalScreenBackend(ScreenInterface):
     def move(self, x: int, y: int) -> Dict[str, Any]:
         """Move cursor on the virtual display."""
         try:
-            self._xdotool("mousemove", "--screen", "0", str(x), str(y))
+            r = self._xdotool("mousemove", "--screen", "0", str(x), str(y))
+            if r.returncode != 0:
+                err = r.stderr.strip() or f"mousemove failed (rc={r.returncode})"
+                return {"success": False, "error": err}
             return {"success": True, "action": "move", "x": x, "y": y}
         except Exception as e:
             logger.error(f"Move failed to ({x}, {y}): {e}")
@@ -381,7 +388,10 @@ class LocalScreenBackend(ScreenInterface):
         """Scroll at position on the virtual display."""
         try:
             # Move to position first
-            self._xdotool("mousemove", "--screen", "0", str(x), str(y))
+            r = self._xdotool("mousemove", "--screen", "0", str(x), str(y))
+            if r.returncode != 0:
+                err = r.stderr.strip() or f"mousemove failed (rc={r.returncode})"
+                return {"success": False, "error": err}
 
             # xdotool: button 4 = scroll up, button 5 = scroll down
             if amount < 0:
@@ -390,7 +400,10 @@ class LocalScreenBackend(ScreenInterface):
                 btn, count = "4", abs(amount)  # scroll up
 
             for _ in range(count):
-                self._xdotool("click", btn)
+                r = self._xdotool("click", btn)
+                if r.returncode != 0:
+                    err = r.stderr.strip() or f"scroll click failed (rc={r.returncode})"
+                    return {"success": False, "error": err}
 
             return {"success": True, "action": "scroll", "amount": amount}
         except Exception as e:

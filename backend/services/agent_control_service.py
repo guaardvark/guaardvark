@@ -83,6 +83,7 @@ class AgentAction:
     scroll_amount: int = 0  # For scroll actions
     reasoning: str = ""  # Why the agent chose this action
     confidence: float = 1.0  # Confidence score (0.0 to 1.0)
+    expected_effect: str = ""  # Optional visible outcome expected after action
     # When action_type == "done": short, vision-verifiable description of the
     # screen state that proves the task is complete (e.g. "cursor blinking
     # inside the comment text area", "comment now appears in thread"). Empty
@@ -121,6 +122,19 @@ class AgentResult:
     steps: List[ActionStep] = field(default_factory=list)
     total_time_seconds: float = 0.0
     task: str = ""  # the user-facing task string this result is for
+
+
+@dataclass
+class AgentTaskContext:
+    """Ownership token for one execute_task run.
+
+    The service is a singleton, but task execution is threaded. This keeps an
+    older task from clearing or overwriting a newer one after a slow vision call.
+    """
+    task_id: str
+    task: str
+    started_at: float
+    killed: bool = False
 
 
 @dataclass
@@ -218,6 +232,8 @@ class AgentControlService:
         self._step_confirm_event = threading.Event()
         self._step_confirm_data = None
         self._current_task: Optional[str] = None
+        self._active_task_id: str = ""
+        self._task_context: Optional[AgentTaskContext] = None
         self._current_iteration: int = 0
         self._action_history: List[ActionStep] = []
         self._last_result: Optional[AgentResult] = None
@@ -262,11 +278,26 @@ class AgentControlService:
         self.config = AgentControlConfig()
         self._debug_run_id = ""
         self._emit_fn: Optional[Callable] = None  # set per-task by execute_task
+        # Mirror of every chat:thinking event emitted this turn, in {iteration,
+        # label, reasoning} shape. unified_chat_engine drains this when saving
+        # the assistant message so the trail survives a page refresh.
+        self._thinking_steps_buffer: List[Dict[str, Any]] = []
 
     def _emit_thinking(self, iteration: int, label: str, reasoning: str) -> None:
         """Stream a per-step reasoning blob to the chat. No-ops when emit_fn unset
         (CLI/tests/legacy callers). Errors are swallowed — the loop must not be
         derailed by a flaky socket."""
+        # Always buffer for persistence, even when emit_fn isn't wired — the
+        # caller drains this after the loop regardless of socket state.
+        self._thinking_steps_buffer.append({
+            "iteration": int(iteration),
+            "label": label or "",
+            "reasoning": reasoning or "",
+        })
+        logger.info(
+            f"[THINKING-PERSIST] emit iter={iteration} label={label!r} "
+            f"buffer_len={len(self._thinking_steps_buffer)} id(self)={id(self)}"
+        )
         emit = self._emit_fn
         if not emit:
             return
@@ -279,6 +310,19 @@ class AgentControlService:
             })
         except Exception as e:
             logger.debug(f"_emit_thinking failed (non-fatal): {e}")
+
+    def drain_thinking_steps(self) -> List[Dict[str, Any]]:
+        """Return the accumulated thinking steps and clear the buffer.
+
+        Called by unified_chat_engine when persisting the assistant message
+        so the trail survives a page refresh.
+        """
+        steps = list(self._thinking_steps_buffer)
+        self._thinking_steps_buffer.clear()
+        logger.info(
+            f"[THINKING-PERSIST] drain returning {len(steps)} steps id(self)={id(self)}"
+        )
+        return steps
 
     @staticmethod
     def _build_action_label(action) -> str:
@@ -328,6 +372,8 @@ class AgentControlService:
 
     def kill(self):
         """Emergency stop — immediately halt all agent operations."""
+        if self._task_context is not None:
+            self._task_context.killed = True
         self._killed = True
         self._active = False
         self._ready = False
@@ -346,6 +392,7 @@ class AgentControlService:
             "learning": self._learning,
             "current_demonstration_id": self._current_demonstration_id,
             "current_task": self._current_task,
+            "active_task_id": self._active_task_id,
             "iteration": self._current_iteration,
             "history_length": len(self._action_history),
             "last_result": last,
@@ -377,12 +424,20 @@ class AgentControlService:
         from backend.services.training_data_collector import TrainingDataCollector
         from backend.utils.vision_analyzer import VisionAnalyzer
 
+        task_id = f"task-{int(time.time() * 1000)}-{threading.get_ident()}"
+        task_ctx = AgentTaskContext(task_id=task_id, task=task, started_at=time.time())
+
+        def finish(result: AgentResult) -> AgentResult:
+            return self._store_and_return(result, task_id=task_id, task=task)
+
         with self._lock:
             if self._active:
                 # New task supersedes old one — kill the stale task so its
                 # see-think-act loop exits on the next _killed check.
                 old_task = self._current_task
                 logger.warning(f"[AGENT] Killing stale task \"{old_task}\" to start new task \"{task}\"")
+                if self._task_context is not None:
+                    self._task_context.killed = True
                 self._killed = True
 
         # Give the old task's loop time to see the kill flag and exit.
@@ -401,6 +456,8 @@ class AgentControlService:
         with self._lock:
             self._active = True
             self._killed = False
+            self._active_task_id = task_id
+            self._task_context = task_ctx
             self._current_task = task
             self._current_iteration = 0
             self._action_history = []
@@ -414,15 +471,20 @@ class AgentControlService:
         # Pick the vision model for servo coordinate estimation.
         # If vision_model is None, the model does its own coords — no middleman.
         from backend.services.servo_knowledge_store import get_vision_config
-        vision_config = get_vision_config()
+        unified_model_for_config = self._get_unified_model() or self.config.vision_model
+        vision_config = get_vision_config(unified_model_for_config)
         servo_vision_model = vision_config.get("vision_model")  # None = model does its own coords
 
         if servo_vision_model:
             logger.info(f"[AGENT] Servo eyes: {servo_vision_model} (external)")
         else:
             # Auto-detect — use the same model that's doing the unified see+decide
-            servo_vision_model = self._get_unified_model() or self.config.vision_model
+            servo_vision_model = unified_model_for_config
             logger.info(f"[AGENT] Servo eyes: {servo_vision_model} (same model sees, decides, AND clicks)")
+
+        # Re-read the config for the actual coordinate-estimation model. Text
+        # models can delegate to external eyes; those eyes have their own grid.
+        vision_config = get_vision_config(servo_vision_model)
 
         logger.info(f"[AGENT] Vision config: servo_eyes={servo_vision_model} scale=({vision_config['scale_x']}, {vision_config['scale_y']})")
         analyzer = VisionAnalyzer(default_model=servo_vision_model)
@@ -435,8 +497,10 @@ class AgentControlService:
         # Check for recipe match — skip see-think-act loop for known patterns
         recipe_result = self._try_recipe(task, screen)
         if recipe_result is not None:
-            self._active = False
-            return self._store_and_return(recipe_result)
+            with self._lock:
+                if self._active_task_id == task_id:
+                    self._active = False
+            return finish(recipe_result)
 
         # Training mode: crank up limits so the agent keeps practicing
         max_iters = 1000 if training_mode else self.config.max_iterations
@@ -445,15 +509,22 @@ class AgentControlService:
         try:
             for iteration in range(max_iters):
                 self._tick_strategy_cooldowns()
+                if task_ctx.killed or self._active_task_id != task_id:
+                    return finish(AgentResult(
+                        success=False, reason="superseded",
+                        steps=self._action_history,
+                        total_time_seconds=time.time() - start_time
+                    ))
+
                 if self._killed:
-                    return self._store_and_return(AgentResult(
+                    return finish(AgentResult(
                         success=False, reason="killed",
                         steps=self._action_history,
                         total_time_seconds=time.time() - start_time
                     ))
 
                 if time.time() - start_time > task_timeout:
-                    return self._store_and_return(AgentResult(
+                    return finish(AgentResult(
                         success=False, reason="timeout",
                         steps=self._action_history,
                         total_time_seconds=time.time() - start_time
@@ -579,7 +650,7 @@ class AgentControlService:
                         check_shot, _ = screen.capture()
                         if self._is_black_frame(check_shot):
                             logger.warning(f"[AGENT][DONE] Rejected — model said 'done' on black screen with 0 actions")
-                            return self._store_and_return(AgentResult(
+                            return finish(AgentResult(
                                 success=False,
                                 reason="Screen is black — virtual display may need restart. No actions were taken.",
                                 steps=self._action_history,
@@ -624,7 +695,7 @@ class AgentControlService:
                     logger.warning(f"[AGENT][DONE] Task complete after {iteration+1} steps, "
                                   f"{time.time() - start_time:.1f}s "
                                   f"(proof: {proof[:80]!r})")
-                    return self._store_and_return(AgentResult(
+                    return finish(AgentResult(
                         success=True, reason="completed",
                         steps=self._action_history,
                         total_time_seconds=time.time() - start_time
@@ -671,32 +742,37 @@ class AgentControlService:
                     button = "right" if decision.action.action_type == "right_click" else "left"
                     target = decision.action.target_description
                     pixel_diff_value: Optional[float] = None
+                    if target and not self._dom_match(target):
+                        logger.warning(
+                            f"[AGENT][STEP {iteration+1}][DOM] target not in fresh DOM snapshot: {target!r}"
+                        )
+                        result = {
+                            "success": False,
+                            "reason": "no_dom_match",
+                            "target_found": False,
+                            "click_issued": False,
+                        }
+                        failed = True
+                        decision.action.coordinates = (0, 0)
 
                     # For generic area targets (desktop, empty space), click center-screen
                     # instead of asking the vision model to locate "the desktop"
-                    if re.search(r'(?:desktop|empty|blank|background|open area|center|middle)\s*(?:area|space|screen)?', target, re.IGNORECASE):
+                    elif re.search(r'(?:desktop|empty|blank|background|open area|center|middle)\s*(?:area|space|screen)?', target, re.IGNORECASE):
                         sw, sh = screen.screen_size()
                         cx, cy = sw // 2, sh // 2
                         screen.click(cx, cy, button=button)
                         decision.action.coordinates = (cx, cy)
-                        result = {"success": True}
+                        result = {
+                            "success": True,
+                            "target_found": True,
+                            "click_issued": True,
+                            "post_action_effect": "pending_observation",
+                        }
                         failed = False
-                    elif not self._dom_match(target):
-                        # DOM is fresh, has elements, none match the target — clicking
-                        # blindly would have the servo fabricate coords or land at (0,0).
-                        # Fail this step so the next iteration sees [FAIL] and can pivot
-                        # (typically by scrolling to bring the target into the DOM).
-                        logger.warning(
-                            f"[AGENT][STEP {iteration+1}][DOM-GUARD] No DOM element matches "
-                            f"target=\"{target}\" — refusing click. Try scroll first."
-                        )
-                        decision.action.coordinates = (0, 0)
-                        result = {"success": False, "reason": "no_dom_match"}
-                        failed = True
                     else:
                         servo_result = servo.click_target(target, button=button, single_attempt=training_mode)
                         decision.action.coordinates = (servo_result.get("x", 0), servo_result.get("y", 0))
-                        result = {"success": servo_result.get("success", False)}
+                        result = dict(servo_result)
                         failed = not servo_result.get("success", False)
 
                     # CLICK POST-VERIFY DISABLED 2026-05-12 — reverted to April 13
@@ -709,6 +785,19 @@ class AgentControlService:
                     # Phantom-success protection migrates to Option C
                     # (_wait_until_visible polling) in a follow-up — see
                     # agent_control_service.py:1796 for the existing helper.
+                    expected_effect = (decision.action.expected_effect or "").strip()
+                    if not failed and expected_effect and not getattr(self, "_training_mode", False):
+                        verify = self._wait_until_visible(expected_effect, screen, timeout_s=6.0)
+                        result["expected_effect"] = expected_effect
+                        result["post_action_effect"] = (
+                            "verified" if verify.get("success") else "not_observed"
+                        )
+                        result["verified"] = bool(verify.get("success"))
+                        result["semantic_verify"] = verify
+                        if not verify.get("success"):
+                            result["success"] = False
+                            result["reason"] = "expected_effect_not_observed"
+                            failed = True
 
                     status_icon = "OK" if not failed else "FAIL"
                     logger.warning(f"[AGENT][STEP {iteration+1}][ACT] {decision.action.action_type} \"{target}\" "
@@ -825,12 +914,15 @@ class AgentControlService:
                 # an entire LLM round-trip (~3-5s) when the answer is clear.
                 # Disabled in training mode — keep clicking targets forever.
                 if not failed and len(self._action_history) >= 1 and not getattr(self, '_training_mode', False):
-                    early_done = self._check_early_done(task)
+                    early_done = self._check_early_done(
+                        task,
+                        display=getattr(screen, "display", None),
+                    )
                     if early_done:
                         logger.warning(
                             f"[AGENT][EARLY_DONE] Task goal met after step {iteration+1}: {early_done}"
                         )
-                        return self._store_and_return(AgentResult(
+                        return finish(AgentResult(
                             success=True, reason=f"completed ({early_done})",
                             steps=self._action_history,
                             total_time_seconds=time.time() - start_time
@@ -861,7 +953,7 @@ class AgentControlService:
                             # inject via history step already present; reason carries it
                         except Exception:
                             pass
-                        return self._store_and_return(AgentResult(
+                        return finish(AgentResult(
                             success=False,
                             reason="loop_detected_no_progress",
                             steps=self._action_history,
@@ -875,7 +967,7 @@ class AgentControlService:
                     if consecutive_failures >= max_failures:
                         logger.warning(f"Kill switch: {consecutive_failures} consecutive failures")
                         self.kill()
-                        return self._store_and_return(AgentResult(
+                        return finish(AgentResult(
                             success=False, reason="max_failures",
                             steps=self._action_history,
                             total_time_seconds=time.time() - start_time
@@ -883,7 +975,7 @@ class AgentControlService:
                 else:
                     consecutive_failures = 0
 
-            return self._store_and_return(AgentResult(
+            return finish(AgentResult(
                 success=False, reason="max_iterations",
                 steps=self._action_history,
                 total_time_seconds=time.time() - start_time
@@ -891,15 +983,19 @@ class AgentControlService:
 
         except Exception as e:
             logger.error(f"Task execution error: {e}", exc_info=True)
-            return self._store_and_return(AgentResult(
+            return finish(AgentResult(
                 success=False, reason=f"error: {e}",
                 steps=self._action_history,
                 total_time_seconds=time.time() - start_time
             ))
 
         finally:
-            self._active = False
-            self._current_task = None
+            with self._lock:
+                if self._active_task_id == task_id:
+                    self._active = False
+                    self._current_task = None
+                    self._active_task_id = ""
+                    self._task_context = None
 
     def start_learning(self, name=None, description="", tags=None):
         """Enter LEARNING state and start recording human demonstration."""
@@ -1087,15 +1183,15 @@ class AgentControlService:
         return {"success": True, "message": f"Attempt started at level '{level}'", "autonomy_level": level}
 
     @staticmethod
-    def _get_desktop_state() -> str:
-        """Query the actual state of the virtual desktop (DISPLAY=:99).
+    def _get_desktop_state(display: Optional[str] = None) -> str:
+        """Query the actual state of the virtual desktop.
 
         Returns a compact text summary of what's running — ground truth
         from the window manager, not a vision model guess.  Takes <10ms.
         """
         import subprocess
-        # Always query the agent's virtual display, not the user's desktop
-        display = ":99"
+        # Always query the agent's configured virtual display, not the user's desktop.
+        display = display or os.environ.get("GUAARDVARK_AGENT_DISPLAY", ":99")
         env = {**os.environ, "DISPLAY": display}
 
         try:
@@ -1170,7 +1266,7 @@ class AgentControlService:
             return "Desktop state: unknown (query failed)"
 
     @staticmethod
-    def _check_early_done(task: str) -> str:
+    def _check_early_done(task: str, display: Optional[str] = None) -> str:
         """Check if the task goal is obviously met based on desktop state.
 
         Returns a reason string if done, empty string if not.
@@ -1178,7 +1274,7 @@ class AgentControlService:
         """
         import re as _re
         task_lower = task.lower()
-        desktop = AgentControlService._get_desktop_state()
+        desktop = AgentControlService._get_desktop_state(display=display)
 
         # "Close X" tasks: if no windows are open, we're done
         if _re.search(r'\b(?:close|quit|exit|kill|shut\s*down|stop)\b', task_lower):
@@ -1198,25 +1294,41 @@ class AgentControlService:
 
         return ""
 
-    def _store_and_return(self, result: AgentResult) -> AgentResult:
+    def _store_and_return(
+        self,
+        result: AgentResult,
+        task_id: Optional[str] = None,
+        task: Optional[str] = None,
+    ) -> AgentResult:
         """Store result for status reporting and return it."""
+        owns_active_task = not task_id or self._active_task_id == task_id
         if self._recipe_fallback_note:
             result.reason = f"{result.reason} ({self._recipe_fallback_note})"
-            self._recipe_fallback_note = ""
+            if owns_active_task:
+                self._recipe_fallback_note = ""
         # Phase 4: persist session beliefs as belief_update memories. Lives
         # in this chokepoint so every task-exit path captures them, including
         # early-done, recipe-shortcut, and error returns. Errors swallowed —
         # a memory hiccup must never block task completion.
         try:
-            self._write_session_lessons()
+            if owns_active_task:
+                self._write_session_lessons()
         except Exception as e:
             logger.debug(f"[AGENT][BELIEF] lesson-write skipped: {e}")
         if not result.task:
             # Stamp the task so consumers (e.g. Phase 3 inducer) can match the
             # result against later feedback without depending on _current_task,
             # which gets cleared in the loop's finally block.
-            result.task = self._current_task or ""
-        self._last_result = result
+            result.task = task or self._current_task or ""
+        if owns_active_task:
+            self._last_result = result
+        else:
+            logger.warning(
+                "[AGENT] Ignoring stale task result for %s; active task is %s",
+                task_id,
+                self._active_task_id,
+            )
+            return result
         # Enforce window boundaries so windows don't escape the virtual display
         self._enforce_window_boundaries()
 
@@ -1347,22 +1459,57 @@ class AgentControlService:
         return arr.mean() < 10  # Average pixel value below 10 = effectively black
 
     def _capture_with_retry(self, screen, max_retries: int = 3) -> Tuple[Image.Image, Tuple[int, int]]:
-        """Capture screenshot — black-frame retry disabled pending diagnosis of suspected frame-tearing artifacts."""
-        return screen.capture()
-        # ----- BLACK-FRAME RETRY DISABLED 2026-05-12 -----
-        # Original code retried on black captures, but we suspect the trigger
-        # was the old dark desktop background (no longer in use) and that any
-        # current "black" captures are actually torn frames mid-redraw.
-        # Re-enable only if vision degrades without it.
-        #
-        # for attempt in range(max_retries):
-        #     screenshot, cursor_pos = screen.capture()
-        #     if not self._is_black_frame(screenshot):
-        #         return screenshot, cursor_pos
-        #     logger.warning(f"Black frame detected (attempt {attempt + 1}/{max_retries}), retrying...")
-        #     time.sleep(1.5)
-        # logger.error("Display appears black after retries — virtual screen may need restart")
-        # return screenshot, cursor_pos
+        """Capture a healthy frame or fail before poisoning the vision loop."""
+        last_error = ""
+        last_frame: Optional[Tuple[Image.Image, Tuple[int, int]]] = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                screenshot, cursor_pos = screen.capture()
+                last_frame = (screenshot, cursor_pos)
+                if screenshot.width < 10 or screenshot.height < 10:
+                    last_error = f"tiny frame {screenshot.width}x{screenshot.height}"
+                elif self._is_black_frame(screenshot):
+                    last_error = "black frame"
+                else:
+                    return screenshot, cursor_pos
+            except Exception as e:
+                last_error = str(e)
+            logger.warning(
+                "[AGENT][DISPLAY] unhealthy capture attempt %s/%s: %s",
+                attempt,
+                max_retries,
+                last_error or "unknown",
+            )
+            time.sleep(0.4 * attempt)
+
+        if last_frame is not None:
+            screenshot, cursor_pos = last_frame
+            if not self._is_black_frame(screenshot):
+                return screenshot, cursor_pos
+        raise RuntimeError(
+            f"agent display capture unhealthy after {max_retries} attempts: {last_error or 'unknown'}"
+        )
+
+    def check_display_health(self, screen=None) -> Dict[str, Any]:
+        """Lightweight status check for the virtual display before agent work."""
+        try:
+            if screen is None:
+                from backend.services.local_screen_backend import LocalScreenBackend
+                screen = LocalScreenBackend()
+            screenshot, cursor_pos = self._capture_with_retry(screen, max_retries=2)
+            return {
+                "success": True,
+                "display": getattr(screen, "display", os.environ.get("GUAARDVARK_AGENT_DISPLAY", ":99")),
+                "screen_size": [screenshot.width, screenshot.height],
+                "cursor_pos": list(cursor_pos),
+                "black_frame": self._is_black_frame(screenshot),
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "display": getattr(screen, "display", os.environ.get("GUAARDVARK_AGENT_DISPLAY", ":99")),
+                "error": str(e),
+            }
 
     def _execute_action(self, action: AgentAction, screen) -> Dict[str, Any]:
         """Execute a single agent action via the screen interface."""
@@ -1500,7 +1647,12 @@ class AgentControlService:
                 from backend.services.servo_controller import ServoController
                 from backend.services.training_data_collector import TrainingDataCollector
                 from backend.services.servo_knowledge_store import get_vision_config as _gvc2
-                servo = ServoController(screen, analyzer, collector=TrainingDataCollector(), vision_config=_gvc2())
+                servo = ServoController(
+                    screen,
+                    analyzer,
+                    collector=TrainingDataCollector(),
+                    vision_config=_gvc2(getattr(analyzer, "default_model", "")),
+                )
                 servo.click_target(decision.action.target_description)
             elif decision.action.action_type == "hotkey" and decision.action.keys:
                 screen.hotkey(*decision.action.keys)
@@ -1693,10 +1845,12 @@ class AgentControlService:
 
 target_description rules: SHORT label, ≤6 words, one distinctive adjective. Examples: "primary submit button", "chat input field", "main navigation icon", "desktop background". NOT a multi-clause description with position phrases — long descriptions break the vision detector and land at (0,0). Describe one shape (color, label, or icon), not a sentence.
 
+For high-impact clicks (launch, submit, comment, modal dismiss), set expected_effect to the visible state that should appear after the click. Keep it short and vision-checkable.
+
 done rule: when action="done", success_proof MUST describe the visible state that proves the task is complete (e.g. "cursor inside text area", "comment now visible in thread"). Empty or generic ("n/a", "task done") is rejected. This rule applies to all models and paths.
 
 Reply ONLY with JSON:
-{{"status": "IN_PROGRESS|COMPLETE", "action": "click|right_click|type|hotkey|scroll|wait|done", "target_description": "...", "text": "literal value only", "keys": ["ctrl","t"], "reasoning": "why", "success_proof": "visible state proving done (only when action=done)"}}"""
+{{"status": "IN_PROGRESS|COMPLETE", "action": "click|right_click|type|hotkey|scroll|wait|done", "target_description": "...", "text": "literal value only", "keys": ["ctrl","t"], "reasoning": "why", "expected_effect": "visible result after this action", "success_proof": "visible state proving done (only when action=done)"}}"""
 
     @staticmethod
     def _get_unified_model() -> str:
@@ -1747,6 +1901,19 @@ Reply ONLY with JSON:
         try:
             with open(path, "r") as f:
                 data = json.load(f)
+            try:
+                from backend.services.agent_knowledge_validator import validate_recipe_library
+                validation = validate_recipe_library(data)
+                if validation.issues:
+                    logger.warning(
+                        "[AGENT][RECIPE] validation: %s",
+                        "; ".join(
+                            f"{i.severity}:{i.path}:{i.message}"
+                            for i in validation.issues[:12]
+                        ),
+                    )
+            except Exception as ve:
+                logger.debug(f"Recipe validation skipped: {ve}")
             cls._recipe_cache = {k: v for k, v in data.items() if not k.startswith("_")}
             cls._recipe_mtime = mtime
             logger.info(f"Loaded {len(cls._recipe_cache)} recipes from {path}")
@@ -1849,7 +2016,8 @@ Reply ONLY with JSON:
     def _try_recipe(self, task: str, screen) -> 'AgentResult | None':
         """Match task against recipe library and execute deterministically."""
         import re
-        task_lower = task.lower().strip()
+        task_stripped = task.strip()
+        task_lower = task_stripped.lower()
 
         # Skip recipes for multi-step or compound tasks
         if re.search(r'step\s*\d|^\d+\.\s|\n\d+\.|then\s+(?:type|press|click|open|navigate)', task_lower):
@@ -1858,6 +2026,12 @@ Reply ONLY with JSON:
             return None
         if len(task_lower) > 200:
             return None
+
+        # task_effective is what we feed to recipe trigger regexes. Original case
+        # by default so capture groups preserve case-sensitive things like
+        # YouTube video IDs. Page-route shorthand below replaces it with a
+        # synthetic navigation phrase when "go to <known page>" matches.
+        task_effective = task_stripped
 
         # Also handle "go to X page" → localhost:5175/X
         page_match = re.search(
@@ -1873,12 +2047,12 @@ Reply ONLY with JSON:
             }
             page = page_match.group(1)
             if page in page_routes:
-                task_lower = f"navigate to localhost:5175{page_routes[page]}"
+                task_effective = f"navigate to localhost:5175{page_routes[page]}"
 
         recipes = self._load_recipes()
         for recipe_name, recipe in recipes.items():
             for pattern in recipe.get("triggers", []):
-                match = re.search(pattern, task_lower, re.IGNORECASE)
+                match = re.search(pattern, task_effective, re.IGNORECASE)
                 if match:
                     # If the recipe wants to LAUNCH Firefox but it's already running,
                     # just focus the existing window instead of the desktop-menu dance.
@@ -1999,10 +2173,11 @@ Reply ONLY with JSON:
                 from backend.services.training_data_collector import TrainingDataCollector
                 from backend.services.servo_knowledge_store import get_vision_config
                 from backend.utils.vision_analyzer import VisionAnalyzer
+                analyzer = VisionAnalyzer()
                 servo_box["servo"] = ServoController(
-                    screen, VisionAnalyzer(),
+                    screen, analyzer,
                     collector=TrainingDataCollector(),
-                    vision_config=get_vision_config(),
+                    vision_config=get_vision_config(analyzer.default_model),
                 )
             return servo_box["servo"]
 
@@ -2169,6 +2344,7 @@ Reply ONLY with JSON:
             self._recipe_fallback_note = (
                 f"recipe_fallback:{name},proof_failed={proof_failed},failed_steps={len(failed_steps)}"
             )
+            self._action_history = action_steps
             return None
 
         reason = f"recipe:{name}"
@@ -2260,13 +2436,21 @@ Reply ONLY with JSON:
             return ""
 
         try:
-            rows = (
+            lesson_rows = (
                 AgentMemory.query
                 .filter(AgentMemory.source.in_(["lesson_summary", "manual"]))
                 .order_by(AgentMemory.importance.desc(), AgentMemory.id.desc())
                 .limit(max_rows)
                 .all()
             )
+            belief_rows = (
+                AgentMemory.query
+                .filter(AgentMemory.type == "belief_update")
+                .order_by(AgentMemory.created_at.desc())
+                .limit(4)
+                .all()
+            )
+            rows = list(lesson_rows) + [r for r in belief_rows if r not in lesson_rows]
         except Exception as e:
             logger.debug(f"AgentMemory query failed in lesson loader: {e}")
             return ""
@@ -2300,6 +2484,8 @@ Reply ONLY with JSON:
                         block = f"### {title}\n" + "\n".join(step_lines)
                 except Exception:
                     block = f"### Lesson\n{content[:600]}"
+            elif getattr(row, "type", "") == "belief_update":
+                block = f"- Belief update: {content[:400]}"
             else:  # manual
                 block = f"- {content[:400]}"
             if not block:
@@ -2745,6 +2931,57 @@ Reply ONLY with JSON:
                 confidence=0.5,  # hedge language softens the assertion
             ))
 
+        # Current compact knowledge is prose-first, not a fixed icon bullet
+        # block. Pull only short, concrete UI objects from those hypothesis
+        # lines so contradiction tracking still has useful file-backed claims.
+        prose_patterns = [
+            (r"\bFirefox icon\b", "Firefox icon"),
+            (r"\bdesktop\b", "desktop"),
+        ]
+        for idx, raw in enumerate(lines, start=1):
+            line = raw.strip()
+            for pattern, element in prose_patterns:
+                if not re.search(pattern, line, re.IGNORECASE):
+                    continue
+                key = element.lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                expectations.append(Expectation(
+                    element=element,
+                    expected_visible=True,
+                    observed_visible=False,
+                    source="self_knowledge_compact.md",
+                    source_line=idx,
+                    confidence=0.35,
+                ))
+
+        # Recipes are also knowledge: target_description says what the servo is
+        # expected to find when that recipe applies. Keep these as low-confidence
+        # hypotheses because recipes have preconditions and page-specific scope.
+        try:
+            for recipe_name, recipe in self._load_recipes().items():
+                for step in recipe.get("steps", []) or []:
+                    if not isinstance(step, dict) or step.get("action") != "click":
+                        continue
+                    element = (step.get("target_description") or "").strip()
+                    if not element:
+                        continue
+                    key = element.lower()
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    expectations.append(Expectation(
+                        element=element,
+                        expected_visible=True,
+                        observed_visible=False,
+                        source=f"recipes.json:{recipe_name}",
+                        source_line=None,
+                        confidence=0.25,
+                    ))
+        except Exception as e:
+            logger.debug(f"[AGENT][BELIEF] recipe expectation extraction skipped: {e}")
+
         self._session_expectations = expectations
         return expectations
 
@@ -3100,6 +3337,13 @@ Reply ONLY with JSON:
                     evidence="done was rejected because visible proof was missing",
                     next_hint="perform one more action that creates an obvious visible completion state",
                 )
+            if reason == "expected_effect_not_observed":
+                return ProgressSignal(
+                    label="completion_unproven",
+                    confidence=0.9,
+                    evidence="post-click expected visible effect was not observed",
+                    next_hint="re-observe and choose a different visible route to the same goal",
+                )
             if action_type == "type":
                 return ProgressSignal(
                     label="input_not_applied",
@@ -3198,13 +3442,13 @@ Reply ONLY with JSON:
 {state_management}
 
 Reply ONLY with JSON:
-{{"status": "IN_PROGRESS|COMPLETE", "action": "click|right_click|done", "target_description": "...", "reasoning": "why"}}"""
+{{"status": "IN_PROGRESS|COMPLETE", "action": "click|right_click|done", "target_description": "...", "reasoning": "why", "expected_effect": "visible result after this action"}}"""
         else:
             rules = f"""One action per step. After typing a URL, press Return.
 {state_management}
 
 Reply ONLY with JSON:
-{{"status": "IN_PROGRESS|COMPLETE", "action": "click|right_click|type|hotkey|scroll|wait|done", "target_description": "...", "text": "literal value only", "keys": ["ctrl","l"], "reasoning": "why"}}"""
+{{"status": "IN_PROGRESS|COMPLETE", "action": "click|right_click|type|hotkey|scroll|wait|done", "target_description": "...", "text": "literal value only", "keys": ["ctrl","l"], "reasoning": "why", "expected_effect": "visible result after this action"}}"""
 
         desktop_state = self._get_desktop_state()
         world_block = self._format_world_state_for_prompt(world_state or self._world_state)
@@ -3220,7 +3464,7 @@ Reply ONLY with JSON:
 
         knowledge_block = ""
         if self_knowledge:
-            knowledge_block += f"## Known Facts (always true)\n{self_knowledge.strip()}\n\n"
+            knowledge_block += f"## Screen-Control Knowledge (hypotheses; current screen wins)\n{self_knowledge.strip()}\n\n"
         if recipe_index:
             knowledge_block += (
                 "## Available Recipes (the system auto-executes these on matching task strings; "
@@ -3274,6 +3518,7 @@ Screen: {scene}
                 decision.task_complete = True
                 decision.action.action_type = "done"
                 decision.action.reasoning = data.get("reasoning", "")
+                decision.action.expected_effect = (data.get("expected_effect") or "").strip()
                 decision.action.success_proof = (data.get("success_proof") or "").strip()
                 if status == "COMPLETE" and action_type != "done":
                     logger.warning(f"[AGENT][PARSER] Forced completion: status='COMPLETE' but action='{action_type}'")
@@ -3312,6 +3557,7 @@ Screen: {scene}
                 keys=keys,
                 scroll_amount=data.get("scroll_amount", 0),
                 reasoning=data.get("reasoning", ""),
+                expected_effect=(data.get("expected_effect") or data.get("success_proof") or "").strip(),
             )
             decision.action = action
 
