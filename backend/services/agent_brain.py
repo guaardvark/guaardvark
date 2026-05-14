@@ -569,14 +569,25 @@ class AgentBrain:
                 # full See-Think-Act-Verify, success_proof, persistent knowledge,
                 # and failure handling instead of direct LocalScreenBackend calls.
                 from backend.services.local_screen_backend import LocalScreenBackend
-                from backend.services.agent_control_service import AgentControlService
+                from backend.services.agent_control_service import get_agent_control_service
                 screen = LocalScreenBackend()
-                acs = AgentControlService()
+                # MUST go through the singleton — the save block below drains
+                # the singleton's _thinking_steps_buffer. A fresh AgentControlService()
+                # here would fill its own buffer that drain never sees, leaving
+                # the chat thinking trail empty on refresh.
+                acs = get_agent_control_service()
                 agent_result = acs.execute_task(message, screen, emit_fn=emit_fn)
-                response = agent_result.reason or ("Task completed." if agent_result.success else "Task failed.")
                 if thinking:
                     emit_fn("chat:token", {"content": f"*{thinking[:200]}*\n\n", "session_id": session_id})
-                emit_fn("chat:token", {"content": f"\n{response}", "session_id": session_id})
+                # Don't leak internal reason codes (recipe:open_youtube, completed, timeout)
+                # straight into chat — narrate the outcome in Guaardvark's voice.
+                response = self._narrate_agent_outcome(
+                    user_message=message,
+                    agent_result=agent_result,
+                    self_knowledge=self_knowledge,
+                    emit_fn=emit_fn,
+                    session_id=session_id,
+                )
             else:
                 # Regular conversation — stream the buffered response to the user
                 # Strip any residual JSON that looks like an action attempt
@@ -607,6 +618,24 @@ class AgentBrain:
                         extra = {}
                         if generated_images:
                             extra["generatedImages"] = generated_images
+                        # Pull agent-loop thinking steps so the trail survives a
+                        # hard refresh. AgentBrain owns this save site — the
+                        # unified-engine drain at chat() L1430 doesn't fire when
+                        # AGENT_BRAIN_ENABLED routes requests through here.
+                        try:
+                            from backend.services.agent_control_service import get_agent_control_service
+                            agent_thinking_steps = get_agent_control_service().drain_thinking_steps()
+                            logger.info(
+                                f"[THINKING-PERSIST] (gemma4_direct) drain returned "
+                                f"{len(agent_thinking_steps)} steps for session={session_id}"
+                            )
+                            if agent_thinking_steps:
+                                extra["agentThinkingSteps"] = agent_thinking_steps
+                        except Exception as drain_err:
+                            logger.warning(
+                                f"[THINKING-PERSIST] (gemma4_direct) drain failed: {drain_err}",
+                                exc_info=True,
+                            )
                         content = clean if not clean.startswith("{") else f"[Action] {response}"
                         msg = LLMMessage(
                             session_id=session_id,
@@ -631,6 +660,131 @@ class AgentBrain:
         except Exception as e:
             logger.error(f"Gemma4 direct path failed: {e}", exc_info=True)
             return None  # Fall through to legacy
+
+    def _narrate_agent_outcome(
+        self,
+        user_message: str,
+        agent_result,
+        self_knowledge: str,
+        emit_fn: Callable,
+        session_id: str,
+    ) -> str:
+        """Turn a finished agent task into a 1-2 sentence reply in Guaardvark's voice.
+
+        Streams tokens via emit_fn so the reply types in naturally. Returns the
+        accumulated text for the chat:complete payload and DB save. Falls back
+        to a small templated mapping if the narration call fails.
+        """
+        import httpx as _httpx
+        import ollama
+
+        reason = (getattr(agent_result, "reason", "") or "").strip()
+        success = bool(getattr(agent_result, "success", False))
+
+        actions_taken: List[str] = []
+        last_scene = ""
+        try:
+            steps = getattr(agent_result, "steps", None) or []
+            for step in steps[-5:]:
+                action_type = getattr(getattr(step, "action", None), "action_type", "") or ""
+                if action_type:
+                    actions_taken.append(action_type)
+            if steps:
+                last_scene = (getattr(steps[-1], "scene_description", "") or "")[:200]
+        except Exception:
+            pass
+
+        persona = (self_knowledge or "").strip()[:600]
+        system_prompt = (
+            "You are Guaardvark. "
+            + (persona + "\n\n" if persona else "")
+            + "Reply in 1-2 short sentences about what just happened on screen. "
+              "Direct, no corporate filler, no exclamation marks unless something "
+              "genuinely went wrong. Don't restate the user's request verbatim, "
+              "don't quote internal status codes — just say what you did, in your voice."
+        )
+        user_prompt = (
+            f'I just asked: "{user_message}"\n'
+            f"You took these actions: {', '.join(actions_taken) or 'none recorded'}\n"
+            f"Outcome: {'success' if success else 'failure'} — internal reason code: {reason or 'unknown'}\n"
+        )
+        if last_scene:
+            user_prompt += f"Last thing visible on screen: {last_scene}\n"
+        user_prompt += "\nReply to me now."
+
+        # Gemma4 spends 100+ tokens on internal reasoning before emitting visible
+        # content. Buffer the full response, strip <think> blocks, then emit —
+        # streaming each token live would leak the reasoning to the user.
+        # Two attempts: right after a vision-heavy action loop, Ollama occasionally
+        # returns a zero-chunk stream on the first call. A second try resolves it.
+        client = ollama.Client(
+            timeout=_httpx.Timeout(connect=5.0, read=25.0, write=25.0, pool=25.0),
+        )
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        text = ""
+        for attempt in (1, 2):
+            accumulated: List[str] = []
+            try:
+                stream = client.chat(
+                    model=self.state.active_model,
+                    messages=messages,
+                    stream=True,
+                    keep_alive="10m",
+                    options={"num_ctx": 4096, "num_predict": 800, "temperature": 0.6},
+                )
+                for chunk in stream:
+                    if is_aborted(session_id):
+                        break
+                    token = chunk.get("message", {}).get("content", "")
+                    if token:
+                        accumulated.append(token)
+            except Exception as e:
+                logger.warning(f"[narration_fallback] narration call failed (attempt {attempt}): {e}")
+                continue
+            raw = "".join(accumulated)
+            text = re.sub(r'<think>[\s\S]*?</think>\s*', '', raw).strip()
+            logger.info(
+                f"[narration] attempt={attempt} reason={reason!r} success={success} "
+                f"chunks={len(accumulated)} raw_len={len(raw)} clean_len={len(text)} "
+                f"raw_preview={raw[:200]!r}"
+            )
+            if text:
+                emit_fn("chat:token", {"content": f"\n{text}", "session_id": session_id})
+                return text
+            if is_aborted(session_id):
+                break
+            # Empty response — pause a beat and retry once. Gemma4 sometimes
+            # returns nothing immediately after a vision-heavy action loop.
+            time.sleep(0.4)
+        logger.warning("[narration_fallback] both narration attempts empty; using template")
+
+        fallback = self._fallback_outcome_text(reason, success)
+        emit_fn("chat:token", {"content": f"\n{fallback}", "session_id": session_id})
+        return fallback
+
+    def _fallback_outcome_text(self, reason: str, success: bool) -> str:
+        """Templated reply for when the narration LLM call doesn't pan out."""
+        r = (reason or "").strip().lower()
+        if r.startswith("recipe:"):
+            name = r.split(":", 1)[1]
+            if name == "open_youtube":
+                return "Opened YouTube."
+            if name == "focus_firefox":
+                return "Brought Firefox to the front."
+            return f"Ran the `{name}` recipe — done."
+        mapping = {
+            "completed": "Done.",
+            "timeout": "I ran out of time on that one — want me to retry?",
+            "max_iterations": "I tried a few times and couldn't get there. Tell me more about what you wanted?",
+            "max_failures": "I tried a few times and couldn't get there. Tell me more about what you wanted?",
+            "killed": "Stopped that one.",
+        }
+        if r in mapping:
+            return mapping[r]
+        return "Task completed." if success else "Task failed."
 
     def _parse_gemma4_actions(self, response: str) -> List[Dict]:
         """Extract all action JSONs from Gemma4's response.

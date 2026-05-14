@@ -131,6 +131,17 @@ def create_celery_app():
                 'schedule': 60.0,  # 1 minute
                 'options': {'queue': 'default'},
             },
+            # Scout the channel's own videos for new replies left under
+            # Guaardvark's comments. Read-only — emits "candidate" rows that
+            # flow through the same draft/grade/dispatch pipeline as
+            # outreach comments. Slower cadence than recon (hourly) because
+            # replies under a small channel arrive infrequently; tighten if
+            # the channel grows.
+            'social-outreach-youtube-replies-recon': {
+                'task': 'social_outreach.tick_recon_youtube_replies',
+                'schedule': 3600.0,  # 1 hour
+                'options': {'queue': 'default'},
+            },
             # Reap memory_state_<session_id> rows from system_setting that
             # haven't been touched in GUAARDVARK_MEMORY_RETENTION_DAYS days.
             # MemoryManager writes these on every chat turn; without this
@@ -270,6 +281,7 @@ def create_celery_app():
             tick_reddit_outreach,
             tick_self_share,
             tick_process_approved_drafts,
+            tick_recon_youtube_replies,
         )
         logger.info("Social outreach tasks imported successfully")
     except ImportError as e:

@@ -30,6 +30,13 @@ MIN_GRADE = 0.7
 """Drafts below this self-grade get rejected. Matches the threshold the existing
 draft-comment endpoint uses for the would_post gate so we stay consistent."""
 
+MIN_REPLY_GRADE = 0.6
+"""Looser threshold for replies on Guaardvark's own videos — the rubric in
+REPLY_TO_OWN_VIDEO_SYSTEM_BLOCK is different (we're not asking "would a
+stranger flag this as promo?", we're asking "is this a real engagement?"),
+so 0.6+ posts there. Set just below MIN_GRADE rather than equal to it to
+make the difference explicit if someone wants to retune later."""
+
 MIN_EXTERNAL_GRADE = 0.5
 """Second-opinion threshold (different model, rubric-based). Lower than the
 self-grade threshold because the rubric is binary on each axis (each item is
@@ -111,10 +118,10 @@ class ContentAgent:
                 "reason": f"already {row.status}, not candidate",
             }
 
-        # Defense in depth — Recon emits action="comment" today and self_share
-        # emits "share". An unknown action shouldn't silently be drafted as a
-        # share. Fail loud now; better than a phantom "share" with garbage text.
-        if row.action not in ("comment", "share"):
+        # Defense in depth — Recon emits action="comment" / "share" / "reply".
+        # An unknown action shouldn't silently be drafted; fail loud now,
+        # better than a phantom row with garbage text.
+        if row.action not in ("comment", "share", "reply"):
             audit.mark_rejected(audit_id, f"unsupported action: {row.action!r}")
             return {"status": "rejected", "grade": None, "reason": "unsupported_action"}
 
@@ -125,15 +132,30 @@ class ContentAgent:
             return {"status": "rejected", "grade": None, "reason": "json_decode_error"}
 
         feature_hint = payload.get("feature_hint")
-        thread_context = _build_thread_context(payload)
 
         try:
-            result = persona.draft_outreach_text(
-                platform=row.platform,
-                context={"thread_context": thread_context, "url": row.target_url},
-                mode="comment" if row.action == "comment" else "share",
-                feature_hint=feature_hint,
-            )
+            if row.action == "reply":
+                # Reply path — different persona, no thread-context format,
+                # no feature_hint. Recon stashed parent_text + incoming_text
+                # in the candidate payload.
+                result = persona.draft_outreach_text(
+                    platform=row.platform,
+                    context={
+                        "parent_text": payload.get("parent_text", ""),
+                        "incoming_text": payload.get("incoming_text", ""),
+                        "incoming_author": payload.get("incoming_author", ""),
+                        "video_title": payload.get("title", ""),
+                    },
+                    mode="reply",
+                )
+            else:
+                thread_context = _build_thread_context(payload)
+                result = persona.draft_outreach_text(
+                    platform=row.platform,
+                    context={"thread_context": thread_context, "url": row.target_url},
+                    mode="comment" if row.action == "comment" else "share",
+                    feature_hint=feature_hint,
+                )
         except Exception as e:
             logger.warning("ContentAgent.draft_candidate %s: persona call raised: %s", audit_id, e)
             audit.mark_rejected(audit_id, f"draft_call_failed: {e}")
@@ -146,16 +168,25 @@ class ContentAgent:
             audit.mark_rejected(audit_id, "empty draft from LLM")
             return {"status": "rejected", "grade": grade, "reason": "empty_draft"}
 
-        if grade < MIN_GRADE:
+        grade_threshold = MIN_REPLY_GRADE if row.action == "reply" else MIN_GRADE
+        if grade < grade_threshold:
             audit.mark_rejected(audit_id, f"grade_too_low:{grade:.2f}")
             return {"status": "rejected", "grade": grade, "reason": "grade_too_low"}
 
-        # Second-opinion grade — different model family, rubric-based, blind to
-        # the self-grade. Drafter is biased toward its own output; this catches
-        # generic, off-tone, or oversold comments that the writer rated highly.
-        # If the grader is unavailable (model not loaded, network blip) we
-        # skip the gate rather than blocking the pipeline on infra issues.
-        ext = external_grader.grade_draft_externally(draft_text, thread_context)
+        # Reply path skips the external grader entirely — its rubric was
+        # tuned for outreach comments ("would a stranger flag this as
+        # promotional?"), which scores replies-to-fans as low even when
+        # the reply is good. We keep the self-grade threshold (MIN_REPLY_GRADE)
+        # and let the supervised-approval UI catch any obvious misses.
+        if row.action == "reply":
+            ext = {"skipped": True, "reason": "skip_for_reply_action"}
+        else:
+            # Second-opinion grade — different model family, rubric-based,
+            # blind to the self-grade. Drafter is biased toward its own
+            # output; this catches generic, off-tone, or oversold comments
+            # that the writer rated highly. If the grader is unavailable we
+            # skip rather than block on infra.
+            ext = external_grader.grade_draft_externally(draft_text, thread_context)
         if not ext.get("skipped") and ext.get("grade", 0.0) < MIN_EXTERNAL_GRADE:
             reason = f"external_grade_too_low:{ext['grade']:.2f} ({ext.get('reason', '')[:120]})"
             audit.mark_rejected(audit_id, reason)
@@ -169,10 +200,36 @@ class ContentAgent:
         # UTM-tag any guaardvark.com links the LLM wrote, same as the
         # existing /draft-comment endpoint does. Tagging at the draft
         # boundary catches every URL — including ones the user may later
-        # edit into the draft via the UI.
+        # edit into the draft via the UI. (For replies this is a no-op
+        # since replies don't carry links.)
         posted_text = persona.apply_utm_tags(
             draft_text, platform=row.platform, campaign="v253",
         )
+
+        # Replies need their parent-comment anchor preserved through the
+        # candidate→drafted transition because mark_drafted_from_candidate
+        # overwrites draft_text and there's no extras column to carry the
+        # anchor in. Encode draft_text as a JSON envelope for replies;
+        # the dispatcher parses it back out. posted_text stays plain
+        # (it's what gets typed into the composer) so the existing
+        # `row.posted_text or row.draft_text` pattern keeps working for
+        # callers that don't care about the envelope.
+        stored_draft = draft_text
+        if row.action == "reply":
+            anchor = (
+                payload.get("anchor_hint")
+                or payload.get("parent_text", "")[:200]
+                or ""
+            )
+            stored_draft = json.dumps({
+                "draft": draft_text,
+                "anchor": anchor,
+                # Stash the incoming reply too, so the supervised-approval
+                # UI can show "you're replying to this" without rejoining
+                # to the recon-stage jsonl.
+                "incoming_text": payload.get("incoming_text", ""),
+                "incoming_author": payload.get("incoming_author", ""),
+            })
 
         # Store posted_text alongside the draft so the Outreach agent
         # doesn't have to re-tag at servo time. Goes through the audit
@@ -180,7 +237,7 @@ class ContentAgent:
         # caller-pending mutations under celery.
         promoted = audit.mark_drafted_from_candidate(
             audit_id,
-            draft_text=draft_text,
+            draft_text=stored_draft,
             grade_score=grade,
             posted_text=posted_text,
         )

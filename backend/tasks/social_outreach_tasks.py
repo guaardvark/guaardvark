@@ -166,6 +166,27 @@ def tick_recon_youtube(self) -> dict:
     return _with_app_context(RecondAgent().scout_youtube, profile)
 
 
+@shared_task(name="social_outreach.tick_recon_youtube_replies", bind=True)
+def tick_recon_youtube_replies(self) -> dict:
+    """Beat tick — scan the channel's own YouTube videos for new replies to
+    Guaardvark's comments. Emits status="candidate" rows with action="reply"
+    that the Content agent drafts a response for, the grader scores, and
+    tick_process_approved_drafts dispatches through post_youtube_reply_via_servo.
+
+    Read-only: no servo, no posting. Safe to run on cron — same kill-switch
+    gate as the other recon ticks. Disabled by default in celery_app.py beat
+    schedule.
+
+    Reads `youtube.monitored_videos` from social_outreach_targets.json. Until
+    the comment-scrape stub in recon._fetch_recent_replies_to_guaardvark is
+    implemented, this is a clean no-op that just reports "no_replies" for
+    each monitored video. Manual seeding via
+    `recon.enqueue_youtube_reply_candidate(...)` still works end-to-end.
+    """
+    from backend.services.social_outreach.recon import RecondAgent
+    return _with_app_context(RecondAgent().scout_youtube_my_video_replies)
+
+
 @shared_task(name="social_outreach.tick_self_share", bind=True)
 def tick_self_share(self) -> dict:
     """Beat tick — pick next share sub + URL, submit a link post."""
@@ -187,7 +208,10 @@ def tick_process_approved_drafts(self) -> dict:
     def _run():
         from backend.models import SocialOutreachLog, db
         from backend.services.social_outreach.reddit_outreach import post_comment_via_servo as reddit_post_comment, record_post_via_backend
-        from backend.services.social_outreach.youtube_outreach import post_youtube_comment_via_servo
+        from backend.services.social_outreach.youtube_outreach import (
+            post_youtube_comment_via_servo,
+            post_youtube_reply_via_servo,
+        )
         from backend.services.social_outreach.self_share import _submit_post_via_servo
         import json
         import requests
@@ -221,7 +245,7 @@ def tick_process_approved_drafts(self) -> dict:
                 # path tags inline at servo time. Prefer posted_text so we don't
                 # silently drop the tags Content already applied.
                 comment_text = row.posted_text or row.draft_text
-                
+
                 # Branch on platform
                 if row.platform == "reddit":
                     success, reason = reddit_post_comment(row.target_url, comment_text)
@@ -232,9 +256,50 @@ def tick_process_approved_drafts(self) -> dict:
                     row.status = "approved"
                     db.session.commit()
                     continue
-                
+
                 if success:
                     record_post_via_backend(row.id, row.target_url, row.target_thread_id, comment_text, row.task_id)
+                    processed += 1
+                else:
+                    from backend.services.social_outreach.audit import mark_draft_aborted
+                    mark_draft_aborted(row.id, f"servo: {reason}")
+            elif row.action == "reply" and row.platform == "youtube":
+                # ContentAgent writes a JSON envelope to draft_text for
+                # replies because mark_drafted_from_candidate overwrites
+                # draft_text and there's no extras column to carry the
+                # parent-comment anchor through. Plain reply text lives
+                # in posted_text (typed directly into the composer), the
+                # envelope in draft_text carries {draft, anchor, incoming_*}.
+                reply_text = (row.posted_text or "").strip()
+                anchor_hint = ""
+                try:
+                    if row.draft_text and row.draft_text.strip().startswith("{"):
+                        envelope = json.loads(row.draft_text)
+                        anchor_hint = (
+                            envelope.get("anchor")
+                            or envelope.get("anchor_hint")
+                            or envelope.get("parent_text")
+                            or ""
+                        )[:200]
+                        # If posted_text wasn't filled (legacy row, supervised
+                        # edit dropped it, etc.) fall back to the envelope's
+                        # draft field — better than aborting.
+                        if not reply_text:
+                            reply_text = (envelope.get("draft") or "").strip()
+                except (json.JSONDecodeError, AttributeError, TypeError) as e:
+                    logger.warning("reply envelope parse failed for row %s: %s", row.id, e)
+                if not anchor_hint or not reply_text:
+                    from backend.services.social_outreach.audit import mark_draft_aborted
+                    mark_draft_aborted(row.id, "reply_missing_anchor_or_text")
+                    continue
+                success, reason = post_youtube_reply_via_servo(
+                    row.target_url, anchor_hint, reply_text, row.task_id,
+                )
+                if success:
+                    record_post_via_backend(
+                        row.id, row.target_url, row.target_thread_id,
+                        reply_text, row.task_id,
+                    )
                     processed += 1
                 else:
                     # Move the row to "aborted" so it doesn't stay stuck at

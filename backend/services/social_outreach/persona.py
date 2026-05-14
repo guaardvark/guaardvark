@@ -7,8 +7,10 @@ pulls from the same source of truth. Don't fork these strings.
 
 import json
 import logging
+import os
 import re
-from typing import Any, Dict, Optional
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
 from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
 
 import ollama
@@ -19,13 +21,56 @@ SITE_URL = "https://guaardvark.com"
 GITHUB_URL = "https://github.com/guaardvark/guaardvark"
 GOTHAM_RISING_URL = "https://www.youtube.com/watch?v=8MdtM3HurJo"
 
-# Paraphrased from README.md. If README changes meaningfully, refresh this.
+# One-line pitch — kept for the /social-outreach/persona API endpoint and
+# any legacy import that still expects a string here. The CANONICAL pitch
+# (and the thing the model actually reads at draft time) lives in
+# data/agent/PITCH.md and is loaded via _load_pitch_md() below. Edits to
+# PITCH.md go live on the next draft call without a restart.
 GUAARDVARK_PITCH = (
-    "Guaardvark is a self-hosted AI workstation. Autonomous agents see your screen "
-    "and drive your apps. Three-tier neural routing picks the fastest path. Parallel "
-    "agent swarms run across isolated git worktrees. Video gen, 4K/8K upscaling, RAG "
-    "over your docs, voice — all local. Your machine, your data, your rules."
+    "Guaardvark is a self-hosted AI workstation. Local-first. Your machine, "
+    "your data, your rules."
 )
+
+# Path to the human-editable pitch sheet. The recon agent's regex feature
+# matcher (RELEVANCE_KEYWORDS) is structural and stays in code; this file
+# is for the LLM-facing facts the model reads every draft.
+_PITCH_MD_PATH = Path(
+    os.environ.get("GUAARDVARK_ROOT") or Path(__file__).resolve().parents[3]
+) / "data" / "agent" / "PITCH.md"
+
+# (mtime, content) cache. Re-read when the file's mtime changes — edits
+# to PITCH.md are live without a process restart, which is the whole
+# point of moving the pitch out of code.
+_pitch_cache: Tuple[float, str] = (0.0, "")
+
+
+def _load_pitch_md() -> str:
+    """Return the current PITCH.md content. Caches by mtime so the common
+    case (every draft call in a short window) is a stat + dict lookup.
+
+    Returns "" if the file is missing or unreadable — the system blocks
+    still function without it, just without injected facts, which is
+    better than crashing the outreach loop on a missing file.
+    """
+    global _pitch_cache
+    try:
+        st = _PITCH_MD_PATH.stat()
+    except FileNotFoundError:
+        logger.warning("PITCH.md not found at %s", _PITCH_MD_PATH)
+        return ""
+    except OSError as e:
+        logger.warning("PITCH.md stat failed: %s", e)
+        return _pitch_cache[1]  # fall back to last good copy
+    cached_mtime, cached_content = _pitch_cache
+    if cached_mtime == st.st_mtime and cached_content:
+        return cached_content
+    try:
+        content = _PITCH_MD_PATH.read_text(encoding="utf-8")
+    except OSError as e:
+        logger.warning("PITCH.md read failed: %s", e)
+        return cached_content  # fall back to last good copy
+    _pitch_cache = (st.st_mtime, content)
+    return content
 
 # One-line hooks for each feature. Pick whichever maps to the thread context.
 FEATURE_BLURBS = {
@@ -54,27 +99,74 @@ RELEVANCE_KEYWORDS = [
     (r"\b(react\s*loop|tool\s*use|agent\s*router|routing\s*engine)\b", "three_tier_brain"),
 ]
 
-# Voice rules — distilled from CLAUDE.md "Code Style" + feedback_mimic_user_style memory.
-# This is the system block prepended when generating outward-facing copy.
-OUTWARD_FACING_SYSTEM_BLOCK = """\
-You are writing a comment or post under Guaardvark Dev's account. Match his voice exactly.
+# Framing prepended to PITCH.md when generating outward-facing copy. The
+# old version of this block carried voice rules + a forbidden-phrases
+# blocklist + an opinionated grading rubric — all of which kneecapped
+# friendlier model families and forced every output through Gemma4's
+# guarded register. Now we trust the model's natural voice and let
+# PITCH.md carry the facts. If a model's natural voice drifts off-tone,
+# nudge the file, not the code.
+_OUTWARD_FACING_FRAMING = """\
+You are writing a comment or post under Dean Albenze's Guaardvark account.
+The pitch sheet below is the source of truth — don't invent features
+that aren't in it, don't fabricate URLs, don't claim more than what's
+written. Within those guardrails, write in your own voice.
 
-Voice rules:
-- Direct, competent, occasionally funny. No corporate hedging. No exclamation marks.
-- Never lead with the link. Add value first, then mention the relevant Guaardvark piece naturally if it fits.
-- Don't write like a marketer. Don't say "check it out" or "you should try". Don't pitch.
-- Skip emojis unless the surrounding thread uses them.
-- Keep it short. 1–4 sentences for comments. A comment that reads like an actual person sharing a tip is the goal.
-- If the thread is asking a question, answer the question first. The Guaardvark mention is a footnote, not the headline.
-- Never claim Guaardvark does something it doesn't. Stick to the feature blurb you were given.
-- If you can't add real value to the thread, return an empty draft and a low grade.
+Self-grade the draft 0.0-1.0 on "does this add real value to the thread
+without reading as promotion?". 0.7+ is post-worthy; below that, hold.
+If nothing in the pitch sheet credibly fits the thread, return draft=""
+and grade<0.3 — better to skip than to force a mention.
 
-Forbidden phrases: "game changer", "revolutionary", "next level", "100%", "this is the way", "I built", "I made", "shameless plug", "DM me".
-
-After drafting, grade your own comment 0.0-1.0 on the question: "would a typical reader of this thread upvote this, or would they smell promotion?" Be honest. 0.7+ means post; below means hold.
-
-Return JSON: {"draft": "<comment text>", "grade": 0.0-1.0, "reason": "<one line on why this grade>"}.
+Return JSON: {"draft": "<comment text>", "grade": 0.0-1.0, "reason": "<one line>"}.
 """
+
+# Framing for REPLIES on Guaardvark's OWN YouTube videos. Different audience
+# (already engaged, watched the video) so different posture (no pitch,
+# no link, no marketing gate). Same factual ground from PITCH.md.
+_REPLY_FRAMING = """\
+You are writing a REPLY to a comment left on one of Dean Albenze's own
+Guaardvark YouTube videos. The viewer already watched and engaged — you
+are NOT pitching to a stranger. Be human about it. Don't paste the link,
+don't recap the video, don't sell. Answer questions if asked, take critique
+on the merits, acknowledge kindness briefly without overselling gratitude.
+
+The pitch sheet below is for factual reference only — use specifics from it
+if the viewer asked about a feature, otherwise it stays out of the reply.
+
+Self-grade 0.0-1.0 on "does this read like a real creator actually engaging
+with their viewer, or like a templated auto-response?". 0.6+ means post.
+If the incoming comment doesn't merit a substantive reply (spam, hostile,
+off-topic, wholly generic praise), return draft="" and grade=0.0.
+
+Return JSON: {"draft": "<reply text>", "grade": 0.0-1.0, "reason": "<one line>"}.
+"""
+
+
+def _compose_outward_facing_system() -> str:
+    """Build the system message: framing + PITCH.md. Re-read on every call
+    via the mtime-cached loader, so edits to PITCH.md propagate without
+    restarting the worker."""
+    pitch = _load_pitch_md().strip()
+    if not pitch:
+        return _OUTWARD_FACING_FRAMING
+    return f"{_OUTWARD_FACING_FRAMING}\n\n--- PITCH SHEET ---\n{pitch}\n"
+
+
+def _compose_reply_system() -> str:
+    """Same idea as _compose_outward_facing_system but for replies-on-own-video."""
+    pitch = _load_pitch_md().strip()
+    if not pitch:
+        return _REPLY_FRAMING
+    return f"{_REPLY_FRAMING}\n\n--- PITCH SHEET (factual reference only) ---\n{pitch}\n"
+
+
+# Back-compat: anywhere in the codebase that imported these constants
+# directly still works. The value is now framing-only (no facts) — callers
+# that want the full pitch should use draft_outreach_text, which always
+# composes facts in via PITCH.md.
+OUTWARD_FACING_SYSTEM_BLOCK = _OUTWARD_FACING_FRAMING
+REPLY_TO_OWN_VIDEO_SYSTEM_BLOCK = _REPLY_FRAMING
+
 
 # Tone presets selectable in the OutreachPage UI. Each one is a small extra
 # instruction we splice into the prompt — they shape the draft without
@@ -172,6 +264,34 @@ def _ollama_json_chat(system: str, user: str, model: Optional[str] = None) -> Di
         return {"draft": "", "grade": 0.0, "reason": "model returned malformed JSON"}
 
 
+def _build_reply_prompt(
+    parent_text: str,
+    incoming_text: str,
+    incoming_author: str = "",
+    video_title: str = "",
+    tone: Optional[str] = None,
+) -> str:
+    """Compose the user-side prompt for drafting a REPLY to an incoming
+    comment on Guaardvark's own video. Used with REPLY_TO_OWN_VIDEO_SYSTEM_BLOCK.
+
+    No feature-blurb / no link / no UTM tags — replies don't pitch.
+    """
+    tone_guide = TONE_GUIDES.get((tone or "default").lower(), "").strip()
+    tone_line = f"\nTONE: {tone_guide}\n" if tone_guide else ""
+    author_line = f" by @{incoming_author}" if incoming_author else ""
+    video_line = f"VIDEO: {video_title}\n" if video_title else ""
+    return f"""\
+{video_line}YOUR EARLIER COMMENT (the one they replied to):
+{parent_text}
+
+THEIR REPLY{author_line}:
+{incoming_text}
+{tone_line}
+Draft a reply to them. Follow the voice rules from the system message.
+Return JSON: {{"draft": "<reply text>", "grade": 0.0-1.0, "reason": "<one line>"}}.
+"""
+
+
 def _build_user_prompt(
     platform: str,
     thread_context: str,
@@ -179,9 +299,24 @@ def _build_user_prompt(
     feature_hint: Optional[str],
     tone: Optional[str] = None,
 ) -> str:
-    """Compose the user-side prompt for the LLM. Keeps the system block clean."""
-    feature = feature_hint or find_relevant_feature(thread_context) or "local_ai"
-    feature_blurb = FEATURE_BLURBS.get(feature, FEATURE_BLURBS["local_ai"])
+    """Compose the user-side prompt for the LLM.
+
+    Facts about Guaardvark live in the system message (PITCH.md). This
+    side carries thread-specific context + an optional soft hint about
+    which talking point the recon agent thought was relevant. The hint
+    is annotation, not instruction — the model is free to ignore it if
+    a different point fits the thread better.
+    """
+    # find_relevant_feature returns None on no match; that's now allowed
+    # to propagate (instead of defaulting to "local_ai" which would falsely
+    # imply local AI is the relevant angle for every off-topic thread).
+    feature = feature_hint or find_relevant_feature(thread_context)
+    hint_block = ""
+    if feature:
+        hint_block = (
+            f"\nRECON HINT (use only if it actually fits the thread; "
+            f"ignore otherwise): {feature}\n"
+        )
     tone_guide = TONE_GUIDES.get((tone or "default").lower(), "").strip()
     tone_block = f"\nTONE OVERRIDE: {tone_guide}\n" if tone_guide else ""
 
@@ -193,31 +328,23 @@ THREAD CONTEXT:
 \"\"\"
 {thread_context.strip()[:4000]}
 \"\"\"
-
-GUAARDVARK PITCH (one line, only paraphrase if needed):
-{GUAARDVARK_PITCH}
-
-RELEVANT FEATURE TO MENTION (only if it actually fits):
-{feature}: {feature_blurb}
-
-LINK TO INCLUDE (only if natural — don't force it):
-{SITE_URL}
-{tone_block}
-Write a comment that adds value to this thread first. If a Guaardvark mention fits, drop it as a casual reference, not a pitch. If nothing fits, return draft="" and grade < 0.3.
+{hint_block}{tone_block}
+Draft a comment for this thread. Add real value first; a Guaardvark mention
+is optional and only fits sometimes.
 
 Respond with JSON: {{"draft": "...", "grade": 0.0-1.0, "reason": "..."}}.
 """
 
 
 def _build_share_prompt(platform: str, target: str, link_url: str) -> str:
+    """User-side prompt for self-share posts. Facts come from PITCH.md via
+    the system message; this side carries the platform/target/link.
+    """
     framing = SHARE_FRAMING.get(platform, SHARE_FRAMING["reddit"])
     return f"""\
 PLATFORM: {platform}
 TARGET COMMUNITY: {target}
 LINK: {link_url}
-
-GUAARDVARK PITCH:
-{GUAARDVARK_PITCH}
 
 INSTRUCTIONS:
 {framing}
@@ -261,8 +388,8 @@ def draft_outreach_text(
         target = context.get("target", "(unspecified)")
         link_url = context.get("link_url", SITE_URL)
         prompt = _build_share_prompt(platform, target, link_url)
-        result = llm(OUTWARD_FACING_SYSTEM_BLOCK, prompt)
-        
+        result = llm(_compose_outward_facing_system(), prompt)
+
         if platform == "reddit":
             draft_text = json.dumps({
                 "title": result.get("title", ""),
@@ -271,6 +398,30 @@ def draft_outreach_text(
             })
         else:
             draft_text = result.get("draft", "")
+    elif mode == "reply":
+        # Reply-to-own-video path. Different system block, no feature-blurb,
+        # no UTM tagging — see REPLY_TO_OWN_VIDEO_SYSTEM_BLOCK rationale.
+        prompt = _build_reply_prompt(
+            parent_text=context.get("parent_text", ""),
+            incoming_text=context.get("incoming_text", ""),
+            incoming_author=context.get("incoming_author", ""),
+            video_title=context.get("video_title", ""),
+            tone=tone,
+        )
+        result = llm(_compose_reply_system(), prompt)
+        draft_text = result.get("draft", "") or result.get("reply", "")
+        # Replies skip the UTM-tag pass entirely — we're not handing out
+        # links here. Return early so the apply_utm_tags call below is
+        # bypassed (it would no-op on text with no guaardvark.com links
+        # anyway, but skipping is cleaner and avoids future surprises if
+        # someone adds a link auto-detector to apply_utm_tags).
+        return {
+            "comment": draft_text,
+            "draft": draft_text,
+            "grade": float(result.get("grade", 0.0) or 0.0),
+            "rationale": result.get("reason", "") or result.get("rationale", ""),
+            "reason": result.get("reason", "") or result.get("rationale", ""),
+        }
     else:
         thread_context = context.get("thread_context", "")
         if not thread_context:
@@ -285,7 +436,7 @@ def draft_outreach_text(
             feature_hint=feature_hint,
             tone=tone,
         )
-        result = llm(OUTWARD_FACING_SYSTEM_BLOCK, prompt)
+        result = llm(_compose_outward_facing_system(), prompt)
         draft_text = result.get("draft", "") or result.get("comment", "")
     
     # Apply UTM tags to any guaardvark.com links

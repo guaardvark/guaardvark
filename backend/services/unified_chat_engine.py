@@ -1428,10 +1428,15 @@ class UnifiedChatEngine:
             try:
                 from backend.services.agent_control_service import get_agent_control_service
                 agent_thinking_steps = get_agent_control_service().drain_thinking_steps()
+                logger.info(
+                    f"[THINKING-PERSIST] drain returned {len(agent_thinking_steps)} steps "
+                    f"for session={session_id}; will{'' if agent_thinking_steps else ' NOT'} "
+                    f"attach agentThinkingSteps to extra_data"
+                )
                 if agent_thinking_steps:
                     extra_data["agentThinkingSteps"] = agent_thinking_steps
             except Exception as e:
-                logger.debug(f"Could not drain agent thinking steps for save: {e}")
+                logger.warning(f"[THINKING-PERSIST] drain failed: {e}", exc_info=True)
             self._save_message(session_id, "assistant", clean_response, extra_data=extra_data or None)
 
         return {

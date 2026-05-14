@@ -374,6 +374,237 @@ class RecondAgent:
         return report
 
 
+    def scout_youtube_my_video_replies(
+        self,
+        monitored_videos: Optional[list[str]] = None,
+        max_candidates: int = DEFAULT_CANDIDATES_PER_PASS,
+    ) -> dict:
+        """Scout the agent's own YouTube videos for replies left under Guaardvark's
+        comments. Emits candidate rows with action="reply" so the Content agent
+        can draft a response and the dispatcher can route it through
+        post_youtube_reply_via_servo.
+
+        `monitored_videos` is a list of canonical youtube.com/watch URLs to
+        scan. Defaults to `data/agent/social_outreach_targets.json::youtube.monitored_videos`
+        if not supplied. Each URL goes through the same dedupe/grading
+        machinery as scout_youtube; "thread id" for a reply candidate is
+        the 11-char video id concatenated with a short hash of the parent
+        comment so multiple parents on the same video don't collide.
+
+        Returns report dict mirroring scout_youtube:
+            {
+                "platform": "youtube",
+                "action": "reply",
+                "videos_scanned": int,
+                "candidates": int,
+                "skipped_dedupe": int,
+                "skipped_no_replies": int,
+                "skipped_irrelevant": int,
+                "reason": Optional[str],
+            }
+
+        Implementation note (2026-05-13 marble-block pass):
+          The `_fetch_recent_replies_to_guaardvark(video_url)` helper is
+          stubbed — it returns [] until the servo-driven scrape is wired
+          in the next chip-the-rough-edges pass. The scout still runs
+          safely (it just emits 0 candidates on every tick) and the
+          downstream pipeline (Content/grader/dispatcher) is fully
+          unblocked because `enqueue_youtube_reply_candidate()` lets you
+          hand-seed a reply candidate row at any time.
+        """
+        report = {
+            "platform": "youtube",
+            "action": "reply",
+            "videos_scanned": 0,
+            "candidates": 0,
+            "skipped_dedupe": 0,
+            "skipped_no_replies": 0,
+            "skipped_irrelevant": 0,
+            "reason": None,
+        }
+
+        if not kill_switch.is_enabled():
+            report["reason"] = "kill_switch_off"
+            return report
+
+        if monitored_videos is None:
+            monitored_videos = _load_monitored_videos()
+        if not monitored_videos:
+            report["reason"] = "no_monitored_videos_configured"
+            return report
+
+        already_touched = set(audit.recent_thread_ids(
+            "youtube", statuses=CANDIDATE_DEDUPE_STATUSES,
+        ))
+
+        for video_url in monitored_videos:
+            if report["candidates"] >= max_candidates:
+                break
+            video_id = _extract_youtube_video_id(video_url)
+            if not video_id:
+                continue
+            report["videos_scanned"] += 1
+
+            replies = _fetch_recent_replies_to_guaardvark(video_url)
+            if not replies:
+                report["skipped_no_replies"] += 1
+                continue
+
+            for reply in replies:
+                if report["candidates"] >= max_candidates:
+                    break
+                parent_text = (reply.get("parent_text") or "").strip()
+                incoming_text = (reply.get("incoming_text") or "").strip()
+                incoming_author = (reply.get("incoming_author") or "").strip()
+                if not parent_text or not incoming_text:
+                    continue
+
+                # Use video_id + short parent-text hash as the dedupe key.
+                # Two different parents on the same video → two different
+                # thread_ids; same parent on the same video → same row,
+                # dedup'd against already_touched.
+                parent_hash = _short_text_hash(parent_text)
+                thread_id = f"{video_id}::{parent_hash}"
+                if thread_id in already_touched:
+                    report["skipped_dedupe"] += 1
+                    continue
+
+                extras = {
+                    "video_id": video_id,
+                    "parent_text": parent_text[:600],
+                    "incoming_text": incoming_text[:600],
+                    "incoming_author": incoming_author[:80],
+                    # Phase 2's content_agent reads `selftext_preview` to fill
+                    # the "OP BODY" slot of the LLM draft prompt. For replies
+                    # the "body" is the incoming message we're replying to.
+                    "selftext_preview": incoming_text[:600],
+                    # Anchor string for find_on_page when the reply is
+                    # eventually posted. post_youtube_reply_via_servo will
+                    # re-trim this with _trim_anchor on its own, but storing
+                    # the full parent text in extras keeps the audit trail
+                    # human-readable.
+                    "anchor_hint": parent_text[:80],
+                }
+                audit_id = audit.log_candidate(
+                    platform="youtube",
+                    action="reply",
+                    target_url=video_url,
+                    target_thread_id=thread_id,
+                    feature_hint="own_video_reply",
+                    score=None,
+                    extras=extras,
+                )
+                if audit_id is not None:
+                    report["candidates"] += 1
+                    already_touched.add(thread_id)
+                    logger.info(
+                        "recon: queued youtube reply candidate vid=%s author=%r",
+                        video_id, incoming_author,
+                    )
+
+        return report
+
+
+def enqueue_youtube_reply_candidate(
+    video_url: str,
+    parent_text: str,
+    incoming_text: str,
+    incoming_author: str = "",
+) -> Optional[int]:
+    """Hand-seed a YouTube reply candidate row, bypassing the (still-stubbed)
+    scrape. Useful for testing the downstream draft/grade/dispatch pipeline
+    or for one-off "please reply to this specific comment" hand-offs from
+    the UI before the cron scout is fully wired.
+
+    Returns the audit row id, or None on failure (kill switch off, dedupe
+    hit, invalid URL, blank inputs).
+    """
+    if not kill_switch.is_enabled():
+        return None
+    video_id = _extract_youtube_video_id(video_url)
+    if not video_id:
+        return None
+    parent_text = (parent_text or "").strip()
+    incoming_text = (incoming_text or "").strip()
+    if not parent_text or not incoming_text:
+        return None
+    canonical_url = f"https://www.youtube.com/watch?v={video_id}"
+    parent_hash = _short_text_hash(parent_text)
+    thread_id = f"{video_id}::{parent_hash}"
+    already_touched = set(audit.recent_thread_ids(
+        "youtube", statuses=CANDIDATE_DEDUPE_STATUSES,
+    ))
+    if thread_id in already_touched:
+        return None
+    extras = {
+        "video_id": video_id,
+        "parent_text": parent_text[:600],
+        "incoming_text": incoming_text[:600],
+        "incoming_author": (incoming_author or "").strip()[:80],
+        "selftext_preview": incoming_text[:600],
+        "anchor_hint": parent_text[:80],
+        "manual_seed": True,
+    }
+    return audit.log_candidate(
+        platform="youtube",
+        action="reply",
+        target_url=canonical_url,
+        target_thread_id=thread_id,
+        feature_hint="own_video_reply",
+        score=None,
+        extras=extras,
+    )
+
+
+def _load_monitored_videos() -> list[str]:
+    """Read youtube.monitored_videos from social_outreach_targets.json. Returns
+    [] if the file or key is missing — caller treats that as a clean no-op.
+    """
+    import json
+    import os
+    from pathlib import Path
+    root = os.environ.get("GUAARDVARK_ROOT") or str(Path(__file__).resolve().parents[3])
+    targets_path = Path(root) / "data" / "agent" / "social_outreach_targets.json"
+    try:
+        with open(targets_path, "r", encoding="utf-8") as fh:
+            cfg = json.load(fh)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        logger.warning("could not load monitored videos: %s", e)
+        return []
+    yt = cfg.get("youtube") or {}
+    vids = yt.get("monitored_videos") or []
+    return [v for v in vids if isinstance(v, str) and v.strip()]
+
+
+def _short_text_hash(text: str) -> str:
+    """8-char hex hash of the first 200 chars of `text`. Stable across
+    invocations so the dedupe set works across recon ticks.
+    """
+    import hashlib
+    sample = (text or "").strip()[:200].encode("utf-8", errors="replace")
+    return hashlib.sha1(sample).hexdigest()[:8]
+
+
+def _fetch_recent_replies_to_guaardvark(video_url: str) -> list[dict]:
+    """Return any new replies left under Guaardvark's comments on `video_url`.
+
+    Each item: {"parent_text": str, "incoming_text": str, "incoming_author": str}.
+
+    STUB — next pass: drive the agent to the video page, find each
+    "@guaardvark" comment, read the replies thread under it via the
+    dom_metadata_extractor, diff against last-seen state to surface only
+    new incoming replies. Until then this returns [] and the scout reports
+    skipped_no_replies for every monitored video, which is a clean no-op
+    rather than a noisy failure.
+
+    The scaffolding around this function (log_candidate emission, dedupe,
+    dispatcher routing) is fully working, so hand-seeding via
+    enqueue_youtube_reply_candidate exercises the same downstream path
+    we'll hit once this stub is replaced.
+    """
+    return []
+
+
 _YOUTUBE_VIDEO_ID_RE = re.compile(
     # All five shapes below are commentable single-video URLs. Shorts and
     # /live/ pages were missed in the first cut — Shorts surface for short-
