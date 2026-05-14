@@ -171,6 +171,14 @@ _DEFAULT_VISION_CONFIG = {
     "notes": "1024x1024 square screen — no scaling needed",
 }
 
+MODEL_ALIASES = {
+    "gemma4": "gemma4:e4b",
+    "gemma4:e4b-q4": "gemma4:e4b",
+    "qwen3-vl:8b": "qwen3-vl:8b-instruct",
+    "qwen3-vl:4b": "qwen3-vl:4b-instruct",
+    "qwen3-vl:2b": "qwen3-vl:2b-instruct",
+}
+
 
 def get_reflex(name: str, default=None):
     """Get a reflex value instantly. No I/O, no lookup."""
@@ -183,20 +191,24 @@ def get_reflex(name: str, default=None):
 def get_vision_config(model_name: str = "") -> Dict[str, Any]:
     """Get the vision config for a specific model.
 
-    Matches by prefix — "gemma4:e4b" matches "gemma4" entries.
+    Matches exact names plus explicit aliases.
     Falls back to _DEFAULT_VISION_CONFIG for unknown models.
     """
     if not model_name:
         # Try to detect active model
         model_name = _detect_active_model()
+    model_name = (model_name or "").strip()
+    alias_target = MODEL_ALIASES.get(model_name)
+    if alias_target:
+        model_name = alias_target
 
     # Exact match first
     if model_name in MODEL_VISION_CONFIGS:
         return MODEL_VISION_CONFIGS[model_name]
 
-    # Prefix match (e.g., "gemma4:e4b-q4" matches "gemma4:e4b")
+    # Conservative variant match: allow suffixes on a full configured tag only.
     for key, config in MODEL_VISION_CONFIGS.items():
-        if model_name.startswith(key.split(":")[0]) or key.startswith(model_name.split(":")[0]):
+        if model_name.startswith(f"{key}-") or model_name.startswith(f"{key}:"):
             return config
 
     logger.info(f"No vision config for '{model_name}', using defaults")
@@ -277,6 +289,12 @@ class ServoArchive:
         screen_size: Tuple[int, int] = (1280, 720),
         ui_element_type: str = "",
         correction_log: Optional[List[Dict]] = None,
+        raw_response: str = "",
+        parse_path: str = "",
+        detection_source: str = "",
+        vision_config: Optional[Dict[str, Any]] = None,
+        click_issued: bool = False,
+        reason: str = "",
     ):
         """Record a servo interaction to the universal archive."""
         entry = {
@@ -293,11 +311,16 @@ class ServoArchive:
             "time_ms": time_ms,
             "screen_size": list(screen_size),
             "ui_element_type": ui_element_type,
-            # Computed: error between scaled prediction and actual click
-            "error_px": round(
-                ((scaled_coords[0] - actual_click_coords[0]) ** 2 +
-                 (scaled_coords[1] - actual_click_coords[1]) ** 2) ** 0.5, 1
-            ),
+            "raw_response": raw_response[:2000],
+            "parse_path": parse_path,
+            "detection_source": detection_source,
+            "vision_config_source": (vision_config or {}).get("source", ""),
+            "vision_internal_width": (vision_config or {}).get("internal_width"),
+            "click_issued": click_issued,
+            "reason": reason,
+            # Deprecated: this is prediction-vs-issued-click, not target error.
+            # Keep the field for readers, but do not treat it as calibration truth.
+            "error_px": None,
         }
 
         # Include correction directions so the self-improvement engine
@@ -309,7 +332,10 @@ class ServoArchive:
             with open(self._archive_path, "a") as f:
                 f.write(json.dumps(entry) + "\n")
 
-        logger.debug(f"Archive: {target_description} success={success} error={entry['error_px']}px")
+        logger.debug(
+            f"Archive: {target_description} success={success} "
+            f"source={detection_source or 'unknown'} issued={click_issued}"
+        )
 
     def get_stats(self) -> Dict[str, Any]:
         """Get aggregate statistics from the archive."""
@@ -330,7 +356,9 @@ class ServoArchive:
                     total += 1
                     if entry.get("success"):
                         successful += 1
-                    total_error += entry.get("error_px", 0)
+                    error_px = entry.get("error_px")
+                    error_value = float(error_px) if isinstance(error_px, (int, float)) else 0.0
+                    total_error += error_value
 
                     model = entry.get("model", "unknown")
                     if model not in by_model:
@@ -338,7 +366,7 @@ class ServoArchive:
                     by_model[model]["total"] += 1
                     if entry.get("success"):
                         by_model[model]["successful"] += 1
-                    by_model[model]["total_error"] += entry.get("error_px", 0)
+                    by_model[model]["total_error"] += error_value
                 except json.JSONDecodeError:
                     continue
 

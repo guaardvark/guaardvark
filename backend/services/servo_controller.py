@@ -53,6 +53,11 @@ class ServoController:
         # We record these honestly in the archive — the self-improvement engine
         # decides when (if ever) to actually apply scaling.
         self._vision_config = vision_config or {}
+        self._last_raw_coords: Tuple[int, int] = (0, 0)
+        self._last_scale: Tuple[float, float] = (1.0, 1.0)
+        self._last_raw_response: str = ""
+        self._last_parse_path: str = ""
+        self._last_detection_source: str = ""
 
         # Get the actual screen size from the backend — no more hardcoded 1024x1024!
         # This fixes the "horizontally stretched vision" bug on 1280x720 screens.
@@ -93,25 +98,108 @@ class ServoController:
         if coords is None:
             elapsed_ms = int((time.time() - start) * 1000)
             logger.info(f"Servo: target not visible (\"{target_description}\"), no click")
+            self._record_interaction(
+                screenshot=screenshot,
+                target_description=target_description,
+                coords=(0, 0),
+                success=False,
+                click_issued=False,
+                elapsed_ms=elapsed_ms,
+                reason="target_not_visible",
+            )
             return {
                 "success": False, "verified": False,
+                "target_found": False, "click_issued": False,
+                "post_action_effect": "not_checked",
                 "x": 0, "y": 0,
                 "corrections": 0, "attempt": 1,
                 "time_ms": elapsed_ms,
                 "reason": "target_not_visible",
+                "detection_source": self._last_detection_source,
             }
 
         x, y = coords
         # 2. MOVE
-        self.screen.move(x, y)
+        move_result = self.screen.move(x, y)
+        if not move_result.get("success", False):
+            elapsed_ms = int((time.time() - start) * 1000)
+            self._record_interaction(
+                screenshot=screenshot,
+                target_description=target_description,
+                coords=(x, y),
+                success=False,
+                click_issued=False,
+                elapsed_ms=elapsed_ms,
+                reason="move_failed",
+            )
+            return {
+                "success": False, "verified": False,
+                "target_found": True, "click_issued": False,
+                "post_action_effect": "not_checked",
+                "x": x, "y": y,
+                "corrections": 0, "attempt": 1,
+                "time_ms": elapsed_ms,
+                "reason": "move_failed",
+                "error": move_result.get("error", "move failed"),
+                "detection_source": self._last_detection_source,
+            }
         # 3. CLICK
-        self.screen.click(x, y, button=button)
+        click_result = self.screen.click(x, y, button=button)
         elapsed_ms = int((time.time() - start) * 1000)
+        click_issued = bool(click_result.get("success", False))
 
         # 4. RECORD — training data still captured; success=True because
         # the click physically happened. If it missed the visual target,
         # the post-click SEE in the agent loop will reveal that and the
         # model can decide its next move.
+        self._record_interaction(
+            screenshot=screenshot,
+            target_description=target_description,
+            coords=(x, y),
+            success=click_issued,
+            click_issued=click_issued,
+            elapsed_ms=elapsed_ms,
+            reason="" if click_issued else click_result.get("error", "click_failed"),
+        )
+
+        return {
+            "success": click_issued, "verified": False,
+            "target_found": True, "click_issued": click_issued,
+            "post_action_effect": "pending_observation",
+            "x": x, "y": y,
+            "corrections": 0, "attempt": 1,
+            "time_ms": elapsed_ms,
+            "reason": "" if click_issued else "click_failed",
+            "error": click_result.get("error"),
+            "detection_source": self._last_detection_source,
+            "parse_path": self._last_parse_path,
+        }
+
+    def _record_interaction(
+        self,
+        screenshot: Image.Image,
+        target_description: str,
+        coords: Tuple[int, int],
+        success: bool,
+        click_issued: bool,
+        elapsed_ms: int,
+        reason: str = "",
+    ) -> None:
+        """Record telemetry without treating predicted coords as ground truth."""
+        x, y = coords
+        raw = getattr(self, "_last_raw_coords", (0, 0))
+        scale = getattr(self, "_last_scale", (1.0, 1.0))
+        model_name = getattr(self.analyzer, "default_model", "unknown")
+        metadata = {
+            "model": model_name,
+            "vision_config_source": self._vision_config.get("source", ""),
+            "raw_response": self._last_raw_response,
+            "parse_path": self._last_parse_path,
+            "detection_source": self._last_detection_source,
+            "screen_size": [self.screen_w, self.screen_h],
+            "click_issued": click_issued,
+            "reason": reason,
+        }
         if self.collector:
             try:
                 self.collector.record(
@@ -120,14 +208,12 @@ class ServoController:
                     target_description=target_description,
                     target_actual=(x, y),
                     corrections=[],
-                    success=True,
+                    success=success,
+                    metadata=metadata,
                 )
             except Exception as e:
                 logger.debug(f"Collector record failed (non-fatal): {e}")
 
-        raw = getattr(self, '_last_raw_coords', (0, 0))
-        scale = getattr(self, '_last_scale', (1.0, 1.0))
-        model_name = getattr(self.analyzer, 'default_model', 'unknown')
         try:
             archive = get_servo_archive()
             archive.record(
@@ -137,22 +223,21 @@ class ServoController:
                 scaled_coords=coords,
                 actual_click_coords=(x, y),
                 scale_factor=scale,
-                success=True,
+                success=success,
                 corrections=0,
                 attempt=1,
                 time_ms=elapsed_ms,
                 screen_size=(self.screen_w, self.screen_h),
                 correction_log=[],
+                raw_response=self._last_raw_response,
+                parse_path=self._last_parse_path,
+                detection_source=self._last_detection_source,
+                vision_config=self._vision_config,
+                click_issued=click_issued,
+                reason=reason,
             )
         except Exception as e:
             logger.debug(f"Archive record failed (non-fatal): {e}")
-
-        return {
-            "success": True, "verified": False,
-            "x": x, "y": y,
-            "corrections": 0, "attempt": 1,
-            "time_ms": elapsed_ms,
-        }
 
     @staticmethod
     def _screen_changed(before: Image.Image, after: Image.Image,
@@ -262,6 +347,9 @@ class ServoController:
         if dom_coords:
             self._last_raw_coords = dom_coords
             self._last_scale = (1.0, 1.0)
+            self._last_raw_response = ""
+            self._last_parse_path = "dom"
+            self._last_detection_source = "dom"
             return dom_coords
 
         # HALLUCINATION GUARD REMOVED 2026-05-12 — was a separate analyze() call
@@ -284,20 +372,40 @@ class ServoController:
         #         logger.info(f"Servo: target not visible (\"{target}\"), skipping click")
         #         return None
 
-        # Full-size image — resize destroys coordinate accuracy
-        prompt = f"detect {target}"
+        # Full-size image — resize destroys coordinate accuracy.
+        # Prompt phrasing matters: `detect {target}` produces prose ("The icon
+        # is in the center-right of the image") that `_parse_detection_response`
+        # can't extract coordinates from, so the servo logs "target not visible"
+        # even when the model literally sees the target. Asking explicitly for
+        # box_2d in Google's documented format (object-wrapped, list-of-dicts)
+        # gets the parser's existing happy path. Verified 2026-05-13:
+        # `detect Firefox icon` → prose; this prompt → list of {box_2d, label}
+        # objects on the same screenshot.
+        prompt = (
+            f"Point at the {target}. Reply with ONLY a JSON list "
+            f'[{{"box_2d": [y1, x1, y2, x2], "label": "{target}"}}] '
+            f"with coordinates normalized to 1000. If the target is not visible, "
+            f"reply with an empty list []."
+        )
         result = self.analyzer.analyze_fullsize(
             screenshot, prompt=prompt, num_predict=256, temperature=0.1
         )
         if not result.success:
             logger.error(f"Coordinate estimation failed: {result.error}")
+            self._last_raw_response = result.error or ""
+            self._last_parse_path = "vision_error"
+            self._last_detection_source = "vision"
             return None
+        self._last_raw_response = result.description or ""
+        self._last_detection_source = "vision"
 
         # Parse detection response — handles both "point" and "box_2d" formats
         coords = self._parse_detection_response(result.description)
         if coords is None:
             # Fall back to legacy {"x","y"} format
             coords = self._parse_coordinates(result.description)
+            if coords is not None:
+                self._last_parse_path = "legacy_xy"
 
         if coords is None:
             return None
@@ -307,8 +415,8 @@ class ServoController:
         self._last_scale = (1.0, 1.0)  # raw pixels, no scaling needed
 
         # Clamp to screen bounds
-        x = max(0, min(self.screen_w, int(raw_x)))
-        y = max(0, min(self.screen_h - TASKBAR_H, int(raw_y)))
+        x = max(0, min(self.screen_w - 1, int(raw_x)))
+        y = max(0, min(self.screen_h - TASKBAR_H - 1, int(raw_y)))
 
         logger.info(f"Servo coords: ({x}, {y}) raw=({raw_x},{raw_y}) model={getattr(self.analyzer, 'default_model', '?')}")
         return (x, y)
@@ -363,7 +471,14 @@ class ServoController:
             
             if isinstance(data, list) and data:
                 entry = data[0]
-                if not isinstance(entry, dict):
+                # Tolerate bare 4-int arrays as box_2d ([y1, x1, y2, x2]).
+                # Gemma4 sometimes returns the array directly without the
+                # {"box_2d": [...], "label": "..."} wrapper, even when asked
+                # for the object form. Wrap it so the box-handling branch
+                # below picks it up uniformly.
+                if isinstance(entry, (int, float)) and len(data) == 4:
+                    entry = {"box_2d": [int(v) for v in data]}
+                elif not isinstance(entry, dict):
                     return None
             elif isinstance(data, dict):
                 entry = data
@@ -385,6 +500,13 @@ class ServoController:
             point = entry.get("point")
             if point and len(point) == 2:
                 px, py = int(point[0]), int(point[1])
+                grid = self._vision_config.get("internal_width", 1000) if self._vision_config else 1000
+                if 0 <= px <= grid and 0 <= py <= grid and (px > self.screen_w or py > self.screen_h):
+                    px = int((px / grid) * self.screen_w)
+                    py = int((py / grid) * self.screen_h)
+                    self._last_parse_path = "point_normalized"
+                else:
+                    self._last_parse_path = "point"
                 logger.info(
                     f"Servo: point {point} → ({px},{py}) "
                     f"label=\"{entry.get('label', '?')}\""
@@ -411,7 +533,11 @@ class ServoController:
                 if x1 == 0 and x2 == 0 and y1 == 0 and y2 == 0:
                     logger.warning(f"Servo: box [0,0,0,0] received (ignoring as null detection)")
                     return None
+                if abs(x2 - x1) < 1 or abs(y2 - y1) < 1:
+                    logger.warning(f"Servo: tiny/degenerate box {box} received (ignoring)")
+                    return None
 
+                self._last_parse_path = "box_2d"
                 logger.info(
                     f"Servo: box {box} order={coord_order} grid={grid} → center ({cx},{cy}) "
                     f"label=\"{entry.get('label', '?')}\""

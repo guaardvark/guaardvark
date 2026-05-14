@@ -4,6 +4,14 @@ from PIL import Image
 
 
 class TestServoController(unittest.TestCase):
+    def setUp(self):
+        self._archive_patcher = patch("backend.services.servo_controller.get_servo_archive")
+        mocked = self._archive_patcher.start()
+        archive = MagicMock()
+        mocked.return_value = archive
+
+    def tearDown(self):
+        self._archive_patcher.stop()
 
     def _make_screen(self, cursor_pos=(640, 360)):
         screen = MagicMock()
@@ -11,6 +19,7 @@ class TestServoController(unittest.TestCase):
         screen.move.return_value = {"success": True}
         screen.click.return_value = {"success": True}
         screen.cursor_position.return_value = cursor_pos
+        screen.screen_size.return_value = (1024, 1024)
         return screen
 
     def _make_analyzer(self, responses):
@@ -41,100 +50,66 @@ class TestServoController(unittest.TestCase):
         screen = self._make_screen(cursor_pos=(400, 250))
         same_img = Image.new("RGB", (1024, 1024), color=(50, 50, 50))
         diff_img = Image.new("RGB", (1024, 1024), color=(200, 200, 200))
-        # attempt 1: ballistic → click → verify (screen changed = success)
-        screen.capture.side_effect = [
-            (same_img, (400, 250)),  # ballistic capture
-            (diff_img, (400, 250)),  # verify (changed)
-        ]
+        screen.capture.return_value = (same_img, (400, 250))
         analyzer = self._make_analyzer([
-            'yes',                    # hallucination guard: target exists
             '```json\n[{"point": [400, 250], "label": "button"}]\n```',  # box_2d detection
         ])
         servo = ServoController(screen, analyzer)
         result = servo.click_target("Reply button")
         assert result["success"] is True
+        assert result["target_found"] is True
+        assert result["click_issued"] is True
+        assert result["verified"] is False
         screen.click.assert_called_once()
 
     @patch("time.sleep")
-    def test_one_correction_then_click(self, mock_sleep):
+    def test_failed_move_does_not_issue_click(self, mock_sleep):
         from backend.services.servo_controller import ServoController
         screen = self._make_screen(cursor_pos=(400, 250))
         same_img = Image.new("RGB", (1024, 1024), color=(50, 50, 50))
-        diff_img = Image.new("RGB", (1024, 1024), color=(200, 200, 200))
-        screen.capture.side_effect = [
-            (same_img, (400, 250)),  # attempt 1 ballistic
-            (same_img, (400, 250)),  # attempt 1 verify (no change → retry)
-            (same_img, (400, 250)),  # attempt 2 ballistic
-            (same_img, (400, 250)),  # attempt 2 correction 1 (on_target)
-            (diff_img, (400, 250)),  # attempt 2 verify (changed)
-        ]
+        screen.capture.return_value = (same_img, (400, 250))
+        screen.move.return_value = {"success": False, "error": "display gone"}
         analyzer = self._make_analyzer([
-            'yes',                    # attempt 1 hallucination guard
             '```json\n[{"point": [400, 250], "label": "button"}]\n```',
-            'yes',                    # attempt 2 hallucination guard
-            '```json\n[{"box_2d": [195, 320, 195, 320], "label": "button"}]\n```',
-            '{"on_target": true}',
         ])
         servo = ServoController(screen, analyzer)
         result = servo.click_target("Reply button")
-        assert result["success"] is True
-        assert result["verified"] is True
+        assert result["success"] is False
+        assert result["target_found"] is True
+        assert result["click_issued"] is False
+        assert result["reason"] == "move_failed"
+        screen.click.assert_not_called()
 
     @patch("time.sleep")
     def test_max_corrections_all_attempts_exhausted(self, mock_sleep):
         from backend.services.servo_controller import ServoController
         screen = self._make_screen()
         same_img = Image.new("RGB", (1024, 1024), color=(50, 50, 50))
-        # 3 attempts, each with captures for estimate + corrections + verify, all same image
         screen.capture.return_value = (same_img, (400, 250))
-        # Lots of "not on target" responses — each attempt gets hallucination guard + detection + corrections
-        responses = []
-        for _ in range(20):
-            responses.extend(['yes', '```json\n[{"point": [400, 250], "label": "button"}]\n```', '{"on_target": false, "direction": "left", "distance": "small"}'])
-        analyzer = self._make_analyzer(responses)
+        analyzer = self._make_analyzer(['[]'])
         servo = ServoController(screen, analyzer, max_corrections=4)
         result = servo.click_target("Reply button")
-        # All attempts exhausted with no screen change — honest failure
         assert result["success"] is False
         assert result["verified"] is False
+        assert result["target_found"] is False
+        assert result["reason"] == "target_not_visible"
 
     @patch("time.sleep")
-    def test_oscillation_dampening(self, mock_sleep):
+    def test_click_failure_keeps_found_but_not_issued(self, mock_sleep):
         from backend.services.servo_controller import ServoController
         screen = self._make_screen(cursor_pos=(400, 250))
         same_img = Image.new("RGB", (1024, 1024), color=(50, 50, 50))
-        diff_img = Image.new("RGB", (1024, 1024), color=(200, 200, 200))
-        # attempt 1: ballistic (no corrections) → verify miss
-        # attempt 2: ballistic + 1 correction → verify miss
-        # attempt 3: ballistic + corrections with direction reversal → verify hit
-        screen.capture.side_effect = [
-            (same_img, (400, 250)),  # attempt 1 ballistic
-            (same_img, (400, 250)),  # attempt 1 verify (no change)
-            (same_img, (400, 250)),  # attempt 2 ballistic
-            (same_img, (400, 250)),  # attempt 2 correction 1 (right)
-            (same_img, (400, 250)),  # attempt 2 verify (no change)
-            (same_img, (400, 250)),  # attempt 3 ballistic
-            (same_img, (400, 250)),  # attempt 3 correction 1 (right)
-            (same_img, (400, 250)),  # attempt 3 correction 2 (left = reversal)
-            (same_img, (400, 250)),  # attempt 3 correction 3 (on_target)
-            (diff_img, (400, 250)),  # attempt 3 verify (changed)
-        ]
+        screen.capture.return_value = (same_img, (400, 250))
+        screen.click.return_value = {"success": False, "error": "click failed"}
         analyzer = self._make_analyzer([
-            'yes',  # attempt 1 hallucination guard
             '```json\n[{"point": [400, 250], "label": "button"}]\n```',
-            'yes',  # attempt 2 hallucination guard
-            '```json\n[{"point": [400, 250], "label": "button"}]\n```',
-            '{"on_target": false, "direction": "right", "distance": "large"}',
-            'yes',  # attempt 3 hallucination guard
-            '```json\n[{"point": [400, 250], "label": "button"}]\n```',
-            '{"on_target": false, "direction": "right", "distance": "large"}',
-            '{"on_target": false, "direction": "left", "distance": "medium"}',
-            '{"on_target": true}',
         ])
         servo = ServoController(screen, analyzer)
         result = servo.click_target("Reply button")
-        assert result["success"] is True
-        assert result["verified"] is True
+        assert result["success"] is False
+        assert result["target_found"] is True
+        assert result["click_issued"] is False
+        assert result["reason"] == "click_failed"
 
     @patch("time.sleep")
     def test_verification_detects_screen_change(self, mock_sleep):
@@ -142,18 +117,14 @@ class TestServoController(unittest.TestCase):
         screen = self._make_screen()
         same_img = Image.new("RGB", (1024, 1024), color=(50, 50, 50))
         diff_img = Image.new("RGB", (1024, 1024), color=(200, 200, 200))
-        screen.capture.side_effect = [
-            (same_img, (400, 250)),  # ballistic capture
-            (diff_img, (400, 250)),  # verify (changed)
-        ]
+        screen.capture.return_value = (same_img, (400, 250))
         analyzer = self._make_analyzer([
-            'yes',  # hallucination guard
             '```json\n[{"point": [400, 250], "label": "button"}]\n```',
         ])
         servo = ServoController(screen, analyzer)
         result = servo.click_target("Reply button")
         assert result["success"] is True
-        assert result["verified"] is True
+        assert result["post_action_effect"] == "pending_observation"
 
     def test_nudge_distances(self):
         from backend.services.servo_controller import ServoController
@@ -229,10 +200,10 @@ class TestParseDetectionCoordOrder(unittest.TestCase):
         coords = s._parse_detection_response('[{"point": [614, 64], "label": "X"}]')
         self.assertEqual(coords, (614, 64))
 
-    def test_point_yx_order_reads_y_first(self):
+    def test_point_yx_order_still_reads_x_first(self):
         s = self._servo(coord_order="yx")
         coords = s._parse_detection_response('[{"point": [614, 64], "label": "X"}]')
-        self.assertEqual(coords, (64, 614))
+        self.assertEqual(coords, (614, 64))
 
     def test_box_2d_with_internal_grid_and_yx(self):
         # Some models (qwen3-vl variants) normalize to 1024; when y-first the
