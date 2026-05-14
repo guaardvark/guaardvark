@@ -12,6 +12,7 @@ returns empty results. Never blocks the agent loop.
 
 import json
 import logging
+import os
 import threading
 import time
 from dataclasses import dataclass, field
@@ -26,6 +27,22 @@ CDP_DISCOVER_URL = f"http://localhost:{CDP_PORT}/json/list"
 CDP_TIMEOUT = 3  # seconds — fast fail if CDP isn't available
 CACHE_TTL = 1.0  # seconds — one agent step reuses the same snapshot
 MAX_ELEMENTS = 50  # cap to keep prompt concise
+
+
+def dom_assist_enabled() -> bool:
+    """Master switch for DOM-assisted clicking.
+
+    Disabled by default (2026-05-14) — the viewport→screen translation in
+    `_extract_impl` undercounts: scroll position isn't added, and BiDi reports
+    `window.screenX/Y=0` on virtual displays even when Firefox isn't at (0,0).
+    Result: Gemma4 gets fed plausible-looking but off-by-chrome-height coords
+    that miss the intended target, then loop-detection blocks the retry.
+    Vision-only clicking (Gemma4's box_2d path, calibrated in commit 3630493)
+    works without this shortcut.
+
+    To re-enable for testing, set GUAARDVARK_DOM_ASSIST=1.
+    """
+    return os.environ.get("GUAARDVARK_DOM_ASSIST", "").strip() in {"1", "true", "yes"}
 
 # JavaScript that runs inside Firefox to enumerate interactive elements
 # and return their bounding boxes in viewport coordinates.

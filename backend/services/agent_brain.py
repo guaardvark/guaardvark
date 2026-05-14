@@ -402,13 +402,18 @@ class AgentBrain:
             except Exception:
                 pass
 
-            # Extract DOM metadata from Firefox (interactive elements with coordinates)
+            # Extract DOM metadata from Firefox (interactive elements with coordinates).
+            # Gated behind dom_assist_enabled() — see dom_metadata_extractor.py for why.
             dom_metadata = ""
             try:
-                from backend.services.dom_metadata_extractor import DOMMetadataExtractor
-                snapshot = DOMMetadataExtractor.get_instance().extract()
-                if snapshot.success and snapshot.elements:
-                    dom_metadata = DOMMetadataExtractor.format_for_prompt(snapshot)
+                from backend.services.dom_metadata_extractor import (
+                    DOMMetadataExtractor,
+                    dom_assist_enabled,
+                )
+                if dom_assist_enabled():
+                    snapshot = DOMMetadataExtractor.get_instance().extract()
+                    if snapshot.success and snapshot.elements:
+                        dom_metadata = DOMMetadataExtractor.format_for_prompt(snapshot)
             except Exception as e:
                 logger.debug(f"DOM metadata extraction unavailable: {e}")
 
@@ -855,14 +860,19 @@ class AgentBrain:
                 # scaled by 1.28/0.72 = 300px+ error (MISS).
                 logger.info(f"Gemma4 direct: raw coords ({x},{y}) — no scaling applied")
             else:
-                # Gemma4 gave a target but no coords — try DOM lookup
+                # Gemma4 gave a target but no coords — try DOM lookup if enabled.
+                # Disabled by default (see dom_metadata_extractor.dom_assist_enabled).
                 try:
-                    from backend.services.dom_metadata_extractor import DOMMetadataExtractor
-                    snap = DOMMetadataExtractor.get_instance().extract()
-                    for el in (snap.elements if snap.success else []):
-                        if target.lower() in (el.text or "").lower():
-                            x, y = el.cx, el.cy
-                            break
+                    from backend.services.dom_metadata_extractor import (
+                        DOMMetadataExtractor,
+                        dom_assist_enabled,
+                    )
+                    if dom_assist_enabled():
+                        snap = DOMMetadataExtractor.get_instance().extract()
+                        for el in (snap.elements if snap.success else []):
+                            if target.lower() in (el.text or "").lower():
+                                x, y = el.cx, el.cy
+                                break
                 except Exception:
                     pass
 

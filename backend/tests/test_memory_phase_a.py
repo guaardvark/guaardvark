@@ -220,5 +220,39 @@ class TestReconcilerBeatRegistration(unittest.TestCase):
         self.assertIn("21600", src)  # 6h cadence in seconds
 
 
+class TestDomAssistDisabledByDefault(unittest.TestCase):
+    """DOM-assisted clicking is off out of the box (2026-05-14).
+
+    Bad viewport→screen translation on :99 was causing Gemma4 to click empty
+    space on the agent_course test page; flipping the default cured the loop.
+    Set GUAARDVARK_DOM_ASSIST=1 to re-enable.
+    """
+
+    def test_disabled_when_env_unset(self):
+        import importlib, os
+        os.environ.pop("GUAARDVARK_DOM_ASSIST", None)
+        from backend.services import dom_metadata_extractor as dme
+        importlib.reload(dme)
+        self.assertFalse(dme.dom_assist_enabled())
+
+    def test_enabled_when_env_set(self):
+        import os
+        os.environ["GUAARDVARK_DOM_ASSIST"] = "1"
+        try:
+            from backend.services.dom_metadata_extractor import dom_assist_enabled
+            self.assertTrue(dom_assist_enabled())
+        finally:
+            os.environ.pop("GUAARDVARK_DOM_ASSIST", None)
+
+    def test_disabled_when_env_set_to_zero(self):
+        import os
+        os.environ["GUAARDVARK_DOM_ASSIST"] = "0"
+        try:
+            from backend.services.dom_metadata_extractor import dom_assist_enabled
+            self.assertFalse(dom_assist_enabled())
+        finally:
+            os.environ.pop("GUAARDVARK_DOM_ASSIST", None)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -357,15 +357,24 @@ class ServoController:
         bbox around X≈600 — symptom of a model that knows the target exists
         but lost the grid mapping.
         """
-        # Try DOM shortcut first — instant if Firefox has the element
-        dom_coords = self._lookup_dom_coordinates(target)
-        if dom_coords:
-            self._last_raw_coords = dom_coords
-            self._last_scale = (1.0, 1.0)
-            self._last_raw_response = ""
-            self._last_parse_path = "dom"
-            self._last_detection_source = "dom"
-            return dom_coords
+        # Try DOM shortcut first — instant if Firefox has the element.
+        # Gated behind dom_assist_enabled() (default off). Viewport→screen
+        # translation has known gaps that misplace clicks; vision path below
+        # is the calibrated default.
+        try:
+            from backend.services.dom_metadata_extractor import dom_assist_enabled
+            _dom_on = dom_assist_enabled()
+        except Exception:
+            _dom_on = False
+        if _dom_on:
+            dom_coords = self._lookup_dom_coordinates(target)
+            if dom_coords:
+                self._last_raw_coords = dom_coords
+                self._last_scale = (1.0, 1.0)
+                self._last_raw_response = ""
+                self._last_parse_path = "dom"
+                self._last_detection_source = "dom"
+                return dom_coords
 
         # HALLUCINATION GUARD REMOVED 2026-05-12 — was a separate analyze() call
         # asking "Is there a {target} visible? yes/no" before detection. Verified

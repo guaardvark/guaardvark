@@ -1670,15 +1670,22 @@ class AgentControlService:
         """Pull a fresh DOM snapshot from Firefox once per iteration.
 
         Stored on the instance so the prompt builder and the click-time DOM-match
-        guard see the same elements. Silently no-ops when the unified model isn't
-        gemma4 or when Bidi/Firefox isn't reachable — both fall through to
-        coordinate-only vision flow.
+        guard see the same elements. Silently no-ops when DOM-assist is disabled
+        (the default — see dom_metadata_extractor.dom_assist_enabled), when the
+        unified model isn't gemma4, or when Bidi/Firefox isn't reachable. With
+        snapshot=None, `_dom_match` returns True for everything so clicks aren't
+        blocked on screens we can't introspect.
         """
         self._dom_snapshot = None
         try:
+            from backend.services.dom_metadata_extractor import (
+                DOMMetadataExtractor,
+                dom_assist_enabled,
+            )
+            if not dom_assist_enabled():
+                return
             unified_model = self._get_unified_model()
             if unified_model and "gemma4" in unified_model.lower():
-                from backend.services.dom_metadata_extractor import DOMMetadataExtractor
                 snapshot = DOMMetadataExtractor.get_instance().extract()
                 if snapshot.success and snapshot.elements:
                     self._dom_snapshot = snapshot
@@ -1778,13 +1785,19 @@ class AgentControlService:
         desktop_state = AgentControlService._get_desktop_state()
 
         # DOM metadata — interactive elements with screen coordinates.
-        # Snapshot is refreshed by execute_task() before this call so the
-        # click-time guard sees the same elements the LLM saw.
+        # Gated behind dom_assist_enabled() (default off). The viewport→screen
+        # translation has known gaps (no scroll offset, BiDi lies about screenX/Y
+        # on :99); feeding the LLM those coords makes it confidently click empty
+        # space. See dom_metadata_extractor.dom_assist_enabled for the toggle.
         dom_block = ""
         if self._dom_snapshot is not None:
             try:
-                from backend.services.dom_metadata_extractor import DOMMetadataExtractor
-                dom_block = DOMMetadataExtractor.format_for_prompt(self._dom_snapshot) + "\n\n"
+                from backend.services.dom_metadata_extractor import (
+                    DOMMetadataExtractor,
+                    dom_assist_enabled,
+                )
+                if dom_assist_enabled():
+                    dom_block = DOMMetadataExtractor.format_for_prompt(self._dom_snapshot) + "\n\n"
             except Exception:
                 pass
 
