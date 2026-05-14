@@ -9,8 +9,14 @@ class TestServoController(unittest.TestCase):
         mocked = self._archive_patcher.start()
         archive = MagicMock()
         mocked.return_value = archive
+        self._dom_patcher = patch(
+            "backend.services.servo_controller.ServoController._lookup_dom_coordinates",
+            return_value=None,
+        )
+        self._dom_patcher.start()
 
     def tearDown(self):
+        self._dom_patcher.stop()
         self._archive_patcher.stop()
 
     def _make_screen(self, cursor_pos=(640, 360)):

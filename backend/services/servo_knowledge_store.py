@@ -293,8 +293,11 @@ class ServoArchive:
         parse_path: str = "",
         detection_source: str = "",
         vision_config: Optional[Dict[str, Any]] = None,
+        target_found: bool = False,
         click_issued: bool = False,
+        post_action_effect: str = "",
         reason: str = "",
+        inference_ms: int = 0,
     ):
         """Record a servo interaction to the universal archive."""
         entry = {
@@ -316,8 +319,11 @@ class ServoArchive:
             "detection_source": detection_source,
             "vision_config_source": (vision_config or {}).get("source", ""),
             "vision_internal_width": (vision_config or {}).get("internal_width"),
+            "target_found": target_found,
             "click_issued": click_issued,
+            "post_action_effect": post_action_effect,
             "reason": reason,
+            "inference_ms": inference_ms,
             # Deprecated: this is prediction-vs-issued-click, not target error.
             # Keep the field for readers, but do not treat it as calibration truth.
             "error_px": None,
@@ -385,6 +391,79 @@ class ServoArchive:
             "avg_error_px": round(total_error / total, 1) if total else 0,
             "by_model": model_stats,
             "archive_path": str(self._archive_path),
+        }
+
+    def get_run_metrics(self, since: str | None = None) -> Dict[str, Any]:
+        """Aggregate post-hardening servo metrics from the archive.
+
+        Args:
+            since: Optional ISO timestamp. Entries older than this are ignored.
+        """
+        if not self._archive_path.exists():
+            return {
+                "total": 0,
+                "task_success_rate": 0.0,
+                "verified_outcome_rate": 0.0,
+                "target_not_visible_rate": 0.0,
+                "parse_failure_rate": 0.0,
+                "recipe_fallback_rate": 0.0,
+                "mean_vlm_latency_ms": 0.0,
+            }
+
+        since_dt = None
+        if since:
+            try:
+                since_dt = datetime.fromisoformat(str(since).replace("Z", "+00:00"))
+            except Exception:
+                since_dt = None
+
+        total = successes = verified = target_not_visible = parse_failures = recipe_fallbacks = 0
+        latency_total = latency_count = 0
+
+        with open(self._archive_path) as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if since_dt is not None:
+                    try:
+                        ts = datetime.fromisoformat(str(entry.get("timestamp", "")).replace("Z", "+00:00"))
+                        if ts < since_dt:
+                            continue
+                    except Exception:
+                        pass
+                total += 1
+                if entry.get("success"):
+                    successes += 1
+                if entry.get("post_action_effect") == "verified" or entry.get("verified"):
+                    verified += 1
+                reason = (entry.get("reason") or "").lower()
+                if entry.get("target_found") is False or reason == "target_not_visible":
+                    target_not_visible += 1
+                parse_path = (entry.get("parse_path") or "").lower()
+                if parse_path in ("", "vision_error", "parse_failed") and entry.get("detection_source") == "vision":
+                    parse_failures += 1
+                if "recipe_fallback" in reason:
+                    recipe_fallbacks += 1
+                latency = entry.get("inference_ms")
+                if isinstance(latency, (int, float)) and latency > 0:
+                    latency_total += float(latency)
+                    latency_count += 1
+
+        def rate(count: int) -> float:
+            return round((count / total) * 100, 2) if total else 0.0
+
+        return {
+            "total": total,
+            "task_success_rate": rate(successes),
+            "verified_outcome_rate": rate(verified),
+            "target_not_visible_rate": rate(target_not_visible),
+            "parse_failure_rate": rate(parse_failures),
+            "recipe_fallback_rate": rate(recipe_fallbacks),
+            "mean_vlm_latency_ms": round(latency_total / latency_count, 1) if latency_count else 0.0,
         }
 
     def get_calibration_data(self, model: str, limit: int = 50) -> List[Dict]:

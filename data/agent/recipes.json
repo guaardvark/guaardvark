@@ -17,10 +17,13 @@
         "_comment": "Vision-driven \u2014 servo finds the icon on the current frame"
       },
       {
-        "action": "wait",
-        "seconds": 5
+        "action": "wait_until_visible",
+        "target_description": "Firefox browser window with URL bar visible",
+        "timeout_s": 12.0
       }
-    ]
+    ],
+    "success_proof": "Firefox browser window with URL bar visible",
+    "success_proof_timeout_s": 12.0
   },
   "open_firefox_and_navigate": {
     "description": "Open Firefox via its desktop icon and navigate to a URL",
@@ -35,8 +38,9 @@
         "_comment": "Vision-driven \u2014 servo finds the icon on the current frame"
       },
       {
-        "action": "wait",
-        "seconds": 5
+        "action": "wait_until_visible",
+        "target_description": "Firefox browser window with URL bar visible",
+        "timeout_s": 12.0
       },
       {
         "action": "hotkey",
@@ -75,10 +79,13 @@
         ]
       },
       {
-        "action": "wait",
-        "seconds": 3
+        "action": "wait_until_visible",
+        "target_description": "browser address bar showing a loaded page (not a blank tab or error)",
+        "timeout_s": 12.0
       }
-    ]
+    ],
+    "success_proof": "browser address bar showing a loaded page (not a blank tab or error)",
+    "success_proof_timeout_s": 12.0
   },
   "navigate_url": {
     "description": "Navigate to a domain-shaped URL in the current tab. Hostname must contain a dot OR port \u2014 bare words like 'open settings' or 'go to youtube' route to their dedicated recipes instead.",
@@ -218,10 +225,13 @@
         ]
       },
       {
-        "action": "wait",
-        "seconds": 3
+        "action": "wait_until_visible",
+        "target_description": "Google search results page",
+        "timeout_s": 10.0
       }
-    ]
+    ],
+    "success_proof": "Google search results page",
+    "success_proof_timeout_s": 10.0
   },
   "close_firefox": {
     "description": "Close the Firefox browser entirely",
@@ -260,10 +270,13 @@
         ]
       },
       {
-        "action": "wait",
-        "seconds": 2
+        "action": "wait_until_visible",
+        "target_description": "sent chat message visible in conversation",
+        "timeout_s": 8.0
       }
-    ]
+    ],
+    "success_proof": "sent chat message visible in conversation",
+    "success_proof_timeout_s": 8.0
   },
   "close_tab": {
     "description": "Close the current browser tab",
@@ -812,10 +825,13 @@
         ]
       },
       {
-        "action": "wait",
-        "seconds": 3
+        "action": "wait_until_visible",
+        "target_description": "Guaardvark application page loaded",
+        "timeout_s": 8.0
       }
-    ]
+    ],
+    "success_proof": "Guaardvark application page loaded",
+    "success_proof_timeout_s": 8.0
   },
   "youtube_search": {
     "description": "Open Firefox if needed and search YouTube for the topic",
@@ -944,10 +960,13 @@
         ]
       },
       {
-        "action": "wait",
-        "seconds": 3
+        "action": "wait_until_visible",
+        "target_description": "Guaardvark application page loaded",
+        "timeout_s": 8.0
       }
-    ]
+    ],
+    "success_proof": "Guaardvark application page loaded",
+    "success_proof_timeout_s": 8.0
   },
   "open_guaardvark_page": {
     "description": "Open a specific Guaardvark page (chat, settings, images, etc.)",
@@ -1091,8 +1110,9 @@
         "_comment": "Vision-driven \u2014 opens or focuses Firefox"
       },
       {
-        "action": "wait",
-        "seconds": 4
+        "action": "wait_until_visible",
+        "target_description": "Firefox browser window with URL bar visible",
+        "timeout_s": 12.0
       },
       {
         "action": "hotkey",
@@ -1141,10 +1161,13 @@
         ]
       },
       {
-        "action": "wait",
-        "seconds": 3
+        "action": "wait_until_visible",
+        "target_description": "Reddit home page loaded",
+        "timeout_s": 12.0
       }
-    ]
+    ],
+    "success_proof": "Reddit home page loaded",
+    "success_proof_timeout_s": 12.0
   },
   "open_subreddit": {
     "description": "Open a specific subreddit by name (e.g. r/LocalLLaMA)",
@@ -1159,8 +1182,9 @@
         "_comment": "Vision-driven \u2014 opens or focuses Firefox"
       },
       {
-        "action": "wait",
-        "seconds": 4
+        "action": "wait_until_visible",
+        "target_description": "Firefox browser window with URL bar visible",
+        "timeout_s": 12.0
       },
       {
         "action": "hotkey",
@@ -1209,10 +1233,13 @@
         ]
       },
       {
-        "action": "wait",
-        "seconds": 3
+        "action": "wait_until_visible",
+        "target_description": "subreddit page loaded with post list visible",
+        "timeout_s": 12.0
       }
-    ]
+    ],
+    "success_proof": "subreddit page loaded with post list visible",
+    "success_proof_timeout_s": 12.0
   },
   "type_in_chat": {
     "description": "Type a message in the Guaardvark chat input and send it",

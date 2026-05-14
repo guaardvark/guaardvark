@@ -248,6 +248,19 @@ def trigger_servo_optimization():
         return error_response(str(e), 500)
 
 
+@self_improvement_bp.route("/metrics", methods=["GET"])
+@self_improvement_bp.route("/servo/metrics", methods=["GET"])
+def servo_metrics():
+    """Return aggregate servo run metrics from the telemetry archive."""
+    try:
+        from backend.services.servo_knowledge_store import get_servo_archive
+        archive = get_servo_archive()
+        return success_response(data=archive.get_run_metrics(since=request.args.get("since")))
+    except Exception as e:
+        logger.error(f"Servo metrics failed: {e}")
+        return error_response(str(e), 500)
+
+
 @self_improvement_bp.route("/distill", methods=["POST"])
 def trigger_distillation():
     """Manually trigger learning distillation.

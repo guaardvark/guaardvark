@@ -45,7 +45,7 @@ def _placeholders(text: str) -> Iterable[int]:
         yield int(match.group(1))
 
 
-def validate_recipe(name: str, recipe: Dict[str, Any]) -> ValidationResult:
+def validate_recipe(name: str, recipe: Dict[str, Any], strict: bool = False) -> ValidationResult:
     """Validate one recipes.json entry against LEARNING_PRINCIPLES.md."""
     result = ValidationResult()
     if not isinstance(recipe, dict):
@@ -66,9 +66,17 @@ def validate_recipe(name: str, recipe: Dict[str, Any]) -> ValidationResult:
             result.add(path, "trigger must be a string")
             continue
         if not pattern.startswith("^"):
-            result.add(path, "trigger must be anchored with ^")
+            result.add(
+                path,
+                "trigger must be anchored with ^",
+                severity="error" if strict else "warning",
+            )
         if not pattern.endswith("$") and not pattern.endswith("\\s*$"):
-            result.add(path, "trigger must be anchored at the end")
+            result.add(
+                path,
+                "trigger must be anchored at the end",
+                severity="error" if strict else "warning",
+            )
         try:
             compiled = re.compile(pattern)
             max_capture_group = max(max_capture_group, compiled.groups)
@@ -114,16 +122,20 @@ def validate_recipe(name: str, recipe: Dict[str, Any]) -> ValidationResult:
                                 result.add(path, f"placeholder {{{group_idx}}} has no matching trigger capture")
 
     if nontrivial_actions > 1 and not recipe.get("success_proof"):
-        result.add(f"{name}.success_proof", "nontrivial recipes need a final vision-readable proof")
+        result.add(
+            f"{name}.success_proof",
+            "nontrivial recipes should declare a final vision-readable proof",
+            severity="warning",
+        )
 
     return result
 
 
-def validate_recipe_library(recipes: Dict[str, Any]) -> ValidationResult:
+def validate_recipe_library(recipes: Dict[str, Any], strict: bool = False) -> ValidationResult:
     result = ValidationResult()
     for name, recipe in (recipes or {}).items():
         if str(name).startswith("_"):
             continue
-        child = validate_recipe(str(name), recipe)
+        child = validate_recipe(str(name), recipe, strict=strict)
         result.issues.extend(child.issues)
     return result

@@ -58,6 +58,7 @@ class ServoController:
         self._last_raw_response: str = ""
         self._last_parse_path: str = ""
         self._last_detection_source: str = ""
+        self._last_inference_ms: int = 0
 
         # Get the actual screen size from the backend — no more hardcoded 1024x1024!
         # This fixes the "horizontally stretched vision" bug on 1280x720 screens.
@@ -103,9 +104,11 @@ class ServoController:
                 target_description=target_description,
                 coords=(0, 0),
                 success=False,
+                target_found=False,
                 click_issued=False,
                 elapsed_ms=elapsed_ms,
                 reason="target_not_visible",
+                post_action_effect="not_checked",
             )
             return {
                 "success": False, "verified": False,
@@ -128,9 +131,11 @@ class ServoController:
                 target_description=target_description,
                 coords=(x, y),
                 success=False,
+                target_found=True,
                 click_issued=False,
                 elapsed_ms=elapsed_ms,
                 reason="move_failed",
+                post_action_effect="not_checked",
             )
             return {
                 "success": False, "verified": False,
@@ -157,9 +162,11 @@ class ServoController:
             target_description=target_description,
             coords=(x, y),
             success=click_issued,
+            target_found=True,
             click_issued=click_issued,
             elapsed_ms=elapsed_ms,
             reason="" if click_issued else click_result.get("error", "click_failed"),
+            post_action_effect="pending_observation" if click_issued else "not_checked",
         )
 
         return {
@@ -181,9 +188,11 @@ class ServoController:
         target_description: str,
         coords: Tuple[int, int],
         success: bool,
+        target_found: bool,
         click_issued: bool,
         elapsed_ms: int,
         reason: str = "",
+        post_action_effect: str = "",
     ) -> None:
         """Record telemetry without treating predicted coords as ground truth."""
         x, y = coords
@@ -197,8 +206,11 @@ class ServoController:
             "parse_path": self._last_parse_path,
             "detection_source": self._last_detection_source,
             "screen_size": [self.screen_w, self.screen_h],
+            "target_found": target_found,
             "click_issued": click_issued,
+            "post_action_effect": post_action_effect,
             "reason": reason,
+            "inference_ms": self._last_inference_ms,
         }
         if self.collector:
             try:
@@ -233,8 +245,11 @@ class ServoController:
                 parse_path=self._last_parse_path,
                 detection_source=self._last_detection_source,
                 vision_config=self._vision_config,
+                target_found=target_found,
                 click_issued=click_issued,
+                post_action_effect=post_action_effect,
                 reason=reason,
+                inference_ms=self._last_inference_ms,
             )
         except Exception as e:
             logger.debug(f"Archive record failed (non-fatal): {e}")
@@ -395,9 +410,11 @@ class ServoController:
             self._last_raw_response = result.error or ""
             self._last_parse_path = "vision_error"
             self._last_detection_source = "vision"
+            self._last_inference_ms = getattr(result, "inference_ms", 0) or 0
             return None
         self._last_raw_response = result.description or ""
         self._last_detection_source = "vision"
+        self._last_inference_ms = getattr(result, "inference_ms", 0) or 0
 
         # Parse detection response — handles both "point" and "box_2d" formats
         coords = self._parse_detection_response(result.description)

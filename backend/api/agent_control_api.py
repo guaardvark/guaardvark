@@ -580,7 +580,7 @@ def _induce_candidate_recipe(app, session_id: str, feedback_task: str):
                 logger.info("[INDUCE] post-validation empties — skipping")
                 return
             from backend.services.agent_knowledge_validator import validate_recipe
-            validation = validate_recipe("candidate_recipe", normalized)
+            validation = validate_recipe("candidate_recipe", normalized, strict=True)
             if not validation.ok:
                 logger.warning(
                     "[INDUCE] candidate failed recipe validation: %s",
@@ -1110,7 +1110,7 @@ def promote_candidate_recipe(memory_id: str):
                         "error": "candidate contains coordinate click step (LEARNING_PRINCIPLES violation)"
                     }), 400
         from backend.services.agent_knowledge_validator import validate_recipe
-        validation = validate_recipe("candidate", candidate)
+        validation = validate_recipe("candidate", candidate, strict=True)
         if not validation.ok:
             return jsonify({
                 "success": False,
@@ -1136,13 +1136,22 @@ def promote_candidate_recipe(memory_id: str):
 
         # Atomic write: load → modify → write to temp → rename. Avoids a
         # half-written recipes.json if the process gets killed mid-flight.
-        recipes[name] = {
+        proposed_recipe = {
             "description": candidate.get("description", ""),
             "triggers": candidate.get("triggers", []),
             "steps": candidate.get("steps", []),
             "_origin": "candidate_recipe_promotion",
             "_promoted_from": memory_id,
         }
+        recipes[name] = proposed_recipe
+        from backend.services.agent_knowledge_validator import validate_recipe_library
+        library_validation = validate_recipe_library(recipes, strict=False)
+        if not library_validation.ok:
+            return jsonify({
+                "success": False,
+                "error": "merged recipe library failed validation",
+                "issues": library_validation.error_messages(),
+            }), 400
         tmp_path = recipes_path.with_suffix(".json.tmp")
         with tmp_path.open("w") as f:
             _json.dump(recipes, f, indent=2, ensure_ascii=False)
