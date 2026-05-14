@@ -84,19 +84,16 @@ class TestDeriveSessionExpectations(unittest.TestCase):
         import backend.services.agent_control_service as acs
         self.svc = acs.AgentControlService()
 
-    def test_derives_desktop_icons_from_self_knowledge(self):
-        # self_knowledge_compact.md lists desktop icons (Trash, Home, Firefox …)
-        # in a bullet block. Each one becomes an Expectation with the source
-        # file and the line number where the bullet lives.
+    def test_derives_screen_expectations_from_compact_knowledge(self):
+        # self_knowledge_compact.md is prose-first now. The extractor should
+        # still find concrete, vision-actionable objects and recipe targets.
         exps = self.svc._derive_session_expectations()
         elements = {e.element.lower() for e in exps}
-        # A few we know are in the file.
-        self.assertIn("trash", elements)
-        self.assertIn("home", elements)
         self.assertTrue(
             any("firefox" in e for e in elements),
             f"expected a firefox icon expectation, got {elements}",
         )
+        self.assertTrue(elements, "expected at least one screen expectation")
 
     def test_source_is_self_knowledge_file_with_line(self):
         exps = self.svc._derive_session_expectations()
@@ -236,7 +233,7 @@ class TestDistillLessons(unittest.TestCase):
         elements = {l["element"] for l in lessons}
         self.assertEqual(elements, {"Firefox flame", "Trash icon"})
 
-    def test_distill_caps_at_five_lessons(self):
+    def test_distill_caps_at_configured_limit(self):
         from backend.services.agent_control_service import Expectation
         self.svc._expectation_log = [
             Expectation(element=f"element-{i}", expected_visible=True,
@@ -245,7 +242,7 @@ class TestDistillLessons(unittest.TestCase):
             for i in range(12)
         ]
         lessons = self.svc._distill_lessons()
-        self.assertEqual(len(lessons), 5)
+        self.assertEqual(len(lessons), self.svc._MAX_LESSONS_PER_SESSION)
 
     def test_distill_ignores_non_contradictions(self):
         from backend.services.agent_control_service import Expectation

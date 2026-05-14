@@ -1,6 +1,6 @@
 {
   "open_firefox_from_desktop": {
-    "description": "Open Firefox from the XFCE desktop",
+    "description": "Open Firefox from desktop",
     "prerequisite": "The desktop is visible (no window covering it) and you can see a Firefox icon (circular orange) somewhere among the icons on the desktop",
     "preconditions": ["desktop_visible", "firefox_icon_visible"],
     "steps": [

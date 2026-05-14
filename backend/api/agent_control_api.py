@@ -579,6 +579,14 @@ def _induce_candidate_recipe(app, session_id: str, feedback_task: str):
             if not normalized["triggers"] or not normalized["steps"]:
                 logger.info("[INDUCE] post-validation empties — skipping")
                 return
+            from backend.services.agent_knowledge_validator import validate_recipe
+            validation = validate_recipe("candidate_recipe", normalized)
+            if not validation.ok:
+                logger.warning(
+                    "[INDUCE] candidate failed recipe validation: %s",
+                    "; ".join(validation.error_messages()[:5]),
+                )
+                return
 
             content_json = _json.dumps(normalized, ensure_ascii=False)
             row = AgentMemory(
@@ -1097,11 +1105,18 @@ def promote_candidate_recipe(memory_id: str):
         for s in candidate.get("steps", []):
             if isinstance(s, dict) and s.get("action") == "click":
                 if "x" in s or "y" in s:
-                    if not s.get("target_description"):
-                        return jsonify({
-                            "success": False,
-                            "error": "candidate contains coordinate-only click step (LEARNING_PRINCIPLES violation)"
-                        }), 400
+                    return jsonify({
+                        "success": False,
+                        "error": "candidate contains coordinate click step (LEARNING_PRINCIPLES violation)"
+                    }), 400
+        from backend.services.agent_knowledge_validator import validate_recipe
+        validation = validate_recipe("candidate", candidate)
+        if not validation.ok:
+            return jsonify({
+                "success": False,
+                "error": "candidate failed recipe validation",
+                "issues": validation.error_messages(),
+            }), 400
 
         # Derive a recipe name from the description if not provided. snake_case
         # short slug, prefixed 'auto_' so it's identifiable as inducer-origin.

@@ -18,5 +18,11 @@
   },
   "facebook": {
     "groups": []
+  },
+  "youtube": {
+    "_README": "monitored_videos = canonical youtube.com/watch?v=<id> URLs whose comment sections should be scanned for new replies to Guaardvark. scout_youtube_my_video_replies iterates these on each tick.",
+    "monitored_videos": [
+      "https://www.youtube.com/watch?v=8MdtM3HurJo"
+    ]
   }
 }
