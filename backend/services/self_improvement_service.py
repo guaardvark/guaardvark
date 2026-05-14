@@ -31,6 +31,12 @@ logger = logging.getLogger(__name__)
 
 
 def _is_codebase_locked() -> bool:
+    """User-facing kill switch — same semantics as before (default UNLOCKED).
+
+    Affects ALL agent code edits, including user-initiated ones via chat. The
+    self-improvement-specific apply gate is `_is_self_improvement_apply_enabled()`
+    below; this one stays as the global emergency brake the user controls.
+    """
     lock_file = os.path.join(os.environ.get("GUAARDVARK_ROOT", "."), "data", ".codebase_lock")
     if os.path.exists(lock_file):
         return True
@@ -43,12 +49,43 @@ def _is_codebase_locked() -> bool:
 
 
 def _is_self_improvement_enabled() -> bool:
+    """Analysis-path gate. Defaults to ENABLED when there's no explicit setting.
+
+    "Enabled" means the scan-and-propose loop is allowed to run. The actual
+    apply step inside that loop is governed by `_is_self_improvement_apply_enabled()`
+    (default False) — so analysis surfaces proposals out of the box, but the
+    agent doesn't auto-rewrite files until the user explicitly opts in.
+    Existing installs that explicitly disabled self-improvement keep their
+    setting.
+    """
     try:
         from backend.models import db, SystemSetting
         setting = db.session.query(SystemSetting).filter_by(key="self_improvement_enabled").first()
-        return setting and setting.value.lower() == "true"
+        if setting is None:
+            return True  # no explicit choice → analysis on (apply still gated)
+        return setting.value.lower() == "true"
     except Exception:
-        return False
+        return False  # DB unreachable → don't run scheduled work
+
+
+def _is_self_improvement_apply_enabled() -> bool:
+    """Whether the self-improvement loop is allowed to actually write files.
+
+    Defaults to False — analysis runs and proposes, but no edits happen until
+    the user sets `self_improvement_apply_enabled=true` in system_setting.
+    This is checked inside the code-edit tool when `_self_improvement_context`
+    is set on the call, so user-initiated chat edits are unaffected.
+    """
+    try:
+        from backend.models import db, SystemSetting
+        setting = db.session.query(SystemSetting).filter_by(
+            key="self_improvement_apply_enabled"
+        ).first()
+        if setting is None:
+            return False  # default: analysis-only, no apply
+        return setting.value.lower() == "true"
+    except Exception:
+        return False  # DB unreachable → fail closed, no apply
 
 
 class SelfImprovementService:
