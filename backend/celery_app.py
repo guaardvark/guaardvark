@@ -151,6 +151,19 @@ def create_celery_app():
                 'schedule': 86400.0,  # 24 hours — daily is plenty for a 30-day retention
                 'options': {'queue': 'default'},
             },
+            # Scan belief_update memories and stage PendingFix rows where ≥N
+            # sessions have agreed a knowledge-file line is wrong. Idempotent
+            # (skips groups that already have an open proposal) and review-
+            # gated (PendingFix never auto-applies). The original opt-in
+            # design (lesson_reconciler.py:22-26) feared auto-fired file edits
+            # — those don't happen here. Disable with
+            # GUAARDVARK_RECONCILER_BEAT_DISABLED=1 if you want the old cadence
+            # back without removing the schedule entry.
+            'memory-reconcile-belief-updates': {
+                'task': 'memory.reconcile_belief_updates',
+                'schedule': 21600.0,  # 6 hours
+                'options': {'queue': 'default'},
+            },
         },
         
         task_acks_late=True,

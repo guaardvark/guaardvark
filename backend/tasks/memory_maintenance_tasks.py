@@ -60,3 +60,41 @@ def cleanup_old_session_memory(self, days: int | None = None) -> dict:
         except Exception as e:
             logger.error(f"Memory cleanup task failed: {e}", exc_info=True)
             return {"deleted": 0, "days": retention, "error": str(e)}
+
+
+@shared_task(name="memory.reconcile_belief_updates", bind=True)
+def reconcile_belief_updates(self, threshold: int | None = None) -> dict:
+    """Stage PendingFix rows for any knowledge-file line that ≥N sessions have
+    contradicted via belief_update memories.
+
+    Wraps `lesson_reconciler.scan_belief_updates()`. Idempotent — the scan
+    skips groups that already have an open PendingFix for the same (file,
+    element). PendingFix rows are review-gated; nothing here writes to the
+    knowledge files directly. The on-demand CLI / API entrypoints still work
+    exactly as before; this task just makes the loop self-driving.
+
+    Disable via env `GUAARDVARK_RECONCILER_BEAT_DISABLED=1` if you want the
+    original opt-in cadence back without removing the schedule entry.
+
+    Returns `{"proposals_created": <count>, "threshold": <int>}`.
+    """
+    if os.environ.get("GUAARDVARK_RECONCILER_BEAT_DISABLED", "").strip() in {"1", "true", "yes"}:
+        return {"proposals_created": 0, "skipped": "disabled_by_env"}
+
+    try:
+        from backend.app import app
+    except Exception as e:
+        logger.error(f"Could not import Flask app for reconciler beat: {e}")
+        return {"proposals_created": 0, "error": "no_app_context"}
+
+    with app.app_context():
+        try:
+            from backend.services.lesson_reconciler import scan_belief_updates, DEFAULT_THRESHOLD
+            t = threshold if threshold is not None else DEFAULT_THRESHOLD
+            created = scan_belief_updates(threshold=t) or 0
+            if created:
+                logger.info(f"[RECONCILER-BEAT] staged {created} pending fix(es) at threshold={t}")
+            return {"proposals_created": created, "threshold": t}
+        except Exception as e:
+            logger.error(f"Reconciler beat task failed: {e}", exc_info=True)
+            return {"proposals_created": 0, "error": str(e)}
