@@ -214,38 +214,61 @@ def clear_memories():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-# -- Helper for LLM context injection --
+# -- Helpers for LLM context injection --
+#
+# Two output shapes share one SQL query: `_query_memories()` is the single
+# source of truth for *which* rows get selected. The two public formatters
+# (`get_memories_for_context`, `get_lessons_for_agent_prompt`) decide how the
+# selected rows render. All three callers — unified_chat_engine, agent_brain,
+# agent_control_service — go through this file so changes to ordering, source
+# filtering, or de-dup behaviour land in exactly one place.
 
-def get_memories_for_context(limit: int = 20, max_tokens: int = 500, query: str = None) -> str:
-    """
-    Load relevant memories formatted for injection into LLM system prompt.
-    Called by unified_chat_engine and brain_state during prompt construction.
 
-    If a query is provided, it attempts a keyword search. Otherwise, it returns
-    the most important/recent memories.
+def _query_memories(
+    sources=None,
+    types=None,
+    limit: int = 20,
+    query: str = None,
+):
+    """Single source of truth for memory SELECT.
 
-    Returns a formatted string, or empty string if no memories exist.
+    sources / types: optional lists of strings. Empty/None means no filter on
+    that column. Ordering is always importance DESC, created_at DESC — the
+    canonical recall order across every caller in the codebase.
     """
     try:
-        db_query = db.session.query(AgentMemory)
-        
+        q = db.session.query(AgentMemory)
+        if sources:
+            q = q.filter(AgentMemory.source.in_(list(sources)))
+        if types:
+            q = q.filter(AgentMemory.type.in_(list(types)))
         if query:
-            # Simple keyword search on content or tags
             search_term = f"%{query.lower()}%"
-            db_query = db_query.filter(
+            q = q.filter(
                 (AgentMemory.content.ilike(search_term)) |
                 (AgentMemory.tags.ilike(search_term))
             )
-            
-        # Order by importance first, then recency
-        memories = db_query.order_by(
-            AgentMemory.importance.desc(), 
-            AgentMemory.created_at.desc()
+        return q.order_by(
+            AgentMemory.importance.desc(),
+            AgentMemory.created_at.desc(),
         ).limit(limit).all()
-        
     except Exception as e:
-        logger.warning(f"Failed to fetch memories for context: {e}")
-        return ""
+        logger.warning(f"Memory query failed (sources={sources}, types={types}): {e}")
+        return []
+
+
+def get_memories_for_context(limit: int = 20, max_tokens: int = 500, query: str = None) -> str:
+    """
+    Load relevant memories formatted for injection into the LLM system prompt.
+    Called by unified_chat_engine and agent_brain during prompt construction.
+
+    If a query is provided, it attempts a keyword search. Otherwise, it returns
+    the most important/recent memories. Output is one line per memory; lesson
+    summaries are flattened from their stored JSON shape into imperative text.
+
+    Returns a formatted string, or empty string if no memories exist.
+    """
+    memories = _query_memories(limit=limit, query=query)
 
     if not memories:
         return ""
@@ -331,3 +354,76 @@ def get_memories_for_context(limit: int = 20, max_tokens: int = 500, query: str 
         return ""  # header only, no actual memories
 
     return "\n".join(lines)
+
+
+def get_lessons_for_agent_prompt(
+    max_rows: int = 6,
+    max_chars: int = 2500,
+    include_belief_updates: bool = True,
+    belief_limit: int = 4,
+) -> str:
+    """Structured Markdown for the screen-control agent's persistent knowledge.
+
+    Distinct from `get_memories_for_context` because the agent prompt has more
+    room and benefits from the multi-line `### Title / 1. step` shape — chat
+    has to stay terse and one-line-per-memory. Both formatters share
+    `_query_memories` so source filtering and ordering live in one place.
+
+    Sources kept: lesson_summary (End-Lesson distillations) and manual
+    (user-typed notes). belief_update memories are merged in optionally — they
+    surface as short hedges next to the lessons they qualify.
+
+    Returns the full block including its section header, or empty string when
+    there are no rows to show.
+    """
+    lesson_rows = _query_memories(
+        sources=["lesson_summary", "manual"],
+        limit=max_rows,
+    )
+    rows = list(lesson_rows)
+    if include_belief_updates:
+        belief_rows = _query_memories(
+            types=["belief_update"],
+            limit=belief_limit,
+        )
+        seen_ids = {r.id for r in rows}
+        rows.extend(r for r in belief_rows if r.id not in seen_ids)
+
+    if not rows:
+        return ""
+
+    sections = []
+    total = 0
+    for row in rows:
+        content = (row.content or "").strip()
+        if not content:
+            continue
+        block = ""
+        if row.source == "lesson_summary":
+            try:
+                payload = json.loads(content)
+                title = (payload.get("title") or "Lesson").strip()
+                steps = payload.get("steps") or []
+                step_lines = []
+                for s in steps:
+                    text = (s.get("text") or s.get("step") or "").strip() if isinstance(s, dict) else str(s).strip()
+                    if text:
+                        step_lines.append(f"  {len(step_lines)+1}. {text[:200]}")
+                if step_lines:
+                    block = f"### {title}\n" + "\n".join(step_lines)
+            except Exception:
+                block = f"### Lesson\n{content[:600]}"
+        elif getattr(row, "type", "") == "belief_update":
+            block = f"- Belief update: {content[:400]}"
+        else:  # manual notes / facts / instructions
+            block = f"- {content[:400]}"
+        if not block:
+            continue
+        if total + len(block) > max_chars:
+            break
+        sections.append(block)
+        total += len(block) + 2
+
+    if not sections:
+        return ""
+    return "## Lessons & Notes (cross-session memory — apply when relevant)\n" + "\n\n".join(sections)

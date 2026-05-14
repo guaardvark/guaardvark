@@ -2415,89 +2415,23 @@ Reply ONLY with JSON:
 
     @staticmethod
     def _load_lesson_memories(max_rows: int = 6, max_chars: int = 2500) -> str:
-        """Pull distilled lessons + user-curated memories out of AgentMemory
-        and format them as readable text for the system prompt.
+        """Pull distilled lessons + belief updates from the unified recall layer.
 
-        Filters out source='learned_from_feedback' — the deprecated junk
-        distiller's first-person reflections (deprecated 2026-05-05, see
-        agent_control_api._distill_pearl_memory). Only lesson_summary
-        (End-Lesson structured distillations) and manual (user-typed
-        memories) are kept.
-
-        lesson_summary content is stored as JSON ({title, steps,
-        parameters}); parsed and rendered as markdown bullets so the
-        system message stays JSON-shape-clean (the model sees competing
-        JSON shapes and starts hallucinating selectors).
+        Thin shim over `memory_api.get_lessons_for_agent_prompt` — the SQL,
+        source filtering, belief-update merge, and structured Markdown format
+        all live there so the chat path and the agent path stay in lockstep.
+        Keep this method on the class for callers that already import it.
         """
         try:
-            from backend.models import AgentMemory
+            from backend.api.memory_api import get_lessons_for_agent_prompt
         except Exception as e:
-            logger.debug(f"AgentMemory import failed in lesson loader: {e}")
+            logger.debug(f"memory_api import failed in lesson loader: {e}")
             return ""
-
-        try:
-            lesson_rows = (
-                AgentMemory.query
-                .filter(AgentMemory.source.in_(["lesson_summary", "manual"]))
-                .order_by(AgentMemory.importance.desc(), AgentMemory.id.desc())
-                .limit(max_rows)
-                .all()
-            )
-            belief_rows = (
-                AgentMemory.query
-                .filter(AgentMemory.type == "belief_update")
-                .order_by(AgentMemory.created_at.desc())
-                .limit(4)
-                .all()
-            )
-            rows = list(lesson_rows) + [r for r in belief_rows if r not in lesson_rows]
-        except Exception as e:
-            logger.debug(f"AgentMemory query failed in lesson loader: {e}")
-            return ""
-
-        if not rows:
-            return ""
-
-        sections = []
-        total = 0
-        for row in rows:
-            content = (row.content or "").strip()
-            if not content:
-                continue
-            block = ""
-            if row.source == "lesson_summary":
-                # Try parse-as-JSON first; fall back to raw text on failure.
-                import json as _json
-                try:
-                    payload = _json.loads(content)
-                    title = (payload.get("title") or "Lesson").strip()
-                    steps = payload.get("steps") or []
-                    step_lines = []
-                    for s in steps:
-                        if isinstance(s, dict):
-                            text = (s.get("text") or s.get("step") or "").strip()
-                        else:
-                            text = str(s).strip()
-                        if text:
-                            step_lines.append(f"  {len(step_lines)+1}. {text[:200]}")
-                    if step_lines:
-                        block = f"### {title}\n" + "\n".join(step_lines)
-                except Exception:
-                    block = f"### Lesson\n{content[:600]}"
-            elif getattr(row, "type", "") == "belief_update":
-                block = f"- Belief update: {content[:400]}"
-            else:  # manual
-                block = f"- {content[:400]}"
-            if not block:
-                continue
-            if total + len(block) > max_chars:
-                break
-            sections.append(block)
-            total += len(block) + 2
-
-        if not sections:
-            return ""
-        return "## Lessons & Notes (cross-session memory — apply when relevant)\n" + "\n\n".join(sections)
+        return get_lessons_for_agent_prompt(
+            max_rows=max_rows,
+            max_chars=max_chars,
+            include_belief_updates=True,
+        )
 
     @staticmethod
     def _load_example_traces(task: str) -> str:
