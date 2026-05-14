@@ -408,11 +408,61 @@ def learn_input():
 # Task feedback — thumbs up/down from the user after any agent task
 # ---------------------------------------------------------------------------
 
-def _induce_candidate_recipe(app, session_id: str, feedback_task: str):
+import re as _re_module
+
+# Phrases that signal the user wasn't just acknowledging — they were impressed.
+# Captured in the feedback comment, or in the previous user message in the same
+# session. A 👍 alone is bookkeeping; a 👍 paired with one of these phrases means
+# "remember this one, it worked really well." We boost the resulting candidate
+# recipe's importance so it ranks higher in next-session recall.
+_STRONG_POSITIVE_PHRASES = _re_module.compile(
+    r"\b(excellent|perfect(?:ly)?|exactly|nailed\s+it|spot\s+on|"
+    r"well\s+done|amazing|fantastic|brilliant|love\s+it|that'?s\s+it|"
+    r"very\s+good|great\s+(?:job|work)|nice\s+(?:one|work))\b",
+    _re_module.IGNORECASE,
+)
+
+
+def _detect_strong_positive(comment: str, session_id: str = None) -> bool:
+    """Did the user express enthusiastic approval, not just a routine 👍?
+
+    Looks in the feedback comment first (cheap); falls back to the most recent
+    user message in the session (one DB hit, capped). Both are scanned for
+    strong-positive phrases. Either match returns True.
+
+    Errors are non-fatal — strong-positive is an enhancement, not a correctness
+    requirement. If we can't tell, we treat the feedback as routine.
+    """
+    if comment and _STRONG_POSITIVE_PHRASES.search(comment):
+        return True
+    if not session_id:
+        return False
+    try:
+        from backend.models import LLMMessage
+        last_user = (
+            LLMMessage.query
+            .filter(LLMMessage.session_id == session_id, LLMMessage.role == "user")
+            .order_by(LLMMessage.timestamp.desc())
+            .limit(1)
+            .first()
+        )
+        if last_user and _STRONG_POSITIVE_PHRASES.search(last_user.content or ""):
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _induce_candidate_recipe(app, session_id: str, feedback_task: str, strong_positive: bool = False):
     """Background thread: when the user thumbs-up's a successful task that
     wasn't part of a bracketed lesson, induce a recipes.json-shaped entry
     capturing what made it work, so the same task pattern auto-executes
     deterministically next time.
+
+    strong_positive=True bumps the saved candidate's importance from 0.7 to
+    0.9 and tags it so the next-session recall layer surfaces it ahead of
+    routine candidates. The thumbs-up gave us the signal "this worked"; the
+    strong-positive phrase gives us "this worked exceptionally."
 
     This is the AWM (Agent Workflow Memory, ICML 2025) pattern, adapted to
     Guaardvark: positive feedback + matching last successful run = candidate
@@ -589,20 +639,26 @@ def _induce_candidate_recipe(app, session_id: str, feedback_task: str):
                 return
 
             content_json = _json.dumps(normalized, ensure_ascii=False)
+            row_tags = ["candidate_recipe", "auto_induced"]
+            row_importance = 0.7
+            if strong_positive:
+                row_tags.append("strong_positive")
+                row_importance = 0.9
             row = AgentMemory(
                 id=str(_uuid.uuid4()),
                 content=content_json,
                 source="candidate_recipe",
                 session_id=session_id,
                 type="snippet",
-                importance=0.7,
-                tags=_json.dumps(["candidate_recipe", "auto_induced"]),
+                importance=row_importance,
+                tags=_json.dumps(row_tags),
             )
             db.session.add(row)
             db.session.commit()
             logger.info(
                 f"[INDUCE] saved candidate recipe {row.id[:8]} — "
-                f"\"{description[:60]}\" with {len(normalized['steps'])} steps"
+                f"\"{description[:60]}\" with {len(normalized['steps'])} steps "
+                f"(importance={row_importance}{', strong_positive' if strong_positive else ''})"
             )
         except Exception as e:
             logger.warning(f"[INDUCE] failed for session {session_id[:12]}: {e}", exc_info=True)
@@ -888,9 +944,19 @@ def submit_feedback():
                 try:
                     from flask import current_app
                     _app = current_app._get_current_object()
+                    is_strong = _detect_strong_positive(
+                        entry.get("comment") or "",
+                        session_id=entry["session_id"],
+                    )
+                    if is_strong:
+                        logger.info(
+                            f"[INDUCE] strong-positive signal detected for "
+                            f"session={entry['session_id'][:8]} — candidate gets importance boost"
+                        )
                     threading.Thread(
                         target=_induce_candidate_recipe,
                         args=(_app, entry["session_id"], entry["task"] or ""),
+                        kwargs={"strong_positive": is_strong},
                         daemon=True,
                         name=f"induce-{entry['session_id'][:8]}",
                     ).start()
