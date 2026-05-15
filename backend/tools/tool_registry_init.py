@@ -536,6 +536,45 @@ def register_test_execution_tools() -> List[str]:
     return registered
 
 
+def register_outreach_tools() -> List[str]:
+    """Register social outreach tools (chat-callable wrappers around the
+    /api/social-outreach/* endpoints)."""
+    global _tool_categories
+    registered = []
+    category = "outreach"
+
+    try:
+        from backend.tools.outreach_tools import (
+            OutreachStatusTool,
+            OutreachListQueueTool,
+            OutreachDraftPostTool,
+            OutreachApproveDraftTool,
+            OutreachRejectDraftTool,
+            OutreachRunPassTool,
+        )
+
+        for cls in (
+            OutreachStatusTool,
+            OutreachListQueueTool,
+            OutreachDraftPostTool,
+            OutreachApproveDraftTool,
+            OutreachRejectDraftTool,
+            OutreachRunPassTool,
+        ):
+            tool = cls()
+            register_tool(tool)
+            registered.append(tool.name)
+            _tool_categories[tool.name] = category
+            logger.info(f"Registered: {cls.__name__}")
+
+    except ImportError as e:
+        logger.error(f"Failed to import outreach tools: {e}")
+    except Exception as e:
+        logger.error(f"Failed to register outreach tools: {e}")
+
+    return registered
+
+
 def register_agent_control_tools() -> List[str]:
     """Register agent vision control tools"""
     global _tool_categories
@@ -623,6 +662,7 @@ def initialize_all_tools() -> ToolRegistry:
     _registered_tools.extend(register_image_tools())
     _registered_tools.extend(register_test_execution_tools())
     _registered_tools.extend(register_agent_control_tools())
+    _registered_tools.extend(register_outreach_tools())
 
     # Get the registry for status reporting
     registry = get_tool_registry()

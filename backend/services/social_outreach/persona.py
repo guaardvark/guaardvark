@@ -120,6 +120,27 @@ and grade<0.3 — better to skip than to force a mention.
 Return JSON: {"draft": "<comment text>", "grade": 0.0-1.0, "reason": "<one line>"}.
 """
 
+# Framing for SELF-SHARE posts (we're submitting our own link to a community,
+# not commenting on someone else's thread). Distinct from _OUTWARD_FACING_FRAMING
+# because that one tells the model to grade against "does this add value to the
+# THREAD", and to return draft="" when nothing fits — both of which cause the
+# model to refuse a legitimate share task ("there's no thread, so I'll skip").
+# We also leave the JSON SHAPE to the user prompt so reddit can ask for
+# {title, body} and discord/etc can ask for {draft}.
+_SHARE_FRAMING_SYSTEM = """\
+You are writing a SELF-SHARE post under Dean Albenze's Guaardvark account.
+This is a fresh top-level post (or message), NOT a reply to an existing
+thread. The pitch sheet below is the source of truth — don't invent
+features that aren't in it, don't fabricate URLs, don't claim more than
+what's written. Within those guardrails, write in your own voice.
+
+Self-grade the draft 0.0-1.0 on "does this introduce Guaardvark in a way
+that respects the target community's vibe and doesn't read as low-effort
+spam?". 0.7+ is post-worthy. The user prompt specifies the exact JSON
+schema to return — follow that schema, not a generic one.
+"""
+
+
 # Framing for REPLIES on Guaardvark's OWN YouTube videos. Different audience
 # (already engaged, watched the video) so different posture (no pitch,
 # no link, no marketing gate). Same factual ground from PITCH.md.
@@ -158,6 +179,14 @@ def _compose_reply_system() -> str:
     if not pitch:
         return _REPLY_FRAMING
     return f"{_REPLY_FRAMING}\n\n--- PITCH SHEET (factual reference only) ---\n{pitch}\n"
+
+
+def _compose_share_system() -> str:
+    """Same idea as _compose_outward_facing_system but for self-share posts."""
+    pitch = _load_pitch_md().strip()
+    if not pitch:
+        return _SHARE_FRAMING_SYSTEM
+    return f"{_SHARE_FRAMING_SYSTEM}\n\n--- PITCH SHEET ---\n{pitch}\n"
 
 
 # Back-compat: anywhere in the codebase that imported these constants
@@ -336,6 +365,43 @@ Respond with JSON: {{"draft": "...", "grade": 0.0-1.0, "reason": "..."}}.
 """
 
 
+def _unpack_reddit_share(result: Dict[str, Any]) -> Tuple[str, str]:
+    """Pull (title, body) from a Reddit share LLM result, surviving the
+    schema variations models actually produce in the wild:
+
+      - {"title": "...", "body": "..."} — what we asked for
+      - {"draft": "Title\\n\\nBody..."} — the comment-shape default; split it
+      - {"draft": "single line"} — title only, empty body
+      - {"post": {"title": "...", "body": "..."}} — nested wrapper
+
+    Returns ("", "") only when nothing usable was produced.
+    """
+    title = (result.get("title") or "").strip()
+    body = (result.get("body") or "").strip()
+    if title or body:
+        return title[:300], body[:1500]
+
+    nested = result.get("post") or result.get("submission")
+    if isinstance(nested, dict):
+        title = (nested.get("title") or "").strip()
+        body = (nested.get("body") or nested.get("selftext") or "").strip()
+        if title or body:
+            return title[:300], body[:1500]
+
+    draft = (result.get("draft") or result.get("text") or result.get("content") or "").strip()
+    if draft:
+        # Split on first blank line if present, else first newline. Whatever's
+        # before becomes the title; the rest is body. Models writing prose by
+        # default use this layout, so the heuristic almost always matches.
+        parts = re.split(r"\n\s*\n", draft, maxsplit=1)
+        if len(parts) == 2:
+            return parts[0].strip()[:300], parts[1].strip()[:1500]
+        line, _, rest = draft.partition("\n")
+        return line.strip()[:300], rest.strip()[:1500]
+
+    return "", ""
+
+
 def _build_share_prompt(platform: str, target: str, link_url: str) -> str:
     """User-side prompt for self-share posts. Facts come from PITCH.md via
     the system message; this side carries the platform/target/link.
@@ -388,16 +454,21 @@ def draft_outreach_text(
         target = context.get("target", "(unspecified)")
         link_url = context.get("link_url", SITE_URL)
         prompt = _build_share_prompt(platform, target, link_url)
-        result = llm(_compose_outward_facing_system(), prompt)
+        # Use the share-specific system block — the comment-focused one
+        # (_compose_outward_facing_system) tells the model to skip when
+        # there's "no thread to add value to," which makes it refuse
+        # legitimate share tasks.
+        result = llm(_compose_share_system(), prompt)
 
         if platform == "reddit":
+            title, body = _unpack_reddit_share(result)
             draft_text = json.dumps({
-                "title": result.get("title", ""),
-                "body": result.get("body", ""),
+                "title": title,
+                "body": body,
                 "link_url": link_url,
             })
         else:
-            draft_text = result.get("draft", "")
+            draft_text = result.get("draft", "") or result.get("body", "")
     elif mode == "reply":
         # Reply-to-own-video path. Different system block, no feature-blurb,
         # no UTM tagging — see REPLY_TO_OWN_VIDEO_SYSTEM_BLOCK rationale.

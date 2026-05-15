@@ -117,6 +117,12 @@ MCP_TOOLS = ["mcp_connect", "mcp_disconnect", "mcp_execute", "mcp_get_state",
 # Bulk and event-driven file ops. Distinct from generate_file (which is in CORE)
 # because these touch many files at once or watch for changes — heavier intent.
 FILE_TOOLS = ["file_bulk_operation", "file_watch"]
+# Social outreach tools — surfaced when the user mentions outreach/posting/drafts.
+# Cadence + kill switch + supervised mode all still gate the actual posting
+# downstream; these tools are just chat-side handles on the same surfaces the
+# OutreachPage uses.
+OUTREACH_TOOLS = ["outreach_status", "outreach_list_queue", "outreach_draft_post",
+                  "outreach_approve_draft", "outreach_reject_draft", "outreach_run_pass"]
 # Populated dynamically when an MCP server connects — see
 # backend.services.mcp_native_proxy. Holds names like 'filesystem_list_directory'
 # so the LLM can pick MCP tools by name without going through mcp_execute.
@@ -182,6 +188,16 @@ TOOL_CONTEXT_KEYWORDS = {
                       AGENT_CONTROL_TOOLS),
     "mcp": (["mcp", "model context protocol", "external server", "external tool",
              "external service", "remote tool", "claude desktop"], MCP_TOOLS),
+    "outreach": (["outreach", "social outreach", "reddit post", "reddit comment",
+                  "draft a comment", "draft a post", "draft a reply",
+                  "draft a reddit", "draft a discord", "draft a tweet",
+                  "draft post", "queue a post", "queue a draft", "queued drafts",
+                  "pending drafts", "approve draft", "reject draft", "kill draft",
+                  "post on reddit", "post to reddit", "share on reddit",
+                  "self-share", "self share", "outreach pass", "run outreach",
+                  "outreach status", "is outreach", "outreach queue",
+                  "scout subreddit", "scout reddit", "recon pass",
+                  "subreddit"], OUTREACH_TOOLS),
     "file": (["bulk file", "rename files", "process all files", "watch file",
               "watch the file", "monitor file", "all files in", "every file in",
               "batch file"], FILE_TOOLS),
