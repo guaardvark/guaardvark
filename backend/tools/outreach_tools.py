@@ -168,6 +168,17 @@ class OutreachDraftPostTool(BaseTool):
             name="feature_hint", type="string", required=False,
             description="Override auto-detected feature angle (e.g. 'video_gen', 'rag')",
         ),
+        "include_link": ToolParameter(
+            name="include_link", type="bool", required=False,
+            description=(
+                "Comment mode only. When true, the persona includes a "
+                "guaardvark.com link where it fits naturally. The persona "
+                "still self-grades and may return grade<0.7 if the link "
+                "would feel forced (the human reviewer would rather hold "
+                "than ship spam). Defaults to false."
+            ),
+            default=False,
+        ),
     }
 
     def execute(self, **kwargs) -> ToolResult:
@@ -245,6 +256,7 @@ class OutreachDraftPostTool(BaseTool):
                 tone=kwargs.get("tone"),
                 mode=mode,
                 feature_hint=kwargs.get("feature_hint"),
+                include_link=bool(kwargs.get("include_link", False)),
             )
         except Exception as e:
             logger.exception("draft_outreach_text failed")

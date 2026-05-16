@@ -327,6 +327,7 @@ def _build_user_prompt(
     target_url: Optional[str],
     feature_hint: Optional[str],
     tone: Optional[str] = None,
+    include_link: bool = False,
 ) -> str:
     """Compose the user-side prompt for the LLM.
 
@@ -335,6 +336,11 @@ def _build_user_prompt(
     which talking point the recon agent thought was relevant. The hint
     is annotation, not instruction — the model is free to ignore it if
     a different point fits the thread better.
+
+    `include_link=True` flips the "mention is optional" default to
+    "include the guaardvark.com URL where it fits." The grade gate still
+    applies — drafts that need a hard sell to fit the link will come back
+    at low grade, and the caller can decide whether to queue them anyway.
     """
     # find_relevant_feature returns None on no match; that's now allowed
     # to propagate (instead of defaulting to "local_ai" which would falsely
@@ -349,6 +355,20 @@ def _build_user_prompt(
     tone_guide = TONE_GUIDES.get((tone or "default").lower(), "").strip()
     tone_block = f"\nTONE OVERRIDE: {tone_guide}\n" if tone_guide else ""
 
+    if include_link:
+        closing_line = (
+            f"Draft a comment for this thread. Lead with real value about "
+            f"the topic, then include a link to {SITE_URL} where it fits "
+            f"naturally — one short mention of Guaardvark plus the URL. "
+            f"If you can't make the link feel natural, set grade < 0.7 "
+            f"(the human reviewer would rather hold than ship spam)."
+        )
+    else:
+        closing_line = (
+            "Draft a comment for this thread. Add real value first; a "
+            "Guaardvark mention is optional and only fits sometimes."
+        )
+
     return f"""\
 PLATFORM: {platform}
 TARGET URL: {target_url or "(unknown)"}
@@ -358,8 +378,7 @@ THREAD CONTEXT:
 {thread_context.strip()[:4000]}
 \"\"\"
 {hint_block}{tone_block}
-Draft a comment for this thread. Add real value first; a Guaardvark mention
-is optional and only fits sometimes.
+{closing_line}
 
 Respond with JSON: {{"draft": "...", "grade": 0.0-1.0, "reason": "..."}}.
 """
@@ -427,15 +446,16 @@ def draft_outreach_text(
     feature_hint: Optional[str] = None,
     llm: Optional[Any] = None,
     campaign: str = "v253",
+    include_link: bool = False,
 ) -> dict:
     """Unified entry point for all outreach LLM calls.
-    
+
     Guarantees OUTWARD_FACING_SYSTEM_BLOCK + audience-aware FEATURE_BLURBS
     are always injected. Returns parsed JSON dict with keys:
     - comment/draft: the text
     - grade: 0.0-1.0
     - rationale/reason: explanation
-    
+
     Args:
         platform: "reddit", "discord", "facebook", etc.
         context: dict with keys depending on mode:
@@ -446,6 +466,10 @@ def draft_outreach_text(
         feature_hint: optional feature key override
         llm: optional LLM callable (for testing)
         campaign: UTM campaign tag (default "v253")
+        include_link: comment-mode only. When True the user prompt asks the
+            persona to include a guaardvark.com URL where it fits naturally
+            (the apply_utm_tags pass then tags it). The grade gate still
+            applies — a forced-feeling link is supposed to grade < 0.7.
     """
     if llm is None:
         llm = _ollama_json_chat
@@ -506,6 +530,7 @@ def draft_outreach_text(
             target_url=context.get("url"),
             feature_hint=feature_hint,
             tone=tone,
+            include_link=include_link,
         )
         result = llm(_compose_outward_facing_system(), prompt)
         draft_text = result.get("draft", "") or result.get("comment", "")
