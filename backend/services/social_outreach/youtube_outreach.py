@@ -148,16 +148,23 @@ def post_youtube_comment_via_servo(
     # to hit exactly one recipe in data/agent/recipes.json — keep them in
     # sync if the recipe triggers change.
     #
-    # find_on_page "Comments" + press_escape was the original middle here, but
-    # it was unreliable: "Comments" matches early in the description on many
-    # videos so the viewport never scrolled. scroll_to_youtube_comments uses
-    # plain PageDown taps and reliably brings the composer into view.
+    # Iteration history on the middle step:
+    #   v1: find_on_page "Comments" — "Comments" matched in the description
+    #       on many videos, so viewport rarely scrolled to the composer.
+    #   v2: scroll_to_youtube_comments (4× PageDown) — overscrolled past the
+    #       composer on short-comment-count videos (e.g. "2 Comments") and
+    #       landed in empty space below all content.
+    #   v3 (here): find_on_page "Add a comment" — that string is unique to
+    #       the composer placeholder, so the find positions the viewport
+    #       exactly on it. press_escape then closes the find bar, leaving
+    #       the composer in view ready for the click recipe.
     nav_msg = f"navigate to {target_url.replace('https://', '').replace('http://', '')}"
     for chat_msg, tag, settle in (
-        (nav_msg,                              "navigate_failed",        SERVO_SETTLE_SECONDS),
-        ("pause the video",                    "pause_failed",           1.0),
-        ("scroll to comments",                 "scroll_to_comments_failed", 1.0),
-        ("click the add a comment field",      "focus_composer_failed",  SERVO_SETTLE_SECONDS),
+        (nav_msg,                              "navigate_failed",         SERVO_SETTLE_SECONDS),
+        ("pause the video",                    "pause_failed",            1.0),
+        ('find "Add a comment" on the page',   "find_composer_failed",    1.0),
+        ("press escape",                       "escape_failed",           0.4),
+        ("click the add a comment field",      "focus_composer_failed",   SERVO_SETTLE_SECONDS),
     ):
         ok, reason = _run_recipe_step(service, screen, chat_msg, tag)
         if not ok:
@@ -178,6 +185,16 @@ def post_youtube_comment_via_servo(
     ok, reason = _run_recipe_step(service, screen, "send the comment", "submit_failed")
     if not ok:
         return False, reason
+
+    # NOTE: A "like the video" step was prototyped here (see git log + the
+    # like_youtube_video recipe in recipes.json). It's disabled because the
+    # vision-driven click on YouTube's thumbs-up is unreliable (qwen3-vl:2b
+    # consistently miscalibrates the coordinates) AND the post-click visual
+    # delta (outline→filled icon, +1 count) is too subtle for the same model
+    # to verify, so we get silent false positives. Re-enable once the click
+    # is DOM-driven via the Firefox CDP debug port (port 9222) — the
+    # placeholder/Cancel verification trick that works for the composer
+    # doesn't translate.
 
     return True, "ok"
 

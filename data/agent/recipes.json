@@ -185,10 +185,16 @@
     "steps": [
       {
         "action": "click",
-        "target_description": "Add a comment placeholder field",
-        "_comment": "Vision-driven. Light-gray 'Add a comment...' placeholder below the video. Not the avatar."
+        "target_description": "empty Add a comment input",
+        "_comment": "Vision-driven. The horizontal pill-shaped input reading 'Add a comment...' that sits BELOW the video title and ABOVE any existing comments. Not the avatar circle to its left and NOT any Reply input lower on the page."
       },
-      {"action": "wait", "seconds": 1.5}
+      {"action": "wait", "seconds": 1.2},
+      {
+        "action": "wait_until_visible",
+        "target_description": "Cancel button next to Comment submit button",
+        "timeout_s": 4.0,
+        "_comment": "Distinctive verification — Cancel only appears when the composer expanded. If this fails the click missed the placeholder; recipe-level failure triggers the adaptive loop, which with the sharper target above should usually succeed on the second try."
+      }
     ]
   },
   "focus_youtube_reply_field": {
@@ -204,6 +210,31 @@
         "_comment": "Vision-driven. Small 'Reply' text button below the parent comment body."
       },
       {"action": "wait", "seconds": 1.5}
+    ]
+  },
+  "like_youtube_video": {
+    "description": "[DISABLED 2026-05-16] Click the thumbs-up Like button below a YouTube video. Escape first to drop any input focus, Home to scroll back to the top so the Like button is in view. NOT currently wired into post_youtube_comment_via_servo: the vision-driven click consistently misses (qwen3-vl:2b miscalibration) and the post-click visual delta (outline→fill, +1 count) is too subtle for vision-side verification — false-positive matches the still-outlined icon as filled. Re-enable once the click is DOM-driven via the Firefox CDP debug port (port 9222). Recipe kept in place so it's ready to use once the DOM path lands.",
+    "triggers": [
+      "^like\\s+(?:the\\s+)?(?:youtube\\s+)?video\\s*$",
+      "^thumbs\\s+up\\s+(?:the\\s+)?video\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["Escape"]},
+      {"action": "wait", "seconds": 0.3},
+      {"action": "hotkey", "keys": ["Home"]},
+      {"action": "wait", "seconds": 1.2},
+      {
+        "action": "click",
+        "target_description": "thumbs up icon left of dislike",
+        "_comment": "Vision-driven. The thumbs-up icon inside the pill-shaped Like|Dislike control directly under the video title. Disambiguator: it sits IMMEDIATELY to the left of the matching thumbs-down icon. NOT the channel Subscribe button (purple pill, further left). NOT any like icon inside a comment lower on the page."
+      },
+      {"action": "wait", "seconds": 1.0},
+      {
+        "action": "wait_until_visible",
+        "target_description": "filled thumbs up icon under video",
+        "timeout_s": 4.0,
+        "_comment": "Verification — once Liked, YouTube renders the thumbs-up icon FILLED (solid white/grey) instead of OUTLINED. If we never see the filled state the click missed the button. Recipe-level failure triggers the adaptive loop. Non-fatal at the caller level."
+      }
     ]
   },
   "submit_youtube_comment": {
