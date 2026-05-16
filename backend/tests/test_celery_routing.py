@@ -89,6 +89,34 @@ def test_shared_task_resolves_to_configured_celery_app():
     )
 
 
+def test_task_routes_without_explicit_celery_app_import():
+    """A naive dispatcher script that imports only a task module (no
+    `from backend import celery_app` first) MUST still route to 'default'.
+
+    Earlier this failed: @shared_task fell through to the empty default
+    Celery and .delay() went to the literal 'celery' queue. Fix lives in
+    backend/tasks/__init__.py — it imports celery_app first so set_default()
+    runs before any submodule's @shared_task is touched.
+    """
+    # Drop every relevant module so import order matches a fresh process.
+    for mod in list(sys.modules):
+        if mod == "backend.celery_app" or mod.startswith("backend.tasks"):
+            del sys.modules[mod]
+
+    # Worst case: import a task directly, no celery_app first.
+    from backend.tasks.social_outreach_tasks import tick_process_approved_drafts
+    from celery import current_app
+
+    route = current_app.amqp.router.route({}, tick_process_approved_drafts.name)
+    queue = route.get("queue")
+    queue_name = queue.name if hasattr(queue, "name") else str(queue)
+    assert queue_name == "default", (
+        f"Task routed to {queue_name!r} via current_app — set_default() didn't run "
+        f"before the @shared_task lookup. backend/tasks/__init__.py must import "
+        f"backend.celery_app at the top."
+    )
+
+
 def test_no_circular_import_in_celery_app(caplog):
     """celery_app must import cleanly without partially-initialized warnings.
     

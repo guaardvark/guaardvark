@@ -146,3 +146,6 @@ plugins/upscaling/models/*.pth
 
 # Dependency reconciler runtime state (per-machine)
 data/dep_reconciler/
+
+# Celery beat schedule state (per-machine, runtime-managed)
+data/celerybeat-schedule.db*

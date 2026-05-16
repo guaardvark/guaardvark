@@ -28,14 +28,18 @@ check_workers() {
   echo $count
 }
 
+check_beat() {
+  pgrep -f "celery.*beat" | wc -l
+}
+
 start_worker() {
   local worker_name=$1
   local queues=$2
   local concurrency=$3
   local max_memory=${4:-1024000}
-  
+
   vader_info "Starting Celery worker: $worker_name (queues: $queues, concurrency: $concurrency)"
-  
+
   nohup celery -A backend.celery_app.celery worker \
     --hostname="$worker_name@%h" \
     --queues="$queues" \
@@ -44,10 +48,36 @@ start_worker() {
     --loglevel=info \
     --logfile="$LOGS_DIR/celery_${worker_name}.log" \
     >> "$LOGS_DIR/celery_${worker_name}.log" 2>&1 &
-  
+
   local pid=$!
   echo $pid > "$SCRIPT_DIR/pids/celery_${worker_name}.pid"
   vader_success "Worker $worker_name started (PID: $pid)"
+}
+
+start_beat() {
+  # Celery beat scheduler — dispatches the periodic tasks declared in
+  # backend.celery_app.beat_schedule (process_approved_drafts every 60s,
+  # tick_reddit_outreach every 45 min, recon ticks, etc). Without this,
+  # @shared_task definitions still register but nothing fires unless an
+  # API endpoint or operator dispatches them manually.
+  #
+  # --schedule lives in data/ so it survives a clean checkout but is
+  # gitignored. --pidfile makes stop.sh's pid sweep deterministic.
+  vader_info "Starting Celery beat scheduler"
+
+  rm -f "$SCRIPT_DIR/data/celerybeat-schedule.db" 2>/dev/null  # corruption-clean restart
+  mkdir -p "$SCRIPT_DIR/pids"
+
+  nohup celery -A backend.celery_app.celery beat \
+    --loglevel=info \
+    --schedule="$SCRIPT_DIR/data/celerybeat-schedule.db" \
+    --pidfile="$SCRIPT_DIR/pids/celery_beat.pid" \
+    --logfile="$LOGS_DIR/celery_beat.log" \
+    >> "$LOGS_DIR/celery_beat.log" 2>&1 &
+
+  # Beat writes its own pidfile via --pidfile; the $! here can race with
+  # that, so just log what we launched and trust beat to drop the file.
+  vader_success "Celery beat started (launcher PID: $!)"
 }
 
 worker_count=$(check_workers)
@@ -87,6 +117,8 @@ vader_info "Starting workers..."
 start_worker "main" "health,default,indexing,generation" 1 1536000
 
 start_worker "training" "training,training_gpu" 1 4096000
+
+start_beat
 
 vader_info "Waiting for workers to initialize..."
 sleep 3

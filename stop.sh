@@ -260,7 +260,8 @@ if [ -n "$flask_pids" ]; then
     done
 fi
 
-celery_pids=$(pgrep -f "celery.*worker" 2>/dev/null)
+# Pattern catches both worker AND beat processes from this checkout.
+celery_pids=$(pgrep -f "celery.*\(worker\|beat\)" 2>/dev/null)
 if [ -n "$celery_pids" ]; then
     env_celery_pids=()
     for pid in $celery_pids; do
@@ -269,22 +270,22 @@ if [ -n "$celery_pids" ]; then
             env_celery_pids+=("$pid")
         fi
     done
-    
+
     if [ ${#env_celery_pids[@]} -gt 0 ]; then
-        vader_info "Found ${#env_celery_pids[@]} Celery worker(s) from this environment"
-        
+        vader_info "Found ${#env_celery_pids[@]} Celery worker/beat process(es) from this environment"
+
         for pid in "${env_celery_pids[@]}"; do
             kill -TERM "$pid" 2>/dev/null
         done
         sleep 3
-        
+
         for pid in "${env_celery_pids[@]}"; do
             if kill -0 "$pid" 2>/dev/null; then
-                vader_warn "Celery worker (PID: $pid) still running, using SIGKILL..."
+                vader_warn "Celery process (PID: $pid) still running, using SIGKILL..."
                 kill -KILL "$pid" 2>/dev/null
             fi
         done
-        
+
         rm -f "$PIDS_DIR"/celery_*.pid
     fi
 fi

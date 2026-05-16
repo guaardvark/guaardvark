@@ -853,7 +853,8 @@ if [ -f "$SCRIPT_DIR/pids/celery.pid" ]; then
     fi
 fi
 
-celery_pids=$(pgrep -f "celery.*worker" 2>/dev/null)
+# Pattern catches both worker AND beat from this checkout.
+celery_pids=$(pgrep -f "celery.*\(worker\|beat\)" 2>/dev/null)
 if [ -n "$celery_pids" ]; then
     for pid in $celery_pids; do
         proc_cwd=$(readlink -f "/proc/$pid/cwd" 2>/dev/null)
