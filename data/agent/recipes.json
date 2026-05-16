@@ -116,5 +116,114 @@
         "_comment": "Single click. Recipe terminates after this step — no follow-up verify, no fallback."
       }
     ]
+  },
+  "press_escape": {
+    "description": "Press Escape. Closes find bar, dismisses URL-bar focus, generally drops modal state. Plain time wait — wait_until_settled fails on pages with animation.",
+    "triggers": [
+      "^(?:press|hit|tap)\\s+(?:the\\s+)?escape\\s*$",
+      "^escape\\s*$",
+      "^cancel\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["Escape"]},
+      {"action": "wait", "seconds": 0.3}
+    ]
+  },
+  "find_on_page": {
+    "description": "Open Firefox's find bar (Ctrl+F), type the term, press Enter, close. Plain time-based waits because YouTube's auto-playing sidebar previews never satisfy wait_until_settled.",
+    "triggers": [
+      "^find\\s+[\"']?(.+?)[\"']?\\s+on\\s+(?:the\\s+)?page\\s*$",
+      "^search\\s+(?:for\\s+)?[\"']?(.+?)[\"']?\\s+on\\s+(?:the\\s+)?page\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "f"]},
+      {"action": "wait", "seconds": 0.6},
+      {"action": "type", "text": "{1}"},
+      {"action": "wait", "seconds": 0.4},
+      {"action": "hotkey", "keys": ["Return"]},
+      {"action": "wait", "seconds": 0.8}
+    ]
+  },
+  "scroll_to_youtube_comments": {
+    "description": "Scroll a YouTube watch page down enough to bring the 'Add a comment...' composer into the viewport. Pure PageDown — no vision dependency, no find_on_page brittleness. Escape first to drop URL-bar focus so the page body receives the keystrokes.",
+    "triggers": [
+      "^scroll\\s+(?:down\\s+)?to\\s+(?:the\\s+)?(?:youtube\\s+)?comments\\s*$",
+      "^scroll\\s+to\\s+comments\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["Escape"]},
+      {"action": "wait", "seconds": 0.3},
+      {"action": "hotkey", "keys": ["Page_Down"]},
+      {"action": "wait", "seconds": 0.4},
+      {"action": "hotkey", "keys": ["Page_Down"]},
+      {"action": "wait", "seconds": 0.4},
+      {"action": "hotkey", "keys": ["Page_Down"]},
+      {"action": "wait", "seconds": 0.5},
+      {"action": "hotkey", "keys": ["Page_Down"]},
+      {"action": "wait", "seconds": 1.0}
+    ]
+  },
+  "pause_youtube_video": {
+    "description": "Pause a playing YouTube video. Escape first to drop URL-bar focus (a fresh page load leaves keyboard focus in the address bar; an earlier attempt's Space went into the URL bar — delta=0.00 was the smoking gun), then 'k' which is YouTube's pause shortcut once the page body has focus.",
+    "triggers": [
+      "^pause\\s+(?:the\\s+)?video\\s*$",
+      "^pause\\s+(?:the\\s+)?youtube(?:\\s+video)?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["Escape"]},
+      {"action": "wait", "seconds": 0.4},
+      {"action": "hotkey", "keys": ["k"]},
+      {"action": "wait", "seconds": 0.5}
+    ]
+  },
+  "focus_youtube_comment_field": {
+    "description": "Click YouTube's 'Add a comment...' placeholder below the video. Caller should have already run scroll_to_youtube_comments so the viewport contains the composer.",
+    "triggers": [
+      "^click\\s+(?:on\\s+)?(?:the\\s+)?add\\s+a?\\s*comment(?:\\s+field)?\\s*$",
+      "^focus\\s+(?:the\\s+)?(?:add\\s+a?\\s*)?comment(?:\\s+field)?\\s*$"
+    ],
+    "steps": [
+      {
+        "action": "click",
+        "target_description": "Add a comment placeholder field",
+        "_comment": "Vision-driven. Light-gray 'Add a comment...' placeholder below the video. Not the avatar."
+      },
+      {"action": "wait", "seconds": 1.5}
+    ]
+  },
+  "focus_youtube_reply_field": {
+    "description": "Click the topmost visible 'Reply' button under a YouTube comment. Caller should have already run find_on_page <anchor> so the viewport sits on the parent comment.",
+    "triggers": [
+      "^click\\s+reply\\s*$",
+      "^focus\\s+(?:the\\s+)?reply(?:\\s+field|\\s+button)?\\s*$"
+    ],
+    "steps": [
+      {
+        "action": "click",
+        "target_description": "Reply button under comment",
+        "_comment": "Vision-driven. Small 'Reply' text button below the parent comment body."
+      },
+      {"action": "wait", "seconds": 1.5}
+    ]
+  },
+  "submit_youtube_comment": {
+    "description": "Submit the typed YouTube comment via Ctrl+Enter — YouTube's keyboard shortcut for the composer's submit button. More reliable than vision-clicking 'Comment' (which has misfired on the '0 Comments' header in the past).",
+    "triggers": [
+      "^(?:send|submit|post)\\s+(?:the\\s+)?comment\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "Return"]},
+      {"action": "wait", "seconds": 1.2}
+    ]
+  },
+  "submit_youtube_reply": {
+    "description": "Submit the typed YouTube reply via Ctrl+Enter — same shortcut as the top-level Comment submit, works on the reply composer too.",
+    "triggers": [
+      "^(?:send|submit|post)\\s+(?:the\\s+)?reply\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "Return"]},
+      {"action": "wait", "seconds": 1.2}
+    ]
   }
 }

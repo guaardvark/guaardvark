@@ -147,12 +147,16 @@ def post_youtube_comment_via_servo(
     # Recipe chain. The chat-message strings here are deliberately phrased
     # to hit exactly one recipe in data/agent/recipes.json — keep them in
     # sync if the recipe triggers change.
+    #
+    # find_on_page "Comments" + press_escape was the original middle here, but
+    # it was unreliable: "Comments" matches early in the description on many
+    # videos so the viewport never scrolled. scroll_to_youtube_comments uses
+    # plain PageDown taps and reliably brings the composer into view.
     nav_msg = f"navigate to {target_url.replace('https://', '').replace('http://', '')}"
     for chat_msg, tag, settle in (
         (nav_msg,                              "navigate_failed",        SERVO_SETTLE_SECONDS),
         ("pause the video",                    "pause_failed",           1.0),
-        ('find "Comments" on the page',        "find_comments_failed",   1.0),
-        ("press escape",                       "escape_failed",          0.4),
+        ("scroll to comments",                 "scroll_to_comments_failed", 1.0),
         ("click the add a comment field",      "focus_composer_failed",  SERVO_SETTLE_SECONDS),
     ):
         ok, reason = _run_recipe_step(service, screen, chat_msg, tag)
