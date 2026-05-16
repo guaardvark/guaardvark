@@ -32,6 +32,58 @@ AGENT_FIREFOX_LAUNCHER="$GUAARDVARK_ROOT/scripts/agent_firefox_launch.sh"
 mkdir -p "$PID_DIR" "$LOG_DIR" "$DATA_DIR" "$AGENT_FILES_DIR" "$AGENT_DESKTOP_DIR"
 
 # ---------------------------------------------------------------------------
+# Log filters — ISO timestamps + drop the spammy, repetitive lines.
+#
+# Both filters read stdin and write stdout, prefixing every kept line with
+# [YYYY-MM-DD HH:MM:SS]. They mawk-compat (no GNU extensions beyond
+# strftime, which mawk supports). fflush() each line so `tail -f` stays
+# responsive instead of buffering 4KB chunks.
+# ---------------------------------------------------------------------------
+
+log_filter_xfce() {
+    # Drops Gtk theme parser chatter, repeated portal activation failures,
+    # and DejaDup noise. Keeps real session events.
+    awk '
+        /Gtk-WARNING.*Theme parser error/   { next }
+        /Gtk-WARNING.*Not a valid image/    { next }
+        /No property named/                  { next }
+        /Activating service name=.org\.freedesktop\.portal\.Desktop./ { next }
+        /Activated service .org\.freedesktop\.portal\.Desktop. failed/ { next }
+        /\(org\.gnome\.DejaDup:/             { next }
+        { print strftime("[%Y-%m-%d %H:%M:%S]"), $0; fflush() }
+    '
+}
+
+log_filter_x11vnc() {
+    # x11vnc emits its own DD/MM/YYYY timestamp; strip it so our ISO stamp
+    # is the only one. Then drop the per-frame stats and the well-known
+    # XDAMAGE/Compiz warning quartet.
+    awk '
+        { sub(/^[0-9]{2}\/[0-9]{2}\/[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2} /, "") }
+        /^Enabling .* protocol extension for client/ { next }
+        /^Sending rfbEncodingExtDesktopSize/         { next }
+        /^Using .* encoding for client/              { next }
+        /^rfbProcessClientNormalMessage: ignoring/   { next }
+        /^client_set_net:/                            { next }
+        /^client [0-9]+ network rate/                 { next }
+        /^client [0-9]+ latency/                      { next }
+        /^dt1:.*dt2:.*dt3:/                           { next }
+        /^link_rate:/                                 { next }
+        /^copy_tiles:/                                { next }
+        /^created   ?xdamage object/                  { next }
+        /^created selwin/                             { next }
+        /^called initialize_xfixes/                   { next }
+        /^XDAMAGE is not working well/                { next }
+        /^Maybe an OpenGL app/                        { next }
+        /^Use x11vnc -noxdamage/                      { next }
+        /^To disable this check/                      { next }
+        /^idle keyboard:/                             { next }
+        /^[[:space:]]*$/                              { next }
+        { print strftime("[%Y-%m-%d %H:%M:%S]"), $0; fflush() }
+    '
+}
+
+# ---------------------------------------------------------------------------
 # Desktop environment setup — XFCE on Xvfb
 #
 # What used to be a hodgepodge (openbox + tint2 + xsetroot wallpaper +
@@ -325,25 +377,36 @@ start_xfce_session() {
     # GIO_USE_VOLUME_MONITOR=unix tells GIO to use only its built-in unix
     # monitor — gvfs-{udisks2,afc,goa,gphoto2,mtp}-volume-monitor are never
     # queried, never D-Bus-activated, never leak.
-    env -i \
-        HOME="$HOME" \
-        USER="$USER" \
-        LOGNAME="${LOGNAME:-$USER}" \
-        SHELL="${SHELL:-/bin/bash}" \
-        PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
-        LANG="${LANG:-en_US.UTF-8}" \
-        LC_ALL="${LC_ALL:-en_US.UTF-8}" \
-        DISPLAY=":$DISPLAY_NUM" \
-        XDG_RUNTIME_DIR="$agent_runtime_dir" \
-        XDG_CONFIG_HOME="$agent_config_home" \
-        XDG_DATA_HOME="$agent_data_home" \
-        XDG_DESKTOP_DIR="$AGENT_DESKTOP_DIR" \
-        XDG_CURRENT_DESKTOP="XFCE" \
-        XDG_SESSION_DESKTOP="xfce" \
-        GIO_USE_VOLUME_MONITOR=unix \
-        dbus-run-session -- startxfce4 \
-        >> "$LOG_DIR/xfce_agent.log" 2>&1 &
+    # Brace-wrapped + fully redirected so the backgrounded pipeline doesn't
+    # inherit the caller's stdin/stdout/stderr. Without this, awk in
+    # log_filter_xfce keeps the parent's stderr fd open, and start.sh's
+    # `bash $AGENT_DISPLAY_SCRIPT start | while read line` blocks forever
+    # waiting for that fd to close. `disown` removes the job from the
+    # shell's job table so SIGHUP isn't sent on script exit.
+    {
+        env -i \
+            HOME="$HOME" \
+            USER="$USER" \
+            LOGNAME="${LOGNAME:-$USER}" \
+            SHELL="${SHELL:-/bin/bash}" \
+            PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+            LANG="${LANG:-en_US.UTF-8}" \
+            LC_ALL="${LC_ALL:-en_US.UTF-8}" \
+            DISPLAY=":$DISPLAY_NUM" \
+            XDG_RUNTIME_DIR="$agent_runtime_dir" \
+            XDG_CONFIG_HOME="$agent_config_home" \
+            XDG_DATA_HOME="$agent_data_home" \
+            XDG_DESKTOP_DIR="$AGENT_DESKTOP_DIR" \
+            XDG_CURRENT_DESKTOP="XFCE" \
+            XDG_SESSION_DESKTOP="xfce" \
+            GIO_USE_VOLUME_MONITOR=unix \
+            dbus-run-session -- startxfce4 2>&1 \
+            | log_filter_xfce >> "$LOG_DIR/xfce_agent.log"
+    } </dev/null >/dev/null 2>&1 &
+    # $! is the brace-group subshell PID; stop() finds the real session by
+    # DISPLAY-scoped pkill, so this is purely informational.
     echo $! > "$PID_DIR/xfce.pid"
+    disown 2>/dev/null || true
     # Give the session a moment to bring up xfwm4, xfdesktop, xfce4-panel.
     sleep 3
     # On a true fresh install the panel files don't exist until xfce4-panel
@@ -639,10 +702,22 @@ start() {
     if pgrep -f "x11vnc.*-rfbport $VNC_PORT" > /dev/null 2>&1; then
         echo "  x11vnc already running"
     else
-        env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE \
-            DISPLAY=:$DISPLAY_NUM \
-            x11vnc -nopw -localhost -forever -shared -rfbport $VNC_PORT \
-            -bg -o "$LOG_DIR/x11vnc_agent.log" >/dev/null 2>&1
+        # -bg dropped so we can pipe through log_filter_x11vnc.
+        # -noxdamage suppresses the XDAMAGE-not-working warning quartet at the
+        # source (cheaper than filtering it). The filter still strips x11vnc's
+        # own DD/MM/YYYY stamp and replaces it with ISO.
+        #
+        # Brace-wrapped + fully redirected for the same reason as the XFCE
+        # pipeline above: keep the long-lived awk filter from holding the
+        # parent shell's pipe open, which would block start.sh's read loop.
+        {
+            env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE \
+                DISPLAY=:$DISPLAY_NUM \
+                x11vnc -nopw -localhost -forever -shared -rfbport $VNC_PORT \
+                -noxdamage -o /dev/stdout 2>&1 \
+                | log_filter_x11vnc >> "$LOG_DIR/x11vnc_agent.log"
+        } </dev/null >/dev/null 2>&1 &
+        disown 2>/dev/null || true
         sleep 1
         echo "  x11vnc started on port $VNC_PORT (passwordless, localhost-only)"
     fi
