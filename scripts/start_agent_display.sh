@@ -518,45 +518,35 @@ init_browser_profile() {
 
     case "$browser" in
         firefox|firefox-esr)
-            # user.js: agent-optimized settings (light theme, no telemetry, no popups)
-            if [ ! -f "$profile_dir/user.js" ]; then
-                local template="$GUAARDVARK_ROOT/data/agent/firefox_profile/user.js"
-                if [ -f "$template" ] && [ "$template" != "$profile_dir/user.js" ]; then
-                    echo "  Creating initial user.js from template"
-                    cp "$template" "$profile_dir/user.js"
-                else
-                    echo "  Creating default user.js for agent"
-                    cat > "$profile_dir/user.js" << 'FIREFOXJS'
-// Guaardvark Agent — auto-generated Firefox settings
+            # user.js: HARDWIRED on every start. The template at
+            # scripts/firefox_user.js.template is the source of truth for the
+            # agent's prefs (theme, homepage, AI disable, etc.). We
+            # unconditionally copy it into the profile so any UI changes the
+            # user (or Firefox auto-config) made to prefs.js since the last
+            # restart get reverted. user.js takes precedence over prefs.js on
+            # Firefox startup, so the next launch reads the canonical values.
+            local template="$GUAARDVARK_ROOT/scripts/firefox_user.js.template"
+            if [ -f "$template" ]; then
+                echo "  Hardwiring user.js from $template"
+                cp "$template" "$profile_dir/user.js"
+            else
+                # Template missing — fall back to a minimal inline copy so the
+                # agent display still comes up. The repo should always have
+                # the template; this branch is defense in depth.
+                echo "  WARN: $template missing; writing minimal default user.js"
+                cat > "$profile_dir/user.js" << 'FIREFOXJS'
+// Guaardvark Agent — minimal fallback (template was missing at start time)
 user_pref("extensions.activeThemeID", "firefox-compact-light@mozilla.org");
 user_pref("browser.theme.content-theme", 1);
 user_pref("ui.systemUsesDarkTheme", 0);
 user_pref("layout.css.prefers-color-scheme.content-override", 1);
-user_pref("toolkit.telemetry.enabled", false);
-user_pref("datareporting.healthreport.uploadEnabled", false);
-user_pref("datareporting.policy.dataSubmissionEnabled", false);
+user_pref("browser.ml.chat.enabled", false);
+user_pref("browser.ml.enable", false);
 user_pref("permissions.default.desktop-notification", 2);
-user_pref("dom.webnotifications.enabled", false);
-user_pref("identity.fxaccounts.enabled", false);
-user_pref("app.normandy.enabled", false);
-user_pref("browser.aboutwelcome.enabled", false);
-user_pref("app.update.enabled", false);
-user_pref("browser.urlbar.autocomplete.enabled", false);
-user_pref("browser.urlbar.suggest.bookmark", false);
-user_pref("browser.urlbar.suggest.history", false);
-user_pref("browser.urlbar.suggest.openpage", false);
-user_pref("browser.urlbar.suggest.searches", false);
-user_pref("browser.sessionstore.resume_from_crash", false);
+user_pref("browser.startup.page", 1);
+user_pref("browser.startup.homepage", "https://www.google.com/");
 user_pref("media.autoplay.default", 5);
-user_pref("dom.ipc.processCount", 2);
-user_pref("browser.toolbars.bookmarks.visibility", "never");
-user_pref("browser.startup.page", 0);
-user_pref("browser.startup.homepage", "about:blank");
-user_pref("extensions.pocket.enabled", false);
 FIREFOXJS
-                fi
-            else
-                echo "  Firefox user.js exists — not overwriting"
             fi
             # Clean stale lock files
             rm -f "$profile_dir/lock" "$profile_dir/.parentlock" 2>/dev/null

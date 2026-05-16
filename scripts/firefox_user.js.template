@@ -1,0 +1,199 @@
+// === GUAARDVARK AGENT FIREFOX PROFILE — CANONICAL TEMPLATE ===
+//
+// This file is the SOURCE OF TRUTH for the agent's Firefox prefs.
+// start_agent_display.sh copies it to data/agent/firefox_profile/user.js
+// on every agent display start, overwriting whatever's there. Manual UI
+// changes to prefs.js are wiped on the next start.
+//
+// Do NOT edit the user.js inside the profile directory directly — it's
+// regenerated. Edit THIS file instead.
+//
+// Firefox load order: prefs.js → user.js (user.js wins for any pref it
+// defines; UI-mutable prefs Firefox saves back to prefs.js are reset
+// from user.js again on the next launch).
+
+// === THEME: Light mode ===
+// content-theme/toolbar-theme: 0 = dark, 1 = light, 2 = system.
+// ui.systemUsesDarkTheme: forces the in-Firefox light/dark perception.
+// layout.css.prefers-color-scheme.content-override: 0 = dark, 1 = light,
+// 2 = system — controls what sites that respect prefers-color-scheme see.
+// We keep this LIGHT deliberately: the vision pipeline reads contrast
+// significantly better against light backgrounds, and the YouTube
+// servo recipes are tuned against light-mode YouTube. If you ever flip
+// to dark, also retune focus_youtube_comment_field and friends.
+user_pref("extensions.activeThemeID", "firefox-compact-light@mozilla.org");
+user_pref("browser.theme.content-theme", 1);
+user_pref("browser.theme.toolbar-theme", 1);
+user_pref("ui.systemUsesDarkTheme", 0);
+user_pref("layout.css.prefers-color-scheme.content-override", 1);
+
+// === HOMEPAGE: Google ===
+// startup.page: 0 = blank, 1 = homepage, 3 = previous session.
+// startup.homepage MUST include the protocol — bare "google.com" gets
+// interpreted by Firefox as a keyword search against the default search
+// engine, which is why the previous setting landed on a "Google cache
+// troubleshooting" SERP article instead of google.com itself.
+user_pref("browser.startup.page", 1);
+user_pref("browser.startup.homepage", "https://www.google.com/");
+user_pref("browser.newtabpage.enabled", true);
+user_pref("browser.newtab.url", "https://www.google.com/");
+
+// === DISABLE ALL TELEMETRY ===
+user_pref("toolkit.telemetry.enabled", false);
+user_pref("toolkit.telemetry.unified", false);
+user_pref("toolkit.telemetry.archive.enabled", false);
+user_pref("toolkit.telemetry.updatePing.enabled", false);
+user_pref("toolkit.telemetry.bhrPing.enabled", false);
+user_pref("toolkit.telemetry.firstShutdownPing.enabled", false);
+user_pref("toolkit.telemetry.newProfilePing.enabled", false);
+user_pref("toolkit.telemetry.shutdownPingSender.enabled", false);
+user_pref("toolkit.telemetry.pioneer-new-studies-available", false);
+user_pref("toolkit.telemetry.reportingpolicy.firstRun", false);
+user_pref("toolkit.telemetry.server", "");
+user_pref("datareporting.healthreport.uploadEnabled", false);
+user_pref("datareporting.policy.dataSubmissionEnabled", false);
+user_pref("datareporting.healthreport.service.enabled", false);
+user_pref("app.shield.optoutstudies.enabled", false);
+user_pref("browser.discovery.enabled", false);
+user_pref("browser.ping-centre.telemetry", false);
+user_pref("browser.newtabpage.activity-stream.feeds.telemetry", false);
+user_pref("browser.newtabpage.activity-stream.telemetry", false);
+user_pref("browser.newtabpage.activity-stream.telemetry.structuredIngestion.endpoint", "");
+
+// === DISABLE AI TOOLS, FIREFOX SUGGEST, SPONSORED CONTENT ===
+// The full set of Firefox 128+ AI/ML prefs. Some are no-ops on older
+// versions; harmless when absent.
+user_pref("browser.ml.chat.enabled", false);
+user_pref("browser.ml.chat.sidebar", false);
+user_pref("browser.ml.chat.shortcuts", false);
+user_pref("browser.ml.chat.shortcuts.custom", false);
+user_pref("browser.ml.enable", false);
+user_pref("browser.ml.modelHubRootUrl", "");
+user_pref("browser.tabs.groups.smart.enabled", false);
+user_pref("browser.tabs.firefox-view.ml.tabGrouping.enabled", false);
+user_pref("browser.urlbar.quicksuggest.enabled", false);
+user_pref("browser.urlbar.suggest.quicksuggest.sponsored", false);
+user_pref("browser.urlbar.suggest.quicksuggest.nonsponsored", false);
+user_pref("browser.urlbar.quicksuggest.dataCollection.enabled", false);
+user_pref("browser.urlbar.suggest.trending", false);
+user_pref("browser.urlbar.suggest.recentsearches", false);
+user_pref("browser.urlbar.suggest.weather", false);
+user_pref("browser.urlbar.suggest.yelp", false);
+user_pref("browser.urlbar.suggest.addons", false);
+user_pref("browser.urlbar.suggest.mdn", false);
+user_pref("browser.urlbar.suggest.pocket", false);
+user_pref("browser.newtabpage.activity-stream.showSponsoredTopSites", false);
+user_pref("browser.newtabpage.activity-stream.showSponsored", false);
+user_pref("browser.newtabpage.activity-stream.discoverystream.sendToPocket.enabled", false);
+
+// === DISABLE ALL NOTIFICATIONS AND POPUPS ===
+user_pref("permissions.default.desktop-notification", 2);
+user_pref("dom.webnotifications.enabled", false);
+user_pref("dom.webnotifications.serviceworker.enabled", false);
+user_pref("dom.push.enabled", false);
+user_pref("dom.push.connection.enabled", false);
+user_pref("browser.protections_panel.infoMessage.seen", true);
+
+// === DISABLE FIREFOX ACCOUNTS / SYNC NAGS ===
+user_pref("identity.fxaccounts.enabled", false);
+user_pref("browser.tabs.firefox-view", false);
+user_pref("browser.tabs.firefox-view-next", false);
+
+// === DISABLE EXPERIMENTS / NORMANDY / STUDIES ===
+user_pref("messaging-system.rsexperimentloader.enabled", false);
+user_pref("app.normandy.enabled", false);
+user_pref("app.normandy.api_url", "");
+user_pref("browser.aboutConfig.showWarning", false);
+user_pref("browser.aboutwelcome.enabled", false);
+
+// === DISABLE CRASH REPORTER ===
+user_pref("breakpad.reportURL", "");
+user_pref("browser.crashReports.unsubmittedCheck.autoSubmit2", false);
+user_pref("browser.crashReports.unsubmittedCheck.enabled", false);
+user_pref("browser.tabs.crashReporting.sendReport", false);
+
+// === DISABLE AUTO-UPDATE (we control the environment) ===
+user_pref("app.update.enabled", false);
+user_pref("app.update.auto", false);
+user_pref("app.update.silent", false);
+user_pref("extensions.update.enabled", false);
+user_pref("extensions.getAddons.showPane", false);
+user_pref("extensions.htmlaboutaddons.recommendations.enabled", false);
+
+// === BLOCK PERMISSIONS DIALOGS (mic, cam, geo, notifications) ===
+user_pref("permissions.default.microphone", 2);
+user_pref("permissions.default.camera", 2);
+user_pref("permissions.default.geo", 2);
+
+// === AGENT OPTIMIZATIONS ===
+// Disable URL autocomplete (interferes with agent typing URLs)
+user_pref("browser.urlbar.autocomplete.enabled", false);
+user_pref("browser.urlbar.suggest.bookmark", false);
+user_pref("browser.urlbar.suggest.history", false);
+user_pref("browser.urlbar.suggest.openpage", false);
+user_pref("browser.urlbar.suggest.searches", false);
+user_pref("browser.urlbar.suggest.topsites", false);
+// Disable session restore bar (agent hits Escape thinking it's a popup)
+user_pref("browser.sessionstore.resume_from_crash", false);
+// Disable fullscreen API (prevents black screen on videos)
+user_pref("full-screen-api.enabled", false);
+// Disable autoplay (videos auto-playing interferes with agent + matches
+// our YouTube outreach recipe's assumption that the player is paused).
+user_pref("media.autoplay.default", 5);
+// Reduce resource usage
+user_pref("dom.ipc.processCount", 2);
+user_pref("browser.cache.disk.enable", false);
+// Hide bookmarks bar (reduces visual clutter for vision model)
+user_pref("browser.toolbars.bookmarks.visibility", "never");
+
+// === DISABLE WHAT'S NEW / FEATURE TIPS / ONBOARDING ===
+user_pref("browser.messaging-system.whatsNewPanel.enabled", false);
+user_pref("browser.uitour.enabled", false);
+user_pref("browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons", false);
+user_pref("browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features", false);
+user_pref("browser.startup.homepage_override.mstone", "ignore");
+
+// === DISABLE POCKET ===
+user_pref("extensions.pocket.enabled", false);
+
+// === GUAARDVARK VISION ASSIST EXTENSION ===
+// Allow unsigned extensions (needed for our CSS-only vision assist addon)
+user_pref("xpinstall.signatures.required", false);
+user_pref("extensions.langpacks.signatures.required", false);
+
+// === PRIVACY: Do Not Track ===
+user_pref("privacy.donottrackheader.enabled", true);
+user_pref("privacy.globalprivacycontrol.enabled", true);
+user_pref("network.http.sendRefererHeader", 1);
+user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);
+
+// === REMOTE DEBUGGING (CDP for DOM metadata extraction) ===
+// Enables Chrome DevTools Protocol on port 9222 so the agent can query
+// the DOM for interactive element bounding boxes. Localhost only.
+user_pref("devtools.debugger.remote-enabled", true);
+user_pref("devtools.chrome.enabled", true);
+user_pref("devtools.debugger.prompt-connection", false);
+
+// === ANTI-AUTOMATION-DETECTION (stealth) ===
+// Google's sign-in flow ("This browser or app may not be secure") rejects
+// browsers that look automated. The primary tell is navigator.webdriver,
+// which Firefox sets to true when remote-debugging or marionette is
+// active. dom.webdriver.enabled=false hides it from page JS while
+// keeping our CDP connection working internally.
+//
+// If Google's check still trips after this:
+//   1. Try removing --remote-debugging-port 9222 from
+//      scripts/agent_firefox_launch.sh — Google probes for CDP signatures
+//      independently of navigator.webdriver. Drop CDP and the DOM
+//      extractor stops working for Discord/Twitter/Facebook scouting; the
+//      Reddit JSON path and the OG-meta HTML scout (used for YouTube)
+//      still work.
+//   2. Override the User-Agent to a vanilla one (set general.useragent.override).
+//   3. Last resort: sign in on a non-CDP Firefox launch, save the
+//      sessionstore, then re-enable CDP for normal operation. Google's
+//      cookie is reasonably long-lived.
+user_pref("dom.webdriver.enabled", false);
+user_pref("marionette.enabled", false);
+// Fall back to a plain UA — the default Firefox UA on Linux is usually fine,
+// but if Google later starts checking for the Linux-on-Xvfb signature, set:
+//   user_pref("general.useragent.override", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0");
