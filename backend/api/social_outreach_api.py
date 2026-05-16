@@ -525,7 +525,18 @@ def _scout_generic_url(url: str) -> Dict[str, Any]:
 
     try:
         import requests as _r
-        headers = {"User-Agent": "guaardvark-outreach/0.1 scout"}
+        # Browser-like UA. The previous "guaardvark-outreach/0.1 scout" string
+        # was a tell — YouTube (and others) serve a stripped-down placeholder
+        # to obvious bots, which made every YouTube watch URL come back with
+        # empty og:title/description. The persona then drafted ungrounded
+        # comments. A real browser UA gets us the actual server-rendered meta.
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) "
+                "Gecko/20100101 Firefox/128.0"
+            ),
+            "Accept-Language": "en-US,en;q=0.5",
+        }
         resp = _r.get(url, headers=headers, timeout=10, allow_redirects=False)
 
         # Single-hop redirect with re-validated host (same guard as fetch_meta).
@@ -549,7 +560,11 @@ def _scout_generic_url(url: str) -> Dict[str, Any]:
                     return {"error": f"redirect host unresolvable: {e}"}, 400  # type: ignore[return-value]
                 resp = _r.get(next_url, headers=headers, timeout=10, allow_redirects=False)
                 url = next_url
-        html = resp.text[:200_000]
+        # 2MB cap (was 200KB). YouTube watch pages have ~600KB of inline JSON
+        # before the meta tags in <head>, so the old cap silently dropped the
+        # og:title for every video URL. Cap is still bounded so a runaway page
+        # can't OOM us; the regex is anchored on `<meta` so it's linear in cap.
+        html = resp.text[:2_000_000]
     except Exception as e:
         return {"error": f"fetch failed: {e}"}, 502  # type: ignore[return-value]
 

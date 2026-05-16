@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 # Shared platform vocabulary so the LLM doesn't invent values like "x.com"
-_KNOWN_PLATFORMS = ("reddit", "discord", "facebook", "twitter")
+_KNOWN_PLATFORMS = ("reddit", "discord", "facebook", "twitter", "youtube")
 _KNOWN_RUN_PLATFORMS = ("reddit", "self_share", "recon", "draft")
 
 
@@ -127,10 +127,13 @@ class OutreachDraftPostTool(BaseTool):
     name = "outreach_draft_post"
     description = (
         "Draft a social outreach comment or share post (does NOT post). "
-        "For mode='comment' you must supply either thread_context (the OP/comment "
-        "text) or target_url (we'll scout it). For mode='share' supply share_target "
-        "(e.g. 'r/SideProject') and optionally share_link (defaults to guaardvark.com). "
-        "The draft lands in the queue at status='drafted' for human approval."
+        "Platforms: reddit, discord, facebook, twitter, youtube. "
+        "For mode='comment' you must supply either thread_context (the OP/comment/video "
+        "description) or target_url (we'll scout it — for YouTube URLs, scrapes the video "
+        "title + description). For mode='share' supply share_target (e.g. 'r/SideProject') "
+        "and optionally share_link (defaults to guaardvark.com). "
+        "The draft lands in the queue at status='drafted' for human approval — nothing "
+        "posts until the user approves it in the OutreachPage UI."
     )
     parameters = {
         "platform": ToolParameter(
@@ -194,6 +197,12 @@ class OutreachDraftPostTool(BaseTool):
             thread_context = (kwargs.get("thread_context") or "").strip()
             # Convenience: if no thread_context but we got a URL, scout it the
             # same way the OutreachPage modal does. Saves the user from pasting.
+            # Reddit goes through the JSON API (gets OP + top comments).
+            # YouTube and everything else fall through to _scout_generic_url —
+            # for YouTube watch pages this returns the video title + the
+            # description's first paragraphs (YouTube serves OG metadata
+            # server-side), which is enough context for the persona to draft a
+            # comment that engages with the actual video topic.
             if not thread_context and target_url:
                 try:
                     from backend.api.social_outreach_api import (
@@ -213,6 +222,13 @@ class OutreachDraftPostTool(BaseTool):
                         scouted = result
                     thread_context = scouted.get("thread_context") or ""
                     target_thread_id = scouted.get("target_thread_id")
+                    # YouTube target_thread_id = video id from ?v= or /shorts/.
+                    # Useful for dedupe so we don't draft on the same video twice.
+                    if not target_thread_id and "youtube.com" in (target_url or ""):
+                        import re
+                        m = re.search(r"[?&]v=([\w-]{6,})", target_url)
+                        if m:
+                            target_thread_id = m.group(1)
                 except Exception as e:
                     logger.warning("scout fallback failed: %s", e)
             if not thread_context:
