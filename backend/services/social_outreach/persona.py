@@ -534,6 +534,15 @@ def draft_outreach_text(
         )
         result = llm(_compose_outward_facing_system(), prompt)
         draft_text = result.get("draft", "") or result.get("comment", "")
+
+        # When the caller asked for a link but the model omitted it, append
+        # the URL on a new line. The model's grade still reflects its honest
+        # read of how the comment-without-link feels; the caller opted in to
+        # this hardening, so we honor the contract. Skip when the draft is
+        # empty (model declined entirely — appending a bare URL would just
+        # be a link drop, which is exactly what we don't want).
+        if include_link and draft_text.strip() and "guaardvark.com" not in draft_text.lower():
+            draft_text = draft_text.rstrip() + f"\n\n{SITE_URL}"
     
     # Apply UTM tags to any guaardvark.com links
     draft_text = apply_utm_tags(draft_text, platform=platform, campaign=campaign)
