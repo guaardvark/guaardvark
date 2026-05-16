@@ -682,10 +682,17 @@ const VideoEditorPage = () => {
           </Paper>
         </Box>
 
-        {/* Project Bin + Song + Plan controls — bottom */}
-        <Paper elevation={2} sx={{ p: 2, minHeight: 220, display: "flex", gap: 2 }}>
+        {/* Project Bin + Song + Plan controls — bottom.
+            flex: "0 0 320px" locks the bottom row at 320px regardless of bin
+            content. Previously this used `minHeight: 220` with no cap, so
+            adding clips grew the Paper unbounded, squeezed the top preview
+            row (which has `flex: 1, minHeight: 0`), and eventually pushed
+            the Plan/Render toolbar below the viewport. BinPanel already has
+            its own `overflow: auto` so clip lists scroll inside the fixed
+            320px instead of growing the page. */}
+        <Paper elevation={2} sx={{ p: 2, flex: "0 0 320px", minHeight: 0, display: "flex", gap: 2 }}>
           {/* Left: Bin */}
-          <Box sx={{ width: 320, minWidth: 280, display: "flex", flexDirection: "column", borderRight: 1, borderColor: "divider", pr: 2 }}>
+          <Box sx={{ width: 320, minWidth: 280, display: "flex", flexDirection: "column", borderRight: 1, borderColor: "divider", pr: 2, minHeight: 0 }}>
             <BinPanel
               binClips={timeline.bin}
               selectedClipId={selectedItem?.type === "bin" ? selectedItem.id : null}

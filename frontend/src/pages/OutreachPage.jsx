@@ -543,7 +543,14 @@ const OutreachPage = () => {
   // Render
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <Box sx={{ p: 2, minHeight: "calc(100vh - 64px)" }}>
+    // Bounded scroll container. The previous `minHeight: calc(100vh - 64px)`
+    // expanded the page taller than its parent (App's main content is
+    // `overflow: hidden`), so anything past the fold was clipped — user had
+    // to zoom out to see the History panel. The 15s polling tick also caused
+    // visible "jumps" because state updates that resized child paper heights
+    // pushed the whole page up; with overflow:auto here, scroll position is
+    // preserved across renders.
+    <Box sx={{ p: 2, height: "100%", overflowY: "auto" }}>
       {/* Top status bar */}
       <Paper sx={{ p: 1.5, mb: 2, display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
         <Typography variant="h6" sx={{ mr: 2 }}>Outreach</Typography>
