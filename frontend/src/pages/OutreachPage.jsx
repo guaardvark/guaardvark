@@ -154,6 +154,31 @@ const OutreachPage = () => {
     }
   }, []);
 
+  // History: terminal-state audit rows (posted/aborted/rejected). Read-only —
+  // gives the user a click-through receipt for every comment that actually
+  // landed (or didn't) so they can verify or audit afterward. The queue panel
+  // above only shows status='drafted'; this fills the gap on the other end.
+  const [history, setHistory] = useState([]);
+  const [historyFilter, setHistoryFilter] = useState("posted");  // 'posted' | 'aborted' | 'rejected' | 'all'
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  const fetchHistory = useCallback(async () => {
+    setLoadingHistory(true);
+    try {
+      const r = await fetch(`${BASE_URL}/social-outreach/audit?limit=200`);
+      if (r.ok) {
+        const rows = await r.json();
+        setHistory(Array.isArray(rows) ? rows : []);
+      }
+    } catch (e) {
+      // Don't surface to setError — history is a "nice to have" view; queue/status
+      // failures are the ones that matter.
+      console.warn(`history fetch failed: ${e.message}`);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, []);
+
   const fetchSnippets = useCallback(async () => {
     setLoadingSnippets(true);
     try {
@@ -170,11 +195,13 @@ const OutreachPage = () => {
     fetchStatus();
     fetchQueue();
     fetchSnippets();
-    // Refresh status + queue periodically — keeps the dashboard honest
-    // about cadence and incoming drafts. 15s feels like the right pace.
-    const t = setInterval(() => { fetchStatus(); fetchQueue(); }, 15000);
+    fetchHistory();
+    // Refresh status + queue + history periodically — keeps the dashboard
+    // honest about cadence, incoming drafts, and posts as they ship. 15s
+    // feels like the right pace.
+    const t = setInterval(() => { fetchStatus(); fetchQueue(); fetchHistory(); }, 15000);
     return () => clearInterval(t);
-  }, [fetchStatus, fetchQueue, fetchSnippets]);
+  }, [fetchStatus, fetchQueue, fetchSnippets, fetchHistory]);
 
   const selectQueueItem = (row) => {
     setSelected(row);
@@ -887,6 +914,124 @@ const OutreachPage = () => {
           )}
         </Stack>
       </Box>
+
+      {/* ── History (read-only audit trail) ─────────────────────────── */}
+      <Paper sx={{ p: 2, mt: 2 }}>
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
+          <Typography variant="subtitle2" sx={{ flex: 1 }}>
+            History
+          </Typography>
+          {["posted", "aborted", "rejected", "all"].map((f) => (
+            <Chip
+              key={f}
+              size="small"
+              label={f}
+              variant={historyFilter === f ? "filled" : "outlined"}
+              color={historyFilter === f ? "primary" : "default"}
+              onClick={() => setHistoryFilter(f)}
+              sx={{ textTransform: "capitalize" }}
+            />
+          ))}
+          <Tooltip title="Refresh now">
+            <IconButton size="small" onClick={fetchHistory} disabled={loadingHistory}>
+              <RefreshIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Stack>
+        {loadingHistory && history.length === 0 ? (
+          <CircularProgress size={20} />
+        ) : (() => {
+          const filtered = historyFilter === "all"
+            ? history.filter((r) => ["posted", "aborted", "rejected"].includes(r.status))
+            : history.filter((r) => r.status === historyFilter);
+          if (filtered.length === 0) {
+            return (
+              <Typography variant="body2" color="text.secondary">
+                Nothing in this view yet. Drafts that get approved and successfully post will appear under 'posted'; servo failures land under 'aborted'; ones you reject in the queue land under 'rejected'.
+              </Typography>
+            );
+          }
+          return (
+            <Box sx={{ maxHeight: 480, overflowY: "auto" }}>
+              <List dense disablePadding>
+                {filtered.map((row) => {
+                  const ts = row.created_at ? new Date(row.created_at) : null;
+                  const text = (row.posted_text || row.draft_text || "").trim();
+                  const statusColor = row.status === "posted" ? "success"
+                                    : row.status === "aborted" ? "error"
+                                    : "default";
+                  return (
+                    <Box
+                      key={row.id}
+                      sx={{
+                        py: 0.75, px: 1, mb: 0.5,
+                        borderRadius: 1,
+                        bgcolor: "background.default",
+                        borderLeft: 3,
+                        borderColor: row.status === "posted" ? "success.main"
+                                   : row.status === "aborted" ? "error.main"
+                                   : "divider",
+                      }}
+                    >
+                      <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+                        <Tooltip title={ts ? ts.toString() : ""}>
+                          <Typography variant="caption" color="text.secondary" sx={{ minWidth: 130 }}>
+                            {ts ? ts.toLocaleString() : "—"}
+                          </Typography>
+                        </Tooltip>
+                        <Chip size="small" label={row.platform} sx={{ height: 18, fontSize: "0.65rem" }} />
+                        <Chip
+                          size="small"
+                          label={row.status}
+                          color={statusColor}
+                          sx={{ height: 18, fontSize: "0.65rem" }}
+                        />
+                        {row.target_url ? (
+                          <Link
+                            href={row.target_url}
+                            target="_blank"
+                            rel="noopener"
+                            sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, fontSize: "0.8rem", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                          >
+                            {row.target_url} <OpenInNewIcon fontSize="inherit" />
+                          </Link>
+                        ) : (
+                          <Typography variant="caption" color="text.disabled" sx={{ flex: 1 }}>
+                            (no target url)
+                          </Typography>
+                        )}
+                        <Typography variant="caption" color="text.disabled">
+                          #{row.id}
+                        </Typography>
+                      </Stack>
+                      {text && (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{
+                            mt: 0.5,
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                          }}
+                        >
+                          {text}
+                        </Typography>
+                      )}
+                      {row.abort_reason && (
+                        <Typography variant="caption" color="error.main" sx={{ display: "block", mt: 0.25 }}>
+                          {row.abort_reason}
+                        </Typography>
+                      )}
+                    </Box>
+                  );
+                })}
+              </List>
+            </Box>
+          );
+        })()}
+      </Paper>
 
       {/* ── New Draft modal ─────────────────────────────────────────── */}
       <Dialog
