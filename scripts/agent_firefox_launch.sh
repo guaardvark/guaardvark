@@ -58,11 +58,22 @@ for lf in "$PROFILE_DIR/lock" "$PROFILE_DIR/.parentlock"; do
     [ -e "$lf" ] && rm -f "$lf"
 done
 
+# CDP (Chrome DevTools Protocol) is opt-in. Google's sign-in flow probes for
+# the CDP signature independently of navigator.webdriver and shows "This
+# browser or app may not be secure" when it's on — see
+# scripts/firefox_user.js.template §ANTI-AUTOMATION-DETECTION. Default off so
+# Google/YouTube login works out of the box. The social-outreach DOM scout
+# (Discord/Twitter/Facebook) needs CDP; set GUAARDVARK_AGENT_CDP=1 to enable.
+CDP_ARGS=()
+if [ "${GUAARDVARK_AGENT_CDP:-0}" = "1" ]; then
+    CDP_ARGS=(--remote-debugging-port "${GUAARDVARK_AGENT_CDP_PORT:-9222}")
+fi
+
 # Launch detached so the wrapper script returns quickly (tint2 doesn't want
 # its launcher process held open). nohup + & + redirect, no exec — exec would
 # replace the shell with firefox and the trailing & wouldn't apply correctly.
 nohup firefox \
     --no-remote \
-    --remote-debugging-port 9222 \
+    "${CDP_ARGS[@]}" \
     --profile "$PROFILE_DIR" \
     >/dev/null 2>&1 &

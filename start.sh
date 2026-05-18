@@ -1587,6 +1587,12 @@ ensure_agent_display() {
     if [ -x "$AGENT_DISPLAY_SCRIPT" ]; then
         if pgrep -f "Xvfb :${GUAARDVARK_AGENT_DISPLAY:-99}" > /dev/null 2>&1; then
             vader_success "Agent virtual display already running (:${GUAARDVARK_AGENT_DISPLAY:-99})"
+            # Even when the display is already up, re-sync the user's browser
+            # profile so cookies/logins added since the last boot land in the
+            # agent profile. Cheap idempotent operation; skips if agent
+            # Firefox is currently running (would corrupt SQLite copies).
+            vader_info "Re-syncing browser profile from user account..."
+            bash "$AGENT_DISPLAY_SCRIPT" sync 2>&1 | while read line; do vader_info "  $line"; done
             AGENT_DISPLAY_STARTED=1
             return 0
         fi

@@ -183,6 +183,31 @@ XDGDIRS
     fi
 }
 
+seed_xfconf_from_template() {
+    # On a fresh CLIENT the agent's XDG_CONFIG_HOME has no xfconf files yet,
+    # so xfdesktop boots to the stock XFCE wallpaper and the panel comes up
+    # with the default mouse-shaped icon instead of the blue Guaardvark look.
+    # Drop the canonical XMLs from scripts/xfce_template/xfconf/ into place
+    # when missing. The Interconnector syncs scripts/ to every CLIENT, so
+    # this is how the master's appearance reaches the rest of the fleet.
+    #
+    # Only seeds when the target is absent — if the user has tweaked the
+    # wallpaper from XFCE settings, that customization sticks across boots.
+    local channel_dir="$1/xfce4/xfconf/xfce-perchannel-xml"
+    local template_dir="$GUAARDVARK_ROOT/scripts/xfce_template/xfconf"
+    [ -d "$template_dir" ] || return 0
+    mkdir -p "$channel_dir"
+    for f in "$template_dir"/*.xml; do
+        [ -f "$f" ] || continue
+        local name=$(basename "$f")
+        if [ ! -f "$channel_dir/$name" ]; then
+            cp "$f" "$channel_dir/$name"
+            chmod 644 "$channel_dir/$name"
+            echo "  Seeded $name from template"
+        fi
+    done
+}
+
 ensure_xfwm4_no_compositing() {
     # xfwm4 ships with use_compositing=true by default. On Xvfb (which only
     # has Mesa's software GLX, no real GPU), that compositor leaves visible
@@ -362,6 +387,7 @@ start_xfce_session() {
     chmod 700 "$agent_runtime_dir"
 
     write_agent_xdg_user_dirs "$agent_config_home"
+    seed_xfconf_from_template "$agent_config_home"
     ensure_xfdesktop_single_click "$agent_config_home"
     ensure_xfwm4_no_compositing "$agent_config_home"
 
@@ -522,24 +548,92 @@ sync_firefox_session() {
         user_profile=$(find "$HOME/snap/firefox/common/.mozilla/firefox" "$HOME/.mozilla/firefox" "$HOME/.config/mozilla/firefox" \
             -maxdepth 1 -name "*.default" -type d 2>/dev/null | head -1)
     fi
-    if [ -n "$user_profile" ] && [ -d "$user_profile" ]; then
-        echo "  Syncing session from: $user_profile"
-        for f in cookies.sqlite logins.json key4.db cert9.db permissions.sqlite \
-                 formhistory.sqlite places.sqlite webappsstore.sqlite; do
-            [ -f "$user_profile/$f" ] && cp "$user_profile/$f" "$profile_dir/$f" 2>/dev/null
-        done
-        if [ -d "$user_profile/storage" ]; then
-            rsync -a --quiet "$user_profile/storage/" "$profile_dir/storage/" 2>/dev/null
-            echo "  Synced localStorage (auth tokens for all sites)"
-        fi
-        echo "  Session data synced (cookies, logins, bookmarks, localStorage)"
-        # Harden permissions on synced credential files
-        chmod 700 "$profile_dir"
-        chmod 600 "$profile_dir"/{key4.db,cert9.db,logins.json,cookies.sqlite,formhistory.sqlite,permissions.sqlite} 2>/dev/null
-        [ -d "$profile_dir/storage" ] && chmod -R go-rwx "$profile_dir/storage"
-    else
+    if [ -z "$user_profile" ] || [ ! -d "$user_profile" ]; then
         echo "  No Firefox profile found to sync cookies from (fresh profile)"
+        return 0
     fi
+
+    # Refuse to clobber a live agent Firefox — its locks would corrupt the
+    # SQLite copy and our cp would race its writes. If the agent has Firefox
+    # open on :99, leave the profile alone.
+    for pid in $(pgrep firefox 2>/dev/null); do
+        if grep -qaz "DISPLAY=:$DISPLAY_NUM" /proc/$pid/environ 2>/dev/null; then
+            echo "  Agent Firefox is running on :$DISPLAY_NUM (PID $pid) — skipping sync to avoid corruption"
+            return 0
+        fi
+    done
+
+    echo "  Syncing session from: $user_profile"
+    mkdir -p "$profile_dir"
+
+    # Stale lock files from a previous run would make Firefox refuse to open
+    # the profile we just rewrote. Safe to remove because we verified above
+    # that no agent Firefox is running.
+    rm -f "$profile_dir"/lock "$profile_dir"/.parentlock
+    # Stale sidecars from a previous (different-shape) sync would confuse
+    # SQLite — wipe them so each DB gets a clean pair from the user profile.
+    rm -f "$profile_dir"/*.sqlite-wal "$profile_dir"/*.sqlite-shm "$profile_dir"/*.sqlite-journal
+
+    # SQLite databases — user's Firefox holds an exclusive lock, so
+    # `sqlite3 .backup` fails. Copying `.sqlite` alone loses everything still
+    # sitting in the `-wal` (recent logins, cookies). Copy main + wal + shm
+    # together so the agent's Firefox replays the WAL on first open. Worst
+    # case the WAL tail is mid-write and SQLite drops the corrupt frame —
+    # acceptable, far better than a stale main file.
+    local sqlite_dbs="cookies.sqlite key4.db cert9.db permissions.sqlite \
+                     formhistory.sqlite places.sqlite favicons.sqlite \
+                     content-prefs.sqlite webappsstore.sqlite storage.sqlite \
+                     signons.sqlite"
+    for db in $sqlite_dbs; do
+        [ -f "$user_profile/$db" ] || continue
+        cp "$user_profile/$db" "$profile_dir/$db" 2>/dev/null
+        [ -f "$user_profile/$db-wal" ] && cp "$user_profile/$db-wal" "$profile_dir/$db-wal" 2>/dev/null
+        [ -f "$user_profile/$db-shm" ] && cp "$user_profile/$db-shm" "$profile_dir/$db-shm" 2>/dev/null
+    done
+
+    # Non-SQLite session files — Firefox writes these atomically.
+    # logins.json holds Firefox-saved passwords (encrypted with key4.db),
+    # pkcs11.txt/cert_override.txt round out the NSS/cert state so HTTPS
+    # exceptions match the user's profile.
+    for f in logins.json logins-backup.json signedInUser.json containers.json \
+             handlers.json extensions.json extension-preferences.json \
+             prefs.js compatibility.ini times.json addonStartup.json.lz4 \
+             pkcs11.txt cert_override.txt; do
+        [ -f "$user_profile/$f" ] && cp "$user_profile/$f" "$profile_dir/$f" 2>/dev/null
+    done
+
+    # sessionstore-backups holds the "logged-in tab" recovery state Firefox
+    # restores on startup. Without these the agent boots to a blank profile
+    # even with cookies present, and some sites trigger re-auth flows when
+    # they don't find a recovery anchor.
+    rm -f "$profile_dir/sessionstore.jsonlz4"
+    mkdir -p "$profile_dir/sessionstore-backups"
+    if [ -d "$user_profile/sessionstore-backups" ]; then
+        for f in "$user_profile"/sessionstore-backups/*.jsonlz4 "$user_profile"/sessionstore-backups/*.baklz4; do
+            [ -f "$f" ] && cp "$f" "$profile_dir/sessionstore-backups/$(basename "$f")" 2>/dev/null
+        done
+    fi
+
+    # IndexedDB + localStorage + OPFS — modern SPAs (Claude, Gemini,
+    # YouTube Studio, Reddit's new UI) keep auth tokens HERE, not in cookies.
+    # --delete drops any agent-side cruft so the agent matches user state.
+    if [ -d "$user_profile/storage" ]; then
+        rsync -a --delete --quiet "$user_profile/storage/" "$profile_dir/storage/" 2>/dev/null
+        echo "  Synced storage/ ($(du -sh "$profile_dir/storage" 2>/dev/null | cut -f1) — IndexedDB/localStorage/OPFS)"
+    fi
+    # storage-sync-v2 is the new WebExtension storage.sync backend.
+    for f in storage-sync-v2.sqlite storage-sync-v2.sqlite-wal storage-sync-v2.sqlite-shm; do
+        [ -f "$user_profile/$f" ] && cp "$user_profile/$f" "$profile_dir/$f" 2>/dev/null
+    done
+    if [ -d "$user_profile/bookmarkbackups" ]; then
+        rsync -a --quiet "$user_profile/bookmarkbackups/" "$profile_dir/bookmarkbackups/" 2>/dev/null
+    fi
+
+    echo "  Session data synced (cookies, logins, bookmarks, localStorage)"
+    # Harden permissions on synced credential files
+    chmod 700 "$profile_dir"
+    chmod 600 "$profile_dir"/{key4.db,cert9.db,logins.json,cookies.sqlite,formhistory.sqlite,permissions.sqlite} 2>/dev/null
+    [ -d "$profile_dir/storage" ] && chmod -R go-rwx "$profile_dir/storage"
 }
 
 sync_chromium_session() {
@@ -824,12 +918,27 @@ status() {
     pgrep -f "x11vnc.*-rfbport $VNC_PORT" > /dev/null 2>&1 && echo "  x11vnc:   RUNNING (port $VNC_PORT)" || echo "  x11vnc:   STOPPED"
 }
 
+sync_only() {
+    # Re-sync the user's browser profile into the agent profile WITHOUT
+    # touching Xvfb, XFCE, x11vnc, etc. Called by start.sh on every boot so
+    # cookies/logins added since the last sync propagate even when the agent
+    # display has been up the whole time.
+    if [ -z "$BROWSER" ]; then
+        echo "No browser configured — skipping sync"
+        return 0
+    fi
+    echo "Re-syncing $BROWSER_NAME profile from user account..."
+    sync_browser_session "$BROWSER" "$PROFILE_DIR"
+    init_browser_profile "$BROWSER" "$PROFILE_DIR"
+}
+
 case "${1:-start}" in
     start)  start ;;
     stop)   stop ;;
     status) status ;;
+    sync)   sync_only ;;
     restart) stop; sleep 2; start ;;
-    *) echo "Usage: $0 {start|stop|status|restart}" ;;
+    *) echo "Usage: $0 {start|stop|status|sync|restart}" ;;
 esac
 
 # ---------------------------------------------------------------------------

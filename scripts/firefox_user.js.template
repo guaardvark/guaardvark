@@ -168,30 +168,19 @@ user_pref("network.http.sendRefererHeader", 1);
 user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);
 
 // === REMOTE DEBUGGING (CDP for DOM metadata extraction) ===
-// Enables Chrome DevTools Protocol on port 9222 so the agent can query
-// the DOM for interactive element bounding boxes. Localhost only.
-user_pref("devtools.debugger.remote-enabled", true);
-user_pref("devtools.chrome.enabled", true);
-user_pref("devtools.debugger.prompt-connection", false);
+// CDP gives the agent DOM bounding boxes but Google detects it on the
+// /v3/signin flow and shows "This browser or app may not be secure" — the
+// devtools.debugger.* prefs alone are enough of a signature to trip the
+// check, even when --remote-debugging-port isn't passed on the command line.
+// Off by default; agent_firefox_launch.sh respects GUAARDVARK_AGENT_CDP=1
+// for the social-outreach scout that actually needs CDP.
+user_pref("devtools.debugger.remote-enabled", false);
+user_pref("devtools.chrome.enabled", false);
+user_pref("devtools.debugger.prompt-connection", true);
 
 // === ANTI-AUTOMATION-DETECTION (stealth) ===
-// Google's sign-in flow ("This browser or app may not be secure") rejects
-// browsers that look automated. The primary tell is navigator.webdriver,
-// which Firefox sets to true when remote-debugging or marionette is
-// active. dom.webdriver.enabled=false hides it from page JS while
-// keeping our CDP connection working internally.
-//
-// If Google's check still trips after this:
-//   1. Try removing --remote-debugging-port 9222 from
-//      scripts/agent_firefox_launch.sh — Google probes for CDP signatures
-//      independently of navigator.webdriver. Drop CDP and the DOM
-//      extractor stops working for Discord/Twitter/Facebook scouting; the
-//      Reddit JSON path and the OG-meta HTML scout (used for YouTube)
-//      still work.
-//   2. Override the User-Agent to a vanilla one (set general.useragent.override).
-//   3. Last resort: sign in on a non-CDP Firefox launch, save the
-//      sessionstore, then re-enable CDP for normal operation. Google's
-//      cookie is reasonably long-lived.
+// Belt-and-suspenders for the rare path that flips remote-debugging back on:
+// hide navigator.webdriver from page JS and keep marionette disabled.
 user_pref("dom.webdriver.enabled", false);
 user_pref("marionette.enabled", false);
 // Fall back to a plain UA — the default Firefox UA on Linux is usually fine,
