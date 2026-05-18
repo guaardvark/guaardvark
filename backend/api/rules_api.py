@@ -12,17 +12,16 @@ rules_bp = Blueprint("rules_api", __name__, url_prefix="/api/rules")
 
 @rules_bp.route("", methods=["GET"])
 def get_rules():
-    """List rules, optionally filtered by project, type, or active status.
-
-    Query parameters:
-        project_id: Optional project id used to return rules linked to that project.
-        type: Optional rule type filter, such as COMMAND_RULE.
-        is_active: Optional boolean-like active-state filter.
-        page: Optional page number, defaulting to 1.
-        per_page: Optional page size capped at 100, defaulting to 50.
-
-    Returns:
-        A JSON array of rule objects ordered by most recent update.
+    """
+        List rules, optionally filtered by project, type, or active status.
+        Query parameters:
+            project_id: Optional project id used to return rules linked to that project.
+            type: Optional rule type filter, such as COMMAND_RULE.
+            is_active: Optional boolean-like active-state filter.
+            page: Optional page number, defaulting to 1.
+            per_page: Optional page size capped at 100, defaulting to 50.
+        Returns:
+            A JSON array of rule objects ordered by most recent update.
     """
     try:
         project_id_filter = request.args.get("project_id", type=int)
@@ -58,14 +57,13 @@ def get_rules():
 
 @rules_bp.route("/<int:rule_id>", methods=["GET"])
 def get_rule(rule_id):
-    """Return one rule by id.
-
-    Path parameters:
-        rule_id: Database id of the rule to retrieve.
-
-    Returns:
-        A standard success envelope containing the serialized rule, or a
-        NOT_FOUND error when the rule does not exist.
+    """
+        Return one rule by id.
+        Path parameters:
+            rule_id: Database id of the rule to retrieve.
+        Returns:
+            A standard success envelope containing the serialized rule, or a
+            NOT_FOUND error when the rule does not exist.
     """
     rule = db.session.get(Rule, rule_id)
     if not rule:
@@ -75,18 +73,17 @@ def get_rule(rule_id):
 
 @rules_bp.route("", methods=["POST"])
 def create_rule():
-    """Create a new rule from a JSON request body.
-
-    Expected JSON fields:
-        name: Required rule name.
-        rule_text: Required rule body.
-        level: Optional rule level, defaulting to PROMPT.
-        type, command_label, reference_id, description, target_models,
-        is_active, project_id: Optional rule metadata.
-
-    Returns:
-        A standard success envelope containing the created rule id, or a
-        validation/database error envelope.
+    """
+        Create a new rule from a JSON request body.
+        Expected JSON fields:
+            name: Required rule name.
+            rule_text: Required rule body.
+            level: Optional rule level, defaulting to PROMPT.
+            type, command_label, reference_id, description, target_models,
+            is_active, project_id: Optional rule metadata.
+        Returns:
+            A standard success envelope containing the created rule id, or a
+            validation/database error envelope.
     """
     # Input validation
     if not request.is_json:
@@ -156,20 +153,18 @@ def create_rule():
 
 @rules_bp.route("/<int:rule_id>", methods=["PUT"])
 def update_rule(rule_id):
-    """Update an existing rule with fields from a JSON request body.
-
-    Path parameters:
-        rule_id: Database id of the rule to update.
-
-    Expected JSON fields:
-        Any editable rule field, including name, level, type, command_label,
-        reference_id, rule_text, description, target_models, is_active, or
-        project_id.
-
-    Returns:
-        A standard success envelope when the update is committed, or an error
-        envelope for missing rules, duplicate command labels, or database
-        failures.
+    """
+        Update an existing rule with fields from a JSON request body.
+        Path parameters:
+            rule_id: Database id of the rule to update.
+        Expected JSON fields:
+            Any editable rule field, including name, level, type, command_label,
+            reference_id, rule_text, description, target_models, is_active, or
+            project_id.
+        Returns:
+            A standard success envelope when the update is committed, or an error
+            envelope for missing rules, duplicate command labels, or database
+            failures.
     """
     data = request.get_json()
     rule = db.session.get(Rule, rule_id)
@@ -216,14 +211,13 @@ def update_rule(rule_id):
 
 @rules_bp.route("/<int:rule_id>", methods=["DELETE"])
 def delete_rule(rule_id):
-    """Delete one rule by id.
-
-    Path parameters:
-        rule_id: Database id of the rule to delete.
-
-    Returns:
-        A standard success envelope after deletion, or an error envelope when
-        the rule is missing or the database delete fails.
+    """
+        Delete one rule by id.
+        Path parameters:
+            rule_id: Database id of the rule to delete.
+        Returns:
+            A standard success envelope after deletion, or an error envelope when
+            the rule is missing or the database delete fails.
     """
     rule = db.session.get(Rule, rule_id)
     if not rule:
@@ -241,11 +235,9 @@ def delete_rule(rule_id):
 def purge_learned_rules():
     """
        Delete all rules with level set to "LEARNED".
-
        Returns:
             Success message with count of deleted rules.
-
-        Errors:
+       Errors:
             500: Database error
     """
     try:
