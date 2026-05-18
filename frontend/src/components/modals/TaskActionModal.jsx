@@ -17,7 +17,6 @@ import {
   Autocomplete,
   Typography,
   IconButton,
-  Tooltip,
   MenuItem,
   Select,
   FormControl,
@@ -27,7 +26,6 @@ import {
   Divider,
   Card,
   CardContent,
-  CardActions,
   Radio,
   RadioGroup,
   FormControlLabel,
@@ -118,7 +116,7 @@ const TaskActionModal = ({
   const [batchSize, setBatchSize] = useState(10);
 
   // Progress integration
-  const { activeProcesses, getProcess } = useUnifiedProgress();
+  const { _activeProcesses, getProcess } = useUnifiedProgress();
   
   const isEditMode = !!taskData;
   const isFileGeneration = formData.type === "file_generation";

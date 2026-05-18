@@ -14,7 +14,6 @@ import {
   MenuItem,
   FormControlLabel,
   Checkbox,
-  Typography,
 } from "@mui/material";
 
 const DeviceProfileModal = ({

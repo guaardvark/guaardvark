@@ -40,35 +40,6 @@ logger = logging.getLogger(__name__)
 # ═══════════════════════════════════════════════════════════════════════════
 
 REFLEXES = {
-    # Coordinate scaling: vision models return coords in internal resolution,
-    # not screen pixels. Multiply raw coords by this factor.
-    # Discovered: 2026-03-25 manual debugging session
-    # Confirmed by: 3 buttons tested, all within 16px after scaling
-    "coordinate_scale_x": {
-        "value": 1.25,
-        "source": "manual_calibration_2026_03_25",
-        "confidence": 0.85,
-        "model": "qwen2.5vl:7b-q4_K_M",
-        "notes": "Vision models internally resize to ~1024px wide. Screen is 1280px. 1280/1024 = 1.25",
-    },
-    "coordinate_scale_y": {
-        "value": 1.25,
-        "source": "manual_calibration_2026_03_25",
-        "confidence": 0.85,
-        "model": "qwen2.5vl:7b-q4_K_M",
-        "notes": "Same ratio applies vertically: 720 / (1024 * 720/1280) = 1.25",
-    },
-
-    # Model-specific internal resolution (pixels).
-    # The servo divides screen_width by this to get the scale factor.
-    "model_internal_width": {
-        "value": 1024,
-        "source": "manual_calibration_2026_03_25",
-        "confidence": 0.85,
-        "model": "universal",
-        "notes": "Both moondream and qwen2.5vl use ~1024px internal width",
-    },
-
     # Nudge distances for correction loop (pixels)
     "nudge_small": {"value": 10, "source": "initial_design", "confidence": 0.5, "model": "universal"},
     "nudge_medium": {"value": 40, "source": "initial_design", "confidence": 0.5, "model": "universal"},
@@ -85,6 +56,82 @@ REFLEXES = {
 }
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# MODEL VISION CONFIGS
+# Per-model calibration: scale factors, which vision model to use for
+# coordinate estimation, and whether the model can see screenshots natively.
+#
+# When the user selects a chat model on the frontend, the agent loads
+# the matching vision config so coordinates land correctly.
+#
+# "vision_model": None means the model sees screenshots itself.
+# "vision_model": "moondream:latest" means use moondream as external eyes.
+# "internal_width": the pixel width the model thinks in (for scaling).
+# ═══════════════════════════════════════════════════════════════════════════
+
+MODEL_VISION_CONFIGS = {
+    # -- Models with native vision (can see screenshots directly) --
+    "gemma4:e4b": {
+        "has_vision": True,
+        "vision_model": None,            # gemma4 does its own coordinate estimation — no middleman
+        "internal_width": 1000,          # Gemma4 via Ollama returns box_2d normalized to 1000 (Google standard) — parser denormalizes to actual screen pixels
+        "scale_x": 1.0,
+        "scale_y": 1.0,
+        "offset_x": 0,
+        "offset_y": 0,
+        "native_pointing": True,         # uses box_2d natively
+        "coord_order": "yx",             # Gemma4 via Ollama returns Google's box_2d format: [y1, x1, y2, x2]
+        "source": "google_box_2d_normalized_1000_2026_05_11",
+        "notes": "Gemma4 via Ollama returns box_2d normalized to 1000 (Google standard). Parser denormalizes: (coord/1000)*screen_size. Works on any screen resolution.",
+    },
+    "moondream:latest": {
+        "has_vision": True,
+        "vision_model": None,
+        "internal_width": 1024,
+        "scale_x": 1.25,
+        "scale_y": 0.7031,
+        "source": "16_9_screen_calibration_2026_04_10",
+        "notes": "Moondream uses ~1024px internal width. 1280x720 screen / 1024 internal = 1.25x scale.",
+    },
+
+    # -- Text-only models (need an external vision model for eyes) --
+    "llama3:latest": {
+        "has_vision": False,
+        "vision_model": "moondream:latest",
+        "internal_width": 1024,
+        "scale_x": 1.25,
+        "scale_y": 0.7031,
+        "source": "16_9_screen_calibration_2026_04_10",
+        "notes": "Llama3 has no vision — uses moondream as eyes. 1280x720 screen / 1024 internal = 1.25x scale.",
+    },
+    "ministral-3:latest": {
+        "has_vision": False,
+        "vision_model": "moondream:latest",
+        "internal_width": 1024,
+        "scale_x": 1.25,
+        "scale_y": 0.7031,
+        "source": "16_9_screen_calibration_2026_04_10",
+        "notes": "Text-only, uses moondream as eyes. 1280x720 screen / 1024 internal = 1.25x scale.",
+    },
+}
+
+# Fallback for models not in the config — assumes vision-capable like gemma4
+_DEFAULT_VISION_CONFIG = {
+    "has_vision": True,
+    "vision_model": None,
+    "internal_width": 1000,
+    "scale_x": 1.0,
+    "scale_y": 1.0,
+    "source": "default_gemma4_shape",
+    "notes": "Unknown model — assume gemma4-style native vision with box_2d at 1000.",
+}
+
+MODEL_ALIASES = {
+    "gemma4": "gemma4:e4b",
+    "gemma4:e4b-q4": "gemma4:e4b",
+}
+
+
 def get_reflex(name: str, default=None):
     """Get a reflex value instantly. No I/O, no lookup."""
     reflex = REFLEXES.get(name)
@@ -93,15 +140,55 @@ def get_reflex(name: str, default=None):
     return reflex["value"]
 
 
-def get_scale_factors(screen_w: int = 1280, screen_h: int = 720) -> Tuple[float, float]:
-    """Get coordinate scaling factors for the current model.
+def get_vision_config(model_name: str = "") -> Dict[str, Any]:
+    """Get the vision config for a specific model.
 
+    Matches exact names plus explicit aliases.
+    Falls back to _DEFAULT_VISION_CONFIG for unknown models.
+    """
+    if not model_name:
+        # Try to detect active model
+        model_name = _detect_active_model()
+    model_name = (model_name or "").strip()
+    alias_target = MODEL_ALIASES.get(model_name)
+    if alias_target:
+        model_name = alias_target
+
+    # Exact match first
+    if model_name in MODEL_VISION_CONFIGS:
+        return MODEL_VISION_CONFIGS[model_name]
+
+    # Conservative variant match: allow suffixes on a full configured tag only.
+    for key, config in MODEL_VISION_CONFIGS.items():
+        if model_name.startswith(f"{key}-") or model_name.startswith(f"{key}:"):
+            return config
+
+    logger.info(f"No vision config for '{model_name}', using defaults")
+    return _DEFAULT_VISION_CONFIG
+
+
+def _detect_active_model() -> str:
+    """Detect the currently active chat model from Ollama."""
+    try:
+        import requests as _requests
+        resp = _requests.get("http://localhost:11434/api/ps", timeout=3)
+        if resp.status_code == 200:
+            models = resp.json().get("models", [])
+            if models:
+                return models[0].get("name", "")
+    except Exception:
+        pass
+    return ""
+
+
+def get_scale_factors(screen_w: int = 1024, screen_h: int = 1024, model_name: str = "") -> Tuple[float, float]:
+    """Get coordinate scaling factors for a specific model.
+
+    Uses per-model calibration from MODEL_VISION_CONFIGS.
     Returns (scale_x, scale_y) to multiply raw model coordinates by.
     """
-    internal_w = get_reflex("model_internal_width", 1024)
-    scale_x = screen_w / internal_w
-    scale_y = screen_h / (internal_w * screen_h / screen_w)
-    return scale_x, scale_y
+    config = get_vision_config(model_name)
+    return config["scale_x"], config["scale_y"]
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -153,6 +240,16 @@ class ServoArchive:
         time_ms: int = 0,
         screen_size: Tuple[int, int] = (1280, 720),
         ui_element_type: str = "",
+        correction_log: Optional[List[Dict]] = None,
+        raw_response: str = "",
+        parse_path: str = "",
+        detection_source: str = "",
+        vision_config: Optional[Dict[str, Any]] = None,
+        target_found: bool = False,
+        click_issued: bool = False,
+        post_action_effect: str = "",
+        reason: str = "",
+        inference_ms: int = 0,
     ):
         """Record a servo interaction to the universal archive."""
         entry = {
@@ -169,18 +266,34 @@ class ServoArchive:
             "time_ms": time_ms,
             "screen_size": list(screen_size),
             "ui_element_type": ui_element_type,
-            # Computed: error between scaled prediction and actual click
-            "error_px": round(
-                ((scaled_coords[0] - actual_click_coords[0]) ** 2 +
-                 (scaled_coords[1] - actual_click_coords[1]) ** 2) ** 0.5, 1
-            ),
+            "raw_response": raw_response[:2000],
+            "parse_path": parse_path,
+            "detection_source": detection_source,
+            "vision_config_source": (vision_config or {}).get("source", ""),
+            "vision_internal_width": (vision_config or {}).get("internal_width"),
+            "target_found": target_found,
+            "click_issued": click_issued,
+            "post_action_effect": post_action_effect,
+            "reason": reason,
+            "inference_ms": inference_ms,
+            # Deprecated: this is prediction-vs-issued-click, not target error.
+            # Keep the field for readers, but do not treat it as calibration truth.
+            "error_px": None,
         }
+
+        # Include correction directions so the self-improvement engine
+        # can see which way the model was consistently off
+        if correction_log:
+            entry["correction_log"] = correction_log
 
         with self._write_lock:
             with open(self._archive_path, "a") as f:
                 f.write(json.dumps(entry) + "\n")
 
-        logger.debug(f"Archive: {target_description} success={success} error={entry['error_px']}px")
+        logger.debug(
+            f"Archive: {target_description} success={success} "
+            f"source={detection_source or 'unknown'} issued={click_issued}"
+        )
 
     def get_stats(self) -> Dict[str, Any]:
         """Get aggregate statistics from the archive."""
@@ -201,7 +314,9 @@ class ServoArchive:
                     total += 1
                     if entry.get("success"):
                         successful += 1
-                    total_error += entry.get("error_px", 0)
+                    error_px = entry.get("error_px")
+                    error_value = float(error_px) if isinstance(error_px, (int, float)) else 0.0
+                    total_error += error_value
 
                     model = entry.get("model", "unknown")
                     if model not in by_model:
@@ -209,7 +324,7 @@ class ServoArchive:
                     by_model[model]["total"] += 1
                     if entry.get("success"):
                         by_model[model]["successful"] += 1
-                    by_model[model]["total_error"] += entry.get("error_px", 0)
+                    by_model[model]["total_error"] += error_value
                 except json.JSONDecodeError:
                     continue
 
@@ -228,6 +343,79 @@ class ServoArchive:
             "avg_error_px": round(total_error / total, 1) if total else 0,
             "by_model": model_stats,
             "archive_path": str(self._archive_path),
+        }
+
+    def get_run_metrics(self, since: str | None = None) -> Dict[str, Any]:
+        """Aggregate post-hardening servo metrics from the archive.
+
+        Args:
+            since: Optional ISO timestamp. Entries older than this are ignored.
+        """
+        if not self._archive_path.exists():
+            return {
+                "total": 0,
+                "task_success_rate": 0.0,
+                "verified_outcome_rate": 0.0,
+                "target_not_visible_rate": 0.0,
+                "parse_failure_rate": 0.0,
+                "recipe_fallback_rate": 0.0,
+                "mean_vlm_latency_ms": 0.0,
+            }
+
+        since_dt = None
+        if since:
+            try:
+                since_dt = datetime.fromisoformat(str(since).replace("Z", "+00:00"))
+            except Exception:
+                since_dt = None
+
+        total = successes = verified = target_not_visible = parse_failures = recipe_fallbacks = 0
+        latency_total = latency_count = 0
+
+        with open(self._archive_path) as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if since_dt is not None:
+                    try:
+                        ts = datetime.fromisoformat(str(entry.get("timestamp", "")).replace("Z", "+00:00"))
+                        if ts < since_dt:
+                            continue
+                    except Exception:
+                        pass
+                total += 1
+                if entry.get("success"):
+                    successes += 1
+                if entry.get("post_action_effect") == "verified" or entry.get("verified"):
+                    verified += 1
+                reason = (entry.get("reason") or "").lower()
+                if entry.get("target_found") is False or reason == "target_not_visible":
+                    target_not_visible += 1
+                parse_path = (entry.get("parse_path") or "").lower()
+                if parse_path in ("", "vision_error", "parse_failed") and entry.get("detection_source") == "vision":
+                    parse_failures += 1
+                if "recipe_fallback" in reason:
+                    recipe_fallbacks += 1
+                latency = entry.get("inference_ms")
+                if isinstance(latency, (int, float)) and latency > 0:
+                    latency_total += float(latency)
+                    latency_count += 1
+
+        def rate(count: int) -> float:
+            return round((count / total) * 100, 2) if total else 0.0
+
+        return {
+            "total": total,
+            "task_success_rate": rate(successes),
+            "verified_outcome_rate": rate(verified),
+            "target_not_visible_rate": rate(target_not_visible),
+            "parse_failure_rate": rate(parse_failures),
+            "recipe_fallback_rate": rate(recipe_fallbacks),
+            "mean_vlm_latency_ms": round(latency_total / latency_count, 1) if latency_count else 0.0,
         }
 
     def get_calibration_data(self, model: str, limit: int = 50) -> List[Dict]:
@@ -292,6 +480,101 @@ class ServoArchive:
             "sample_count": len(valid),
             "model": model,
         }
+
+
+    def get_learning_summary(self, model: str = "") -> Dict[str, Any]:
+        """Cross-reference servo archive with human feedback to produce
+        an actionable learning summary.
+
+        Returns stats, patterns, and suggested improvements per model.
+        Called by the self-improvement engine or manually via API.
+        """
+        # Load servo archive data
+        archive_data = self.get_calibration_data(model, limit=200) if model else []
+        if not model:
+            # Load all
+            if self._archive_path.exists():
+                archive_data = []
+                with open(self._archive_path) as f:
+                    for line in f:
+                        if line.strip():
+                            try:
+                                archive_data.append(json.loads(line))
+                            except json.JSONDecodeError:
+                                continue
+
+        # Load human feedback
+        feedback_path = self._archive_dir / "feedback.jsonl"
+        feedback = []
+        if feedback_path.exists():
+            with open(feedback_path) as f:
+                for line in f:
+                    if line.strip():
+                        try:
+                            feedback.append(json.loads(line))
+                        except json.JSONDecodeError:
+                            continue
+
+        # Analyze
+        total_clicks = len(archive_data)
+        successful_clicks = sum(1 for d in archive_data if d.get("success"))
+        total_feedback = len(feedback)
+        positive_feedback = sum(1 for f in feedback if f.get("positive"))
+        negative_feedback = total_feedback - positive_feedback
+
+        # Find worst targets (most failures)
+        from collections import Counter
+        fail_targets = Counter(
+            d.get("target", "?") for d in archive_data if not d.get("success")
+        )
+
+        # Suggested scale factor
+        scale_suggestion = self.suggest_scale_factor(model) if model else None
+
+        # Negative feedback patterns — what tasks get thumbs down?
+        neg_tasks = Counter(
+            f.get("task", "?")[:60] for f in feedback if not f.get("positive")
+        )
+
+        return {
+            "model": model or "all",
+            "servo": {
+                "total_clicks": total_clicks,
+                "successful": successful_clicks,
+                "success_rate": round(successful_clicks / total_clicks * 100, 1) if total_clicks else 0,
+                "worst_targets": fail_targets.most_common(5),
+            },
+            "feedback": {
+                "total": total_feedback,
+                "positive": positive_feedback,
+                "negative": negative_feedback,
+                "approval_rate": round(positive_feedback / total_feedback * 100, 1) if total_feedback else 0,
+                "top_complaints": neg_tasks.most_common(5),
+            },
+            "suggestions": {
+                "scale_factor": scale_suggestion,
+            },
+        }
+
+
+    def rotate_archive(self, reason: str = "manual") -> str:
+        """Move current archive to a dated backup and start fresh.
+
+        We never delete — old data might be useful for forensics even if
+        it was recorded with busted scale factors. Rotate and move on.
+        """
+        if not self._archive_path.exists():
+            return ""
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_name = f"servo_archive_{timestamp}_{reason}.jsonl"
+        backup_path = self._archive_dir / backup_name
+
+        with self._write_lock:
+            self._archive_path.rename(backup_path)
+
+        logger.info(f"Archive rotated → {backup_path} (fresh start, let's do better this time)")
+        return str(backup_path)
 
 
 def get_servo_archive() -> ServoArchive:

@@ -1,0 +1,45 @@
+# Video Editor — runtime configuration
+# Resolves the snap-versioned melt path at start time; the wrapper script under
+# /snap/shotcut/<rev>/melt sets LD_LIBRARY_PATH correctly. Don't use
+# /snap/shotcut/current/bin/melt — that one is unwrapped and fails to load libmlt.
+
+melt:
+  # Wrapper script that sets up snap's lib path. Resolved via `readlink -f` in
+  # scripts/start.sh and cached here at install time. Override per-machine.
+  path: /snap/shotcut/current/melt
+  default_vcodec: libx264
+  default_acodec: aac
+
+auto_editor:
+  # Empty = use the venv-installed CLI. Override to point at a system install.
+  path: auto-editor
+  default_threshold: 0.04
+
+output:
+  mlt_projects_dir: data/outputs/videos/mlt-projects
+  renders_dir: data/outputs/videos/editor-renders
+
+registration:
+  backend_url: http://localhost:5002
+  folder: Videos
+  enabled: true
+
+beat_sync:
+  # Sensible defaults; per-request overrides come in on the POST body.
+  subdivision: 2
+  min_clip_seconds: 1.2
+  tightness: 100
+
+profile:
+  # Default project profile when caller omits one. Most generated wan22 / svd
+  # clips are 720p, but final render hits 1080p so cuts upscale cleanly.
+  fps_num: 30
+  fps_den: 1
+  width: 1920
+  height: 1080
+
+jobs:
+  # In-memory job retention. Plugin restart wipes the table — acceptable for
+  # single-user Guaardvark, mirrors vision_pipeline pattern.
+  max_entries: 200
+  worker_threads: 2

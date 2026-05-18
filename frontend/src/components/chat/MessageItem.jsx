@@ -2,7 +2,7 @@
 // Version 1.1: Renders a single message bubble with appropriate styling.
 // Added support for agent loop messages with step-by-step visualization.
 /* eslint-env browser */
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import PropTypes from "prop-types";
 import { Box, Paper, Avatar, CardMedia, Chip, CircularProgress, Typography } from "@mui/material";
 import ReactMarkdown from "react-markdown";
@@ -10,24 +10,128 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { a11yDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 // No user avatar icon — user messages are clean right-aligned bubbles
 import ImageIcon from "@mui/icons-material/Image";
+import ThumbUpOutlinedIcon from "@mui/icons-material/ThumbUpOutlined";
+import ThumbDownOutlinedIcon from "@mui/icons-material/ThumbDownOutlined";
+import ThumbUpIcon from "@mui/icons-material/ThumbUp";
+import ThumbDownIcon from "@mui/icons-material/ThumbDown";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import CheckIcon from "@mui/icons-material/Check";
+import MemoryIcon from "@mui/icons-material/Memory";
+import Tooltip from "@mui/material/Tooltip";
+import IconButton from "@mui/material/IconButton";
 import { GuaardvarkLogo } from "../branding";
 import { useAppStore } from "../../stores/useAppStore";
 import { BASE_URL } from "../../api/apiClient";
 import AgentResultDisplay from "./AgentResultDisplay";
 import { StatusChip } from "../../utils/familyColors";
 import ToolCallCard from "./ToolCallCard";
+import AgentThinkingTrail from "./AgentThinkingTrail";
 import ImageLightbox from "../images/ImageLightbox";
 import NarrateButton from "../common/NarrateButton";
 
 const UPLOAD_BASE_URL = BASE_URL + "/uploads";
 
-const MessageItem = ({ message }) => {
+const MessageItem = ({ message, sessionId: sessionIdProp }) => {
   const isUser = message.role === "user";
+  // Per-message sessionId takes precedence, fall through to the list-level
+  // prop so feedback on assistant turns (which often lack message.sessionId)
+  // still carries the active chat session.
+  const effectiveSessionId = message.sessionId || sessionIdProp || null;
+
+  // Read narrate visibility + selected voice from voice settings (localStorage).
+  // The voice picked in Settings flows through to NarrateButton's Fast (Piper)
+  // path; Expressive ignores it (audio_foundry's dispatcher picks Chatterbox/Kokoro).
+  const readVoiceSettings = () => {
+    try {
+      const vs = localStorage.getItem('guaardvark_voiceSettings');
+      if (vs) {
+        const parsed = JSON.parse(vs);
+        return {
+          showNarrate: parsed.showNarrateButtons !== false,
+          voice: parsed.voice || 'libritts',
+        };
+      }
+    } catch {
+      // invalid JSON in localStorage — fall through to defaults
+    }
+    return { showNarrate: true, voice: 'libritts' };
+  };
+
+  const [showNarrate, setShowNarrate] = useState(() => readVoiceSettings().showNarrate);
+  const [selectedVoice, setSelectedVoice] = useState(() => readVoiceSettings().voice);
+
+  useEffect(() => {
+    const handler = () => {
+      const next = readVoiceSettings();
+      setShowNarrate(next.showNarrate);
+      setSelectedVoice(next.voice);
+    };
+    window.addEventListener('voiceSettingsChanged', handler);
+    window.addEventListener('storage', handler);
+    return () => {
+      window.removeEventListener('voiceSettingsChanged', handler);
+      window.removeEventListener('storage', handler);
+    };
+  }, []);
   const isCommand = message.type === "command";
   const isProgress = message.type === "progress";
   const isAgentLoop = message.isAgentLoop;
   const logo = useAppStore((s) => s.systemLogo);
   const [lightbox, setLightbox] = useState(null);
+  // Hydrate thumb state from the message's persisted extra_data so the
+  // icon survives a page refresh. Backend stamps {"feedback": "up"/"down"}
+  // onto LLMMessage.extra_data when the user clicks the chips.
+  const initialFeedback = (() => {
+    const v = message?.extra_data?.feedback;
+    return v === "up" || v === "down" ? v : null;
+  })();
+  const [feedback, setFeedback] = useState(initialFeedback); // null | "up" | "down"
+  const [copied, setCopied] = useState(false);
+  // Tag every thumb with the active lesson, if one is open. Pearls with a
+  // lesson_id skip the per-👍 distill path and flow through the End-Lesson
+  // summary distiller instead.
+  const activeLessonId = useAppStore((s) => s.activeLessonId);
+
+  const handleCopy = useCallback(async () => {
+    const text = typeof message.content === "string" ? message.content : JSON.stringify(message.content, null, 2);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // fallback for non-HTTPS contexts
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
+  }, [message.content]);
+
+  const handleFeedback = useCallback(async (positive) => {
+    const newVal = positive ? "up" : "down";
+    if (feedback === newVal) { setFeedback(null); return; }
+    setFeedback(newVal);
+    try {
+      const content = typeof message.content === "string" ? message.content : "";
+      await fetch(`${BASE_URL}/agent-control/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          positive,
+          task: content.slice(0, 200),
+          session_id: effectiveSessionId,
+          type: "response",
+          lesson_id: activeLessonId || undefined,
+        }),
+      });
+    } catch (err) {
+      console.error("Feedback failed:", err);
+    }
+  }, [feedback, message.content, effectiveSessionId, activeLessonId]);
 
   const openLightbox = useCallback((url, name, images, index) => {
     setLightbox({ url, name, images: images || [{ url, name }], index: index || 0 });
@@ -207,6 +311,15 @@ const MessageItem = ({ message }) => {
             borderBottomLeftRadius: 16,
             borderBottomRightRadius: 16,
           }),
+          // Agent-mode marker: messages tagged with mode === "agent" get an
+          // orange outline so the chat history visibly distinguishes between
+          // chat-mode and agent-mode messages. The visual sits on the AI's
+          // surface (the bubble) rather than the user's input field, since
+          // agent mode is a property of how the AI interprets the message.
+          ...(message.mode === "agent" && {
+            border: "2px solid",
+            borderColor: "warning.main",
+          }),
         }}
       >
         {/* Command badge */}
@@ -306,25 +419,73 @@ const MessageItem = ({ message }) => {
           </Box>
         )}
 
+        {/* Thinking context — persisted from the streaming phase */}
+        {message.thinkingText && message.toolCalls?.length > 0 && (
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1, mt: 0.5 }}>
+            <CircularProgress size={14} color="warning" sx={{ opacity: 0.6 }} />
+            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
+              {message.thinkingText}
+            </Typography>
+          </Box>
+        )}
+
+        {/* Agent loop reasoning trail — one collapsible holding every step,
+            so a long see-think-act run doesn't stack N accordions. */}
+        {message.agentThinkingSteps && message.agentThinkingSteps.length > 0 && (
+          <Box sx={{ mb: 1, mt: 0.5 }}>
+            <AgentThinkingTrail steps={message.agentThinkingSteps} />
+          </Box>
+        )}
+
         {/* Unified chat tool call cards (displayed inline before the response text) */}
         {message.isUnifiedChat && message.toolCalls && message.toolCalls.length > 0 && (
           <Box sx={{ mb: 1 }}>
-            {message.toolCalls.map((step, stepIdx) =>
-              (step.tool_calls || []).map((tc, tcIdx) => (
-                <ToolCallCard
-                  key={`${stepIdx}-${tcIdx}`}
-                  toolName={tc.tool_name}
-                  params={tc.params}
-                  result={tc.success != null ? {
-                    success: tc.success,
-                    output: tc.output_preview,
-                    error: tc.success ? null : tc.output_preview,
-                  } : null}
-                  durationMs={tc.duration_ms}
-                  isPending={false}
-                />
-              ))
-            )}
+            {message.toolCalls.map((step, stepIdx) => (
+              <Box key={`step-${stepIdx}`}>
+                {/* Per-iteration thinking: the agent's reasoning for this step */}
+                {step.thoughts && step.thoughts.trim() && (
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 1,
+                      mb: 0.75,
+                      mt: stepIdx === 0 ? 0 : 0.5,
+                      pl: 1,
+                      borderLeft: 2,
+                      borderColor: "warning.main",
+                      opacity: 0.85,
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ fontStyle: "italic", whiteSpace: "pre-wrap", fontSize: "0.7rem" }}
+                    >
+                      <Box component="span" sx={{ color: "warning.main", fontWeight: 600, mr: 0.5 }}>
+                        Step {step.iteration ?? stepIdx + 1}:
+                      </Box>
+                      {step.thoughts.trim()}
+                    </Typography>
+                  </Box>
+                )}
+                {(step.tool_calls || []).map((tc, tcIdx) => (
+                  <ToolCallCard
+                    key={`${stepIdx}-${tcIdx}`}
+                    toolName={tc.tool_name}
+                    params={tc.params}
+                    result={tc.success != null ? {
+                      success: tc.success,
+                      output: tc.output_preview,
+                      error: tc.success ? null : tc.output_preview,
+                    } : null}
+                    durationMs={tc.duration_ms}
+                    isPending={false}
+                    sessionId={effectiveSessionId}
+                  />
+                ))}
+              </Box>
+            ))}
           </Box>
         )}
 
@@ -393,10 +554,58 @@ const MessageItem = ({ message }) => {
             {typeof message.content === 'string' ? message.content : JSON.stringify(message.content, null, 2)}
           </ReactMarkdown>
         </Box>
-        {/* Narrate button for assistant messages with text content */}
-        {!isUser && message.content && typeof message.content === 'string' && message.content.length > 20 && (
-          <Box sx={{ mt: 0.5, display: 'flex', justifyContent: 'flex-end' }}>
-            <NarrateButton text={message.content} size="small" />
+        {/* Feedback + narrate for assistant messages */}
+        {!isUser && message.content && typeof message.content === 'string' && message.content.length > 10 && (
+          <Box sx={{ mt: 0.5, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.25 }}>
+            {message.toolCalls && message.toolCalls.some(tc => tc.tool_name === "search_memory") && (
+              <Tooltip title="Recalled from memory">
+                <Box sx={{ 
+                  display: "flex", 
+                  alignItems: "center", 
+                  gap: 0.5, 
+                  mr: 1, 
+                  px: 0.75, 
+                  py: 0.25, 
+                  borderRadius: 1, 
+                  bgcolor: "background.paper",
+                  border: "1px solid",
+                  borderColor: "divider"
+                }}>
+                  <MemoryIcon sx={{ fontSize: 12, color: "primary.main" }} />
+                  <Typography variant="caption" sx={{ fontSize: "0.65rem", color: "text.secondary" }}>
+                    Recalled
+                  </Typography>
+                </Box>
+              </Tooltip>
+            )}
+            <Tooltip title={copied ? "Copied" : "Copy"}>
+              <IconButton size="small" onClick={handleCopy} sx={{ p: 0.25 }}>
+                {copied ? (
+                  <CheckIcon sx={{ fontSize: 14, color: "success.main" }} />
+                ) : (
+                  <ContentCopyIcon sx={{ fontSize: 14, opacity: 0.4 }} />
+                )}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Good response">
+              <IconButton size="small" onClick={() => handleFeedback(true)} sx={{ p: 0.25 }}>
+                {feedback === "up" ? (
+                  <ThumbUpIcon sx={{ fontSize: 14, color: "success.main" }} />
+                ) : (
+                  <ThumbUpOutlinedIcon sx={{ fontSize: 14, opacity: 0.4 }} />
+                )}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Bad response">
+              <IconButton size="small" onClick={() => handleFeedback(false)} sx={{ p: 0.25 }}>
+                {feedback === "down" ? (
+                  <ThumbDownIcon sx={{ fontSize: 14, color: "error.main" }} />
+                ) : (
+                  <ThumbDownOutlinedIcon sx={{ fontSize: 14, opacity: 0.4 }} />
+                )}
+              </IconButton>
+            </Tooltip>
+            {showNarrate && <NarrateButton text={message.content} voice={selectedVoice} size="small" />}
           </Box>
         )}
         {/* Source badge for Uncle Claude / Family / Self-Improvement responses */}
@@ -445,6 +654,7 @@ MessageItem.propTypes = {
     badge: PropTypes.string,
     source: PropTypes.string,
   }).isRequired,
+  sessionId: PropTypes.string,
 };
 
 export default React.memo(MessageItem);

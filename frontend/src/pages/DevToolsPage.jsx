@@ -34,7 +34,6 @@ import {
   Error as ErrorIcon, 
   ExpandMore, 
   CleaningServices,
-  DeleteSweep 
 } from "@mui/icons-material";
 import {
   getBackendHealth,
@@ -251,7 +250,7 @@ const DevToolsPage = () => {
       });
       
       // Give the server a moment to process the restart
-      const timeoutId = setTimeout(() => {
+      const _timeoutId = setTimeout(() => {
         // Check if component is still mounted before updating state
         if (document.contains(document.querySelector('[data-component="devtools"]'))) {
           setSnackbar({
@@ -497,7 +496,7 @@ const DevToolsPage = () => {
   const incompleteJobs = progressJobs.filter(job => !job.is_complete);
   const completedJobs = progressJobs.filter(job => job.is_complete);
   const stuckJobsCount = stuckJobs.length;
-  const oldJobs = progressJobs.filter(job => {
+  const _oldJobs = progressJobs.filter(job => {
     const timestampValue = job.last_update_utc || job.updated_at;
     if (!timestampValue) return false; // Skip jobs with no timestamp
     

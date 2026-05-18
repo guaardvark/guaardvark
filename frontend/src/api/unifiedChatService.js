@@ -4,6 +4,7 @@
  */
 
 import { BASE_URL } from "./apiClient";
+import { useAppStore } from "../stores/useAppStore";
 
 const API_BASE = BASE_URL.replace(/\/api$/, "");
 
@@ -26,10 +27,18 @@ class UnifiedChatService {
    * Send a message via HTTP. Response arrives via Socket.IO events.
    */
   async sendMessage(sessionId, message, options = {}, imageBase64 = null, isVoiceMessage = false) {
+    // The backend gates Gemma4 direct path and screen tools on this flag.
+    // Trigger when EITHER the screen viewer is open (user is watching live)
+    // OR the session is in agent mode (sticky /agent toggle) — both cases
+    // mean "the model should be able to drive the virtual screen".
+    const store = useAppStore.getState();
+    const screenOpen = store.agentScreenOpen === true;
+    const inAgentMode = store.getSessionMode?.(sessionId) === "agent";
+    const agentScreenActive = inAgentMode;
     const body = {
       session_id: sessionId,
       message,
-      options,
+      options: { ...options, agent_screen_active: agentScreenActive, screen_viewer_open: screenOpen },
       project_id: options.project_id,
       is_voice_message: isVoiceMessage,
     };
@@ -93,6 +102,21 @@ class UnifiedChatService {
   }
   onVideo(callback) {
     this._on("chat:video", callback);
+  }
+  onToolOutputChunk(callback) {
+    this._on("chat:tool_output_chunk", callback);
+  }
+  onToolApprovalRequest(callback) {
+    this._on("chat:tool_approval_request", callback);
+  }
+
+  /**
+   * Send tool approval response.
+   */
+  sendToolApproval(sessionId, approved) {
+    if (this.socket?.connected) {
+      this.socket.emit("chat:tool_approval_response", { session_id: sessionId, approved });
+    }
   }
 
   /**

@@ -30,6 +30,10 @@ class JobManager:
         model: str,
         scale: float,
         denoise_strength: float = 0.5,
+        sharpen: float = 0.3,
+        two_pass: bool = False,
+        face_enhance: bool = False,
+        double_fps: bool = False,
     ) -> Dict[str, Any]:
         job_id = uuid.uuid4().hex[:12]
         job = {
@@ -40,6 +44,10 @@ class JobManager:
             "model": model,
             "scale": scale,
             "denoise_strength": denoise_strength,
+            "sharpen": sharpen,
+            "two_pass": two_pass,
+            "face_enhance": face_enhance,
+            "double_fps": double_fps,
             "progress": 0.0,
             "fps": 0.0,
             "eta_seconds": None,
@@ -114,6 +122,19 @@ class JobManager:
                 1 for j in self._jobs.values()
                 if j["status"] in (JobStatus.RUNNING.value, JobStatus.PENDING.value)
             )
+
+    def clear_finished(self) -> int:
+        """Remove all completed/failed/cancelled jobs. Returns the count removed."""
+        terminal_statuses = (
+            JobStatus.COMPLETED.value,
+            JobStatus.FAILED.value,
+            JobStatus.CANCELLED.value,
+        )
+        with self._lock:
+            to_remove = [jid for jid, j in self._jobs.items() if j["status"] in terminal_statuses]
+            for jid in to_remove:
+                del self._jobs[jid]
+            return len(to_remove)
 
     def _evict_old(self):
         """Remove oldest completed/failed/cancelled jobs beyond max_history."""

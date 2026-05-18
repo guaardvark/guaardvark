@@ -43,7 +43,7 @@ const RAGDebugSection = ({ ragDebugEnabled }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [systemHealth, setSystemHealth] = useState(null);
-  const [performanceMetrics, setPerformanceMetrics] = useState(null);
+  const [_performanceMetrics, setPerformanceMetrics] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
 
   // Modal states

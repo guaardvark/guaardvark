@@ -6,13 +6,34 @@ These tools allow the agent system to start/stop agent mode and execute
 vision-based automation tasks.
 """
 
+import glob
 import logging
 import os
+import time
+
 from backend.services.agent_tools import BaseTool, ToolParameter, ToolResult
 
 logger = logging.getLogger(__name__)
 
 AGENT_DISPLAY = os.environ.get("GUAARDVARK_AGENT_DISPLAY", ":99")
+GUAARDVARK_ROOT = os.environ.get(
+    "GUAARDVARK_ROOT",
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
+SCREENSHOTS_DIR = os.path.join(GUAARDVARK_ROOT, "data", "outputs", "screenshots")
+MAX_SCREENSHOTS = 200  # FIFO bloat guard
+
+
+def _prune_old_screenshots(directory: str, max_keep: int = MAX_SCREENSHOTS):
+    """Remove oldest screenshots if the directory exceeds max_keep files."""
+    try:
+        files = sorted(glob.glob(os.path.join(directory, "*.webp")), key=os.path.getmtime)
+        excess = len(files) - max_keep
+        if excess > 0:
+            for f in files[:excess]:
+                os.remove(f)
+    except Exception:
+        pass  # non-critical housekeeping
 
 
 def _ensure_agent_display():
@@ -67,7 +88,15 @@ class AgentTaskExecuteTool(BaseTool):
     }
 
     def execute(self, **kwargs) -> ToolResult:
-        task = kwargs.get("task", "")
+        # LLMs sometimes use the wrong parameter name (args, param_name, etc.)
+        # Accept anything that looks like it contains the task description.
+        task = kwargs.get("task", "") or kwargs.get("args", "") or kwargs.get("param_name", "")
+        if not task:
+            # Last resort: grab the first string value from whatever was passed
+            for v in kwargs.values():
+                if isinstance(v, str) and v.strip():
+                    task = v
+                    break
         if not task:
             return ToolResult(success=False, error="Task description is required")
 
@@ -79,26 +108,49 @@ class AgentTaskExecuteTool(BaseTool):
 
             service = get_agent_control_service()
             screen = LocalScreenBackend()
-            result = service.execute_task(task, screen)
 
-            # Post-task analysis: capture what the screen shows now
-            # This bridges the gap between "doing" and "thinking about what you did"
+            # Auto-detect training mode — keeps the agent clicking instead of stopping after one hit.
+            # "trainer" catches "Comments Trainer"/"Vision Trainer"; "keep going" + "don't stop"
+            # let the user explicitly flag a long-running session without ceremony.
+            import re as _re
+            training_mode = bool(_re.search(
+                r"\b(?:training|trainer|practice|keep clicking|keep going|don'?t stop|vision trainer)\b",
+                task,
+                _re.IGNORECASE,
+            ))
+            # Pull the chat session's emit_fn (set by unified_chat_engine
+            # before tool dispatch) so the see-think-act loop can stream
+            # per-step reasoning into the chat instead of going dark for
+            # the entire 30+ second loop.
+            from backend.services.agent_control_service import get_chat_emit_fn
+            chat_emit = get_chat_emit_fn()
+            result = service.execute_task(
+                task, screen,
+                training_mode=training_mode,
+                emit_fn=chat_emit,
+            )
+
+            # Post-task analysis: quick snapshot of what the screen shows now.
+            # Keep it fast — users shouldn't wait 5s after the task is already done.
             post_analysis = ""
             if result.success:
                 try:
                     import time as _time
-                    _time.sleep(2)  # Let the page settle
+                    import numpy as np
+                    _time.sleep(0.5)  # Brief settle — enough for UI repaints
                     analyzer = VisionAnalyzer()
                     screenshot, _ = screen.capture()
-                    analysis = analyzer.analyze(
-                        screenshot,
-                        prompt=f"The task was: {task}\n\nDescribe what the screen shows now. "
-                               f"Include any relevant text, data, or content visible on the page. "
-                               f"Be detailed and factual.",
-                        num_predict=512,
-                    )
-                    if analysis.success:
-                        post_analysis = analysis.description
+                    if np.array(screenshot).mean() < 10:
+                        post_analysis = "Screen appears black — display may need attention."
+                    else:
+                        analysis = analyzer.analyze(
+                            screenshot,
+                            prompt=f"The task was: {task}\n\nBriefly describe what the screen shows now.",
+                            num_predict=128,
+                            temperature=0.1,
+                        )
+                        if analysis.success:
+                            post_analysis = analysis.description
                 except Exception as e:
                     logger.warning(f"Post-task analysis failed: {e}")
 
@@ -126,19 +178,20 @@ class AgentTaskExecuteTool(BaseTool):
 
 class AgentScreenCaptureTool(BaseTool):
     name = "agent_screen_capture"
-    description = "Take a screenshot of the local screen and analyze it with a vision model."
+    description = "Take a screenshot of the local screen and analyze it with a vision model. Always pass a prompt that describes what you are looking for or verifying — the vision model will answer your specific question about the screen."
     parameters = {
         "prompt": ToolParameter(
             name="prompt",
             type="string",
             required=False,
-            description="Custom prompt for vision analysis (default: describe the screen)",
+            description="What to look for or verify on screen (e.g., 'Is the word guaardvark visible in the search bar?' or 'What page is currently loaded?'). Be specific — the vision model answers this question.",
             default="Describe what is currently on the screen."
         ),
     }
 
     def execute(self, **kwargs) -> ToolResult:
-        prompt = kwargs.get("prompt", "Describe what is currently on the screen.")
+        prompt = (kwargs.get("prompt", "") or kwargs.get("args", "") or kwargs.get("param_name", "")
+                  or "Describe what is currently on the screen.")
 
         try:
             _ensure_agent_display()
@@ -148,23 +201,87 @@ class AgentScreenCaptureTool(BaseTool):
             screen = LocalScreenBackend()
             screenshot, cursor_pos = screen.capture()
 
+            # Save screenshot so it appears in chat — the unified engine's
+            # chat:image emission triggers automatically on metadata["image_url"]
+            image_url = None
+            try:
+                os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
+                filename = f"agent_capture_{int(time.time() * 1000)}.webp"
+                filepath = os.path.join(SCREENSHOTS_DIR, filename)
+                screenshot.save(filepath, format="WEBP", quality=80)
+                image_url = f"/api/tools/screenshots/{filename}"
+                _prune_old_screenshots(SCREENSHOTS_DIR)
+            except Exception as e:
+                logger.warning(f"Failed to save screenshot for chat: {e}")
+
             analyzer = VisionAnalyzer()
             result = analyzer.analyze(screenshot, prompt=prompt)
 
             if result.success:
+                metadata = {
+                    "cursor": cursor_pos,
+                    "model": result.model_used,
+                    "inference_ms": result.inference_ms,
+                }
+                if image_url:
+                    metadata["image_url"] = image_url
+                    # Use the actual vision analysis as the caption so the
+                    # user sees the model's real observation under the screenshot
+                    metadata["prompt"] = result.description[:200] if result.description else "Agent screen capture"
                 return ToolResult(
                     success=True,
                     output=result.description,
-                    metadata={
-                        "cursor": cursor_pos,
-                        "model": result.model_used,
-                        "inference_ms": result.inference_ms,
-                    }
+                    metadata=metadata,
                 )
             else:
                 return ToolResult(success=False, error=result.error)
 
         except Exception as e:
+            return ToolResult(success=False, error=str(e))
+
+
+class AgentReadTextFromElementTool(BaseTool):
+    name = "agent_read_text_from_element"
+    description = (
+        "OCR-read the literal text rendered inside a screen region. Use this when you "
+        "need ground truth about what is actually shown in a text field — for example, "
+        "to verify a long string was typed correctly. Bypasses the vision LLM, which "
+        "may otherwise fill in field contents from history rather than from pixels."
+    )
+    parameters = {
+        "x": ToolParameter(name="x", type="integer", required=True, description="Left edge of the region in screen pixels."),
+        "y": ToolParameter(name="y", type="integer", required=True, description="Top edge of the region in screen pixels."),
+        "width": ToolParameter(name="width", type="integer", required=True, description="Region width in pixels."),
+        "height": ToolParameter(name="height", type="integer", required=True, description="Region height in pixels."),
+    }
+
+    def execute(self, **kwargs) -> ToolResult:
+        try:
+            x = int(kwargs.get("x", 0))
+            y = int(kwargs.get("y", 0))
+            width = int(kwargs.get("width", 0))
+            height = int(kwargs.get("height", 0))
+        except (TypeError, ValueError) as e:
+            return ToolResult(success=False, error=f"Invalid bbox parameters: {e}")
+
+        if width <= 0 or height <= 0:
+            return ToolResult(success=False, error="width and height must be positive")
+
+        try:
+            _ensure_agent_display()
+            from backend.services.local_screen_backend import LocalScreenBackend
+
+            screen = LocalScreenBackend()
+            result = screen.read_text_region(x, y, width, height)
+            if result.get("success"):
+                return ToolResult(
+                    success=True,
+                    output=result.get("text", ""),
+                    metadata={"bbox": result.get("bbox")},
+                )
+            return ToolResult(success=False, error=result.get("error", "OCR failed"))
+        except Exception as e:
+            logger.error(f"agent_read_text_from_element error: {e}", exc_info=True)
             return ToolResult(success=False, error=str(e))
 
 

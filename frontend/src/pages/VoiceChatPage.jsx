@@ -5,12 +5,9 @@ import {
 } from '@mui/material';
 import {
   Mic as MicIcon,
-  Settings as SettingsIcon,
   Delete as DeleteIcon,
   VolumeUp as VolumeUpIcon,
   Clear as ClearIcon,
-  Error as ErrorIcon,
-  CheckCircle as CheckCircleIcon,
   Hearing as HearingIcon,
   RecordVoiceOver as RecordVoiceOverIcon
 } from '@mui/icons-material';

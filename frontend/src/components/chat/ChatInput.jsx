@@ -221,9 +221,116 @@ const ChatInput = forwardRef(
     const fileRef = useRef(null);
     const inputRef = useRef(null);
 
+    // Terminal-style sent-message history. Up/Down navigate when the cursor
+    // is at the very start/end of the input and the slash-command popup
+    // hasn't already consumed the key.
+    const messageHistoryRef = useRef([]);
+    const historyIndexRef = useRef(-1);
+    const historyDraftRef = useRef("");
+    const HISTORY_MAX = 50;
+
+    const pushHistory = useCallback((text) => {
+      const trimmed = (text || "").trim();
+      if (!trimmed) return;
+      const hist = messageHistoryRef.current;
+      if (hist[hist.length - 1] !== trimmed) {
+        hist.push(trimmed);
+        if (hist.length > HISTORY_MAX) hist.shift();
+      }
+      historyIndexRef.current = -1;
+      historyDraftRef.current = "";
+    }, []);
+
+    const recallHistory = useCallback((direction) => {
+      const hist = messageHistoryRef.current;
+      if (hist.length === 0) return false;
+      const el = inputRef.current;
+      if (!el) return false;
+      const value = el.value ?? "";
+      const atStart = el.selectionStart === 0 && el.selectionEnd === 0;
+      const atEnd =
+        el.selectionStart === value.length &&
+        el.selectionEnd === value.length;
+
+      if (direction === "up") {
+        if (!atStart) return false;
+        if (historyIndexRef.current === -1) {
+          historyDraftRef.current = value;
+          historyIndexRef.current = hist.length - 1;
+        } else if (historyIndexRef.current > 0) {
+          historyIndexRef.current -= 1;
+        } else {
+          return true; // already oldest — consume so cursor doesn't jump
+        }
+        const next = hist[historyIndexRef.current];
+        setInputText(next);
+        // Move cursor to end so the user can edit
+        requestAnimationFrame(() => {
+          if (inputRef.current) {
+            const len = next.length;
+            inputRef.current.setSelectionRange(len, len);
+          }
+        });
+        return true;
+      }
+      // direction === "down"
+      if (historyIndexRef.current === -1) return false;
+      if (!atEnd) return false;
+      if (historyIndexRef.current < hist.length - 1) {
+        historyIndexRef.current += 1;
+        const next = hist[historyIndexRef.current];
+        setInputText(next);
+        requestAnimationFrame(() => {
+          if (inputRef.current) {
+            const len = next.length;
+            inputRef.current.setSelectionRange(len, len);
+          }
+        });
+      } else {
+        historyIndexRef.current = -1;
+        const draft = historyDraftRef.current;
+        setInputText(draft);
+        requestAnimationFrame(() => {
+          if (inputRef.current) {
+            const len = draft.length;
+            inputRef.current.setSelectionRange(len, len);
+          }
+        });
+      }
+      return true;
+    }, []);
+
     const systemName = useAppStore((s) => s.systemName);
     const voiceSettings = useVoiceSettings();
     const wakeWordEnabled = voiceSettings.wakeWordEnabled !== false;  // Default ON
+
+    // Modal session mode — "chat" | "agent". The session's mode is stored
+    // server-side; we cache it in Zustand and hydrate on session change.
+    // When in agent mode, a non-slash send goes straight to the agent loop
+    // instead of the chat LLM.
+    const sessionMode = useAppStore((s) => s.sessionModes[sessionId] || "chat");
+    const setSessionMode = useAppStore((s) => s.setSessionMode);
+    const agentModeActive = sessionMode === "agent";
+
+    useEffect(() => {
+      if (!sessionId) return;
+      let cancelled = false;
+      (async () => {
+        try {
+          const res = await fetch(
+            `/api/chat-sessions/${encodeURIComponent(sessionId)}/mode`
+          );
+          if (!res.ok) return;
+          const data = await res.json();
+          if (!cancelled && data?.success && data.mode) {
+            setSessionMode(sessionId, data.mode);
+          }
+        } catch {
+          // Network failure → leave the cached value (or "chat" default).
+        }
+      })();
+      return () => { cancelled = true; };
+    }, [sessionId, setSessionMode]);
 
     // Slash command hook — popup state, filtering, keyboard nav, command execution
     const slashCmds = useSlashCommands({
@@ -291,10 +398,10 @@ const ChatInput = forwardRef(
 
     // Auto-send timeout tracking to prevent race conditions
     const autoSendTimeoutRef = useRef(null);
-    const lastAutoSendRef = useRef(null);
+    const _lastAutoSendRef = useRef(null);
 
     // Voice chat button ref for state access
-    const voiceChatButtonRef = useRef(null);
+    const _voiceChatButtonRef = useRef(null);
 
     // Propagate voice state changes to parent
     useEffect(() => {
@@ -439,7 +546,7 @@ const ChatInput = forwardRef(
 
       try {
         // Add session ID to tags for proper file association
-        const extension = "." + file.name.split(".").pop().toLowerCase();
+        const _extension = "." + file.name.split(".").pop().toLowerCase();
         const tags = `chat-upload,file-upload,${sessionId}`;
 
         // Upload file using unified API service
@@ -948,6 +1055,10 @@ Please try a different image or check if the vision model is properly loaded.`;
     }, []);
 
     const handleSend = async () => {
+      // Capture what the user typed for terminal-style history before any
+      // branch consumes/clears it.
+      pushHistory(inputText);
+
       // Check if there are images to analyze
       if (imageState.images.length > 0) {
         await analyzeImage();
@@ -975,6 +1086,13 @@ Please try a different image or check if the vision model is properly loaded.`;
 
       const file = fileRef.current?.files?.[0] || null;
       if (!currentText.trim() && !file) return;
+
+      // Agent mode: messages flow through the normal chat pipeline so the
+      // LLM can both speak AND act. The session's `mode === "agent"` flag
+      // makes unifiedChatService flip `agent_screen_active: true`, which
+      // activates the Gemma4 direct path and exposes the screen tools.
+      // The orange chip above the input + the user bubble's `mode: "agent"`
+      // marker are the visual signal that we're in agent mode.
 
       // Input validation and sanitization
       const sanitizedInput = currentText.trim();
@@ -1286,14 +1404,33 @@ Total URLs: ${analysis.totalUrls}`;
             open={slashCmds.popupVisible}
           />
 
+          {/* Agent mode badge — sits above the input when active */}
+          {agentModeActive && (
+            <Chip
+              label="AGENT MODE — type /chat to exit"
+              color="warning"
+              size="small"
+              sx={{
+                position: "absolute",
+                top: -28,
+                left: 8,
+                fontWeight: 600,
+                letterSpacing: 0.5,
+                zIndex: 2,
+              }}
+            />
+          )}
+
           {/* Text input field */}
           <TextField
             fullWidth
             size="small"
             placeholder={
-              imageState.images.length > 0
-                ? "Ask about this image..."
-                : "Type your message, paste an image, or use voice..."
+              agentModeActive
+                ? "Describe a screen action — every message is a task while in agent mode"
+                : imageState.images.length > 0
+                  ? "Ask about this image..."
+                  : "Type your message, paste an image, or use voice..."
             }
             value={inputText}
             onChange={(e) => {
@@ -1302,13 +1439,35 @@ Total URLs: ${analysis.totalUrls}`;
             }}
             onKeyDown={(e) => {
               slashCmds.handleKeyDown(e);
+              if (e.defaultPrevented) return;
+              if (e.key === "ArrowUp" && recallHistory("up")) {
+                e.preventDefault();
+              } else if (e.key === "ArrowDown" && recallHistory("down")) {
+                e.preventDefault();
+              }
               // handleKeyPress uses onKeyPress but we mirror Enter logic here for safety
             }}
             onKeyPress={handleKeyPress}
             inputRef={inputRef}
             multiline
             disabled={disabled || imageState.analyzing}
-            sx={{ minHeight: "40px" }}
+            sx={{ 
+              minHeight: "40px",
+              ...(agentModeActive && {
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': {
+                    borderColor: 'warning.main',
+                    borderWidth: 2,
+                  },
+                  '&:hover fieldset': {
+                    borderColor: 'warning.main',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: 'warning.main',
+                  },
+                }
+              })
+            }}
           />
 
           {/* Send button */}

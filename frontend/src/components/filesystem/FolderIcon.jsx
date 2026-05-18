@@ -2,7 +2,7 @@
 // Custom folder icons with Ubuntu-style design and status indicators
 
 import React from "react";
-import { Box, Badge } from "@mui/material";
+import { Badge } from "@mui/material";
 import {
   Folder as FolderIcon,
   FolderOpen as FolderOpenIcon,

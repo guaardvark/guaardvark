@@ -15,7 +15,6 @@ import {
   FormControlLabel,
   Checkbox,
   Typography,
-  Box,
   Divider,
   RadioGroup,
   Radio,
@@ -28,9 +27,6 @@ import {
   getHardwareCapabilities,
 } from "../../api";
 
-import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import StorageIcon from "@mui/icons-material/Storage";
-import WorkIcon from "@mui/icons-material/Work";
 import ComputerIcon from "@mui/icons-material/Computer";
 
 const NewTrainingJobModal = ({

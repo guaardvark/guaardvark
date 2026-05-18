@@ -238,21 +238,29 @@ Format as a clear, organized list."""
             else:  # custom
                 analysis_prompt = prompt or "Please analyze this image and provide relevant insights."
             
-            # Perform vision analysis using Ollama API
+            # Perform vision analysis using Ollama chat API (supports multi-turn + images)
             try:
                 import ollama
-                
-                # Use direct Ollama client for better image handling
+
                 client = ollama.Client(host=OLLAMA_BASE_URL)
-                
+
                 with open(image_path, 'rb') as image_file:
-                    response = client.generate(
-                        model=vision_model,
-                        prompt=analysis_prompt,
-                        images=[image_file.read()]
-                    )
-                
-                analysis_result = response.get('response', '').strip()
+                    image_bytes = image_file.read()
+
+                # Use chat() instead of generate() — supports conversation history
+                # and works with natively multimodal models (Gemma 4, etc.)
+                response = client.chat(
+                    model=vision_model,
+                    messages=[{
+                        'role': 'user',
+                        'content': analysis_prompt,
+                        'images': [image_bytes],
+                    }],
+                )
+
+                # chat() returns response in message.content
+                msg = response.get('message', {})
+                analysis_result = (msg.get('content') or '').strip()
                 
                 if analysis_result:
                     result.success = True

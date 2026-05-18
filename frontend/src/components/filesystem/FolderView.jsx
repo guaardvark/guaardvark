@@ -7,7 +7,6 @@ import {
   Grid,
   Paper,
   Typography,
-  IconButton,
   Tooltip,
   ToggleButton,
   ToggleButtonGroup,
@@ -30,11 +29,11 @@ import FolderIconComponent from "./FolderIcon";
 import { getFileTypeInfo, formatTimestamp } from "../../utils/fileTypeUtils";
 
 const FolderView = ({ 
-  folderName, 
+  _folderName, 
   items = [], 
   onItemClick, 
   onItemContextMenu,
-  loading = false 
+  _loading = false 
 }) => {
   const [viewMode, setViewMode] = useState("grid"); // "grid" or "list"
 

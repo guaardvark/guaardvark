@@ -127,9 +127,15 @@ def register_web_tools() -> List[str]:
 
     try:
         from backend.tools.web_tools import (
+            FetchUrlTool,
             WebAnalysisTool,
             WebSearchTool
         )
+
+        register_tool(FetchUrlTool())
+        registered.append("fetch_url")
+        _tool_categories["fetch_url"] = category
+        logger.info("Registered: FetchUrlTool")
 
         register_tool(WebAnalysisTool())
         registered.append("analyze_website")
@@ -387,6 +393,42 @@ def register_system_tools() -> List[str]:
     return registered
 
 
+def register_memory_tools() -> List[str]:
+    """Register agent memory management tools"""
+    global _tool_categories
+    registered = []
+    category = "memory"
+
+    try:
+        from backend.tools.memory_tools import (
+            SaveMemoryTool,
+            SearchMemoryTool,
+            DeleteMemoryTool
+        )
+
+        register_tool(SaveMemoryTool())
+        registered.append("save_memory")
+        _tool_categories["save_memory"] = category
+        logger.info("Registered: SaveMemoryTool")
+
+        register_tool(SearchMemoryTool())
+        registered.append("search_memory")
+        _tool_categories["search_memory"] = category
+        logger.info("Registered: SearchMemoryTool")
+        
+        register_tool(DeleteMemoryTool())
+        registered.append("delete_memory")
+        _tool_categories["delete_memory"] = category
+        logger.info("Registered: DeleteMemoryTool")
+
+    except ImportError as e:
+        logger.error(f"Failed to import memory tools: {e}")
+    except Exception as e:
+        logger.error(f"Failed to register memory tools: {e}")
+
+    return registered
+
+
 def register_rag_tools() -> List[str]:
     """Register RAG/Knowledge tools"""
     global _tool_categories
@@ -494,6 +536,45 @@ def register_test_execution_tools() -> List[str]:
     return registered
 
 
+def register_outreach_tools() -> List[str]:
+    """Register social outreach tools (chat-callable wrappers around the
+    /api/social-outreach/* endpoints)."""
+    global _tool_categories
+    registered = []
+    category = "outreach"
+
+    try:
+        from backend.tools.outreach_tools import (
+            OutreachStatusTool,
+            OutreachListQueueTool,
+            OutreachDraftPostTool,
+            OutreachApproveDraftTool,
+            OutreachRejectDraftTool,
+            OutreachRunPassTool,
+        )
+
+        for cls in (
+            OutreachStatusTool,
+            OutreachListQueueTool,
+            OutreachDraftPostTool,
+            OutreachApproveDraftTool,
+            OutreachRejectDraftTool,
+            OutreachRunPassTool,
+        ):
+            tool = cls()
+            register_tool(tool)
+            registered.append(tool.name)
+            _tool_categories[tool.name] = category
+            logger.info(f"Registered: {cls.__name__}")
+
+    except ImportError as e:
+        logger.error(f"Failed to import outreach tools: {e}")
+    except Exception as e:
+        logger.error(f"Failed to register outreach tools: {e}")
+
+    return registered
+
+
 def register_agent_control_tools() -> List[str]:
     """Register agent vision control tools"""
     global _tool_categories
@@ -506,6 +587,7 @@ def register_agent_control_tools() -> List[str]:
             AgentModeStopTool,
             AgentTaskExecuteTool,
             AgentScreenCaptureTool,
+            AgentReadTextFromElementTool,
             AgentStatusTool,
         )
 
@@ -528,6 +610,11 @@ def register_agent_control_tools() -> List[str]:
         registered.append("agent_screen_capture")
         _tool_categories["agent_screen_capture"] = category
         logger.info("Registered: AgentScreenCaptureTool")
+
+        register_tool(AgentReadTextFromElementTool())
+        registered.append("agent_read_text_from_element")
+        _tool_categories["agent_read_text_from_element"] = category
+        logger.info("Registered: AgentReadTextFromElementTool")
 
         register_tool(AgentStatusTool())
         registered.append("agent_status")
@@ -569,11 +656,13 @@ def initialize_all_tools() -> ToolRegistry:
     _registered_tools.extend(register_desktop_tools())
     _registered_tools.extend(register_mcp_tools())
     _registered_tools.extend(register_system_tools())
+    _registered_tools.extend(register_memory_tools())
     _registered_tools.extend(register_rag_tools())
     _registered_tools.extend(register_media_tools())
     _registered_tools.extend(register_image_tools())
     _registered_tools.extend(register_test_execution_tools())
     _registered_tools.extend(register_agent_control_tools())
+    _registered_tools.extend(register_outreach_tools())
 
     # Get the registry for status reporting
     registry = get_tool_registry()

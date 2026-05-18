@@ -13,7 +13,6 @@ import {
   FormatAlignLeft,
   BugReport,
   Build,
-  Save,
 } from "@mui/icons-material";
 
 import DashboardCardWrapper from "../dashboard/DashboardCardWrapper";
@@ -32,7 +31,7 @@ const QuickActionsCard = React.forwardRef(
     },
     ref
   ) => {
-    const currentTab = openTabs?.[activeTabIndex];
+    const _currentTab = openTabs?.[activeTabIndex];
 
     const handleAction = useCallback((action) => {
       console.log(`${action} action not implemented yet`);

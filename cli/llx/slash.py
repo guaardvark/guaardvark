@@ -86,6 +86,14 @@ class SlashRouter:
         self._commands["help"] = self._cmd_help
         self._commands["quit"] = self._cmd_quit
         self._commands["exit"] = self._cmd_quit
+        self._commands["imagine"] = self._cmd_imagine
+        self._commands["video"] = self._cmd_video
+        self._commands["voice"] = self._cmd_voice
+        self._commands["ingest"] = self._cmd_ingest
+        self._commands["agent"] = self._cmd_agent
+        self._commands["web"] = self._cmd_web
+        self._commands["remember"] = self._cmd_remember
+        self._commands["memory"] = self._cmd_memory
 
     # ── Typer-backed command registration ─────────────────────────
 
@@ -434,6 +442,21 @@ class SlashRouter:
   [llx.accent]/index[/llx.accent] <sub>           Index management
   [llx.accent]/rag[/llx.accent] <sub>             RAG debugging
 
+[llx.brand_bright]Memory Commands:[/llx.brand_bright]
+  [llx.accent]/remember[/llx.accent] <text>       Save something to memory
+  [llx.accent]/memory[/llx.accent] list            List saved memories
+  [llx.accent]/memory[/llx.accent] search <query>  Search memories
+  [llx.accent]/memory[/llx.accent] delete <id>     Delete a memory
+  [llx.accent]/memory[/llx.accent] clear           Clear all memories
+
+[llx.brand_bright]Multi-Modal Commands:[/llx.brand_bright]
+  [llx.accent]/imagine[/llx.accent] <prompt>       Generate an image from text
+  [llx.accent]/video[/llx.accent] <prompt>         Generate a video from text
+  [llx.accent]/voice[/llx.accent] <text>           Convert text to speech
+  [llx.accent]/ingest[/llx.accent] <path>          Index files/directory for RAG
+  [llx.accent]/agent[/llx.accent]                  Toggle agent mode (tool-using)
+  [llx.accent]/web[/llx.accent]                    Open web UI in browser
+
 [llx.brand_bright]Admin Commands:[/llx.brand_bright]
   [llx.accent]/jobs[/llx.accent] <sub>            Background job management
   [llx.accent]/logs[/llx.accent] <sub>            Log viewing
@@ -450,6 +473,233 @@ class SlashRouter:
   [llx.accent]/quit[/llx.accent]                  Exit the REPL
   [llx.accent]/exit[/llx.accent]                  Exit the REPL
 """)
+
+    def _cmd_imagine(self, args: list[str]):
+        """Generate an image from a text prompt."""
+        if not args:
+            self._console.print("[llx.error]Usage: /imagine <prompt>[/llx.error]")
+            self._console.print("[llx.dim]Example: /imagine a sunset over mountains[/llx.dim]")
+            return
+
+        prompt = " ".join(args)
+        server = self._state.get("server")
+
+        try:
+            from llx.client import get_client, LlxError, LlxConnectionError
+            client = get_client(server)
+            data = client.post("/api/batch-image/generate/prompts", json={
+                "prompts": [prompt],
+                "steps": 20,
+                "width": 512,
+                "height": 512,
+            })
+            result = data.get("data", data)
+            batch_id = result.get("batch_id", "unknown")
+            self._console.print(f"[llx.success]Image generation started[/llx.success]")
+            self._console.print(f"[llx.dim]Batch: {batch_id}[/llx.dim]")
+            self._console.print(f"[llx.dim]Track: /images status {batch_id}[/llx.dim]")
+        except Exception as e:
+            self._console.print(f"[llx.error]Image generation failed: {e}[/llx.error]")
+
+    def _cmd_video(self, args: list[str]):
+        """Generate a video from a text prompt."""
+        if not args:
+            self._console.print("[llx.error]Usage: /video <prompt>[/llx.error]")
+            self._console.print("[llx.dim]Example: /video a cat playing piano[/llx.dim]")
+            return
+
+        prompt = " ".join(args)
+        server = self._state.get("server")
+
+        try:
+            from llx.client import get_client, LlxError, LlxConnectionError
+            client = get_client(server)
+            data = client.post("/api/batch-video/generate/text", json={
+                "prompts": [prompt],
+            })
+            result = data.get("data", data)
+            batch_id = result.get("batch_id", "unknown")
+            self._console.print(f"[llx.success]Video generation started[/llx.success]")
+            self._console.print(f"[llx.dim]Batch: {batch_id}[/llx.dim]")
+            self._console.print(f"[llx.dim]Track: /videos status {batch_id}[/llx.dim]")
+        except Exception as e:
+            self._console.print(f"[llx.error]Video generation failed: {e}[/llx.error]")
+
+    def _cmd_voice(self, args: list[str]):
+        """Convert text to speech."""
+        if not args:
+            self._console.print("[llx.error]Usage: /voice <text>[/llx.error]")
+            self._console.print("[llx.dim]Example: /voice Hello world[/llx.dim]")
+            return
+
+        text = " ".join(args)
+        server = self._state.get("server")
+
+        try:
+            from llx.client import get_client, LlxError, LlxConnectionError
+            client = get_client(server)
+            data = client.post("/api/voice/text-to-speech", json={
+                "text": text,
+            })
+            audio_url = data.get("audio_url", "")
+            filename = data.get("filename", "output.wav")
+            self._console.print(f"[llx.success]Audio generated: {filename}[/llx.success]")
+            if audio_url:
+                self._console.print(f"[llx.dim]{server}{audio_url}[/llx.dim]")
+        except Exception as e:
+            self._console.print(f"[llx.error]TTS failed: {e}[/llx.error]")
+
+    def _cmd_ingest(self, args: list[str]):
+        """Index files or a directory for RAG-enhanced chat."""
+        if not args:
+            self._console.print("[llx.error]Usage: /ingest <path>[/llx.error]")
+            self._console.print("[llx.dim]Example: /ingest ~/Documents/research[/llx.dim]")
+            return
+
+        path = " ".join(args)
+        server = self._state.get("server")
+
+        try:
+            from llx.client import get_client, LlxError, LlxConnectionError
+            client = get_client(server)
+            data = client.post("/api/index/bulk", json={
+                "paths": [path],
+            })
+            result = data.get("data", data)
+            total = result.get("total_documents", 0)
+            job_id = result.get("job_id", "")
+            self._console.print(f"[llx.success]Indexing started: {total} documents[/llx.success]")
+            if job_id:
+                self._console.print(f"[llx.dim]Job: {job_id}[/llx.dim]")
+        except Exception as e:
+            self._console.print(f"[llx.error]Indexing failed: {e}[/llx.error]")
+
+    def _cmd_agent(self, args: list[str]):
+        """Toggle agent mode (tool-using autonomous agent)."""
+        current = self._state.get("agent_mode", False)
+        self._state["agent_mode"] = not current
+        # Mirror to agent_screen_active so chat POSTs flip the backend gate.
+        # This tells the backend to route Gemma4 through its screen-action
+        # direct path and to expose desktop/agent-control tools to every model.
+        self._state["agent_screen_active"] = self._state["agent_mode"]
+
+        if self._state["agent_mode"]:
+            self._console.print("[llx.success]Agent mode ON[/llx.success]")
+            self._console.print("[llx.dim]Chat messages will use tool-calling agent.[/llx.dim]")
+        else:
+            self._console.print("[llx.dim]Agent mode OFF — back to standard chat.[/llx.dim]")
+
+    def _cmd_web(self, args: list[str]):
+        """Open the Guaardvark web UI in the default browser."""
+        import webbrowser
+        url = "http://localhost:5173"
+        webbrowser.open(url)
+        self._console.print(f"[llx.success]Opening {url}[/llx.success]")
+
+    def _cmd_remember(self, args: list[str]):
+        """Save something to memory. Usage: /remember <text>"""
+        if not args:
+            self._console.print("[llx.error]Usage: /remember <text to save>[/llx.error]")
+            self._console.print("[llx.dim]Example: /remember The API key for Stripe is in .env[/llx.dim]")
+            return
+
+        content = " ".join(args)
+        server = self._state.get("server")
+        session_id = self._state.get("session_id")
+
+        try:
+            from llx.client import get_client
+            client = get_client(server)
+            data = client.post("/api/memory", json={
+                "content": content,
+                "source": "cli",
+                "session_id": session_id,
+                "type": "note",
+            })
+            result = data.get("data", data)
+            mem_id = result.get("memory", {}).get("id", "")
+            self._console.print(f"[llx.success]Saved to memory[/llx.success]")
+            if mem_id:
+                self._console.print(f"[llx.dim]ID: {mem_id}[/llx.dim]")
+        except Exception as e:
+            self._console.print(f"[llx.error]Failed to save: {e}[/llx.error]")
+
+    def _cmd_memory(self, args: list[str]):
+        """Manage memories. Usage: /memory [list|search <query>|delete <id>|clear]"""
+        server = self._state.get("server")
+        sub = args[0].lower() if args else "list"
+
+        if sub == "list":
+            try:
+                from llx.client import get_client
+                client = get_client(server)
+                data = client.get("/api/memory", limit=20)
+                result = data.get("data", data)
+                memories = result.get("memories", [])
+                total = result.get("total", len(memories))
+
+                if not memories:
+                    self._console.print("[llx.dim]No memories saved yet. Use /remember <text> to save one.[/llx.dim]")
+                    return
+
+                self._console.print(f"\n[llx.brand_bright]Saved Memories ({total} total):[/llx.brand_bright]")
+                for m in memories:
+                    mid = m.get("id", "?")
+                    content = m.get("content", "")[:80]
+                    source = m.get("source", "?")
+                    created = m.get("created_at", "")[:10]
+                    self._console.print(
+                        f"  [llx.accent]{mid}[/llx.accent]  "
+                        f"[llx.dim]{created} ({source})[/llx.dim]  "
+                        f"{content}"
+                    )
+                self._console.print()
+            except Exception as e:
+                self._console.print(f"[llx.error]Failed to list memories: {e}[/llx.error]")
+
+        elif sub == "search" and len(args) > 1:
+            query = " ".join(args[1:])
+            try:
+                from llx.client import get_client
+                client = get_client(server)
+                data = client.get("/api/memory", search=query, limit=20)
+                result = data.get("data", data)
+                memories = result.get("memories", [])
+
+                if not memories:
+                    self._console.print(f"[llx.dim]No memories matching '{query}'[/llx.dim]")
+                    return
+
+                self._console.print(f"\n[llx.brand_bright]Memories matching '{query}':[/llx.brand_bright]")
+                for m in memories:
+                    mid = m.get("id", "?")
+                    content = m.get("content", "")[:80]
+                    self._console.print(f"  [llx.accent]{mid}[/llx.accent]  {content}")
+                self._console.print()
+            except Exception as e:
+                self._console.print(f"[llx.error]Search failed: {e}[/llx.error]")
+
+        elif sub == "delete" and len(args) > 1:
+            mem_id = args[1]
+            try:
+                from llx.client import get_client
+                client = get_client(server)
+                client.delete(f"/api/memory/{mem_id}")
+                self._console.print(f"[llx.success]Deleted memory {mem_id}[/llx.success]")
+            except Exception as e:
+                self._console.print(f"[llx.error]Delete failed: {e}[/llx.error]")
+
+        elif sub == "clear":
+            try:
+                from llx.client import get_client
+                client = get_client(server)
+                client.delete("/api/memory/clear")
+                self._console.print("[llx.success]All memories cleared[/llx.success]")
+            except Exception as e:
+                self._console.print(f"[llx.error]Clear failed: {e}[/llx.error]")
+
+        else:
+            self._console.print("[llx.error]Usage: /memory [list|search <query>|delete <id>|clear][/llx.error]")
 
     def _cmd_quit(self, args: list[str]):
         """Exit the REPL."""

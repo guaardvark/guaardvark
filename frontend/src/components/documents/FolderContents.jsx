@@ -23,7 +23,8 @@ import { Folder, Code } from 'lucide-react';
 import axios from 'axios';
 import { TableVirtuoso, VirtuosoGrid } from 'react-virtuoso';
 import { useSnackbar } from '../common/SnackbarProvider';
-import { API_BASE, getFileIcon, getFileIconSmall, FolderIndexIndicator, formatBytes, formatDate, getItemKey } from './fileUtils.jsx';
+import { API_BASE, getFileIcon, getFileIconSmall, FolderIndexIndicator, formatBytes, formatDate, getItemKey, isMediaFile } from './fileUtils.jsx';
+import MediaView from './MediaView';
 
 // Stable grid components (must be defined outside render to avoid Virtuoso remounts)
 const GridItemWrapper = React.forwardRef(({ children, ...props }, ref) => (
@@ -47,7 +48,7 @@ const FolderContents = ({
   viewMode = 'list',
   selectedItems = new Set(),
   onSelectionChange,
-  onItemsMove,
+  _onItemsMove,
   onContextMenu,
   onDragStart,
   onFolderOpen,
@@ -56,6 +57,7 @@ const FolderContents = ({
   onFocusContext,
   refreshKey = 0, // Refresh trigger - incrementing this will refresh contents
   folderColors = {}, // Folder ID → color map for nested color coding
+  onMediaDetected, // Callback: fires true/false when folder contents are loaded
 }) => {
   const theme = useTheme();
   const { showMessage } = useSnackbar();
@@ -64,7 +66,7 @@ const FolderContents = ({
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
   const [hasMore, setHasMore] = useState(false);
-  const [totalItems, setTotalItems] = useState(0);
+  const [_totalItems, setTotalItems] = useState(0);
   const PAGE_SIZE = 200;
 
   // Drag-to-select state
@@ -166,12 +168,19 @@ const FolderContents = ({
       const response = await axios.get(`${API_BASE}/browse?${params.toString()}`);
       const data = response.data.data;
 
+      const newFiles = (data.documents || []).map(f => ({ ...f, filename: f.filename || f.name, itemType: 'file' }));
       setItems({
         folders: (data.folders || []).map(f => ({ ...f, itemType: 'folder' })),
-        files: (data.documents || []).map(f => ({ ...f, filename: f.filename || f.name, itemType: 'file' })),
+        files: newFiles,
       });
       setHasMore(data.has_more ?? false);
       setTotalItems((data.total_folders ?? 0) + (data.total_documents ?? 0));
+
+      // Let parent know whether this folder has media content
+      if (onMediaDetected) {
+        const hasMedia = newFiles.some(f => isMediaFile(f.filename));
+        onMediaDetected(hasMedia);
+      }
     } catch (err) {
       setError('Failed to load folder contents');
       showMessage?.('Failed to load folder contents', 'error');
@@ -238,7 +247,10 @@ const FolderContents = ({
   const handleSelectionMouseDown = useCallback((e) => {
     // Only start selection on left click on empty area
     if (e.button !== 0) return;
-    if (e.target.closest('.MuiListItem-root') || e.target.closest('.MuiCard-root')) return;
+    // List-view rows (.MuiTableRow-root) need this too — without it, mousedown
+    // on a row starts a rubber-band that collapses multi-selection right before
+    // HTML5 dragstart fires, and only the dragged row ends up in dataTransfer.
+    if (e.target.closest('.MuiListItem-root') || e.target.closest('.MuiCard-root') || e.target.closest('.MuiTableRow-root')) return;
     if (onFocusContext) {
       onFocusContext({ type: 'folder', path: currentPath || folder.path, folderId: folder.id });
     }
@@ -485,9 +497,9 @@ const FolderContents = ({
         }}
       />
     ),
-    TableHead: React.forwardRef((props, ref) => <TableHead {...props} ref={ref} />),
+    TableHead: React.forwardRef(function ForwardedTableHead(props, ref) { return <TableHead {...props} ref={ref} />; }),
     TableRow: stableTableRowComponent,
-    TableBody: React.forwardRef((props, ref) => <TableBody {...props} ref={ref} />),
+    TableBody: React.forwardRef(function ForwardedTableBody(props, ref) { return <TableBody {...props} ref={ref} />; }),
   }), [stableTableRowComponent]);
 
   // Load more items for infinite scroll
@@ -685,6 +697,18 @@ const FolderContents = ({
           </Box>
         )}
       </Box>
+    );
+  }
+
+  // Media view — large preview + thumbnail strip
+  if (viewMode === 'media') {
+    return (
+      <MediaView
+        items={items}
+        folder={folder}
+        onContextMenu={onContextMenu}
+        onFileOpen={onFileOpen}
+      />
     );
   }
 

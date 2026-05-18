@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<channel name="xfce4-desktop" version="1.0">
+  <property name="backdrop" type="empty">
+    <property name="screen0" type="empty">
+      <property name="monitorscreen" type="empty">
+        <property name="workspace0" type="empty">
+          <property name="color-style" type="int" value="1"/>
+          <property name="image-style" type="int" value="0"/>
+          <property name="last-image" type="string" value="/home/llamax1/.agent_desktop/Pictures/blank.png"/>
+          <property name="rgba1" type="array">
+            <value type="double" value="0.3843137254901961"/>
+            <value type="double" value="0.62745098039215685"/>
+            <value type="double" value="0.91764705882352937"/>
+            <value type="double" value="1"/>
+          </property>
+          <property name="rgba2" type="array">
+            <value type="double" value="0.10980392156862745"/>
+            <value type="double" value="0.44313725490196076"/>
+            <value type="double" value="0.84705882352941175"/>
+            <value type="double" value="1"/>
+          </property>
+        </property>
+        <property name="workspace1" type="empty">
+          <property name="color-style" type="int" value="0"/>
+          <property name="image-style" type="int" value="5"/>
+          <property name="last-image" type="string" value="/usr/share/backgrounds/xfce/xfce-shapes.svg"/>
+        </property>
+        <property name="workspace2" type="empty">
+          <property name="color-style" type="int" value="0"/>
+          <property name="image-style" type="int" value="5"/>
+          <property name="last-image" type="string" value="/usr/share/backgrounds/xfce/xfce-shapes.svg"/>
+        </property>
+        <property name="workspace3" type="empty">
+          <property name="color-style" type="int" value="0"/>
+          <property name="image-style" type="int" value="5"/>
+          <property name="last-image" type="string" value="/usr/share/backgrounds/xfce/xfce-shapes.svg"/>
+        </property>
+      </property>
+    </property>
+  </property>
+  <property name="desktop-menu" type="empty">
+    <property name="show-delete" type="bool" value="false"/>
+    <property name="show" type="bool" value="false"/>
+  </property>
+  <property name="windowlist-menu" type="empty">
+    <property name="show" type="bool" value="false"/>
+  </property>
+  <property name="last" type="empty">
+    <property name="window-width" type="int" value="596"/>
+    <property name="window-height" type="int" value="541"/>
+  </property>
+  <property name="desktop-icons" type="empty">
+    <property name="single-click" type="bool" value="true"/>
+    <property name="file-icons" type="empty">
+      <property name="show-removable" type="bool" value="false"/>
+      <property name="show-trash" type="bool" value="false"/>
+      <property name="show-filesystem" type="bool" value="false"/>
+      <property name="show-home" type="bool" value="false"/>
+    </property>
+    <property name="primary" type="bool" value="true"/>
+    <property name="icon-size" type="uint" value="78"/>
+    <property name="show-tooltips" type="bool" value="false"/>
+    <property name="show-thumbnails" type="bool" value="false"/>
+  </property>
+</channel>

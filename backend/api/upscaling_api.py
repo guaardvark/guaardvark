@@ -5,6 +5,7 @@ Proxies requests to the upscaling service on port 8202.
 Auth token is fetched from the plugin's /health endpoint and cached.
 """
 
+import io
 import logging
 import os
 from pathlib import Path
@@ -21,6 +22,8 @@ upscaling_bp = Blueprint("upscaling", __name__, url_prefix="/api/upscaling")
 
 UPSCALING_URL = "http://localhost:8202"
 UPSCALING_TIMEOUT = 10  # seconds for quick endpoints
+# Model weights can be large; urlretrieve in the plugin holds the HTTP request open until done.
+UPSCALING_DOWNLOAD_READ_TIMEOUT = 1800  # seconds
 
 # Cached bearer token — fetched from plugin /health on first use
 _cached_token: str | None = None
@@ -76,6 +79,28 @@ def _proxy_post(path: str, json_data: dict, timeout: int = UPSCALING_TIMEOUT):
         return {"error": str(e)}, 500
 
 
+def _proxy_post_download(path: str, json_data: dict):
+    """POST to upscaling plugin with auth; long read timeout for model downloads."""
+    try:
+        resp = requests.post(
+            f"{UPSCALING_URL}{path}",
+            json=json_data,
+            headers=_auth_headers(),
+            timeout=(10, UPSCALING_DOWNLOAD_READ_TIMEOUT),
+        )
+        try:
+            data = resp.json()
+        except Exception:
+            data = {"error": resp.text or resp.reason}
+        return data, resp.status_code
+    except requests.ConnectionError:
+        return {"error": "Upscaling service not running"}, 503
+    except requests.Timeout:
+        return {"error": "Model download timed out"}, 504
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
 @upscaling_bp.route("/health", methods=["GET"])
 def health():
     """Get upscaling service health status."""
@@ -92,6 +117,32 @@ def list_models():
     if status == 200:
         return success_response(data=data, message="Models retrieved")
     return error_response(data.get("error", "Failed to list models"), status)
+
+
+@upscaling_bp.route("/models/download", methods=["POST"])
+def download_model():
+    """Download a registered upscaling model weight file into the plugin models dir."""
+    body = flask_request.get_json() or {}
+    model = body.get("model")
+    if not model or not isinstance(model, str):
+        return error_response("model is required", 400)
+
+    data, status = _proxy_post_download("/models/download", {"model": model})
+    if status == 200:
+        return success_response(data=data, message="Model downloaded")
+    err = None
+    if isinstance(data, dict):
+        err = data.get("error") or data.get("detail")
+        if isinstance(err, list):
+            err = "; ".join(
+                str(item.get("msg", item)) if isinstance(item, dict) else str(item)
+                for item in err
+            )
+    if err is None:
+        err = str(data) if data else "Download failed"
+    elif isinstance(err, dict):
+        err = err.get("message") or str(err)
+    return error_response(str(err), status if status != 200 else 500)
 
 
 @upscaling_bp.route("/upscale/video", methods=["POST"])
@@ -157,6 +208,69 @@ def cancel_job(job_id):
         return error_response(str(e), 500)
 
 
+@upscaling_bp.route("/jobs", methods=["DELETE"])
+def clear_finished_jobs():
+    """Clear finished/failed/cancelled jobs from history. Active jobs untouched."""
+    try:
+        resp = requests.delete(
+            f"{UPSCALING_URL}/jobs",
+            headers=_auth_headers(),
+            timeout=UPSCALING_TIMEOUT,
+        )
+        data = resp.json()
+        if resp.status_code == 200:
+            return success_response(data=data, message="Cleared finished jobs")
+        return error_response(data.get("error", "Failed to clear"), resp.status_code)
+    except requests.ConnectionError:
+        return error_response("Upscaling service not running", 503)
+    except Exception as e:
+        return error_response(str(e), 500)
+
+
+@upscaling_bp.route("/preview", methods=["POST"])
+def preview_upscale():
+    """Preview upscale by upscaling a single image (e.g. video frame)."""
+    if "file" not in flask_request.files:
+        return error_response("No file uploaded", 400)
+
+    file = flask_request.files["file"]
+    files = {"file": (file.filename, file.stream, file.mimetype)}
+    
+    data = {
+        "model": flask_request.form.get("model"),
+        "scale": flask_request.form.get("scale"),
+        "sharpen": flask_request.form.get("sharpen"),
+        "denoise_strength": flask_request.form.get("denoise_strength"),
+        "two_pass": flask_request.form.get("two_pass"),
+        "face_enhance": flask_request.form.get("face_enhance"),
+    }
+    
+    try:
+        resp = requests.post(
+            f"{UPSCALING_URL}/upscale/image/upload",
+            files=files,
+            data={k: v for k, v in data.items() if v},
+            headers=_auth_headers(),
+            timeout=60,
+        )
+        if resp.status_code == 200:
+            return send_file(
+                io.BytesIO(resp.content),
+                mimetype=resp.headers.get("content-type", "image/png"),
+                as_attachment=False,
+                download_name=f"preview_{file.filename}"
+            )
+        try:
+            err_json = resp.json()
+            return error_response(err_json.get("error", "Failed to upscale preview"), resp.status_code)
+        except Exception:
+            return error_response(f"Upscaling failed: {resp.text}", resp.status_code)
+    except requests.ConnectionError:
+        return error_response("Upscaling service not running", 503)
+    except Exception as e:
+        return error_response(str(e), 500)
+
+
 # --- Upload & Serve ---
 
 def _get_upload_dir() -> Path:
@@ -212,9 +326,26 @@ def upload_and_upscale():
         payload["model"] = model
     if scale:
         payload["scale"] = float(scale)
+        
+    sharpen = flask_request.form.get("sharpen")
+    if sharpen is not None:
+        payload["sharpen"] = float(sharpen)
+        
+    denoise = flask_request.form.get("denoise_strength")
+    if denoise is not None:
+        payload["denoise_strength"] = float(denoise)
+        
     two_pass = flask_request.form.get("two_pass")
     if two_pass and two_pass.lower() in ("true", "1", "yes"):
         payload["two_pass"] = True
+        
+    face_enhance = flask_request.form.get("face_enhance")
+    if face_enhance and face_enhance.lower() in ("true", "1", "yes"):
+        payload["face_enhance"] = True
+        
+    double_fps = flask_request.form.get("double_fps")
+    if double_fps and double_fps.lower() in ("true", "1", "yes"):
+        payload["double_fps"] = True
 
     data, status = _proxy_post("/upscale/video", payload, timeout=30)
     if status in (200, 202):

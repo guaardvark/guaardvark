@@ -20,6 +20,8 @@ class ExecutePythonTool(BaseTool):
     
     name = "execute_python"
     description = "Execute Python code safely in an isolated environment and return the output"
+    is_dangerous = True
+    requires_approval = True
     parameters = {
         "code": ToolParameter(
             name="code",
@@ -120,6 +122,8 @@ class ExecuteJavaScriptTool(BaseTool):
     
     name = "execute_javascript"
     description = "Execute JavaScript/Node.js code safely and return the output"
+    is_dangerous = True
+    requires_approval = True
     parameters = {
         "code": ToolParameter(
             name="code",
@@ -180,6 +184,8 @@ class ExecuteShellTool(BaseTool):
     
     name = "execute_shell"
     description = "Execute shell commands safely with security restrictions"
+    is_dangerous = True
+    requires_approval = True
     parameters = {
         "command": ToolParameter(
             name="command",

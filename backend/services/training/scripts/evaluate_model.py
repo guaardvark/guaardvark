@@ -7,7 +7,7 @@ Metrics:
 - On-target accuracy (classification)
 
 Usage:
-    python3 evaluate_model.py --model qwen3-vl:2b-instruct --data data/training/datasets/servo_eval.jsonl
+    python3 evaluate_model.py --model gemma4:e4b --data data/training/datasets/servo_eval.jsonl
     python3 evaluate_model.py --model gvk-eye-v1 --data data/training/datasets/servo_eval.jsonl
 """
 

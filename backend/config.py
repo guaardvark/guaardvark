@@ -67,6 +67,8 @@ ADVANCED_RAG_ENABLED = os.environ.get("GUAARDVARK_ADVANCED_RAG", "true").lower()
 RAG_DEBUG_ENABLED = os.environ.get("GUAARDVARK_RAG_DEBUG", "true").lower() == "true"
 CONTEXT_PERSISTENCE_DIR = _resolve_path("GUAARDVARK_CONTEXT_DIR", "data/context")
 
+AGENT_BRAIN_ENABLED = os.environ.get("GUAARDVARK_AGENT_BRAIN", "true").lower() == "true"
+
 BROWSER_AUTOMATION_ENABLED = os.environ.get("GUAARDVARK_BROWSER_AUTOMATION", "true").lower() == "true"
 BROWSER_HEADLESS = os.environ.get("GUAARDVARK_BROWSER_HEADLESS", "true").lower() == "true"
 BROWSER_MAX_PAGES = int(os.environ.get("GUAARDVARK_BROWSER_MAX_PAGES", "5"))
@@ -75,6 +77,10 @@ BROWSER_TIMEOUT = int(os.environ.get("GUAARDVARK_BROWSER_TIMEOUT", "30000"))
 DESKTOP_AUTOMATION_ENABLED = os.environ.get("GUAARDVARK_DESKTOP_AUTOMATION", "false").lower() == "true"
 GUI_AUTOMATION_ENABLED = os.environ.get("GUAARDVARK_GUI_AUTOMATION", "false").lower() == "true"
 AGENT_BROWSER = os.environ.get("GUAARDVARK_AGENT_BROWSER", "")  # firefox|chromium|chrome (auto-detected if empty)
+
+# Film Crew / Production Pipeline improvements
+FILM_CREW_LIPSYNC_ENABLED = os.environ.get("GUAARDVARK_FILM_CREW_LIPSYNC", "false").lower() == "true"
+FILM_CREW_PARALLEL_RENDER = os.environ.get("GUAARDVARK_FILM_CREW_PARALLEL", "false").lower() == "true"
 
 ALLOWED_AUTOMATION_PATHS = [
     str(GUAARDVARK_ROOT / "data"),
@@ -259,7 +265,6 @@ def get_default_llm():
             'gemma',
             'phi',
             'mistral',
-            'qwen',
         ]
 
         for pattern in preferred_patterns:
@@ -285,14 +290,8 @@ def get_default_llm():
 
 def get_embedding_vram_estimates() -> dict:
     return {
-        "qwen3-embedding:8b": {"vram_mb": 6000, "dimensions": 4096},
-        "qwen3-embedding-8b": {"vram_mb": 6000, "dimensions": 4096},
-        "qwen3-embedding:4b": {"vram_mb": 3000, "dimensions": 2560},
-        "qwen3-embedding-4b": {"vram_mb": 3000, "dimensions": 2560},
         "embeddinggemma:latest": {"vram_mb": 800, "dimensions": 768},
         "embeddinggemma": {"vram_mb": 800, "dimensions": 768},
-        "qwen3-embedding:0.6b": {"vram_mb": 500, "dimensions": 1024},
-        "qwen3-embedding-0.6b": {"vram_mb": 500, "dimensions": 1024},
         "nomic-embed-text": {"vram_mb": 400, "dimensions": 768},
         "all-minilm": {"vram_mb": 150, "dimensions": 384},
     }
@@ -374,15 +373,9 @@ def get_active_embedding_model() -> str:
         "snowflake-arctic-embed:l",
         "bge-m3",
         "snowflake-arctic-embed2",
-        "qwen3-embedding:4b",
-        "qwen3-embedding-4b",
-        "qwen3-embedding:8b",
-        "qwen3-embedding-8b",
         "embeddinggemma:latest",
         "embeddinggemma",
         "nomic-embed-text",
-        "qwen3-embedding:0.6b",
-        "qwen3-embedding-0.6b",
         "all-minilm",
     ]
 
@@ -475,7 +468,7 @@ if not SECRET_KEY:
 
 METRICS_LOG_LEVEL = os.environ.get("GUAARDVARK_METRICS_LOG_LEVEL", "WARNING").upper()
 
-AGENTIC_MAX_TOKENS_FINAL = int(os.environ.get("GUAARDVARK_AGENTIC_MAX_TOKENS", "1024"))
+AGENTIC_MAX_TOKENS_FINAL = int(os.environ.get("GUAARDVARK_AGENTIC_MAX_TOKENS", "4096"))
 AGENTIC_HISTORY_LIMIT = int(os.environ.get("GUAARDVARK_AGENTIC_HISTORY_LIMIT", "30"))
 
 CHAT_HISTORY_LIMIT_FOR_ENGINE = (
@@ -491,6 +484,15 @@ CHAT_MEMORY_TOKEN_LIMIT = (
 PROJECT_INDEX_MODE = os.environ.get("GUAARDVARK_PROJECT_INDEX_MODE", "global").lower()
 
 DISABLE_CELERY = os.environ.get("DISABLE_CELERY", "false").lower() == "true"
+
+# ---- Cluster Foundation (spec §6.2) ------------------------------------
+CLUSTER_ENABLED = os.getenv("CLUSTER_ENABLED", "false").lower() in ("1", "true", "yes")
+CLUSTER_ROLE = os.getenv("CLUSTER_ROLE", "solo")  # solo | master | worker
+CLUSTER_MASTER_URL = os.getenv("CLUSTER_MASTER_URL", "")
+CLUSTER_NODE_ID = os.getenv("CLUSTER_NODE_ID", "")  # set by start.sh from hardware.json
+CLUSTER_MASTER_NODE_ID = os.getenv("CLUSTER_MASTER_NODE_ID", "")
+CLUSTER_SWEEP_INTERVAL_S = int(os.getenv("CLUSTER_SWEEP_INTERVAL_S", "5"))
+CLUSTER_HEARTBEAT_TIMEOUT_S = int(os.getenv("CLUSTER_HEARTBEAT_TIMEOUT_S", "15"))
 
 # GPU embedding plugin was removed — the EmbeddingRouter now handles
 # GPU/CPU routing natively via Ollama num_gpu=0 for the CPU path.

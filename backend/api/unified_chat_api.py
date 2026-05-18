@@ -14,6 +14,13 @@ logger = logging.getLogger(__name__)
 
 unified_chat_bp = Blueprint("unified_chat", __name__, url_prefix="/api/chat/unified")
 
+# Per-session in-flight chat threads. Without this, a stuck Ollama vision call
+# would let retries pile up forever — every retry spawned a fresh thread that
+# also hit Ollama, compounding the wedge. New requests for a session that's
+# already running get a 409 instead.
+_inflight: dict = {}
+_inflight_lock = threading.Lock()
+
 
 @unified_chat_bp.route("", methods=["POST"])
 def unified_chat():
@@ -42,6 +49,13 @@ def unified_chat():
     request_id = str(uuid.uuid4())
     project_id = data.get("project_id")
 
+    # Abort any still-running generation on this session — a new message from
+    # the user means "stop what you're doing and listen to this instead."
+    # Without this, the old thread keeps running (and its agent_task_execute
+    # keeps the agent locked, so the new task gets "Agent already active").
+    from backend.services.unified_chat_engine import set_abort_flag
+    set_abort_flag(session_id)
+
     logger.info(
         f"[UNIFIED_CHAT] request_id={request_id[:8]} session={session_id} "
         f"project={project_id} message={message[:80]!r}"
@@ -52,30 +66,43 @@ def unified_chat():
         except (ValueError, TypeError):
             project_id = None
 
-    # Get LLM instance - try app config first, then create one on demand
-    llm = current_app.config.get("LLAMA_INDEX_LLM")
-    if not llm:
-        logger.warning("LLAMA_INDEX_LLM not in app config, creating on demand")
-        try:
-            from backend.utils.llm_service import get_llm_for_startup
-            llm = get_llm_for_startup()
-            # Cache it for next time
-            current_app.config["LLAMA_INDEX_LLM"] = llm
-        except Exception as e:
-            logger.error(f"Failed to create LLM instance: {e}")
-            return jsonify({"success": False, "error": "LLM not available. Check Ollama is running."}), 503
-
-    # Get tool registry
+    # Check if AgentBrain is available (pre-computed state, three-tier routing)
+    use_agent_brain = False
+    agent_brain = None
     try:
-        from backend.tools.tool_registry_init import initialize_all_tools
-        registry = initialize_all_tools()
+        from backend.config import AGENT_BRAIN_ENABLED
+        brain_state = getattr(current_app, 'brain_state', None)
+        if AGENT_BRAIN_ENABLED and brain_state and brain_state.is_ready:
+            from backend.services.agent_brain import AgentBrain
+            agent_brain = AgentBrain(state=brain_state)
+            use_agent_brain = True
+            logger.info(f"[UNIFIED_CHAT] Using AgentBrain (three-tier routing)")
     except Exception as e:
-        logger.error(f"Failed to initialize tool registry: {e}")
-        return jsonify({"success": False, "error": "Tool registry unavailable"}), 503
+        logger.debug(f"AgentBrain not available, using legacy path: {e}")
 
-    # Create engine
-    from backend.services.unified_chat_engine import UnifiedChatEngine
-    engine = UnifiedChatEngine(registry, llm)
+    engine = None
+    if not use_agent_brain:
+        # Legacy path: create UnifiedChatEngine per-request
+        llm = current_app.config.get("LLAMA_INDEX_LLM")
+        if not llm:
+            logger.warning("LLAMA_INDEX_LLM not in app config, creating on demand")
+            try:
+                from backend.utils.llm_service import get_llm_for_startup
+                llm = get_llm_for_startup()
+                current_app.config["LLAMA_INDEX_LLM"] = llm
+            except Exception as e:
+                logger.error(f"Failed to create LLM instance: {e}")
+                return jsonify({"success": False, "error": "LLM not available. Check Ollama is running."}), 503
+
+        try:
+            from backend.tools.tool_registry_init import initialize_all_tools
+            registry = initialize_all_tools()
+        except Exception as e:
+            logger.error(f"Failed to initialize tool registry: {e}")
+            return jsonify({"success": False, "error": "Tool registry unavailable"}), 503
+
+        from backend.services.unified_chat_engine import UnifiedChatEngine
+        engine = UnifiedChatEngine(registry, llm)
 
     # Build emit function
     from backend.socketio_instance import socketio
@@ -136,15 +163,65 @@ def unified_chat():
 
     def run_engine():
         try:
-            engine.chat(session_id, message, options, emit_fn, app=app,
-                       project_id=project_id, image_data=image_data, image_url=image_url,
-                       is_voice_message=is_voice_message)
+            if use_agent_brain:
+                agent_brain.process(
+                    session_id=session_id,
+                    message=message,
+                    options=options,
+                    emit_fn=emit_fn,
+                    app=app,
+                    project_id=project_id,
+                    image_data=image_data,
+                    image_url=image_url,
+                    is_voice_message=is_voice_message,
+                )
+            else:
+                engine.chat(session_id, message, options, emit_fn, app=app,
+                           project_id=project_id, image_data=image_data, image_url=image_url,
+                           is_voice_message=is_voice_message)
         except Exception as e:
-            logger.error(f"Unified chat engine thread error: {e}", exc_info=True)
+            logger.error(f"Chat engine thread error: {e}", exc_info=True)
             emit_fn("chat:error", {"error": str(e)})
+        finally:
+            # Drop ourselves from the in-flight map so the next request can
+            # take this slot. Guarded by identity check so a (defensive) race
+            # with a replacement entry doesn't clobber it.
+            with _inflight_lock:
+                if _inflight.get(session_id) is threading.current_thread():
+                    _inflight.pop(session_id, None)
 
-    thread = threading.Thread(target=run_engine, daemon=True, name=f"unified-chat-{request_id[:8]}")
-    thread.start()
+    # Snapshot the existing thread (if any) so we can wait for it to unwind
+    # outside the lock — we already set the abort flag above, the old thread
+    # just needs a moment to notice and exit. Without this grace period, the
+    # new request races the abort signal and almost always loses with 409,
+    # even though we explicitly asked the old thread to step aside.
+    with _inflight_lock:
+        existing = _inflight.get(session_id)
+
+    if existing is not None and existing.is_alive():
+        existing.join(timeout=1.5)
+
+    # Now claim the slot. If the old thread is *still* alive after the grace
+    # period, it's genuinely wedged (stuck Ollama call, frozen tool, etc.) —
+    # reject and tell the user to hit /abort for a hard kill.
+    with _inflight_lock:
+        existing = _inflight.get(session_id)
+        if existing is not None and existing.is_alive():
+            logger.warning(
+                f"[UNIFIED_CHAT] Rejecting request {request_id[:8]} — session "
+                f"{session_id} has a wedged chat thread that didn't unwind "
+                f"after abort signal"
+            )
+            return jsonify({
+                "success": False,
+                "error": "A previous request for this session is still running "
+                         "and didn't respond to the abort signal. "
+                         "POST to /abort for a hard kill.",
+                "request_id": request_id,
+            }), 409
+        thread = threading.Thread(target=run_engine, daemon=True, name=f"unified-chat-{request_id[:8]}")
+        _inflight[session_id] = thread
+        thread.start()
 
     return jsonify({
         "success": True,

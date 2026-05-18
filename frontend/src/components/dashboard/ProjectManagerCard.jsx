@@ -9,11 +9,10 @@ import {
   ListItem,
   ListItemText,
   Typography,
-  Link,
   Avatar,
   ListItemAvatar,
 } from "@mui/material";
-import { Link as RouterLink, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import DashboardCardWrapper from "./DashboardCardWrapper";
 import { getProjects } from "../../api";
 import { getLogoUrl } from "../../config/logoConfig";

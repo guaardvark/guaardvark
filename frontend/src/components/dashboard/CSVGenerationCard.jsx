@@ -16,9 +16,7 @@ import {
   Tooltip,
 } from "@mui/material";
 import {
-  TableChart,
   Add,
-  Download,
   Upload,
   Refresh,
 } from "@mui/icons-material";
@@ -38,8 +36,8 @@ const CSVGenerationCard = React.forwardRef(
     ref,
   ) => {
     const [recentGenerations, setRecentGenerations] = useState([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState(null);
+    const [isLoading, _setIsLoading] = useState(false);
+    const [error, _setError] = useState(null);
     const navigate = useNavigate();
 
     const fetchRecentGenerations = useCallback(async () => {

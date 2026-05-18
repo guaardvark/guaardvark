@@ -7,13 +7,15 @@
 // - No react-grid-layout for folder icons (simple positioning)
 
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { Box, Typography, Card, CardActionArea, CardContent, IconButton, Tooltip, Stack, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, useTheme, CircularProgress } from "@mui/material";
+import { Box, Typography, Card, CardActionArea, CardContent, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, useTheme, CircularProgress } from "@mui/material";
 import { GuaardvarkLogo } from "../components/branding";
 import { Apps as AppsIcon, GridView as GridViewIcon, FolderOutlined, Code, UploadFile as UploadFileIcon } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
-import { getFileIcon, getItemKey, FolderIndexIndicator, isImageFile, isCodeFile } from "../components/documents/fileUtils.jsx";
+import { getFileIcon, getItemKey, FolderIndexIndicator, isImageFile, isCodeFile, isPdfFile, isAudioFile } from "../components/documents/fileUtils.jsx";
 import ImageLightbox from "../components/images/ImageLightbox";
 import CodeViewerModal from "../components/documents/CodeViewerModal";
+import PdfViewerModal from "../components/documents/PdfViewerModal";
+import AudioPlayerModal from "../components/documents/AudioPlayerModal";
 import ReactGridLayoutLib, { WidthProvider } from 'react-grid-layout';
 import FolderWindow from "../components/documents/FolderWindow";
 import DocumentsContextMenu from "../components/documents/DocumentsContextMenu";
@@ -47,9 +49,13 @@ const ICON_GRID_W = 120;
 const ICON_GRID_H = 100;
 const ICON_GRID_PAD = 20;
 
+// Shared frozen Set so windows with no selection all get the same reference —
+// avoids spurious re-renders and `.has` on undefined.
+const EMPTY_SELECTION = new Set();
+
 const DocumentsPage = () => {
   const { gridSettings } = useLayout();
-  const { RGL_WIDTH_PROP_PX, CONTAINER_PADDING_PX } = gridSettings;
+  const { RGL_WIDTH_PROP_PX, _CONTAINER_PADDING_PX } = gridSettings;
   const { showMessage } = useSnackbar();
   const { activeModel, isLoadingModel, modelError } = useStatus();
   const theme = useTheme();
@@ -60,7 +66,9 @@ const DocumentsPage = () => {
   const [windowColors, setWindowColors] = useState({});
   const [windowZIndex, setWindowZIndex] = useState({});
   const [maxZIndex, setMaxZIndex] = useState(0);
-  const [selectedItems, setSelectedItems] = useState(new Set());
+  // Per-surface selection: `desktop` is the root, each window.id is its own slot.
+  // Keeping selections isolated per window means clicking in window B doesn't wipe window A.
+  const [selectedItemsByContext, setSelectedItemsByContext] = useState({ desktop: new Set() });
   const [activeContext, setActiveContext] = useState({ type: 'desktop', path: '/' });
   const [loading, setLoading] = useState(true);
   const [rootFiles, setRootFiles] = useState([]); // Files at root level (desktop)
@@ -68,10 +76,6 @@ const DocumentsPage = () => {
   const iconPositionsRef = useRef({}); // Always-current ref to avoid stale closures
   const stateLoadedRef = useRef(false); // Prevent saving before initial load
   const [folderRefreshKeys, setFolderRefreshKeys] = useState({}); // Refresh keys for folder windows: { folderId: refreshKey }
-  const [viewMode, setViewMode] = useState(() => {
-    // Load saved view preference from localStorage
-    return localStorage.getItem('documentsPageViewMode') || 'list';
-  });
   const windowIdCounter = useRef(0);
   const isMountedRef = useRef(true);
   const windowsRef = useRef([]);
@@ -87,6 +91,26 @@ const DocumentsPage = () => {
   useEffect(() => {
     windowsRef.current = windows;
   }, [windows]);
+
+  // Which selection slot "owns" the current keyboard/context-menu actions.
+  // Desktop surface → 'desktop'; a focused folder window → that window's id.
+  const activeContextKey = useMemo(() => {
+    if (activeContext.type === 'desktop') return 'desktop';
+    const win = windows.find((w) => w.folderId === activeContext.folderId);
+    return win ? win.id : 'desktop';
+  }, [activeContext, windows]);
+
+  // The selection Set the user is currently acting on — handlers below read this
+  // so Ctrl+C / Delete / right-click target only the focused surface's selection.
+  const activeSelection = selectedItemsByContext[activeContextKey] || EMPTY_SELECTION;
+  const desktopSelection = selectedItemsByContext.desktop || EMPTY_SELECTION;
+
+  // Refs so event-driven callbacks (onMouseDown → setActiveContext → oncontextmenu)
+  // can read the very latest focus/selection without stale closures or huge dep arrays.
+  const activeContextKeyRef = useRef('desktop');
+  const selectionByContextRef = useRef({ desktop: new Set() });
+  useEffect(() => { activeContextKeyRef.current = activeContextKey; }, [activeContextKey]);
+  useEffect(() => { selectionByContextRef.current = selectedItemsByContext; }, [selectedItemsByContext]);
 
   // Keep iconPositions ref in sync with state (avoids stale closures in saveWindowState)
   useEffect(() => {
@@ -106,8 +130,8 @@ const DocumentsPage = () => {
     const el = windowContainerRef.current;
     if (!el) return { maxW: WINDOW_MIN_WIDTH * 2, maxH: WINDOW_MIN_HEIGHT * 2 };
     const rect = el.getBoundingClientRect();
-    const [mx, my] = WINDOWS_MARGIN;
-    const [px, py] = WINDOWS_PADDING;
+    const [_mx, my] = WINDOWS_MARGIN;
+    const [_px, py] = WINDOWS_PADDING;
     // WidthProvider uses actual DOM width, so col count = WINDOWS_COLS in available space
     const rowPitch = WINDOWS_ROW_HEIGHT + my;
     const visibleRows = Math.floor((rect.height - py * 2 + my) / rowPitch);
@@ -133,6 +157,8 @@ const DocumentsPage = () => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [lightbox, setLightbox] = useState(null); // { url, name, documentId, editMode }
   const [codeViewer, setCodeViewer] = useState(null); // { file } for CodeViewerModal
+  const [pdfViewer, setPdfViewer] = useState(null); // { file } for PdfViewerModal
+  const [audioPlayer, setAudioPlayer] = useState(null); // { file } for AudioPlayerModal
   const navigate = useNavigate();
   const [dragOverFolderId, setDragOverFolderId] = useState(null); // Folder ID being dragged over
   const fileInputRef = useRef(null);
@@ -164,11 +190,12 @@ const DocumentsPage = () => {
           if (stateResponse.ok) {
             savedState = await stateResponse.json();
           }
-        } catch (err) {
+        } catch {
+          // No saved state yet — first run, defaults are fine
         }
 
         // Create a window for each folder
-        const newWindows = folders.map((folder, index) => {
+        const newWindows = folders.map((folder, _index) => {
           const windowId = `window-${windowIdCounter.current++}`;
           const savedWindow = savedState?.windows?.find(w => w.folderId === folder.id);
 
@@ -317,7 +344,7 @@ const DocumentsPage = () => {
   // Listen for file/folder changes from any tab/component and refresh in place
   useEffect(() => {
     const handleExternalUpdate = (event) => {
-      const payload = event?.detail || event?.data;
+      const _payload = event?.detail || event?.data;
       refreshData();
       // Force any open folder windows to re-fetch their contents
       setFolderRefreshKeys(prev => {
@@ -390,7 +417,7 @@ const DocumentsPage = () => {
     try {
       // Use explicit param if given, otherwise use ref (always current, avoids stale closures)
       const positionsToSave = currentIconPositions || iconPositionsRef.current;
-      const response = await fetch(WINDOWS_STATE_ENDPOINT, {
+      await fetch(WINDOWS_STATE_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -403,11 +430,9 @@ const DocumentsPage = () => {
           lastSaved: new Date().toISOString(),
         }),
       });
-
-      if (response.ok) {
-      } else {
-      }
-    } catch (err) {
+      // Persistence is fire-and-forget — response intentionally not checked
+    } catch {
+      // Layout save is best-effort; if it fails the user just loses layout on refresh
     }
   }, []);
 
@@ -485,6 +510,13 @@ const DocumentsPage = () => {
       // Save using fresh data (inside setter to avoid stale closure)
       saveWindowState(newWindows, windowLayout, windowColors, windowZIndex, maxZIndex);
       return newWindows;
+    });
+    // Drop the closed window's selection slot so reopening starts clean
+    // and long-lived sessions don't accumulate stale Sets.
+    setSelectedItemsByContext(prev => {
+      if (!(windowId in prev)) return prev;
+      const { [windowId]: _removed, ...rest } = prev;
+      return rest;
     });
   }, [windowLayout, windowColors, windowZIndex, maxZIndex, saveWindowState]);
 
@@ -599,9 +631,10 @@ const DocumentsPage = () => {
     setWindowZIndex(prev => ({ ...prev, [windowId]: newMaxZIndex }));
   }, [maxZIndex]);
 
-  // Handle selection change (for future multi-select support)
-  const handleSelectionChange = useCallback((newSelection) => {
-    setSelectedItems(newSelection);
+  // Scoped selection update — caller passes the context key ('desktop' or window.id)
+  // along with the new Set. Isolates per-surface selections from each other.
+  const handleSelectionChange = useCallback((contextKey, newSelection) => {
+    setSelectedItemsByContext((prev) => ({ ...prev, [contextKey]: newSelection }));
   }, []);
 
   // Track active context for keyboard shortcuts and paste targets
@@ -609,14 +642,8 @@ const DocumentsPage = () => {
     setActiveContext({ type: 'desktop', path: '/' });
   }, []);
 
-  // Handle view mode change
-  const handleViewModeChange = useCallback((newViewMode) => {
-    setViewMode(newViewMode);
-    localStorage.setItem('documentsPageViewMode', newViewMode);
-  }, []);
-
   // Handle drag start (for items in folder windows)
-  const handleDragStart = useCallback((e, item, type) => {
+  const handleDragStart = useCallback((_e, _item, _type) => {
     // Drag start is handled by FolderContents, just log for debugging
   }, []);
 
@@ -780,7 +807,7 @@ const DocumentsPage = () => {
           setUploadProgress(null);
         }
 
-        showMessage?.(`Uploaded ${uploadedCount} file(s)`, 'success');
+        showMessage?.(`Imported ${uploadedCount} file(s)`, 'success');
 
         // Refresh data after upload
         await refreshData();
@@ -937,9 +964,10 @@ const DocumentsPage = () => {
         showMessage?.(`Moved ${moveResults.success} item(s), ${moveResults.failed} failed`, 'warning');
       }
 
-      // Clear selection after move operation (even if partial failure)
+      // Clear selection after move operation (even if partial failure).
+      // A move can touch items from any surface, so reset every selection slot.
       if (moveResults.success > 0) {
-        setSelectedItems(new Set());
+        setSelectedItemsByContext({ desktop: new Set() });
 
         // Refresh data after move
         await refreshData();
@@ -958,6 +986,26 @@ const DocumentsPage = () => {
   // Separate windows by state (needed by arrange callbacks and render)
   const foldedWindows = windows.filter(w => w.state === 'folded');
   const activeWindows = windows.filter(w => w.state === 'minimized' || w.state === 'maximized');
+
+  // Build a dataTransfer payload for desktop icon drags. If the dragged icon is part
+  // of a multi-selection, ship the whole set; otherwise just the one item.
+  const buildDesktopDragPayload = (thisItemKey, fallbackItem) => {
+    if (desktopSelection.size <= 1 || !desktopSelection.has(thisItemKey)) {
+      return [fallbackItem];
+    }
+    return Array.from(desktopSelection).map(k => {
+      const [type, idStr] = k.split('-');
+      const id = parseInt(idStr);
+      if (type === 'folder') {
+        const w = foldedWindows.find(fw => fw.folderId === id);
+        if (!w) return null;
+        return { id, itemType: 'folder', name: w.folder.name, path: w.folder.path };
+      }
+      const f = rootFiles.find(rf => rf.id === id);
+      if (!f) return null;
+      return { id, itemType: 'file', name: f.filename, filename: f.filename, path: f.path };
+    }).filter(Boolean);
+  };
 
   // Auto-arrange all windows - intelligently pick columns based on count
   const handleArrangeWindows = useCallback(() => {
@@ -1049,30 +1097,34 @@ const DocumentsPage = () => {
   }, [foldedWindows, rootFiles, windows, windowLayout, windowColors, windowZIndex, maxZIndex, RGL_WIDTH_PROP_PX]);
 
   // Context menu handlers
-  const handleContextMenu = useCallback((e, item = null, type = 'desktop') => {
+  // Right-click handler. `surface` tells us where the click physically happened —
+  // 'desktop' for icons/space on the desktop, 'window' for anything inside a folder
+  // window. Without it, type='folder' couldn't distinguish a desktop folder icon
+  // from an in-window subfolder, and copy/cut would key off the wrong selection slot.
+  const handleContextMenu = useCallback((e, item = null, type = 'desktop', surface = 'desktop') => {
     e.preventDefault();
     e.stopPropagation();
-    if (type === 'folder' || type === 'folder-window') {
-      setActiveContext({
-        type: 'folder',
-        path: item?.path || '/',
-        folderId: item?.id,
-      });
-    } else {
+    if (surface === 'desktop') {
       setDesktopContext();
     }
+    // For surface='window', the folder window's onMouseDown has already set
+    // activeContext to that window — don't clobber it from the item type.
     setContextMenu({ top: e.clientY, left: e.clientX });
     setContextMenuType(type);
     setContextMenuItem(item);
 
-    // If right-clicking on an item, select it if not already selected
+    // If right-clicking on an item, select it if not already selected.
+    // Refs are used here because the mouseDown that set the new activeContext
+    // fires immediately before this callback, and we want the freshest slot.
     if (item) {
       const key = type === 'folder' ? `folder-${item.id}` : `file-${item.id}`;
-      if (!selectedItems.has(key)) {
-        setSelectedItems(new Set([key]));
+      const currentKey = activeContextKeyRef.current;
+      const currentSelection = selectionByContextRef.current[currentKey] || EMPTY_SELECTION;
+      if (!currentSelection.has(key)) {
+        handleSelectionChange(currentKey, new Set([key]));
       }
     }
-  }, [selectedItems, setDesktopContext]);
+  }, [setDesktopContext, handleSelectionChange]);
 
   const handleNewFolder = useCallback(async () => {
     setContextMenu(null);
@@ -1135,15 +1187,15 @@ const DocumentsPage = () => {
       const uploaded = results.filter(r => !r?.skipped).length;
       const skipped = results.filter(r => r?.skipped).length;
       const msg = skipped > 0
-        ? `Uploaded ${uploaded} file(s) (${skipped} ignored by filter)`
-        : `Uploaded ${uploaded} file(s)`;
+        ? `Imported ${uploaded} file(s) (${skipped} ignored by filter)`
+        : `Imported ${uploaded} file(s)`;
       showMessage?.(msg, 'success');
 
       // Refresh data after upload
       await refreshData();
     } catch (err) {
-      const errorMsg = err.response?.data?.message || err.message || 'Upload failed';
-      showMessage?.(`Upload failed: ${errorMsg}`, 'error');
+      const errorMsg = err.response?.data?.message || err.message || 'Import failed';
+      showMessage?.(`Import failed: ${errorMsg}`, 'error');
     } finally {
       // Reset file input
       if (e.target) {
@@ -1153,16 +1205,16 @@ const DocumentsPage = () => {
   }, [contextMenuItem, showMessage, refreshData]);
 
   const handleCopy = useCallback(() => {
-    setClipboard({ items: Array.from(selectedItems), operation: 'copy' });
+    setClipboard({ items: Array.from(activeSelection), operation: 'copy' });
     setContextMenu(null);
-    showMessage?.(`Copied ${selectedItems.size} item(s)`, 'info');
-  }, [selectedItems, showMessage]);
+    showMessage?.(`Copied ${activeSelection.size} item(s)`, 'info');
+  }, [activeSelection, showMessage]);
 
   const handleCut = useCallback(() => {
-    setClipboard({ items: Array.from(selectedItems), operation: 'cut' });
+    setClipboard({ items: Array.from(activeSelection), operation: 'cut' });
     setContextMenu(null);
-    showMessage?.(`Cut ${selectedItems.size} item(s)`, 'info');
-  }, [selectedItems, showMessage]);
+    showMessage?.(`Cut ${activeSelection.size} item(s)`, 'info');
+  }, [activeSelection, showMessage]);
 
   const handlePaste = useCallback(async (targetOverride = null) => {
     setContextMenu(null);
@@ -1235,16 +1287,16 @@ const DocumentsPage = () => {
 
   const handleDelete = useCallback(() => {
     setContextMenu(null);
-    if (selectedItems.size === 0) return;
+    if (activeSelection.size === 0) return;
     setDeleteConfirmOpen(true);
-  }, [selectedItems]);
+  }, [activeSelection]);
 
   const handleDeleteConfirm = useCallback(async () => {
     setDeleteConfirmOpen(false);
-    if (selectedItems.size === 0) return;
+    if (activeSelection.size === 0) return;
 
     try {
-      for (const key of selectedItems) {
+      for (const key of activeSelection) {
         const [type, id] = key.split('-');
         if (type === 'folder') {
           await axios.delete(`${API_BASE}/folder/${id}`);
@@ -1252,21 +1304,22 @@ const DocumentsPage = () => {
           await axios.delete(`${API_BASE}/document/${id}`);
         }
       }
-      showMessage?.(`Deleted ${selectedItems.size} item(s)`, 'success');
-      setSelectedItems(new Set());
+      showMessage?.(`Deleted ${activeSelection.size} item(s)`, 'success');
+      // Clear only the slot we just deleted from
+      handleSelectionChange(activeContextKeyRef.current, new Set());
       await refreshData();
     } catch (err) {
       showMessage?.('Delete failed', 'error');
     }
-  }, [selectedItems, showMessage, refreshData]);
+  }, [activeSelection, showMessage, refreshData, handleSelectionChange]);
 
   const handleRename = useCallback(async () => {
     setContextMenu(null);
     const item = contextMenuItem;
     if (!item) {
       // Fallback to selected item
-      if (selectedItems.size !== 1) return;
-      const key = Array.from(selectedItems)[0];
+      if (activeSelection.size !== 1) return;
+      const key = Array.from(activeSelection)[0];
       const [type, id] = key.split('-');
       if (type === 'folder') {
         const window = windows.find(w => w.folderId === parseInt(id));
@@ -1311,7 +1364,7 @@ const DocumentsPage = () => {
       setRenameName(item.name || item.filename || '');
       setRenameDialogOpen(true);
     }
-  }, [contextMenuItem, contextMenuType, selectedItems, windows, showMessage]);
+  }, [contextMenuItem, contextMenuType, activeSelection, windows, showMessage]);
 
   const handleRenameSubmit = useCallback(async () => {
     if (!renameItem || !renameName.trim()) return;
@@ -1380,6 +1433,10 @@ const DocumentsPage = () => {
       });
     } else if (isCodeFile(filename)) {
       setCodeViewer({ file: item });
+    } else if (isPdfFile(filename)) {
+      setPdfViewer({ file: item });
+    } else if (isAudioFile(filename)) {
+      setAudioPlayer({ file: item });
     }
   }, [contextMenuItem, contextMenuType]);
 
@@ -1408,8 +1465,8 @@ const DocumentsPage = () => {
       setPropertiesOpen(true);
     } else {
       // Fallback to selected item
-      if (selectedItems.size !== 1) return;
-      const key = Array.from(selectedItems)[0];
+      if (activeSelection.size !== 1) return;
+      const key = Array.from(activeSelection)[0];
       const [type, id] = key.split('-');
       if (type === 'folder') {
         const window = windows.find(w => w.folderId === parseInt(id));
@@ -1446,7 +1503,7 @@ const DocumentsPage = () => {
         }
       }
     }
-  }, [contextMenuItem, contextMenuType, selectedItems, windows, showMessage]);
+  }, [contextMenuItem, contextMenuType, activeSelection, windows, showMessage]);
 
   const handleFilePropertiesSave = useCallback(async (fileId, payload) => {
     try {
@@ -1501,9 +1558,9 @@ const DocumentsPage = () => {
         ? `folder-${contextMenuItem.id}`
         : `file-${contextMenuItem.id}`;
       // Use selection if the right-clicked item is in it, otherwise just the item
-      itemKeys = selectedItems.has(key) ? Array.from(selectedItems) : [key];
+      itemKeys = activeSelection.has(key) ? Array.from(activeSelection) : [key];
     } else {
-      itemKeys = Array.from(selectedItems);
+      itemKeys = Array.from(activeSelection);
     }
 
     if (itemKeys.length === 0) return;
@@ -1533,7 +1590,7 @@ const DocumentsPage = () => {
       const errorMsg = err.message || 'Failed to trigger indexing';
       showMessage?.(`Indexing failed: ${errorMsg}`, 'error');
     }
-  }, [contextMenuItem, contextMenuType, selectedItems, showMessage]);
+  }, [contextMenuItem, contextMenuType, activeSelection, showMessage]);
 
   // Desktop drag-to-select handlers
   const handleDesktopSelectionMouseDown = useCallback((e) => {
@@ -1588,10 +1645,10 @@ const DocumentsPage = () => {
         }
       });
 
-      setSelectedItems(newSelection);
+      handleSelectionChange('desktop', newSelection);
       return newBox;
     });
-  }, [desktopSelectionBox, isDesktopSelecting]);
+  }, [desktopSelectionBox, isDesktopSelecting, handleSelectionChange]);
 
   const handleDesktopSelectionMouseUp = useCallback(() => {
     setIsDesktopSelecting(false);
@@ -1627,18 +1684,18 @@ const DocumentsPage = () => {
             ...foldedWindows.map(f => `folder-${f.folderId}`),
             ...rootFiles.map(file => getItemKey(file, 'file')),
           ]);
-          setSelectedItems(allKeys);
+          handleSelectionChange('desktop', allKeys);
         }
         return;
       }
 
-      if (e.ctrlKey && key === 'c' && selectedItems.size > 0) {
+      if (e.ctrlKey && key === 'c' && activeSelection.size > 0) {
         e.preventDefault();
         handleCopy();
         return;
       }
 
-      if (e.ctrlKey && key === 'x' && selectedItems.size > 0) {
+      if (e.ctrlKey && key === 'x' && activeSelection.size > 0) {
         e.preventDefault();
         handleCut();
         return;
@@ -1653,7 +1710,7 @@ const DocumentsPage = () => {
         return;
       }
 
-      if (key === 'delete' && selectedItems.size > 0) {
+      if (key === 'delete' && activeSelection.size > 0) {
         e.preventDefault();
         handleDelete();
         return;
@@ -1661,14 +1718,14 @@ const DocumentsPage = () => {
 
       if (key === 'escape') {
         e.preventDefault();
-        setSelectedItems(new Set());
+        handleSelectionChange(activeContextKeyRef.current, new Set());
         setContextMenu(null);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeContext, foldedWindows, rootFiles, selectedItems, handleCopy, handleCut, handlePaste, handleDelete]);
+  }, [activeContext, foldedWindows, rootFiles, activeSelection, handleCopy, handleCut, handlePaste, handleDelete, handleSelectionChange]);
 
 
   // Compute collision-free positions for ALL icons.
@@ -1796,7 +1853,7 @@ const DocumentsPage = () => {
   if (loading) {
     return (
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2, height: "100%", p: 2 }}>
-        <Typography variant="h5">Documents</Typography>
+        <Typography variant="h5">Files</Typography>
         <Typography>Loading folders...</Typography>
       </Box>
     );
@@ -1804,11 +1861,11 @@ const DocumentsPage = () => {
 
   return (
     <PageLayout
-      title="Documents"
+      title="Files"
       variant="grid"
       actions={
         <>
-          <Tooltip title="Upload Files">
+          <Tooltip title="Import Files">
             <IconButton onClick={handleUpload} size="small" sx={{ opacity: 0.6 }}>
               <UploadFileIcon fontSize="small" />
             </IconButton>
@@ -1931,12 +1988,14 @@ const DocumentsPage = () => {
                 draggable
                 onDragStart={(e) => {
                   setDesktopContext();
-                  e.dataTransfer.setData('text/plain', JSON.stringify([{
+                  const fallback = {
                     id: window.folderId,
                     itemType: 'folder',
                     name: window.folder.name,
                     path: window.folder.path,
-                  }]));
+                  };
+                  const payload = buildDesktopDragPayload(`folder-${window.folderId}`, fallback);
+                  e.dataTransfer.setData('text/plain', JSON.stringify(payload));
                   e.dataTransfer.effectAllowed = 'move';
                 }}
                 onDragEnd={(e) => {
@@ -1967,9 +2026,9 @@ const DocumentsPage = () => {
                 <Card
                   sx={{
                     cursor: 'pointer',
-                    border: (selectedItems.has(key) || isDragOver) ? '2px solid' : '1px solid',
-                    borderColor: isDragOver ? 'success.main' : selectedItems.has(key) ? 'primary.main' : 'divider',
-                    bgcolor: isDragOver ? 'action.hover' : selectedItems.has(key) ? 'action.selected' : 'background.paper',
+                    border: (desktopSelection.has(key) || isDragOver) ? '2px solid' : '1px solid',
+                    borderColor: isDragOver ? 'success.main' : desktopSelection.has(key) ? 'primary.main' : 'divider',
+                    bgcolor: isDragOver ? 'action.hover' : desktopSelection.has(key) ? 'action.selected' : 'background.paper',
                     transition: 'all 0.2s ease-in-out',
                     boxShadow: isDragOver ? 6 : undefined,
                     transform: isDragOver ? 'scale(1.05)' : undefined,
@@ -1982,23 +2041,24 @@ const DocumentsPage = () => {
                   <CardActionArea
                     onClick={(e) => {
                       e.stopPropagation();
+                      setDesktopContext();
                       if (e.ctrlKey || e.metaKey) {
-                        const newSelection = new Set(selectedItems);
+                        const newSelection = new Set(desktopSelection);
                         if (newSelection.has(key)) {
                           newSelection.delete(key);
                         } else {
                           newSelection.add(key);
                         }
-                        setSelectedItems(newSelection);
+                        handleSelectionChange('desktop', newSelection);
                       } else {
-                        setSelectedItems(new Set([key]));
+                        handleSelectionChange('desktop', new Set([key]));
                       }
                     }}
                     onDoubleClick={(e) => {
                       e.stopPropagation();
                       handleFolderExpand(window.id);
                     }}
-                    onContextMenu={(e) => handleContextMenu(e, window.folder, 'folder')}
+                    onContextMenu={(e) => handleContextMenu(e, window.folder, 'folder', 'desktop')}
                     sx={{ p: 2, textAlign: 'center' }}
                   >
                     <CardContent sx={{ p: 0 }}>
@@ -2035,7 +2095,7 @@ const DocumentsPage = () => {
           {/* Files */}
           {rootFiles.map((file) => {
             const key = getItemKey(file, 'file');
-            const isSelected = selectedItems.has(key);
+            const isSelected = desktopSelection.has(key);
             const pos = resolvedIconPositions[key] || { x: ICON_GRID_PAD, y: ICON_GRID_PAD };
 
             return (
@@ -2062,13 +2122,15 @@ const DocumentsPage = () => {
                 draggable
                 onDragStart={(e) => {
                   setDesktopContext();
-                  e.dataTransfer.setData('text/plain', JSON.stringify([{
+                  const fallback = {
                     id: file.id,
                     itemType: 'file',
                     filename: file.filename,
                     name: file.filename,
                     path: file.path,
-                  }]));
+                  };
+                  const payload = buildDesktopDragPayload(`file-${file.id}`, fallback);
+                  e.dataTransfer.setData('text/plain', JSON.stringify(payload));
                   e.dataTransfer.effectAllowed = 'move';
                 }}
                 onDragEnd={(e) => {
@@ -2111,18 +2173,19 @@ const DocumentsPage = () => {
                   <CardActionArea
                     onClick={(e) => {
                       e.stopPropagation();
+                      setDesktopContext();
                       if (e.ctrlKey || e.metaKey) {
                         // Multi-select
-                        const newSelection = new Set(selectedItems);
+                        const newSelection = new Set(desktopSelection);
                         if (newSelection.has(key)) {
                           newSelection.delete(key);
                         } else {
                           newSelection.add(key);
                         }
-                        setSelectedItems(newSelection);
+                        handleSelectionChange('desktop', newSelection);
                       } else {
                         // Single select
-                        setSelectedItems(new Set([key]));
+                        handleSelectionChange('desktop', new Set([key]));
                       }
                     }}
                     onDoubleClick={(e) => {
@@ -2133,11 +2196,15 @@ const DocumentsPage = () => {
                         setLightbox({ url: imageUrl, name: filename, documentId: file.id, editMode: false });
                       } else if (isCodeFile(filename)) {
                         setCodeViewer({ file });
+                      } else if (isPdfFile(filename)) {
+                        setPdfViewer({ file });
+                      } else if (isAudioFile(filename)) {
+                        setAudioPlayer({ file });
                       } else {
                         window.open(`${API_BASE}/document/${file.id}/download`, '_blank');
                       }
                     }}
-                    onContextMenu={(e) => handleContextMenu(e, file, 'file')}
+                    onContextMenu={(e) => handleContextMenu(e, file, 'file', 'desktop')}
                     sx={{ p: 2, textAlign: 'center' }}
                   >
                     <CardContent sx={{ p: 0 }}>
@@ -2268,10 +2335,8 @@ const DocumentsPage = () => {
                       isMinimized={window.state === 'minimized'}
                       onToggleMinimize={() => handleToggleMinimize(window.id)}
                       onClose={() => handleWindowClose(window.id)}
-                      viewMode={viewMode}
-                      onViewModeChange={handleViewModeChange}
-                      selectedItems={selectedItems}
-                      onSelectionChange={handleSelectionChange}
+                      selectedItems={selectedItemsByContext[window.id] || EMPTY_SELECTION}
+                      onSelectionChange={(newSelection) => handleSelectionChange(window.id, newSelection)}
                       onItemsMove={handleDrop}
                       onDragStart={handleDragStart}
                       onDrop={handleDrop}
@@ -2284,11 +2349,15 @@ const DocumentsPage = () => {
                           setLightbox({ url: imageUrl, name: filename, documentId: file.id, editMode: false });
                         } else if (isCodeFile(filename)) {
                           setCodeViewer({ file });
+                        } else if (isPdfFile(filename)) {
+                          setPdfViewer({ file });
+                        } else if (isAudioFile(filename)) {
+                          setAudioPlayer({ file });
                         } else {
                           window.open(`${API_BASE}/document/${file.id}/download`, '_blank');
                         }
                       }}
-                      onContextMenu={handleContextMenu}
+                      onContextMenu={(e, item, type) => handleContextMenu(e, item, type, 'window')}
                       onFocusContext={setActiveContext}
                       refreshKey={folderRefreshKeys[window.folderId] || 0}
                       folderColors={folderIdToColor}
@@ -2332,9 +2401,10 @@ const DocumentsPage = () => {
         } : undefined}
         isImage={contextMenuItem && contextMenuType === 'file' && isImageFile(contextMenuItem.filename || contextMenuItem.name || '')}
         isCode={contextMenuItem && contextMenuType === 'file' && isCodeFile(contextMenuItem.filename || contextMenuItem.name || '')}
+        isPdf={contextMenuItem && contextMenuType === 'file' && isPdfFile(contextMenuItem.filename || contextMenuItem.name || '')}
         onOpenInCodeEditor={() => handleOpenInCodeEditor()}
         hasClipboard={Boolean(clipboard)}
-        hasSelection={selectedItems.size > 0}
+        hasSelection={activeSelection.size > 0}
         contextType={contextMenuType}
         selectedItem={contextMenuItem}
         folderColor={contextMenuItem && contextMenuType === 'folder'
@@ -2421,7 +2491,7 @@ const DocumentsPage = () => {
         <DialogTitle>Confirm Delete</DialogTitle>
         <DialogContent>
           <Typography>
-            Delete {selectedItems.size} item{selectedItems.size !== 1 ? 's' : ''}? This action cannot be undone.
+            Delete {activeSelection.size} item{activeSelection.size !== 1 ? 's' : ''}? This action cannot be undone.
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -2497,6 +2567,20 @@ const DocumentsPage = () => {
         onClose={() => setCodeViewer(null)}
         file={codeViewer?.file}
         onOpenInCodeEditor={handleOpenInCodeEditor}
+      />
+
+      {/* PDF Viewer Modal */}
+      <PdfViewerModal
+        open={!!pdfViewer}
+        onClose={() => setPdfViewer(null)}
+        file={pdfViewer?.file}
+      />
+
+      {/* Audio Player Modal */}
+      <AudioPlayerModal
+        open={!!audioPlayer}
+        onClose={() => setAudioPlayer(null)}
+        file={audioPlayer?.file}
       />
 
       {/* Upload Progress Overlay */}

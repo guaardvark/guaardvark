@@ -273,11 +273,11 @@ class TestEmbeddingPriorityOrder:
     
     def test_priority_order_documentation(self):
         """Verify the documented priority order is correct."""
-        # Priority: GPU Plugin > Qwen3 > nomic-embed-text > all-minilm > simple hash
+        # Priority: GPU Plugin > mxbai-embed-large > nomic-embed-text > all-minilm > simple hash
         # This test documents the expected behavior
         priority_order = [
             "GPU Plugin (if enabled and available)",
-            "Qwen3 embedding models (hardware-aware)",
+            "mxbai-embed-large embedding models (hardware-aware)",
             "nomic-embed-text (768-dim, high quality)",
             "all-minilm (384-dim, fast)",
             "Simple hash-based embedding (fallback)"

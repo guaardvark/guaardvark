@@ -92,6 +92,7 @@ const API_BASE = `${BASE_URL}/files`;
 const MAX_FILENAME_LENGTH = 255;
 const MAX_FILE_SIZE_MB = 100; // Maximum file size in MB
 const BYTES_PER_MB = 1024 * 1024;
+// eslint-disable-next-line no-control-regex -- intentional: matches OS-illegal filename control chars
 const INVALID_FILENAME_CHARS = /[<>:"/\\|?*\x00-\x1f]/;
 
 // File extension to icon mapping
@@ -1592,7 +1593,7 @@ const FileManager = () => {
     const fileItems = items.documents.map(d => ({ ...d, itemType: 'file' }));
 
     // Get grid settings from LayoutContext (critical for proper grid calculations)
-    const { RGL_WIDTH_PROP_PX, CONTAINER_PADDING_PX, CARD_MARGIN_PX } = gridSettings;
+    const { RGL_WIDTH_PROP_PX, CONTAINER_PADDING_PX, _CARD_MARGIN_PX } = gridSettings;
     const outerBoxWidth = RGL_WIDTH_PROP_PX + CONTAINER_PADDING_PX * 2;
 
     return (

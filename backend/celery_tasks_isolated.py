@@ -535,7 +535,7 @@ def bulk_import_documents_task(job_id, source_path, target_folder, project_id=No
         """Update job status via Redis or in-memory storage"""
         try:
             import redis
-            redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+            redis_client = redis.Redis.from_url(os.environ.get('REDIS_URL', 'redis://localhost:6379/0'), decode_responses=True)
             job_data = {
                 "job_id": job_id,
                 "status": status,

@@ -1,5 +1,8 @@
 // NarrateButton.jsx — Generates narration audio from text content
-// Supports Piper (fast) and Bark (expressive) TTS engines
+// Two engines: "Fast" (Piper, the user-selected voice) and "Expressive"
+// (audio_foundry plugin: Chatterbox primary, Kokoro fallback). Backend
+// silently falls back to Piper if audio_foundry isn't running, so the
+// button never breaks even when the plugin is disabled.
 import React, { useState, useRef } from 'react';
 import {
   IconButton,
@@ -21,10 +24,10 @@ export default function NarrateButton({ text, voice, size = 'small', variant = '
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
-  const [engine, setEngine] = useState('piper'); // 'piper' or 'bark'
+  const [engine, setEngine] = useState('piper'); // 'piper' (Fast) or 'expressive' (Chatterbox/Kokoro)
   const audioRef = useRef(null);
 
-  const isBark = engine === 'bark';
+  const isExpressive = engine === 'expressive';
 
   const handleNarrate = async () => {
     if (!text || loading) return;
@@ -33,8 +36,11 @@ export default function NarrateButton({ text, voice, size = 'small', variant = '
     setResult(null);
 
     try {
+      // For Expressive, voice id is irrelevant — audio_foundry's dispatcher
+      // picks Chatterbox first, Kokoro on fallback. For Piper we honor the
+      // user's selected voice.
       const options = {
-        voice: isBark ? 'bark_speaker_3' : (voice || 'libritts'),
+        voice: voice || 'libritts',
         engine: engine,
       };
       const data = await voiceService.narrate(text, options);
@@ -60,17 +66,17 @@ export default function NarrateButton({ text, voice, size = 'small', variant = '
       <Chip
         label="Fast"
         size="small"
-        variant={!isBark ? 'filled' : 'outlined'}
-        color={!isBark ? 'primary' : 'default'}
+        variant={!isExpressive ? 'filled' : 'outlined'}
+        color={!isExpressive ? 'primary' : 'default'}
         onClick={() => !loading && setEngine('piper')}
         sx={{ height: 20, fontSize: '0.65rem', cursor: loading ? 'default' : 'pointer' }}
       />
       <Chip
         label="Expressive"
         size="small"
-        variant={isBark ? 'filled' : 'outlined'}
-        color={isBark ? 'secondary' : 'default'}
-        onClick={() => !loading && setEngine('bark')}
+        variant={isExpressive ? 'filled' : 'outlined'}
+        color={isExpressive ? 'secondary' : 'default'}
+        onClick={() => !loading && setEngine('expressive')}
         sx={{ height: 20, fontSize: '0.65rem', cursor: loading ? 'default' : 'pointer' }}
       />
     </Box>
@@ -98,7 +104,7 @@ export default function NarrateButton({ text, voice, size = 'small', variant = '
         </Tooltip>
         <Typography variant="caption" color="text.secondary">
           {result.duration_seconds}s · {result.sections} section{result.sections !== 1 ? 's' : ''}
-          {result.engine === 'bark' ? ' · Bark' : ''}
+          {result.engine && result.engine !== 'piper-tts' ? ` · ${result.engine}` : ''}
         </Typography>
       </Box>
     );
@@ -115,7 +121,7 @@ export default function NarrateButton({ text, voice, size = 'small', variant = '
     );
   }
 
-  const loadingText = isBark ? 'Generating (slow)...' : 'Narrating...';
+  const loadingText = isExpressive ? 'Generating (slow)...' : 'Narrating...';
 
   if (variant === 'button') {
     return (
@@ -136,7 +142,7 @@ export default function NarrateButton({ text, voice, size = 'small', variant = '
 
   return (
     <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
-      <Tooltip title={loading ? (isBark ? 'Bark generating (10-30s per section)...' : 'Generating narration...') : 'Narrate this text'}>
+      <Tooltip title={loading ? (isExpressive ? 'Expressive TTS generating (10-30s)...' : 'Generating narration...') : 'Narrate this text'}>
         <span>
           <IconButton size={size} onClick={handleNarrate} disabled={loading || !text}>
             {loading ? <CircularProgress size={18} /> : <RecordVoiceOverIcon fontSize="small" />}

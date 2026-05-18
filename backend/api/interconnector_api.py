@@ -613,35 +613,6 @@ def get_network_info():
         return error_response(f"Failed to get network info: {str(e)}", 500)
 
 
-def _detect_system_capabilities():
-    """Detect system capabilities (CPU, memory, disk, GPU)."""
-    capabilities = {
-        "cpu_cores": 1,
-        "memory_mb": 1024,
-        "disk_space_gb": 10,
-        "gpu_available": False,
-    }
-    
-    if PSUTIL_AVAILABLE:
-        try:
-            capabilities["cpu_cores"] = psutil.cpu_count(logical=True) or 1
-            memory = psutil.virtual_memory()
-            capabilities["memory_mb"] = int(memory.total / (1024 * 1024))
-            disk = psutil.disk_usage('/')
-            capabilities["disk_space_gb"] = int(disk.free / (1024 * 1024 * 1024))
-        except Exception as e:
-            logger.warning(f"Failed to detect system capabilities: {e}")
-    
-    # Check for GPU availability
-    try:
-        import subprocess
-        result = subprocess.run(['which', 'nvidia-smi'], capture_output=True, timeout=1)
-        capabilities["gpu_available"] = result.returncode == 0
-    except Exception:
-        capabilities["gpu_available"] = False
-    
-    return capabilities
-
 
 @interconnector_bp.route("/debug/nodes", methods=["GET"])
 def debug_nodes():
@@ -731,7 +702,13 @@ def register_node():
         data = request.get_json()
         node_name = data.get("node_name")
         node_mode = data.get("node_mode", "client")
-        capabilities = data.get("capabilities", {})
+        # Accept structured hardware_profile from the client. Older clients that
+        # don't send it get a server-side detect as fallback so every row has
+        # data. HardwareDetector is fast (<200ms) and cheap to run here.
+        profile_from_payload = data.get("hardware_profile")
+        if not profile_from_payload:
+            from backend.services.hardware_detector import HardwareDetector
+            profile_from_payload = HardwareDetector().detect()
         sync_entities = data.get("sync_entities", [])
 
         logger.info(f"[SYNC] Registration data: node_name={node_name}, node_mode={node_mode}, "
@@ -804,9 +781,11 @@ def register_node():
             existing_node.node_mode = node_mode
             existing_node.status = "active"
             existing_node.last_heartbeat = datetime.now()
-            existing_node.capabilities = json.dumps(capabilities)
+            existing_node.hardware_profile = json.dumps(profile_from_payload, sort_keys=True)
             existing_node.sync_entities = json.dumps(sync_entities)
             db.session.commit()
+            from backend.services.fleet_map import get_fleet_map
+            get_fleet_map().register(existing_node.node_id, profile_from_payload)
             logger.info(f"[SYNC] Updated existing node registration: {node_id} ({node_name}) from {client_ip}:{port}")
         else:
             # Create new node
@@ -819,12 +798,14 @@ def register_node():
                 node_mode=node_mode,
                 status="active",
                 last_heartbeat=datetime.now(),
-                capabilities=json.dumps(capabilities),
+                hardware_profile=json.dumps(profile_from_payload, sort_keys=True),
                 sync_entities=json.dumps(sync_entities),
                 registered_at=datetime.now(),
             )
             db.session.add(new_node)
             db.session.commit()
+            from backend.services.fleet_map import get_fleet_map
+            get_fleet_map().register(new_node.node_id, profile_from_payload)
             logger.info(f"[SYNC] Registered new node: {node_id} ({node_name}) from {client_ip}:{port}")
             
             # Verify node was saved
@@ -877,21 +858,30 @@ def node_heartbeat(node_id):
         node.last_heartbeat = datetime.now()
         node.status = "active"
         
-        # Update capabilities if provided
+        # Update hardware_profile if provided
         if request.is_json:
             data = request.get_json()
-            if "capabilities" in data:
-                node.capabilities = json.dumps(data["capabilities"])
+            if "hardware_profile" in data:
+                node.hardware_profile = json.dumps(data["hardware_profile"])
             if "sync_entities" in data:
                 node.sync_entities = json.dumps(data["sync_entities"])
 
         db.session.commit()
         logger.debug(f"[SYNC] Heartbeat updated for node {node_id} ({node.node_name})")
 
-        return success_response(
-            {"node_id": node_id, "heartbeat_at": node.last_heartbeat.isoformat()},
-            "Heartbeat updated"
-        )
+        response_data = {"node_id": node_id, "heartbeat_at": node.last_heartbeat.isoformat()}
+
+        # Master piggybacks the current fleet_hash so workers can self-heal
+        # missed broadcasts without an explicit ACK protocol (see spec §4.5).
+        if os.environ.get("CLUSTER_ROLE") == "master":
+            try:
+                from backend.services.cluster_routing import get_routing_store
+                _table = get_routing_store().get()
+                response_data["current_fleet_hash"] = _table.fleet_hash if _table else None
+            except Exception:
+                response_data["current_fleet_hash"] = None
+
+        return success_response(response_data, "Heartbeat updated")
 
     except Exception as e:
         db.session.rollback()
@@ -1547,6 +1537,35 @@ def broadcast_push_to_client(self, broadcast_id: str, node_id: str, payload: Dic
         if resp.status_code == 200:
             target.status = "success"
             target.completed_at = datetime.now()
+
+            # If client reports hardware changed during sync, pull fresh profile
+            # and update our DB row + FleetMap so routing reflects reality.
+            try:
+                resp_json = resp.json()
+            except Exception:
+                resp_json = {}
+
+            if resp_json.get("hardware_profile_updated"):
+                try:
+                    import json as _json
+                    fresh = requests.get(
+                        f"{_build_client_url(node)}/api/node/hardware-profile",
+                        timeout=3,
+                        verify=False,
+                    )
+                    if fresh.status_code == 200:
+                        new_profile = fresh.json()
+                        node.hardware_profile = _json.dumps(new_profile, sort_keys=True)
+                        db.session.flush()
+                        from backend.services.fleet_map import get_fleet_map
+                        get_fleet_map().register(node.node_id, new_profile)
+                        try:
+                            from backend.services.cluster_routing import recompute_and_broadcast
+                            recompute_and_broadcast(reason="hardware_change")
+                        except ImportError:
+                            pass  # Task 14 adds this module
+                except Exception:
+                    pass  # Non-fatal — next sync will retry
         else:
             target.status = "failed"
             target.error_message = f"HTTP {resp.status_code}"
@@ -2486,32 +2505,57 @@ def trigger_manual_sync():
                             logger.info(f"[SYNC] File pull: Received {len(files_list)} files from master")
                             
                             if config.get("require_file_approval", True) and files_list:
-                                # Queue approval instead of applying immediately
-                                approval = InterconnectorPendingApproval(
-                                    push_id=str(uuid.uuid4()),
-                                    source_node="master",
-                                    sync_type="files",
-                                    files_data=json.dumps(files_list),
-                                    entities_data=json.dumps({}),
-                                    status="pending",
-                                )
-                                db.session.add(approval)
-                                db.session.commit()
-                                logger.info(f"[SYNC] Queued {len(files_list)} files for approval (id={approval.id})")
-                                
-                                summary["files"] = {
-                                    "summary": {
-                                        "total_processed": 0,
-                                        "total_created": 0,
-                                        "total_updated": 0,
-                                        "total_conflicts": 0,
-                                        "total_errors": 0,
-                                        "total_backed_up": 0,
-                                    },
-                                    "details": [],
-                                    "pending_approval_id": approval.id,
-                                }
-                                # Skip applying files; continue to history recording
+                                # Split: new files auto-apply, modified files need approval
+                                project_root = file_sync_service.get_project_root()
+                                new_files = []
+                                modified_files = []
+                                for f in files_list:
+                                    local_path = project_root / f.get("path", "")
+                                    if local_path.exists():
+                                        modified_files.append(f)
+                                    else:
+                                        new_files.append(f)
+
+                                # New files are purely additive — apply immediately
+                                if new_files:
+                                    logger.info(f"[SYNC] Auto-applying {len(new_files)} new files (no local conflicts)")
+                                    auto_ok, auto_result = file_sync_service.apply_files_atomic(
+                                        new_files, conflict_strategy, create_backup=False
+                                    )
+                                    asum = auto_result.get("summary", {})
+                                    file_summary["total_processed"] += asum.get("total_processed", 0)
+                                    file_summary["total_created"] += asum.get("total_created", 0)
+                                    file_summary["total_errors"] += asum.get("total_errors", 0)
+                                    file_details.extend(auto_result.get("details", []))
+                                    logger.info(f"[SYNC] Auto-applied: created={asum.get('total_created', 0)}, "
+                                                f"errors={asum.get('total_errors', 0)}")
+
+                                # Modified files go through approval
+                                if modified_files:
+                                    approval = InterconnectorPendingApproval(
+                                        push_id=str(uuid.uuid4()),
+                                        source_node="master",
+                                        sync_type="files",
+                                        files_data=json.dumps(modified_files),
+                                        entities_data=json.dumps({}),
+                                        status="pending",
+                                    )
+                                    db.session.add(approval)
+                                    db.session.commit()
+                                    logger.info(f"[SYNC] Queued {len(modified_files)} modified files for approval (id={approval.id})")
+                                    summary["files"] = {
+                                        "summary": dict(file_summary),
+                                        "details": file_details,
+                                        "pending_approval_id": approval.id,
+                                        "auto_applied_new_files": len(new_files),
+                                    }
+                                else:
+                                    summary["files"] = {
+                                        "summary": dict(file_summary),
+                                        "details": file_details,
+                                        "auto_applied_new_files": len(new_files),
+                                    }
+                                # Prevent double-apply below
                                 files_list = []
                             
                             # Log sample of files received
@@ -2716,6 +2760,22 @@ def trigger_manual_sync():
             "sync_duration_ms": sync_duration_ms,
             "timestamp": datetime.now().isoformat(),
         }
+
+        # Client-side: after applying the sync, re-detect hardware. If it changed
+        # since the last snapshot, tell master so it can pull a fresh profile.
+        # Cheap (<200ms); any failure is silently ignored.
+        try:
+            from backend.services.hardware_detector import HardwareDetector
+            import json as _json
+            d = HardwareDetector()
+            profile_path = Path.home() / ".guaardvark" / "hardware.json"
+            prev = d.read_profile(str(profile_path)) or {}
+            curr = d.detect()
+            profile_path.parent.mkdir(exist_ok=True)
+            profile_path.write_text(_json.dumps(curr, indent=2, sort_keys=True))
+            result["hardware_profile_updated"] = bool(d.detect_changes(prev, curr))
+        except Exception:
+            pass  # Leave the flag out on failure; master will check again next sync
 
         return success_response(result, "Synchronization completed")
 

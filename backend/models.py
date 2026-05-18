@@ -441,6 +441,9 @@ class Task(db.Model):
     task_handler = db.Column(db.String(100), nullable=True, index=True)
     handler_config = db.Column(db.JSON, nullable=True)
     progress = db.Column(db.Integer, nullable=True, default=0)  # 0-100
+    # Generated output from the task handler — LLM reply, tool output, etc.
+    # Written by unified_task_executor.update_task_result() on successful runs.
+    result = db.Column(db.Text, nullable=True)
     
     # Relationships
     project = db.relationship("Project", backref=db.backref("tasks", lazy="dynamic"))
@@ -498,6 +501,49 @@ class Task(db.Model):
             "task_handler": self.task_handler,
             "handler_config": self.handler_config,
             "progress": self.progress or 0,
+            "result": self.result,
+        }
+
+
+class SocialOutreachLog(db.Model):
+    """Audit row for every drafted/posted/aborted outreach action.
+
+    Lives alongside the jsonl audit file — the jsonl is the trail of record;
+    this table makes it queryable from the API/UI.
+    """
+    __tablename__ = "social_outreach_log"
+    id = db.Column(db.Integer, primary_key=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(), index=True)
+    platform = db.Column(db.String(40), nullable=False, index=True)  # reddit/discord/facebook
+    action = db.Column(db.String(40), nullable=False)  # comment/share/abort
+    target_url = db.Column(db.String(2048), nullable=True)
+    target_thread_id = db.Column(db.String(255), nullable=True, index=True)
+    draft_text = db.Column(db.Text, nullable=True)
+    posted_text = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(40), nullable=False, default="drafted", index=True)
+    grade_score = db.Column(db.Float, nullable=True)
+    abort_reason = db.Column(db.String(512), nullable=True)
+    task_id = db.Column(
+        db.Integer,
+        db.ForeignKey("tasks.id", name="fk_social_outreach_task_id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "platform": self.platform,
+            "action": self.action,
+            "target_url": self.target_url,
+            "target_thread_id": self.target_thread_id,
+            "draft_text": self.draft_text,
+            "posted_text": self.posted_text,
+            "status": self.status,
+            "grade_score": self.grade_score,
+            "abort_reason": self.abort_reason,
+            "task_id": self.task_id,
         }
 
 
@@ -745,7 +791,18 @@ class Folder(db.Model):
 class Document(db.Model):
     __tablename__ = "documents"
     __table_args__ = (
-        db.Index("ix_doc_folder_filename", "folder_id", "filename"),
+        # Unique on (folder_id, filename) so two files with the same name
+        # can't coexist in the same folder. NULLS NOT DISTINCT (PG15+) means
+        # root-level docs (folder_id IS NULL) also enforce the rule among
+        # themselves. The filename_resolver helper applies the Files-app
+        # suffix convention before insert; this constraint is the backstop.
+        db.Index(
+            "uq_doc_folder_filename",
+            "folder_id",
+            "filename",
+            unique=True,
+            postgresql_nulls_not_distinct=True,
+        ),
         db.Index("ix_doc_folder_uploaded", "folder_id", "uploaded_at"),
         db.Index("ix_doc_folder_size", "folder_id", "size"),
     )
@@ -915,6 +972,13 @@ class LLMSession(db.Model):
         db.ForeignKey("projects.id", name="fk_llmsession_project_id", ondelete="SET NULL"),
         nullable=True,
         index=True,
+    )
+    # Modal session: "chat" routes through the LLM as usual; "agent" routes
+    # every non-slash message straight to /api/agent-control/execute. The
+    # frontend reads this on session-load to show the right visual chrome,
+    # and the user toggles via /agent and /chat slash commands.
+    mode = db.Column(
+        db.String(20), nullable=False, default="chat", server_default="chat"
     )
     created_at = db.Column(db.DateTime, default=lambda: datetime.now())
     messages = db.relationship(
@@ -1283,7 +1347,12 @@ class InterconnectorNode(db.Model):
     node_mode = db.Column(db.String(50), nullable=False)  # master/client
     status = db.Column(db.String(50), nullable=False, default="active")  # active/inactive/disconnected
     last_heartbeat = db.Column(db.DateTime(), nullable=True)
-    capabilities = db.Column(db.Text(), nullable=True)  # JSON: cpu_cores, memory_mb, disk_space_gb, gpu_available
+    # Structured hardware profile (hardware.json contents). Replaces the old
+    # `capabilities` minimal blob. See plans/2026-04-21-cluster-foundation-*.md.
+    hardware_profile = db.Column(db.Text(), nullable=False, server_default="{}", default="{}")
+    # Flipped by the heartbeat sweeper (cluster_heartbeat_sweeper.py, added in Task 13) when
+    # last_heartbeat goes stale. Routing excludes offline nodes.
+    online = db.Column(db.Boolean(), nullable=False, server_default=db.true(), default=True)
     sync_entities = db.Column(db.Text(), nullable=True)  # JSON array
     registered_at = db.Column(db.DateTime(), default=lambda: datetime.now())
     last_sync_time = db.Column(db.DateTime(), nullable=True)
@@ -1306,7 +1375,8 @@ class InterconnectorNode(db.Model):
             "node_mode": self.node_mode,
             "status": self.status,
             "last_heartbeat": self.last_heartbeat.isoformat() if self.last_heartbeat else None,
-            "capabilities": json.loads(self.capabilities) if self.capabilities else {},
+            "hardware_profile": json.loads(self.hardware_profile) if self.hardware_profile else {},
+            "online": self.online,
             "sync_entities": json.loads(self.sync_entities) if self.sync_entities else [],
             "registered_at": self.registered_at.isoformat() if self.registered_at else None,
             "last_sync_time": self.last_sync_time.isoformat() if self.last_sync_time else None,
@@ -2267,3 +2337,311 @@ def get_active_model_name() -> str:
         return "default_model_name"
     setting = db.session.get(Setting, "active_model_name")
     return setting.value if setting else "default_model_name"
+
+
+class ToolFeedback(db.Model):
+    """Store user feedback on tool calls for future performance analysis and routing improvements."""
+    __tablename__ = "tool_feedback"
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.String(36), index=True)
+    # lesson_id: set when this pearl was captured inside an active Begin/End Lesson
+    # bracket — gates the per-👍 auto-distill and links the row to the lesson summary.
+    lesson_id = db.Column(db.String(36), nullable=True, index=True)
+    tool_name = db.Column(db.String(100), nullable=False, index=True)
+    task = db.Column(db.Text, nullable=True) # The user's original task or tool parameter
+    positive = db.Column(db.Boolean, nullable=False)
+    steps = db.Column(db.Integer, nullable=True) # For agent tasks: number of steps taken
+    time_seconds = db.Column(db.Float, nullable=True) # Execution time
+    model = db.Column(db.String(100), nullable=True) # Model name used for the tool
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now())
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "session_id": self.session_id,
+            "lesson_id": self.lesson_id,
+            "tool_name": self.tool_name,
+            "task": self.task,
+            "positive": self.positive,
+            "steps": self.steps,
+            "time_seconds": self.time_seconds,
+            "model": self.model,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+class AgentMemory(db.Model):
+    """Long-term memory for the agent to store user preferences, facts, and instructions."""
+    __tablename__ = "agent_memories"
+    id = db.Column(db.String(36), primary_key=True)
+    content = db.Column(db.Text, nullable=False)
+    source = db.Column(db.String(50), default="manual", index=True)  # manual, chat, cli, auto
+    session_id = db.Column(db.String(36), nullable=True, index=True)
+    tags = db.Column(db.Text, nullable=True)  # JSON array
+    type = db.Column(db.String(50), default="note", index=True)  # note, fact, instruction, snippet
+    importance = db.Column(db.Float, default=0.5, index=True)  # 0.0 to 1.0
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now())
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(), onupdate=lambda: datetime.now())
+
+    def to_dict(self):
+        tags = []
+        if self.tags:
+            try:
+                tags = json.loads(self.tags)
+            except (json.JSONDecodeError, TypeError):
+                tags = []
+        return {
+            "id": self.id,
+            "content": self.content,
+            "source": self.source,
+            "session_id": self.session_id,
+            "tags": tags,
+            "type": self.type,
+            "importance": self.importance,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class RetentionAudit(db.Model):
+    """Audit trail for every deletion in the system.
+
+    Per plans/2026-04-29-data-retention.md §6. Default retention across
+    the system is keep-forever; this table is what makes that policy
+    enforceable and auditable for business/legal contexts. Rows are
+    written whenever data is actually removed — manual delete, bulk
+    delete, auto-purge — so the user (or their counsel) can answer
+    "what was removed, when, by whom, under what filter."
+
+    NOT auto-pruned. The audit log itself is load-bearing.
+    """
+    __tablename__ = "retention_audit"
+
+    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    occurred_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now())
+    actor = db.Column(db.String(32), nullable=False)  # 'user' | 'system'
+    kind = db.Column(db.String(64), nullable=False)
+    operation = db.Column(db.String(64), nullable=False)  # manual_delete | bulk_delete | auto_purge
+    item_count = db.Column(db.Integer, nullable=False)
+    bytes_freed = db.Column(db.BigInteger, nullable=True)
+    parameters = db.Column(db.JSON, nullable=True)
+    triggered_by = db.Column(db.String(255), nullable=True)
+
+    __table_args__ = (
+        db.Index("ix_retention_audit_occurred", "occurred_at"),
+        db.Index("ix_retention_audit_kind", "kind"),
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "occurred_at": self.occurred_at.isoformat() if self.occurred_at else None,
+            "actor": self.actor,
+            "kind": self.kind,
+            "operation": self.operation,
+            "item_count": self.item_count,
+            "bytes_freed": self.bytes_freed,
+            "parameters": self.parameters,
+            "triggered_by": self.triggered_by,
+        }
+
+
+class JobHistory(db.Model):
+    """Terminal-status snapshot of every Job that ran in the system.
+
+    Populated when a Job reaches completed / failed / cancelled status.
+    Denormalized — carries every field the Tasks/Jobs History tab needs
+    so the page never JOINs back to the native source. Native rows can
+    be deleted without losing history.
+
+    Per plans/2026-04-29-data-retention.md the default retention is
+    keep-forever; opt-in pruners live behind a Settings → Data Retention
+    surface. NOT pruned by any default Celery beat task.
+    """
+    __tablename__ = "job_history"
+
+    id = db.Column(db.String(255), primary_key=True)  # "{kind}:{native_id}"
+    kind = db.Column(db.String(64), nullable=False)
+    native_id = db.Column(db.String(255), nullable=False)
+    label = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(32), nullable=False)  # terminal value
+    progress = db.Column(db.Float, nullable=True)
+    started_at = db.Column(db.DateTime, nullable=True)
+    finished_at = db.Column(db.DateTime, nullable=False)
+    duration_s = db.Column(db.Float, nullable=True)
+    error_message = db.Column(db.Text, nullable=True)
+    parent_id = db.Column(db.String(255), nullable=True)
+    # Named job_metadata in the column to dodge SQLAlchemy's reserved 'metadata'.
+    job_metadata = db.Column(db.JSON, nullable=True)
+    recorded_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now())
+
+    __table_args__ = (
+        db.Index("ix_job_history_kind_finished", "kind", "finished_at"),
+        db.Index("ix_job_history_finished", "finished_at"),
+        db.Index("ix_job_history_status", "status"),
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "kind": self.kind,
+            "native_id": self.native_id,
+            "label": self.label,
+            "status": self.status,
+            "progress": self.progress,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "finished_at": self.finished_at.isoformat() if self.finished_at else None,
+            "duration_s": self.duration_s,
+            "error_message": self.error_message,
+            "parent_id": self.parent_id,
+            "metadata": self.job_metadata or {},
+            "recorded_at": self.recorded_at.isoformat() if self.recorded_at else None,
+        }
+
+
+class Production(db.Model):
+    """A ViMax-style production run. Owns the swarm pipeline state."""
+    __tablename__ = "productions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(
+        db.Integer,
+        db.ForeignKey("projects.id", name="fk_production_project_id", ondelete="SET NULL"),
+        nullable=True, index=True,
+    )
+    name = db.Column(db.String(255), nullable=False)
+    script_text = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(64), nullable=False, default="draft", index=True)
+    current_stage = db.Column(db.String(64), nullable=False, default="draft")
+    settings_json = db.Column(db.JSON, nullable=False, default=dict)
+    error_blob = db.Column(db.JSON, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now())
+    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.now(), onupdate=db.func.now())
+
+    project = db.relationship("Project", backref="productions")
+
+
+class Subject(db.Model):
+    """A trainable LoRA subject — character, environment, or prop. Reusable across productions (Cast Library)."""
+    __tablename__ = "subjects"
+
+    id = db.Column(db.Integer, primary_key=True)
+    kind = db.Column(db.String(32), nullable=False, index=True)  # character | environment | prop
+    name = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    ref_image_paths = db.Column(db.JSON, nullable=False, default=list)
+    voice_id = db.Column(db.String(128), nullable=True)  # TTS voice ID
+    lora_path = db.Column(db.String(512), nullable=True)
+    lora_version = db.Column(db.Integer, nullable=False, default=0)
+    training_status = db.Column(db.String(32), nullable=False, default="untrained", index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now())
+    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.now(), onupdate=db.func.now())
+
+
+class ProductionSubject(db.Model):
+    """Subjects a Production needs — populated by the Screenwriter task.
+    Distinct from ProductionShotSubject, which is a per-shot LoRA stack."""
+    __tablename__ = "production_subjects"
+
+    id = db.Column(db.Integer, primary_key=True)
+    production_id = db.Column(
+        db.Integer,
+        db.ForeignKey("productions.id", name="fk_production_subject_production_id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    subject_id = db.Column(
+        db.Integer,
+        db.ForeignKey("subjects.id", name="fk_production_subject_subject_id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now())
+    __table_args__ = (db.UniqueConstraint("production_id", "subject_id", name="uq_production_subject"),)
+
+    production = db.relationship(
+        "Production",
+        backref=db.backref("production_subjects", cascade="all, delete-orphan"),
+    )
+    subject = db.relationship("Subject")
+
+
+class ProductionShot(db.Model):
+    """One shot in a production. Storyboard image, then I2V clip."""
+    __tablename__ = "production_shots"
+
+    id = db.Column(db.Integer, primary_key=True)
+    production_id = db.Column(
+        db.Integer,
+        db.ForeignKey("productions.id", name="fk_production_shot_production_id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    scene_number = db.Column(db.Integer, nullable=False)
+    shot_number = db.Column(db.Integer, nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    camera_angle = db.Column(db.String(128), nullable=True)
+    scene_mood = db.Column(db.String(64), nullable=True)  # Mood for music/lighting
+    duration_seconds = db.Column(db.Float, nullable=False, default=3.0)
+    character_name = db.Column(db.String(255), nullable=True)  # Who is speaking
+    dialogue_text = db.Column(db.Text, nullable=True)
+    voice_subject_id = db.Column(
+        db.Integer,
+        db.ForeignKey("subjects.id", name="fk_production_shot_voice_subject_id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    storyboard_image_path = db.Column(db.String(512), nullable=True)
+    video_clip_path = db.Column(db.String(512), nullable=True)
+    approved = db.Column(db.Boolean, nullable=False, default=False)
+    regen_count = db.Column(db.Integer, nullable=False, default=0)
+
+    production = db.relationship(
+        "Production",
+        backref=db.backref("shots", cascade="all, delete-orphan"),
+    )
+
+
+class ProductionShotSubject(db.Model):
+    """Join — which Subjects' LoRAs stack on this shot's generation."""
+    __tablename__ = "production_shot_subjects"
+
+    id = db.Column(db.Integer, primary_key=True)
+    shot_id = db.Column(
+        db.Integer,
+        db.ForeignKey("production_shots.id", name="fk_pss_shot_id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    subject_id = db.Column(
+        db.Integer,
+        db.ForeignKey("subjects.id", name="fk_pss_subject_id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+
+    shot = db.relationship(
+        "ProductionShot",
+        backref=db.backref("shot_subjects", cascade="all, delete-orphan"),
+    )
+
+
+class SwarmMessage(db.Model):
+    """One agent invocation: input, output, timing, model. Observability table — SELECT to debug."""
+    __tablename__ = "swarm_messages"
+
+    id = db.Column(db.Integer, primary_key=True)
+    production_id = db.Column(
+        db.Integer,
+        db.ForeignKey("productions.id", name="fk_swarm_message_production_id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    agent_name = db.Column(db.String(64), nullable=False, index=True)
+    input_json = db.Column(db.JSON, nullable=False)
+    output_json = db.Column(db.JSON, nullable=True)
+    latency_ms = db.Column(db.Integer, nullable=True)
+    model = db.Column(db.String(128), nullable=True)
+    tokens_in = db.Column(db.Integer, nullable=True)
+    tokens_out = db.Column(db.Integer, nullable=True)
+    status = db.Column(db.String(32), nullable=False, default="ok")  # ok | parse_error | timeout | error
+    error_text = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now(), index=True)
+
+    production = db.relationship(
+        "Production",
+        backref=db.backref("swarm_messages", cascade="all, delete-orphan"),
+    )
+

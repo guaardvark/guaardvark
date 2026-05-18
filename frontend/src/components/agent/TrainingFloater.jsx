@@ -21,11 +21,14 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CheckIcon from '@mui/icons-material/Check';
 import EditIcon from '@mui/icons-material/Edit';
 import SkipNextIcon from '@mui/icons-material/SkipNext';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+// No trash icons — system uses X/close for all remove actions
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
+import KeyboardIcon from '@mui/icons-material/Keyboard';
+import KeyboardOutlinedIcon from '@mui/icons-material/KeyboardOutlined';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { useNavigate } from 'react-router-dom';
+import { useAppStore } from '../../stores/useAppStore';
 
 const API_BASE = '/api/agent-control/learn';
 const STORAGE_KEY = 'guaardvark_training_floater_state';
@@ -53,11 +56,15 @@ function loadState() {
 function saveState(state) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {}
+  } catch {
+    // localStorage may be blocked in private mode — drop the save quietly
+  }
 }
 
-export default function TrainingFloater({ open, onClose, onNavigateAway }) {
+export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
   const navigate = useNavigate();
+  const kbdForwarding = useAppStore((s) => s.keyboardForwardingEnabled);
+  const toggleKbdForwarding = useAppStore((s) => s.toggleKeyboardForwarding);
   // --- Persisted window state ---
   const saved = loadState();
   const [collapsed, setCollapsed] = useState(saved.collapsed ?? false);
@@ -156,7 +163,9 @@ export default function TrainingFloater({ open, onClose, onNavigateAway }) {
         if (data.steps_count !== undefined) {
           setStepsRecorded(data.steps_count);
         }
-      } catch {}
+      } catch {
+        // poll error tolerated; next tick will retry
+      }
     };
     poll();
     pollRef.current = setInterval(poll, POLL_INTERVAL);
@@ -233,7 +242,9 @@ export default function TrainingFloater({ open, onClose, onNavigateAway }) {
     try {
       const res = await axios.get(`${API_BASE}/demonstrations`);
       setDemonstrations(res.data.demonstrations || []);
-    } catch {}
+    } catch {
+      // demonstrations endpoint optional — empty list is fine
+    }
   };
 
   const handleStartRecording = async () => {
@@ -400,7 +411,7 @@ export default function TrainingFloater({ open, onClose, onNavigateAway }) {
                     disabled={loading}
                     sx={{ p: 0.25 }}
                   >
-                    <DeleteOutlineIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                    <CloseIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Save & edit in Training page">
@@ -707,6 +718,30 @@ export default function TrainingFloater({ open, onClose, onNavigateAway }) {
             }),
           }}
         />
+        {/* Stop button always visible in header when recording — even when collapsed */}
+        {mode === 'recording' && (
+          <Tooltip title="Stop Recording">
+            <IconButton
+              className="header-btn"
+              size="small"
+              onClick={handleStopRecording}
+              disabled={loading}
+              sx={{ p: 0.25, mr: 0.25 }}
+            >
+              <StopIcon sx={{ fontSize: 16, color: 'error.main' }} />
+            </IconButton>
+          </Tooltip>
+        )}
+        <Tooltip title={kbdForwarding ? 'Keyboard → Agent: ON (click to stop)' : 'Send keyboard to Agent Screen'}>
+          <IconButton
+            className="header-btn"
+            size="small"
+            onClick={toggleKbdForwarding}
+            sx={{ p: 0.25, mr: 0.25, color: kbdForwarding ? 'success.main' : 'text.secondary' }}
+          >
+            {kbdForwarding ? <KeyboardIcon sx={{ fontSize: 16 }} /> : <KeyboardOutlinedIcon sx={{ fontSize: 16 }} />}
+          </IconButton>
+        </Tooltip>
         <IconButton
           className="header-btn"
           size="small"

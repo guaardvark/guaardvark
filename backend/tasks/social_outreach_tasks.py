@@ -1,0 +1,361 @@
+"""
+Celery tasks for the social outreach loop.
+
+Three task types:
+  social_outreach_reddit  — discover + draft + (maybe) post on a subreddit
+  social_outreach_share   — submit a link-post to a subreddit
+  social_outreach_discord — celery-driven discord pass (rarely used; the cog
+                            polls itself, this is here so the unified scheduler
+                            can trigger an on-demand pass)
+
+Each task wraps the loop in a Flask app context — celery workers don't have one
+by default, and the SQLAlchemy/audit code needs it.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+from celery import shared_task
+
+logger = logging.getLogger(__name__)
+
+
+def _with_app_context(fn, *args, **kwargs):
+    """Run fn inside the Flask app context so DB/Setting/audit calls work.
+
+    The old version of this function had a bare except that swallowed import
+    errors and called fn() WITHOUT a context — every DB call inside fn would
+    then crash with "Working outside of application context" and the audit
+    record would be silently lost. We'd rather fail loud and visibly: if we
+    cannot acquire a Flask app context, the task should error so it's caught
+    at Celery beat time, not silently degrade.
+    """
+    from backend.app import app
+    with app.app_context():
+        return fn(*args, **kwargs)
+
+
+@shared_task(name="social_outreach.engage_with_subreddit", bind=True)
+def engage_with_subreddit(self, subreddit: str, task_id: Any = None) -> dict:
+    from backend.services.social_outreach.reddit_outreach import RedditOutreachLoop
+    return _with_app_context(RedditOutreachLoop().run_one_pass, subreddit, task_id=task_id)
+
+
+@shared_task(name="social_outreach.self_share", bind=True)
+def self_share(self, subreddit: str, link_url: str, task_id: Any = None) -> dict:
+    from backend.services.social_outreach.self_share import SelfShareLoop
+    return _with_app_context(SelfShareLoop().run_one_pass, subreddit, link_url, task_id=task_id)
+
+
+@shared_task(name="social_outreach.discord_pass", bind=True)
+def discord_pass(self, channel_ids: list = None) -> dict:
+    """No-op for now — the Discord cog polls itself. This exists so the unified
+    scheduler can in principle trigger an on-demand pass; wire it up later if
+    we move away from the in-cog timer."""
+    return {"status": "noop", "reason": "discord cog polls itself"}
+
+
+# --- Beat-driven orchestrators -------------------------------------------
+# These tick tasks read the targets JSON, round-robin through the configured
+# subs, and fire off one outreach pass per tick. Beat schedule entries in
+# celery_app.py drive the cadence (default: reddit every 45 min, share every
+# 4 h). Round-robin index is kept in Redis.
+
+import json
+import os
+from pathlib import Path
+
+
+_REPO_ROOT = Path(os.environ.get("GUAARDVARK_ROOT") or Path(__file__).resolve().parents[2])
+_TARGETS_FILE = _REPO_ROOT / "data" / "agent" / "social_outreach_targets.json"
+
+
+def _load_targets() -> dict:
+    try:
+        return json.loads(_TARGETS_FILE.read_text())
+    except Exception as e:
+        logger.warning("targets file unreadable (%s): %s", _TARGETS_FILE, e)
+        return {}
+
+
+def _next_target(category: str, items: list[str]) -> str | None:
+    if not items:
+        return None
+    try:
+        import redis
+        r = redis.Redis.from_url(
+            os.environ.get("REDIS_URL", "redis://localhost:6379/0"),
+            decode_responses=True,
+            socket_timeout=2,
+        )
+        idx = r.incr(f"social_outreach:rr:{category}")
+        return items[(idx - 1) % len(items)]
+    except Exception:
+        # Redis unavailable — just use the first one. Better than nothing.
+        return items[0]
+
+
+@shared_task(name="social_outreach.tick_reddit_outreach", bind=True)
+def tick_reddit_outreach(self) -> dict:
+    """Beat tick — pick the next outreach sub from targets.json and run a pass."""
+    targets = _load_targets()
+    subs = (targets.get("reddit") or {}).get("outreach_subs") or []
+    sub = _next_target("reddit_outreach", subs)
+    if not sub:
+        return {"skipped": True, "reason": "no_targets"}
+    from backend.services.social_outreach.reddit_outreach import RedditOutreachLoop
+    return _with_app_context(RedditOutreachLoop().run_one_pass, sub)
+
+
+@shared_task(name="social_outreach.tick_draft_candidates", bind=True)
+def tick_draft_candidates(self) -> dict:
+    """Beat tick — Content agent drafts the oldest N candidate rows.
+
+    Reads status="candidate" rows produced by Recon, runs each through
+    persona.draft_outreach_text, transitions to "drafted" (if grade ≥ 0.7
+    and draft non-empty) or "rejected" (otherwise). No servo, no posting.
+    Disabled by default in beat schedule — fire on demand via /run-pass
+    or by enabling the schedule entry.
+    """
+    from backend.services.social_outreach.content_agent import (
+        ContentAgent,
+        DEFAULT_BATCH_SIZE,
+    )
+    return _with_app_context(ContentAgent().draft_batch, DEFAULT_BATCH_SIZE)
+
+
+@shared_task(name="social_outreach.tick_recon_reddit", bind=True)
+def tick_recon_reddit(self) -> dict:
+    """Beat tick — Recon agent scouts the next outreach sub for candidates.
+
+    Read-only: hits Reddit's public API, writes status="candidate" rows. Never
+    drafts, never posts. Safe to run on cron without supervised gates because
+    no servo path is involved. Disabled by default in celery_app.py beat
+    schedule — flip the schedule entry to enable.
+    """
+    targets = _load_targets()
+    subs = (targets.get("reddit") or {}).get("outreach_subs") or []
+    sub = _next_target("reddit_recon", subs)
+    if not sub:
+        return {"skipped": True, "reason": "no_targets"}
+    from backend.services.social_outreach.recon import RecondAgent
+    return _with_app_context(RecondAgent().scout_reddit, sub)
+
+
+@shared_task(name="social_outreach.tick_recon_youtube", bind=True)
+def tick_recon_youtube(self) -> dict:
+    """Beat tick — Recon agent scouts YouTube via web_search for candidates.
+
+    Read-only: pulls a DDG result page filtered to site:youtube.com, writes
+    status="candidate" rows for video URLs. Never drafts, never posts. Safe
+    to run on cron — same kill-switch gate as the reddit recon. Disabled by
+    default in celery_app.py beat schedule.
+
+    Round-robins through `youtube.keyword_profiles` in social_outreach_targets.json
+    so successive ticks scan different angles of the keyword space rather
+    than repeatedly hitting the same query.
+    """
+    targets = _load_targets()
+    profiles = (targets.get("youtube") or {}).get("keyword_profiles") or []
+    profile = _next_target("youtube_recon", profiles)
+    if not profile:
+        return {"skipped": True, "reason": "no_targets"}
+    from backend.services.social_outreach.recon import RecondAgent
+    return _with_app_context(RecondAgent().scout_youtube, profile)
+
+
+@shared_task(name="social_outreach.tick_recon_youtube_replies", bind=True)
+def tick_recon_youtube_replies(self) -> dict:
+    """Beat tick — scan the channel's own YouTube videos for new replies to
+    Guaardvark's comments. Emits status="candidate" rows with action="reply"
+    that the Content agent drafts a response for, the grader scores, and
+    tick_process_approved_drafts dispatches through post_youtube_reply_via_servo.
+
+    Read-only: no servo, no posting. Safe to run on cron — same kill-switch
+    gate as the other recon ticks. Disabled by default in celery_app.py beat
+    schedule.
+
+    Reads `youtube.monitored_videos` from social_outreach_targets.json. Until
+    the comment-scrape stub in recon._fetch_recent_replies_to_guaardvark is
+    implemented, this is a clean no-op that just reports "no_replies" for
+    each monitored video. Manual seeding via
+    `recon.enqueue_youtube_reply_candidate(...)` still works end-to-end.
+    """
+    from backend.services.social_outreach.recon import RecondAgent
+    return _with_app_context(RecondAgent().scout_youtube_my_video_replies)
+
+
+@shared_task(name="social_outreach.tick_self_share", bind=True)
+def tick_self_share(self) -> dict:
+    """Beat tick — pick next share sub + URL, submit a link post."""
+    targets = _load_targets()
+    subs = (targets.get("reddit") or {}).get("share_subs") or []
+    sub = _next_target("reddit_share", subs)
+    if not sub:
+        return {"skipped": True, "reason": "no_targets"}
+    # Default link URL — guaardvark.com. Could be parameterized later.
+    from backend.services.social_outreach.persona import SITE_URL
+    link_url = (targets.get("reddit") or {}).get("default_share_url") or SITE_URL
+    from backend.services.social_outreach.self_share import SelfShareLoop
+    return _with_app_context(SelfShareLoop().run_one_pass, sub, link_url)
+
+
+@shared_task(name="social_outreach.tick_process_approved_drafts", bind=True)
+def tick_process_approved_drafts(self) -> dict:
+    """Beat tick — process UI-approved drafts for Reddit and YouTube."""
+    def _run():
+        from backend.models import SocialOutreachLog, db
+        from backend.services.social_outreach.reddit_outreach import post_comment_via_servo as reddit_post_comment, record_post_via_backend
+        from backend.services.social_outreach.youtube_outreach import (
+            post_youtube_comment_via_servo,
+            post_youtube_reply_via_servo,
+        )
+        from backend.services.social_outreach.self_share import _submit_post_via_servo
+        import json
+        import requests
+        from backend.services.social_outreach.reddit_outreach import backend_url
+        from backend.services.social_outreach.reddit_outreach import REDDIT_BASE
+
+        rows = (
+            SocialOutreachLog.query
+            .filter(SocialOutreachLog.status == "approved")
+            .filter(SocialOutreachLog.platform.in_(("reddit", "youtube")))
+            .order_by(SocialOutreachLog.created_at.asc())
+            .limit(5)
+            .all()
+        )
+        
+        if not rows:
+            return {"processed": 0, "reason": "no_approved_drafts"}
+            
+        processed = 0
+        for row in rows:
+            # Claim the row up-front so a mid-flight failure (servo crash,
+            # record-post HTTP blip) doesn't leave it as "approved" and trigger
+            # a double-post on the next 60s tick. If the post never happens,
+            # the row stays at "processing" and a human deals with it.
+            row.status = "processing"
+            db.session.commit()
+
+            if row.action == "comment":
+                # Pipeline (Phase 2) writes UTM-tagged copy into posted_text; legacy
+                # /draft-comment rows leave posted_text NULL and the engage_with
+                # path tags inline at servo time. Prefer posted_text so we don't
+                # silently drop the tags Content already applied.
+                comment_text = row.posted_text or row.draft_text
+
+                # Branch on platform
+                if row.platform == "reddit":
+                    success, reason = reddit_post_comment(row.target_url, comment_text)
+                elif row.platform == "youtube":
+                    success, reason = post_youtube_comment_via_servo(row.target_url, comment_text, row.task_id)
+                else:
+                    # Unsupported platform — leave at approved
+                    row.status = "approved"
+                    db.session.commit()
+                    continue
+
+                if success:
+                    record_post_via_backend(row.id, row.target_url, row.target_thread_id, comment_text, row.task_id)
+                    processed += 1
+                else:
+                    from backend.services.social_outreach.audit import mark_draft_aborted
+                    mark_draft_aborted(row.id, f"servo: {reason}")
+            elif row.action == "reply" and row.platform == "youtube":
+                # ContentAgent writes a JSON envelope to draft_text for
+                # replies because mark_drafted_from_candidate overwrites
+                # draft_text and there's no extras column to carry the
+                # parent-comment anchor through. Plain reply text lives
+                # in posted_text (typed directly into the composer), the
+                # envelope in draft_text carries {draft, anchor, incoming_*}.
+                reply_text = (row.posted_text or "").strip()
+                anchor_hint = ""
+                try:
+                    if row.draft_text and row.draft_text.strip().startswith("{"):
+                        envelope = json.loads(row.draft_text)
+                        anchor_hint = (
+                            envelope.get("anchor")
+                            or envelope.get("anchor_hint")
+                            or envelope.get("parent_text")
+                            or ""
+                        )[:200]
+                        # If posted_text wasn't filled (legacy row, supervised
+                        # edit dropped it, etc.) fall back to the envelope's
+                        # draft field — better than aborting.
+                        if not reply_text:
+                            reply_text = (envelope.get("draft") or "").strip()
+                except (json.JSONDecodeError, AttributeError, TypeError) as e:
+                    logger.warning("reply envelope parse failed for row %s: %s", row.id, e)
+                if not anchor_hint or not reply_text:
+                    from backend.services.social_outreach.audit import mark_draft_aborted
+                    mark_draft_aborted(row.id, "reply_missing_anchor_or_text")
+                    continue
+                success, reason = post_youtube_reply_via_servo(
+                    row.target_url, anchor_hint, reply_text, row.task_id,
+                )
+                if success:
+                    record_post_via_backend(
+                        row.id, row.target_url, row.target_thread_id,
+                        reply_text, row.task_id,
+                    )
+                    processed += 1
+                else:
+                    # Move the row to "aborted" so it doesn't stay stuck at
+                    # "processing" forever. The user can re-approve via UI to
+                    # retry — far better UX than the original "human deals
+                    # with it" comment that left rows in limbo.
+                    from backend.services.social_outreach.audit import mark_draft_aborted
+                    mark_draft_aborted(row.id, f"servo: {reason}")
+            elif row.action == "share":
+                from backend.services.social_outreach.persona import SITE_URL
+                payload = {}
+                try:
+                    payload = json.loads(row.draft_text or "{}")
+                    title = (payload.get("title") or "").strip()
+                except json.JSONDecodeError:
+                    title = (row.draft_text or "").strip()
+
+                # Extract subreddit from target_url (e.g. https://old.reddit.com/r/SideProject)
+                import re
+                # `or ""` so a row with a NULL target_url doesn't TypeError out
+                # of the whole batch — re.search on "" just fails to match.
+                m = re.search(r"/r/([^/]+)", row.target_url or "")
+                subreddit = m.group(1) if m else ""
+
+                # Read link_url from the draft payload — falls back to SITE_URL
+                # only for legacy rows drafted before we started storing it.
+                link_url = (payload.get("link_url") or "").strip() or SITE_URL
+                
+                if subreddit and title:
+                    success, reason = _submit_post_via_servo(subreddit, title, link_url)
+                    if success:
+                        try:
+                            requests.post(
+                                f"{backend_url()}/social-outreach/record-post",
+                                json={
+                                    "audit_id": row.id,
+                                    "platform": "reddit",
+                                    "posted_text": f"{title}\n{link_url}",
+                                    "target_url": row.target_url,
+                                    "target_thread_id": None,
+                                    "task_id": row.task_id,
+                                },
+                                timeout=10,
+                            )
+                        except Exception as e:
+                            logger.warning("record-post failed: %s", e)
+                        processed += 1
+                    else:
+                        # Same recovery path as the comment branch — abort
+                        # cleanly so the row isn't stranded at "processing".
+                        from backend.services.social_outreach.audit import mark_draft_aborted
+                        mark_draft_aborted(row.id, f"servo: {reason}")
+                else:
+                    # Couldn't even attempt — sub or title missing. Mark
+                    # aborted with a clear reason so the user can fix the row.
+                    from backend.services.social_outreach.audit import mark_draft_aborted
+                    mark_draft_aborted(row.id, "share row missing subreddit or title")
+        return {"processed": processed}
+    return _with_app_context(_run)

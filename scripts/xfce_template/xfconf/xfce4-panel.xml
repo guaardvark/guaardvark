@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<channel name="xfce4-panel" version="1.0">
+  <property name="configver" type="int" value="2"/>
+  <property name="panels" type="array">
+    <value type="int" value="1"/>
+    <value type="int" value="2"/>
+    <property name="dark-mode" type="bool" value="true"/>
+    <property name="panel-1" type="empty">
+      <property name="position" type="string" value="p=0;x=118;y=51"/>
+      <property name="length" type="double" value="1"/>
+      <property name="position-locked" type="bool" value="false"/>
+      <property name="icon-size" type="uint" value="1"/>
+      <property name="size" type="uint" value="20"/>
+      <property name="enable-struts" type="bool" value="false"/>
+      <property name="length-adjust" type="bool" value="false"/>
+      <property name="mode" type="uint" value="0"/>
+      <property name="background-style" type="uint" value="1"/>
+      <property name="background-rgba" type="array">
+        <value type="double" value="0.10196078431372549"/>
+        <value type="double" value="0.37254901960784315"/>
+        <value type="double" value="0.70588235294117652"/>
+        <value type="double" value="1"/>
+      </property>
+      <property name="autohide-behavior" type="uint" value="2"/>
+      <property name="plugin-ids" type="array">
+        <value type="int" value="1"/>
+      </property>
+      <property name="enter-opacity" type="uint" value="0"/>
+      <property name="leave-opacity" type="uint" value="0"/>
+    </property>
+    <property name="panel-2" type="empty">
+      <property name="autohide-behavior" type="uint" value="2"/>
+      <property name="position" type="string" value="p=10;x=0;y=0"/>
+      <property name="length" type="uint" value="1"/>
+      <property name="position-locked" type="bool" value="false"/>
+      <property name="size" type="uint" value="16"/>
+      <property name="length-adjust" type="bool" value="false"/>
+      <property name="icon-size" type="uint" value="0"/>
+    </property>
+  </property>
+  <property name="plugins" type="empty">
+    <property name="plugin-1" type="string" value="applicationsmenu">
+      <property name="show-generic-names" type="bool" value="true"/>
+      <property name="show-button-title" type="bool" value="false"/>
+      <property name="button-icon" type="string" value="emblem-colors-orange"/>
+      <property name="small" type="bool" value="true"/>
+    </property>
+  </property>
+</channel>

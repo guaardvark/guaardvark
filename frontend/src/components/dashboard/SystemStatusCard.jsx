@@ -9,7 +9,7 @@ const SystemStatusCard = React.forwardRef(
   ({ style, isMinimized, onToggleMinimize, cardColor, onCardColorChange, ...props }, ref) => {
     const [status, setStatus] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
+    const [_error, setError] = useState(null);
     const [actionResponse, setActionResponse] = useState(null);
     const [snackbar, setSnackbar] = useState({
       open: false,

@@ -122,7 +122,7 @@ export const VoiceProvider = ({ children }) => {
       
       .replace(/\s+/g, ' ')
       
-      .replace(/[•\-\*]\s*/g, '')
+      .replace(/[•\-*]\s*/g, '')
       .replace(/\n\s*\n/g, '. ')
       .replace(/\n/g, ', ')
       

@@ -82,6 +82,8 @@ def create_celery_app():
             'maintenance.daily_backup': {'queue': 'default'},
             'backend.celery_tasks_isolated.*': {'queue': 'default'},
             'backend.tasks.*': {'queue': 'default'},
+            'social_outreach.*': {'queue': 'default'},
+            'memory.*': {'queue': 'default'},
         },
 
         beat_schedule={
@@ -103,6 +105,63 @@ def create_celery_app():
             'daily-backup': {
                 'task': 'maintenance.daily_backup',
                 'schedule': 86400.0,  # 24 hours
+                'options': {'queue': 'default'},
+            },
+            # Cluster heartbeat sweeper (master-only; see CLUSTER_ROLE env)
+            'cluster-heartbeat-sweep': {
+                'task': 'cluster.sweep_node_heartbeats',
+                'schedule': float(os.environ.get("CLUSTER_SWEEP_INTERVAL_S", 5)),
+                'options': {'queue': 'default'},
+            },
+            # Social outreach loops — beat-driven so they run unattended.
+            # Cadence here is the upper bound; kill_switch.cadence_allows_post
+            # enforces the actual 30-min-per-platform / 8-per-day caps.
+            'social-outreach-reddit-tick': {
+                'task': 'social_outreach.tick_reddit_outreach',
+                'schedule': 2700.0,  # 45 minutes
+                'options': {'queue': 'default'},
+            },
+            'social-outreach-self-share-tick': {
+                'task': 'social_outreach.tick_self_share',
+                'schedule': 14400.0,  # 4 hours
+                'options': {'queue': 'default'},
+            },
+            'social-outreach-process-approved': {
+                'task': 'social_outreach.tick_process_approved_drafts',
+                'schedule': 60.0,  # 1 minute
+                'options': {'queue': 'default'},
+            },
+            # Scout the channel's own videos for new replies left under
+            # Guaardvark's comments. Read-only — emits "candidate" rows that
+            # flow through the same draft/grade/dispatch pipeline as
+            # outreach comments. Slower cadence than recon (hourly) because
+            # replies under a small channel arrive infrequently; tighten if
+            # the channel grows.
+            'social-outreach-youtube-replies-recon': {
+                'task': 'social_outreach.tick_recon_youtube_replies',
+                'schedule': 3600.0,  # 1 hour
+                'options': {'queue': 'default'},
+            },
+            # Reap memory_state_<session_id> rows from system_setting that
+            # haven't been touched in GUAARDVARK_MEMORY_RETENTION_DAYS days.
+            # MemoryManager writes these on every chat turn; without this
+            # sweep they grow unbounded.
+            'memory-cleanup-old-session-state': {
+                'task': 'memory.cleanup_old_session_state',
+                'schedule': 86400.0,  # 24 hours — daily is plenty for a 30-day retention
+                'options': {'queue': 'default'},
+            },
+            # Scan belief_update memories and stage PendingFix rows where ≥N
+            # sessions have agreed a knowledge-file line is wrong. Idempotent
+            # (skips groups that already have an open proposal) and review-
+            # gated (PendingFix never auto-applies). The original opt-in
+            # design (lesson_reconciler.py:22-26) feared auto-fired file edits
+            # — those don't happen here. Disable with
+            # GUAARDVARK_RECONCILER_BEAT_DISABLED=1 if you want the old cadence
+            # back without removing the schedule entry.
+            'memory-reconcile-belief-updates': {
+                'task': 'memory.reconcile_belief_updates',
+                'schedule': 21600.0,  # 6 hours
                 'options': {'queue': 'default'},
             },
         },
@@ -214,6 +273,40 @@ def create_celery_app():
         logger.warning(f"Could not import task scheduler Beat tasks: {e}")
 
     try:
+        from backend.tasks.production_swarm_tasks import create_production_swarm_tasks
+        create_production_swarm_tasks(celery_app)
+        logger.info("Production swarm tasks registered successfully")
+    except ImportError as e:
+        logger.warning(f"Could not import production swarm tasks: {e}")
+
+    try:
+        from backend.tasks.lora_trainer_tasks import create_lora_trainer_tasks
+        create_lora_trainer_tasks(celery_app)
+        logger.info("LoRA trainer tasks registered successfully")
+    except ImportError as e:
+        logger.warning(f"Could not import lora_trainer tasks: {e}")
+
+    try:
+        from backend.tasks.social_outreach_tasks import (
+            engage_with_subreddit,
+            self_share,
+            discord_pass,
+            tick_reddit_outreach,
+            tick_self_share,
+            tick_process_approved_drafts,
+            tick_recon_youtube_replies,
+        )
+        logger.info("Social outreach tasks imported successfully")
+    except ImportError as e:
+        logger.warning(f"Could not import social outreach tasks: {e}")
+
+    try:
+        from backend.tasks.memory_maintenance_tasks import cleanup_old_session_memory  # noqa: F401
+        logger.info("Memory maintenance tasks imported successfully")
+    except ImportError as e:
+        logger.warning(f"Could not import memory maintenance tasks: {e}")
+
+    try:
         from backend.tasks.self_improvement_tasks import (
             create_self_improvement_tasks,
             schedule_self_improvement_tasks,
@@ -235,8 +328,33 @@ def create_celery_app():
     except ImportError as e:
         logger.warning(f"Could not import autoresearch tasks: {e}")
 
+    try:
+        from backend.tasks.video_render_tasks import create_video_render_tasks
+        create_video_render_tasks(celery_app)
+        logger.info("Video render tasks registered successfully")
+    except ImportError as e:
+        logger.warning(f"Could not import video render tasks: {e}")
+
+    try:
+        from backend.tasks import cluster_heartbeat_sweeper  # noqa: F401 - registers task
+        logger.info("Cluster heartbeat sweeper task registered")
+    except ImportError as e:
+        logger.warning(f"Could not import cluster heartbeat sweeper: {e}")
+
     logger.info("Celery app configured with enhanced performance settings and Beat schedule")
     return celery_app
 
 
 celery = create_celery_app()
+
+# CRITICAL: make this Celery instance the "current app" so @shared_task
+# decorators throughout the codebase bind to it (not to a default empty
+# Celery() that Celery's lib creates on first lookup). Without this, tasks
+# defined via @shared_task in any module imported BEFORE celery_app — or
+# where the import order is non-deterministic — fall through to a default
+# instance with no task_routes config, and .delay() messages get published
+# to the literal "celery" queue instead of "default" where the worker
+# subscribes. The user-visible symptom: /run-pass returns task_ids that
+# never execute (ghost tasks). See test_celery_routing.py for the
+# regression that catches this.
+celery.set_default()

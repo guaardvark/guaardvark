@@ -13,7 +13,6 @@ import {
   Grid,
   Chip,
   LinearProgress,
-  CircularProgress,
   Alert,
   Accordion,
   AccordionSummary,
@@ -34,9 +33,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Snackbar,
-  Divider,
-  Tooltip,
   useTheme,
   useMediaQuery
 } from '@mui/material';
@@ -44,12 +40,7 @@ import {
   ExpandMore,
   Upload,
   PlayArrow,
-  Stop,
   Download,
-  Delete,
-  Refresh,
-  Settings,
-  Image as ImageIcon,
   GetApp,
   Visibility,
   Cancel
@@ -81,7 +72,6 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   const [searchParams] = useSearchParams();
   const isXs = useMediaQuery(theme.breakpoints.down('sm'));
   const isSm = useMediaQuery(theme.breakpoints.between('sm', 'md'));
-  const isMd = useMediaQuery(theme.breakpoints.up('md'));
 
   // Calculate responsive columns for ImageList
   const imageListCols = isXs ? 2 : isSm ? 3 : 4;
@@ -105,12 +95,12 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   // New: Content presets and quality enhancement state
   const [contentPresets, setContentPresets] = useState({});
   const [selectedPreset, setSelectedPreset] = useState('auto'); // 'auto' = auto-detect
-  const [autoEnhance, setAutoEnhance] = useState(true);
-  const [enhanceAnatomy, setEnhanceAnatomy] = useState(true);
-  const [enhanceFaces, setEnhanceFaces] = useState(true);
-  const [enhanceHands, setEnhanceHands] = useState(true);
-  const [contentDetection, setContentDetection] = useState(null);
-  const [analyzingPrompt, setAnalyzingPrompt] = useState(false);
+  const [autoEnhance, _setAutoEnhance] = useState(true);
+  const [enhanceAnatomy, _setEnhanceAnatomy] = useState(true);
+  const [enhanceFaces, _setEnhanceFaces] = useState(true);
+  const [enhanceHands, _setEnhanceHands] = useState(true);
+  const [_contentDetection, setContentDetection] = useState(null);
+  const [_analyzingPrompt, setAnalyzingPrompt] = useState(false);
 
   // Generation parameters
   const [params, setParams] = useState({
@@ -128,7 +118,6 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   });
 
   // UI state
-  const [showSettings, setShowSettings] = useState(false);
   const [showImageViewer, setShowImageViewer] = useState(false);
 
   // Refs
@@ -194,7 +183,6 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
     checkServiceStatus();
     loadBatchHistory();
     loadContentPresets();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Analyze current prompt for content detection
@@ -473,7 +461,6 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
     if (batchId) {
       loadBatchById(batchId);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   // Monitor active batch progress
@@ -488,7 +475,6 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
       // Cleanup function to prevent race conditions
       stopPolling();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeBatch]);
 
   // Monitor progress system for batch updates
@@ -770,7 +756,9 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
           setActiveBatch({
             batch_id: batchId,
             status: 'running',
-            total_images: data.data.prompt_count || data.data.total_images || (inputMode === 'bulk' ? promptsToGenerate.length : 0),
+            // promptsToGenerate is scoped to the bulk submit branch above and out of scope here;
+            // 0 falls back to indeterminate progress which is fine.
+            total_images: data.data.prompt_count || data.data.total_images || 0,
             completed_images: 0,
             failed_images: 0,
             progress_percentage: 0

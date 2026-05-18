@@ -141,6 +141,31 @@ export const getAllPluginStatus = async () => {
   return handleResponse(response);
 };
 
+// --- Vision Pipeline camera ---
+
+export const startVisionCamera = async (deviceIndex = 0) => {
+  const response = await fetch(`${BASE_URL}/vision_pipeline/camera/start`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ device_index: deviceIndex }),
+  });
+  return handleResponse(response);
+};
+
+export const stopVisionCamera = async () => {
+  const response = await fetch(`${BASE_URL}/vision_pipeline/camera/stop`, {
+    method: "POST",
+  });
+  return handleResponse(response);
+};
+
+export const getVisionCameraStatus = async () => {
+  const response = await fetch(`${BASE_URL}/vision_pipeline/camera/status`, {
+    method: "GET",
+  });
+  return handleResponse(response);
+};
+
 export default {
   listPlugins,
   getPlugin,
@@ -156,4 +181,7 @@ export default {
   getPluginLogs,
   getLiveGpuStats,
   getAllPluginStatus,
+  startVisionCamera,
+  stopVisionCamera,
+  getVisionCameraStatus,
 };

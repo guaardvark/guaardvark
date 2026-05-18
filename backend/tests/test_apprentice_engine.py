@@ -11,9 +11,9 @@ from backend.services.apprentice_engine import ApprenticeEngine, AttemptResult
 @pytest.fixture
 def mock_screen():
     screen = MagicMock()
-    img = Image.new("RGB", (1280, 720), color="white")
+    img = Image.new("RGB", (1024, 1024), color="white")
     screen.capture.return_value = (img, (640, 360))
-    screen.screen_size.return_value = (1280, 720)
+    screen.screen_size.return_value = (1024, 1024)
     screen.click.return_value = {"success": True, "x": 640, "y": 400}
     screen.type_text.return_value = {"success": True}
     screen.hotkey.return_value = {"success": True}

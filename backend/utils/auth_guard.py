@@ -19,6 +19,9 @@ PROTECTED_PREFIXES = (
     '/api/code-execution/',
     '/api/backups/restore',
     '/api/backups/create',
+    # Social outreach has kill switches, draft approval, and fetch-meta — none of
+    # which should be reachable from another machine on the LAN without an API key.
+    '/api/social-outreach/',
 )
 
 # Endpoints protected only on DELETE

@@ -37,12 +37,12 @@ class TestLocalBackend(unittest.TestCase):
         from PIL import Image
 
         # Mock mss screenshot
-        mock_monitor = {"left": 0, "top": 0, "width": 1280, "height": 720}
+        mock_monitor = {"left": 0, "top": 0, "width": 1024, "height": 1024}
         mock_sct_instance = MagicMock()
         mock_sct_instance.monitors = [{}, mock_monitor]
         mock_sct_instance.grab.return_value = MagicMock()
-        mock_sct_instance.grab.return_value.size = (1280, 720)
-        mock_sct_instance.grab.return_value.rgb = b'\x00' * (1280 * 720 * 3)
+        mock_sct_instance.grab.return_value.size = (1024, 1024)
+        mock_sct_instance.grab.return_value.rgb = b'\x00' * (1024 * 1024 * 3)
         mock_mss.mss.return_value.__enter__ = MagicMock(return_value=mock_sct_instance)
         mock_mss.mss.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -125,12 +125,12 @@ class TestLocalBackend(unittest.TestCase):
         backend = LocalScreenBackend()
         mock_result = MagicMock()
         mock_result.returncode = 0
-        mock_result.stdout = "1280 720\n"
+        mock_result.stdout = "1024 1024\n"
 
         with patch.object(backend, '_xdotool', return_value=mock_result):
             size = backend.screen_size()
 
-        self.assertEqual(size, (1280, 720))
+        self.assertEqual(size, (1024, 1024))
 
     def test_screen_size_fallback(self):
         from backend.services.local_screen_backend import LocalScreenBackend
@@ -142,7 +142,7 @@ class TestLocalBackend(unittest.TestCase):
         with patch.object(backend, '_xdotool', return_value=mock_result):
             size = backend.screen_size()
 
-        self.assertEqual(size, (1280, 720))
+        self.assertEqual(size, (1024, 1024))
 
     def test_cursor_position(self):
         from backend.services.local_screen_backend import LocalScreenBackend

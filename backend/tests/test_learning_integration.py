@@ -65,7 +65,7 @@ class TestLearningIntegration:
     def test_apprentice_executes_demo_steps(self):
         """Verify ApprenticeEngine can run through steps using mocked screen/servo."""
         mock_screen = MagicMock()
-        img = Image.new("RGB", (1280, 720), "white")
+        img = Image.new("RGB", (1024, 1024), "white")
         mock_screen.capture.return_value = (img, (640, 360))
         mock_screen.type_text.return_value = {"success": True}
         mock_screen.hotkey.return_value = {"success": True}

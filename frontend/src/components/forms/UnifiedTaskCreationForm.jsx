@@ -7,7 +7,6 @@ import {
   Button,
   Card,
   CardContent,
-  Collapse,
   Divider,
   FormControl,
   FormControlLabel,
@@ -54,7 +53,7 @@ const UnifiedTaskCreationForm = ({
   editingTask = null,
   isVisible = false 
 }) => {
-  const theme = useTheme();
+  const _theme = useTheme();
   const { activeModel } = useStatus();
   const [isExpanded, setIsExpanded] = useState(isVisible);
 
@@ -87,14 +86,14 @@ const UnifiedTaskCreationForm = ({
   const [availableClients, setAvailableClients] = useState([]);
   const [availableProjects, setAvailableProjects] = useState([]);
   const [availableWebsites, setAvailableWebsites] = useState([]);
-  const [availableRules, setAvailableRules] = useState([]);
+  const [_availableRules, setAvailableRules] = useState([]);
   const [availableModels, setAvailableModels] = useState([]);
   
   // Selected values for dropdowns
   const [selectedClient, setSelectedClient] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
   const [selectedWebsite, setSelectedWebsite] = useState(null);
-  const [formRuleValue, setFormRuleValue] = useState(null);
+  const [_formRuleValue, setFormRuleValue] = useState(null);
   
   // Filtered data for cascading dropdowns
   const [filteredProjects, setFilteredProjects] = useState([]);

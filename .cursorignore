@@ -1,0 +1,7 @@
+backend/venv/*
+backend/tools/voice/whisper.cpp/*
+frontend/node_modules/*
+*/venv/*
+docs/*
+pids/*
+# Add directories or file patterns to ignore during indexing (e.g. foo/ or *.csv)

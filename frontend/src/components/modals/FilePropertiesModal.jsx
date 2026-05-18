@@ -193,7 +193,7 @@ const FilePropertiesModal = ({
             </Grid>
             <Grid item xs={6}>
               <Typography variant="body2">
-                <strong>Uploaded:</strong> {formatDate(fileData.uploaded_at)}
+                <strong>Imported:</strong> {formatDate(fileData.uploaded_at)}
               </Typography>
             </Grid>
             <Grid item xs={6}>

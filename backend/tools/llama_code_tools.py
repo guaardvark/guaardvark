@@ -47,6 +47,25 @@ def read_code(filepath: str) -> str:
             return f"ERROR: Path '{filepath}' is outside project root (security restriction)"
 
         if not full_path.exists():
+            # Maybe the user just uploaded this to chat — those land under
+            # data/uploads/, not PROJECT_ROOT, and have a Document row.
+            from backend.utils.uploaded_file_resolver import find_uploaded_file
+            uploaded = find_uploaded_file(filepath)
+            if uploaded:
+                content, on_disk = uploaded
+                if content is None and on_disk:
+                    with open(on_disk, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                if content is not None:
+                    line_count = len(content.split('\n'))
+                    char_count = len(content)
+                    logger.info(f"Read {line_count} lines from uploaded file {filepath}")
+                    return f"""✓ Successfully read uploaded file: {filepath}
+Lines: {line_count} | Characters: {char_count}
+
+========== FILE CONTENT START ==========
+{content}
+========== FILE CONTENT END =========="""
             return f"ERROR: File '{filepath}' does not exist"
 
         if not full_path.is_file():

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
     Box,
     Paper,
@@ -21,7 +21,7 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { executePlan } from '../../api/orchestratorService';
 
-const StepItem = ({ step, index }) => {
+const StepItem = ({ step, _index }) => {
     const [expanded, setExpanded] = useState(false);
 
     const getStatusIcon = (status) => {

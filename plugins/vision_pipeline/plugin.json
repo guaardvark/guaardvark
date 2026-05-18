@@ -8,12 +8,11 @@
   "category": "inference",
   "port": 8201,
   "vram_estimate_mb": 2000,
+  "core": false,
   "dependencies": [
     "ollama"
   ],
   "config": {
-    "enabled": true,
-    "auto_start": true,
     "service_url": "http://localhost:8201",
     "timeout": 30,
     "fallback_enabled": false,
@@ -24,7 +23,9 @@
     "frame_quality": 70,
     "frame_width": 512,
     "context_window_seconds": 30,
-    "change_threshold": 0.3
+    "change_threshold": 0.3,
+    "default_enabled": true,
+    "default_auto_start": false
   },
   "requirements": {
     "gpu": false,
@@ -45,6 +46,9 @@
     "benchmark": "/benchmark",
     "benchmark_results": "/benchmark/results",
     "config": "/config",
-    "status": "/status"
+    "status": "/status",
+    "camera_start": "/camera/start",
+    "camera_stop": "/camera/stop",
+    "camera_status": "/camera/status"
   }
 }

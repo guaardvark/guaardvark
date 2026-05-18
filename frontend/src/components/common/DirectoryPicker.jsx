@@ -43,9 +43,6 @@ import {
   VideoFile as VideoIcon,
   AudioFile as AudioIcon,
   Archive as ArchiveIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-  CreateNewFolder as CreateNewFolderIcon,
   Refresh as RefreshIcon,
 } from "@mui/icons-material";
 

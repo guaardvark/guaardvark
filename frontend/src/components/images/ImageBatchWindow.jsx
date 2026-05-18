@@ -11,7 +11,6 @@ import {
 } from '@mui/material';
 import {
   Download as DownloadIcon,
-  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import FolderWindowWrapper from '../documents/FolderWindowWrapper';
 import ImageBatchContents from './ImageBatchContents';
@@ -19,7 +18,7 @@ import ImageBatchContents from './ImageBatchContents';
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const ImageBatchWindow = ({
-  id,
+  _id,
   batch,
   windowColor,
   onWindowColorChange,

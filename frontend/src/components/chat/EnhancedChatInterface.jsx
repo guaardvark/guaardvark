@@ -17,12 +17,13 @@ import {
 } from "@mui/material";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
-import { 
+import {
   getEnhancedChatHistory,
   sendChatMessage,
   getContextStats,
   clearSessionContext,
-  getSystemHealth 
+  clearEnhancedSession,
+  getSystemHealth
 } from "../../api/chatService";
 import ChatInput from "./ChatInput";
 import MessageList from "./MessageList";
@@ -314,7 +315,7 @@ const EnhancedChatInterface = ({
 
   const handleClearSession = useCallback(async () => {
     try {
-      await enhancedChatService.clearEnhancedSession(sessionId);
+      await clearEnhancedSession(sessionId);
       setMessages([]);
       setContextInfo(null);
       setEnhancedStatus((prev) => ({

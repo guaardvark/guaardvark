@@ -31,7 +31,7 @@ const glowAnimation = keyframes`
 
 const VoiceButtonContainer = styled(Box, {
   shouldForwardProp: (prop) => prop !== "isRecording" && prop !== "volumeLevel",
-})(({ theme, isRecording, volumeLevel }) => ({
+})(({ _theme, isRecording, volumeLevel }) => ({
   position: "relative",
   display: "inline-flex",
   alignItems: "center",
@@ -169,7 +169,7 @@ const VoiceChatButton = ({
   const [recordingError, setRecordingError] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [permission, setPermission] = useState("unknown");
-  const [ttsEnabled, setTtsEnabled] = useState(false);
+  const [_ttsEnabled, setTtsEnabled] = useState(false);
   const [micEnabled, setMicEnabled] = useState(true);
   const [voiceSettings, setVoiceSettings] = useState({
     enableVisualization: false,

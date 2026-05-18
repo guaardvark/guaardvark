@@ -18,15 +18,16 @@ export function createFullTheme(config) {
     textPrimary = "#e0e0e0",
     textSecondary = "#a0a0a0",
     divider,
+    mode = "dark",
     fontFamily = '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
     componentOverrides = {},
   } = config;
 
-  const dividerColor = divider || "rgba(255, 255, 255, 0.08)";
+  const dividerColor = divider || (mode === "light" ? "rgba(0, 0, 0, 0.08)" : "rgba(255, 255, 255, 0.08)");
 
   const base = muiCreateTheme({
     palette: {
-      mode: "dark",
+      mode,
       primary: {
         main: accent,
         dark: accentDark || accent,

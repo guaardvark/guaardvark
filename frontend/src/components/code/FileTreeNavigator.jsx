@@ -35,7 +35,6 @@ import {
   Description as DocumentIcon,
 } from "@mui/icons-material";
 import { useUnifiedProgress } from "../../contexts/UnifiedProgressContext";
-import * as apiService from "../../api";
 
 // File type detection
 const getFileIcon = (filename) => {
@@ -271,7 +270,7 @@ const FileActionDialog = ({ open, action, onClose, onConfirm, initialValue = "" 
 };
 
 const FileTreeNavigator = ({
-  projectId = null,
+  _projectId = null,
   onFileSelect = null,
   onFileCreate = null,
   files = [],

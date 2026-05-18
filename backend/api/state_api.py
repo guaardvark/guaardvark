@@ -235,8 +235,10 @@ def get_folder_state():
             logger.info(f"API: Found folder state file, returning state.")
             return jsonify(state), 200
         else:
-            logger.warning(
-                f"API: Folder state file not found at {FOLDER_STATE_FILE}. Returning 404."
+            # Missing on first load is normal — the file gets created on first
+            # save. Don't pollute the log with WARNING for the empty-state case.
+            logger.info(
+                f"API: Folder state file not yet created at {FOLDER_STATE_FILE}. Returning 404."
             )
             return jsonify({"error": "Folder state not found."}), 404
     except json.JSONDecodeError as e:

@@ -15,7 +15,7 @@ import {
   Braces as JsonIcon,
   Folder as FolderIcon,
 } from 'lucide-react';
-import { Box, useTheme } from '@mui/material';
+import { Box } from '@mui/material';
 
 // Export folder icon for use in other components
 export { FolderIcon };
@@ -25,13 +25,20 @@ export const API_BASE = '/api/files'; // Use relative path so Vite proxy handles
 export const MAX_FILENAME_LENGTH = 255;
 export const MAX_FILE_SIZE_MB = 100; // Maximum file size in MB
 export const BYTES_PER_MB = 1024 * 1024;
+// eslint-disable-next-line no-control-regex -- intentional: matches OS-illegal filename control chars
 export const INVALID_FILENAME_CHARS = /[<>:"/\\|?*\x00-\x1f]/;
 
 // Image file extensions that should show thumbnails
 const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tiff'];
 
+// Video file extensions
+const VIDEO_EXTENSIONS = ['mp4', 'webm', 'avi', 'mov', 'mkv', 'flv', 'wmv', 'm4v'];
+
 // Code file extensions
 const CODE_EXTENSIONS = ['js', 'jsx', 'ts', 'tsx', 'py', 'java', 'c', 'cpp', 'h', 'cs', 'go', 'rs', 'rb', 'php', 'swift', 'kt', 'scala', 'html', 'css', 'scss', 'less', 'vue', 'sh', 'bash', 'zsh', 'sql', 'json', 'yaml', 'yml', 'toml', 'xml', 'ini', 'env', 'config', 'md', 'txt', 'csv', 'log'];
+
+// Audio file extensions — those an HTML5 <audio> element can actually play
+const AUDIO_EXTENSIONS = ['wav', 'mp3', 'ogg', 'flac', 'm4a', 'aac', 'opus'];
 
 // Check if a filename is an image
 export const isImageFile = (filename) => {
@@ -40,11 +47,35 @@ export const isImageFile = (filename) => {
   return IMAGE_EXTENSIONS.includes(ext);
 };
 
+// Check if a filename is a video
+export const isVideoFile = (filename) => {
+  if (!filename) return false;
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  return VIDEO_EXTENSIONS.includes(ext);
+};
+
+// Check if a filename is an audio file the in-app player can handle
+export const isAudioFile = (filename) => {
+  if (!filename) return false;
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  return AUDIO_EXTENSIONS.includes(ext);
+};
+
+// Check if a filename is any media type (image, video, or audio)
+export const isMediaFile = (filename) => isImageFile(filename) || isVideoFile(filename) || isAudioFile(filename);
+
 // Check if a filename is a code/text file that can be opened in an editor
 export const isCodeFile = (filename) => {
   if (!filename) return false;
   const ext = filename.split('.').pop()?.toLowerCase() || '';
   return CODE_EXTENSIONS.includes(ext);
+};
+
+// Check if a filename is a PDF
+export const isPdfFile = (filename) => {
+  if (!filename) return false;
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  return ext === 'pdf';
 };
 
 // Helper component for index status indicator dot
@@ -125,8 +156,8 @@ export const FolderIndexIndicator = ({ item, theme, size = 6 }) => {
 export const getFileIcon = (filename, isSelected, theme, size = 48, indexStatus = null, filePath = null) => {
   const ext = filename ? filename.split('.').pop()?.toLowerCase() || '' : '';
 
-  // If this is an image file and we have a path, render a thumbnail
-  if (filePath && isImageFile(filename)) {
+  // If this is an image or video file and we have a path, render a thumbnail
+  if (filePath && (isImageFile(filename) || isVideoFile(filename))) {
     const thumbnailUrl = `${API_BASE}/thumbnail?path=${encodeURIComponent(filePath)}`;
     return (
       <Box sx={{
@@ -263,8 +294,8 @@ export const getFileIconSmall = (filename, isSelected, theme, indexStatus = null
 
   const ext = filename ? filename.split('.').pop()?.toLowerCase() || '' : '';
 
-  // If this is an image file and we have a path, render a small thumbnail
-  if (filePath && isImageFile(filename)) {
+  // If this is an image or video file and we have a path, render a small thumbnail
+  if (filePath && (isImageFile(filename) || isVideoFile(filename))) {
     const thumbnailUrl = `${API_BASE}/thumbnail?path=${encodeURIComponent(filePath)}`;
     return (
       <Box sx={{

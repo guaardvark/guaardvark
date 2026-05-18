@@ -2,10 +2,10 @@
 """
 Integration tests for embedding functionality using REAL Ollama embeddings.
 
-Tests the qwen3-embedding:8b integration, validates 4096-dim embeddings,
+Tests the mxbai-embed-large integration, validates 1024-dim embeddings,
 and tests the complete upload → indexing → retrieval pipeline.
 
-IMPORTANT: These tests require Ollama to be running with qwen3-embedding:8b model available.
+IMPORTANT: These tests require Ollama to be running with mxbai-embed-large model available.
 """
 
 import os
@@ -86,7 +86,7 @@ def client(app):
 @pytest.mark.indexing
 def test_embedding_model_initialization():
     """
-    Test that qwen3-embedding:8b initializes correctly.
+    Test that mxbai-embed-large initializes correctly.
     Verifies the embedding model is loaded and accessible.
     """
     # Settings is already configured by llama_index_local_config.py
@@ -105,7 +105,7 @@ def test_embedding_model_initialization():
 @pytest.mark.indexing
 def test_embedding_dimensions():
     """
-    Test that embeddings have the correct dimensions (4096 for qwen3-embedding:8b).
+    Test that embeddings have the correct dimensions (1024 for mxbai-embed-large).
     Validates actual embedding generation.
     """
     embed_model = Settings.embed_model
@@ -118,7 +118,7 @@ def test_embedding_dimensions():
     actual_dim = len(embedding)
     print(f"Embedding dimensions: {actual_dim}")
 
-    # qwen3-embedding:8b should produce 4096-dim embeddings
+    # mxbai-embed-large should produce 1024-dim embeddings
     # But fallback models may have different dimensions
     assert actual_dim > 0, "Embedding is empty"
     assert isinstance(embedding, list), "Embedding should be a list"
@@ -128,16 +128,16 @@ def test_embedding_dimensions():
     if hasattr(embed_model, 'model_name'):
         print(f"Model: {embed_model.model_name}, Dimensions: {actual_dim}")
 
-    # If using qwen3-embedding:8b, should be exactly 4096
-    if hasattr(embed_model, 'model_name') and 'qwen3-embedding:8b' in embed_model.model_name:
-        assert actual_dim == 4096, f"qwen3-embedding:8b should produce 4096-dim embeddings, got {actual_dim}"
+    # If using mxbai-embed-large, should be exactly 1024
+    if hasattr(embed_model, 'model_name') and 'mxbai-embed-large' in embed_model.model_name:
+        assert actual_dim == 1024, f"mxbai-embed-large should produce 1024-dim embeddings, got {actual_dim}"
 
 
 @pytest.mark.indexing
 def test_embedding_fallback():
     """
     Test that the system handles embedding fallback gracefully.
-    If qwen3-embedding:8b is unavailable, it should fall back to other models.
+    If mxbai-embed-large is unavailable, it should fall back to other models.
     """
     embed_model = Settings.embed_model
     model_type = type(embed_model).__name__

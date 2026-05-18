@@ -483,7 +483,7 @@ export const sendChatMessage = async (
   onDeltaReceived,
   onRagDebugReceived,
   signal = null,
-  _chatMode = null, // eslint-disable-line no-unused-vars
+  _chatMode = null,
   rulesCutoff = false
 ) => {
   console.log('CHAT_DEBUG: sendChatMessage called', {

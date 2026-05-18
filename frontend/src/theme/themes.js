@@ -278,6 +278,85 @@ const vaderTheme = createFullTheme({
   },
 });
 
+// ─── Light: Clean light theme with teal accent ────────────────────────────────
+
+const lightTheme = createFullTheme({
+  accent: "#00796b",
+  accentDark: "#004d40",
+  accentLight: "#48a999",
+  secondary: "#7e57c2",
+  secondaryDark: "#512da8",
+  secondaryLight: "#9575cd",
+  bg: "#fafafa",
+  bgPaper: "#ffffff",
+  textPrimary: "#212121",
+  textSecondary: "#757575",
+  divider: "rgba(0, 0, 0, 0.08)",
+  mode: "light",
+  componentOverrides: {
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          backgroundImage: "none",
+          backgroundColor: "#ffffff",
+        },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          backgroundImage: "none",
+          backgroundColor: "#ffffff",
+          border: "1px solid rgba(0, 0, 0, 0.08)",
+          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
+        },
+      },
+    },
+    MuiAppBar: {
+      styleOverrides: {
+        root: {
+          backgroundColor: "#ffffff",
+          backgroundImage: "none",
+          color: "#212121",
+          boxShadow: "0 1px 3px rgba(0, 0, 0, 0.08)",
+        },
+      },
+    },
+    MuiDrawer: {
+      styleOverrides: {
+        paper: {
+          backgroundImage: "none",
+          backgroundColor: "#ffffff",
+        },
+      },
+    },
+    MuiAlert: {
+      styleOverrides: {
+        filledInfo: {
+          backgroundColor: "#e0f7fa",
+          color: "#004d40",
+          border: "1px solid #00796b",
+        },
+        filledSuccess: {
+          backgroundColor: "#e8f5e9",
+          color: "#1b5e20",
+          border: "1px solid #4caf50",
+        },
+        filledWarning: {
+          backgroundColor: "#fff8e1",
+          color: "#f57f17",
+          border: "1px solid #ff9800",
+        },
+        filledError: {
+          backgroundColor: "#ffebee",
+          color: "#b71c1c",
+          border: "1px solid #f44336",
+        },
+      },
+    },
+  },
+});
+
 // ─── Guaardvark: Ultra-minimal monochrome matching guaardvark.com ────────────
 
 const guaardvarkTheme = createFullTheme({
@@ -567,5 +646,11 @@ export const themes = {
     previewGradient: "linear-gradient(135deg, #d32f2f, #000000)",
     icon: "sith",
     theme: vaderTheme,
+  },
+  light: {
+    label: "Light",
+    description: "Clean light theme with teal accents — easy on the eyes",
+    previewGradient: "linear-gradient(135deg, #e0f7fa, #00897b)",
+    theme: lightTheme,
   },
 };

@@ -2,7 +2,7 @@
 // Ubuntu-style breadcrumb navigation for file system
 
 import React from "react";
-import { Box, Breadcrumbs, Link, Typography, Chip } from "@mui/material";
+import { Box, Breadcrumbs, Link, Typography } from "@mui/material";
 import {
   NavigateNext as NavigateNextIcon,
 } from "@mui/icons-material";

@@ -25,7 +25,7 @@ import {
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
+import CloseIcon from "@mui/icons-material/Close";
 import CancelIcon from "@mui/icons-material/Cancel";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StorageIcon from "@mui/icons-material/Storage";
@@ -84,7 +84,7 @@ const DemoRow = ({ demo, expanded, onToggle, onDelete, onAttempt, showMessage, t
   useEffect(() => {
     if (expanded && demo.steps) {
       const stepsJson = JSON.stringify(
-        demo.steps.map(({ id, ...rest }) => rest),
+        demo.steps.map(({ _id, ...rest }) => rest),
         null,
         2
       );
@@ -151,7 +151,7 @@ const DemoRow = ({ demo, expanded, onToggle, onDelete, onAttempt, showMessage, t
             </Tooltip>
             <Tooltip title="Delete demonstration">
               <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDelete(demo); }} color="error">
-                <DeleteIcon fontSize="small" />
+                <CloseIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           </Box>
@@ -227,10 +227,10 @@ const TrainingPage = () => {
   // Device profiles state
   const [deviceProfiles, setDeviceProfiles] = useState([]);
   const [profilesLoading, setProfilesLoading] = useState(true);
-  const [baseModels, setBaseModels] = useState([]);
+  const [_baseModels, setBaseModels] = useState([]);
   
   // Common state
-  const [error, setError] = useState(null);
+  const [_error, _setError] = useState(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [jobModalOpen, setJobModalOpen] = useState(false);
   const [deviceModalOpen, setDeviceModalOpen] = useState(false);
@@ -725,7 +725,7 @@ const TrainingPage = () => {
                                   onClick={() => handleDeleteDataset(ds)}
                                   color="error"
                                 >
-                                  <DeleteIcon fontSize="small" />
+                                  <CloseIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
                             </Box>
@@ -839,7 +839,7 @@ const TrainingPage = () => {
                             )}
                             <Tooltip title="Delete">
                               <IconButton size="small" onClick={() => handleDeleteJob(job.id)}>
-                                <DeleteIcon fontSize="small" />
+                                <CloseIcon fontSize="small" />
                               </IconButton>
                             </Tooltip>
                           </Box>
@@ -954,7 +954,7 @@ const TrainingPage = () => {
                                 onClick={() => handleDeleteDeviceProfile(profile.id)}
                                 sx={{ ml: 1 }}
                               >
-                                <DeleteIcon fontSize="small" />
+                                <CloseIcon fontSize="small" />
                               </IconButton>
                             </span>
                           </Tooltip>
@@ -1002,7 +1002,7 @@ const TrainingPage = () => {
         <ParseJobModal
           open={parseModalOpen}
           onClose={() => setParseModalOpen(false)}
-          onSuccess={(result) => {
+          onSuccess={(_result) => {
             showMessage("Parse job started successfully", "success");
             fetchJobs();
           }}

@@ -49,6 +49,24 @@ MODEL_REGISTRY: List[Dict[str, Any]] = [
         "size_mb": 6,
         "url": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-general-x4v3.pth",
     },
+    {
+        "name": "4x-UltraSharp",
+        "scale": 4,
+        "size_mb": 67,
+        "url": "https://huggingface.co/Kim2091/UltraSharp/resolve/main/4x-UltraSharp.pth",
+    },
+    {
+        "name": "4x_NMKD-Superscale-SP_178000_G",
+        "scale": 4,
+        "size_mb": 67,
+        "url": "https://huggingface.co/gemasai/4x_NMKD-Superscale-SP_178000_G/resolve/main/4x_NMKD-Superscale-SP_178000_G.pth",
+    },
+    {
+        "name": "4x_foolhardy_Remacri",
+        "scale": 4,
+        "size_mb": 67,
+        "url": "https://huggingface.co/FacehugmanIII/4x_foolhardy_Remacri/resolve/main/4x_foolhardy_Remacri.pth",
+    },
 ]
 
 

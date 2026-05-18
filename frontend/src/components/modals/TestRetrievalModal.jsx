@@ -19,7 +19,6 @@ import {
   Alert,
   Divider,
   Grid,
-  LinearProgress,
   Accordion,
   AccordionSummary,
   AccordionDetails,

@@ -430,7 +430,7 @@ const BulkImportDocumentsPage = () => {
                   disabled={submitting}
                 />
               }
-              label="Force copy files (even if already in uploads)"
+              label="Force copy files (even if already imported)"
             />
             <FormControlLabel
               control={

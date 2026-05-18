@@ -19,6 +19,46 @@ const createUISlice = (set, get) => ({
   trainerOpen: false,
   setTrainerOpen: (open) => set({ trainerOpen: open }),
 
+  // Keyboard → Agent Screen forwarding. When true, a global keydown listener
+  // forwards keystrokes to :99 via /api/agent-control/learn/input. Mirrored
+  // on both the AgentScreenViewer and TrainingFloater headers — flip from
+  // either. Skips events whose target is a local input/textarea/contentEditable
+  // so the rest of the Guaardvark UI stays usable.
+  keyboardForwardingEnabled: false,
+  setKeyboardForwardingEnabled: (v) => set({ keyboardForwardingEnabled: v }),
+  toggleKeyboardForwarding: () =>
+    set((state) => ({ keyboardForwardingEnabled: !state.keyboardForwardingEnabled })),
+
+  // Lesson Pearls — transient (not persisted). While activeLessonId is set,
+  // thumbs-up feedback carries lesson_id to the backend and the floater
+  // renders accumulating pearls via the lesson:pearl_added socket event.
+  activeLessonId: null,
+  setActiveLessonId: (id) => set({ activeLessonId: id }),
+  lessonPearls: [],
+  addLessonPearl: (pearl) =>
+    set((state) => ({ lessonPearls: [...state.lessonPearls, pearl] })),
+  clearLessonPearls: () => set({ lessonPearls: [] }),
+
+  // True when the AgentScreenViewer is mounted/visible. The chat sender reads
+  // this to decide whether to flip `agent_screen_active` in the chat POST
+  // options. When false, the backend routes vision models through the normal
+  // ReACT path instead of the screen-action direct path.
+  agentScreenOpen: false,
+  setAgentScreenOpen: (open) => set({ agentScreenOpen: open }),
+
+  // Modal session mode — per-session "chat" | "agent". Backend at
+  // /api/chat-sessions/<id>/mode is the source of truth; this is just a
+  // cache so ChatInput can render visual chrome and route messages without
+  // re-fetching every keystroke. ChatInput hydrates the cache on
+  // session-change; slash handlers update both backend (PATCH) and cache.
+  // Sessions whose mode is unknown to the cache default to "chat".
+  sessionModes: {},
+  setSessionMode: (sessionId, mode) =>
+    set((state) => ({
+      sessionModes: { ...state.sessionModes, [sessionId]: mode },
+    })),
+  getSessionMode: (sessionId) => (get().sessionModes[sessionId] || "chat"),
+
   isLoading: false,
   setIsLoading: (loading) => set({ isLoading: loading }),
   
@@ -68,8 +108,6 @@ const createDataSlice = (set, get) => ({
       }
       
       const response = await res.json();
-      console.log("App store branding response:", response);
-      
       const data = response.data || response;
       set({
         systemName: data.system_name || null,

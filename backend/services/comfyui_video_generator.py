@@ -71,6 +71,14 @@ class ComfyUIVideoGenerator:
         self.cache_dir = Path(CACHE_DIR) / "generated_videos"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
+        # Default output dir for standalone (non-batch) video generation
+        try:
+            from backend.config import UPLOAD_DIR as _upload_dir
+            self.default_output_dir = Path(_upload_dir) / "Videos"
+        except ImportError:
+            self.default_output_dir = self.cache_dir
+        self.default_output_dir.mkdir(parents=True, exist_ok=True)
+
         self.comfy_output_dir = Path(COMFYUI_OUTPUT_DIR if config_available else os.environ.get('COMFYUI_OUTPUT_DIR', os.path.join(os.environ.get('GUAARDVARK_ROOT', '.'), 'data', 'outputs', 'video')))
 
         self.service_available = self._check_comfyui_connection()
@@ -211,12 +219,55 @@ class ComfyUIVideoGenerator:
 
     WAN22_MODELS = {
         "wan22-14b": {
+            "type": "t2v",
             "unet_high": "Wan2.2-T2V-A14B-HighNoise-Q5_K_M.gguf",
             "unet_low": "Wan2.2-T2V-A14B-LowNoise-Q5_K_M.gguf",
             "clip": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
             "vae": "wan_2.1_vae.safetensors",
         },
+        "wan22-14b-i2v": {
+            "type": "i2v",
+            "unet_high": "Wan2.2-I2V/HighNoise/Wan2.2-I2V-A14B-HighNoise-Q5_K_M.gguf",
+            "unet_low": "Wan2.2-I2V/LowNoise/Wan2.2-I2V-A14B-LowNoise-Q5_K_M.gguf",
+            "clip": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+            "vae": "wan_2.1_vae.safetensors",
+        },
     }
+
+    # CogVideoX/Wan are 8x VAE × 2x patch → /16. SVD is U-Net only → /8.
+    # Mirror of MODEL_OPTIONS[*].dimensionAlignment in VideoGeneratorPage.jsx —
+    # the frontend should already snap, this is the defense-in-depth seam for
+    # API/MCP/agent callers that go straight to the workflow builders.
+    _DIMENSION_ALIGNMENT_BY_FAMILY = {
+        "cogvideox": 16,
+        "wan": 16,
+        "svd": 8,
+    }
+
+    @classmethod
+    def _model_family(cls, model: str) -> str:
+        if model in cls.WAN22_MODELS or model in ("wan22", "wan2.2"):
+            return "wan"
+        if model in cls.COGVIDEOX_MODELS:
+            return "cogvideox"
+        return "svd"
+
+    @classmethod
+    def _align_dimensions(cls, width: int, height: int, model: str) -> tuple[int, int]:
+        """Snap (width, height) to the model family's required alignment.
+
+        Logs a WARNING when the input wasn't already aligned — that's our
+        breadcrumb if a caller bypasses the frontend's snap.
+        """
+        align = cls._DIMENSION_ALIGNMENT_BY_FAMILY.get(cls._model_family(model), 16)
+        new_w = max(align, round(width / align) * align)
+        new_h = max(align, round(height / align) * align)
+        if (new_w, new_h) != (width, height):
+            logger.warning(
+                "Aligned video dims for %s: %dx%d → %dx%d (must be multiple of %d)",
+                model, width, height, new_w, new_h, align,
+            )
+        return new_w, new_h
 
     def _add_cogvideox_optional_nodes(
         self,
@@ -456,10 +507,14 @@ class ComfyUIVideoGenerator:
             "10": {
                 "class_type": "ImageResizeKJ",
                 "inputs": {
+                    # KJNodes ImageResizeKJ schema drifted: fields used to be
+                    # width_input/height_input/interpolation; now they're
+                    # width/height/upscale_method (with upscale_method as a
+                    # required enum). divisible_by stays required as well.
                     "image": ["5", 0],
-                    "width_input": width,
-                    "height_input": height,
-                    "interpolation": "lanczos",
+                    "width": width,
+                    "height": height,
+                    "upscale_method": "lanczos",
                     "keep_proportion": False,
                     "divisible_by": 16,
                 }
@@ -696,14 +751,8 @@ class ComfyUIVideoGenerator:
             },
 
             # ── Decode + Output ────────────────────────────────────────────
-            # Node 12: VAE Decode
-            "12": {
-                "class_type": "VAEDecode",
-                "inputs": {
-                    "samples": ["11", 0],
-                    "vae": ["4", 0],
-                }
-            },
+            # Node 12: VAE Decode — tiled for HD+ so your GPU doesn't rage-quit
+            "12": self._build_vae_decode_node("11", "4", width, height),
             # Node 13: Create video from frames
             "13": {
                 "class_type": "VHS_VideoCombine",
@@ -738,6 +787,158 @@ class ComfyUIVideoGenerator:
             )
 
         return workflow
+
+    def _create_wan22_i2v_workflow(
+        self,
+        image_filename: str,
+        prompt: str,
+        negative_prompt: str = "",
+        model_key: str = "wan22-14b-i2v",
+        num_frames: int = 81,
+        num_inference_steps: int = 20,
+        guidance_scale: float = 3.5,
+        width: int = 832,
+        height: int = 480,
+        seed: Optional[int] = None,
+        fps: int = 16,
+        interpolation_multiplier: int = 2,
+    ) -> dict:
+        # Same MoE two-pass dance as Wan T2V, but the empty latent gets swapped
+        # for WanImageToVideo — that node bakes the start frame into the
+        # conditioning and hands back a properly-shaped image-conditioned latent.
+        if seed is None:
+            seed = int(time.time() * 1000) % (2**31)
+
+        model_files = self.WAN22_MODELS.get(model_key, self.WAN22_MODELS["wan22-14b-i2v"])
+
+        if not negative_prompt:
+            negative_prompt = (
+                "blurry, low quality, extra fingers, extra limbs, deformed hands, "
+                "deformed face, disfigured, static, overexposed, worst quality, "
+                "NSFW, nude"
+            )
+
+        midpoint = num_inference_steps // 2
+
+        workflow = {
+            "1": {"class_type": "UnetLoaderGGUF", "inputs": {"unet_name": model_files["unet_high"]}},
+            "2": {"class_type": "UnetLoaderGGUF", "inputs": {"unet_name": model_files["unet_low"]}},
+            "3": {"class_type": "CLIPLoader", "inputs": {"clip_name": model_files["clip"], "type": "wan", "device": "default"}},
+            "4": {"class_type": "VAELoader", "inputs": {"vae_name": model_files["vae"]}},
+            "5": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["3", 0], "text": prompt}},
+            "6": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["3", 0], "text": negative_prompt}},
+            "14": {"class_type": "LoadImage", "inputs": {"image": image_filename}},
+            # WanImageToVideo: takes pos/neg cond + start image + vae →
+            # returns image-conditioned pos/neg + a length-N latent.
+            "7": {
+                "class_type": "WanImageToVideo",
+                "inputs": {
+                    "positive": ["5", 0],
+                    "negative": ["6", 0],
+                    "vae": ["4", 0],
+                    "width": width,
+                    "height": height,
+                    "length": num_frames,
+                    "batch_size": 1,
+                    "start_image": ["14", 0],
+                },
+            },
+            "8": {"class_type": "ModelSamplingSD3", "inputs": {"model": ["1", 0], "shift": 8.0}},
+            "9": {"class_type": "ModelSamplingSD3", "inputs": {"model": ["2", 0], "shift": 8.0}},
+            "10": {
+                "class_type": "KSamplerAdvanced",
+                "inputs": {
+                    "model": ["8", 0],
+                    "positive": ["7", 0],
+                    "negative": ["7", 1],
+                    "latent_image": ["7", 2],
+                    "add_noise": "enable",
+                    "noise_seed": seed,
+                    "control_after_generate": "randomize",
+                    "steps": num_inference_steps,
+                    "cfg": guidance_scale,
+                    "sampler_name": "euler",
+                    "scheduler": "simple",
+                    "start_at_step": 0,
+                    "end_at_step": midpoint,
+                    "return_with_leftover_noise": "enable",
+                },
+            },
+            "11": {
+                "class_type": "KSamplerAdvanced",
+                "inputs": {
+                    "model": ["9", 0],
+                    "positive": ["7", 0],
+                    "negative": ["7", 1],
+                    "latent_image": ["10", 0],
+                    "add_noise": "disable",
+                    "noise_seed": 0,
+                    "control_after_generate": "fixed",
+                    "steps": num_inference_steps,
+                    "cfg": guidance_scale,
+                    "sampler_name": "euler",
+                    "scheduler": "simple",
+                    "start_at_step": midpoint,
+                    "end_at_step": 10000,
+                    "return_with_leftover_noise": "disable",
+                },
+            },
+            "12": self._build_vae_decode_node("11", "4", width, height),
+            "13": {
+                "class_type": "VHS_VideoCombine",
+                "inputs": {
+                    "images": ["12", 0],
+                    "frame_rate": fps,
+                    "loop_count": 0,
+                    "filename_prefix": "wan22_i2v",
+                    "format": "video/h264-mp4",
+                    "pix_fmt": "yuv420p",
+                    "crf": 19,
+                    "save_metadata": True,
+                    "pingpong": False,
+                    "save_output": True,
+                    "videopreview": {"hidden": False, "paused": False, "params": {}},
+                },
+            },
+        }
+
+        if interpolation_multiplier > 1:
+            self._add_rife_interpolation(
+                workflow,
+                source_node_id="12",
+                video_combine_node_id="13",
+                base_fps=fps,
+                multiplier=interpolation_multiplier,
+            )
+
+        return workflow
+
+    def _build_vae_decode_node(self, samples_node: str, vae_node: str, width: int, height: int) -> dict:
+        """Pick the right VAE decode strategy based on resolution.
+
+        Standard VAEDecode works fine up to 720p. Above that, tiled decoding
+        saves your VRAM from a very bad day.
+        """
+        use_tiled = width >= 1280 or height >= 1280
+        if use_tiled:
+            return {
+                "class_type": "VAEDecodeTiled",
+                "inputs": {
+                    "samples": [samples_node, 0],
+                    "vae": [vae_node, 0],
+                    "tile_size": 480,
+                    "overlap": 64,
+                    "temporal_size": 64,
+                    "temporal_overlap": 8,
+                }
+            }
+        return {
+            "class_type": "VAEDecode",
+            "inputs": {
+                "samples": [samples_node, 0],
+                "vae": [vae_node, 0],
+            }
+        }
 
     def _add_rife_interpolation(
         self,
@@ -838,6 +1039,28 @@ class ComfyUIVideoGenerator:
         )
 
         return workflow
+
+    def interrupt(self) -> bool:
+        """Force-stop whatever ComfyUI is currently sampling.
+
+        Yells "ABORT!" at the kitchen — ComfyUI bails on the current sampler,
+        history gets a partial entry, and our wait loop returns.
+        """
+        try:
+            requests.post(f"{self.comfy_url}/interrupt", timeout=5)
+            try:
+                requests.post(
+                    f"{self.comfy_url}/queue",
+                    json={"clear": True},
+                    timeout=5,
+                )
+            except Exception as clear_err:
+                logger.debug(f"Queue clear failed (non-fatal): {clear_err}")
+            logger.info("Sent interrupt + queue-clear to ComfyUI")
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to interrupt ComfyUI: {e}")
+            return False
 
     def _queue_prompt(self, workflow: dict) -> Optional[str]:
         try:
@@ -996,12 +1219,32 @@ class ComfyUIVideoGenerator:
             except Exception as e:
                 logger.warning(f"Prompt enhancement failed, using original prompt: {e}")
 
-        batch_dir = request.output_dir or (self.cache_dir / f"batch_{uuid.uuid4().hex}")
+        if request.output_dir:
+            batch_dir = Path(request.output_dir)
+        else:
+            # Standalone generation — Bates-stamped folder in Videos/
+            try:
+                from backend.services.output_registration import bates_name
+                folder_name = bates_name("video_batch", "", self.default_output_dir)
+            except Exception:
+                # Bates failed — fall back to a date-stamped name rather than
+                # raw uuid hex so the user-visible folder name stays readable.
+                from datetime import datetime as _dt
+                folder_name = f"VideoBatch_{_dt.now().strftime('%m-%d-%Y_%H-%M-%S')}"
+            batch_dir = self.default_output_dir / folder_name
         batch_dir = Path(batch_dir)
 
         item_id = request.metadata.get("item_id") if request.metadata else None
         if not item_id:
-            item_id = f"item_{uuid.uuid4().hex}"
+            # Bates-stamped item ID instead of UUID soup
+            try:
+                from backend.services.output_registration import bates_name
+                item_id = bates_name("video", "", batch_dir)
+            except Exception:
+                # Same fallback shape as folder_name above — readable names
+                # over uuid hex when the Bates path fails for any reason.
+                from datetime import datetime as _dt
+                item_id = f"VideoGen_{_dt.now().strftime('%m-%d-%Y_%H-%M-%S')}"
             if request.metadata:
                 request.metadata["item_id"] = item_id
 
@@ -1025,29 +1268,61 @@ class ComfyUIVideoGenerator:
             model = request.model or "svd"
             seed = request.seed if request.seed is not None else int(time.time() * 1000) % (2**31)
 
+            # Defense-in-depth: snap dims before they enter any workflow builder.
+            # Off-by-one here is the "tensor a (51) must match tensor b (50)" crash.
+            request.width, request.height = self._align_dimensions(
+                request.width, request.height, model
+            )
+
             interpolation = request.interpolation_multiplier
 
             # ── Route by model type ──────────────────────────────────
             if model in self.WAN22_MODELS or model in ("wan22", "wan2.2"):
-                if image_path:
-                    result.error = "Wan 2.2 is text-to-video only. Use CogVideoX 5B I2V or SVD for image-to-video."
-                    return result
-                # Text-to-video via Wan 2.2 GGUF
                 model_key = model if model in self.WAN22_MODELS else "wan22-14b"
-                workflow = self._create_wan22_t2v_workflow(
-                    prompt=request.prompt,
-                    negative_prompt=request.negative_prompt,
-                    model_key=model_key,
-                    num_frames=request.duration_frames,
-                    num_inference_steps=request.num_inference_steps,
-                    guidance_scale=request.guidance_scale,
-                    width=request.width,
-                    height=request.height,
-                    seed=seed,
-                    fps=request.fps,
-                    interpolation_multiplier=interpolation,
-                )
-                logger.info(f"Using Wan 2.2 text-to-video ({model_key}) via ComfyUI GGUF")
+                cfg = self.WAN22_MODELS[model_key]
+                is_i2v = cfg.get("type") == "i2v"
+
+                if is_i2v:
+                    if not image_path or not Path(image_path).exists():
+                        result.error = "Wan 2.2 I2V requires an input image."
+                        return result
+                    uploaded_image = self._upload_image_to_comfyui(image_path)
+                    if not uploaded_image:
+                        result.error = "Failed to upload image to ComfyUI"
+                        return result
+                    workflow = self._create_wan22_i2v_workflow(
+                        image_filename=uploaded_image,
+                        prompt=request.prompt,
+                        negative_prompt=request.negative_prompt,
+                        model_key=model_key,
+                        num_frames=request.duration_frames,
+                        num_inference_steps=request.num_inference_steps,
+                        guidance_scale=request.guidance_scale,
+                        width=request.width,
+                        height=request.height,
+                        seed=seed,
+                        fps=request.fps,
+                        interpolation_multiplier=interpolation,
+                    )
+                    logger.info(f"Using Wan 2.2 image-to-video ({model_key}) via ComfyUI GGUF")
+                else:
+                    if image_path:
+                        result.error = f"{model_key} is text-to-video only. Use wan22-14b-i2v for image-to-video."
+                        return result
+                    workflow = self._create_wan22_t2v_workflow(
+                        prompt=request.prompt,
+                        negative_prompt=request.negative_prompt,
+                        model_key=model_key,
+                        num_frames=request.duration_frames,
+                        num_inference_steps=request.num_inference_steps,
+                        guidance_scale=request.guidance_scale,
+                        width=request.width,
+                        height=request.height,
+                        seed=seed,
+                        fps=request.fps,
+                        interpolation_multiplier=interpolation,
+                    )
+                    logger.info(f"Using Wan 2.2 text-to-video ({model_key}) via ComfyUI GGUF")
 
             elif model in ("cogvideox-2b", "cogvideox-5b"):
                 if image_path:
@@ -1148,9 +1423,21 @@ class ComfyUIVideoGenerator:
                 result.error = "Failed to queue workflow in ComfyUI"
                 return result
 
-            # Wan2.2 MoE runs two passes (~5min each), needs longer timeout
-            gen_timeout = 1200 if model in self.WAN22_MODELS or model in ("wan22", "wan2.2") else 600
-            logger.info(f"Waiting for ComfyUI to complete generation (prompt_id: {prompt_id}, timeout: {gen_timeout}s)...")
+            # Timeouts scaled to what the GPU actually needs. If you're rendering
+            # 1080p at 50 steps with upscaling, go make a sandwich. Or two.
+            is_wan = model in self.WAN22_MODELS or model in ("wan22", "wan2.2")
+            steps = request.num_inference_steps or 30
+            has_upscale = request.metadata.get("upscale", False) if request.metadata else False
+            is_high_res = max(request.width or 0, request.height or 0) >= 1280
+            if is_wan and is_high_res:
+                gen_timeout = 7200  # 2 hours — HD/1080p with CPU offloading takes a while
+            elif is_wan and (steps >= 50 or has_upscale):
+                gen_timeout = 2400  # 40 min — max quality + cinema upscale
+            elif is_wan:
+                gen_timeout = 1200  # 20 min — standard Wan generations
+            else:
+                gen_timeout = 600   # 10 min — lighter models
+            logger.info(f"Waiting for ComfyUI to complete generation (prompt_id: {prompt_id}, timeout: {gen_timeout}s, steps: {steps}, upscale: {has_upscale}, high_res: {is_high_res})...")
             outputs = self._wait_for_completion(prompt_id, timeout=gen_timeout)
 
             if not outputs:
@@ -1177,6 +1464,25 @@ class ComfyUIVideoGenerator:
                     result.thumbnail_path = str(thumb_path.relative_to(batch_dir))
 
             logger.info(f"Video generation successful: {result.video_path}")
+
+            # Register into Documents/Files system if not batch-controlled
+            # (batch-controlled videos get registered by the batch_video_generator)
+            is_batch_controlled = (request.metadata or {}).get("batch_controlled", False)
+            if not is_batch_controlled and result.success:
+                try:
+                    from backend.services.output_registration import register_file, ensure_subfolder
+                    batch_folder_name = batch_dir.name
+                    ensure_subfolder("Videos", batch_folder_name)
+                    for vid_file in videos_dir.glob("*.mp4"):
+                        register_file(
+                            physical_path=str(vid_file),
+                            folder_name="Videos",
+                            subfolder_name=batch_folder_name,
+                            file_metadata={"source": "comfyui", "prompt": request.prompt[:200]},
+                        )
+                except Exception as reg_err:
+                    logger.warning(f"Video registration into Documents failed (non-critical): {reg_err}")
+
             return result
 
         except Exception as e:

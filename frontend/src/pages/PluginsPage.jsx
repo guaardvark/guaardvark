@@ -43,6 +43,8 @@ import {
   Memory as GpuIcon,
   Extension as PluginIcon,
   Terminal as LogIcon,
+  Videocam as CameraOnIcon,
+  VideocamOff as CameraOffIcon,
 } from '@mui/icons-material';
 import { useSnackbar } from '../components/common/SnackbarProvider';
 import PageLayout from '../components/layout/PageLayout';
@@ -57,6 +59,9 @@ import {
   updatePluginConfig,
   getPluginLogs,
   getLiveGpuStats,
+  startVisionCamera,
+  stopVisionCamera,
+  getVisionCameraStatus,
 } from '../api/pluginsService';
 
 // ── Constants ──────────────────────────────────────────────────────────
@@ -282,10 +287,51 @@ const LogViewer = ({ pluginId, open }) => {
 };
 
 // ── Plugin Card ────────────────────────────────────────────────────────
-const PluginCard = ({ plugin, onAction, onConfigOpen }) => {
+const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
   const [expanded, setExpanded] = useState(false);
   const [logsOpen, setLogsOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
+
+  // Camera state (vision_pipeline only)
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraLoading, setCameraLoading] = useState(false);
+
+  useEffect(() => {
+    if (plugin.id !== 'vision_pipeline' || plugin.status !== 'running') {
+      setCameraActive(false);
+      return;
+    }
+    const fetchStatus = async () => {
+      try {
+        const resp = await getVisionCameraStatus();
+        setCameraActive(resp?.active || false);
+      } catch {
+        setCameraActive(false);
+      }
+    };
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 5000);
+    return () => clearInterval(interval);
+  }, [plugin.id, plugin.status]);
+
+  const handleCameraToggle = async () => {
+    setCameraLoading(true);
+    try {
+      if (cameraActive) {
+        await stopVisionCamera();
+        setCameraActive(false);
+        if (showMessage) showMessage('Camera stopped', 'info');
+      } else {
+        await startVisionCamera(0);
+        setCameraActive(true);
+        if (showMessage) showMessage('Camera started', 'success');
+      }
+    } catch (err) {
+      if (showMessage) showMessage(err.message || 'Camera action failed', 'error');
+    } finally {
+      setCameraLoading(false);
+    }
+  };
 
   const statusConfig = STATUS_CONFIG[plugin.status] || STATUS_CONFIG.unknown;
   const StatusIcon = statusConfig.icon;
@@ -301,8 +347,6 @@ const PluginCard = ({ plugin, onAction, onConfigOpen }) => {
   };
 
   const isLoading = actionLoading !== null;
-  const canStart = plugin.enabled && plugin.status === 'stopped';
-  const canStop = plugin.status === 'running';
 
   return (
     <Card
@@ -310,7 +354,10 @@ const PluginCard = ({ plugin, onAction, onConfigOpen }) => {
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        opacity: plugin.enabled ? 1 : 0.6,
+        // Opacity reflects the actual running state, not the enabled config flag.
+        // Stopped plugins look dim regardless of whether they're "enabled" — what
+        // matters to the user is whether the plugin is actually doing anything.
+        opacity: plugin.status === 'running' ? 1 : 0.6,
         borderLeft: `4px solid ${plugin.status === 'running' ? accentColor : 'transparent'}`,
       }}
     >
@@ -380,40 +427,61 @@ const PluginCard = ({ plugin, onAction, onConfigOpen }) => {
       <Divider />
 
       <CardActions sx={{ justifyContent: 'space-between', px: 2 }}>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={plugin.enabled}
-              onChange={() => handleAction(plugin.enabled ? 'disable' : 'enable')}
-              disabled={isLoading}
-              size="small"
-            />
+        <Tooltip
+          title={
+            (plugin.cooldown_remaining || 0) > 0
+              ? `Cooling down — wait ${Math.ceil(plugin.cooldown_remaining)}s before toggling again`
+              : plugin.status !== 'running' && plugin.user_enabled === false
+                ? 'Currently disabled. Toggling on will both start it AND re-enable it across restarts.'
+                : 'Preference saved across restarts'
           }
-          label="Enabled"
-        />
-
-        <Box sx={{ display: 'flex', gap: 0.5 }}>
-          {canStart && (
-            <Tooltip title="Start">
-              <IconButton
+          arrow
+        >
+          <FormControlLabel
+            control={
+              <Switch
+                checked={plugin.status === 'running'}
+                // 'disable' stops the service AND persists the off-state in
+                // data/plugin_state.json's user_enabled overlay (NOT plugin.json,
+                // which stays the canonical default in git). start.sh and the
+                // backend both consult that overlay before plugin.json defaults,
+                // so a plugin toggled off here stays off across reboots.
+                onChange={() => handleAction(plugin.status === 'running' ? 'disable' : 'start')}
+                disabled={
+                  isLoading
+                  || plugin.status === 'starting'
+                  || plugin.status === 'stopping'
+                  || (plugin.cooldown_remaining || 0) > 0
+                }
                 size="small"
                 color="success"
-                onClick={() => handleAction('start')}
-                disabled={isLoading}
-              >
-                {actionLoading === 'start' ? <CircularProgress size={20} /> : <StartIcon />}
-              </IconButton>
-            </Tooltip>
-          )}
-          {canStop && (
-            <Tooltip title="Stop">
+              />
+            }
+            label={
+              (plugin.cooldown_remaining || 0) > 0
+                ? `${plugin.status === 'running' ? 'On' : 'Off'} (cooling ${Math.ceil(plugin.cooldown_remaining)}s)`
+                : (plugin.status === 'running' ? 'On' : 'Off')
+            }
+          />
+        </Tooltip>
+
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+
+          {plugin.id === 'vision_pipeline' && plugin.status === 'running' && (
+            <Tooltip title={cameraActive ? 'Stop Camera' : 'Start Camera'}>
               <IconButton
                 size="small"
-                color="error"
-                onClick={() => handleAction('stop')}
-                disabled={isLoading}
+                color={cameraActive ? 'primary' : 'default'}
+                onClick={handleCameraToggle}
+                disabled={cameraLoading}
               >
-                {actionLoading === 'stop' ? <CircularProgress size={20} /> : <StopIcon />}
+                {cameraLoading ? (
+                  <CircularProgress size={20} />
+                ) : cameraActive ? (
+                  <CameraOnIcon />
+                ) : (
+                  <CameraOffIcon />
+                )}
               </IconButton>
             </Tooltip>
           )}
@@ -592,7 +660,12 @@ const PluginsPage = () => {
       setError(null);
       const response = await listPlugins();
       if (response.success) {
-        setPlugins(response.data.plugins || []);
+        const list = response.data.plugins || [];
+        setPlugins(list);
+        // Return the fresh list so callers awaiting a refresh can read it
+        // without racing the React state update (which is async and would
+        // hand them the pre-refresh array via the closure).
+        return list;
       } else {
         setError(response.message || 'Failed to load plugins');
       }
@@ -601,6 +674,7 @@ const PluginsPage = () => {
     } finally {
       setLoading(false);
     }
+    return null;
   }, []);
 
   useEffect(() => {
@@ -630,19 +704,41 @@ const PluginsPage = () => {
     try {
       let response;
       switch (action) {
-        case 'start': response = await startPlugin(pluginId); break;
+        case 'start':
+          // Auto-enable if plugin is disabled so start doesn't get rejected
+          if (!plugins.find((p) => p.id === pluginId)?.enabled) {
+            await enablePlugin(pluginId);
+          }
+          response = await startPlugin(pluginId);
+          break;
         case 'stop': response = await stopPlugin(pluginId); break;
         case 'enable': response = await enablePlugin(pluginId); break;
         case 'disable': response = await disablePlugin(pluginId); break;
         default: throw new Error(`Unknown action: ${action}`);
       }
       if (response.success) {
+        // Backend returned 200. Two sub-cases:
+        //  1. Operation succeeded → data.success === true
+        //  2. Operation was rate-limited by the traffic light → data.gated === true
+        const data = response.data || {};
+        if (data.gated) {
+          // Friendly cooldown notice, not an error
+          const cd = data.cooldown_remaining ? Math.ceil(data.cooldown_remaining) : null;
+          const suffix = cd ? ` (wait ${cd}s)` : '';
+          showMessage(`${data.error || 'Cooling down'}${suffix}`, 'warning');
+          await fetchPlugins(); // refresh to pick up the cooldown_remaining
+          return;
+        }
         showMessage(response.message || `Plugin ${action} successful`, 'success');
-        await fetchPlugins();
+        const fresh = await fetchPlugins();
 
-        // After stopping ComfyUI, offer to restart Ollama (if Ollama is not running)
+        // After stopping ComfyUI, offer to restart Ollama if it's not running.
+        // Read from the *fresh* plugin list returned by fetchPlugins — the
+        // `plugins` state variable still holds the pre-stop snapshot here
+        // because React hasn't re-rendered yet.
         if (action === 'stop' && pluginId === 'comfyui') {
-          const ollamaPlugin = plugins.find((p) => p.id === 'ollama');
+          const list = fresh || plugins;
+          const ollamaPlugin = list.find((p) => p.id === 'ollama');
           if (ollamaPlugin && ollamaPlugin.enabled && ollamaPlugin.status !== 'running') {
             setShowRestartOllama(true);
           }
@@ -801,6 +897,7 @@ const PluginsPage = () => {
                 plugin={plugin}
                 onAction={handlePluginAction}
                 onConfigOpen={setConfigPlugin}
+                showMessage={showMessage}
               />
             </Grid>
           ))}

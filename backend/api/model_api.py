@@ -16,6 +16,36 @@ from backend.socketio_instance import socketio
 _model_list_cache = {"models": None, "timestamp": 0}
 MODEL_LIST_CACHE_TTL = 30  # seconds
 
+# Outage tracker — log Ollama connection failures once per outage instead of
+# on every poll. Without this, a 14-minute Ollama startup race fills the log
+# with dozens of identical ERROR + connection-refused stacktraces.
+_ollama_status_lock = threading.Lock()
+_ollama_status = {"down_since": None, "logged_failure": False}
+
+
+def _on_ollama_failure(err: Exception, op: str) -> None:
+    with _ollama_status_lock:
+        first = not _ollama_status["logged_failure"]
+        _ollama_status["logged_failure"] = True
+        if _ollama_status["down_since"] is None:
+            _ollama_status["down_since"] = time.time()
+    if first:
+        logger.error(f"Could not connect to Ollama API ({op}): {err}")
+    else:
+        logger.debug(f"Ollama still down ({op}): {err}")
+
+
+def _on_ollama_success() -> None:
+    with _ollama_status_lock:
+        if not _ollama_status["logged_failure"]:
+            return
+        outage_started = _ollama_status["down_since"]
+        _ollama_status["down_since"] = None
+        _ollama_status["logged_failure"] = False
+    if outage_started is not None:
+        outage_s = time.time() - outage_started
+        logger.info(f"Ollama API recovered after {outage_s:.1f}s outage")
+
 # --- LlamaIndex Imports ---
 try:
     from llama_index.core import PromptTemplate, Settings
@@ -103,10 +133,11 @@ def get_loaded_models() -> list:
     try:
         response = requests.get(f"{OLLAMA_BASE_URL}/api/ps", timeout=3)
         if response.ok:
+            _on_ollama_success()
             data = response.json()
             return data.get("models", [])
     except requests.exceptions.RequestException as e:
-        logger.warning(f"Could not get loaded models: {e}")
+        _on_ollama_failure(e, "/api/ps")
     return []
 
 
@@ -199,8 +230,13 @@ def get_available_ollama_models(use_cache: bool = True, force_refresh: bool = Fa
 
         return chat_models
     except requests.exceptions.RequestException as e:
-        logger.error(f"Could not connect to Ollama API at {ollama_tags_url}: {e}")
-        return {"error": f"Could not connect to Ollama API: {e}"}
+        # Ollama plugin is off / unreachable. Distinguish from real processing
+        # errors so the route can return 200 + empty list (no 502 console noise
+        # on the Plugins page when the user has Ollama disabled). Real errors
+        # (malformed JSON, schema mismatches, etc.) fall through to the
+        # generic Exception block below and still surface as 502.
+        logger.info(f"Ollama unreachable at {ollama_tags_url}: {e}")
+        return {"error": f"Could not connect to Ollama API: {e}", "offline": True}
     except Exception as e:
         logger.error(f"Error processing Ollama API response: {e}", exc_info=True)
         return {"error": f"Failed to process Ollama API response: {e}"}
@@ -208,10 +244,21 @@ def get_available_ollama_models(use_cache: bool = True, force_refresh: bool = Fa
 
 @model_bp.route("/list", methods=["GET"])
 def list_models():
-    """API endpoint to list available models from Ollama."""
+    """API endpoint to list available models from Ollama.
+
+    When Ollama is offline (plugin disabled / not running), returns a 200 with
+    an empty model list and `ollama_offline: true` rather than a 502, so pages
+    that load this on mount don't spam the console with 502 errors. Real
+    Ollama errors (malformed responses, etc.) still return 502.
+    """
     force_refresh = request.args.get('refresh', '').lower() == 'true'
     models_data = get_available_ollama_models(use_cache=True, force_refresh=force_refresh)
     if isinstance(models_data, dict) and models_data.get("error"):
+        if models_data.get("offline"):
+            return success_response(
+                "Ollama offline",
+                {"models": [], "ollama_offline": True},
+            )
         return error_response(models_data["error"], 502, "OLLAMA_ERROR")
     logger.info(f"Returning {len(models_data)} available models from Ollama.")
     return success_response("Models retrieved", {"models": models_data})
@@ -470,10 +517,13 @@ def get_resources():
         pass
 
     gpu_used = gpu_total - gpu_free
-    logger.info("RESOURCES: nvidia-smi done, calling get_loaded_models...")
+    # All RESOURCES: trace lines downgraded to DEBUG — this endpoint is
+    # polled every ~15s by the dashboard and was producing ~7 INFO lines
+    # per poll with no actionable content.
+    logger.debug("RESOURCES: nvidia-smi done, calling get_loaded_models...")
 
     loaded = get_loaded_models()
-    logger.info("RESOURCES: get_loaded_models done, %d models", len(loaded))
+    logger.debug("RESOURCES: get_loaded_models done, %d models", len(loaded))
     loaded_summary = [
         {
             "name": m.get("name", "unknown"),
@@ -483,22 +533,24 @@ def get_resources():
         for m in loaded
     ]
 
-    logger.info("RESOURCES: building loaded_summary...")
+    logger.debug("RESOURCES: building loaded_summary...")
     # Embedding model name — read from DB if available
     embed_model_name = None
     try:
         if db and Setting:
-            logger.info("RESOURCES: querying DB for embedding model...")
+            logger.debug("RESOURCES: querying DB for embedding model...")
             setting = db.session.get(Setting, "active_embedding_model")
             if setting and setting.value:
                 embed_model_name = setting.value
-            logger.info("RESOURCES: DB query done, model=%s", embed_model_name)
+            logger.debug("RESOURCES: DB query done, model=%s", embed_model_name)
     except Exception as e:
-        logger.info("RESOURCES: DB query failed: %s", e)
+        logger.debug("RESOURCES: DB query failed: %s", e)
 
-    # Router stats — read cached state only (no lazy init)
+    # Router stats — read cached state only (no lazy init). Downgraded from
+    # INFO to DEBUG because this endpoint is polled every ~15s by the dashboard
+    # and seven INFO lines per poll was drowning the log.
     router_stats = None
-    logger.info("RESOURCES: checking router...")
+    logger.debug("RESOURCES: checking router...")
     try:
         from backend.utils.embedding_router import _embedding_router
         if _embedding_router is not None and _embedding_router._initialized:
@@ -514,6 +566,7 @@ def get_resources():
             }
     except Exception:
         pass
+    logger.debug("RESOURCES: router check done (stats=%s)", "present" if router_stats else "none")
 
     return success_response("Resources retrieved", {
         "gpu": {
@@ -548,7 +601,7 @@ def list_embedding_models():
         name = m.get("name", "").lower()
         if any(p in name for p in embedding_patterns):
             # Get embedding dimensions from model details
-            # The key is architecture-prefixed, e.g. "bert.embedding_length" or "qwen3.embedding_length"
+            # The key is architecture-prefixed, e.g. "bert.embedding_length" or "llama.embedding_length"
             dims = None
             try:
                 detail_resp = requests.post(
@@ -736,14 +789,7 @@ def switch_active_model(new_model_name: str):
             f"Model '{new_model_name}' not found or available via Ollama API."
         )
 
-    # Unload old model FIRST to free VRAM before loading new one
-    if old_model_name and old_model_name.lower() != new_model_name.lower():
-        logger.info(f"Unloading old model '{old_model_name}' to free VRAM")
-        unload_model_from_ollama(old_model_name)
-        gc.collect()
-        time.sleep(1)
-
-    # Adaptive context window based on available resources (computed AFTER unload)
+    # Compute context window
     try:
         from backend.utils.ollama_resource_manager import compute_optimal_num_ctx
         num_ctx = compute_optimal_num_ctx(new_model_name)
@@ -751,6 +797,7 @@ def switch_active_model(new_model_name: str):
         logger.warning(f"Failed to compute adaptive num_ctx: {e}, using 8192")
         num_ctx = 8192
 
+    # Load NEW model FIRST — old model stays as fallback until new one is confirmed
     logger.info(f"Creating new Ollama instance for model: {new_model_name} (num_ctx={num_ctx})")
     new_llm = Ollama(
         model=new_model_name,
@@ -762,6 +809,12 @@ def switch_active_model(new_model_name: str):
     )
     new_llm.complete("Test.")
     logger.info(f"Successfully created and tested Ollama instance for {new_model_name}")
+
+    # New model confirmed — now unload the old one
+    if old_model_name and old_model_name.lower() != new_model_name.lower():
+        logger.info(f"Unloading old model '{old_model_name}' after new model confirmed")
+        unload_model_from_ollama(old_model_name)
+        gc.collect()
 
     logger.info("Updating global LlamaIndex Settings.llm...")
     Settings.llm = new_llm
@@ -874,13 +927,14 @@ def switch_active_model(new_model_name: str):
 def _switch_model_background(app, new_model_name: str):
     """Background task to switch the active LLM model with SocketIO notifications.
 
-    Strategy: unload the OLD model FIRST to free VRAM before loading the new one.
-    If the new model fails to load, attempt to reload the old model as rollback.
+    Strategy: load the NEW model FIRST, verify it works, THEN unload the old one.
+    This way the old model stays available as a fallback if the new one fails to load.
+    Trades brief higher VRAM usage for reliability.
     """
     with app.app_context():
         old_model_name = None
         try:
-            # Get current model name for unloading
+            # Get current model name for later unloading
             current_llm = Settings.llm or current_app.config.get("LLAMA_INDEX_LLM")
             if current_llm and hasattr(current_llm, "model"):
                 old_model_name = getattr(current_llm, "model", None)
@@ -907,26 +961,13 @@ def _switch_model_background(app, new_model_name: str):
             ):
                 raise ValueError(f"Model '{new_model_name}' not found in Ollama.")
 
-            # --- Unload old model FIRST to free VRAM ---
-            if old_model_name and old_model_name.lower() != new_model_name.lower():
-                socketio.emit("model_switch", {
-                    "status": "loading",
-                    "model": new_model_name,
-                    "message": f"Unloading {old_model_name} to free resources..."
-                }, namespace="/")
-                unload_model_from_ollama(old_model_name)
-                gc.collect()
-                logger.info(f"Unloaded old model '{old_model_name}' before loading new one")
-                # Brief pause to let Ollama release memory
-                time.sleep(1)
-
             socketio.emit("model_switch", {
                 "status": "loading",
                 "model": new_model_name,
                 "message": f"Creating LLM instance for {new_model_name}..."
             }, namespace="/")
 
-            # Adaptive context window based on available resources (computed AFTER unload)
+            # Compute context window while old model is still loaded
             try:
                 from backend.utils.ollama_resource_manager import compute_optimal_num_ctx
                 num_ctx = compute_optimal_num_ctx(new_model_name)
@@ -934,7 +975,7 @@ def _switch_model_background(app, new_model_name: str):
                 logger.warning(f"Failed to compute adaptive num_ctx: {e}, using 8192")
                 num_ctx = 8192
 
-            # Create new LLM instance
+            # --- Load NEW model FIRST (old model stays as fallback) ---
             logger.info(f"Creating new Ollama instance for model: {new_model_name} (num_ctx={num_ctx})")
             new_llm = Ollama(
                 model=new_model_name,
@@ -951,9 +992,39 @@ def _switch_model_background(app, new_model_name: str):
                 "message": f"Warming up {new_model_name} (this may take a moment)..."
             }, namespace="/")
 
-            # Test the model — this triggers Ollama to actually load it into VRAM
-            new_llm.complete("Hello")
-            logger.info(f"Successfully created and tested Ollama instance for {new_model_name}")
+            # Force Ollama to load the model and generate one token.
+            # Using raw /api/generate bypasses the llama_index/ollama-python/httpx
+            # stack (whose default timeouts silently failed on slow hardware) and
+            # uses Ollama's canonical warmup primitive. 15-min read timeout covers
+            # worst-case cold load on pre-AVX2 CPUs with spinning disks.
+            warmup_resp = requests.post(
+                f"{OLLAMA_BASE_URL}/api/generate",
+                json={
+                    "model": new_model_name,
+                    "prompt": "ok",
+                    "stream": False,
+                    "options": {"num_predict": 1},
+                    "keep_alive": "30m",
+                },
+                timeout=(10.0, 900.0),
+            )
+            warmup_resp.raise_for_status()
+            load_ns = warmup_resp.json().get("load_duration", 0) or 0
+            logger.info(
+                f"Successfully warmed Ollama for {new_model_name} "
+                f"(load={load_ns // 1_000_000_000}s)"
+            )
+
+            # --- New model confirmed working — NOW unload the old one ---
+            if old_model_name and old_model_name.lower() != new_model_name.lower():
+                socketio.emit("model_switch", {
+                    "status": "loading",
+                    "model": new_model_name,
+                    "message": f"Unloading {old_model_name}..."
+                }, namespace="/")
+                unload_model_from_ollama(old_model_name)
+                gc.collect()
+                logger.info(f"Unloaded old model '{old_model_name}' after new model confirmed")
 
             # Update global settings
             Settings.llm = new_llm
@@ -1018,6 +1089,18 @@ def _switch_model_background(app, new_model_name: str):
             # Force garbage collection
             gc.collect()
 
+            # Kick BrainState so active_model and model_caps reflect the new
+            # model. Without this, AgentBrain.process() keeps routing through
+            # the OLD model's tier (e.g. firing _gemma4_direct after the user
+            # switches to llama3) because self.state.active_model is cached.
+            try:
+                brain_state = getattr(current_app, "brain_state", None)
+                if brain_state and getattr(brain_state, "_initialized", False):
+                    brain_state.refresh()
+                    logger.info("BrainState refreshed after model switch")
+            except Exception as refresh_err:
+                logger.warning(f"BrainState refresh failed (non-critical): {refresh_err}")
+
             # Emit success
             socketio.emit("model_switch", {
                 "status": "complete",
@@ -1029,29 +1112,13 @@ def _switch_model_background(app, new_model_name: str):
         except Exception as e:
             logger.error(f"Background model switch failed: {e}", exc_info=True)
 
-            # Rollback: try to reload the old model if the new one failed
-            if old_model_name and old_model_name.lower() != new_model_name.lower():
-                logger.info(f"Attempting rollback to previous model: {old_model_name}")
-                socketio.emit("model_switch", {
-                    "status": "loading",
-                    "model": new_model_name,
-                    "message": f"Failed — rolling back to {old_model_name}..."
-                }, namespace="/")
-                try:
-                    rollback_llm = Ollama(
-                        model=old_model_name,
-                        base_url=OLLAMA_BASE_URL,
-                        request_timeout=300.0,
-                        temperature=0.4,
-                        context_window=8192,
-                        additional_kwargs={"num_ctx": 8192, "top_p": 0.8, "top_k": 30}
-                    )
-                    rollback_llm.complete("Hello")
-                    Settings.llm = rollback_llm
-                    current_app.config["LLAMA_INDEX_LLM"] = rollback_llm
-                    logger.info(f"Rollback to {old_model_name} succeeded")
-                except Exception as rollback_err:
-                    logger.error(f"Rollback to {old_model_name} also failed: {rollback_err}")
+            # No rollback retry loop. The warmup probe fails BEFORE Settings.llm is
+            # reassigned (line 958 runs only after warmup succeeds), so the old
+            # model is still bound and usable. The previous 3-attempt rollback
+            # retried rollback_llm.complete("Hello") with a 300s timeout each — on
+            # slow hardware that produced up to 15 min of background hang and
+            # silently reverted the user's chosen model. Surface the failure
+            # instead and let the user decide.
 
             socketio.emit("model_switch", {
                 "status": "error",

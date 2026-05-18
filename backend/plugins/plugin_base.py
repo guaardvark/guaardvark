@@ -38,15 +38,35 @@ class PluginConfig:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'PluginConfig':
-        known_fields = {'enabled', 'auto_start', 'service_url', 'timeout', 'fallback_enabled'}
+        # Manifest fields use the `default_*` names to make their role explicit:
+        # they're the *default* for fresh installs; live state is in
+        # data/plugin_state.json. Legacy `enabled`/`auto_start` keys are still
+        # accepted for backward compatibility with un-migrated manifests.
+        # `default_enabled` (new) takes precedence over `enabled` (legacy)
+        # if both are present mid-migration.
+        enabled = data.get("default_enabled", data.get("enabled", False))
+        auto_start = data.get("default_auto_start", data.get("auto_start", False))
+
+        known_fields = {"service_url", "timeout", "fallback_enabled"}
         known_data = {k: v for k, v in data.items() if k in known_fields}
-        extra_data = {k: v for k, v in data.items() if k not in known_fields}
-        return cls(**known_data, extra=extra_data)
+        ignored = {"default_enabled", "default_auto_start", "enabled", "auto_start"}
+        extra_data = {
+            k: v for k, v in data.items()
+            if k not in known_fields and k not in ignored
+        }
+        return cls(
+            enabled=bool(enabled),
+            auto_start=bool(auto_start),
+            **known_data,
+            extra=extra_data,
+        )
 
     def to_dict(self) -> Dict[str, Any]:
+        # Emit the new field names. Old `enabled`/`auto_start` are gone from
+        # the serialized manifest; runtime state lives in plugin_state.json.
         result = {
-            'enabled': self.enabled,
-            'auto_start': self.auto_start,
+            'default_enabled': self.enabled,
+            'default_auto_start': self.auto_start,
             'service_url': self.service_url,
             'timeout': self.timeout,
             'fallback_enabled': self.fallback_enabled,
@@ -66,6 +86,7 @@ class PluginMetadata:
     category: str = "general"
     port: Optional[int] = None
     vram_estimate_mb: int = 0
+    core: bool = False
     dependencies: List[str] = field(default_factory=list)
     config: PluginConfig = field(default_factory=PluginConfig)
     requirements: Dict[str, bool] = field(default_factory=dict)
@@ -90,6 +111,7 @@ class PluginMetadata:
                 category=data.get('category', 'general'),
                 port=data.get('port'),
                 vram_estimate_mb=data.get('vram_estimate_mb', 0),
+                core=data.get('core', False),
                 dependencies=data.get('dependencies', []),
                 config=config,
                 requirements=data.get('requirements', {}),
@@ -110,6 +132,7 @@ class PluginMetadata:
             'category': self.category,
             'port': self.port,
             'vram_estimate_mb': self.vram_estimate_mb,
+            'core': self.core,
             'dependencies': self.dependencies,
             'config': self.config.to_dict(),
             'requirements': self.requirements,
@@ -189,9 +212,11 @@ class PluginBase(ABC):
         return False
     
     def _save_config(self):
-        if self.metadata:
-            json_path = self.plugin_dir / 'plugin.json'
-            self.metadata.save(json_path)
+        # Intentionally a no-op. plugin.json is the static manifest and
+        # MUST NOT be mutated at runtime — runtime state lives in
+        # data/plugin_state.json (user_enabled overlay), managed by
+        # backend.plugins.plugin_manager.PluginManager.
+        return
     
     def get_info(self) -> Dict[str, Any]:
         return {

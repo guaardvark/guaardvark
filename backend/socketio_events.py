@@ -1,5 +1,7 @@
 import logging
 import time
+import io
+import numpy as np
 
 from flask_socketio import emit, join_room
 
@@ -8,6 +10,75 @@ from backend.socketio_instance import socketio
 
 logger = logging.getLogger(__name__)
 
+# --- Voice Streaming Events ---
+# In-memory buffer for continuous voice streaming
+voice_stream_buffers = {}
+
+@socketio.on("voice:stream_start")
+def handle_voice_stream_start(data):
+    """Initialize a new voice stream session."""
+    session_id = data.get("session_id", "default")
+    voice_stream_buffers[session_id] = bytearray()
+    join_room(f"voice_{session_id}")
+    logger.info(f"Voice stream started for session: {session_id}")
+    emit("voice:stream_ack", {"status": "started", "session_id": session_id})
+
+@socketio.on("voice:stream_chunk")
+def handle_voice_stream_chunk(data):
+    """Receive a chunk of audio data and perform partial STT."""
+    session_id = data.get("session_id", "default")
+    chunk = data.get("audio") # Expected to be bytes (WebM or PCM)
+    
+    if not chunk:
+        return
+        
+    if session_id not in voice_stream_buffers:
+        voice_stream_buffers[session_id] = bytearray()
+        
+    voice_stream_buffers[session_id].extend(chunk)
+    
+    # We can perform partial STT here if the buffer is large enough
+    # For simplicity and performance, we'll wait for stream_end or process every N bytes
+    # A full real-time sliding window would decode the accumulated WebM bytes to PCM
+    # and run faster-whisper.
+    
+    # Just acknowledge receipt for now to keep it lightweight
+    # Real-time partials would require decoding the incomplete WebM stream, which is complex.
+    pass
+
+@socketio.on("voice:stream_end")
+def handle_voice_stream_end(data):
+    """Process the complete audio buffer and return final transcript."""
+    session_id = data.get("session_id", "default")
+    
+    if session_id not in voice_stream_buffers or not voice_stream_buffers[session_id]:
+        emit("voice:final_transcript", {"text": "", "session_id": session_id})
+        return
+        
+    audio_bytes = voice_stream_buffers.pop(session_id)
+    logger.info(f"Voice stream ended for session: {session_id}, processing {len(audio_bytes)} bytes")
+    
+    try:
+        from faster_whisper.audio import decode_audio
+        from backend.utils.faster_whisper_utils import transcribe_audio_faster, FASTER_WHISPER_AVAILABLE
+        
+        if FASTER_WHISPER_AVAILABLE:
+            audio_io = io.BytesIO(audio_bytes)
+            audio_array = decode_audio(audio_io)
+            
+            # Use tiny.en for fastest streaming response
+            final_text, processing_time = transcribe_audio_faster(audio_array, model_size="tiny.en")
+            
+            emit("voice:final_transcript", {
+                "text": final_text,
+                "session_id": session_id,
+                "processing_time": processing_time
+            }, room=f"voice_{session_id}")
+        else:
+            emit("voice:error", {"message": "faster-whisper not available"}, room=f"voice_{session_id}")
+    except Exception as e:
+        logger.error(f"Voice stream processing failed: {e}")
+        emit("voice:error", {"message": str(e)}, room=f"voice_{session_id}")
 
 @socketio.on("subscribe")
 def handle_subscribe(data):
@@ -105,6 +176,23 @@ def handle_chat_abort(data):
         emit("error", {"message": f"Abort failed: {str(e)}"})
 
 
+@socketio.on("chat:tool_approval_response")
+def handle_tool_approval_response(data):
+    """User approves or rejects a tool execution."""
+    session_id = data.get("session_id")
+    approved = data.get("approved", False)
+    if not session_id:
+        emit("error", {"message": "session_id required"})
+        return
+    try:
+        from backend.services.unified_chat_engine import set_approval_response
+        set_approval_response(session_id, approved)
+        logger.info(f"Tool approval response received for session {session_id}: approved={approved}")
+    except Exception as e:
+        logger.error(f"Failed to set tool approval response for session {session_id}: {e}")
+        emit("error", {"message": f"Approval response failed: {str(e)}"})
+
+
 def emit_celery_worker_event(event_type, worker_info=None):
     """Emit Celery worker lifecycle events."""
     event_data = {
@@ -124,6 +212,18 @@ def emit_self_improvement_event(event_type: str, data: dict):
         **data,
     })
     logger.info(f"Emitted self_improvement:{event_type}")
+
+
+def emit_lesson_event(event_type: str, data: dict):
+    """Emit lesson lifecycle events — started, pearl_added, ended.
+    Used by the Begin/End Lesson flow so the floater can show pearls in real time.
+    """
+    socketio.emit(f"lesson:{event_type}", {
+        "event_type": event_type,
+        "timestamp": time.time(),
+        **data,
+    })
+    logger.info(f"Emitted lesson:{event_type}")
 
 
 def emit_uncle_directive(directive: str, reason: str):
@@ -279,3 +379,246 @@ def handle_step_correct(data):
         service._step_confirm_data = data
         service._step_confirm_event.set()
     logger.info(f"Step corrected: step_index={data.get('step_index')}, correction={data.get('correction')}")
+
+
+# --- Swarm Events ---
+
+@socketio.on("subscribe_swarm")
+def handle_subscribe_swarm(data=None):
+    """Allow clients to subscribe to real-time agent swarm updates."""
+    join_room("swarm_updates")
+    logger.info("Client subscribed to swarm updates")
+    emit("status", {"message": "Subscribed to swarm updates"}, room="swarm_updates")
+
+
+def emit_swarm_event(event_type: str, task_id: str, data: dict):
+    """Emit a swarm event to all subscribed clients."""
+    event_data = {
+        "event_type": event_type,
+        "task_id": task_id,
+        "timestamp": time.time(),
+        "data": data,
+    }
+    socketio.emit("swarm:event", event_data, room="swarm_updates")
+    logger.debug(f"Emitted swarm event: {event_type} for {task_id}")
+
+
+# ---- Cluster chat:send bridge (Task 21) ------------------------------------
+
+def _handle_chat_send_local(payload):
+    """Process a chat:send payload on this node — same path as POST /api/chat/unified
+    but entered via Socket.IO (used when the cluster bridge forwards here)."""
+    import threading
+    import uuid
+    from flask import current_app, request as _req
+    from backend.socketio_instance import socketio as _sio
+
+    if not isinstance(payload, dict):
+        return
+    session_id = payload.get("session_id") or str(uuid.uuid4())
+    message = (payload.get("message") or "").strip()
+    image_data = payload.get("image")
+    if not message and not image_data:
+        return
+
+    if not message and image_data:
+        message = "Describe this image."
+
+    options = payload.get("options", {})
+    is_voice_message = bool(payload.get("is_voice_message", False))
+    project_id = payload.get("project_id")
+    if project_id is not None:
+        try:
+            project_id = int(project_id)
+        except (ValueError, TypeError):
+            project_id = None
+
+    # Abort any already-running generation for this session
+    try:
+        from backend.services.unified_chat_engine import set_abort_flag
+        set_abort_flag(session_id)
+    except Exception:
+        pass
+
+    def emit_fn(event, data_payload):
+        data_payload["session_id"] = session_id
+        try:
+            _sio.emit(event, data_payload, room=session_id)
+        except Exception as _e:
+            logger.warning("[BRIDGE-LOCAL] emit %s failed: %s", event, _e)
+
+    app = current_app._get_current_object()
+
+    use_agent_brain = False
+    agent_brain = None
+    engine = None
+    try:
+        from backend.config import AGENT_BRAIN_ENABLED
+        brain_state = getattr(app, "brain_state", None)
+        if AGENT_BRAIN_ENABLED and brain_state and brain_state.is_ready:
+            from backend.services.agent_brain import AgentBrain
+            agent_brain = AgentBrain(state=brain_state)
+            use_agent_brain = True
+    except Exception:
+        pass
+
+    if not use_agent_brain:
+        try:
+            llm = app.config.get("LLAMA_INDEX_LLM")
+            if not llm:
+                from backend.utils.llm_service import get_llm_for_startup
+                llm = get_llm_for_startup()
+                app.config["LLAMA_INDEX_LLM"] = llm
+            from backend.tools.tool_registry_init import initialize_all_tools
+            registry = initialize_all_tools()
+            from backend.services.unified_chat_engine import UnifiedChatEngine
+            engine = UnifiedChatEngine(registry, llm)
+        except Exception as _e:
+            logger.error("[BRIDGE-LOCAL] engine init failed: %s", _e)
+            emit_fn("chat:error", {"error": "LLM not available"})
+            return
+
+    def _run():
+        try:
+            if use_agent_brain:
+                agent_brain.process(
+                    session_id=session_id, message=message,
+                    options=options, emit_fn=emit_fn, app=app,
+                    project_id=project_id, image_data=image_data,
+                )
+            else:
+                engine.chat(session_id, message, options, emit_fn, app=app,
+                            project_id=project_id, image_data=image_data,
+                            is_voice_message=is_voice_message)
+        except Exception as _e:
+            logger.error("[BRIDGE-LOCAL] engine error: %s", _e, exc_info=True)
+            emit_fn("chat:error", {"error": str(_e)})
+
+    threading.Thread(target=_run, daemon=True, name=f"bridge-chat-{session_id[:8]}").start()
+
+
+@socketio.on("chat:send")
+def handle_chat_send(payload):
+    """Cluster-aware chat:send. Routes to a remote primary if cluster routing
+    says so; falls through to local engine otherwise."""
+    try:
+        from flask import current_app, request as _req
+        import os as _os
+        if current_app.config.get("CLUSTER_ENABLED", False):
+            from backend.services.cluster_routing import get_routing_store
+            from backend.services.fleet_map import get_fleet_map
+            from backend.services.cluster_socketio_bridge import SocketIOBridgeRegistry
+            from backend.services.cluster_proxy import NodeTarget
+            from backend.models import InterconnectorNode
+            store = get_routing_store()
+            table = store.get()
+            if table is not None:
+                model_name = (payload or {}).get("model") if isinstance(payload, dict) else None
+                route = store.route_for_chat(model_name, fleet=get_fleet_map())
+                local_id = _os.environ.get("CLUSTER_NODE_ID", "unknown")
+                if (route is not None and route.primary is not None
+                        and route.primary != local_id):
+                    node = InterconnectorNode.query.filter_by(
+                        node_id=route.primary).first()
+                    if node is not None and node.online:
+                        api_key = getattr(node, "api_key", None) or node.node_id
+                        target = NodeTarget(node_id=node.node_id, host=node.host,
+                                            port=node.port, api_key=api_key)
+                        bridge = SocketIOBridgeRegistry.get_or_create(_req.sid, target)
+                        bridge.forward_send(payload)
+                        return
+    except Exception as _e:
+        logger.warning("[BRIDGE] cluster routing failed, handling locally: %s", _e)
+    # Fall through to local handling
+    _handle_chat_send_local(payload)
+
+
+# ---- Cluster-foundation handlers (Task 14) ---------------------------------
+
+def _cluster_auth_check(auth):
+    """Returns True if the handshake should be accepted.
+    Cluster OFF: always True (preserve solo behavior).
+    Cluster ON: api_key → node peer; no cluster headers → local browser."""
+    from flask import current_app, request as _req
+    if not current_app.config.get("CLUSTER_ENABLED", False):
+        return True  # solo — no auth enforcement
+    key = None
+    if isinstance(auth, dict):
+        key = auth.get("api_key")
+    if key is None:
+        key = _req.headers.get("X-Guaardvark-API-Key")
+    if key:
+        if _is_valid_node_api_key(key):
+            try:
+                join_room("cluster:masters-broadcast")
+            except Exception:
+                pass
+            return True
+        return False  # key present but invalid
+    # No cluster headers/auth = local browser session — allow
+    return not _looks_like_node_handshake(_req)
+
+
+def _is_valid_node_api_key(key: str) -> bool:
+    """Check if the api_key matches any known InterconnectorNode.
+    Note: the schema may or may not have an api_key column — check before asserting."""
+    try:
+        from backend.models import InterconnectorNode
+        # Legacy: if api_key field doesn't exist on the model, fall back to node_id match
+        if hasattr(InterconnectorNode, "api_key"):
+            return InterconnectorNode.query.filter_by(api_key=key).first() is not None
+        # Otherwise treat key as node_id-based auth (no hardening — matches whatever auth
+        # the Interconnector uses today)
+        return InterconnectorNode.query.filter_by(node_id=key).first() is not None
+    except Exception:
+        return False
+
+
+def _looks_like_node_handshake(request) -> bool:
+    """Heuristic: does this request look like a peer-node handshake that failed auth?
+    Used to decide whether no-api-key means 'browser' (allow) or 'failed node' (reject).
+    Nodes typically connect from different hostnames with no cookies; browsers have cookies."""
+    has_cookie = bool(request.cookies)
+    return not has_cookie  # no cookies + no api_key = likely a failed node handshake
+
+
+@socketio.on("connect")
+def on_connect(auth=None):
+    """Gate cluster node-to-node handshakes behind api_key; browser sessions pass through."""
+    if not _cluster_auth_check(auth):
+        return False
+    return True
+
+
+@socketio.on("cluster:routing_table")
+def handle_cluster_routing_table(data):
+    """Worker-side receiver. Validates sender, persists the table."""
+    import os as _os
+    _logger = logging.getLogger(__name__)
+
+    expected_master = _os.environ.get("CLUSTER_MASTER_NODE_ID")
+    if expected_master and data.get("computed_by") != expected_master:
+        _logger.warning(
+            "[CLUSTER] rejected routing_table from unknown sender %s (expected %s)",
+            data.get("computed_by"), expected_master)
+        return
+
+    try:
+        from backend.services.cluster_routing import RoutingTable, get_routing_store
+        table = RoutingTable.from_dict(data)
+        get_routing_store().set(table, persist=True)
+        _logger.info("[CLUSTER] accepted routing_table from %s (fleet_hash=%s)",
+                     data.get("computed_by"), table.fleet_hash)
+    except (KeyError, ValueError, TypeError) as e:
+        _logger.warning("[CLUSTER] malformed routing_table payload: %s", e)
+
+
+@socketio.on("disconnect")
+def handle_disconnect():
+    """Clean up any open cluster bridge when a client disconnects."""
+    from flask import request
+    try:
+        from backend.services.cluster_socketio_bridge import SocketIOBridgeRegistry
+        SocketIOBridgeRegistry.close_for_session(request.sid)
+    except Exception:
+        pass

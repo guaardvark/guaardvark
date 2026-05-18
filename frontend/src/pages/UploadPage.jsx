@@ -25,6 +25,7 @@ import { uploadFile, getDocuments } from "../api";
 import { triggerIndexing } from "../api/indexingService"; // Import directly to avoid static bundling
 import { useStatus } from "../contexts/StatusContext";
 import PageLayout from "../components/layout/PageLayout";
+import { formatTimestamp } from "../utils/fileTypeUtils";
 
 const IndexStatusChip = ({ status }) => {
   let color = "default";
@@ -64,7 +65,7 @@ const UploadPage = () => {
   const [uploadStatus, setUploadStatus] = useState("idle"); // idle, uploading, success, indexing, error
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  const [uploadProgress, setUploadProgress] = useState(0); // Progress state if using XHR
+  const [_uploadProgress, setUploadProgress] = useState(0); // Progress state if using XHR
   const [recentDocs, setRecentDocs] = useState([]);
   const [isLoadingRecent, setIsLoadingRecent] = useState(true);
   const { activeModel, isLoadingModel, modelError } = useStatus();
@@ -183,7 +184,7 @@ const UploadPage = () => {
 
   return (
     <PageLayout
-      title="Upload Documents"
+      title="Import Documents"
       variant="standard"
       modelStatus
       activeModel={isLoadingModel ? "Loading..." : modelError ? "Error" : activeModel || "Default"}
@@ -244,10 +245,10 @@ const UploadPage = () => {
           }
         >
           {uploadStatus === "uploading"
-            ? "Uploading..."
+            ? "Importing..."
             : uploadStatus === "indexing"
               ? "Indexing..."
-              : "Upload and Index"}
+              : "Import and Index"}
         </Button>
 
         {/* Status Messages */}
@@ -313,7 +314,7 @@ const UploadPage = () => {
                   primary={doc.filename || `Document ${doc.id}`}
                   secondary={
                     <>
-                      <IndexStatusChip status={doc.index_status} /> Uploaded:{" "}
+                      <IndexStatusChip status={doc.index_status} /> Imported:{" "}
                       {formatTimestamp(doc.uploaded_at)}
                     </>
                   }

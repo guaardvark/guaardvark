@@ -291,6 +291,36 @@ export const setBehaviorLearning = async (enabled) => {
   }
 };
 
+export const getRulesEnabled = async () => {
+  try {
+    const response = await fetch(`${BASE_URL}/settings/rules_enabled`);
+    return await handleResponse(response);
+  } catch (err) {
+    console.error(
+      "settingsService: Error getting rules_enabled setting:",
+      err.message,
+    );
+    return { error: err.message };
+  }
+};
+
+export const setRulesEnabled = async (enabled) => {
+  try {
+    const response = await fetch(`${BASE_URL}/settings/rules_enabled`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rules_enabled: !!enabled }),
+    });
+    return await handleResponse(response);
+  } catch (err) {
+    console.error(
+      "settingsService: Error setting rules_enabled:",
+      err.message,
+    );
+    return { error: err.message };
+  }
+};
+
 export const purgeBehaviorLearning = async () => {
   try {
     const response = await fetch(`${BASE_URL}/rules/learned`, {

@@ -19,10 +19,15 @@ logger = logging.getLogger(__name__)
 VISION_MODEL_PATTERNS = [
     r'vl\b', r'vision', r'llava', r'moondream', r'bakllava',
     r'minicpm-v', r'llama.*vision', r'granite.*vision', r'gemma.*vision',
+    # Gemma 4 integrates vision natively — match even without "vision" suffix
+    r'gemma[\-_]?4',
 ]
 
-# Models that should never be auto-selected as default text LLM
-NON_TEXT_MODEL_PATTERNS = VISION_MODEL_PATTERNS + [
+# Models that are vision-only (not suitable as default text LLM).
+# Omits natively multimodal models (Gemma 4) that handle both text and vision.
+NON_TEXT_MODEL_PATTERNS = [
+    r'vl\b', r'vision', r'llava', r'moondream', r'bakllava',
+    r'minicpm-v', r'llama.*vision', r'granite.*vision', r'gemma.*vision',
     r'embed', r'retrieval', r'minilm',
 ]
 
@@ -200,6 +205,8 @@ def get_model_info(model_name: str) -> Optional[dict]:
             bpp = 0.5 if "q4" in (details.get("quantization_level", "")).lower() else 0.75
             size_bytes = int(parameter_count * bpp)
 
+        capabilities = data.get("capabilities", [])
+
         info = {
             "size_mb": size_bytes / (1024 * 1024) if size_bytes else 0,
             "parameter_count": parameter_count,
@@ -208,6 +215,7 @@ def get_model_info(model_name: str) -> Optional[dict]:
             "families": details.get("families", []),
             "quantization": details.get("quantization_level", "unknown"),
             "is_vision": is_vision_model(model_name) or "clip" in str(details.get("families", [])).lower(),
+            "capabilities": capabilities,
             "_cached_at": time.time(),
         }
 
@@ -222,17 +230,21 @@ def get_model_info(model_name: str) -> Optional[dict]:
         return None
 
 
+def model_supports_tools(model_name: str) -> bool:
+    """Check if a model supports native function calling via Ollama's capabilities API."""
+    info = get_model_info(model_name)
+    if not info:
+        return False
+    return "tools" in info.get("capabilities", [])
+
+
 def _estimate_total_overhead_mb(parameter_count: int, num_ctx: int) -> float:
     """
     Estimate total memory overhead (KV cache + compute graph) in MB for a context size.
 
-    Empirically calibrated from real Ollama measurements:
-      qwen2.5:14b at 32K ctx: 48GB total - 8.5GB weights = 39.5GB overhead
-        → 39500 / (14.8 * 32768) = 0.081 MB per billion params per ctx token
-      qwen3-vl:8b at 262K ctx: 49GB total - 5.8GB weights = 43.2GB overhead
-        → 43200 / (8.8 * 262144) = 0.019 MB per billion params per ctx token
-
-    The variance comes from different GQA ratios across architectures.
+    Empirically calibrated from real Ollama measurements across model families
+    in the 8B–14B range at 32K–262K context. Per-token overhead ranged from
+    0.019–0.081 MB per billion params per ctx token, varying by GQA ratio.
     We use 0.08 (the higher measured value) to be safe — underestimating
     causes OOM, overestimating just means slightly less context.
     """

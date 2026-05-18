@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import PropTypes from 'prop-types';
 import {
   Box,
@@ -19,7 +19,6 @@ import {
   GraphicEq as GraphicEqIcon,
 } from '@mui/icons-material';
 import { keyframes } from '@mui/material/styles';
-import voiceService from '../../api/voiceService';
 
 // Animations
 const pulseAnimation = keyframes`

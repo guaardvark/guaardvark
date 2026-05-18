@@ -3,6 +3,9 @@
     "browser": true,
     "es2021": true
   },
+  "globals": {
+    "process": "readonly"
+  },
   "extends": ["eslint:recommended", "plugin:react/recommended"],
   "parserOptions": {
     "ecmaVersion": "latest",
@@ -15,5 +18,11 @@
     "no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }]
   },
   "settings": { "react": { "version": "detect" } },
-  "ignorePatterns": ["dist/"]
+  "ignorePatterns": ["dist/", "public/"],
+  "overrides": [
+    {
+      "files": ["*.config.js", "vite.config.js"],
+      "env": { "node": true }
+    }
+  ]
 }

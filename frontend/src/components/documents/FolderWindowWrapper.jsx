@@ -22,26 +22,26 @@ import { useTheme, alpha } from "@mui/material/styles";
 const FolderWindowWrapper = React.forwardRef(
   ({ title, children, isMinimized, onToggleMinimize, onClose, onDrop, onDragOver, titleBarActions, isRepository, ...props }, ref) => {
     const [clickTimeout, setClickTimeout] = useState(null);
-    const [lastClickTime, setLastClickTime] = useState(0);
-    const [clickCount, setClickCount] = useState(0);
+    const [_lastClickTime, setLastClickTime] = useState(0);
+    const [_clickCount, setClickCount] = useState(0);
 
     // Destructure react-grid-layout props to prevent them from spreading to DOM
     const {
-      i,
-      x,
-      y,
-      w,
-      h,
-      minW,
-      maxW,
-      minH,
-      maxH,
+      _i,
+      _x,
+      _y,
+      _w,
+      _h,
+      _minW,
+      _maxW,
+      _minH,
+      _maxH,
       isDraggable,
-      isResizable,
-      isBounded,
-      static: staticProp,
-      moved,
-      resizeHandles,
+      _isResizable,
+      _isBounded,
+      static: _staticProp,
+      _moved,
+      _resizeHandles,
       className,
       style,
       // Filter out legacy color props so they don't spread to DOM
@@ -57,7 +57,7 @@ const FolderWindowWrapper = React.forwardRef(
     const textColor = theme.palette.text.primary;
 
     // Handle double-click detection for minimize/maximize
-    const handleMouseDown = useCallback((e) => {
+    const handleMouseDown = useCallback((_e) => {
       const currentTime = Date.now();
 
       setLastClickTime(prevTime => {

@@ -229,7 +229,7 @@ const OutputModal = ({
     }
   };
 
-  const formatDuration = (ms) => {
+  const _formatDuration = (ms) => {
     if (!ms) return "-";
     const seconds = Math.round(ms / 1000);
     if (seconds < 60) return `${seconds}s`;

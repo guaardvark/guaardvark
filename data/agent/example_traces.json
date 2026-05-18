@@ -1,87 +1,57 @@
 {
-  "navigate_to_page": {
-    "description": "Navigate to any Guaardvark page by URL",
-    "steps": [
-      {"action": "hotkey", "keys": ["ctrl", "l"], "reasoning": "Focus the address bar"},
-      {"action": "type", "text": "localhost:5175/{page}", "reasoning": "Type the page URL"},
-      {"action": "hotkey", "keys": ["Return"], "reasoning": "Navigate to the page"},
-      {"action": "done", "reasoning": "Page loaded successfully"}
-    ]
-  },
-  "send_chat_message": {
-    "description": "Type and send a message in the chat",
-    "prerequisite": "Must be on localhost:5175/chat",
-    "steps": [
-      {"action": "click", "target_description": "the text input field at the bottom of the chat page", "reasoning": "Click to focus the chat input field at y=660"},
-      {"action": "type", "text": "{message}", "reasoning": "Type the message"},
-      {"action": "hotkey", "keys": ["Return"], "reasoning": "Send the message"},
-      {"action": "done", "reasoning": "Message sent, response should appear"}
-    ]
-  },
-  "open_past_chats": {
-    "description": "Open the past chats modal and select a chat",
-    "prerequisite": "Must be on localhost:5175/chat",
-    "steps": [
-      {"action": "click", "target_description": "the clock/history icon in the top bar of the chat page", "reasoning": "Open the past chats modal"},
-      {"action": "click", "target_description": "a chat session in the modal list", "reasoning": "Select a past chat"},
-      {"action": "done", "reasoning": "Chat history loaded"}
-    ]
-  },
-  "check_narration": {
-    "description": "Test the narration feature on a chat message",
-    "prerequisite": "Must be on localhost:5175/chat with at least one assistant message visible",
-    "steps": [
-      {"action": "click", "target_description": "the speaker/narrate icon on an assistant message", "reasoning": "Click narrate to generate audio"},
-      {"action": "done", "reasoning": "Audio player should appear below the message"}
-    ]
-  },
-  "navigate_to_settings": {
-    "description": "Go to the settings page",
-    "steps": [
-      {"action": "hotkey", "keys": ["ctrl", "l"], "reasoning": "Focus address bar"},
-      {"action": "type", "text": "localhost:5175/settings", "reasoning": "Type settings URL"},
-      {"action": "hotkey", "keys": ["Return"], "reasoning": "Navigate"},
-      {"action": "done", "reasoning": "Settings page loaded with configuration cards"}
-    ]
-  },
-  "close_popup": {
-    "description": "Close a popup or modal dialog",
-    "steps": [
-      {"action": "hotkey", "keys": ["Escape"], "reasoning": "Press Escape to close the popup/modal"},
-      {"action": "done", "reasoning": "Popup closed"}
-    ]
-  },
   "open_firefox_from_desktop": {
-    "description": "Open Firefox browser from the Openbox desktop",
-    "prerequisite": "No browser visible — you see a dark/black desktop with a taskbar at the bottom",
+    "description": "Open Firefox from desktop",
+    "prerequisite": "The desktop is visible (no window covering it) and you can see a Firefox icon (circular orange) somewhere among the icons on the desktop",
+    "preconditions": ["desktop_visible", "firefox_icon_visible"],
     "steps": [
-      {"action": "right_click", "target_description": "the center of the empty desktop background", "reasoning": "Right-click the desktop to open the Openbox application menu"},
-      {"action": "click", "target_description": "Firefox in the context menu that appeared", "reasoning": "Click Firefox to launch the browser"},
-      {"action": "done", "reasoning": "Firefox is now opening, wait for it to load"}
+      {"status": "IN_PROGRESS", "action": "click", "target_description": "the Firefox icon (circular orange)", "reasoning": "Heuristic: Desktop icons are typically interactive. Hypothesis: Clicking the Firefox icon will launch the browser. I see the icon; I will interact with it.", "expected_effect": "Firefox browser window appears on screen"},
+      {"status": "COMPLETE", "action": "done", "reasoning": "Previous action returned [OK] and I see the browser window. Task complete.", "success_proof": "Firefox browser window with address bar visible"}
     ]
   },
-  "youtube_search_and_watch": {
-    "description": "Search YouTube and watch a video",
+  "navigate_to_url": {
+    "description": "Open a URL in the active browser window",
+    "prerequisite": "A browser window is the active window — you can see its address bar",
     "steps": [
-      {"action": "hotkey", "keys": ["ctrl", "l"], "reasoning": "Focus address bar"},
-      {"action": "type", "text": "youtube.com", "reasoning": "Type YouTube URL"},
-      {"action": "hotkey", "keys": ["Return"], "reasoning": "Navigate to YouTube"},
-      {"action": "click", "target_description": "the search box at the top center of the YouTube page", "reasoning": "Click the search box to type a query"},
-      {"action": "type", "text": "{search_query}", "reasoning": "Type the search query"},
-      {"action": "hotkey", "keys": ["Return"], "reasoning": "Submit the search"},
-      {"action": "click", "target_description": "the video thumbnail or title matching the desired video", "reasoning": "Click on the video to watch it"},
-      {"action": "done", "reasoning": "Video is now playing"}
+      {"status": "IN_PROGRESS", "action": "hotkey", "keys": ["ctrl", "l"], "reasoning": "Focus the address bar — Ctrl+L is a stable heuristic for mainstream browsers.", "expected_effect": "Address bar is focused and ready for input"},
+      {"status": "IN_PROGRESS", "action": "type", "text": "{url}", "reasoning": "Type the destination URL directly to bypass UI navigation.", "expected_effect": "URL appears in the address bar"},
+      {"status": "IN_PROGRESS", "action": "hotkey", "keys": ["Return"], "reasoning": "Submit and navigate.", "expected_effect": "Browser starts loading the new page"},
+      {"status": "COMPLETE", "action": "done", "reasoning": "The new page has loaded. Task complete.", "success_proof": "The requested URL or page content is visible"}
+    ]
+  },
+  "google_search": {
+    "description": "Run a Google search from the address bar",
+    "prerequisite": "A browser window is the active window. Default search engine is Google.",
+    "steps": [
+      {"status": "IN_PROGRESS", "action": "hotkey", "keys": ["ctrl", "l"], "reasoning": "Focus the address bar for search input.", "expected_effect": "Address bar is focused"},
+      {"status": "IN_PROGRESS", "action": "type", "text": "{query}", "reasoning": "Type the search query directly.", "expected_effect": "Search query visible in address bar"},
+      {"status": "IN_PROGRESS", "action": "hotkey", "keys": ["Return"], "reasoning": "Submit search.", "expected_effect": "Search results page loads"},
+      {"status": "COMPLETE", "action": "done", "reasoning": "Search results are visible. Task complete.", "success_proof": "Google search results page visible"}
     ]
   },
   "youtube_add_comment": {
     "description": "Add a comment to a YouTube video",
     "prerequisite": "Must be on a YouTube video page, signed in",
     "steps": [
-      {"action": "scroll", "scroll_amount": 5, "reasoning": "Scroll down to reach the comments section below the video"},
-      {"action": "click", "target_description": "the Add a comment text field in the comments section", "reasoning": "Click the comment input box"},
-      {"action": "type", "text": "{comment_text}", "reasoning": "Type the comment"},
-      {"action": "click", "target_description": "the Comment button to submit the comment", "reasoning": "Click the Comment button to post"},
-      {"action": "done", "reasoning": "Comment posted successfully"}
+      {"status": "IN_PROGRESS", "action": "scroll", "scroll_amount": 5, "reasoning": "Hypothesis: Comments section is below the viewport. Scrolling to locate interaction site.", "expected_effect": "Comment section becomes visible"},
+      {"status": "IN_PROGRESS", "action": "click", "target_description": "the Add a comment text field", "reasoning": "Focus the comment input area.", "expected_effect": "Comment field is focused and expanded"},
+      {"status": "IN_PROGRESS", "action": "type", "text": "{comment_text}", "reasoning": "Enter the comment text.", "expected_effect": "Text appears in the comment field"},
+      {"status": "IN_PROGRESS", "action": "click", "target_description": "the Comment button", "reasoning": "Post the comment.", "expected_effect": "Comment is submitted and visible in the thread"},
+      {"status": "COMPLETE", "action": "done", "reasoning": "Comment appears in the list. Task complete.", "success_proof": "The new comment text is visible in the comment thread"}
+    ]
+  },
+  "single_click_done_pattern": {
+    "description": "When the task is 'click the X' (singular), one successful click completes the task.",
+    "prerequisite": "Task wording asks for a single action.",
+    "steps": [
+      {"status": "IN_PROGRESS", "action": "click", "target_description": "the target named in the task", "reasoning": "Locate target and click once. The servo and DPC verify the hardware action and visual change.", "expected_effect": "The element reacts or context changes"},
+      {"status": "COMPLETE", "action": "done", "reasoning": "Prior action [OK]. Task was a single click; it is now complete. Do NOT repeat successful actions.", "success_proof": "Element clicked and reacted"}
+    ]
+  },
+  "prior_ok_means_advance_not_repeat": {
+    "description": "A successful prior step ([OK] in history) means you MUST move forward or finish.",
+    "prerequisite": "Action history shows the previous step ended in [OK].",
+    "steps": [
+      {"status": "COMPLETE", "action": "done", "reasoning": "Previous action returned [OK]. The system has verified the action's physical and visual effect. Do not interpret the task header in the prompt as a request to redo work. If no further visible change is required, the task is complete.", "success_proof": "Action was verified and goal is met"}
     ]
   }
 }

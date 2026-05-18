@@ -49,4 +49,11 @@ def load_config(plugin_root: str) -> UpscalingConfig:
         except Exception as e:
             logger.warning(f"Failed to load plugin.json: {e}")
 
+    # Resolve watch dirs relative to GUAARDVARK_ROOT (or plugin_root as fallback)
+    project_root = os.environ.get("GUAARDVARK_ROOT", os.path.dirname(os.path.dirname(plugin_root)))
+    for attr in ("watch_input_dir", "watch_output_dir"):
+        path = getattr(config, attr, "")
+        if path and not os.path.isabs(path):
+            setattr(config, attr, os.path.join(project_root, path))
+
     return config

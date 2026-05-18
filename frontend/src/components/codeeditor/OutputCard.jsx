@@ -1,7 +1,7 @@
 // frontend/src/components/codeeditor/OutputCard.jsx
 // Problems panel + placeholder for future terminal/output integration
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -31,7 +31,7 @@ const OutputCard = React.forwardRef(
       onToggleMinimize,
       cardColor,
       onCardColorChange,
-      openTabs,
+      _openTabs,
       currentTab,
       ...props
     },

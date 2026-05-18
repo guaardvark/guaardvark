@@ -49,7 +49,7 @@ def xdo_type(text, delay=30):
 class ScreenRecorder:
     """Record the virtual display using ffmpeg."""
 
-    def __init__(self, output_path, display=DISPLAY, resolution="1280x720", fps=30):
+    def __init__(self, output_path, display=DISPLAY, resolution="1024x1024", fps=30):
         self.output_path = output_path
         self.display = display
         self.resolution = resolution

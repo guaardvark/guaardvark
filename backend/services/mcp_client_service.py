@@ -218,11 +218,20 @@ class MCPClientService:
                 last_connected=datetime.now()
             )
             self._servers[server_name] = server
-            
+
             self._state.servers_connected = sum(1 for s in self._servers.values() if s.connected)
             self._state.total_tools_available = sum(len(s.tools) for s in self._servers.values())
-            
+
             logger.info(f"Connected to MCP server '{server_name}' with {len(tools)} tools")
+
+            # Path C: surface this server's tools as native BaseTool proxies in
+            # the global registry so the LLM can pick e.g. `filesystem_list_directory`
+            # directly, without going through the generic mcp_execute shim.
+            try:
+                from backend.services.mcp_native_proxy import register_native_proxies
+                register_native_proxies(server_name, tools)
+            except Exception as proxy_exc:
+                logger.warning(f"Native proxy registration failed for '{server_name}': {proxy_exc}")
             
             return {
                 "success": True,
@@ -256,10 +265,17 @@ class MCPClientService:
         
         server.connected = False
         server.process = None
-        
+
         self._state.servers_connected = sum(1 for s in self._servers.values() if s.connected)
         self._state.total_tools_available = sum(len(s.tools) for s in self._servers.values() if s.connected)
-        
+
+        # Path C: tear down the per-tool BaseTool proxies we registered on connect.
+        try:
+            from backend.services.mcp_native_proxy import unregister_native_proxies
+            unregister_native_proxies(server_name)
+        except Exception as proxy_exc:
+            logger.warning(f"Native proxy teardown failed for '{server_name}': {proxy_exc}")
+
         logger.info(f"Disconnected from MCP server '{server_name}'")
         
         return {"success": True, "server": server_name}
@@ -346,6 +362,20 @@ class MCPClientService:
         except Exception as e:
             return {"success": False, "error": str(e)}
     
+    def cached_tools_for_prompt(self) -> Dict[str, List[Dict[str, Any]]]:
+        """Sync, cache-only read: connected server name → list of tool dicts.
+
+        Used by unified_chat_engine to build a prompt section that hands the
+        LLM the actual MCP tool inventory instead of letting it guess names.
+        Reads `_servers[name].tools`, which is populated at connect-time —
+        no subprocess RPC, no event-loop hop. Safe to call on every chat turn.
+        """
+        return {
+            name: list(srv.tools)
+            for name, srv in self._servers.items()
+            if srv.connected
+        }
+
     def list_configured_servers(self) -> Dict[str, Any]:
         servers = []
         for name, config in self._server_configs.items():

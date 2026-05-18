@@ -1,5 +1,13 @@
 # backend/api/unified_jobs_api.py
 # Unified Job Creation API - Routes all job types through single system with progress tracking
+#
+# Phase 8 deprecation status (Tasks/Jobs unification plan):
+# This blueprint serves POST /api/jobs/create only — kept indefinitely as
+# a permanent alias since workflowService.js (and possibly other callers)
+# still invoke it. The new /api/jobs/* read endpoints in
+# unified_jobs_resource_api.py share the same blueprint url_prefix and
+# coexist with this single create route (no path collision: this owns
+# /create, the other owns /, /active, /summary, /history, /<id>, /<id>/cancel).
 
 import logging
 import json

@@ -1,0 +1,1604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AGENT.PROVING.GROUNDS // v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=JetBrains+Mono:wght@400;700;800&family=Major+Mono+Display&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e08;
+    --bg-2: #0f1410;
+    --ink: #b9ffb0;
+    --ink-dim: #5a8a55;
+    --ink-faint: #2e4a2c;
+    --accent: #ffb454;
+    --danger: #ff5b6a;
+    --locked: #3a3a3a;
+    --solved: #6affa0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  /* CRT scanlines + flicker */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0,0,0,0.18) 0px,
+      rgba(0,0,0,0.18) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    pointer-events: none;
+    z-index: 9999;
+    mix-blend-mode: multiply;
+  }
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.55) 100%);
+    pointer-events: none;
+    z-index: 9998;
+  }
+  @keyframes flicker {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.97; }
+  }
+  main { animation: flicker 4s infinite; }
+
+  /* HEADER */
+  header {
+    padding: 28px 40px 12px;
+    border-bottom: 1px dashed var(--ink-faint);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .title {
+    font-family: 'Major Mono Display', monospace;
+    font-size: clamp(28px, 4.5vw, 52px);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    text-shadow: 0 0 12px rgba(185,255,176,0.35);
+  }
+  .subtitle {
+    font-family: 'VT323', monospace;
+    font-size: 22px;
+    color: var(--ink-dim);
+    margin-top: 6px;
+  }
+  .hud {
+    font-family: 'VT323', monospace;
+    font-size: 20px;
+    text-align: right;
+    line-height: 1.3;
+  }
+  .hud .label { color: var(--ink-dim); }
+  .hud .val { color: var(--accent); }
+
+  /* PROGRESS RAIL */
+  .rail {
+    display: flex;
+    gap: 4px;
+    padding: 18px 40px;
+    border-bottom: 1px dashed var(--ink-faint);
+    overflow-x: auto;
+  }
+  .rail-cell {
+    flex: 1;
+    min-width: 22px;
+    height: 14px;
+    border: 1px solid var(--ink-faint);
+    background: transparent;
+    position: relative;
+  }
+  .rail-cell.solved { background: var(--solved); box-shadow: 0 0 8px var(--solved); border-color: var(--solved); }
+  .rail-cell.active { background: var(--accent); border-color: var(--accent); animation: pulse 1s infinite; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* MAIN GRID */
+  main {
+    padding: 24px 40px 80px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 28px;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+
+  /* CHALLENGE CARD */
+  .challenge {
+    border: 1px solid var(--ink-faint);
+    background: linear-gradient(180deg, var(--bg-2) 0%, var(--bg) 100%);
+    padding: 24px 28px;
+    position: relative;
+    transition: border-color 0.3s, opacity 0.3s;
+  }
+  .challenge.locked {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+  .challenge.locked::after {
+    content: '🔒 LOCKED — COMPLETE PREVIOUS CHALLENGE TO UNLOCK';
+    position: absolute;
+    inset: 0;
+    background: rgba(10,14,8,0.7);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--locked);
+    font-family: 'VT323', monospace;
+    font-size: 22px;
+    letter-spacing: 0.08em;
+  }
+  .challenge.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 32px rgba(255,180,84,0.15); }
+  .challenge.solved { border-color: var(--solved); }
+  .challenge.solved .number { color: var(--solved); }
+
+  .chal-head {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+  .number {
+    font-family: 'Major Mono Display', monospace;
+    font-size: 28px;
+    color: var(--accent);
+    min-width: 50px;
+  }
+  .chal-name {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .chal-tag {
+    font-family: 'VT323', monospace;
+    font-size: 18px;
+    color: var(--ink-dim);
+    margin-left: auto;
+  }
+  .instruction {
+    font-family: 'VT323', monospace;
+    font-size: 22px;
+    color: var(--ink);
+    margin: 8px 0 20px;
+    padding-left: 14px;
+    border-left: 3px solid var(--accent);
+  }
+  .instruction::before { content: '> '; color: var(--accent); }
+
+  .arena {
+    background: var(--bg);
+    border: 1px dashed var(--ink-faint);
+    padding: 24px;
+    min-height: 120px;
+    position: relative;
+  }
+
+  .feedback {
+    margin-top: 14px;
+    font-family: 'VT323', monospace;
+    font-size: 20px;
+    min-height: 26px;
+  }
+  .feedback.ok { color: var(--solved); }
+  .feedback.err { color: var(--danger); }
+
+  /* COMMON CONTROLS */
+  button.btn {
+    font-family: 'JetBrains Mono', monospace;
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--ink);
+    padding: 10px 20px;
+    font-size: 14px;
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transition: all 0.15s;
+  }
+  button.btn:hover { background: var(--ink); color: var(--bg); }
+  button.btn:active { transform: translate(1px,1px); }
+  button.btn.primary { border-color: var(--accent); color: var(--accent); }
+  button.btn.primary:hover { background: var(--accent); color: var(--bg); }
+
+  input.txt, select.sel, textarea.txt {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg);
+    color: var(--ink);
+    border: 1px solid var(--ink-faint);
+    padding: 10px 12px;
+    font-size: 14px;
+    outline: none;
+    width: 100%;
+    max-width: 400px;
+  }
+  input.txt:focus, select.sel:focus, textarea.txt:focus { border-color: var(--accent); }
+
+  /* ===== CH1: CLICK ===== */
+  .target-1 {
+    width: 80px; height: 80px;
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    transition: transform 0.1s;
+  }
+  .target-1:hover { transform: scale(1.05); }
+  .target-1:active { transform: scale(0.95); }
+
+  /* ===== CH2: DOUBLE-CLICK ===== */
+  .target-2 {
+    width: 100px; height: 100px;
+    background: transparent;
+    color: var(--ink);
+    border: 2px solid var(--ink);
+    cursor: pointer;
+    font-family: 'VT323', monospace;
+    font-size: 18px;
+    user-select: none;
+  }
+
+  /* ===== CH3: RIGHT-CLICK ===== */
+  .target-3 {
+    width: 200px; height: 80px;
+    background: var(--bg-2);
+    border: 1px solid var(--ink);
+    color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'VT323', monospace;
+    font-size: 18px;
+    user-select: none;
+    cursor: context-menu;
+  }
+  .ctx-menu {
+    position: absolute;
+    background: var(--bg-2);
+    border: 1px solid var(--ink);
+    padding: 4px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    min-width: 180px;
+    display: none;
+    z-index: 10;
+  }
+  .ctx-menu.show { display: block; }
+  .ctx-item {
+    padding: 8px 16px;
+    cursor: pointer;
+  }
+  .ctx-item:hover { background: var(--ink); color: var(--bg); }
+  .ctx-sep { border-top: 1px dashed var(--ink-faint); margin: 4px 0; }
+
+  /* ===== CH4: DRAG & DROP ===== */
+  .drag-area { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+  .draggable {
+    width: 70px; height: 70px;
+    background: var(--accent);
+    color: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    cursor: grab;
+    user-select: none;
+  }
+  .draggable:active { cursor: grabbing; }
+  .dropzone {
+    width: 140px; height: 100px;
+    border: 2px dashed var(--ink-dim);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--ink-dim);
+    font-family: 'VT323', monospace;
+    font-size: 18px;
+  }
+  .dropzone.over { border-color: var(--accent); color: var(--accent); }
+  .dropzone.filled { border-style: solid; border-color: var(--solved); }
+
+  /* ===== CH5: TYPE EXACTLY ===== */
+  .type-prompt {
+    font-family: 'VT323', monospace;
+    font-size: 26px;
+    color: var(--accent);
+    background: var(--bg-2);
+    border: 1px solid var(--ink-faint);
+    padding: 10px 16px;
+    display: inline-block;
+    margin-bottom: 14px;
+    letter-spacing: 0.05em;
+  }
+
+  /* ===== CH6: KEYBOARD SHORTCUT ===== */
+  .key-display {
+    display: flex; gap: 8px;
+    font-family: 'VT323', monospace;
+    font-size: 20px;
+    margin-top: 12px;
+    min-height: 38px;
+  }
+  .kbd {
+    border: 1px solid var(--ink);
+    border-bottom: 3px solid var(--ink);
+    padding: 4px 12px;
+    background: var(--bg-2);
+    color: var(--ink);
+    text-transform: uppercase;
+  }
+
+  /* ===== CH7: DROPDOWN ===== */
+  /* uses .sel */
+
+  /* ===== CH8: CHECKBOXES + RADIOS ===== */
+  .form-row { display: flex; gap: 28px; flex-wrap: wrap; margin: 10px 0; }
+  .form-row label {
+    font-family: 'VT323', monospace;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .form-row input { accent-color: var(--accent); width: 18px; height: 18px; cursor: pointer; }
+  .group-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 6px;
+  }
+
+  /* ===== CH9: SLIDER ===== */
+  .slider-wrap { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 280px;
+    background: transparent;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 4px;
+    background: var(--ink-faint);
+  }
+  input[type=range]::-moz-range-track {
+    height: 4px;
+    background: var(--ink-faint);
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px; height: 18px;
+    background: var(--accent);
+    margin-top: -7px;
+    border-radius: 0;
+    cursor: pointer;
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 18px; height: 18px;
+    background: var(--accent);
+    border-radius: 0;
+    border: none;
+    cursor: pointer;
+  }
+  .slider-val {
+    font-family: 'VT323', monospace;
+    font-size: 28px;
+    color: var(--accent);
+    min-width: 60px;
+  }
+
+  /* ===== CH10: SCROLL ===== */
+  .scroll-box {
+    height: 200px;
+    overflow-y: auto;
+    border: 1px solid var(--ink-faint);
+    padding: 12px 16px;
+    font-family: 'VT323', monospace;
+    font-size: 18px;
+    line-height: 1.5;
+    background: var(--bg);
+  }
+  .scroll-box::-webkit-scrollbar { width: 10px; }
+  .scroll-box::-webkit-scrollbar-track { background: var(--bg-2); }
+  .scroll-box::-webkit-scrollbar-thumb { background: var(--ink-faint); }
+  .hidden-prize {
+    color: var(--accent);
+    font-weight: 800;
+    border: 1px dashed var(--accent);
+    padding: 4px 10px;
+    display: inline-block;
+    cursor: pointer;
+  }
+
+  /* ===== CH11: HOVER ===== */
+  .hover-tile {
+    width: 200px; height: 100px;
+    background: var(--bg-2);
+    border: 1px solid var(--ink-faint);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'VT323', monospace;
+    font-size: 18px;
+    cursor: default;
+    position: relative;
+    overflow: hidden;
+  }
+  .hover-tile .hidden-word {
+    position: absolute;
+    opacity: 0;
+    transition: opacity 0.4s;
+    color: var(--accent);
+    font-size: 22px;
+    letter-spacing: 0.2em;
+  }
+  .hover-tile:hover .visible-word { opacity: 0; }
+  .hover-tile:hover .hidden-word { opacity: 1; }
+  .visible-word { transition: opacity 0.4s; color: var(--ink-dim); }
+
+  /* ===== CH12: MULTI-SELECT ===== */
+  .multi-list {
+    border: 1px solid var(--ink-faint);
+    max-width: 320px;
+    font-family: 'VT323', monospace;
+    font-size: 20px;
+  }
+  .multi-item {
+    padding: 8px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--ink-faint);
+    user-select: none;
+  }
+  .multi-item:last-child { border-bottom: none; }
+  .multi-item.selected { background: var(--accent); color: var(--bg); }
+  .multi-item:hover:not(.selected) { background: var(--bg-2); }
+
+  /* ===== CH13: MODAL ===== */
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: none;
+    align-items: center; justify-content: center;
+    z-index: 100;
+  }
+  .modal-backdrop.show { display: flex; }
+  .modal {
+    background: var(--bg-2);
+    border: 1px solid var(--accent);
+    box-shadow: 0 0 60px rgba(255,180,84,0.3);
+    padding: 28px 32px;
+    max-width: 460px;
+    width: 90%;
+  }
+  .modal h3 {
+    font-family: 'Major Mono Display', monospace;
+    font-size: 24px;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+  .modal p {
+    font-family: 'VT323', monospace;
+    font-size: 20px;
+    margin-bottom: 18px;
+    color: var(--ink);
+  }
+  .modal-actions { display: flex; gap: 12px; justify-content: flex-end; }
+
+  /* ===== CH14: TAB NAVIGATION ===== */
+  .tab-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .tab-btn {
+    font-family: 'JetBrains Mono', monospace;
+    background: transparent;
+    color: var(--ink-dim);
+    border: 1px solid var(--ink-faint);
+    padding: 8px 14px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .tab-btn:focus {
+    outline: none;
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(255,180,84,0.3);
+  }
+  .tab-btn.target-tab {
+    border-style: dashed;
+  }
+
+  /* ===== CH15: COPY / PASTE ===== */
+  .copy-source {
+    font-family: 'VT323', monospace;
+    font-size: 22px;
+    color: var(--accent);
+    background: var(--bg-2);
+    border: 1px solid var(--ink-faint);
+    padding: 10px 16px;
+    user-select: all;
+    display: inline-block;
+    margin-bottom: 12px;
+  }
+
+  /* ===== CH16: DATE PICKER ===== */
+  input[type=date] {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg);
+    color: var(--ink);
+    border: 1px solid var(--ink-faint);
+    padding: 10px 12px;
+    font-size: 14px;
+    color-scheme: dark;
+  }
+
+  /* ===== CH17: FILE UPLOAD (simulated) ===== */
+  .file-zone {
+    border: 2px dashed var(--ink-dim);
+    padding: 30px;
+    text-align: center;
+    font-family: 'VT323', monospace;
+    font-size: 20px;
+    color: var(--ink-dim);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .file-zone:hover { border-color: var(--accent); color: var(--accent); }
+  .file-zone.over { border-color: var(--accent); background: rgba(255,180,84,0.05); }
+  .pseudo-file {
+    width: 70px; height: 80px;
+    background: var(--bg-2);
+    border: 1px solid var(--ink);
+    color: var(--ink);
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center; justify-content: center;
+    font-family: 'VT323', monospace;
+    font-size: 14px;
+    cursor: grab;
+    user-select: none;
+    margin-right: 16px;
+    position: relative;
+  }
+  .pseudo-file::before {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 14px; height: 14px;
+    background: linear-gradient(225deg, var(--bg-2) 50%, var(--ink) 50%);
+  }
+
+  /* ===== CH18: RESIZE / MOVE WINDOW ===== */
+  .window-arena {
+    height: 280px;
+    border: 1px solid var(--ink-faint);
+    position: relative;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .pseudo-win {
+    position: absolute;
+    left: 30px; top: 30px;
+    width: 220px; height: 140px;
+    background: var(--bg-2);
+    border: 1px solid var(--ink);
+    display: flex; flex-direction: column;
+  }
+  .pseudo-win-head {
+    background: var(--ink);
+    color: var(--bg);
+    padding: 4px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    cursor: move;
+    user-select: none;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .pseudo-win-body {
+    flex: 1;
+    padding: 10px;
+    font-family: 'VT323', monospace;
+    font-size: 16px;
+    color: var(--ink-dim);
+  }
+  .resize-handle {
+    position: absolute;
+    bottom: 0; right: 0;
+    width: 14px; height: 14px;
+    background: var(--accent);
+    cursor: nwse-resize;
+  }
+  .target-zone {
+    position: absolute;
+    right: 30px; bottom: 30px;
+    width: 100px; height: 100px;
+    border: 2px dashed var(--accent);
+    color: var(--accent);
+    font-family: 'VT323', monospace;
+    font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center;
+    padding: 6px;
+  }
+
+  /* ===== CH19: VISION / READ ===== */
+  .vision-panel {
+    background: var(--bg-2);
+    border: 1px solid var(--ink-faint);
+    padding: 24px;
+    text-align: center;
+  }
+  .vision-code {
+    font-family: 'Major Mono Display', monospace;
+    font-size: 48px;
+    letter-spacing: 0.15em;
+    color: var(--ink);
+    display: inline-block;
+    background:
+      repeating-linear-gradient(45deg, transparent 0 6px, rgba(185,255,176,0.08) 6px 7px),
+      repeating-linear-gradient(-45deg, transparent 0 5px, rgba(185,255,176,0.05) 5px 6px);
+    padding: 16px 28px;
+    transform: skew(-3deg, 1deg);
+    filter: blur(0.4px);
+    text-shadow:
+      1px 0 var(--danger),
+      -1px 0 cyan;
+  }
+
+  /* ===== CH20: FINAL BOSS ===== */
+  .boss-form {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 12px 18px;
+    align-items: center;
+    max-width: 640px;
+  }
+  .boss-form label {
+    font-family: 'VT323', monospace;
+    font-size: 20px;
+    color: var(--ink-dim);
+  }
+  .boss-form .req::after { content: ' *'; color: var(--danger); }
+
+  /* VICTORY */
+  .victory {
+    text-align: center;
+    padding: 60px 20px;
+    border: 1px solid var(--solved);
+    background: linear-gradient(180deg, rgba(106,255,160,0.05), transparent);
+    display: none;
+  }
+  .victory.show { display: block; }
+  .victory h2 {
+    font-family: 'Major Mono Display', monospace;
+    font-size: clamp(36px, 6vw, 72px);
+    color: var(--solved);
+    text-shadow: 0 0 30px var(--solved);
+    letter-spacing: 0.05em;
+    margin-bottom: 18px;
+  }
+  .victory p {
+    font-family: 'VT323', monospace;
+    font-size: 24px;
+    color: var(--ink);
+    margin-bottom: 10px;
+  }
+  .victory .stats {
+    margin-top: 24px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--ink-dim);
+    font-size: 13px;
+  }
+
+  footer {
+    padding: 20px 40px;
+    border-top: 1px dashed var(--ink-faint);
+    font-family: 'VT323', monospace;
+    font-size: 18px;
+    color: var(--ink-dim);
+    text-align: center;
+  }
+  .blink { animation: blink 1.1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="title">Agent.proving.grounds</div>
+    <div class="subtitle">// obstacle course v1.0 — for autonomous mouse/keyboard/vision agents</div>
+  </div>
+  <div class="hud">
+    <div><span class="label">CLEARED:</span> <span class="val" id="cleared">0</span> / 20</div>
+    <div><span class="label">ELAPSED:</span> <span class="val" id="elapsed">00:00</span></div>
+    <div><span class="label">STATUS:</span> <span class="val blink" id="status">RUNNING</span></div>
+  </div>
+</header>
+
+<div class="rail" id="rail"></div>
+
+<main>
+
+<!-- ============ CHALLENGE 1: CLICK ============ -->
+<section class="challenge" data-ch="1">
+  <div class="chal-head">
+    <span class="number">01</span>
+    <span class="chal-name">First Contact</span>
+    <span class="chal-tag">[ pointer · click ]</span>
+  </div>
+  <div class="instruction">Locate the orange button labeled "ENGAGE" and left-click it once.</div>
+  <div class="arena">
+    <button class="target-1" id="t1">ENGAGE</button>
+  </div>
+  <div class="feedback" id="f1"></div>
+</section>
+
+<!-- ============ CHALLENGE 2: DOUBLE-CLICK ============ -->
+<section class="challenge locked" data-ch="2">
+  <div class="chal-head">
+    <span class="number">02</span>
+    <span class="chal-name">Twin Tap</span>
+    <span class="chal-tag">[ pointer · double-click ]</span>
+  </div>
+  <div class="instruction">Double-click the bordered square. A single click does nothing — must be a true double-click within 400ms.</div>
+  <div class="arena">
+    <div class="target-2" id="t2">DOUBLE-CLICK ME</div>
+  </div>
+  <div class="feedback" id="f2"></div>
+</section>
+
+<!-- ============ CHALLENGE 3: RIGHT-CLICK ============ -->
+<section class="challenge locked" data-ch="3">
+  <div class="chal-head">
+    <span class="number">03</span>
+    <span class="chal-name">Hidden Menu</span>
+    <span class="chal-tag">[ pointer · context-menu ]</span>
+  </div>
+  <div class="instruction">Right-click the panel below to open its context menu, then choose "Unlock Channel".</div>
+  <div class="arena" style="position:relative;">
+    <div class="target-3" id="t3">▒▒ SECURED PANEL ▒▒</div>
+    <div class="ctx-menu" id="ctx3">
+      <div class="ctx-item">Inspect</div>
+      <div class="ctx-item">Refresh</div>
+      <div class="ctx-sep"></div>
+      <div class="ctx-item" id="ctx3-unlock" style="color:var(--accent)">Unlock Channel</div>
+      <div class="ctx-item">Delete</div>
+    </div>
+  </div>
+  <div class="feedback" id="f3"></div>
+</section>
+
+<!-- ============ CHALLENGE 4: DRAG AND DROP ============ -->
+<section class="challenge locked" data-ch="4">
+  <div class="chal-head">
+    <span class="number">04</span>
+    <span class="chal-name">Cargo Run</span>
+    <span class="chal-tag">[ pointer · drag · drop ]</span>
+  </div>
+  <div class="instruction">Drag the orange block into the dashed dropzone on the right.</div>
+  <div class="arena">
+    <div class="drag-area">
+      <div class="draggable" id="drag4" draggable="true">CARGO</div>
+      <div class="dropzone" id="drop4">DROP HERE</div>
+    </div>
+  </div>
+  <div class="feedback" id="f4"></div>
+</section>
+
+<!-- ============ CHALLENGE 5: TYPE EXACTLY ============ -->
+<section class="challenge locked" data-ch="5">
+  <div class="chal-head">
+    <span class="number">05</span>
+    <span class="chal-name">Echo Protocol</span>
+    <span class="chal-tag">[ keyboard · text input ]</span>
+  </div>
+  <div class="instruction">Type the exact phrase shown below into the input. Case-sensitive. Submit with the button or press Enter.</div>
+  <div class="arena">
+    <div class="type-prompt" id="prompt5">The quick brown fox jumps over 7 lazy dogs.</div><br>
+    <input class="txt" id="in5" placeholder="type here..." autocomplete="off">
+    <button class="btn primary" id="sub5" style="margin-top:10px;">SUBMIT</button>
+  </div>
+  <div class="feedback" id="f5"></div>
+</section>
+
+<!-- ============ CHALLENGE 6: KEYBOARD SHORTCUT ============ -->
+<section class="challenge locked" data-ch="6">
+  <div class="chal-head">
+    <span class="number">06</span>
+    <span class="chal-name">Modifier Chord</span>
+    <span class="chal-tag">[ keyboard · shortcut ]</span>
+  </div>
+  <div class="instruction">Click into the focus box, then press <b>Ctrl + Shift + K</b> (or Cmd + Shift + K on Mac). The exact chord must hit.</div>
+  <div class="arena">
+    <div tabindex="0" id="focus6" style="border:1px dashed var(--ink); padding:24px; font-family:'VT323',monospace; font-size:20px; color:var(--ink-dim); outline:none;">[ click here to focus, then press the chord ]</div>
+    <div class="key-display" id="keys6"></div>
+  </div>
+  <div class="feedback" id="f6"></div>
+</section>
+
+<!-- ============ CHALLENGE 7: DROPDOWN ============ -->
+<section class="challenge locked" data-ch="7">
+  <div class="chal-head">
+    <span class="number">07</span>
+    <span class="chal-name">Route Selector</span>
+    <span class="chal-tag">[ pointer · combobox ]</span>
+  </div>
+  <div class="instruction">Open the dropdown and select <b>"GAMMA-9"</b>.</div>
+  <div class="arena">
+    <select class="sel" id="sel7">
+      <option value="">— choose route —</option>
+      <option value="alpha">ALPHA-1</option>
+      <option value="beta">BETA-3</option>
+      <option value="gamma">GAMMA-9</option>
+      <option value="delta">DELTA-2</option>
+      <option value="omega">OMEGA-0</option>
+    </select>
+  </div>
+  <div class="feedback" id="f7"></div>
+</section>
+
+<!-- ============ CHALLENGE 8: FORM CONTROLS ============ -->
+<section class="challenge locked" data-ch="8">
+  <div class="chal-head">
+    <span class="number">08</span>
+    <span class="chal-name">Manifest Form</span>
+    <span class="chal-tag">[ pointer · checkbox · radio ]</span>
+  </div>
+  <div class="instruction">Check <b>"Encrypted"</b> and <b>"Compressed"</b> (and only those two). Select radio priority <b>"HIGH"</b>. Then press SUBMIT.</div>
+  <div class="arena">
+    <div class="group-title">Flags</div>
+    <div class="form-row">
+      <label><input type="checkbox" data-flag="signed"> Signed</label>
+      <label><input type="checkbox" data-flag="encrypted"> Encrypted</label>
+      <label><input type="checkbox" data-flag="compressed"> Compressed</label>
+      <label><input type="checkbox" data-flag="public"> Public</label>
+    </div>
+    <div class="group-title">Priority</div>
+    <div class="form-row">
+      <label><input type="radio" name="prio" value="low"> LOW</label>
+      <label><input type="radio" name="prio" value="med"> MED</label>
+      <label><input type="radio" name="prio" value="high"> HIGH</label>
+    </div>
+    <button class="btn primary" id="sub8" style="margin-top:12px;">SUBMIT</button>
+  </div>
+  <div class="feedback" id="f8"></div>
+</section>
+
+<!-- ============ CHALLENGE 9: SLIDER ============ -->
+<section class="challenge locked" data-ch="9">
+  <div class="chal-head">
+    <span class="number">09</span>
+    <span class="chal-name">Fine Tune</span>
+    <span class="chal-tag">[ pointer · range · precision ]</span>
+  </div>
+  <div class="instruction">Set the slider to exactly <b>73</b> (range 0–100). Use mouse drag or arrow keys.</div>
+  <div class="arena">
+    <div class="slider-wrap">
+      <input type="range" min="0" max="100" value="0" id="sld9">
+      <div class="slider-val" id="sldv9">0</div>
+    </div>
+  </div>
+  <div class="feedback" id="f9"></div>
+</section>
+
+<!-- ============ CHALLENGE 10: SCROLL ============ -->
+<section class="challenge locked" data-ch="10">
+  <div class="chal-head">
+    <span class="number">10</span>
+    <span class="chal-name">Deep Scroll</span>
+    <span class="chal-tag">[ pointer · scroll · target ]</span>
+  </div>
+  <div class="instruction">Scroll inside the box below to find and click the hidden token labeled <b>[ARTIFACT]</b>.</div>
+  <div class="arena">
+    <div class="scroll-box" id="scroll10"></div>
+  </div>
+  <div class="feedback" id="f10"></div>
+</section>
+
+<!-- ============ CHALLENGE 11: HOVER ============ -->
+<section class="challenge locked" data-ch="11">
+  <div class="chal-head">
+    <span class="number">11</span>
+    <span class="chal-name">Reveal on Hover</span>
+    <span class="chal-tag">[ pointer · hover · vision ]</span>
+  </div>
+  <div class="instruction">Hover over the tile to reveal a hidden word, then type that word into the input below.</div>
+  <div class="arena">
+    <div class="hover-tile" id="hov11">
+      <span class="visible-word">[ HOVER TO REVEAL ]</span>
+      <span class="hidden-word">PASSWORD: PHANTOM</span>
+    </div>
+    <br>
+    <input class="txt" id="in11" placeholder="the revealed word..." autocomplete="off">
+    <button class="btn primary" id="sub11" style="margin-top:10px;">CONFIRM</button>
+  </div>
+  <div class="feedback" id="f11"></div>
+</section>
+
+<!-- ============ CHALLENGE 12: MULTI-SELECT ============ -->
+<section class="challenge locked" data-ch="12">
+  <div class="chal-head">
+    <span class="number">12</span>
+    <span class="chal-name">Triage</span>
+    <span class="chal-tag">[ pointer · multi-select · modifier ]</span>
+  </div>
+  <div class="instruction">Using <b>Ctrl/Cmd + click</b> (or just clicking each), select exactly: <b>Mercury, Venus, and Mars</b>. Then press CONFIRM.</div>
+  <div class="arena">
+    <div class="multi-list" id="ml12">
+      <div class="multi-item" data-v="Mercury">Mercury</div>
+      <div class="multi-item" data-v="Venus">Venus</div>
+      <div class="multi-item" data-v="Earth">Earth</div>
+      <div class="multi-item" data-v="Mars">Mars</div>
+      <div class="multi-item" data-v="Jupiter">Jupiter</div>
+      <div class="multi-item" data-v="Saturn">Saturn</div>
+    </div>
+    <button class="btn primary" id="sub12" style="margin-top:12px;">CONFIRM</button>
+  </div>
+  <div class="feedback" id="f12"></div>
+</section>
+
+<!-- ============ CHALLENGE 13: MODAL ============ -->
+<section class="challenge locked" data-ch="13">
+  <div class="chal-head">
+    <span class="number">13</span>
+    <span class="chal-name">Intercept Dialog</span>
+    <span class="chal-tag">[ pointer · modal · choice ]</span>
+  </div>
+  <div class="instruction">Press OPEN. A dialog will appear. Read it. Click <b>"PROCEED"</b> (the dangerous-looking option). DISMISS will not advance you.</div>
+  <div class="arena">
+    <button class="btn primary" id="open13">OPEN</button>
+  </div>
+  <div class="feedback" id="f13"></div>
+</section>
+
+<!-- Modal lives outside cards so it overlays -->
+<div class="modal-backdrop" id="modal13">
+  <div class="modal">
+    <h3>WARNING</h3>
+    <p>You are about to overwrite session memory. This action cannot be reversed. Are you sure you wish to continue?</p>
+    <div class="modal-actions">
+      <button class="btn" id="dismiss13">DISMISS</button>
+      <button class="btn primary" id="proceed13" style="border-color:var(--danger); color:var(--danger);">PROCEED</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ CHALLENGE 14: TAB NAV ============ -->
+<section class="challenge locked" data-ch="14">
+  <div class="chal-head">
+    <span class="number">14</span>
+    <span class="chal-name">Tab Walk</span>
+    <span class="chal-tag">[ keyboard · focus · Tab ]</span>
+  </div>
+  <div class="instruction">Click the first button to focus it. Then use only the <b>Tab</b> key to move focus to the dashed-bordered button (3 tabs forward), and press <b>Enter</b> or <b>Space</b> to activate it.</div>
+  <div class="arena">
+    <div class="tab-row">
+      <button class="tab-btn" id="tabA">ALPHA</button>
+      <button class="tab-btn" id="tabB">BETA</button>
+      <button class="tab-btn" id="tabC">GAMMA</button>
+      <button class="tab-btn target-tab" id="tabD">DELTA (target)</button>
+      <button class="tab-btn" id="tabE">EPSILON</button>
+    </div>
+  </div>
+  <div class="feedback" id="f14"></div>
+</section>
+
+<!-- ============ CHALLENGE 15: COPY / PASTE ============ -->
+<section class="challenge locked" data-ch="15">
+  <div class="chal-head">
+    <span class="number">15</span>
+    <span class="chal-name">Clipboard Relay</span>
+    <span class="chal-tag">[ keyboard · clipboard ]</span>
+  </div>
+  <div class="instruction">Select the orange token below, copy it (Ctrl/Cmd + C), then paste it into the input (Ctrl/Cmd + V) and press CONFIRM.</div>
+  <div class="arena">
+    <div class="copy-source" id="src15">SIGIL-A9F2-NULL-X4</div><br>
+    <input class="txt" id="in15" placeholder="paste here..." autocomplete="off">
+    <button class="btn primary" id="sub15" style="margin-top:10px;">CONFIRM</button>
+  </div>
+  <div class="feedback" id="f15"></div>
+</section>
+
+<!-- ============ CHALLENGE 16: DATE PICKER ============ -->
+<section class="challenge locked" data-ch="16">
+  <div class="chal-head">
+    <span class="number">16</span>
+    <span class="chal-name">Temporal Anchor</span>
+    <span class="chal-tag">[ pointer · date input ]</span>
+  </div>
+  <div class="instruction">Open the date picker and choose <b>July 4, 2027</b>. Then press LOCK.</div>
+  <div class="arena">
+    <input type="date" id="d16">
+    <button class="btn primary" id="sub16" style="margin-left:10px;">LOCK</button>
+  </div>
+  <div class="feedback" id="f16"></div>
+</section>
+
+<!-- ============ CHALLENGE 17: FILE UPLOAD (sim) ============ -->
+<section class="challenge locked" data-ch="17">
+  <div class="chal-head">
+    <span class="number">17</span>
+    <span class="chal-name">Payload Transfer</span>
+    <span class="chal-tag">[ pointer · drag-upload ]</span>
+  </div>
+  <div class="instruction">Drag the file icon into the upload zone (simulates a file upload via drag-and-drop).</div>
+  <div class="arena">
+    <div style="display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
+      <div class="pseudo-file" id="pf17" draggable="true">
+        📄<br>data.bin
+      </div>
+      <div class="file-zone" id="fz17" style="flex:1; min-width:240px;">
+        DROP FILE HERE TO UPLOAD
+      </div>
+    </div>
+  </div>
+  <div class="feedback" id="f17"></div>
+</section>
+
+<!-- ============ CHALLENGE 18: RESIZE / MOVE WINDOW ============ -->
+<section class="challenge locked" data-ch="18">
+  <div class="chal-head">
+    <span class="number">18</span>
+    <span class="chal-name">Window Manager</span>
+    <span class="chal-tag">[ pointer · drag · resize ]</span>
+  </div>
+  <div class="instruction">Drag the window by its title bar so it overlaps the dashed target zone in the bottom-right. Then drag the orange corner handle to resize the window until it fully covers the target (≥ 100×100).</div>
+  <div class="arena">
+    <div class="window-arena" id="wa18">
+      <div class="pseudo-win" id="pw18">
+        <div class="pseudo-win-head" id="pwh18">term.exe — drag me</div>
+        <div class="pseudo-win-body">$ awaiting placement...<br>$ _</div>
+        <div class="resize-handle" id="prh18"></div>
+      </div>
+      <div class="target-zone" id="tz18">COVER THIS ZONE</div>
+    </div>
+  </div>
+  <div class="feedback" id="f18"></div>
+</section>
+
+<!-- ============ CHALLENGE 19: VISION READ ============ -->
+<section class="challenge locked" data-ch="19">
+  <div class="chal-head">
+    <span class="number">19</span>
+    <span class="chal-name">Optical Decode</span>
+    <span class="chal-tag">[ vision · OCR-style ]</span>
+  </div>
+  <div class="instruction">Read the distorted code displayed below (it is not selectable as text — you must <b>see</b> it) and type it into the input.</div>
+  <div class="arena">
+    <div class="vision-panel">
+      <div class="vision-code">K7H9-ZQ2M</div>
+    </div>
+    <br>
+    <input class="txt" id="in19" placeholder="enter the code..." autocomplete="off" style="text-transform:uppercase;">
+    <button class="btn primary" id="sub19" style="margin-top:10px;">DECODE</button>
+  </div>
+  <div class="feedback" id="f19"></div>
+</section>
+
+<!-- ============ CHALLENGE 20: FINAL BOSS ============ -->
+<section class="challenge locked" data-ch="20">
+  <div class="chal-head">
+    <span class="number">20</span>
+    <span class="chal-name">— Final Gauntlet —</span>
+    <span class="chal-tag">[ multi-step · everything ]</span>
+  </div>
+  <div class="instruction">Complete every field correctly, in any order. <b>Name:</b> Agent-007. <b>Email:</b> a@b.co. <b>Region:</b> SECTOR-7. <b>Clearance slider:</b> 50. <b>Acknowledge checkbox:</b> checked. <b>Notes:</b> must contain the word "READY". Then press DEPLOY.</div>
+  <div class="arena">
+    <div class="boss-form">
+      <label class="req">Name</label>
+      <input class="txt" id="b-name" autocomplete="off">
+      <label class="req">Email</label>
+      <input class="txt" id="b-email" autocomplete="off">
+      <label class="req">Region</label>
+      <select class="sel" id="b-region">
+        <option value="">— select —</option>
+        <option>SECTOR-1</option>
+        <option>SECTOR-4</option>
+        <option>SECTOR-7</option>
+        <option>SECTOR-9</option>
+      </select>
+      <label class="req">Clearance</label>
+      <div class="slider-wrap">
+        <input type="range" min="0" max="100" value="0" id="b-clr">
+        <div class="slider-val" id="b-clrv">0</div>
+      </div>
+      <label class="req">Acknowledge</label>
+      <label style="font-family:'VT323',monospace; font-size:20px;">
+        <input type="checkbox" id="b-ack"> I accept the terms of deployment
+      </label>
+      <label class="req">Notes</label>
+      <textarea class="txt" id="b-notes" rows="3" placeholder="enter free-form notes..."></textarea>
+    </div>
+    <button class="btn primary" id="deploy" style="margin-top:18px; font-size:16px; padding:14px 28px;">▶ DEPLOY</button>
+  </div>
+  <div class="feedback" id="f20"></div>
+</section>
+
+<!-- VICTORY -->
+<section class="victory" id="victory">
+  <h2>COURSE CLEARED</h2>
+  <p>You have demonstrated proficiency across every desktop primitive.</p>
+  <p>Pointer · Keyboard · Vision · Modifier chords · Drag · Resize · Forms · Clipboard · Focus · Modals.</p>
+  <div class="stats" id="vstats"></div>
+</section>
+
+</main>
+
+<footer>
+  agent.proving.grounds // a single-page training environment // cleared challenges persist in-session
+</footer>
+
+<script>
+//=============================================================
+// STATE
+//=============================================================
+const total = 20;
+let cleared = 0;
+let active = 1;
+const startTime = Date.now();
+
+// Build progress rail
+const rail = document.getElementById('rail');
+for (let i = 1; i <= total; i++) {
+  const c = document.createElement('div');
+  c.className = 'rail-cell';
+  c.dataset.idx = i;
+  c.title = 'Challenge ' + i;
+  rail.appendChild(c);
+}
+function refreshRail() {
+  document.querySelectorAll('.rail-cell').forEach(c => {
+    const i = +c.dataset.idx;
+    c.classList.toggle('solved', i <= cleared);
+    c.classList.toggle('active', i === active && i > cleared);
+  });
+  document.getElementById('cleared').textContent = cleared;
+}
+
+// Elapsed timer
+setInterval(() => {
+  const s = Math.floor((Date.now() - startTime) / 1000);
+  const m = String(Math.floor(s/60)).padStart(2,'0');
+  const ss = String(s%60).padStart(2,'0');
+  document.getElementById('elapsed').textContent = m + ':' + ss;
+}, 500);
+
+function solve(n) {
+  const el = document.querySelector(`.challenge[data-ch="${n}"]`);
+  if (el.classList.contains('solved')) return;
+  el.classList.add('solved');
+  el.classList.remove('active');
+  cleared = Math.max(cleared, n);
+  // unlock next
+  const next = document.querySelector(`.challenge[data-ch="${n+1}"]`);
+  if (next) {
+    next.classList.remove('locked');
+    next.classList.add('active');
+    active = n+1;
+    // scroll the next into view gently
+    setTimeout(() => next.scrollIntoView({ behavior: 'smooth', block: 'center' }), 350);
+  } else {
+    // all done
+    document.getElementById('status').textContent = 'COMPLETE';
+    document.getElementById('status').classList.remove('blink');
+    const v = document.getElementById('victory');
+    v.classList.add('show');
+    const s = Math.floor((Date.now() - startTime) / 1000);
+    document.getElementById('vstats').textContent =
+      `total time: ${Math.floor(s/60)}m ${s%60}s · challenges: 20/20 · status: nominal`;
+    setTimeout(() => v.scrollIntoView({ behavior: 'smooth' }), 400);
+  }
+  refreshRail();
+}
+
+function feedback(id, msg, ok = true) {
+  const f = document.getElementById('f' + id);
+  f.textContent = msg;
+  f.className = 'feedback ' + (ok ? 'ok' : 'err');
+}
+
+// init: mark first active
+document.querySelector('.challenge[data-ch="1"]').classList.add('active');
+refreshRail();
+
+//=============================================================
+// CH1: CLICK
+//=============================================================
+document.getElementById('t1').addEventListener('click', () => {
+  feedback(1, '✓ contact established.');
+  solve(1);
+});
+
+//=============================================================
+// CH2: DOUBLE-CLICK
+//=============================================================
+const t2 = document.getElementById('t2');
+t2.addEventListener('click', () => {
+  // Intentionally do nothing — we want true dblclick
+});
+t2.addEventListener('dblclick', () => {
+  feedback(2, '✓ double-tap registered.');
+  solve(2);
+});
+
+//=============================================================
+// CH3: RIGHT-CLICK
+//=============================================================
+const t3 = document.getElementById('t3');
+const ctx3 = document.getElementById('ctx3');
+t3.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  // position relative to arena
+  const arena = t3.parentElement.getBoundingClientRect();
+  ctx3.style.left = (e.clientX - arena.left) + 'px';
+  ctx3.style.top = (e.clientY - arena.top) + 'px';
+  ctx3.classList.add('show');
+});
+document.addEventListener('click', (e) => {
+  if (!ctx3.contains(e.target)) ctx3.classList.remove('show');
+});
+document.getElementById('ctx3-unlock').addEventListener('click', () => {
+  ctx3.classList.remove('show');
+  feedback(3, '✓ channel unlocked via context menu.');
+  solve(3);
+});
+
+//=============================================================
+// CH4: DRAG AND DROP
+//=============================================================
+const drag4 = document.getElementById('drag4');
+const drop4 = document.getElementById('drop4');
+drag4.addEventListener('dragstart', (e) => {
+  e.dataTransfer.setData('text/plain', 'cargo');
+  e.dataTransfer.effectAllowed = 'move';
+});
+drop4.addEventListener('dragover', (e) => { e.preventDefault(); drop4.classList.add('over'); });
+drop4.addEventListener('dragleave', () => drop4.classList.remove('over'));
+drop4.addEventListener('drop', (e) => {
+  e.preventDefault();
+  drop4.classList.remove('over');
+  drop4.classList.add('filled');
+  drop4.textContent = '✓ DELIVERED';
+  drag4.style.visibility = 'hidden';
+  feedback(4, '✓ cargo delivered.');
+  solve(4);
+});
+
+//=============================================================
+// CH5: TYPE EXACTLY
+//=============================================================
+const promptText = document.getElementById('prompt5').textContent.trim();
+const in5 = document.getElementById('in5');
+function check5() {
+  if (in5.value === promptText) {
+    feedback(5, '✓ echo match.');
+    solve(5);
+  } else {
+    feedback(5, '✗ mismatch — check case and punctuation.', false);
+  }
+}
+document.getElementById('sub5').addEventListener('click', check5);
+in5.addEventListener('keydown', (e) => { if (e.key === 'Enter') check5(); });
+
+//=============================================================
+// CH6: KEYBOARD SHORTCUT  (Ctrl/Cmd + Shift + K)
+//=============================================================
+const focus6 = document.getElementById('focus6');
+const keys6 = document.getElementById('keys6');
+focus6.addEventListener('keydown', (e) => {
+  const parts = [];
+  if (e.ctrlKey || e.metaKey) parts.push(e.metaKey ? 'CMD' : 'CTRL');
+  if (e.shiftKey) parts.push('SHIFT');
+  if (e.altKey) parts.push('ALT');
+  if (e.key.length === 1) parts.push(e.key.toUpperCase());
+  else parts.push(e.key.toUpperCase());
+  keys6.innerHTML = parts.map(p => `<span class="kbd">${p}</span>`).join('');
+  const k = (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'K' || e.key === 'k');
+  if (k) {
+    e.preventDefault();
+    feedback(6, '✓ chord accepted.');
+    solve(6);
+  }
+});
+
+//=============================================================
+// CH7: DROPDOWN
+//=============================================================
+document.getElementById('sel7').addEventListener('change', (e) => {
+  if (e.target.value === 'gamma') {
+    feedback(7, '✓ route locked: GAMMA-9.');
+    solve(7);
+  } else if (e.target.value) {
+    feedback(7, '✗ wrong route selected.', false);
+  }
+});
+
+//=============================================================
+// CH8: CHECKBOX + RADIO
+//=============================================================
+document.getElementById('sub8').addEventListener('click', () => {
+  const flags = Array.from(document.querySelectorAll('[data-flag]'))
+    .filter(c => c.checked).map(c => c.dataset.flag).sort();
+  const prio = document.querySelector('input[name=prio]:checked');
+  const okFlags = JSON.stringify(flags) === JSON.stringify(['compressed','encrypted']);
+  const okPrio = prio && prio.value === 'high';
+  if (okFlags && okPrio) {
+    feedback(8, '✓ manifest accepted.');
+    solve(8);
+  } else {
+    feedback(8, '✗ check flags and priority again.', false);
+  }
+});
+
+//=============================================================
+// CH9: SLIDER
+//=============================================================
+const sld9 = document.getElementById('sld9');
+const sldv9 = document.getElementById('sldv9');
+sld9.addEventListener('input', () => {
+  sldv9.textContent = sld9.value;
+  if (sld9.value === '73') {
+    feedback(9, '✓ tuned exactly to 73.');
+    solve(9);
+  }
+});
+
+//=============================================================
+// CH10: SCROLL TO FIND
+//=============================================================
+const scroll10 = document.getElementById('scroll10');
+const lines = [
+  'log[0001] heartbeat ok',
+  'log[0002] flush ringbuffer 0x4f',
+  'log[0003] negotiation handshake complete',
+  'log[0004] crypto nonce rotated',
+  'log[0005] cache miss tier-2',
+  'log[0006] cache miss tier-1',
+  'log[0007] gc pause 12ms',
+  'log[0008] socket reopened',
+  'log[0009] noise floor: -98dB',
+  'log[0010] noise floor: -97dB',
+  'log[0011] worker idle',
+  'log[0012] worker idle',
+  'log[0013] tick',
+  'log[0014] tick',
+  'log[0015] tick',
+  'log[0016] payload received <ARTIFACT_HERE>',
+  'log[0017] tick',
+  'log[0018] tick',
+  'log[0019] flush ringbuffer 0x50',
+  'log[0020] tick',
+  'log[0021] tick',
+  'log[0022] tick',
+  'log[0023] tick',
+  'log[0024] tick'
+];
+const html10 = lines.map((l) => {
+  if (l.includes('<ARTIFACT_HERE>')) {
+    return l.replace('<ARTIFACT_HERE>', '<span class="hidden-prize" id="prize10">[ARTIFACT]</span>');
+  }
+  return l;
+}).join('<br>');
+scroll10.innerHTML = html10;
+// only attach handler after the element is in the DOM
+setTimeout(() => {
+  const prize = document.getElementById('prize10');
+  if (prize) prize.addEventListener('click', () => {
+    feedback(10, '✓ artifact retrieved.');
+    solve(10);
+  });
+}, 0);
+
+//=============================================================
+// CH11: HOVER REVEAL  (hidden word = PHANTOM)
+//=============================================================
+document.getElementById('sub11').addEventListener('click', () => {
+  const v = document.getElementById('in11').value.trim().toUpperCase();
+  if (v === 'PHANTOM') {
+    feedback(11, '✓ ghost identified.');
+    solve(11);
+  } else {
+    feedback(11, '✗ no match — hover over the tile to reveal the word.', false);
+  }
+});
+
+//=============================================================
+// CH12: MULTI-SELECT
+//=============================================================
+document.querySelectorAll('#ml12 .multi-item').forEach(it => {
+  it.addEventListener('click', (e) => {
+    if (e.ctrlKey || e.metaKey || e.shiftKey || true) {
+      // any click toggles — we are lenient about whether modifier was used
+      it.classList.toggle('selected');
+    }
+  });
+});
+document.getElementById('sub12').addEventListener('click', () => {
+  const sel = Array.from(document.querySelectorAll('#ml12 .multi-item.selected'))
+    .map(i => i.dataset.v).sort();
+  const want = ['Mars','Mercury','Venus'];
+  if (JSON.stringify(sel) === JSON.stringify(want)) {
+    feedback(12, '✓ inner planets identified.');
+    solve(12);
+  } else {
+    feedback(12, '✗ selection incorrect.', false);
+  }
+});
+
+//=============================================================
+// CH13: MODAL
+//=============================================================
+const modal13 = document.getElementById('modal13');
+document.getElementById('open13').addEventListener('click', () => modal13.classList.add('show'));
+document.getElementById('dismiss13').addEventListener('click', () => {
+  modal13.classList.remove('show');
+  feedback(13, '✗ dismissed — re-open and choose PROCEED to advance.', false);
+});
+document.getElementById('proceed13').addEventListener('click', () => {
+  modal13.classList.remove('show');
+  feedback(13, '✓ proceeded through dialog.');
+  solve(13);
+});
+
+//=============================================================
+// CH14: TAB NAV
+//=============================================================
+document.getElementById('tabD').addEventListener('click', (e) => {
+  // Only accept if it was triggered while focused via keyboard (Enter/Space)
+  // We allow either — but track if user used Tab. Simpler: just accept activation.
+  feedback(14, '✓ delta activated.');
+  solve(14);
+});
+
+//=============================================================
+// CH15: COPY / PASTE
+//=============================================================
+const expected15 = document.getElementById('src15').textContent.trim();
+document.getElementById('sub15').addEventListener('click', () => {
+  const v = document.getElementById('in15').value.trim();
+  if (v === expected15) {
+    feedback(15, '✓ sigil transmitted.');
+    solve(15);
+  } else {
+    feedback(15, '✗ mismatch — copy the exact token shown.', false);
+  }
+});
+
+//=============================================================
+// CH16: DATE
+//=============================================================
+document.getElementById('sub16').addEventListener('click', () => {
+  const v = document.getElementById('d16').value;
+  if (v === '2027-07-04') {
+    feedback(16, '✓ temporal anchor locked.');
+    solve(16);
+  } else {
+    feedback(16, '✗ select July 4, 2027.', false);
+  }
+});
+
+//=============================================================
+// CH17: SIMULATED FILE UPLOAD via drag
+//=============================================================
+const pf17 = document.getElementById('pf17');
+const fz17 = document.getElementById('fz17');
+pf17.addEventListener('dragstart', (e) => {
+  e.dataTransfer.setData('text/plain', 'data.bin');
+  e.dataTransfer.effectAllowed = 'move';
+});
+fz17.addEventListener('dragover', (e) => { e.preventDefault(); fz17.classList.add('over'); });
+fz17.addEventListener('dragleave', () => fz17.classList.remove('over'));
+fz17.addEventListener('drop', (e) => {
+  e.preventDefault();
+  fz17.classList.remove('over');
+  fz17.innerHTML = '✓ data.bin uploaded (1.2 MB)';
+  fz17.style.borderStyle = 'solid';
+  fz17.style.color = 'var(--solved)';
+  fz17.style.borderColor = 'var(--solved)';
+  pf17.style.visibility = 'hidden';
+  feedback(17, '✓ payload received.');
+  solve(17);
+});
+
+//=============================================================
+// CH18: WINDOW DRAG + RESIZE
+//=============================================================
+const wa18 = document.getElementById('wa18');
+const pw18 = document.getElementById('pw18');
+const pwh18 = document.getElementById('pwh18');
+const prh18 = document.getElementById('prh18');
+const tz18 = document.getElementById('tz18');
+
+let dragState = null; // { type:'move'|'resize', startX, startY, origX, origY, origW, origH }
+pwh18.addEventListener('mousedown', (e) => {
+  const r = pw18.getBoundingClientRect();
+  const ar = wa18.getBoundingClientRect();
+  dragState = { type:'move', sx:e.clientX, sy:e.clientY, ox:r.left-ar.left, oy:r.top-ar.top };
+  e.preventDefault();
+});
+prh18.addEventListener('mousedown', (e) => {
+  dragState = { type:'resize', sx:e.clientX, sy:e.clientY, ow:pw18.offsetWidth, oh:pw18.offsetHeight };
+  e.preventDefault();
+  e.stopPropagation();
+});
+document.addEventListener('mousemove', (e) => {
+  if (!dragState) return;
+  if (dragState.type === 'move') {
+    const dx = e.clientX - dragState.sx;
+    const dy = e.clientY - dragState.sy;
+    pw18.style.left = Math.max(0, dragState.ox + dx) + 'px';
+    pw18.style.top  = Math.max(0, dragState.oy + dy) + 'px';
+  } else if (dragState.type === 'resize') {
+    const dw = e.clientX - dragState.sx;
+    const dh = e.clientY - dragState.sy;
+    pw18.style.width  = Math.max(80,  dragState.ow + dw) + 'px';
+    pw18.style.height = Math.max(60,  dragState.oh + dh) + 'px';
+  }
+  checkCover18();
+});
+document.addEventListener('mouseup', () => { dragState = null; });
+
+function rectOverlapsCover(a, b) {
+  // returns true if rect a fully covers rect b
+  return a.left <= b.left && a.top <= b.top && a.right >= b.right && a.bottom >= b.bottom;
+}
+function checkCover18() {
+  const r1 = pw18.getBoundingClientRect();
+  const r2 = tz18.getBoundingClientRect();
+  if (rectOverlapsCover(r1, r2)) {
+    feedback(18, '✓ window placed.');
+    solve(18);
+  }
+}
+
+//=============================================================
+// CH19: VISION READ
+//=============================================================
+document.getElementById('sub19').addEventListener('click', () => {
+  const v = document.getElementById('in19').value.trim().toUpperCase();
+  if (v === 'K7H9-ZQ2M') {
+    feedback(19, '✓ optical match.');
+    solve(19);
+  } else {
+    feedback(19, '✗ misread — look carefully at the distorted code.', false);
+  }
+});
+
+//=============================================================
+// CH20: FINAL GAUNTLET
+//=============================================================
+const bClr = document.getElementById('b-clr');
+const bClrv = document.getElementById('b-clrv');
+bClr.addEventListener('input', () => bClrv.textContent = bClr.value);
+
+document.getElementById('deploy').addEventListener('click', () => {
+  const errs = [];
+  if (document.getElementById('b-name').value.trim() !== 'Agent-007') errs.push('name');
+  if (document.getElementById('b-email').value.trim() !== 'a@b.co') errs.push('email');
+  if (document.getElementById('b-region').value !== 'SECTOR-7') errs.push('region');
+  if (bClr.value !== '50') errs.push('clearance');
+  if (!document.getElementById('b-ack').checked) errs.push('ack');
+  if (!/READY/.test(document.getElementById('b-notes').value)) errs.push('notes');
+  if (errs.length === 0) {
+    feedback(20, '✓ DEPLOY ACCEPTED — agent fielded.');
+    solve(20);
+  } else {
+    feedback(20, '✗ incomplete: ' + errs.join(', '), false);
+  }
+});
+
+</script>
+</body>
+</html>

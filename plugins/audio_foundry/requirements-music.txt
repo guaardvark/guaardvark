@@ -1,0 +1,28 @@
+# Audio Foundry — music_gen subprocess venv (plugins/audio_foundry/venv-music/).
+#
+# Lives in its own venv because ACE-Step pins transformers==4.50.0 and
+# accelerate==1.6.0, which conflicts with chatterbox-tts (transformers==5.2)
+# in the main audio_foundry venv. scripts/run_acestep.py runs INSIDE this
+# venv as a long-lived daemon; backends/music_gen_acestep.py drives it over
+# JSON-line stdin/stdout from the main venv.
+#
+# ACE-Step's own setup.py reads its requirements.txt at install time, so
+# pulling the GitHub package brings: torch / torchaudio / torchvision (latest
+# compatible) + transformers==4.50.0 + accelerate==1.6.0 + pytorch_lightning +
+# librosa + soundfile + datasets + spacy + a few language helpers.
+
+# pkg_resources guard — same trap as the main audio_foundry venv: setuptools
+# >=81 removed pkg_resources, and ACE-Step's transitive deps (pytorch_lightning,
+# peft, tensorboard) historically import it. Pin until upstream cleans up.
+setuptools<81
+
+# Distribution name is `ace-step` (with hyphen) per the upstream pyproject;
+# the Python import name is still `acestep` (no hyphen).
+ace-step @ git+https://github.com/ace-step/ACE-Step.git
+
+# torchaudio's `save()` routes through `torchcodec` for the actual file write
+# in modern releases (torch 2.7+). Without it, ACE-Step's pipeline fails at
+# the WAV-write step with `ImportError: TorchCodec is required for
+# save_with_torchcodec`. ACE-Step doesn't list it in its own requirements so
+# we add it explicitly here.
+torchcodec>=0.7

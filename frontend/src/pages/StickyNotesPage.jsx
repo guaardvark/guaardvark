@@ -53,7 +53,6 @@ import {
 } from "@mui/icons-material";
 
 import { useNavigate } from "react-router-dom";
-import { useAppStore } from "../stores/useAppStore";
 import PageLayout from "../components/layout/PageLayout";
 import { useLayout, useDashboardWidth } from "../contexts/LayoutContext";
 import { ContextualLoader } from "../components/common/LoadingStates";
@@ -108,7 +107,7 @@ const getContrastColor = (bgColor) => {
 
 const StickyNote = React.memo(
   ({
-    noteId,
+    _noteId,
     title,
     content,
     color,
@@ -118,7 +117,7 @@ const StickyNote = React.memo(
     onToggleMinimize,
     onColorChange,
     onContentChange,
-    onDeleteRequest,
+    _onDeleteRequest,
     onFormat,
     onInsertLink,
     theme,
@@ -135,7 +134,6 @@ const StickyNote = React.memo(
       if (contentRef.current && content !== undefined) {
         contentRef.current.innerHTML = content;
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
@@ -146,7 +144,7 @@ const StickyNote = React.memo(
 
     // Double-click detection on header (same pattern as DashboardCardWrapper)
     const handleMouseDown = useCallback(
-      (e) => {
+      (_e) => {
         const now = Date.now();
         const diff = now - lastClickTime;
 
@@ -447,7 +445,7 @@ const StickyNotesPage = () => {
   const [noteColors, setNoteColors] = useState({});
   const [minimizedCards, setMinimizedCards] = useState({});
   const [originalDimensions, setOriginalDimensions] = useState({});
-  const [cardZIndex, setCardZIndex] = useState({});
+  const [_cardZIndex, setCardZIndex] = useState({});
   const [maxZIndex, setMaxZIndex] = useState(0);
   const [layoutMode, setLayoutMode] = useState("normal");
   const [pinnedNotes, setPinnedNotes] = useState({});
@@ -966,7 +964,7 @@ const StickyNotesPage = () => {
   // ── Render ───────────────────────────────────────────────────────────────
 
   const LayoutModeIcon = LAYOUT_MODE_ICONS[layoutMode];
-  const isCompact = layoutMode === "compact";
+  const _isCompact = layoutMode === "compact";
   const isCollapsed = layoutMode === "collapsed";
 
   if (!initialStateLoaded) {

@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 
 try:
     from backend.app import app
-    from backend.models import ModelInfo, db
+    # Model was renamed from ModelInfo; alias so legacy seed code still runs.
+    from backend.models import Model as ModelInfo, db
     from backend.utils.model_utils import get_available_ollama_models
 
     logger.info("Successfully imported backend modules.")

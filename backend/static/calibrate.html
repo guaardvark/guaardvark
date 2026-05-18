@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Vision Calibration</title>
+    <style>
+        body { margin: 0; padding: 0; background: white; overflow: hidden; width: 1280px; height: 720px; }
+        .crosshair { position: absolute; width: 40px; height: 40px; }
+        .line-h { position: absolute; top: 19px; left: 0; width: 100%; height: 2px; background: red; }
+        .line-v { position: absolute; left: 19px; top: 0; width: 2px; height: 100%; background: red; }
+        .label { position: absolute; top: 45px; left: 0; width: 200px; font-family: monospace; font-size: 14px; font-weight: bold; color: blue; }
+        
+        #p1 { top: 80px; left: 80px; }
+        #p2 { top: 80px; left: 1160px; }
+        #p3 { top: 600px; left: 80px; }
+        #p4 { top: 600px; left: 1160px; }
+        #p5 { top: 340px; left: 620px; }
+    </style>
+</head>
+<body>
+    <div id="p1" class="crosshair"><div class="line-h"></div><div class="line-v"></div><div class="label">P1: (100, 100)</div></div>
+    <div id="p2" class="crosshair"><div class="line-h"></div><div class="line-v"></div><div class="label">P2: (1180, 100)</div></div>
+    <div id="p3" class="crosshair"><div class="line-h"></div><div class="line-v"></div><div class="label">P3: (100, 620)</div></div>
+    <div id="p4" class="crosshair"><div class="line-h"></div><div class="line-v"></div><div class="label">P4: (1180, 620)</div></div>
+    <div id="p5" class="crosshair"><div class="line-h"></div><div class="line-v"></div><div class="label">P5: (640, 360)</div></div>
+</body>
+</html>

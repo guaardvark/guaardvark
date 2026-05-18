@@ -38,7 +38,7 @@ import {
 import * as interconnectorApi from "../../api/interconnectorService";
 import { useSnackbar } from "../common/SnackbarProvider";
 
-const ClientUpdatePanel = ({ masterUrl, masterApiKey, isEnabled }) => {
+const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
   const { showMessage } = useSnackbar();
 
   // Update status state

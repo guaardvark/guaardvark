@@ -4,6 +4,7 @@
 
 import json
 import logging
+import os
 import uuid
 import subprocess
 import shutil
@@ -44,6 +45,7 @@ class ProcessType(Enum):
     WORDPRESS_PULL = "wordpress_pull"
     WORDPRESS_PUSH = "wordpress_push"
     WORDPRESS_PROCESSING = "wordpress_processing"
+    VIDEO_RENDER = "video_render"
     UNKNOWN = "unknown"
 
 
@@ -474,7 +476,7 @@ class UnifiedProgressSystem:
         # but no connected clients — direct SocketIO emit goes nowhere in Celery context.
         try:
             import redis as _redis
-            r = _redis.Redis(host='localhost', port=6379, db=0)
+            r = _redis.Redis.from_url(os.environ.get('REDIS_URL', 'redis://localhost:6379/0'))
             r.publish('guaardvark:progress', json.dumps(event_data))
         except Exception:
             pass  # Redis unavailable — fall through to direct SocketIO
@@ -488,6 +490,27 @@ class UnifiedProgressSystem:
                     socketio.emit("job_progress", event_data, to="global_progress", namespace='/')
                 except Exception as e:
                     logger.error(f"Failed to emit SocketIO progress event: {e}")
+
+                # 2b. Phase 4 of the Tasks/Jobs unification — canonical 'job:event'
+                # alongside the legacy 'job_progress'. Adapter normalizes the
+                # processType/process_type casing inconsistency and produces the
+                # same Job shape /api/jobs/* serves. Frontend consumers can move
+                # to the new event on their own schedule; old listeners stay
+                # working until Phase 8 deprecates them.
+                try:
+                    from backend.services.job_registry import adapt_unified_progress
+                    from backend.services.job_history_service import record_terminal_job
+                    job = adapt_unified_progress(event_data)
+                    job_dict = job.to_dict()
+                    socketio.emit("job:event", job_dict, to="jobs:all", namespace='/')
+                    socketio.emit("job:event", job_dict, to=f"jobs:{job.kind.value}", namespace='/')
+
+                    # Phase 5 — persist terminal-status jobs to job_history.
+                    # No-ops for non-terminal status; idempotent on retry.
+                    record_terminal_job(job)
+                except Exception as e:
+                    # Non-fatal — old job_progress emit above is still in flight.
+                    logger.warning("Canonical job:event emit failed (non-fatal): %s", e)
         
         # 3. Notify listeners
         for listener in self._listeners:

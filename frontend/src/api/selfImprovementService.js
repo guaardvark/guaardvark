@@ -42,4 +42,40 @@ export const selfImprovementService = {
     });
     return handleResponse(res);
   },
+
+  async listPendingFixes({ status, limit = 50 } = {}) {
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    if (limit) params.set("limit", String(limit));
+    const query = params.toString();
+    const res = await fetch(
+      `${BASE_URL}/self-improvement/pending-fixes${query ? `?${query}` : ""}`,
+    );
+    return handleResponse(res);
+  },
+
+  async approveFix(fixId, { reviewer = "user", notes = "" } = {}) {
+    const res = await fetch(`${BASE_URL}/self-improvement/pending-fixes/${fixId}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reviewer, notes }),
+    });
+    return handleResponse(res);
+  },
+
+  async rejectFix(fixId, { reviewer = "user", notes = "" } = {}) {
+    const res = await fetch(`${BASE_URL}/self-improvement/pending-fixes/${fixId}/reject`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reviewer, notes }),
+    });
+    return handleResponse(res);
+  },
+
+  async applyFix(fixId) {
+    const res = await fetch(`${BASE_URL}/self-improvement/pending-fixes/${fixId}/apply`, {
+      method: "POST",
+    });
+    return handleResponse(res);
+  },
 };

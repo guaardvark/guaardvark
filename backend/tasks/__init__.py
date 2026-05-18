@@ -3,6 +3,15 @@ Backend Tasks Package
 Celery tasks for training, CSV generation, task execution, and cleanup operations.
 """
 
+# Importing celery_app FIRST runs celery.set_default(), binding @shared_task
+# decorators (in this package and its submodules) to the configured Celery
+# instance — not the empty default Celery() that the library creates on first
+# lookup. Without this import, standalone dispatchers that do
+# `from backend.tasks.X import some_task; some_task.delay()` route to the
+# literal 'celery' queue instead of 'default', producing ghost task_ids the
+# worker never receives. See test_celery_routing.py for the regression suite.
+from backend import celery_app  # noqa: F401
+
 from .training_tasks import (
     parse_transcripts_task,
     filter_dataset_task,

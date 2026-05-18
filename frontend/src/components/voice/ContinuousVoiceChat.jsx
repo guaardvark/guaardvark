@@ -17,8 +17,8 @@ import {
 } from '@mui/icons-material';
 import { keyframes } from '@mui/material/styles';
 import voiceService from '../../api/voiceService';
-import { BASE_URL, BACKEND_URL } from '../../api/apiClient';
 import { checkForWakeWord } from '../../utils/wakeWordMatcher';
+import CanvasWaveform from './CanvasWaveform';
 
 const pulseAnimation = keyframes`
   0% { transform: scale(1); opacity: 1; }
@@ -26,13 +26,13 @@ const pulseAnimation = keyframes`
   100% { transform: scale(1); opacity: 1; }
 `;
 
-const waveformAnimation = keyframes`
+const _waveformAnimation = keyframes`
   0%, 100% { height: 20%; }
   50% { height: 100%; }
 `;
 
 // Strip markdown/formatting for clean TTS input (from VoiceChat.jsx pattern)
-const cleanTextForTTS = (text) => {
+const _cleanTextForTTS = (text) => {
   if (!text) return '';
   return text
     .replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1')
@@ -43,7 +43,7 @@ const cleanTextForTTS = (text) => {
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
     .replace(/<[^>]*>/g, '')
     .replace(/\s+/g, ' ')
-    .replace(/[•\-\*]\s*/g, '')
+    .replace(/[•\-*]\s*/g, '')
     .replace(/\n\s*\n/g, '. ')
     .replace(/\n/g, ', ')
     .replace(/\s*\.\s*\.\s*\./g, '. ')
@@ -214,19 +214,18 @@ const ContinuousVoiceChat = React.forwardRef(({
 
   // --- State ---
   const [isListening, setIsListening] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isProcessing, _setIsProcessing] = useState(false);
   const [currentVolume, setCurrentVolume] = useState(0);
   const [speechDetected, setSpeechDetected] = useState(false);
   const [segmentCount, setSegmentCount] = useState(0);
   const [error, setError] = useState(null);
   const [processingQueue, setProcessingQueue] = useState(0);
   const [audioLevels, setAudioLevels] = useState(new Array(20).fill(0));
-  const [keyboardShortcutEnabled, setKeyboardShortcutEnabled] = useState(true);
+  const [keyboardShortcutEnabled, _setKeyboardShortcutEnabled] = useState(true);
   const [waveformActive, setWaveformActive] = useState(false);
 
   const [isMicMuted, setIsMicMuted] = useState(false);
-  const [isAISpeaking, setIsAISpeaking] = useState(false);
-  const [lastErrorTime, setLastErrorTime] = useState(0);
+  const [isAISpeaking, _setIsAISpeaking] = useState(false);
 
   // --- Wake word state ---
   const [listeningMode, setListeningMode] = useState('active'); // 'passive' | 'active'
@@ -290,14 +289,6 @@ const ContinuousVoiceChat = React.forwardRef(({
 
   const isMountedRef = useRef(true);
   const processingCountRef = useRef(0);
-
-  const audioValidationRef = useRef({
-    lastValidChunk: null,
-    corruptedChunks: 0,
-    totalChunks: 0,
-    lastChunkTime: 0
-  });
-  const errorRecoveryTimeoutRef = useRef(null);
 
   // --- [Bug 2 fix] Serial processing queue ---
   const audioQueueRef = useRef([]);
@@ -540,6 +531,12 @@ const ContinuousVoiceChat = React.forwardRef(({
         });
       }
 
+      // Signal end of stream to backend to process this segment
+      voiceService.stopVoiceStream();
+      setIsMicMuted(true);
+      processingCountRef.current += 1;
+      setProcessingQueue(processingQueue + 1);
+
       const segmentChunks = [...currentSegmentChunksRef.current];
       currentSegmentChunksRef.current = [];
       audioChunksRef.current = [];
@@ -547,6 +544,30 @@ const ContinuousVoiceChat = React.forwardRef(({
       // Restart MediaRecorder so next segment gets a fresh EBML header
       if (recorder && streamRef.current && streamRef.current.active) {
         try {
+          // Start a new WebSocket stream for the new segment
+          voiceService.startVoiceStream(sessionId, (text) => {
+            if (text && text.trim()) {
+              if (listeningModeRef.current === 'passive') {
+                const wakeResult = checkForWakeWord(text, systemNameRef.current);
+                if (wakeResult.detected) {
+                  activateListening();
+                  if (wakeResult.remainder.trim()) {
+                    processTextAsChat(wakeResult.remainder.trim());
+                  }
+                }
+              } else {
+                onMessageReceived({
+                  transcription: text.trim(),
+                  response: null,
+                });
+                setSegmentCount(prev => prev + 1);
+                if (wakeWordEnabled) resetActiveListeningTimeout();
+              }
+            }
+            setIsMicMuted(false);
+            processingCountRef.current = Math.max(0, processingCountRef.current - 1);
+            setProcessingQueue(Math.max(0, processingQueue - 1));
+          });
           recorder.start(100);
         } catch (restartErr) {
           console.warn('ContinuousVoiceChat: Could not restart MediaRecorder:', restartErr);
@@ -582,7 +603,7 @@ const ContinuousVoiceChat = React.forwardRef(({
 
       resetErrors();
 
-      enqueueAudioSegment(audioBlob);
+      // enqueueAudioSegment(audioBlob);
 
     } catch (err) {
       console.error('ContinuousVoiceChat: Error segmenting audio:', err);
@@ -597,7 +618,7 @@ const ContinuousVoiceChat = React.forwardRef(({
   }, [isAISpeaking, isMicMuted, incrementErrors, resetErrors]);
 
 
-  const validateAudioBlob = useCallback(async (audioBlob) => {
+  const _validateAudioBlob = useCallback(async (audioBlob) => {
     try {
       if (!audioBlob || audioBlob.size === 0) {
         console.warn('ContinuousVoiceChat: Audio blob is empty or null');
@@ -826,6 +847,8 @@ const ContinuousVoiceChat = React.forwardRef(({
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
           currentSegmentChunksRef.current.push(event.data);
+          // Stream chunk to backend
+          voiceService.sendVoiceChunk(event.data);
         }
       };
 
@@ -837,6 +860,31 @@ const ContinuousVoiceChat = React.forwardRef(({
 
       mediaRecorderRef.current.start(100);
       setIsListening(true);
+      
+      // Start WebSocket stream
+      voiceService.startVoiceStream(sessionId, (text) => {
+        if (text && text.trim()) {
+          if (listeningModeRef.current === 'passive') {
+            const wakeResult = checkForWakeWord(text, systemNameRef.current);
+            if (wakeResult.detected) {
+              activateListening();
+              if (wakeResult.remainder.trim()) {
+                processTextAsChat(wakeResult.remainder.trim());
+              }
+            }
+          } else {
+            onMessageReceived({
+              transcription: text.trim(),
+              response: null,
+            });
+            setSegmentCount(prev => prev + 1);
+            if (wakeWordEnabled) resetActiveListeningTimeout();
+          }
+        }
+        setIsMicMuted(false);
+        processingCountRef.current = Math.max(0, processingCountRef.current - 1);
+        setProcessingQueue(Math.max(0, processingQueue - 1));
+      });
 
       const analyzer = await voiceService.createAudioAnalyzer(streamRef.current);
 
@@ -964,7 +1012,7 @@ const ContinuousVoiceChat = React.forwardRef(({
           console.log('ContinuousVoiceChat: Processing final segment after stop...', {
             size: audioBlob.size, chunks: segmentChunks.length
           });
-          enqueueAudioSegment(audioBlob);
+          // enqueueAudioSegment(audioBlob);
         }
       } catch (err) {
         console.error('ContinuousVoiceChat: Error processing final segment:', err);
@@ -1197,7 +1245,6 @@ const ContinuousVoiceChat = React.forwardRef(({
       sx={{
         display: 'flex',
         alignItems: 'center',
-        gap: 0.3,
         height,
         px: 1,
         backgroundColor: 'background.paper',
@@ -1208,28 +1255,12 @@ const ContinuousVoiceChat = React.forwardRef(({
         position: 'relative'
       }}
     >
-      {audioLevels.map((level, index) => {
-        const barHeight = Math.max(4, Math.pow(level, 0.6) * 90);
-        return (
-          <Box
-            key={index}
-            sx={{
-              width: 2,
-              height: `${barHeight}%`,
-              maxHeight: '95%',
-              alignSelf: 'center',
-              backgroundColor: speechDetected
-                ? 'error.main'
-                : waveformActive
-                ? 'primary.main'
-                : 'grey.400',
-              borderRadius: 1,
-              transition: 'height 0.15s ease-out',
-              opacity: 0.6 + (level * 0.4),
-            }}
-          />
-        );
-      })}
+      <CanvasWaveform 
+        isListening={isListening} 
+        speechDetected={speechDetected} 
+        waveformActive={waveformActive} 
+        height={height} 
+      />
       {!waveformActive && (
         <Box
           sx={{
@@ -1256,8 +1287,6 @@ const ContinuousVoiceChat = React.forwardRef(({
   // --- COMPACT RENDERING: circular waveform button ---
   if (compact) {
     const btnSize = 40;
-    const numBars = 7;
-    const idleHeights = [0.22, 0.38, 0.28, 0.45, 0.28, 0.38, 0.22];
     const isProcessingAudio = isProcessing || processingQueue > 0;
 
     return (
@@ -1301,35 +1330,16 @@ const ContinuousVoiceChat = React.forwardRef(({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '2.5px',
             width: btnSize * 0.6,
             height: btnSize * 0.6,
+            color: 'inherit'
           }}>
-            {Array.from({ length: numBars }).map((_, i) => {
-              const levelIndex = Math.floor((i / numBars) * (audioLevels.length || 1));
-              const realLevel = audioLevels[levelIndex] || 0;
-              const barHeight = isListening && waveformActive && !isProcessingAudio
-                ? Math.max(0.15, Math.min(1, realLevel * 2.0))
-                : idleHeights[i];
-              return (
-                <Box
-                  key={i}
-                  sx={{
-                    width: 3,
-                    borderRadius: 2,
-                    backgroundColor: 'currentColor',
-                    transition: 'height 50ms ease-out',
-                    height: isProcessingAudio ? '40%' : `${barHeight * btnSize * 0.55}px`,
-                    minHeight: 3,
-                    opacity: 0.95,
-                    ...(isProcessingAudio && {
-                      animation: `${waveformAnimation} ${0.6 + i * 0.12}s ease-in-out infinite`,
-                      animationDelay: `${i * 0.08}s`,
-                    }),
-                  }}
-                />
-              );
-            })}
+            <CanvasWaveform 
+              isListening={isListening} 
+              speechDetected={speechDetected} 
+              waveformActive={waveformActive} 
+              compact={true}
+            />
           </Box>
         </IconButton>
       </Tooltip>

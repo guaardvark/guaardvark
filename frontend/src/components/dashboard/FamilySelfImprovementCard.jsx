@@ -50,7 +50,7 @@ const FamilySelfImprovementCard = React.forwardRef(
     ref,
   ) => {
     const theme = useTheme();
-    const colors = getFamilyColors(theme);
+    const _colors = getFamilyColors(theme);
     const [claudeStatus, setClaudeStatus] = useState(null);
     const [siStatus, setSiStatus] = useState(null);
     const [runs, setRuns] = useState([]);

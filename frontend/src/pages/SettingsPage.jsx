@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Typography,
   Box,
+  Stack,
   Select,
   MenuItem,
   Button,
@@ -11,28 +12,16 @@ import {
   InputLabel,
   CircularProgress,
   Paper,
-  Grid,
   Tooltip,
   Switch,
-  FormControlLabel,
-  Divider,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogContentText,
   DialogActions,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Input,
   TextField,
-  Stack,
   Avatar,
   Slider,
-  IconButton,
 } from "@mui/material";
 import MuiAlert from "@mui/material/Alert";
 
@@ -45,10 +34,7 @@ import StorageIcon from "@mui/icons-material/Storage";
 import DnsIcon from "@mui/icons-material/Dns";
 import SpeedIcon from "@mui/icons-material/Speed";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
-import FileUploadIcon from "@mui/icons-material/FileUpload";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
-import BackupIcon from "@mui/icons-material/Backup";
-import RestoreIcon from "@mui/icons-material/Restore";
 import AccountBoxIcon from "@mui/icons-material/AccountBox";
 import WarningIcon from "@mui/icons-material/Warning";
 import SecurityIcon from "@mui/icons-material/Security";
@@ -57,17 +43,17 @@ import ChatIcon from "@mui/icons-material/Chat";
 import ApiIcon from "@mui/icons-material/Api";
 import SystemIcon from "@mui/icons-material/Computer";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
-import BuildIcon from "@mui/icons-material/Build";
-import DashboardIcon from "@mui/icons-material/Dashboard";
-import SmartToyIcon from "@mui/icons-material/SmartToy";
-import ExtensionIcon from "@mui/icons-material/Extension";
-import CodeIcon from "@mui/icons-material/Code";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import ExpandLessIcon from "@mui/icons-material/ExpandLess";
-import ImageIcon from "@mui/icons-material/Image";
-import MusicNoteIcon from "@mui/icons-material/MusicNote";
-import ScienceIcon from "@mui/icons-material/Science";
-import { Accordion, AccordionSummary, AccordionDetails, Chip, LinearProgress } from "@mui/material";
+import {
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Chip,
+  LinearProgress,
+  Divider,
+  Collapse,
+} from "@mui/material";
+import { alpha } from "@mui/material/styles";
 
 import { io } from "socket.io-client";
 import CreateBackupModal from "../components/modals/CreateBackupModal";
@@ -76,10 +62,13 @@ import ManageBackupsModal from "../components/modals/ManageBackupsModal";
 import PurgeIndexModal from "../components/modals/PurgeIndexModal";
 import ThemeSelectorModal from "../components/modals/ThemeSelectorModal";
 import UncleClaudeSection from "../components/settings/UncleClaudeSection";
+import MemoryManagementSection from "../components/settings/MemoryManagementSection";
+import AgentDisplaySection from "../components/settings/AgentDisplaySection";
 import KillSwitchModal from "../components/modals/KillSwitchModal";
 import RebootProgressModal from "../components/modals/RebootProgressModal";
 import RAGDebugSection from "../components/settings/RAGDebugSection";
 import ImageModelsModal from "../components/modals/ImageModelsModal";
+import InfographicModelsModal from "../components/modals/InfographicModelsModal";
 import VideoModelsModal from "../components/modals/VideoModelsModal";
 import VoiceModelsModal from "../components/modals/VoiceModelsModal";
 import AgentsSettingsModal from "../components/modals/AgentsSettingsModal";
@@ -88,11 +77,8 @@ import VoiceSettingsModal from "../components/modals/VoiceSettingsModal";
 import SettingsRow from "../components/settings/SettingsRow";
 import SettingsCardWrapper from "../components/settings/SettingsCardWrapper";
 import { SOCKET_URL } from "../api/apiClient";
-import PaletteIcon from "@mui/icons-material/Palette";
 import SchoolIcon from "@mui/icons-material/School";
-import TaskAltIcon from "@mui/icons-material/TaskAlt";
 import { useNavigate } from "react-router-dom";
-import { themes } from "../theme";
 import {
   getBranding,
   updateBranding,
@@ -109,10 +95,9 @@ import { useStatus } from "../contexts/StatusContext";
 import PageLayout from "../components/layout/PageLayout";
 import { useSnackbar } from "../components/common/SnackbarProvider";
 import * as interconnectorApi from "../api/interconnectorService";
-import { useVoiceContext, useVoice } from "../contexts/VoiceContext";
+import { useVoice } from "../contexts/VoiceContext";
 import * as apiService from "../api";
 import voiceService from "../api/voiceService";
-import { updateAgentSettings } from "../api/agentsService";
 import { ragAutoresearchService } from "../api/ragAutoresearchService";
 
 // localStorage keys for persisting settings
@@ -120,24 +105,24 @@ const WEB_SEARCH_ENABLED_KEY = "guaardvark_webSearchEnabled";
 const ADV_DEBUG_ENABLED_KEY = "guaardvark_advDebugEnabled";
 const BEHAVIOR_LEARNING_ENABLED_KEY = "guaardvark_behaviorLearningEnabled";
 const LLM_DEBUG_ENABLED_KEY = "guaardvark_llmDebugEnabled";
+// Global "use RulesPage rules for chat" toggle. Backend is the source of
+// truth (Setting table, key=rules_enabled); this localStorage mirror only
+// speeds first paint before the API round-trip lands.
+const RULES_ENABLED_KEY = "guaardvark_rulesEnabled";
 // Used by ChatPage to enable backend agent routing integration
-const AGENT_ROUTING_ENABLED_KEY = "use_agent_routing";
+const _AGENT_ROUTING_ENABLED_KEY = "use_agent_routing";
 // Used by ChatPage to enable unified agentic chat (LLM with tool access)
-const UNIFIED_CHAT_ENABLED_KEY = "use_unified_chat";
+const _UNIFIED_CHAT_ENABLED_KEY = "use_unified_chat";
 
 // Voice settings localStorage keys (must match key used by voice components)
 const VOICE_SETTINGS_KEY = "guaardvark_voiceSettings";
 const VOICE_CHAT_ENABLED_KEY = "guaardvark_voiceChatEnabled";
 
-const Alert = React.forwardRef(function Alert(props, ref) {
-  return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
-});
-
 const SettingsPage = () => {
   const [availableModels, setAvailableModels] = useState([]);
   const [selectedModel, setSelectedModel] = useState("");
   const [embeddingModel, setEmbeddingModel] = useState("");
-  const [isLoadingEmbeddingModel, setIsLoadingEmbeddingModel] = useState(true);
+  const [_isLoadingEmbeddingModel, setIsLoadingEmbeddingModel] = useState(true);
 
   // Reset selectedModel if it's not in available options
   useEffect(() => {
@@ -161,6 +146,7 @@ const SettingsPage = () => {
   const [behaviorLearningEnabled, setBehaviorLearningEnabled] = useState(
     getInitialBehaviorLearning,
   );
+  const [rulesEnabled, setRulesEnabledState] = useState(getInitialRulesEnabled);
   const [appVersion, setAppVersion] = useState("");
 
   function getInitialWebSearch() {
@@ -191,6 +177,14 @@ const SettingsPage = () => {
       return false;
     }
   }
+  function getInitialRulesEnabled() {
+    if (typeof window === "undefined") return false;
+    try {
+      return localStorage.getItem(RULES_ENABLED_KEY) === "true";
+    } catch {
+      return false;
+    }
+  }
   function getInitialLlmDebug() {
     if (typeof window === "undefined") return false;
     try {
@@ -200,33 +194,14 @@ const SettingsPage = () => {
       return false;
     }
   }
-  function getInitialAgentRouting() {
-    if (typeof window === "undefined") return true;
-    try {
-      const saved = localStorage.getItem(AGENT_ROUTING_ENABLED_KEY);
-      return saved === null || saved === "true"; // ON by default, matches ChatPage
-    } catch {
-      return true;
-    }
-  }
-  function getInitialUnifiedChat() {
-    if (typeof window === "undefined") return true;
-    try {
-      const saved = localStorage.getItem(UNIFIED_CHAT_ENABLED_KEY);
-      return saved === null || saved === "true"; // ON by default, matches ChatPage
-    } catch {
-      return true;
-    }
-  }
   const [webSearchEnabled, setWebSearchEnabled] = useState(getInitialWebSearch);
-  const [agentRoutingEnabled, setAgentRoutingEnabled] = useState(getInitialAgentRouting);
-  const [unifiedChatEnabled, setUnifiedChatEnabled] = useState(getInitialUnifiedChat);
   const [isTesting, setIsTesting] = useState(false);
   const [testResults, setTestResults] = useState(null);
   const [isRunningTests, setIsRunningTests] = useState(false);
   const [testMode, setTestMode] = useState("basic");
   const [expandedCategories, setExpandedCategories] = useState({});
   const [testSuiteResults, setTestSuiteResults] = useState(null);
+  const [testSuiteOutputOpen, setTestSuiteOutputOpen] = useState(false);
   // activeTab removed — all cards shown on single page
   const [musicDirectory, setMusicDirectory] = useState("");
 
@@ -259,6 +234,44 @@ const SettingsPage = () => {
   const [interconnectorModalOpen, setInterconnectorModalOpen] = useState(false);
   const [interconnectorEnabled, setInterconnectorEnabled] = useState(false);
   const [interconnectorPendingCount, setInterconnectorPendingCount] = useState(0);
+  const [interconnectorIsClient, setInterconnectorIsClient] = useState(false);
+  const [interconnectorUpdateStatus, setInterconnectorUpdateStatus] = useState(null);
+  const [interconnectorApplying, setInterconnectorApplying] = useState(false);
+
+  // Inline apply: lets the top banner's UPDATE button push the updates straight
+  // through without making the user open the modal. Mirrors the same call the
+  // ClientUpdatePanel makes (interconnectorApi.applyUpdates([])) plus a confirm.
+  const handleApplyInterconnectorUpdates = useCallback(async (e) => {
+    if (e?.stopPropagation) e.stopPropagation();
+    if (interconnectorApplying) return;
+    if (!window.confirm("Apply all interconnector updates? Existing files will be backed up automatically.")) {
+      return;
+    }
+    setInterconnectorApplying(true);
+    try {
+      const response = await interconnectorApi.applyUpdates([]);
+      if (response?.error) {
+        showMessage?.(`Update failed: ${response.error}`, "error");
+      } else {
+        const data = response?.data || response || {};
+        showMessage?.(
+          `Updated ${data.applied || 0} files (${data.created || 0} new, ${data.updated || 0} modified)`,
+          "success"
+        );
+        // Clear the banner; a follow-up checkForUpdates will repopulate if more remain.
+        setInterconnectorUpdateStatus((prev) => prev ? { ...prev, available: false, count: 0 } : prev);
+        setTimeout(() => {
+          interconnectorApi.checkForUpdates?.().then((res) => {
+            if (res && !res.error) setInterconnectorUpdateStatus(res.data || res);
+          }).catch(() => {});
+        }, 1000);
+      }
+    } catch (err) {
+      showMessage?.(`Update failed: ${err.message}`, "error");
+    } finally {
+      setInterconnectorApplying(false);
+    }
+  }, [interconnectorApplying]);
   const [voiceChatEnabled, setVoiceChatEnabled] = useState(() => {
     try {
       return localStorage.getItem(VOICE_CHAT_ENABLED_KEY) !== "false";
@@ -271,6 +284,7 @@ const SettingsPage = () => {
   const [rebootInProgress, setRebootInProgress] = useState(false);
   const [rebootProgressModalOpen, setRebootProgressModalOpen] = useState(false);
   const [imageModelsModalOpen, setImageModelsModalOpen] = useState(false);
+  const [infographicModelsModalOpen, setInfographicModelsModalOpen] = useState(false);
   const [videoModelsModalOpen, setVideoModelsModalOpen] = useState(false);
   const [voiceModelsModalOpen, setVoiceModelsModalOpen] = useState(false);
   const setTrainerOpen = useAppStore((state) => state.setTrainerOpen);
@@ -590,6 +604,8 @@ const SettingsPage = () => {
       const enabled = res?.data?.config?.is_enabled || res?.config?.is_enabled;
       if (enabled) {
         setInterconnectorEnabled(true);
+        const nodeMode = res?.data?.config?.node_mode || res?.config?.node_mode;
+        setInterconnectorIsClient(nodeMode === "client");
         // Check for pending approvals
         interconnectorApi.getPendingApprovals?.().then((approvals) => {
           setInterconnectorPendingCount(Array.isArray(approvals) ? approvals.length : 0);
@@ -597,9 +613,32 @@ const SettingsPage = () => {
       } else if (!res?.error) {
         setInterconnectorEnabled(false);
         setInterconnectorPendingCount(0);
+        setInterconnectorIsClient(false);
+        setInterconnectorUpdateStatus(null);
       }
     }).catch(() => {});
   }, [interconnectorModalOpen]);
+
+  // One-shot check for code updates when in client mode
+  useEffect(() => {
+    if (!interconnectorEnabled || !interconnectorIsClient) {
+      setInterconnectorUpdateStatus(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      interconnectorApi.checkForUpdates().then((res) => {
+        const data = res?.data || res;
+        if (!data?.error) {
+          setInterconnectorUpdateStatus({
+            available: data.available || false,
+            count: data.count || 0,
+            summary: data.summary || { backend: 0, frontend: 0, other: 0 },
+          });
+        }
+      }).catch(() => {});
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [interconnectorEnabled, interconnectorIsClient, interconnectorModalOpen]);
 
   useEffect(() => {
     try {
@@ -612,7 +651,7 @@ const SettingsPage = () => {
 
   const themeName = useAppStore((state) => state.themeName);
 
-  const { activeModel, isLoadingModel, modelError, refreshActiveModel } =
+  const { activeModel, isLoadingModel, modelError: _modelError, refreshActiveModel } =
     useStatus();
 
   // Socket listener for async model switching events
@@ -902,6 +941,26 @@ const SettingsPage = () => {
   }, []);
 
   useEffect(() => {
+    const fetchRulesEnabled = async () => {
+      try {
+        const result = await apiService.getRulesEnabled();
+        const enabled = result?.data?.rules_enabled ?? result?.rules_enabled;
+        if (typeof enabled === "boolean") {
+          setRulesEnabledState(enabled);
+          try {
+            localStorage.setItem(RULES_ENABLED_KEY, String(enabled));
+          } catch {
+            // localStorage may be unavailable; the backend remains authoritative
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to fetch rules_enabled setting:", err);
+      }
+    };
+    fetchRulesEnabled();
+  }, []);
+
+  useEffect(() => {
     const fetchRagFeatures = async () => {
       try {
         // Load comprehensive RAG features
@@ -1135,7 +1194,7 @@ const SettingsPage = () => {
       "Failed to clear chat history",
     );
   };
-  const handleResetIndexClick = () => {
+  const _handleResetIndexClick = () => {
     /* ... (unchanged from v3.4) ... */
     handleActionClick(
       apiService.resetIndexStorage,
@@ -1168,7 +1227,7 @@ const SettingsPage = () => {
     setIsPurging(false);
     setPurgeModalOpen(false);
   };
-  const handlePurgeBehaviorLearningClick = () => {
+  const _handlePurgeBehaviorLearningClick = () => {
     handleActionClick(
       apiService.purgeBehaviorLearning,
       [],
@@ -1179,7 +1238,7 @@ const SettingsPage = () => {
     );
   };
 
-  const handleClearBehaviorLogClick = () => {
+  const _handleClearBehaviorLogClick = () => {
     handleActionClick(
       clearBehaviorLog,
       [],
@@ -1522,12 +1581,14 @@ const SettingsPage = () => {
   const handleRunAllTests = async () => {
     setIsRunningTests(true);
     setTestSuiteResults(null);
+    setTestSuiteOutputOpen(false);
     showMessage("Running full test suite...", "info");
     try {
       const response = await apiService.runAllTests();
       if (response?.results) {
         setTestSuiteResults(response.results);
-        const sev = response.results.returncode === 0 ? "success" : "error";
+        const rc = response.results.returncode;
+        const sev = rc === 0 || rc === 4 || rc === 5 ? "success" : "error";
         showMessage("Test suite finished.", sev);
       } else {
         throw new Error("Invalid response");
@@ -1820,7 +1881,7 @@ const SettingsPage = () => {
     }
   };
 
-  const triggerFileImportInput = () => {
+  const _triggerFileImportInput = () => {
     fileImportInputRef.current?.click();
   };
 
@@ -1917,27 +1978,47 @@ const SettingsPage = () => {
   };
   // --- END NEW HANDLERS ---
 
-  // Component to render categorized test results
+  const categoryStatusAccent = (statusColor) => {
+    if (statusColor === "success") return "success.main";
+    if (statusColor === "error") return "error.main";
+    if (statusColor === "warning") return "warning.main";
+    return "divider";
+  };
+
+  const categorySummaryBg = (theme, statusColor) => {
+    if (statusColor === "success") return alpha(theme.palette.success.main, 0.08);
+    if (statusColor === "error") return alpha(theme.palette.error.main, 0.1);
+    if (statusColor === "warning") return alpha(theme.palette.warning.main, 0.1);
+    return theme.palette.action.hover;
+  };
+
+  // Categorized self-test results: card list + muted accordions (no cramped tables)
   const renderCategorizedResults = (results) => {
     if (!results.categories) return null;
 
     return (
-      <Box mt={2}>
-        {/* Overall Status Banner */}
+      <Box mt={2} sx={{ width: "100%", minWidth: 0 }}>
         {results.overall_status && (
-          <Box mb={2}>
+          <Box
+            mb={2}
+            sx={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 1,
+              alignItems: "center",
+            }}
+          >
             <Chip
               icon={getStatusDisplay(results.overall_status).icon}
-              label={`Overall Status: ${getStatusDisplay(results.overall_status).label}`}
+              label={`Overall: ${getStatusDisplay(results.overall_status).label}`}
               color={getStatusDisplay(results.overall_status).color}
               variant="outlined"
-              size="medium"
-              sx={{ mb: 1, mr: 1 }}
+              size="small"
             />
-            {results.execution_time && (
+            {results.execution_time != null && (
               <Chip
-                icon={<SpeedIcon />}
-                label={`${results.execution_time.toFixed(2)}s`}
+                icon={<SpeedIcon sx={{ fontSize: "1rem !important" }} />}
+                label={`${Number(results.execution_time).toFixed(2)}s`}
                 variant="outlined"
                 size="small"
               />
@@ -1945,7 +2026,6 @@ const SettingsPage = () => {
           </Box>
         )}
 
-        {/* Test Categories */}
         {Object.entries(results.categories).map(([categoryKey, categoryData]) => {
           const isExpanded = expandedCategories[categoryKey] || false;
           const statusDisplay = getStatusDisplay(categoryData.status);
@@ -1954,26 +2034,46 @@ const SettingsPage = () => {
             <Accordion
               key={categoryKey}
               expanded={isExpanded}
-              onChange={() => setExpandedCategories(prev => ({
-                ...prev,
-                [categoryKey]: !prev[categoryKey]
-              }))}
-              sx={{ mb: 1 }}
+              disableGutters
+              elevation={0}
+              onChange={() =>
+                setExpandedCategories((prev) => ({
+                  ...prev,
+                  [categoryKey]: !prev[categoryKey],
+                }))
+              }
+              sx={{
+                mb: 1,
+                border: 1,
+                borderColor: "divider",
+                borderRadius: 1,
+                overflow: "hidden",
+                "&:before": { display: "none" },
+              }}
             >
               <AccordionSummary
                 expandIcon={<ExpandMoreIcon />}
-                sx={{
-                  backgroundColor: theme =>
-                    statusDisplay.color === 'success' ? theme.palette.success.light :
-                      statusDisplay.color === 'error' ? theme.palette.error.light :
-                        statusDisplay.color === 'warning' ? theme.palette.warning.light :
-                          'transparent',
-                  '&.Mui-expanded': { minHeight: 48 }
-                }}
+                sx={(theme) => ({
+                  minHeight: 48,
+                  px: 1.5,
+                  borderLeft: "3px solid",
+                  borderLeftColor: categoryStatusAccent(statusDisplay.color),
+                  bgcolor: categorySummaryBg(theme, statusDisplay.color),
+                  "&.Mui-expanded": { minHeight: 48 },
+                })}
               >
-                <Box display="flex" alignItems="center" gap={1} width="100%">
-                  {getCategoryIcon(categoryKey)}
-                  <Typography variant="h6" sx={{ flexGrow: 1 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    width: "100%",
+                    minWidth: 0,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <Box sx={{ color: "text.secondary", display: "flex" }}>{getCategoryIcon(categoryKey)}</Box>
+                  <Typography variant="subtitle2" sx={{ flex: "1 1 140px", minWidth: 0, fontWeight: 600 }}>
                     {categoryData.name || categoryKey}
                   </Typography>
                   <Chip
@@ -1981,75 +2081,285 @@ const SettingsPage = () => {
                     label={statusDisplay.label}
                     color={statusDisplay.color}
                     size="small"
-                    variant="filled"
+                    variant="outlined"
                   />
-                  <Typography variant="body2" color="text.secondary">
-                    {categoryData.duration?.toFixed(2)}s
-                  </Typography>
+                  {categoryData.duration != null && (
+                    <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>
+                      {categoryData.duration.toFixed(2)}s
+                    </Typography>
+                  )}
                 </Box>
               </AccordionSummary>
-              <AccordionDetails>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  {categoryData.summary}
-                </Typography>
+              <AccordionDetails sx={{ pt: 0, px: 1.5, pb: 1.5, bgcolor: "background.default" }}>
+                {categoryData.summary && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, wordBreak: "break-word" }}>
+                    {categoryData.summary}
+                  </Typography>
+                )}
 
-                {/* Individual Test Results */}
                 {categoryData.tests && categoryData.tests.length > 0 && (
-                  <TableContainer component={Paper} variant="outlined" sx={{ mt: 1 }}>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Status</TableCell>
-                          <TableCell>Test</TableCell>
-                          <TableCell>Duration</TableCell>
-                          <TableCell>Details</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {categoryData.tests.map((test, index) => {
-                          const testStatus = getStatusDisplay(test.status);
-                          return (
-                            <TableRow key={index}>
-                              <TableCell>
-                                <Chip
-                                  icon={testStatus.icon}
-                                  label={testStatus.label}
-                                  color={testStatus.color}
-                                  size="small"
-                                  variant="outlined"
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                                  {test.name.replace(/^.*\//, '')}
+                  <Stack spacing={1} sx={{ mt: 0.5 }}>
+                    {categoryData.tests.map((test, index) => {
+                      const testStatus = getStatusDisplay(test.status);
+                      const shortName = (test.name || "").replace(/^.*\//, "");
+                      return (
+                        <Paper
+                          key={index}
+                          variant="outlined"
+                          sx={{
+                            p: 1.25,
+                            borderRadius: 1,
+                            bgcolor: "background.paper",
+                            borderColor: "divider",
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              alignItems: "flex-start",
+                              gap: 1,
+                              minWidth: 0,
+                            }}
+                          >
+                            <Chip
+                              icon={testStatus.icon}
+                              label={testStatus.label}
+                              color={testStatus.color}
+                              size="small"
+                              variant="outlined"
+                              sx={{ flexShrink: 0 }}
+                            />
+                            <Box sx={{ flex: "1 1 200px", minWidth: 0 }}>
+                              <Typography
+                                variant="body2"
+                                component="div"
+                                sx={{
+                                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                                  fontSize: "0.8rem",
+                                  wordBreak: "break-word",
+                                  overflowWrap: "anywhere",
+                                }}
+                              >
+                                {shortName || test.name || "Unnamed test"}
+                              </Typography>
+                              {test.duration != null && (
+                                <Typography variant="caption" color="text.secondary">
+                                  {test.duration.toFixed(2)}s
                                 </Typography>
-                              </TableCell>
-                              <TableCell>
-                                <Typography variant="body2">
-                                  {test.duration?.toFixed(2)}s
+                              )}
+                            </Box>
+                          </Box>
+                          {(test.details || test.error_message) && (
+                            <Box sx={{ mt: 1, pt: 1, borderTop: 1, borderColor: "divider" }}>
+                              {test.details && (
+                                <Typography variant="body2" color="text.secondary" sx={{ wordBreak: "break-word" }}>
+                                  {test.details}
                                 </Typography>
-                              </TableCell>
-                              <TableCell>
-                                <Typography variant="body2" color="text.secondary">
-                                  {test.details || '-'}
-                                  {test.error_message && (
-                                    <Typography variant="caption" color="error" display="block">
-                                      {test.error_message}
-                                    </Typography>
-                                  )}
+                              )}
+                              {test.error_message && (
+                                <Typography variant="caption" color="error" component="div" sx={{ mt: 0.5, wordBreak: "break-word" }}>
+                                  {test.error_message}
                                 </Typography>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
+                              )}
+                            </Box>
+                          )}
+                        </Paper>
+                      );
+                    })}
+                  </Stack>
                 )}
               </AccordionDetails>
             </Accordion>
           );
         })}
+      </Box>
+    );
+  };
+
+  const renderLegacyDiagnosticsCards = (ds) => (
+    <Stack spacing={1} sx={{ mt: 1.5 }}>
+      {systemCheckItems.map((item) => {
+        const val = ds[item.key];
+        const details = val !== undefined ? item.format(val, ds) : "N/A";
+        return (
+          <Paper
+            key={item.key}
+            variant="outlined"
+            sx={{
+              p: 1.25,
+              borderRadius: 1,
+              bgcolor: "background.paper",
+              borderColor: "divider",
+            }}
+          >
+            <Box sx={{ display: "flex", gap: 1.25, alignItems: "flex-start", minWidth: 0 }}>
+              <Box sx={{ color: "text.secondary", display: "flex", flexShrink: 0, pt: 0.25 }}>
+                {item.icon ? React.cloneElement(item.icon, { fontSize: "small" }) : renderStatusIcon(val, details)}
+              </Box>
+              <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Typography variant="body2" fontWeight={600} sx={{ wordBreak: "break-word" }}>
+                  {item.label}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, wordBreak: "break-word", overflowWrap: "anywhere" }}>
+                  {details}
+                </Typography>
+              </Box>
+            </Box>
+          </Paper>
+        );
+      })}
+    </Stack>
+  );
+
+  const renderTestSuitePanel = (suite) => {
+    if (!suite || typeof suite !== "object") return null;
+    const rc = suite.returncode;
+    const passed = rc === 0 || rc === 4 || rc === 5;
+    const summary = suite.summary || {};
+    const counts = summary.counts || {};
+    const failures = Array.isArray(summary.failures) ? summary.failures : [];
+    const stdout = typeof suite.stdout === "string" ? suite.stdout : "";
+    const stderr = typeof suite.stderr === "string" ? suite.stderr : "";
+
+    return (
+      <Box
+        mt={2}
+        sx={{
+          width: "100%",
+          minWidth: 0,
+          p: 1.5,
+          borderRadius: 1,
+          border: 1,
+          borderColor: "divider",
+          bgcolor: (theme) => alpha(theme.palette.action.hover, theme.palette.mode === "dark" ? 0.35 : 0.6),
+        }}
+      >
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, alignItems: "center" }}>
+          <Chip label={passed ? "Suite passed" : "Suite failed"} color={passed ? "success" : "error"} size="small" variant="outlined" />
+          <Chip label={`Exit ${rc ?? "?"}`} size="small" variant="outlined" />
+          {typeof counts.passed === "number" && (
+            <Chip label={`${counts.passed} passed`} size="small" variant="outlined" />
+          )}
+          {typeof counts.failed === "number" && counts.failed > 0 && (
+            <Chip label={`${counts.failed} failed`} size="small" color="error" variant="outlined" />
+          )}
+          {typeof counts.errors === "number" && counts.errors > 0 && (
+            <Chip label={`${counts.errors} errors`} size="small" color="warning" variant="outlined" />
+          )}
+          {typeof counts.skipped === "number" && counts.skipped > 0 && (
+            <Chip label={`${counts.skipped} skipped`} size="small" variant="outlined" />
+          )}
+        </Box>
+
+        {suite.log_path && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1, wordBreak: "break-all" }}>
+            Log: {suite.log_path}
+          </Typography>
+        )}
+
+        {failures.length > 0 && (
+          <Box sx={{ mt: 1.5 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              Failure details
+            </Typography>
+            <Stack spacing={1} sx={{ mt: 1 }}>
+              {failures.map((block, i) => (
+                <Paper
+                  key={i}
+                  variant="outlined"
+                  sx={{
+                    p: 1,
+                    borderRadius: 1,
+                    bgcolor: "background.paper",
+                    borderColor: "error.dark",
+                    maxHeight: 220,
+                    overflow: "auto",
+                  }}
+                >
+                  <Typography
+                    component="pre"
+                    variant="caption"
+                    sx={{
+                      m: 0,
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                      fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                      fontSize: "0.7rem",
+                    }}
+                  >
+                    {block}
+                  </Typography>
+                </Paper>
+              ))}
+            </Stack>
+          </Box>
+        )}
+
+        {(stdout || stderr) && (
+          <>
+            <Divider sx={{ my: 1.5 }} />
+            <Button size="small" variant="text" onClick={() => setTestSuiteOutputOpen((o) => !o)} sx={{ textTransform: "none", p: 0, minWidth: 0 }}>
+              {testSuiteOutputOpen ? "Hide raw output" : "Show raw output"}
+            </Button>
+            <Collapse in={testSuiteOutputOpen}>
+              {stderr ? (
+                <Box sx={{ mt: 1 }}>
+                  <Typography variant="caption" color="error" sx={{ fontWeight: 600 }}>
+                    stderr
+                  </Typography>
+                  <Typography
+                    component="pre"
+                    variant="caption"
+                    sx={{
+                      display: "block",
+                      mt: 0.5,
+                      p: 1,
+                      borderRadius: 1,
+                      bgcolor: "action.hover",
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                      overflowWrap: "anywhere",
+                      fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                      fontSize: "0.7rem",
+                      maxHeight: 240,
+                      overflow: "auto",
+                    }}
+                  >
+                    {stderr}
+                  </Typography>
+                </Box>
+              ) : null}
+              {stdout ? (
+                <Box sx={{ mt: stderr ? 1.5 : 1 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                    stdout
+                  </Typography>
+                  <Typography
+                    component="pre"
+                    variant="caption"
+                    sx={{
+                      display: "block",
+                      mt: 0.5,
+                      p: 1,
+                      borderRadius: 1,
+                      bgcolor: "action.hover",
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                      overflowWrap: "anywhere",
+                      fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                      fontSize: "0.7rem",
+                      maxHeight: 280,
+                      overflow: "auto",
+                    }}
+                  >
+                    {stdout}
+                  </Typography>
+                </Box>
+              ) : null}
+            </Collapse>
+          </>
+        )}
       </Box>
     );
   };
@@ -2075,7 +2385,90 @@ const SettingsPage = () => {
             Updates Available — {interconnectorPendingCount} Interconnector update{interconnectorPendingCount !== 1 ? "s" : ""} pending — click to review
           </MuiAlert>
         )}
-        <Box sx={{ display: "flex", flexWrap: "wrap", gap: "20px", "& > *": { width: 840, flexShrink: 0 } }}>
+        {interconnectorUpdateStatus?.available && (
+          <Box
+            onClick={() => setInterconnectorModalOpen(true)}
+            sx={{
+              bgcolor: "#FFD700",
+              borderRadius: 1,
+              px: 2,
+              py: 1,
+              mb: 2,
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
+              cursor: "pointer",
+              "&:hover": { bgcolor: "#E6C200" },
+            }}
+          >
+            <FileDownloadIcon sx={{ fontSize: 22, color: "#000" }} />
+            <Typography variant="body2" sx={{ color: "#000", fontWeight: 600 }}>
+              {interconnectorUpdateStatus.count} Code Update{interconnectorUpdateStatus.count !== 1 ? "s" : ""} Available
+            </Typography>
+            <Box display="flex" gap={0.5} ml={0.5}>
+              {interconnectorUpdateStatus.summary?.backend > 0 && (
+                <Chip
+                  label={`${interconnectorUpdateStatus.summary.backend} backend`}
+                  size="small"
+                  sx={{
+                    bgcolor: "rgba(0,0,0,0.15)",
+                    color: "#000",
+                    borderRadius: 1,
+                    height: 20,
+                    "& .MuiChip-label": { px: 0.75, fontSize: "0.7rem" },
+                  }}
+                />
+              )}
+              {interconnectorUpdateStatus.summary?.frontend > 0 && (
+                <Chip
+                  label={`${interconnectorUpdateStatus.summary.frontend} frontend`}
+                  size="small"
+                  sx={{
+                    bgcolor: "rgba(0,0,0,0.15)",
+                    color: "#000",
+                    borderRadius: 1,
+                    height: 20,
+                    "& .MuiChip-label": { px: 0.75, fontSize: "0.7rem" },
+                  }}
+                />
+              )}
+              {interconnectorUpdateStatus.summary?.other > 0 && (
+                <Chip
+                  label={`${interconnectorUpdateStatus.summary.other} other`}
+                  size="small"
+                  sx={{
+                    bgcolor: "rgba(0,0,0,0.15)",
+                    color: "#000",
+                    borderRadius: 1,
+                    height: 20,
+                    "& .MuiChip-label": { px: 0.75, fontSize: "0.7rem" },
+                  }}
+                />
+              )}
+            </Box>
+            <Typography variant="caption" sx={{ color: "rgba(0,0,0,0.6)", ml: "auto" }}>
+              Click to review
+            </Typography>
+            <Button
+              variant="contained"
+              size="small"
+              disabled={interconnectorApplying}
+              onClick={handleApplyInterconnectorUpdates}
+              sx={{
+                ml: 1,
+                bgcolor: "#000",
+                color: "#FFD700",
+                fontWeight: 700,
+                letterSpacing: 0.5,
+                minWidth: 88,
+                "&:hover": { bgcolor: "#222" },
+              }}
+            >
+              {interconnectorApplying ? "UPDATING..." : "UPDATE"}
+            </Button>
+          </Box>
+        )}
+        <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "20px", "& > *": { flex: "0 1 798px", minWidth: 560 } }}>
           <SettingsCardWrapper title="System">
               <SettingsRow label="Profile">
                 <input
@@ -2536,6 +2929,9 @@ const SettingsPage = () => {
                   <Button variant="outlined" size="small" onClick={() => setImageModelsModalOpen(true)}>
                     Image Models
                   </Button>
+                  <Button variant="outlined" size="small" onClick={() => setInfographicModelsModalOpen(true)}>
+                    Infographic Models
+                  </Button>
                   <Button variant="outlined" size="small" onClick={() => setVideoModelsModalOpen(true)}>
                     Video Models
                   </Button>
@@ -2550,6 +2946,53 @@ const SettingsPage = () => {
                   Open
                 </Button>
               </SettingsRow>
+              <SettingsRow label="Rules">
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Chip
+                    label={rulesEnabled ? "On" : "Off"}
+                    onClick={async () => {
+                      const next = !rulesEnabled;
+                      // Optimistic UI + localStorage mirror; roll back on failure.
+                      setRulesEnabledState(next);
+                      try {
+                        localStorage.setItem(RULES_ENABLED_KEY, String(next));
+                      } catch {
+                        // non-fatal
+                      }
+                      try {
+                        const result = await apiService.setRulesEnabled(next);
+                        if (result?.error) throw new Error(result.error);
+                        showMessage(
+                          next
+                            ? "Rules enabled — RulesPage active rules will apply"
+                            : "Rules disabled — chat will use the hardcoded prompt",
+                          "info",
+                        );
+                      } catch (err) {
+                        console.error("Failed to update rules_enabled:", err);
+                        setRulesEnabledState(!next);
+                        try {
+                          localStorage.setItem(RULES_ENABLED_KEY, String(!next));
+                        } catch {
+                          // non-fatal
+                        }
+                        showMessage("Failed to update Rules setting", "error");
+                      }
+                    }}
+                    size="small"
+                    color={rulesEnabled ? "primary" : "default"}
+                    variant={rulesEnabled ? "filled" : "outlined"}
+                  />
+                  <Typography
+                    component="button"
+                    variant="body2"
+                    onClick={() => navigate("/rules")}
+                    sx={{ background: "none", border: "none", cursor: "pointer", color: "primary.main", textDecoration: "underline" }}
+                  >
+                    Manage
+                  </Typography>
+                </Box>
+              </SettingsRow>
           </SettingsCardWrapper>
 
           <SettingsCardWrapper title="RAG Performance">
@@ -2558,6 +3001,14 @@ const SettingsPage = () => {
 
           <SettingsCardWrapper title="Uncle Claude">
               <UncleClaudeSection compact />
+          </SettingsCardWrapper>
+
+          <SettingsCardWrapper title="Agent Memory">
+              <MemoryManagementSection />
+          </SettingsCardWrapper>
+
+          <SettingsCardWrapper title="Agent Display">
+              <AgentDisplaySection showMessage={showMessage} />
           </SettingsCardWrapper>
 
           <SettingsCardWrapper title="Data">
@@ -2645,50 +3096,37 @@ const SettingsPage = () => {
               </SettingsRow>
           </SettingsCardWrapper>
 
-          <SettingsCardWrapper title="Maintenance">
+          <SettingsCardWrapper title="Maintenance" sx={{ overflow: "visible" }}>
               <SettingsRow label="Clear Cache">
                 <Button variant="outlined" size="small" onClick={handleClearPycacheFoldersClick} disabled={isLoading}>Clear Cache</Button>
               </SettingsRow>
-              <SettingsRow label="Diagnostics">
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              <SettingsRow label="Diagnostics" stacked>
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1, width: "100%", minWidth: 0 }}>
                   <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
                     <Button variant={isTesting && testMode === "basic" ? "contained" : "outlined"} size="small" onClick={() => handleRunSystemCheck("basic")} disabled={isLoading || isTesting}>Basic</Button>
                     <Button variant={isTesting && testMode === "quick" ? "contained" : "outlined"} size="small" onClick={() => handleRunSystemCheck("quick")} disabled={isLoading || isTesting}>Quick</Button>
                     <Button variant={isTesting && testMode === "comprehensive" ? "contained" : "outlined"} size="small" onClick={() => handleRunSystemCheck("comprehensive")} disabled={isLoading || isTesting}>Full</Button>
                   </Box>
                   {testResults && (
-                    <Box mt={2} p={2} border={1} borderColor="divider" borderRadius={1}>
+                    <Box
+                      sx={{
+                        mt: 1,
+                        p: 1.5,
+                        border: 1,
+                        borderColor: "divider",
+                        borderRadius: 1,
+                        width: "100%",
+                        minWidth: 0,
+                        bgcolor: (theme) => alpha(theme.palette.action.hover, theme.palette.mode === "dark" ? 0.25 : 0.5),
+                      }}
+                    >
                       {testResults.error && typeof testResults.error === "string" ? (
                         <MuiAlert severity="error">{testResults.error}</MuiAlert>
                       ) : (
                         <>
                           {testResults.categories && renderCategorizedResults(testResults)}
                           {(testResults.legacy_diagnostics || (!testResults.categories && testResults)) && (
-                            <TableContainer component={Paper} variant="outlined" sx={{ mt: 2 }}>
-                              <Table size="small">
-                                <TableHead>
-                                  <TableRow>
-                                    <TableCell></TableCell>
-                                    <TableCell>Component</TableCell>
-                                    <TableCell>Status</TableCell>
-                                  </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                  {systemCheckItems.map((item) => {
-                                    const ds = testResults.legacy_diagnostics || testResults;
-                                    const val = ds[item.key];
-                                    const details = val !== undefined ? item.format(val, ds) : "N/A";
-                                    return (
-                                      <TableRow key={item.key}>
-                                        <TableCell>{item.icon ? React.cloneElement(item.icon, { fontSize: "small" }) : renderStatusIcon(val, details)}</TableCell>
-                                        <TableCell component="th">{item.label}</TableCell>
-                                        <TableCell>{details}</TableCell>
-                                      </TableRow>
-                                    );
-                                  })}
-                                </TableBody>
-                              </Table>
-                            </TableContainer>
+                            renderLegacyDiagnosticsCards(testResults.legacy_diagnostics || testResults)
                           )}
                         </>
                       )}
@@ -2696,21 +3134,21 @@ const SettingsPage = () => {
                   )}
                 </Box>
               </SettingsRow>
-              <SettingsRow label="Tests">
-                <Button variant="outlined" size="small" onClick={handleRunAllTests} disabled={isRunningTests}>
-                  {isRunningTests ? "Running..." : "Run Tests"}
-                </Button>
-                {testSuiteResults && (
-                  <Box mt={2}>
-                    {testSuiteResults.error ? (
-                      <MuiAlert severity="error">{testSuiteResults.error}</MuiAlert>
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">
-                        Return code: {testSuiteResults.returncode}
-                      </Typography>
-                    )}
-                  </Box>
-                )}
+              <SettingsRow label="Tests" stacked>
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1, width: "100%", minWidth: 0 }}>
+                  <Button variant="outlined" size="small" onClick={handleRunAllTests} disabled={isRunningTests} sx={{ alignSelf: "flex-start" }}>
+                    {isRunningTests ? "Running..." : "Run Tests"}
+                  </Button>
+                  {testSuiteResults && (
+                    <Box sx={{ width: "100%", minWidth: 0 }}>
+                      {testSuiteResults.error ? (
+                        <MuiAlert severity="error">{testSuiteResults.error}</MuiAlert>
+                      ) : (
+                        renderTestSuitePanel(testSuiteResults)
+                      )}
+                    </Box>
+                  )}
+                </Box>
               </SettingsRow>
               <SettingsRow label="Developer" stacked>
                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
@@ -2884,6 +3322,11 @@ const SettingsPage = () => {
             .then(data => data.success && setImageGenStatus(data.data))
             .catch(console.error);
         }}
+        showMessage={showMessage}
+      />
+      <InfographicModelsModal
+        open={infographicModelsModalOpen}
+        onClose={() => setInfographicModelsModalOpen(false)}
         showMessage={showMessage}
       />
       <VideoModelsModal

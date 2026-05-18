@@ -1,8 +1,9 @@
 
-import React, { Suspense, lazy, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
+import React, { Suspense, lazy } from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import useNavigationCancel from "./hooks/useNavigationCancel";
 import useGpuIntent from "./hooks/useGpuIntent";
+import useKeyboardForwarding from "./hooks/useKeyboardForwarding";
 import {
   ThemeProvider as MuiThemeProvider,
   CssBaseline,
@@ -25,6 +26,7 @@ import NotFoundPage from "./pages/NotFoundPage";
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const ProjectsPage = lazy(() => import("./pages/ProjectsPage"));
 const TaskPage = lazy(() => import("./pages/TaskPage"));
+const ActivityPage = lazy(() => import("./pages/ActivityPage"));
 const DocumentsPage = lazy(() => import("./pages/DocumentsPage"));
 const RulesPage = lazy(() => import("./pages/RulesPage"));
 const ToolsPage = lazy(() => import("./pages/ToolsPage"));
@@ -35,9 +37,11 @@ const ProjectDetailPage = lazy(() => import("./pages/ProjectDetailPage"));
 const ClientPage = lazy(() => import("./pages/ClientPage"));
 const UploadPage = lazy(() => import("./pages/UploadPage"));
 const TrainingPage = lazy(() => import("./pages/TrainingPage"));
-const BatchImageGeneratorPage = lazy(() => import("./pages/BatchImageGeneratorPage"));
 const ImagesPage = lazy(() => import("./pages/ImagesPage"));
+const AudioFoundryPage = lazy(() => import("./pages/AudioFoundryPage"));
 const VideoGeneratorPage = lazy(() => import("./pages/VideoGeneratorPage"));
+const VideoTextOverlayPage = lazy(() => import("./pages/VideoTextOverlayPage"));
+const VideoEditorPage = lazy(() => import("./pages/VideoEditorPage"));
 const BulkImportDocumentsPage = lazy(() => import("./pages/BulkImportDocumentsPage"));
 const CodeEditorPage = lazy(() => import("./pages/CodeEditorPage"));
 const ContentLibraryPage = lazy(() => import("./pages/ContentLibraryPage"));
@@ -47,14 +51,18 @@ const WordPressPagesPage = lazy(() => import("./pages/WordPressPagesPage"));
 const StickyNotesPage = lazy(() => import("./pages/StickyNotesPage"));
 const DevToolsPage = lazy(() => import("./pages/DevToolsPage"));
 const PluginsPage = lazy(() => import("./pages/PluginsPage"));
+const SwarmPage = lazy(() => import("./pages/SwarmPage"));
+const OutreachPage = lazy(() => import("./pages/OutreachPage"));
 const VoiceChatPage = lazy(() => import("./pages/VoiceChatPage"));
+const SystemMapPage = lazy(() => import("./pages/SystemMapPage"));
+const FilmCrewPage = lazy(() => import("./pages/FilmCrewPage"));
 import Sidebar from "./components/layout/Sidebar";
 import ProgressFooterBar from "./components/layout/ProgressFooterBar";
 import { StatusProvider } from "./contexts/StatusContext";
 import { SnackbarProvider } from "./components/common/SnackbarProvider";
 import { ErrorProvider } from "./components/common/ErrorProvider";
 import ErrorBoundary from "./components/common/ErrorBoundary";
-import { LayoutProvider, useLayout } from "./contexts/LayoutContext";
+import { LayoutProvider } from "./contexts/LayoutContext";
 import { UnifiedProgressProvider } from './contexts/UnifiedProgressContext';
 import { VoiceProvider } from "./contexts/VoiceContext";
 import FloatingChatProvider from "./components/chat/FloatingChatProvider";
@@ -71,7 +79,6 @@ const AppLayout = ({ children }) => {
   // Signal GPU orchestrator on page navigation for predictive model loading
   useGpuIntent();
 
-  const { showFooter } = useLayout();
   const sidebarExpanded = useAppStore((state) => state.sidebarExpanded);
   const drawerWidth = sidebarExpanded ? spacing.sidebarExpanded : spacing.sidebarCollapsed;
 
@@ -123,6 +130,10 @@ const AppContainer = () => {
   const theme = themes[themeName]?.theme || themes["guaardvark"].theme;
   const fetchSystemInfo = useAppStore((state) => state.fetchSystemInfo);
   const systemName = useAppStore((state) => state.systemName);
+
+  // Route keystrokes to DISPLAY=:99 when the user flips the toggle on either
+  // floater. No-op when disabled.
+  useKeyboardForwarding();
 
   React.useEffect(() => {
     fetchSystemInfo();
@@ -236,6 +247,16 @@ const AppContainer = () => {
                         }
                       />
                       <Route
+                        path="/activity"
+                        element={
+                          <AppLayout>
+                            <ErrorBoundary>
+                              <ActivityPage />
+                            </ErrorBoundary>
+                          </AppLayout>
+                        }
+                      />
+                      <Route
                         path="/projects"
                         element={
                           <AppLayout>
@@ -278,11 +299,41 @@ const AppContainer = () => {
                         }
                       />
                       <Route
+                        path="/audio"
+                        element={
+                          <AppLayout>
+                            <ErrorBoundary>
+                              <AudioFoundryPage />
+                            </ErrorBoundary>
+                          </AppLayout>
+                        }
+                      />
+                      <Route
                         path="/video"
                         element={
                           <AppLayout>
                             <ErrorBoundary>
                               <VideoGeneratorPage />
+                            </ErrorBoundary>
+                          </AppLayout>
+                        }
+                      />
+                      <Route
+                        path="/video-text-overlay"
+                        element={
+                          <AppLayout>
+                            <ErrorBoundary>
+                              <VideoTextOverlayPage />
+                            </ErrorBoundary>
+                          </AppLayout>
+                        }
+                      />
+                      <Route
+                        path="/video-editor"
+                        element={
+                          <AppLayout>
+                            <ErrorBoundary>
+                              <VideoEditorPage />
                             </ErrorBoundary>
                           </AppLayout>
                         }
@@ -384,6 +435,26 @@ const AppContainer = () => {
                         }
                       />
                       <Route
+                        path="/swarm"
+                        element={
+                          <AppLayout>
+                            <ErrorBoundary>
+                              <SwarmPage />
+                            </ErrorBoundary>
+                          </AppLayout>
+                        }
+                      />
+                      <Route
+                        path="/film-crew"
+                        element={
+                          <AppLayout>
+                            <ErrorBoundary>
+                              <FilmCrewPage />
+                            </ErrorBoundary>
+                          </AppLayout>
+                        }
+                      />
+                      <Route
                         path="/code-editor"
                         element={
                           <AppLayout>
@@ -432,6 +503,26 @@ const AppContainer = () => {
                         element={
                           <AppLayout>
                             <WordPressPagesPage />
+                          </AppLayout>
+                        }
+                      />
+                      <Route
+                        path="/outreach"
+                        element={
+                          <AppLayout>
+                            <ErrorBoundary>
+                              <OutreachPage />
+                            </ErrorBoundary>
+                          </AppLayout>
+                        }
+                      />
+                      <Route
+                        path="/system-map"
+                        element={
+                          <AppLayout>
+                            <ErrorBoundary>
+                              <SystemMapPage />
+                            </ErrorBoundary>
                           </AppLayout>
                         }
                       />

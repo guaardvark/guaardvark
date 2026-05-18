@@ -13,8 +13,6 @@ import {
   CircularProgress,
   Paper,
   Button,
-  Grid,
-  Divider,
   Link,
   Tabs,
   Tab,
@@ -26,7 +24,6 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
-  ListItemSecondaryAction,
   Tooltip,
   useTheme,
   Dialog,
@@ -181,7 +178,7 @@ const ProjectEditModal = ({
 const ProjectDetailPage = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
-  const theme = useTheme();
+  const _theme = useTheme();
   const { showMessage } = useSnackbar();
   const { activeModel, isLoadingModel, modelError } = useStatus();
 
@@ -396,7 +393,7 @@ const ProjectDetailPage = () => {
     }
   };
 
-  const handleOpenProjectEditModal = () => setIsProjectEditModalOpen(true);
+  const _handleOpenProjectEditModal = () => setIsProjectEditModalOpen(true);
   const handleCloseProjectEditModal = () => {
     if (!isSavingProject) setIsProjectEditModalOpen(false);
   };

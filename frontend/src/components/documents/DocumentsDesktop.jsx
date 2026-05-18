@@ -15,15 +15,15 @@ const DocumentsDesktop = ({
   folderColors,
   selectedItems,
   onSelectionChange,
-  onContextMenu,
+  _onContextMenu,
   openWindowFolderIds = [],
 }) => {
   const { showMessage } = useSnackbar();
   const [items, setItems] = useState({ folders: [], files: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [draggedItem, setDraggedItem] = useState(null);
-  const [draggedItems, setDraggedItems] = useState([]);
+  const [_draggedItem, setDraggedItem] = useState(null);
+  const [_draggedItems, setDraggedItems] = useState([]);
   const [dropTarget, setDropTarget] = useState(null);
   const hasGeneratedLayout = useRef(false);
 
@@ -115,7 +115,7 @@ const DocumentsDesktop = ({
   };
 
   // Handle drag leave
-  const handleDragLeave = () => {
+  const _handleDragLeave = () => {
     setDropTarget(null);
   };
 
@@ -131,7 +131,7 @@ const DocumentsDesktop = ({
 
       // Move each item
       for (const item of itemsToMove) {
-        const destinationPath = `${targetFolder.path}/${item.name || item.filename}`;
+        const _destinationPath = `${targetFolder.path}/${item.name || item.filename}`;
 
         if (item.itemType === 'folder') {
           // Move folder

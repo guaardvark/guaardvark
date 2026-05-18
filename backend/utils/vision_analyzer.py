@@ -41,10 +41,9 @@ class VisionAnalyzer:
     access without blocking video chat or other vision consumers.
     """
 
-    # Vision models to try in order — qwen3-vl first (moondream fails on dark UIs)
+    # Vision models to try in order — gemma4 first (unified brain), moondream as fallback
     _VISION_MODEL_PRIORITY = [
-        "qwen3-vl:2b-instruct",
-        "qwen3-vl:8b",
+        "gemma4:e4b",
         "moondream:latest",
         "llava:latest",
     ]
@@ -54,7 +53,7 @@ class VisionAnalyzer:
         ollama_url: str = None,
         default_model: str = None,
         max_width: int = 1024,
-        timeout: int = 30,
+        timeout: int = 90,
     ):
         self.ollama_url = ollama_url or OLLAMA_BASE_URL
         self.default_model = default_model or self._detect_vision_model()
@@ -62,20 +61,49 @@ class VisionAnalyzer:
         self.timeout = timeout
 
     def _detect_vision_model(self) -> str:
-        """Auto-detect best available vision model from Ollama."""
+        """Auto-detect best available vision model from Ollama.
+        
+        Prioritizes:
+        1. Any vision-capable model ALREADY in VRAM (/api/ps)
+        2. Configured gemma4 if available
+        3. Hardcoded priority list (gemma4, moondream)
+        """
         try:
-            response = requests.get(f"{self.ollama_url}/api/tags", timeout=5)
-            if response.status_code == 200:
-                available = {m["name"] for m in response.json().get("models", [])}
+            # 1. Check what's ALREADY in VRAM. If a vision model is active, USE IT.
+            # This prevents loading a second model and blowing up VRAM.
+            from backend.services.servo_knowledge_store import get_vision_config
+            
+            ps_resp = requests.get(f"{self.ollama_url}/api/ps", timeout=3)
+            active_names = []
+            if ps_resp.status_code == 200:
+                active_names = [m["name"] for m in ps_resp.json().get("models", [])]
+                for active in active_names:
+                    # Check if this active model is known to have vision
+                    config = get_vision_config(active)
+                    if config.get("has_vision", False):
+                        logger.info(f"[VISION] Using active vision model from VRAM: {active}")
+                        return active
+
+            # 2. Not in VRAM? Check what's available to tag and pick from priority list
+            tags_resp = requests.get(f"{self.ollama_url}/api/tags", timeout=5)
+            if tags_resp.status_code == 200:
+                available = {m["name"] for m in tags_resp.json().get("models", [])}
+                
+                # Dynamic priority: check gemma4 first (our primary brain)
+                if "gemma4:e4b" in available:
+                    return "gemma4:e4b"
+                    
+                # Then check the fallback list
                 for model in self._VISION_MODEL_PRIORITY:
                     if model in available:
                         logger.info(f"[VISION] Auto-detected vision model: {model}")
                         return model
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Vision detection error: {e}")
             pass
         return "moondream:latest"  # Final fallback
 
-    def text_query(self, prompt: str, model: str = None) -> VisionResult:
+    def text_query(self, prompt: str, model: str = None, think: bool = False) -> VisionResult:
         """
         Query a text LLM (no image) for reasoning/decision-making.
 
@@ -87,6 +115,7 @@ class VisionAnalyzer:
         Args:
             prompt: Text prompt (includes scene description from vision model)
             model: Ollama text model name (default: auto-detect from active models)
+            think: Allow thinking tokens (default: False)
 
         Returns:
             VisionResult with the LLM's text response
@@ -97,13 +126,17 @@ class VisionAnalyzer:
             import time
             start = time.time()
 
+            request_body = {
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+                "stream": False,
+            }
+            if not think:
+                request_body["think"] = False
+
             response = requests.post(
                 f"{self.ollama_url}/api/chat",
-                json={
-                    "model": model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "stream": False,
-                },
+                json=request_body,
                 timeout=self.timeout,
             )
 
@@ -144,12 +177,12 @@ class VisionAnalyzer:
                 override = os.environ.get("GUAARDVARK_DECISION_MODEL")
                 if override and override in models:
                     return override
-                for preferred in ["qwen3.5:9b", "qwen3:8b", "qwen3:latest", "llama3.1:8b",
+                for preferred in ["gemma4:e4b", "llama3.1:8b",
                                   "llama3:8b", "llama3:latest", "mistral:latest", "gemma2:latest"]:
                     if preferred in models:
                         return preferred
                 # Fall back to any non-vision model
-                vision_patterns = ["moondream", "llava", "bakllava", "qwen-vl"]
+                vision_patterns = ["moondream", "llava", "bakllava", "gemma4"]
                 for m in models:
                     if not any(vp in m.lower() for vp in vision_patterns):
                         return m
@@ -174,7 +207,7 @@ class VisionAnalyzer:
             image = image.resize((self.max_width, new_height), Image.LANCZOS)
 
         buffer = BytesIO()
-        image.convert("RGB").save(buffer, format="JPEG", quality=70)
+        image.convert("RGB").save(buffer, format="JPEG", quality=90)
         return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
     def analyze(
@@ -184,6 +217,8 @@ class VisionAnalyzer:
         model: str = None,
         num_predict: int = 256,
         temperature: float = 0.3,
+        think: bool = False,
+        system: Optional[str] = None,
     ) -> VisionResult:
         """
         Analyze an image using an Ollama vision model.
@@ -194,6 +229,13 @@ class VisionAnalyzer:
             model: Ollama model name (default: self.default_model)
             num_predict: Max tokens to generate (default: 256)
             temperature: Sampling temperature (default: 0.3)
+            think: Allow thinking tokens (default: False — thinking models
+                   like Gemma4 burn through num_predict on hidden reasoning,
+                   returning empty content)
+            system: Optional system-role content. Used to carry persistent
+                   instructions or knowledge that must not compete with the
+                   per-call user prompt for action-format conditioning. The
+                   agent's cross-session memory rides this slot.
 
         Returns:
             VisionResult with description or error
@@ -205,21 +247,30 @@ class VisionAnalyzer:
             import time
             start = time.time()
 
+            messages = []
+            if system:
+                messages.append({"role": "system", "content": system})
+            messages.append({
+                "role": "user",
+                "content": prompt,
+                "images": [image_b64],
+            })
+
+            request_body = {
+                "model": model,
+                "messages": messages,
+                "stream": False,
+                "options": {
+                    "num_predict": num_predict,
+                    "temperature": temperature,
+                },
+            }
+            if not think:
+                request_body["think"] = False
+
             response = requests.post(
                 f"{self.ollama_url}/api/chat",
-                json={
-                    "model": model,
-                    "messages": [{
-                        "role": "user",
-                        "content": prompt,
-                        "images": [image_b64],
-                    }],
-                    "stream": False,
-                    "options": {
-                        "num_predict": num_predict,
-                        "temperature": temperature,
-                    },
-                },
+                json=request_body,
                 timeout=self.timeout,
             )
 
@@ -261,6 +312,91 @@ class VisionAnalyzer:
                 model_used=model,
             )
 
+    def analyze_fullsize(
+        self,
+        image: Image.Image,
+        prompt: str,
+        model: str = None,
+        num_predict: int = 256,
+        temperature: float = 0.3,
+        think: bool = False,
+    ) -> VisionResult:
+        """Analyze an image WITHOUT resizing — critical for coordinate accuracy.
+
+        The standard analyze() resizes to max_width=1024px. Through Ollama,
+        Gemma4 returns raw pixel coordinates in the image's own space. Resizing
+        makes those coordinates wrong.
+
+        Empirically verified 2026-04-10 (on old 1280x720 screen):
+          Full 1280x720 -> 35px error (HIT)
+          Resized 1024x576 -> 263px error (MISS)
+        With 1024x1024 square screen, box_2d /1024 * 1024 = identity (0px error expected).
+        """
+        model = model or self.default_model
+
+        # Encode WITHOUT resize — just JPEG compress
+        buffer = BytesIO()
+        image.convert("RGB").save(buffer, format="JPEG", quality=90)
+        image_b64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+        try:
+            import time
+            start = time.time()
+
+            request_body = {
+                "model": model,
+                "messages": [{
+                    "role": "user",
+                    "content": prompt,
+                    "images": [image_b64],
+                }],
+                "stream": False,
+                "options": {
+                    "num_predict": num_predict,
+                    "temperature": temperature,
+                },
+            }
+            if not think:
+                request_body["think"] = False
+
+            response = requests.post(
+                f"{self.ollama_url}/api/chat",
+                json=request_body,
+                timeout=self.timeout,
+            )
+
+            elapsed_ms = int((time.time() - start) * 1000)
+
+            if response.status_code != 200:
+                return VisionResult(
+                    success=False,
+                    error=f"Ollama returned {response.status_code}: {response.text[:200]}",
+                    model_used=model,
+                    inference_ms=elapsed_ms,
+                )
+
+            content = response.json().get("message", {}).get("content", "").strip()
+            return VisionResult(
+                description=content,
+                model_used=model,
+                success=True,
+                inference_ms=elapsed_ms,
+            )
+
+        except requests.Timeout:
+            return VisionResult(
+                success=False,
+                error=f"Ollama timed out after {self.timeout}s",
+                model_used=model,
+            )
+        except Exception as e:
+            logger.error(f"Vision analyze_fullsize error: {e}", exc_info=True)
+            return VisionResult(
+                success=False,
+                error=str(e),
+                model_used=model,
+            )
+
     def analyze_base64(
         self,
         image_b64: str,
@@ -268,6 +404,7 @@ class VisionAnalyzer:
         model: str = None,
         num_predict: int = 256,
         temperature: float = 0.3,
+        think: bool = False,
     ) -> VisionResult:
         """
         Analyze an image from raw base64 — bypasses PIL entirely.
@@ -282,6 +419,7 @@ class VisionAnalyzer:
             model: Ollama model name (default: self.default_model)
             num_predict: Max tokens to generate (default: 256)
             temperature: Sampling temperature (default: 0.3)
+            think: Allow thinking tokens (default: False)
 
         Returns:
             VisionResult with description or error
@@ -292,21 +430,25 @@ class VisionAnalyzer:
             import time
             start = time.time()
 
+            request_body = {
+                "model": model,
+                "messages": [{
+                    "role": "user",
+                    "content": prompt,
+                    "images": [image_b64],
+                }],
+                "stream": False,
+                "options": {
+                    "num_predict": num_predict,
+                    "temperature": temperature,
+                },
+            }
+            if not think:
+                request_body["think"] = False
+
             response = requests.post(
                 f"{self.ollama_url}/api/chat",
-                json={
-                    "model": model,
-                    "messages": [{
-                        "role": "user",
-                        "content": prompt,
-                        "images": [image_b64],
-                    }],
-                    "stream": False,
-                    "options": {
-                        "num_predict": num_predict,
-                        "temperature": temperature,
-                    },
-                },
+                json=request_body,
                 timeout=self.timeout,
             )
 

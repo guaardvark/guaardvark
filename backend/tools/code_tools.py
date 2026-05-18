@@ -126,6 +126,21 @@ class CodeGeneratorTool(BaseTool):
                 except Exception as e:
                     logger.warning(f"Failed to read {path}: {e}")
 
+        # Final fallback: maybe the file is a chat upload (Documents row +
+        # bytes under data/uploads/), which none of the paths above check.
+        try:
+            from backend.utils.uploaded_file_resolver import find_uploaded_file
+            uploaded = find_uploaded_file(filepath)
+            if uploaded:
+                content, on_disk = uploaded
+                if content is not None:
+                    return content
+                if on_disk:
+                    with open(on_disk, 'r', encoding='utf-8') as f:
+                        return f.read()
+        except Exception as e:
+            logger.warning(f"Upload fallback failed for {filepath}: {e}")
+
         return None
 
     def execute(self, **kwargs) -> ToolResult:
@@ -313,6 +328,21 @@ class CodeAnalysisTool(BaseTool):
                 except Exception as e:
                     logger.warning(f"Failed to read {path}: {e}")
 
+        # Final fallback: maybe the file is a chat upload (Documents row +
+        # bytes under data/uploads/), which none of the paths above check.
+        try:
+            from backend.utils.uploaded_file_resolver import find_uploaded_file
+            uploaded = find_uploaded_file(filepath)
+            if uploaded:
+                content, on_disk = uploaded
+                if content is not None:
+                    return content
+                if on_disk:
+                    with open(on_disk, 'r', encoding='utf-8') as f:
+                        return f.read()
+        except Exception as e:
+            logger.warning(f"Upload fallback failed for {filepath}: {e}")
+
         return None
 
     def _extract_structure(self, content: str, language: str) -> str:
@@ -342,7 +372,13 @@ class CodeAnalysisTool(BaseTool):
         """Analyze code file"""
         file_path = kwargs.get("file_path")
         analysis_type = kwargs.get("analysis_type", "full")
-        MAX_CONTENT_SIZE = 6000
+        # 48 KB ≈ 12K tokens — fits the vast majority of real source files end
+        # to end while staying inside every backend model's context window.
+        # The old 6 KB ceiling forced a head/tail split so aggressive that the
+        # LLM was effectively reviewing files it hadn't read, and the user
+        # was getting confidently-worded generic advice. That's worse than no
+        # review — bumped here, with stricter guardrails below.
+        MAX_CONTENT_SIZE = 48000
 
         try:
             content = self._read_file(file_path)
@@ -371,15 +407,43 @@ class CodeAnalysisTool(BaseTool):
 
             truncated = False
             structure_summary = ""
+            head_last_line = line_count
+            tail_first_line = line_count + 1
             if len(content) > MAX_CONTENT_SIZE:
                 truncated = True
                 structure_summary = self._extract_structure(content, language)
                 first_portion = int(MAX_CONTENT_SIZE * 0.6)
                 last_portion = int(MAX_CONTENT_SIZE * 0.3)
+                head_text = content[:first_portion]
+                tail_text = content[-last_portion:]
+                head_last_line = head_text.count('\n') + 1
+                tail_first_line = line_count - tail_text.count('\n')
+                omitted_lines = max(tail_first_line - head_last_line - 1, 0)
                 content = (
-                    content[:first_portion] +
-                    f"\n\n... [TRUNCATED: {original_size - MAX_CONTENT_SIZE} chars omitted from middle] ...\n\n" +
-                    content[-last_portion:]
+                    head_text +
+                    f"\n\n... [TRUNCATED: {original_size - MAX_CONTENT_SIZE} chars / "
+                    f"~{omitted_lines} lines omitted. You are seeing lines 1-{head_last_line} "
+                    f"and lines {tail_first_line}-{line_count} only.] ...\n\n" +
+                    tail_text
+                )
+
+            if truncated:
+                integrity_clause = (
+                    "\nSCOPE GUARDRAIL — read this before writing your review:\n"
+                    f"You can see lines 1-{head_last_line} and lines {tail_first_line}-{line_count} of this file.\n"
+                    f"Lines {head_last_line + 1}-{tail_first_line - 1} are NOT visible to you.\n\n"
+                    "Hard rules for your response:\n"
+                    f"1. Open with one line stating the visible range, e.g. \"Reviewed lines 1-{head_last_line} and {tail_first_line}-{line_count}; middle ~{max(tail_first_line - head_last_line - 1, 0)} lines not shown.\"\n"
+                    "2. Every issue you raise must cite a specific line number you can actually see. If you can't cite a line, you can't see it — leave it out.\n"
+                    "3. Do NOT offer generic best-practice advice (\"use structured logging\", \"add type hints\", \"implement retries\", \"use a config object\") unless you observe a concrete instance in the visible code, and you cite the line.\n"
+                    "4. If the user's question can only be answered from the omitted middle, say so explicitly and recommend the user re-run analysis on a narrower scope or read those lines directly.\n"
+                    "5. Better to give 3 grounded observations than 10 plausible-sounding ones. The user is making real changes based on this — half-read advice can break their project.\n"
+                )
+            else:
+                integrity_clause = (
+                    "\nYou have the full file. Every issue you raise must cite a specific line number. "
+                    "Be concrete — point at the actual line, not at the language in general. "
+                    "Do not pad the review with generic best-practice advice that isn't tied to something you actually observed.\n"
                 )
 
             prompt = f"""Analyze this {language} code file.
@@ -393,8 +457,8 @@ SIZE: {original_size} chars, {line_count} lines{' (TRUNCATED for analysis)' if t
 ```
 
 ANALYSIS REQUEST: {analysis_instruction}
-
-Provide a structured analysis with clear sections and actionable insights."""
+{integrity_clause}
+Provide a structured analysis grounded in the visible code, with line citations for every point."""
 
             from backend.utils.llm_service import ChatMessage, MessageRole
             messages = [ChatMessage(role=MessageRole.USER, content=prompt)]

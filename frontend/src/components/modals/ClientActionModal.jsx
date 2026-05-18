@@ -29,7 +29,7 @@ import {
 } from "@mui/material";
 // import CancelIcon from '@mui/icons-material/Cancel'; // Replaced by Button text
 import LinkIcon from "@mui/icons-material/Link";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline"; // For the delete button icon
+import _DeleteOutlineIcon from "@mui/icons-material/DeleteOutline"; // For the delete button icon
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AddIcon from "@mui/icons-material/Add";
 import { getLogoUrl } from "../../config/logoConfig";

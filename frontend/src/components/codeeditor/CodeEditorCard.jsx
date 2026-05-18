@@ -420,7 +420,7 @@ ${currentTab.content}
     }, [currentTab]);
 
     // AI command handler
-    const handleAICommand = useCallback(async (command, selectedText) => {
+    const _handleAICommand = useCallback(async (command, selectedText) => {
       if (!currentTab) return;
 
       const context = {
@@ -462,7 +462,7 @@ ${currentTab.content}
 
     // Expose editor methods via ref for external control
     useImperativeHandle(ref, () => ({
-      applyEdit: (range, newText, description) => {
+      applyEdit: (range, newText, _description) => {
         if (editorRef.current && range) {
           try {
             // Handle both Monaco Range objects and plain objects
@@ -722,6 +722,7 @@ ${currentTab.content}
 
       try {
         const trimmedName = renameValue.trim();
+        // eslint-disable-next-line no-control-regex -- intentional: \x00-\x1f matches OS-illegal filename control chars
         const invalidChars = /[<>:"/\\|?*\x00-\x1f]/;
         if (invalidChars.test(trimmedName)) {
           alert('Filename contains invalid characters. Please use only letters, numbers, spaces, hyphens, and underscores.');

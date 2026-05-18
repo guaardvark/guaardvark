@@ -41,8 +41,6 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import CloseIcon from "@mui/icons-material/Close";
-import ViewModuleIcon from "@mui/icons-material/ViewModule";
-import ViewListIcon from "@mui/icons-material/ViewList";
 import FolderOutlined from "@mui/icons-material/FolderOutlined";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTheme } from "@mui/material/styles";
@@ -67,7 +65,7 @@ const AlertSnackbar = React.forwardRef(function Alert(props, ref) {
 });
 
 // Sorting functions
-import { descendingComparator, getComparator, stableSort } from "../utils/sortUtils";
+import { getComparator, stableSort } from "../utils/sortUtils";
 
 const formatDate = (dateString) => {
   if (!dateString) return "-";

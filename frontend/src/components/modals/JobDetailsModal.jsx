@@ -20,23 +20,14 @@ import {
   Tooltip,
   Alert,
   CircularProgress,
-  Divider,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
 } from "@mui/material";
 import {
   Close as CloseIcon,
-  PlayArrow as PlayIcon,
-  Pause as PauseIcon,
   Stop as StopIcon,
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
-  Schedule as ScheduleIcon,
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
-  Warning as WarningIcon,
   Info as InfoIcon,
 } from "@mui/icons-material";
 import { useUnifiedProgress } from "../../contexts/UnifiedProgressContext";
@@ -51,7 +42,7 @@ const JobDetailsModal = ({
   taskData = null, // Optional task data for context
 }) => {
   const [jobData, setJobData] = useState(null);
-  const [jobHistory, setJobHistory] = useState([]);
+  const [_jobHistory, _setJobHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [actionInProgress, setActionInProgress] = useState(false);
@@ -197,7 +188,7 @@ const JobDetailsModal = ({
     setActionInProgress(true);
     try {
       const taskService = await import("../../api/taskService");
-      const duplicatedTask = await taskService.duplicateTask(taskData.id);
+      const _duplicatedTask = await taskService.duplicateTask(taskData.id);
       
       showMessage("Task duplicated successfully", "success");
       

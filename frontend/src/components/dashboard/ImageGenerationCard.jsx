@@ -14,15 +14,11 @@ import {
   Chip,
   IconButton,
   Tooltip,
-  Avatar,
 } from "@mui/material";
 import {
-  Image,
   Add,
   PlayArrow,
   Refresh,
-  Download,
-  Visibility,
 } from "@mui/icons-material";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import DashboardCardWrapper from "./DashboardCardWrapper";
@@ -40,8 +36,8 @@ const ImageGenerationCard = React.forwardRef(
     ref,
   ) => {
     const [recentGenerations, setRecentGenerations] = useState([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState(null);
+    const [isLoading, _setIsLoading] = useState(false);
+    const [error, _setError] = useState(null);
     const navigate = useNavigate();
 
     const fetchRecentGenerations = useCallback(async () => {

@@ -42,13 +42,76 @@ except Exception:
 
 import json
 import logging
+import warnings
 from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
+
+# ── Silence known-cosmetic dev-only log noise ─────────────────────────────
+# These run at module import so they're in place before any request fires.
+#
+#  1. pydub SyntaxWarnings — invalid escape sequences in the library's own
+#     regex patterns. They're the library's problem, not ours; silence the
+#     noise so voice processing doesn't emit 4 warnings per first-use.
+warnings.filterwarnings("ignore", category=SyntaxWarning, module=r"pydub\..*")
+
+#  2. JAX "TPU not found" + "CUDA-enabled jaxlib not installed" warnings.
+#     JAX gets pulled transitively (llama-index retrievers → some tokenizer)
+#     and logs these on first chat. We don't use JAX; suppress.
+class _JaxBackendNoiseFilter(logging.Filter):
+    def filter(self, record):
+        msg = record.getMessage()
+        return not (
+            "Unable to initialize backend 'tpu'" in msg
+            or "CUDA-enabled jaxlib is not installed" in msg
+        )
+logging.getLogger("jax._src.xla_bridge").addFilter(_JaxBackendNoiseFilter())
+
+#  3. Werkzeug "write() before start_response" AssertionError — dev-server-
+#     only artifact (gunicorn doesn't have this check). Happens when a WSGI
+#     handler finalizes without calling start_response — usually streaming
+#     generators that error before yield. Fires as ERROR via the werkzeug
+#     logger with exc_info. Downgrade to DEBUG so it stays diagnosable
+#     without spamming the main log.
+class _SilenceWriteBeforeStartResponse(logging.Filter):
+    def filter(self, record):
+        try:
+            if record.exc_info and record.exc_info[1]:
+                if "write() before start_response" in str(record.exc_info[1]):
+                    # Still capture a one-line trace under a dedicated logger
+                    # so we can re-enable it for deeper debugging later.
+                    logging.getLogger("guaardvark.dev_noise").debug(
+                        "Suppressed werkzeug write() before start_response on %s",
+                        getattr(record, "args", None) or "<unknown request>",
+                    )
+                    return False  # suppress the ERROR-level werkzeug emission
+        except Exception:
+            pass
+        return True
+logging.getLogger("werkzeug").addFilter(_SilenceWriteBeforeStartResponse())
+# ──────────────────────────────────────────────────────────────────────────
 
 import click
 import requests
 import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
+
+# ── Spawn the plugin-runner sidecar BEFORE any backend.* import ──
+# Some backend modules (notably backend.api.voice_api) transitively import
+# torch, and we MUST spawn the sidecar in a process where torch has not yet
+# been loaded. The sidecar runs all future plugin start.sh / stop.sh scripts,
+# so the main backend never has to fork() after CUDA is initialized — fork()
+# while CUDA is loaded silently corrupts the parent's CUDA state and eventually
+# crashes the interpreter (observed on 2026-04-11, two PIDs killed this way).
+#
+# This is the EARLIEST safe point: stdlib + third-party (sqlalchemy, requests,
+# flask) are loaded, but no backend.* code has run yet.
+try:
+    from backend.services.plugin_runner import PluginRunnerClient as _PluginRunnerClient
+    _PluginRunnerClient.get().start()
+    print("Plugin-runner sidecar started (clean fork environment, no torch)")
+except Exception as _e:
+    print(f"WARNING: Plugin-runner sidecar failed to start: {_e}", file=sys.stderr)
+    # Non-fatal — plugin_manager will fall back to direct subprocess.run
 
 from backend.utils.chat_utils import (
     DEFAULT_FALLBACK_SYSTEM_PROMPT,
@@ -91,7 +154,7 @@ except ImportError as e:
 except Exception as e:
     print(f"Warning: CUDA optimization failed (non-critical): {e}")
 
-__version__ = "2.5.2"
+__version__ = "2.5.3"
 
 backend_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = str(config.GUAARDVARK_ROOT)
@@ -205,32 +268,63 @@ logger_module = logging.getLogger(__name__)
 def _ensure_redis_running(redis_url: str, fatal: bool = True) -> None:
     if not redis or not redis_url.startswith("redis://"):
         return
+    import socket as _socket
     try:
-        redis.from_url(redis_url).ping()
+        redis.from_url(redis_url, socket_connect_timeout=3).ping()
         return
-    except Exception:
-        root_logger.error(
-            "Redis is not running. Start with redis-server or update your REDIS_URL."
+    except redis.exceptions.AuthenticationError as err:
+        # Auth mismatch — REDIS_URL doesn't match the running redis-server's password.
+        # Spawning a second redis-server here would clobber the running one (or fail to bind),
+        # so refuse and surface clearly.
+        root_logger.critical(
+            "Redis authentication failed: %s. "
+            "Check that REDIS_URL in .env matches the running redis-server's `requirepass`.",
+            err,
         )
-        started = False
-        if shutil.which("redis-server"):
-            try:
-                subprocess.Popen(
-                    ["redis-server", "--daemonize", "yes"],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                time.sleep(1)
-                redis.from_url(redis_url).ping()
-                started = True
-                root_logger.info("redis-server started automatically")
-            except Exception as err:
-                root_logger.error("Failed to start redis-server automatically: %s", err)
-        else:
-            root_logger.error("redis-server command not found")
-        if not started and fatal:
-            root_logger.critical("Redis unavailable and could not be started")
-            raise SystemExit("Redis server required but not running")
+        if fatal:
+            raise SystemExit("Redis authentication failed — fix REDIS_URL in .env")
+        return
+    except Exception as err:
+        root_logger.error(
+            "Redis ping failed (%s): %s. URL host=%s",
+            type(err).__name__,
+            err,
+            redis_url.rsplit("@", 1)[-1] if "@" in redis_url else redis_url,
+        )
+    # If port 6379 is already bound, redis IS running but our URL can't reach it.
+    # Spawning a second redis-server would either fail to bind (port in use) or
+    # succeed without auth on a different port — neither helps and both confuse.
+    port_in_use = False
+    try:
+        with _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM) as s:
+            s.settimeout(0.5)
+            port_in_use = s.connect_ex(("127.0.0.1", 6379)) == 0
+    except Exception:
+        pass
+    started = False
+    if port_in_use:
+        root_logger.critical(
+            "Port 6379 is already bound — redis is running but unreachable with the configured URL. "
+            "This is almost always an auth or URL mismatch. Verify REDIS_URL in .env."
+        )
+    elif shutil.which("redis-server"):
+        try:
+            subprocess.Popen(
+                ["redis-server", "--daemonize", "yes"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            time.sleep(1)
+            redis.from_url(redis_url, socket_connect_timeout=3).ping()
+            started = True
+            root_logger.info("redis-server started automatically")
+        except Exception as err:
+            root_logger.error("Failed to start redis-server automatically: %s", err)
+    else:
+        root_logger.error("redis-server command not found")
+    if not started and fatal:
+        root_logger.critical("Redis unavailable and could not be started")
+        raise SystemExit("Redis server required but not running")
 
 
 def _ensure_redis_client():
@@ -247,43 +341,6 @@ def _ensure_redis_client():
     except Exception as e:
         root_logger.error(f"Failed to create Redis client: {e}")
         return None
-
-
-def make_celery(flask_app: Flask) -> Celery:
-    broker_url = os.environ.get(
-        "CELERY_BROKER_URL",
-        os.environ.get("REDIS_URL", "redis://localhost:6379/0"),
-    )
-    result_backend = os.environ.get("CELERY_RESULT_BACKEND", broker_url)
-
-    if config.DISABLE_CELERY:
-        root_logger.warning("Celery/Redis disabled by environment.")
-        celery_app = Celery(
-            flask_app.import_name,
-            broker="memory://",
-            backend="cache+memory://",
-        )
-        celery_app.conf.task_always_eager = True
-    else:
-        _ensure_redis_running(broker_url, fatal=True)
-        celery_app = Celery(
-            flask_app.import_name,
-            broker=broker_url,
-            backend=result_backend,
-        )
-
-    celery_app.conf.update(flask_app.config)
-    celery_app.autodiscover_tasks(["backend"], related_name="celery_tasks_isolated")
-
-    class ContextTask(celery_app.Task):
-        abstract = True
-
-        def __call__(self, *args, **kwargs):
-            with flask_app.app_context():
-                return super().__call__(*args, **kwargs)
-
-    celery_app.Task = ContextTask
-    return celery_app
 
 
 try:
@@ -316,13 +373,49 @@ except ImportError as e:
     )
 
 
+# Re-entry guard. create_app() must run exactly once per Python process.
+# A second call would re-register all 80 blueprints, re-init BrainState, re-discover
+# plugins, and spawn duplicate background threads — corrupting all the singletons
+# and eventually crashing the interpreter (this exact bug killed PID 3047360 on
+# 2026-04-11 after 5 accumulated re-inits left orphaned multiprocessing semaphores).
+_create_app_called = False
+
+
 def create_app():
+    global _create_app_called
+    if _create_app_called:
+        existing = globals().get("app")
+        if existing is not None:
+            import traceback
+            logging.getLogger(__name__).error(
+                "create_app() called more than once! Returning existing singleton "
+                "instead of corrupting state. Caller stack:\n"
+                + "".join(traceback.format_stack(limit=10))
+            )
+            return existing
+    _create_app_called = True
+
     app = Flask(__name__)
     app.url_map.strict_slashes = False
 
     _initialize_app_components(app)
 
     return app
+
+
+def get_or_create_app():
+    """Return the existing Flask app singleton.
+
+    Use this from worker threads that don't have request context but need
+    `app.app_context()` for DB/config access. NEVER call `create_app()` directly
+    from worker code — it rebuilds the entire app from scratch and corrupts state.
+
+    Works in:
+    - The main Flask process: returns the singleton created at module load (line 759).
+    - Celery worker processes: returns the singleton created when Celery imports
+      backend.app (also at line 759, but in a fresh process).
+    """
+    return globals()["app"]
 
 def _initialize_app_components(app):
     global start_time, executor, socketio, celery
@@ -331,7 +424,8 @@ def _initialize_app_components(app):
     executor = Executor(app)
     app.executor = executor
     from backend.socketio_instance import socketio, FRONTEND_URL
-    celery = make_celery(app)
+    from backend.celery_app import celery as shared_celery
+    celery = shared_celery
     
     app.logger.setLevel(
         root_logger.level
@@ -367,6 +461,9 @@ def _initialize_app_components(app):
             "CACHE_DIR": config.CACHE_DIR,
             "LLM_REQUEST_TIMEOUT": LLM_REQUEST_TIMEOUT,
             "MAX_CONTENT_LENGTH": 100 * 1024 * 1024,
+            "CLUSTER_ENABLED": config.CLUSTER_ENABLED,
+            "CLUSTER_ROLE": config.CLUSTER_ROLE,
+            "CLUSTER_NODE_ID": config.CLUSTER_NODE_ID,
         }
     )
     app.logger.info(
@@ -426,7 +523,7 @@ def _initialize_app_components(app):
 
     CORS(
         app,
-        origins=allowed_origins,
+        resources={r"/api/*": {"origins": allowed_origins}, r"/health*": {"origins": allowed_origins}},
         supports_credentials=supports_credentials,
         allow_headers=["Content-Type", "Authorization", "X-API-Key"],
         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -537,7 +634,7 @@ def _initialize_app_components(app):
 
             def relay_redis_progress():
                 try:
-                    r = redis.Redis(host='localhost', port=6379, db=0)
+                    r = redis.Redis.from_url(os.environ.get('REDIS_URL', 'redis://localhost:6379/0'))
                     pubsub = r.pubsub()
                     pubsub.subscribe('guaardvark:progress')
                     app.logger.info("Redis progress relay subscribed to guaardvark:progress")
@@ -622,8 +719,14 @@ def _initialize_app_components(app):
 
     @app.after_request
     def set_security_headers_flask(response):
+        # Skip header injection on Socket.IO requests — they use websocket
+        # upgrade responses that are already finalized; modifying them causes
+        # werkzeug "write() before start_response" assertion failures.
+        if request.path.startswith('/socket.io'):
+            return response
+
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
@@ -636,6 +739,8 @@ def _initialize_app_components(app):
 
     @app.after_request
     def log_response_info(response):
+        if request.path.startswith('/socket.io'):
+            return response
         app.logger.debug(
             f"Response {response.status_code} for {request.method} {request.path}"
         )
@@ -643,6 +748,8 @@ def _initialize_app_components(app):
 
     @app.after_request
     def cleanup_database_session(response):
+        if request.path.startswith('/socket.io'):
+            return response
         try:
             if hasattr(db, 'session') and db.session:
                 try:
@@ -706,6 +813,26 @@ def _initialize_app_components(app):
         app.logger.warning(f"Tool Registry initialization failed (non-critical): {e}")
         app.tool_registry = None
 
+    # Initialize AgentBrain's BrainState singleton (pre-computes tool schemas,
+    # system prompts, model capabilities, reflex table, and warm-up ping).
+    try:
+        from backend.config import AGENT_BRAIN_ENABLED
+        if AGENT_BRAIN_ENABLED:
+            from backend.services.brain_state import BrainState
+            brain_state = BrainState.get_instance()
+            # BrainState init touches the DB (active model lookup, memory context),
+            # so it needs an app context — create_app() doesn't push one for us.
+            with app.app_context():
+                brain_state.initialize(lite_mode=False)
+            app.brain_state = brain_state
+            app.logger.info(f"AgentBrain initialized | health={brain_state.health.to_dict()}")
+        else:
+            app.brain_state = None
+            app.logger.info("AgentBrain disabled (GUAARDVARK_AGENT_BRAIN=false)")
+    except Exception as e:
+        app.logger.warning(f"AgentBrain initialization failed (non-critical, falling back to legacy): {e}")
+        app.brain_state = None
+
     try:
         from backend.plugins import get_plugin_manager, get_plugin_registry
         registry = get_plugin_registry()
@@ -720,6 +847,25 @@ def _initialize_app_components(app):
 
     from backend.utils.blueprint_discovery import auto_register_blueprints
     auto_register_blueprints(app)
+
+    # Resume any in-flight productions after a crash. DB-driven — no in-memory state to lose.
+    # Note: `db` is the module-level import (line 401). Importing it locally here
+    # would silently make every other `db` reference in create_app() local-by-assignment
+    # and break the function. Don't re-import.
+    try:
+        from backend.services.production_service import ProductionService
+        with app.app_context():
+            resumed = ProductionService(db.session).resume_all()
+            if resumed:
+                app.logger.info(f"Production pipeline resumed {resumed} in-flight production(s) from DB state")
+    except NotImplementedError:
+        # Swarm dispatch not yet wired (Phase D). Production rows past 'draft' won't auto-resume yet.
+        app.logger.debug("Production resume skipped — swarm dispatch not yet wired")
+    except Exception as e:
+        app.logger.warning(f"Production resume failed (non-critical): {e}")
+
+    from backend.middleware.cluster_proxy_middleware import cluster_proxy_before_request
+    app.before_request(cluster_proxy_before_request)
 
     try:
         from backend.services.browser_automation_service import register_browser_shutdown
@@ -773,6 +919,57 @@ try:
             db.create_all()
             app.logger.info("Database tables created/verified successfully.")
 
+            # db.create_all() doesn't ALTER existing tables — it only creates
+            # missing ones. For columns added after the base schema was stamped,
+            # we reconcile them here so legacy databases catch up. Same pattern
+            # as _ensure_document_folder_column() in backup_service.py.
+            try:
+                from sqlalchemy import text as _sa_text
+                existing = db.session.execute(_sa_text(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name = 'tasks' AND column_name = 'result'"
+                )).fetchone()
+                if existing is None:
+                    app.logger.warning("Adding missing tasks.result column (legacy DB)")
+                    db.session.execute(_sa_text("ALTER TABLE tasks ADD COLUMN result TEXT"))
+                    db.session.commit()
+            except Exception as col_err:
+                app.logger.warning(f"Failed to ensure tasks.result column: {col_err}")
+                try:
+                    db.session.rollback()
+                except Exception:
+                    pass
+
+            # Same pattern for llm_sessions.mode (added 2026-05-05 for agent-mode).
+            try:
+                from sqlalchemy import text as _sa_text
+                existing = db.session.execute(_sa_text(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name = 'llm_sessions' AND column_name = 'mode'"
+                )).fetchone()
+                if existing is None:
+                    app.logger.warning("Adding missing llm_sessions.mode column (legacy DB)")
+                    db.session.execute(_sa_text(
+                        "ALTER TABLE llm_sessions ADD COLUMN mode VARCHAR(20) "
+                        "NOT NULL DEFAULT 'chat'"
+                    ))
+                    db.session.commit()
+            except Exception as col_err:
+                app.logger.warning(f"Failed to ensure llm_sessions.mode column: {col_err}")
+                try:
+                    db.session.rollback()
+                except Exception:
+                    pass
+
+            # Create default OS-style folders (Images/, Videos/, Code/) so
+            # generated outputs land somewhere DocumentsPage can see them
+            try:
+                from backend.services.output_registration import ensure_default_folders
+                ensure_default_folders()
+                app.logger.info("Default folders verified (Images, Videos, Code)")
+            except Exception as folder_err:
+                app.logger.warning(f"Default folder setup skipped: {folder_err}")
+
             # Stamp Alembic to head (so health checks pass)
             if not os.environ.get("GUAARDVARK_SKIP_MIGRATIONS") and not migrations_already_verified:
                 try:
@@ -787,6 +984,27 @@ try:
                 "Global system prompt rule creation disabled - using hardcoded default"
             )
 
+            # ---- Cluster: seed FleetMap from DB + initial routing recompute --------
+            if config.CLUSTER_ENABLED and config.CLUSTER_ROLE == "master":
+                try:
+                    import json as _json
+                    from backend.models import InterconnectorNode
+                    from backend.services.fleet_map import get_fleet_map
+                    fm = get_fleet_map()
+                    for node in InterconnectorNode.query.all():
+                        if node.hardware_profile:
+                            try:
+                                fm.register(node.node_id, _json.loads(node.hardware_profile))
+                            except _json.JSONDecodeError:
+                                app.logger.warning(
+                                    "[CLUSTER] skipping node %s — malformed profile",
+                                    node.node_id)
+                    from backend.services.cluster_routing import recompute_and_broadcast
+                    recompute_and_broadcast(reason="startup")
+                    app.logger.info("[CLUSTER] startup recompute complete")
+                except Exception as e:
+                    app.logger.warning("[CLUSTER] startup recompute failed: %s", e)
+
         except OperationalError as op_err:
             app.logger.error(f"Database operation error during create_all: {op_err}")
             app.logger.error("Check database connection and configuration.")
@@ -800,7 +1018,7 @@ def initialize_llm_and_index_async():
 
     try:
         with app.app_context():
-            app.logger.warning("[LLM-Init] Setting up LLM and index (background thread)...")
+            app.logger.info("[LLM-Init] Setting up LLM and index (background thread)...")
 
             app.logger.info("[LLM-Init] Step 1/6: Loading LLM...")
             llm = llm_service.get_llm_for_startup()
@@ -844,19 +1062,38 @@ def initialize_llm_and_index_async():
             except Exception as e:
                 app.logger.warning(f"[LLM-Init] Failed to persist active model on startup: {e}")
 
-            app.logger.info("[LLM-Init] Step 5/6: Warming up model...")
+            # Step 5: warm up the model into VRAM. Skipped when the user has
+            # disabled the Ollama plugin in /plugins — otherwise we'd burn ~10
+            # GB of VRAM at boot for a service the user explicitly turned off.
+            # When skipped, the first chat message triggers an on-demand load
+            # (~5s slower for that one message). This honors the user_enabled
+            # overlay in data/plugin_state.json with a fallback to ollama's
+            # plugin.json default for fresh installs.
             try:
-                model_name = getattr(llm, "model", "unknown")
-                app.logger.warning(f"[LLM-Init] Warming up model '{model_name}' (loading into GPU)...")
-                warmup_start = time.time()
-                llm.complete("warmup")
-                warmup_duration = time.time() - warmup_start
-                app.logger.warning(f"[LLM-Init] Model warmup completed in {warmup_duration:.1f}s — ready for chat")
-            except Exception as e:
-                app.logger.error(f"[LLM-Init] Model warmup FAILED: {e} — first chat will be slow", exc_info=True)
+                from backend.plugins.plugin_manager import get_plugin_manager
+                _ollama_enabled = get_plugin_manager().is_effectively_enabled("ollama")
+            except Exception:
+                _ollama_enabled = True  # Fail-open — better to warm up than leave a real user without chat
+
+            if _ollama_enabled:
+                app.logger.info("[LLM-Init] Step 5/6: Warming up model...")
+                try:
+                    model_name = getattr(llm, "model", "unknown")
+                    app.logger.info(f"[LLM-Init] Warming up model '{model_name}' (loading into GPU)...")
+                    warmup_start = time.time()
+                    llm.complete("warmup")
+                    warmup_duration = time.time() - warmup_start
+                    app.logger.info(f"[LLM-Init] Model warmup completed in {warmup_duration:.1f}s — ready for chat")
+                except Exception as e:
+                    app.logger.error(f"[LLM-Init] Model warmup FAILED: {e} — first chat will be slow", exc_info=True)
+            else:
+                app.logger.info(
+                    "[LLM-Init] Step 5/6: Skipping model warmup — Ollama plugin is disabled in user prefs. "
+                    "First chat call will load the model on demand (~5s slower)."
+                )
 
             app.config["LLM_READY"] = True
-            app.logger.warning("[LLM-Init] Step 6/6: LLM and index initialization completed successfully")
+            app.logger.info("[LLM-Init] Step 6/6: LLM and index initialization completed successfully")
     except Exception as e:
         app.config["LLM_READY"] = True  # Mark ready even on failure so chat isn't blocked forever
         app.logger.error(f"[LLM-Init] FAILED to initialize LLM and index: {e}", exc_info=True)
@@ -985,6 +1222,24 @@ try:
             app.logger.debug("Registered autoresearch_bp")
     except Exception as e_ar:
         app.logger.warning(f"Could not register autoresearch_bp: {e_ar}")
+
+    # Node registry slot endpoints (hardware-profile, live-state, cluster fleet)
+    try:
+        from backend.api.node_api import node_api_bp
+        if node_api_bp.name not in app.blueprints:
+            app.register_blueprint(node_api_bp)
+            app.logger.debug("Registered node_api_bp")
+    except Exception as e_node:
+        app.logger.warning(f"Could not register node_api_bp: {e_node}")
+
+    # Master-only cluster management (routing-table inspection, recompute, metrics)
+    try:
+        from backend.api.cluster_api import cluster_api_bp
+        if cluster_api_bp.name not in app.blueprints:
+            app.register_blueprint(cluster_api_bp)
+            app.logger.debug("Registered cluster_api_bp")
+    except Exception as e_cluster:
+        app.logger.warning(f"Could not register cluster_api_bp: {e_cluster}")
 
     app.logger.info("Blueprint registration process completed.")
 except Exception as e_bp_reg_block:
@@ -1148,7 +1403,10 @@ def debug_env():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# Both prefixes are valid — Docker/k8s probes and the legacy frontend
+# client expect /health, while the rest of the API lives under /api.
 @app.route("/api/health")
+@app.route("/health")
 def health_check():
     uptime_seconds = time.time() - start_time if "start_time" in globals() else 0
     return (
@@ -1251,21 +1509,6 @@ def get_version():
         "description": "LLM-powered development environment",
         "timestamp": "2025-09-27T07:15:00Z"
     }), 200
-
-
-@app.route("/api/meta/test-llm")
-def test_llm():
-    try:
-        return jsonify({
-            "status": "available",
-            "message": "LLM service is configured",
-            "model": "llama3:latest"
-        }), 200
-    except Exception as e:
-        return jsonify({
-            "status": "unavailable",
-            "error": str(e)
-        }), 503
 
 
 @app.route("/api/health/redis")

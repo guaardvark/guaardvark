@@ -15,7 +15,6 @@ import {
   Box,
   Chip,
   LinearProgress,
-  Stack,
 } from "@mui/material";
 import MovieCreationIcon from "@mui/icons-material/MovieCreation";
 import CloudDownloadIcon from "@mui/icons-material/CloudDownload";

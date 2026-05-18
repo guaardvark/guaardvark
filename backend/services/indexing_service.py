@@ -300,19 +300,9 @@ def _initialize_index(storage_path: str):
         if not should_create_new:
             ref_doc_info = docstore_data.get('docstore/ref_doc_info', {})
             if not ref_doc_info:
-                logger.warning(
-                    f"Storage directory {abs_storage_path} exists and 'docstore.json' is present, but appears to be empty. Will create new empty index."
-                )
-                should_create_new = True
-                import shutil
-                try:
-                    for filename in ['docstore.json', 'index_store.json', 'graph_store.json']:
-                        file_path = os.path.join(abs_storage_path, filename)
-                        if os.path.exists(file_path):
-                            os.remove(file_path)
-                            logger.info(f"Removed empty index file: {filename}")
-                except Exception as cleanup_e:
-                    logger.warning(f"Failed to cleanup empty index files: {cleanup_e}")
+                # Empty docstore is normal — no documents have been indexed yet.
+                # Load it as-is instead of deleting and recreating every restart.
+                logger.info(f"Index at {abs_storage_path} exists with no documents yet. Loading as-is.")
 
     if should_create_new:
             logger.info(f"Creating new empty LlamaIndex structure at: {abs_storage_path}")
@@ -378,15 +368,63 @@ def _initialize_index(storage_path: str):
             storage_context = storage_context_instance
             logger.info(f"Successfully loaded index from {abs_storage_path}")
         except Exception as e:
-            logger.error(
-                f"Unexpected error loading index from {abs_storage_path}: {e}",
-                exc_info=True,
-            )
+            # Common case: storage dir has docstore.json but index_store.json was purged,
+            # or one of the state files is corrupted. Rather than leaving the index unusable
+            # (which cascades into BrainState.is_ready=False and kills the Reflex tier),
+            # rebuild an empty index in place so the system can still respond to chat.
             logger.warning(
-                "Consider manually inspecting or clearing the storage directory if loading issues persist."
+                f"Load failed at {abs_storage_path}: {e}. "
+                f"Storage appears incomplete — rebuilding as an empty index so chat stays alive."
             )
-            index = None
-            storage_context = None
+            if not _validate_settings():
+                logger.error(
+                    "Cannot rebuild index: LLM or Embed Model not properly configured in LlamaIndex global Settings."
+                )
+                index = None
+                storage_context = None
+            else:
+                try:
+                    docstore_instance = SimpleDocumentStore()
+                    index_store_instance = SimpleIndexStore()
+
+                    storage_defaults = {
+                        "docstore": docstore_instance,
+                        "index_store": index_store_instance,
+                        "persist_dir": abs_storage_path,
+                    }
+
+                    try:
+                        from inspect import signature
+
+                        sig_params = signature(StorageContext.from_defaults).parameters
+                        if SimpleVectorStore and "vector_store" in sig_params:
+                            storage_defaults["vector_store"] = SimpleVectorStore()
+                    except Exception:
+                        if SimpleVectorStore:
+                            try:
+                                storage_defaults["vector_store"] = SimpleVectorStore()
+                            except Exception:
+                                pass
+
+                    storage_context_instance = StorageContext.from_defaults(**storage_defaults)
+                    index_instance = VectorStoreIndex.from_documents(
+                        [],
+                        storage_context=storage_context_instance,
+                    )
+                    storage_context_instance.persist(persist_dir=abs_storage_path)
+
+                    index = index_instance
+                    storage_context = storage_context_instance
+                    logger.info(
+                        f"Rebuilt empty index at {abs_storage_path} after load failure."
+                    )
+                except Exception as rebuild_err:
+                    logger.error(
+                        f"Rebuild after load failure also failed at {abs_storage_path}: {rebuild_err}",
+                        exc_info=True,
+                    )
+                    index = None
+                    storage_context = None
 
 
 def deduplicate_chunks(chunks: list, similarity_threshold: float = 0.85) -> list:
@@ -1603,7 +1641,17 @@ def update_document_status(
     
     while retry_count < max_retries:
         try:
-            with db.session.begin():
+            # Flask-SQLAlchemy auto-begins a transaction per request, so calling
+            # session.begin() again would raise "A transaction is already begun".
+            # Use a nested SAVEPOINT when we're already inside a transaction,
+            # otherwise start a fresh one. Porting this was traced to the nested-
+            # async / "Event loop is closed" errors we hit earlier — a SQLAlchemy
+            # exception here can corrupt the httpx/anyio event loop downstream.
+            if db.session.in_transaction():
+                ctx = db.session.begin_nested()
+            else:
+                ctx = db.session.begin()
+            with ctx:
                 doc = db.session.query(DBDocument).filter(
                     DBDocument.id == doc_id
                 ).order_by(DBDocument.id).with_for_update(nowait=True).first()

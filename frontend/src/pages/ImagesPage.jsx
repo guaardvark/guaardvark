@@ -15,7 +15,6 @@ import {
   Card,
   CardActionArea,
   CardContent,
-  CardMedia,
   IconButton,
   Tooltip,
   Tabs,
@@ -29,7 +28,6 @@ import {
   Snackbar,
   Alert as MuiAlert,
   Chip,
-  CircularProgress,
   Grid,
   useTheme,
 } from '@mui/material';
@@ -50,6 +48,9 @@ import {
 import { GuaardvarkLogo } from "../components/branding";
 import ReactGridLayoutLib, { WidthProvider } from 'react-grid-layout';
 import BatchImageGeneratorPage from './BatchImageGeneratorPage';
+import VideoGeneratorPage from './VideoGeneratorPage';
+import UpscalingPage from './UpscalingPage';
+import InfographicGenerator from '../components/images/InfographicGenerator';
 import FolderWindowWrapper from '../components/documents/FolderWindowWrapper';
 import BreadcrumbNav from '../components/filesystem/BreadcrumbNav';
 import ImageThumbnailGrid from '../components/images/ImageThumbnailGrid';
@@ -88,7 +89,7 @@ const ImagesPage = () => {
   const { gridSettings } = useLayout();
   const { RGL_WIDTH_PROP_PX } = gridSettings;
   const { showMessage } = useSnackbar();
-  const { activeModel, isLoadingModel, modelError } = useStatus();
+  const { _activeModel, _isLoadingModel, _modelError } = useStatus();
   const theme = useTheme();
 
   // Tabs
@@ -235,7 +236,9 @@ const ImagesPage = () => {
       try {
         const resp = await fetch(WINDOWS_STATE_ENDPOINT);
         if (resp.ok) savedState = await resp.json();
-      } catch {}
+      } catch {
+        // No saved window state yet — first run, defaults are fine
+      }
 
       // Seed counter above any saved window IDs to avoid duplicates
       if (savedState?.windows) {
@@ -394,9 +397,10 @@ const ImagesPage = () => {
           });
           setVideoBatches(batches);
 
-          // Fetch details (results) for completed batches
+          // Fetch details for any batch that may have produced videos —
+          // cancelled/error batches often have partial results worth showing.
           const detailPromises = batches
-            .filter(b => b.status === 'completed' || b.status === 'partial')
+            .filter(b => ['completed', 'partial', 'cancelled', 'error'].includes(b.status))
             .map(async (b) => {
               try {
                 const statusRes = await fetch(`${VIDEO_API_BASE}/status/${b.batch_id}`);
@@ -406,7 +410,9 @@ const ImagesPage = () => {
                     return { batch_id: b.batch_id, ...statusData.data };
                   }
                 }
-              } catch {}
+              } catch {
+                // One batch's status fetch failed — skip it, others continue
+              }
               return null;
             });
           const details = await Promise.all(detailPromises);
@@ -469,7 +475,7 @@ const ImagesPage = () => {
     setVideoDeleteConfirm(null);
   }, [showMessage]);
 
-  const getVideoStatusColor = useCallback((status) => {
+  const _getVideoStatusColor = useCallback((status) => {
     switch (status) {
       case 'completed': return 'success';
       case 'running': case 'generating': return 'info';
@@ -487,6 +493,15 @@ const ImagesPage = () => {
         month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
       });
     } catch { return ''; }
+  }, []);
+
+  // Legacy batches predate display_name in metadata — pull a humane label
+  // out of "VideoBatch_MM-DD-YYYY_NNN" instead of slicing it to "VideoBatch_0".
+  const fallbackBatchName = useCallback((batchId) => {
+    if (!batchId) return 'Batch';
+    const m = batchId.match(/^VideoBatch_(\d{2})-(\d{2})-\d{4}_(\d+)$/);
+    if (m) return `${m[1]}/${m[2]} #${m[3]}`;
+    return batchId.replace(/^VideoBatch_/, '');
   }, []);
 
   // ──────────────────── Window State Persistence ────────────────────
@@ -510,7 +525,9 @@ const ImagesPage = () => {
           lastSaved: new Date().toISOString(),
         }),
       });
-    } catch {}
+    } catch {
+      // Persisting window layout is best-effort; don't bother the user
+    }
   }, []);
 
   // ──────────────────── Window Management ────────────────────
@@ -1528,6 +1545,9 @@ const ImagesPage = () => {
         <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
           <Tab label="Media Library" />
           <Tab label="Image Gen" />
+          <Tab label="Infographic" />
+          <Tab label="Video Gen" />
+          <Tab label="Upscaling" />
         </Tabs>
       </Box>
 
@@ -2082,7 +2102,7 @@ const ImagesPage = () => {
                 const results = details?.results?.filter(r => r.success && r.video_path) || [];
                 const firstResult = results[0];
                 const videoCount = batch.completed_videos ?? 0;
-                const displayName = batch.display_name || batch.batch_id.slice(0, 12);
+                const displayName = batch.display_name || fallbackBatchName(batch.batch_id);
 
                 return (
                   <Grid item xs={6} sm={4} md={3} lg={2} key={batch.batch_id}>
@@ -2204,16 +2224,27 @@ const ImagesPage = () => {
       {/* Image Gen Tab */}
       {activeTab === 1 && (
         <Box sx={{ flexGrow: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 2, p: 1 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Button
-              variant="outlined"
-              startIcon={<VideoIcon />}
-              onClick={() => window.open('/video', '_self')}
-            >
-              Go to Video Generation
-            </Button>
-          </Box>
           <BatchImageGeneratorPage embedded />
+        </Box>
+      )}
+
+      {/* Infographic Tab */}
+      {activeTab === 2 && (
+        <Box sx={{ flexGrow: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <InfographicGenerator />
+        </Box>
+      )}
+
+      {/* Video Gen Tab */}
+      {activeTab === 3 && (
+        <Box sx={{ flexGrow: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <VideoGeneratorPage embedded />
+        </Box>
+      )}
+
+      {activeTab === 4 && (
+        <Box sx={{ flexGrow: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <UpscalingPage embedded />
         </Box>
       )}
 

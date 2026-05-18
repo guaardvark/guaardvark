@@ -8,13 +8,14 @@
   "category": "integration",
   "port": 8200,
   "vram_estimate_mb": 0,
+  "core": false,
   "dependencies": [],
   "config": {
-    "enabled": false,
-    "auto_start": false,
     "service_url": "http://localhost:8200",
     "timeout": 30,
-    "fallback_enabled": false
+    "fallback_enabled": false,
+    "default_enabled": true,
+    "default_auto_start": false
   },
   "requirements": {
     "gpu": false,

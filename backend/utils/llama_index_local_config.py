@@ -55,6 +55,13 @@ def force_local_llama_index_config():
         logger.debug("LlamaIndex local config already applied, skipping")
         return True
     try:
+        import nest_asyncio
+        nest_asyncio.apply()
+        logger.info("Applied nest_asyncio to prevent nested event loop issues")
+    except ImportError:
+        logger.warning("nest_asyncio not found. Async event loops might conflict.")
+
+    try:
         # Configure CUDA for optimal performance
         # Only disable CUDA for Celery workers to prevent multiprocessing issues
         if os.environ.get('CELERY_WORKER_MODE', 'false').lower() != 'true':
@@ -156,7 +163,7 @@ def get_local_embedding_model():
     ============================================================================
     PROTECTED CODE - DO NOT MODIFY WITHOUT EXPLICIT PERMISSION
     ----------------------------------------------------------------------------
-    This function must return proper Ollama embeddings (e.g., qwen3-embedding)
+    This function must return proper Ollama embeddings (e.g., mxbai-embed-large)
     to match the vector index dimensions. Do NOT use SimpleTextEmbedding or
     hash-based embeddings - this causes dimension mismatch errors.
     Changes require direct permission from the project owner.

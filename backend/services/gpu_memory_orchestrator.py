@@ -281,6 +281,15 @@ class GPUMemoryOrchestrator:
             slot = self._registry.get(slot_id)
             if not slot or slot.state == SlotState.UNLOADED:
                 return False
+            # LOADING slot: registration happened but the actual load() never
+            # finished (e.g. audio_foundry got an ImportError mid-load and is
+            # now cleaning up). There's nothing physical on the GPU to release;
+            # just drop from the registry.
+            if slot.state == SlotState.LOADING:
+                slot.state = SlotState.UNLOADED
+                self._registry.pop(slot_id, None)
+                logger.info(f"Cleaned up dangling LOADING slot {slot_id}")
+                return True
             return self._unload_model(slot)
 
     # ------------------------------------------------------------------
@@ -485,9 +494,18 @@ class GPUMemoryOrchestrator:
     # ------------------------------------------------------------------
 
     def _unload_model(self, slot: ModelSlot) -> bool:
-        """Dispatch unload to the correct backend."""
+        """Dispatch unload to the correct backend.
+
+        Local models (Ollama / SD / video / whisper) get an in-process unload.
+        Slots whose model_type isn't one we drive in-process — e.g. an
+        external HTTP-driven plugin like audio_foundry that owns its own GPU
+        lifecycle — are treated as registry-only: the orchestrator just stops
+        tracking the slot. The plugin handles the real GPU release on its end.
+        """
+        original_state = slot.state
         slot.state = SlotState.UNLOADING
         success = False
+        registry_only = False
 
         try:
             if slot.model_type in (ModelType.OLLAMA_LLM, ModelType.OLLAMA_EMBEDDING):
@@ -499,18 +517,23 @@ class GPUMemoryOrchestrator:
             elif slot.model_type == ModelType.WHISPER:
                 success = self._unload_whisper()
             else:
-                logger.warning(f"Unknown model type for unload: {slot.model_type}")
+                # External / plugin-driven slot — registry-only cleanup.
+                registry_only = True
+                success = True
         except Exception as e:
             logger.error(f"Error unloading {slot.slot_id}: {e}")
 
         if success:
             slot.state = SlotState.UNLOADED
-            # Remove from registry
             self._registry.pop(slot.slot_id, None)
-            logger.info(f"Unloaded {slot.slot_id} (~{slot.vram_mb}MB freed)")
+            if registry_only:
+                logger.info(f"Removed external slot {slot.slot_id} from registry (no in-process unload)")
+            else:
+                logger.info(f"Unloaded {slot.slot_id} (~{slot.vram_mb}MB freed)")
         else:
-            slot.state = SlotState.LOADED  # Revert
-            logger.warning(f"Failed to unload {slot.slot_id}")
+            # Revert to whatever state we found it in, not blindly to LOADED.
+            slot.state = original_state
+            logger.warning(f"Failed to unload {slot.slot_id}; reverted to {original_state.value}")
 
         return success
 

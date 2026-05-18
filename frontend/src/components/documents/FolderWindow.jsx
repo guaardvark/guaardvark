@@ -1,22 +1,20 @@
 // Complete folder window component
 // Combines FolderWindowWrapper (chrome) and FolderContents (file list)
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
-import { ToggleButtonGroup, ToggleButton, Tooltip, IconButton, Box, Accordion, AccordionSummary, AccordionDetails, Chip, Typography } from '@mui/material';
-import { ViewList as ViewListIcon, ViewModule as ViewModuleIcon, ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
+import { ToggleButtonGroup, ToggleButton, Tooltip, Box, Accordion, AccordionSummary, AccordionDetails, Chip, Typography } from '@mui/material';
+import { ViewList as ViewListIcon, ViewModule as ViewModuleIcon, ViewComfy as ViewComfyIcon, ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 import FolderWindowWrapper from './FolderWindowWrapper';
 import FolderContents from './FolderContents';
 import BreadcrumbNav from '../filesystem/BreadcrumbNav';
 
 const FolderWindow = React.forwardRef(({
-  id,
+  _id,
   folder,
   isMinimized,
   onToggleMinimize,
   onClose,
-  viewMode = 'list',
-  onViewModeChange,
   selectedItems,
   onSelectionChange,
   onItemsMove,
@@ -32,21 +30,44 @@ const FolderWindow = React.forwardRef(({
 }, ref) => {
   // Track current path within this folder window for subfolder navigation
   const [currentPath, setCurrentPath] = useState(folder.path);
+  // Whether this folder's contents contain media files (images/videos)
+  const [hasMedia, setHasMedia] = useState(false);
+  const autoSwitchedRef = useRef(false);
+  // Per-window view mode — seeded from the last user-toggled default in localStorage.
+  // Keeping this local is what stops one window from hijacking every other window's view.
+  const [viewMode, setViewMode] = useState(() =>
+    localStorage.getItem('documentsPageViewMode') || 'list'
+  );
 
-  // Reset currentPath when folder changes (e.g., when window is reused for different folder)
+  // Reset currentPath when folder changes
   useEffect(() => {
     setCurrentPath(folder.path);
+    autoSwitchedRef.current = false;
   }, [folder.id, folder.path]);
 
+  // Auto-switch to media view when media is detected (only once per folder open).
+  // Does NOT persist to localStorage — auto-switches are content-driven, not a preference.
+  const handleMediaDetected = useCallback((detected) => {
+    setHasMedia(detected);
+    if (detected && !autoSwitchedRef.current) {
+      autoSwitchedRef.current = true;
+      setViewMode((prev) => (prev === 'media' ? prev : 'media'));
+    }
+  }, []);
+
+  // User toggle — update this window only, and remember the choice as the new
+  // default for future folder windows via localStorage.
   const handleViewModeToggle = (event, newViewMode) => {
-    if (newViewMode !== null && onViewModeChange) {
-      onViewModeChange(newViewMode);
+    if (newViewMode !== null) {
+      setViewMode(newViewMode);
+      localStorage.setItem('documentsPageViewMode', newViewMode);
     }
   };
 
   // Handle navigation within folder window (for subfolder double-clicks and breadcrumb clicks)
   const handleNavigateToPath = (newPath) => {
     setCurrentPath(newPath);
+    autoSwitchedRef.current = false; // allow re-detection on navigate
   };
 
   const titleBarActions = (
@@ -67,6 +88,13 @@ const FolderWindow = React.forwardRef(({
           <ViewModuleIcon sx={{ fontSize: '14px' }} />
         </Tooltip>
       </ToggleButton>
+      {hasMedia && (
+        <ToggleButton value="media" size="small" sx={{ minWidth: 'auto', px: 0.5 }}>
+          <Tooltip title="Media View">
+            <ViewComfyIcon sx={{ fontSize: '14px' }} />
+          </Tooltip>
+        </ToggleButton>
+      )}
     </ToggleButtonGroup>
   );
 
@@ -154,6 +182,7 @@ const FolderWindow = React.forwardRef(({
           onFocusContext={onFocusContext}
           refreshKey={refreshKey}
           folderColors={folderColors}
+          onMediaDetected={handleMediaDetected}
         />
       </Box>
     </FolderWindowWrapper>
@@ -172,8 +201,6 @@ FolderWindow.propTypes = {
   isMinimized: PropTypes.bool,
   onToggleMinimize: PropTypes.func,
   onClose: PropTypes.func.isRequired,
-  viewMode: PropTypes.oneOf(['list', 'grid']),
-  onViewModeChange: PropTypes.func,
   selectedItems: PropTypes.instanceOf(Set),
   onSelectionChange: PropTypes.func,
   onItemsMove: PropTypes.func,

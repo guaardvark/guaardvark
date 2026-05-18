@@ -202,7 +202,10 @@ def browse_folder():
             breadcrumbs = [{"name": "Root", "path": "/"}]
             resp_path = "/"
         else:
+            # Try exact path first, then without leading slash (folder paths are stored without it)
             folder = Folder.query.filter_by(path=folder_path).first()
+            if not folder and folder_path.startswith("/"):
+                folder = Folder.query.filter_by(path=folder_path.lstrip("/")).first()
             if not folder:
                 return error_response("Folder not found", 404, "FOLDER_NOT_FOUND")
             folder_q = folder.subfolders
@@ -865,16 +868,29 @@ def move_document(doc_id):
             dest_folder_id = dest_folder.id
         old_path = document.path
         old_physical_path = get_physical_path(old_path)
-        physical_filename = Path(old_path).name
+        # Apply the resolver against the destination folder — was a silent
+        # overwrite before, which is the fastest way to lose a file.
+        # Files-app convention: 'name (2).ext' if a sibling already holds
+        # the name. exclude_id=document.id so we don't see ourselves as
+        # a collision (no-op move into the same folder is fine).
+        from backend.utils.filename_resolver import resolve_filename
+        resolved_filename = resolve_filename(
+            dest_folder_id,
+            document.filename,
+            db.session,
+            DBDocument,
+            exclude_id=document.id,
+        )
         if dest_path and dest_path != "/":
-            new_path = f"{dest_path}/{physical_filename}"
+            new_path = f"{dest_path}/{resolved_filename}"
         else:
-            new_path = physical_filename
+            new_path = resolved_filename
         new_physical_path = get_physical_path(new_path)
         if old_physical_path.exists():
             new_physical_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(old_physical_path), str(new_physical_path))
             logger.info(f"Moved file: {old_physical_path} -> {new_physical_path}")
+        document.filename = resolved_filename
         document.path = new_path
         document.folder_id = dest_folder_id
         document.updated_at = datetime.datetime.now()
@@ -1063,6 +1079,20 @@ def link_document_to_entity(doc_id):
         return error_response("Failed to link document", 500, "LINK_ERROR")
 
 
+@files_bp.route("/document/<int:doc_id>", methods=["GET"])
+def get_document(doc_id):
+    """GET /api/files/document/:id - Return one document's full record (incl. parsed metadata).
+
+    Folder listings use to_dict_light for speed; consumers that need the full
+    record (audio player modal, file properties, etc.) hit this endpoint to
+    pull the heavier fields on demand.
+    """
+    document = db.session.get(DBDocument, doc_id)
+    if not document:
+        return error_response("Document not found", 404, "DOCUMENT_NOT_FOUND")
+    return success_response(document.to_dict())
+
+
 @files_bp.route("/document/<int:doc_id>/download", methods=["GET"])
 def download_document(doc_id):
     """GET /api/files/document/:id/download - Download file"""
@@ -1071,10 +1101,24 @@ def download_document(doc_id):
         document = db.session.get(DBDocument, doc_id)
         if not document:
             return error_response("Document not found", 404, "DOCUMENT_NOT_FOUND")
-        physical_path = get_physical_path(document.path)
-        if not physical_path.exists():
+        # Use the multi-base resolver so files outside UPLOAD_DIR (notably
+        # plugins/comfyui/ComfyUI/output/) still resolve. Fall back to the
+        # naive UPLOAD_BASE join for files that ARE under UPLOAD_DIR — the
+        # resolver tries that first anyway, so this is a safety net.
+        from backend.services.document_path_resolver import resolve_document_path
+        physical_path = resolve_document_path(document) or get_physical_path(document.path)
+        if not physical_path or not physical_path.exists():
             return error_response("File not found on disk", 404, "FILE_NOT_FOUND")
-        response = send_file(physical_path, as_attachment=True, download_name=document.filename)
+        # Serve inline for media files and PDFs so <video>, <img>, <audio>, and <iframe>
+        # tags can play/display them; fall back to attachment for everything else.
+        media_exts = {
+            '.mp4', '.webm', '.avi', '.mov', '.mkv',                  # video
+            '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg',          # image
+            '.wav', '.mp3', '.ogg', '.flac', '.m4a', '.aac', '.opus',  # audio
+            '.pdf',
+        }
+        as_attachment = physical_path.suffix.lower() not in media_exts
+        response = send_file(physical_path, as_attachment=as_attachment, download_name=document.filename)
         # Disable long-term caching so edited images are served fresh
         response.headers["Cache-Control"] = "no-cache, must-revalidate"
         return response
@@ -1085,21 +1129,49 @@ def download_document(doc_id):
 
 @files_bp.route("/thumbnail", methods=["GET"])
 def get_thumbnail():
-    """GET /api/files/thumbnail?path=<document_path> - Get thumbnail for an image document.
-    Looks for a thumbnail in a thumbnails/ subdirectory next to the image.
-    Falls back to serving the original image if no thumbnail exists."""
+    """GET /api/files/thumbnail - Get thumbnail for a document.
+
+    Two ways to identify the file:
+      ?path=<virtual_path>    - legacy. Joins against UPLOAD_BASE. Only
+                                works for files inside data/uploads/.
+      ?document_id=<int>      - preferred. Routes through
+                                resolve_document_path so files outside
+                                UPLOAD_BASE (e.g. plugins/comfyui/.../output)
+                                are reachable too.
+
+    Looks for a cached thumbnail in a thumbnails/ subdirectory next to
+    the source. Generates one on the fly for video files via ffmpeg.
+    Falls back to serving the original file when nothing else hits.
+    """
+    doc_id_arg = request.args.get("document_id", "").strip()
     doc_path = request.args.get("path", "").strip()
-    if not doc_path:
-        return error_response("path parameter required", 400, "NO_PATH")
 
-    if not ensure_path_is_safe(doc_path):
-        return error_response("Invalid path", 400, "INVALID_PATH")
+    doc_physical: Path | None = None
 
-    base = get_upload_base_path()
-    doc_physical = base / doc_path.lstrip("/")
-
-    if not doc_physical.exists():
-        return error_response("File not found", 404, "FILE_NOT_FOUND")
+    if doc_id_arg:
+        # The document_id path. Lets us thumbnail anything the resolver
+        # can find — including comfyui outputs that the path-based form
+        # always 404'd for.
+        try:
+            doc_id = int(doc_id_arg)
+        except ValueError:
+            return error_response("document_id must be an integer", 400, "INVALID_DOC_ID")
+        doc_row = db.session.get(DBDocument, doc_id)
+        if doc_row is None:
+            return error_response("Document not found", 404, "DOCUMENT_NOT_FOUND")
+        from backend.services.document_path_resolver import resolve_document_path
+        doc_physical = resolve_document_path(doc_row)
+        if doc_physical is None:
+            return error_response("File not found", 404, "FILE_NOT_FOUND")
+    elif doc_path:
+        if not ensure_path_is_safe(doc_path):
+            return error_response("Invalid path", 400, "INVALID_PATH")
+        base = get_upload_base_path()
+        doc_physical = base / doc_path.lstrip("/")
+        if not doc_physical.exists():
+            return error_response("File not found", 404, "FILE_NOT_FOUND")
+    else:
+        return error_response("path or document_id parameter required", 400, "NO_TARGET")
 
     # Look for thumbnail in thumbnails/ subdirectory
     parent_dir = doc_physical.parent
@@ -1115,7 +1187,23 @@ def get_thumbnail():
     if thumb_png.exists():
         return send_file(str(thumb_png), mimetype="image/png")
 
-    # Fallback: serve the original image
+    # For video files, try to generate a thumbnail on the fly via ffmpeg
+    video_exts = {'.mp4', '.webm', '.avi', '.mov', '.mkv', '.flv', '.wmv', '.m4v'}
+    if doc_physical.suffix.lower() in video_exts:
+        try:
+            import subprocess
+            thumb_dir.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                ["ffmpeg", "-i", str(doc_physical), "-vf", "select=eq(n\\,0)",
+                 "-frames:v", "1", "-q:v", "2", "-y", str(thumb_path)],
+                capture_output=True, timeout=15,
+            )
+            if thumb_path.exists() and thumb_path.stat().st_size > 0:
+                return send_file(str(thumb_path), mimetype="image/jpeg")
+        except Exception as e:
+            logger.warning(f"Failed to generate video thumbnail: {e}")
+
+    # Fallback: serve the original file (works for images, not ideal for video)
     return send_file(str(doc_physical))
 
 
@@ -1375,7 +1463,7 @@ import redis
 import json as json_lib
 
 try:
-    _redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+    _redis_client = redis.Redis.from_url(os.environ.get('REDIS_URL', 'redis://localhost:6379/0'), decode_responses=True)
     _redis_client.ping()
     logger.info("Connected to Redis for bulk import job storage")
     USE_REDIS = True

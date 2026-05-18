@@ -479,9 +479,28 @@ export const testMasterConnection = async (masterUrl, apiKey) => {
  * @param {string} registrationData.node_name - Name of this node
  * @param {string} registrationData.node_id - Optional node ID (for re-registration)
  * @param {Array<string>} registrationData.sync_entities - Entity types to sync
- * @param {Object} registrationData.capabilities - System capabilities
+ * @param {Object} registrationData.hardware_profile - Structured hardware profile
  */
 export const registerWithMaster = async (masterUrl, apiKey, registrationData) => {
+  // Fetch this node's hardware profile so master has structured info on
+  // registration. If the endpoint isn't available (older master talking to
+  // newer node, or detector not run yet), proceed without — server-side
+  // fallback detects for us.
+  let hardwareProfile = null;
+  try {
+    const localRes = await fetch("/api/node/hardware-profile");
+    if (localRes.ok) {
+      hardwareProfile = await localRes.json();
+    }
+  } catch (e) {
+    console.warn("[INTERCONNECTOR API] hardware-profile fetch failed:", e);
+  }
+
+  const payload = { ...registrationData };
+  if (hardwareProfile) {
+    payload.hardware_profile = hardwareProfile;
+  }
+
   try {
     console.log("[INTERCONNECTOR API] Registering with master:", {
       masterUrl,
@@ -490,20 +509,20 @@ export const registerWithMaster = async (masterUrl, apiKey, registrationData) =>
         node_id: registrationData.node_id || "none"
       }
     });
-    
+
     const baseUrl = masterUrl.replace(/\/$/, "");
     const apiPath = baseUrl.endsWith("/api") ? "" : "/api";
     const registerUrl = `${baseUrl}${apiPath}/interconnector/nodes/register`;
-    
+
     console.log("[INTERCONNECTOR API] Registration URL:", registerUrl);
-    
+
     const response = await fetchWithTimeout(registerUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "X-API-Key": apiKey,
       },
-      body: JSON.stringify(registrationData),
+      body: JSON.stringify(payload),
     }, 10000);
     
     console.log("[INTERCONNECTOR API] Registration response status:", response.status, response.statusText);

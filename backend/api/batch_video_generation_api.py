@@ -92,13 +92,11 @@ def generate_text_to_video_batch():
     """
     Start a text-to-video batch generation.
     Body can be JSON or form-data.
+
+    Returns immediately with status='queued'. The worker thread drains the queue
+    one batch at a time, so concurrent submissions stack rather than collide.
     """
     try:
-        # Pre-flight GPU availability check
-        gpu_available, gpu_error = _check_gpu_availability()
-        if not gpu_available:
-            return gpu_error
-
         data = request.get_json(silent=True) or request.form.to_dict()
         prompts = _parse_list(data.get("prompts"))
         if not prompts:
@@ -120,6 +118,7 @@ def generate_text_to_video_batch():
             "interpolation_multiplier": int(data.get("interpolation_multiplier", 2)),
             "prompt_style": data.get("prompt_style", "cinematic"),
             "enhance_prompt": str(data.get("enhance_prompt", "true")).lower() != "false",
+            "negative_prompt": data.get("negative_prompt", "") or "",
             "metadata": {
                 **(data.get("metadata") or {}),
                 "upscale": str(data.get("upscale", "false")).lower() == "true",
@@ -143,13 +142,11 @@ def generate_text_to_video_batch():
 def generate_image_to_video_batch():
     """
     Start an image-to-video batch generation. Expects image paths or IDs provided by client.
+
+    Same queueing behaviour as the text endpoint — returns immediately with
+    status='queued' and stacks behind any in-flight batch.
     """
     try:
-        # Pre-flight GPU availability check
-        gpu_available, gpu_error = _check_gpu_availability()
-        if not gpu_available:
-            return gpu_error
-
         data = request.get_json(silent=True) or request.form.to_dict()
         image_paths = _parse_list(data.get("image_paths") or data.get("image_ids"))
         if not image_paths:
@@ -172,6 +169,7 @@ def generate_image_to_video_batch():
             "interpolation_multiplier": int(data.get("interpolation_multiplier", 2)),
             "prompt_style": data.get("prompt_style", "cinematic"),
             "enhance_prompt": str(data.get("enhance_prompt", "true")).lower() != "false",
+            "negative_prompt": data.get("negative_prompt", "") or "",
             "metadata": {
                 **(data.get("metadata") or {}),
                 "upscale": str(data.get("upscale", "false")).lower() == "true",
@@ -227,6 +225,20 @@ def get_batch_status(batch_id: str):
         )
     except Exception as e:
         logger.error(f"Failed to get batch status: {e}")
+        return error_response(str(e), 500)
+
+
+@batch_video_bp.route("/queue", methods=["GET"])
+def get_queue():
+    """
+    Snapshot of the in-process batch queue for the UI panel.
+    Returns batches in submission order with position numbers.
+    """
+    try:
+        generator = get_batch_video_generator()
+        return success_response({"queue": generator.list_queue()})
+    except Exception as e:
+        logger.error(f"Failed to get batch queue: {e}")
         return error_response(str(e), 500)
 
 
@@ -514,6 +526,16 @@ VIDEO_MODEL_REGISTRY = {
         "hf_repo": "QuantStack/Wan2.2-T2V-A14B-GGUF",
         "local_subdir": "unet",
         "check_files": ["Wan2.2-T2V-A14B-HighNoise-Q5_K_M.gguf", "Wan2.2-T2V-A14B-LowNoise-Q5_K_M.gguf"],
+        "size_gb": 21.0,
+        "vram_mb": 11000,
+        "type": "wan",
+    },
+    "wan22-14b-i2v": {
+        "name": "Wan 2.2 14B I2V MoE (GGUF Q5_K)",
+        "description": "Top-tier image-to-video. Same MoE architecture as Wan 2.2 T2V — start frame conditions an 81-frame clip. Beats CogVideoX I2V on motion + cinematic feel.",
+        "hf_repo": "QuantStack/Wan2.2-I2V-A14B-GGUF",
+        "local_subdir": "unet/Wan2.2-I2V",
+        "check_files": ["Wan2.2-I2V/HighNoise/Wan2.2-I2V-A14B-HighNoise-Q5_K_M.gguf", "Wan2.2-I2V/LowNoise/Wan2.2-I2V-A14B-LowNoise-Q5_K_M.gguf"],
         "size_gb": 21.0,
         "vram_mb": 11000,
         "type": "wan",

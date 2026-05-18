@@ -25,12 +25,13 @@ const DocumentsContextMenu = ({
   onOpenWindow,
   onOpenInCodeEditor,
   hasClipboard = false,
-  hasSelection = false,
+  _hasSelection = false,
   contextType = 'desktop', // 'desktop', 'folder', 'file'
-  selectedItem = null,
+  _selectedItem = null,
   folderColor = null,
   isImage = false,
   isCode = false,
+  isPdf = false,
 }) => {
   const theme = useTheme();
   const open = Boolean(anchorPosition);
@@ -77,7 +78,7 @@ const DocumentsContextMenu = ({
         sx={menuStyles}
       >
         <MenuItem onClick={onNewFolder}>New Folder</MenuItem>
-        <MenuItem onClick={onUpload}>Upload Files</MenuItem>
+        <MenuItem onClick={onUpload}>Import Files</MenuItem>
         {hasClipboard && (
           <>
             <Divider />
@@ -176,6 +177,7 @@ const DocumentsContextMenu = ({
         )}
         {isImage && onEdit && <MenuItem onClick={onEdit}>Edit</MenuItem>}
         {isCode && onEdit && <MenuItem onClick={onEdit}>Edit</MenuItem>}
+        {isPdf && onEdit && <MenuItem onClick={onEdit}>View</MenuItem>}
         {isCode && onOpenInCodeEditor && <MenuItem onClick={onOpenInCodeEditor}>Open in Code Editor</MenuItem>}
         {onRename && <MenuItem onClick={onRename}>Rename</MenuItem>}
         {onProperties && <MenuItem onClick={onProperties}>Properties</MenuItem>}

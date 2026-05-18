@@ -55,6 +55,27 @@ def get_llm_debug() -> bool:
         return os.environ.get("GUAARDVARK_LLM_DEBUG", "").lower() == "true"
 
 
+def get_rules_enabled() -> bool:
+    """Return True if the global chat-rules toggle (SettingsPage → A.I. Features
+    → Rules) is enabled. When False, chat paths skip RulesPage lookups entirely
+    and fall straight to the hardcoded default prompt — the way rules were
+    "phased out" without deleting the feature.
+
+    Default: False. Safe to call outside app context — returns False/env-var fallback.
+    """
+    if not db or not Setting:
+        return os.environ.get("GUAARDVARK_RULES_ENABLED", "").lower() in _BOOL_TRUTHY
+    try:
+        if has_app_context():
+            setting = db.session.get(Setting, "rules_enabled")
+            if setting and setting.value is not None:
+                return setting.value.lower() in _BOOL_TRUTHY
+        return os.environ.get("GUAARDVARK_RULES_ENABLED", "").lower() in _BOOL_TRUTHY
+    except Exception as e:
+        logger.error(f"Failed to read rules_enabled setting: {e}")
+        return False
+
+
 # Keys that live in the system_settings table (Claude config).
 # All other keys use the settings table.
 SYSTEM_SETTING_KEYS = {

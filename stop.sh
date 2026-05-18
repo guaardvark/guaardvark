@@ -239,6 +239,10 @@ kill_and_cleanup "backend"
 kill_and_cleanup "frontend"
 kill_and_cleanup "celery"
 
+# Clear Python bytecode cache so stale .pyc files never load old code
+find "$SCRIPT_DIR/backend" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null
+find "$SCRIPT_DIR/backend" -name "*.pyc" -delete 2>/dev/null
+
 vader_info "Cleaning up any remaining processes from this environment..."
 
 flask_pids=$(pgrep -f "(python.*backend[./]app|flask run)" 2>/dev/null)
@@ -256,7 +260,8 @@ if [ -n "$flask_pids" ]; then
     done
 fi
 
-celery_pids=$(pgrep -f "celery.*worker" 2>/dev/null)
+# Pattern catches both worker AND beat processes from this checkout.
+celery_pids=$(pgrep -f "celery.*\(worker\|beat\)" 2>/dev/null)
 if [ -n "$celery_pids" ]; then
     env_celery_pids=()
     for pid in $celery_pids; do
@@ -265,22 +270,22 @@ if [ -n "$celery_pids" ]; then
             env_celery_pids+=("$pid")
         fi
     done
-    
+
     if [ ${#env_celery_pids[@]} -gt 0 ]; then
-        vader_info "Found ${#env_celery_pids[@]} Celery worker(s) from this environment"
-        
+        vader_info "Found ${#env_celery_pids[@]} Celery worker/beat process(es) from this environment"
+
         for pid in "${env_celery_pids[@]}"; do
             kill -TERM "$pid" 2>/dev/null
         done
         sleep 3
-        
+
         for pid in "${env_celery_pids[@]}"; do
             if kill -0 "$pid" 2>/dev/null; then
-                vader_warn "Celery worker (PID: $pid) still running, using SIGKILL..."
+                vader_warn "Celery process (PID: $pid) still running, using SIGKILL..."
                 kill -KILL "$pid" 2>/dev/null
             fi
         done
-        
+
         rm -f "$PIDS_DIR"/celery_*.pid
     fi
 fi
@@ -325,6 +330,14 @@ if [ -n "$vite_pids" ]; then
             fi
         fi
     done
+fi
+
+# ── Stop agent virtual display (Xvfb + VNC + window manager) ──
+AGENT_DISPLAY_SCRIPT="$SCRIPT_DIR/scripts/start_agent_display.sh"
+if [ -x "$AGENT_DISPLAY_SCRIPT" ]; then
+    vader_info "Stopping agent virtual display..."
+    bash "$AGENT_DISPLAY_SCRIPT" stop 2>&1 | while read line; do vader_info "  $line"; done
+    vader_success "Agent virtual display stopped."
 fi
 
 # ── Stop enabled plugins (Discord bot, etc.) ──

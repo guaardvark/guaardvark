@@ -370,7 +370,6 @@ const DashboardPage = () => {
       setOriginalDimensions({});
     }
     // normal: already loaded from saved state
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialStateLoaded]);
 
   // Apply z-indices to grid item elements after renders.
@@ -515,7 +514,7 @@ const DashboardPage = () => {
     [minimizedCards, layout, cardColors, saveDashboardState, cardMinGridH, originalDimensions],
   );
 
-  const handleResetLayout = useCallback(() => {
+  const _handleResetLayout = useCallback(() => {
     normalLayoutRef.current = defaultFixedLayout;
     setLayout(defaultFixedLayout);
     setCardColors({});
@@ -703,9 +702,13 @@ const DashboardPage = () => {
               },
               "&.react-draggable-dragging": {
                 transition: "none !important",
-                outline: `2px solid ${theme.palette.primary.main}`,
-                borderRadius: "4px",
                 opacity: 0.9,
+                // Outline the child div, not the grid item — so minimized
+                // cards show a bar-sized outline instead of the full grid cell
+                "& > div": {
+                  outline: `2px solid ${theme.palette.primary.main}`,
+                  borderRadius: "4px",
+                },
               },
             },
           }}

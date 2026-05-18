@@ -5,6 +5,7 @@ import uuid
 from pathlib import Path
 
 from prompt_toolkit import PromptSession
+from prompt_toolkit.application import run_in_terminal
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
@@ -96,56 +97,97 @@ def _dynamic_completions(command: str, sub_text: str):
 
 
 def _handle_chat(state: dict, ctx: ContextSnapshot, message: str):
-    """Send a chat message with streaming response."""
+    """Send a chat message with streaming or synchronous response."""
     console = make_console()
     server = state["server"]
     session_id = state["session_id"]
+    agent_mode = state.get("agent_mode", False)
+    lite_mode = state.get("lite_mode", False)
 
     # Freshen context in background
     ctx.refresh_async()
 
-    # Build context block for LLM injection
-    context_block = ctx.format_context_block()
+    if agent_mode:
+        message = f"[AGENT MODE: You are an autonomous agent. Use your tools to fulfill this request.]\n\n{message}"
 
-    # Set up streaming
-    renderer = ChatRenderer()
-    streamer = LlxStreamer(server)
+    # The /agent slash command toggles this. Tells the backend whether to
+    # route Gemma4 through its screen-action direct path and to expose
+    # desktop/agent-control tools. Defaults False — CLI users aren't watching
+    # the agent screen unless they explicitly opted in.
+    screen_active = bool(state.get("agent_screen_active", False))
 
-    # Connect to Socket.IO and join session BEFORE posting
-    streamer.stream_chat(
-        session_id,
-        on_token=renderer.on_token,
-        on_tool_call=renderer.on_tool_call,
-        on_complete=renderer.on_complete,
-        on_error=renderer.on_error,
-    )
+    if lite_mode:
+        # Lite mode: synchronous chat (no Socket.IO)
+        try:
+            client = get_client(server)
+            response = client.post("/api/chat/unified", json={
+                "session_id": session_id,
+                "message": message,
+                "options": {
+                    "use_rag": False,
+                    "agent_screen_active": screen_active,
+                },
+            })
+            result = response.get("data", response)
+            content = result.get("response", str(result))
+            from rich.markdown import Markdown
+            console.print()
+            console.print(Markdown(content))
+            console.print()
+        except (LlxConnectionError, LlxError, Exception) as e:
+            console.print(f"[llx.error]Chat error: {e}[/llx.error]")
+    else:
+        # Full mode: streaming via Socket.IO
+        context_block = ctx.format_context_block()
+        renderer = ChatRenderer()
+        streamer = LlxStreamer(server)
 
-    # Start the live renderer
-    renderer.start()
+        streamer.stream_chat(
+            session_id,
+            on_token=renderer.on_token,
+            on_tool_call=renderer.on_tool_call,
+            on_tool_output_chunk=renderer.on_tool_output_chunk,
+            on_complete=renderer.on_complete,
+            on_error=renderer.on_error,
+        )
+        renderer.start()
 
-    # POST the chat message
-    try:
-        client = get_client(server)
-        client.post("/api/chat/unified", json={
-            "session_id": session_id,
-            "message": message,
-            "options": {
-                "use_rag": True,
-                "context": context_block,
-            },
-        })
-    except (LlxConnectionError, LlxError, Exception) as e:
-        renderer.stop()
-        console.print(f"[llx.error]Chat error: {e}[/llx.error]")
-        streamer.disconnect()
-        return
+        try:
+            client = get_client(server)
+            client.post("/api/chat/unified", json={
+                "session_id": session_id,
+                "message": message,
+                "options": {
+                    "use_rag": True,
+                    "context": context_block,
+                    "agent_screen_active": screen_active,
+                },
+            })
+        except (LlxConnectionError, LlxError, Exception) as e:
+            renderer.stop()
+            console.print(f"[llx.error]Chat error: {e}[/llx.error]")
+            streamer.disconnect()
+            return
 
-    # Wait for the streaming response to finish
-    streamer.wait(timeout=300)
+        completed = False
+        try:
+            completed = streamer.wait_for_completion(
+                approval_handler=renderer.prompt_for_approval,
+                timeout=300,
+            )
+        except KeyboardInterrupt:
+            # User hit Ctrl+C at the approval prompt — chat already aborted
+            completed = True
+            console.print("[llx.dim]Chat aborted.[/llx.dim]")
+        finally:
+            renderer.stop()
+            streamer.disconnect()
 
-    # Clean up
-    renderer.stop()
-    streamer.disconnect()
+        if not completed:
+            console.print(
+                "[llx.error]No response after 5 minutes — server may be stalled "
+                "(check backend log / Ollama). Returning to prompt.[/llx.error]"
+            )
 
     # Track session
     state["message_count"] = state.get("message_count", 0) + 1
@@ -161,16 +203,43 @@ def launch_repl():
     config = load_config()
     server = get_server_url()
 
+    # Detect lite mode — only if the config file actually exists and says lite.
+    # No config file = user is running the full stack directly, not via launch.
+    _lite_mode = False
+    try:
+        from llx.launch_config import _config_path
+        if _config_path().exists():
+            from llx.launch_config import load_launch_config
+            _lcfg = load_launch_config()
+            _lite_mode = _lcfg.get("mode") == "lite"
+    except Exception:
+        pass
+
     # Shared state dict
     state = {
         "session_id": str(uuid.uuid4()),
         "server": server,
         "message_count": 0,
+        "agent_mode": False,
+        "lite_mode": _lite_mode,
     }
 
     # Create context snapshot and start background population
     ctx = ContextSnapshot(server)
     ctx.refresh_async()
+
+    # Auto-start lite server if backend is offline and config says to
+    if not ctx.is_online():
+        try:
+            from llx.launch_config import load_launch_config
+            lcfg = load_launch_config()
+            if lcfg.get("auto_start_services") and lcfg.get("mode") == "lite":
+                from llx.commands.launch import _start_lite_mode
+                _start_lite_mode(console, port=5000)
+                time.sleep(0.5)
+                ctx.refresh_async()
+        except Exception:
+            pass
 
     # Create slash router
     router = SlashRouter(state)
@@ -226,7 +295,12 @@ def launch_repl():
         if now - _last_ctrl_c["time"] < 2.0:
             raise EOFError()
         _last_ctrl_c["time"] = now
-        console.print("\n[llx.dim]Press Ctrl+C again to exit.[/llx.dim]")
+        # Rich's console.print() from inside a prompt_toolkit key handler
+        # crashes the event loop because prompt_toolkit owns the terminal.
+        # run_in_terminal pauses rendering, runs the callable, then resumes.
+        run_in_terminal(
+            lambda: console.print("\n[llx.dim]Press Ctrl+C again to exit.[/llx.dim]")
+        )
 
     # Create prompt session
     history_file = Path.home() / ".llx" / "history"
@@ -273,4 +347,6 @@ def launch_repl():
                 break
         else:
             # Chat message
+            from llx.utils import parse_file_mentions
+            line = parse_file_mentions(line)
             _handle_chat(state, ctx, line)

@@ -400,7 +400,7 @@ class EnhancedChatManager:
                 'temperature': 0.7,
                 'top_p': 0.9
             })
-        elif any(vision in model_lower for vision in ['llava', 'moondream', 'qwen2.5vl']):
+        elif any(vision in model_lower for vision in ['llava', 'moondream']):
             # Vision models - may need different handling
             config.update({
                 'max_context_tokens': 8192,
@@ -655,27 +655,32 @@ VOICE INTERACTION MODE: You are responding to voice chat, so be extra conversati
                 web_search_enabled = False
                 web_access_setting = False
 
-            # Get the system prompt template from database (RulesPage)
-            # Try enhanced_chat first, then fall back to global_default_chat_system_prompt
-            base_template, rule_id = rule_utils.get_active_system_prompt(
-                "enhanced_chat",
-                db.session,
-                model_name=model_name
-            )
-
-            if not base_template:
-                # Fallback to global_default_chat_system_prompt
+            # Get the system prompt template from database (RulesPage).
+            # Gated by the global SettingsPage → A.I. Features → Rules toggle.
+            # When disabled (default), skip the DB lookups and fall through to
+            # the hardcoded fallback template below.
+            from backend.utils.settings_utils import get_rules_enabled
+            if get_rules_enabled():
                 base_template, rule_id = rule_utils.get_active_system_prompt(
-                    "global_default_chat_system_prompt",
+                    "enhanced_chat",
                     db.session,
                     model_name=model_name
                 )
+                if not base_template:
+                    base_template, rule_id = rule_utils.get_active_system_prompt(
+                        "global_default_chat_system_prompt",
+                        db.session,
+                        model_name=model_name
+                    )
+            else:
+                base_template, rule_id = None, None
 
             if rule_id:
                 logger.info(f"Using system prompt rule ID {rule_id} from database for model '{model_name}'")
             else:
-                logger.warning(f"No system prompt rule found, using fallback for model '{model_name}'")
-                # Use a basic template with required placeholders
+                # Expected state when rules toggle is off OR no matching rule
+                # is active. Fall through to the hardcoded template silently.
+                logger.debug(f"No system prompt rule found, using fallback for model '{model_name}'")
                 base_template = """{rules_str}
 
 You are a helpful AI assistant. Be accurate, concise, and honest.
@@ -1742,6 +1747,9 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
 
         try:
             # ── Media command shortcut: bypass LLM for play/pause/volume/status ──
+            # NOTE: AgentBrain integration lives in unified_chat_api.py (Socket.IO path).
+            # This REST endpoint uses synchronous LlamaIndex streaming, so AgentBrain
+            # is not wired here to avoid response path mismatch.
             media_result = self._try_media_command(session_id, message, project_id)
             if media_result is not None:
                 return media_result
@@ -3401,6 +3409,32 @@ You are analyzing code files. When responding to questions about code:
                 except Exception as mem_error:
                     logger.debug(f"MemoryManager persist failed: {mem_error}")
 
+                # Lazily roll-up older messages into summaries when the session
+                # grows past the threshold. Fire in a background thread so we
+                # don't tax the response with summarisation latency. Most
+                # calls are no-ops (returns 0 unless a full window accumulated
+                # since the last summary).
+                try:
+                    raw_msgs = self.session_messages.get(session_id, [])
+                    if len(raw_msgs) >= 30:
+                        formatted_for_summary = []
+                        for msg in raw_msgs:
+                            if hasattr(msg, "role") and hasattr(msg, "content"):
+                                formatted_for_summary.append({
+                                    "role": msg.role.value if hasattr(msg.role, "value") else str(msg.role),
+                                    "content": msg.content,
+                                    "timestamp": getattr(msg, "timestamp", datetime.now()),
+                                })
+                        if formatted_for_summary:
+                            threading.Thread(
+                                target=self._memory_manager.maybe_summarize_session,
+                                args=(session_id, formatted_for_summary),
+                                daemon=True,
+                                name=f"summarise-{session_id[:8]}",
+                            ).start()
+                except Exception as summ_error:
+                    logger.debug(f"Background summarisation skipped: {summ_error}")
+
             # Log conversation exchange with ConversationLogger for persistent debugging
             if self._conversation_logger:
                 try:
@@ -4715,7 +4749,7 @@ def get_chat_history(session_id: str):
             if msg.extra_data and isinstance(msg.extra_data, dict):
                 for key in ('imageUrl', 'imageFileName', 'messageType',
                             'relatedImageUrl', 'imageAnalysis', 'analysisDetails',
-                            'generatedImages'):
+                            'generatedImages', 'agentThinkingSteps'):
                     if key in msg.extra_data:
                         msg_data[key] = msg.extra_data[key]
                 # Restore tool call steps for unified chat rendering

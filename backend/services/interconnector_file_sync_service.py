@@ -8,6 +8,7 @@ import shutil
 import fnmatch
 import gzip
 import base64
+from contextlib import contextmanager
 from itertools import islice
 from datetime import datetime
 from pathlib import Path
@@ -20,6 +21,25 @@ MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024
 MAX_TOTAL_BYTES = 30 * 1024 * 1024
 MAX_FILE_COUNT = 1500
 
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_SENTINEL_DIR = _REPO_ROOT / "data" / "dep_reconciler"
+_SENTINEL_FILE = _SENTINEL_DIR / ".sync_in_progress"
+
+
+@contextmanager
+def _sync_in_progress_sentinel():
+    """Context manager: writes .sync_in_progress, clears on exit (success or fail).
+
+    Tells the dep_reconciler to refuse to run while we're mid-sync.
+    """
+    _SENTINEL_DIR.mkdir(parents=True, exist_ok=True)
+    _SENTINEL_FILE.write_text("syncing")
+    try:
+        yield
+    finally:
+        if _SENTINEL_FILE.exists():
+            _SENTINEL_FILE.unlink()
+
 class InterconnectorFileSyncService:
 
     def __init__(self):
@@ -29,6 +49,7 @@ class InterconnectorFileSyncService:
             "backend/utils/",
             "backend/routes/",
             "backend/handlers/",
+            "backend/agents/",
             "backend/plugins/",
             "backend/tools/",
             "backend/tasks/",
@@ -61,6 +82,9 @@ class InterconnectorFileSyncService:
             "CLAUDE.md",
             "cli/",
             "manager",
+            "plugins/",
+            "frontend/vite.config.js",
+            "frontend/index.html",
         ]
         
         self.exclude_patterns = [
@@ -97,6 +121,16 @@ class InterconnectorFileSyncService:
             "backend/tools/voice/piper-models/",
             "backend/tools/voice/piper/",
             ".egg-info",
+            # Plugin runtime artifacts (not source code)
+            "plugins/comfyui/ComfyUI/",
+            "plugins/upscaling/models/",
+            "plugins/upscaling/input/",
+            "plugins/upscaling/output/",
+            "*.pth",
+            "*.gguf",
+            "*.onnx",
+            ".pytest_cache",
+            ".requirements_installed",
         ]
 
     def get_file_hash(self, file_path: str) -> Optional[str]:
@@ -301,8 +335,22 @@ class InterconnectorFileSyncService:
                 try:
                     with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                         content = f.read()
+                    if content is None:
+                        logger.warning(f"[FILE_SYNC] File content is None: {file_path}")
+                        return files_list
+                    # Empty files (e.g. __init__.py) are valid — compress empty bytes
                     if not content:
-                        logger.warning(f"[FILE_SYNC] File content is empty: {file_path}")
+                        compressed = gzip.compress(b"")
+                        files_list.append({
+                            "path": str(rel_path),
+                            "hash": file_hash,
+                            "size": 0,
+                            "modified_at": modified_time.isoformat(),
+                            "content_compressed": base64.b64encode(compressed).decode('ascii'),
+                            "compression": "gzip",
+                            "original_size": 0,
+                            "compressed_size": len(compressed),
+                        })
                         return files_list
 
                     compressed = gzip.compress(content.encode('utf-8'))
@@ -581,6 +629,17 @@ class InterconnectorFileSyncService:
             return True, None, stats
 
     def apply_files_atomic(
+        self,
+        files_list: List[Dict],
+        conflict_strategy: str = "last_write_wins",
+        create_backup: bool = True
+    ) -> Tuple[bool, Dict[str, Any]]:
+        with _sync_in_progress_sentinel():
+            return self._apply_files_atomic_inner(
+                files_list, conflict_strategy, create_backup
+            )
+
+    def _apply_files_atomic_inner(
         self,
         files_list: List[Dict],
         conflict_strategy: str = "last_write_wins",

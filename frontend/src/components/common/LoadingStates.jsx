@@ -21,11 +21,8 @@ import {
 import {
   Wifi as OnlineIcon,
   WifiOff as OfflineIcon,
-  Refresh as RefreshIcon,
-  Warning as WarningIcon,
   CheckCircle as SuccessIcon,
   Error as ErrorIcon,
-  Info as InfoIcon
 } from '@mui/icons-material';
 import { GuaardvarkLogo } from '../branding';
 

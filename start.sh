@@ -109,7 +109,6 @@ OLLAMA_SERVICE_NAME="ollama"
 BACKEND_DIR="$SCRIPT_DIR/backend"
 FRONTEND_DIR="$SCRIPT_DIR/frontend"
 VENV_DIR="$BACKEND_DIR/venv"
-WITH_LLM="${WITH_LLM:-0}"
 CACHE_DIR="$SCRIPT_DIR/.start_cache"
 mkdir -p "$CACHE_DIR"
 
@@ -140,16 +139,20 @@ if [ -f "$SCRIPT_DIR/.env" ]; then
   export GUAARDVARK_ROOT="$SCRIPT_DIR"
 fi
 
-# Generate SECRET_KEY if not set — prevents "Using default SECRET_KEY" warning
+# Generate SECRET_KEY if not set — prevents "Using default SECRET_KEY" warning.
+# Handles three cases: line missing, line present-but-empty, line present-with-value.
+# The first two need regeneration; only the third is a no-op.
 if [ -z "$SECRET_KEY" ]; then
-  if grep -q '^SECRET_KEY=' "$SCRIPT_DIR/.env" 2>/dev/null; then
-    : # Already in .env but empty — will be sourced above
-  else
-    _generated_key=$(python3 -c "import secrets; print(secrets.token_hex(32))" 2>/dev/null)
-    if [ -n "$_generated_key" ]; then
+  _generated_key=$(python3 -c "import secrets; print(secrets.token_hex(32))" 2>/dev/null)
+  if [ -n "$_generated_key" ]; then
+    if grep -q '^SECRET_KEY=' "$SCRIPT_DIR/.env" 2>/dev/null; then
+      # Line exists but is empty (e.g. stripped by code-release sanitizer or
+      # a commented-out variant). Replace in place.
+      sed -i "s|^SECRET_KEY=.*|SECRET_KEY=$_generated_key|" "$SCRIPT_DIR/.env"
+    else
       echo "SECRET_KEY=$_generated_key" >> "$SCRIPT_DIR/.env"
-      export SECRET_KEY="$_generated_key"
     fi
+    export SECRET_KEY="$_generated_key"
   fi
 fi
 
@@ -197,6 +200,41 @@ if [[ " $* " == *" --debug "* ]]; then
 fi
 
 command_exists() { command -v "$1" >/dev/null 2>&1; }
+
+# Resolve the EFFECTIVE enabled state for a plugin:
+#   1. data/plugin_state.json's `user_enabled[<id>]` if the user has toggled it
+#   2. plugin.json's `config.enabled` otherwise (manifest default)
+#
+# Echoes "True" or "False" — match the casing of Python's bool repr so the
+# existing `[ "$x" = "True" ]` checks throughout this script keep working.
+# Defaults to False on any read error (fail closed: don't start plugins
+# whose state we can't determine).
+#
+# Defined up here near the other helpers because step-4 (Ollama) calls it
+# WAY before the plugin loop later in the script — defining it down by the
+# loop produced "command not found" on every boot.
+plugin_effective_enabled() {
+    local plugin_id="$1"
+    local plugin_json="$2"
+    python3 - "$plugin_id" "$plugin_json" "$SCRIPT_DIR/data/plugin_state.json" <<'PYEOF' 2>/dev/null || echo "False"
+import json, os, sys
+plugin_id, plugin_json, state_file = sys.argv[1], sys.argv[2], sys.argv[3]
+try:
+    with open(state_file) as f:
+        prefs = (json.load(f) or {}).get("user_enabled", {})
+    if plugin_id in prefs:
+        print("True" if prefs[plugin_id] else "False")
+        sys.exit(0)
+except (OSError, ValueError):
+    pass
+try:
+    with open(plugin_json) as f:
+        cfg = (json.load(f) or {}).get("config", {})
+    print("True" if cfg.get("enabled", False) else "False")
+except (OSError, ValueError):
+    print("False")
+PYEOF
+}
 
 check_with_cache() {
   local cache_key="$1"
@@ -752,32 +790,6 @@ run_health_checks() {
     fi
 }
 
-ensure_pip_requirements() {
-    local req_file="$1"
-    [ -f "$req_file" ] || return 0
-    
-    if [ "$FAST_START" -eq 1 ]; then
-        return 0
-    fi
-    
-    while IFS= read -r line || [ -n "$line" ]; do
-        line="${line%%#*}"
-        line="${line%% *}"
-        [ -z "$line" ] && continue
-        local pkg="$line"
-        pkg="${pkg%%==*}"
-        pkg="${pkg%%>=*}"
-        pkg="${pkg%%<=*}"
-        pkg="${pkg%%>*}"
-        pkg="${pkg%%<*}"
-        pkg="${pkg%%!=*}"
-        pkg="${pkg%%~=*}"
-        if ! pip show "$pkg" >/dev/null 2>&1; then
-            pip install "$line" >> "$SETUP_LOG" 2>&1
-        fi
-    done < "$req_file"
-}
-
 ensure_npm_package() {
     local pkg="$1"
     npm ls --prefix "$FRONTEND_DIR" --depth=0 "$pkg" >/dev/null 2>&1 || \
@@ -841,7 +853,8 @@ if [ -f "$SCRIPT_DIR/pids/celery.pid" ]; then
     fi
 fi
 
-celery_pids=$(pgrep -f "celery.*worker" 2>/dev/null)
+# Pattern catches both worker AND beat from this checkout.
+celery_pids=$(pgrep -f "celery.*\(worker\|beat\)" 2>/dev/null)
 if [ -n "$celery_pids" ]; then
     for pid in $celery_pids; do
         proc_cwd=$(readlink -f "/proc/$pid/cwd" 2>/dev/null)
@@ -874,6 +887,11 @@ OLLAMA_AVAILABLE=1
 if ! command_exists "ollama"; then
     vader_warn "ollama command line tool not found."
     if command_exists apt-get && [ "$FAST_START" -ne 1 ]; then
+        # Ollama installer's tarball is zstd-compressed — extraction silently fails on minimal images without it.
+        if ! command_exists zstd; then
+            vader_info "Installing zstd (required by ollama installer)..."
+            sudo apt-get install -y zstd >/dev/null 2>&1 || vader_warn "zstd install failed; ollama install likely will too."
+        fi
         curl -fsSL https://ollama.com/install.sh | sh || OLLAMA_AVAILABLE=0
         command_exists "ollama" || OLLAMA_AVAILABLE=0
     else
@@ -911,94 +929,27 @@ fi
 
 source "$VENV_DIR/bin/activate" || { vader_error "Failed to activate venv"; exit 1; }
 
-if [ ! -f "$VENV_DIR/.deps_installed" ] && [ "$FAST_START" -ne 1 ]; then
-    FIRST_SETUP_DONE=0
-    vader_info "Installing base backend requirements..."
-    
-    if [ -f "$BACKEND_DIR/requirements-base.txt" ]; then
-        pip install -r "$BACKEND_DIR/requirements-base.txt" >> "$SETUP_LOG" 2>&1
-    else
-        pip install -r "$BACKEND_DIR/requirements.txt" >> "$SETUP_LOG" 2>&1
-    fi
-    
-    vader_info "Detecting GPU and installing PyTorch..."
-    if [ -f "$GUAARDVARK_ROOT/scripts/install_pytorch.sh" ]; then
-        bash "$GUAARDVARK_ROOT/scripts/install_pytorch.sh" 2>&1 | tee -a "$SETUP_LOG"
-    else
-        vader_warn "PyTorch install script not found - using CPU fallback"
-        pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu 2>&1 | tee -a "$SETUP_LOG"
-    fi
-    
-    NP_MAJOR=$($PYTHON_CMD - <<'EOF'
-import numpy, sys
-print(numpy.__version__.split('.')[0])
-EOF
-    )
-    if [ "$NP_MAJOR" -ge 2 ]; then
-        vader_warn "NumPy $NP_MAJOR.x detected; forcing reinstall of pinned packages."
-        if [ -f "$BACKEND_DIR/requirements-base.txt" ]; then
-            pip install --force-reinstall -r "$BACKEND_DIR/requirements-base.txt" >> "$SETUP_LOG" 2>&1
-        else
-            pip install --force-reinstall -r "$BACKEND_DIR/requirements.txt" >> "$SETUP_LOG" 2>&1
-        fi
-    fi
-
-    # Verify critical packages that pip dependency resolution may silently drop
-    # Use version pins to ensure correct versions (not just latest)
-    declare -A CRITICAL_PACKAGES=(
-        ["duckduckgo-search"]="duckduckgo-search==8.1.1"
-        ["flask"]="Flask==3.0.0"
-        ["celery"]="celery==5.4.0"
-        ["redis"]="redis==5.0.4"
-        ["llama-index-core"]="llama-index-core>=0.13.0,<0.15.0"
-        ["lxml"]="lxml==6.0.2"
-    )
-    for pkg in "${!CRITICAL_PACKAGES[@]}"; do
-        if ! pip show "$pkg" >/dev/null 2>&1; then
-            vader_warn "Critical package $pkg missing after requirements install — installing individually..."
-            pip install "${CRITICAL_PACKAGES[$pkg]}" >> "$SETUP_LOG" 2>&1
-        fi
-    done
-
-    touch "$VENV_DIR/.deps_installed"
-
-    if command_exists "nvidia-smi"; then
-        nvidia-smi --query-gpu=uuid --format=csv,noheader 2>/dev/null | head -1 > "$VENV_DIR/.gpu_hw_id"
+# Dependency reconciler — single source of truth for backend/frontend/cli/plugin/alembic deps.
+# Replaces the legacy .deps_installed sentinel and four scattered install blocks.
+if [ "$GUAARDVARK_DEP_RECONCILER" != "disabled" ] && [ "$FAST_START" -ne 1 ]; then
+    vader_info "Reconciling dependencies..."
+    python "$GUAARDVARK_ROOT/scripts/dep_reconciler.py" 2>&1 | tee -a "$SETUP_LOG"
+    reconciler_rc=${PIPESTATUS[0]}
+    if [ "$reconciler_rc" -ne 0 ]; then
+        vader_error "Dependency reconciliation failed (exit $reconciler_rc). Backend will not start."
+        vader_error "See logs/dep_reconciler.log for the full output."
+        exit 1
     fi
 fi
 deactivate
 
 # --- CLI tool setup ---
+# Pip install is handled by the dependency reconciler (cli_venv).
+# This block only handles the symlink installation into ~/.local/bin.
 CLI_DIR="$SCRIPT_DIR/cli"
-CLI_VENV_DIR="$CLI_DIR/venv"
+CLI_VENV_DIR="$VENV_DIR"
 if [ -d "$CLI_DIR" ] && [ -f "$CLI_DIR/setup.py" ]; then
-    if [ ! -d "$CLI_VENV_DIR" ]; then
-        vader_info "Creating CLI venv..."
-        $PYTHON_CMD -m venv "$CLI_VENV_DIR" || vader_warn "Failed to create CLI venv"
-    fi
     if [ -d "$CLI_VENV_DIR" ]; then
-        source "$CLI_VENV_DIR/bin/activate"
-        if [ ! -f "$CLI_VENV_DIR/.deps_installed" ] && [ "$FAST_START" -ne 1 ]; then
-            vader_info "Installing CLI tool (guaardvark)..."
-            pip install --upgrade pip setuptools >> "$SETUP_LOG" 2>&1
-            pip install -e "$CLI_DIR" >> "$SETUP_LOG" 2>&1
-            if [ $? -eq 0 ]; then
-                touch "$CLI_VENV_DIR/.deps_installed"
-                vader_success "CLI tool installed"
-            else
-                vader_warn "CLI tool installation failed - check $SETUP_LOG"
-            fi
-        elif [ "$FAST_START" -ne 1 ]; then
-            # Re-check if requirements changed
-            if [ "$CLI_DIR/requirements.txt" -nt "$CLI_VENV_DIR/.deps_installed" ] || \
-               [ "$CLI_DIR/setup.py" -nt "$CLI_VENV_DIR/.deps_installed" ]; then
-                vader_info "CLI dependencies changed - reinstalling..."
-                pip install -e "$CLI_DIR" >> "$SETUP_LOG" 2>&1
-                touch "$CLI_VENV_DIR/.deps_installed"
-            fi
-        fi
-        deactivate
-
         # Symlink CLI commands into ~/.local/bin so they work system-wide
         LOCAL_BIN="$HOME/.local/bin"
         mkdir -p "$LOCAL_BIN"
@@ -1013,14 +964,29 @@ if [ -d "$CLI_DIR" ] && [ -f "$CLI_DIR/setup.py" ]; then
             vader_success "Command 'guaardvark' is available globally"
         else
             vader_success "CLI installed to $LOCAL_BIN"
-            vader_warn "$LOCAL_BIN is not in PATH. Add to ~/.bashrc:  export PATH=\"\$HOME/.local/bin:\$PATH\""
+            # Make it available for the rest of this script run + spawned children.
+            export PATH="$LOCAL_BIN:$PATH"
+            # Persist for new shells via ~/.bashrc — idempotent, marker-guarded.
+            BASHRC="$HOME/.bashrc"
+            BASHRC_MARKER="# Added by guaardvark CLI installer — do not remove without removing the export"
+            if [ -f "$BASHRC" ] && ! grep -qF "$BASHRC_MARKER" "$BASHRC"; then
+                {
+                    echo ""
+                    echo "$BASHRC_MARKER"
+                    echo "export PATH=\"\$HOME/.local/bin:\$PATH\""
+                } >> "$BASHRC"
+                vader_success "Added \$HOME/.local/bin to PATH in ~/.bashrc (effective in new shells)"
+            elif [ ! -f "$BASHRC" ]; then
+                vader_warn "~/.bashrc not found — add manually:  export PATH=\"\$HOME/.local/bin:\$PATH\""
+            fi
         fi
     fi
 fi
 
 if [ "$FAST_START" -ne 1 ]; then
-    vader_info "Installing frontend dependencies..."
-    (cd "$FRONTEND_DIR" && $NPM_CMD install >> "$SETUP_LOG" 2>&1)
+    # Frontend deps installed by the dependency reconciler (Frontend reconciler).
+    # Running `npm install` here would mutate package-lock.json on every boot,
+    # defeating our lockfile-only hash strategy.
 
     if [ "$BUILD_CHECK" -eq 1 ]; then
         check_frontend_build
@@ -1106,7 +1072,12 @@ if command_exists nvidia-smi && [ ! -f "$GPU_SUDOERS" ]; then
     fi
 fi
 
-if [ "$OLLAMA_AVAILABLE" -eq 1 ]; then
+# Check if Ollama plugin is enabled. Honors the user_enabled overlay in
+# data/plugin_state.json (UI toggle) and falls back to plugin.json default.
+OLLAMA_PLUGIN_JSON="$SCRIPT_DIR/plugins/ollama/plugin.json"
+OLLAMA_ENABLED=$(plugin_effective_enabled "ollama" "$OLLAMA_PLUGIN_JSON")
+
+if [ "$OLLAMA_AVAILABLE" -eq 1 ] && [ "$OLLAMA_ENABLED" != "False" ]; then
     # Step 1: Check if already running
     if curl -sf --max-time 3 http://localhost:11434/ >/dev/null 2>&1; then
         vader_success "Ollama service is already active"
@@ -1159,6 +1130,8 @@ if [ "$OLLAMA_AVAILABLE" -eq 1 ]; then
             rm -f "$SCRIPT_DIR/pids/ollama.pid" 2>/dev/null
         fi
     fi
+elif [ "$OLLAMA_ENABLED" = "False" ]; then
+    vader_info "Ollama plugin is disabled — skipping startup"
 else
     vader_warn "Ollama CLI not available; skipping service check."
 fi
@@ -1266,113 +1239,43 @@ if [ ! -f "$VENV_DIR/bin/activate" ]; then
     fi
 fi
 
-vader_info "Activating Python venv..."
-source "$VENV_DIR/bin/activate" || { vader_error "Failed to activate venv."; cd "$SCRIPT_DIR"; exit 1; }
-
-SENTINEL="$VENV_DIR/.deps_installed"
-
-if [ -f "$SENTINEL" ] && [ "$BACKEND_DIR/requirements.txt" -nt "$SENTINEL" ]; then
-    vader_info "requirements.txt changed - updating backend dependencies..."
-    if [ -f "$BACKEND_DIR/requirements-base.txt" ]; then
-        pip install -r "$BACKEND_DIR/requirements-base.txt" >> "$SETUP_LOG" 2>&1
-    else
-        pip install -r "$BACKEND_DIR/requirements.txt" >> "$SETUP_LOG" 2>&1
-    fi
-    touch "$SENTINEL"
-
-    # Verify critical packages that pip dependency resolution may silently drop
-    # Use version pins to ensure correct versions (not just latest)
-    declare -A CRITICAL_PACKAGES_2=(
-        ["duckduckgo-search"]="duckduckgo-search==8.1.1"
-        ["flask"]="Flask==3.0.0"
-        ["celery"]="celery==5.4.0"
-        ["redis"]="redis==5.0.4"
-        ["llama-index-core"]="llama-index-core>=0.13.0,<0.15.0"
-        ["lxml"]="lxml==6.0.2"
-    )
-    for pkg in "${!CRITICAL_PACKAGES_2[@]}"; do
-        if ! pip show "$pkg" >/dev/null 2>&1; then
-            vader_warn "Critical package $pkg missing after requirements install — installing individually..."
-            pip install "${CRITICAL_PACKAGES_2[$pkg]}" >> "$SETUP_LOG" 2>&1
-        fi
-    done
-fi
-
-if [ -f "$BACKEND_DIR/requirements-base.txt" ]; then
-    ensure_pip_requirements "$BACKEND_DIR/requirements-base.txt"
-else
-    ensure_pip_requirements "$BACKEND_DIR/requirements.txt"
-fi
-
-if command_exists "nvidia-smi"; then
-    CURRENT_GPU=$(nvidia-smi --query-gpu=uuid --format=csv,noheader 2>/dev/null | head -1)
-    if [ -n "$CURRENT_GPU" ]; then
-        if [ -f "$VENV_DIR/.gpu_hw_id" ]; then
-            SAVED_GPU=$(cat "$VENV_DIR/.gpu_hw_id" 2>/dev/null)
-            if [ "$CURRENT_GPU" != "$SAVED_GPU" ]; then
-                vader_info "GPU hardware change detected. Reinstalling PyTorch..."
-                bash "$GUAARDVARK_ROOT/scripts/install_pytorch.sh" >> "$SETUP_LOG" 2>&1
-                echo "$CURRENT_GPU" > "$VENV_DIR/.gpu_hw_id"
-            fi
-        else
-            echo "$CURRENT_GPU" > "$VENV_DIR/.gpu_hw_id"
-        fi
-    fi
-fi
-
-if [ ! -f "$SENTINEL" ]; then
-    vader_error "Backend dependencies missing. Exiting."
-    deactivate
-    cd "$SCRIPT_DIR"
-    exit 1
-fi
-
-vader_info "Verifying LLM-related Python modules..."
-LLM_MODULES=(llama_index.core)
-MISSING_LLM_MODULES=()
-for mod in "${LLM_MODULES[@]}"; do
-    python - <<EOF >> /dev/null 2>&1
-import sys
-try:
-    import $mod
-    sys.exit(0)
-except ImportError:
-    sys.exit(1)
-EOF
-    if [ $? -ne 0 ]; then
-        MISSING_LLM_MODULES+=("$mod")
-    fi
-done
-
-if [ ${#MISSING_LLM_MODULES[@]} -gt 0 ]; then
-    vader_warn "Missing LLM modules: ${MISSING_LLM_MODULES[*]}"
-    vader_info "Auto-installing LLM requirements..."
-    ensure_pip_requirements "$BACKEND_DIR/requirements.txt"
-fi
-
-if [ "$WITH_LLM" -eq 1 ]; then
-    ensure_pip_requirements "$BACKEND_DIR/requirements.txt"
-fi
-
-vader_info "Deactivating venv for now."
-deactivate
 cd "$SCRIPT_DIR"
+
+# ---- cluster: hardware profile ------------------------------------------
+# Refresh ~/.guaardvark/hardware.json on every boot so the Interconnector has
+# a current picture of this box. Cluster routing is off by default; this
+# profile is harmless in solo mode (just a file on disk).
+ensure_hardware_profile() {
+    mkdir -p "$HOME/.guaardvark"
+    if [ -d "$SCRIPT_DIR/backend/venv" ]; then
+        # Pipe verbose detector output to the setup log; emit one consistently-
+        # styled line via vader_success/warn so it matches the rest of the boot
+        # output instead of arriving in the shell's default color.
+        if (cd "$SCRIPT_DIR" && "$SCRIPT_DIR/backend/venv/bin/python" -m backend.services.hardware_detector \
+                --output "$HOME/.guaardvark/hardware.json") >> "$SETUP_LOG" 2>&1; then
+            vader_success "Hardware profile written to ~/.guaardvark/hardware.json"
+        else
+            vader_warn "hardware_detector failed (non-fatal)"
+        fi
+    else
+        vader_warn "Backend venv missing — skipping hardware profile"
+    fi
+}
+ensure_hardware_profile
+
+# Export the persistent node_id so the backend knows who it is without
+# re-reading hardware.json.
+if [ -f "$HOME/.guaardvark/hardware.json" ]; then
+    CLUSTER_NODE_ID=$(python3 -c "import json; print(json.load(open('$HOME/.guaardvark/hardware.json'))['node_id'])" 2>/dev/null || echo "")
+    export CLUSTER_NODE_ID
+fi
 
 vader_info "Setting up frontend..."
 cd "$FRONTEND_DIR" || { vader_error "Failed to cd to $FRONTEND_DIR"; exit 1; }
 
-if [ ! -d node_modules ]; then
-    vader_info "Installing frontend dependencies..."
-    $NPM_CMD install >> "$SETUP_LOG" 2>&1
-else
-    if [ "package.json" -nt "node_modules" ] || [ "package-lock.json" -nt "node_modules" ]; then
-        vader_info "package.json changed - updating frontend dependencies..."
-        $NPM_CMD install >> "$SETUP_LOG" 2>&1
-    elif ! $NPM_CMD ls >/dev/null 2>&1; then
-        vader_info "Updating frontend dependencies..."
-        $NPM_CMD install >> "$SETUP_LOG" 2>&1
-    fi
-fi
+# Frontend dep install is owned by the dependency reconciler (lockfile-strict
+# `npm ci`). The sentinel-based block that used to live here ran a second
+# `npm install`, which mutates package-lock.json and defeats our lockfile hash.
 
 ensure_npm_package rollup-plugin-polyfill-node
 
@@ -1455,6 +1358,19 @@ if command -v nvidia-smi &>/dev/null; then
             vader_warn "GPU power limit ${CUR_PL}W < max ${MAX_PL}W (needs sudo nvidia-smi -pl ${MAX_PL})"
         fi
     fi
+fi
+# Pick up the auth-bearing URLs that start_redis.sh / start_postgres.sh wrote to .env.
+# Without this, the `${X:-default}` exports below would set no-auth defaults that win
+# over .env (because the Flask app uses `load_dotenv(override=False)`), and every
+# subprocess from here on — schema_sync, the Flask app, Celery — would fail to
+# authenticate to redis with a misleading "Authentication required" error.
+if [ -f "$SCRIPT_DIR/.env" ]; then
+    for _key in REDIS_URL CELERY_BROKER_URL CELERY_RESULT_BACKEND; do
+        _val=$(grep -E "^${_key}=" "$SCRIPT_DIR/.env" | tail -1 | sed "s/^${_key}=//")
+        if [ -n "$_val" ]; then
+            export "${_key}=${_val}"
+        fi
+    done
 fi
 export REDIS_URL="${REDIS_URL:-redis://localhost:6379/0}"
 export CELERY_BROKER_URL="${CELERY_BROKER_URL:-redis://localhost:6379/0}"
@@ -1671,6 +1587,12 @@ ensure_agent_display() {
     if [ -x "$AGENT_DISPLAY_SCRIPT" ]; then
         if pgrep -f "Xvfb :${GUAARDVARK_AGENT_DISPLAY:-99}" > /dev/null 2>&1; then
             vader_success "Agent virtual display already running (:${GUAARDVARK_AGENT_DISPLAY:-99})"
+            # Even when the display is already up, re-sync the user's browser
+            # profile so cookies/logins added since the last boot land in the
+            # agent profile. Cheap idempotent operation; skips if agent
+            # Firefox is currently running (would corrupt SQLite copies).
+            vader_info "Re-syncing browser profile from user account..."
+            bash "$AGENT_DISPLAY_SCRIPT" sync 2>&1 | while read line; do vader_info "  $line"; done
             AGENT_DISPLAY_STARTED=1
             return 0
         fi
@@ -1701,6 +1623,14 @@ plugin_should_skip() {
         [ "$name" = "$sp" ] && return 0
     done
     return 1
+}
+
+# Read a single key from plugin.json's `config` block (manifest only — never
+# user-overridable). Used for `auto_start` which is purely a manifest hint.
+plugin_manifest_flag() {
+    local plugin_json="$1"
+    local key="$2"
+    python3 -c "import json,sys; c=json.load(open(sys.argv[1])).get('config',{}); print('True' if c.get(sys.argv[2], False) else 'False')" "$plugin_json" "$key" 2>/dev/null || echo "False"
 }
 
 start_plugin() {
@@ -1734,6 +1664,9 @@ start_plugin() {
     fi
 }
 
+# Always start the agent virtual display — it's a core feature, not plugin-dependent
+ensure_agent_display
+
 PLUGINS_STARTED=0
 
 # Pass 1: Start auto_start plugins (always, no flag needed)
@@ -1744,9 +1677,10 @@ for plugin_dir in "$SCRIPT_DIR"/plugins/*/; do
     plugin_should_skip "$plugin_name" && continue
     [ ! -f "$plugin_json" ] && continue
 
-    # Check auto_start AND enabled
-    auto_start=$(python3 -c "import json; c=json.load(open('$plugin_json')).get('config',{}); print(c.get('auto_start',False) and c.get('enabled',False))" 2>/dev/null)
-    if [ "$auto_start" = "True" ]; then
+    # auto_start is a manifest hint (not user-toggleable); enabled honors the overlay.
+    auto_start=$(plugin_manifest_flag "$plugin_json" "auto_start")
+    enabled=$(plugin_effective_enabled "$plugin_name" "$plugin_json")
+    if [ "$auto_start" = "True" ] && [ "$enabled" = "True" ]; then
         start_plugin "$plugin_dir"
         PLUGINS_STARTED=$((PLUGINS_STARTED + 1))
     fi
@@ -1757,8 +1691,9 @@ if [ "${START_DISCORD:-0}" -eq 1 ]; then
     DISCORD_DIR="$SCRIPT_DIR/plugins/discord"
     if [ -d "$DISCORD_DIR" ] && [ -f "$DISCORD_DIR/scripts/start.sh" ]; then
         # Only start if not already started in pass 1
-        DISCORD_AUTO=$(python3 -c "import json; c=json.load(open('$DISCORD_DIR/plugin.json')).get('config',{}); print(c.get('auto_start',False) and c.get('enabled',False))" 2>/dev/null)
-        if [ "$DISCORD_AUTO" != "True" ]; then
+        DISCORD_AUTO=$(plugin_manifest_flag "$DISCORD_DIR/plugin.json" "auto_start")
+        DISCORD_ENABLED=$(plugin_effective_enabled "discord" "$DISCORD_DIR/plugin.json")
+        if ! { [ "$DISCORD_AUTO" = "True" ] && [ "$DISCORD_ENABLED" = "True" ]; }; then
             start_plugin "$DISCORD_DIR"
             PLUGINS_STARTED=$((PLUGINS_STARTED + 1))
         fi
@@ -1776,10 +1711,10 @@ if [ "${START_ALL_PLUGINS:-0}" -eq 1 ]; then
         plugin_should_skip "$plugin_name" && continue
         [ ! -f "$plugin_json" ] && continue
 
-        enabled=$(python3 -c "import json; print(json.load(open('$plugin_json')).get('config',{}).get('enabled',False))" 2>/dev/null)
-        auto_start=$(python3 -c "import json; print(json.load(open('$plugin_json')).get('config',{}).get('auto_start',False))" 2>/dev/null)
+        enabled=$(plugin_effective_enabled "$plugin_name" "$plugin_json")
+        auto_start=$(plugin_manifest_flag "$plugin_json" "auto_start")
 
-        # Skip if already started in pass 1 (auto_start + enabled)
+        # Skip if already started in pass 1 (auto_start + effective_enabled)
         if [ "$auto_start" = "True" ] && [ "$enabled" = "True" ]; then
             continue
         fi

@@ -65,6 +65,26 @@ def _is_codebase_locked() -> bool:
         return False
 
 
+def _self_improvement_apply_blocked() -> bool:
+    """Self-improvement-specific apply gate (default-on block).
+
+    Defaults to True (blocked). Checked only when `_self_improvement_context`
+    is set on the tool call, so user-initiated chat-driven edits are
+    unaffected. To enable autonomous edits from the self-improvement loop,
+    set `self_improvement_apply_enabled=true` in system_setting.
+    """
+    try:
+        from backend.models import db, SystemSetting
+        setting = db.session.query(SystemSetting).filter_by(
+            key="self_improvement_apply_enabled"
+        ).first()
+        if setting is None:
+            return True  # default: block self-improvement-driven apply
+        return setting.value.lower() != "true"
+    except Exception:
+        return True  # DB unreachable → fail closed
+
+
 def _handle_uncle_directive(directive: str, reason: str):
     """Execute Uncle Claude's kill switch directive."""
     logger.critical(f"Uncle Claude directive: {directive} — {reason}")
@@ -308,6 +328,19 @@ class EditCodeTool(BaseTool):
 
         # Extract agent context (set by AgentExecutor.set_tool_context)
         ctx = kwargs.pop("_agent_context", {})
+
+        # Self-improvement-specific apply gate. User-initiated chat edits
+        # never see this branch (no _self_improvement_context flag).
+        if ctx.get("_self_improvement_context") and _self_improvement_apply_blocked():
+            return ToolResult(
+                success=False,
+                error=(
+                    "BLOCKED: Self-improvement is in analysis-only mode. "
+                    "Set system_setting.self_improvement_apply_enabled=true "
+                    "to allow autonomous code edits."
+                ),
+                metadata={"blocked_by": "self_improvement_apply_gate"},
+            )
 
         # Guardian review (Uncle Claude) — only during self-improvement
         if ctx.get("_self_improvement_context"):

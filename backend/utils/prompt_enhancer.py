@@ -27,6 +27,26 @@ STYLE_SUFFIXES = {
         "Anime style, cel shaded, vibrant colors, dynamic poses, "
         "fluid animation, detailed linework, high quality, masterpiece"
     ),
+    "3d_animation": (
+        "3D-animated, Pixar-style polished CGI, expressive characters, "
+        "soft global illumination, subsurface scattering, smooth rigging, "
+        "appealing character design, high quality, masterpiece"
+    ),
+    "stop_motion": (
+        "stop-motion animation, tactile clay textures, handcrafted miniatures, "
+        "slight handcraft imperfection between frames, warm practical lighting, "
+        "shallow depth of field, high quality, masterpiece"
+    ),
+    "hand_drawn": (
+        "hand-drawn 2D animation, Studio Ghibli aesthetic, painterly watercolor "
+        "backgrounds, expressive line work, gentle character motion, "
+        "soft natural color palette, high quality, masterpiece"
+    ),
+    "western_cartoon": (
+        "classic western animated cartoon style, bold outlines, flat shading, "
+        "vibrant saturated palette, exaggerated expressions, snappy keyframed "
+        "motion, high quality, masterpiece"
+    ),
 }
 
 # Quality-focused negative prompts per style.
@@ -52,6 +72,26 @@ NEGATIVE_PROMPTS = {
         "artifacts, distorted, poorly rendered, low resolution, "
         "watermark, text overlay, 3d render"
     ),
+    "3d_animation": (
+        "blurry, low quality, flat shading, low-poly, jagged edges, "
+        "artifacts, distorted, poorly rendered, low resolution, "
+        "watermark, text overlay, uncanny valley"
+    ),
+    "stop_motion": (
+        "blurry, low quality, smooth digital motion, CGI look, "
+        "artifacts, distorted, poorly rendered, low resolution, "
+        "watermark, text overlay"
+    ),
+    "hand_drawn": (
+        "blurry, low quality, photorealistic, 3d render, plastic textures, "
+        "artifacts, distorted, poorly rendered, low resolution, "
+        "watermark, text overlay"
+    ),
+    "western_cartoon": (
+        "blurry, low quality, photorealistic, soft shading, muddy colors, "
+        "artifacts, distorted, poorly rendered, low resolution, "
+        "watermark, text overlay"
+    ),
     "none": (
         "blurry, low quality, pixelated, artifacts, distorted, "
         "poorly rendered, low resolution"
@@ -75,7 +115,9 @@ def enhance_video_prompt(
 
     Args:
         prompt: The user's original prompt text.
-        style: One of "cinematic", "realistic", "artistic", "anime", or "none".
+        style: One of "cinematic", "realistic", "artistic", "anime",
+            "3d_animation", "stop_motion", "hand_drawn", "western_cartoon",
+            or "none".
         width: Video width in pixels (used for orientation detection).
         height: Video height in pixels (used for orientation detection).
 
@@ -118,7 +160,9 @@ def get_default_negative_prompt(style: str = "cinematic") -> str:
     Only targets technical defects: blur, artifacts, distortion, etc.
 
     Args:
-        style: One of "cinematic", "realistic", "artistic", "anime", or "none".
+        style: One of "cinematic", "realistic", "artistic", "anime",
+            "3d_animation", "stop_motion", "hand_drawn", "western_cartoon",
+            or "none".
 
     Returns:
         A negative prompt string focused on quality issues.

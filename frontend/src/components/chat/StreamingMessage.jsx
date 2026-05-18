@@ -2,7 +2,7 @@
  * StreamingMessage - Builds up a message from Socket.IO streaming events.
  * Shows thinking indicator, tool call cards, and final text as they arrive.
  */
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
 import PropTypes from "prop-types";
 import {
   Box,
@@ -20,19 +20,26 @@ import { a11yDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { useAppStore } from "../../stores/useAppStore";
 import { BASE_URL } from "../../api/apiClient";
 import ToolCallCard from "./ToolCallCard";
+import AgentThinkingTrail from "./AgentThinkingTrail";
 import ImageLightbox from "../images/ImageLightbox";
 
 const UPLOAD_BASE_URL = BASE_URL + "/uploads";
 
-const StreamingMessage = ({ chatService, sessionId, onComplete }) => {
+const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref) => {
   const [status, setStatus] = useState("idle"); // idle | thinking | streaming | complete | error
   const [thinkingText, setThinkingText] = useState("");
-  const [toolCalls, setToolCalls] = useState([]); // [{tool, params, result, durationMs, isPending}]
+  // agentThinkingSteps captures the agent loop's per-iteration reasoning
+  // streamed via chat:thinking events from agent_control_service. Each entry:
+  // {iteration, label, reasoning}. Distinct from `thinkingText` which is the
+  // single-line live status (e.g. "Calling LLM...").
+  const [agentThinkingSteps, setAgentThinkingSteps] = useState([]);
+  const [toolCalls, setToolCalls] = useState([]); // [{tool, params, result, durationMs, isPending, outputChunks, requiresApproval}]
   const [content, setContent] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [tokenUsage, setTokenUsage] = useState(null); // {input_tokens, output_tokens} or null
   const [images, setImages] = useState([]); // [{url, alt, caption}]
   const [lightbox, setLightbox] = useState(null);
+  const [pendingApproval, setPendingApproval] = useState(false);
   const mountedRef = useRef(true);
   const imagesRef = useRef([]); // Keep a ref for images to avoid stale closure in onComplete
   const logo = useAppStore((s) => s.systemLogo);
@@ -41,8 +48,26 @@ const StreamingMessage = ({ chatService, sessionId, onComplete }) => {
   // Use refs for values that change but shouldn't trigger listener re-registration
   const sessionIdRef = useRef(sessionId);
   const onCompleteRef = useRef(onComplete);
+  const contentRef = useRef(content);
+  const toolCallsRef = useRef(toolCalls);
+  const thinkingTextRef = useRef("");
+  const agentStepsRef = useRef([]);
+
   useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
   useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
+  useEffect(() => { contentRef.current = content; }, [content]);
+  useEffect(() => { toolCallsRef.current = toolCalls; }, [toolCalls]);
+  useEffect(() => { agentStepsRef.current = agentThinkingSteps; }, [agentThinkingSteps]);
+
+  useImperativeHandle(ref, () => ({
+    getPartialState: () => ({
+      content: contentRef.current,
+      toolCalls: toolCallsRef.current,
+      images: imagesRef.current || [],
+      agentThinkingSteps: agentStepsRef.current,
+      thinkingText: thinkingTextRef.current,
+    })
+  }));
 
   // Register socket listeners ONCE per chatService instance.
   // Callbacks read from refs so they always have current values
@@ -54,7 +79,22 @@ const StreamingMessage = ({ chatService, sessionId, onComplete }) => {
     chatService.onThinking((data) => {
       if (!mountedRef.current || data.session_id !== sessionIdRef.current) return;
       setStatus("thinking");
-      setThinkingText(data.status || `Iteration ${data.iteration}...`);
+      const text = data.status || `Iteration ${data.iteration}...`;
+      setThinkingText(text);
+      thinkingTextRef.current = text;
+      // Agent-loop reasoning gets appended as a step so the user sees the
+      // full chain ("step 8: clear address bar... step 9: previous attempt
+      // failed... step 10: try Backspace") instead of just the latest line.
+      if (data.source === "agent_loop" && data.reasoning) {
+        setAgentThinkingSteps((prev) => [
+          ...prev,
+          {
+            iteration: data.iteration,
+            label: data.status || "",
+            reasoning: data.reasoning,
+          },
+        ]);
+      }
     });
 
     chatService.onToolCall((data) => {
@@ -84,11 +124,46 @@ const StreamingMessage = ({ chatService, sessionId, onComplete }) => {
               result: data.result,
               durationMs: data.duration_ms,
               isPending: false,
+              requiresApproval: false, // Clear approval state on result
             };
             break;
           }
         }
         return updated;
+      });
+      // If we were waiting for approval and got a result, clear global pending state
+      setPendingApproval(false);
+    });
+
+    chatService.onToolOutputChunk((data) => {
+      if (!mountedRef.current || data.session_id !== sessionIdRef.current) return;
+      setToolCalls((prev) => {
+        const updated = [...prev];
+        for (let i = updated.length - 1; i >= 0; i--) {
+          if (updated[i].tool === data.tool && updated[i].isPending) {
+            updated[i] = {
+              ...updated[i],
+              outputChunks: (updated[i].outputChunks || "") + data.chunk,
+            };
+            break;
+          }
+        }
+        return updated;
+      });
+    });
+
+    chatService.onToolApprovalRequest((data) => {
+      if (!mountedRef.current || data.session_id !== sessionIdRef.current) return;
+      setPendingApproval(true);
+      setToolCalls((prev) => {
+        const updated = [...prev];
+        const approvalTools = new Set(data.tools || []);
+        return updated.map(tc => {
+          if (tc.isPending && approvalTools.has(tc.tool)) {
+            return { ...tc, requiresApproval: true };
+          }
+          return tc;
+        });
       });
     });
 
@@ -121,14 +196,38 @@ const StreamingMessage = ({ chatService, sessionId, onComplete }) => {
           ...socketImages,
           ...backendImages.filter((i) => !seenUrls.has(i.url)),
         ];
+        // Use backend steps if available; fall back to streaming tool calls
+        // (converted to steps format) so cards survive the StreamingMessage → MessageItem handoff.
+        const backendSteps = data.steps && data.steps.length > 0 ? data.steps : null;
+        const streamingSteps = toolCallsRef.current.length > 0
+          ? [{
+              iteration: 1,
+              thoughts: thinkingTextRef.current || "",
+              tool_calls: toolCallsRef.current.map((tc) => ({
+                tool_name: tc.tool,
+                params: tc.params,
+                success: tc.result?.success,
+                duration_ms: tc.durationMs,
+                output_preview: tc.result?.success ? tc.result.output : tc.result?.error,
+              })),
+            }]
+          : [];
         onCompleteRef.current({
           content: data.response || "",
-          toolCalls: data.steps || [],
+          toolCalls: backendSteps || streamingSteps,
           iterations: data.iterations || 0,
           aborted: data.aborted || false,
           sessionId: data.session_id,
           tokenUsage: data.token_usage || null,
           generatedImages: mergedImages,
+          // Cleared on completion — persisting the last "Calling LLM..."
+          // status into history caused MessageItem's live spinner to never
+          // stop, because its only guard is thinkingText && toolCalls.length.
+          thinkingText: "",
+          // The agent-loop reasoning trail. Persists so the user can scroll
+          // back and see what the agent was thinking on each step instead
+          // of only the post-loop summary.
+          agentThinkingSteps: agentStepsRef.current,
         });
       }
     });
@@ -261,12 +360,34 @@ const StreamingMessage = ({ chatService, sessionId, onComplete }) => {
         }}
       >
         {/* Thinking indicator */}
-        {status === "thinking" && (
+        {(status === "thinking" || pendingApproval) && (
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: toolCalls.length > 0 ? 1 : 0 }}>
-            <CircularProgress size={14} color="warning" />
+            <CircularProgress size={14} color={pendingApproval ? "error" : "warning"} />
             <Typography variant="body2" color="text.secondary">
-              {thinkingText}
+              {pendingApproval ? "Waiting for your approval..." : thinkingText}
             </Typography>
+          </Box>
+        )}
+
+        {/* Agent loop's per-iteration reasoning, streamed live from
+            agent_control_service. One collapsible holds every step so the
+            chat thread isn't dominated by a long stack of accordions. */}
+        {agentThinkingSteps.length > 0 && (
+          <Box sx={{ mb: 1, mt: 0.5 }}>
+            <AgentThinkingTrail steps={agentThinkingSteps} />
+          </Box>
+        )}
+
+        {/* Parallel execution indicator */}
+        {isActive && toolCalls.filter(tc => tc.isPending).length > 1 && (
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
+            <Chip 
+              label={`Executing ${toolCalls.filter(tc => tc.isPending).length} tools in parallel`}
+              size="small"
+              color="info"
+              variant="outlined"
+              sx={{ height: 18, fontSize: "0.6rem" }}
+            />
           </Box>
         )}
 
@@ -279,6 +400,10 @@ const StreamingMessage = ({ chatService, sessionId, onComplete }) => {
             result={tc.result}
             durationMs={tc.durationMs}
             isPending={tc.isPending}
+            sessionId={sessionId}
+            outputChunks={tc.outputChunks}
+            requiresApproval={tc.requiresApproval}
+            onApproval={(approved) => chatService.sendToolApproval(sessionId, approved)}
           />
         ))}
 
@@ -427,7 +552,8 @@ const StreamingMessage = ({ chatService, sessionId, onComplete }) => {
     )}
     </>
   );
-};
+});
+StreamingMessage.displayName = "StreamingMessage";
 
 StreamingMessage.propTypes = {
   chatService: PropTypes.object.isRequired,

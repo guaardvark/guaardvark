@@ -34,7 +34,7 @@ import {
 } from '@mui/icons-material';
 import { BASE_URL, handleResponse } from '../api/apiClient';
 
-const FileBrowser = ({ onFileSelect, onClose }) => {
+const FileBrowser = ({ onFileSelect, _onClose }) => {
   const [currentPath, setCurrentPath] = useState('');
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -43,7 +43,7 @@ const FileBrowser = ({ onFileSelect, onClose }) => {
   const [fileContent, setFileContent] = useState('');
   const [showFileDialog, setShowFileDialog] = useState(false);
   const [searchPattern, setSearchPattern] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
+  const [_searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
 
   // Load directory contents

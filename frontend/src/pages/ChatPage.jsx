@@ -4,6 +4,12 @@ import AddIcon from "@mui/icons-material/Add";
 import HistoryIcon from "@mui/icons-material/History";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import SchoolIcon from "@mui/icons-material/School";
+import StopCircleIcon from "@mui/icons-material/StopCircle";
+import LessonPearlsFloater from "../components/agent/LessonPearlsFloater";
+import LessonSummaryModal from "../components/modals/LessonSummaryModal";
+import { useAppStore } from "../stores/useAppStore";
+import { BASE_URL } from "../api/apiClient";
 import ChatSessionDrawer from "../components/chat/ChatSessionDrawer";
 // AgentScreenViewer is now global in Sidebar — available on all pages
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -74,7 +80,7 @@ const ChatPage = () => {
     const storageKey = `chat_process_${projectId || 'default'}`;
 
     const existingProcesses = Array.from(resourceManager.processes.entries())
-      .filter(([id, process]) =>
+      .filter(([_id, process]) =>
         process.type === ProcessType.CHAT_MESSAGE &&
         process.metadata?.projectId === projectId
       );
@@ -184,6 +190,7 @@ const ChatPage = () => {
   const historyLoadingRef = useRef(false); // Prevent concurrent history fetches
   const lastMessageRef = useRef(null);
   const processMessageRef = useRef(null);
+  const streamingMessageRef = useRef(null);
 
   useEffect(() => {
     if (!useUnifiedChat || connectionState !== 'connected' || !socketRef?.current) {
@@ -264,8 +271,86 @@ const ChatPage = () => {
     );
   }, []);
 
+  // --- Lesson Pearls: Begin/End lesson lifecycle ---
+  const activeLessonId = useAppStore((s) => s.activeLessonId);
+  const setActiveLessonId = useAppStore((s) => s.setActiveLessonId);
+  const clearLessonPearls = useAppStore((s) => s.clearLessonPearls);
+  const [lessonSummary, setLessonSummary] = useState(null); // { memoryId, title, steps }
+  const [lessonBusy, setLessonBusy] = useState(false);
+
+  const handleBeginLesson = useCallback(async () => {
+    if (activeLessonId || lessonBusy || !sessionId) return;
+    setLessonBusy(true);
+    try {
+      const res = await fetch(`${BASE_URL}/lessons/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sessionId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        console.error("Begin lesson failed:", data?.error || res.status);
+        return;
+      }
+      clearLessonPearls();
+      setActiveLessonId(data.lesson_id);
+    } catch (err) {
+      console.error("Begin lesson error:", err);
+    } finally {
+      setLessonBusy(false);
+    }
+  }, [activeLessonId, lessonBusy, sessionId, clearLessonPearls, setActiveLessonId]);
+
+  const handleEndLesson = useCallback(async () => {
+    if (!activeLessonId || lessonBusy) return;
+    setLessonBusy(true);
+    const lessonId = activeLessonId;
+    try {
+      const res = await fetch(`${BASE_URL}/lessons/${lessonId}/end`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        // Graceful degradation — surface but don't crash. Most common reason:
+        // backend restart orphaned the in-memory ACTIVE_LESSONS entry.
+        console.warn("End lesson:", data?.error || `HTTP ${res.status}`);
+        setActiveLessonId(null);
+        clearLessonPearls();
+        return;
+      }
+      setLessonSummary({
+        memoryId: data.memory_id,
+        title: data.summary?.title || "Lesson",
+        steps: data.summary?.steps || [],
+        parameters: data.summary?.parameters || [],
+      });
+      setActiveLessonId(null);
+      clearLessonPearls();
+    } catch (err) {
+      console.error("End lesson error:", err);
+      setActiveLessonId(null);
+      clearLessonPearls();
+    } finally {
+      setLessonBusy(false);
+    }
+  }, [activeLessonId, lessonBusy, setActiveLessonId, clearLessonPearls]);
+
   const handleNewChat = useCallback(() => {
     const newSessionId = `session_${Date.now()}`;
+
+    // Carry the current session's mode forward. Without this, a "new chat"
+    // silently resets to chat-mode even when the user was actively in agent
+    // mode, and the next agent-y prompt fails with "I cannot do that".
+    const priorMode = useAppStore.getState().getSessionMode(sessionId);
+    if (priorMode === "agent") {
+      useAppStore.getState().setSessionMode(newSessionId, "agent");
+      fetch(`/api/chat-sessions/${encodeURIComponent(newSessionId)}/mode`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "agent" }),
+      }).catch(() => {});
+    }
 
     setMessages([]);
 
@@ -305,7 +390,7 @@ const ChatPage = () => {
         chatInputRef.current.focus();
       }
     }, 100);
-  }, [_setSessionId, projectId]);
+  }, [_setSessionId, projectId, sessionId]);
 
   const [fileGenPopup, setFileGenPopup] = useState({
     open: false,
@@ -408,7 +493,7 @@ const ChatPage = () => {
       return { isCSVRequest: false, isCodeRequest: false };
     }
 
-    const message_lower = message.toLowerCase();
+    const _message_lower = message.toLowerCase();
 
     const explicitCSVPatterns = [
       /(?:generate|create|build|make|produce|export|download|save|output)\s+.*?\.csv/i,
@@ -447,8 +532,8 @@ const ChatPage = () => {
     if (hasExplicitCodeFileExtension || hasExplicitCodeIntent) {
 
       const codeFilenameMatch = message.match(
-        /(?:generate|create|write|save|export).*?(?:as|to|named?|into)?\s*['""]?([a-zA-Z0-9_\-\.]+\.(py|jsx?|ts|tsx|css|html|php|json|java|cpp|c|h|rb|go|rs|swift|txt|md))['""]?/i
-      ) || message.match(/['""]?([a-zA-Z0-9_\-\.]+\.(py|jsx?|ts|tsx|css|html|php|json|java|cpp|c|h|rb|go|rs|swift|txt|md))['""]?/i);
+        /(?:generate|create|write|save|export).*?(?:as|to|named?|into)?\s*['""]?([a-zA-Z0-9_\-.]+\.(py|jsx?|ts|tsx|css|html|php|json|java|cpp|c|h|rb|go|rs|swift|txt|md))['""]?/i
+      ) || message.match(/['""]?([a-zA-Z0-9_\-.]+\.(py|jsx?|ts|tsx|css|html|php|json|java|cpp|c|h|rb|go|rs|swift|txt|md))['""]?/i);
 
       const filename = codeFilenameMatch ? codeFilenameMatch[1] : `generated_file_${Date.now()}.txt`;
       const description = `Generate code file based on: "${message.substring(0, 100)}${message.length > 100 ? "..." : ""}"`;
@@ -466,7 +551,7 @@ const ChatPage = () => {
     if (hasExplicitCSVFileExtension || hasExplicitCSVIntent || hasBulkIntent) {
 
       const filenameMatch = message.match(
-        /(?:save|export|create|generate).*?(?:as|to|named?)?\s*['""]?([a-zA-Z0-9_\-\.]+\.csv)['""]?/i
+        /(?:save|export|create|generate).*?(?:as|to|named?)?\s*['""]?([a-zA-Z0-9_\-.]+\.csv)['""]?/i
       );
       const filename = filenameMatch ? filenameMatch[1] : `generated_data_${Date.now()}.csv`;
 
@@ -493,6 +578,7 @@ const ChatPage = () => {
     const initializeSession = async () => {
       const restoredSession = restoreSessionFromBackup(sessionId);
       if (restoredSession) {
+        // Restored session is already wired; nothing to do
       } else {
         registerSession(sessionId, {
           autoBackup: true,
@@ -502,7 +588,7 @@ const ChatPage = () => {
         });
       }
 
-      const contextRestoration = restoreConversationContext(sessionId);
+      const _contextRestoration = restoreConversationContext(sessionId);
     };
 
     initializeSession();
@@ -572,7 +658,16 @@ const ChatPage = () => {
               .map((msg) => ({
                 ...msg,
                 isLocal: false,
-                status: "persisted"
+                status: "persisted",
+                // Hydrate fields that MessageItem reads as top-level props from
+                // their persisted form inside extra_data. The backend saves
+                // agentThinkingSteps and tool-call steps under extra_data on
+                // the LLMMessage row; without this hydration both vanish on
+                // hard refresh because MessageItem looks at message.toolCalls /
+                // message.agentThinkingSteps directly.
+                toolCalls: msg.toolCalls ?? msg.extra_data?.steps,
+                agentThinkingSteps: msg.agentThinkingSteps ?? msg.extra_data?.agentThinkingSteps,
+                generatedImages: msg.generatedImages ?? msg.extra_data?.generatedImages,
               }));
 
             const allMessages = [...currentMessages, ...historyMessages];
@@ -601,7 +696,7 @@ const ChatPage = () => {
   }, [sessionId, projectId]);
 
   useEffect(() => {
-    const handleChatHistoryCleared = (event) => {
+    const handleChatHistoryCleared = (_event) => {
       setMessages([]);
       historyLoadedRef.current = null;
       setError('');
@@ -616,12 +711,43 @@ const ChatPage = () => {
 
   const handleStop = useCallback(() => {
     resourceManager.cleanupProcess(processId);
+
+    // Salvage whatever the streamer has so far — body text, tool cards,
+    // images, and (most importantly) the agent thinking trail. Without this,
+    // hitting Stop on step 4-of-10 wipes the entire reasoning trail.
+    if (isStreamingMessage && streamingMessageRef.current) {
+      const partial = streamingMessageRef.current.getPartialState() || {};
+      const hasContent = !!partial.content;
+      const hasTools = (partial.toolCalls?.length || 0) > 0;
+      const hasSteps = (partial.agentThinkingSteps?.length || 0) > 0;
+      const hasImages = (partial.images?.length || 0) > 0;
+      if (hasContent || hasTools || hasSteps || hasImages) {
+        const completedMessage = {
+          id: `asst_unified_${Date.now()}_partial`,
+          role: "assistant",
+          content: partial.content || "",
+          toolCalls: partial.toolCalls || [],
+          agentThinkingSteps: partial.agentThinkingSteps || [],
+          thinkingText: partial.thinkingText || "",
+          isUnifiedChat: true,
+          timestamp: new Date().toISOString(),
+          generatedImages: partial.images || [],
+          status: "aborted"
+        };
+        // Clean up socket listener so a late event doesn't double-post.
+        if (unifiedChatService) {
+          unifiedChatService.cleanup();
+        }
+        setMessages((prev) => [...prev, completedMessage]);
+      }
+    }
+
     setIsSending(false);
     setIsStreamingMessage(false);
     // Abort the backend chat + kill any running agent task
     fetch(`/api/chat/unified/${sessionId}/abort`, { method: 'POST' }).catch(() => {});
     fetch('/api/agent-control/kill', { method: 'POST' }).catch(() => {});
-  }, [resourceManager, processId, sessionId]);
+  }, [resourceManager, processId, sessionId, isStreamingMessage, unifiedChatService]);
 
   const handleFileGenConfirm = useCallback(async () => {
     if (!fileGenPopup.fileData || !fileGenPopup.originalMessage) return;
@@ -656,7 +782,7 @@ const ChatPage = () => {
           processType: "bulk_csv_generation",
         });
 
-        const result = await generateBulkCSV({
+        const _result = await generateBulkCSV({
           prompt: originalMessage,
           filename: fileData.filename,
           quantity: fileData.quantity,
@@ -769,7 +895,7 @@ const ChatPage = () => {
     setFileGenPopup({ open: false, fileData: null, originalMessage: null });
   }, [resourceManager, dialogStateId]);
 
-  const routeMessageByMode = useCallback(
+  const _routeMessageByMode = useCallback(
     async (mode, sessionId, inputText, projectId, onDelta, signal) => {
       const { sendChatMessage } = await import("../api");
 
@@ -1137,7 +1263,9 @@ const ChatPage = () => {
           setIsSending(false);
           try {
             sessionStorage.removeItem(processingStorageKey);
-          } catch (e) { }
+          } catch {
+            // sessionStorage may be unavailable; cleanup is best-effort
+          }
         }
         return;
       }
@@ -1450,7 +1578,7 @@ const ChatPage = () => {
           // Pass image data through unified chat if present
           const imageBase64 = voiceOptions?.imageBase64 || null;
           const isVoice = !!(voiceOptions?.isVoiceMessage);
-          const ackResult = await unifiedChatService.sendMessage(sessionId, modifiedInputText, {
+          const _ackResult = await unifiedChatService.sendMessage(sessionId, modifiedInputText, {
             use_rag: true,
             chat_mode: chatMode,
             project_id: projectId,
@@ -1673,7 +1801,7 @@ const ChatPage = () => {
     }
   }, [isSending]);
 
-  const handleUploadComplete = useCallback((uploadResult) => {
+  const handleUploadComplete = useCallback((_uploadResult) => {
     const successMessage = {
       id: `success_${Date.now()}`,
       role: "system",
@@ -1734,6 +1862,41 @@ const ChatPage = () => {
 
         {}
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          {!activeLessonId ? (
+            <Tooltip title="Begin Lesson — thumbs-ups will string into a lesson summary">
+              <span>
+                <IconButton
+                  onClick={handleBeginLesson}
+                  disabled={lessonBusy || !sessionId}
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    color: "text.secondary",
+                    transition: "all 0.2s ease-in-out",
+                  }}
+                >
+                  <SchoolIcon />
+                </IconButton>
+              </span>
+            </Tooltip>
+          ) : (
+            <Tooltip title="End Lesson — distill pearls into an editable summary">
+              <span>
+                <IconButton
+                  onClick={handleEndLesson}
+                  disabled={lessonBusy}
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    color: "error.main",
+                    transition: "all 0.2s ease-in-out",
+                  }}
+                >
+                  <StopCircleIcon />
+                </IconButton>
+              </span>
+            </Tooltip>
+          )}
           <Tooltip title="All chats">
             <span>
               <IconButton
@@ -1820,19 +1983,21 @@ const ChatPage = () => {
         />
       )}
 
-      <MessageList messages={messages} />
+      <MessageList messages={messages} sessionId={sessionId} />
 
       {}
       {isStreamingMessage && unifiedChatService && (
         <Box sx={{ px: 2, py: 1 }}>
           <StreamingMessage
+            ref={streamingMessageRef}
             chatService={unifiedChatService}
             sessionId={sessionId}
             onComplete={(result) => {
               setIsStreamingMessage(false);
               setIsSending(false);
 
-              if (result.content || (result.generatedImages && result.generatedImages.length > 0)) {
+              const hasAgentTrail = (result.agentThinkingSteps?.length || 0) > 0;
+              if (result.content || result.generatedImages?.length > 0 || result.toolCalls?.length > 0 || hasAgentTrail) {
                 const completedMessage = {
                   id: `asst_unified_${Date.now()}`,
                   role: "assistant",
@@ -1841,6 +2006,9 @@ const ChatPage = () => {
                   isUnifiedChat: true,
                   timestamp: new Date().toISOString(),
                   generatedImages: result.generatedImages || [],
+                  thinkingText: result.thinkingText || "",
+                  agentThinkingSteps: result.agentThinkingSteps || [],
+                  iterations: result.iterations || 0,
                 };
                 setMessages((prev) => [...prev, completedMessage]);
 
@@ -1934,6 +2102,20 @@ const ChatPage = () => {
         }}
       />
     </Paper>
+
+    {/* Lesson pearls — floats over the chat while a lesson is active */}
+    <LessonPearlsFloater />
+
+    {/* Post-End Lesson summary with editable steps */}
+    <LessonSummaryModal
+      open={!!lessonSummary}
+      onClose={() => setLessonSummary(null)}
+      memoryId={lessonSummary?.memoryId}
+      initialTitle={lessonSummary?.title}
+      initialSteps={lessonSummary?.steps}
+      initialParameters={lessonSummary?.parameters}
+      onSaved={() => setLessonSummary(null)}
+    />
     </PageLayout>
   );
 };

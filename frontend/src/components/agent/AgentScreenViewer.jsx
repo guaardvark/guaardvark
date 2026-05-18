@@ -16,7 +16,10 @@ import PauseIcon from '@mui/icons-material/Pause';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import CloseIcon from '@mui/icons-material/Close';
 import CircleIcon from '@mui/icons-material/Circle';
+import KeyboardIcon from '@mui/icons-material/Keyboard';
+import KeyboardOutlinedIcon from '@mui/icons-material/KeyboardOutlined';
 import axios from 'axios';
+import { useAppStore } from '../../stores/useAppStore';
 
 const API_BASE = '/api';
 const STORAGE_KEY = 'guaardvark_agent_screen_state';
@@ -34,7 +37,9 @@ function loadState() {
 function saveState(state) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {}
+  } catch {
+    // localStorage write blocked or quota exceeded — non-fatal
+  }
 }
 
 // Chip for the sidebar or any page header — toggles the floating window
@@ -66,8 +71,19 @@ export default function AgentScreenViewer({ open, onClose }) {
   const [fps, setFps] = useState(saved.fps ?? 2);
   const [collapsed, setCollapsed] = useState(saved.collapsed ?? false);
   const [imageSrc, setImageSrc] = useState(null);
+  // The unmount-cleanup useEffect runs with an empty deps array, so it would
+  // capture imageSrc at mount time (null) and never revoke the live blob URL.
+  // Mirror imageSrc into a ref so cleanup can read the latest value.
+  const imageSrcRef = useRef(null);
   const [popupWindow, setPopupWindow] = useState(null);
-  const [position, setPosition] = useState({ x: saved.x ?? window.innerWidth - DEFAULT_WIDTH - 20, y: saved.y ?? 60 });
+  const [position, setPosition] = useState(() => {
+    const x = saved.x ?? window.innerWidth - DEFAULT_WIDTH - 20;
+    const y = saved.y ?? 60;
+    return {
+      x: Math.max(0, Math.min(x, window.innerWidth - 100)),
+      y: Math.max(0, Math.min(y, window.innerHeight - 40)),
+    };
+  });
   const [size, setSize] = useState({ w: saved.w ?? DEFAULT_WIDTH, h: saved.h ?? DEFAULT_HEIGHT });
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -83,6 +99,13 @@ export default function AgentScreenViewer({ open, onClose }) {
   useEffect(() => {
     saveState({ streaming, fps, collapsed, x: position.x, y: position.y, w: size.w, h: size.h });
   }, [streaming, fps, collapsed, position, size]);
+
+  // The store is now the source of truth for `agentScreenOpen`; the `open`
+  // prop is driven by it. No mirror useEffect needed — that previous
+  // pattern caused a one-frame `false` flicker when the viewer mounted
+  // closed, which briefly flipped agent_screen_active off mid-request.
+  const kbdForwarding = useAppStore((s) => s.keyboardForwardingEnabled);
+  const toggleKbdForwarding = useAppStore((s) => s.toggleKeyboardForwarding);
 
   const [captureError, setCaptureError] = useState(null);
   const consecutiveFailures = useRef(0);
@@ -108,6 +131,7 @@ export default function AgentScreenViewer({ open, onClose }) {
           if (prev) URL.revokeObjectURL(prev);
           return url;
         });
+        imageSrcRef.current = url;
       } else if (response.status === 503) {
         consecutiveFailures.current++;
         setCaptureError('Agent display not running');
@@ -133,7 +157,7 @@ export default function AgentScreenViewer({ open, onClose }) {
 
   useEffect(() => {
     return () => {
-      if (imageSrc) URL.revokeObjectURL(imageSrc);
+      if (imageSrcRef.current) URL.revokeObjectURL(imageSrcRef.current);
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (popupIntervalRef.current) clearInterval(popupIntervalRef.current);
     };
@@ -168,7 +192,11 @@ export default function AgentScreenViewer({ open, onClose }) {
 
   useEffect(() => {
     if (!isDragging) return;
-    const onMove = (e) => setPosition({ x: e.clientX - dragOffset.x, y: e.clientY - dragOffset.y });
+    const onMove = (e) => {
+      const newX = Math.max(0, Math.min(e.clientX - dragOffset.x, window.innerWidth - 100));
+      const newY = Math.max(0, Math.min(e.clientY - dragOffset.y, window.innerHeight - 40));
+      setPosition({ x: newX, y: newY });
+    };
     const onUp = () => setIsDragging(false);
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
@@ -218,14 +246,14 @@ export default function AgentScreenViewer({ open, onClose }) {
     if (!isTraining || !imgRef.current) return;
     const img = imgRef.current;
     const rect = img.getBoundingClientRect();
-    // Translate browser coords to 1280x720 virtual display coords
-    const scaleX = 1280 / rect.width;
-    const scaleY = 720 / rect.height;
+    // Translate browser coords to 1024x1024 virtual display coords
+    const scaleX = 1024 / rect.width;
+    const scaleY = 1024 / rect.height;
     const x = Math.round((e.clientX - rect.left) * scaleX);
     const y = Math.round((e.clientY - rect.top) * scaleY);
     // Clamp to display bounds
-    const cx = Math.max(0, Math.min(1280, x));
-    const cy = Math.max(0, Math.min(720, y));
+    const cx = Math.max(0, Math.min(1024, x));
+    const cy = Math.max(0, Math.min(1024, y));
     axios.post(`${API_BASE}/agent-control/learn/input`, {
       action: 'click', x: cx, y: cy,
     }).catch((err) => console.error('Training click failed:', err));
@@ -233,7 +261,7 @@ export default function AgentScreenViewer({ open, onClose }) {
 
   const openPopup = useCallback(() => {
     if (popupWindow && !popupWindow.closed) { popupWindow.focus(); return; }
-    const w = 1300, h = 760;
+    const w = 1064, h = 1064;
     const left = (window.screen.width - w) / 2, top = (window.screen.height - h) / 2;
     const win = window.open('', 'agent_screen',
       `width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=no,toolbar=no,menubar=no,location=no,status=no`);
@@ -249,7 +277,9 @@ export default function AgentScreenViewer({ open, onClose }) {
           body: JSON.stringify({ quality: 70 }),
         });
         if (res.ok) { const blob = await res.blob(); const url = URL.createObjectURL(blob); if (img.src) URL.revokeObjectURL(img.src); img.src = url; }
-      } catch {}
+      } catch {
+        // dropped frame — next interval tick will try again
+      }
     };
     stream();
     popupIntervalRef.current = setInterval(stream, 1000 / fps);
@@ -316,6 +346,16 @@ export default function AgentScreenViewer({ open, onClose }) {
           )}
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+          <Tooltip title={kbdForwarding ? 'Keyboard → Agent: ON (click to stop)' : 'Send keyboard to Agent Screen'}>
+            <IconButton
+              className="header-btn"
+              size="small"
+              onClick={toggleKbdForwarding}
+              sx={{ p: 0.2, color: kbdForwarding ? 'success.main' : 'text.secondary' }}
+            >
+              {kbdForwarding ? <KeyboardIcon sx={{ fontSize: 13 }} /> : <KeyboardOutlinedIcon sx={{ fontSize: 13 }} />}
+            </IconButton>
+          </Tooltip>
           <IconButton className="header-btn" size="small" onClick={openPopup} sx={{ p: 0.2 }}>
             <OpenInNewIcon sx={{ fontSize: 13 }} />
           </IconButton>

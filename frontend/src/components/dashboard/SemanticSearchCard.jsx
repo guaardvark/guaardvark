@@ -5,12 +5,10 @@ import {
   Typography,
   List,
   ListItem,
-  ListItemText,
   TextField,
   IconButton,
   CircularProgress,
   Alert,
-  Paper,
 } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
 import StopIcon from "@mui/icons-material/Stop";
@@ -104,7 +102,7 @@ const SemanticSearchCard = React.forwardRef(
       );
       
       if (hasCSVKeyword && hasGenerationKeyword) {
-        const filenameMatch = message.match(/(?:save|export|create|generate).*?(?:as|to|named?)?\s*['""]?([a-zA-Z0-9_\-\.]+\.csv)['""]?/i);
+        const filenameMatch = message.match(/(?:save|export|create|generate).*?(?:as|to|named?)?\s*['""]?([a-zA-Z0-9_\-.]+\.csv)['""]?/i);
         const filename = filenameMatch ? filenameMatch[1] : `generated_data_${Date.now()}.csv`;
         
         return {
