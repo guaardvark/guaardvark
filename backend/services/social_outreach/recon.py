@@ -125,7 +125,7 @@ class RecondAgent:
                 continue
 
             # LLM relevance judge — the keyword match got us here, but it
-            # can't tell "I love qwen" from "qwen is broken trash" or
+            # can't tell "I love ollama" from "ollama is broken trash" or
             # "OP already solved it, no comment needed". A short LLM call
             # spends a second to filter out the false positives that would
             # otherwise burn drafting tokens later. Skipped-as-pass behavior

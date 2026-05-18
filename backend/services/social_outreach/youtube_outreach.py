@@ -188,8 +188,8 @@ def post_youtube_comment_via_servo(
 
     # NOTE: A "like the video" step was prototyped here (see git log + the
     # like_youtube_video recipe in recipes.json). It's disabled because the
-    # vision-driven click on YouTube's thumbs-up is unreliable (qwen3-vl:2b
-    # consistently miscalibrates the coordinates) AND the post-click visual
+    # vision-driven click on YouTube's thumbs-up is unreliable (the vision
+    # model consistently miscalibrates the coordinates) AND the post-click visual
     # delta (outline→filled icon, +1 count) is too subtle for the same model
     # to verify, so we get silent false positives. Re-enable once the click
     # is DOM-driven via the Firefox CDP debug port (port 9222) — the

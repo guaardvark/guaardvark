@@ -22,10 +22,9 @@ import requests
 logger = logging.getLogger(__name__)
 
 
-# Different model family from gemma4:e4b (the drafter) so the grader's biases
-# don't overlap. qwen3-vl:4b-instruct is plenty for this task — we're asking
-# it to follow a 4-item rubric, not write anything.
-DEFAULT_GRADER_MODEL = "qwen3-vl:4b-instruct"
+# The grader follows a 4-item rubric, not writing anything, so a smaller
+# variant is plenty.
+DEFAULT_GRADER_MODEL = "gemma4:e2b"
 """Override via env GUAARDVARK_OUTREACH_GRADER_MODEL if you want a different one.
 Falls back to gemma4:e2b if the configured model isn't loaded — same family but
 smaller params, still gives some independence from the main e4b drafter."""

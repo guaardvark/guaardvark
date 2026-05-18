@@ -66,7 +66,7 @@ def _make_candidate(payload: dict | None = None, **overrides) -> SocialOutreachL
         "stage": "recon",
         "title": "Anyone tried Ollama with local RAG?",
         "selftext_preview": "I'm running into context size issues...",
-        "top_comments": ["Have you tried qwen3?", "What hardware?"],
+        "top_comments": ["Have you tried gemma4?", "What hardware?"],
         "score": 500,
         "num_comments": 25,
     }

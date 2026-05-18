@@ -200,7 +200,7 @@ def test_scout_reddit_skips_by_llm_when_relevance_grade_low(app):
 
 def test_scout_reddit_passes_when_llm_relevance_grade_high(app):
     """LLM grades ≥ MIN_RELEVANCE_GRADE → emit candidate."""
-    thread = _thread("good1", "How do you keep VRAM under control with Qwen?", score=200)
+    thread = _thread("good1", "How do you keep VRAM under control with local models?", score=200)
     with app.app_context(), \
             patch("backend.services.social_outreach.recon.kill_switch.is_enabled", return_value=True), \
             patch("backend.services.social_outreach.recon.fetch_subreddit_rules", return_value=[]), \

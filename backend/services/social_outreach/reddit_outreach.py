@@ -39,137 +39,6 @@ SERVO_SETTLE_SECONDS = 4
 BIDI_PORT = 9222
 
 
-def _bidi_fill_composer(comment_text: str) -> tuple[bool, str]:
-    """Use BiDi to fill the Reddit comment composer with text via direct
-    DOM manipulation — bypasses xdotool keyboard input entirely.
-
-    Why: an xdotool-typed comment produces stray keystrokes that hit
-    Reddit's document-level shortcuts ('t' opens a new text post,
-    redirecting to /r/<sub>/submit/?type=TEXT and abandoning the
-    half-finished comment). Setting the textarea value via JS + firing
-    'input' event keeps the keystrokes inside the textarea where they
-    belong and propagates to React state correctly.
-
-    Returns (success, info).
-    """
-    import json as _json
-    import websocket as _ws
-
-    # JSON-encode the comment text so it survives JS string interpolation.
-    text_literal = _json.dumps(comment_text)
-
-    js = """
-    (() => {
-      const textLit = """ + text_literal + """;
-      // Find the visible composer + its inner editable element.
-      let target = null;
-      const visit = (root) => {
-        if (target) return;
-        const els = root.querySelectorAll('faceplate-textarea, faceplate-textarea-input, textarea, div[contenteditable], shreddit-composer');
-        for (const el of els) {
-          const ph = (el.getAttribute && el.getAttribute('placeholder')) || '';
-          const al = (el.getAttribute && el.getAttribute('aria-label')) || '';
-          if (/join the conversation|add a comment/i.test(ph + ' ' + al)) {
-            const r = el.getBoundingClientRect();
-            if (r.width >= 30 && r.height >= 20) { target = el; return; }
-          }
-          if (el.shadowRoot) visit(el.shadowRoot);
-        }
-        const all = root.querySelectorAll('*');
-        for (const el of all) {
-          if (el.shadowRoot) visit(el.shadowRoot);
-          if (target) return;
-        }
-      };
-      visit(document);
-      if (!target) return JSON.stringify({success:false, error:'no composer'});
-      // Drill down to the actual editable child if the matched element
-      // is a wrapper (faceplate-textarea wraps a real <textarea>).
-      let editable = target;
-      const inner = target.querySelector ? (target.querySelector('textarea') || target.querySelector('div[contenteditable]')) : null;
-      if (inner) editable = inner;
-      if (target.shadowRoot) {
-        const innerS = target.shadowRoot.querySelector('textarea, div[contenteditable]');
-        if (innerS) editable = innerS;
-      }
-      editable.focus();
-      // Reddit's faceplate-textarea uses a controlled component pattern
-      // that ignores plain value-setter changes. Use execCommand
-      // 'insertText' which simulates real keyboard input — that's the
-      // only path that updates React state AND the user-facing value.
-      // Before insertText, clear any existing content so we don't append.
-      try {
-        if (editable.tagName === 'TEXTAREA' || editable.tagName === 'INPUT') {
-          editable.value = '';
-        } else {
-          editable.innerText = '';
-        }
-        // execCommand insertText fires synthetic InputEvent that React
-        // and faceplate intercept exactly like a real keypress sequence.
-        document.execCommand('insertText', false, textLit);
-      } catch(e) {
-        // Fallback: native value setter + bubbling input event.
-        const proto = window.HTMLTextAreaElement.prototype.value
-                      ? window.HTMLTextAreaElement.prototype
-                      : window.HTMLInputElement.prototype;
-        const setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
-        setter.call(editable, textLit);
-        editable.dispatchEvent(new Event('input', {bubbles: true}));
-      }
-      const r = editable.getBoundingClientRect();
-      return JSON.stringify({
-        success: true,
-        tag: editable.tagName.toLowerCase(),
-        contentLength: (editable.value || editable.innerText || '').length,
-        x: Math.round(r.x), y: Math.round(r.y),
-        cx: Math.round(r.x + r.width/2), cy: Math.round(r.y + r.height/2)
-      });
-    })()
-    """
-
-    try:
-        ws = _ws.create_connection(
-            f"ws://localhost:{BIDI_PORT}/session", timeout=3, suppress_origin=True,
-        )
-    except Exception as e:
-        return False, f"connect failed: {e}"
-
-    try:
-        ws.send(_json.dumps({"id": 1, "method": "session.new", "params": {"capabilities": {}}}))
-        if _json.loads(ws.recv()).get("type") != "success":
-            return False, "session.new failed"
-
-        ws.send(_json.dumps({"id": 2, "method": "browsingContext.getTree", "params": {}}))
-        ctxs = _json.loads(ws.recv()).get("result", {}).get("contexts", [])
-        if not ctxs:
-            return False, "no contexts"
-        ctx_id = ctxs[0]["context"]
-
-        ws.send(_json.dumps({
-            "id": 3, "method": "script.evaluate",
-            "params": {"expression": js, "target": {"context": ctx_id}, "awaitPromise": False},
-        }))
-        result = _json.loads(ws.recv())
-        value = result.get("result", {}).get("result", {}).get("value", "")
-        if not value:
-            return False, "empty result"
-        data = _json.loads(value)
-        if not data.get("success"):
-            return False, f"composer fill failed: {data.get('error', 'unknown')}"
-        return True, f"filled {data.get('tag')} ({data.get('contentLength')} chars) at ({data.get('cx')},{data.get('cy')})"
-    except Exception as e:
-        return False, f"exception: {e}"
-    finally:
-        try:
-            ws.send(_json.dumps({"id": 99, "method": "session.end", "params": {}}))
-        except Exception:
-            pass
-        try:
-            ws.close()
-        except Exception:
-            pass
-
-
 def _bidi_scroll_to_composer() -> tuple[bool, str, Optional[tuple[int, int]]]:
     """Use BiDi to scroll Reddit's 'Join the conversation' composer into
     view. Returns (success, info_message, (cx, cy) center coords or None).
@@ -603,20 +472,21 @@ def post_comment_via_servo(permalink: str, comment_text: str) -> tuple[bool, str
         return False, f"composer_not_found: {info}"
     time.sleep(0.5)
 
-    # Fill the composer via BiDi DOM manipulation — bypasses xdotool
-    # keyboard input which was leaking 't' keystrokes onto Reddit's
-    # document-level shortcut and triggering /r/<sub>/submit/?type=TEXT
-    # navigation mid-comment. BiDi sets the textarea value directly +
-    # fires React-friendly input event so the value sticks.
-    filled, fill_info = _bidi_fill_composer(comment_text)
-    logger.warning("bidi fill-composer: success=%s info=%s", filled, fill_info)
-    if not filled:
-        return False, f"fill_failed: {fill_info}"
-    time.sleep(1.5)
+    # Human-like interaction: click the composer, pause, and type the comment.
+    # screen.type_text is robust against Reddit's single-key shortcuts because
+    # it uses clipboard paste for longer texts.
+    cx, cy = coords
+    logger.warning("clicking composer at (%s, %s)", cx, cy)
+    screen.click(cx, cy)
+    _human_pause(0.5, 1.0)
+
+    logger.warning("typing comment (%s chars)", len(comment_text))
+    screen.type_text(comment_text)
+    time.sleep(1.0)
     _human_pause()
 
     # Submit via Reddit's standard Ctrl+Enter shortcut. The textarea is
-    # already focused from the BiDi fill, so this keystroke routes to
+    # already focused from the click and type, so this keystroke routes to
     # the right element. Reddit interprets Ctrl+Enter as form-submit
     # for comment composers.
     logger.warning("submitting comment via Ctrl+Enter")
