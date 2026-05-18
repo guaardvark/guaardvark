@@ -90,7 +90,7 @@ class LocalScreenBackend(ScreenInterface):
             env_backup = os.environ.get("DISPLAY")
             os.environ["DISPLAY"] = self.display
             try:
-                with mss.mss() as sct:
+                with mss.MSS() as sct:
                     if len(sct.monitors) < 2:
                         raise IndexError(
                             f"No monitors found on display {self.display} — is Xvfb running?"
@@ -360,21 +360,12 @@ class LocalScreenBackend(ScreenInterface):
             # Normalize key names — Gemma4 says "enter", xdotool wants "Return"
             mapped = [self._KEY_MAP.get(k.lower(), k) for k in keys]
             combo = "+".join(mapped)
-            # Single keys (Return, Escape, Tab, etc.) go to the focused window
-            # without --window targeting. Firefox has multiple internal X windows
+            # Use --clearmodifiers and target the focused window without
+            # --window targeting. Firefox has multiple internal X windows
             # and --window can misfire, sending the key to a background frame
-            # instead of the address bar or active input.
-            is_single_key = len(keys) == 1 and keys[0] not in ("ctrl", "alt", "shift", "super")
-            if is_single_key:
-                r = self._xdotool("key", "--clearmodifiers", combo)
-                logger.debug(f"hotkey (focused): {combo}")
-            else:
-                wid = self._get_window_id()
-                if wid:
-                    r = self._xdotool("key", "--window", wid, combo)
-                else:
-                    r = self._xdotool("key", combo)
-                logger.debug(f"hotkey (window={wid or 'none'}): {combo}")
+            # instead of the active input.
+            r = self._xdotool("key", "--clearmodifiers", combo)
+            logger.debug(f"hotkey: {combo}")
             if r.returncode != 0:
                 err = r.stderr.strip() or f"xdotool key exited with code {r.returncode}"
                 logger.error(f"Hotkey failed (rc={r.returncode}): {err}")

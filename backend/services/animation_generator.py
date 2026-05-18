@@ -259,8 +259,8 @@ class AnimationGenerator:
                 f"Output ONLY the prompt, nothing else."
             )
 
-            # Use a vision model — try qwen3-vl first
-            vision_models = ["qwen3-vl:8b", "llava:7b", "moondream:latest"]
+            # Use a vision model — try gemma4 first
+            vision_models = ["gemma4:e4b", "llava:7b", "moondream:latest"]
             for model in vision_models:
                 try:
                     response = ollama.chat(

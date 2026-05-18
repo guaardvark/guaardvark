@@ -123,6 +123,40 @@ def capture_and_analyze():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@agent_control_bp.route("/calibrate", methods=["POST"])
+def calibrate_vision():
+    """Run the Optician interactive calibration routine."""
+    try:
+        from backend.services.agent_control_service import get_agent_control_service
+        from backend.services.local_screen_backend import LocalScreenBackend
+        from backend.services.servo_controller import ServoController
+        
+        service = get_agent_control_service()
+        screen = LocalScreenBackend()
+        # We need an analyzer, usually provided by the service
+        analyzer = service.vision_analyzer
+        servo = ServoController(screen, analyzer)
+        
+        result = servo.calibrate()
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error in vision calibration: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@agent_control_bp.route("/self-improve", methods=["POST"])
+def run_self_improvement():
+    """Run the Archive Miner to find and suggest vision improvements."""
+    try:
+        from backend.services.servo_self_improvement import ServoSelfImprovement
+        miner = ServoSelfImprovement()
+        proposals = miner.suggest_reflex_updates()
+        return jsonify({"success": True, "proposals": proposals})
+    except Exception as e:
+        logger.error(f"Error in self-improvement: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 # ---------------------------------------------------------------------------
 # Learning endpoints
 # ---------------------------------------------------------------------------
@@ -567,6 +601,7 @@ def _induce_candidate_recipe(app, session_id: str, feedback_task: str, strong_po
                     json={
                         "model": active_model,
                         "prompt": prompt,
+                        "format": "json",
                         "stream": False,
                         "options": {"num_predict": 800, "temperature": 0.3},
                     },
@@ -578,24 +613,12 @@ def _induce_candidate_recipe(app, session_id: str, feedback_task: str, strong_po
                 logger.warning(f"[INDUCE] LLM call failed: {llm_err}")
                 return
 
-            # Parse: try direct JSON, then regex-extract the first {...} block.
             import json as _json
             import re as _re
-            parsed = None
-            if raw:
-                candidates = [raw]
-                m = _re.search(r"\{.*\}", raw, _re.DOTALL)
-                if m:
-                    candidates.append(m.group(0))
-                for cand in candidates:
-                    try:
-                        parsed = _json.loads(cand)
-                        if isinstance(parsed, dict) and "steps" in parsed and "triggers" in parsed:
-                            break
-                        parsed = None
-                    except Exception:
-                        parsed = None
-            if not parsed:
+            
+            try:
+                parsed = _json.loads(raw)
+            except Exception:
                 logger.warning(f"[INDUCE] could not parse JSON candidate from LLM: {raw[:200]!r}")
                 return
 
@@ -630,7 +653,7 @@ def _induce_candidate_recipe(app, session_id: str, feedback_task: str, strong_po
                 logger.info("[INDUCE] post-validation empties — skipping")
                 return
             from backend.services.agent_knowledge_validator import validate_recipe
-            validation = validate_recipe("candidate_recipe", normalized, strict=True)
+            validation = validate_recipe("auto_induced", normalized, strict=True)
             if not validation.ok:
                 logger.warning(
                     "[INDUCE] candidate failed recipe validation: %s",
@@ -638,8 +661,55 @@ def _induce_candidate_recipe(app, session_id: str, feedback_task: str, strong_po
                 )
                 return
 
+            # Auto-Promote to recipes.json
+            from pathlib import Path
+            from backend.config import GUAARDVARK_ROOT
+            
+            slug = _re.sub(r"[^a-z0-9]+", "_", description.lower()).strip("_")[:40] or "induced"
+            recipe_name = f"auto_{slug}"
+            recipes_path = Path(GUAARDVARK_ROOT) / "data" / "agent" / "recipes.json"
+            
+            try:
+                recipes_path.parent.mkdir(parents=True, exist_ok=True)
+                if recipes_path.exists():
+                    with recipes_path.open("r") as f:
+                        recipes = _json.load(f)
+                else:
+                    recipes = {}
+                    
+                proposed_recipe = {
+                    "description": normalized["description"],
+                    "triggers": normalized["triggers"],
+                    "steps": normalized["steps"],
+                    "_origin": "auto_induced",
+                    "_session_id": session_id,
+                }
+                recipes[recipe_name] = proposed_recipe
+                
+                from backend.services.agent_knowledge_validator import validate_recipe_library
+                library_validation = validate_recipe_library(recipes, strict=False)
+                if library_validation.ok:
+                    tmp_path = recipes_path.with_suffix(".json.tmp")
+                    with tmp_path.open("w") as f:
+                        _json.dump(recipes, f, indent=2, ensure_ascii=False)
+                    tmp_path.replace(recipes_path)
+                    logger.info(f"[INDUCE] Auto-promoted recipe '{recipe_name}' to recipes.json")
+                    
+                    # Force cache reload
+                    try:
+                        from backend.services.agent_control_service import AgentControlService
+                        AgentControlService._recipe_cache = None
+                        AgentControlService._recipe_mtime = 0.0
+                    except Exception:
+                        pass
+                else:
+                    logger.warning(f"[INDUCE] Auto-promotion failed library validation: {'; '.join(library_validation.error_messages())}")
+            except Exception as e:
+                logger.error(f"[INDUCE] Auto-promotion to recipes.json failed: {e}")
+
+            # Keep audit log in AgentMemory
             content_json = _json.dumps(normalized, ensure_ascii=False)
-            row_tags = ["candidate_recipe", "auto_induced"]
+            row_tags = ["candidate_recipe", "auto_induced", "promoted"]
             row_importance = 0.7
             if strong_positive:
                 row_tags.append("strong_positive")
@@ -656,7 +726,7 @@ def _induce_candidate_recipe(app, session_id: str, feedback_task: str, strong_po
             db.session.add(row)
             db.session.commit()
             logger.info(
-                f"[INDUCE] saved candidate recipe {row.id[:8]} — "
+                f"[INDUCE] saved recipe audit log {row.id[:8]} — "
                 f"\"{description[:60]}\" with {len(normalized['steps'])} steps "
                 f"(importance={row_importance}{', strong_positive' if strong_positive else ''})"
             )

@@ -36,7 +36,7 @@ def test_live_state_ttl():
 def test_loaded_models_reports_from_live_state():
     fm = FleetMap()
     fm.register("n1", {"services": {"ollama": {"installed": True}}})
-    fm.update_live_state("n1", {"loaded_models": ["gemma4:e4b", "qwen3-vl:2b"]})
+    fm.update_live_state("n1", {"loaded_models": ["gemma4:e4b", "moondream:latest"]})
     assert set(fm.get_nodes_with_model("gemma4:e4b")) == {"n1"}
 
 

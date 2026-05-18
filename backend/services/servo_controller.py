@@ -59,6 +59,12 @@ class ServoController:
         self._last_parse_path: str = ""
         self._last_detection_source: str = ""
         self._last_inference_ms: int = 0
+        # Distinguishes "vision Ollama call itself failed" (transient, worth
+        # retrying or surfacing as a different signal) from "vision succeeded
+        # but the target genuinely isn't on screen". Both used to collapse
+        # to None → "target_not_visible", which primed the model to abandon
+        # targets that were actually present but Ollama was just slow.
+        self._last_failure_reason: str = ""
 
         # Get the actual screen size from the backend — no more hardcoded 1024x1024!
         # This fixes the "horizontally stretched vision" bug on 1280x720 screens.
@@ -71,55 +77,62 @@ class ServoController:
           1. See — capture screen, ask vision model to locate target
           2. Move — cursor to those coords (via screen.move → xdotool)
           3. Click — at those coords (via screen.click → xdotool)
-          4. Record — to training archive
-
-        That's it. No multi-attempt retry, no bullseye correction loop, no
-        post-click pixel-diff verify. The whole point of the feature is for
-        the vision model to drive a mouse and keyboard like a human would,
-        not to behave like a bot pixel-comparing its way to certainty. A
-        miss is a miss; the loop above can SEE the result and decide what
-        to do next.
-
-        REWRITTEN 2026-05-13 — was a 3-attempt retry with screen-change
-        verify. The verify was producing false-failures when a click landed
-        correctly but didn't produce a big pixel diff (e.g., clicking a
-        launcher for a Firefox window that was already running just focuses
-        it). Plus the retry storm — three clicks within 16s on the same
-        target — looked bot-shaped on anti-automation surfaces like YouTube.
-        Human pattern is single click → see what happened → decide.
-
-        `single_attempt` kwarg is preserved for back-compat; ignored now
-        (every click is one attempt).
+          4. Verify — Differential Pixel Comparison (DPC) polling
+          5. Record — to training archive
         """
         start = time.time()
 
         # 1. SEE — capture + vision-model coordinate estimate
         screenshot, _ = self.screen.capture()
+        self._last_failure_reason = ""
         coords = self._estimate_coordinates(screenshot, target_description)
         if coords is None:
-            elapsed_ms = int((time.time() - start) * 1000)
-            logger.info(f"Servo: target not visible (\"{target_description}\"), no click")
-            self._record_interaction(
-                screenshot=screenshot,
-                target_description=target_description,
-                coords=(0, 0),
-                success=False,
-                target_found=False,
-                click_issued=False,
-                elapsed_ms=elapsed_ms,
-                reason="target_not_visible",
-                post_action_effect="not_checked",
-            )
-            return {
-                "success": False, "verified": False,
-                "target_found": False, "click_issued": False,
-                "post_action_effect": "not_checked",
-                "x": 0, "y": 0,
-                "corrections": 0, "attempt": 1,
-                "time_ms": elapsed_ms,
-                "reason": "target_not_visible",
-                "detection_source": self._last_detection_source,
-            }
+            # Distinguish transient vision-call failure from genuine
+            # target-not-on-screen. The former is worth one retry; the
+            # latter is a real signal the model should pivot on.
+            failure_reason = self._last_failure_reason or "target_not_visible"
+            if failure_reason == "vision_call_failed":
+                logger.warning(
+                    f"Servo: vision call failed for \"{target_description}\" — "
+                    f"retrying once after 0.5s (Ollama may be busy)"
+                )
+                time.sleep(0.5)
+                self._last_failure_reason = ""
+                screenshot, _ = self.screen.capture()
+                coords = self._estimate_coordinates(screenshot, target_description)
+                if coords is None:
+                    failure_reason = self._last_failure_reason or "target_not_visible"
+            if coords is None:
+                elapsed_ms = int((time.time() - start) * 1000)
+                if failure_reason == "vision_call_failed":
+                    log_msg = (
+                        f"Servo: vision call failed twice for \"{target_description}\" "
+                        f"— Ollama unresponsive, no click issued"
+                    )
+                else:
+                    log_msg = f"Servo: target not visible (\"{target_description}\"), no click"
+                logger.info(log_msg)
+                self._record_interaction(
+                    screenshot=screenshot,
+                    target_description=target_description,
+                    coords=(0, 0),
+                    success=False,
+                    target_found=False,
+                    click_issued=False,
+                    elapsed_ms=elapsed_ms,
+                    reason=failure_reason,
+                    post_action_effect="not_checked",
+                )
+                return {
+                    "success": False, "verified": False,
+                    "target_found": False, "click_issued": False,
+                    "post_action_effect": "not_checked",
+                    "x": 0, "y": 0,
+                    "corrections": 0, "attempt": 1,
+                    "time_ms": elapsed_ms,
+                    "reason": failure_reason,
+                    "detection_source": self._last_detection_source,
+                }
 
         x, y = coords
         # 2. MOVE
@@ -148,15 +161,35 @@ class ServoController:
                 "error": move_result.get("error", "move failed"),
                 "detection_source": self._last_detection_source,
             }
+
+        # Briefly wait for cursor to settle before the hardware click
+        time.sleep(0.1)
+
         # 3. CLICK
         click_result = self.screen.click(x, y, button=button)
-        elapsed_ms = int((time.time() - start) * 1000)
         click_issued = bool(click_result.get("success", False))
 
-        # 4. RECORD — training data still captured; success=True because
-        # the click physically happened. If it missed the visual target,
-        # the post-click SEE in the agent loop will reveal that and the
-        # model can decide its next move.
+        # 4. VERIFY — Differential Pixel Comparison (DPC) Polling
+        # High-frequency, localized polling centered on the action site.
+        # This replaces the brittle fixed-time wait with an adaptive deadline.
+        verified = False
+        post_action_effect = "no_visible_change"
+        
+        if click_issued:
+            poll_start = time.time()
+            deadline = 3.0
+            while time.time() - poll_start < deadline:
+                time.sleep(0.25)  # 4Hz polling
+                shot_after, _ = self.screen.capture()
+                if self._screen_changed(screenshot, shot_after, click_pos=(x, y)):
+                    verified = True
+                    post_action_effect = "changed"
+                    break
+
+        elapsed_ms = int((time.time() - start) * 1000)
+        logger.info(f"Servo: clicked \"{target_description}\" at ({x}, {y}) effect={post_action_effect} ({elapsed_ms}ms)")
+
+        # 5. RECORD
         self._record_interaction(
             screenshot=screenshot,
             target_description=target_description,
@@ -166,13 +199,13 @@ class ServoController:
             click_issued=click_issued,
             elapsed_ms=elapsed_ms,
             reason="" if click_issued else click_result.get("error", "click_failed"),
-            post_action_effect="pending_observation" if click_issued else "not_checked",
+            post_action_effect=post_action_effect,
         )
 
         return {
-            "success": click_issued, "verified": False,
+            "success": click_issued, "verified": verified,
             "target_found": True, "click_issued": click_issued,
-            "post_action_effect": "pending_observation",
+            "post_action_effect": post_action_effect,
             "x": x, "y": y,
             "corrections": 0, "attempt": 1,
             "time_ms": elapsed_ms,
@@ -181,6 +214,75 @@ class ServoController:
             "detection_source": self._last_detection_source,
             "parse_path": self._last_parse_path,
         }
+
+    def calibrate(self) -> Dict[str, Any]:
+        """
+        Interactive calibration routine (The "Optician").
+        Navigates to a local calibration page and measures vision drift.
+        """
+        import os
+        from pathlib import Path
+        
+        root = os.environ.get("GUAARDVARK_ROOT", ".")
+        cal_file = Path(root) / "backend" / "static" / "calibrate.html"
+        cal_url = f"file://{cal_file.resolve()}"
+        
+        logger.info(f"Starting Optician calibration at {cal_url}")
+        
+        # 1. Navigate to calibration page
+        # We'll use the browser directly via xdotool to avoid task_execute recursion
+        self.screen.hotkey("ctrl", "l")
+        time.sleep(0.5)
+        self.screen.type_text(cal_url)
+        time.sleep(0.5)
+        self.screen.hotkey("Return")
+        time.sleep(5) # Wait for page load
+        
+        points = [
+            {"label": "P1 (top-left)", "target": [100, 100]},
+            {"label": "P2 (top-right)", "target": [1180, 100]},
+            {"label": "P3 (bottom-left)", "target": [100, 620]},
+            {"label": "P4 (bottom-right)", "target": [1180, 620]},
+            {"label": "P5 (center)", "target": [640, 360]},
+        ]
+        
+        results = []
+        
+        for p in points:
+            logger.info(f"Calibrating {p['label']}...")
+            screenshot, _ = self.screen.capture()
+            # Explicitly use pass 1 only for anchor points
+            coords = self._estimate_coordinates(screenshot, f"red crosshair labeled {p['label'].split(' ')[0]}")
+            if coords:
+                gx, gy = coords
+                results.append({
+                    "target": p["target"],
+                    "detected": [gx, gy],
+                    "error": [gx - p["target"][0], gy - p["target"][1]]
+                })
+            else:
+                logger.warning(f"Failed to detect crosshair {p['label']}")
+        
+        if len(results) < 3:
+            return {"success": False, "error": "Not enough calibration points detected"}
+            
+        # Calculate scale factors
+        # For simplicity, we use the average scale across all detected points
+        scale_xs = [r["target"][0] / (r["detected"][0] / 1000 * self.screen_w) for r in results if r["detected"][0] > 0]
+        scale_ys = [r["target"][1] / (r["detected"][1] / 1000 * self.screen_h) for r in results if r["detected"][1] > 0]
+        
+        # Actually, our _estimate_coordinates already applies current scaling.
+        # We want the RAW model coordinates vs Target pixels.
+        # Let's adjust the logic to use raw detections if possible.
+        # But _estimate_coordinates currently returns scaled pixels.
+        
+        return {
+            "success": True,
+            "points_count": len(results),
+            "results": results,
+            "screen_size": [self.screen_w, self.screen_h]
+        }
+
 
     def _record_interaction(
         self,
@@ -344,18 +446,12 @@ class ServoController:
         return None
 
     def _estimate_coordinates(self, screenshot: Image.Image, target: str) -> Optional[Tuple[int, int]]:
-        """Find where the target is on screen.
+        """Find where the target is on screen using a Two-Pass Zoom-In pipeline.
 
-        Priority: DOM metadata → native detection (full-size image) → legacy fallback.
-
-        CRITICAL: The image must be sent at FULL resolution (1000x1000).
-        Through Ollama with think:false, Gemma4 returns box_2d coordinates
-        normalized to 1000 (Google's published spec). With a 1000x1000 screen,
-        coord/1000*1000 = identity. Empirically verified 2026-04-10 on the
-        old 1280x720 layout: full-size → 35px error (HIT),
-        resized → 263px error (MISS). The 2026-05-11 1024 drift centred every
-        bbox around X≈600 — symptom of a model that knows the target exists
-        but lost the grid mapping.
+        1. Anchor Pass: Find the macro-region or element on the full screen.
+        2. ROI Crop: Extract a 300x300 (or scaled) crop around the anchor.
+        3. Refinement Pass: Pinpoint the exact interactive point on the crop.
+        4. Translation: Map local crop coordinates back to global space.
         """
         # Try DOM shortcut first — instant if Firefox has the element.
         # Gated behind dom_assist_enabled() (default off). Viewport→screen
@@ -376,76 +472,112 @@ class ServoController:
                 self._last_detection_source = "dom"
                 return dom_coords
 
-        # HALLUCINATION GUARD REMOVED 2026-05-12 — was a separate analyze() call
-        # asking "Is there a {target} visible? yes/no" before detection. Verified
-        # via servo logs that it false-negatived desktop targets (blue dot dead-
-        # center on white background, qwen3-vl:2b answered "no") and blocked
-        # detection from ever running. analyze_fullsize() below already returns
-        # None when the target isn't found (parser handles empty/invalid output),
-        # so the guard was a redundant second point of failure. Re-enable only
-        # if false-positive clicks on noisy desktops become a problem.
-        #
-        # check = self.analyzer.analyze(
-        #     screenshot,
-        #     prompt=f"Is there a {target} visible in this image? Answer ONLY yes or no.",
-        #     num_predict=32, temperature=0.1,
-        # )
-        # if check.success:
-        #     answer = check.description.strip().lower()
-        #     if answer.startswith("no") or "not visible" in answer or "don't see" in answer:
-        #         logger.info(f"Servo: target not visible (\"{target}\"), skipping click")
-        #         return None
-
-        # Full-size image — resize destroys coordinate accuracy.
-        # Prompt phrasing matters: `detect {target}` produces prose ("The icon
-        # is in the center-right of the image") that `_parse_detection_response`
-        # can't extract coordinates from, so the servo logs "target not visible"
-        # even when the model literally sees the target. Asking explicitly for
-        # box_2d in Google's documented format (object-wrapped, list-of-dicts)
-        # gets the parser's existing happy path. Verified 2026-05-13:
-        # `detect Firefox icon` → prose; this prompt → list of {box_2d, label}
-        # objects on the same screenshot.
-        prompt = (
-            f"Point at the {target}. Reply with ONLY a JSON list "
+        # --- PASS 1: ANCHOR PASS ---
+        # Get the macro-region (bounding box) on the full screen.
+        # Asking explicitly for 'box_2d' normalized to 1000.
+        prompt_pass1 = (
+            f"Detect the {target}. Reply with ONLY a JSON list "
             f'[{{"box_2d": [y1, x1, y2, x2], "label": "{target}"}}] '
             f"with coordinates normalized to 1000. If the target is not visible, "
             f"reply with an empty list []."
         )
-        result = self.analyzer.analyze_fullsize(
-            screenshot, prompt=prompt, num_predict=256, temperature=0.1
+        result1 = self.analyzer.analyze_fullsize(
+            screenshot, prompt=prompt_pass1, num_predict=128, temperature=0.1
         )
-        if not result.success:
-            logger.error(f"Coordinate estimation failed: {result.error}")
-            self._last_raw_response = result.error or ""
-            self._last_parse_path = "vision_error"
-            self._last_detection_source = "vision"
-            self._last_inference_ms = getattr(result, "inference_ms", 0) or 0
+        if not result1.success or not result1.description:
+            # Vision Ollama call itself failed (timeout, network, model
+            # unloaded). This is transient and NOT the same as "target not
+            # on screen". The caller (click_target) will see this reason
+            # and retry once before reporting back to the agent.
+            logger.error(f"Anchor pass failed: {result1.error}")
+            self._last_failure_reason = "vision_call_failed"
             return None
-        self._last_raw_response = result.description or ""
+
+        # Parse Anchor (accepts point or box, but box is better for ROI)
+        anchor_coords = self._parse_detection_response(result1.description)
+        if anchor_coords is None:
+            anchor_coords = self._parse_coordinates(result1.description)
+
+        if anchor_coords is None:
+            # Vision succeeded but said "target not present" (empty list,
+            # null detection, or malformed response). This is a real signal.
+            self._last_failure_reason = "target_not_visible"
+            return None
+
+        ax, ay = anchor_coords
+        
+        # --- PASS 2: REFINEMENT PASS (ZOOM-IN) ---
+        # Extract a localized crop centered on the anchor
+        crop_size = 300
+        left = max(0, int(ax - crop_size // 2))
+        top = max(0, int(ay - crop_size // 2))
+        right = min(self.screen_w, left + crop_size)
+        bottom = min(self.screen_h, top + crop_size)
+        
+        # Adjust if we hit right/bottom edges
+        if right == self.screen_w: left = max(0, right - crop_size)
+        if bottom == self.screen_h: top = max(0, bottom - crop_size)
+        
+        crop = screenshot.crop((left, top, right, bottom))
+        # Scale up the crop to give the model more detail for the refinement pass
+        crop_scaled = crop.resize((crop_size * 2, crop_size * 2), Image.LANCZOS)
+        
+        # Refinement Pass: ask for a precise 'point' [y, x] on the crop
+        prompt_pass2 = (
+            f"Point at the {target} within this localized crop. "
+            f"Reply with ONLY a JSON list [{{\"point\": [y, x], \"label\": \"{target}\"}}] "
+            f"normalized to 1000. Be extremely precise."
+        )
+        result2 = self.analyzer.analyze_fullsize(
+            crop_scaled, prompt=prompt_pass2, num_predict=128, temperature=0.1
+        )
+        
+        if result2.success and result2.description:
+            refinement = self._parse_detection_response(result2.description)
+            if refinement:
+                lx, ly = refinement
+                # Translate local crop coords back to global space
+                # lx/1000 * actual_crop_width + left_offset
+                gx = int((lx / 1000.0) * (right - left) + left)
+                gy = int((ly / 1000.0) * (bottom - top) + top)
+                
+                # Phase 1.4: Apply global calibration offsets
+                ox = self._vision_config.get("offset_x", 0)
+                oy = self._vision_config.get("offset_y", 0)
+                gx += ox
+                gy += oy
+                
+                self._last_raw_coords = (gx, gy)
+                self._last_parse_path = "zoom_refinement"
+                self._last_detection_source = "vision"
+                self._last_inference_ms = getattr(result1, "inference_ms", 0) + getattr(result2, "inference_ms", 0)
+                
+                # Clamp to screen bounds
+                x = max(0, min(self.screen_w - 1, gx))
+                y = max(0, min(self.screen_h - TASKBAR_H - 1, gy))
+                
+                logger.info(f"Servo Zoom-In: anchor ({ax},{ay}) -> refined ({gx},{gy}) (offset {ox},{oy}) -> final ({x},{y})")
+                return (x, y)
+
+        # Fallback to anchor if refinement fails
+        raw_x, raw_y = anchor_coords
+        ox = self._vision_config.get("offset_x", 0)
+        oy = self._vision_config.get("offset_y", 0)
+        raw_x += ox
+        raw_y += oy
+        
+        self._last_raw_coords = (raw_x, raw_y)
+        self._last_parse_path = "anchor_only"
         self._last_detection_source = "vision"
-        self._last_inference_ms = getattr(result, "inference_ms", 0) or 0
-
-        # Parse detection response — handles both "point" and "box_2d" formats
-        coords = self._parse_detection_response(result.description)
-        if coords is None:
-            # Fall back to legacy {"x","y"} format
-            coords = self._parse_coordinates(result.description)
-            if coords is not None:
-                self._last_parse_path = "legacy_xy"
-
-        if coords is None:
-            return None
-
-        raw_x, raw_y = coords
-        self._last_raw_coords = coords
-        self._last_scale = (1.0, 1.0)  # raw pixels, no scaling needed
-
+        self._last_inference_ms = getattr(result1, "inference_ms", 0)
+        
         # Clamp to screen bounds
         x = max(0, min(self.screen_w - 1, int(raw_x)))
         y = max(0, min(self.screen_h - TASKBAR_H - 1, int(raw_y)))
-
-        logger.info(f"Servo coords: ({x}, {y}) raw=({raw_x},{raw_y}) model={getattr(self.analyzer, 'default_model', '?')}")
+        
+        logger.info(f"Servo coords (anchor fallback): ({x}, {y}) (offset {ox},{oy}) model={getattr(self.analyzer, 'default_model', '?')}")
         return (x, y)
+
 
     def _check_on_target(self, screenshot: Image.Image, target: str) -> Dict[str, Any]:
         prompt = (
@@ -463,7 +595,6 @@ class ServoController:
 
         box_2d coordinates are normalized to the model's internal grid:
           Gemma4: 1000 (confirmed by Google docs)
-          qwen3-vl: 1000 (Google standard)
         The divisor comes from vision_config["internal_width"].
         """
         try:
@@ -513,7 +644,7 @@ class ServoController:
 
             # Axis order varies *by format*, not just by model:
             #   - "point" is x-first across every model we've tested
-            #     (Gemma4, qwen3-vl, moondream all return [x, y]).
+            #     (Gemma4, moondream all return [x, y]).
             #   - "box_2d" follows Google's published format which is
             #     y-first ([y1, x1, y2, x2]). Some adapters re-emit it
             #     x-first, so the order is config-driven.

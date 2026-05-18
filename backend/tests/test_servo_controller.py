@@ -212,7 +212,7 @@ class TestParseDetectionCoordOrder(unittest.TestCase):
         self.assertEqual(coords, (614, 64))
 
     def test_box_2d_with_internal_grid_and_yx(self):
-        # Some models (qwen3-vl variants) normalize to 1024; when y-first the
+        # Some models normalize to 1024; when y-first the
         # scaling still has to apply to the right axis.
         s = self._servo(coord_order="yx", internal_width=1000)
         coords = s._parse_detection_response(

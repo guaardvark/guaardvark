@@ -1,7 +1,7 @@
 """
 Tests for pasted image analysis through vision model.
 Prevents regression: LLM must not hallucinate about pasted images.
-The image must go through moondream/qwen3-vl for a real description.
+The image must go through moondream/gemma4 for a real description.
 """
 import base64
 import io
@@ -28,7 +28,7 @@ class TestVisionAnalyzer:
     """Tests for backend/utils/vision_analyzer.py"""
 
     def test_auto_detect_prefers_moondream(self):
-        """moondream should be preferred over qwen3-vl for speed."""
+        """moondream should be preferred for speed."""
         from backend.utils.vision_analyzer import VisionAnalyzer
 
         mock_response = MagicMock()
@@ -36,29 +36,12 @@ class TestVisionAnalyzer:
         mock_response.json.return_value = {
             "models": [
                 {"name": "llama3:latest"},
-                {"name": "qwen3-vl:2b-instruct"},
                 {"name": "moondream:latest"},
             ]
         }
         with patch("requests.get", return_value=mock_response):
             analyzer = VisionAnalyzer()
             assert analyzer.default_model == "moondream:latest"
-
-    def test_auto_detect_falls_back_to_qwen_vl(self):
-        """If moondream is unavailable, fall back to qwen3-vl."""
-        from backend.utils.vision_analyzer import VisionAnalyzer
-
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "models": [
-                {"name": "llama3:latest"},
-                {"name": "qwen3-vl:2b-instruct"},
-            ]
-        }
-        with patch("requests.get", return_value=mock_response):
-            analyzer = VisionAnalyzer()
-            assert analyzer.default_model == "qwen3-vl:2b-instruct"
 
     def test_encode_image_resizes_large_images(self):
         """Images wider than max_width should be resized."""

@@ -42,15 +42,11 @@ class TestAgentKnowledgeValidator(unittest.TestCase):
 
 
 class TestVisionConfigSelection(unittest.TestCase):
-    def test_qwen_aliases_do_not_cross_match(self):
-        from backend.services.servo_knowledge_store import get_vision_config
-
-        two_b = get_vision_config("qwen3-vl:2b")
-        eight_b = get_vision_config("qwen3-vl:8b")
-
-        self.assertEqual(two_b["source"], "16_9_screen_calibration_2026_04_10")
-        self.assertEqual(eight_b["source"], "16_9_screen_calibration_2026_04_10")
-        self.assertIsNot(two_b, eight_b)
+    @unittest.skip("vision-model aliases removed 2026-05-16")
+    def test_vision_model_aliases_do_not_cross_match(self):
+        # Original test verified per-variant vision_config lookups; removed
+        # along with the legacy multi-variant family on 2026-05-16.
+        pass
 
 
 class TestDisplayHealth(unittest.TestCase):

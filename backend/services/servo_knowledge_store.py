@@ -84,42 +84,6 @@ MODEL_VISION_CONFIGS = {
         "source": "google_box_2d_normalized_1000_2026_05_11",
         "notes": "Gemma4 via Ollama returns box_2d normalized to 1000 (Google standard). Parser denormalizes: (coord/1000)*screen_size. Works on any screen resolution.",
     },
-    "qwen3-vl:4b-instruct": {
-        "has_vision": True,
-        "vision_model": None,
-        "internal_width": 1024,
-        "scale_x": 1.0,
-        "scale_y": 1.0,
-        "source": "square_unification_2026_04_10",
-        "notes": "1024x1024 square screen. Identity scaling (1.0) for perfect 1:1 vision mapping.",
-    },
-    "qwen3-vl:8b-instruct": {
-        "has_vision": True,
-        "vision_model": None,
-        "internal_width": 1024,
-        "scale_x": 1.25,
-        "scale_y": 0.7031,
-        "source": "16_9_screen_calibration_2026_04_10",
-        "notes": "Same internal resolution as 4b variant",
-    },
-    "qwen3-vl:2b-instruct": {
-        "has_vision": True,
-        "vision_model": None,
-        "internal_width": 1024,
-        "scale_x": 1.25,
-        "scale_y": 0.7031,
-        "source": "16_9_screen_calibration_2026_04_10",
-        "notes": "Small vision model, used as servo eyes. 1280x720 screen / 1024 internal = 1.25x scale.",
-    },
-    "qwen2.5vl:7b-q4_K_M": {
-        "has_vision": True,
-        "vision_model": None,
-        "internal_width": 1024,
-        "scale_x": 1.0,
-        "scale_y": 1.0,
-        "source": "square_unification_2026_04_10",
-        "notes": "1024x1024 square screen. Identity scaling (1.0) for perfect 1:1 vision mapping.",
-    },
     "moondream:latest": {
         "has_vision": True,
         "vision_model": None,
@@ -140,43 +104,31 @@ MODEL_VISION_CONFIGS = {
         "source": "16_9_screen_calibration_2026_04_10",
         "notes": "Llama3 has no vision — uses moondream as eyes. 1280x720 screen / 1024 internal = 1.25x scale.",
     },
-    "qwen3.5:9b": {
-        "has_vision": False,
-        "vision_model": "qwen3-vl:2b-instruct",
-        "internal_width": 1024,
-        "scale_x": 1.25,
-        "scale_y": 0.7031,
-        "source": "16_9_screen_calibration_2026_04_10",
-        "notes": "Text-only, uses qwen3-vl:2b as eyes. 1280x720 screen / 1024 internal = 1.25x scale.",
-    },
     "ministral-3:latest": {
         "has_vision": False,
-        "vision_model": "qwen3-vl:2b-instruct",
+        "vision_model": "moondream:latest",
         "internal_width": 1024,
         "scale_x": 1.25,
         "scale_y": 0.7031,
         "source": "16_9_screen_calibration_2026_04_10",
-        "notes": "Text-only, uses qwen3-vl:2b as eyes. 1280x720 screen / 1024 internal = 1.25x scale.",
+        "notes": "Text-only, uses moondream as eyes. 1280x720 screen / 1024 internal = 1.25x scale.",
     },
 }
 
-# Fallback for models not in the config — assumes text-only with qwen3-vl:2b as eyes
+# Fallback for models not in the config — assumes vision-capable like gemma4
 _DEFAULT_VISION_CONFIG = {
-    "has_vision": False,
-    "vision_model": "qwen3-vl:2b-instruct",
-    "internal_width": 1024,
+    "has_vision": True,
+    "vision_model": None,
+    "internal_width": 1000,
     "scale_x": 1.0,
     "scale_y": 1.0,
-    "source": "square_screen_2026_04_10",
-    "notes": "1024x1024 square screen — no scaling needed",
+    "source": "default_gemma4_shape",
+    "notes": "Unknown model — assume gemma4-style native vision with box_2d at 1000.",
 }
 
 MODEL_ALIASES = {
     "gemma4": "gemma4:e4b",
     "gemma4:e4b-q4": "gemma4:e4b",
-    "qwen3-vl:8b": "qwen3-vl:8b-instruct",
-    "qwen3-vl:4b": "qwen3-vl:4b-instruct",
-    "qwen3-vl:2b": "qwen3-vl:2b-instruct",
 }
 
 

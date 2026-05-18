@@ -250,7 +250,8 @@ class AgentBrain:
             #        requests route through normal Instinct so the model can
             #        explain that nothing is being viewed, rather than
             #        silently attempting clicks on a screen nobody sees.
-            if self._is_vision_task(message, image_data) and (image_data or _screen_active):
+            _screen_viewer_open = bool(options and options.get("screen_viewer_open", False))
+            if self._is_vision_task(message, image_data) and (image_data or _screen_active or _screen_viewer_open):
                 tier_used = 2  # Vision goes through Tier 2 with vision prompt
                 return self._instinct(
                     session_id, message, options, emit_fn, app,
@@ -352,44 +353,20 @@ class AgentBrain:
     ) -> Optional[Dict[str, Any]]:
         """Direct Gemma4 path — no tier routing, no tool schema bloat.
 
-        Gemma4 has native vision, pointing, and reasoning. We send it:
-        1. A minimal system prompt (identity + desktop state + memories)
-        2. Conversation history
-        3. The user's message — unmodified
-        4. A screenshot of the agent display (if relevant)
-
-        Gemma4 decides what to do. If it wants to use a tool, it says so
-        in structured JSON and we execute it. If it just wants to chat, it chats.
-
-        Returns None if this path can't handle the message (falls through to legacy).
+        Gemma4 has native vision, pointing, and reasoning. We route directly to
+        the AgentControlService execute_task loop, skipping the redundant pre-check 
+        vision call to save latency.
         """
+        # If it's purely conversational, let the normal instinct path handle it
+        if NO_SCREEN_CONTEXT.match(message.strip()):
+            return None
+
         try:
-            import ollama as ollama
+            from backend.services.local_screen_backend import LocalScreenBackend
+            from backend.services.agent_control_service import get_agent_control_service
+            import re
 
-            # Track generated images for chat persistence (same pattern as unified engine)
             generated_images = []
-
-            # Build minimal context — just what Gemma4 needs to know
-            desktop_state = ""
-            try:
-                from backend.services.agent_control_service import AgentControlService
-                desktop_state = AgentControlService._get_desktop_state()
-            except Exception:
-                desktop_state = "Desktop state: unknown"
-
-            memory_block = ""
-            try:
-                from backend.api.memory_api import get_memories_for_context
-                # 800 tokens (~3200 chars) so multi-step lesson summaries fit
-                # alongside the user's normal notes without starving either.
-                # Was 300; lessons were getting decapitated before Gemma4 saw them.
-                if app is not None:
-                    with app.app_context():
-                        memory_block = get_memories_for_context(limit=10, max_tokens=800)
-                else:
-                    memory_block = get_memories_for_context(limit=10, max_tokens=800)
-            except Exception:
-                pass
 
             # Load self-knowledge — the agent's own manual
             self_knowledge = ""
@@ -402,205 +379,79 @@ class AgentBrain:
             except Exception:
                 pass
 
-            # Extract DOM metadata from Firefox (interactive elements with coordinates).
-            # Gated behind dom_assist_enabled() — see dom_metadata_extractor.py for why.
-            dom_metadata = ""
-            try:
-                from backend.services.dom_metadata_extractor import (
-                    DOMMetadataExtractor,
-                    dom_assist_enabled,
-                )
-                if dom_assist_enabled():
-                    snapshot = DOMMetadataExtractor.get_instance().extract()
-                    if snapshot.success and snapshot.elements:
-                        dom_metadata = DOMMetadataExtractor.format_for_prompt(snapshot)
-            except Exception as e:
-                logger.debug(f"DOM metadata extraction unavailable: {e}")
+            screen = LocalScreenBackend()
+            acs = get_agent_control_service()
 
-            # System prompt — identity, state, DOM, actions
-            system = (
-                "You are Guaardvark, a local AI assistant with a virtual screen.\n\n"
-                f"{desktop_state}\n"
-            )
-            if dom_metadata:
-                system += f"\n{dom_metadata}\n"
-            if self_knowledge:
-                system += f"\n{self_knowledge}\n"
-            if memory_block:
-                system += f"\n{memory_block}\n"
-
-            system += (
-                "\nFor screen actions, respond with JSON:\n"
-                '{"action": "click", "target": "the Search button"}\n'
-                '{"action": "type", "text": "youtube.com"}\n'
-                '{"action": "hotkey", "keys": ["ctrl", "l"]}\n'
-                '{"action": "done", "summary": "what you accomplished"}\n'
-                '{"action": "generate_image", "prompt": "description of image to create"}\n'
-                '{"action": "screenshot"}\n\n'
-                "If DOM elements with coordinates are listed above, include x and y in clicks.\n"
-                "For conversation, respond normally without JSON."
-            )
-
-            # Load history
-            history = []
-            if app:
+            # Persist the user message BEFORE we kick off the agent loop.
+            # If execute_task crashes or the user refreshes mid-run, the
+            # incoming prompt still survives in history.
+            history_str = ""
+            if app and message:
                 with app.app_context():
                     try:
-                        from backend.services.unified_chat_engine import UnifiedChatEngine
-                        engine = UnifiedChatEngine.__new__(UnifiedChatEngine)
-                        engine.app = app
-                        history = engine._load_history(session_id, limit=20)
+                        from backend.models import LLMSession, LLMMessage, db
+                        from sqlalchemy import select
+                        from datetime import datetime as _dt
+                        
+                        # Fetch recent history BEFORE saving the new message
+                        # so we get clean context for short commands like "try again"
+                        prev_msgs = db.session.execute(
+                            select(LLMMessage)
+                            .filter_by(session_id=session_id)
+                            .order_by(LLMMessage.timestamp.desc())
+                            .limit(4)
+                        ).scalars().all()
+                        
+                        if prev_msgs:
+                            prev_msgs.reverse()
+                            hist_lines = []
+                            for m in prev_msgs:
+                                if m.role in ["user", "assistant"] and m.content:
+                                    content = str(m.content)[:500]
+                                    hist_lines.append(f"{m.role.capitalize()}: {content}")
+                            if hist_lines:
+                                history_str = "\n".join(hist_lines)
+
+                        sess = db.session.get(LLMSession, session_id)
+                        if not sess:
+                            sess = LLMSession(id=session_id, user="default", project_id=project_id)
+                            db.session.add(sess)
+                            db.session.flush()
+                        user_extra = None
+                        if image_data:
+                            user_extra = {
+                                "hasImage": True,
+                                "imageUrl": image_url,
+                                "messageType": "image_upload",
+                            }
+                        db.session.add(LLMMessage(
+                            session_id=session_id,
+                            role="user",
+                            content=message,
+                            extra_data=user_extra,
+                            project_id=project_id,
+                            timestamp=_dt.now(),
+                        ))
+                        db.session.commit()
                     except Exception:
-                        pass
+                        logger.exception("Failed to persist user message in gemma4_direct")
 
-            # Build messages
-            messages = [{"role": "system", "content": system}]
-            for msg in history:
-                role = "user" if msg["role"] == "user" else "assistant"
-                messages.append({"role": role, "content": msg["content"]})
-
-            # User message — attach screenshot if this looks like a screen task
-            user_msg = {"role": "user", "content": message}
-
-            # Gemma4's eyes — but only when the message could plausibly be
-            # about screen state. Attaching a full-resolution screenshot to
-            # every "hello" was starving inference (5+ minutes for first
-            # token on CPU/GPU split). For pure chat we skip the screenshot
-            # entirely; for everything else we downscale hard before sending.
-            needs_screen = not NO_SCREEN_CONTEXT.match(message.strip())
-            if needs_screen:
-                try:
-                    from backend.services.local_screen_backend import LocalScreenBackend
-                    screen = LocalScreenBackend()
-                    screenshot, _ = screen.capture()
-                    import base64
-                    from io import BytesIO
-                    # Downscale the screenshot to keep UI elements legible
-                    # to the model while cutting vision-token cost. The
-                    # native display is 1024x1024; we ship a much smaller
-                    # thumbnail.
-                    screenshot.thumbnail((640, 360))
-                    buf = BytesIO()
-                    screenshot.save(buf, format="JPEG", quality=70)
-                    user_msg["images"] = [base64.b64encode(buf.getvalue()).decode()]
-                except Exception as e:
-                    logger.debug(f"Gemma4 direct: screenshot capture failed (non-fatal): {e}")
-
-            # If user pasted an image, use that instead
-            if image_data:
-                user_msg["images"] = [image_data]
-
-            messages.append(user_msg)
-
-            # Save user message to DB
-            if app:
-                with app.app_context():
-                    try:
-                        from backend.utils.chat_utils import save_message_to_db, get_or_create_session
-                        get_or_create_session(session_id)
-                        save_message_to_db(session_id, "user", message)
-                    except Exception:
-                        pass
-
-            # Call Gemma4 — buffer first, execute actions, THEN stream to user.
-            # This way the user sees the thinking + result, not raw JSON.
-            emit_fn("chat:thinking", {"iteration": 1, "status": "Gemma4 is looking..."})
-
-            model = self.state.active_model
-            accumulated = []
-            input_tokens = 0
-            output_tokens = 0
-
-            # Hard read deadline on the Ollama stream so a wedged vision call
-            # can't hold the GPU slot forever. 90s is generous for first-token
-            # on CPU/GPU split inference but cuts true wedges loose quickly.
-            import httpx as _httpx
-            client = ollama.Client(
-                timeout=_httpx.Timeout(connect=10.0, read=90.0, write=30.0, pool=30.0),
+            # Delegate straight to the robust execute_task loop
+            agent_result = acs.execute_task(
+                task=message, 
+                screen=screen, 
+                emit_fn=emit_fn, 
+                chat_context=history_str
             )
-            try:
-                stream = client.chat(
-                    model=model,
-                    messages=messages,
-                    stream=True,
-                    options={"num_ctx": 8192, "num_predict": 4096, "temperature": 0.4},
-                )
 
-                for chunk in stream:
-                    # Check if a newer message aborted us
-                    if is_aborted(session_id):
-                        logger.info(f"Gemma4 direct: aborted mid-stream for session {session_id}")
-                        return None
-                    msg = chunk.get("message", {})
-                    token = msg.get("content", "")
-                    if token:
-                        accumulated.append(token)
-                    if chunk.get("done"):
-                        input_tokens = chunk.get("prompt_eval_count", 0) or 0
-                        output_tokens = chunk.get("eval_count", 0) or 0
-            except (_httpx.ReadTimeout, _httpx.WriteTimeout, _httpx.ConnectTimeout, _httpx.PoolTimeout) as timeout_err:
-                logger.error(
-                    f"Gemma4 direct: Ollama stream timed out for session {session_id} "
-                    f"({type(timeout_err).__name__}: {timeout_err}). Emitting chat:error."
-                )
-                emit_fn("chat:error", {
-                    "error": "Vision model timed out (no token in 90s). Try a shorter "
-                             "message, or restart Ollama if this keeps happening.",
-                    "session_id": session_id,
-                })
-                # Return a real result dict — NOT None — so process() doesn't
-                # fall through to the legacy path and call Ollama all over again.
-                return {
-                    "success": False,
-                    "error": "stream_timeout",
-                    "tier": 0,
-                    "request_id": request_id,
-                    "session_id": session_id,
-                }
-
-            response = "".join(accumulated).strip()
-            # Strip <think>...</think> blocks
-            thinking = ""
-            think_match = re.search(r'<think>([\s\S]*?)</think>', response)
-            if think_match:
-                thinking = think_match.group(1).strip()
-            response = re.sub(r'<think>[\s\S]*?</think>\s*', '', response).strip()
-
-            # Check if Gemma4 wants to perform actions
-            actions = self._parse_gemma4_actions(response)
-
-            if actions:
-                # Delegate to the robust execute_task loop so Gemma4 benefits from
-                # full See-Think-Act-Verify, success_proof, persistent knowledge,
-                # and failure handling instead of direct LocalScreenBackend calls.
-                from backend.services.local_screen_backend import LocalScreenBackend
-                from backend.services.agent_control_service import get_agent_control_service
-                screen = LocalScreenBackend()
-                # MUST go through the singleton — the save block below drains
-                # the singleton's _thinking_steps_buffer. A fresh AgentControlService()
-                # here would fill its own buffer that drain never sees, leaving
-                # the chat thinking trail empty on refresh.
-                acs = get_agent_control_service()
-                agent_result = acs.execute_task(message, screen, emit_fn=emit_fn)
-                if thinking:
-                    emit_fn("chat:token", {"content": f"*{thinking[:200]}*\n\n", "session_id": session_id})
-                # Don't leak internal reason codes (recipe:open_youtube, completed, timeout)
-                # straight into chat — narrate the outcome in Guaardvark's voice.
-                response = self._narrate_agent_outcome(
-                    user_message=message,
-                    agent_result=agent_result,
-                    self_knowledge=self_knowledge,
-                    emit_fn=emit_fn,
-                    session_id=session_id,
-                )
-            else:
-                # Regular conversation — stream the buffered response to the user
-                # Strip any residual JSON that looks like an action attempt
-                for token in accumulated:
-                    clean_token = token
-                    if "<think>" in clean_token or "</think>" in clean_token:
-                        continue
-                    emit_fn("chat:token", {"content": clean_token, "session_id": session_id})
+            # Narrate the outcome in Guaardvark's voice
+            response = self._narrate_agent_outcome(
+                user_message=message,
+                agent_result=agent_result,
+                self_knowledge=self_knowledge,
+                emit_fn=emit_fn,
+                session_id=session_id,
+            )
 
             # Emit complete
             emit_fn("chat:complete", {
@@ -609,7 +460,7 @@ class AgentBrain:
                 "steps": [],
                 "session_id": session_id,
                 "request_id": request_id,
-                "token_usage": {"input_tokens": input_tokens, "output_tokens": output_tokens},
+                "token_usage": {"input_tokens": 0, "output_tokens": 0},
                 "generated_images": generated_images,
             })
 
@@ -623,24 +474,12 @@ class AgentBrain:
                         extra = {}
                         if generated_images:
                             extra["generatedImages"] = generated_images
-                        # Pull agent-loop thinking steps so the trail survives a
-                        # hard refresh. AgentBrain owns this save site — the
-                        # unified-engine drain at chat() L1430 doesn't fire when
-                        # AGENT_BRAIN_ENABLED routes requests through here.
                         try:
-                            from backend.services.agent_control_service import get_agent_control_service
-                            agent_thinking_steps = get_agent_control_service().drain_thinking_steps()
-                            logger.info(
-                                f"[THINKING-PERSIST] (gemma4_direct) drain returned "
-                                f"{len(agent_thinking_steps)} steps for session={session_id}"
-                            )
+                            agent_thinking_steps = acs.drain_thinking_steps()
                             if agent_thinking_steps:
                                 extra["agentThinkingSteps"] = agent_thinking_steps
-                        except Exception as drain_err:
-                            logger.warning(
-                                f"[THINKING-PERSIST] (gemma4_direct) drain failed: {drain_err}",
-                                exc_info=True,
-                            )
+                        except Exception:
+                            pass
                         content = clean if not clean.startswith("{") else f"[Action] {response}"
                         msg = LLMMessage(
                             session_id=session_id,
@@ -657,7 +496,7 @@ class AgentBrain:
             return {
                 "success": True,
                 "response": response,
-                "tier": 0,  # Tier 0 = direct path, no routing overhead
+                "tier": 0,
                 "request_id": request_id,
                 "session_id": session_id,
             }

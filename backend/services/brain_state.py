@@ -488,7 +488,7 @@ class BrainState:
         self.active_model = model_name
 
         # Thinking model detection (matches unified_chat_engine.py patterns)
-        thinking_patterns = ["qwen3", "deepseek-r1", "thinking", "gemma4", "gemma-4"]
+        thinking_patterns = ["deepseek-r1", "thinking", "gemma4", "gemma-4"]
         is_thinking = any(p in model_name.lower() for p in thinking_patterns)
 
         self.model_caps = ModelCapabilities(

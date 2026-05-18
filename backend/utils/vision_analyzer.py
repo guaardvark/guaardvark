@@ -41,10 +41,9 @@ class VisionAnalyzer:
     access without blocking video chat or other vision consumers.
     """
 
-    # Vision models to try in order — qwen3-vl first (moondream fails on dark UIs)
+    # Vision models to try in order — gemma4 first (unified brain), moondream as fallback
     _VISION_MODEL_PRIORITY = [
-        "qwen3-vl:2b-instruct",
-        "qwen3-vl:8b",
+        "gemma4:e4b",
         "moondream:latest",
         "llava:latest",
     ]
@@ -54,7 +53,7 @@ class VisionAnalyzer:
         ollama_url: str = None,
         default_model: str = None,
         max_width: int = 1024,
-        timeout: int = 30,
+        timeout: int = 90,
     ):
         self.ollama_url = ollama_url or OLLAMA_BASE_URL
         self.default_model = default_model or self._detect_vision_model()
@@ -67,7 +66,7 @@ class VisionAnalyzer:
         Prioritizes:
         1. Any vision-capable model ALREADY in VRAM (/api/ps)
         2. Configured gemma4 if available
-        3. Hardcoded priority list (qwen3-vl, moondream)
+        3. Hardcoded priority list (gemma4, moondream)
         """
         try:
             # 1. Check what's ALREADY in VRAM. If a vision model is active, USE IT.
@@ -178,12 +177,12 @@ class VisionAnalyzer:
                 override = os.environ.get("GUAARDVARK_DECISION_MODEL")
                 if override and override in models:
                     return override
-                for preferred in ["qwen3.5:9b", "qwen3:8b", "qwen3:latest", "llama3.1:8b",
+                for preferred in ["gemma4:e4b", "llama3.1:8b",
                                   "llama3:8b", "llama3:latest", "mistral:latest", "gemma2:latest"]:
                     if preferred in models:
                         return preferred
                 # Fall back to any non-vision model
-                vision_patterns = ["moondream", "llava", "bakllava", "qwen-vl"]
+                vision_patterns = ["moondream", "llava", "bakllava", "gemma4"]
                 for m in models:
                     if not any(vp in m.lower() for vp in vision_patterns):
                         return m

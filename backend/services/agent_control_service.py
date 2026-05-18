@@ -66,21 +66,22 @@ class AgentControlConfig:
     grid_cols: int = 8
     grid_rows: int = 8
     bullseye_size: int = 48
-    vision_model: str = "qwen3-vl:2b-instruct"
-    escalation_model: str = "qwen3-vl:8b"
+    vision_model: str = "gemma4:e4b"
+    escalation_model: str = "gemma4:e4b"
     escalation_threshold: int = 3  # failures before escalating
 
 
 @dataclass
 class AgentAction:
     """A single action the agent wants to perform."""
-    action_type: str = ""  # click, right_click, type, hotkey, scroll, move, done
+    action_type: str = ""  # click, right_click, type, hotkey, scroll, move, done, navigate
     target_cell: str = ""  # Grid cell (e.g., "D4") — for clicks
     target_description: str = ""  # What the agent thinks it's clicking
     coordinates: Optional[Tuple[int, int]] = None  # Refined pixel coords
     text: str = ""  # For type actions
     keys: List[str] = field(default_factory=list)  # For hotkey actions
     scroll_amount: int = 0  # For scroll actions
+    url: str = ""  # For navigate actions
     reasoning: str = ""  # Why the agent chose this action
     confidence: float = 1.0  # Confidence score (0.0 to 1.0)
     expected_effect: str = ""  # Optional visible outcome expected after action
@@ -182,7 +183,7 @@ class FailureReport:
     action_type: str = ""              # click | type | hotkey | scroll | wait | done
     expected_target: str = ""          # what the model named
     attempted_at_coords: Tuple[int, int] = (0, 0)  # (0,0) for non-click actions
-    screen_delta: float = 0.0          # post-action pixel diff (0.0 = unchanged)
+    screen_delta: Optional[float] = None  # post-action pixel diff; None when never measured (e.g. click branch)
     visibility_check: str = ""         # "" until Phase-3 re-grounding fills it
     dom_match: bool = False            # did DOM extraction find a matching element?
     cause_hypothesis: str = ""         # one-liner derived from the other fields
@@ -274,6 +275,9 @@ class AgentControlService:
         # populated by _derive_session_expectations.
         self._session_expectations: Optional[List[Expectation]] = None
         self._recipe_fallback_note: str = ""
+        # Circuit breaker: track coordinates of issued clicks to detect
+        # infinite loops on non-responsive elements.
+        self._click_history: List[Tuple[int, int]] = []
         self._lock = threading.Lock()
         self.config = AgentControlConfig()
         self._debug_run_id = ""
@@ -399,7 +403,7 @@ class AgentControlService:
         }
 
     def execute_task(self, task: str, screen, mouse_only: bool = False, training_mode: bool = False,
-                     emit_fn: Optional[Callable] = None) -> AgentResult:
+                     emit_fn: Optional[Callable] = None, chat_context: str = "") -> AgentResult:
         """
         Execute a task using the see-think-act loop.
 
@@ -467,6 +471,7 @@ class AgentControlService:
             # last task's contradictions don't bleed into this one's lessons.
             self._expectation_log = []
             self._session_expectations = None
+            self._click_history = []
 
         # Pick the vision model for servo coordinate estimation.
         # If vision_model is None, the model does its own coords — no middleman.
@@ -497,10 +502,14 @@ class AgentControlService:
         # Check for recipe match — skip see-think-act loop for known patterns
         recipe_result = self._try_recipe(task, screen)
         if recipe_result is not None:
-            with self._lock:
-                if self._active_task_id == task_id:
-                    self._active = False
-            return finish(recipe_result)
+            if recipe_result.success:
+                with self._lock:
+                    if self._active_task_id == task_id:
+                        self._active = False
+                return finish(recipe_result)
+            else:
+                self._action_history.extend(recipe_result.steps)
+                self._recipe_fallback_note = f"Tried recipe {recipe_result.reason} but it failed. Continuing manually."
 
         # Training mode: crank up limits so the agent keeps practicing
         max_iters = 1000 if training_mode else self.config.max_iterations
@@ -532,9 +541,24 @@ class AgentControlService:
 
                 self._current_iteration = iteration
 
+                # Interruptible sleep so a Stop click bites within ~100ms
+                # instead of waiting out the full breathe.
+                def _breathe(total_s: float):
+                    deadline = time.time() + total_s
+                    while time.time() < deadline:
+                        if self._killed or task_ctx.killed:
+                            return True
+                        time.sleep(min(0.1, deadline - time.time()))
+                    return False
+
                 # Training mode: 5s pause between iterations so the agent doesn't rush
                 if training_mode and iteration > 0:
-                    time.sleep(5.0)
+                    if _breathe(5.0):
+                        return finish(AgentResult(
+                            success=False, reason="killed",
+                            steps=self._action_history,
+                            total_time_seconds=time.time() - start_time,
+                        ))
 
                 # BREATHE — inter-iteration cool-down so the screen settles and
                 # the agent doesn't chase its own success/X-mark animations.
@@ -542,7 +566,12 @@ class AgentControlService:
                 # (no prior action) and when training_mode already paused.
                 if iteration > 0 and not training_mode:
                     logger.warning(f"[AGENT][STEP {iteration+1}][BREATHE] pausing 2.1s before next See")
-                    time.sleep(2.1)
+                    if _breathe(2.1):
+                        return finish(AgentResult(
+                            success=False, reason="killed",
+                            steps=self._action_history,
+                            total_time_seconds=time.time() - start_time,
+                        ))
 
                 # 1. SEE — Capture screenshot
                 screenshot, cursor_pos = self._capture_with_retry(screen)
@@ -550,7 +579,7 @@ class AgentControlService:
 
                 scene_desc = ""  # Will be populated by either unified or split path
 
-                # Check for unified vision+decision model (qwen3-vl:4b+)
+                # Check for unified vision+decision model (gemma4:e4b)
                 unified_model = self._get_unified_model()
 
                 if unified_model:
@@ -564,6 +593,7 @@ class AgentControlService:
                         self._action_history,
                         world_state=self._world_state,
                         training_mode=training_mode,
+                        chat_context=chat_context,
                     )
                     # Persistent cross-session knowledge rides the system slot,
                     # not the user prompt — keeps the per-step prompt small
@@ -742,22 +772,17 @@ class AgentControlService:
                     button = "right" if decision.action.action_type == "right_click" else "left"
                     target = decision.action.target_description
                     pixel_diff_value: Optional[float] = None
+                    
+                    # DOM match is a heuristic optimization, not a hard guard.
+                    # If it fails, we still let the vision model try — it might
+                    # be a desktop icon or OS element Firefox's DOM can't see.
                     if target and not self._dom_match(target):
                         logger.warning(
-                            f"[AGENT][STEP {iteration+1}][DOM] target not in fresh DOM snapshot: {target!r}"
+                            f"[AGENT][STEP {iteration+1}][DOM] target not in DOM snapshot: {target!r} (proceeding via vision)"
                         )
-                        result = {
-                            "success": False,
-                            "reason": "no_dom_match",
-                            "target_found": False,
-                            "click_issued": False,
-                        }
-                        failed = True
-                        decision.action.coordinates = (0, 0)
 
                     # For generic area targets (desktop, empty space), click center-screen
-                    # instead of asking the vision model to locate "the desktop"
-                    elif re.search(r'(?:desktop|empty|blank|background|open area|center|middle)\s*(?:area|space|screen)?', target, re.IGNORECASE):
+                    if re.search(r'(?:desktop|empty|blank|background|open area|center|middle)\s*(?:area|space|screen)?', target, re.IGNORECASE):
                         sw, sh = screen.screen_size()
                         cx, cy = sw // 2, sh // 2
                         screen.click(cx, cy, button=button)
@@ -772,6 +797,8 @@ class AgentControlService:
                     else:
                         servo_result = servo.click_target(target, button=button, single_attempt=training_mode)
                         decision.action.coordinates = (servo_result.get("x", 0), servo_result.get("y", 0))
+                        # Track issued clicks for the circuit breaker
+                        self._click_history.append(decision.action.coordinates)
                         result = dict(servo_result)
                         failed = not servo_result.get("success", False)
 
@@ -794,10 +821,19 @@ class AgentControlService:
                         )
                         result["verified"] = bool(verify.get("success"))
                         result["semantic_verify"] = verify
+                        # Verify is ADVISORY, not a hard fail — see the comment block
+                        # above. Slow-launch apps (Firefox cold start: 1-5s, longer
+                        # behind the XFCE Untrusted-launcher dialog) routinely
+                        # outlast the 6s poll, and flipping the click to FAILED
+                        # primes the LLM to abandon a successful click and loop.
+                        # The next iteration's SEE pass observes actual screen
+                        # state — that's the real ground truth.
                         if not verify.get("success"):
-                            result["success"] = False
-                            result["reason"] = "expected_effect_not_observed"
-                            failed = True
+                            logger.info(
+                                f"[AGENT][STEP {iteration+1}][VERIFY] expected_effect "
+                                f"{expected_effect!r} not yet visible after 6s — "
+                                f"keeping click as OK; next SEE will observe actual state"
+                            )
 
                     status_icon = "OK" if not failed else "FAIL"
                     logger.warning(f"[AGENT][STEP {iteration+1}][ACT] {decision.action.action_type} \"{target}\" "
@@ -866,7 +902,7 @@ class AgentControlService:
                     iteration=iteration + 1,
                     action=decision.action,
                     result=result,
-                    pixel_diff=pixel_diff_value or 0.0,
+                    pixel_diff=pixel_diff_value,
                     failed=failed,
                 )
                 # Phase-3 re-grounding: when the model has failed twice on
@@ -938,21 +974,45 @@ class AgentControlService:
                         (h.action.action_type, h.action.target_description, h.action.text)
                         for h in self._action_history[-3:]
                     ]
-                    if len(set(last3)) == 1 and last3[0][0] != "wait":
-                        # Was returning success=True, which fed phantom-posts into the
-                        # outreach pipeline (caller's "if not result.success" never tripped).
-                        # Repeating an action 3x is evidence of stuck, not done.
+                    
+                    # Circuit Breaker Part 1: Semantic Identicality
+                    semantic_loop = len(set(last3)) == 1 and last3[0][0] != "wait"
+                    
+                    # Circuit Breaker Part 2: Spatial Identicality (Idempotency)
+                    # Detect if we clicked the exact same coordinates 3 times without effect.
+                    spatial_loop = False
+                    if len(self._click_history) >= 3:
+                        last3_clicks = self._click_history[-3:]
+                        # If all three are non-zero (valid clicks) and identical
+                        if len(set(last3_clicks)) == 1 and last3_clicks[0] != (0, 0):
+                            spatial_loop = True
+
+                    if semantic_loop or spatial_loop:
+                        loop_type = "Spatial" if spatial_loop else "Semantic"
+                        # Distinguish "stuck repeating a FAILED action" (genuine
+                        # loop — abort as failure) from "repeated a SUCCESSFUL
+                        # action 3x" (model fixation, but the work happened —
+                        # don't lie and call it a failure).
+                        last3_failed = [h.failed for h in self._action_history[-3:]]
+                        all_steps_ok = not any(last3_failed)
                         logger.warning(
-                            f"[AGENT][LOOP] Same action repeated 3x: "
-                            f"{last3[0][0]} \"{last3[0][1] or last3[0][2]}\". "
-                            f"Aborting as failure."
+                            f"[AGENT][LOOP] {loop_type} action repeated 3x: "
+                            f"{last3[0][0]} \"{last3[0][1] or last3[0][2]}\" "
+                            f"at {self._click_history[-1] if self._click_history else 'n/a'}. "
+                            f"Aborting (steps_ok={all_steps_ok})."
                         )
-                        # Capture fresh failure screenshot + reason for prompt/history
+                        # Capture fresh screenshot for prompt/history context
                         try:
                             fail_shot, _ = self._capture_with_retry(screen)
-                            # inject via history step already present; reason carries it
                         except Exception:
                             pass
+                        if all_steps_ok:
+                            return finish(AgentResult(
+                                success=True,
+                                reason="completed_with_repetition",
+                                steps=self._action_history,
+                                total_time_seconds=time.time() - start_time
+                            ))
                         return finish(AgentResult(
                             success=False,
                             reason="loop_detected_no_progress",
@@ -1536,6 +1596,18 @@ class AgentControlService:
                     return screen.move(action.coordinates[0], action.coordinates[1])
                 return {"success": False, "error": "No coordinates for move"}
 
+            elif action.action_type == "navigate":
+                if action.url:
+                    screen.hotkey("ctrl", "l")
+                    time.sleep(0.3)
+                    screen.hotkey("ctrl", "a")
+                    time.sleep(0.1)
+                    screen.type_text(action.url)
+                    time.sleep(0.2)
+                    screen.hotkey("Return")
+                    return {"success": True, "navigated": action.url}
+                return {"success": False, "error": "No url provided for navigate"}
+
             elif action.action_type == "wait":
                 # Patience action — for transient screens (mid-load, focus loss,
                 # animation in flight). Floor 2.1s (deliberately odd so it
@@ -1728,6 +1800,7 @@ class AgentControlService:
         history,
         world_state: Optional[WorldState] = None,
         training_mode: bool = False,
+        chat_context: str = "",
     ) -> str:
         """Build a compact prompt for unified vision+decision models.
 
@@ -1754,12 +1827,12 @@ class AgentControlService:
             # it one chance to actually pivot before we abort the task.
             if len(history) >= 2:
                 last_full = [
-                    (h.action.action_type, h.action.target_description, h.action.text)
+                    (h.action.action_type, h.action.target_description, h.action.text, tuple(h.action.keys or []), h.action.scroll_amount, h.action.url)
                     for h in history[-2:]
                 ]
                 if len(set(last_full)) == 1:
-                    a_type, a_target, a_text = last_full[0]
-                    a_desc = a_target or a_text or ""
+                    a_type, a_target, a_text, a_keys, a_scroll, a_url = last_full[0]
+                    a_desc = a_target or a_text or (str(list(a_keys)) if a_keys else "") or a_url or (str(a_scroll) if a_scroll else "")
                     # Gemma4:e4b ignored a soft "you must pick something
                     # different" — it acknowledged the warning and scrolled
                     # again anyway. Replace the abstract instruction with
@@ -1784,23 +1857,6 @@ class AgentControlService:
 
         desktop_state = AgentControlService._get_desktop_state()
 
-        # DOM metadata — interactive elements with screen coordinates.
-        # Gated behind dom_assist_enabled() (default off). The viewport→screen
-        # translation has known gaps (no scroll offset, BiDi lies about screenX/Y
-        # on :99); feeding the LLM those coords makes it confidently click empty
-        # space. See dom_metadata_extractor.dom_assist_enabled for the toggle.
-        dom_block = ""
-        if self._dom_snapshot is not None:
-            try:
-                from backend.services.dom_metadata_extractor import (
-                    DOMMetadataExtractor,
-                    dom_assist_enabled,
-                )
-                if dom_assist_enabled():
-                    dom_block = DOMMetadataExtractor.format_for_prompt(self._dom_snapshot) + "\n\n"
-            except Exception:
-                pass
-
         training_override = ""
         if training_mode:
             training_override = "\nTRAINING MODE: NEVER say done. Click the next target.\n"
@@ -1808,9 +1864,8 @@ class AgentControlService:
         # One-line confidence rules. Kept terse on purpose — verbose
         # prompt text leaks into typed actions when the model parrots context.
         confidence = (
-            "Web task + no browser visible: open Firefox FIRST by clicking the icon. "
             "Screen mid-load or transient: wait, do not quit. "
-            "Step 1 done is forbidden."
+            "If the goal is already visible, you may output done on Step 1. Otherwise, Step 1 done is forbidden."
         )
 
         browser_visible = "firefox" in desktop_state.lower()
@@ -1819,21 +1874,22 @@ class AgentControlService:
         if not browser_visible and is_web_task:
             confidence = (
                 "NO BROWSER VISIBLE: You MUST click the Firefox icon on the desktop first. "
-                "Ctrl+L will NOT work until a browser window is on screen. "
-                "Step 1 done is forbidden."
+                "The navigate action will NOT work until a browser window is on screen and focused. "
+                "If the goal is already visible, you may output done on Step 1. Otherwise, Step 1 done is forbidden."
             )
         elif not browser_visible:
             # Not a web task (or at least doesn't look like one), don't force Firefox
-            confidence = "No browser visible, but task doesn't explicitly require one. Step 1 done is forbidden."
+            confidence = "No browser visible, but task doesn't explicitly require one. If the goal is already visible, you may output done on Step 1. Otherwise, Step 1 done is forbidden."
         else:
             # Browser is already open
             confidence = "Browser is visible. " + confidence
 
         state_management = (
             "State Management: You must track task status (INITIAL -> IN_PROGRESS -> COMPLETE). "
-            "If the goal has been achieved (e.g. search results are visible and match the task), "
+            "IMPORTANT: If the goal state is visible (e.g., the window you wanted to open is open, the comment you posted is visible), "
             "you MUST immediately set status='COMPLETE' and action='done' without performing "
-            "any additional waiting, scrolling, or hotkey actions. Prioritize the goal over process."
+            "any additional waiting, scrolling, or hotkey actions. PRIORITIZE THE GOAL OVER THE PROCESS. "
+            "Even if a previous step was marked [FAIL] in history, if the goal is now visible, the task is COMPLETE."
         )
 
         world_block = self._format_world_state_for_prompt(world_state or self._world_state)
@@ -1847,12 +1903,14 @@ class AgentControlService:
         if self._pending_world_observed:
             world_observed_block = self._pending_world_observed + "\n\n"
             self._pending_world_observed = ""
+            
+        chat_context_block = f"Recent conversation context:\n{chat_context}\n\n" if chat_context else ""
 
-        return f"""{pivot_block}Task: {task}
+        return f"""{pivot_block}{chat_context_block}Task: {task}
 
 {desktop_state}
 {world_block}
-{world_observed_block}{failure_block}{dom_block}{done_lines}{training_override}Step {len(history) + 1}. ONE next action. After Act the system ALWAYS re-captures the screen (re-See) before your next Think. {confidence}
+{world_observed_block}{failure_block}{done_lines}{training_override}Step {len(history) + 1}. ONE next action. After Act the system ALWAYS re-captures the screen (re-See) before your next Think. {confidence}
 
 {state_management}
 
@@ -1863,7 +1921,7 @@ For high-impact clicks (launch, submit, comment, modal dismiss), set expected_ef
 done rule: when action="done", success_proof MUST describe the visible state that proves the task is complete (e.g. "cursor inside text area", "comment now visible in thread"). Empty or generic ("n/a", "task done") is rejected. This rule applies to all models and paths.
 
 Reply ONLY with JSON:
-{{"status": "IN_PROGRESS|COMPLETE", "action": "click|right_click|type|hotkey|scroll|wait|done", "target_description": "...", "text": "literal value only", "keys": ["ctrl","t"], "reasoning": "why", "expected_effect": "visible result after this action", "success_proof": "visible state proving done (only when action=done)"}}"""
+{{"status": "IN_PROGRESS|COMPLETE", "action": "click|right_click|type|hotkey|scroll|wait|done|navigate", "target_description": "...", "text": "literal value only", "keys": ["ctrl","t"], "url": "https://...", "reasoning": "why", "expected_effect": "visible result after this action", "success_proof": "visible state proving done (only when action=done)"}}"""
 
     @staticmethod
     def _get_unified_model() -> str:
@@ -1874,7 +1932,7 @@ Reply ONLY with JSON:
             if response.status_code == 200:
                 models = [m["name"] for m in response.json().get("models", [])]
                 # Prefer larger VLMs that can reason + see
-                for preferred in ["gemma4:e4b", "qwen3-vl:8b-instruct", "qwen3-vl:4b-instruct"]:
+                for preferred in ["gemma4:e4b"]:
                     if preferred in models:
                         return preferred
         except Exception:
@@ -1889,7 +1947,7 @@ Reply ONLY with JSON:
             response = _requests.get("http://localhost:11434/api/tags", timeout=5)
             if response.status_code == 200:
                 models = [m["name"] for m in response.json().get("models", [])]
-                for preferred in ["lfm2.5-thinking:1.2b-bf16", "qwen3.5:9b", "deepseek-r1:8b"]:
+                for preferred in ["lfm2.5-thinking:1.2b-bf16", "deepseek-r1:8b"]:
                     if preferred in models:
                         return preferred
         except Exception:
@@ -2315,27 +2373,55 @@ Reply ONLY with JSON:
         # success_proof, the run cannot be reported successful until the
         # vision model confirms that proof is on screen. No more reporting
         # intent as reality.
+        #
+        # 2026-05-14: ADVISORY when steps already reported OK. Same disease
+        # as the click-level expected_effect verifier (false negatives on
+        # slow-launching apps and modal dialogs covering the proof string).
+        # If every step's servo result was [OK] but the proof string can't
+        # be visually confirmed in time, log it loudly but DO NOT flip the
+        # whole recipe to failed — the actions clearly happened. The next
+        # see-think-act SEE pass observes actual screen state, which is
+        # the real ground truth.
         proof = recipe.get("success_proof")
         proof_failed = False
+        proof_unverified = False
         if all_steps_ok and proof:
             verify_timeout = float(recipe.get("success_proof_timeout_s", 8.0))
             verify = self._wait_until_visible(
                 proof, screen, timeout_s=verify_timeout,
             )
+            verify_ok = bool(verify.get("success", False))
             action_steps.append(ActionStep(
                 iteration=step_num, scene_description=f"recipe:{name}:verify",
                 action=AgentAction(
                     action_type="wait_until_visible",
                     target_description=proof,
                 ),
-                result=verify, failed=not verify.get("success", False),
+                # Failed if the proof was not verified
+                result=verify, failed=not verify_ok,
             ))
-            if not verify.get("success", False):
-                proof_failed = True
+            if not verify_ok:
+                proof_unverified = True
+                all_steps_ok = False
                 logger.warning(
-                    f"[AGENT][RECIPE] {name}: steps reported OK but final verify "
-                    f"FAILED — '{proof}' not visible"
+                    f"[AGENT][RECIPE] {name}: steps OK; final verify "
+                    f"UNCONFIRMED within {verify_timeout:.0f}s — '{proof}' not "
+                    f"visible. Recipe marked as failed."
                 )
+                # Surface the unverified state to the chat thinking trail
+                try:
+                    self._emit_thinking(
+                        iteration=step_num,
+                        label=f"recipe verify unconfirmed: {name}",
+                        reasoning=(
+                            f"All recipe steps executed OK, but the final "
+                            f"vision-check for '{proof}' didn't confirm in "
+                            f"{verify_timeout:.0f}s. The recipe failed. "
+                            f"Falling back to adaptive loop."
+                        ),
+                    )
+                except Exception:
+                    pass
 
         all_succeeded = all_steps_ok and not proof_failed
         elapsed = _time.time() - start
@@ -2358,6 +2444,27 @@ Reply ONLY with JSON:
                 f"recipe_fallback:{name},proof_failed={proof_failed},failed_steps={len(failed_steps)}"
             )
             self._action_history = action_steps
+            # Tell the model what was just attempted so it pivots instead of
+            # repeating the same recipe step blindly.
+            try:
+                step_summary = ", ".join(
+                    f"{s.action.action_type}:{s.action.target_description or s.action.text or 'n/a'}"
+                    f"[{'FAIL' if s.failed else 'OK'}]"
+                    for s in action_steps[-4:]
+                )
+                self._emit_thinking(
+                    iteration=len(action_steps),
+                    label=f"recipe fallback: {name}",
+                    reasoning=(
+                        f"Recipe '{name}' didn't fully complete. Recent "
+                        f"steps: {step_summary}. Falling back to adaptive "
+                        f"see-think-act. Pick an action based on what is "
+                        f"actually visible NOW — do not assume the recipe "
+                        f"path is still the right approach."
+                    ),
+                )
+            except Exception:
+                pass
             return None
 
         reason = f"recipe:{name}"
@@ -2414,13 +2521,6 @@ Reply ONLY with JSON:
         sk = cls._load_self_knowledge_compact()
         if sk:
             parts.append(sk)
-        recipes = cls._load_recipe_index()
-        if recipes:
-            parts.append(
-                "## Available Recipes (the system auto-executes these on matching task strings; "
-                "knowing they exist tells you what shortcuts the environment offers)\n"
-                + recipes
-            )
         lessons = cls._load_lesson_memories()
         if lessons:
             parts.append(lessons)
@@ -2603,7 +2703,7 @@ Reply ONLY with JSON:
         iteration: int,
         action: AgentAction,
         result: Dict[str, Any],
-        pixel_diff: float,
+        pixel_diff: Optional[float],
         failed: bool,
     ) -> None:
         """Collate evidence about a failed step into a FailureReport.
@@ -2649,15 +2749,31 @@ Reply ONLY with JSON:
         # Derive a one-line cause hypothesis from the other fields. The
         # model gets this as a quick read; it can still override based
         # on its own reasoning.
-        if action_type == "click" and not dom_match and pixel_diff < 0.005:
+        # pixel_diff is None when we never measured it (the click branch
+        # doesn't run a pre/post pixel comparison). In that case, do NOT
+        # invent a "no pixel change" hypothesis — that primes the model
+        # to abandon a click that may well have succeeded.
+        delta_known = pixel_diff is not None
+        delta_zero = delta_known and pixel_diff < 0.005
+        reason = (result.get("reason") or "").strip()
+        if action_type == "click" and reason == "vision_call_failed":
+            cause = (
+                "vision model itself failed twice (Ollama timeout/unresponsive) — "
+                "this is NOT evidence the target is missing; retry shortly"
+            )
+        elif action_type == "click" and reason == "expected_effect_not_observed":
+            cause = "click registered; expected visible effect not observed yet (may still be loading)"
+        elif action_type == "click" and not delta_known:
+            cause = "click reported failed by servo (target not found or click didn't issue)"
+        elif action_type == "click" and not dom_match and delta_zero:
             cause = "target likely not on screen (no DOM match, no pixel change)"
-        elif action_type == "click" and pixel_diff < 0.005:
+        elif action_type == "click" and delta_zero:
             cause = "click registered but no screen change"
         elif action_type == "click":
             cause = "click landed but didn't produce the expected outcome"
-        elif action_type == "type" and pixel_diff < 0.005:
+        elif action_type == "type" and delta_zero:
             cause = "type produced no visible change — field probably wasn't focused"
-        elif action_type == "scroll" and pixel_diff < 0.005:
+        elif action_type == "scroll" and delta_zero:
             cause = "scroll did nothing — viewport at limit or not focused"
         else:
             cause = f"{action_type} reported failed"
@@ -2667,7 +2783,7 @@ Reply ONLY with JSON:
             action_type=action_type,
             expected_target=target,
             attempted_at_coords=coords,
-            screen_delta=float(pixel_diff or 0.0),
+            screen_delta=float(pixel_diff) if delta_known else None,
             visibility_check="",  # filled by Phase-3 re-grounding when it fires
             dom_match=dom_match,
             cause_hypothesis=cause,
@@ -2683,6 +2799,23 @@ Reply ONLY with JSON:
         else:
             self._stuck_target = target
             self._stuck_target_count = 1
+
+    def _format_failure_reports_for_prompt(self) -> str:
+        """Render failure reports as structured text for the LLM."""
+        if not self._failure_reports:
+            return ""
+
+        lines = ["## Recent Failures (Detailed Evidence):"]
+        for r in self._failure_reports[-3:]:  # Show last 3
+            lines.append(f"- Step {r.iteration}: {r.action_type} \"{r.expected_target}\"")
+            if r.action_type == "click":
+                lines.append(f"  coords: {r.attempted_at_coords}")
+                lines.append(f"  dom_match: {'yes' if r.dom_match else 'no'}")
+            delta_str = f"{r.screen_delta:.4f}" if r.screen_delta is not None else "n/a (not measured)"
+            lines.append(f"  screen_delta: {delta_str}")
+            lines.append(f"  hypothesis: {r.cause_hypothesis}")
+        lines.append("")
+        return "\n".join(lines)
 
     def _observe_only_pass(self, screen) -> str:
         """Re-grounding vision call with no task bias.
@@ -2707,7 +2840,7 @@ Reply ONLY with JSON:
         try:
             from backend.utils.vision_analyzer import VisionAnalyzer
             # Use the unified VLM if available (gemma4 can see itself); the
-            # VisionAnalyzer default (qwen3-vl:2b) is the safe fallback if not.
+            # VisionAnalyzer default (moondream) is the safe fallback if not.
             unified = AgentControlService._get_unified_model()
             analyzer = VisionAnalyzer(default_model=unified) if unified else VisionAnalyzer()
             prompt = (
@@ -2768,9 +2901,10 @@ Reply ONLY with JSON:
                 f" at {r.attempted_at_coords}" if r.attempted_at_coords != (0, 0) else ""
             )
             dom_str = "dom_match=true" if r.dom_match else "dom_match=false"
+            delta_str = f"delta={r.screen_delta:.3f}" if r.screen_delta is not None else "delta=n/a"
             lines.append(
                 f"- Step {r.iteration} {r.action_type} {target_str}{coords_str} "
-                f"→ delta={r.screen_delta:.3f}, {dom_str} → {r.cause_hypothesis}"
+                f"→ {delta_str}, {dom_str} → {r.cause_hypothesis}"
             )
         lines.append(
             "If a failure says the target was not on screen, do NOT retry the "
@@ -3380,8 +3514,9 @@ Reply ONLY with JSON:
 
         state_management = (
             "State Management: You must track task status (INITIAL -> IN_PROGRESS -> COMPLETE). "
-            "If the goal has been achieved, you MUST immediately set status='COMPLETE' and "
-            "action='done' without performing any waiting or hotkey actions. Prioritize the goal over process."
+            "IMPORTANT: If the goal state is visible (e.g., the window you wanted to open is open, the comment you posted is visible), "
+            "you MUST immediately set status='COMPLETE' and action='done'. PRIORITIZE THE GOAL OVER THE PROCESS. "
+            "Even if a previous step was marked [FAIL] in history, if the goal is now visible, the task is COMPLETE."
         )
 
         if mouse_only:
@@ -3395,10 +3530,11 @@ Reply ONLY with JSON:
 {state_management}
 
 Reply ONLY with JSON:
-{{"status": "IN_PROGRESS|COMPLETE", "action": "click|right_click|type|hotkey|scroll|wait|done", "target_description": "...", "text": "literal value only", "keys": ["ctrl","l"], "reasoning": "why", "expected_effect": "visible result after this action"}}"""
+{{"status": "IN_PROGRESS|COMPLETE", "action": "click|right_click|type|hotkey|scroll|wait|done|navigate", "target_description": "...", "text": "literal value only", "keys": ["ctrl","t"], "url": "https://...", "reasoning": "why", "expected_effect": "visible result after this action"}}"""
 
         desktop_state = self._get_desktop_state()
         world_block = self._format_world_state_for_prompt(world_state or self._world_state)
+        failures_block = self._format_failure_reports_for_prompt()
 
         # Persistent knowledge — loaded once per call, stable across sessions.
         # This is the cross-session memory: what the agent has learned about
@@ -3430,7 +3566,7 @@ Reply ONLY with JSON:
             f"example_traces={len(example_traces)}ch"
         )
 
-        return f"""{knowledge_block}---
+        return f"""{knowledge_block}{failures_block}---
 
 Task: {task}
 
@@ -3503,6 +3639,7 @@ Screen: {scene}
                 text=raw_text,
                 keys=keys,
                 scroll_amount=data.get("scroll_amount", 0),
+                url=data.get("url", ""),
                 reasoning=data.get("reasoning", ""),
                 expected_effect=(data.get("expected_effect") or data.get("success_proof") or "").strip(),
             )

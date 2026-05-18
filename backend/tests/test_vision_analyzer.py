@@ -45,18 +45,18 @@ class TestVisionAnalyzer(unittest.TestCase):
         }
         mock_post.return_value = mock_response
 
-        analyzer = VisionAnalyzer(ollama_url="http://localhost:11434")
+        analyzer = VisionAnalyzer(ollama_url="http://localhost:11434", default_model="gemma4:e4b")
         img = Image.new("RGB", (100, 100), color=(255, 0, 0))
         result = analyzer.analyze(img, prompt="What do you see?")
 
         self.assertEqual(result.description, "A red square on white background")
-        self.assertEqual(result.model_used, "qwen3-vl:2b-instruct")
+        self.assertEqual(result.model_used, "gemma4:e4b")
 
         # Verify Ollama was called with correct structure
         call_args = mock_post.call_args
         self.assertEqual(call_args[0][0], "http://localhost:11434/api/chat")
         payload = call_args[1]["json"]
-        self.assertEqual(payload["model"], "qwen3-vl:2b-instruct")
+        self.assertEqual(payload["model"], "gemma4:e4b")
         self.assertEqual(len(payload["messages"]), 1)
         self.assertIn("images", payload["messages"][0])
 
@@ -140,7 +140,7 @@ class TestVisionAnalyzer(unittest.TestCase):
             "models": [
                 {"name": "moondream"},
                 {"name": "llava:7b"},
-                {"name": "qwen3:8b"},
+                {"name": "gemma4:e4b"},
                 {"name": "llama3:8b"},
             ]
         }
@@ -148,7 +148,7 @@ class TestVisionAnalyzer(unittest.TestCase):
 
         analyzer = VisionAnalyzer()
         model = analyzer._get_decision_model()
-        self.assertEqual(model, "qwen3:8b")  # First preferred text model
+        self.assertEqual(model, "gemma4:e4b")  # First preferred text model
 
 
 if __name__ == "__main__":
