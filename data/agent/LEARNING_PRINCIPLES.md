@@ -96,7 +96,7 @@ Two roles, two budgets:
 - **`target_description` in recipes/lessons** is the vision model's
   *detection query*. It must be short and conventional ("primary submit
   button", "chat input field", "main navigation icon"). Empirically
-  (2026-05-05), small VLMs like qwen3-vl:2b emit clean detection JSON
+  (2026-05-05), small VLMs emit clean detection JSON
   for short labels with one distinctive adjective and switch to prose
   (which the parser can't read) when given verbose multi-clause
   descriptions.
@@ -106,10 +106,13 @@ Two roles, two budgets:
   left edge — verify against the current frame before acting"). Long-form
   is fine here — this isn't fed to the detector, it's fed to the decider.
 
-A target_description that's a full sentence with position phrases is
-the WRONG length for both: too long for vision (prose output, parse
-fails), too redundant for knowledge (one short label + a hypothesis
-sentence in the knowledge file).
+## State Tracking and Verification
+
+The agent must operate within a deterministic **Finite State Machine (FSM)**. Every action must declare its `status` (`INITIAL`, `IN_PROGRESS`, or `COMPLETE`). 
+
+- **Empirical Verification (DPC)**: The system uses Differential Pixel Comparison (DPC) to verify visual changes after an action. If the system reports `[OK]`, it means a physical and visual change was verified. Do not repeat `[OK]` actions.
+- **Goal-Oriented Termination**: Once the goal is visible, the agent MUST immediately output `status: "COMPLETE"` and `action: "done"`. Trailing procedural steps are rejected by the FSM layer.
+- **Success Proof**: Every `done` action must include a `success_proof` describing the visible state that confirms completion.
 
 This is the contract. Phase 2+ work (rich failure feedback, observe-only
 re-grounding, lesson distillation, skill induction, auto-recipe

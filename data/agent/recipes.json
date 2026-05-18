@@ -5,6 +5,38 @@
     "timing": "wait values are in seconds",
     "state": "Minimal recipe set — restored from backup once the basics (click browser icon, navigate to URL) are reliable. Full prior set in recipes.backup-2026-05-11.json."
   },
+  "youtube_search": {
+    "description": "Directly search YouTube for a term by constructing the URL.",
+    "triggers": [
+      "^search\\s+(?:youtube\\s+for\\s+)[\"']?(.+?)[\"']?\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "wait", "seconds": 0.5},
+      {"action": "type", "text": "https://www.youtube.com/results?search_query={1}"},
+      {"action": "wait", "seconds": 0.5},
+      {"action": "hotkey", "keys": ["Return"]},
+      {"action": "wait", "seconds": 5.0}
+    ],
+    "success_proof": "browser address bar showing a loaded page",
+    "success_proof_timeout_s": 12.0
+  },
+  "click_first_youtube_video": {
+    "description": "Click the first video thumbnail in YouTube search results using keyboard navigation.",
+    "triggers": [
+      "^click\\s+(?:the\\s+)?first\\s+(?:youtube\\s+)?(?:video|result|thumbnail)\\s*$"
+    ],
+    "steps": [
+      {"action": "hotkey", "keys": ["Tab"]},
+      {"action": "wait", "seconds": 0.2},
+      {"action": "hotkey", "keys": ["Tab"]},
+      {"action": "wait", "seconds": 0.2},
+      {"action": "hotkey", "keys": ["Tab"]},
+      {"action": "wait", "seconds": 0.2},
+      {"action": "hotkey", "keys": ["Return"]},
+      {"action": "wait", "seconds": 5.0}
+    ]
+  },
   "open_firefox": {
     "description": "Open Firefox via its desktop icon",
     "triggers": [
@@ -37,85 +69,14 @@
       "^visit\\s+(?:https?://)?([\\w.-]+:[0-9]+(?:/\\S*?)?)\\s*$"
     ],
     "steps": [
-      {
-        "action": "hotkey",
-        "keys": [
-          "Escape"
-        ]
-      },
-      {
-        "action": "wait_until_settled",
-        "timeout_s": 1.0,
-        "stable_for_ms": 150
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "l"
-        ]
-      },
-      {
-        "action": "wait_until_visible",
-        "target_description": "URL address bar with text selected or empty and ready for typing",
-        "timeout_s": 4.0
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "ctrl",
-          "a"
-        ]
-      },
-      {
-        "action": "wait_until_settled",
-        "timeout_s": 1.0,
-        "stable_for_ms": 150
-      },
-      {
-        "action": "type",
-        "text": "http://{1}"
-      },
-      {
-        "action": "wait_until_settled",
-        "timeout_s": 1.0,
-        "stable_for_ms": 150
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "Delete"
-        ]
-      },
-      {
-        "action": "wait_until_settled",
-        "timeout_s": 0.8,
-        "stable_for_ms": 150
-      },
-      {
-        "action": "hotkey",
-        "keys": [
-          "Return"
-        ]
-      }
+      {"action": "hotkey", "keys": ["ctrl", "l"]},
+      {"action": "wait", "seconds": 0.5},
+      {"action": "type", "text": "http://{1}"},
+      {"action": "wait", "seconds": 0.5},
+      {"action": "hotkey", "keys": ["Return"]}
     ],
     "success_proof": "browser address bar showing a loaded page (not a blank tab or error)",
     "success_proof_timeout_s": 12.0
-  },
-  "click_star_icon": {
-    "description": "Click the desktop star icon. One click, done. Fire-and-trust: no vision verify after the click, no fallback to the LLM loop. The servo's click success IS the task completion signal.",
-    "_design_note": "No success_proof and no wait_until_visible step on purpose. Recipes without success_proof are terminal — line 2155 of agent_control_service.py only runs the verify block 'if all_steps_ok and proof:'. With proof absent, the recipe returns success cleanly after the click and the see-think-act loop is never invoked. This is the structural answer to 'click and stop' — model-agnostic, works regardless of what the vision pipeline can or can't see.",
-    "triggers": [
-      "^(?:please\\s+)?click\\s+(?:on\\s+)?(?:the\\s+)?(?:yellow\\s+|orange\\s+|gold\\s+|big\\s+|little\\s+)?star(?:\\s+icon)?(?:\\s+on\\s+(?:the|your)\\s+(?:screen|desktop))?(?:\\s+once)?(?:\\s+please)?\\s*[.!?]?\\s*$",
-      "^(?:please\\s+)?tap\\s+(?:on\\s+)?(?:the\\s+)?(?:yellow\\s+|orange\\s+|gold\\s+)?star(?:\\s+icon)?(?:\\s+on\\s+(?:the|your)\\s+(?:screen|desktop))?(?:\\s+please)?\\s*[.!?]?\\s*$"
-    ],
-    "steps": [
-      {
-        "action": "click",
-        "target_description": "the star icon on the desktop",
-        "_comment": "Single click. Recipe terminates after this step — no follow-up verify, no fallback."
-      }
-    ]
   },
   "press_escape": {
     "description": "Press Escape. Closes find bar, dismisses URL-bar focus, generally drops modal state. Plain time wait — wait_until_settled fails on pages with animation.",
@@ -213,7 +174,7 @@
     ]
   },
   "like_youtube_video": {
-    "description": "[DISABLED 2026-05-16] Click the thumbs-up Like button below a YouTube video. Escape first to drop any input focus, Home to scroll back to the top so the Like button is in view. NOT currently wired into post_youtube_comment_via_servo: the vision-driven click consistently misses (qwen3-vl:2b miscalibration) and the post-click visual delta (outline→fill, +1 count) is too subtle for vision-side verification — false-positive matches the still-outlined icon as filled. Re-enable once the click is DOM-driven via the Firefox CDP debug port (port 9222). Recipe kept in place so it's ready to use once the DOM path lands.",
+    "description": "[DISABLED 2026-05-16] Click the thumbs-up Like button below a YouTube video. Escape first to drop any input focus, Home to scroll back to the top so the Like button is in view. NOT currently wired into post_youtube_comment_via_servo: the vision-driven click consistently misses (vision-model miscalibration) and the post-click visual delta (outline→fill, +1 count) is too subtle for vision-side verification — false-positive matches the still-outlined icon as filled. Re-enable once the click is DOM-driven via the Firefox CDP debug port (port 9222). Recipe kept in place so it's ready to use once the DOM path lands.",
     "triggers": [
       "^like\\s+(?:the\\s+)?(?:youtube\\s+)?video\\s*$",
       "^thumbs\\s+up\\s+(?:the\\s+)?video\\s*$"

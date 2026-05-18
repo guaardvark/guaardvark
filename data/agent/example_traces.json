@@ -4,95 +4,54 @@
     "prerequisite": "The desktop is visible (no window covering it) and you can see a Firefox icon (circular orange) somewhere among the icons on the desktop",
     "preconditions": ["desktop_visible", "firefox_icon_visible"],
     "steps": [
-      {"action": "click", "target_description": "the Firefox icon (circular orange)", "reasoning": "Look at the desktop and find the Firefox icon among the icons that are there. Don't assume where it is — just look. If you don't see it, this recipe doesn't apply; pick another path."},
-      {"action": "done", "reasoning": "Firefox is now opening; wait for the window to render"}
+      {"status": "IN_PROGRESS", "action": "click", "target_description": "the Firefox icon (circular orange)", "reasoning": "Heuristic: Desktop icons are typically interactive. Hypothesis: Clicking the Firefox icon will launch the browser. I see the icon; I will interact with it.", "expected_effect": "Firefox browser window appears on screen"},
+      {"status": "COMPLETE", "action": "done", "reasoning": "Previous action returned [OK] and I see the browser window. Task complete.", "success_proof": "Firefox browser window with address bar visible"}
     ]
   },
   "navigate_to_url": {
     "description": "Open a URL in the active browser window",
     "prerequisite": "A browser window is the active window — you can see its address bar",
     "steps": [
-      {"action": "hotkey", "keys": ["ctrl", "l"], "reasoning": "Focus the address bar — Ctrl+L works in Firefox, Chrome, and every mainstream browser"},
-      {"action": "type", "text": "{url}", "reasoning": "Type the destination URL (no scheme needed; the browser fills in https://)"},
-      {"action": "hotkey", "keys": ["Return"], "reasoning": "Submit and navigate"},
-      {"action": "done", "reasoning": "Page should load — verify by looking at what's actually on screen, not by assuming"}
+      {"status": "IN_PROGRESS", "action": "hotkey", "keys": ["ctrl", "l"], "reasoning": "Focus the address bar — Ctrl+L is a stable heuristic for mainstream browsers.", "expected_effect": "Address bar is focused and ready for input"},
+      {"status": "IN_PROGRESS", "action": "type", "text": "{url}", "reasoning": "Type the destination URL directly to bypass UI navigation.", "expected_effect": "URL appears in the address bar"},
+      {"status": "IN_PROGRESS", "action": "hotkey", "keys": ["Return"], "reasoning": "Submit and navigate.", "expected_effect": "Browser starts loading the new page"},
+      {"status": "COMPLETE", "action": "done", "reasoning": "The new page has loaded. Task complete.", "success_proof": "The requested URL or page content is visible"}
     ]
   },
   "google_search": {
     "description": "Run a Google search from the address bar",
-    "prerequisite": "A browser window is the active window. Default search engine is Google (true in stock Firefox).",
+    "prerequisite": "A browser window is the active window. Default search engine is Google.",
     "steps": [
-      {"action": "hotkey", "keys": ["ctrl", "l"], "reasoning": "Focus the address bar — typing a non-URL here runs a search via the default engine"},
-      {"action": "type", "text": "{query}", "reasoning": "Type the search query directly; no need to visit google.com first"},
-      {"action": "hotkey", "keys": ["Return"], "reasoning": "Submit"},
-      {"action": "done", "reasoning": "Search results page should load"}
-    ]
-  },
-  "youtube_search_and_watch": {
-    "description": "Search YouTube and watch a video",
-    "prerequisite": "A browser window is the active window",
-    "steps": [
-      {"action": "hotkey", "keys": ["ctrl", "l"], "reasoning": "Focus address bar"},
-      {"action": "type", "text": "youtube.com", "reasoning": "Type YouTube URL"},
-      {"action": "hotkey", "keys": ["Return"], "reasoning": "Navigate to YouTube"},
-      {"action": "click", "target_description": "the search box at the top center of the YouTube page", "reasoning": "Click the search box to type a query"},
-      {"action": "type", "text": "{search_query}", "reasoning": "Type the search query"},
-      {"action": "hotkey", "keys": ["Return"], "reasoning": "Submit the search"},
-      {"action": "click", "target_description": "the video thumbnail or title matching the desired video", "reasoning": "Click on the video to watch it"},
-      {"action": "done", "reasoning": "Video is now playing"}
+      {"status": "IN_PROGRESS", "action": "hotkey", "keys": ["ctrl", "l"], "reasoning": "Focus the address bar for search input.", "expected_effect": "Address bar is focused"},
+      {"status": "IN_PROGRESS", "action": "type", "text": "{query}", "reasoning": "Type the search query directly.", "expected_effect": "Search query visible in address bar"},
+      {"status": "IN_PROGRESS", "action": "hotkey", "keys": ["Return"], "reasoning": "Submit search.", "expected_effect": "Search results page loads"},
+      {"status": "COMPLETE", "action": "done", "reasoning": "Search results are visible. Task complete.", "success_proof": "Google search results page visible"}
     ]
   },
   "youtube_add_comment": {
     "description": "Add a comment to a YouTube video",
     "prerequisite": "Must be on a YouTube video page, signed in",
     "steps": [
-      {"action": "scroll", "scroll_amount": 5, "reasoning": "Scroll down to reach the comments section below the video"},
-      {"action": "click", "target_description": "the Add a comment text field in the comments section", "reasoning": "Click the comment input box"},
-      {"action": "type", "text": "{comment_text}", "reasoning": "Type the comment"},
-      {"action": "click", "target_description": "the Comment button to submit the comment", "reasoning": "Click the Comment button to post"},
-      {"action": "done", "reasoning": "Comment posted successfully"}
-    ]
-  },
-  "reddit_browse_subreddit": {
-    "description": "Open a specific subreddit on Reddit",
-    "prerequisite": "A browser window is the active window",
-    "steps": [
-      {"action": "hotkey", "keys": ["ctrl", "l"], "reasoning": "Focus address bar"},
-      {"action": "type", "text": "reddit.com/r/{subreddit}", "reasoning": "Subreddit URLs follow this pattern — typing it directly is faster than clicking through Reddit's UI"},
-      {"action": "hotkey", "keys": ["Return"], "reasoning": "Navigate"},
-      {"action": "done", "reasoning": "Subreddit feed should load — verify by looking at the post list"}
-    ]
-  },
-  "check_gmail": {
-    "description": "Open Gmail to check email",
-    "prerequisite": "A browser window is the active window. If the current session isn't signed into Google, a sign-in screen will appear instead of the inbox — that's a separate task.",
-    "steps": [
-      {"action": "hotkey", "keys": ["ctrl", "l"], "reasoning": "Focus address bar"},
-      {"action": "type", "text": "mail.google.com", "reasoning": "Gmail's URL"},
-      {"action": "hotkey", "keys": ["Return"], "reasoning": "Navigate"},
-      {"action": "done", "reasoning": "Inbox should be visible with a list of messages. If you see a sign-in screen instead, sign-in is a separate flow."}
-    ]
-  },
-  "close_popup": {
-    "description": "Close a popup or modal dialog",
-    "steps": [
-      {"action": "hotkey", "keys": ["Escape"], "reasoning": "Press Escape to close the popup/modal — works for most browser dialogs and web modals"},
-      {"action": "done", "reasoning": "Popup closed"}
+      {"status": "IN_PROGRESS", "action": "scroll", "scroll_amount": 5, "reasoning": "Hypothesis: Comments section is below the viewport. Scrolling to locate interaction site.", "expected_effect": "Comment section becomes visible"},
+      {"status": "IN_PROGRESS", "action": "click", "target_description": "the Add a comment text field", "reasoning": "Focus the comment input area.", "expected_effect": "Comment field is focused and expanded"},
+      {"status": "IN_PROGRESS", "action": "type", "text": "{comment_text}", "reasoning": "Enter the comment text.", "expected_effect": "Text appears in the comment field"},
+      {"status": "IN_PROGRESS", "action": "click", "target_description": "the Comment button", "reasoning": "Post the comment.", "expected_effect": "Comment is submitted and visible in the thread"},
+      {"status": "COMPLETE", "action": "done", "reasoning": "Comment appears in the list. Task complete.", "success_proof": "The new comment text is visible in the comment thread"}
     ]
   },
   "single_click_done_pattern": {
-    "description": "When the task is 'click the X' (singular), one successful click completes the task — call done on the next step. Do not re-click for confirmation.",
-    "prerequisite": "Task wording asks for a single action: 'click the star', 'click once', 'click the icon'. No multi-step sequence implied.",
+    "description": "When the task is 'click the X' (singular), one successful click completes the task.",
+    "prerequisite": "Task wording asks for a single action.",
     "steps": [
-      {"action": "click", "target_description": "the target named in the task", "reasoning": "Locate the target by visible description and click once. The servo handles the actual click — your job is to name what you see, not to retry."},
-      {"action": "done", "reasoning": "Previous step shows [OK] in the action history — the click happened, the servo confirmed it. Task was 'click X' — one click, one task, complete. The target may no longer be visible (an app launched and is now rendering, a menu opened and the original element is now behind it, the element changed state) — that is normal and is itself proof of success. Do NOT re-click: re-clicking a successful action duplicates side effects (Firefox opens twice, text submits twice, a form posts twice). The task description persisting in the prompt is the task HEADER, not a request to redo the action. The action history is the source of truth — if it says [OK] for the click you just made, that click happened. success_proof should describe the visible aftermath: 'Firefox window now visible', 'menu appeared and target no longer in original location', etc."}
+      {"status": "IN_PROGRESS", "action": "click", "target_description": "the target named in the task", "reasoning": "Locate target and click once. The servo and DPC verify the hardware action and visual change.", "expected_effect": "The element reacts or context changes"},
+      {"status": "COMPLETE", "action": "done", "reasoning": "Prior action [OK]. Task was a single click; it is now complete. Do NOT repeat successful actions.", "success_proof": "Element clicked and reacted"}
     ]
   },
   "prior_ok_means_advance_not_repeat": {
-    "description": "How to read [OK] in your own action history. A successful prior step is grounds to move forward (or call done), never grounds to repeat it.",
+    "description": "A successful prior step ([OK] in history) means you MUST move forward or finish.",
     "prerequisite": "Action history shows the previous step ended in [OK].",
     "steps": [
-      {"action": "done", "reasoning": "Previous action returned [OK]. That is the servo (or input layer) confirming the requested action physically happened: cursor clicked at the right coordinates, keys were typed, hotkey fired. If the task was a single-shot instruction and [OK] is in history, the task is complete — call done. Do not interpret 'I can still see the task description in my prompt' as 'I should retry to confirm.' The task description is always there; the action history is what changes. If after [OK] you cannot point to a specific visible CHANGE that still needs to happen on screen to satisfy the task, you are done. Repeating a successful click/type/hotkey produces duplicate side effects and breaks the task contract."}
+      {"status": "COMPLETE", "action": "done", "reasoning": "Previous action returned [OK]. The system has verified the action's physical and visual effect. Do not interpret the task header in the prompt as a request to redo work. If no further visible change is required, the task is complete.", "success_proof": "Action was verified and goal is met"}
     ]
   }
 }
