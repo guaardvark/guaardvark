@@ -68,7 +68,7 @@ def run_practice(rounds: int = 50, bootstrap: bool = False):
     from backend.utils.cursor_overlay import composite_bullseye
 
     screen = LocalScreenBackend()
-    analyzer = VisionAnalyzer(default_model="qwen3-vl:2b-instruct")
+    analyzer = VisionAnalyzer(default_model="gemma4:e4b")
     collector = TrainingDataCollector()
 
     if not bootstrap:

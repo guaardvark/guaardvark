@@ -2529,6 +2529,7 @@ class Subject(db.Model):
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text, nullable=True)
     ref_image_paths = db.Column(db.JSON, nullable=False, default=list)
+    voice_id = db.Column(db.String(128), nullable=True)  # TTS voice ID
     lora_path = db.Column(db.String(512), nullable=True)
     lora_version = db.Column(db.Integer, nullable=False, default=0)
     training_status = db.Column(db.String(32), nullable=False, default="untrained", index=True)
@@ -2576,7 +2577,9 @@ class ProductionShot(db.Model):
     shot_number = db.Column(db.Integer, nullable=False)
     description = db.Column(db.Text, nullable=False)
     camera_angle = db.Column(db.String(128), nullable=True)
+    scene_mood = db.Column(db.String(64), nullable=True)  # Mood for music/lighting
     duration_seconds = db.Column(db.Float, nullable=False, default=3.0)
+    character_name = db.Column(db.String(255), nullable=True)  # Who is speaking
     dialogue_text = db.Column(db.Text, nullable=True)
     voice_subject_id = db.Column(
         db.Integer,

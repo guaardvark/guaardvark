@@ -96,7 +96,7 @@ def finetune(
 
     dataset = load_and_format_data()
 
-    # Format conversations with image tokens for Qwen2-VL + UnslothVisionDataCollator
+    # Format conversations with image tokens for the vision model + UnslothVisionDataCollator
     # The collator expects: "messages" (with {"type": "image"} in user content) + "images" (list of PIL)
     def format_vision_data(example):
         convo = example["conversations"]

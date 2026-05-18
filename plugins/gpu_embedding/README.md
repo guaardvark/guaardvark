@@ -17,7 +17,7 @@ This plugin provides fast embedding generation using GPU acceleration. It runs a
 ## Requirements
 
 - GPU with CUDA support
-- Ollama running with embedding models (nomic-embed-text, qwen3-embedding, etc.)
+- Ollama running with embedding models (nomic-embed-text, mxbai-embed-large, etc.)
 - Python 3.8+
 - Flask
 - LlamaIndex

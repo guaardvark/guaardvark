@@ -126,7 +126,7 @@ Every message is routed through a three-tier decision engine that picks the fast
 Guaardvark agents control a **real Ubuntu desktop** (Xvfb + XFCE at 1024×1024) — exactly what the model would see if you VNC'd into the box from another machine. Same Applications menu, same desktop icons, same taskbar. Agents see the screen through vision models, move the mouse, click buttons, type text, navigate browsers, and verify their own actions.
 
 - **Real XFCE session** — not a custom widget panel. `xfce4-session` runs on the virtual display via a scrubbed environment, with isolated `XDG_DESKTOP_DIR` and `XDG_CONFIG_HOME` so the agent's desktop, file manager, and configs never collide with the user's. Vision models recognize the layout instantly because it's standard Ubuntu.
-- **Unified vision brain** — Gemma4 sees the screen and decides the next action in a single inference call. Qwen3-VL handles coordinate estimation. Both calibrated per-model with tracked scale factors.
+- **Unified vision brain** — Gemma4 sees the screen, decides the next action, and emits click coordinates (native `box_2d`) in a single inference call. Per-model scale factors are tracked and updated by the self-improvement loop.
 - **Closed-loop servo targeting** — three-attempt adaptive strategy: ballistic move → single correction with crosshair overlay → full corrections with zoom-cropped analysis around the cursor
 - **Live per-iteration reasoning stream** — every Think step (action, target, full reasoning, pivots when the loop gets stuck) streams into chat in real-time. No more 30-second blackouts followed by a single "completed" line. The trail persists in history so you can audit any run.
 - **45+ deterministic recipes** — browser navigation, tabs, scroll, search, find, zoom, copy/paste — all execute instantly from a JSON recipe library, bypassing the vision loop entirely. Recipes carry optional `preconditions` (visibility checks) so they're skipped cleanly when their UI isn't on screen.
@@ -139,10 +139,8 @@ Guaardvark agents control a **real Ubuntu desktop** (Xvfb + XFCE at 1024×1024) 
 
 | Model | Role | Coordinate System | Notes |
 |-------|------|-------------------|-------|
-| Gemma4 (e4b) | Sees + decides | 1024x1024 normalized, box_2d `[y1,x1,y2,x2]` | Unified brain — vision and reasoning in one call |
-| Qwen3-VL (2b) | Coordinate estimation | 1024px internal width | Default servo eyes, fast and accurate on dark UIs |
-| Qwen3-VL (4b/8b) | Escalation eyes | 1024px internal width | Automatic escalation after 3 consecutive failures |
-| Moondream | Fallback eyes | 1024px internal width | For text-only models that need external vision |
+| Gemma4 (e4b) | Sees + decides + clicks | box_2d normalized to 1000, `[y1,x1,y2,x2]` | Unified brain — vision, reasoning, and coordinates in one call |
+| Moondream | Fallback eyes | 1024px internal width | For text-only chat models (llama3, ministral-3) that need external vision |
 
 ### Swarm Orchestrator — Parallel Agent Execution
 
@@ -593,7 +591,7 @@ PostgreSQL  Redis  Ollama  Agent Display    ComfyUI
 ```
 
 **Frontend:** React 18 · Vite · Material-UI v5 · Zustand · Apollo Client · Monaco Editor · Socket.IO  
-**Models:** Gemma4 · Qwen3-VL · Qwen3 · Llama 3 · Moondream · Stable Diffusion · Wan 2.2 · CogVideoX · Real-ESRGAN · HAT
+**Models:** Gemma4 · Llama 3 · Moondream · Stable Diffusion · Wan 2.2 · CogVideoX · Real-ESRGAN · HAT
 
 ---
 

@@ -113,7 +113,7 @@ Retrieval-Augmented Generation grounds chat responses in your actual documents.
 - **Metadata indexing** — file metadata (type, size, language, framework) stored alongside content for filtered retrieval
 
 ### Embedding Models
-- **Multiple model support** — switch between lightweight (embeddinggemma 300M) and high-quality (qwen3-embedding 4B/8B) models
+- **Multiple model support** — switch between lightweight (embeddinggemma 300M) and high-quality (mxbai-embed-large, bge-m3, snowflake-arctic-embed) models
 - **Full-precision option** — BF16 embeddings available for maximum quality
 - **Query-time embedding** — every RAG search query is embedded with the same model for consistent vector space matching
 
@@ -215,7 +215,7 @@ Guaardvark drives a real Ubuntu desktop on a virtual display — clicking, typin
 ### Servo Controller
 - **Vision-targeted clicking** — the servo asks the vision model "where is X on this screen?" and clicks the returned coordinates
 - **Visibility guard** — pre-click "do you actually see this?" check rejects hallucinated targets before the cursor moves
-- **Per-model calibration** — `MODEL_VISION_CONFIGS` in `servo_knowledge_store.py` maps each chat model to its preferred eyes (qwen3-vl:2b, moondream, etc.) and any scale-factor calibration learned over time
+- **Per-model calibration** — `MODEL_VISION_CONFIGS` in `servo_knowledge_store.py` maps each chat model to its preferred eyes (gemma4 native, moondream for text-only) and any scale-factor calibration learned over time
 - **Failure capture** — exhausted click attempts save the screenshot + corrections log to `data/training/failures/` for offline review
 
 ### Training Data Capture

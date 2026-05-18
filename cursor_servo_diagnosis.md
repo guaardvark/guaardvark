@@ -109,7 +109,7 @@ The (0,0) coordinates in recent failures suggest one of:
 
 **CLAUDE.md** says:
 ```
-| gemma4:e4b | Yes | qwen3-vl:2b-instruct | 1.25 | Gemma4 sees+decides, qwen3-vl does coords |
+| gemma4:e4b | Yes | external-vision-model | 1.25 | Gemma4 sees+decides, external model does coords |
 ```
 
 But **servo_knowledge_store.py** says:

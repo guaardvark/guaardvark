@@ -13,7 +13,7 @@ logger = logging.getLogger("vision_pipeline.model_tier")
 
 # Same vision model patterns as backend/utils/chat_utils.py
 VISION_MODEL_PATTERNS = [
-    "vision", "llava", "moondream", "bakllava", "qwen.*vl",
+    "vision", "llava", "moondream", "bakllava",
     "minicpm-v", "llama.*vision", "granite.*vision", "gemma.*vision",
     "cogvlm", "internvl", "phi.*vision", "deepseek.*vl",
     "pixtral", "molmo",

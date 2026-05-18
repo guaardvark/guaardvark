@@ -325,7 +325,7 @@ def finetune_model_task(self, job_id: str, config: dict, resume: bool = False):
         sys.path.insert(0, str(Path(os.environ.get('GUAARDVARK_ROOT', '.')) / "backend" / "services" / "training" / "scripts"))
         
         if images_path:
-             _emit_progress(job_id, 8, f"Detected vision task. Using Qwen-VL trainer with images from {images_path}", "processing")
+             _emit_progress(job_id, 8, f"Detected vision task. Using vision trainer with images from {images_path}", "processing")
              from finetune_vision import finetune
 
              resume_msg = " (resuming from checkpoint)" if resume else ""

@@ -78,6 +78,10 @@ DESKTOP_AUTOMATION_ENABLED = os.environ.get("GUAARDVARK_DESKTOP_AUTOMATION", "fa
 GUI_AUTOMATION_ENABLED = os.environ.get("GUAARDVARK_GUI_AUTOMATION", "false").lower() == "true"
 AGENT_BROWSER = os.environ.get("GUAARDVARK_AGENT_BROWSER", "")  # firefox|chromium|chrome (auto-detected if empty)
 
+# Film Crew / Production Pipeline improvements
+FILM_CREW_LIPSYNC_ENABLED = os.environ.get("GUAARDVARK_FILM_CREW_LIPSYNC", "false").lower() == "true"
+FILM_CREW_PARALLEL_RENDER = os.environ.get("GUAARDVARK_FILM_CREW_PARALLEL", "false").lower() == "true"
+
 ALLOWED_AUTOMATION_PATHS = [
     str(GUAARDVARK_ROOT / "data"),
     os.path.expanduser("~/Documents"),
@@ -261,7 +265,6 @@ def get_default_llm():
             'gemma',
             'phi',
             'mistral',
-            'qwen',
         ]
 
         for pattern in preferred_patterns:
@@ -287,14 +290,8 @@ def get_default_llm():
 
 def get_embedding_vram_estimates() -> dict:
     return {
-        "qwen3-embedding:8b": {"vram_mb": 6000, "dimensions": 4096},
-        "qwen3-embedding-8b": {"vram_mb": 6000, "dimensions": 4096},
-        "qwen3-embedding:4b": {"vram_mb": 3000, "dimensions": 2560},
-        "qwen3-embedding-4b": {"vram_mb": 3000, "dimensions": 2560},
         "embeddinggemma:latest": {"vram_mb": 800, "dimensions": 768},
         "embeddinggemma": {"vram_mb": 800, "dimensions": 768},
-        "qwen3-embedding:0.6b": {"vram_mb": 500, "dimensions": 1024},
-        "qwen3-embedding-0.6b": {"vram_mb": 500, "dimensions": 1024},
         "nomic-embed-text": {"vram_mb": 400, "dimensions": 768},
         "all-minilm": {"vram_mb": 150, "dimensions": 384},
     }
@@ -376,15 +373,9 @@ def get_active_embedding_model() -> str:
         "snowflake-arctic-embed:l",
         "bge-m3",
         "snowflake-arctic-embed2",
-        "qwen3-embedding:4b",
-        "qwen3-embedding-4b",
-        "qwen3-embedding:8b",
-        "qwen3-embedding-8b",
         "embeddinggemma:latest",
         "embeddinggemma",
         "nomic-embed-text",
-        "qwen3-embedding:0.6b",
-        "qwen3-embedding-0.6b",
         "all-minilm",
     ]
 
