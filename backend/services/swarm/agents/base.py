@@ -26,7 +26,7 @@ _FENCE_RE = re.compile(r"```(?:[a-zA-Z0-9]+)?\s*\n?(.*)\n?\s*```", re.DOTALL)
 def _strip_markdown_fences(raw: str) -> str:
     """Extract JSON from a markdown fence if present, else return as-is.
 
-    LLMs (especially Ollama-served Gemma/Qwen) often wrap structured output
+    LLMs (especially Ollama-served Gemma) often wrap structured output
     in ```json ... ``` blocks despite explicit prompt instructions otherwise.
     """
     match = _FENCE_RE.search(raw)

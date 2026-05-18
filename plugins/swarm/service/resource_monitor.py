@@ -10,6 +10,7 @@ import os
 import psutil
 import shutil
 import time
+import requests
 from typing import Dict, Any
 
 logger = logging.getLogger("swarm.resource_monitor")
@@ -27,6 +28,9 @@ class ResourceMonitor:
         self.max_cpu_percent = max_cpu_percent
         self.max_ram_percent = max_ram_percent
         self.min_vram_mb = min_vram_mb
+        # resolve main backend URL
+        flask_port = os.environ.get("FLASK_PORT", "5002")
+        self.backend_url = f"http://localhost:{flask_port}/api"
         
     def get_system_stats(self) -> Dict[str, Any]:
         """Get current system resource utilization."""
@@ -39,8 +43,14 @@ class ResourceMonitor:
             "timestamp": time.time()
         }
         
-        # Optional GPU stats if nvidia-smi is available
-        stats["vram_free_mb"] = self._get_free_vram()
+        # Try main backend GPU orchestrator first (unified view)
+        vram_free = self._get_vram_from_backend()
+        
+        # Fallback to local nvidia-smi if backend is unreachable or doesn't report VRAM
+        if vram_free is None:
+            vram_free = self._get_free_vram_local()
+            
+        stats["vram_free_mb"] = vram_free
         
         return stats
 
@@ -62,8 +72,20 @@ class ResourceMonitor:
             
         return True
 
-    def _get_free_vram(self) -> float | None:
-        """Try to get free VRAM via nvidia-smi."""
+    def _get_vram_from_backend(self) -> float | None:
+        """Query main Guaardvark backend for unified VRAM status."""
+        try:
+            resp = requests.get(f"{self.backend_url}/gpu/memory/status", timeout=1)
+            if resp.status_code == 200:
+                data = resp.json()
+                # orchestrator reports 'vram_free_mb' in its snapshot
+                return data.get("vram_free_mb")
+        except Exception:
+            pass
+        return None
+
+    def _get_free_vram_local(self) -> float | None:
+        """Try to get free VRAM via nvidia-smi locally."""
         try:
             import subprocess
             res = subprocess.run(

@@ -192,10 +192,24 @@ class ClaudeBackend(BaseBackend):
         return shutil.which("claude") is not None
 
     def _build_prompt(self, task: SwarmTask) -> str:
+        flask_port = os.environ.get("FLASK_PORT", "5002")
+        swarm_api = f"http://localhost:{flask_port}/api/swarm/{task.swarm_id if hasattr(task, 'swarm_id') else 'active'}"
+        
         parts = [
             f"You are working on task: {task.title}",
             "",
             task.description,
+            "",
+            "CONTEXT:",
+            f"Current swarm ID: {task.swarm_id if hasattr(task, 'swarm_id') else 'active'}",
+            f"Your Task ID: {task.id}",
+            "",
+            "INTER-AGENT COMMUNICATION:",
+            "You can communicate with other agents in this swarm using these endpoints:",
+            f"- GET  {swarm_api}/bus/state : Get shared architecture decisions or global state.",
+            f"- POST {swarm_api}/bus/state : Update shared state (e.g., 'key': 'api_contract', 'value': '...').",
+            f"- POST {swarm_api}/bus/broadcast : Send an event (e.g., 'event_type': 'schema_ready').",
+            "Use these to coordinate if you are modifying shared dependencies.",
             "",
             "IMPORTANT: You are working in a git worktree. Commit your changes when done.",
             "Work only on the files relevant to this task.",

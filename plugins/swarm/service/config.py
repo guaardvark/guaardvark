@@ -56,6 +56,8 @@ class SwarmConfig:
     max_concurrent_agents: int = 5
     worktree_base: str = ".swarm-worktrees"
     auto_merge: bool = False
+    enable_merger_agent: bool = True
+    enable_diagnostic_agent: bool = True
     run_tests_before_merge: bool = True
     test_command: str = "python3 -m pytest"
     flight_mode: bool = False

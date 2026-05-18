@@ -46,9 +46,11 @@ class SwarmTask:
     file_scope: list[str] = field(default_factory=list)
     dependencies: list[str] = field(default_factory=list)
     preferred_backend: str | None = None
+    tags: dict[str, str] = field(default_factory=dict)
     status: SwarmStatus = SwarmStatus.PENDING
 
     # set when the task is launched
+    swarm_id: str | None = None
     branch_name: str | None = None
     worktree_path: str | None = None
     backend_name: str | None = None
@@ -90,6 +92,7 @@ class SwarmTask:
             "file_scope": self.file_scope,
             "dependencies": self.dependencies,
             "preferred_backend": self.preferred_backend,
+            "tags": self.tags,
             "status": self.status.value,
             "branch_name": self.branch_name,
             "worktree_path": self.worktree_path,

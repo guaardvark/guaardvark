@@ -25,7 +25,7 @@ backends:
   cline:
     command: "cline"
     args: []
-    model: "ollama/qwen2.5-coder:14b"
+    model: "ollama/gemma4:e4b"
     requires_internet: false
     priority: 2
     cost_per_1k_input_tokens: 0.0

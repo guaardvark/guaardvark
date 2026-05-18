@@ -256,7 +256,16 @@ def cmd_merge(args: argparse.Namespace, config: SwarmConfig) -> None:
         tasks.append(task)
 
     base_branch = data.get("base_branch", "main")
-    mgr = MergeManager(repo_path, base_branch)
+    
+    flask_port = os.environ.get("FLASK_PORT", "5002")
+    backend_url = f"http://localhost:{flask_port}/api"
+    
+    mgr = MergeManager(
+        repo_path, 
+        base_branch,
+        enable_merger_agent=config.enable_merger_agent,
+        backend_url=backend_url
+    )
 
     merge_queue = mgr.merge_queue(tasks)
     print(f"{C.BOLD}Merging {len(merge_queue)} branches:{C.RESET}")

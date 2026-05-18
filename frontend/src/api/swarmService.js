@@ -70,6 +70,17 @@ export const getTaskLogs = async (swarmId, taskId, lines = 100) => {
 };
 
 /**
+ * Get current git diff for a specific agent task
+ */
+export const getTaskDiff = async (swarmId, taskId) => {
+  const response = await fetch(
+    `${BASE_URL}/${swarmId}/diff/${taskId}`,
+    { method: "GET" }
+  );
+  return handleResponse(response);
+};
+
+/**
  * Cancel a running swarm
  */
 export const cancelSwarm = async (swarmId) => {

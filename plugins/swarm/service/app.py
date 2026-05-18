@@ -240,6 +240,79 @@ def task_logs(swarm_id: str, task_id: str, lines: int = 50):
     return {"success": True, "logs": logs, "task_id": task_id}
 
 
+@app.get("/swarm/{swarm_id}/diff/{task_id}")
+def task_diff(swarm_id: str, task_id: str):
+    """Get the current git diff for a specific agent in a swarm."""
+    with _lock:
+        orch = _active_orchestrators.get(swarm_id)
+
+    if not orch:
+        # check if it's a finished swarm, we might still have the worktrees
+        repo_path = _get_default_repo()
+        if repo_path:
+            worktree_base = _config.worktree_base if _config else ".swarm-worktrees"
+            mgr = WorktreeManager.load_existing(repo_path, swarm_id, worktree_base)
+            if mgr:
+                info = mgr.manifest.worktrees.get(task_id)
+                if info and info.worktree_path and os.path.exists(info.worktree_path):
+                    import subprocess
+                    try:
+                        res = subprocess.run(
+                            ["git", "diff", "HEAD"],
+                            cwd=info.worktree_path,
+                            capture_output=True, text=True, timeout=5
+                        )
+                        return {"success": True, "diff": res.stdout or "(no changes)", "task_id": task_id}
+                    except Exception as e:
+                        return {"success": False, "error": str(e)}
+
+        raise HTTPException(404, f"Swarm not found or worktree missing: {swarm_id}")
+
+    diff = orch.get_task_diff(task_id)
+    return {"success": True, "diff": diff, "task_id": task_id}
+
+
+# --- Communication Bus ---
+
+@app.get("/swarm/{swarm_id}/bus/state")
+def get_bus_state(swarm_id: str):
+    """Get shared state for the swarm."""
+    with _lock:
+        orch = _active_orchestrators.get(swarm_id)
+    if not orch:
+        raise HTTPException(404, f"Swarm not found: {swarm_id}")
+    return {"success": True, "state": orch.comm_bus.get_state(swarm_id)}
+
+
+@app.post("/swarm/{swarm_id}/bus/broadcast")
+def broadcast_event(swarm_id: str, req: dict):
+    """Broadcast an event to sibling agents."""
+    with _lock:
+        orch = _active_orchestrators.get(swarm_id)
+    if not orch:
+        raise HTTPException(404, f"Swarm not found: {swarm_id}")
+    
+    orch.comm_bus.broadcast(
+        swarm_id, 
+        req.get("sender", "agent"), 
+        req.get("event_type", "message"), 
+        req.get("data", {})
+    )
+    return {"success": True}
+
+
+@app.post("/swarm/{swarm_id}/bus/state")
+def update_bus_state(swarm_id: str, req: dict):
+    """Update a shared state key."""
+    with _lock:
+        orch = _active_orchestrators.get(swarm_id)
+    if not orch:
+        raise HTTPException(404, f"Swarm not found: {swarm_id}")
+    
+    orch.comm_bus.update_state(swarm_id, req.get("key"), req.get("value"))
+    return {"success": True}
+
+
 # --- Cancel ---
 
 @app.post("/swarm/cancel")

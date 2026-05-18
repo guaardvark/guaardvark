@@ -23,6 +23,7 @@ logger = logging.getLogger("swarm.plan_parser")
 _FILES_RE = re.compile(r"^-\s*files?:\s*(.+)", re.IGNORECASE)
 _DEPS_RE = re.compile(r"^-\s*depends?_?on:\s*(.+)", re.IGNORECASE)
 _BACKEND_RE = re.compile(r"^-\s*backend:\s*(.+)", re.IGNORECASE)
+_TAG_RE = re.compile(r"\[([\w\s-]+):\s*([^\]]+)\]")
 
 # patterns for inferring file paths from freeform text
 _PATH_RE = re.compile(
@@ -171,8 +172,15 @@ def _extract_headings(content: str, prefix: str) -> list[tuple[str, str]]:
 
 def _parse_block(heading: str, body: str) -> SwarmTask:
     """Parse a single task block — auto-detects structured vs freeform."""
-    # strip "Task:" prefix if present (structured format)
-    title = heading
+    # extract tags from heading and body
+    tags: dict[str, str] = {}
+    for match in _TAG_RE.finditer(heading):
+        tags[match.group(1).strip()] = match.group(2).strip()
+    for match in _TAG_RE.finditer(body):
+        tags[match.group(1).strip()] = match.group(2).strip()
+
+    # strip tags and "Task:" prefix if present (structured format)
+    title = _TAG_RE.sub("", heading).strip()
     if title.lower().startswith("task:"):
         title = title[5:].strip()
 
@@ -186,9 +194,12 @@ def _parse_block(heading: str, body: str) -> SwarmTask:
     )
 
     if has_structured:
-        return _parse_structured(task_id, title, body)
+        task = _parse_structured(task_id, title, body)
     else:
-        return _parse_freeform(task_id, title, body)
+        task = _parse_freeform(task_id, title, body)
+    
+    task.tags.update(tags)
+    return task
 
 
 def _parse_structured(task_id: str, title: str, body: str) -> SwarmTask:

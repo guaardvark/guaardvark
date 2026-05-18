@@ -116,6 +116,11 @@ def create_production_swarm_tasks(celery_app: Celery):
         with current_app.app_context():
             regen_storyboard_shot(shot_id, prompt_override)
 
+    @celery_app.task(name="production.regen_shot_plan")
+    def regen_shot_plan_task(shot_id: int, feedback: str):
+        with current_app.app_context():
+            run_regen_shot_plan(shot_id, feedback)
+
     return {
         "run_screenwriter": run_screenwriter_task,
         "run_casting_director": run_casting_director_task,
@@ -123,6 +128,7 @@ def create_production_swarm_tasks(celery_app: Celery):
         "run_storyboard_artist": run_storyboard_artist_task,
         "run_editor": run_editor_task,
         "regen_storyboard_shot": regen_storyboard_shot_task,
+        "regen_shot_plan": regen_shot_plan_task,
     }
 
 
@@ -168,6 +174,8 @@ def run_screenwriter(prod_id: int, llm=None):
                     scene_number=scene.number,
                     shot_number=shot.number,
                     description=shot.description,
+                    scene_mood=scene.mood,
+                    character_name=shot.character_name,
                     dialogue_text=shot.dialogue
                 )
                 db.session.add(new_shot)
@@ -197,13 +205,40 @@ def run_casting_director(prod_id: int, llm=None):
         # Cast library (existing trained Subject rows where lora_path is not None)
         library = Subject.query.filter(Subject.lora_path.isnot(None)).all()
         
+        # Fetch available voices from Audio Foundry
+        available_voices = []
+        try:
+            from backend.config import FLASK_PORT
+            resp = requests.get(f"http://localhost:{FLASK_PORT}/api/audio-foundry/voices", timeout=5)
+            if resp.status_code == 200:
+                available_voices = resp.json().get("voices", [])
+        except Exception as e:
+            import logging
+            logging.warning(f"Could not fetch available voices: {e}")
+
         input_data = {
             "subjects": script_subjects,
-            "library": [{"id": s.id, "name": s.name, "kind": s.kind, "description": s.description} for s in library]
+            "library": [{"id": s.id, "name": s.name, "kind": s.kind, "description": s.description, "voice_id": s.voice_id} for s in library],
+            "available_voices": available_voices
         }
         
         inv = agent.invoke(input_data)
         ctx.persist(inv, input_json=input_data)
+
+        # Apply the casting plan to the Subjects
+        out = inv.output
+        for action in out.actions:
+            subj = Subject.query.filter_by(name=action.subject_name).first()
+            if subj:
+                if action.voice_id:
+                    subj.voice_id = action.voice_id
+                
+                # Also link to production if not already
+                existing_ps = ProductionSubject.query.filter_by(production_id=prod_id, subject_id=subj.id).first()
+                if not existing_ps:
+                    db.session.add(ProductionSubject(production_id=prod_id, subject_id=subj.id))
+        
+        db.session.commit()
 
 
 def run_cinematographer(prod_id: int, llm=None):
@@ -283,18 +318,46 @@ def run_editor(prod_id: int, i2v=None, audio_foundry=None, ffmpeg=None):
         if not shots:
             ctx.fail("No approved shots")
 
-        editor = Editor(i2v=i2v, audio_foundry=audio_foundry, ffmpeg=ffmpeg)
+        # Initialize backend clients
+        from backend.config import FLASK_PORT
+        backend_url = f"http://localhost:{FLASK_PORT}/api"
+        
+        from backend.services.video_editor_client import VideoEditorClient as VEClient
+        ve_client = VEClient(backend_url)
+
+        editor = Editor(
+            i2v=i2v, 
+            audio_foundry=audio_foundry, 
+            ffmpeg=ffmpeg,
+            video_editor=ve_client
+        )
         
         from backend.services.swarm.agents.editor import ShotInput
         shot_inputs = []
         for s in shots:
+            # Map character_name to voice_id if available
+            voice_id = None
+            if s.character_name:
+                subj = Subject.query.filter_by(name=s.character_name, kind="character").first()
+                if subj:
+                    voice_id = subj.voice_id
+
+            # Collect LoRA paths for this shot
+            lora_paths = []
+            for pss in s.shot_subjects:
+                if pss.subject.lora_path:
+                    lora_paths.append(pss.subject.lora_path)
+
             shot_inputs.append(ShotInput(
                 shot_number=s.shot_number,
                 storyboard_image_path=s.storyboard_image_path or "",
                 image_prompt=s.description,
                 duration_seconds=s.duration_seconds,
                 dialogue_text=s.dialogue_text,
-                lora_paths=[]
+                lora_paths=lora_paths,
+                voice_id=voice_id,
+                scene_number=s.scene_number,
+                scene_mood=s.scene_mood
             ))
             
         import tempfile
@@ -328,4 +391,46 @@ def regen_storyboard_shot(shot_id: int, prompt_override: str | None = None, imag
         prompt = prompt_override if prompt_override else shot.description
         path = image_generator.generate_image(prompt=prompt)
         shot.storyboard_image_path = path
+        db.session.commit()
+
+def run_regen_shot_plan(shot_id: int, feedback: str, llm=None):
+    if llm is None:
+        llm = _default_ollama_llm
+
+    from backend.models import ProductionShot, Subject, ProductionShotSubject
+    shot = db.session.get(ProductionShot, shot_id)
+    if not shot:
+        return
+
+    from backend.services.swarm.agents.cinematographer import Cinematographer
+    agent = Cinematographer(llm=llm)
+
+    subjects = Subject.query.all()
+    
+    # We only care about THIS shot
+    input_data = {
+        "shots": [{"scene_number": shot.scene_number, "shot_number": shot.shot_number, "description": shot.description}],
+        "subjects": [{"id": s.id, "name": s.name, "description": s.description} for s in subjects],
+        "feedback": feedback
+    }
+
+    inv = agent.invoke(input_data)
+    
+    out = inv.output
+    if out.plans:
+        plan = out.plans[0]
+        shot.camera_angle = plan.camera_angle
+        shot.duration_seconds = plan.duration_seconds
+        # Preserve original description but update the image prompt
+        base_desc = shot.description.split("\n\nIMAGE PROMPT: ")[0]
+        shot.description = f"{base_desc}\n\nIMAGE PROMPT: {plan.image_prompt}"
+        
+        # Update subjects
+        ProductionShotSubject.query.filter_by(shot_id=shot.id).delete()
+        valid_subject_ids = {s.id for s in subjects}
+        for subj_id in plan.subjects_in_shot:
+            if subj_id in valid_subject_ids:
+                db.session.add(ProductionShotSubject(shot_id=shot.id, subject_id=subj_id))
+        
+        shot.regen_count += 1
         db.session.commit()

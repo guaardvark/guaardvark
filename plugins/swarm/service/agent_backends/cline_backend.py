@@ -52,7 +52,7 @@ class ClineBackend(BaseBackend):
         log_file = wt / LOG_FILE
 
         command = config.get("command", "cline")
-        model = config.get("model", "ollama/qwen2.5-coder:32b")
+        model = config.get("model", "ollama/gemma4:e4b")
         extra_args = config.get("args", [])
 
         prompt = self._build_prompt(task)

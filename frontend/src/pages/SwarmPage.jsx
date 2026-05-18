@@ -31,6 +31,8 @@ import {
   MenuItem,
   InputLabel,
   FormControl,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import {
   PlayArrow as LaunchIcon,
@@ -72,6 +74,7 @@ import {
   getTemplateContent,
   saveTemplate,
   getTaskLogs,
+  getTaskDiff,
   getConnectivity,
   getHistory,
   swarmService,
@@ -112,8 +115,15 @@ const SwarmPage = () => {
   // dialogs
   const [launchOpen, setLaunchOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
-  const [logsOpen, setLogsOpen] = useState(false);
-  const [logsData, setLogsData] = useState({ taskId: "", logs: "" });
+  const [taskViewOpen, setTaskViewOpen] = useState(false);
+  const [taskViewData, setTaskViewData] = useState({ 
+    taskId: "", 
+    swarmId: "", 
+    logs: "", 
+    diff: "", 
+    tab: 0 
+  });
+  const [isDiffLoading, setIsDiffLoading] = useState(false);
   const [expandedSwarm, setExpandedSwarm] = useState(null);
 
   // editor state
@@ -298,14 +308,42 @@ const SwarmPage = () => {
     }
   };
 
-  const handleViewLogs = async (swarmId, taskId) => {
+  const handleViewTask = async (swarmId, taskId, initialTab = 0) => {
+    setTaskViewData({ taskId, swarmId, logs: "Loading logs...", diff: "", tab: initialTab });
+    setTaskViewOpen(true);
+    
     try {
-      const res = await getTaskLogs(swarmId, taskId);
-      const data = res.data || res;
-      setLogsData({ taskId, logs: data.logs || "(no logs)" });
-      setLogsOpen(true);
+      // Always fetch logs first
+      const logsRes = await getTaskLogs(swarmId, taskId);
+      const logsData = logsRes.data || logsRes;
+      
+      setTaskViewData(prev => ({ 
+        ...prev, 
+        logs: logsData.logs || "(no logs)" 
+      }));
+
+      // If opening diff tab, fetch it immediately
+      if (initialTab === 1) {
+        fetchDiff(swarmId, taskId);
+      }
     } catch (err) {
       showMessage("Could not fetch logs", "error");
+    }
+  };
+
+  const fetchDiff = async (swarmId, taskId) => {
+    setIsDiffLoading(true);
+    try {
+      const res = await getTaskDiff(swarmId, taskId);
+      const data = res.data || res;
+      setTaskViewData(prev => ({ 
+        ...prev, 
+        diff: data.diff || "(no changes in worktree)" 
+      }));
+    } catch (err) {
+      setTaskViewData(prev => ({ ...prev, diff: "Failed to fetch diff" }));
+    } finally {
+      setIsDiffLoading(false);
     }
   };
 
@@ -477,10 +515,9 @@ const SwarmPage = () => {
                 onCancel={handleCancel}
                 onMerge={handleMerge}
                 onCleanup={handleCleanup}
-                onViewLogs={handleViewLogs}
+                onViewTask={handleViewTask}
                 theme={theme}
-              />
-            ))}
+                />            ))}
           </Stack>
         </Box>
       )}
@@ -802,39 +839,106 @@ const SwarmPage = () => {
         </DialogActions>
       </Dialog>
 
-      {/* ─── Logs Dialog ────────────────────────────────────────── */}
+      {/* ─── Task View Dialog ───────────────────────────────────── */}
       <Dialog
-        open={logsOpen}
-        onClose={() => setLogsOpen(false)}
+        open={taskViewOpen}
+        onClose={() => setTaskViewOpen(false)}
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle>
-          Agent Logs: {logsData.taskId}
-          <IconButton
-            onClick={() => setLogsOpen(false)}
-            sx={{ position: "absolute", right: 8, top: 8 }}
-          >
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent>
-          <Box
-            sx={{
-              fontFamily: "monospace",
-              fontSize: "0.8rem",
-              whiteSpace: "pre-wrap",
-              bgcolor: "background.default",
-              p: 2,
-              borderRadius: 1,
-              maxHeight: 500,
-              overflow: "auto",
-              border: "1px solid",
-              borderColor: "divider",
+        <DialogTitle sx={{ pb: 0 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Typography variant="h6">Task Detail: {taskViewData.taskId}</Typography>
+            <IconButton onClick={() => setTaskViewOpen(false)}>
+              <CloseIcon />
+            </IconButton>
+          </Stack>
+          <Tabs 
+            value={taskViewData.tab} 
+            onChange={(e, v) => {
+              setTaskViewData(prev => ({ ...prev, tab: v }));
+              if (v === 1 && !taskViewData.diff) {
+                fetchDiff(taskViewData.swarmId, taskViewData.taskId);
+              }
             }}
+            sx={{ mt: 1 }}
           >
-            {logsData.logs || "(no output yet)"}
-          </Box>
+            <Tab label="Logs" icon={<LogsIcon />} iconPosition="start" />
+            <Tab label="Live Diff" icon={<BranchIcon />} iconPosition="start" />
+          </Tabs>
+        </DialogTitle>
+        <DialogContent dividers>
+          {taskViewData.tab === 0 && (
+            <Box
+              sx={{
+                fontFamily: "monospace",
+                fontSize: "0.8rem",
+                whiteSpace: "pre-wrap",
+                bgcolor: "background.default",
+                p: 2,
+                borderRadius: 1,
+                maxHeight: 500,
+                overflow: "auto",
+                border: "1px solid",
+                borderColor: "divider",
+              }}
+            >
+              {taskViewData.logs || "(no output yet)"}
+            </Box>
+          )}
+
+          {taskViewData.tab === 1 && (
+            <Box>
+              {isDiffLoading ? (
+                <Stack alignItems="center" sx={{ py: 4 }}>
+                  <CircularProgress size={24} sx={{ mb: 1 }} />
+                  <Typography variant="caption">Fetching worktree diff...</Typography>
+                </Stack>
+              ) : (
+                <Box
+                  sx={{
+                    fontFamily: "monospace",
+                    fontSize: "0.8rem",
+                    whiteSpace: "pre-wrap",
+                    bgcolor: "background.default",
+                    color: "text.primary",
+                    p: 2,
+                    borderRadius: 1,
+                    maxHeight: 500,
+                    overflow: "auto",
+                    border: "1px solid",
+                    borderColor: "divider",
+                    "& .diff-add": { color: "success.main" },
+                    "& .diff-del": { color: "error.main" },
+                    "& .diff-meta": { color: "info.main", fontWeight: "bold" },
+                  }}
+                >
+                  {taskViewData.diff.split("\n").map((line, i) => {
+                    let className = "";
+                    if (line.startsWith("+") && !line.startsWith("+++")) className = "diff-add";
+                    else if (line.startsWith("-") && !line.startsWith("---")) className = "diff-del";
+                    else if (line.startsWith("@@") || line.startsWith("diff --git")) className = "diff-meta";
+                    
+                    return (
+                      <div key={i} className={className}>
+                        {line || " "}
+                      </div>
+                    );
+                  })}
+                </Box>
+              )}
+              <Box sx={{ mt: 1, textAlign: "right" }}>
+                <Button 
+                  size="small" 
+                  startIcon={<RefreshIcon />} 
+                  onClick={() => fetchDiff(taskViewData.swarmId, taskViewData.taskId)}
+                  disabled={isDiffLoading}
+                >
+                  Refresh Diff
+                </Button>
+              </Box>
+            </Box>
+          )}
         </DialogContent>
       </Dialog>
     </PageLayout>
@@ -851,7 +955,7 @@ const SwarmCard = ({
   onCancel,
   onMerge,
   onCleanup,
-  onViewLogs,
+  onViewTask,
   theme,
 }) => {
   const tasks = swarm.tasks || [];
@@ -1016,7 +1120,7 @@ const SwarmCard = ({
                 <TaskCard
                   task={task}
                   swarmId={swarm.swarm_id}
-                  onViewLogs={onViewLogs}
+                  onViewTask={onViewTask}
                   theme={theme}
                 />
               </Grid>
@@ -1031,7 +1135,7 @@ const SwarmCard = ({
 
 // ─── Task Card Component ─────────────────────────────────────────────
 
-const TaskCard = ({ task, swarmId, onViewLogs, _theme }) => {
+const TaskCard = ({ task, swarmId, onViewTask, _theme }) => {
   const cfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.pending;
 
   return (
@@ -1082,10 +1186,10 @@ const TaskCard = ({ task, swarmId, onViewLogs, _theme }) => {
       </CardContent>
       <CardActions sx={{ pt: 0 }}>
         {(task.status === "running" || task.status === "done" || task.status === "failed") && (
-          <Tooltip title="View logs">
+          <Tooltip title="View task detail">
             <IconButton
               size="small"
-              onClick={() => onViewLogs(swarmId, task.id)}
+              onClick={() => onViewTask(swarmId, task.id)}
             >
               <LogsIcon fontSize="small" />
             </IconButton>

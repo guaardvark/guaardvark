@@ -40,8 +40,14 @@ class Cinematographer(BaseSwarmAgent[ShotPlanList]):
     system_prompt = SYSTEM
 
     def build_user_prompt(self, input_data: dict) -> str:
-        return (
+        prompt = (
             f"Shots:\n{json.dumps(input_data.get('shots', []), indent=2)}\n\n"
             f"Subjects (with IDs):\n{json.dumps(input_data.get('subjects', []), indent=2)}\n\n"
-            "Return the JSON shot plan list."
         )
+        
+        feedback = input_data.get('feedback')
+        if feedback:
+            prompt += f"USER FEEDBACK / REVISION REQUEST:\n{feedback}\n\n"
+            
+        prompt += "Return the JSON shot plan list."
+        return prompt

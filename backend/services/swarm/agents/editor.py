@@ -13,9 +13,12 @@ For v1 the cuts are intentional:
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
+
+logger = logging.getLogger(__name__)
 
 
 class I2VGenerator(Protocol):
@@ -34,7 +37,12 @@ class AudioFoundry(Protocol):
         ...
 
 
-class FFmpegRunner(Protocol):
+class LipsyncGenerator(Protocol):
+    def lipsync(self, *, video_path: str, audio_path: str, output_path: str) -> str:
+        ...
+
+
+class FFmpegRunner(Protocol) :
     def concat_with_audio(
         self, *, video_clips: list[str], voiceovers: list[str | None],
         music_track: str | None, output_path: str,
@@ -59,6 +67,9 @@ class ShotInput:
     duration_seconds: float
     dialogue_text: str | None
     lora_paths: list[str]
+    voice_id: str | None = None
+    scene_number: int | None = None
+    scene_mood: str | None = None
 
 
 @dataclass
@@ -82,11 +93,13 @@ class Editor:
         audio_foundry: AudioFoundry,
         ffmpeg: FFmpegRunner,
         video_editor: VideoEditorClient | None = None,
+        lipsync: LipsyncGenerator | None = None,
     ):
         self.i2v = i2v
         self.audio_foundry = audio_foundry
         self.ffmpeg = ffmpeg
         self.video_editor = video_editor
+        self.lipsync = lipsync
 
     def render(
         self,
@@ -95,7 +108,7 @@ class Editor:
         production_name: str,
         shots: list[ShotInput],
         output_dir: str,
-        voice: str = "default",
+        default_voice: str = "default",
         music_mood: str = "neutral",
     ) -> RenderResult:
         """Render the full production. Output paths land under `output_dir`.
@@ -119,14 +132,64 @@ class Editor:
         clip_paths: list[str] = []
         voiceover_paths: list[str | None] = []
 
-        for shot in shots:
-            clip_path = self._render_clip(shot, clips_dir)
-            clip_paths.append(clip_path)
-            vo_path = self._render_voiceover(shot, audio_dir, voice)
-            voiceover_paths.append(vo_path)
+        from backend.config import FILM_CREW_PARALLEL_RENDER
+        from concurrent.futures import ThreadPoolExecutor
 
-        total_duration = sum(s.duration_seconds for s in shots) or 1.0
-        music_path = self._render_music(music_mood, total_duration, audio_dir)
+        if FILM_CREW_PARALLEL_RENDER:
+            logger.info(f"Starting parallel render for production {production_id}")
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                def render_one_shot(shot: ShotInput) -> tuple[str, str | None]:
+                    clip = self._render_clip(shot, clips_dir)
+                    shot_voice = shot.voice_id or default_voice
+                    vo = self._render_voiceover(shot, audio_dir, shot_voice)
+                    
+                    from backend.config import FILM_CREW_LIPSYNC_ENABLED
+                    if FILM_CREW_LIPSYNC_ENABLED and self.lipsync and vo:
+                        synced = str(clips_dir / f"shot_{shot.shot_number}_synced.mp4")
+                        clip = self.lipsync.lipsync(video_path=clip, audio_path=vo, output_path=synced)
+                    
+                    self._emit_progress(production_id, shot.shot_number, clip)
+                    return clip, vo
+
+                results = list(executor.map(render_one_shot, shots))
+                clip_paths = [r[0] for r in results]
+                voiceover_paths = [r[1] for r in results]
+        else:
+            for shot in shots:
+                clip_path = self._render_clip(shot, clips_dir)
+                shot_voice = shot.voice_id or default_voice
+                vo_path = self._render_voiceover(shot, audio_dir, shot_voice)
+
+                from backend.config import FILM_CREW_LIPSYNC_ENABLED
+                if FILM_CREW_LIPSYNC_ENABLED and self.lipsync and vo_path:
+                    synced_path = str(clips_dir / f"shot_{shot.shot_number}_synced.mp4")
+                    clip_path = self.lipsync.lipsync(video_path=clip_path, audio_path=vo_path, output_path=synced_path)
+
+                clip_paths.append(clip_path)
+                voiceover_paths.append(vo_path)
+                self._emit_progress(production_id, shot.shot_number, clip_path)
+
+        # Phase 1.3: Per-scene music
+        scenes_map: dict[int, list[ShotInput]] = {}
+        for s in shots:
+            if s.scene_number is not None:
+                scenes_map.setdefault(s.scene_number, []).append(s)
+        
+        music_tracks: list[str] = []
+        if scenes_map:
+            sorted_scene_ids = sorted(scenes_map.keys())
+            for sid in sorted_scene_ids:
+                scene_shots = scenes_map[sid]
+                mood = scene_shots[0].scene_mood or music_mood
+                duration = sum(s.duration_seconds for s in scene_shots)
+                scene_music_path = self._render_music(mood, duration, audio_dir, suffix=f"_scene_{sid}")
+                music_tracks.append(scene_music_path)
+            
+            # Use the first track or implement concat logic if needed
+            music_path = music_tracks[0] if music_tracks else None
+        else:
+            total_duration = sum(s.duration_seconds for s in shots) or 1.0
+            music_path = self._render_music(music_mood, total_duration, audio_dir)
 
         final_mp4 = str(output_path / "final.mp4")
         self.ffmpeg.concat_with_audio(
@@ -173,8 +236,23 @@ class Editor:
             text=shot.dialogue_text, voice=voice, output_path=vo_path,
         )
 
-    def _render_music(self, mood: str, duration_seconds: float, audio_dir: Path) -> str:
-        music_path = str(audio_dir / "score.wav")
+    def _render_music(self, mood: str, duration_seconds: float, audio_dir: Path, suffix: str = "") -> str:
+        music_path = str(audio_dir / f"score{suffix}.wav")
         return self.audio_foundry.generate_music(
             mood=mood, duration_seconds=duration_seconds, output_path=music_path,
         )
+
+    def _emit_progress(self, production_id: int, shot_number: int, clip_path: str):
+        """Emit WebSocket event for shot completion."""
+        try:
+            from backend.socketio_instance import socketio
+            # In test environments, socketio might not have a server attached
+            if socketio and getattr(socketio, 'server', None):
+                socketio.emit("production:shot_complete", {
+                    "production_id": production_id,
+                    "shot_number": shot_number,
+                    "clip_path": clip_path
+                }, namespace="/api/production")
+        except Exception as e:
+            logger.warning(f"Failed to emit progress: {e}")
+

@@ -110,6 +110,9 @@ class SwarmOrchestrator:
         tasks = parse_plan(plan_path)
         if not tasks:
             raise ValueError("Plan produced no tasks — nothing to do")
+        
+        for t in tasks:
+            t.swarm_id = self.swarm_id
 
         logger.info(f"Parsed {len(tasks)} tasks from plan")
 
@@ -162,9 +165,24 @@ class SwarmOrchestrator:
         )
 
         # set up merge manager
+        flask_port = os.environ.get("FLASK_PORT", "5002")
+        backend_url = f"http://localhost:{flask_port}/api"
+        
         self.merge_mgr = MergeManager(
-            self.repo_path, self.worktree_mgr.base_branch,
+            self.repo_path, 
+            self.worktree_mgr.base_branch,
+            enable_merger_agent=self.config.enable_merger_agent,
+            backend_url=backend_url
         )
+
+        self._diagnostic_agent = None
+        if self.config.enable_diagnostic_agent:
+            from .diagnostic_agent import DiagnosticAgent
+            self._diagnostic_agent = DiagnosticAgent(backend_url)
+
+        # Set up inter-agent communication bus
+        from .communication_bus import CommunicationBus
+        self.comm_bus = CommunicationBus()
 
         self._emit_event("swarm_started", "swarm", {
             "swarm_id": self.swarm_id,
@@ -300,6 +318,30 @@ class SwarmOrchestrator:
 
         return backend.get_logs(process, lines)
 
+    def get_task_diff(self, task_id: str) -> str:
+        """Get the current git diff for a task's worktree."""
+        if not self.worktree_mgr:
+            return "(worktree manager not initialized)"
+
+        info = self.worktree_mgr.manifest.worktrees.get(task_id)
+        if not info or not info.worktree_path:
+            return f"(no worktree found for task {task_id})"
+
+        import subprocess
+        try:
+            # git diff HEAD — get all changes (staged and unstaged) in the worktree
+            res = subprocess.run(
+                ["git", "diff", "HEAD"],
+                cwd=info.worktree_path,
+                capture_output=True, text=True, timeout=5
+            )
+            if not res.stdout.strip():
+                return "(no changes in worktree)"
+            return res.stdout
+        except Exception as e:
+            logger.warning(f"Failed to get diff for task {task_id}: {e}")
+            return f"Error: {e}"
+
     def on_event(self, callback: Callable[[TimelineEvent], None]) -> None:
         """Register a callback for swarm events. The UI wires in here."""
         self._on_event = callback
@@ -383,7 +425,24 @@ class SwarmOrchestrator:
     def _launch_task(self, task: SwarmTask, online: bool) -> None:
         """Create a worktree and spawn an agent for a single task."""
         # select backend
-        backend_config = self.config.select_backend(task.preferred_backend, online=online)
+        preferred = task.preferred_backend
+        
+        # Check for [Model: ...] or [Backend: ...] tags
+        if "Model" in task.tags:
+            # see if the tag matches a backend name directly
+            tag_val = task.tags["Model"].lower()
+            if tag_val in self.config.backends:
+                preferred = tag_val
+            else:
+                # otherwise, try to find a backend that uses this model
+                for name, bcfg in self.config.backends.items():
+                    if bcfg.model and tag_val in bcfg.model.lower():
+                        preferred = name
+                        break
+        elif "Backend" in task.tags:
+            preferred = task.tags["Backend"].lower()
+
+        backend_config = self.config.select_backend(preferred, online=online)
         if not backend_config:
             configured = list(self.config.backends.keys())
             import shutil
@@ -475,6 +534,27 @@ class SwarmOrchestrator:
                         "reason": "Agent process crashed"
                     })
                 else:
+                    # Retries exhausted — try one last-ditch diagnosis if enabled
+                    if self._diagnostic_agent and task.worktree_path:
+                        logger.warning(f"Task '{task_id}' retries exhausted — invoking DiagnosticAgent...")
+                        self._emit_event("task_diagnostic_start", task_id, {"reason": "retries_exhausted"})
+                        
+                        logs = self.get_task_logs(task_id, lines=200)
+                        fixed = self._diagnostic_agent.run_diagnosis(
+                            task.worktree_path,
+                            task.title,
+                            task.description,
+                            logs
+                        )
+                        
+                        if fixed:
+                            logger.info(f"DiagnosticAgent claims to have fixed '{task_id}'. Resetting status to DONE.")
+                            task.status = SwarmStatus.DONE
+                            task.completed_at = time.time()
+                            self._emit_event("task_diagnostic_success", task_id, {"message": "Agent fixed the issue autonomously"})
+                            self._processes.pop(task_id, None)
+                            continue
+
                     task.status = SwarmStatus.FAILED
                     task.completed_at = time.time()
                     task.error = "Agent process crashed (all retries exhausted)"
