@@ -33,6 +33,7 @@ plugins/*/.cache/
 plugins/*/__pycache__/
 data/plugin_state.json
 data/social_outreach/
+data/outreach/
 data/docstore.json
 data/index_store.json
 data/default__vector_store.json
