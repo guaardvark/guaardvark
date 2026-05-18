@@ -1,7 +1,7 @@
 // frontend/src/pages/UpscalingPage.jsx
 // Dedicated upscaling page with video upload, model selection, and job tracking
 
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback, Suspense } from "react";
 import {
   Box,
   Typography,
@@ -24,6 +24,11 @@ import {
   ToggleButtonGroup,
   Switch,
   FormControlLabel,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Slider,
 } from "@mui/material";
 import PageLayout from "../components/layout/PageLayout";
 import {
@@ -36,10 +41,15 @@ import {
   Speed as SpeedIcon,
   ArrowBack as BackIcon,
   Close as CloseIcon,
+  Visibility as PreviewIcon,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import * as upscalingService from "../api/upscalingService";
 import { listPlugins } from "../api/pluginsService";
+
+const UpscalingModelsModal = React.lazy(() =>
+  import("../components/modals/UpscalingModelsModal")
+);
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -68,11 +78,23 @@ const UpscalingPage = ({ embedded = false }) => {
   const [selectedModel, setSelectedModel] = useState("");
   const [targetResolution, setTargetResolution] = useState("4k");
   const [twoPass, setTwoPass] = useState(false);
+  const [faceEnhance, setFaceEnhance] = useState(false);
+  const [doubleFps, setDoubleFps] = useState(false);
+  const [sharpen, setSharpen] = useState(0.3);
+  const [denoiseStrength, setDenoiseStrength] = useState(0.0);
 
   // Jobs
   const [jobs, setJobs] = useState([]);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  const [previewFile, setPreviewFile] = useState(null);
+  const [previewOriginalUrl, setPreviewOriginalUrl] = useState(null);
+  const [previewUpscaledUrl, setPreviewUpscaledUrl] = useState(null);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const videoRef = useRef(null);
+
+  const [upscalingModelsModalOpen, setUpscalingModelsModalOpen] = useState(false);
 
   // --- Init ---
   useEffect(() => {
@@ -103,25 +125,47 @@ const UpscalingPage = ({ embedded = false }) => {
     }
   };
 
-  useEffect(() => {
-    if (!serviceAvailable) return;
-    const loadModels = async () => {
+  const refreshModels = useCallback(
+    async (options = {}) => {
+      const { selectModel } = options;
+      if (!serviceAvailable) return;
       try {
         const res = await upscalingService.getModels();
         const data = res.data || res;
         setModels(data);
-        // Functional setter so we read the *current* selectedModel, not the
-        // value captured at effect-creation time. Auto-pick the first
-        // downloaded model only if the user hasn't already chosen one.
-        if (data.downloaded?.length > 0) {
+        if (selectModel) {
+          setSelectedModel(selectModel);
+        } else if (data.downloaded?.length > 0) {
           setSelectedModel((current) => current || data.downloaded[0].name);
         }
       } catch {
         // ignore
       }
-    };
-    loadModels();
-  }, [serviceAvailable]);
+    },
+    [serviceAvailable],
+  );
+
+  useEffect(() => {
+    if (!serviceAvailable) return;
+    refreshModels();
+  }, [serviceAvailable, refreshModels]);
+
+  const upscalingModelsShowMessage = useCallback((msg, type) => {
+    if (type === "error") {
+      setError(msg);
+      setSuccess("");
+    } else {
+      setSuccess(msg);
+      setError("");
+    }
+  }, []);
+
+  const handleUpscalingModelInstalled = useCallback(
+    (name) => {
+      refreshModels({ selectModel: name });
+    },
+    [refreshModels],
+  );
 
   // If the plugin goes down mid-session, kill the polling interval so it
   // doesn't keep firing with a stale fetchJobs closure that thinks the
@@ -239,6 +283,10 @@ const UpscalingPage = ({ embedded = false }) => {
           model: selectedModel || undefined,
           target_width: TARGET_PRESETS[targetResolution]?.width,
           two_pass: twoPass,
+          face_enhance: faceEnhance,
+          double_fps: doubleFps,
+          sharpen: sharpen,
+          denoise_strength: denoiseStrength,
         });
         succeeded += 1;
       } catch (e) {
@@ -287,6 +335,47 @@ const UpscalingPage = ({ embedded = false }) => {
   const finishedCount = jobs.filter(
     (j) => j.status === "completed" || j.status === "failed" || j.status === "cancelled"
   ).length;
+
+  // --- Preview Modal ---
+  const handleGeneratePreview = async () => {
+    if (!videoRef.current || !previewFile) return;
+    setIsPreviewing(true);
+    try {
+      const video = videoRef.current;
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+      const originalUrl = URL.createObjectURL(blob);
+      setPreviewOriginalUrl(originalUrl);
+      
+      const upscaledUrl = await upscalingService.previewImage(blob, {
+        model: selectedModel || undefined,
+        scale: 2, 
+        sharpen: sharpen,
+        denoise_strength: denoiseStrength,
+        two_pass: twoPass,
+        face_enhance: faceEnhance,
+      });
+      setPreviewUpscaledUrl(upscaledUrl);
+    } catch (err) {
+      console.error(err);
+      setError(`Preview failed: ${err.message}`);
+    } finally {
+      setIsPreviewing(false);
+    }
+  };
+
+  const closePreview = () => {
+    setPreviewFile(null);
+    if (previewOriginalUrl) URL.revokeObjectURL(previewOriginalUrl);
+    if (previewUpscaledUrl) URL.revokeObjectURL(previewUpscaledUrl);
+    setPreviewOriginalUrl(null);
+    setPreviewUpscaledUrl(null);
+  };
 
   // --- Job status helpers ---
   const statusColor = (status) => {
@@ -428,13 +517,22 @@ const UpscalingPage = ({ embedded = false }) => {
                         <Typography variant="caption" color="text.secondary">
                           {(f.size / (1024 * 1024)).toFixed(1)} MB
                         </Typography>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleRemoveFile(i)}
-                          disabled={isUploading}
-                        >
-                          <CloseIcon fontSize="inherit" />
-                        </IconButton>
+                        <Stack direction="row">
+                          <IconButton
+                            size="small"
+                            onClick={() => setPreviewFile(f)}
+                            disabled={isUploading}
+                          >
+                            <PreviewIcon fontSize="inherit" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleRemoveFile(i)}
+                            disabled={isUploading}
+                          >
+                            <CloseIcon fontSize="inherit" />
+                          </IconButton>
+                        </Stack>
                       </Stack>
                     ))}
                   </Stack>
@@ -443,20 +541,31 @@ const UpscalingPage = ({ embedded = false }) => {
 
               {/* Settings */}
               <Stack spacing={2}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Model</InputLabel>
-                  <Select
-                    value={selectedModel}
-                    label="Model"
-                    onChange={(e) => setSelectedModel(e.target.value)}
+                <Stack direction="row" spacing={1} alignItems="flex-start">
+                  <FormControl fullWidth size="small" sx={{ flex: 1 }}>
+                    <InputLabel>Model</InputLabel>
+                    <Select
+                      value={selectedModel}
+                      label="Model"
+                      onChange={(e) => setSelectedModel(e.target.value)}
+                    >
+                      {models.downloaded?.map((m) => (
+                        <MenuItem key={m.name} value={m.name}>
+                          {m.name} ({m.scale != null ? `${m.scale}x` : "?"})
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => setUpscalingModelsModalOpen(true)}
+                    disabled={!serviceAvailable}
+                    sx={{ mt: 0.5, flexShrink: 0, whiteSpace: "nowrap" }}
                   >
-                    {models.downloaded?.map((m) => (
-                      <MenuItem key={m.name} value={m.name}>
-                        {m.name} ({m.scale}x)
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                    Manage Upscaling Models
+                  </Button>
+                </Stack>
 
                 <Box>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -489,11 +598,81 @@ const UpscalingPage = ({ embedded = false }) => {
                     <Stack>
                       <Typography variant="body2">Two-Pass Mode</Typography>
                       <Typography variant="caption" color="text.secondary">
-                        Runs 2x model twice for higher quality (slower)
+                        Runs model twice for higher quality (slower)
                       </Typography>
                     </Stack>
                   }
                 />
+
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={faceEnhance}
+                      onChange={(e) => setFaceEnhance(e.target.checked)}
+                      size="small"
+                    />
+                  }
+                  label={
+                    <Stack>
+                      <Typography variant="body2">Face Enhancement</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Restores faces using GFPGAN
+                      </Typography>
+                    </Stack>
+                  }
+                />
+
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={doubleFps}
+                      onChange={(e) => setDoubleFps(e.target.checked)}
+                      size="small"
+                    />
+                  }
+                  label={
+                    <Stack>
+                      <Typography variant="body2">Double Framerate</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Interpolates frames for smoother motion (slower)
+                      </Typography>
+                    </Stack>
+                  }
+                />
+
+                <Box>
+                  <Stack direction="row" justifyContent="space-between">
+                    <Typography variant="body2" color="text.secondary">
+                      Sharpening
+                    </Typography>
+                    <Typography variant="body2">{sharpen.toFixed(1)}</Typography>
+                  </Stack>
+                  <Slider
+                    value={sharpen}
+                    onChange={(_, v) => setSharpen(v)}
+                    min={0}
+                    max={1.0}
+                    step={0.1}
+                    size="small"
+                  />
+                </Box>
+
+                <Box>
+                  <Stack direction="row" justifyContent="space-between">
+                    <Typography variant="body2" color="text.secondary">
+                      Denoising Pre-pass
+                    </Typography>
+                    <Typography variant="body2">{denoiseStrength.toFixed(1)}</Typography>
+                  </Stack>
+                  <Slider
+                    value={denoiseStrength}
+                    onChange={(_, v) => setDenoiseStrength(v)}
+                    min={0}
+                    max={1.0}
+                    step={0.1}
+                    size="small"
+                  />
+                </Box>
 
                 <Button
                   variant="contained"
@@ -559,8 +738,84 @@ const UpscalingPage = ({ embedded = false }) => {
           )}
         </Grid>
 
-        {/* Right: Job History */}
+        {/* Right: Preview & Job History */}
         <Grid item xs={12} lg={7}>
+          {previewFile && (
+            <Card sx={{ boxShadow: 2, borderRadius: 2, mb: 3 }}>
+              <CardContent sx={{ p: 3 }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    Preview Upscale
+                  </Typography>
+                  <IconButton size="small" onClick={closePreview}>
+                    <CloseIcon />
+                  </IconButton>
+                </Stack>
+
+                {!previewUpscaledUrl ? (
+                  <Box textAlign="center">
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      Seek to a frame and click "Generate Preview" to see the upscaled frame.
+                    </Typography>
+                    <Box
+                      sx={{
+                        "& video::-webkit-media-controls-start-playback-button": { display: "none" },
+                        "& video::-webkit-media-controls-play-button": { display: "none" },
+                        "& video": { pointerEvents: "auto" }
+                      }}
+                    >
+                      <video
+                        ref={videoRef}
+                        src={URL.createObjectURL(previewFile)}
+                        controls
+                        style={{ maxWidth: "100%", maxHeight: "40vh", borderRadius: "8px" }}
+                      />
+                    </Box>
+                    <Box sx={{ mt: 2 }}>
+                      <Button
+                        variant="contained"
+                        onClick={handleGeneratePreview}
+                        disabled={isPreviewing || !serviceAvailable}
+                      >
+                        {isPreviewing ? "Generating..." : "Generate Preview"}
+                      </Button>
+                    </Box>
+                  </Box>
+                ) : (
+                  <Box>
+                    <Grid container spacing={2}>
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" align="center" gutterBottom>
+                          Original Frame
+                        </Typography>
+                        <img
+                          src={previewOriginalUrl}
+                          alt="Original"
+                          style={{ width: "100%", height: "auto", display: "block", borderRadius: "8px" }}
+                        />
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" align="center" gutterBottom>
+                          Upscaled Frame
+                        </Typography>
+                        <img
+                          src={previewUpscaledUrl}
+                          alt="Upscaled"
+                          style={{ width: "100%", height: "auto", display: "block", borderRadius: "8px" }}
+                        />
+                      </Grid>
+                    </Grid>
+                    <Box sx={{ mt: 2, textAlign: "center" }}>
+                      <Button onClick={() => setPreviewUpscaledUrl(null)}>
+                        Back to Video
+                      </Button>
+                    </Box>
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           <Card sx={{ boxShadow: 2, borderRadius: 2 }}>
             <CardContent sx={{ p: 3 }}>
               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
@@ -686,6 +941,15 @@ const UpscalingPage = ({ embedded = false }) => {
           </Card>
         </Grid>
       </Grid>
+
+      <Suspense fallback={null}>
+        <UpscalingModelsModal
+          open={upscalingModelsModalOpen}
+          onClose={() => setUpscalingModelsModalOpen(false)}
+          showMessage={upscalingModelsShowMessage}
+          onInstalled={handleUpscalingModelInstalled}
+        />
+      </Suspense>
     </Wrapper>
   );
 };

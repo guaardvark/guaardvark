@@ -64,7 +64,10 @@ class ImageUpscaleRequest(BaseModel):
     output_path: str
     model: Optional[str] = None
     scale: Optional[float] = None
-    denoise_strength: Optional[float] = None
+    denoise_strength: Optional[float] = 0.0
+    sharpen: Optional[float] = 0.3
+    two_pass: Optional[bool] = False
+    face_enhance: Optional[bool] = False
 
 
 class VideoUpscaleRequest(BaseModel):
@@ -72,7 +75,11 @@ class VideoUpscaleRequest(BaseModel):
     output_path: Optional[str] = None
     model: Optional[str] = None
     scale: Optional[float] = None
-    denoise_strength: Optional[float] = None
+    denoise_strength: Optional[float] = 0.0
+    sharpen: Optional[float] = 0.3
+    two_pass: Optional[bool] = False
+    face_enhance: Optional[bool] = False
+    double_fps: Optional[bool] = False
     suffix: str = "upscaled"
 
 
@@ -155,7 +162,11 @@ def _submit_watch_job(input_path: str):
         output_path=output_path,
         model_name=_config.default_model,
         scale=None,
-        denoise_strength=0.5,
+        denoise_strength=0.0,
+        sharpen=0.3,
+        two_pass=False,
+        face_enhance=False,
+        double_fps=False,
     )
 
 
@@ -175,6 +186,10 @@ def _start_video_job(
     model_name: Optional[str],
     scale: Optional[float],
     denoise_strength: float,
+    sharpen: float,
+    two_pass: bool,
+    face_enhance: bool,
+    double_fps: bool,
 ) -> dict:
     """Create a video upscale job and drop it on the queue. The worker will
     pick it up when the GPU is free."""
@@ -185,6 +200,10 @@ def _start_video_job(
         model=name,
         scale=scale or 0,
         denoise_strength=denoise_strength,
+        sharpen=sharpen,
+        two_pass=two_pass,
+        face_enhance=face_enhance,
+        double_fps=double_fps,
     )
     cancel_event = threading.Event()
     _cancel_flags[job["job_id"]] = cancel_event
@@ -195,7 +214,7 @@ def _start_video_job(
         return job
 
     _job_queue.put(
-        (job["job_id"], input_path, output_path, name, scale, denoise_strength, cancel_event)
+        (job["job_id"], input_path, output_path, name, scale, denoise_strength, sharpen, two_pass, face_enhance, double_fps, cancel_event)
     )
     return job
 
@@ -207,9 +226,9 @@ def _job_worker():
         task = _job_queue.get()
         if task is None:
             break
-        job_id, input_path, output_path, model_name, scale, denoise, cancel_event = task
+        job_id, input_path, output_path, model_name, scale, denoise, sharpen, two_pass, face_enhance, double_fps, cancel_event = task
         try:
-            _run_video_job(job_id, input_path, output_path, model_name, scale, denoise, cancel_event)
+            _run_video_job(job_id, input_path, output_path, model_name, scale, denoise, sharpen, two_pass, face_enhance, double_fps, cancel_event)
         except Exception as e:
             # _run_video_job already records failure into the job manager;
             # this is a last-resort log so a worker crash doesn't kill the loop.
@@ -223,6 +242,10 @@ def _run_video_job(
     model_name: str,
     scale: Optional[float],
     denoise_strength: float,
+    sharpen: float,
+    two_pass: bool,
+    face_enhance: bool,
+    double_fps: bool,
     cancel_event: threading.Event,
 ):
     """Background worker for video upscale job."""
@@ -252,7 +275,7 @@ def _run_video_job(
         out_w = int(in_w * outscale)
         out_h = int(in_h * outscale)
 
-        tile_size = 0
+        tile_size = 400
         if _config.max_tile_size != "auto":
             tile_size = int(_config.max_tile_size)
 
@@ -274,15 +297,15 @@ def _run_video_job(
             if cancel_event.is_set():
                 raise InterruptedError("Job cancelled")
 
-            # Fix 6: Job timeout enforcement
-            elapsed = time.time() - start_time
-            if _config and elapsed > _config.job_timeout_minutes * 60:
-                raise TimeoutError(f"Job exceeded {_config.job_timeout_minutes} minute timeout")
+            # Timeout check removed as requested
+            pass
 
             result = upscale_image(
                 frame, model, model_scale,
                 outscale=outscale, tile_size=tile_size,
                 device=device, precision=_config.precision,
+                sharpen=sharpen, denoise_strength=denoise_strength, two_pass=two_pass,
+                face_enhance=face_enhance,
             )
             frame_count[0] += 1
             elapsed = time.time() - start_time
@@ -311,6 +334,7 @@ def _run_video_job(
             frame_processor=process_frame,
             out_width=out_w,
             out_height=out_h,
+            double_fps=double_fps,
         )
 
         _job_manager.complete_job(job_id)
@@ -410,7 +434,7 @@ def upscale_image_endpoint(req: ImageUpscaleRequest, request: Request):
         model = _model_manager.get_model()
         model_scale = _model_manager.scale or 4
 
-        tile_size = 0
+        tile_size = 400
         if _config.max_tile_size != "auto":
             tile_size = int(_config.max_tile_size)
 
@@ -419,6 +443,10 @@ def upscale_image_endpoint(req: ImageUpscaleRequest, request: Request):
             img, model, model_scale,
             outscale=req.scale, tile_size=tile_size,
             device=device, precision=_config.precision,
+            sharpen=req.sharpen if req.sharpen is not None else 0.3,
+            denoise_strength=req.denoise_strength if req.denoise_strength is not None else 0.0,
+            two_pass=req.two_pass if req.two_pass is not None else False,
+            face_enhance=req.face_enhance if req.face_enhance is not None else False,
         )
 
     # `os.path.dirname("foo.png")` returns "" — `os.makedirs("")` raises
@@ -439,6 +467,10 @@ async def upscale_image_upload(
     file: UploadFile = File(...),
     model: Optional[str] = Form(None),
     scale: Optional[float] = Form(None),
+    sharpen: Optional[float] = Form(0.3),
+    denoise_strength: Optional[float] = Form(0.0),
+    two_pass: Optional[bool] = Form(False),
+    face_enhance: Optional[bool] = Form(False),
 ):
     verify_token(request)
     contents = await file.read()
@@ -453,7 +485,7 @@ async def upscale_image_upload(
         mdl = _model_manager.get_model()
         model_scale = _model_manager.scale or 4
 
-        tile_size = 0
+        tile_size = 400
         if _config.max_tile_size != "auto":
             tile_size = int(_config.max_tile_size)
 
@@ -462,6 +494,8 @@ async def upscale_image_upload(
             img, mdl, model_scale,
             outscale=scale, tile_size=tile_size,
             device=device, precision=_config.precision,
+            sharpen=sharpen, denoise_strength=denoise_strength, two_pass=two_pass,
+            face_enhance=face_enhance,
         )
 
     import tempfile
@@ -498,7 +532,11 @@ def upscale_video_endpoint(req: VideoUpscaleRequest, request: Request):
         output_path=output_path,
         model_name=req.model,
         scale=req.scale,
-        denoise_strength=req.denoise_strength or 0.5,
+        denoise_strength=req.denoise_strength if req.denoise_strength is not None else 0.0,
+        sharpen=req.sharpen if req.sharpen is not None else 0.3,
+        two_pass=req.two_pass if req.two_pass is not None else False,
+        face_enhance=req.face_enhance if req.face_enhance is not None else False,
+        double_fps=req.double_fps if req.double_fps is not None else False,
     )
     return job
 

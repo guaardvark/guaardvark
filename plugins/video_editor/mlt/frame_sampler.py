@@ -1,9 +1,9 @@
 """Extract N evenly-spaced frames from a video clip via ffmpeg.
 
-Frames feed the Art Director (qwen3-vl) so it can read each clip's subject /
+Frames feed the Art Director (vision model) so it can read each clip's subject /
 energy / palette / motion / mood. We use JPEG at quality 3 (very high) —
-qwen3-vl tokenizes the image once so payload size doesn't matter much, and
-crisp frames help the model on small details.
+the vision model tokenizes the image once so payload size doesn't matter much,
+and crisp frames help the model on small details.
 
 Output naming: <output_dir>/<source_stem>__f{i}.jpg. Caller is expected to
 pass a per-clip subdir (e.g. data/outputs/videos/clip-scans/<hash>/) so

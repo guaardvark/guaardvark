@@ -115,7 +115,7 @@ class PlanBody(BaseModel):
 
 
 class RescanClipBody(BaseModel):
-    """Force a fresh qwen3-vl pass on a single clip — busts the cache first."""
+    """Force a fresh vision-model pass on a single clip — busts the cache first."""
 
     source_path: str
     style_recipe_name: str = "default"
@@ -127,7 +127,7 @@ class OpenInShotcutBody(BaseModel):
 
 
 class VisionScanBody(BaseModel):
-    """A3 will run real qwen3-vl here; A1 stub returns neutral defaults."""
+    """A3 will run real vision-model here; A1 stub returns neutral defaults."""
 
     clip_paths: list[str] = Field(..., min_length=1)
 
@@ -487,7 +487,7 @@ def submit_plan(body: PlanBody) -> dict[str, Any]:
 
 @app.post("/vision/scan-clips")
 def vision_scan_clips(body: VisionScanBody) -> dict[str, Any]:
-    """Per-clip vision analysis. A1: neutral defaults via LocalArtDirector. A3: qwen3-vl."""
+    """Per-clip vision analysis. A1: neutral defaults via LocalArtDirector. A3: vision-model."""
     _require_paths(*body.clip_paths)
     out: list[dict[str, Any]] = []
     for p in body.clip_paths:

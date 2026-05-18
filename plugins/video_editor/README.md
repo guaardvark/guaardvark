@@ -1,6 +1,6 @@
 # Video Editor
 
-Bin-driven montage assembly. Drop B-roll into a project bin, pick a song, click **Plan** — the **Art Director** (qwen3-vl) reads each clip, picks a filter, decides which clip goes in which section of the song, and emits an arrangement. Click **Render** to get a Shotcut-readable `.mlt` and a final `.mp4`. Click **Open in Shotcut** if you want to refine anything by hand.
+Bin-driven montage assembly. Drop B-roll into a project bin, pick a song, click **Plan** — the **Art Director** (vision model) reads each clip, picks a filter, decides which clip goes in which section of the song, and emits an arrangement. Click **Render** to get a Shotcut-readable `.mlt` and a final `.mp4`. Click **Open in Shotcut** if you want to refine anything by hand.
 
 The end-state goal is the Batch Video Generator workflow: pick a Style Recipe, click **Quick Render**, walk away.
 
@@ -19,7 +19,7 @@ Pick Detection mode    ←  Audio | Motion | Both (strict) | Both (loose)
   │  auto-editor analyze each clip   →  kept ranges          │
   │  librosa beat_track + sections   →  song structure       │
   │  ffmpeg sample 3 frames per clip                          │
-  │  qwen3-vl analyze each clip      →  ClipAnalysis (cached) │
+  │  vision model analyze each clip  →  ClipAnalysis (cached) │
   │  apply Director's Notes overrides                         │
   │  arranger combines + recipe bias →  Arrangement.json     │
   └───────────────────────────────────────────────────────────┘
@@ -30,7 +30,7 @@ Pick Detection mode    ←  Audio | Motion | Both (strict) | Both (loose)
   - Edit subject/energy/palette/motion/mood chips
   - Pick filter from category grid (Color/Motion/Stylize/Glitch)
   - Toggle section-fit chips
-  - "Re-analyze" forces fresh qwen3-vl pass (cache bust)
+  - "Re-analyze" forces fresh vision-model pass (cache bust)
 
                             ↓
   ┌──[ Render ]──────────────────────────────────────────────┐
@@ -115,7 +115,7 @@ Write:
 - `POST /plan` — submit a Plan job (bin + song + scan mode + recipe + seed + overrides). Returns `{job_id}`.
 - `POST /shotcut/compose-arrangement` — render an Arrangement to `.mlt` + `.mp4` (multi-clip + filters + transitions).
 - `POST /shotcut/compose` — legacy single-clip path (used by older M3 callers).
-- `POST /vision/rescan-clip` — force cache bust + fresh qwen3-vl pass for one clip.
+- `POST /vision/rescan-clip` — force cache bust + fresh vision-model pass for one clip.
 - `POST /vision/clip-hash` — resolve cache key for URL building.
 - `POST /auto-editor/trim` — direct auto-editor wrapper (mp4 or kdenlive XML).
 - `POST /beat-sync/render` — the original M1 demo flow.
@@ -137,7 +137,7 @@ class CrewInterface(Protocol):
     def arrange(self, clip_analyses, song, kept_ranges_by_clip, recipe, seed) -> Arrangement: ...
 ```
 
-`LocalArtDirector` is v1: in-process qwen3-vl via Ollama + rule-based arranger. When the `film_crew` plugin eventually lands, `FilmCrewClient` (HTTP client to that plugin) drops in with a one-line change in `service/app.py`. **Don't bypass the interface** in call sites — keep model specifics behind it.
+`LocalArtDirector` is v1: in-process vision-model call via Ollama + rule-based arranger. When the `film_crew` plugin eventually lands, `FilmCrewClient` (HTTP client to that plugin) drops in with a one-line change in `service/app.py`. **Don't bypass the interface** in call sites — keep model specifics behind it.
 
 ### Pipeline orchestration
 

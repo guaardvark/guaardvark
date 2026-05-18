@@ -1,11 +1,12 @@
 """CrewInterface — the contract between the editor's pipeline and the creative AI.
 
 v1 implementation (LocalArtDirector) lives in this plugin and talks directly to
-Ollama for qwen3-vl. v2 will live in a separate `plugins/film_crew/` service;
-the editor swaps `LocalArtDirector` for `FilmCrewClient` and nothing else changes.
+Ollama for the vision model. v2 will live in a separate `plugins/film_crew/`
+service; the editor swaps `LocalArtDirector` for `FilmCrewClient` and nothing
+else changes.
 
 This indirection is the user's explicit roadmap. Don't fold it into the call
-sites — keep all qwen3-vl / Gemma4 specifics behind this Protocol.
+sites — keep all Gemma4 specifics behind this Protocol.
 """
 
 from __future__ import annotations
@@ -140,8 +141,8 @@ class CrewInterface(Protocol):
 
 
 class LocalArtDirector:
-    """v1 in-process implementation. analyze_clip calls qwen3-vl via Ollama on
-    sampled frames; arrange delegates to the rule-based arranger.
+    """v1 in-process implementation. analyze_clip calls the vision model via
+    Ollama on sampled frames; arrange delegates to the rule-based arranger.
 
     Filter palette honored when present in the recipe — caller passes the
     recipe in, we expose the allowed slugs to the model so its
@@ -151,7 +152,7 @@ class LocalArtDirector:
     def __init__(
         self,
         ollama_url: str = "http://localhost:11434",
-        vision_model: str = "qwen3-vl:4b-instruct",
+        vision_model: str = "gemma4:e4b",
         vision_timeout_s: float = 60.0,
     ) -> None:
         self.ollama_url = ollama_url

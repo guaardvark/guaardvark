@@ -15,6 +15,15 @@ export const getModels = async () => {
   return handleResponse(response);
 };
 
+export const downloadModel = async (modelName) => {
+  const response = await fetch(`${BASE_URL}/models/download`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model: modelName }),
+  });
+  return handleResponse(response);
+};
+
 export const uploadAndUpscale = async (file, options = {}) => {
   const formData = new FormData();
   formData.append("file", file);
@@ -22,12 +31,46 @@ export const uploadAndUpscale = async (file, options = {}) => {
   if (options.scale) formData.append("scale", String(options.scale));
   if (options.target_width) formData.append("target_width", String(options.target_width));
   if (options.two_pass) formData.append("two_pass", "true");
+  if (options.face_enhance) formData.append("face_enhance", "true");
+  if (options.double_fps) formData.append("double_fps", "true");
+  if (options.sharpen !== undefined) formData.append("sharpen", String(options.sharpen));
+  if (options.denoise_strength !== undefined) formData.append("denoise_strength", String(options.denoise_strength));
 
   const response = await fetch(`${BASE_URL}/upload`, {
     method: "POST",
     body: formData,
   });
   return handleResponse(response);
+};
+
+export const previewImage = async (blob, options = {}) => {
+  const formData = new FormData();
+  formData.append("file", blob, "preview.png");
+  if (options.model) formData.append("model", options.model);
+  if (options.scale) formData.append("scale", String(options.scale));
+  if (options.sharpen !== undefined) formData.append("sharpen", String(options.sharpen));
+  if (options.denoise_strength !== undefined) formData.append("denoise_strength", String(options.denoise_strength));
+  if (options.two_pass) formData.append("two_pass", "true");
+  if (options.face_enhance) formData.append("face_enhance", "true");
+
+  const response = await fetch(`${BASE_URL}/preview`, {
+    method: "POST",
+    body: formData,
+  });
+  
+  if (!response.ok) {
+    let error;
+    try {
+      const data = await response.json();
+      error = data.error || data.message || "Failed to generate preview";
+    } catch {
+      error = response.statusText;
+    }
+    throw new Error(error);
+  }
+  
+  const resultBlob = await response.blob();
+  return URL.createObjectURL(resultBlob);
 };
 
 export const upscaleVideo = async (inputPath, options = {}) => {
@@ -68,10 +111,12 @@ export const clearFinishedJobs = async () => {
 export default {
   getHealth,
   getModels,
+  downloadModel,
   uploadAndUpscale,
   upscaleVideo,
   listJobs,
   getJob,
   cancelJob,
   clearFinishedJobs,
+  previewImage,
 };

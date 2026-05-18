@@ -57,7 +57,7 @@ def test_sample_missing_input_raises(tmp_path: Path):
 
 
 def test_sampled_jpegs_are_readable(short_clip: Path, tmp_path: Path):
-    """Make sure the bytes we'd send to qwen3-vl are actually JPEG."""
+    """Make sure the bytes we'd send to the vision model are actually JPEG."""
     out_dir = tmp_path / "frames"
     frames = sample_frames(short_clip, out_dir, n_frames=2)
     for f in frames:

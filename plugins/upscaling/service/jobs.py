@@ -30,6 +30,10 @@ class JobManager:
         model: str,
         scale: float,
         denoise_strength: float = 0.5,
+        sharpen: float = 0.3,
+        two_pass: bool = False,
+        face_enhance: bool = False,
+        double_fps: bool = False,
     ) -> Dict[str, Any]:
         job_id = uuid.uuid4().hex[:12]
         job = {
@@ -40,6 +44,10 @@ class JobManager:
             "model": model,
             "scale": scale,
             "denoise_strength": denoise_strength,
+            "sharpen": sharpen,
+            "two_pass": two_pass,
+            "face_enhance": face_enhance,
+            "double_fps": double_fps,
             "progress": 0.0,
             "fps": 0.0,
             "eta_seconds": None,

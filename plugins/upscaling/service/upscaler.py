@@ -13,6 +13,32 @@ import torch
 
 logger = logging.getLogger("upscaling.upscaler")
 
+import logging
+
+logger = logging.getLogger("upscaling.upscaler")
+
+_face_restorer = None
+
+def _get_face_restorer():
+    global _face_restorer
+    if _face_restorer is None:
+        try:
+            from gfpgan import GFPGANer
+            import os
+            weights_dir = os.path.join(os.path.dirname(__file__), "..", "gfpgan", "weights")
+            os.makedirs(weights_dir, exist_ok=True)
+            _face_restorer = GFPGANer(
+                model_path='https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth',
+                upscale=1,
+                arch='clean',
+                channel_multiplier=2,
+                bg_upsampler=None
+            )
+        except ImportError:
+            logger.error("gfpgan is not installed. Face enhancement will be skipped.")
+            _face_restorer = "missing"
+    return _face_restorer if _face_restorer != "missing" else None
+
 
 def _pre_process(
     img: np.ndarray,
@@ -110,6 +136,9 @@ def upscale_image(
     device: str = "cuda",
     precision: str = "bf16",
     sharpen: float = 0.3,
+    denoise_strength: float = 0.0,
+    two_pass: bool = False,
+    face_enhance: bool = False,
 ) -> np.ndarray:
     """Upscale a single image (HWC uint8 numpy).
 
@@ -128,6 +157,16 @@ def upscale_image(
         Upscaled image as HWC uint8 numpy array (BGR).
     """
     h_in, w_in = img.shape[:2]
+
+    # Strip alpha channel entirely if present (prevents transparent black frames)
+    if len(img.shape) == 3 and img.shape[2] == 4:
+        img = img[:, :, :3]
+
+    if denoise_strength > 0:
+        strength = int(denoise_strength * 10)
+        if strength > 0:
+            img = cv2.fastNlMeansDenoisingColored(img, None, h=strength, hColor=strength, templateWindowSize=7, searchWindowSize=21)
+
     tensor = _pre_process(img, device=device, precision=precision)
 
     if tile_size > 0:
@@ -135,12 +174,27 @@ def upscale_image(
     else:
         output_tensor = model(tensor)
 
+    if two_pass:
+        output_tensor = output_tensor.clamp(0, 1)
+        if tile_size > 0:
+            output_tensor = _tile_process(output_tensor, model, scale, tile_size)
+        else:
+            output_tensor = model(output_tensor)
+        scale = scale * scale
+
     output = _post_process(output_tensor)
 
     if outscale is not None and abs(outscale - scale) > 0.01:
         target_w = int(w_in * outscale)
         target_h = int(h_in * outscale)
         output = cv2.resize(output, (target_w, target_h), interpolation=cv2.INTER_LANCZOS4)
+
+    if face_enhance:
+        restorer = _get_face_restorer()
+        if restorer:
+            _, _, restored_img = restorer.enhance(output, has_aligned=False, only_center_face=False, paste_back=True)
+            if restored_img is not None:
+                output = restored_img
 
     if sharpen > 0:
         output = _sharpen(output, amount=sharpen)

@@ -23,6 +23,7 @@ def get_video_info(video_path: str) -> Dict[str, Any]:
     vs = video_streams[0]
     fps_parts = vs["avg_frame_rate"].split("/")
     fps = float(fps_parts[0]) / float(fps_parts[1]) if len(fps_parts) == 2 else float(fps_parts[0])
+    pix_fmt = vs.get("pix_fmt", "yuv420p")
 
     return {
         "width": int(vs["width"]),
@@ -30,6 +31,7 @@ def get_video_info(video_path: str) -> Dict[str, Any]:
         "fps": fps,
         "nb_frames": int(vs.get("nb_frames", 0)),
         "has_audio": has_audio,
+        "pix_fmt": pix_fmt,
     }
 
 
@@ -64,6 +66,7 @@ def process_video(
     out_width: int,
     out_height: int,
     progress_callback: Optional[Callable[[int], None]] = None,
+    double_fps: bool = False,
 ) -> None:
     """Process a video frame-by-frame with the given processor function.
 
@@ -79,6 +82,7 @@ def process_video(
     width, height = info["width"], info["height"]
     fps = info["fps"]
     has_audio = info["has_audio"]
+    orig_pix_fmt = info.get("pix_fmt", "yuv420p")
 
     use_nvdec = _check_nvdec_available()
     use_nvenc = _check_nvenc_available()
@@ -96,13 +100,21 @@ def process_video(
 
     # --- Build writer process ---
     tmp_output = output_path + ".tmp.mp4"
-    vcodec = "h264_nvenc" if use_nvenc else "libx264"
+    
+    # Use HEVC for 10-bit formats, H264 otherwise
+    is_10bit = "10" in orig_pix_fmt
+    vcodec = "hevc_nvenc" if use_nvenc and is_10bit else "h264_nvenc" if use_nvenc else "libx265" if is_10bit else "libx264"
+    
     writer_args = {
-        "pix_fmt": "yuv420p",
+        "pix_fmt": orig_pix_fmt,
         "vcodec": vcodec,
         "loglevel": "error",
     }
-    if vcodec == "h264_nvenc":
+    
+    if double_fps:
+        writer_args["vf"] = f"minterpolate='fps={int(fps*2)}:mi_mode=mci:mc_mode=aobmc'"
+        
+    if "nvenc" in vcodec:
         writer_args["preset"] = "p7"
         writer_args["rc"] = "vbr"
         writer_args["cq"] = "14"

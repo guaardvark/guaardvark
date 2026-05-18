@@ -1,4 +1,4 @@
-"""Art Director — qwen3-vl client that turns sampled frames into a ClipAnalysis.
+"""Art Director — vision-model client that turns sampled frames into a ClipAnalysis.
 
 Uses Ollama's /api/generate endpoint with the `images` parameter (list of
 base64-encoded JPEGs) and `format: "json"` for structured output. JSON parsing
@@ -26,7 +26,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_MODEL = "qwen3-vl:4b-instruct"
+DEFAULT_MODEL = "gemma4:e4b"
 DEFAULT_TIMEOUT_S = 60.0
 
 
@@ -75,7 +75,7 @@ def analyze_frames(
     ollama_url: str = "http://localhost:11434",
     timeout_s: float = DEFAULT_TIMEOUT_S,
 ) -> dict[str, Any]:
-    """Run a single qwen3-vl call on `frame_paths` and return a normalized analysis dict.
+    """Run a single vision-model call on `frame_paths` and return a normalized analysis dict.
 
     Returns the dict shape that ClipAnalysis expects (subject, energy,
     dominant_palette, motion, mood, recommended_filter, best_section_fit).

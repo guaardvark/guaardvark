@@ -369,7 +369,7 @@ const VideoEditorPage = () => {
     handlePlan();
   }, [canPlan, handlePlan]);
 
-  // Re-analyze a single clip: drops cache, re-samples frames, fresh qwen3-vl.
+  // Re-analyze a single clip: drops cache, re-samples frames, fresh vision pass.
   // The new analysis replaces both the cached value and the current planJob's
   // clip_analyses entry so the UI updates without a full re-Plan.
   const [rescanInFlight, setRescanInFlight] = useState(null);  // clip_id currently being re-analyzed

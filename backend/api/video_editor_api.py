@@ -259,7 +259,7 @@ def submit_plan():
 
 @video_editor_bp.route("/vision/scan-clips", methods=["POST"])
 def vision_scan_clips():
-    """A1: returns neutral defaults. A3: real qwen3-vl call inside the plugin."""
+    """A1: returns neutral defaults. A3: real vision call inside the plugin."""
     payload = flask_request.get_json(silent=True) or {}
     if "document_ids" in payload and not payload.get("clip_paths"):
         ids = payload.pop("document_ids") or []

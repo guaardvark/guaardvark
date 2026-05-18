@@ -6,7 +6,7 @@ Stages, in order:
   2. Librosa beat + section analysis on the song → SongStructure.
   3. Vision-model analyze each clip (cached) → ClipAnalysis.
      v1: returns neutral defaults via LocalArtDirector (no GPU spend).
-     A3:  real qwen3-vl call.
+     A3:  real gemma4:e4b call.
   4. Arrange via CrewInterface.arrange → Arrangement.
 
 The output is the full Arrangement plus per-clip kept-ranges, ready for the
