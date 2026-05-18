@@ -353,7 +353,7 @@ class SemanticChunker(BaseChunker):
             # PROTECTED CODE - Embedding Model Initialization
             # --------------------------------------------------------------------------
             # Uses get_local_embedding_model() which returns proper Ollama embeddings
-            # (qwen3-embedding:8b with 4096 dimensions). Do NOT replace with
+            # (mxbai-embed-large with 1024 dimensions). Do NOT replace with
             # SimpleTextEmbedding or hash-based embeddings - causes dimension mismatch.
             # Changes require project owner permission. Last verified: 2026-01-31
             # ==========================================================================

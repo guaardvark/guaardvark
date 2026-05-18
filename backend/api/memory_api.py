@@ -18,11 +18,43 @@ logger = logging.getLogger(__name__)
 memory_bp = Blueprint("memory", __name__, url_prefix="/api/memory")
 
 
+# Per-type defaults applied when the caller doesn't pass an explicit importance.
+# Facts and notes are load-bearing for behavior (ground truth + operating rules),
+# so they outrank softer preferences in the importance-DESC recall order used by
+# _query_memories. Lesson summaries and belief updates have their own semantics
+# documented next to the lesson reconciler.
+DEFAULT_IMPORTANCE_BY_TYPE = {
+    "fact": 0.85,
+    "note": 0.80,
+    "preference": 0.65,
+    "lesson_summary": 0.75,
+    "belief_update": 0.55,
+}
+
+# Per-type per-line truncation budgets. Notes are imperative rules and need
+# room to state the rule. Facts are typically short attributes. Preferences
+# sit in the middle. Anything else falls back to the legacy 300-char cap.
+TRUNCATE_BY_TYPE = {
+    "fact": 200,
+    "note": 400,
+    "preference": 250,
+}
+
+# Section headers framing each group for the LLM. The framing words tell the
+# model how strictly to weigh the content: facts override defaults, notes are
+# imperative rules, preferences yield to explicit per-turn user requests.
+SECTION_HEADERS = {
+    "fact": "Known facts about the user (treat as ground truth — do not contradict):",
+    "note": "Operating notes (treat as imperative rules — follow when applicable):",
+    "preference": "User preferences (apply by default; the user can override per turn):",
+}
+
+
 def add_memory(
     content: str,
     memory_type: str = "note",
     source: str = "manual",
-    importance: float = 0.5,
+    importance=None,
     session_id=None,
     tags=None,
 ):
@@ -42,6 +74,8 @@ def add_memory(
         return None
     tags_list = list(tags) if tags else []
     mem_id = uuid.uuid4().hex[:12]
+    if importance is None:
+        importance = DEFAULT_IMPORTANCE_BY_TYPE.get(memory_type, 0.7)
     try:
         memory = AgentMemory(
             id=mem_id,
@@ -78,7 +112,9 @@ def save_memory():
         content=data["content"],
         memory_type=data.get("type", "note"),
         source=data.get("source", "manual"),
-        importance=data.get("importance", 0.5),
+        # None lets DEFAULT_IMPORTANCE_BY_TYPE pick the per-type weight; an
+        # explicit numeric value from the client still wins.
+        importance=data.get("importance"),
         session_id=data.get("session_id"),
         tags=data.get("tags", []),
     )
@@ -273,22 +309,55 @@ def get_memories_for_context(limit: int = 20, max_tokens: int = 500, query: str 
     if not memories:
         return ""
 
-    lines = ["User's saved memories (treat as facts/preferences):"]
     char_budget = max_tokens * 4  # rough chars-to-tokens ratio
-    used = len(lines[0])
+    used = 0
 
+    # Group by category. lesson_summary stays as its own bucket (source-based);
+    # everything else groups by type so each lands under a framing header
+    # tailored to how strictly the model should treat it.
+    groups = {"fact": [], "note": [], "preference": [], "lesson_summary": [], "other": []}
     for m in memories:
-        content = m.content.strip()
-        if not content:
-            continue
-
-        # Lesson summaries are stored as JSON {title, steps:[{order, text}]}.
-        # Flatten into readable imperative text so Gemma4 can treat them as
-        # behavioral instructions, not opaque JSON fragments. Without this
-        # branch, lessons get decapitated by the 300-char truncation below
-        # and the model never sees the actual steps — the whole pipeline
-        # saves lessons that never influence behavior.
         if m.source == "lesson_summary":
+            groups["lesson_summary"].append(m)
+        elif m.type in groups:
+            groups[m.type].append(m)
+        else:
+            groups["other"].append(m)
+
+    sections = []
+
+    def _render_plain(items, truncate):
+        """Render a flat group with a per-line truncation cap. Returns the
+        list of body lines actually fit into the char budget."""
+        nonlocal used
+        out = []
+        for m in items:
+            content = (m.content or "").strip()
+            if not content:
+                continue
+            if len(content) > truncate:
+                content = content[: truncate - 3] + "..."
+            line = f"- {content}"
+            if used + len(line) > char_budget:
+                return out
+            out.append(line)
+            used += len(line)
+        return out
+
+    for type_name in ("fact", "note", "preference"):
+        body = _render_plain(groups[type_name], TRUNCATE_BY_TYPE[type_name])
+        if body:
+            sections.append("\n".join([SECTION_HEADERS[type_name]] + body))
+
+    # Lessons keep their bespoke JSON-flatten path; they need parameter
+    # expansion that plain memories don't. The 1200-char cap reflects step
+    # lists + parameter definitions needing the room.
+    if groups["lesson_summary"]:
+        lesson_lines = []
+        for m in groups["lesson_summary"]:
+            content = (m.content or "").strip()
+            if not content:
+                continue
             try:
                 lesson_data = json.loads(content)
                 title = (lesson_data.get("title") or "Task").strip()
@@ -303,10 +372,8 @@ def get_memories_for_context(limit: int = 20, max_tokens: int = 500, query: str 
                         step_texts.append(f"{s.get('order') if isinstance(s, dict) else len(step_texts) + 1}. {text}")
                 flattened = f"LESSON ({title}): " + " -> ".join(step_texts)
 
-                # Append a PARAMETERS line if the lesson defines placeholders.
-                # This is what teaches Gemma4 that "{channel}" in the steps is
-                # a slot to fill from the current user request — without it,
-                # the model sees bare placeholder text and gets confused.
+                # PARAMETERS line teaches the model that "{channel}" in the
+                # steps is a slot to fill from the current user request.
                 parameters = lesson_data.get("parameters") or []
                 if parameters:
                     param_strs = []
@@ -327,11 +394,9 @@ def get_memories_for_context(limit: int = 20, max_tokens: int = 500, query: str 
                     if param_strs:
                         flattened += " | PARAMETERS: " + ", ".join(param_strs)
 
+                if len(flattened) > 1200:
+                    flattened = flattened[:1197] + "..."
                 content = flattened
-                # Lessons get a larger per-entry budget than notes — step lists
-                # + parameter definitions need the room.
-                if len(content) > 1200:
-                    content = content[:1197] + "..."
             except Exception as parse_err:
                 logger.warning(
                     f"Lesson memory {m.id} has malformed JSON content; "
@@ -339,21 +404,29 @@ def get_memories_for_context(limit: int = 20, max_tokens: int = 500, query: str 
                 )
                 if len(content) > 300:
                     content = content[:297] + "..."
-        else:
-            # Standard truncation for plain notes / facts / instructions
-            if len(content) > 300:
-                content = content[:297] + "..."
+            line = f"- {content}"
+            if used + len(line) > char_budget:
+                break
+            lesson_lines.append(line)
+            used += len(line)
+        if lesson_lines:
+            sections.append(
+                "\n".join(
+                    ["Learned procedures (apply when the task matches):"] + lesson_lines
+                )
+            )
 
-        line = f"- {content}"
-        if used + len(line) > char_budget:
-            break
-        lines.append(line)
-        used += len(line)
+    # Catch-all for any non-standard type (legacy "instruction", "snippet",
+    # belief_update emitted through this path, etc). Kept under a neutral
+    # header so they still surface, just without type-specific framing.
+    if groups["other"]:
+        other_body = _render_plain(groups["other"], 300)
+        if other_body:
+            sections.append("\n".join(["Other saved memories:"] + other_body))
 
-    if len(lines) == 1:
-        return ""  # header only, no actual memories
-
-    return "\n".join(lines)
+    if not sections:
+        return ""
+    return "\n\n".join(sections)
 
 
 def get_lessons_for_agent_prompt(

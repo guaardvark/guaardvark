@@ -65,6 +65,7 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
       toolCalls: toolCallsRef.current,
       images: imagesRef.current || [],
       agentThinkingSteps: agentStepsRef.current,
+      thinkingText: thinkingTextRef.current,
     })
   }));
 

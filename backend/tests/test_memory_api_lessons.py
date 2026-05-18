@@ -240,22 +240,26 @@ class TestLessonFlattening:
         # Falls back to the 300-char cap
         assert "..." in out
         assert "LESSON (" not in out
-        # Header always present
-        assert "User's saved memories" in out
+        # Lessons land under the "Learned procedures" section header now.
+        assert "Learned procedures" in out
 
-    def test_non_lesson_memory_uses_300_char_truncation(self, app):
-        """Regression check: plain memories must not go through the lesson branch."""
+    def test_note_memory_uses_400_char_truncation(self, app):
+        """Notes are imperative rules and get a 400-char per-line budget — the
+        old 300-char cap was a placebo from when every type shared one header."""
         with app.app_context():
             db.session.add(AgentMemory(
                 id="plain-1",
-                content="x" * 400,
+                content="x" * 500,
                 source="manual",
+                type="note",
                 importance=0.9,
             ))
             db.session.commit()
             out = get_memories_for_context(limit=5, max_tokens=500)
-        # 297 chars + "..."
-        assert "x" * 297 + "..." in out
+        # 397 chars + "..." per TRUNCATE_BY_TYPE["note"] = 400
+        assert "x" * 397 + "..." in out
+        # And it lands under the operating-notes header, not a generic one.
+        assert "Operating notes" in out
 
     def test_empty_db_returns_empty_string(self, app):
         with app.app_context():

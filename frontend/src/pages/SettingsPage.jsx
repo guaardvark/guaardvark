@@ -68,6 +68,7 @@ import KillSwitchModal from "../components/modals/KillSwitchModal";
 import RebootProgressModal from "../components/modals/RebootProgressModal";
 import RAGDebugSection from "../components/settings/RAGDebugSection";
 import ImageModelsModal from "../components/modals/ImageModelsModal";
+import InfographicModelsModal from "../components/modals/InfographicModelsModal";
 import VideoModelsModal from "../components/modals/VideoModelsModal";
 import VoiceModelsModal from "../components/modals/VoiceModelsModal";
 import AgentsSettingsModal from "../components/modals/AgentsSettingsModal";
@@ -235,6 +236,42 @@ const SettingsPage = () => {
   const [interconnectorPendingCount, setInterconnectorPendingCount] = useState(0);
   const [interconnectorIsClient, setInterconnectorIsClient] = useState(false);
   const [interconnectorUpdateStatus, setInterconnectorUpdateStatus] = useState(null);
+  const [interconnectorApplying, setInterconnectorApplying] = useState(false);
+
+  // Inline apply: lets the top banner's UPDATE button push the updates straight
+  // through without making the user open the modal. Mirrors the same call the
+  // ClientUpdatePanel makes (interconnectorApi.applyUpdates([])) plus a confirm.
+  const handleApplyInterconnectorUpdates = useCallback(async (e) => {
+    if (e?.stopPropagation) e.stopPropagation();
+    if (interconnectorApplying) return;
+    if (!window.confirm("Apply all interconnector updates? Existing files will be backed up automatically.")) {
+      return;
+    }
+    setInterconnectorApplying(true);
+    try {
+      const response = await interconnectorApi.applyUpdates([]);
+      if (response?.error) {
+        showMessage?.(`Update failed: ${response.error}`, "error");
+      } else {
+        const data = response?.data || response || {};
+        showMessage?.(
+          `Updated ${data.applied || 0} files (${data.created || 0} new, ${data.updated || 0} modified)`,
+          "success"
+        );
+        // Clear the banner; a follow-up checkForUpdates will repopulate if more remain.
+        setInterconnectorUpdateStatus((prev) => prev ? { ...prev, available: false, count: 0 } : prev);
+        setTimeout(() => {
+          interconnectorApi.checkForUpdates?.().then((res) => {
+            if (res && !res.error) setInterconnectorUpdateStatus(res.data || res);
+          }).catch(() => {});
+        }, 1000);
+      }
+    } catch (err) {
+      showMessage?.(`Update failed: ${err.message}`, "error");
+    } finally {
+      setInterconnectorApplying(false);
+    }
+  }, [interconnectorApplying]);
   const [voiceChatEnabled, setVoiceChatEnabled] = useState(() => {
     try {
       return localStorage.getItem(VOICE_CHAT_ENABLED_KEY) !== "false";
@@ -247,6 +284,7 @@ const SettingsPage = () => {
   const [rebootInProgress, setRebootInProgress] = useState(false);
   const [rebootProgressModalOpen, setRebootProgressModalOpen] = useState(false);
   const [imageModelsModalOpen, setImageModelsModalOpen] = useState(false);
+  const [infographicModelsModalOpen, setInfographicModelsModalOpen] = useState(false);
   const [videoModelsModalOpen, setVideoModelsModalOpen] = useState(false);
   const [voiceModelsModalOpen, setVoiceModelsModalOpen] = useState(false);
   const setTrainerOpen = useAppStore((state) => state.setTrainerOpen);
@@ -2411,9 +2449,26 @@ const SettingsPage = () => {
             <Typography variant="caption" sx={{ color: "rgba(0,0,0,0.6)", ml: "auto" }}>
               Click to review
             </Typography>
+            <Button
+              variant="contained"
+              size="small"
+              disabled={interconnectorApplying}
+              onClick={handleApplyInterconnectorUpdates}
+              sx={{
+                ml: 1,
+                bgcolor: "#000",
+                color: "#FFD700",
+                fontWeight: 700,
+                letterSpacing: 0.5,
+                minWidth: 88,
+                "&:hover": { bgcolor: "#222" },
+              }}
+            >
+              {interconnectorApplying ? "UPDATING..." : "UPDATE"}
+            </Button>
           </Box>
         )}
-        <Box sx={{ display: "flex", flexWrap: "wrap", gap: "20px", "& > *": { width: 840, flexShrink: 0 } }}>
+        <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "20px", "& > *": { flex: "0 1 798px", minWidth: 560 } }}>
           <SettingsCardWrapper title="System">
               <SettingsRow label="Profile">
                 <input
@@ -2874,6 +2929,9 @@ const SettingsPage = () => {
                   <Button variant="outlined" size="small" onClick={() => setImageModelsModalOpen(true)}>
                     Image Models
                   </Button>
+                  <Button variant="outlined" size="small" onClick={() => setInfographicModelsModalOpen(true)}>
+                    Infographic Models
+                  </Button>
                   <Button variant="outlined" size="small" onClick={() => setVideoModelsModalOpen(true)}>
                     Video Models
                   </Button>
@@ -3264,6 +3322,11 @@ const SettingsPage = () => {
             .then(data => data.success && setImageGenStatus(data.data))
             .catch(console.error);
         }}
+        showMessage={showMessage}
+      />
+      <InfographicModelsModal
+        open={infographicModelsModalOpen}
+        onClose={() => setInfographicModelsModalOpen(false)}
         showMessage={showMessage}
       />
       <VideoModelsModal

@@ -221,6 +221,85 @@ const ChatInput = forwardRef(
     const fileRef = useRef(null);
     const inputRef = useRef(null);
 
+    // Terminal-style sent-message history. Up/Down navigate when the cursor
+    // is at the very start/end of the input and the slash-command popup
+    // hasn't already consumed the key.
+    const messageHistoryRef = useRef([]);
+    const historyIndexRef = useRef(-1);
+    const historyDraftRef = useRef("");
+    const HISTORY_MAX = 50;
+
+    const pushHistory = useCallback((text) => {
+      const trimmed = (text || "").trim();
+      if (!trimmed) return;
+      const hist = messageHistoryRef.current;
+      if (hist[hist.length - 1] !== trimmed) {
+        hist.push(trimmed);
+        if (hist.length > HISTORY_MAX) hist.shift();
+      }
+      historyIndexRef.current = -1;
+      historyDraftRef.current = "";
+    }, []);
+
+    const recallHistory = useCallback((direction) => {
+      const hist = messageHistoryRef.current;
+      if (hist.length === 0) return false;
+      const el = inputRef.current;
+      if (!el) return false;
+      const value = el.value ?? "";
+      const atStart = el.selectionStart === 0 && el.selectionEnd === 0;
+      const atEnd =
+        el.selectionStart === value.length &&
+        el.selectionEnd === value.length;
+
+      if (direction === "up") {
+        if (!atStart) return false;
+        if (historyIndexRef.current === -1) {
+          historyDraftRef.current = value;
+          historyIndexRef.current = hist.length - 1;
+        } else if (historyIndexRef.current > 0) {
+          historyIndexRef.current -= 1;
+        } else {
+          return true; // already oldest — consume so cursor doesn't jump
+        }
+        const next = hist[historyIndexRef.current];
+        setInputText(next);
+        // Move cursor to end so the user can edit
+        requestAnimationFrame(() => {
+          if (inputRef.current) {
+            const len = next.length;
+            inputRef.current.setSelectionRange(len, len);
+          }
+        });
+        return true;
+      }
+      // direction === "down"
+      if (historyIndexRef.current === -1) return false;
+      if (!atEnd) return false;
+      if (historyIndexRef.current < hist.length - 1) {
+        historyIndexRef.current += 1;
+        const next = hist[historyIndexRef.current];
+        setInputText(next);
+        requestAnimationFrame(() => {
+          if (inputRef.current) {
+            const len = next.length;
+            inputRef.current.setSelectionRange(len, len);
+          }
+        });
+      } else {
+        historyIndexRef.current = -1;
+        const draft = historyDraftRef.current;
+        setInputText(draft);
+        requestAnimationFrame(() => {
+          if (inputRef.current) {
+            const len = draft.length;
+            inputRef.current.setSelectionRange(len, len);
+          }
+        });
+      }
+      return true;
+    }, []);
+
     const systemName = useAppStore((s) => s.systemName);
     const voiceSettings = useVoiceSettings();
     const wakeWordEnabled = voiceSettings.wakeWordEnabled !== false;  // Default ON
@@ -976,6 +1055,10 @@ Please try a different image or check if the vision model is properly loaded.`;
     }, []);
 
     const handleSend = async () => {
+      // Capture what the user typed for terminal-style history before any
+      // branch consumes/clears it.
+      pushHistory(inputText);
+
       // Check if there are images to analyze
       if (imageState.images.length > 0) {
         await analyzeImage();
@@ -1356,13 +1439,35 @@ Total URLs: ${analysis.totalUrls}`;
             }}
             onKeyDown={(e) => {
               slashCmds.handleKeyDown(e);
+              if (e.defaultPrevented) return;
+              if (e.key === "ArrowUp" && recallHistory("up")) {
+                e.preventDefault();
+              } else if (e.key === "ArrowDown" && recallHistory("down")) {
+                e.preventDefault();
+              }
               // handleKeyPress uses onKeyPress but we mirror Enter logic here for safety
             }}
             onKeyPress={handleKeyPress}
             inputRef={inputRef}
             multiline
             disabled={disabled || imageState.analyzing}
-            sx={{ minHeight: "40px" }}
+            sx={{ 
+              minHeight: "40px",
+              ...(agentModeActive && {
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': {
+                    borderColor: 'warning.main',
+                    borderWidth: 2,
+                  },
+                  '&:hover fieldset': {
+                    borderColor: 'warning.main',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: 'warning.main',
+                  },
+                }
+              })
+            }}
           />
 
           {/* Send button */}

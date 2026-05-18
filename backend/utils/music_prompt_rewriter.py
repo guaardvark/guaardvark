@@ -82,7 +82,7 @@ Output ONLY the JSON object, no commentary."""
 
 # Conservative default model — falls back to whatever is installed if the
 # saved active model is gone. We don't pin a specific model because the user
-# may be running gemma4, qwen3-vl, llama3, or ministral, and any of them can
+# may be running gemma4, llama3, or ministral, and any of them can
 # do this rewrite competently.
 _REWRITE_TIMEOUT_S = 30
 

@@ -242,13 +242,9 @@ def _estimate_total_overhead_mb(parameter_count: int, num_ctx: int) -> float:
     """
     Estimate total memory overhead (KV cache + compute graph) in MB for a context size.
 
-    Empirically calibrated from real Ollama measurements:
-      qwen2.5:14b at 32K ctx: 48GB total - 8.5GB weights = 39.5GB overhead
-        → 39500 / (14.8 * 32768) = 0.081 MB per billion params per ctx token
-      qwen3-vl:8b at 262K ctx: 49GB total - 5.8GB weights = 43.2GB overhead
-        → 43200 / (8.8 * 262144) = 0.019 MB per billion params per ctx token
-
-    The variance comes from different GQA ratios across architectures.
+    Empirically calibrated from real Ollama measurements across model families
+    in the 8B–14B range at 32K–262K context. Per-token overhead ranged from
+    0.019–0.081 MB per billion params per ctx token, varying by GQA ratio.
     We use 0.08 (the higher measured value) to be safe — underestimating
     causes OOM, overestimating just means slightly less context.
     """

@@ -80,6 +80,16 @@ const MemoryManagementSection = () => {
   const [newType, setNewType] = useState("fact");
   const [adding, setAdding] = useState(false);
 
+  // Type-aware placeholder. Preference reads naturally in first person (it's
+  // *about* the user). Everything else gets imperative/observational phrasing
+  // so the line still makes sense when reinjected under the
+  // "User's saved memories" header in the system prompt.
+  const placeholderByType = {
+    fact: "e.g., The user's main machine has 64GB RAM and an RTX 4090.",
+    preference: "e.g., I prefer Python code formatted with Black.",
+    note: "e.g., After a click, the icon may be obscured by the app that opened — treat that as success.",
+  };
+
   // Edit dialog state — two flavors: structured (lesson_summary) vs plain (everything else)
   const [editTarget, setEditTarget] = useState(null); // memory object
   const [lessonEdit, setLessonEdit] = useState(null); // { memoryId, title, steps }
@@ -380,7 +390,7 @@ const MemoryManagementSection = () => {
             rows={3}
             value={newContent}
             onChange={(e) => setNewContent(e.target.value)}
-            placeholder="e.g., I prefer Python code to be formatted with Black."
+            placeholder={placeholderByType[newType] || placeholderByType.fact}
             sx={{ mb: 2, mt: 1 }}
           />
           <Box sx={{ display: "flex", gap: 2 }}>
@@ -394,7 +404,6 @@ const MemoryManagementSection = () => {
             >
               <option value="fact">Fact</option>
               <option value="preference">Preference</option>
-              <option value="instruction">Instruction</option>
               <option value="note">Note</option>
             </TextField>
             <TextField

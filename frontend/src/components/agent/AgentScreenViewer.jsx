@@ -100,17 +100,12 @@ export default function AgentScreenViewer({ open, onClose }) {
     saveState({ streaming, fps, collapsed, x: position.x, y: position.y, w: size.w, h: size.h });
   }, [streaming, fps, collapsed, position, size]);
 
-  // Announce viewer visibility to the Zustand store so the chat sender knows
-  // whether to flip agent_screen_active on its POST. When `open` is false the
-  // viewer is hidden — backend should treat the screen as idle and route
-  // models through the normal tool path.
-  const setAgentScreenOpen = useAppStore((s) => s.setAgentScreenOpen);
+  // The store is now the source of truth for `agentScreenOpen`; the `open`
+  // prop is driven by it. No mirror useEffect needed — that previous
+  // pattern caused a one-frame `false` flicker when the viewer mounted
+  // closed, which briefly flipped agent_screen_active off mid-request.
   const kbdForwarding = useAppStore((s) => s.keyboardForwardingEnabled);
   const toggleKbdForwarding = useAppStore((s) => s.toggleKeyboardForwarding);
-  useEffect(() => {
-    setAgentScreenOpen(!!open);
-    return () => setAgentScreenOpen(false);
-  }, [open, setAgentScreenOpen]);
 
   const [captureError, setCaptureError] = useState(null);
   const consecutiveFailures = useRef(0);

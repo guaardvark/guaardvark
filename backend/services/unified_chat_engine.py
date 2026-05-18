@@ -352,7 +352,7 @@ class SemanticToolSelector:
     # embedding model won't fit alongside a chat model). If the chosen model
     # isn't pulled, the selector disables itself and the chat engine falls
     # back to keyword-based tool selection automatically.
-    DEFAULT_EMBEDDING_MODEL = "qwen3-embedding:4b-q4_K_M"
+    DEFAULT_EMBEDDING_MODEL = "mxbai-embed-large"
 
     def __init__(self):
         self._tool_embeddings: Dict[str, List[float]] = {}
@@ -844,7 +844,7 @@ class UnifiedChatEngine:
 
         user_msg = {"role": "user", "content": user_content}
         if self._image_data:
-            # Run pasted image through a vision model (moondream/qwen3-vl) first,
+            # Run pasted image through a vision model (moondream/gemma4) first,
             # since the chat model (llama3 etc.) is text-only and ignores images.
             vision_description = self._analyze_pasted_image(self._image_data, message)
             if vision_description:
@@ -853,7 +853,7 @@ class UnifiedChatEngine:
                     f"{user_msg['content']}"
                 )
             else:
-                # Fallback: attach raw image for multimodal models (qwen3-vl, llava)
+                # Fallback: attach raw image for multimodal models (gemma4, llava)
                 user_msg["images"] = [self._image_data]
         ollama_messages.append(user_msg)
 
@@ -1591,16 +1591,16 @@ class UnifiedChatEngine:
                 emit_fn("chat:token", {"content": text, "session_id": session_id})
             return text, 0, 0
 
-        model_name = getattr(self.llm, "model", "qwen2.5:14b")
+        model_name = getattr(self.llm, "model", "gemma4:e4b")
         accumulated = []
         accumulated_thinking = []
         input_tokens = 0
         output_tokens = 0
 
-        # Detect thinking models (qwen3-vl, qwen3, etc.) that put output
+        # Detect thinking models (gemma4, deepseek-r1, etc.) that put output
         # in the "thinking" field and may crash Ollama's JSON serializer
         # when thinking content contains XML-like tags.
-        is_thinking_model = any(t in model_name.lower() for t in ("qwen3", "deepseek-r1", "thinking", "gemma4", "gemma-4"))
+        is_thinking_model = any(t in model_name.lower() for t in ("deepseek-r1", "thinking", "gemma4", "gemma-4"))
 
         # Track <think>...</think> blocks in the content stream so we can
         # suppress them from being emitted as visible tokens.
@@ -1802,7 +1802,7 @@ class UnifiedChatEngine:
             return messages
 
     def _analyze_pasted_image(self, image_b64: str, user_message: str) -> Optional[str]:
-        """Run a pasted image through a vision model (moondream/qwen3-vl) and return a description.
+        """Run a pasted image through a vision model (moondream/gemma4) and return a description.
 
         The main chat model is text-only — it can't see images.  We use the
         VisionAnalyzer to call a multimodal model, then inject the description
@@ -2175,7 +2175,7 @@ RULES:
         messages: List[Dict[str, str]], aggressive: bool = False
     ) -> List[Dict[str, str]]:
         """Remove or escape literal XML tags from messages to prevent thinking
-        models (qwen3-vl, etc.) from reproducing them in their thinking stream,
+        models (gemma4, etc.) from reproducing them in their thinking stream,
         which crashes Ollama's JSON serializer.
 
         Normal mode: replace angle brackets in XML examples only.

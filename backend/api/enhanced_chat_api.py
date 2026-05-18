@@ -400,7 +400,7 @@ class EnhancedChatManager:
                 'temperature': 0.7,
                 'top_p': 0.9
             })
-        elif any(vision in model_lower for vision in ['llava', 'moondream', 'qwen2.5vl']):
+        elif any(vision in model_lower for vision in ['llava', 'moondream']):
             # Vision models - may need different handling
             config.update({
                 'max_context_tokens': 8192,

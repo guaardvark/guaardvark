@@ -233,6 +233,7 @@ def regenerate_shot(prod_id, shot_id):
         return jsonify({"error": "shot not found in this production"}), 404
 
     body = request.get_json(silent=True) or {}
+    feedback = body.get("feedback")
     prompt_override = body.get("prompt_override")
 
     shot.regen_count = (shot.regen_count or 0) + 1
@@ -240,12 +241,17 @@ def regenerate_shot(prod_id, shot_id):
     db.session.commit()
 
     regen_job_id: str | None = None
+    from backend.celery_app import celery
     try:
-        regen_job_id = _dispatch_storyboard_regen(shot_id, prompt_override)
+        if feedback:
+            task = celery.send_task("production.regen_shot_plan", args=[shot_id, feedback])
+            regen_job_id = task.id
+        else:
+            regen_job_id = _dispatch_storyboard_regen(shot_id, prompt_override)
     except NotImplementedError:
-        log.debug("Storyboard regen dispatch deferred (Celery task not yet wired)")
+        log.debug("Regen dispatch deferred (Celery task not yet wired)")
     except Exception as e:
-        log.warning(f"Storyboard regen dispatch failed for shot {shot_id}: {e}")
+        log.warning(f"Regen dispatch failed for shot {shot_id}: {e}")
 
     return jsonify({
         "shot_id": shot_id,

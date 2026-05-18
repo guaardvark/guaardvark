@@ -1047,6 +1047,19 @@ const InterconnectorSettings = () => {
 
   return (
     <Box>
+      {/* Update panel pinned to the top so users in client mode can apply
+          updates without scrolling past server config. Same component as
+          before — just hoisted out of the deeper client-mode block. */}
+      {config.node_mode === "client" && config.master_url && (
+        <Box sx={{ mb: 3 }}>
+          <ClientUpdatePanel
+            masterUrl={config.master_url}
+            masterApiKey={config.master_api_key}
+            isEnabled={config.is_enabled}
+          />
+        </Box>
+      )}
+
       {/* Header */}
       <Box display="flex" alignItems="center" gap={2} mb={2}>
         <NetworkIcon fontSize="large" color="primary" />
@@ -1513,16 +1526,11 @@ const InterconnectorSettings = () => {
             </Card>
           )}
 
-          {/* Client Mode: Simplified Update Panel + Optional Advanced Controls */}
+          {/* Client Mode: Advanced Controls only. The Code Update panel is
+              now rendered at the very top of this component so the user
+              doesn't have to scroll past server config to apply updates. */}
           {config.node_mode === "client" && config.master_url && (
             <>
-              {/* Simplified Code Update Panel - Always shown for clients */}
-              <ClientUpdatePanel
-                masterUrl={config.master_url}
-                masterApiKey={config.master_api_key}
-                isEnabled={config.is_enabled}
-              />
-
               {/* Toggle for Advanced Options */}
               <Box sx={{ mt: 2, mb: 1 }}>
                 <Button

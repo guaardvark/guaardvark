@@ -339,6 +339,19 @@ const ChatPage = () => {
   const handleNewChat = useCallback(() => {
     const newSessionId = `session_${Date.now()}`;
 
+    // Carry the current session's mode forward. Without this, a "new chat"
+    // silently resets to chat-mode even when the user was actively in agent
+    // mode, and the next agent-y prompt fails with "I cannot do that".
+    const priorMode = useAppStore.getState().getSessionMode(sessionId);
+    if (priorMode === "agent") {
+      useAppStore.getState().setSessionMode(newSessionId, "agent");
+      fetch(`/api/chat-sessions/${encodeURIComponent(newSessionId)}/mode`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "agent" }),
+      }).catch(() => {});
+    }
+
     setMessages([]);
 
     setError('');
@@ -377,7 +390,7 @@ const ChatPage = () => {
         chatInputRef.current.focus();
       }
     }, 100);
-  }, [_setSessionId, projectId]);
+  }, [_setSessionId, projectId, sessionId]);
 
   const [fileGenPopup, setFileGenPopup] = useState({
     open: false,
@@ -698,22 +711,30 @@ const ChatPage = () => {
 
   const handleStop = useCallback(() => {
     resourceManager.cleanupProcess(processId);
-    
-    // Attempt to salvage any partial text/images generated so far before hiding the stream
+
+    // Salvage whatever the streamer has so far — body text, tool cards,
+    // images, and (most importantly) the agent thinking trail. Without this,
+    // hitting Stop on step 4-of-10 wipes the entire reasoning trail.
     if (isStreamingMessage && streamingMessageRef.current) {
-      const partial = streamingMessageRef.current.getPartialState();
-      if (partial && (partial.content || (partial.images && partial.images.length > 0))) {
+      const partial = streamingMessageRef.current.getPartialState() || {};
+      const hasContent = !!partial.content;
+      const hasTools = (partial.toolCalls?.length || 0) > 0;
+      const hasSteps = (partial.agentThinkingSteps?.length || 0) > 0;
+      const hasImages = (partial.images?.length || 0) > 0;
+      if (hasContent || hasTools || hasSteps || hasImages) {
         const completedMessage = {
           id: `asst_unified_${Date.now()}_partial`,
           role: "assistant",
           content: partial.content || "",
           toolCalls: partial.toolCalls || [],
+          agentThinkingSteps: partial.agentThinkingSteps || [],
+          thinkingText: partial.thinkingText || "",
           isUnifiedChat: true,
           timestamp: new Date().toISOString(),
           generatedImages: partial.images || [],
           status: "aborted"
         };
-        // Clean up socket listener for the aborted message so it doesn't fire late
+        // Clean up socket listener so a late event doesn't double-post.
         if (unifiedChatService) {
           unifiedChatService.cleanup();
         }

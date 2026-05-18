@@ -396,7 +396,10 @@ async function handleAgent(args, { addMessage, onSendMessage, chatState }) {
   const currentMode = useAppStore.getState().getSessionMode(sessionId);
   const trimmedArgs = (args || "").trim();
 
-  // Flip the mode (PATCH backend + cache locally) unless we're already there
+  // Flip the mode (PATCH backend + cache locally) unless we're already there.
+  // The viewer is NOT touched here — the user controls when the screen
+  // surfaces. Agent mode alone flips `agent_screen_active=true` via the
+  // session-mode half of the OR in unifiedChatService.
   if (currentMode !== "agent") {
     try {
       await _patchSessionMode(sessionId, "agent");

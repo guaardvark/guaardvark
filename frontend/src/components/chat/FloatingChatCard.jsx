@@ -86,6 +86,31 @@ const FloatingChatCard = () => {
     };
   }, [connectionState, sessionId]);
 
+  // Hydrate session mode from backend on sessionId change so `/agent` state
+  // survives reloads / re-mounts. Without this, the floating card's
+  // `inAgentMode` is always false and `agent_screen_active` falls back to
+  // viewer-open alone.
+  const setSessionMode = useAppStore((s) => s.setSessionMode);
+  useEffect(() => {
+    if (!sessionId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/chat-sessions/${encodeURIComponent(sessionId)}/mode`
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && data?.success && data.mode) {
+          setSessionMode(sessionId, data.mode);
+        }
+      } catch {
+        // Leave the cached value (or "chat" default) on network failure.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [sessionId, setSessionMode]);
+
   // Local state for drag/resize
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -97,6 +122,71 @@ const FloatingChatCard = () => {
   const cardRef = useRef(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const streamingMessageRef = useRef(null);
+
+  // Terminal-style sent-message history (Up/Down to recall).
+  const messageHistoryRef = useRef([]);
+  const historyIndexRef = useRef(-1);
+  const historyDraftRef = useRef("");
+  const HISTORY_MAX = 50;
+
+  const pushHistory = useCallback((text) => {
+    const trimmed = (text || "").trim();
+    if (!trimmed) return;
+    const hist = messageHistoryRef.current;
+    if (hist[hist.length - 1] !== trimmed) {
+      hist.push(trimmed);
+      if (hist.length > HISTORY_MAX) hist.shift();
+    }
+    historyIndexRef.current = -1;
+    historyDraftRef.current = "";
+  }, []);
+
+  const recallHistory = useCallback((direction) => {
+    const hist = messageHistoryRef.current;
+    if (hist.length === 0) return false;
+    const el = inputRef.current;
+    if (!el) return false;
+    const value = el.value ?? "";
+    const atStart = el.selectionStart === 0 && el.selectionEnd === 0;
+    const atEnd =
+      el.selectionStart === value.length && el.selectionEnd === value.length;
+
+    const applyValue = (next) => {
+      setInputText(next);
+      requestAnimationFrame(() => {
+        if (inputRef.current) {
+          const len = next.length;
+          inputRef.current.setSelectionRange(len, len);
+        }
+      });
+    };
+
+    if (direction === "up") {
+      if (!atStart) return false;
+      if (historyIndexRef.current === -1) {
+        historyDraftRef.current = value;
+        historyIndexRef.current = hist.length - 1;
+      } else if (historyIndexRef.current > 0) {
+        historyIndexRef.current -= 1;
+      } else {
+        return true;
+      }
+      applyValue(hist[historyIndexRef.current]);
+      return true;
+    }
+    // down
+    if (historyIndexRef.current === -1) return false;
+    if (!atEnd) return false;
+    if (historyIndexRef.current < hist.length - 1) {
+      historyIndexRef.current += 1;
+      applyValue(hist[historyIndexRef.current]);
+    } else {
+      historyIndexRef.current = -1;
+      applyValue(historyDraftRef.current);
+    }
+    return true;
+  }, []);
 
   // Initialize default position (bottom-right) on first render
   useEffect(() => {
@@ -130,6 +220,8 @@ const FloatingChatCard = () => {
   const handleSendMessage = useCallback(async (overrideText) => {
     const text = overrideText || inputText;
     if (!text.trim() || isSending) return;
+
+    pushHistory(text);
 
     const userMessage = {
       id: `user_${Date.now()}`,
@@ -179,7 +271,7 @@ const FloatingChatCard = () => {
       });
       setError(errorText);
     }
-  }, [inputText, isSending, sessionId, buildContextPrefix, addMessage, setIsSending, clearError, setError, unifiedChatService]);
+  }, [inputText, isSending, sessionId, buildContextPrefix, addMessage, setIsSending, clearError, setError, unifiedChatService, pushHistory]);
 
   // Slash command hook — popup state, filtering, keyboard nav, command execution
   // Initialized after handleSendMessage so the reference is valid
@@ -221,12 +313,47 @@ const FloatingChatCard = () => {
   }, [addMessage, setIsSending, sessionId, socketRef]);
 
   const handleStop = useCallback(() => {
+    // Salvage whatever streamed so far. Floating card renders only
+    // msg.content, so we flatten any thinking-trail steps into the body
+    // text — otherwise the trail vanishes when the bubble unmounts.
+    if (streamingMessageRef.current) {
+      const partial = streamingMessageRef.current.getPartialState() || {};
+      const steps = partial.agentThinkingSteps || [];
+      const stepText = steps.length
+        ? steps
+            .map((s) => `step ${s.iteration}: ${s.label}${s.reasoning ? ` — ${s.reasoning}` : ""}`)
+            .join("\n")
+        : "";
+      const body = (partial.content || "").trim();
+      const hasAnything = body || stepText || (partial.toolCalls?.length || 0) > 0;
+      if (hasAnything) {
+        const composed = [
+          body,
+          stepText ? `--- agent trail (stopped) ---\n${stepText}` : "",
+        ].filter(Boolean).join("\n\n");
+        addMessage({
+          id: `asst_unified_${Date.now()}_partial`,
+          role: "assistant",
+          content: composed || "(stopped before any output)",
+          toolCalls: partial.toolCalls || [],
+          timestamp: new Date().toISOString(),
+          status: "aborted",
+        });
+      }
+    }
+
+    // Abort the chat stream AND hard-kill the agent task — the socket
+    // abort alone leaves the see-think-act loop running on the backend.
     if (unifiedChatService) {
       unifiedChatService.abort(sessionId);
+      unifiedChatService.cleanup();
     }
+    fetch(`/api/chat/unified/${sessionId}/abort`, { method: "POST" }).catch(() => {});
+    fetch("/api/agent-control/kill", { method: "POST" }).catch(() => {});
+
     setIsStreamingMessage(false);
     setIsSending(false);
-  }, [unifiedChatService, sessionId, setIsSending]);
+  }, [unifiedChatService, sessionId, setIsSending, addMessage]);
 
   const handleKeyDown = (e) => {
     // Slash command popup navigation intercepts first
@@ -235,6 +362,12 @@ const FloatingChatCard = () => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleFloatingSend();
+      return;
+    }
+    if (e.key === "ArrowUp" && recallHistory("up")) {
+      e.preventDefault();
+    } else if (e.key === "ArrowDown" && recallHistory("down")) {
+      e.preventDefault();
     }
   };
 
@@ -557,6 +690,7 @@ const FloatingChatCard = () => {
               {isStreamingMessage && unifiedChatService && (
                 <Box sx={{ py: 0.5 }}>
                   <StreamingMessage
+                    ref={streamingMessageRef}
                     chatService={unifiedChatService}
                     sessionId={sessionId}
                     onComplete={handleStreamingComplete}

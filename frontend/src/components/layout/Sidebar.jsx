@@ -129,7 +129,11 @@ const Sidebar = () => {
   const toggleSidebar = useAppStore((state) => state.toggleSidebar);
   const setSidebarExpanded = useAppStore((state) => state.setSidebarExpanded);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
-  const [agentScreenOpen, setAgentScreenOpen] = useState(false);
+  // Store-backed so slash commands (/agent, /chat) can flip the viewer
+  // alongside session mode. Previously this was local useState, which made
+  // the viewer state non-shareable and lost on every reload.
+  const agentScreenOpen = useAppStore((s) => s.agentScreenOpen);
+  const setAgentScreenOpen = useAppStore((s) => s.setAgentScreenOpen);
   const isBelowMd = useMediaQuery(theme.breakpoints.down("md"));
 
   useEffect(() => {

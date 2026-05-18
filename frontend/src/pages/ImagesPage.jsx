@@ -50,6 +50,7 @@ import ReactGridLayoutLib, { WidthProvider } from 'react-grid-layout';
 import BatchImageGeneratorPage from './BatchImageGeneratorPage';
 import VideoGeneratorPage from './VideoGeneratorPage';
 import UpscalingPage from './UpscalingPage';
+import InfographicGenerator from '../components/images/InfographicGenerator';
 import FolderWindowWrapper from '../components/documents/FolderWindowWrapper';
 import BreadcrumbNav from '../components/filesystem/BreadcrumbNav';
 import ImageThumbnailGrid from '../components/images/ImageThumbnailGrid';
@@ -1544,6 +1545,7 @@ const ImagesPage = () => {
         <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
           <Tab label="Media Library" />
           <Tab label="Image Gen" />
+          <Tab label="Infographic" />
           <Tab label="Video Gen" />
           <Tab label="Upscaling" />
         </Tabs>
@@ -2226,14 +2228,21 @@ const ImagesPage = () => {
         </Box>
       )}
 
-      {/* Video Gen Tab */}
+      {/* Infographic Tab */}
       {activeTab === 2 && (
+        <Box sx={{ flexGrow: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <InfographicGenerator />
+        </Box>
+      )}
+
+      {/* Video Gen Tab */}
+      {activeTab === 3 && (
         <Box sx={{ flexGrow: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
           <VideoGeneratorPage embedded />
         </Box>
       )}
 
-      {activeTab === 3 && (
+      {activeTab === 4 && (
         <Box sx={{ flexGrow: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
           <UpscalingPage embedded />
         </Box>

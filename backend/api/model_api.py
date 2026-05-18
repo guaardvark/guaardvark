@@ -601,7 +601,7 @@ def list_embedding_models():
         name = m.get("name", "").lower()
         if any(p in name for p in embedding_patterns):
             # Get embedding dimensions from model details
-            # The key is architecture-prefixed, e.g. "bert.embedding_length" or "qwen3.embedding_length"
+            # The key is architecture-prefixed, e.g. "bert.embedding_length" or "llama.embedding_length"
             dims = None
             try:
                 detail_resp = requests.post(

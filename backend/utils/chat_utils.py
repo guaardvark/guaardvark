@@ -26,7 +26,7 @@ Otherwise, use web search to get current information."""
 # Vision model detection patterns (for fallback when API unavailable)
 VISION_MODEL_PATTERNS = [
     "vision", "llava", "gpt-4", "gpt4", "gpt-4o",
-    "qwen.*vl", "minicpm-v", "moondream", "bakllava",
+    "minicpm-v", "moondream", "bakllava",
     "llama.*vision", "granite.*vision", "gemma.*vision",
     "cogvlm", "internvl", "phi.*vision", "deepseek.*vl",
     "pixtral", "molmo",
