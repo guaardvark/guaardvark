@@ -224,10 +224,12 @@ class LocalScreenBackend(ScreenInterface):
             for chunk in chunks:
                 if not chunk:
                     continue
+                # `--` ends xdotool's option parsing so chunks starting with `-`
+                # (markdown bullets, hyphenated leads) don't get eaten as flags.
                 if wid:
-                    r = self._xdotool("type", "--window", wid, "--clearmodifiers", "--delay", delay_ms, chunk)
+                    r = self._xdotool("type", "--window", wid, "--clearmodifiers", "--delay", delay_ms, "--", chunk)
                 else:
-                    r = self._xdotool("type", "--clearmodifiers", "--delay", delay_ms, chunk)
+                    r = self._xdotool("type", "--clearmodifiers", "--delay", delay_ms, "--", chunk)
                 if r.returncode != 0:
                     err = r.stderr.strip() or f"xdotool type exited with code {r.returncode}"
                     logger.error(f"Type failed at {typed}/{len(text)}: {err}")

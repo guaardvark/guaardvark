@@ -91,6 +91,27 @@ class TestLocalBackend(unittest.TestCase):
         self.assertTrue(result["success"])
         self.assertEqual(result["length"], len("hello world"))
 
+    def test_type_text_uses_double_dash_for_text_arg(self):
+        # xdotool parses leading `-` as a flag. Without `--` before the text
+        # arg, anything starting with `-` (markdown bullets, hyphenated leads)
+        # gets silently dropped. Pin the separator so a future refactor can't
+        # quietly regress.
+        from backend.services.local_screen_backend import LocalScreenBackend
+        backend = LocalScreenBackend()
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = ""
+
+        with patch.object(backend, '_xdotool', return_value=mock_result) as mock_xdotool:
+            with patch.object(backend, '_get_window_id', return_value=""):
+                backend.type_text("- bullet line", interval=0.05)
+
+        call_args = mock_xdotool.call_args[0]
+        self.assertIn("--", call_args, "type_text must pass `--` before the text arg")
+        # And the text must come AFTER `--`, not before it.
+        dash_idx = call_args.index("--")
+        self.assertEqual(call_args[dash_idx + 1], "- bullet line")
+
     def test_hotkey_calls_xdotool(self):
         from backend.services.local_screen_backend import LocalScreenBackend
         backend = LocalScreenBackend()

@@ -112,10 +112,19 @@ The pitch sheet below is the source of truth — don't invent features
 that aren't in it, don't fabricate URLs, don't claim more than what's
 written. Within those guardrails, write in your own voice.
 
-Self-grade the draft 0.0-1.0 on "does this add real value to the thread
-without reading as promotion?". 0.7+ is post-worthy; below that, hold.
-If nothing in the pitch sheet credibly fits the thread, return draft=""
-and grade<0.3 — better to skip than to force a mention.
+Self-grade the draft 0.0-1.0 on TWO axes — take the LOWER of the two:
+  (1) Does this add real value to the thread without reading as promotion?
+  (2) Would a generic, copy-paste version of this draft work on any
+      other thread about the same topic? If yes, grade it down. That's
+      the templated/robotic failure mode.
+
+A post-worthy draft has to respond to specifics in THIS thread — the OP's
+exact question, their hardware, their stack, the comments above. Vague
+replies that could fit anywhere fail axis (2) even if they sound fine.
+
+0.7+ is post-worthy; below that, hold. If nothing in the pitch sheet
+credibly fits the thread, return draft="" and grade<0.3 — better to skip
+than to force a mention.
 
 Return JSON: {"draft": "<comment text>", "grade": 0.0-1.0, "reason": "<one line>"}.
 """
