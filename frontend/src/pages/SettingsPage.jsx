@@ -3001,6 +3001,13 @@ const SettingsPage = () => {
 
           <SettingsCardWrapper title="Uncle Claude">
               <UncleClaudeSection compact />
+              <Tooltip title="The mysterious Snibbly Nips button — clicking is not recommended.">
+                  <span>
+                      <Button variant="outlined" size="small" onClick={() => {}}>
+                          Snibbly Nips
+                      </Button>
+                  </span>
+              </Tooltip>
           </SettingsCardWrapper>
 
           <SettingsCardWrapper title="Agent Memory">
