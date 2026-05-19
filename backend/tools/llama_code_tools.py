@@ -10,7 +10,7 @@ These tools enable an LLM agent to:
 4. List project structure
 5. Run tests to verify changes
 
-Milestone Goal: Enable LLM to remove "Snibbly Nips" button from SettingsPage (Copy).jsx
+Milestone Goal: Enable LLM to remove "Snibbly Nips" button from SettingsPage.jsx
 """
 
 import os
@@ -31,13 +31,13 @@ def read_code(filepath: str) -> str:
     Read the complete contents of a source code file.
 
     Args:
-        filepath: Relative path from project root (e.g., "frontend/src/pages/SettingsPage (Copy).jsx")
+        filepath: Relative path from project root (e.g., "frontend/src/pages/SettingsPage.jsx")
 
     Returns:
         The file contents with metadata, or error message
 
     Example:
-        content = read_code("frontend/src/pages/SettingsPage (Copy).jsx")
+        content = read_code("frontend/src/pages/SettingsPage.jsx")
     """
     try:
         full_path = PROJECT_ROOT / filepath
@@ -187,7 +187,7 @@ def edit_code(filepath: str, old_text: str, new_text: str) -> str:
     Example:
         # To remove the Snibbly Nips button:
         result = edit_code(
-            "frontend/src/pages/SettingsPage (Copy).jsx",
+            "frontend/src/pages/SettingsPage.jsx",
             "      <Button variant=\"contained\" color=\"primary\">\n        Snibbly Nips\n      </Button>",
             ""
         )
@@ -377,7 +377,7 @@ def verify_change(filepath: str, expected_text: str, should_exist: bool = True) 
 
     Example:
         # After removing Snibbly Nips, verify it's gone:
-        result = verify_change("frontend/src/pages/SettingsPage (Copy).jsx", "Snibbly Nips", should_exist=False)
+        result = verify_change("frontend/src/pages/SettingsPage.jsx", "Snibbly Nips", should_exist=False)
     """
     try:
         full_path = PROJECT_ROOT / filepath
