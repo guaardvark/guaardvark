@@ -507,7 +507,12 @@ def _induce_candidate_recipe(app, session_id: str, feedback_task: str, strong_po
     Safety gates:
     - Only induces if the agent's _last_result.task == feedback.task
       (avoids inducing from stale state when the user thumbs-up's an old run).
-    - Only induces on success=True (failed runs would teach the wrong path).
+    - Only induces when the run's final action was VERIFIED (servo region-DPC
+      or semantic vision verify saw the expected effect). success=True alone
+      is not enough — phantom successes (the agent declared "done" but
+      nothing actually changed on screen) would teach the wrong path. See
+      response_2026-05-19 §C. AgentResult.verified is populated by the
+      finish() wrapper in execute_task from the last step's verifier result.
     - Skips if action_history is empty or has only one trivial step.
     - Hard rules in the prompt: vision-actionable target_descriptions,
       short labels (≤4 words), no pixel coordinates. Per
@@ -527,6 +532,20 @@ def _induce_candidate_recipe(app, session_id: str, feedback_task: str, strong_po
             last = service._last_result
             if not last or not last.success:
                 logger.info("[INDUCE] no successful last_result — skipping induction")
+                return
+            # Verified gate (response_2026-05-19 §C). A successful loop
+            # termination that produced no verified visible effect is a
+            # phantom success — teaching from it bakes "clicks that do
+            # nothing" into the recipe library. Strong-positive feedback
+            # is treated as user-confirmed verification when the in-loop
+            # verifier missed it (e.g., long renders past the 12s budget).
+            if not getattr(last, "verified", False) and not strong_positive:
+                logger.info(
+                    f"[INDUCE] last_result.verified=False (verifier="
+                    f"{getattr(last, 'verified_reason', '?')!r}) and no "
+                    f"strong-positive override — skipping induction to avoid "
+                    f"learning a phantom-success path"
+                )
                 return
             if (last.task or "").strip().lower() != (feedback_task or "").strip().lower():
                 logger.info(
