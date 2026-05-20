@@ -194,13 +194,7 @@ def analyze(root: Path, extra_excludes: frozenset[str] = frozenset()) -> dict[st
     # Backup-artifact findings (files that look like accidental commits)
     for mod_name, path in modules.items():
         rel = str(path.relative_to(root))
-        if (
-            "_BACK" in rel
-            or rel.endswith((".BACK", ".BACKUP", ".bak"))
-            or "__BACKUP" in rel
-            or "/backs/" in rel
-            or "/_archive/" in rel
-        ):
+        if _is_backup_artifact(rel):
             findings.append(Finding(
                 kind=FindingKind.BACKUP_ARTIFACT,
                 severity=Severity.LOW,
@@ -209,11 +203,48 @@ def analyze(root: Path, extra_excludes: frozenset[str] = frozenset()) -> dict[st
                 evidence={},
             ))
 
+    # Untested modules: a source module under backend/ with no sibling test file.
+    # Conservative — only flags real logic modules (skips tests, scripts, blueprints,
+    # __init__, config), so the signal stays actionable rather than noisy.
+    test_basenames = _collect_test_basenames(root, extra_excludes)
+    for mod_name, path in modules.items():
+        rel = path.relative_to(root)
+        rel_str = str(rel)
+        if not rel_str.startswith("backend/"):
+            continue
+        if _lifecycle_for(rel_str, importers.get(mod_name)) not in ("active", "auto-loaded"):
+            continue
+        if rel.name == "__init__.py" or rel_str.endswith("_api.py"):
+            continue
+        if rel.stem in test_basenames:
+            continue
+        findings.append(Finding(
+            kind=FindingKind.UNTESTED_MODULE,
+            severity=Severity.LOW,
+            summary=f"No test found for module: {rel_str}",
+            paths=[rel_str],
+            evidence={"expected_test": f"test_{rel.stem}.py"},
+        ))
+
     # 5. Serialize graph (JSON-friendly: lists, not sets)
     graph_serializable = {k: sorted(v) for k, v in graph.items()}
 
+    # Per-module metadata the visualization consumes (lifecycle drives node alpha,
+    # importer count drives node size). Emitted so the frontend renders real signal
+    # instead of assuming every node is "active".
+    node_meta = {
+        mod_name: {
+            "importers": len(importers.get(mod_name, ())),
+            "lifecycle": _lifecycle_for(str(path.relative_to(root)),
+                                        importers.get(mod_name)),
+            "path": str(path.relative_to(root)),
+        }
+        for mod_name, path in modules.items()
+    }
+
     return {
         "graph": graph_serializable,
+        "node_meta": node_meta,
         "findings": findings,
         "file_count": len(modules),
         "stats": {
@@ -222,5 +253,47 @@ def analyze(root: Path, extra_excludes: frozenset[str] = frozenset()) -> dict[st
             "external_imports": external_count,
             "cycles": len(cycles),
             "over_coupled_hubs": [m for m, h in cycle_membership.items() if h >= 5],
+            "untested_modules": sum(1 for f in findings
+                                    if f.kind == FindingKind.UNTESTED_MODULE),
         },
     }
+
+
+def _is_backup_artifact(rel: str) -> bool:
+    return (
+        "_BACK" in rel
+        or rel.endswith((".BACK", ".BACKUP", ".bak"))
+        or "__BACKUP" in rel
+        or "/backs/" in rel
+        or "/_archive/" in rel
+    )
+
+
+def _lifecycle_for(rel: str, importers: set | None) -> str:
+    """Classify a module's lifecycle from its path + whether anything imports it.
+    Keys match the frontend's LIFECYCLE style table."""
+    name = rel.rsplit("/", 1)[-1]
+    if _is_backup_artifact(rel):
+        return "archived"
+    if "/tests/" in rel or rel.startswith("tests/") or name.startswith("test_"):
+        return "test"
+    if any(rel.startswith(p) for p in ("scripts/", "cli/", "training/")):
+        return "script"
+    if name in ("config.py", "settings.py"):
+        return "config"
+    # Blueprints + package inits are loaded at runtime even with no static importer.
+    if name == "__init__.py" or ("/api/" in rel and rel.endswith("_api.py")):
+        return "auto-loaded"
+    if not importers:
+        return "dormant"
+    return "active"
+
+
+def _collect_test_basenames(root: Path, extra_excludes: frozenset[str]) -> set[str]:
+    """Set of module stems that have a `test_<stem>.py` somewhere in the tree."""
+    out: set[str] = set()
+    for py in root.rglob("test_*.py"):
+        if is_excluded(py, extra_excludes):
+            continue
+        out.add(py.stem[len("test_"):])
+    return out
