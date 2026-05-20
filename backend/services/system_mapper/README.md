@@ -37,7 +37,7 @@ Optional flags:
 
 ```python
 from backend.services.system_mapper import codebase_map
-smap = codebase_map("/home/llamax1/LLAMAX8")
+smap = codebase_map("/path/to/repo")  # defaults to config.GUAARDVARK_ROOT via the API
 
 # All findings
 for f in smap.findings:
@@ -68,28 +68,34 @@ smap.tool_graph               # dict with registered, wired, unwired
 | `dormant-module` | `low` | No static importer (skips tests, scripts, blueprints, `__init__`) |
 | `backup-artifact` | `low` | `_BACK`/`.BACK`/`__BACKUP`/`/backs/`/`/_archive/` paths still in the source tree |
 
-## Integration paths (deferred — not built yet)
+## HTTP API (built)
 
-### 1. As a Flask blueprint endpoint
+Auto-registered via `blueprint_discovery` from `backend/api/system_map_api.py`
+(`url_prefix=/api/system-map`). Default root is `config.GUAARDVARK_ROOT`.
 
-```python
-# backend/api/system_mapper_api.py  (sketch)
-from flask import Blueprint, request, jsonify
-from backend.services.system_mapper import codebase_map
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/system-map/snapshot` | Full SystemMap JSON (disk-cached, 5-min TTL; `?refresh=1`, `?root=`). Includes `node_meta` (per-module lifecycle + importer count). |
+| GET | `/api/system-map/findings` | Ranked findings only — lightweight panel feed. Filters: `?severity=high,medium`, `?kind=`, `?include_dismissed=1`. |
+| POST | `/api/system-map/findings/<id>/dispatch` | Hand a finding to the self-improvement agent (`submit_directed_task`) → real proposed fix staged as a `PendingFix`. |
+| POST | `/api/system-map/findings/<id>/dismiss` | Acknowledge a finding (persisted under `data/cache/system_map/`); `{"undo": true}` reverses it. |
+| GET | `/api/system-map/health` | Smoke check. |
 
-bp = Blueprint("system_mapper", __name__, url_prefix="/api/system-map")
+Finding IDs are stable across re-runs (`Finding.fingerprint()` over kind + paths +
+summary), so dismissals survive re-analysis.
 
-@bp.route("/analyze", methods=["POST"])
-def analyze():
-    path = request.json["path"]
-    smap = codebase_map(path)
-    return jsonify(smap.to_dict())
-```
+## The action loop (built)
 
-Register in `app.py` (or rely on `blueprint_discovery.py`). DocumentsPage hooks
-on a folder selection → this endpoint → renders the markdown report.
+The map is no longer read-only. `actions.py` ranks findings, persists dismissals,
+and dispatches a finding to the existing self-improvement pipeline. **No fabricated
+diffs** — `dispatch_finding` calls `submit_directed_task`, and the agent proposes a
+real fix that lands as a `PendingFix` row for human approve/apply in Settings. The
+frontend Findings panel (beside the constellation) drives this: click to locate a
+module, dispatch to fix, dismiss to acknowledge.
 
-### 2. As an LLM tool
+## Other integration paths (not built)
+
+### As an LLM tool
 
 ```python
 # backend/tools/system_mapper_tool.py  (sketch)
@@ -116,34 +122,30 @@ Add to a relevant `*_TOOLS` list in `unified_chat_engine.py` so the LLM can
 reach it. Then the agent can answer "what's wrong with this codebase?"
 grounded in real data.
 
-### 3. As a DocumentsPage action
+### As a DocumentsPage action
 
 When a user opens a code folder in DocumentsPage, surface an **Analyze
-codebase** button. Wire to `POST /api/system-map/analyze {path}`. Render the
-returned markdown in a side panel; click on a finding navigates to the file.
+codebase** button. Wire to `GET /api/system-map/snapshot?root=<path>`. Render the
+findings in a side panel; click on a finding navigates to the file.
 
-### 4. As fuel for self-improvement
+### Auto-queue every high finding (partially built)
 
-`self_improvement_service` currently runs but does nothing useful (9 runs in a
-month, 0 changes per April 14 audit). The map is the missing input:
+Today a finding reaches the fix pipeline **on demand** — the Findings panel (or a
+`POST .../dispatch`) hands it to `submit_directed_task`. What's *not* built is a
+scheduled job that bulk-creates a `PendingFix` candidate from every high finding so
+self-improvement chews through the backlog unattended:
 
 ```python
-# Sketch — inside self_improvement_service
+# Sketch — a scheduled self-improvement pass
+from backend.services.system_mapper import codebase_map, actions
 smap = codebase_map(GUAARDVARK_ROOT)
-high_severity = [f for f in smap.findings if f.severity.value == "high"]
-for f in high_severity:
-    PendingFix.create(
-        category=f.kind.value,
-        description=f.summary,
-        affected_paths=f.paths,
-        evidence=f.evidence,
-        confidence=0.9 if f.kind in {"url-path-collision", "unregistered-tool"} else 0.6,
-    )
+for f in actions.ranked_findings(smap.to_dict(), GUAARDVARK_ROOT):
+    if f["severity"] == "high" and f["dispatchable"] and not f["dismissed"]:
+        actions.dispatch_finding(f)   # agent proposes a fix → PendingFix → human review
 ```
 
-Each high finding becomes a candidate `pending_fix` row. The agent picks one
-per run, proposes a fix, runs the existing `_verify_fix` flow, and merges if
-green. That's the difference between placebo and real.
+The per-finding action loop (rank → dispatch → real `PendingFix` → human approve)
+is the real thing. Auto-draining the backlog on a schedule is the remaining step.
 
 ## Future expansion: language-agnostic discoverers
 

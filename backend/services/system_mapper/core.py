@@ -43,10 +43,19 @@ class Finding:
     paths: list[str] = field(default_factory=list)
     evidence: dict[str, Any] = field(default_factory=dict)
 
+    def fingerprint(self) -> str:
+        """Stable id across re-runs: same defect → same id, so dismissals and
+        dispatched-task state survive re-analysis. Independent of severity (which
+        may be re-tuned) and of path ordering."""
+        import hashlib
+        basis = "|".join([self.kind.value, self.summary, *sorted(self.paths)])
+        return hashlib.sha1(basis.encode()).hexdigest()[:16]
+
     def to_dict(self) -> dict:
         d = asdict(self)
         d["kind"] = self.kind.value
         d["severity"] = self.severity.value
+        d["id"] = self.fingerprint()
         return d
 
 
@@ -60,6 +69,7 @@ class SystemMap:
 
     # Sub-graphs (each module is responsible for its own data shape)
     dependency_graph: dict = field(default_factory=dict)
+    node_meta: dict = field(default_factory=dict)   # module -> {lifecycle, importers, path}
     reachability: dict = field(default_factory=dict)
     tool_graph: dict = field(default_factory=dict)
 
@@ -82,6 +92,7 @@ class SystemMap:
             "languages": self.languages,
             "file_count": self.file_count,
             "dependency_graph": self.dependency_graph,
+            "node_meta": self.node_meta,
             "reachability": self.reachability,
             "tool_graph": self.tool_graph,
             "findings": [f.to_dict() for f in self.findings],
@@ -141,6 +152,7 @@ def codebase_map(
     try:
         dep_result = dependency_graph.analyze(root, extra_excludes)
         smap.dependency_graph = dep_result["graph"]
+        smap.node_meta = dep_result.get("node_meta", {})
         smap.findings.extend(dep_result["findings"])
         smap.file_count = dep_result["file_count"]
         smap.stats["dependency"] = dep_result["stats"]

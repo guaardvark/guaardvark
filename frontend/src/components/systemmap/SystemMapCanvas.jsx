@@ -129,20 +129,25 @@ function buildGraph(systemMap) {
 
   const dep = systemMap.dependency_graph || {};
   const moduleNames = Object.keys(dep);
+  // Real per-module metadata from the backend (lifecycle, importers). Falls back
+  // to defaults for older snapshots that predate node_meta.
+  const backendMeta = systemMap.node_meta || {};
 
   const nodeMeta = {};
   for (const name of moduleNames) {
+    const bm = backendMeta[name] || {};
     nodeMeta[name] = {
-      lifecycle: "active",
-      section: pathToSection(moduleNameToPath(name)),
+      lifecycle: bm.lifecycle || "active",
+      section: pathToSection(bm.path || moduleNameToPath(name)),
       findings: [],
-      importers: 0,
+      importers: bm.importers || 0,
     };
   }
 
+  // Fill importer counts for any node the backend didn't annotate.
   for (const [, targets] of Object.entries(dep)) {
     for (const t of targets || []) {
-      if (nodeMeta[t]) nodeMeta[t].importers++;
+      if (nodeMeta[t] && !backendMeta[t]) nodeMeta[t].importers++;
     }
   }
 
