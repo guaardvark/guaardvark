@@ -36,15 +36,19 @@ class TestLocalBackend(unittest.TestCase):
         from backend.services.local_screen_backend import LocalScreenBackend
         from PIL import Image
 
-        # Mock mss screenshot
-        mock_monitor = {"left": 0, "top": 0, "width": 1024, "height": 1024}
+        # Mock mss screenshot. Backend calls mss.MSS() and reads sct_img.size.width/.height,
+        # so size must be a namedtuple-like (mss.models.Size) — both attr-accessible and a
+        # 2-sequence for Image.frombytes.
+        from collections import namedtuple
+        Size = namedtuple("Size", ["width", "height"])
+        mock_monitor = {"left": 0, "top": 0, "width": 8, "height": 8}
         mock_sct_instance = MagicMock()
         mock_sct_instance.monitors = [{}, mock_monitor]
         mock_sct_instance.grab.return_value = MagicMock()
-        mock_sct_instance.grab.return_value.size = (1024, 1024)
-        mock_sct_instance.grab.return_value.rgb = b'\x00' * (1024 * 1024 * 3)
-        mock_mss.mss.return_value.__enter__ = MagicMock(return_value=mock_sct_instance)
-        mock_mss.mss.return_value.__exit__ = MagicMock(return_value=False)
+        mock_sct_instance.grab.return_value.size = Size(8, 8)
+        mock_sct_instance.grab.return_value.rgb = b'\x00' * (8 * 8 * 3)
+        mock_mss.MSS.return_value.__enter__ = MagicMock(return_value=mock_sct_instance)
+        mock_mss.MSS.return_value.__exit__ = MagicMock(return_value=False)
 
         backend = LocalScreenBackend()
 
@@ -284,7 +288,8 @@ class TestSlowEffectClassifier(unittest.TestCase):
         with patch.object(backend, '_xdotool', return_value=mock_result):
             size = backend.screen_size()
 
-        self.assertEqual(size, (1024, 1024))
+        # Fallback is 1000x1000 — matches start_agent_display.sh + Gemma4's box_2d grid.
+        self.assertEqual(size, (1000, 1000))
 
     def test_cursor_position(self):
         from backend.services.local_screen_backend import LocalScreenBackend
