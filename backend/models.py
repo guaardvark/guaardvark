@@ -2389,6 +2389,9 @@ class AgentMemory(db.Model):
                 tags = json.loads(self.tags)
             except (json.JSONDecodeError, TypeError):
                 tags = []
+        tw = {"manual": 1.0, "cli": 0.95, "chat": 0.88, "agent": 0.82}.get(
+            (self.source or "").lower(), 0.7
+        )
         return {
             "id": self.id,
             "content": self.content,
@@ -2397,8 +2400,43 @@ class AgentMemory(db.Model):
             "tags": tags,
             "type": self.type,
             "importance": self.importance,
+            "trust_weight": tw,
+            "rank_score": round(float(self.importance or 0.5) * tw, 4),
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class AgentActionProvenance(db.Model):
+    """Append-only audit of tool/agent actions for trust and debugging."""
+
+    __tablename__ = "agent_action_provenance"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    session_id = db.Column(db.String(64), nullable=False, index=True)
+    request_id = db.Column(db.String(64), nullable=True, index=True)
+    iteration = db.Column(db.Integer, nullable=True)
+    tool_name = db.Column(db.String(128), nullable=False)
+    params_snapshot = db.Column(db.JSON, nullable=True)
+    approval_scope = db.Column(db.String(32), nullable=True)
+    approved = db.Column(db.Boolean, nullable=True)
+    outcome_success = db.Column(db.Boolean, nullable=True)
+    outcome_preview = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(), index=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "session_id": self.session_id,
+            "request_id": self.request_id,
+            "iteration": self.iteration,
+            "tool_name": self.tool_name,
+            "params_snapshot": self.params_snapshot,
+            "approval_scope": self.approval_scope,
+            "approved": self.approved,
+            "outcome_success": self.outcome_success,
+            "outcome_preview": self.outcome_preview,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
 

@@ -24,12 +24,15 @@ def index_document(
         data = client.post(f"/api/index/{doc_id}")
 
         if json_out or output.is_pipe():
-            output.print_json(data)
+            output.print_json({"status": "success", "data": data})
         else:
             output.print_success(f"Indexing triggered for document {doc_id}")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -48,12 +51,15 @@ def index_status(
         counts = data.get("entity_counts", {})
 
         if json_out or output.is_pipe():
-            output.print_json(data)
+            output.print_json({"status": "success", "data": data})
         else:
             output.print_kv(counts, title="Entity Indexing Status")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -69,7 +75,10 @@ def index_entity(
     json_out = json_out or get_global_json()
     output.set_json_mode(json_out)
     if entity_type not in ("client", "project", "website", "task"):
-        output.print_error("--type must be one of: client, project, website, task")
+        output.print_error(
+            "--type must be one of: client, project, website, task",
+            code="INVALID_ARGUMENT",
+        )
         raise typer.Exit(1)
     try:
         client = get_client(server)
@@ -79,16 +88,19 @@ def index_entity(
         })
 
         if json_out or output.is_pipe():
-            output.print_json(data)
+            output.print_json({"status": "success", "data": data})
         else:
             if data.get("success"):
                 output.print_success(data.get("message", f"Indexed {entity_type} {entity_id}"))
             else:
-                output.print_error(data.get("error", "Indexing failed"))
+                output.print_error(data.get("error", "Indexing failed"), code="INDEXING_FAILED")
                 raise typer.Exit(1)
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -106,14 +118,17 @@ def index_all(
         data = client.post("/api/entity-indexing/index-all")
 
         if json_out or output.is_pipe():
-            output.print_json(data)
+            output.print_json({"status": "success", "data": data})
         else:
             if data.get("success"):
                 output.print_success(data.get("message", "Entity indexing completed"))
             else:
-                output.print_error(data.get("error", "Indexing failed"))
+                output.print_error(data.get("error", "Indexing failed"), code="INDEXING_FAILED")
                 raise typer.Exit(1)
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)

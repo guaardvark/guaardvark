@@ -28,7 +28,7 @@ def rag_status(
         status_data = data.get("data", data)
 
         if json_out or output.is_pipe():
-            output.print_json(status_data)
+            output.print_json({"status": "success", "data": status_data})
             return
 
         total = status_data.get("total_documents", status_data.get("document_count", "?"))
@@ -54,10 +54,10 @@ def rag_status(
         console.print(make_panel("\n".join(lines), title="RAG Index"))
 
     except LlxConnectionError as e:
-        output.print_error(str(e))
+        output.print_error(str(e), code="CONNECTION_ERROR")
         raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message)
+        output.print_error(e.message, code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -81,7 +81,7 @@ def rag_query(
         results = data.get("results", data.get("data", {}).get("results", []))
 
         if json_out or output.is_pipe():
-            output.print_json(results)
+            output.print_json({"status": "success", "data": {"results": results}})
             return
 
         if not results:
@@ -101,10 +101,10 @@ def rag_query(
             console.print()
 
     except LlxConnectionError as e:
-        output.print_error(str(e))
+        output.print_error(str(e), code="CONNECTION_ERROR")
         raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message)
+        output.print_error(e.message, code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -124,7 +124,7 @@ def rag_entities(
         entities = data.get("entities", data.get("data", {}).get("entities", []))
 
         if json_out or output.is_pipe():
-            output.print_json(entities)
+            output.print_json({"status": "success", "data": {"entities": entities}})
             return
 
         if not entities:
@@ -149,10 +149,10 @@ def rag_entities(
         console.print(table)
 
     except LlxConnectionError as e:
-        output.print_error(str(e))
+        output.print_error(str(e), code="CONNECTION_ERROR")
         raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message)
+        output.print_error(e.message, code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -171,7 +171,7 @@ def rag_eval(
         status_data = data.get("data", data)
 
         if json_out or output.is_pipe():
-            output.print_json(status_data)
+            output.print_json({"status": "success", "data": status_data})
             return
 
         enabled = status_data.get("enabled", False)
@@ -195,8 +195,8 @@ def rag_eval(
         console.print(make_panel("\n".join(lines), title="RAG Autoresearch"))
 
     except LlxConnectionError as e:
-        output.print_error(str(e))
+        output.print_error(str(e), code="CONNECTION_ERROR")
         raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message)
+        output.print_error(e.message, code="API_ERROR")
         raise typer.Exit(1)

@@ -36,14 +36,17 @@ def settings_list(
                 settings[key] = "unavailable"
 
         if json_out or output.is_pipe():
-            output.print_json(settings)
+            output.print_json({"status": "success", "data": {"settings": settings}})
         else:
             output.print_kv(
                 {k: str(v) for k, v in settings.items()},
                 title="Settings",
             )
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -62,11 +65,14 @@ def settings_get(
         data = client.get(f"/api/settings/{key}")
         result = data.get("data", data)
         if json_out or output.is_pipe():
-            output.print_json(result)
+            output.print_json({"status": "success", "data": {key: result}})
         else:
             output.print_kv({key: str(result)})
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -75,9 +81,12 @@ def settings_set(
     key: str = typer.Argument(..., help="Setting key"),
     value: str = typer.Argument(..., help="Setting value"),
     server: str = typer.Option(None, "--server", "-s"),
+    json_out: bool = typer.Option(False, "--json", "-j"),
 ):
     """Set a setting value."""
     server = server or get_global_server()
+    json_out = json_out or get_global_json()
+    output.set_json_mode(json_out)
     try:
         parsed: str | bool | int = value
         if value.lower() in ("true", "false"):
@@ -87,7 +96,13 @@ def settings_set(
 
         client = get_client(server)
         client.post(f"/api/settings/{key}", json={key: parsed})
-        output.print_success(f"Set {key} = {parsed}")
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+        if json_out or output.is_pipe():
+            output.print_json({"status": "success", "data": {key: parsed}})
+        else:
+            output.print_success(f"Set {key} = {parsed}")
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)

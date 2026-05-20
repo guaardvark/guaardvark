@@ -235,7 +235,7 @@ def launch_repl():
             lcfg = load_launch_config()
             if lcfg.get("auto_start_services") and lcfg.get("mode") == "lite":
                 from llx.commands.launch import _start_lite_mode
-                _start_lite_mode(console, port=5000)
+                _start_lite_mode(console, port=5002)
                 time.sleep(0.5)
                 ctx.refresh_async()
         except Exception:

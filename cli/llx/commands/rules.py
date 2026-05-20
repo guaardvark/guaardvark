@@ -29,7 +29,7 @@ def rules_list(
         rules = data if isinstance(data, list) else data.get("data", [])
 
         if json_out or output.is_pipe():
-            output.print_json(rules)
+            output.print_json({"status": "success", "data": {"rules": rules}})
             return
 
         rows = [{
@@ -41,8 +41,11 @@ def rules_list(
         } for r in rules]
         output.print_table(rows, columns=["id", "name", "level", "type", "active"], title=f"Rules ({len(rows)})")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -66,7 +69,7 @@ def rules_create(
     elif content:
         rule_text = content
     else:
-        output.print_error("Provide --content or --file")
+        output.print_error("Provide --content or --file", code="INVALID_ARGUMENT")
         raise typer.Exit(1)
 
     try:
@@ -79,11 +82,14 @@ def rules_create(
         })
         result = data.get("data", data)
         if json_out or output.is_pipe():
-            output.print_json(result)
+            output.print_json({"status": "success", "data": result})
         else:
             output.print_success(f"Created rule: {name} (id: {result.get('id', '?')})")
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -92,17 +98,26 @@ def rules_delete(
     rule_id: int = typer.Argument(..., help="Rule ID"),
     force: bool = typer.Option(False, "--force", "-f"),
     server: str = typer.Option(None, "--server", "-s"),
+    json_out: bool = typer.Option(False, "--json", "-j"),
 ):
     """Delete a rule."""
     server = server or get_global_server()
-    if not force:
+    json_out = json_out or get_global_json()
+    output.set_json_mode(json_out)
+    if not force and not (json_out or output.is_pipe()):
         typer.confirm(f"Delete rule {rule_id}?", abort=True)
     try:
         client = get_client(server)
         client.delete(f"/api/rules/{rule_id}")
-        output.print_success(f"Deleted rule {rule_id}")
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+        if json_out or output.is_pipe():
+            output.print_json({"status": "success", "data": {"rule_id": rule_id, "deleted": True}})
+        else:
+            output.print_success(f"Deleted rule {rule_id}")
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -110,17 +125,31 @@ def rules_delete(
 def rules_export(
     file: Path = typer.Option("rules.json", "--file", "-f", help="Output file"),
     server: str = typer.Option(None, "--server", "-s"),
+    json_out: bool = typer.Option(False, "--json", "-j"),
 ):
     """Export all rules to a JSON file."""
     server = server or get_global_server()
+    json_out = json_out or get_global_json()
+    output.set_json_mode(json_out)
     try:
         client = get_client(server)
         data = client.get("/api/meta/rules/export")
         rules = data.get("rules", data)
         file.write_text(json.dumps(rules, indent=2))
-        output.print_success(f"Exported {len(rules)} rules to {file}")
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+        if json_out or output.is_pipe():
+            output.print_json(
+                {
+                    "status": "success",
+                    "data": {"count": len(rules), "output_file": str(file)},
+                }
+            )
+        else:
+            output.print_success(f"Exported {len(rules)} rules to {file}")
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -128,9 +157,12 @@ def rules_export(
 def rules_import(
     file: Path = typer.Argument(..., help="JSON file to import", exists=True),
     server: str = typer.Option(None, "--server", "-s"),
+    json_out: bool = typer.Option(False, "--json", "-j"),
 ):
     """Import rules from a JSON file."""
     server = server or get_global_server()
+    json_out = json_out or get_global_json()
+    output.set_json_mode(json_out)
     try:
         rules = json.loads(file.read_text())
         client = get_client(server)
@@ -138,7 +170,18 @@ def rules_import(
         created = data.get("created", 0)
         updated = data.get("updated", 0)
         skipped = data.get("skipped", 0)
-        output.print_success(f"Import complete: {created} created, {updated} updated, {skipped} skipped")
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+        if json_out or output.is_pipe():
+            output.print_json(
+                {
+                    "status": "success",
+                    "data": {"created": created, "updated": updated, "skipped": skipped},
+                }
+            )
+        else:
+            output.print_success(f"Import complete: {created} created, {updated} updated, {skipped} skipped")
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)

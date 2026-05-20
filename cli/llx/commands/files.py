@@ -31,7 +31,9 @@ def files_list(
         documents = result.get("documents", [])
 
         if json_out or output.is_pipe():
-            output.print_json({"folders": folders, "documents": documents})
+            output.print_json(
+                {"status": "success", "data": {"folders": folders, "documents": documents}}
+            )
             return
 
         if not folders and not documents:
@@ -50,8 +52,11 @@ def files_list(
             tree.add(f"[llx.tree.file]{name}[/llx.tree.file]  [llx.tree.meta]{size_str}  id:{doc_id}[/llx.tree.meta]")
         console.print(tree)
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -91,7 +96,7 @@ def files_upload(
         doc_id = result.get("id")
 
         if json_out or output.is_pipe():
-            output.print_json(result)
+            output.print_json({"status": "success", "data": result})
             return
 
         msg = f"Uploaded: {file_path.name} (id: {doc_id})"
@@ -99,8 +104,11 @@ def files_upload(
             msg += " — indexing in progress"
         output.print_success(msg)
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -120,8 +128,11 @@ def files_download(
         dest_file = dest / filename
         client.download(f"/api/files/document/{doc_id}/download", dest_file)
         output.print_success(f"Downloaded: {dest_file}")
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -139,8 +150,11 @@ def files_delete(
         client = get_client(server)
         client.delete(f"/api/files/document/{doc_id}")
         output.print_success(f"Deleted document {doc_id}")
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -160,11 +174,14 @@ def files_mkdir(
         data = client.post("/api/files/folder", json={"name": name, "parent_id": parent})
         result = data.get("data", data)
         if json_out or output.is_pipe():
-            output.print_json(result)
+            output.print_json({"status": "success", "data": result})
         else:
             output.print_success(f"Created folder: {name}")
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 

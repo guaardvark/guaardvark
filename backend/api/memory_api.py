@@ -126,8 +126,8 @@ def save_memory():
 @memory_bp.route("", methods=["GET"])
 def list_memories():
     """
-    GET /api/memory?search=&limit=50&offset=0&type=
-    List or search memories.
+    GET /api/memory?search=&limit=50&offset=0&type=&sort=
+    List or search memories. sort=trust orders by importance * source trust weight.
     """
     try:
         query = db.session.query(AgentMemory)
@@ -145,8 +145,24 @@ def list_memories():
                 (AgentMemory.tags.ilike(f"%{search}%"))
             )
 
-        # Sort newest first
-        query = query.order_by(AgentMemory.created_at.desc())
+        sort_mode = (request.args.get("sort") or "").strip().lower()
+        if sort_mode == "trust":
+            from sqlalchemy import case
+
+            trust_weight = case(
+                (AgentMemory.source == "manual", 1.0),
+                (AgentMemory.source == "cli", 0.95),
+                (AgentMemory.source == "chat", 0.88),
+                (AgentMemory.source == "agent", 0.82),
+                else_=0.7,
+            )
+            query = query.order_by(
+                (AgentMemory.importance * trust_weight).desc(),
+                AgentMemory.created_at.desc(),
+            )
+        else:
+            # Sort newest first
+            query = query.order_by(AgentMemory.created_at.desc())
 
         # Paginate
         limit = request.args.get("limit", 50, type=int)

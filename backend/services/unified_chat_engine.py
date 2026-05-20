@@ -33,12 +33,60 @@ _abort_lock = threading.Lock()
 
 # Approval events for human-in-the-loop
 _approval_events: Dict[str, threading.Event] = {}
-_approval_responses: Dict[str, bool] = {} # session_id -> approved (bool)
+_approval_responses: Dict[str, bool] = {}  # session_id -> approved (bool)
 _approval_lock = threading.Lock()
+# Scoped grants: session-wide or current-user-message (task) tool skips
+_session_tool_grants: Dict[str, set] = {}
+_task_tool_grants: Dict[str, set] = {}
+# Last approval batch metadata for provenance (cleared each iteration after tools run)
+_approval_batch_meta: Dict[str, Dict[str, Any]] = {}
 
-def set_approval_response(session_id: str, approved: bool):
-    """Set the response for a pending tool approval."""
+
+def clear_task_scoped_tool_grants(session_id: str) -> None:
+    """Clear per-user-message tool grants (call at start of each new chat turn)."""
     with _approval_lock:
+        _task_tool_grants.pop(session_id, None)
+
+
+def _preapproved_tool_names(session_id: str) -> set:
+    with _approval_lock:
+        s: set = set()
+        s |= _session_tool_grants.get(session_id, set())
+        s |= _task_tool_grants.get(session_id, set())
+        return s
+
+
+def set_approval_response(
+    session_id: str,
+    approved: bool,
+    scope: Optional[str] = None,
+    tools: Optional[List[str]] = None,
+):
+    """Set the response for a pending tool approval.
+
+    scope: once | session | task (defaults to once).
+    tools: optional explicit list from client; otherwise uses pending batch.
+    """
+    tools = tools or []
+    sc = (scope or "once").strip().lower()
+    if sc not in ("once", "session", "task"):
+        sc = "once"
+    with _approval_lock:
+        pending = _approval_batch_meta.get(session_id) or {}
+        batch_tools = list(tools) if tools else list(pending.get("tools") or [])
+        _approval_batch_meta[session_id] = {
+            **pending,
+            "approved": approved,
+            "scope": sc,
+            "tools": batch_tools,
+        }
+        if approved and batch_tools:
+            if sc == "session":
+                g = _session_tool_grants.setdefault(session_id, set())
+                g.update(batch_tools)
+            elif sc == "task":
+                g = _task_tool_grants.setdefault(session_id, set())
+                g.update(batch_tools)
         _approval_responses[session_id] = approved
         if session_id in _approval_events:
             _approval_events[session_id].set()
@@ -702,6 +750,7 @@ class UnifiedChatEngine:
         """
         request_id = str(uuid.uuid4())
         clear_abort_flag(session_id)
+        clear_task_scoped_tool_grants(session_id)
         steps = []
 
         try:
@@ -1070,10 +1119,11 @@ class UnifiedChatEngine:
 
             # --- 2a. Human-in-the-loop Approval -----------------------------------
             # If any tool in this iteration requires approval, pause and wait.
+            _pre = _preapproved_tool_names(session_id)
             approval_jobs = []
             for tc, tool_name, params in tool_jobs:
                 tool = self.registry.get_tool(tool_name)
-                if tool and tool.requires_approval:
+                if tool and tool.requires_approval and tool_name not in _pre:
                     approval_jobs.append(tool_name)
 
             if approval_jobs and not is_aborted(session_id):
@@ -1082,9 +1132,18 @@ class UnifiedChatEngine:
                     "iteration": iteration, 
                     "status": f"Waiting for approval to run: {', '.join(approval_jobs)}..."
                 })
+                with _approval_lock:
+                    _approval_batch_meta[session_id] = {
+                        "tools": list(approval_jobs),
+                        "iteration": iteration,
+                        "request_id": request_id,
+                        "approved": None,
+                        "scope": None,
+                    }
                 emit_fn("chat:tool_approval_request", {
                     "tools": approval_jobs,
-                    "iteration": iteration
+                    "iteration": iteration,
+                    "available_scopes": ["once", "session", "task"],
                 })
                 
                 # Create and wait on event
@@ -1125,8 +1184,13 @@ class UnifiedChatEngine:
                             })
                     
                     # Remove rejected jobs from tool_jobs so they aren't executed
-                    tool_jobs = [(tc, tn, p) for tc, tn, p in tool_jobs 
-                                 if not (self.registry.get_tool(tn) and self.registry.get_tool(tn).requires_approval)]
+                    tool_jobs = [
+                        (tc, tn, p) for tc, tn, p in tool_jobs
+                        if (
+                            not (self.registry.get_tool(tn) and self.registry.get_tool(tn).requires_approval)
+                            or tn in _pre
+                        )
+                    ]
                     
                     if not tool_jobs:
                         # All tools in this iteration were rejected
@@ -1172,7 +1236,7 @@ class UnifiedChatEngine:
 
             def _emit_result(job_i: int, res, dur_ms: int) -> None:
                 """Thread-safe result emission."""
-                _, t_name, _ = tool_jobs[job_i]
+                _, t_name, t_params = tool_jobs[job_i]
                 out = _output_str(res)
                 with _emit_lock:
                     emit_fn("chat:tool_result", {
@@ -1213,6 +1277,35 @@ class UnifiedChatEngine:
                             "caption": vid_info["caption"],
                             "session_id": session_id,
                         })
+                try:
+                    from backend.services.agent_provenance import record_tool_outcome
+
+                    bmeta: Dict[str, Any] = {}
+                    with _approval_lock:
+                        bmeta = dict(_approval_batch_meta.get(session_id) or {})
+                    batch_tools = set(bmeta.get("tools") or [])
+                    in_batch = t_name in batch_tools
+                    appr_sc = (bmeta.get("scope") or None) if in_batch and bmeta.get("approved") else None
+                    appr_ok = bool(bmeta.get("approved")) if in_batch else None
+                    tool_o = self.registry.get_tool(t_name)
+                    needs_appr = bool(tool_o and tool_o.requires_approval)
+                    if not needs_appr:
+                        appr_sc, appr_ok = None, None
+                    elif t_name in _pre:
+                        appr_sc, appr_ok = "pre_granted", True
+                    record_tool_outcome(
+                        session_id,
+                        request_id,
+                        iteration,
+                        t_name,
+                        t_params if isinstance(t_params, dict) else {"_raw": str(t_params)[:500]},
+                        bool(res.success),
+                        (out[:500] if res.success else (res.error or "")[:500]),
+                        approval_scope=appr_sc,
+                        approved=appr_ok,
+                    )
+                except Exception:
+                    pass
 
             def _exec_one(job_index: int):
                 """Worker: run one tool call, return (index, result, duration_ms)."""
@@ -1281,6 +1374,9 @@ class UnifiedChatEngine:
                     job_i, res, dur_ms = _exec_one(i)
                     results_by_index[i] = (res, dur_ms)
                     _emit_result(i, res, dur_ms)
+
+            with _approval_lock:
+                _approval_batch_meta.pop(session_id, None)
 
             # --- 5. Collate in original call order for LLM context ----------------
             observation_text = ""

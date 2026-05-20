@@ -42,15 +42,18 @@ def generate_csv(
         result = data.get("data", data)
 
         if json_out or output.is_pipe():
-            output.print_json(result)
+            output.print_json({"status": "success", "data": result})
         else:
             output.print_success(f"Generated: {result.get('output_file', output_file)}")
             stats = result.get("statistics", {})
             if stats:
                 console.print(f"  [llx.dim]Items: {stats.get('generated_items', '?')} | Time: {stats.get('generation_time', '?')}s[/llx.dim]")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -73,12 +76,15 @@ def generate_image(
         result = data.get("data", data)
 
         if json_out or output.is_pipe():
-            output.print_json(result)
+            output.print_json({"status": "success", "data": result})
         else:
             job_id = result.get("job_id", "")
             output.print_success(f"Image generation started (job: {job_id})")
             console.print(f"  Track with: [llx.accent]guaardvark jobs watch {job_id}[/llx.accent]")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)

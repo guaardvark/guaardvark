@@ -181,13 +181,18 @@ def handle_tool_approval_response(data):
     """User approves or rejects a tool execution."""
     session_id = data.get("session_id")
     approved = data.get("approved", False)
+    scope = data.get("approval_scope") or data.get("scope")
+    tools = data.get("tools") or data.get("approved_tools")
     if not session_id:
         emit("error", {"message": "session_id required"})
         return
     try:
         from backend.services.unified_chat_engine import set_approval_response
-        set_approval_response(session_id, approved)
-        logger.info(f"Tool approval response received for session {session_id}: approved={approved}")
+        set_approval_response(session_id, approved, scope=scope, tools=tools)
+        logger.info(
+            f"Tool approval response received for session {session_id}: "
+            f"approved={approved} scope={scope}"
+        )
     except Exception as e:
         logger.error(f"Failed to set tool approval response for session {session_id}: {e}")
         emit("error", {"message": f"Approval response failed: {str(e)}"})

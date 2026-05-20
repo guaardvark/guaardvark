@@ -32,7 +32,7 @@ def jobs_list(
             jobs = [jobs] if jobs else []
 
         if json_out or output.is_pipe():
-            output.print_json(jobs)
+            output.print_json({"status": "success", "data": {"jobs": jobs}})
             return
 
         rows = [{
@@ -43,8 +43,11 @@ def jobs_list(
         } for j in jobs]
         output.print_table(rows, columns=["id", "name", "type", "status"], title="Jobs")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -63,7 +66,7 @@ def jobs_status(
         data = client.get(f"/api/jobs/{task_id}/status")
 
         if json_out or output.is_pipe():
-            output.print_json(data)
+            output.print_json({"status": "success", "data": data})
             return
 
         progress = data.get("progress", {})
@@ -76,8 +79,11 @@ def jobs_status(
             "Message": progress.get("message", "—"),
         }, title="Job Status")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -116,8 +122,11 @@ def jobs_watch(
             streamer.wait(timeout=600)
             streamer.disconnect()
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -136,11 +145,14 @@ def jobs_cancel(
         data = client.post(f"/api/meta/cancel_job/{job_id}")
 
         if json_out or output.is_pipe():
-            output.print_json(data)
+            output.print_json({"status": "success", "data": data})
         else:
             msg = data.get("message", f"Job {job_id} cancelled.")
             output.print_success(msg)
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)

@@ -32,7 +32,7 @@ def tasks_list(
             tasks = []
 
         if json_out or output.is_pipe():
-            output.print_json(tasks)
+            output.print_json({"status": "success", "data": {"tasks": tasks}})
             return
 
         rows = [{
@@ -44,8 +44,11 @@ def tasks_list(
         } for t in tasks]
         output.print_table(rows, columns=["id", "name", "type", "status", "progress"], title=f"Tasks ({len(rows)})")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -81,7 +84,7 @@ def tasks_create(
         task_id = result.get("id", result.get("task_id", "?"))
 
         if json_out or output.is_pipe():
-            output.print_json(result)
+            output.print_json({"status": "success", "data": result})
             return
 
         output.print_success(f"Created task: {body['name']} (id: {task_id})")
@@ -93,8 +96,11 @@ def tasks_create(
             except LlxError as start_err:
                 console.print(f"  [llx.warning]Auto-start failed: {start_err.message}[/llx.warning]")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -114,7 +120,7 @@ def tasks_info(
         result = data if isinstance(data, dict) else {}
 
         if json_out or output.is_pipe():
-            output.print_json(result)
+            output.print_json({"status": "success", "data": result})
             return
 
         progress = result.get("progress", {})
@@ -128,8 +134,11 @@ def tasks_info(
             "Output": result.get("output_file", "—"),
         }, title="Task Details")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -137,17 +146,26 @@ def tasks_info(
 def tasks_start(
     task_id: int = typer.Argument(..., help="Task ID to start"),
     server: str = typer.Option(None, "--server", "-s"),
+    json_out: bool = typer.Option(False, "--json", "-j"),
 ):
     """Start or restart a task."""
     server = server or get_global_server()
+    json_out = json_out or get_global_json()
+    output.set_json_mode(json_out)
     try:
         api_client = get_client(server)
         data = api_client.post(f"/api/tasks/{task_id}/start")
         msg = data.get("message", f"Task {task_id} started.")
-        output.print_success(msg)
-        console.print(f"  Watch progress: [bold]guaardvark jobs watch {task_id}[/bold]")
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+        if json_out or output.is_pipe():
+            output.print_json({"status": "success", "data": data})
+        else:
+            output.print_success(msg)
+            console.print(f"  Watch progress: [bold]guaardvark jobs watch {task_id}[/bold]")
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -156,10 +174,13 @@ def tasks_download(
     task_id: int = typer.Argument(..., help="Task ID"),
     dest: str = typer.Option(".", "--dest", "-d", help="Destination directory"),
     server: str = typer.Option(None, "--server", "-s"),
+    json_out: bool = typer.Option(False, "--json", "-j"),
 ):
     """Download task output file."""
     from pathlib import Path
     server = server or get_global_server()
+    json_out = json_out or get_global_json()
+    output.set_json_mode(json_out)
     try:
         api_client = get_client(server)
         # Get file info first
@@ -168,9 +189,17 @@ def tasks_download(
         filename = file_info.get("filename", f"task_{task_id}_output")
         dest_path = Path(dest) / filename
         api_client.download(f"/api/tasks/{task_id}/download", dest_path)
-        output.print_success(f"Downloaded: {dest_path}")
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+        if json_out or output.is_pipe():
+            output.print_json(
+                {"status": "success", "data": {"task_id": task_id, "destination": str(dest_path)}}
+            )
+        else:
+            output.print_success(f"Downloaded: {dest_path}")
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -179,15 +208,24 @@ def tasks_delete(
     task_id: int = typer.Argument(..., help="Task ID"),
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
     server: str = typer.Option(None, "--server", "-s"),
+    json_out: bool = typer.Option(False, "--json", "-j"),
 ):
     """Delete a task."""
     server = server or get_global_server()
-    if not force:
+    json_out = json_out or get_global_json()
+    output.set_json_mode(json_out)
+    if not force and not (json_out or output.is_pipe()):
         typer.confirm(f"Delete task {task_id}?", abort=True)
     try:
         api_client = get_client(server)
         api_client.delete(f"/api/tasks/{task_id}")
-        output.print_success(f"Deleted task {task_id}")
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+        if json_out or output.is_pipe():
+            output.print_json({"status": "success", "data": {"task_id": task_id, "deleted": True}})
+        else:
+            output.print_success(f"Deleted task {task_id}")
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)

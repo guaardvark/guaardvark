@@ -25,7 +25,7 @@ def clients_list(
             clients = []
 
         if json_out or output.is_pipe():
-            output.print_json(clients)
+            output.print_json({"status": "success", "data": {"clients": clients}})
             return
 
         rows = [{
@@ -35,8 +35,11 @@ def clients_list(
         } for c in clients]
         output.print_table(rows, columns=["id", "name", "projects"], title=f"Clients ({len(rows)})")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -60,12 +63,15 @@ def clients_create(
         result = data.get("data", data) if isinstance(data, dict) else data
 
         if json_out or output.is_pipe():
-            output.print_json(result)
+            output.print_json({"status": "success", "data": result})
         else:
             output.print_success(f"Created client: {name} (id: {result.get('id', '?')})")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -85,7 +91,7 @@ def clients_info(
         result = data.get("data", data) if isinstance(data, dict) else data
 
         if json_out or output.is_pipe():
-            output.print_json(result)
+            output.print_json({"status": "success", "data": result})
         else:
             output.print_kv({
                 "ID": result.get("id", ""),
@@ -94,8 +100,11 @@ def clients_info(
                 "Projects": result.get("project_count", len(result.get("projects", []))),
             }, title="Client Details")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -113,6 +122,9 @@ def clients_delete(
         api_client = get_client(server)
         api_client.delete(f"/api/clients/{client_id}")
         output.print_success(f"Deleted client {client_id}")
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)

@@ -108,7 +108,7 @@ def _pick_mode() -> str:
     console = make_console()
     console.print("\n[llx.brand_bright]Launch mode:[/llx.brand_bright]")
     console.print("  [llx.accent] 0[/llx.accent]  Lite   [llx.dim]Instant start, SQLite, TUI only[/llx.dim]")
-    console.print("  [llx.accent] 1[/llx.accent]  Full   [llx.dim]PostgreSQL, Redis, web UI at localhost:5173[/llx.dim]")
+    console.print("  [llx.accent] 1[/llx.accent]  Full   [llx.dim]PostgreSQL, Redis, web UI at localhost:5175[/llx.dim]")
     console.print()
 
     from prompt_toolkit import prompt as pt_prompt

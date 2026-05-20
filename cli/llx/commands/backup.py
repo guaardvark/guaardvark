@@ -41,16 +41,16 @@ def create_backup(
             data = client.post("/api/backups/create", json=payload)
 
         if json_out or output.is_pipe():
-            output.print_json(data)
+            output.print_json({"status": "success", "data": data})
         else:
             filename = data.get("file", "?")
             output.print_success(f"Backup created: {filename}")
 
     except LlxConnectionError as e:
-        output.print_error(str(e))
+        output.print_error(str(e), code="CONNECTION_ERROR")
         raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message)
+        output.print_error(e.message, code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -70,7 +70,7 @@ def list_backups(
         backups = data.get("backups", [])
 
         if json_out or output.is_pipe():
-            output.print_json(backups)
+            output.print_json({"status": "success", "data": {"backups": backups}})
         elif not backups:
             console.print("[llx.dim]No backups found.[/llx.dim]")
         else:
@@ -82,10 +82,10 @@ def list_backups(
             console.print(table)
 
     except LlxConnectionError as e:
-        output.print_error(str(e))
+        output.print_error(str(e), code="CONNECTION_ERROR")
         raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message)
+        output.print_error(e.message, code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -105,10 +105,10 @@ def download_backup(
         output.print_success(f"Downloaded to {dest_file}")
 
     except LlxConnectionError as e:
-        output.print_error(str(e))
+        output.print_error(str(e), code="CONNECTION_ERROR")
         raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message)
+        output.print_error(e.message, code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -125,11 +125,11 @@ def restore_backup(
     output.set_json_mode(json_out)
 
     if not file.exists():
-        output.print_error(f"File not found: {file}")
+        output.print_error(f"File not found: {file}", code="INVALID_ARGUMENT")
         raise typer.Exit(1)
 
     if not str(file).endswith(".zip"):
-        output.print_error("Only .zip backup files are supported.")
+        output.print_error("Only .zip backup files are supported.", code="INVALID_ARGUMENT")
         raise typer.Exit(1)
 
     if not force and not json_out:
@@ -151,7 +151,7 @@ def restore_backup(
             data = client.upload("/api/backups/restore", file)
 
         if json_out or output.is_pipe():
-            output.print_json(data)
+            output.print_json({"status": "success", "data": data})
         else:
             output.print_success("Backup restored successfully")
             # Show summary of restored items
@@ -160,10 +160,10 @@ def restore_backup(
                 output.print_kv(summary, title="Restored Items")
 
     except LlxConnectionError as e:
-        output.print_error(str(e))
+        output.print_error(str(e), code="CONNECTION_ERROR")
         raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message)
+        output.print_error(e.message, code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -188,8 +188,8 @@ def delete_backup(
         output.print_success(f"Deleted {filename}")
 
     except LlxConnectionError as e:
-        output.print_error(str(e))
+        output.print_error(str(e), code="CONNECTION_ERROR")
         raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message)
+        output.print_error(e.message, code="API_ERROR")
         raise typer.Exit(1)

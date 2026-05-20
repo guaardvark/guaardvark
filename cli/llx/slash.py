@@ -3,13 +3,25 @@
 import inspect
 import os
 import shlex
-import sys
 import time
 import uuid
 from typing import Callable
 
 from llx import output
+from llx.command_catalog import COMMAND_META, COMMAND_TREE
 from llx.theme import make_console, THEMES, set_active_theme, get_active_theme_name
+
+_HELP_GROUPS: list[tuple[str, list[str]]] = [
+    ("Session Commands", ["new", "history", "export", "clear"]),
+    ("System Commands", ["health", "status", "doctor", "start", "stop", "dashboard"]),
+    ("Data Commands", ["files", "projects", "rules", "agents", "clients", "websites", "tasks"]),
+    ("AI Commands", ["search", "models", "generate", "images", "videos", "index", "rag"]),
+    ("Memory Commands", ["remember", "memory"]),
+    ("Multi-Modal Commands", ["imagine", "video", "voice", "ingest", "agent", "web"]),
+    ("Admin Commands", ["jobs", "logs", "backup", "family"]),
+    ("Config Commands", ["config", "settings", "theme", "quality"]),
+    ("REPL", ["help", "quit", "exit"]),
+]
 
 
 class SlashRouter:
@@ -104,13 +116,17 @@ class SlashRouter:
         from llx.commands.search import search
         from llx.commands.dashboard import dashboard
 
-        self._register_simple("health", health)
-        self._register_simple("status", status)
-        self._register_simple("doctor", doctor)
-        self._register_simple("start", start)
-        self._register_simple("stop", stop)
-        self._register_simple("search", search)
-        self._register_simple("dashboard", dashboard)
+        simple_commands = {
+            "health": health,
+            "status": status,
+            "doctor": doctor,
+            "start": start,
+            "stop": stop,
+            "search": search,
+            "dashboard": dashboard,
+        }
+        for name, func in simple_commands.items():
+            self._register_simple(name, func)
 
         # Typer sub-apps — dispatch via sys.argv mutation
         from llx.commands.files import files_app
@@ -131,25 +147,31 @@ class SlashRouter:
         from llx.commands.images import images_app
         from llx.commands.videos import videos_app
         from llx.commands.system import models_app
+        from llx.commands.quality import quality_app
 
-        self._register_subapp("files", files_app)
-        self._register_subapp("projects", projects_app)
-        self._register_subapp("rules", rules_app)
-        self._register_subapp("agents", agents_app)
-        self._register_subapp("generate", generate_app)
-        self._register_subapp("jobs", jobs_app)
-        self._register_subapp("settings", settings_app)
-        self._register_subapp("index", index_app)
-        self._register_subapp("backup", backup_app)
-        self._register_subapp("family", family_app)
-        self._register_subapp("logs", logs_app)
-        self._register_subapp("rag", rag_app)
-        self._register_subapp("clients", clients_app)
-        self._register_subapp("websites", websites_app)
-        self._register_subapp("tasks", tasks_app)
-        self._register_subapp("images", images_app)
-        self._register_subapp("videos", videos_app)
-        self._register_subapp("models", models_app)
+        subapps = {
+            "files": files_app,
+            "projects": projects_app,
+            "rules": rules_app,
+            "agents": agents_app,
+            "generate": generate_app,
+            "jobs": jobs_app,
+            "settings": settings_app,
+            "index": index_app,
+            "backup": backup_app,
+            "family": family_app,
+            "logs": logs_app,
+            "rag": rag_app,
+            "clients": clients_app,
+            "websites": websites_app,
+            "tasks": tasks_app,
+            "images": images_app,
+            "videos": videos_app,
+            "models": models_app,
+            "quality": quality_app,
+        }
+        for name, subapp in subapps.items():
+            self._register_subapp(name, subapp)
 
     def _register_simple(self, name: str, func: Callable):
         """Register a simple Typer command (direct function call)."""
@@ -191,7 +213,7 @@ class SlashRouter:
         self._commands[name] = handler
 
     def _register_subapp(self, name: str, typer_app):
-        """Register a Typer sub-app (uses sys.argv mutation pattern)."""
+        """Register a Typer sub-app without mutating process argv."""
         def handler(args: list[str]):
             from llx.global_opts import set_global_opts
             from llx.main import app
@@ -199,17 +221,12 @@ class SlashRouter:
             server = self._state.get("server")
             set_global_opts(server=server, json_out=False)
 
-            saved_argv = sys.argv
             try:
-                # Build argv as if the user ran: guaardvark <name> <args...>
-                sys.argv = ["guaardvark", name] + args
-                app(standalone_mode=False)
+                app(args=[name, *args], standalone_mode=False)
             except SystemExit:
                 pass
             except Exception as e:
                 self._console.print(f"[llx.error]Error: {e}[/llx.error]")
-            finally:
-                sys.argv = saved_argv
 
         self._commands[name] = handler
 
@@ -404,75 +421,22 @@ class SlashRouter:
 
     def _cmd_help(self, args: list[str]):
         """Print comprehensive help for all commands."""
-        self._console.print("""
-[llx.brand_bright]Guaardvark REPL[/llx.brand_bright]
+        self._console.print("[llx.brand_bright]Guaardvark REPL[/llx.brand_bright]\n")
+        self._console.print("[llx.dim]In chat mode, type a message to chat with the LLM.[/llx.dim]")
+        self._console.print("[llx.dim]Use slash commands to manage the system.[/llx.dim]\n")
 
-  In chat mode, type a message to chat with the LLM.
-  Use /commands to manage the system.
-
-[llx.brand_bright]Session Commands:[/llx.brand_bright]
-  [llx.accent]/new[/llx.accent]                  Start a new chat session
-  [llx.accent]/history[/llx.accent] [N]           List recent sessions, or resume session N
-  [llx.accent]/export[/llx.accent] [file]         Export current session as markdown
-  [llx.accent]/clear[/llx.accent]                 Clear the screen
-
-[llx.brand_bright]System Commands:[/llx.brand_bright]
-  [llx.accent]/health[/llx.accent]                Server health check
-  [llx.accent]/status[/llx.accent]                Full system status
-  [llx.accent]/doctor[/llx.accent]                Environment health check
-  [llx.accent]/start[/llx.accent]                 Start Guaardvark services
-  [llx.accent]/stop[/llx.accent]                  Stop Guaardvark services
-  [llx.accent]/dashboard[/llx.accent]             Live system dashboard
-
-[llx.brand_bright]Data Commands:[/llx.brand_bright]
-  [llx.accent]/files[/llx.accent] <sub>           File management (list, get, upload, delete)
-  [llx.accent]/projects[/llx.accent] <sub>        Project management (list, get, create, delete)
-  [llx.accent]/rules[/llx.accent] <sub>           Rule/prompt management
-  [llx.accent]/agents[/llx.accent] <sub>          Agent management
-  [llx.accent]/clients[/llx.accent] <sub>         Client management
-  [llx.accent]/websites[/llx.accent] <sub>        Website management
-  [llx.accent]/tasks[/llx.accent] <sub>           Task management
-
-[llx.brand_bright]AI Commands:[/llx.brand_bright]
-  [llx.accent]/search[/llx.accent] <query>        Semantic search over indexed documents
-  [llx.accent]/models[/llx.accent] <sub>          Model management (list, active, set)
-  [llx.accent]/generate[/llx.accent] <sub>        Content generation
-  [llx.accent]/images[/llx.accent] <sub>          Image generation
-  [llx.accent]/videos[/llx.accent] <sub>          Video generation
-  [llx.accent]/index[/llx.accent] <sub>           Index management
-  [llx.accent]/rag[/llx.accent] <sub>             RAG debugging
-
-[llx.brand_bright]Memory Commands:[/llx.brand_bright]
-  [llx.accent]/remember[/llx.accent] <text>       Save something to memory
-  [llx.accent]/memory[/llx.accent] list            List saved memories
-  [llx.accent]/memory[/llx.accent] search <query>  Search memories
-  [llx.accent]/memory[/llx.accent] delete <id>     Delete a memory
-  [llx.accent]/memory[/llx.accent] clear           Clear all memories
-
-[llx.brand_bright]Multi-Modal Commands:[/llx.brand_bright]
-  [llx.accent]/imagine[/llx.accent] <prompt>       Generate an image from text
-  [llx.accent]/video[/llx.accent] <prompt>         Generate a video from text
-  [llx.accent]/voice[/llx.accent] <text>           Convert text to speech
-  [llx.accent]/ingest[/llx.accent] <path>          Index files/directory for RAG
-  [llx.accent]/agent[/llx.accent]                  Toggle agent mode (tool-using)
-  [llx.accent]/web[/llx.accent]                    Open web UI in browser
-
-[llx.brand_bright]Admin Commands:[/llx.brand_bright]
-  [llx.accent]/jobs[/llx.accent] <sub>            Background job management
-  [llx.accent]/logs[/llx.accent] <sub>            Log viewing
-  [llx.accent]/backup[/llx.accent] <sub>          Backup/restore
-  [llx.accent]/family[/llx.accent] <sub>          Multi-instance management
-
-[llx.brand_bright]Config Commands:[/llx.brand_bright]
-  [llx.accent]/config[/llx.accent] [key [value]]  Show/get/set configuration
-  [llx.accent]/settings[/llx.accent] <sub>        Application settings (list, get, set)
-  [llx.accent]/theme[/llx.accent] [name]          List or switch color themes
-
-[llx.brand_bright]REPL:[/llx.brand_bright]
-  [llx.accent]/help[/llx.accent]                  Show this help
-  [llx.accent]/quit[/llx.accent]                  Exit the REPL
-  [llx.accent]/exit[/llx.accent]                  Exit the REPL
-""")
+        for section_title, commands in _HELP_GROUPS:
+            self._console.print(f"[llx.brand_bright]{section_title}:[/llx.brand_bright]")
+            for name in commands:
+                if name not in self._commands:
+                    continue
+                meta = COMMAND_META.get(name, "")
+                sub = COMMAND_TREE.get(name, [])
+                suffix = f" ({', '.join(sub)})" if sub else ""
+                self._console.print(
+                    f"  [llx.accent]/{name}[/llx.accent]  [llx.dim]{meta}{suffix}[/llx.dim]"
+                )
+            self._console.print()
 
     def _cmd_imagine(self, args: list[str]):
         """Generate an image from a text prompt."""
@@ -592,7 +556,7 @@ class SlashRouter:
     def _cmd_web(self, args: list[str]):
         """Open the Guaardvark web UI in the default browser."""
         import webbrowser
-        url = "http://localhost:5173"
+        url = "http://localhost:5175"
         webbrowser.open(url)
         self._console.print(f"[llx.success]Opening {url}[/llx.success]")
 

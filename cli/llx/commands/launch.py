@@ -23,7 +23,7 @@ def launch(
     yes: bool = typer.Option(False, "--yes", "-y", help="Auto-approve all prompts"),
     full: bool = typer.Option(False, "--full", help="Launch with full stack (PostgreSQL, Redis, web UI)"),
     lite: bool = typer.Option(False, "--lite", help="Force lite mode (SQLite, TUI only)"),
-    port: int = typer.Option(5000, "--port", "-p", help="Backend server port"),
+    port: int = typer.Option(5002, "--port", "-p", help="Backend server port"),
 ):
     """Launch Guaardvark with Ollama integration.
 
@@ -31,7 +31,7 @@ def launch(
     services and open the REPL.
 
     Lite mode (default): instant start with SQLite, no external dependencies.
-    Full mode: PostgreSQL, Redis, Celery, web UI at localhost:5173.
+    Full mode: PostgreSQL, Redis, Celery, web UI at localhost:5175.
     """
     console = make_console()
 
@@ -128,7 +128,7 @@ def _start_full_stack(console, cfg: dict):
 
     # Wait for the backend to come up
     import httpx
-    server_url = cfg.get("server_url", "http://localhost:5000")
+    server_url = cfg.get("server_url", "http://localhost:5002")
     for _ in range(60):
         try:
             resp = httpx.get(f"{server_url}/api/health", timeout=2)

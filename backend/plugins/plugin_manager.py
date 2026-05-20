@@ -444,6 +444,22 @@ class PluginManager:
         except Exception as e:
             logger.debug(f"Port kill failed for port {port}: {e}")
 
+    def _run_plugin_admission_checks(self, plugin_id: str) -> Tuple[bool, str]:
+        """Pre-enable validation: manifest shape and plugin directory."""
+        meta = self.registry.get_plugin(plugin_id)
+        if not meta:
+            return False, "Plugin not registered"
+        if not meta.name or not str(meta.name).strip():
+            return False, "Plugin manifest missing display name"
+        if meta.id != plugin_id:
+            return False, f"Plugin id mismatch (manifest id={meta.id!r})"
+        if meta.port is not None and int(meta.port) <= 0:
+            return False, "Invalid manifest port"
+        pdir = self.registry.get_plugin_dir(plugin_id)
+        if not pdir or not pdir.is_dir():
+            return False, "Plugin directory missing"
+        return True, ""
+
     def _has_enabled_dependents(self, plugin_id: str) -> bool:
         """Check if any enabled plugin depends on this one."""
         for pid, meta in self.registry.get_all_plugins().items():
@@ -481,6 +497,13 @@ class PluginManager:
                 else:
                     self._plugin_status[plugin_id] = PluginStatus.STOPPED
     
+    def _fail_plugin_start(self, plugin_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        try:
+            self.state_store.record_start_failure(plugin_id)
+        except Exception:
+            pass
+        return payload
+
     def start_plugin(self, plugin_id: str) -> Dict[str, Any]:
         """
         Start a plugin.
@@ -540,7 +563,7 @@ class PluginManager:
             start_script = plugin_dir / 'scripts' / 'start.sh'
             if not start_script.exists():
                 self._plugin_status[plugin_id] = PluginStatus.ERROR
-                return {'success': False, 'error': 'No start script found'}
+                return self._fail_plugin_start(plugin_id, {'success': False, 'error': 'No start script found'})
 
             try:
                 plugin_timeout = getattr(getattr(metadata, 'config', None), 'timeout', 30) + 30
@@ -554,13 +577,17 @@ class PluginManager:
                     self._plugin_status[plugin_id] = PluginStatus.ERROR
                     err = result.get('error', 'unknown error')
                     logger.error(f"Failed to start plugin {plugin_id}: {err}")
-                    return {'success': False, 'error': f'Start script failed: {err}'}
+                    return self._fail_plugin_start(
+                        plugin_id, {'success': False, 'error': f'Start script failed: {err}'}
+                    )
 
                 if result.get('rc', -1) != 0:
                     self._plugin_status[plugin_id] = PluginStatus.ERROR
                     stderr = result.get('stderr', '')
                     logger.error(f"Failed to start plugin {plugin_id}: {stderr}")
-                    return {'success': False, 'error': f'Start script failed: {stderr}'}
+                    return self._fail_plugin_start(
+                        plugin_id, {'success': False, 'error': f'Start script failed: {stderr}'}
+                    )
 
                 # Wait for service to become healthy (retry loop)
                 max_retries = 20
@@ -569,6 +596,10 @@ class PluginManager:
                         self._plugin_status[plugin_id] = PluginStatus.RUNNING
                         self._save_running()
                         logger.info(f"Plugin started: {plugin_id}")
+                        try:
+                            self.state_store.reset_plugin_health_counters(plugin_id)
+                        except Exception:
+                            pass
                         return {
                             'success': True,
                             'message': 'Plugin started successfully',
@@ -579,15 +610,18 @@ class PluginManager:
                 # Check if process is still running
                 # (Simple check: if we can't connect after retries, assume failure)
                 self._plugin_status[plugin_id] = PluginStatus.ERROR
-                return {
-                    'success': False,
-                    'error': 'Plugin started but health check failed (timeout)'
-                }
+                return self._fail_plugin_start(
+                    plugin_id,
+                    {
+                        'success': False,
+                        'error': 'Plugin started but health check failed (timeout)',
+                    },
+                )
 
             except Exception as e:
                 self._plugin_status[plugin_id] = PluginStatus.ERROR
                 logger.error(f"Error starting plugin {plugin_id}: {e}")
-                return {'success': False, 'error': str(e)}
+                return self._fail_plugin_start(plugin_id, {'success': False, 'error': str(e)})
         finally:
             # Always release the gate, even on error — start the cooldown clock.
             self._gate.release(plugin_id)
@@ -692,6 +726,19 @@ class PluginManager:
         """Enable a plugin via the user_enabled overlay (does NOT mutate plugin.json)."""
         if not self.registry.is_registered(plugin_id):
             return {'success': False, 'error': f'Plugin not found: {plugin_id}'}
+
+        if self.state_store.is_quarantined(plugin_id):
+            return {
+                'success': False,
+                'error': (
+                    f"Plugin '{plugin_id}' is quarantined after repeated start failures. "
+                    "Fix the plugin, clear quarantine in plugin_state.json, then retry."
+                ),
+            }
+
+        ok_adm, adm_msg = self._run_plugin_admission_checks(plugin_id)
+        if not ok_adm:
+            return {'success': False, 'error': f'Admission check failed: {adm_msg}'}
 
         try:
             self.state_store.set_user_enabled(plugin_id, True)

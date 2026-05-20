@@ -24,7 +24,7 @@ def agents_list(
         agents = data.get("agents", [])
 
         if json_out or output.is_pipe():
-            output.print_json(agents)
+            output.print_json({"status": "success", "data": {"agents": agents}})
             return
 
         rows = [{
@@ -35,8 +35,11 @@ def agents_list(
         } for a in agents]
         output.print_table(rows, columns=["id", "name", "enabled", "tools"], title=f"Agents ({len(rows)})")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -57,7 +60,7 @@ def agents_info(
         tools = data.get("tools_detail", [])
 
         if json_out or output.is_pipe():
-            output.print_json(data)
+            output.print_json({"status": "success", "data": data})
             return
 
         output.print_kv({
@@ -72,8 +75,11 @@ def agents_info(
             rows = [{"name": t.get("name", ""), "description": t.get("description", "")} for t in tools]
             output.print_table(rows, columns=["name", "description"], title="Tools")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -111,7 +117,7 @@ def run_agent(
             })
 
         if json_out or output.is_pipe():
-            output.print_json(data)
+            output.print_json({"status": "success", "data": data})
             return
 
         result = data.get("result", data)
@@ -130,10 +136,10 @@ def run_agent(
         console.print()
 
     except LlxConnectionError as e:
-        output.print_error(str(e))
+        output.print_error(str(e), code="CONNECTION_ERROR")
         raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message)
+        output.print_error(e.message, code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -160,7 +166,10 @@ def update_agent(
         payload["system_prompt"] = prompt_file.read_text(encoding="utf-8")
 
     if not payload:
-        output.print_error("No updates specified. Use --enabled, --max-iter, or --prompt-file.")
+        output.print_error(
+            "No updates specified. Use --enabled, --max-iter, or --prompt-file.",
+            code="INVALID_ARGUMENT",
+        )
         raise typer.Exit(1)
 
     try:
@@ -168,13 +177,13 @@ def update_agent(
         data = client._request("PATCH", f"/api/agents/{agent_id}", json=payload)
 
         if json_out or output.is_pipe():
-            output.print_json(data)
+            output.print_json({"status": "success", "data": data})
         else:
             output.print_success(f"Agent '{agent_id}' updated")
 
     except LlxConnectionError as e:
-        output.print_error(str(e))
+        output.print_error(str(e), code="CONNECTION_ERROR")
         raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message)
+        output.print_error(e.message, code="API_ERROR")
         raise typer.Exit(1)

@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-05-07T00:00:00Z",
+  "thresholds": {
+    "rag_composite_min": 2.0,
+    "rag_composite_regress_max_delta": -0.2
+  },
+  "baselines": {
+    "rag_eval": {
+      "composite_score": 0.0,
+      "num_pairs": 0,
+      "notes": "Placeholder until EvalPair rows exist and run_full_eval is executed; CI static gate skips live RAG."
+    },
+    "health": {
+      "status_required": "ok",
+      "notes": "Backend /api/health status string must be ok when services are up."
+    }
+  }
+}

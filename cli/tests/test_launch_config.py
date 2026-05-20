@@ -28,7 +28,7 @@ class TestLaunchConfig:
         assert cfg["mode"] == "lite"
         assert cfg["model"] is None
         assert cfg["ollama_base_url"] == "http://127.0.0.1:11434"
-        assert cfg["server_url"] == "http://localhost:5000"
+        assert cfg["server_url"] == "http://localhost:5002"
         assert cfg["auto_start_services"] is True
         assert cfg["guaardvark_root"] is None
 

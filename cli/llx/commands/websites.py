@@ -25,7 +25,7 @@ def websites_list(
             sites = []
 
         if json_out or output.is_pipe():
-            output.print_json(sites)
+            output.print_json({"status": "success", "data": {"websites": sites}})
             return
 
         rows = [{
@@ -36,8 +36,11 @@ def websites_list(
         } for s in sites]
         output.print_table(rows, columns=["id", "name", "url", "pages"], title=f"Websites ({len(rows)})")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -65,12 +68,15 @@ def websites_create(
         result = data.get("data", data) if isinstance(data, dict) else data
 
         if json_out or output.is_pipe():
-            output.print_json(result)
+            output.print_json({"status": "success", "data": result})
         else:
             output.print_success(f"Created website: {name} (id: {result.get('id', '?')})")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -90,7 +96,7 @@ def websites_info(
         result = data.get("data", data) if isinstance(data, dict) else data
 
         if json_out or output.is_pipe():
-            output.print_json(result)
+            output.print_json({"status": "success", "data": result})
         else:
             output.print_kv({
                 "ID": result.get("id", ""),
@@ -100,8 +106,11 @@ def websites_info(
                 "Client": (result.get("client") or {}).get("name", "—"),
             }, title="Website Details")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -121,13 +130,16 @@ def websites_scrape(
         result = data.get("data", data) if isinstance(data, dict) else data
 
         if json_out or output.is_pipe():
-            output.print_json(result)
+            output.print_json({"status": "success", "data": result})
         else:
             msg = result.get("message", f"Scrape started for website {website_id}")
             output.print_success(msg)
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -136,15 +148,26 @@ def websites_delete(
     website_id: int = typer.Argument(..., help="Website ID"),
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
     server: str = typer.Option(None, "--server", "-s"),
+    json_out: bool = typer.Option(False, "--json", "-j"),
 ):
     """Delete a website."""
     server = server or get_global_server()
-    if not force:
+    json_out = json_out or get_global_json()
+    output.set_json_mode(json_out)
+    if not force and not (json_out or output.is_pipe()):
         typer.confirm(f"Delete website {website_id}?", abort=True)
     try:
         api_client = get_client(server)
         api_client.delete(f"/api/websites/{website_id}")
-        output.print_success(f"Deleted website {website_id}")
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
+        if json_out or output.is_pipe():
+            output.print_json(
+                {"status": "success", "data": {"website_id": website_id, "deleted": True}}
+            )
+        else:
+            output.print_success(f"Deleted website {website_id}")
+    except LlxConnectionError as e:
+        output.print_error(str(e), code="CONNECTION_ERROR")
+        raise typer.Exit(1)
+    except LlxError as e:
+        output.print_error(str(e), code="API_ERROR")
         raise typer.Exit(1)

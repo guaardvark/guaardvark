@@ -31,7 +31,7 @@ def family_list(
             nodes = nodes.get("nodes", [])
 
         if json_out or output.is_pipe():
-            output.print_json(nodes)
+            output.print_json({"status": "success", "data": {"nodes": nodes}})
             return
 
         if not nodes:
@@ -67,10 +67,10 @@ def family_list(
         console.print(f"\n[llx.dim]{len(nodes)} node(s) in family[/llx.dim]")
 
     except LlxConnectionError as e:
-        output.print_error(str(e))
+        output.print_error(str(e), code="CONNECTION_ERROR")
         raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message)
+        output.print_error(e.message, code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -89,7 +89,7 @@ def family_status(
         status_data = data.get("data", data)
 
         if json_out or output.is_pipe():
-            output.print_json(status_data)
+            output.print_json({"status": "success", "data": status_data})
             return
 
         enabled = status_data.get("enabled", False)
@@ -115,10 +115,10 @@ def family_status(
         console.print(make_panel("\n".join(lines), title="Interconnector"))
 
     except LlxConnectionError as e:
-        output.print_error(str(e))
+        output.print_error(str(e), code="CONNECTION_ERROR")
         raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message)
+        output.print_error(e.message, code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -137,7 +137,7 @@ def family_sync(
         data = client.post("/api/interconnector/sync/push")
 
         if json_out or output.is_pipe():
-            output.print_json(data)
+            output.print_json({"status": "success", "data": data})
             return
 
         synced = data.get("synced_nodes", data.get("synced", 0))
@@ -148,10 +148,10 @@ def family_sync(
                 output.print_warning(f"  {err}")
 
     except LlxConnectionError as e:
-        output.print_error(str(e))
+        output.print_error(str(e), code="CONNECTION_ERROR")
         raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message)
+        output.print_error(e.message, code="API_ERROR")
         raise typer.Exit(1)
 
 
@@ -172,7 +172,7 @@ def family_health(
             nodes = nodes.get("nodes", [])
 
         if json_out or output.is_pipe():
-            output.print_json(nodes)
+            output.print_json({"status": "success", "data": {"nodes": nodes}})
             return
 
         if not nodes:
@@ -197,8 +197,8 @@ def family_health(
         console.print(f"\n[{color}]{online}/{total} nodes online[/{color}]")
 
     except LlxConnectionError as e:
-        output.print_error(str(e))
+        output.print_error(str(e), code="CONNECTION_ERROR")
         raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message)
+        output.print_error(e.message, code="API_ERROR")
         raise typer.Exit(1)

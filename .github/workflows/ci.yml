@@ -49,6 +49,11 @@ jobs:
           source backend/venv/bin/activate
           pip install -r backend/requirements.txt
 
+      - name: Quality gate (static)
+        run: |
+          source backend/venv/bin/activate
+          python scripts/quality_gate.py --mode static
+
       - name: Check Python syntax
         run: |
           source backend/venv/bin/activate
