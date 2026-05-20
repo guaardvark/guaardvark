@@ -34,7 +34,9 @@ def _run_sweep(timeout_s: int) -> dict:
         if is_stale and node.online:
             node.online = False
             marked_offline.append(node.node_id)
-            get_fleet_map().mark_flap(node.node_id)
+            fm = get_fleet_map()
+            fm.set_online(node.node_id, False)
+            fm.mark_flap(node.node_id)
             log.warning(
                 "[CLUSTER] node %s marked offline (last_heartbeat=%s)",
                 node.node_id,
@@ -42,6 +44,7 @@ def _run_sweep(timeout_s: int) -> dict:
             )
         elif not is_stale and not node.online:
             node.online = True
+            get_fleet_map().set_online(node.node_id, True)
             marked_online.append(node.node_id)
             log.info("[CLUSTER] node %s back online", node.node_id)
 

@@ -38,6 +38,9 @@ class SocketIOChatBridge:
         for event in self.RELAYED_EVENTS:
             # Bind each event to _relay with the event name captured
             self._client.on(event, lambda data, e=event: self._relay(e, data))
+        # reconnection is off, so a dropped remote leaves a dead client behind.
+        # Self-evict from the registry on disconnect to avoid leaking bridges.
+        self._client.on("disconnect", self._on_remote_disconnect)
         self._client.connect(
             self._target.base_url,
             headers={"X-Guaardvark-API-Key": self._target.api_key},
@@ -46,6 +49,14 @@ class SocketIOChatBridge:
         )
         log.info("[BRIDGE] opened session=%s → node=%s",
                  self._sid, self._target.node_id)
+
+    def _on_remote_disconnect(self) -> None:
+        log.info("[BRIDGE] remote node=%s dropped; evicting session=%s",
+                 self._target.node_id, self._sid)
+        try:
+            SocketIOBridgeRegistry.discard(self._sid)
+        except Exception as e:
+            log.warning("[BRIDGE] self-evict failed for %s: %s", self._sid, e)
 
     def _relay(self, event: str, data) -> None:
         try:
@@ -82,6 +93,13 @@ class SocketIOBridgeRegistry:
                 bridge = SocketIOChatBridge(session_id, target)
                 cls._bridges[session_id] = bridge
             return bridge
+
+    @classmethod
+    def discard(cls, session_id: str) -> None:
+        """Drop a bridge from the registry without re-disconnecting it. Used by
+        the bridge's own disconnect handler, where the client is already down."""
+        with cls._lock:
+            cls._bridges.pop(session_id, None)
 
     @classmethod
     def close_for_session(cls, session_id: str) -> None:

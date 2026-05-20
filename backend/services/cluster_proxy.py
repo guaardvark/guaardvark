@@ -99,7 +99,7 @@ class ProxyTargetResolver:
 
     def resolve(self, workload: str, routing_table,
                 local_node_id: str, model_hint: str | None = None) -> Iterator[NodeTarget | None]:
-        route = routing_table.routes.get(workload) if routing_table else None
+        route = self._select_route(workload, routing_table, model_hint)
         if route is None or route.mode == "local" or route.primary is None:
             yield None
             return
@@ -114,7 +114,38 @@ class ProxyTargetResolver:
             yield target
         yield None  # chain exhausted
 
+    def _select_route(self, workload: str, routing_table, model_hint: str | None):
+        """For llm_chat with a known model, prefer nodes that already have the
+        model resident (route_for_chat). Without this the HTTP proxy path ignored
+        model_hint and could route to a node forced into a cold model pull —
+        unlike the Socket.IO chat path, which already does this."""
+        if workload == "llm_chat" and model_hint:
+            try:
+                from backend.services.cluster_routing import get_routing_store
+                from backend.services.fleet_map import get_fleet_map
+                model_route = get_routing_store().route_for_chat(
+                    model_hint, fleet=get_fleet_map())
+                if model_route is not None:
+                    return model_route
+            except Exception:
+                pass  # fall back to the static table
+        return routing_table.routes.get(workload) if routing_table else None
+
     def _get_target(self, node_id: str) -> NodeTarget | None:
+        # Prefer the in-memory FleetMap (no DB hit on the request hot path).
+        try:
+            from backend.services.fleet_map import get_fleet_map
+            fm = get_fleet_map()
+            addr = fm.get_address(node_id)
+            if addr is not None:
+                if not fm.is_online(node_id):
+                    return None
+                host, port = addr
+                return NodeTarget(node_id=node_id, host=host, port=port,
+                                  api_key=node_id)
+        except Exception:
+            pass
+        # DB fallback (e.g. address not yet cached in FleetMap).
         try:
             from backend.models import InterconnectorNode
             node = InterconnectorNode.query.filter_by(node_id=node_id).first()
