@@ -25,10 +25,12 @@ LOG_FILE = ".swarm-agent.log"
 WRAPPER_SCRIPT = """#!/bin/bash
 cd "{worktree_path}"
 
-# Claude Code 2.x writes its response to stdout in --print mode. Route
-# stdout into completion.md (so estimate_cost and the dashboard have a
-# preview of the response), stderr into the log file (so crashes are
-# captured), and mirror both to the log for debugging.
+# Clear any leftover state from a previous attempt in this worktree before
+# we start writing fresh output. If we don't, a stale SWARM_AGENT_FAILED
+# from the prior run gets read by the orchestrator's next poll and the new
+# agent is declared crashed before it has a chance to do anything.
+rm -f .swarm-status
+
 {claude_command} > "{completion_file}" 2>> "{log_file}"
 EXIT_CODE=$?
 
@@ -55,6 +57,16 @@ class ClaudeBackend(BaseBackend):
         wt = Path(worktree_path)
         log_file = wt / LOG_FILE
         completion_file = wt / COMPLETION_MARKER
+
+        # Belt-and-suspenders cleanup of state files from a prior attempt.
+        # The wrapper script also does this, but we do it here too so the
+        # window between spawn() returning and the wrapper actually executing
+        # can't be observed by check_status with stale files in place.
+        for stale in (wt / ".swarm-status", completion_file):
+            try:
+                stale.unlink()
+            except FileNotFoundError:
+                pass
 
         command = config.get("command", "claude")
         # Claude Code 2.x does not have --output-file. It writes to stdout in
@@ -109,7 +121,12 @@ class ClaudeBackend(BaseBackend):
     def check_status(self, process: AgentProcess) -> AgentStatus:
         wt = Path(process.worktree_path)
 
-        # check the status marker file
+        # The .swarm-status file is the only authoritative termination signal.
+        # The wrapper script writes it after Claude exits, with the exit code
+        # encoded as DONE or FAILED:N. Reading completion.md size or polling
+        # the pid before this file appears is unreliable — `claude --print`
+        # streams to stdout, so completion.md grows mid-run, and a finished
+        # wrapper process may briefly linger as a zombie.
         status_file = wt / ".swarm-status"
         if status_file.exists():
             content = status_file.read_text().strip()
@@ -120,25 +137,29 @@ class ClaudeBackend(BaseBackend):
                 process.status = AgentStatus.CRASHED
                 return AgentStatus.CRASHED
 
-        # Check if the completion marker has content. The wrapper script
-        # redirects stdout to completion.md via shell `>` which creates the
-        # file at fork time — so existence alone doesn't mean anything. Only
-        # a non-empty file indicates Claude actually produced a response.
-        completion_file = wt / COMPLETION_MARKER
-        if completion_file.exists() and completion_file.stat().st_size > 0:
-            process.status = AgentStatus.FINISHED
-            return AgentStatus.FINISHED
+        # No status file yet — check whether the wrapper process is still
+        # alive. Prefer Popen.poll() because it reaps zombies; fall back to
+        # signal 0 only if we lost the Popen handle (e.g. after a reload).
+        popen = process.metadata.get("popen") if isinstance(process.metadata, dict) else None
+        if popen is not None:
+            rc = popen.poll()
+            if rc is None:
+                process.status = AgentStatus.RUNNING
+                return AgentStatus.RUNNING
+            # Wrapper exited without writing .swarm-status — that means it
+            # crashed before reaching the trailing `echo` (e.g. killed, OOM,
+            # disk full). Treat as crashed.
+            process.status = AgentStatus.CRASHED
+            return AgentStatus.CRASHED
 
-        # check if the process is still alive
         if process.pid:
             try:
-                os.kill(process.pid, 0)  # signal 0 = just check if alive
+                os.kill(process.pid, 0)
             except ProcessLookupError:
-                # process is gone but no completion marker — it crashed
                 process.status = AgentStatus.CRASHED
                 return AgentStatus.CRASHED
             except PermissionError:
-                pass  # process exists but we can't signal it — still running
+                pass
 
         process.status = AgentStatus.RUNNING
         return AgentStatus.RUNNING
