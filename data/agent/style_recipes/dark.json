@@ -1,0 +1,13 @@
+{
+  "name": "Dark",
+  "description": "Cool, low-key, mysterious. Vignetted closeups, slow zooms, deep shadows. Reads as noir or thriller depending on subject.",
+  "art_director_bias": {
+    "prefer_subjects": ["character-closeup", "object-detail"],
+    "prefer_energy": ["calm", "medium"],
+    "prefer_motion": ["static", "slow"]
+  },
+  "filter_palette": ["cool-tint", "vignette", "desaturate", "slow-zoom-in"],
+  "transition_palette": ["hard-cut", "cross-dissolve", "dip-to-black"],
+  "global_filter": "vignette",
+  "audio_treatment": "as-is"
+}
