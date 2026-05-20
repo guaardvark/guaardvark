@@ -48,6 +48,35 @@ logger = logging.getLogger(__name__)
 
 # Singleton instance
 _service_instance = None
+
+
+# Patterns in expected_effect that indicate a slow visible change (>3s):
+# app launches, navigations, full-page loads, new windows. These get the
+# semantic vision-asked verifier with a 12s budget instead of the in-page
+# region-diff DPC. Pattern is checked case-insensitively against the
+# expected_effect string the LLM produced. Order doesn't matter; any
+# match flips to the slow path.
+_SLOW_EFFECT_TOKENS = (
+    "page loads", "page load", "page opens", "page open",
+    "window opens", "window open", "window appears",
+    "browser opens", "browser starts", "browser launches",
+    "firefox opens", "firefox launches", "firefox starts",
+    "app opens", "app launches", "app starts",
+    "navigates to", "navigates", "loads to", "loaded",
+    "redirects to", "redirected",
+    "tab opens", "new tab",
+    "dialog appears", "modal appears",
+)
+
+
+def _looks_like_slow_effect(expected_effect: str) -> bool:
+    """True when expected_effect mentions an effect that typically takes
+    >3s to settle (app launch, page navigation, new window). False for
+    in-page UI changes (button states, comment posted, form filled)."""
+    if not expected_effect:
+        return False
+    needle = expected_effect.strip().lower()
+    return any(token in needle for token in _SLOW_EFFECT_TOKENS)
 _service_lock = threading.Lock()
 
 
@@ -74,9 +103,15 @@ class AgentControlConfig:
 @dataclass
 class AgentAction:
     """A single action the agent wants to perform."""
-    action_type: str = ""  # click, right_click, type, hotkey, scroll, move, done, navigate
+    # action_type vocabulary:
+    #   click, right_click, double_click, triple_click, drag, hover,
+    #   type, hotkey, scroll, move, wait, navigate, done
+    action_type: str = ""
     target_cell: str = ""  # Grid cell (e.g., "D4") — for clicks
     target_description: str = ""  # What the agent thinks it's clicking
+    # For drag actions: description of the DESTINATION. target_description
+    # holds the source. Both go through the same servo-locate path.
+    drag_to_description: str = ""
     coordinates: Optional[Tuple[int, int]] = None  # Refined pixel coords
     text: str = ""  # For type actions
     keys: List[str] = field(default_factory=list)  # For hotkey actions
@@ -123,6 +158,16 @@ class AgentResult:
     steps: List[ActionStep] = field(default_factory=list)
     total_time_seconds: float = 0.0
     task: str = ""  # the user-facing task string this result is for
+    # True when the agent's final action produced a verified visible effect
+    # (servo region-diff DPC OR semantic vision verification, depending on
+    # action class — see verifier-selection block in execute_task). Distinct
+    # from `success`: `success` reflects loop termination (done/timeout/error);
+    # `verified` reflects whether the world actually changed. The induction
+    # gate in agent_control_api._induce_candidate_recipe uses `verified` to
+    # filter "clicked-but-nothing-happened" runs out of recipe learning.
+    verified: bool = False
+    # Carries the verification reason forward for logging / debugging.
+    verified_reason: str = ""
 
 
 @dataclass
@@ -432,6 +477,26 @@ class AgentControlService:
         task_ctx = AgentTaskContext(task_id=task_id, task=task, started_at=time.time())
 
         def finish(result: AgentResult) -> AgentResult:
+            # Derive `verified` from the last step's per-action verifier result.
+            # The induction gate in agent_control_api uses this to filter
+            # "clicked but nothing happened" runs out of candidate-recipe
+            # learning (response_2026-05-19 §C). For non-success runs we
+            # leave verified=False (default).
+            if result.success and result.steps:
+                last_step = result.steps[-1]
+                last_action_kind = getattr(last_step.action, "action_type", "")
+                if last_action_kind == "done":
+                    # "done" itself isn't a screen-changing action; the
+                    # verification belongs to the PRECEDING step. Find the
+                    # last non-done step and use its verifier outcome.
+                    for st in reversed(result.steps[:-1]):
+                        if getattr(st.action, "action_type", "") != "done":
+                            result.verified = bool(st.result.get("verified", False))
+                            result.verified_reason = st.result.get("verifier", "")
+                            break
+                else:
+                    result.verified = bool(last_step.result.get("verified", False))
+                    result.verified_reason = last_step.result.get("verifier", "")
             return self._store_and_return(result, task_id=task_id, task=task)
 
         with self._lock:
@@ -760,8 +825,13 @@ class AgentControlService:
                     decision.action.keys = []
 
                 # 4. ACT — Execute via servo (for clicks) or direct (for type/hotkey/scroll)
-                # In mouse_only mode, reject any non-click action
-                if getattr(self, '_mouse_only', False) and decision.action.action_type not in ("click", "right_click", "done"):
+                # In mouse_only mode, reject any keyboard-driven action. Mouse-driven
+                # gestures (click family + drag + hover) are all allowed.
+                _MOUSE_ONLY_ALLOWED = (
+                    "click", "right_click", "double_click", "triple_click",
+                    "drag", "hover", "move", "scroll", "done"
+                )
+                if getattr(self, '_mouse_only', False) and decision.action.action_type not in _MOUSE_ONLY_ALLOWED:
                     logger.info(f"[AGENT][STEP {iteration+1}][ACT] Mouse-only: rejecting {decision.action.action_type}")
                     decision.action.action_type = "click"
                     if not decision.action.target_description:
@@ -802,42 +872,165 @@ class AgentControlService:
                         result = dict(servo_result)
                         failed = not servo_result.get("success", False)
 
-                    # CLICK POST-VERIFY DISABLED 2026-05-12 — reverted to April 13
-                    # behavior. The 0.5s + 0.005 pixel-diff check added in commit
-                    # 2cac26a was producing false negatives on slow-launching apps
-                    # (Firefox: 1-5s to render), marking valid clicks as FAILED and
-                    # driving the agent into retry loops. Servo's own success flag
-                    # is now the sole arbiter of [OK]/[FAIL] for clicks, matching
-                    # the working state from the voice-chat demo era.
-                    # Phantom-success protection migrates to Option C
-                    # (_wait_until_visible polling) in a follow-up — see
-                    # agent_control_service.py:1796 for the existing helper.
+                    # Verifier selection by action class (response_2026-05-19 §B).
+                    # Two verifiers, picked by latency profile:
+                    #   • Fast verifier  = servo's region-diff DPC (already polled
+                    #     for 3s inside servo.click_target). Right for in-page UI
+                    #     where the visible change happens in milliseconds.
+                    #   • Slow verifier  = _wait_until_visible (asks the vision
+                    #     model). Right for navigations / app launches / new
+                    #     windows where the world takes 5-15s to settle.
+                    # The original POST-VERIFY-DISABLED comment (2026-05-12) was
+                    # the right instinct for the wrong reason — Firefox cold
+                    # starts outlast a 6s poll, but in-page clicks don't need
+                    # a poll at all. Split the cases instead of disabling both.
                     expected_effect = (decision.action.expected_effect or "").strip()
-                    if not failed and expected_effect and not getattr(self, "_training_mode", False):
-                        verify = self._wait_until_visible(expected_effect, screen, timeout_s=6.0)
-                        result["expected_effect"] = expected_effect
-                        result["post_action_effect"] = (
-                            "verified" if verify.get("success") else "not_observed"
-                        )
-                        result["verified"] = bool(verify.get("success"))
-                        result["semantic_verify"] = verify
-                        # Verify is ADVISORY, not a hard fail — see the comment block
-                        # above. Slow-launch apps (Firefox cold start: 1-5s, longer
-                        # behind the XFCE Untrusted-launcher dialog) routinely
-                        # outlast the 6s poll, and flipping the click to FAILED
-                        # primes the LLM to abandon a successful click and loop.
-                        # The next iteration's SEE pass observes actual screen
-                        # state — that's the real ground truth.
-                        if not verify.get("success"):
-                            logger.info(
-                                f"[AGENT][STEP {iteration+1}][VERIFY] expected_effect "
-                                f"{expected_effect!r} not yet visible after 6s — "
-                                f"keeping click as OK; next SEE will observe actual state"
+                    if not failed and not getattr(self, "_training_mode", False):
+                        if _looks_like_slow_effect(expected_effect):
+                            # Slow path: 12s vision-asked verify for navigation /
+                            # app-launch / window-open / page-load patterns.
+                            verify = self._wait_until_visible(expected_effect, screen, timeout_s=12.0)
+                            result["expected_effect"] = expected_effect
+                            result["post_action_effect"] = (
+                                "verified" if verify.get("success") else "not_observed"
                             )
+                            result["verified"] = bool(verify.get("success"))
+                            result["verifier"] = "semantic_12s"
+                            result["semantic_verify"] = verify
+                            # Slow verify stays ADVISORY — long renders (Firefox
+                            # cold start behind XFCE Untrusted-launcher) sometimes
+                            # outlast even 12s. Next SEE pass is the real ground
+                            # truth; we keep the click as OK and let the loop
+                            # observe.
+                            if not verify.get("success"):
+                                logger.info(
+                                    f"[AGENT][STEP {iteration+1}][VERIFY] slow expected_effect "
+                                    f"{expected_effect!r} not yet visible after 12s — "
+                                    f"keeping click as OK; next SEE will observe actual state"
+                                )
+                        else:
+                            # Fast path: trust servo's region-diff DPC. servo
+                            # already polled for 3s and recorded `verified` in
+                            # the result dict. No second poll — it's redundant
+                            # and slows the loop.
+                            servo_verified = bool(result.get("verified", False))
+                            result["verifier"] = "servo_region_dpc"
+                            if expected_effect:
+                                result["expected_effect"] = expected_effect
+                            # Region DPC IS authoritative here — if servo polled
+                            # for 3s and the click site didn't change, the click
+                            # really didn't land. Surface that as a soft signal
+                            # (not a hard fail; the next SEE still arbitrates)
+                            # so the LLM sees the previous attempt was inert
+                            # rather than thinking it worked.
+                            if not servo_verified:
+                                logger.info(
+                                    f"[AGENT][STEP {iteration+1}][VERIFY] fast verify "
+                                    f"(region DPC) saw no change at click site — "
+                                    f"surfacing as 'not_observed' for the LLM"
+                                )
+                                result["post_action_effect"] = "not_observed"
+                            else:
+                                result["post_action_effect"] = "verified"
 
                     status_icon = "OK" if not failed else "FAIL"
                     logger.warning(f"[AGENT][STEP {iteration+1}][ACT] {decision.action.action_type} \"{target}\" "
                                   f"at ({decision.action.coordinates[0]},{decision.action.coordinates[1]}) [{status_icon}]")
+                elif decision.action.action_type in ("double_click", "triple_click", "hover"):
+                    # Locate the target without clicking, then dispatch to the
+                    # native gesture method. Splitting locate+act is what makes
+                    # double_click possible at all — servo.click_target would
+                    # have already single-clicked before we got control.
+                    target = decision.action.target_description
+                    if not target:
+                        result = {
+                            "success": False, "target_found": False, "click_issued": False,
+                            "x": 0, "y": 0, "reason": "missing_target",
+                            "post_action_effect": "not_checked",
+                        }
+                        failed = True
+                    else:
+                        loc = servo.locate_target(target)
+                        if not loc.get("found"):
+                            result = {
+                                "success": False, "target_found": False, "click_issued": False,
+                                "x": 0, "y": 0,
+                                "reason": loc.get("reason", "target_not_visible"),
+                                "post_action_effect": "not_checked",
+                                "detection_source": loc.get("detection_source", ""),
+                            }
+                            failed = True
+                        else:
+                            x, y = loc["x"], loc["y"]
+                            decision.action.coordinates = (x, y)
+                            if decision.action.action_type == "double_click":
+                                act_result = screen.double_click(x, y)
+                            elif decision.action.action_type == "triple_click":
+                                act_result = screen.triple_click(x, y)
+                            else:  # hover
+                                act_result = screen.hover(x, y)
+                            failed = not act_result.get("success", False)
+                            result = {
+                                "success": act_result.get("success", False),
+                                "target_found": True,
+                                "click_issued": decision.action.action_type != "hover",
+                                "x": x, "y": y,
+                                "post_action_effect": "pending_observation",
+                                "detection_source": loc.get("detection_source", ""),
+                                "parse_path": loc.get("parse_path", ""),
+                                "reason": "" if not failed else act_result.get("error", "gesture_failed"),
+                            }
+                    pixel_diff_value: Optional[float] = None
+                    coords_str = f"({decision.action.coordinates[0]},{decision.action.coordinates[1]})" if decision.action.coordinates else "(?,?)"
+                    logger.warning(
+                        f"[AGENT][STEP {iteration+1}][ACT] {decision.action.action_type} "
+                        f"\"{target}\" at {coords_str} [{'OK' if not failed else 'FAIL'}]"
+                    )
+                elif decision.action.action_type == "drag":
+                    # Drag needs TWO target locations (source + destination).
+                    # Both go through the same vision pass; failure on either
+                    # is fail-fast — no half-drag, no orphaned mousedown.
+                    src_desc = decision.action.target_description
+                    dst_desc = decision.action.drag_to_description
+                    if not src_desc or not dst_desc:
+                        result = {
+                            "success": False, "target_found": False, "click_issued": False,
+                            "x": 0, "y": 0,
+                            "reason": "missing_drag_endpoints",
+                            "post_action_effect": "not_checked",
+                        }
+                        failed = True
+                    else:
+                        loc_src = servo.locate_target(src_desc)
+                        loc_dst = servo.locate_target(dst_desc) if loc_src.get("found") else {"found": False, "reason": "skipped_after_source_miss"}
+                        if not loc_src.get("found") or not loc_dst.get("found"):
+                            result = {
+                                "success": False, "target_found": False, "click_issued": False,
+                                "x": 0, "y": 0,
+                                "reason": "drag_endpoint_not_found: " + (loc_src if not loc_src.get("found") else loc_dst).get("reason", ""),
+                                "post_action_effect": "not_checked",
+                            }
+                            failed = True
+                        else:
+                            sx, sy = loc_src["x"], loc_src["y"]
+                            tx, ty = loc_dst["x"], loc_dst["y"]
+                            decision.action.coordinates = (sx, sy)
+                            act_result = screen.drag(sx, sy, tx, ty)
+                            failed = not act_result.get("success", False)
+                            result = {
+                                "success": act_result.get("success", False),
+                                "target_found": True,
+                                "click_issued": True,
+                                "x": sx, "y": sy,
+                                "drag_to": (tx, ty),
+                                "post_action_effect": "pending_observation",
+                                "reason": "" if not failed else act_result.get("error", "drag_failed"),
+                            }
+                    pixel_diff_value: Optional[float] = None
+                    logger.warning(
+                        f"[AGENT][STEP {iteration+1}][ACT] drag \"{src_desc}\" → \"{dst_desc}\" "
+                        f"[{'OK' if not failed else 'FAIL'}]"
+                    )
                 else:
                     result = self._execute_action(decision.action, screen)
                     failed = not result.get("success", False)
@@ -1572,7 +1765,13 @@ class AgentControlService:
             }
 
     def _execute_action(self, action: AgentAction, screen) -> Dict[str, Any]:
-        """Execute a single agent action via the screen interface."""
+        """Execute a single agent action via the screen interface.
+
+        For click-family + gesture actions (click, right_click, double_click,
+        triple_click, drag, hover) the main execute_task loop normally handles
+        target acquisition via servo before calling here. This dispatcher is
+        the fallback when coordinates are already pre-computed.
+        """
         try:
             if action.action_type in ("click", "right_click"):
                 if action.coordinates:
@@ -1580,6 +1779,28 @@ class AgentControlService:
                     return screen.click(action.coordinates[0], action.coordinates[1], button=button)
                 else:
                     return {"success": False, "error": "No coordinates for click"}
+
+            elif action.action_type in ("double_click", "triple_click", "hover"):
+                if not action.coordinates:
+                    return {"success": False, "error": f"No coordinates for {action.action_type}"}
+                x, y = action.coordinates
+                if action.action_type == "double_click":
+                    return screen.double_click(x, y)
+                if action.action_type == "triple_click":
+                    return screen.triple_click(x, y)
+                return screen.hover(x, y)
+
+            elif action.action_type == "drag":
+                # Requires pre-computed source AND destination coords. The
+                # main loop's drag branch produces both via servo; this
+                # fallback path doesn't try to be clever about resolving
+                # drag_to_description on its own.
+                if not action.coordinates:
+                    return {"success": False, "error": "No source coordinates for drag"}
+                # Destination has to come from somewhere — use scroll_amount
+                # as a sentinel value isn't right. Refuse without explicit
+                # endpoints; the main loop handles the resolved-coords case.
+                return {"success": False, "error": "drag in _execute_action requires main-loop routing"}
 
             elif action.action_type == "type":
                 return screen.type_text(action.text)

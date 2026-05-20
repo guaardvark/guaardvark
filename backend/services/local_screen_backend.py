@@ -149,6 +149,100 @@ class LocalScreenBackend(ScreenInterface):
             logger.error(f"Move failed to ({x}, {y}): {e}")
             return {"success": False, "error": str(e)}
 
+    # ------------------------------------------------------------------
+    # Native gesture implementations (override ScreenInterface defaults)
+    # ------------------------------------------------------------------
+
+    _BTN_MAP = {"left": "1", "middle": "2", "right": "3"}
+
+    def double_click(self, x: int, y: int, button: str = "left") -> Dict[str, Any]:
+        """Native double-click via xdotool --repeat. Both clicks fire
+        within the ~80ms window so JS `dblclick` listeners trigger.
+        Sequential click() calls have too much subprocess overhead
+        between them and miss the dblclick window."""
+        return self._repeat_click(x, y, button=button, repeat=2, action_name="double_click")
+
+    def triple_click(self, x: int, y: int, button: str = "left") -> Dict[str, Any]:
+        """Native triple-click via xdotool --repeat (line/paragraph select)."""
+        return self._repeat_click(x, y, button=button, repeat=3, action_name="triple_click")
+
+    def _repeat_click(self, x: int, y: int, button: str, repeat: int,
+                      action_name: str, delay_ms: int = 80) -> Dict[str, Any]:
+        try:
+            r = self._xdotool("mousemove", "--screen", "0", str(x), str(y))
+            if r.returncode != 0:
+                err = r.stderr.strip() or f"mousemove failed (rc={r.returncode})"
+                logger.error(f"{action_name} move failed at ({x}, {y}): {err}")
+                return {"success": False, "error": err}
+            btn = self._BTN_MAP.get(button, "1")
+            r = self._xdotool("click", "--repeat", str(repeat), "--delay", str(delay_ms), btn)
+            if r.returncode != 0:
+                err = r.stderr.strip() or f"{action_name} failed (rc={r.returncode})"
+                logger.error(f"{action_name} at ({x}, {y}): {err}")
+                return {"success": False, "error": err}
+            return {"success": True, "action": action_name, "x": x, "y": y}
+        except Exception as e:
+            logger.error(f"{action_name} at ({x}, {y}) failed: {e}")
+            return {"success": False, "error": str(e)}
+
+    def drag(self, from_x: int, from_y: int, to_x: int, to_y: int,
+             button: str = "left", duration_ms: int = 300) -> Dict[str, Any]:
+        """Press at (from), interpolate smoothly to (to) over duration_ms,
+        release. Smooth motion matters — drag-and-drop UIs that check for
+        a continuous path reject instant teleport drags."""
+        try:
+            btn = self._BTN_MAP.get(button, "1")
+            # Move to start, press down
+            r = self._xdotool("mousemove", "--screen", "0", str(from_x), str(from_y))
+            if r.returncode != 0:
+                return {"success": False, "error": r.stderr.strip() or "mousemove failed"}
+            r = self._xdotool("mousedown", btn)
+            if r.returncode != 0:
+                return {"success": False, "error": r.stderr.strip() or "mousedown failed"}
+
+            # Smooth interpolation — ~20ms steps so the motion looks human-paced
+            try:
+                steps = max(1, duration_ms // 20)
+                for i in range(1, steps + 1):
+                    t = i / steps
+                    ix = int(from_x + (to_x - from_x) * t)
+                    iy = int(from_y + (to_y - from_y) * t)
+                    self._xdotool("mousemove", "--screen", "0", str(ix), str(iy))
+                    time.sleep(0.02)
+            finally:
+                # ALWAYS release the button, even if interpolation throws —
+                # leaving the button held would wedge the X session.
+                r = self._xdotool("mouseup", btn)
+
+            if r.returncode != 0:
+                return {"success": False, "error": r.stderr.strip() or "mouseup failed"}
+            return {
+                "success": True, "action": "drag",
+                "from_x": from_x, "from_y": from_y,
+                "to_x": to_x, "to_y": to_y,
+                "duration_ms": duration_ms,
+            }
+        except Exception as e:
+            logger.error(f"Drag from ({from_x},{from_y}) to ({to_x},{to_y}) failed: {e}")
+            # Belt-and-suspenders mouseup on exception path too
+            try:
+                self._xdotool("mouseup", self._BTN_MAP.get(button, "1"))
+            except Exception:
+                pass
+            return {"success": False, "error": str(e)}
+
+    def hover(self, x: int, y: int, settle_ms: int = 200) -> Dict[str, Any]:
+        """Move cursor and wait for hover-triggered UI to render."""
+        try:
+            r = self._xdotool("mousemove", "--screen", "0", str(x), str(y))
+            if r.returncode != 0:
+                return {"success": False, "error": r.stderr.strip() or "mousemove failed"}
+            time.sleep(max(0, settle_ms) / 1000.0)
+            return {"success": True, "action": "hover", "x": x, "y": y, "settled_ms": settle_ms}
+        except Exception as e:
+            logger.error(f"Hover at ({x}, {y}) failed: {e}")
+            return {"success": False, "error": str(e)}
+
     # Chunk size keeps each xdotool type call well under the 10s subprocess timeout.
     # At the default 80ms/char interval, 80 chars ≈ 6.4s — leaves headroom for
     # rich-text editors that buffer keystrokes (Reddit's shreddit-composer being

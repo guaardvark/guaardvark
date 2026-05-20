@@ -71,6 +71,38 @@ class ServoController:
         self.screen_w, self.screen_h = self.screen.screen_size()
         logger.info(f"Servo initialized for {self.screen_w}x{self.screen_h} screen")
 
+    def locate_target(self, target_description: str) -> Dict[str, Any]:
+        """Find a described target on screen. SEE only — no move, no click,
+        no archive write. Returns coords + parse telemetry for callers that
+        need to act on the coordinates themselves (drag source/destination,
+        double-click, hover).
+
+        Returns:
+            { "found": bool, "x": int, "y": int, "reason": str,
+              "detection_source": str, "parse_path": str,
+              "inference_ms": int }
+        """
+        screenshot, _ = self.screen.capture()
+        self._last_failure_reason = ""
+        coords = self._estimate_coordinates(screenshot, target_description)
+        if coords is None:
+            return {
+                "found": False,
+                "x": 0, "y": 0,
+                "reason": self._last_failure_reason or "target_not_visible",
+                "detection_source": self._last_detection_source,
+                "parse_path": self._last_parse_path,
+                "inference_ms": self._last_inference_ms,
+            }
+        return {
+            "found": True,
+            "x": coords[0], "y": coords[1],
+            "reason": "",
+            "detection_source": self._last_detection_source,
+            "parse_path": self._last_parse_path,
+            "inference_ms": self._last_inference_ms,
+        }
+
     def click_target(self, target_description: str, button: str = "left", single_attempt: bool = False) -> Dict[str, Any]:
         """
         Click on a described target element. ONE-SHOT, human-pattern:

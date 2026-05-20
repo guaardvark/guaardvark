@@ -112,6 +112,127 @@ class TestLocalBackend(unittest.TestCase):
         dash_idx = call_args.index("--")
         self.assertEqual(call_args[dash_idx + 1], "- bullet line")
 
+    def test_double_click_uses_xdotool_repeat(self):
+        # Browser dblclick requires both clicks within ~400ms. Sequential
+        # click() calls have too much subprocess overhead. xdotool's
+        # `--repeat 2 --delay 80` keeps both events inside the window.
+        from backend.services.local_screen_backend import LocalScreenBackend
+        backend = LocalScreenBackend()
+        ok = MagicMock(returncode=0, stdout="")
+
+        with patch.object(backend, '_xdotool', return_value=ok) as mock_x:
+            result = backend.double_click(100, 200)
+
+        self.assertTrue(result["success"])
+        self.assertEqual(result["action"], "double_click")
+        # Must have invoked xdotool click with --repeat 2
+        click_calls = [c for c in mock_x.call_args_list if c[0][0] == "click"]
+        self.assertEqual(len(click_calls), 1, "should use one --repeat 2 invocation, not two separate clicks")
+        args = click_calls[0][0]
+        self.assertIn("--repeat", args)
+        self.assertEqual(args[args.index("--repeat") + 1], "2")
+
+    def test_triple_click_uses_xdotool_repeat_three(self):
+        from backend.services.local_screen_backend import LocalScreenBackend
+        backend = LocalScreenBackend()
+        ok = MagicMock(returncode=0, stdout="")
+
+        with patch.object(backend, '_xdotool', return_value=ok) as mock_x:
+            result = backend.triple_click(100, 200)
+
+        self.assertTrue(result["success"])
+        self.assertEqual(result["action"], "triple_click")
+        click_calls = [c for c in mock_x.call_args_list if c[0][0] == "click"]
+        self.assertEqual(len(click_calls), 1)
+        args = click_calls[0][0]
+        self.assertEqual(args[args.index("--repeat") + 1], "3")
+
+    def test_drag_uses_mousedown_interpolation_mouseup(self):
+        # Drag must press at source, interpolate motion, then release.
+        # Smooth motion matters — drag-and-drop UIs that watch the cursor
+        # path reject instant teleports.
+        from backend.services.local_screen_backend import LocalScreenBackend
+        backend = LocalScreenBackend()
+        ok = MagicMock(returncode=0, stdout="")
+
+        with patch.object(backend, '_xdotool', return_value=ok) as mock_x:
+            result = backend.drag(0, 0, 100, 100, duration_ms=60)
+
+        self.assertTrue(result["success"])
+        self.assertEqual(result["action"], "drag")
+        # Sequence: mousemove → mousedown → many mousemoves → mouseup
+        commands = [c[0][0] for c in mock_x.call_args_list]
+        self.assertEqual(commands[0], "mousemove")
+        self.assertEqual(commands[1], "mousedown")
+        self.assertEqual(commands[-1], "mouseup")
+        # At least 2 interpolation steps (duration_ms=60 / 20ms step)
+        intermediate_moves = [c for c in commands[2:-1] if c == "mousemove"]
+        self.assertGreaterEqual(len(intermediate_moves), 2)
+
+    def test_drag_releases_button_even_when_interpolation_raises(self):
+        # If anything goes wrong mid-drag, we MUST mouseup or the X session
+        # is wedged with a held button. Belt-and-suspenders.
+        from backend.services.local_screen_backend import LocalScreenBackend
+        backend = LocalScreenBackend()
+
+        call_count = {"n": 0}
+        def fake_xdotool(*args):
+            call_count["n"] += 1
+            # Raise on the 4th call (after mousemove, mousedown, one interp move)
+            if call_count["n"] == 4 and args[0] == "mousemove":
+                raise RuntimeError("simulated X failure")
+            return MagicMock(returncode=0, stdout="")
+
+        with patch.object(backend, '_xdotool', side_effect=fake_xdotool) as mock_x:
+            result = backend.drag(0, 0, 100, 100, duration_ms=60)
+
+        # The drag itself failed (not success)
+        self.assertFalse(result["success"])
+        # But mouseup was still issued — find it in the call history
+        commands = [c[0][0] for c in mock_x.call_args_list]
+        self.assertIn("mouseup", commands, "mouseup must fire even when interpolation crashes")
+
+    def test_hover_moves_and_settles(self):
+        from backend.services.local_screen_backend import LocalScreenBackend
+        backend = LocalScreenBackend()
+        ok = MagicMock(returncode=0, stdout="")
+
+        with patch.object(backend, '_xdotool', return_value=ok) as mock_x:
+            result = backend.hover(100, 200, settle_ms=0)
+
+        self.assertTrue(result["success"])
+        self.assertEqual(result["action"], "hover")
+        commands = [c[0][0] for c in mock_x.call_args_list]
+        self.assertEqual(commands, ["mousemove"], "hover should only mousemove, no click")
+
+
+class TestSlowEffectClassifier(unittest.TestCase):
+    """Pin the verifier-selection keyword matcher. Slow patterns must route
+    to the 12s vision verifier; everything else trusts the servo region DPC."""
+
+    def test_slow_patterns_match(self):
+        from backend.services.agent_control_service import _looks_like_slow_effect
+        for s in (
+            "Firefox opens with the homepage",
+            "the new page loads",
+            "browser launches and navigates to youtube.com",
+            "a new tab appears",
+            "page navigates to the comments section",
+            "the modal appears in the center of the screen",
+        ):
+            self.assertTrue(_looks_like_slow_effect(s), f"expected slow: {s!r}")
+
+    def test_fast_patterns_do_not_match(self):
+        from backend.services.agent_control_service import _looks_like_slow_effect
+        for s in (
+            "comment now appears in the thread",  # 'appears' alone is too loose; we require 'modal/dialog/window appears'
+            "the button turns blue",
+            "form field gets the typed text",
+            "the upvote count increments by 1",
+            "",
+        ):
+            self.assertFalse(_looks_like_slow_effect(s), f"expected fast: {s!r}")
+
     def test_hotkey_calls_xdotool(self):
         from backend.services.local_screen_backend import LocalScreenBackend
         backend = LocalScreenBackend()
