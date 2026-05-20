@@ -143,11 +143,21 @@ def stable_hash(obj: Any) -> str:
     ).hexdigest()
 
 
-def compute_fleet_hash(profiles: dict[str, dict]) -> str:
+def compute_fleet_hash(profiles: dict[str, dict],
+                       online: dict[str, bool] | None = None) -> str:
     """sha1 over sorted (node_id, profile_hash) pairs — recomputes to the same
-    value regardless of dict iteration order."""
+    value regardless of dict iteration order.
+
+    When `online` is supplied, liveness is folded into the hash so a node going
+    offline/online changes the fleet_hash. Without this, recompute_and_broadcast
+    would no-op on a heartbeat-timeout transition (hardware profile unchanged)
+    and workers would never get a table that routes around the down node."""
     parts = [f"{nid}:{stable_hash(profile)}"
              for nid, profile in sorted(profiles.items())]
+    if online is not None:
+        live = ",".join(f"{nid}={int(bool(online.get(nid, True)))}"
+                        for nid in sorted(online))
+        parts.append("online|" + live)
     return hashlib.sha1(",".join(parts).encode()).hexdigest()
 
 
@@ -165,6 +175,7 @@ class RoutingTableBuilder:
 
     def build(self, fleet: FleetMap, master_node_id: str) -> RoutingTable:
         profiles = {nid: fleet.get_profile(nid) for nid in fleet.get_all_node_ids()}
+        online_map = {nid: fleet.is_online(nid) for nid in profiles}
         routes: dict[str, WorkloadRoute] = {}
         singular_assignments: dict[str, str] = {}  # workload -> primary (for spread rule)
 
@@ -179,14 +190,21 @@ class RoutingTableBuilder:
                 )
                 continue
 
-            stable = self._apply_presence_filter(candidates, fleet)
-            demoted = [c for c in candidates if c not in stable]
+            # Liveness split: only online nodes are eligible for the primary slot
+            # (or as parallel workers). Offline nodes stay in the fallback chain
+            # so they're tried last if every live node fails.
+            online_cands = [c for c in candidates if fleet.is_online(c)]
+            offline_cands = [c for c in candidates if not fleet.is_online(c)]
+
+            stable = self._apply_presence_filter(online_cands, fleet)
+            demoted = [c for c in online_cands if c not in stable]
             ordered = self._order_candidates(stable, spec, fleet, workload, routes)
             spread = self._apply_spread_rule(ordered, singular_assignments, spec, fleet)
 
             if spec["mode"] == "singular":
                 primary = spread[0] if spread else None
-                fallback = spread[1:] + demoted  # flappy nodes still usable as fallback
+                # flappy nodes, then offline nodes, remain usable as last-resort fallback
+                fallback = spread[1:] + demoted + offline_cands
                 routes[workload] = WorkloadRoute(
                     workload=workload, mode="singular", primary=primary,
                     fallback=fallback, workers=[],
@@ -211,7 +229,7 @@ class RoutingTableBuilder:
             computed_at=datetime.utcnow(),
             computed_by=master_node_id,
             node_count=len(profiles),
-            fleet_hash=compute_fleet_hash(profiles),
+            fleet_hash=compute_fleet_hash(profiles, online_map),
         )
 
     # ---- filters ---------------------------------------------------
@@ -233,20 +251,27 @@ class RoutingTableBuilder:
             # GPU gate — parallel workloads accept any GPU node with the right service;
             # singular workloads hard-filter by min_vram_mb.
             gpu = profile.get("gpu", {}) or {}
+            vendor = gpu.get("vendor")
+            vram_mb = gpu.get("vram_mb") or 0
+            has_gpu = vendor not in (None, "none")
             min_vram = spec.get("min_vram_mb")
             cpu_ok = spec.get("cpu_acceptable", False)
             if is_parallel:
-                # Must be a GPU node (cpu_acceptable is always False for parallel specs)
-                if gpu.get("vendor") != "nvidia":
+                # Must be a GPU node (cpu_acceptable is always False for parallel specs).
+                # NVIDIA is accepted on vendor alone (back-compat); AMD/Intel must
+                # advertise enough VRAM, since their detection is best-effort.
+                if not has_gpu:
+                    continue
+                if vendor != "nvidia" and min_vram is not None and vram_mb < min_vram:
                     continue
             elif min_vram is not None:
-                # needs a real GPU OR cpu_acceptable fallback
-                if gpu.get("vendor") == "nvidia" and (gpu.get("vram_mb") or 0) >= min_vram:
+                # needs a GPU with enough VRAM (any vendor) OR a cpu_acceptable fallback
+                if has_gpu and vram_mb >= min_vram:
                     pass  # GPU-eligible
                 elif cpu_ok:
                     pass  # CPU-acceptable, GPU not required
                 else:
-                    continue  # no GPU and cpu not acceptable
+                    continue  # no capable GPU and cpu not acceptable
             out.append(nid)
         return out
 

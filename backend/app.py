@@ -994,7 +994,9 @@ try:
                     for node in InterconnectorNode.query.all():
                         if node.hardware_profile:
                             try:
-                                fm.register(node.node_id, _json.loads(node.hardware_profile))
+                                fm.register(node.node_id, _json.loads(node.hardware_profile),
+                                            online=node.online)
+                                fm.set_address(node.node_id, node.host, node.port)
                             except _json.JSONDecodeError:
                                 app.logger.warning(
                                     "[CLUSTER] skipping node %s — malformed profile",

@@ -18,15 +18,40 @@ class FleetMap:
         self._live_state: dict[str, tuple[float, dict]] = {}
         self._flap_history: dict[str, list[float]] = {}
         self._last_seen: dict[str, float] = {}
+        self._online: dict[str, bool] = {}
+        self._address: dict[str, tuple[str, int]] = {}
         self._lock = threading.RLock()
         self._ttl = live_state_ttl_s
 
     # ---- registration -----------------------------------------------
 
-    def register(self, node_id: str, profile: dict[str, Any]) -> None:
+    def register(self, node_id: str, profile: dict[str, Any], online: bool = True) -> None:
         with self._lock:
             self._profiles[node_id] = profile
             self._last_seen[node_id] = time.time()
+            self._online[node_id] = online
+
+    def set_online(self, node_id: str, online: bool) -> None:
+        """Track per-node liveness so the routing builder can keep offline nodes
+        out of the primary slot. Mirrors InterconnectorNode.online (DB)."""
+        with self._lock:
+            self._online[node_id] = online
+
+    def is_online(self, node_id: str) -> bool:
+        """Defaults to True for unknown nodes — absence of liveness data should
+        not exclude a node that was never explicitly marked down."""
+        with self._lock:
+            return self._online.get(node_id, True)
+
+    def set_address(self, node_id: str, host: str, port: int) -> None:
+        """Cache a node's reachable host:port so the proxy resolver can build a
+        target without a per-request DB lookup on the hot path."""
+        with self._lock:
+            self._address[node_id] = (host, int(port))
+
+    def get_address(self, node_id: str) -> tuple[str, int] | None:
+        with self._lock:
+            return self._address.get(node_id)
 
     def update_live_state(self, node_id: str, state: dict[str, Any]) -> None:
         with self._lock:

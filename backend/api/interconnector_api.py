@@ -785,7 +785,9 @@ def register_node():
             existing_node.sync_entities = json.dumps(sync_entities)
             db.session.commit()
             from backend.services.fleet_map import get_fleet_map
-            get_fleet_map().register(existing_node.node_id, profile_from_payload)
+            _fm = get_fleet_map()
+            _fm.register(existing_node.node_id, profile_from_payload)
+            _fm.set_address(existing_node.node_id, client_ip, port)
             logger.info(f"[SYNC] Updated existing node registration: {node_id} ({node_name}) from {client_ip}:{port}")
         else:
             # Create new node
@@ -805,7 +807,9 @@ def register_node():
             db.session.add(new_node)
             db.session.commit()
             from backend.services.fleet_map import get_fleet_map
-            get_fleet_map().register(new_node.node_id, profile_from_payload)
+            _fm = get_fleet_map()
+            _fm.register(new_node.node_id, profile_from_payload)
+            _fm.set_address(new_node.node_id, client_ip, port)
             logger.info(f"[SYNC] Registered new node: {node_id} ({node_name}) from {client_ip}:{port}")
             
             # Verify node was saved
@@ -854,10 +858,14 @@ def node_heartbeat(node_id):
             logger.warning(f"[SYNC] Heartbeat failed: Node {node_id} not found")
             return error_response(f"Node {node_id} not found", 404)
 
-        # Update heartbeat
+        # Update heartbeat. A heartbeat means the node is up *now*, so restore
+        # online immediately rather than waiting for the sweeper's next pass —
+        # otherwise a recovered node stays excluded from routing until then.
+        was_offline = node.online is False
         node.last_heartbeat = datetime.now()
         node.status = "active"
-        
+        node.online = True
+
         # Update hardware_profile if provided
         if request.is_json:
             data = request.get_json()
@@ -868,6 +876,19 @@ def node_heartbeat(node_id):
 
         db.session.commit()
         logger.debug(f"[SYNC] Heartbeat updated for node {node_id} ({node.node_name})")
+
+        # Keep FleetMap liveness in sync, and reroute around the recovery.
+        try:
+            from backend.services.fleet_map import get_fleet_map
+            fm = get_fleet_map()
+            fm.set_online(node_id, True)
+            fm.set_address(node_id, node.host, node.port)
+            if was_offline and os.environ.get("CLUSTER_ROLE") == "master":
+                from backend.services.cluster_routing import recompute_and_broadcast
+                recompute_and_broadcast(reason="node_recovered")
+        except Exception as fleet_err:
+            logger.warning("[SYNC] FleetMap liveness update failed for %s: %s",
+                           node_id, fleet_err)
 
         response_data = {"node_id": node_id, "heartbeat_at": node.last_heartbeat.isoformat()}
 

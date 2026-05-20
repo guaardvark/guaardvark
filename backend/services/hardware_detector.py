@@ -159,7 +159,31 @@ class HardwareDetector:
     def _probe_gpu_amd(self) -> dict | None:
         if shutil.which("rocm-smi") is None:
             return None
-        return {"vendor": "amd", "vram_mb": None}
+        return {"vendor": "amd", "vram_mb": self._probe_amd_vram_mb()}
+
+    def _probe_amd_vram_mb(self) -> int | None:
+        """Best-effort total VRAM via rocm-smi JSON. Unverified on real AMD
+        hardware; the routing builder only treats AMD as GPU-eligible once a
+        VRAM figure is known, so a None here just keeps it CPU-only (safe)."""
+        try:
+            out = subprocess.run(
+                ["rocm-smi", "--showmeminfo", "vram", "--json"],
+                capture_output=True, text=True, timeout=5, check=False,
+            )
+            if out.returncode != 0 or not out.stdout.strip():
+                return None
+            data = json.loads(out.stdout)
+            for card in data.values():
+                if not isinstance(card, dict):
+                    continue
+                for key, val in card.items():
+                    k = key.lower()
+                    if "vram" in k and "total" in k:
+                        return int(int(val) / 1024 / 1024)  # bytes → MB
+        except (subprocess.SubprocessError, ValueError, json.JSONDecodeError,
+                OSError, AttributeError):
+            pass
+        return None
 
     def _probe_gpu_intel(self) -> dict | None:
         if shutil.which("intel_gpu_top") is None:
