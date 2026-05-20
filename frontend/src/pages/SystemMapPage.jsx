@@ -34,11 +34,19 @@ import CloseIcon from "@mui/icons-material/Close";
 import BubbleChartIcon from "@mui/icons-material/BubbleChart";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import BoltIcon from "@mui/icons-material/Bolt";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
+import SendIcon from "@mui/icons-material/Send";
+import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import { io } from "socket.io-client";
 
 import PageLayout from "../components/layout/PageLayout";
 import { SystemMapCanvas } from "../components/systemmap";
-import { fetchSystemMap } from "../api/systemMapService";
+import {
+  fetchSystemMap,
+  fetchFindings,
+  dispatchFinding,
+  dismissFinding,
+} from "../api/systemMapService";
 import { SOCKET_URL } from "../api/apiClient";
 
 const SEVERITY_COLOR = {
@@ -114,6 +122,22 @@ export default function SystemMapPage() {
   const searchRef = useRef(null);
   const canvasRef = useRef(null);
 
+  // Findings panel state
+  const [findings, setFindings] = useState([]);
+  const [panelTab, setPanelTab] = useState("findings"); // 'findings' | 'activity'
+  const [sevFilter, setSevFilter] = useState("high,medium"); // default to actionable
+  const [dispatchingId, setDispatchingId] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  const loadFindings = useCallback(async () => {
+    try {
+      const data = await fetchFindings({ severity: sevFilter || null });
+      setFindings(Array.isArray(data?.findings) ? data.findings : []);
+    } catch {
+      /* findings are best-effort; the galaxy still renders without them */
+    }
+  }, [sevFilter]);
+
   const load = useCallback(async (refresh = false) => {
     setLoading(true);
     setError(null);
@@ -136,6 +160,51 @@ export default function SystemMapPage() {
   useEffect(() => {
     load(false);
   }, [load]);
+
+  useEffect(() => {
+    loadFindings();
+  }, [loadFindings]);
+
+  // Jump the camera to the module a finding points at (first .py path).
+  const flyToFinding = useCallback(
+    (finding) => {
+      const pyPath = (finding.paths || []).find((p) => p.endsWith(".py"));
+      if (!pyPath) return;
+      const mod = pyPath.slice(0, -3).replace(/\//g, ".");
+      if (canvasRef.current) canvasRef.current.flyTo(mod);
+      setSelected(mod);
+    },
+    [],
+  );
+
+  const handleDispatch = useCallback(async (finding) => {
+    setDispatchingId(finding.id);
+    try {
+      const res = await dispatchFinding(finding.id);
+      setToast(
+        res?.success
+          ? "Dispatched to the self-improvement agent — review the proposed fix in Settings."
+          : `Dispatch returned no change${res?.result?.reason ? `: ${res.result.reason}` : "."}`,
+      );
+    } catch (e) {
+      setToast(`Dispatch failed: ${e?.message || e}`);
+    } finally {
+      setDispatchingId(null);
+    }
+  }, []);
+
+  const handleDismiss = useCallback(
+    async (finding) => {
+      // optimistic remove
+      setFindings((prev) => prev.filter((f) => f.id !== finding.id));
+      try {
+        await dismissFinding(finding.id);
+      } catch {
+        loadFindings(); // restore truth on failure
+      }
+    },
+    [loadFindings],
+  );
 
   // Socket.IO subscription — pulse nodes when chat tools fire.
   useEffect(() => {
@@ -390,7 +459,10 @@ export default function SystemMapPage() {
             }
           >
             <IconButton
-              onClick={() => load(true)}
+              onClick={() => {
+                load(true);
+                loadFindings();
+              }}
               disabled={loading}
               sx={{
                 color: "rgba(168, 216, 255, 0.7)",
@@ -718,10 +790,46 @@ export default function SystemMapPage() {
                 </Typography>
               )}
             </Box>
+          ) : panelTab === "findings" ? (
+            <FindingsView
+              findings={findings}
+              sevFilter={sevFilter}
+              onSevFilter={setSevFilter}
+              onSelect={flyToFinding}
+              onDispatch={handleDispatch}
+              onDismiss={handleDismiss}
+              dispatchingId={dispatchingId}
+              activeTab={panelTab}
+              onTab={setPanelTab}
+            />
           ) : (
-            <ActivityLogView activity={activity} />
+            <ActivityLogView
+              activity={activity}
+              activeTab={panelTab}
+              onTab={setPanelTab}
+            />
           )}
         </Paper>
+
+        {/* Transient toast for dispatch results */}
+        {toast && (
+          <Alert
+            severity="info"
+            onClose={() => setToast(null)}
+            sx={{
+              position: "absolute",
+              bottom: 16,
+              right: 16,
+              zIndex: 12,
+              maxWidth: 360,
+              bgcolor: "rgba(20, 40, 60, 0.95)",
+              color: "rgba(200, 230, 255, 0.95)",
+              border: "1px solid rgba(168, 216, 255, 0.3)",
+            }}
+          >
+            {toast}
+          </Alert>
+        )}
 
         {/* Loading overlay (initial only) */}
         {loading && !map && (
@@ -756,9 +864,236 @@ export default function SystemMapPage() {
 
 // ────────────────────────────────────────────────────────────────────────
 
-function ActivityLogView({ activity }) {
+// Shared tab header for the right-side panel base views.
+function PanelTabs({ activeTab, onTab, badge }) {
+  const tab = (key, label) => (
+    <Box
+      role="button"
+      tabIndex={0}
+      onClick={() => onTab(key)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onTab(key);
+        }
+      }}
+      sx={{
+        cursor: "pointer",
+        userSelect: "none",
+        px: 1,
+        py: 0.5,
+        borderBottom:
+          activeTab === key
+            ? "2px solid rgba(168, 216, 255, 0.85)"
+            : "2px solid transparent",
+        color:
+          activeTab === key ? "rgba(168, 216, 255, 0.95)" : "rgba(168, 216, 255, 0.45)",
+        fontSize: "0.7rem",
+        letterSpacing: 1.2,
+        textTransform: "uppercase",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 0.5,
+      }}
+    >
+      {label}
+      {key === "findings" && badge > 0 && (
+        <Box
+          component="span"
+          sx={{
+            fontSize: "0.6rem",
+            px: 0.6,
+            borderRadius: "999px",
+            bgcolor: "rgba(255, 184, 77, 0.2)",
+            color: "#ffb84d",
+          }}
+        >
+          {badge}
+        </Box>
+      )}
+    </Box>
+  );
+  return (
+    <Stack direction="row" spacing={1} sx={{ px: 1.5, pt: 1.5, pb: 0.5 }}>
+      {tab("findings", "Findings")}
+      {tab("activity", "Activity")}
+    </Stack>
+  );
+}
+
+function FindingsView({
+  findings,
+  sevFilter,
+  onSevFilter,
+  onSelect,
+  onDispatch,
+  onDismiss,
+  dispatchingId,
+  activeTab,
+  onTab,
+}) {
+  const filters = [
+    { key: "high,medium", label: "Actionable" },
+    { key: "high", label: "Critical" },
+    { key: "high,medium,low", label: "All" },
+  ];
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <PanelTabs activeTab={activeTab} onTab={onTab} badge={findings.length} />
+      <Box sx={{ px: 1.5, pb: 1 }}>
+        <Stack direction="row" alignItems="center" spacing={1}>
+          <WarningAmberIcon sx={{ color: "rgba(255, 184, 77, 0.7)", fontSize: 16 }} />
+          <Typography variant="caption" sx={{ color: "rgba(168, 216, 255, 0.55)", fontSize: "0.7rem" }}>
+            Ranked findings · click to locate · dispatch to fix
+          </Typography>
+        </Stack>
+        <Stack direction="row" spacing={0.5} sx={{ mt: 0.8 }}>
+          {filters.map((f) => (
+            <Box
+              key={f.key}
+              role="button"
+              tabIndex={0}
+              onClick={() => onSevFilter(f.key)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSevFilter(f.key);
+                }
+              }}
+              sx={{
+                cursor: "pointer",
+                userSelect: "none",
+                px: 0.8,
+                py: 0.2,
+                borderRadius: "999px",
+                fontSize: "0.62rem",
+                letterSpacing: 0.4,
+                textTransform: "uppercase",
+                border:
+                  sevFilter === f.key
+                    ? "1px solid rgba(168, 216, 255, 0.6)"
+                    : "1px solid rgba(168, 216, 255, 0.15)",
+                color:
+                  sevFilter === f.key
+                    ? "rgba(168, 216, 255, 0.95)"
+                    : "rgba(168, 216, 255, 0.5)",
+              }}
+            >
+              {f.label}
+            </Box>
+          ))}
+        </Stack>
+      </Box>
+      <Divider sx={{ borderColor: "rgba(168, 216, 255, 0.08)" }} />
+      <Box sx={{ flex: 1, overflowY: "auto", p: 1.5, pt: 1 }}>
+        {findings.length === 0 ? (
+          <Typography
+            variant="caption"
+            sx={{
+              color: "rgba(168, 216, 255, 0.35)",
+              fontStyle: "italic",
+              display: "block",
+              mt: 2,
+              textAlign: "center",
+            }}
+          >
+            No findings at this severity. 🎉
+          </Typography>
+        ) : (
+          findings.map((f) => (
+            <Box
+              key={f.id}
+              sx={{
+                mt: 0.8,
+                p: 1,
+                borderLeft: `2px solid ${SEVERITY_COLOR[f.severity] || SEVERITY_COLOR.low}`,
+                bgcolor: "rgba(168, 216, 255, 0.04)",
+                borderRadius: "2px",
+              }}
+            >
+              <Box
+                role="button"
+                tabIndex={0}
+                onClick={() => onSelect(f)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") onSelect(f);
+                }}
+                sx={{ cursor: "pointer" }}
+              >
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: SEVERITY_COLOR[f.severity] || SEVERITY_COLOR.low,
+                    fontWeight: 500,
+                    textTransform: "uppercase",
+                    letterSpacing: 1,
+                    fontSize: "0.62rem",
+                  }}
+                >
+                  {f.severity} · {f.kind}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{ color: "rgba(168, 216, 255, 0.85)", fontSize: "0.78rem", mt: 0.25 }}
+                >
+                  {f.summary}
+                </Typography>
+                {(f.paths || []).slice(0, 2).map((p) => (
+                  <Typography
+                    key={p}
+                    variant="caption"
+                    sx={{
+                      color: "rgba(168, 216, 255, 0.4)",
+                      fontFamily: "monospace",
+                      fontSize: "0.65rem",
+                      display: "block",
+                    }}
+                  >
+                    {p}
+                  </Typography>
+                ))}
+              </Box>
+              <Stack direction="row" spacing={0.5} sx={{ mt: 0.6 }}>
+                {f.dispatchable && (
+                  <Tooltip title="Send to the self-improvement agent to propose a fix">
+                    <span>
+                      <IconButton
+                        size="small"
+                        disabled={dispatchingId === f.id}
+                        onClick={() => onDispatch(f)}
+                        sx={{ color: "rgba(120, 220, 180, 0.8)" }}
+                      >
+                        {dispatchingId === f.id ? (
+                          <CircularProgress size={14} sx={{ color: "rgba(120, 220, 180, 0.8)" }} />
+                        ) : (
+                          <SendIcon sx={{ fontSize: 15 }} />
+                        )}
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                )}
+                <Tooltip title="Dismiss — acknowledge and stop showing this finding">
+                  <IconButton
+                    size="small"
+                    onClick={() => onDismiss(f)}
+                    sx={{ color: "rgba(168, 216, 255, 0.5)" }}
+                  >
+                    <VisibilityOffIcon sx={{ fontSize: 15 }} />
+                  </IconButton>
+                </Tooltip>
+              </Stack>
+            </Box>
+          ))
+        )}
+      </Box>
+    </Box>
+  );
+}
+
+function ActivityLogView({ activity, activeTab, onTab }) {
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      {onTab && <PanelTabs activeTab={activeTab} onTab={onTab} />}
       <Box sx={{ p: 2, pb: 1.5 }}>
         <Stack direction="row" alignItems="center" spacing={1}>
           <BoltIcon sx={{ color: "rgba(168, 216, 255, 0.7)", fontSize: 18 }} />
