@@ -336,6 +336,12 @@ def create_celery_app():
         logger.warning(f"Could not import video render tasks: {e}")
 
     try:
+        from backend.tasks.backup_tasks import daily_backup  # noqa: F401
+        logger.info("Backup tasks imported successfully")
+    except ImportError as e:
+        logger.warning(f"Could not import backup tasks: {e}")
+
+    try:
         from backend.tasks import cluster_heartbeat_sweeper  # noqa: F401 - registers task
         logger.info("Cluster heartbeat sweeper task registered")
     except ImportError as e:
