@@ -150,3 +150,40 @@ data/dep_reconciler/
 
 # Celery beat schedule state (per-machine, runtime-managed)
 data/celerybeat-schedule.db*
+
+# --- Local scratch, backups & per-machine runtime (gitignore audit 2026-05-21) ---
+# Backup archives — the bare *.BACK rule misses compound extensions like .BACK.zip
+*.BACK.zip
+data/*_backup_*.zip
+# Loose backup/scratch copies of agent knowledge files
+data/agent/backs of agent files in this folder/
+
+# Agent desktop runtime home — mime/dbus/gvfs/recently-used caches written per launch
+# (sibling of the already-ignored data/agent/xfce_config/)
+data/agent/data_home/
+
+# GFPGAN face-restore model weights (large, fetched at runtime)
+plugins/upscaling/gfpgan/weights/
+
+# Old training-knowledge snapshots — knowledge/ is tracked, OLD.* backups are not
+data/training/knowledge/OLD.*
+
+# Root-level scratch media & frames (generated during video/audio testing)
+/*.mp4
+/*.wav
+/frame_*.jpg
+
+# Root scratch notes / AI session dumps / loose test scripts
+/GROK.md
+/.gemini_transcript_review.txt
+/test_rag.py
+backend/pytest_output.txt
+plugins/upscaling/test_gfpgan.py
+
+# Keep-local by decision: outreach targeting config + agent dev/strategy notes
+data/agent/social_outreach_targets.json
+data/agent/findings_response_2026-05-19.md
+
+# Scratch YouTube manual run-scripts (ad-hoc run() scripts, not pytest)
+backend/tests/test_youtube_chat*.py
+backend/tests/test_youtube_final.py
