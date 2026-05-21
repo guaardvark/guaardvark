@@ -8,7 +8,7 @@ Flask-Executor==1.0.0
 Flask-Migrate==4.0.7
 Flask-SQLAlchemy==3.1.1
 Flask-SocketIO==5.3.6
-flask-cors==4.0.0
+flask-cors==4.0.2
 alembic==1.13.1
 anthropic>=0.40.0
 python-dotenv==1.0.1
@@ -26,7 +26,7 @@ psutil==5.9.8
 
 # Web Scraping & File Processing
 beautifulsoup4==4.12.3
-lxml==6.0.2
+lxml==6.1.1
 pypdf==5.1.0
 requests==2.32.4
 duckduckgo-search==8.1.1
@@ -47,7 +47,7 @@ diffusers>=0.37.0
 transformers>=4.50.3,<5.0  # ComfyUI needs >=4.50.3, diffusers incompatible with 5.x
 accelerate==1.2.1
 safetensors>=0.4.0
-Pillow==10.2.0
+Pillow==12.2.0
 
 # ComfyUI / Video Generation Dependencies
 torchsde>=0.2.6
