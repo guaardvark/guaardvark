@@ -28,7 +28,7 @@ const ProductionDetail = ({
     );
   }
 
-  if (error) {
+  if (error && !production) {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error">{error}</Alert>
@@ -48,10 +48,12 @@ const ProductionDetail = ({
 
   return (
     <Box sx={{ p: 3, height: '100%', overflowY: 'auto' }}>
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" gutterBottom>{production.name}</Typography>
         <Typography variant="body2" color="text.secondary">
-          ID: {production.id} | Created: {new Date(production.created_at || Date.now()).toLocaleString()}
+          ID: {production.id}
+          {production.created_at ? ` | Created: ${new Date(production.created_at).toLocaleString()}` : ''}
         </Typography>
       </Box>
 
@@ -68,7 +70,6 @@ const ProductionDetail = ({
         <Paper sx={{ p: 2, mb: 3 }}>
           <CastingPanel 
             productionId={production.id} 
-            shots={production.shots} 
             onCastingConfirmed={onCastingConfirmed}
           />
         </Paper>
@@ -77,7 +78,6 @@ const ProductionDetail = ({
       {['storyboard_gen', 'awaiting_approval', 'rendering', 'complete'].includes(production.current_stage) && (
         <Paper sx={{ p: 2, mb: 3 }}>
           <StoryboardGrid
-            productionId={production.id}
             currentStage={production.current_stage}
             shots={production.shots || []}
             onRegenerate={onRegenerateShot}

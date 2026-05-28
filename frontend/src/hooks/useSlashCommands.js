@@ -42,50 +42,6 @@ export default function useSlashCommands({ addMessage, updateMessage, onSendMess
     }
   }, [allCommands]);
 
-  const handleKeyDown = useCallback((event) => {
-    if (!popupVisible) return;
-
-    switch (event.key) {
-      case "ArrowDown":
-        event.preventDefault();
-        event.stopPropagation();
-        setSelectedIndex((prev) => Math.min(prev + 1, filteredCommands.length - 1));
-        break;
-      case "ArrowUp":
-        event.preventDefault();
-        event.stopPropagation();
-        setSelectedIndex((prev) => Math.max(prev - 1, 0));
-        break;
-      case "Enter":
-      case "Tab":
-        event.preventDefault();
-        event.stopPropagation();
-        if (filteredCommands[selectedIndex]) {
-          selectCommand(filteredCommands[selectedIndex]);
-        }
-        break;
-      case "Escape":
-        event.preventDefault();
-        event.stopPropagation();
-        setPopupVisible(false);
-        break;
-      default:
-        break;
-    }
-  }, [popupVisible, filteredCommands, selectedIndex]);
-
-  const selectCommand = useCallback((cmd) => {
-    setPopupVisible(false);
-    if (cmd.args === "none") {
-      // Execute immediately
-      executeCommand(cmd.name);
-      if (setInputText) setInputText("");
-    } else {
-      // Insert command + space, user types args
-      if (setInputText) setInputText(cmd.name + " ");
-    }
-  }, [setInputText]);
-
   const executeCommand = useCallback(async (text) => {
     const { name, args } = parseCommand(text);
 
@@ -109,6 +65,58 @@ export default function useSlashCommands({ addMessage, updateMessage, onSendMess
       return { handled: true };
     }
   }, [allCommands, addMessage, updateMessage, onSendMessage, chatState]);
+
+  const selectCommand = useCallback((cmd, options = {}) => {
+    setPopupVisible(false);
+    const inputText = options.inputText ?? currentInput.current;
+    const exactCommand = inputText.trim().toLowerCase() === cmd.name.toLowerCase();
+    const shouldExecute =
+      cmd.args === "none" || (options.executeIfExact === true && exactCommand);
+
+    if (shouldExecute) {
+      // Exact optional commands like /agent should toggle immediately on Enter.
+      executeCommand(cmd.name);
+      if (setInputText) setInputText("");
+    } else {
+      // Insert command + space, user types args
+      if (setInputText) setInputText(cmd.name + " ");
+    }
+  }, [executeCommand, setInputText]);
+
+  const handleKeyDown = useCallback((event) => {
+    if (!popupVisible) return;
+
+    switch (event.key) {
+      case "ArrowDown":
+        event.preventDefault();
+        event.stopPropagation();
+        setSelectedIndex((prev) => Math.min(prev + 1, filteredCommands.length - 1));
+        break;
+      case "ArrowUp":
+        event.preventDefault();
+        event.stopPropagation();
+        setSelectedIndex((prev) => Math.max(prev - 1, 0));
+        break;
+      case "Enter":
+      case "Tab":
+        event.preventDefault();
+        event.stopPropagation();
+        if (filteredCommands[selectedIndex]) {
+          selectCommand(filteredCommands[selectedIndex], {
+            executeIfExact: event.key === "Enter",
+            inputText: currentInput.current,
+          });
+        }
+        break;
+      case "Escape":
+        event.preventDefault();
+        event.stopPropagation();
+        setPopupVisible(false);
+        break;
+      default:
+        break;
+    }
+  }, [popupVisible, filteredCommands, selectedIndex, selectCommand]);
 
   return {
     popupVisible,

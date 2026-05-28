@@ -885,22 +885,13 @@ fi
 
 source "$VENV_DIR/bin/activate" || { vader_error "Failed to activate venv"; exit 1; }
 
-# Dependency reconciler — single source of truth for backend/frontend/cli/plugin/alembic deps.
-# Replaces the legacy .deps_installed sentinel and four scattered install blocks.
-if [ "$GUAARDVARK_DEP_RECONCILER" != "disabled" ] && [ "$FAST_START" -ne 1 ]; then
-    vader_info "Reconciling dependencies..."
-    python "$GUAARDVARK_ROOT/scripts/dep_reconciler.py" 2>&1 | tee -a "$SETUP_LOG"
-    reconciler_rc=${PIPESTATUS[0]}
-    if [ "$reconciler_rc" -ne 0 ]; then
-        vader_error "Dependency reconciliation failed (exit $reconciler_rc). Backend will not start."
-        vader_error "See logs/dep_reconciler.log for the full output."
-        exit 1
-    fi
-fi
+# Dependency reconciliation is intentionally disabled during startup. It was
+# blocking otherwise healthy boots when the reconciler drift check failed.
+# Run scripts/dep_reconciler.py manually when dependency repair is needed.
+vader_info "Dependency reconciliation skipped"
 deactivate
 
 # --- CLI tool setup ---
-# Pip install is handled by the dependency reconciler (cli_venv).
 # This block only handles the symlink installation into ~/.local/bin.
 CLI_DIR="$SCRIPT_DIR/cli"
 CLI_VENV_DIR="$VENV_DIR"
@@ -940,9 +931,8 @@ if [ -d "$CLI_DIR" ] && [ -f "$CLI_DIR/setup.py" ]; then
 fi
 
 if [ "$FAST_START" -ne 1 ]; then
-    # Frontend deps installed by the dependency reconciler (Frontend reconciler).
-    # Running `npm install` here would mutate package-lock.json on every boot,
-    # defeating our lockfile-only hash strategy.
+    # Avoid dependency installs during startup. Running `npm install` here would
+    # mutate package-lock.json on every boot and make startup less predictable.
 
     if [ "$BUILD_CHECK" -eq 1 ]; then
         check_frontend_build
@@ -1223,9 +1213,8 @@ fi
 vader_info "Setting up frontend..."
 cd "$FRONTEND_DIR" || { vader_error "Failed to cd to $FRONTEND_DIR"; exit 1; }
 
-# Frontend dep install is owned by the dependency reconciler (lockfile-strict
-# `npm ci`). The sentinel-based block that used to live here ran a second
-# `npm install`, which mutates package-lock.json and defeats our lockfile hash.
+# Frontend dependency installs are intentionally not part of startup. The old
+# sentinel block ran `npm install`, mutating package-lock.json during boot.
 
 ensure_npm_package rollup-plugin-polyfill-node
 

@@ -11,18 +11,14 @@ import {
   Button,
   IconButton,
   Chip,
-  Divider,
   CircularProgress,
-  Alert,
   Tooltip,
 } from "@mui/material";
 import {
   PlayArrow as PlayIcon,
   Pause as PauseIcon,
   AutoFixHigh as RenderIcon,
-  TextFields as TextIcon,
   MovieFilter as VideoIcon,
-  GraphicEq as AudioIcon,
   AutoAwesome as PlanIcon,
   OpenInNew as ShotcutIcon,
   RocketLaunch as QuickRenderIcon,
@@ -33,12 +29,20 @@ import OverlayLayer from "../components/videoeditor/OverlayLayer";
 import BinPanel from "../components/videoeditor/BinPanel";
 import ArrangementPreview from "../components/videoeditor/ArrangementPreview";
 import OptionsPanel from "../components/videoeditor/OptionsPanel";
+import PlanStatusPanel from "../components/videoeditor/PlanStatusPanel";
 import { usePlanJob } from "../components/videoeditor/usePlanJob";
 import { useTimelineHistory } from "../components/videoeditor/useTimelineHistory";
 import { normalizeTimeline } from "../components/videoeditor/normalizeTimeline";
+import { buildPlanRequest, getKeptRangeDecorations, getPlanInputs } from "../components/videoeditor/buildPlanRequest";
 import { listVideoDocuments, listAudioDocuments, listImageDocuments } from "../api/videoOverlayService";
-import { listStyleRecipes, renderArrangement, openInShotcut, rescanClip, getClipHash } from "../api/videoEditorService";
-import { getJobsGate } from "../api/jobsService";
+import {
+  listStyleRecipes,
+  renderArrangement,
+  openInShotcut,
+  rescanClip,
+  getClipHash,
+  getVideoEditorErrorMessage,
+} from "../api/videoEditorService";
 import ReactGridLayout, { WidthProvider } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
@@ -74,13 +78,6 @@ const VE_CARD_TITLES = {
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
-// Track lane colors — keep video / text / audio visually distinct.
-const TRACK_COLORS = {
-  video: "#2196f3",
-  text: "#ff9800",
-  audio: "#9c27b0",
-};
-
 // Initial blank timeline state. Bin holds clips for THIS project; song is
 // the master soundtrack. Text overlays are kept for A2+ — currently they
 // don't flow through the Plan pipeline.
@@ -93,13 +90,12 @@ const _emptyTimeline = () => ({
 });
 
 const VideoEditorPage = () => {
-  const { timeline, commitTimeline, handleUndo, pendingSnapshotRef } = useTimelineHistory(_emptyTimeline());
+  const { timeline, commitTimeline, handleUndo } = useTimelineHistory(_emptyTimeline());
   const videoElRef = useRef(null);
   const [mediaLibrary, setMediaLibrary] = useState([]);
   const [audioLibrary, setAudioLibrary] = useState([]);
   const [imageLibrary, setImageLibrary] = useState([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
-  const [videoDuration, setVideoDuration] = useState(0);  // for visual trim slider
   const [selectedItem, setSelectedItem] = useState(null);  // {type, id} for properties panel
   const [previewPlaying, setPreviewPlaying] = useState(false);
   const [rendering, setRendering] = useState(false);
@@ -109,7 +105,11 @@ const VideoEditorPage = () => {
   const [styleRecipeName, setStyleRecipeName] = useState("Default");
   const [recipes, setRecipes] = useState([]);
   const planJob = usePlanJob();
-  const [gate, setGate] = useState(null);
+  const {
+    start: startPlan,
+    clearResult: clearPlanResult,
+    updateClipAnalysis,
+  } = planJob;
   const [error, setError] = useState(null);
 
   // Director's Notes overrides — keyed by clip_id. Local until next Plan.
@@ -201,7 +201,7 @@ const VideoEditorPage = () => {
       .catch(() => {})
       .finally(() => { if (!cancelled) sessionLoadedRef.current = true; });
     return () => { cancelled = true; };
-  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [commitTimeline]);
 
   useEffect(() => {
     if (!sessionLoadedRef.current) return;
@@ -245,24 +245,6 @@ const VideoEditorPage = () => {
     setMinimizedCards(next);
     saveLayoutState(layout, cardColors, next);
   }, [minimizedCards, layout, cardColors, saveLayoutState]);
-
-  // Phase 8 — poll the JobOperationGate so the Render button knows whether
-  // another exclusive job (training, etc.) is mid-flight. Refreshes every
-  // 5s; cheap call, returns a small JSON snapshot.
-  useEffect(() => {
-    let cancelled = false;
-    const tick = async () => {
-      try {
-        const snapshot = await getJobsGate();
-        if (!cancelled) setGate(snapshot);
-      } catch (e) {
-        if (!cancelled) setGate(null);
-      }
-    };
-    tick();
-    const t = setInterval(tick, 5000);
-    return () => { cancelled = true; clearInterval(t); };
-  }, []);
 
   // Pull video + audio + image Documents into the media library. Three
   // tabs in the panel each render their own icon-grid.
@@ -310,6 +292,7 @@ const VideoEditorPage = () => {
         ],
       };
     });
+    clearPlanResult();
   };
 
   // Bin operations — used by BinPanel.
@@ -318,7 +301,8 @@ const VideoEditorPage = () => {
       if (prev.bin.some((c) => c.clipId === clip.clipId)) return prev;
       return { ...prev, bin: [...prev.bin, clip] };
     });
-  }, [commitTimeline]);
+    clearPlanResult();
+  }, [commitTimeline, clearPlanResult]);
 
   const handleBinAddMany = useCallback((clips) => {
     commitTimeline((prev) => {
@@ -326,11 +310,13 @@ const VideoEditorPage = () => {
       const fresh = clips.filter((c) => !existing.has(c.clipId));
       return { ...prev, bin: [...prev.bin, ...fresh] };
     });
-  }, [commitTimeline]);
+    clearPlanResult();
+  }, [commitTimeline, clearPlanResult]);
 
   const handleBinRemove = useCallback((clipId) => {
     commitTimeline((prev) => ({ ...prev, bin: prev.bin.filter((c) => c.clipId !== clipId) }));
-  }, [commitTimeline]);
+    clearPlanResult();
+  }, [commitTimeline, clearPlanResult]);
 
   // Master soundtrack = the one audio bin clip flagged isMasterSong. Toggling
   // one on clears the others (single-flag invariant); Plan reads the flagged clip.
@@ -343,7 +329,8 @@ const VideoEditorPage = () => {
           : on ? { ...c, isMasterSong: false } : c,
       ),
     }));
-  }, [commitTimeline]);
+    clearPlanResult();
+  }, [commitTimeline, clearPlanResult]);
 
   const handleSetClipVolume = useCallback((clipId, volume) => {
     commitTimeline((prev) => ({
@@ -351,33 +338,6 @@ const VideoEditorPage = () => {
       bin: prev.bin.map((c) => (c.clipId === clipId ? { ...c, volume } : c)),
     }));
   }, [commitTimeline]);
-
-  // Click on the preview to add a text element at that point. Phase 3 of
-  // the editor plan adds drag/resize/rotate handles via react-rnd or
-  // react-moveable; for now click-to-place + edit-in-properties.
-  const handleAddText = useCallback((x, y) => {
-    const newId = `text_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    commitTimeline((prev) => {
-      return {
-        ...prev,
-        textElements: [
-          ...prev.textElements,
-          {
-            id: newId,
-            text: "Sample text",
-            fontSize: 48,
-            fontColor: "white",
-            x: x ?? 320,
-            y: y ?? 240,
-            rotation: 0,
-            startSeconds: 0,
-            endSeconds: null,
-          },
-        ],
-      };
-    });
-    setSelectedItem({ type: "text", id: newId });
-  }, []);
 
   const handleDeleteText = (textId) => {
     commitTimeline((prev) => {
@@ -489,48 +449,38 @@ const VideoEditorPage = () => {
       .catch((e) => console.warn("recipes load failed:", e));
   }, []);
 
-  // Patch each bin clip with kept-ranges + duration from the Plan result so
-  // BinClipTile can render the kept-vs-cut strip.
-  useEffect(() => {
-    const result = planJob.result;
-    if (!result) return;
-    const kept = result.kept_ranges_by_clip || {};
-    const songDuration = result.song?.duration_seconds || null;
-    commitTimeline((prev) => ({
-      ...prev,
-      bin: prev.bin.map((c) => ({
-        ...c,
-        keptRanges: kept[c.clipId] || null,
-        // For the strip, we need the SOURCE clip's duration, not the song's.
-        // We don't have it yet (would need an ffprobe round-trip); use the
-        // last kept-range endpoint as a pessimistic upper bound for display.
-        durationSeconds: kept[c.clipId]?.length
-          ? Math.max(...kept[c.clipId].map((r) => r[1]))
-          : c.durationSeconds,
-      })),
-    }));
-  }, [planJob.result]);  // eslint-disable-line react-hooks/exhaustive-deps
-
   // Master soundtrack = the flagged audio bin clip. Plan arranges the VIDEO
   // clips against it; audio/image clips aren't part of the auto-edit material.
-  const masterSong = timeline.bin.find((c) => c.kind === "audio" && c.isMasterSong) || null;
-  const canPlan = timeline.bin.some((c) => c.kind === "video") && !!masterSong && !planJob.planning;
+  const planInputs = useMemo(() => getPlanInputs(timeline), [timeline]);
+  const { masterSong, videoCount, hasMasterSong } = planInputs;
+  const canPlan = planInputs.canPlan && !planJob.planning;
+  const planDecorationsByClipId = useMemo(
+    () => getKeptRangeDecorations(planJob.result),
+    [planJob.result],
+  );
+
+  const handleScanModeChange = useCallback((next) => {
+    setScanMode(next);
+    clearPlanResult();
+  }, [clearPlanResult]);
+
+  const handleStyleRecipeNameChange = useCallback((next) => {
+    setStyleRecipeName(next);
+    clearPlanResult();
+  }, [clearPlanResult]);
 
   const handlePlan = useCallback(() => {
     if (!canPlan) return;
     setError(null);
     setRenderResult(null);
-    planJob.start({
-      bin_clips: timeline.bin
-        .filter((c) => c.kind === "video")
-        .map((c) => ({ clip_id: c.clipId, document_id: c.documentId })),
-      song_document_id: masterSong.documentId,
-      scan_mode: scanMode,
-      style_recipe_name: styleRecipeName,
-      seed: Math.floor(Math.random() * 1_000_000),
-      clip_overrides: clipOverrides,
-    });
-  }, [canPlan, planJob, timeline.bin, masterSong, scanMode, styleRecipeName, clipOverrides]);
+    startPlan(buildPlanRequest({
+      timeline,
+      masterSong,
+      scanMode,
+      styleRecipeName,
+      clipOverrides,
+    }));
+  }, [canPlan, startPlan, timeline, masterSong, scanMode, styleRecipeName, clipOverrides]);
 
   const handleQuickRender = useCallback(() => {
     if (!canPlan) return;
@@ -559,38 +509,33 @@ const VideoEditorPage = () => {
         delete next[clip.clipId];
         return next;
       });
-      // Patch the planJob result so the panel updates immediately. We don't
-      // have a setter from the hook, so this is intentionally optimistic:
-      // the next Plan run picks up the new cache anyway.
-      if (planJob.result?.clip_analyses) {
-        const idx = planJob.result.clip_analyses.findIndex((a) => a.clip_id === clip.clipId);
-        if (idx >= 0) {
-          planJob.result.clip_analyses[idx] = {
-            ...res.analysis,
-            clip_id: clip.clipId,
-            source_path: planJob.result.clip_analyses[idx].source_path,
-          };
-        }
-      }
+      updateClipAnalysis(clip.clipId, {
+        ...res.analysis,
+        source_path: selectedClipAnalysis?.source_path || res.analysis?.source_path,
+      });
     } catch (e) {
       console.error("rescan failed:", e);
-      setError(e.response?.data?.error?.message || e.message || "Re-analyze failed");
+      setError(e.videoEditorMessage || getVideoEditorErrorMessage(e, "Re-analyze failed"));
     } finally {
       setRescanInFlight(null);
     }
-  }, [selectedItem, timeline.bin, styleRecipeName, planJob.result]);
+  }, [selectedItem, timeline.bin, styleRecipeName, updateClipAnalysis, selectedClipAnalysis]);
 
   // Resolve the clip hash for the selected bin clip so DirectorsNotesPanel
   // can build frame-thumbnail URLs. Cached per documentId.
   const [clipHashByDocId, setClipHashByDocId] = useState({});
+  const [clipHashFailedByDocId, setClipHashFailedByDocId] = useState({});
   useEffect(() => {
     if (selectedItem?.type !== "bin") return;
     const clip = timeline.bin.find((c) => c.clipId === selectedItem.id);
-    if (!clip?.documentId || clipHashByDocId[clip.documentId]) return;
+    if (!clip?.documentId || clipHashByDocId[clip.documentId] || clipHashFailedByDocId[clip.documentId]) return;
     getClipHash({ document_id: clip.documentId })
       .then((h) => h && setClipHashByDocId((prev) => ({ ...prev, [clip.documentId]: h })))
-      .catch((e) => console.warn("clip-hash lookup failed:", e));
-  }, [selectedItem, timeline.bin, clipHashByDocId]);
+      .catch((e) => {
+        setClipHashFailedByDocId((prev) => ({ ...prev, [clip.documentId]: true }));
+        console.warn("clip-hash lookup skipped for this clip:", e.videoEditorMessage || e.message);
+      });
+  }, [selectedItem, timeline.bin, clipHashByDocId, clipHashFailedByDocId]);
 
   // A2 render: full multi-clip arrangement with per-clip filters + transitions.
   // Plugin synthesizes the .mlt and renders to .mp4 in one synchronous call.
@@ -613,7 +558,7 @@ const VideoEditorPage = () => {
       setRenderResult(res);
     } catch (e) {
       console.error("render failed:", e);
-      setError(e.response?.data?.error?.message || e.message || "Render failed");
+      setError(e.videoEditorMessage || getVideoEditorErrorMessage(e, "Render failed"));
     } finally {
       setRendering(false);
     }
@@ -628,7 +573,7 @@ const VideoEditorPage = () => {
     } else if (planJob.error) {
       setQuickRenderPending(false);
     }
-  }, [quickRenderPending, planJob.result, planJob.planning, planJob.error, rendering]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [quickRenderPending, planJob.result, planJob.planning, planJob.error, rendering, handleRender]);
 
   const handleOpenInShotcut = useCallback(async () => {
     if (!renderResult?.mlt_path) return;
@@ -636,7 +581,7 @@ const VideoEditorPage = () => {
       await openInShotcut(renderResult.mlt_path);
     } catch (e) {
       console.error("openInShotcut failed:", e);
-      setError(e.response?.data?.error?.message || e.message || "Could not launch Shotcut");
+      setError(e.videoEditorMessage || getVideoEditorErrorMessage(e, "Could not launch Shotcut"));
     }
   }, [renderResult]);
 
@@ -674,10 +619,6 @@ const VideoEditorPage = () => {
                   controls
                   onPlay={() => setPreviewPlaying(true)}
                   onPause={() => setPreviewPlaying(false)}
-                  onLoadedMetadata={(e) => {
-                    const dur = e.target.duration;
-                    if (dur && isFinite(dur)) setVideoDuration(dur);
-                  }}
                   style={{ maxWidth: "100%", maxHeight: "100%", display: "block" }}
                 />
               ) : (
@@ -696,6 +637,17 @@ const VideoEditorPage = () => {
                   ...prev,
                   textElements: prev.textElements.map(t => t.id === id ? { ...t, x, y } : t)
                 }))}
+              />
+            </Box>
+
+            <Box sx={{ mt: 1 }}>
+              <PlanStatusPanel
+                planJob={planJob}
+                canPlan={canPlan}
+                videoCount={videoCount}
+                hasMasterSong={hasMasterSong}
+                warnings={planJob.result?.warnings || []}
+                compact
               />
             </Box>
 
@@ -726,7 +678,7 @@ const VideoEditorPage = () => {
                     disabled={!canPlan}
                   >
                     {planJob.planning && !quickRenderPending
-                      ? `Planning... ${Math.round((planJob.job?.progress || 0) * 100)}%`
+                      ? `Planning... ${Math.round((planJob.progress || 0) * 100)}%`
                       : "Plan"}
                   </Button>
                 </span>
@@ -759,7 +711,7 @@ const VideoEditorPage = () => {
                     disabled={!canPlan || rendering || quickRenderPending}
                   >
                     {quickRenderPending
-                      ? (rendering ? "Rendering..." : `Planning... ${Math.round((planJob.job?.progress || 0) * 100)}%`)
+                      ? (rendering ? "Rendering..." : `Planning... ${Math.round((planJob.progress || 0) * 100)}%`)
                       : "Quick Render"}
                   </Button>
                 </span>
@@ -786,9 +738,9 @@ const VideoEditorPage = () => {
             selectedClipAnalysis={selectedClipAnalysis}
             selectedText={selectedText}
             scanMode={scanMode}
-            setScanMode={setScanMode}
+            setScanMode={handleScanModeChange}
             styleRecipeName={styleRecipeName}
-            setStyleRecipeName={setStyleRecipeName}
+            setStyleRecipeName={handleStyleRecipeNameChange}
             recipes={recipes}
             planning={planJob.planning}
             onClipOverride={handleClipOverride}
@@ -815,27 +767,22 @@ const VideoEditorPage = () => {
             onAddMany={handleBinAddMany}
             onRemove={handleBinRemove}
             warningsByClipId={warningsByClipId}
+            planDecorationsByClipId={planDecorationsByClipId}
           />
         );
 
       case "arrangement":
         return (
           <Box sx={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
-            {planJob.planning && (
-              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
-                <CircularProgress size={14} />
-                <Typography variant="caption" color="text.secondary">Planning…</Typography>
-              </Stack>
-            )}
+            <PlanStatusPanel
+              planJob={planJob}
+              canPlan={canPlan}
+              videoCount={videoCount}
+              hasMasterSong={hasMasterSong}
+              warnings={planJob.result?.warnings || []}
+            />
             <Box sx={{ flex: 1, overflow: "auto" }}>
               <ArrangementPreview arrangement={planJob.result?.arrangement} />
-              {planJob.result?.warnings?.length > 0 && (
-                <Alert severity="warning" sx={{ mt: 1 }}>
-                  {planJob.result.warnings.slice(0, 3).map((w, i) => (
-                    <div key={i}>{w}</div>
-                  ))}
-                </Alert>
-              )}
             </Box>
           </Box>
         );

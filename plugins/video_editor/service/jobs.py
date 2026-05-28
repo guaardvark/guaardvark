@@ -31,6 +31,7 @@ class Job:
     result: Optional[dict[str, Any]] = None
     error: Optional[str] = None
     progress: float = 0.0  # 0.0 .. 1.0
+    message: str = "Queued"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -41,6 +42,7 @@ class Job:
             "started_at": self.started_at,
             "finished_at": self.finished_at,
             "progress": self.progress,
+            "message": self.message,
             "result": self.result,
             "error": self.error,
         }
@@ -78,18 +80,21 @@ class JobTable:
         with self._lock:
             job.status = "running"
             job.started_at = time.time()
+            job.message = "Running"
         try:
             result = fn(job)
             with self._lock:
                 job.result = result
                 job.status = "done"
                 job.progress = 1.0
+                job.message = "Done"
                 job.finished_at = time.time()
         except Exception as e:  # noqa: BLE001 — surface anything to the caller
             logger.exception("job %s (%s) failed", job.id, job.kind)
             with self._lock:
                 job.error = f"{type(e).__name__}: {e}\n{traceback.format_exc()[-1500:]}"
                 job.status = "failed"
+                job.message = "Failed"
                 job.finished_at = time.time()
 
     def _gc_if_full(self) -> None:

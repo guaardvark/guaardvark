@@ -1605,6 +1605,39 @@ const ChatPage = () => {
         return; // Don't fall through to legacy chat flow
       }
 
+      if (useAppStore.getState().getSessionMode(sessionId) === "agent") {
+        const reason = useUnifiedChat
+          ? "the unified chat socket is not connected"
+          : "unified chat is disabled";
+        const content =
+          `Agent mode requires unified chat tools, but ${reason}. ` +
+          "Reconnect or type `/chat` to return to normal chat mode.";
+        console.warn("CHAT_PATH: Blocked enhanced-chat fallback in agent mode", {
+          useUnifiedChat,
+          hasService: !!unifiedChatService,
+          connectionState,
+          sessionId,
+        });
+        if (userMessageTempId) {
+          updateMessageStatus(userMessageTempId, { status: "error" });
+        }
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `agent_mode_error_${Date.now()}`,
+            role: "system",
+            content,
+          },
+        ]);
+        try {
+          sessionStorage.removeItem(processingStorageKey);
+        } catch (e) {
+          console.warn("Failed to clear processing state:", e);
+        }
+        setIsSending(false);
+        return;
+      }
+
       console.warn('CHAT_PATH: Falling back to ENHANCED chat (NO tools)', {
         useUnifiedChat,
         hasService: !!unifiedChatService,

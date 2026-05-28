@@ -40,7 +40,7 @@ function KeptRangesStrip({ keptRanges, durationSeconds }) {
   );
 }
 
-const BinClipTile = ({ clip, selected, onSelect, onRemove, warning }) => {
+const BinClipTile = ({ clip, selected, onSelect, onRemove, warning, keptRanges, durationSeconds }) => {
   return (
     <Box
       onClick={() => onSelect(clip.clipId)}
@@ -79,7 +79,10 @@ const BinClipTile = ({ clip, selected, onSelect, onRemove, warning }) => {
             </Tooltip>
           )}
         </Box>
-        <KeptRangesStrip keptRanges={clip.keptRanges} durationSeconds={clip.durationSeconds} />
+        <KeptRangesStrip
+          keptRanges={keptRanges ?? clip.keptRanges}
+          durationSeconds={durationSeconds ?? clip.durationSeconds}
+        />
       </Box>
 
       <Tooltip title="Remove from bin">

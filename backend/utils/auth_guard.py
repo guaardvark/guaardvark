@@ -19,9 +19,24 @@ PROTECTED_PREFIXES = (
     '/api/code-execution/',
     '/api/backups/restore',
     '/api/backups/create',
+    '/api/self-code/',
     # Social outreach has kill switches, draft approval, and fetch-meta — none of
     # which should be reachable from another machine on the LAN without an API key.
     '/api/social-outreach/',
+)
+
+# File APIs include both the document library and the live repository editor.
+# Keep read-only document browser GETs public for the local UI, but protect
+# server filesystem reads and every mutation-capable file route.
+PROTECTED_FILE_PREFIXES = (
+    '/api/files/read',
+    '/api/files/list',
+    '/api/files/write',
+    '/api/files/create',
+    '/api/files/delete',
+    '/api/files/mkdir',
+    '/api/files/rename',
+    '/api/files/browse-server',
 )
 
 # Endpoints protected only on DELETE
@@ -41,6 +56,11 @@ def _is_protected():
     for prefix in PROTECTED_PREFIXES:
         if path.startswith(prefix):
             return True
+    for prefix in PROTECTED_FILE_PREFIXES:
+        if path.startswith(prefix):
+            return True
+    if path.startswith('/api/files/') and request.method not in ('GET', 'HEAD', 'OPTIONS'):
+        return True
     if request.method == 'DELETE':
         for prefix in PROTECTED_DELETE_PREFIXES:
             if path.startswith(prefix):

@@ -22,6 +22,30 @@ _inflight: dict = {}
 _inflight_lock = threading.Lock()
 
 
+def _merge_session_mode_options(session_id: str, options: dict | None) -> dict:
+    """Merge persisted session mode into per-request routing options."""
+    merged = dict(options or {})
+    client_agent_screen_active = bool(merged.get("agent_screen_active", False))
+    merged["agent_screen_active"] = client_agent_screen_active
+
+    try:
+        from backend.models import LLMSession, db
+
+        session = db.session.get(LLMSession, session_id)
+        session_mode = (session.mode if session and session.mode else "chat").strip()
+        merged["session_mode"] = session_mode
+        if session_mode == "agent":
+            merged["agent_screen_active"] = True
+    except Exception as exc:
+        logger.warning(
+            "[UNIFIED_CHAT] Failed to load session mode for %s: %s",
+            session_id,
+            exc,
+        )
+
+    return merged
+
+
 @unified_chat_bp.route("", methods=["POST"])
 def unified_chat():
     """
@@ -44,10 +68,12 @@ def unified_chat():
         message = "Describe this image."
 
     session_id = data.get("session_id") or str(uuid.uuid4())
-    options = data.get("options", {})
+    raw_options = data.get("options", {})
+    options = raw_options if isinstance(raw_options, dict) else {}
     is_voice_message = bool(data.get("is_voice_message", False))
     request_id = str(uuid.uuid4())
     project_id = data.get("project_id")
+    options = _merge_session_mode_options(session_id, options)
 
     # Abort any still-running generation on this session — a new message from
     # the user means "stop what you're doing and listen to this instead."

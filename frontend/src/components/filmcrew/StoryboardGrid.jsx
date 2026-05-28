@@ -20,7 +20,7 @@ import {
 import RefreshIcon from '@mui/icons-material/Refresh';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
-const StoryboardGrid = ({ productionId, currentStage, shots, onRegenerate, onApproveAll, isApproving }) => {
+const StoryboardGrid = ({ currentStage, shots, onRegenerate, onApproveAll, isApproving }) => {
   const [regenShot, setRegenShot] = useState(null);
   const [promptOverride, setPromptOverride] = useState('');
   const [loading, setLoading] = useState(false);
@@ -53,6 +53,7 @@ const StoryboardGrid = ({ productionId, currentStage, shots, onRegenerate, onApp
   };
 
   const canApprove = currentStage === 'awaiting_approval';
+  const canRegenerate = currentStage === 'awaiting_approval';
 
   return (
     <Box sx={{ mt: 3 }}>
@@ -78,7 +79,7 @@ const StoryboardGrid = ({ productionId, currentStage, shots, onRegenerate, onApp
                 <CardMedia
                   component="img"
                   height="180"
-                  image={shot.storyboard_image_path || 'https://via.placeholder.com/320x180?text=No+Storyboard'}
+                  image={shot.storyboard_image_url || shot.storyboard_image_path || 'https://via.placeholder.com/320x180?text=No+Storyboard'}
                   alt={`Shot ${shot.scene_number}.${shot.shot_number}`}
                   sx={{ backgroundColor: '#000' }}
                 />
@@ -91,14 +92,18 @@ const StoryboardGrid = ({ productionId, currentStage, shots, onRegenerate, onApp
                       sx={{ height: 24 }}
                     />
                   )}
-                  <Tooltip title="Regenerate this shot">
-                    <IconButton 
-                      size="small" 
-                      sx={{ bgcolor: 'rgba(255,255,255,0.8)', '&:hover': { bgcolor: 'white' } }}
-                      onClick={() => handleRegenClick(shot)}
-                    >
-                      <RefreshIcon fontSize="small" />
-                    </IconButton>
+                  <Tooltip title={canRegenerate ? "Regenerate this shot" : "Regeneration is available during storyboard approval"}>
+                    <span>
+                      <IconButton
+                        size="small"
+                        aria-label="Regenerate this shot"
+                        disabled={!canRegenerate}
+                        sx={{ bgcolor: 'rgba(255,255,255,0.8)', '&:hover': { bgcolor: 'white' } }}
+                        onClick={() => handleRegenClick(shot)}
+                      >
+                        <RefreshIcon fontSize="small" />
+                      </IconButton>
+                    </span>
                   </Tooltip>
                 </Box>
               </Box>

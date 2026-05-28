@@ -1450,7 +1450,6 @@ def health_check():
         200,
     )
 
-
 @app.route("/api/health/db")
 def health_db():
     from backend.utils import migration_utils

@@ -9,6 +9,7 @@ file path the plugin actually opens.
 """
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import Any, Optional
@@ -27,12 +28,63 @@ RENDER_TIMEOUT = 1200     # /beat-sync/render returns a job_id immediately,
                           # keep generous in case render_mp4=true is requested.
 
 
+def _stringify_detail(detail: Any) -> str:
+    if isinstance(detail, str):
+        return detail
+    if isinstance(detail, list):
+        messages = []
+        for item in detail:
+            if isinstance(item, dict):
+                loc = ".".join(str(part) for part in item.get("loc", []) if part != "body")
+                msg = item.get("msg") or item.get("message") or str(item)
+                messages.append(f"{loc}: {msg}" if loc else msg)
+            else:
+                messages.append(str(item))
+        return "; ".join(messages)
+    if isinstance(detail, dict):
+        return detail.get("message") or detail.get("error") or json.dumps(detail, default=str)
+    return str(detail)
+
+
+def _response_body(resp: requests.Response) -> dict[str, Any]:
+    try:
+        body = resp.json()
+    except ValueError:
+        body = {"message": resp.text or resp.reason or "Plugin returned a non-JSON response"}
+
+    if not isinstance(body, dict):
+        body = {"data": body}
+
+    if resp.status_code >= 400:
+        detail = body.get("detail")
+        error = body.get("error")
+        message = (
+            _stringify_detail(error)
+            if error
+            else _stringify_detail(detail)
+            if detail is not None
+            else body.get("message")
+            or resp.reason
+            or f"Video Editor service returned {resp.status_code}"
+        )
+        body = {
+            **body,
+            "error": message,
+            "message": body.get("message") or message,
+            "status_code": resp.status_code,
+        }
+
+    return body
+
+
 def _proxy_get(path: str, timeout: int = QUICK_TIMEOUT):
     try:
         resp = requests.get(f"{PLUGIN_URL}{path}", timeout=timeout)
-        return resp.json(), resp.status_code
+        return _response_body(resp), resp.status_code
     except requests.ConnectionError:
         return {"error": "Video Editor service not running"}, 503
+    except requests.Timeout:
+        return {"error": f"Video Editor request timed out after {timeout}s"}, 504
     except Exception as e:  # noqa: BLE001
         logger.exception("Video Editor GET %s failed", path)
         return {"error": str(e)}, 500
@@ -41,7 +93,7 @@ def _proxy_get(path: str, timeout: int = QUICK_TIMEOUT):
 def _proxy_post(path: str, json_data: dict, timeout: int):
     try:
         resp = requests.post(f"{PLUGIN_URL}{path}", json=json_data, timeout=timeout)
-        return resp.json(), resp.status_code
+        return _response_body(resp), resp.status_code
     except requests.ConnectionError:
         return {"error": "Video Editor service not running"}, 503
     except requests.Timeout:
@@ -62,7 +114,7 @@ def _resolve_document(doc_id: Any) -> Optional[str]:
     doc = Document.query.get(doc_id)
     if not doc:
         return None
-    path = doc.file_path or doc.path or doc.filename
+    path = getattr(doc, "file_path", None) or doc.path or doc.filename
     if not path:
         return None
     p = Path(path)
@@ -230,6 +282,7 @@ def submit_plan():
 
     # Expand bin_clips' document_id → source_path
     expanded_bin: list[dict[str, Any]] = []
+    unresolved_clip_ids: list[Any] = []
     for entry in payload.get("bin_clips") or []:
         if not isinstance(entry, dict):
             continue
@@ -245,13 +298,30 @@ def submit_plan():
                     "source_path": path,
                     "document_id": doc_id,
                 })
+            else:
+                unresolved_clip_ids.append(doc_id)
     payload["bin_clips"] = expanded_bin
 
     # Expand song
+    unresolved_song_id = None
     if not payload.get("song_path") and payload.get("song_document_id"):
         path = _resolve_document(payload["song_document_id"])
         if path:
             payload["song_path"] = path
+        else:
+            unresolved_song_id = payload["song_document_id"]
+
+    if unresolved_clip_ids or not expanded_bin:
+        return jsonify({
+            "error": "Could not resolve one or more video clips for planning.",
+            "unresolved_clip_document_ids": unresolved_clip_ids,
+            "resolved_clip_count": len(expanded_bin),
+        }), 400
+    if unresolved_song_id or not payload.get("song_path"):
+        return jsonify({
+            "error": "Could not resolve the master soundtrack for planning.",
+            "unresolved_song_document_id": unresolved_song_id,
+        }), 400
 
     body, status_code = _proxy_post("/plan", payload, timeout=RENDER_TIMEOUT)
     return jsonify(body), status_code

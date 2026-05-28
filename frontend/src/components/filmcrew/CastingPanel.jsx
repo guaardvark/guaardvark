@@ -19,10 +19,10 @@ import {
   Chip,
   Alert
 } from '@mui/material';
-import { listCastLibrary, listProductionSubjects, castSubject } from '../../api/productionService';
+import { listCastLibrary, listProductionSubjects, castSubject, confirmCasting } from '../../api/productionService';
 import DragDropImageUpload from './DragDropImageUpload';
 
-const CastingPanel = ({ productionId, shots, onCastingConfirmed }) => {
+const CastingPanel = ({ productionId, onCastingConfirmed }) => {
   const [castingData, setCastingData] = useState({});
   const [castLibrary, setCastLibrary] = useState([]);
   const [subjectsToCast, setSubjectsToCast] = useState([]);
@@ -78,23 +78,26 @@ const CastingPanel = ({ productionId, shots, onCastingConfirmed }) => {
   };
 
   const isAllConfirmed = () => {
-    // This is hard without real subjects. 
-    // I'll assume we have a list of subjects to cast.
-    return Object.keys(castingData).length > 0 && 
-           Object.values(castingData).every(d => 
-             d.action && (d.action !== 'use_existing_lora' || d.existing_lora_id) &&
-             (d.action !== 'train_from_uploads' || (d.ref_image_paths && d.ref_image_paths.length > 0))
-           );
+    if (subjectsToCast.length === 0) return false;
+    return subjectsToCast.every((subj) => {
+      const data = castingData[subj.id];
+      return Boolean(
+        data?.action &&
+        (data.action !== 'use_existing_lora' || data.existing_lora_id) &&
+        (data.action !== 'train_from_uploads' || (data.ref_image_paths && data.ref_image_paths.length > 0))
+      );
+    });
   };
 
   const handleConfirm = async () => {
     setConfirming(true);
     setError(null);
     try {
-      for (const [subjectId, data] of Object.entries(castingData)) {
-        await castSubject(productionId, subjectId, data);
+      for (const subj of subjectsToCast) {
+        await castSubject(productionId, subj.id, castingData[subj.id]);
       }
-      onCastingConfirmed();
+      await confirmCasting(productionId);
+      await onCastingConfirmed();
     } catch (err) {
       setError('Failed to confirm casting');
     } finally {

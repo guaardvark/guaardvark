@@ -393,26 +393,24 @@ async function handleAgent(args, { addMessage, onSendMessage, chatState }) {
     return { handled: true };
   }
 
-  const currentMode = useAppStore.getState().getSessionMode(sessionId);
+  const previousMode = useAppStore.getState().getSessionMode(sessionId);
   const trimmedArgs = (args || "").trim();
 
-  // Flip the mode (PATCH backend + cache locally) unless we're already there.
+  // Flip the mode idempotently (PATCH backend + cache locally).
   // The viewer is NOT touched here — the user controls when the screen
   // surfaces. Agent mode alone flips `agent_screen_active=true` via the
   // session-mode half of the OR in unifiedChatService.
-  if (currentMode !== "agent") {
-    try {
-      await _patchSessionMode(sessionId, "agent");
-      useAppStore.getState().setSessionMode(sessionId, "agent");
-    } catch (err) {
-      addMessage({
-        role: "system",
-        content: `Failed to switch into agent mode: ${err.message}`,
-        tempId: `agent-fail-${Date.now()}`,
-        type: "command",
-      });
-      return { handled: true };
-    }
+  try {
+    const data = await _patchSessionMode(sessionId, "agent");
+    useAppStore.getState().setSessionMode(sessionId, data?.mode || "agent");
+  } catch (err) {
+    addMessage({
+      role: "system",
+      content: `Failed to switch into agent mode: ${err.message}`,
+      tempId: `agent-fail-${Date.now()}`,
+      type: "command",
+    });
+    return { handled: true };
   }
 
   // No task → just announce the mode (echo the bare slash so the user sees it)
@@ -424,7 +422,7 @@ async function handleAgent(args, { addMessage, onSendMessage, chatState }) {
     });
     addMessage({
       role: "system",
-      content: currentMode === "agent"
+      content: previousMode === "agent"
         ? "Already in **agent mode**. Type a screen-control task, or use `/chat` to exit."
         : "Switched to **agent mode** — messages route through the agent (it'll speak and act). Type `/chat` to exit.",
       tempId: `agent-ok-${Date.now()}`,
@@ -450,7 +448,7 @@ async function handleAgent(args, { addMessage, onSendMessage, chatState }) {
   return { handled: true };
 }
 
-async function handleChatMode(args, { addMessage, chatState }) {
+async function handleChatMode(_args, { addMessage, chatState }) {
   const sessionId = chatState?.sessionId;
   if (!sessionId) {
     addMessage({
@@ -462,17 +460,7 @@ async function handleChatMode(args, { addMessage, chatState }) {
     return { handled: true };
   }
 
-  const currentMode = useAppStore.getState().getSessionMode(sessionId);
-
-  if (currentMode === "chat") {
-    addMessage({
-      role: "system",
-      content: "Already in chat mode.",
-      tempId: `chat-noop-${Date.now()}`,
-      type: "command",
-    });
-    return { handled: true };
-  }
+  const previousMode = useAppStore.getState().getSessionMode(sessionId);
 
   try {
     // Kill any lingering agent loops
@@ -481,12 +469,19 @@ async function handleChatMode(args, { addMessage, chatState }) {
     }).catch(err => {
       console.warn("Failed to send abort signal:", err);
     });
+    await fetch("/api/agent-control/kill", {
+      method: "POST"
+    }).catch(err => {
+      console.warn("Failed to kill agent task:", err);
+    });
 
-    await _patchSessionMode(sessionId, "chat");
-    useAppStore.getState().setSessionMode(sessionId, "chat");
+    const data = await _patchSessionMode(sessionId, "chat");
+    useAppStore.getState().setSessionMode(sessionId, data?.mode || "chat");
     addMessage({
       role: "system",
-      content: "Switched to **chat mode**. Messages route through the LLM again. Type `/agent` to switch back.",
+      content: previousMode === "chat"
+        ? "Already in chat mode."
+        : "Switched to **chat mode**. Messages route through the LLM again. Type `/agent` to switch back.",
       tempId: `chat-ok-${Date.now()}`,
       type: "command",
     });

@@ -243,6 +243,17 @@ def run_casting_director(prod_id: int, llm=None):
         db.session.commit()
 
 
+def _subjects_for_production(prod_id: int) -> list[Subject]:
+    """Prefer production-scoped cast, with a fallback for legacy unlinked rows."""
+    subjects = (
+        db.session.query(Subject)
+        .join(ProductionSubject)
+        .filter(ProductionSubject.production_id == prod_id)
+        .all()
+    )
+    return subjects or Subject.query.all()
+
+
 def run_cinematographer(prod_id: int, llm=None):
     if llm is None:
         llm = _default_ollama_llm
@@ -261,7 +272,7 @@ def run_cinematographer(prod_id: int, llm=None):
 
         agent = Cinematographer(llm=llm)
 
-        subjects = Subject.query.all()
+        subjects = _subjects_for_production(prod_id)
         valid_subject_ids = {s.id for s in subjects}
 
         input_data = {
@@ -503,7 +514,7 @@ def run_regen_shot_plan(shot_id: int, feedback: str, llm=None):
     from backend.services.swarm.agents.cinematographer import Cinematographer
     agent = Cinematographer(llm=llm)
 
-    subjects = Subject.query.all()
+    subjects = _subjects_for_production(shot.production_id)
     
     # We only care about THIS shot
     input_data = {

@@ -470,6 +470,7 @@ def submit_plan(body: PlanBody) -> dict[str, Any]:
     def task(job: Job) -> dict[str, Any]:
         def progress(pct: float, message: str) -> None:
             job.progress = pct
+            job.message = message
             logger.info("plan job %s: %.0f%% %s", job.id, pct * 100, message)
 
         result = run_plan(
@@ -708,4 +709,5 @@ def get_clip_hash(body: dict[str, Any]) -> dict[str, Any]:
     if not source_path:
         raise HTTPException(status_code=400, detail="source_path required")
     _require_paths(source_path)
-    return {"hash": hash_clip(source_path), "source_path": source_path}
+    clip_hash = hash_clip(source_path)
+    return {"hash": clip_hash, "source_path": source_path}

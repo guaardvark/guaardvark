@@ -34,7 +34,7 @@ class UnifiedChatService {
     const store = useAppStore.getState();
     const screenOpen = store.agentScreenOpen === true;
     const inAgentMode = store.getSessionMode?.(sessionId) === "agent";
-    const agentScreenActive = inAgentMode;
+    const agentScreenActive = screenOpen || inAgentMode;
     const body = {
       session_id: sessionId,
       message,

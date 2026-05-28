@@ -31,22 +31,24 @@ const FilmCrewPage = () => {
   const [productions, setProductions] = useState([]);
   const [selectedProdId, setSelectedProdId] = useState(null);
   const [productionDetail, setProductionDetail] = useState(null);
-  const [loadingList, setLoadingList] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [approving, setApproving] = useState(false);
   const [error, setError] = useState(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [regenPolling, setRegenPolling] = useState(false);
 
   // Tracks the last requested production id so a slow detail-fetch can't
   // overwrite a faster newer one. Without this, clicking A then B while A
   // is still in flight could land A's response *after* B and stick the wrong
   // detail panel up.
   const detailRequestId = useRef(0);
+  const regenPollCount = useRef(0);
 
   const fetchProductions = useCallback(async () => {
     try {
       const data = await listProductions();
       setProductions(data.productions || []);
+      setError(null);
     } catch (err) {
       setError('Failed to load productions');
     }
@@ -63,6 +65,7 @@ const FilmCrewPage = () => {
       // waiting — the user has moved on.
       if (myRequestId !== detailRequestId.current) return;
       setProductionDetail(data);
+      setError(null);
     } catch (err) {
       if (myRequestId === detailRequestId.current) {
         setError('Failed to fetch production details');
@@ -75,26 +78,37 @@ const FilmCrewPage = () => {
   }, []);
 
   useEffect(() => {
-    setLoadingList(true);
-    fetchProductions().finally(() => setLoadingList(false));
+    fetchProductions();
   }, [fetchProductions]);
 
   // Polling for active productions
   useEffect(() => {
-    const active = productionDetail && !['complete', 'failed'].includes(productionDetail.status) && 
-                   !['casting', 'awaiting_approval'].includes(productionDetail.current_stage);
+    const isFailed = productionDetail?.status?.startsWith('failed');
+    const terminal = ['complete', 'failed'].includes(productionDetail?.status) || isFailed;
+    const active = productionDetail && !terminal &&
+                   productionDetail.current_stage !== 'casting' &&
+                   (productionDetail.current_stage !== 'awaiting_approval' || regenPolling);
     
     let interval;
     if (active) {
-      interval = setInterval(() => {
-        fetchProductions();
-        fetchDetail(selectedProdId);
+      interval = setInterval(async () => {
+        await fetchProductions();
+        await fetchDetail(selectedProdId);
+        if (productionDetail.current_stage === 'awaiting_approval' && regenPolling) {
+          regenPollCount.current += 1;
+          if (regenPollCount.current >= 12) {
+            setRegenPolling(false);
+          }
+        }
       }, 5000);
     }
     return () => clearInterval(interval);
-  }, [productionDetail, selectedProdId, fetchProductions, fetchDetail]);
+  }, [productionDetail, selectedProdId, fetchProductions, fetchDetail, regenPolling]);
 
   const handleProductionSelect = (id) => {
+    setError(null);
+    setRegenPolling(false);
+    regenPollCount.current = 0;
     setSelectedProdId(id);
     fetchDetail(id);
     setTab(0); // Switch to Productions tab if we were in Cast Library
@@ -123,8 +137,14 @@ const FilmCrewPage = () => {
 
   const handleRegen = async (shotId, data) => {
     if (!selectedProdId) return;
-    await regenerateShot(selectedProdId, shotId, data);
+    setError(null);
+    const result = await regenerateShot(selectedProdId, shotId, data);
     await fetchDetail(selectedProdId);
+    if (result?.regen_job_id) {
+      regenPollCount.current = 0;
+      setRegenPolling(true);
+    }
+    return result;
   };
 
   return (

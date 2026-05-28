@@ -32,6 +32,11 @@ export const castSubject = async (productionId, subjectId, data) => {
   return response.data;
 };
 
+export const confirmCasting = async (productionId) => {
+  const response = await axios.post(`${API_BASE}/production/${productionId}/casting/confirm`);
+  return response.data;
+};
+
 export const approveStoryboard = async (productionId) => {
   const response = await axios.post(`${API_BASE}/production/${productionId}/storyboard/approve`);
   return response.data;
@@ -62,6 +67,7 @@ const productionService = {
   listProductionSubjects,
   createProduction,
   castSubject,
+  confirmCasting,
   approveStoryboard,
   regenerateShot,
   listCastLibrary,
