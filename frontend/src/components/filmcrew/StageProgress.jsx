@@ -21,7 +21,7 @@ const StageProgress = ({ currentStage, status, errorBlob }) => {
   return (
     <Box sx={{ width: '100%', my: 4 }}>
       <Stepper activeStep={activeStep === -1 ? 0 : activeStep} alternativeLabel>
-        {STAGES.map((stage, index) => {
+        {STAGES.map((stage) => {
           const isError = isFailed && currentStage === stage.key;
           const isGated = GATED_STAGES.includes(stage.key) && currentStage === stage.key;
           

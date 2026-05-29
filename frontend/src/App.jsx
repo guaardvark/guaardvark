@@ -66,6 +66,7 @@ import { LayoutProvider } from "./contexts/LayoutContext";
 import { UnifiedProgressProvider } from './contexts/UnifiedProgressContext';
 import { VoiceProvider } from "./contexts/VoiceContext";
 import FloatingChatProvider from "./components/chat/FloatingChatProvider";
+import KeyboardShortcutsOverlay from "./components/common/KeyboardShortcutsOverlay";
 import useUncleNotifications from "./hooks/useUncleNotifications";
 
 function UncleNotificationListener() {
@@ -538,6 +539,7 @@ const AppContainer = () => {
                     </Suspense>
                     <FloatingChatProvider />
                     <GlobalTrainer />
+                    <KeyboardShortcutsOverlay />
                   </ErrorProvider>
                 </SnackbarProvider>
               </VoiceProvider>

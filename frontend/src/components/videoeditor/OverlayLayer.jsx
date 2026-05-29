@@ -5,8 +5,7 @@ const OverlayLayer = memo(({
   textElements,
   selectedTextId,
   onSelectText,
-  onMoveText,
-  containerRef
+  onMoveText
 }) => {
   const [dragState, setDragState] = useState(null);
   const dragRef = useRef(null);
@@ -95,5 +94,7 @@ const OverlayLayer = memo(({
     </>
   );
 });
+
+OverlayLayer.displayName = 'OverlayLayer';
 
 export default OverlayLayer;

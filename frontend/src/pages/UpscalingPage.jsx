@@ -24,10 +24,6 @@ import {
   ToggleButtonGroup,
   Switch,
   FormControlLabel,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Slider,
 } from "@mui/material";
 import PageLayout from "../components/layout/PageLayout";

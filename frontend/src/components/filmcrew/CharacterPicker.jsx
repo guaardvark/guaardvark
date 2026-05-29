@@ -30,7 +30,7 @@ const CharacterPicker = ({
   const theme = useTheme();
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [, setError] = useState(null);
   const [imgErrors, setImgErrors] = useState({});
 
   useEffect(() => {

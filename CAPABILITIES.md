@@ -1,6 +1,6 @@
 # Guaardvark — Full Capabilities List
 
-**Version 2.5.3** · [guaardvark.com](https://guaardvark.com)
+**Version 2.5.4** · [guaardvark.com](https://guaardvark.com)
 
 This document is a comprehensive reference of everything Guaardvark can do. For a quick overview, see [README.md](README.md).
 

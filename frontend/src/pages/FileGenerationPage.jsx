@@ -28,34 +28,18 @@ import {
   FormControlLabel,
   FormLabel,
   Switch,
-  Card,
-  CardContent,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  IconButton,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
-import PreviewIcon from "@mui/icons-material/Preview";
-import WarningIcon from "@mui/icons-material/Warning";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 
 import * as apiService from "../api"; // For fetching Rules & Projects
 // Corrected import: Import generateFileFromChat and alias it as generateSingleFile
 import {
   generateFileFromChat as generateSingleFile,
-  generateBatchCsv,
 } from "../api/filegenService";
 import { getWebsites } from "../api/websiteService"; // For website dropdown
 import { generateBulkXML, generateStructuredCSV } from "../api/bulkGenerationService"; // For XML generation
 import { useStatus } from "../contexts/StatusContext";
 import PageLayout from "../components/layout/PageLayout";
-import { DELIMITER_OPTIONS, BRAND_TONE_OPTIONS, SITE_META_DEFAULTS } from "../config/defaults";
-import { validateGenerationBatch, createValidationReport, formatValidationErrors } from "../utils/validation";
-import { renderStructuredHTML, previewStructuredHTML } from "../utils/htmlRenderer";
-import { arrayToCSV, DELIMITERS } from "../utils/csv";
-import { slugify } from "../utils/slugify";
 
 const FileGenerationPage = () => {
   const theme = useTheme();
@@ -108,15 +92,6 @@ const FileGenerationPage = () => {
   const [isLoadingWebsites, setIsLoadingWebsites] = useState(false);
 
   // New Enhanced Features State
-  const [csvDelimiter, setCsvDelimiter] = useState(DELIMITERS.COMMA);
-  const [structuredHtml, setStructuredHtml] = useState(false);
-  const [includeH1InContent, setIncludeH1InContent] = useState(true);
-  const [siteMeta, setSiteMeta] = useState({ ...SITE_META_DEFAULTS });
-  const [validationReport, setValidationReport] = useState(null);
-  const [showValidationModal, setShowValidationModal] = useState(false);
-  const [showPreviewModal, setShowPreviewModal] = useState(false);
-  const [previewContent, setPreviewContent] = useState("");
-  const [generationId, setGenerationId] = useState(null);
   const [enhancedContext, setEnhancedContext] = useState(false);
 
   // Fetch all required data for dropdowns/autocomplete
@@ -511,76 +486,6 @@ const FileGenerationPage = () => {
       severity: "info",
       open: true,
     });
-  };
-
-  // Enhanced validation and preview handlers
-  const handlePreflightValidation = () => {
-    const items = batchItems.split('\n').filter(item => item.trim());
-    const mockRows = items.map((item, index) => ({
-      title: `${item} - Professional Services`,
-      slug: slugify(item),
-      content: `Comprehensive ${item} services with expert consultation.`,
-      excerpt: `Professional ${item} services for your business needs.`,
-      category: siteMeta.primaryService || 'Services',
-      tags: [siteMeta.primaryService, 'professional', 'expert'].filter(Boolean)
-    }));
-
-    const csvConfig = { delimiter: csvDelimiter, structuredHtml, includeH1: includeH1InContent };
-    const report = createValidationReport(mockRows, siteMeta, csvConfig);
-    setValidationReport(report);
-    setShowValidationModal(true);
-  };
-
-  const handlePreviewStructuredHTML = () => {
-    const sampleContent = `Professional ${siteMeta.primaryService || 'Services'}
-
-About Our Services:
-We provide comprehensive solutions for your business needs.
-
-Our Expertise:
-- Expert consultation and guidance
-- **Proven track record** of success
-- Personalized approach to every project
-
-Why Choose Us:
-Years of experience in the industry
-*Dedicated customer service*
-Competitive pricing and flexible terms
-
-Contact us today for more information.`;
-
-    const preview = previewStructuredHTML(sampleContent, siteMeta, {
-      includeH1: includeH1InContent
-    });
-    setPreviewContent(preview.html);
-    setShowPreviewModal(true);
-  };
-
-  const handleSiteMetaChange = (field, value) => {
-    setSiteMeta(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleSocialLinkAdd = () => {
-    setSiteMeta(prev => ({
-      ...prev,
-      socialLinks: [...prev.socialLinks, { platform: '', url: '' }]
-    }));
-  };
-
-  const handleSocialLinkChange = (index, field, value) => {
-    setSiteMeta(prev => ({
-      ...prev,
-      socialLinks: prev.socialLinks.map((link, i) =>
-        i === index ? { ...link, [field]: value } : link
-      )
-    }));
-  };
-
-  const handleSocialLinkRemove = (index) => {
-    setSiteMeta(prev => ({
-      ...prev,
-      socialLinks: prev.socialLinks.filter((_, i) => i !== index)
-    }));
   };
 
   // Handle website selection with automatic client and filename setting

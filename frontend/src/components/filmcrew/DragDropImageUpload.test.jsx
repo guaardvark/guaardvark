@@ -31,7 +31,7 @@ describe("DragDropImageUpload", () => {
       },
     });
 
-    const { container } = render(
+    render(
       <DragDropImageUpload subjectId={7} onUploaded={onUploaded} />,
     );
 
@@ -57,7 +57,7 @@ describe("DragDropImageUpload", () => {
     });
 
     const ref = React.createRef();
-    const { container } = render(<DragDropImageUpload ref={ref} />);
+    render(<DragDropImageUpload ref={ref} />);
 
     const dropzone = screen.getByTestId("drag-drop-zone");
     const file = new File(["fake"], "x.png", { type: "image/png" });
