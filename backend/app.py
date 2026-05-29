@@ -1469,6 +1469,41 @@ def health_db():
     return jsonify(status), 200
 
 
+@app.route("/api/health/frontend")
+def health_frontend():
+    """Report the built frontend's version and build timestamp.
+
+    Version is the shared repo-root VERSION (frontend and backend ship from one
+    tree). Build time is derived from the mtime of the Vite build's index.html.
+    Returns 503 if no build output exists (e.g. running the dev server only).
+    """
+    from datetime import datetime, timezone
+
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    index_path = os.path.join(repo_root, "frontend", "dist", "index.html")
+    if not os.path.exists(index_path):
+        return (
+            jsonify(
+                {
+                    "status": "unavailable",
+                    "error": "no frontend build found (frontend/dist/index.html missing)",
+                }
+            ),
+            503,
+        )
+    build_dt = datetime.fromtimestamp(os.path.getmtime(index_path), tz=timezone.utc)
+    return (
+        jsonify(
+            {
+                "status": "ok",
+                "version": __version__,
+                "build_timestamp": build_dt.isoformat().replace("+00:00", "Z"),
+            }
+        ),
+        200,
+    )
+
+
 _celery_health_cache = {"data": None, "timestamp": 0}
 _HEALTH_CACHE_DURATION = 30
 
