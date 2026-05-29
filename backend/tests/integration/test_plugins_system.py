@@ -210,10 +210,27 @@ class TestPluginManager:
         manager = PluginManager(registry=registry)
         
         result = manager.enable_plugin("test-plugin")
-        
+
         assert result["success"] == True
         assert manager.get_status("test-plugin") == PluginStatus.STOPPED
-    
+
+    def test_enable_lifts_quarantine(self, plugins_dir, tmp_path):
+        """An explicit user enable must lift a prior quarantine and succeed,
+        rather than the old dead-end where the only escape was hand-editing
+        plugin_state.json. Quarantine still guards the *auto-restore* path."""
+        from backend.plugins.plugin_state_store import PluginStateStore
+
+        registry = PluginRegistry(plugins_dir=plugins_dir)
+        store = PluginStateStore(tmp_path / "plugin_state.json")
+        store.set_quarantined("test-plugin", True)
+        manager = PluginManager(registry=registry, state_store=store)
+        assert store.is_quarantined("test-plugin") is True
+
+        result = manager.enable_plugin("test-plugin")
+
+        assert result["success"] == True
+        assert store.is_quarantined("test-plugin") is False
+
     def test_disable_plugin(self, plugins_dir):
         """Test disabling a plugin."""
         registry = PluginRegistry(plugins_dir=plugins_dir)

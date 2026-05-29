@@ -310,6 +310,16 @@ class PluginManager:
 
         # Second pass: start plugins that were running last time
         for plugin_id in self.state_store.get_running():
+            # Quarantine's real job: don't auto-restore a plugin that failed to
+            # start repeatedly — that's the retry storm the failure counter is
+            # meant to damp. The operator re-enabling it (which lifts quarantine)
+            # is the intentional path back.
+            if self.state_store.is_quarantined(plugin_id):
+                logger.warning(
+                    f"Skipping auto-restore of quarantined plugin '{plugin_id}' — "
+                    "enable it manually to retry (that lifts the quarantine)"
+                )
+                continue
             if self._plugin_status.get(plugin_id) == PluginStatus.STOPPED:
                 logger.info(f"Restoring plugin: {plugin_id} (was running before shutdown)")
                 try:
@@ -727,14 +737,17 @@ class PluginManager:
         if not self.registry.is_registered(plugin_id):
             return {'success': False, 'error': f'Plugin not found: {plugin_id}'}
 
+        # An explicit user enable is the operator's "try this again" signal, so it
+        # lifts any prior quarantine and resets the start-failure counter rather
+        # than refusing. Quarantine exists to damp *automatic* retry storms (see
+        # the boot-restore skip in _init_plugin_status); it was only ever enforced
+        # here on the user-facing toggle, so clearing it on an intentional enable
+        # loses no auto-path protection and ends the dead-end where the sole escape
+        # was hand-editing plugin_state.json.
         if self.state_store.is_quarantined(plugin_id):
-            return {
-                'success': False,
-                'error': (
-                    f"Plugin '{plugin_id}' is quarantined after repeated start failures. "
-                    "Fix the plugin, clear quarantine in plugin_state.json, then retry."
-                ),
-            }
+            logger.info(f"Lifting quarantine for '{plugin_id}' on explicit user enable")
+            self.state_store.set_quarantined(plugin_id, False)
+            self.state_store.reset_plugin_health_counters(plugin_id)
 
         ok_adm, adm_msg = self._run_plugin_admission_checks(plugin_id)
         if not ok_adm:

@@ -15,7 +15,13 @@ from backend.plugins.plugin_state_store import PluginStateStore, SCHEMA_VERSION
 def test_read_missing_file_returns_empty_normalized(tmp_path):
     store = PluginStateStore(tmp_path / "plugin_state.json")
     snap = store.snapshot()
-    assert snap == {"version": SCHEMA_VERSION, "user_enabled": {}, "running": []}
+    assert snap == {
+        "version": SCHEMA_VERSION,
+        "user_enabled": {},
+        "running": [],
+        "quarantined": {},
+        "start_failure_counts": {},
+    }
 
 
 def test_set_user_enabled_persists_and_creates_file(tmp_path):
@@ -78,7 +84,13 @@ def test_corrupt_file_returns_fresh_state(tmp_path):
     store = PluginStateStore(path)
     snap = store.snapshot()
 
-    assert snap == {"version": SCHEMA_VERSION, "user_enabled": {}, "running": []}
+    assert snap == {
+        "version": SCHEMA_VERSION,
+        "user_enabled": {},
+        "running": [],
+        "quarantined": {},
+        "start_failure_counts": {},
+    }
 
 
 def test_atomic_write_uses_temp_then_rename(tmp_path):
@@ -116,6 +128,44 @@ def test_get_user_enabled_returns_a_copy(tmp_path):
     prefs["mutated"] = True
 
     assert "mutated" not in store.get_user_enabled()
+
+
+def test_quarantine_roundtrip(tmp_path):
+    """set_quarantined/is_quarantined reflect each other, including the un-set."""
+    store = PluginStateStore(tmp_path / "plugin_state.json")
+    assert store.is_quarantined("comfyui") is False
+
+    store.set_quarantined("comfyui", True)
+    assert store.is_quarantined("comfyui") is True
+
+    store.set_quarantined("comfyui", False)
+    assert store.is_quarantined("comfyui") is False
+
+
+def test_record_start_failure_quarantines_at_threshold(tmp_path):
+    """Below the threshold the plugin stays runnable; at the threshold it trips."""
+    store = PluginStateStore(tmp_path / "plugin_state.json")
+    for _ in range(3):
+        store.record_start_failure("comfyui", threshold=4)
+    assert store.is_quarantined("comfyui") is False  # negative case: 3 < 4
+
+    store.record_start_failure("comfyui", threshold=4)
+    assert store.is_quarantined("comfyui") is True  # 4 >= 4 trips it
+
+
+def test_reset_health_counters_lifts_quarantine(tmp_path):
+    """Regression: reset must clear the quarantine flag too, not just the count.
+    Previously it popped the counter and left the sticky flag set, locking the
+    plugin out forever (the bug that stranded comfyui)."""
+    store = PluginStateStore(tmp_path / "plugin_state.json")
+    for _ in range(4):
+        store.record_start_failure("comfyui", threshold=4)
+    assert store.is_quarantined("comfyui") is True
+
+    store.reset_plugin_health_counters("comfyui")
+
+    assert store.is_quarantined("comfyui") is False
+    assert store.snapshot()["start_failure_counts"] == {}
 
 
 def test_creates_parent_directory_on_write(tmp_path):

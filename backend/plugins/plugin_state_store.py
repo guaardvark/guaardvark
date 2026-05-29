@@ -130,7 +130,13 @@ class PluginStateStore:
         self._write(state)
 
     def reset_plugin_health_counters(self, plugin_id: str) -> None:
+        """Reset a plugin's health state: drop its start-failure count AND lift any
+        quarantine. A plugin that recovers must leave quarantine too — this used to
+        pop only the counter and leave the sticky flag set, locking the plugin out
+        forever (the bug that stranded comfyui)."""
         state = self._read()
-        if "start_failure_counts" in state and plugin_id in state["start_failure_counts"]:
+        if "start_failure_counts" in state:
             state["start_failure_counts"].pop(plugin_id, None)
+        if "quarantined" in state:
+            state["quarantined"].pop(plugin_id, None)
         self._write(state)
