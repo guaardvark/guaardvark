@@ -1031,6 +1031,35 @@ class LLMMessage(db.Model):
         }
 
 
+class LLMSessionSummary(db.Model):
+    """Rolling summaries for old chat history windows."""
+    __tablename__ = "llm_session_summaries"
+
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(
+        db.String(36),
+        db.ForeignKey("llm_sessions.id", name="fk_llmsummary_session_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    start_message_id = db.Column(db.Integer, nullable=True)
+    end_message_id = db.Column(db.Integer, nullable=True)
+    summary = db.Column(db.Text, nullable=False)
+    message_count = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(), index=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "session_id": self.session_id,
+            "start_message_id": self.start_message_id,
+            "end_message_id": self.end_message_id,
+            "summary": self.summary,
+            "message_count": self.message_count,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
 class TrainingDataset(db.Model):
     __tablename__ = "training_datasets"
     id = db.Column(db.Integer, primary_key=True)
@@ -2376,9 +2405,23 @@ class AgentMemory(db.Model):
     content = db.Column(db.Text, nullable=False)
     source = db.Column(db.String(50), default="manual", index=True)  # manual, chat, cli, auto
     session_id = db.Column(db.String(36), nullable=True, index=True)
+    project_id = db.Column(
+        db.Integer,
+        db.ForeignKey("projects.id", name="fk_agentmemory_project_id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    user_id = db.Column(db.String(80), nullable=True, index=True)
+    workspace_root = db.Column(db.String(1024), nullable=True, index=True)
+    lesson_id = db.Column(db.String(36), nullable=True, index=True)
     tags = db.Column(db.Text, nullable=True)  # JSON array
     type = db.Column(db.String(50), default="note", index=True)  # note, fact, instruction, snippet
     importance = db.Column(db.Float, default=0.5, index=True)  # 0.0 to 1.0
+    confidence = db.Column(db.Float, default=1.0, index=True)
+    status = db.Column(db.String(32), default="active", index=True)
+    access_count = db.Column(db.Integer, default=0)
+    last_accessed_at = db.Column(db.DateTime, nullable=True)
+    extra_data = db.Column("metadata", db.JSON, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now())
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(), onupdate=lambda: datetime.now())
 
@@ -2389,21 +2432,58 @@ class AgentMemory(db.Model):
                 tags = json.loads(self.tags)
             except (json.JSONDecodeError, TypeError):
                 tags = []
-        tw = {"manual": 1.0, "cli": 0.95, "chat": 0.88, "agent": 0.82}.get(
-            (self.source or "").lower(), 0.7
-        )
+        try:
+            from backend.services.memory_contract import source_trust_weight
+            tw = source_trust_weight(self.source)
+        except Exception:
+            tw = {"manual": 1.0, "cli": 0.95, "chat": 0.88, "agent": 0.82}.get(
+                (self.source or "").lower(), 0.7
+            )
         return {
             "id": self.id,
             "content": self.content,
             "source": self.source,
             "session_id": self.session_id,
+            "project_id": self.project_id,
+            "user_id": self.user_id,
+            "workspace_root": self.workspace_root,
+            "lesson_id": self.lesson_id,
             "tags": tags,
             "type": self.type,
             "importance": self.importance,
+            "confidence": self.confidence,
+            "status": self.status,
+            "access_count": self.access_count,
+            "last_accessed_at": self.last_accessed_at.isoformat() if self.last_accessed_at else None,
+            "metadata": self.extra_data or {},
             "trust_weight": tw,
-            "rank_score": round(float(self.importance or 0.5) * tw, 4),
+            "rank_score": round(float(self.importance or 0.5) * float(self.confidence or 1.0) * tw, 4),
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class AgentMemoryAudit(db.Model):
+    """Append-only audit of memory mutations."""
+    __tablename__ = "agent_memory_audit"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    memory_id = db.Column(db.String(36), nullable=True, index=True)
+    action = db.Column(db.String(32), nullable=False, index=True)
+    actor = db.Column(db.String(80), nullable=True, index=True)
+    before = db.Column(db.JSON, nullable=True)
+    after = db.Column(db.JSON, nullable=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(), index=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "memory_id": self.memory_id,
+            "action": self.action,
+            "actor": self.actor,
+            "before": self.before,
+            "after": self.after,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
 

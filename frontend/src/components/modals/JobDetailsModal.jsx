@@ -102,10 +102,8 @@ const JobDetailsModal = ({
               task_name: taskData.name
             }
           };
-          console.log('Creating mock job data:', mockJob);
           setJobData(mockJob);
         } else {
-          console.log('No task data or task not completed:', taskData);
           setError("Job not found");
         }
       }
@@ -318,23 +316,12 @@ const JobDetailsModal = ({
   // Use real-time data if available, otherwise use fetched data
   const displayJobData = realTimeJobData || jobData;
 
-  // Debug logging
-  console.log('Modal render state:', {
-    open,
-    loading,
-    hasRealTimeData: !!realTimeJobData,
-    hasJobData: !!jobData,
-    displayJobData: !!displayJobData,
-    error
-  });
-
   // Don't render anything if modal is not open
   if (!open) {
     return null;
   }
 
   if (!displayJobData && !loading) {
-    console.log('Modal returning null - no display data and not loading');
     return null;
   }
 

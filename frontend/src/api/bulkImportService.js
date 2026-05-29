@@ -4,23 +4,33 @@
 import { BASE_URL } from './apiClient';
 const API_URL = BASE_URL;
 
+const debugLog = (...args) => {
+  if (import.meta.env.DEV) {
+    console.debug(...args);
+  }
+};
+
 export const startBulkImport = async (payload) => {
   try {
-    console.log('Starting bulk import with payload:', payload);
+    debugLog('Starting bulk import', {
+      fileCount: payload?.files?.length || payload?.file_ids?.length || 0,
+    });
     const response = await fetch(`${API_URL}/files/bulk-import`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
 
-    console.log('Response status:', response.status, 'ok:', response.ok);
+    debugLog('Bulk import response status:', response.status, 'ok:', response.ok);
 
     if (!response.ok) {
       const errorData = await response.json().catch((e) => {
         console.error('Failed to parse error response:', e);
         return {};
       });
-      console.log('Error data:', errorData);
+      debugLog('Bulk import error response received', {
+        hasMessage: Boolean(errorData.message || errorData.error),
+      });
 
       // Handle both string and object error formats
       const errorMessage =
@@ -31,7 +41,7 @@ export const startBulkImport = async (payload) => {
     }
 
     const data = await response.json();
-    console.log('Success response:', data);
+    debugLog('Bulk import started', { jobId: data?.job_id || data?.id });
     return data;
   } catch (error) {
     console.error("bulkImportService:startBulkImport error:", error);

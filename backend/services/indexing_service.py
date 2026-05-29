@@ -570,7 +570,10 @@ def search_with_llamaindex(query: str, max_chunks: int = 5, project_id: Optional
                 
             results.append(result)
             
-        logger.info(f"search_with_llamaindex: Retrieved {len(results)} results for query: {query[:50]}... (project_id={project_id})")
+        logger.info(
+            f"search_with_llamaindex retrieved {len(results)} results "
+            f"(query_len={len(query)}, project_id={project_id})"
+        )
 
         # Deduplicate near-identical chunks
         results = deduplicate_chunks(results)

@@ -34,6 +34,11 @@ import useSlashCommands from "../../hooks/useSlashCommands";
 import SlashCommandPopup from "./SlashCommandPopup";
 
 const WEB_SEARCH_ENABLED_KEY = "guaardvark_webSearchEnabled";
+const debugLog = (...args) => {
+  if (import.meta.env.DEV) {
+    console.debug(...args);
+  }
+};
 
 const fetchDuckDuckGoSnippet = async (query) => {
   try {
@@ -420,7 +425,7 @@ const ChatInput = forwardRef(
 
     // Handle voice transcription received - wrapped in useCallback for stability
     const handleTranscriptionReceived = useCallback((transcriptionData) => {
-      console.log("CHAT_DEBUG: ChatInput received transcription data:", {
+      debugLog("ChatInput received transcription data", {
         hasText: !!transcriptionData?.text,
         hasUserMessage: !!transcriptionData?.userMessage,
         hasAiResponse: !!transcriptionData?.aiResponse,
@@ -429,26 +434,26 @@ const ChatInput = forwardRef(
 
       // Clear any pending auto-send to prevent race conditions
       if (autoSendTimeoutRef.current) {
-        console.log("CHAT_DEBUG: Clearing previous auto-send timeout");
+        debugLog("ChatInput clearing previous auto-send timeout");
         clearTimeout(autoSendTimeoutRef.current);
         autoSendTimeoutRef.current = null;
       }
 
       if (transcriptionData && transcriptionData.text) {
         // Legacy format - just text transcription - send immediately
-        console.log("CHAT_DEBUG: Processing legacy text transcription - sending immediately");
+        debugLog("ChatInput processing legacy text transcription");
         setInputText(transcriptionData.text);
 
         // Send immediately without timeout to prevent duplicates
         setTimeout(() => {
-          console.log("CHAT_DEBUG: Sending legacy transcription immediately");
+          debugLog("ChatInput sending legacy transcription immediately");
           // Use onSendMessage directly for legacy format
           onSendMessage(transcriptionData.text, null);
         }, 100); // Minimal delay to ensure state update
       } else if (transcriptionData && transcriptionData.userMessage) {
         // New voice stream format - includes user message and AI response
-        console.log("CHAT_DEBUG: Processing voice stream response:", {
-          userMessage: transcriptionData.userMessage?.substring(0, 50) + "...",
+        debugLog("ChatInput processing voice stream response", {
+          userMessageLength: transcriptionData.userMessage?.length || 0,
           hasAiResponse: !!transcriptionData.aiResponse,
           aiResponseLength: transcriptionData.aiResponse?.length || 0,
           isVoiceStream: transcriptionData.isVoiceStream,
@@ -456,9 +461,7 @@ const ChatInput = forwardRef(
 
         if (transcriptionData.isVoiceStream && transcriptionData.aiResponse) {
           // Voice stream with pre-generated AI response - send directly to chat
-          console.log(
-            "CHAT_DEBUG: Sending voice stream with AI response directly to chat"
-          );
+          debugLog("ChatInput sending voice stream with AI response directly to chat");
 
           // Send the user message and AI response as a voice stream
           onSendMessage(
@@ -471,9 +474,7 @@ const ChatInput = forwardRef(
           );
         } else if (transcriptionData.isVoiceStream) {
           // Voice stream without AI response - send to backend for processing
-          console.log(
-            "CHAT_DEBUG: Sending voice stream without AI response to backend"
-          );
+          debugLog("ChatInput sending voice stream without AI response to backend");
 
           // Send the user message to backend for processing (no auto-send timeout)
           onSendMessage(
@@ -486,19 +487,23 @@ const ChatInput = forwardRef(
           );
         } else {
           // Regular transcription - send immediately
-          console.log("CHAT_DEBUG: Processing regular transcription - sending immediately");
+          debugLog("ChatInput processing regular transcription");
           setInputText(transcriptionData.userMessage);
 
           // Send immediately without timeout to prevent duplicates
           setTimeout(() => {
-            console.log("CHAT_DEBUG: Sending regular transcription immediately");
+            debugLog("ChatInput sending regular transcription immediately");
             onSendMessage(transcriptionData.userMessage, null);
           }, 100); // Minimal delay to ensure state update
         }
       } else {
         console.warn(
-          "CHAT_DEBUG: Invalid transcription data format:",
-          transcriptionData
+          "Invalid transcription data format:",
+          {
+            hasText: Boolean(transcriptionData?.text),
+            hasUserMessage: Boolean(transcriptionData?.userMessage),
+            isVoiceStream: Boolean(transcriptionData?.isVoiceStream),
+          }
         );
       }
     }, [onSendMessage, setInputText]);
@@ -535,7 +540,7 @@ const ChatInput = forwardRef(
 
     // Enhanced file upload handler using unified API service
     const handleFileUpload = async (file) => {
-      console.log("Starting file upload:", file.name, file.size);
+      debugLog("Starting file upload", { fileName: file.name, size: file.size });
 
       setFileUploadState({
         uploading: true,
@@ -568,7 +573,10 @@ const ChatInput = forwardRef(
           throw new Error(result.error);
         }
 
-        console.log("Upload result:", result);
+        debugLog("Upload result", {
+          success: result?.success,
+          documentId: result?.document_id || result?.id,
+        });
 
         // Enhanced file storage: Check if this is a code file
         const fileType = file.name.split(".").pop().toLowerCase();
@@ -726,7 +734,7 @@ ${indexingComplete
           fileRef.current.value = "";
         }
 
-        console.log("File upload process completed successfully");
+        debugLog("File upload process completed successfully");
       } catch (error) {
         console.error("File upload failed:", error);
 
@@ -804,7 +812,7 @@ Please try uploading the file again or contact support if the issue persists.`;
     const handleFileSelect = (event) => {
       const file = event.target.files?.[0];
       if (file) {
-        console.log("File selected:", file.name, file.size);
+        debugLog("File selected", { fileName: file.name, size: file.size });
 
         // Check if it's an image first
         if (file.type.startsWith("image/")) {
@@ -869,7 +877,7 @@ Please select a supported file type.`;
     useEffect(() => {
       return () => {
         if (autoSendTimeoutRef.current) {
-          console.log("CHAT_DEBUG: Cleaning up auto-send timeout on unmount");
+          debugLog("ChatInput cleaning up auto-send timeout on unmount");
           clearTimeout(autoSendTimeoutRef.current);
         }
       };

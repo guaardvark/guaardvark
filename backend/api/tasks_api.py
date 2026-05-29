@@ -240,7 +240,7 @@ def create_task():
         model_name = data.get("model_name")
         output_filename = data.get("output_filename")
         priority = data.get("priority", 2)  # Default to Medium priority
-        logger.info(f"DEBUG: output_filename from request: {output_filename}")
+        logger.debug(f"Task request output filename provided={bool(output_filename)}")
         # New: optional due_date for scheduling
         due_date = None
         if data.get("due_date"):

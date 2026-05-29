@@ -100,6 +100,12 @@ import * as apiService from "../api";
 import voiceService from "../api/voiceService";
 import { ragAutoresearchService } from "../api/ragAutoresearchService";
 
+const debugLog = (...args) => {
+  if (import.meta.env.DEV) {
+    console.debug(...args);
+  }
+};
+
 // localStorage keys for persisting settings
 const WEB_SEARCH_ENABLED_KEY = "guaardvark_webSearchEnabled";
 const ADV_DEBUG_ENABLED_KEY = "guaardvark_advDebugEnabled";
@@ -573,12 +579,15 @@ const SettingsPage = () => {
   const fetchBranding = useCallback(async () => {
     try {
       const response = await getBranding();
-      console.log("Fetched branding response:", response);
+      debugLog("Fetched branding response", { hasData: Boolean(response?.data) });
       if (response && response.data) {
         const data = response.data;
         setBrandingName((prev) => data.system_name ?? prev ?? persistedSystemName ?? "");
         setSystemLogo((prevLogo) => data.logo_path ?? prevLogo ?? persistedSystemLogo ?? null);
-        console.log("Updated branding state - name:", data.system_name ?? persistedSystemName, "logo:", data.logo_path ?? persistedSystemLogo);
+        debugLog("Updated branding state", {
+          hasName: Boolean(data.system_name ?? persistedSystemName),
+          hasLogo: Boolean(data.logo_path ?? persistedSystemLogo),
+        });
         return data;
       }
     } catch (err) {
@@ -664,11 +673,14 @@ const SettingsPage = () => {
     });
 
     socketRef.current.on("connect", () => {
-      console.log("SettingsPage: Socket connected for model switch events");
+      debugLog("SettingsPage: Socket connected for model switch events");
     });
 
     socketRef.current.on("model_switch", (data) => {
-      console.log("SettingsPage: Received model_switch event:", data);
+      debugLog("SettingsPage: Received model_switch event", {
+        status: data?.status,
+        model: data?.model,
+      });
 
       if (data.status === "loading") {
         setModelSwitchStatus("loading");
@@ -698,7 +710,7 @@ const SettingsPage = () => {
     });
 
     socketRef.current.on("disconnect", () => {
-      console.log("SettingsPage: Socket disconnected");
+      debugLog("SettingsPage: Socket disconnected");
     });
 
     return () => {
@@ -844,7 +856,9 @@ const SettingsPage = () => {
   // Listen for chat history cleared events
   useEffect(() => {
     const handleChatHistoryCleared = (event) => {
-      console.log("SettingsPage: Chat history cleared event received", event.detail);
+      debugLog("SettingsPage: Chat history cleared event received", {
+        hasDetail: Boolean(event.detail),
+      });
       // The chat components will handle their own state clearing via the event
     };
 
@@ -1126,7 +1140,7 @@ const SettingsPage = () => {
       // Backend returns 202 for async processing
       if (result?.status === "switching" || result?.message?.includes("Switching")) {
         // Socket events will handle the rest
-        console.log("Model switch initiated, waiting for socket events...");
+        debugLog("Model switch initiated, waiting for socket events");
       } else if (result?.error) {
         // Immediate error (e.g., model not found)
         setModelSwitchStatus("error");
@@ -1347,7 +1361,7 @@ const SettingsPage = () => {
       // Update local state only if backend update succeeds
       setRagDebug(isEnabled);
 
-      console.log("RAG Debug Mode Toggled:", isEnabled);
+      debugLog("RAG Debug Mode toggled", { isEnabled });
       showMessage(
         `RAG Debug mode ${isEnabled ? "enabled" : "disabled"}.`,
         "success",
@@ -1428,7 +1442,7 @@ const SettingsPage = () => {
     } catch (e) {
       console.warn("Failed to persist web search setting:", e);
     }
-    console.log("Web Search Toggled (local state):", isEnabled);
+    debugLog("Web Search toggled", { isEnabled });
     showMessage(
       `Web Search ${isEnabled ? "enabled" : "disabled"} (UI only).`,
       "info",
@@ -1448,7 +1462,7 @@ const SettingsPage = () => {
     } catch (e) {
       console.warn("Failed to persist advanced debug setting:", e);
     }
-    console.log("Advanced Debug Toggled (local state):", isEnabled);
+    debugLog("Advanced Debug toggled", { isEnabled });
     showMessage(
       `Advanced debugging ${isEnabled ? "enabled" : "disabled"}.`,
       "info",
@@ -1521,14 +1535,14 @@ const SettingsPage = () => {
 
   // Enhanced test runner with mode selection
   const handleRunSystemCheck = async (mode = "basic") => {
-    // BUG FIX #1: Validate mode parameter
+    // Validate mode parameter
     const validModes = ["basic", "quick", "comprehensive"];
     const validatedMode = validModes.includes(mode) ? mode : "basic";
 
     setIsTesting(true);
     setTestResults(null);
     setTestMode(validatedMode);
-    setExpandedCategories({}); // BUG FIX #7: Reset expanded categories
+    setExpandedCategories({}); // Reset expanded categories
 
     const modeLabels = {
       basic: "basic system checks",

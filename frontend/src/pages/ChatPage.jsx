@@ -50,6 +50,12 @@ import extractSpeakableText from "../utils/extractSpeakableText";
 import OrchestratorPlanView from "../components/orchestrator/OrchestratorPlanView";
 import { createPlan } from "../api/orchestratorService";
 
+const debugLog = (...args) => {
+  if (import.meta.env.DEV) {
+    console.debug(...args);
+  }
+};
+
 const USE_AGENT_ROUTING = () => {
   try {
     const val = localStorage.getItem("use_agent_routing");
@@ -156,7 +162,7 @@ const ChatPage = () => {
     let storedSessionId = localStorage.getItem(storageKey);
 
     if (storedSessionId && !/^session_\d+$/.test(storedSessionId)) {
-      console.warn("CLAUDE_FIX: Invalid session ID format detected, creating new session");
+      console.warn("Invalid session ID format detected, creating new session");
       storedSessionId = null;
     }
 
@@ -1115,7 +1121,7 @@ const ChatPage = () => {
         });
 
         if (queueResult && queueResult.error) {
-          console.error('CHAT_DEBUG: Message queue returned error:', queueResult.error);
+          console.error('Message queue returned error:', queueResult.error);
           await callProcessMessage(
             inputText,
             file,
@@ -1126,7 +1132,7 @@ const ChatPage = () => {
           );
         }
       } catch (error) {
-        console.error('CHAT_DEBUG: Failed to enqueue message, using direct processing:', error);
+        console.error('Failed to enqueue message, using direct processing:', error);
         await callProcessMessage(
           inputText,
           file,
@@ -1421,7 +1427,7 @@ const ChatPage = () => {
             shouldContinueWithNormalChat = true;
           }
         } else {
-          console.warn("DEBUG: File generation dialog already open, allowing normal chat flow");
+          debugLog("File generation dialog already open, allowing normal chat flow");
 
           const infoMessage = {
             id: `info_${Date.now()}`,
@@ -1451,7 +1457,7 @@ const ChatPage = () => {
         voiceOptions.aiResponse
       ) {
         if (typeof voiceOptions.aiResponse !== 'string' || !voiceOptions.aiResponse.trim()) {
-          console.warn("CHAT_DEBUG: Invalid AI response format, falling back to normal chat");
+          console.warn("Invalid AI response format, falling back to normal chat");
         } else {
           const assistantMessage = {
             id: `asst_${Date.now()}`,
@@ -1469,7 +1475,7 @@ const ChatPage = () => {
             try {
               speak(voiceOptions.aiResponse);
             } catch (ttsError) {
-              console.warn("CHAT_DEBUG: TTS playback failed:", ttsError);
+              console.warn("TTS playback failed:", ttsError);
             }
           }
 
@@ -1485,7 +1491,7 @@ const ChatPage = () => {
         voiceOptions.imageBase64 &&
         !voiceOptions.analysisResponse
       ) {
-        console.log("IMAGE ANALYSIS: Routing through unified chat with base64 image");
+        debugLog("Image analysis: routing through unified chat with base64 image");
         // Upgrade existing user message with image data instead of adding a duplicate
         const imageContent = inputText || `Describe this image: ${voiceOptions.imageFileName}`;
         if (userMessageTempId) {
@@ -1562,7 +1568,10 @@ const ChatPage = () => {
       }
 
       if (useUnifiedChat && unifiedChatService) {
-        console.log('CHAT_PATH: Using UNIFIED chat (tools enabled)', { sessionId, socketConnected: !!unifiedChatService });
+        debugLog('Chat path: using unified chat', {
+          sessionId,
+          socketConnected: Boolean(unifiedChatService),
+        });
         setIsSending(true);
         setIsStreamingMessage(true);
 
@@ -1669,7 +1678,7 @@ const ChatPage = () => {
                   contextData.lastActivity = Date.now();
                   sessionStorage.setItem("context_preservation_" + sessionId, JSON.stringify(contextData));
                 } catch (e) {
-                  console.warn("CLAUDE_FIX: Failed to update context tracking:", e);
+                  console.warn("Failed to update context tracking:", e);
                 }
 
                 let modifiedInputText = inputText;
@@ -1699,7 +1708,7 @@ const ChatPage = () => {
             apiCallSucceeded = true;
 
           } catch (apiError) {
-            console.warn(`CLAUDE_FIX: API call attempt ${attempt} failed:`, apiError);
+            console.warn(`API call attempt ${attempt} failed:`, apiError);
 
             if (attempt === maxRetries) {
               result = {

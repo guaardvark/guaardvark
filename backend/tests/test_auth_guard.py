@@ -28,6 +28,14 @@ def app():
     def self_code_file():
         return {"ok": True}
 
+    @test_app.route("/api/memory/clear", methods=["DELETE"])
+    def memory_clear():
+        return {"ok": True}
+
+    @test_app.route("/api/memory", methods=["GET"])
+    def memory_list():
+        return {"ok": True}
+
     return test_app
 
 
@@ -86,3 +94,29 @@ def test_api_key_required_for_protected_file_endpoint(app, monkeypatch):
 
     assert missing_key.status_code == 401
     assert with_key.status_code == 200
+
+
+def test_remote_memory_clear_is_blocked_without_api_key(app, monkeypatch):
+    monkeypatch.delenv("GUAARDVARK_API_KEY", raising=False)
+
+    client = app.test_client()
+    response = client.delete(
+        "/api/memory/clear",
+        environ_base={"REMOTE_ADDR": "192.168.1.20"},
+    )
+
+    assert response.status_code == 403
+    assert response.get_json()["error"] == "Access denied from remote host"
+
+
+def test_remote_memory_read_remains_unprotected(app, monkeypatch):
+    monkeypatch.delenv("GUAARDVARK_API_KEY", raising=False)
+
+    client = app.test_client()
+    response = client.get(
+        "/api/memory",
+        environ_base={"REMOTE_ADDR": "192.168.1.20"},
+    )
+
+    assert response.status_code == 200
+    assert response.get_json() == {"ok": True}

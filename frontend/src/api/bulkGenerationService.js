@@ -5,6 +5,12 @@ import { BASE_URL } from './apiClient';
 import { API_TIMEOUT_GENERATION, API_TIMEOUT_BULK_XML } from '../config/constants';
 const API_URL = BASE_URL;
 
+const debugLog = (...args) => {
+  if (import.meta.env.DEV) {
+    console.debug(...args);
+  }
+};
+
 /**
  * Generate bulk CSV content using natural language
  * @param {string} naturalLanguage - Natural language description of what to generate
@@ -20,7 +26,11 @@ export const generateBulkCSV = async (naturalLanguage, outputFilename, contextVa
       context_variables: contextVariables
     };
 
-    console.log("bulkGenerationService: Sending bulk CSV generation request:", payload);
+    debugLog("bulkGenerationService: Sending bulk CSV generation request", {
+      outputFilename,
+      promptLength: naturalLanguage?.length || 0,
+      contextKeys: Object.keys(contextVariables || {}),
+    });
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_GENERATION);
@@ -42,7 +52,10 @@ export const generateBulkCSV = async (naturalLanguage, outputFilename, contextVa
     }
 
     const data = await response.json();
-    console.log("bulkGenerationService: Bulk CSV generation response:", data);
+    debugLog("bulkGenerationService: Bulk CSV generation response", {
+      jobId: data?.job_id || data?.id,
+      success: data?.success,
+    });
     return data;
 
   } catch (error) {
@@ -110,7 +123,7 @@ export const generateStructuredCSV = async (params) => {
       use_document_intelligence
     };
 
-    // BUG FIX #7: Only include optional fields if they have values
+    // Only include optional fields if they have values
     if (competitor_url) payload.competitor_url = competitor_url;
     if (client_notes) payload.client_notes = client_notes;
     if (prompt_rule_id) payload.prompt_rule_id = prompt_rule_id;
@@ -118,7 +131,12 @@ export const generateStructuredCSV = async (params) => {
     if (model_name) payload.model_name = model_name;
     if (existing_task_id) payload.existing_task_id = existing_task_id;
 
-    console.log("bulkGenerationService: Sending structured CSV generation request:", payload);
+    debugLog("bulkGenerationService: Sending structured CSV generation request", {
+      outputFilename: output_filename,
+      topicCount: topics.length,
+      numItems: num_items,
+      contextMode: context_mode,
+    });
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_GENERATION);
@@ -140,7 +158,10 @@ export const generateStructuredCSV = async (params) => {
     }
 
     const data = await response.json();
-    console.log("bulkGenerationService: Structured CSV generation response:", data);
+    debugLog("bulkGenerationService: Structured CSV generation response", {
+      jobId: data?.job_id || data?.id,
+      success: data?.success,
+    });
     return data;
 
   } catch (error) {
@@ -257,7 +278,12 @@ export const generateTopics = async (topicParams) => {
  */
 export const generateBulkXML = async (params) => {
   try {
-    console.log("bulkGenerationService: Sending bulk XML generation request:", params);
+    debugLog("bulkGenerationService: Sending bulk XML generation request", {
+      outputFilename: params?.output_filename,
+      topicCount: params?.topics?.length || 0,
+      numItems: params?.num_items,
+      contextMode: params?.context_mode,
+    });
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_BULK_XML);
@@ -279,7 +305,10 @@ export const generateBulkXML = async (params) => {
     }
 
     const data = await response.json();
-    console.log("bulkGenerationService: Bulk XML generation response:", data);
+    debugLog("bulkGenerationService: Bulk XML generation response", {
+      jobId: data?.job_id || data?.id,
+      success: data?.success,
+    });
     return data;
 
   } catch (error) {

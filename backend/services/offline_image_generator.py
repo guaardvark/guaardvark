@@ -522,7 +522,10 @@ class OfflineImageGenerator:
                                    enhance_anatomy: bool = True,
                                    enhance_faces: bool = True,
                                    enhance_hands: bool = True) -> Tuple[str, str, Dict[str, Any]]:
-        logger.info(f"--- DEBUG: ORIGINAL PROMPT TO ENHANCE: '{prompt}' (auto_enhance={auto_enhance}) ---")
+        logger.debug(
+            "Image prompt enhancement started "
+            f"(prompt_len={len(prompt)}, auto_enhance={auto_enhance})"
+        )
         detection = self.detect_content_type(prompt)
 
         preset_name = content_preset or detection["recommended_preset"]
@@ -590,7 +593,9 @@ class OfflineImageGenerator:
                 unique_enhancements.append(e_clean)
 
         enhanced_prompt = f"{prompt}, {', '.join(unique_enhancements)}"
-        logger.info(f"--- DEBUG: RESULTING ENHANCED PROMPT: '{enhanced_prompt}' ---")
+        logger.debug(
+            f"Image prompt enhancement complete (enhanced_prompt_len={len(enhanced_prompt)})"
+        )
 
         unique_negatives = []
         seen_neg = set()
@@ -805,8 +810,10 @@ Negative Prompt: {negative_prompt}""",
                     generator = torch.Generator(device=self._device).manual_seed(seed)
                     result.seed_used = seed
 
-                logger.info(f"--- DEBUG: FINAL PROMPT SENT TO MODEL: '{enhanced_prompt}' ---")
-                logger.info(f"--- DEBUG: FINAL NEGATIVE PROMPT: '{combined_negative}' ---")
+                logger.debug(
+                    f"Final image prompt lengths: positive={len(enhanced_prompt)}, "
+                    f"negative={len(combined_negative)}"
+                )
                 logger.info(f"Generating image: {enhanced_prompt[:100]}...")
 
                 # Dynamic VAE tiling: only at high res to preserve quality at normal sizes

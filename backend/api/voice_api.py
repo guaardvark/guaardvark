@@ -1658,14 +1658,12 @@ def voice_status():
 @voice_bp.route("/stream", methods=["POST"])
 def stream_voice_chat():
     """Real-time voice chat: transcribe → chat → TTS → return audio."""
-    logger.info("=" * 80)
-    logger.info("VOICE API: STREAM ENDPOINT CALLED - Starting voice chat processing")
-    logger.info(f"VOICE API: Request method: {request.method}")
-    logger.info(f"VOICE API: Request URL: {request.url}")
-    logger.info(f"VOICE API: Request headers: {dict(request.headers)}")
-    logger.info(f"VOICE API: Request form data: {dict(request.form)}")
-    logger.info(f"VOICE API: Request files: {list(request.files.keys())}")
-    logger.info("=" * 80)
+    logger.info("VOICE API: Stream endpoint called")
+    logger.debug(
+        "VOICE API: Stream request metadata "
+        f"method={request.method}, files={list(request.files.keys())}, "
+        f"form_keys={list(request.form.keys())}"
+    )
     
     try:
         # Check for audio file
@@ -1803,7 +1801,10 @@ def stream_voice_chat():
             else:
                 env["LD_LIBRARY_PATH"] = ":".join(lib_paths)
             
-            logger.info(f"VOICE API: Running enhanced Whisper transcription with LD_LIBRARY_PATH={whisper_lib_path}: {' '.join(cmd)}")
+            logger.debug(
+                "VOICE API: Running enhanced Whisper transcription "
+                f"(cmd_args={len(cmd)}, has_library_path={bool(whisper_lib_path)})"
+            )
             start_time = time.time()
             
             # Enhanced timeout based on audio duration

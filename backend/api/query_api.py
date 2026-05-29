@@ -321,7 +321,10 @@ def handle_createcsv_command(args_string: str, session_id: str):
                 400,
             )
         
-        logger.info(f"Natural language instructions: {natural_language_instructions[:200]}...")
+        logger.info(
+            f"Natural language CSV request received "
+            f"(instructions_len={len(natural_language_instructions)})"
+        )
         
         try:
             # Call the bulk generation API with natural language processing
@@ -333,7 +336,10 @@ def handle_createcsv_command(args_string: str, session_id: str):
                 "natural_language": natural_language_instructions
             }
             
-            logger.info(f"Bulk generation payload for natural language /createcsv: {bulk_payload}")
+            logger.debug(
+                "Bulk generation payload for natural language /createcsv prepared "
+                f"(output={secure_filename_val}, instructions_len={len(natural_language_instructions)})"
+            )
             
             response = requests.post(
                 bulk_endpoint_url,
@@ -344,7 +350,10 @@ def handle_createcsv_command(args_string: str, session_id: str):
             
             if response.status_code in [200, 202]:  # 200 OK or 202 Accepted
                 bulk_result = response.json()
-                logger.info(f"Bulk generation API response: {bulk_result}")
+                logger.info(
+                    "Bulk generation API accepted request "
+                    f"(job_id={bulk_result.get('job_id')}, task_id={bulk_result.get('task_id')})"
+                )
                 
                 return jsonify({
                     "success": True,
@@ -397,7 +406,10 @@ def _handle_legacy_createcsv(rule_id_val: int, secure_filename_val: str, items: 
             "resume_from_id": None
         }
         
-        logger.info(f"Legacy to bulk conversion payload: {bulk_payload}")
+        logger.debug(
+            f"Legacy to bulk conversion payload prepared "
+            f"(output={secure_filename_val}, item_count={len(items)})"
+        )
         
         response = requests.post(
             bulk_endpoint_url,
@@ -601,7 +613,11 @@ def handle_generatecsv_command(args_string: str, session_id: str):
                 "resume_from_id": None
             }
             
-            logger.info(f"Bulk generation payload: {bulk_payload}")
+            logger.debug(
+                "Bulk generation payload prepared "
+                f"(output={secure_filename_val}, num_items={bulk_params['num_items']}, "
+                f"target_word_count={bulk_params['target_word_count']})"
+            )
             
             response = requests.post(
                 bulk_endpoint_url,
@@ -685,7 +701,10 @@ def handle_generatecsv_command(args_string: str, session_id: str):
             "args_string": raw_user_specifications or f"Generate CSV content: {filename}"
         }
         
-        logger.info(f"Single CSV generation payload: {generation_payload}")
+        logger.debug(
+            f"Single CSV generation payload prepared "
+            f"(output={secure_filename_val}, args_len={len(generation_payload['args_string'])})"
+        )
         
         response = requests.post(
             generation_endpoint_url,
@@ -991,7 +1010,11 @@ def handle_batchcsv_command(args_string: str, session_id: str):
             "resume_from_id": None
         }
         
-        logger.info(f"Batch CSV generation payload: {bulk_payload}")
+        logger.debug(
+            f"Batch CSV generation payload prepared "
+            f"(output={secure_filename_val}, num_items={detected_quantity}, "
+            f"target_word_count={detected_word_count})"
+        )
         
         response = requests.post(
             bulk_endpoint_url,

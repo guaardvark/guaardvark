@@ -6,6 +6,12 @@ import { BACKEND_URL } from './apiClient';
 import { DEFAULT_WORD_COUNT, BATCH_SIZE_MAX } from '../config/constants';
 const API_URL = BACKEND_URL;
 
+const debugLog = (...args) => {
+  if (import.meta.env.DEV) {
+    console.debug(...args);
+  }
+};
+
 /**
  * Generate CSV content using the unified generation API
  * Automatically detects whether to use single or bulk generation
@@ -58,7 +64,12 @@ export const generateCSV = async (params, options = {}) => {
     payload.batch_size = Math.min(quantity, BATCH_SIZE_MAX);
   }
 
-  console.log("unifiedGenerationService: Generating CSV with payload:", payload);
+  debugLog("unifiedGenerationService: Generating CSV", {
+    filename,
+    promptLength: prompt.length,
+    type,
+    quantity: quantity || 1,
+  });
 
   try {
     const response = await fetch(`${API_URL}/api/generate/csv`, {
@@ -76,7 +87,10 @@ export const generateCSV = async (params, options = {}) => {
     }
 
     const result = await response.json();
-    console.log("unifiedGenerationService: Generation successful:", result);
+    debugLog("unifiedGenerationService: Generation successful", {
+      success: result?.success,
+      jobId: result?.job_id || result?.id,
+    });
     
     return result;
 

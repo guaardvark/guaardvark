@@ -203,6 +203,11 @@ seed_xfconf_from_template() {
         if [ ! -f "$channel_dir/$name" ]; then
             cp "$f" "$channel_dir/$name"
             chmod 644 "$channel_dir/$name"
+            # Templates carry the literal token __AGENT_DESKTOP_DIR__ instead of
+            # any one machine's home path — so the repo stays username-free and
+            # every CLIENT resolves the wallpaper under its own $HOME. Substitute
+            # at seed time (cp does no expansion).
+            sed -i "s|__AGENT_DESKTOP_DIR__|$AGENT_DESKTOP_DIR|g" "$channel_dir/$name"
             echo "  Seeded $name from template"
         fi
     done

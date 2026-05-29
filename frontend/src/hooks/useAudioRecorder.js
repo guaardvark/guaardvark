@@ -1,6 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import voiceService from '../api/voiceService';
 
+const debugLog = (...args) => {
+  if (import.meta.env.DEV) {
+    console.debug(...args);
+  }
+};
+
 /**
  * Custom hook for audio recording with voice service integration
  * Provides state management, error handling, and audio visualization support
@@ -74,10 +80,10 @@ const useAudioRecorder = (options = {}) => {
    */
   const resumeAudioContext = useCallback(async () => {
     try {
-      console.log('useAudioRecorder: Resuming audio context...');
+      debugLog('useAudioRecorder: Resuming audio context');
       const resumed = await voiceService.resumeAudioContext();
       if (resumed) {
-        console.log('useAudioRecorder: Audio context resumed successfully');
+        debugLog('useAudioRecorder: Audio context resumed successfully');
       } else {
         console.error('useAudioRecorder: Failed to resume audio context');
       }
@@ -102,7 +108,7 @@ const useAudioRecorder = (options = {}) => {
         return;
       }
 
-      console.log('Starting audio recording...');
+      debugLog('Starting audio recording');
       setError(null);
       setAudioBlob(null);
       setAudioUrl(null);
@@ -125,9 +131,11 @@ const useAudioRecorder = (options = {}) => {
       }
 
       // Use EXACT same approach as working VoiceSettingsModal
-      console.log('useAudioRecorder: Starting recording with simplified approach...');
+      debugLog('useAudioRecorder: Starting recording with simplified approach');
       const recordingInfo = await voiceService.startRecording();
-      console.log('Voice service started recording:', recordingInfo);
+      debugLog('Voice service started recording', {
+        hasRecordingInfo: Boolean(recordingInfo),
+      });
       
       setIsRecording(true);
       setIsPaused(false);
@@ -148,10 +156,10 @@ const useAudioRecorder = (options = {}) => {
       }, 100);
 
       // Verify audio analyzer is ready before starting volume monitoring
-      console.log('useAudioRecorder: Verifying audio analyzer is ready...');
+      debugLog('useAudioRecorder: Verifying audio analyzer is ready');
       const analyzer = voiceService.getAudioAnalyzer();
       if (analyzer) {
-        console.log('useAudioRecorder: Audio analyzer confirmed ready, starting volume monitoring...');
+        debugLog('useAudioRecorder: Audio analyzer confirmed ready, starting volume monitoring');
         startVolumeMonitoring();
       } else {
         console.warn('useAudioRecorder: Audio analyzer not ready, volume monitoring may not work');
@@ -176,7 +184,7 @@ const useAudioRecorder = (options = {}) => {
         return null;
       }
 
-      console.log('Stopping audio recording...');
+      debugLog('Stopping audio recording');
 
       // Clear timers and volume monitoring interval
       if (durationIntervalRef.current) {
@@ -210,7 +218,7 @@ const useAudioRecorder = (options = {}) => {
       mediaStreamRef.current = null;
       
       // Audio analyzer cleanup handled by voiceService
-      console.log('useAudioRecorder: Audio analyzer cleanup handled by voiceService');
+      debugLog('useAudioRecorder: Audio analyzer cleanup handled by voiceService');
       
       return blob;
     } catch (err) {
@@ -248,7 +256,7 @@ const useAudioRecorder = (options = {}) => {
   const cancelRecording = useCallback(() => {
     if (isRecording) {
       try {
-        console.log('Cancelling recording...');
+        debugLog('Cancelling recording');
         voiceService.cleanup();
         setIsRecording(false);
         setIsPaused(false);
@@ -272,7 +280,7 @@ const useAudioRecorder = (options = {}) => {
       }
 
         // Audio analyzer cleanup handled by voiceService
-        console.log('useAudioRecorder: Audio analyzer cleanup handled by voiceService');
+        debugLog('useAudioRecorder: Audio analyzer cleanup handled by voiceService');
       
       startTimeRef.current = null;
         mediaStreamRef.current = null;
@@ -314,7 +322,7 @@ const useAudioRecorder = (options = {}) => {
       clearInterval(animationFrameRef.current);
     }
 
-    console.log('useAudioRecorder: Starting volume monitoring with EXACT VoiceSettingsModal approach...');
+    debugLog('useAudioRecorder: Starting volume monitoring');
     
     // ENHANCED: Add initial validation
     const analyzer = voiceService.getAudioAnalyzer();
@@ -323,7 +331,7 @@ const useAudioRecorder = (options = {}) => {
       return;
     }
     
-    console.log('useAudioRecorder: Audio analyzer confirmed for volume monitoring:', {
+    debugLog('useAudioRecorder: Audio analyzer confirmed for volume monitoring', {
       fftSize: analyzer.analyzer?.fftSize,
       frequencyBinCount: analyzer.analyzer?.frequencyBinCount,
       hasStream: !!analyzer.stream
@@ -335,7 +343,7 @@ const useAudioRecorder = (options = {}) => {
     // Use setInterval exactly like VoiceSettingsModal (100ms interval)
     animationFrameRef.current = setInterval(() => {
       if (!isRecording) {
-        console.log('useAudioRecorder: Stopping volume monitoring - recording stopped');
+        debugLog('useAudioRecorder: Stopping volume monitoring - recording stopped');
         clearInterval(animationFrameRef.current);
         animationFrameRef.current = null;
         return;
@@ -370,7 +378,7 @@ const useAudioRecorder = (options = {}) => {
         
         // ENHANCED: More frequent logging for debugging volume issues
         if (Math.random() < 0.2) { // 20% chance to log (increased for debugging)
-          console.log('useAudioRecorder: Volume detected (modal approach):', {
+          debugLog('useAudioRecorder: Volume detected', {
             volume: (volume || 0).toFixed(3),
             audioLevels: levels.length,
             timestamp: Date.now(),
@@ -382,7 +390,7 @@ const useAudioRecorder = (options = {}) => {
         // ENHANCED: Log significant volume changes
         const volumeChange = Math.abs(volume - volumeRef.current);
         if (volumeChange > 0.1) {
-          console.log('useAudioRecorder: Significant volume change detected:', {
+          debugLog('useAudioRecorder: Significant volume change detected', {
             previousVolume: volumeRef.current.toFixed(3),
             newVolume: (volume || 0).toFixed(3),
             change: volumeChange.toFixed(3)
@@ -462,7 +470,7 @@ const useAudioRecorder = (options = {}) => {
       }
       
       // Audio analyzer and context cleanup handled by voiceService
-      console.log('useAudioRecorder: Audio cleanup handled by voiceService');
+      debugLog('useAudioRecorder: Audio cleanup handled by voiceService');
       
       voiceService.cleanup();
     };

@@ -108,6 +108,20 @@ class AgentRouter:
                 param_extractors={"quantity": r"(\d+)\s+(?:pages?|rows?|entries)"}
             ),
 
+            # Existing source-code edits. Route these through the agent loop so
+            # the model can read the file and prepare an exact edit_code patch.
+            IntentPattern(
+                name="source_code_edit",
+                patterns=[
+                    r"(?:modify|update|edit|change|fix|refactor).*"
+                    r"(?:frontend/|backend/|src/|app/|plugins/|scripts/|tests/|"
+                    r"[\w./-]+\.(?:py|js|jsx|ts|tsx|css|html|json|md|yml|yaml))",
+                    r"(?:in|within)\s+[\w./-]+\.(?:py|js|jsx|ts|tsx|css|html|json|md|yml|yaml)",
+                ],
+                route_type=RouteType.AGENT_LOOP,
+                tool_name="edit_code"
+            ),
+
             # File Generation
             IntentPattern(
                 name="file_generation",
@@ -437,6 +451,9 @@ class AgentRouter:
             r"\.csv\b",
             r"\.py\b",
             r"\.js\b",
+            r"\.jsx\b",
+            r"\.ts\b",
+            r"\.tsx\b",
             r"\.json\b",
             r"\.xml\b",
             r"\.html\b",

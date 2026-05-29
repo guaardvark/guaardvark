@@ -72,6 +72,10 @@ const MemoryManagementSection = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterType, setFilterType] = useState("");
+  const [filterSource, setFilterSource] = useState("");
+  const [filterStatus, setFilterStatus] = useState("active");
+  const [sortMode, setSortMode] = useState("rank");
   
   // Add memory dialog state
   const [openAdd, setOpenAdd] = useState(false);
@@ -148,6 +152,10 @@ const MemoryManagementSection = () => {
     try {
       const url = new URL(`${BASE_URL}/memory`, window.location.origin);
       if (query) url.searchParams.append("search", query);
+      if (filterType) url.searchParams.append("type", filterType);
+      if (filterSource) url.searchParams.append("source", filterSource);
+      if (filterStatus) url.searchParams.append("status", filterStatus);
+      if (sortMode) url.searchParams.append("sort", sortMode);
       url.searchParams.append("limit", 100);
       
       const res = await fetch(url);
@@ -193,12 +201,61 @@ const MemoryManagementSection = () => {
     }
   };
 
+  const handleStatusChange = async (memory, status) => {
+    try {
+      const res = await fetch(`${BASE_URL}/memory/${memory.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMemories((prev) => prev.map((m) => (m.id === memory.id ? data.memory : m)));
+      } else {
+        alert(data.error || "Failed to update memory status");
+      }
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleMergeDuplicate = async () => {
+    if (!editTarget?.id) return;
+    const targetId = window.prompt("Merge this memory into target memory ID:");
+    if (!targetId || targetId === editTarget.id) return;
+    const target = memories.find((m) => m.id === targetId);
+    if (!target) {
+      alert("Target memory is not loaded in the current list.");
+      return;
+    }
+    const mergedContent = `${target.content}\n\nMerged duplicate ${editTarget.id}: ${editContent.trim()}`;
+    try {
+      const updateRes = await fetch(`${BASE_URL}/memory/${target.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: mergedContent }),
+      });
+      const updateData = await updateRes.json();
+      if (!updateData.success) {
+        alert(updateData.error || "Failed to merge memory");
+        return;
+      }
+      await handleStatusChange(editTarget, "archived");
+      setMemories((prev) => prev.map((m) => (m.id === target.id ? updateData.memory : m)));
+      setEditTarget(null);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   const handleClearAll = async () => {
     if (!window.confirm("WARNING: Are you sure you want to delete ALL memories? This cannot be undone.")) return;
     
     try {
       const res = await fetch(`${BASE_URL}/memory/clear`, {
         method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmation: "CLEAR_MEMORIES" }),
       });
       const data = await res.json();
       
@@ -273,6 +330,41 @@ const MemoryManagementSection = () => {
         </Button>
       </Box>
 
+      <Box sx={{ display: "flex", gap: 1.5, mb: 2, flexWrap: "wrap" }}>
+        <TextField select size="small" label="Type" value={filterType} onChange={(e) => setFilterType(e.target.value)} SelectProps={{ native: true }} sx={{ minWidth: 130 }}>
+          <option value="">All types</option>
+          <option value="fact">Fact</option>
+          <option value="preference">Preference</option>
+          <option value="note">Note</option>
+          <option value="lesson">Lesson</option>
+          <option value="belief_update">Belief update</option>
+          <option value="snippet">Snippet</option>
+        </TextField>
+        <TextField select size="small" label="Source" value={filterSource} onChange={(e) => setFilterSource(e.target.value)} SelectProps={{ native: true }} sx={{ minWidth: 150 }}>
+          <option value="">All sources</option>
+          <option value="manual">Manual</option>
+          <option value="chat">Chat</option>
+          <option value="cli">CLI</option>
+          <option value="agent">Agent</option>
+          <option value="lesson_summary">Lesson summary</option>
+          <option value="learned_from_feedback">Feedback</option>
+          <option value="candidate_recipe">Candidate recipe</option>
+        </TextField>
+        <TextField select size="small" label="Status" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} SelectProps={{ native: true }} sx={{ minWidth: 130 }}>
+          <option value="">All status</option>
+          <option value="active">Active</option>
+          <option value="archived">Archived</option>
+          <option value="wrong">Wrong</option>
+        </TextField>
+        <TextField select size="small" label="Sort" value={sortMode} onChange={(e) => setSortMode(e.target.value)} SelectProps={{ native: true }} sx={{ minWidth: 130 }}>
+          <option value="rank">Rank</option>
+          <option value="">Newest</option>
+        </TextField>
+        <Button size="small" variant="outlined" onClick={() => fetchMemories(searchQuery)}>
+          Apply Filters
+        </Button>
+      </Box>
+
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
       )}
@@ -298,8 +390,10 @@ const MemoryManagementSection = () => {
                 <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem" }}>Content</TableCell>
                 <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem", width: 100 }}>Type</TableCell>
                 <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem", width: 110 }}>Source</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem", width: 90 }}>Rank</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem", width: 100 }}>Status</TableCell>
                 <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem" }}>Tags</TableCell>
-                <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem", width: 48 }} align="right"></TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem", width: 120 }} align="right"></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -338,6 +432,20 @@ const MemoryManagementSection = () => {
                       <Chip size="small" label={typeLabel} sx={{ height: 18, fontSize: "0.65rem" }} />
                     </TableCell>
                     <TableCell sx={{ color: "text.secondary" }}>{memory.source || "—"}</TableCell>
+                    <TableCell sx={{ color: "text.secondary" }}>
+                      <Tooltip title={memory.rank_reason || "Rank uses importance, trust, scope, recency, and query matches."} placement="top" arrow>
+                        <span>{memory.rank_score ?? "—"}</span>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        label={memory.status || "active"}
+                        color={memory.status === "wrong" ? "error" : memory.status === "archived" ? "default" : "success"}
+                        variant={memory.status === "active" ? "filled" : "outlined"}
+                        sx={{ height: 18, fontSize: "0.6rem" }}
+                      />
+                    </TableCell>
                     <TableCell sx={{ maxWidth: 220, overflow: "hidden" }}>
                       <Box sx={{ display: "flex", gap: 0.5, flexWrap: "nowrap", overflow: "hidden" }}>
                         {(memory.tags || []).map((tag, i) => (
@@ -352,6 +460,21 @@ const MemoryManagementSection = () => {
                       </Box>
                     </TableCell>
                     <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        size="small"
+                        onClick={() => handleStatusChange(memory, "archived")}
+                        disabled={memory.status === "archived"}
+                      >
+                        Archive
+                      </Button>
+                      <Button
+                        size="small"
+                        color="warning"
+                        onClick={() => handleStatusChange(memory, "wrong")}
+                        disabled={memory.status === "wrong"}
+                      >
+                        Wrong
+                      </Button>
                       <IconButton
                         size="small"
                         aria-label="delete"
@@ -458,6 +581,9 @@ const MemoryManagementSection = () => {
             }}
           >
             Delete
+          </Button>
+          <Button onClick={handleMergeDuplicate} disabled={savingEdit}>
+            Merge Duplicate
           </Button>
           <Button onClick={() => setEditTarget(null)} disabled={savingEdit}>Cancel</Button>
           <Button

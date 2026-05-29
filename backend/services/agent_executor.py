@@ -328,7 +328,7 @@ class AgentExecutor:
             AgentResult with final answer and execution steps
         """
         try:
-            logger.info(f"Starting agent execution for query: {user_query[:100]}...")
+            logger.info(f"Starting agent execution (query_len={len(user_query)})")
             
             iteration = 0
             steps = []

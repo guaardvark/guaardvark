@@ -194,17 +194,17 @@ class EnhancedBulkCSVGenerator(BulkCSVGenerator):
         """Generate content using prompt rule and RAG context"""
         import time as _time
         try:
-            logger.info(f"[DEBUG] _generate_single_content START for task {task.item_id}")
+            logger.debug(f"_generate_single_content started for task {task.item_id}")
 
             if not self.llm:
                 logger.error(f"LLM instance not available for task {task.item_id}")
                 return None
 
             # Build enhanced prompt with rule and RAG context
-            logger.info(f"[DEBUG] Building enhanced prompt for task {task.item_id}")
+            logger.debug(f"Building enhanced prompt for task {task.item_id}")
             _prompt_start = _time.time()
             enhanced_prompt = self._build_enhanced_prompt(task)
-            logger.info(f"[DEBUG] Prompt built in {_time.time() - _prompt_start:.2f}s for task {task.item_id}")
+            logger.debug(f"Prompt built in {_time.time() - _prompt_start:.2f}s for task {task.item_id}")
 
             # Generate content using enhanced prompt
             from backend.utils.llm_service import ChatMessage, MessageRole
@@ -215,10 +215,13 @@ class EnhancedBulkCSVGenerator(BulkCSVGenerator):
                 ChatMessage(role=MessageRole.USER, content=enhanced_prompt),
             ]
 
-            logger.info(f"[DEBUG] Calling LLM.chat() for task {task.item_id} (prompt length: {len(enhanced_prompt)} chars)")
+            logger.debug(
+                f"Calling LLM.chat() for task {task.item_id} "
+                f"(prompt_len={len(enhanced_prompt)})"
+            )
             _llm_start = _time.time()
             llm_response = self.llm.chat(messages)
-            logger.info(f"[DEBUG] LLM.chat() completed in {_time.time() - _llm_start:.2f}s for task {task.item_id}")
+            logger.debug(f"LLM.chat() completed in {_time.time() - _llm_start:.2f}s for task {task.item_id}")
             
             # Extract content from chat response
             if llm_response and hasattr(llm_response, 'message') and llm_response.message:
@@ -244,12 +247,12 @@ class EnhancedBulkCSVGenerator(BulkCSVGenerator):
     def _build_enhanced_prompt(self, task):
         """Build enhanced prompt with rule text, RAG context, and placeholders"""
         import time as _time
-        logger.info(f"[DEBUG] _build_enhanced_prompt START for task {task.item_id}")
+        logger.debug(f"_build_enhanced_prompt started for task {task.item_id}")
 
         # Start with rule text if available
         _tmpl_start = _time.time()
         base_prompt = self._get_enhanced_fallback_template()  # Default fallback
-        logger.info(f"[DEBUG] Fallback template loaded in {_time.time() - _tmpl_start:.2f}s")
+        logger.debug(f"Fallback template loaded in {_time.time() - _tmpl_start:.2f}s")
 
         if self.prompt_rule:
             try:
@@ -296,10 +299,10 @@ class EnhancedBulkCSVGenerator(BulkCSVGenerator):
                 logger.info("Using enhanced fallback template due to rule processing error")
         
         # Get RAG context
-        logger.info(f"[DEBUG] Calling _get_rag_context for task {task.item_id}")
+        logger.debug(f"Calling _get_rag_context for task {task.item_id}")
         _rag_start = _time.time()
         rag_context = self._get_rag_context(task)
-        logger.info(f"[DEBUG] _get_rag_context returned in {_time.time() - _rag_start:.2f}s")
+        logger.debug(f"_get_rag_context returned in {_time.time() - _rag_start:.2f}s")
         
         # Replace placeholders with task context
         context_vars = task.get_context_variables() if hasattr(task, 'get_context_variables') else {

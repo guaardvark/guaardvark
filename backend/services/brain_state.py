@@ -773,7 +773,14 @@ RULES:
         """True if at least reflexes are loaded (minimum viable state)."""
         return self._initialized and self.health.reflexes_loaded
 
-    def get_system_prompt(self, context: str = "chat") -> str:
+    def get_system_prompt(
+        self,
+        context: str = "chat",
+        query: str = "",
+        session_id: str = None,
+        project_id=None,
+        cli_working_memory: Optional[Dict[str, Any]] = None,
+    ) -> str:
         """Get the system prompt for a context, filling the memory block
         with a live DB read so new memories apply immediately."""
         template = self.system_prompts.get(context, self.system_prompts.get("chat", ""))
@@ -782,9 +789,23 @@ RULES:
             from backend.api.memory_api import get_memories_for_context
             if self._app is not None:
                 with self._app.app_context():
-                    memory_text = get_memories_for_context(limit=20, max_tokens=500) or ""
+                    memory_text = get_memories_for_context(
+                        limit=20,
+                        max_tokens=500,
+                        query=query,
+                        session_id=session_id,
+                        project_id=project_id,
+                        cli_working_memory=cli_working_memory,
+                    ) or ""
             else:
-                memory_text = get_memories_for_context(limit=20, max_tokens=500) or ""
+                memory_text = get_memories_for_context(
+                    limit=20,
+                    max_tokens=500,
+                    query=query,
+                    session_id=session_id,
+                    project_id=project_id,
+                    cli_working_memory=cli_working_memory,
+                ) or ""
         except Exception:
             memory_text = ""
         memory_block = f"{memory_text}\n\n" if memory_text else ""

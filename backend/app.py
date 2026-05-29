@@ -108,9 +108,11 @@ from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
 try:
     from backend.services.plugin_runner import PluginRunnerClient as _PluginRunnerClient
     _PluginRunnerClient.get().start()
-    print("Plugin-runner sidecar started (clean fork environment, no torch)")
+    logging.getLogger(__name__).info(
+        "Plugin-runner sidecar started (clean fork environment, no torch)"
+    )
 except Exception as _e:
-    print(f"WARNING: Plugin-runner sidecar failed to start: {_e}", file=sys.stderr)
+    logging.getLogger(__name__).warning(f"Plugin-runner sidecar failed to start: {_e}")
     # Non-fatal — plugin_manager will fall back to direct subprocess.run
 
 from backend.utils.chat_utils import (
@@ -136,9 +138,8 @@ from backend.utils.project_config import load_config
 
 from packaging import version
 if version.parse(_np.__version__) < version.parse("1.26.0"):
-    print(
-        f"WARNING: NumPy version {_np.__version__} may be incompatible; recommended 1.26.4+",
-        file=sys.stderr,
+    logging.getLogger(__name__).warning(
+        f"NumPy version {_np.__version__} may be incompatible; recommended 1.26.4+"
     )
 
 try:
@@ -146,13 +147,16 @@ try:
     if torch.cuda.is_available():
         from backend.cuda_config import configure_cuda_optimizations
         cuda_status = configure_cuda_optimizations(verbose=True)
-        print(f"CUDA optimizations applied: {', '.join(cuda_status.get('optimizations_applied', []))}")
+        logging.getLogger(__name__).info(
+            "CUDA optimizations applied: "
+            f"{', '.join(cuda_status.get('optimizations_applied', []))}"
+        )
     else:
-        print("CUDA not available - running in CPU mode")
+        logging.getLogger(__name__).info("CUDA not available - running in CPU mode")
 except ImportError as e:
-    print(f"PyTorch not available or CUDA config import failed: {e}")
+    logging.getLogger(__name__).info(f"PyTorch not available or CUDA config import failed: {e}")
 except Exception as e:
-    print(f"Warning: CUDA optimization failed (non-critical): {e}")
+    logging.getLogger(__name__).warning(f"CUDA optimization failed (non-critical): {e}")
 
 __version__ = "2.5.3"
 
@@ -983,6 +987,37 @@ try:
                         db.session.commit()
                 except Exception as col_err:
                     app.logger.warning(f"Failed to ensure {_tbl}.{_col} column: {col_err}")
+                    try:
+                        db.session.rollback()
+                    except Exception:
+                        pass
+
+            # Agent memory scope/curation fields added after the base schema.
+            # Existing Postgres databases need additive ALTERs because
+            # db.create_all() does not change existing tables.
+            for _col, _ddl in (
+                ("project_id", "ALTER TABLE agent_memories ADD COLUMN IF NOT EXISTS project_id INTEGER"),
+                ("user_id", "ALTER TABLE agent_memories ADD COLUMN IF NOT EXISTS user_id VARCHAR(80)"),
+                ("workspace_root", "ALTER TABLE agent_memories ADD COLUMN IF NOT EXISTS workspace_root VARCHAR(1024)"),
+                ("lesson_id", "ALTER TABLE agent_memories ADD COLUMN IF NOT EXISTS lesson_id VARCHAR(36)"),
+                ("confidence", "ALTER TABLE agent_memories ADD COLUMN IF NOT EXISTS confidence DOUBLE PRECISION DEFAULT 1.0"),
+                ("status", "ALTER TABLE agent_memories ADD COLUMN IF NOT EXISTS status VARCHAR(32) DEFAULT 'active'"),
+                ("access_count", "ALTER TABLE agent_memories ADD COLUMN IF NOT EXISTS access_count INTEGER DEFAULT 0"),
+                ("last_accessed_at", "ALTER TABLE agent_memories ADD COLUMN IF NOT EXISTS last_accessed_at TIMESTAMP"),
+                ("metadata", "ALTER TABLE agent_memories ADD COLUMN IF NOT EXISTS metadata JSONB"),
+            ):
+                try:
+                    from sqlalchemy import text as _sa_text
+                    existing = db.session.execute(_sa_text(
+                        "SELECT column_name FROM information_schema.columns "
+                        "WHERE table_name = 'agent_memories' AND column_name = :c"
+                    ), {"c": _col}).fetchone()
+                    if existing is None:
+                        app.logger.warning(f"Adding missing agent_memories.{_col} column (legacy DB)")
+                        db.session.execute(_sa_text(_ddl))
+                        db.session.commit()
+                except Exception as col_err:
+                    app.logger.warning(f"Failed to ensure agent_memories.{_col} column: {col_err}")
                     try:
                         db.session.rollback()
                     except Exception:

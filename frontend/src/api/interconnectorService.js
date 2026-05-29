@@ -6,6 +6,18 @@ import { BASE_URL, handleResponse } from "./apiClient";
 // Default timeout for interconnector API calls (30 seconds)
 const DEFAULT_TIMEOUT = 30000;
 
+const debugLog = (...args) => {
+  if (import.meta.env.DEV) {
+    console.debug(...args);
+  }
+};
+
+const redactValue = (value) => {
+  if (!value) return "";
+  const text = String(value);
+  return text.length <= 8 ? "***" : `${text.slice(0, 4)}...${text.slice(-4)}`;
+};
+
 /**
  * Fetch with timeout wrapper to prevent indefinite hangs
  * @param {string} url - The URL to fetch
@@ -236,10 +248,12 @@ export const triggerManualSync = async (
       payload.exclude_patterns = options.exclude_patterns;
     }
     
-    console.log("[INTERCONNECTOR API] Sending sync request:", {
-      url: `${BASE_URL}/interconnector/sync/manual`,
-      payload,
-      method: "POST"
+    debugLog("[INTERCONNECTOR API] Sending sync request", {
+      direction: payload.direction,
+      entityCount: payload.entities?.length || 0,
+      syncFiles: Boolean(payload.sync_files),
+      filePathCount: payload.file_paths?.length || 0,
+      method: "POST",
     });
     
     const response = await fetchWithTimeout(`${BASE_URL}/interconnector/sync/manual`, {
@@ -248,10 +262,13 @@ export const triggerManualSync = async (
       body: JSON.stringify(payload),
     });
     
-    console.log("[INTERCONNECTOR API] Response status:", response.status, response.statusText);
+    debugLog("[INTERCONNECTOR API] Response status:", response.status, response.statusText);
     
     const result = await handleResponse(response);
-    console.log("[INTERCONNECTOR API] Response handled:", result);
+    debugLog("[INTERCONNECTOR API] Response handled", {
+      success: result?.success,
+      hasData: Boolean(result?.data),
+    });
     return result;
   } catch (err) {
     console.error("[INTERCONNECTOR API] Error triggering manual sync:", err);
@@ -327,16 +344,19 @@ export const getBroadcastStatus = async (broadcastId) => {
  */
 export const testAllClientConnections = async () => {
   try {
-    console.log("[INTERCONNECTOR API] Testing all client connections...");
+    debugLog("[INTERCONNECTOR API] Testing all client connections");
     
     const response = await fetchWithTimeout(`${BASE_URL}/interconnector/nodes/test-all`, {
       method: "POST",
     }, 60000); // 60 second timeout for multiple clients
     
-    console.log("[INTERCONNECTOR API] Client connections test response status:", response.status, response.statusText);
+    debugLog("[INTERCONNECTOR API] Client connections test response status:", response.status, response.statusText);
     
     const result = await handleResponse(response);
-    console.log("[INTERCONNECTOR API] Client connections test result:", result);
+    debugLog("[INTERCONNECTOR API] Client connections test result", {
+      success: result?.success,
+      tested: result?.data?.nodes_tested,
+    });
     return result;
   } catch (err) {
     console.error("[INTERCONNECTOR API] Error testing all client connections:", err);
@@ -355,16 +375,21 @@ export const testAllClientConnections = async () => {
  */
 export const testClientConnection = async (nodeId) => {
   try {
-    console.log(`[INTERCONNECTOR API] Testing connection to client node: ${nodeId}`);
+    debugLog("[INTERCONNECTOR API] Testing connection to client node", {
+      nodeId: redactValue(nodeId),
+    });
     
     const response = await fetchWithTimeout(`${BASE_URL}/interconnector/nodes/${nodeId}/test`, {
       method: "POST",
     }, 15000); // 15 second timeout for connection test
     
-    console.log(`[INTERCONNECTOR API] Client connection test response status:`, response.status, response.statusText);
+    debugLog("[INTERCONNECTOR API] Client connection test response status:", response.status, response.statusText);
     
     const result = await handleResponse(response);
-    console.log(`[INTERCONNECTOR API] Client connection test result:`, result);
+    debugLog("[INTERCONNECTOR API] Client connection test result", {
+      success: result?.success,
+      status: result?.data?.connection_status,
+    });
     return result;
   } catch (err) {
     console.error(`[INTERCONNECTOR API] Error testing client connection:`, err);
@@ -383,16 +408,19 @@ export const testClientConnection = async (nodeId) => {
  */
 export const testFileScanning = async () => {
   try {
-    console.log("[INTERCONNECTOR API] Testing file scanning on server...");
+    debugLog("[INTERCONNECTOR API] Testing file scanning on server");
     
     const response = await fetchWithTimeout(`${BASE_URL}/interconnector/sync/files/test`, {
       method: "GET",
     }, 30000); // Longer timeout for file scan
     
-    console.log("[INTERCONNECTOR API] File scan test response status:", response.status, response.statusText);
+    debugLog("[INTERCONNECTOR API] File scan test response status:", response.status, response.statusText);
     
     const result = await handleResponse(response);
-    console.log("[INTERCONNECTOR API] File scan test result:", result);
+    debugLog("[INTERCONNECTOR API] File scan test result", {
+      success: result?.success,
+      totalFiles: result?.data?.total_files,
+    });
     return result;
   } catch (err) {
     console.error("[INTERCONNECTOR API] Error testing file scanning:", err);
@@ -430,7 +458,9 @@ export const fetchOutputsIndex = async (limit = 200, path = null) => {
  */
 export const verifyFiles = async (files = null) => {
   try {
-    console.log("[INTERCONNECTOR API] Verifying files on server...");
+    debugLog("[INTERCONNECTOR API] Verifying files on server", {
+      fileCount: files?.length || 0,
+    });
     
     const payload = files ? { files } : {};
     
@@ -440,10 +470,14 @@ export const verifyFiles = async (files = null) => {
       body: JSON.stringify(payload),
     }, 30000);
     
-    console.log("[INTERCONNECTOR API] File verification response status:", response.status, response.statusText);
+    debugLog("[INTERCONNECTOR API] File verification response status:", response.status, response.statusText);
     
     const result = await handleResponse(response);
-    console.log("[INTERCONNECTOR API] File verification result:", result);
+    debugLog("[INTERCONNECTOR API] File verification result", {
+      success: result?.success,
+      matches: result?.data?.matches,
+      mismatches: result?.data?.mismatches,
+    });
     return result;
   } catch (err) {
     console.error("[INTERCONNECTOR API] Error verifying files:", err);
@@ -502,19 +536,17 @@ export const registerWithMaster = async (masterUrl, apiKey, registrationData) =>
   }
 
   try {
-    console.log("[INTERCONNECTOR API] Registering with master:", {
-      masterUrl,
-      registrationData: {
-        ...registrationData,
-        node_id: registrationData.node_id || "none"
-      }
+    debugLog("[INTERCONNECTOR API] Registering with master", {
+      masterUrl: redactValue(masterUrl),
+      nodeId: redactValue(registrationData.node_id || "none"),
+      syncEntityCount: registrationData.sync_entities?.length || 0,
     });
 
     const baseUrl = masterUrl.replace(/\/$/, "");
     const apiPath = baseUrl.endsWith("/api") ? "" : "/api";
     const registerUrl = `${baseUrl}${apiPath}/interconnector/nodes/register`;
 
-    console.log("[INTERCONNECTOR API] Registration URL:", registerUrl);
+    debugLog("[INTERCONNECTOR API] Registration URL:", redactValue(registerUrl));
 
     const response = await fetchWithTimeout(registerUrl, {
       method: "POST",
@@ -525,10 +557,13 @@ export const registerWithMaster = async (masterUrl, apiKey, registrationData) =>
       body: JSON.stringify(payload),
     }, 10000);
     
-    console.log("[INTERCONNECTOR API] Registration response status:", response.status, response.statusText);
+    debugLog("[INTERCONNECTOR API] Registration response status:", response.status, response.statusText);
     
     const result = await handleResponse(response);
-    console.log("[INTERCONNECTOR API] Registration result:", result);
+    debugLog("[INTERCONNECTOR API] Registration result", {
+      success: result?.success,
+      nodeId: redactValue(result?.data?.node_id),
+    });
     return result;
   } catch (err) {
     console.error("[INTERCONNECTOR API] Error registering with master:", err);
@@ -560,7 +595,7 @@ export const registerWithMaster = async (masterUrl, apiKey, registrationData) =>
  */
 export const checkForUpdates = async () => {
   try {
-    console.log("[INTERCONNECTOR API] Checking for updates...");
+    debugLog("[INTERCONNECTOR API] Checking for updates");
     const response = await fetchWithTimeout(`${BASE_URL}/interconnector/updates/check`, {
       method: "GET",
     }, 30000);
@@ -577,7 +612,7 @@ export const checkForUpdates = async () => {
  */
 export const previewUpdates = async () => {
   try {
-    console.log("[INTERCONNECTOR API] Getting update preview...");
+    debugLog("[INTERCONNECTOR API] Getting update preview");
     const response = await fetchWithTimeout(`${BASE_URL}/interconnector/updates/preview`, {
       method: "GET",
     }, 30000);
@@ -595,7 +630,7 @@ export const previewUpdates = async () => {
  */
 export const applyUpdates = async (files = []) => {
   try {
-    console.log("[INTERCONNECTOR API] Applying updates...");
+    debugLog("[INTERCONNECTOR API] Applying updates", { fileCount: files?.length || 0 });
     const response = await fetchWithTimeout(`${BASE_URL}/interconnector/updates/apply`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -616,13 +651,15 @@ export const applyUpdates = async (files = []) => {
  */
 export const sendHeartbeat = async (masterUrl, apiKey, nodeId) => {
   try {
-    console.log(`[INTERCONNECTOR API] Sending heartbeat for node: ${nodeId}`);
+    debugLog("[INTERCONNECTOR API] Sending heartbeat", {
+      nodeId: redactValue(nodeId),
+    });
     
     const baseUrl = masterUrl.replace(/\/$/, "");
     const apiPath = baseUrl.endsWith("/api") ? "" : "/api";
     const heartbeatUrl = `${baseUrl}${apiPath}/interconnector/nodes/${nodeId}/heartbeat`;
     
-    console.log("[INTERCONNECTOR API] Heartbeat URL:", heartbeatUrl);
+    debugLog("[INTERCONNECTOR API] Heartbeat URL:", redactValue(heartbeatUrl));
     
     const response = await fetchWithTimeout(heartbeatUrl, {
       method: "POST",
@@ -631,10 +668,12 @@ export const sendHeartbeat = async (masterUrl, apiKey, nodeId) => {
       },
     }, 5000); // Short timeout for heartbeat
     
-    console.log("[INTERCONNECTOR API] Heartbeat response status:", response.status, response.statusText);
+    debugLog("[INTERCONNECTOR API] Heartbeat response status:", response.status, response.statusText);
     
     const result = await handleResponse(response);
-    console.log("[INTERCONNECTOR API] Heartbeat result:", result);
+    debugLog("[INTERCONNECTOR API] Heartbeat result", {
+      success: result?.success,
+    });
     return result;
   } catch (err) {
     console.error("[INTERCONNECTOR API] Error sending heartbeat:", err);

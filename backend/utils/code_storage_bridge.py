@@ -265,7 +265,7 @@ class CodeStorageBridge:
                 }
                 results.append(result)
 
-            logger.info(f"Found {len(results)} results for query: {query[:50]}...")
+            logger.info(f"Found {len(results)} code storage results (query_len={len(query)})")
             return results
 
         except Exception as e:

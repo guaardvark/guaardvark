@@ -3,18 +3,15 @@ Memory Tools — Allows the agent to manage its own long-term memory.
 """
 
 import logging
-import json
-import uuid
-from datetime import datetime
-from typing import Dict, Any, Optional
 
 from backend.services.agent_tools import BaseTool, ToolParameter, ToolResult
-from backend.models import db, AgentMemory
+from backend.models import db, AgentMemory, AgentMemoryAudit
+from backend.api.memory_api import add_memory, _query_memories
 
 logger = logging.getLogger(__name__)
 
 class SaveMemoryTool(BaseTool):
-    """Save a fact, preference, or instruction to long-term memory."""
+    """Save a fact, preference, or note to long-term memory."""
     
     name = "save_memory"
     description = "Save a fact, user preference, or instruction to long-term memory. Use this to remember things the user tells you about themselves, their projects, or how they want you to behave."
@@ -31,7 +28,7 @@ class SaveMemoryTool(BaseTool):
         "type": ToolParameter(
             name="type",
             type="string",
-            description="Type of memory: 'fact', 'preference', 'instruction', or 'note'.",
+            description="Type of memory: 'fact', 'preference', or 'note'. Legacy 'instruction' is normalized to 'note'.",
             required=False,
             default="fact"
         ),
@@ -58,26 +55,28 @@ class SaveMemoryTool(BaseTool):
         importance = kwargs.get("importance", 0.8)
         agent_context = kwargs.get("_agent_context", {})
         session_id = agent_context.get("session_id")
-        
+        project_id = agent_context.get("project_id")
+        workspace_root = agent_context.get("workspace_root")
+
         try:
-            mem_id = uuid.uuid4().hex[:12]
-            memory = AgentMemory(
-                id=mem_id,
+            memory = add_memory(
                 content=content,
+                memory_type=mem_type,
                 source="agent",
                 session_id=session_id,
-                tags=json.dumps(tags) if tags else None,
-                type=mem_type,
-                importance=importance
+                project_id=project_id,
+                workspace_root=workspace_root,
+                tags=tags,
+                importance=importance,
             )
-            db.session.add(memory)
-            db.session.commit()
-            
-            logger.info(f"Agent saved memory {mem_id}: {content[:50]}...")
+            if memory is None:
+                return ToolResult(success=False, error="Memory was rejected or could not be saved.")
+
+            logger.info(f"Agent saved memory {memory.id}: {content[:50]}...")
             return ToolResult(
                 success=True,
-                output=f"Successfully saved to long-term memory (ID: {mem_id}).",
-                metadata={"id": mem_id, "content": content}
+                output=f"Successfully saved to long-term memory (ID: {memory.id}).",
+                metadata={"id": memory.id, "content": memory.content, "type": memory.type}
             )
         except Exception as e:
             db.session.rollback()
@@ -114,10 +113,7 @@ class SearchMemoryTool(BaseTool):
         limit = kwargs.get("limit", 5)
         
         try:
-            # Simple ILIKE search for now. Semantic search can be integrated later.
-            memories = db.session.query(AgentMemory).filter(
-                AgentMemory.content.ilike(f"%{query}%")
-            ).order_by(AgentMemory.importance.desc(), AgentMemory.created_at.desc()).limit(limit).all()
+            memories = _query_memories(query=query, limit=limit)
             
             if not memories:
                 return ToolResult(
@@ -171,7 +167,14 @@ class DeleteMemoryTool(BaseTool):
                 )
                 
             content = memory.content
+            before = memory.to_dict()
             db.session.delete(memory)
+            db.session.add(AgentMemoryAudit(
+                memory_id=memory_id,
+                action="delete",
+                actor="agent",
+                before=before,
+            ))
             db.session.commit()
             
             logger.info(f"Agent deleted memory {memory_id}")

@@ -674,7 +674,10 @@ class BulkCSVGenerator:
 
     def _update_progress(self, message: str, percentage: float = None, is_complete: bool = False, additional_data: dict = None):
         """Update progress using unified progress system and update associated task status"""
-        logger.info(f"PROGRESS_DEBUG_V2: _update_progress entry - message='{message[:50]}...', percentage={percentage}, is_complete={is_complete}")
+        logger.debug(
+            f"Bulk CSV progress update "
+            f"(message_len={len(message or '')}, percentage={percentage}, is_complete={is_complete})"
+        )
         if self.unified_progress and self.job_id:
             try:
                 if is_complete:
@@ -694,7 +697,10 @@ class BulkCSVGenerator:
                     else:
                         progress_value = math.ceil(percentage)  # Round UP to show progress
                     progress_value = min(100, progress_value)  # Cap at 100%
-                    logger.info(f"PROGRESS_DEBUG: _update_progress called with percentage={percentage:.2f}, sending progress_value={progress_value}")
+                    logger.debug(
+                        f"Bulk CSV progress value prepared "
+                        f"(percentage={percentage:.2f}, progress_value={progress_value})"
+                    )
                     self.unified_progress.update_process(
                         process_id=self.job_id,
                         progress=progress_value,
@@ -1728,8 +1734,7 @@ Generate the CSV row now:"""
             
             # Generate content using direct LLM instance
             logger.info(f"Generating content for task {task.item_id} with prompt length: {len(prompt)}")
-            # DEBUG: Log first 500 chars of prompt to verify {row_id} replacement
-            logger.info(f"DEBUG PROMPT PREVIEW (first 500 chars): {prompt[:500]}")
+            logger.debug(f"Bulk CSV prompt prepared (prompt_len={len(prompt)})")
             
             try:
                 # Use the same pattern as llm_service.py for consistent results
@@ -2032,7 +2037,11 @@ Generate the CSV row now:"""
                         total_pages = total_tasks
                         progress_percentage = (current_page / total_pages) * 100
 
-                        logger.info(f"PROGRESS_DEBUG: current_page={current_page}, total_pages={total_pages}, percentage={progress_percentage:.2f}%")
+                        logger.debug(
+                            f"Bulk CSV page progress "
+                            f"(current_page={current_page}, total_pages={total_pages}, "
+                            f"percentage={progress_percentage:.2f})"
+                        )
 
                         page_message = f"Page {current_page} of {total_pages} completed"
                         self._update_progress(page_message, progress_percentage, additional_data={
@@ -2244,12 +2253,12 @@ Generate the CSV row now:"""
         """
         import threading
         thread_name = threading.current_thread().name
-        logger.info(f"[DEBUG] generate_bulk_csv START in thread '{thread_name}' with {len(tasks)} tasks")
+        logger.debug(f"generate_bulk_csv started in thread '{thread_name}' with {len(tasks)} tasks")
 
         output_path = os.path.join(self.output_dir, output_filename)
         target_count = len(tasks)
 
-        logger.info(f"[DEBUG] output_path={output_path}, target_count={target_count}")
+        logger.debug(f"Bulk CSV output prepared (target_count={target_count})")
 
         # Filter tasks if resuming
         if resume_from_id:
@@ -2311,7 +2320,7 @@ Generate the CSV row now:"""
         generation_round = 0
         max_rounds = 20  # Safety limit
 
-        logger.info(f"[DEBUG] Entering main generation loop (max_rounds={max_rounds})")
+        logger.debug(f"Entering bulk CSV generation loop (max_rounds={max_rounds})")
 
         while generation_round < max_rounds:
             generation_round += 1
@@ -2359,12 +2368,11 @@ Generate the CSV row now:"""
                 }
             )
             
-            # DEBUG: Log batch processing details for empty CSV diagnosis
-            logger.info(f"DEBUG BATCH PROCESSING: Round {generation_round}")
-            logger.info(f"  - batch_size: {batch_size}")
-            logger.info(f"  - needs_work count: {len(needs_work)}")
-            logger.info(f"  - active_rows count: {len(active_rows)}")
-            logger.info(f"  - target_count: {target_count}")
+            logger.debug(
+                f"Bulk CSV batch processing round {generation_round} "
+                f"(batch_size={batch_size}, needs_work={len(needs_work)}, "
+                f"active_rows={len(active_rows)}, target_count={target_count})"
+            )
 
             # Check for cancellation
             if self._check_cancelled():
@@ -2396,7 +2404,7 @@ Generate the CSV row now:"""
                 # Without this, long-running LLM calls could cause the job to time out
                 completed_count = len(self.row_tracker.get_active_rows_ordered())
                 pre_gen_progress = max(1, int((completed_count / target_count) * 80))
-                logger.info(f"[DEBUG] About to generate content for seq_num={seq_num}, task={task.item_id}")
+                logger.debug(f"About to generate content for seq_num={seq_num}, task={task.item_id}")
                 self._update_progress(
                     f"Generating row {seq_num}/{target_count}: {task.topic[:30]}...",
                     pre_gen_progress
@@ -2404,11 +2412,14 @@ Generate the CSV row now:"""
 
                 # Generate content
                 start_time = time.time()
-                logger.info(f"[DEBUG] Calling _generate_single_content for task {task.item_id}")
+                logger.debug(f"Calling _generate_single_content for task {task.item_id}")
 
                 try:
                     content_row = self._generate_single_content(task)
-                    logger.info(f"[DEBUG] _generate_single_content returned for task {task.item_id} (result: {'OK' if content_row else 'None'})")
+                    logger.debug(
+                        f"_generate_single_content returned for task {task.item_id} "
+                        f"(result={'OK' if content_row else 'None'})"
+                    )
                     generation_time_ms = (time.time() - start_time) * 1000
 
                     if content_row is None:
@@ -2552,14 +2563,16 @@ Generate the CSV row now:"""
         self.row_tracker.export_tracking_log_json(self._tracking_json_path, job_params, status="completed")
         logger.info(f"Updated tracking JSON with final results: {self._tracking_json_path}")
 
-        # DEBUG: Log final content rows for empty CSV diagnosis
-        logger.info(f"DEBUG FINAL CSV WRITING:")
-        logger.info(f"  - all_content_rows count: {len(all_content_rows)}")
-        logger.info(f"  - active_rows count: {len(active_rows)}")
-        logger.info(f"  - target_count: {target_count}")
+        logger.debug(
+            f"Bulk CSV final write "
+            f"(all_content_rows={len(all_content_rows)}, active_rows={len(active_rows)}, "
+            f"target_count={target_count})"
+        )
         if all_content_rows:
-            logger.info(f"  - Sample content row keys: {list(all_content_rows[0].keys()) if all_content_rows[0] else 'None'}")
-            logger.info(f"  - Sample content row values: {list(all_content_rows[0].values())[:3] if all_content_rows[0] else 'None'}")
+            logger.debug(
+                f"Sample content row key count: "
+                f"{len(all_content_rows[0].keys()) if all_content_rows[0] else 0}"
+            )
         else:
             logger.error("  - NO CONTENT ROWS FOUND - This will cause empty CSV!")
             logger.error(f"  - Row tracker records: {len(self.row_tracker.records)}")
@@ -2582,7 +2595,7 @@ Generate the CSV row now:"""
             # Create empty file with headers
             try:
                 self._write_csv_with_conversion([], output_path)
-                logger.info("Created empty CSV file with headers")
+                logger.info("Created empty CSV file with column definitions")
             except Exception as e:
                 logger.error(f"Error creating empty CSV file: {e}")
                 raise Exception(f"Failed to create CSV file: {e}")

@@ -51,6 +51,18 @@ import { useSnackbar } from "../common/SnackbarProvider";
 import { useAppStore } from "../../stores/useAppStore";
 import ClientUpdatePanel from "./ClientUpdatePanel";
 
+const debugLog = (...args) => {
+  if (import.meta.env.DEV) {
+    console.debug(...args);
+  }
+};
+
+const redactValue = (value) => {
+  if (!value) return "";
+  const text = String(value);
+  return text.length <= 8 ? "***" : `${text.slice(0, 4)}...${text.slice(-4)}`;
+};
+
 const InterconnectorSettings = () => {
   const { showMessage } = useSnackbar();
   const systemName = useAppStore((state) => state.systemName);
@@ -171,7 +183,10 @@ const InterconnectorSettings = () => {
           if (networkInfo.data) {
             networkIp = networkInfo.data.network_ip;
             networkPort = networkInfo.data.port || 5000;
-            console.log("[INTERCONNECTOR] Got network info:", networkInfo.data);
+            debugLog("[INTERCONNECTOR] Got network info", {
+              hasIp: Boolean(networkInfo.data.ip),
+              port: networkInfo.data.port || 5000,
+            });
           }
         } catch (netErr) {
           console.warn("[INTERCONNECTOR] Could not get network info, will rely on server detection:", netErr);
@@ -195,7 +210,11 @@ const InterconnectorSettings = () => {
           client_port: networkPort,
         };
 
-        console.log("[INTERCONNECTOR] Registration data:", registrationData);
+        debugLog("[INTERCONNECTOR] Registration data", {
+          nodeName: registrationData.node_name,
+          nodeId: redactValue(registrationData.node_id),
+          syncEntityCount: registrationData.sync_entities?.length || 0,
+        });
 
         const response = await interconnectorApi.registerWithMaster(
           config.master_url,
@@ -203,7 +222,10 @@ const InterconnectorSettings = () => {
           registrationData
         );
 
-        console.log("[INTERCONNECTOR] Registration response:", response);
+        debugLog("[INTERCONNECTOR] Registration response", {
+          success: response?.success,
+          nodeId: redactValue(response?.data?.node_id),
+        });
 
         if (response.error) {
           console.error("[INTERCONNECTOR] Failed to register with master:", response.error);
@@ -217,11 +239,13 @@ const InterconnectorSettings = () => {
 
         // Store node ID for future heartbeats
         const returnedNodeId = response.data?.node_id;
-        console.log("[INTERCONNECTOR] Registration successful, node_id:", returnedNodeId);
+        debugLog("[INTERCONNECTOR] Registration successful", {
+          nodeId: redactValue(returnedNodeId),
+        });
         if (returnedNodeId && returnedNodeId !== nodeId) {
           setNodeId(returnedNodeId);
           localStorage.setItem('interconnector_node_id', returnedNodeId);
-          console.log("[INTERCONNECTOR] Stored node_id:", returnedNodeId);
+          debugLog("[INTERCONNECTOR] Stored node_id", { nodeId: redactValue(returnedNodeId) });
         }
       } catch (error) {
         console.error("[INTERCONNECTOR] Error registering client:", error);
@@ -243,14 +267,17 @@ const InterconnectorSettings = () => {
       if (!isMounted) return; // Skip if unmounted
       if (nodeId && config.master_url && config.master_api_key) {
         try {
-          console.log(`[INTERCONNECTOR] Sending heartbeat for node_id: ${nodeId}`);
+          debugLog("[INTERCONNECTOR] Sending heartbeat", { nodeId: redactValue(nodeId) });
           const heartbeatResponse = await interconnectorApi.sendHeartbeat(
             config.master_url,
             config.master_api_key,
             nodeId
           );
           if (!isMounted) return; // Check again after await
-          console.log("[INTERCONNECTOR] Heartbeat response:", heartbeatResponse);
+          debugLog("[INTERCONNECTOR] Heartbeat response", {
+            success: heartbeatResponse?.success,
+            error: Boolean(heartbeatResponse?.error),
+          });
           if (heartbeatResponse.error) {
             console.warn("[INTERCONNECTOR] Heartbeat failed:", heartbeatResponse.error);
           }
@@ -299,7 +326,7 @@ const InterconnectorSettings = () => {
         try {
           // Auto-sync only syncs entities, not files (files are manual only for safety)
           await interconnectorApi.triggerManualSync("bidirectional", config.sync_entities, false, null);
-          console.log("Auto-sync completed");
+          debugLog("Auto-sync completed");
         } catch (error) {
           console.error("Auto-sync failed:", error);
         }
@@ -417,9 +444,12 @@ const InterconnectorSettings = () => {
 
   const loadNodes = async () => {
     try {
-      console.log("[INTERCONNECTOR] Loading nodes list...");
+      debugLog("[INTERCONNECTOR] Loading nodes list");
       const response = await interconnectorApi.getInterconnectorNodes();
-      console.log("[INTERCONNECTOR] Nodes response:", response);
+      debugLog("[INTERCONNECTOR] Nodes response", {
+        success: response?.success,
+        count: response?.data?.nodes?.length || response?.nodes?.length || 0,
+      });
       
       if (response.error === 'Not Found') {
         // Plugin is not enabled - this is OK
@@ -428,7 +458,7 @@ const InterconnectorSettings = () => {
       }
       if (!response.error && (response.data?.nodes || response.nodes)) {
         const nodesList = response.data?.nodes || response.nodes;
-        console.log(`[INTERCONNECTOR] Loaded ${nodesList.length} nodes:`, nodesList);
+        debugLog("[INTERCONNECTOR] Loaded nodes", { count: nodesList.length });
         setNodes(nodesList);
       } else {
         console.warn("[INTERCONNECTOR] No nodes in response:", response);
@@ -695,20 +725,18 @@ const InterconnectorSettings = () => {
     setIsSyncingCode(true);
     setCodeSyncResults(null);
 
-    console.log("[INTERCONNECTOR] Starting file sync operation...");
-    console.log("[INTERCONNECTOR] Config:", {
-      master_url: config.master_url,
+    debugLog("[INTERCONNECTOR] Starting file sync operation", {
+      masterUrl: redactValue(config.master_url),
       node_name: config.node_name,
       node_mode: config.node_mode
     });
 
     try {
       // Sync files only (pull direction, files only, no entities)
-      console.log("[INTERCONNECTOR] Calling triggerManualSync with:", {
+      debugLog("[INTERCONNECTOR] Calling triggerManualSync", {
         direction: "pull",
-        entities: [],
+        entityCount: 0,
         syncFiles: true,
-        filePaths: null,
         profile: selectedProfile
       });
 
@@ -720,7 +748,10 @@ const InterconnectorSettings = () => {
         { profile: selectedProfile }
       );
 
-      console.log("[INTERCONNECTOR] Sync response received:", response);
+      debugLog("[INTERCONNECTOR] Sync response received", {
+        success: response?.success,
+        hasData: Boolean(response?.data),
+      });
 
       if (response.error) {
         console.error("[INTERCONNECTOR] Sync response contains error:", response.error);
@@ -730,7 +761,9 @@ const InterconnectorSettings = () => {
       const syncData = response.data || response;
       setCodeSyncResults(syncData);
 
-      console.log("[INTERCONNECTOR] Sync data parsed:", syncData);
+      debugLog("[INTERCONNECTOR] Sync data parsed", {
+        hasFiles: Boolean(syncData.files),
+      });
 
       // Check for file sync results
       const fileSummary = syncData.files?.summary || {};
@@ -739,7 +772,7 @@ const InterconnectorSettings = () => {
       const fileUpdated = fileSummary.total_updated || 0;
       const fileBackedUp = fileSummary.total_backed_up || 0;
 
-      console.log("[INTERCONNECTOR] File sync summary:", {
+      debugLog("[INTERCONNECTOR] File sync summary", {
         processed: fileProcessed,
         created: fileCreated,
         updated: fileUpdated,
@@ -765,7 +798,7 @@ const InterconnectorSettings = () => {
       setCodeSyncResults({ error: errorMsg });
     } finally {
       setIsSyncingCode(false);
-      console.log("[INTERCONNECTOR] File sync operation completed");
+      debugLog("[INTERCONNECTOR] File sync operation completed");
     }
   };
 
@@ -773,12 +806,11 @@ const InterconnectorSettings = () => {
     setIsSyncingData(true);
     setDataSyncResults(null);
 
-    console.log("[INTERCONNECTOR] Starting manual sync operation...");
-    console.log("[INTERCONNECTOR] Sync parameters:", {
+    debugLog("[INTERCONNECTOR] Starting manual sync operation", {
       direction,
-      entities: config.sync_entities,
+      entityCount: config.sync_entities?.length || 0,
       node_name: config.node_name,
-      master_url: config.master_url
+      masterUrl: redactValue(config.master_url)
     });
 
     try {
@@ -790,7 +822,10 @@ const InterconnectorSettings = () => {
         { profile: selectedProfile }
       );
 
-      console.log("[INTERCONNECTOR] Manual sync response received:", response);
+      debugLog("[INTERCONNECTOR] Manual sync response received", {
+        success: response?.success,
+        hasData: Boolean(response?.data),
+      });
 
       if (response.error) {
         console.error("[INTERCONNECTOR] Sync response contains error:", response.error);
@@ -800,7 +835,9 @@ const InterconnectorSettings = () => {
       const syncData = response.data || response;
       setDataSyncResults(syncData);
 
-      console.log("[INTERCONNECTOR] Sync data parsed:", syncData);
+      debugLog("[INTERCONNECTOR] Sync data parsed", {
+        hasSummary: Boolean(syncData.summary),
+      });
 
       const summary = syncData.summary || {};
       const totalProcessed = summary.total_processed || 0;
@@ -808,7 +845,7 @@ const InterconnectorSettings = () => {
       const totalUpdated = summary.total_updated || 0;
       
       // Check for file sync results
-      console.log("[INTERCONNECTOR] Entity sync summary:", summary);
+      debugLog("[INTERCONNECTOR] Entity sync summary", summary);
 
       let message = `Sync complete: ${totalProcessed} entities processed, ${totalCreated} created, ${totalUpdated} updated`;
 
@@ -825,7 +862,7 @@ const InterconnectorSettings = () => {
       setDataSyncResults({ error: errorMsg });
     } finally {
       setIsSyncingData(false);
-      console.log("[INTERCONNECTOR] Manual sync operation completed");
+      debugLog("[INTERCONNECTOR] Manual sync operation completed");
     }
   };
 
@@ -869,7 +906,7 @@ const InterconnectorSettings = () => {
     setIsTestingFileScan(true);
     setFileScanTestResult(null);
 
-    console.log("[INTERCONNECTOR] Starting file scan test...");
+    debugLog("[INTERCONNECTOR] Starting file scan test");
 
     try {
       const response = await interconnectorApi.testFileScanning();
@@ -905,7 +942,7 @@ const InterconnectorSettings = () => {
     setIsLoadingOutputs(true);
     setOutputsIndex(null);
 
-    console.log("[INTERCONNECTOR] Loading outputs index...");
+    debugLog("[INTERCONNECTOR] Loading outputs index");
 
     try {
       const response = await interconnectorApi.fetchOutputsIndex(100);
@@ -934,7 +971,10 @@ const InterconnectorSettings = () => {
     testingSet.add(nodeId);
     setTestingClientNodes(testingSet);
 
-    console.log(`[INTERCONNECTOR] Testing connection to client node: ${nodeName} (${nodeId})`);
+    debugLog("[INTERCONNECTOR] Testing connection to client node", {
+      nodeName,
+      nodeId: redactValue(nodeId),
+    });
 
     try {
       const response = await interconnectorApi.testClientConnection(nodeId);

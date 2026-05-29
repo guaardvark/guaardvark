@@ -59,7 +59,7 @@ def _distill_lesson_pearls(app, lesson_id: str, session_id: str) -> dict | None:
         return None
     with app.app_context():
         try:
-            from backend.models import db, LLMMessage, ToolFeedback, AgentMemory
+            from backend.models import db, LLMMessage, ToolFeedback
             from backend.config import OLLAMA_BASE_URL
             import re
             import requests
@@ -229,17 +229,19 @@ def _distill_lesson_pearls(app, lesson_id: str, session_id: str) -> dict | None:
 
             summary = {"title": title, "steps": steps, "parameters": parameters}
 
-            mem = AgentMemory(
-                id=uuid.uuid4().hex[:12],
+            from backend.api.memory_api import add_memory
+            mem = add_memory(
                 content=json.dumps(summary),
                 source="lesson_summary",
-                session_id=lesson_id,  # reused as lesson FK — avoids new column
-                type="lesson",
+                session_id=session_id,
+                lesson_id=lesson_id,
+                memory_type="lesson",
                 importance=0.85,
-                tags=json.dumps(["lesson", title.lower().replace(" ", "-")[:40]]),
+                tags=["lesson", title.lower().replace(" ", "-")[:40]],
+                metadata={"lesson": summary},
             )
-            db.session.add(mem)
-            db.session.commit()
+            if mem is None:
+                raise RuntimeError("lesson memory was rejected")
 
             logger.info(
                 f"[LESSON-DISTILL] saved memory {mem.id} for lesson {lesson_id[:12]}: "

@@ -89,7 +89,26 @@ def _validate_master_url(url: str) -> Optional[str]:
 
 def _log_interconnector_alert(message: str, details: Optional[Dict[str, Any]] = None):
     """Lightweight alert hook for interconnector failures."""
-    logger.warning(f"[INTERCONNECTOR ALERT] {message} | details={details or {}}")
+    safe_details = {
+        key: _redact_log_value(value) for key, value in (details or {}).items()
+    }
+    logger.warning(f"[INTERCONNECTOR ALERT] {message} | details={safe_details}")
+
+
+def _redact_log_value(value: Any) -> str:
+    """Keep diagnostics useful without writing full headers, URLs, keys, or IPs."""
+    if value is None:
+        return ""
+    text = str(value)
+    if len(text) <= 8:
+        return "***"
+    return f"{text[:4]}...{text[-4:]}"
+
+
+def _node_log_label(node_id: Any, node_name: Optional[str] = None) -> str:
+    """Stable short label for node logs without dumping full IDs everywhere."""
+    node_prefix = str(node_id or "unknown")[:8]
+    return f"{node_name or 'node'}:{node_prefix}"
 
 
 _config_cache = {"config": None, "expires": 0}
@@ -618,7 +637,7 @@ def get_network_info():
 def debug_nodes():
     """Debug endpoint to inspect all nodes in database (master mode only)."""
     try:
-        logger.info("[SYNC DEBUG] Debug nodes request received")
+        logger.debug("[SYNC] Debug nodes request received")
         config = _get_config()
 
         if not config.get("is_enabled"):
@@ -663,8 +682,10 @@ def debug_nodes():
             # Index by node_id
             debug_info["by_node_id"][node.node_id] = node_dict
         
-        logger.info(f"[SYNC DEBUG] Debug info: {len(all_nodes)} total nodes, "
-                   f"status breakdown: {debug_info['by_status']}")
+        logger.debug(
+            f"[SYNC] Debug info: {len(all_nodes)} total nodes, "
+            f"status breakdown: {debug_info['by_status']}"
+        )
         
         return success_response(debug_info, "Debug information retrieved")
         
@@ -677,7 +698,7 @@ def debug_nodes():
 def register_node():
     """Register a client node with the master."""
     try:
-        logger.info("[SYNC] Node registration request received")
+        logger.debug("[SYNC] Node registration request received")
         config = _get_config()
 
         if not config.get("is_enabled"):
@@ -711,8 +732,10 @@ def register_node():
             profile_from_payload = HardwareDetector().detect()
         sync_entities = data.get("sync_entities", [])
 
-        logger.info(f"[SYNC] Registration data: node_name={node_name}, node_mode={node_mode}, "
-                   f"provided_node_id={data.get('node_id')}")
+        logger.debug(
+            f"[SYNC] Registration data: node_name={node_name}, node_mode={node_mode}, "
+            f"provided_node_id={_redact_log_value(data.get('node_id'))}"
+        )
 
         if not node_name:
             logger.error("[SYNC] Node registration rejected: Node name missing")
@@ -720,10 +743,12 @@ def register_node():
 
         # Get client IP and port
         client_ip = _get_client_ip()
-        logger.info(f"[SYNC] Detected client IP: {client_ip}")
-        logger.info(f"[SYNC] Request headers - Host: {request.headers.get('Host')}, "
-                   f"X-Forwarded-For: {request.headers.get('X-Forwarded-For')}, "
-                   f"Remote-Addr: {request.remote_addr}")
+        logger.debug(f"[SYNC] Detected client IP: {_redact_log_value(client_ip)}")
+        logger.debug(
+            f"[SYNC] Request routing headers: host={_redact_log_value(request.headers.get('Host'))}, "
+            f"forwarded_for={_redact_log_value(request.headers.get('X-Forwarded-For'))}, "
+            f"remote={_redact_log_value(request.remote_addr)}"
+        )
         
         # Allow client to provide their own IP if they know it better
         # (useful for NAT/firewall scenarios)
@@ -731,7 +756,7 @@ def register_node():
         provided_port = data.get("client_port")
         
         if provided_ip:
-            logger.info(f"[SYNC] Using client-provided IP: {provided_ip}")
+            logger.debug(f"[SYNC] Using client-provided IP: {_redact_log_value(provided_ip)}")
             client_ip = provided_ip
         
         # Determine port: prefer client-provided, fallback to default FLASK_PORT.
@@ -740,10 +765,10 @@ def register_node():
         default_port = int(os.environ.get('FLASK_PORT', 5000))
         if provided_port:
             port = int(provided_port)
-            logger.info(f"[SYNC] Using client-provided port: {port}")
+            logger.debug(f"[SYNC] Using client-provided port: {port}")
         else:
             port = default_port
-            logger.info(f"[SYNC] Using default port: {port} (client should send client_port for accuracy)")
+            logger.debug(f"[SYNC] Using default port: {port}")
 
         # Generate node ID — always generate fresh for new registrations to
         # prevent collisions when Full Backups are restored to multiple machines.
@@ -756,25 +781,30 @@ def register_node():
             if existing_node and existing_node.host == client_ip:
                 # Same machine re-registering (e.g., after reboot) — safe to reuse
                 node_id = provided_id
-                logger.info(f"[SYNC] Reusing node_id {node_id} (IP matches: {client_ip})")
+                logger.debug(
+                    f"[SYNC] Reusing node {_node_log_label(node_id)} "
+                    f"(IP matches {_redact_log_value(client_ip)})"
+                )
             elif existing_node:
                 # COLLISION: Different machine using same node_id (backup restore scenario)
-                logger.warning(f"[SYNC] Node ID collision detected: {provided_id} registered to "
-                             f"{existing_node.host} but request from {client_ip}. "
-                             f"Generating fresh ID to prevent cross-machine interference.")
+                logger.warning(
+                    f"[SYNC] Node ID collision detected: {_redact_log_value(provided_id)} "
+                    f"registered to {_redact_log_value(existing_node.host)} but request "
+                    f"from {_redact_log_value(client_ip)}. Generating fresh ID."
+                )
                 node_id = str(uuid.uuid4())
             else:
                 node_id = provided_id
 
         if not node_id:
             node_id = str(uuid.uuid4())
-        logger.info(f"[SYNC] Using node_id: {node_id}")
+        logger.debug(f"[SYNC] Using node: {_node_log_label(node_id, node_name)}")
 
         # Check if node already exists
         existing_node = db.session.get(InterconnectorNode, node_id)
         if existing_node:
             # Update existing node (same IP verified above)
-            logger.info(f"[SYNC] Updating existing node: {node_id}")
+            logger.debug(f"[SYNC] Updating existing node: {_node_log_label(node_id, node_name)}")
             existing_node.node_name = node_name
             existing_node.host = client_ip
             existing_node.port = port
@@ -788,10 +818,12 @@ def register_node():
             _fm = get_fleet_map()
             _fm.register(existing_node.node_id, profile_from_payload)
             _fm.set_address(existing_node.node_id, client_ip, port)
-            logger.info(f"[SYNC] Updated existing node registration: {node_id} ({node_name}) from {client_ip}:{port}")
+            logger.info(
+                f"[SYNC] Updated node registration: {_node_log_label(node_id, node_name)}"
+            )
         else:
             # Create new node
-            logger.info(f"[SYNC] Creating new node: {node_id}")
+            logger.debug(f"[SYNC] Creating new node: {_node_log_label(node_id, node_name)}")
             new_node = InterconnectorNode(
                 node_id=node_id,
                 node_name=node_name,
@@ -810,12 +842,18 @@ def register_node():
             _fm = get_fleet_map()
             _fm.register(new_node.node_id, profile_from_payload)
             _fm.set_address(new_node.node_id, client_ip, port)
-            logger.info(f"[SYNC] Registered new node: {node_id} ({node_name}) from {client_ip}:{port}")
+            logger.info(
+                f"[SYNC] Registered new node: {_node_log_label(node_id, node_name)}"
+            )
             
             # Verify node was saved
             verify_node = db.session.get(InterconnectorNode, node_id)
             if verify_node:
-                logger.info(f"[SYNC] Node verified in database: {verify_node.node_name}, status={verify_node.status}")
+                logger.debug(
+                    f"[SYNC] Node verified in database: "
+                    f"{_node_log_label(verify_node.node_id, verify_node.node_name)}, "
+                    f"status={verify_node.status}"
+                )
             else:
                 logger.error(f"[SYNC] CRITICAL: Node {node_id} was not saved to database!")
 
@@ -929,10 +967,12 @@ def get_nodes():
             InterconnectorNode.status == "active"
         ).all()
         
-        logger.info(f"[SYNC] Found {len(stale_nodes)} stale nodes (heartbeat older than 5 minutes)")
+        logger.debug(f"[SYNC] Found {len(stale_nodes)} stale nodes")
         for node in stale_nodes:
-            logger.info(f"[SYNC] Marking node {node.node_id} ({node.node_name}) as disconnected - "
-                        f"last heartbeat: {node.last_heartbeat}")
+            logger.info(
+                f"[SYNC] Marking stale node disconnected: "
+                f"{_node_log_label(node.node_id, node.node_name)}"
+            )
             node.status = "disconnected"
         
         db.session.commit()
@@ -942,10 +982,12 @@ def get_nodes():
             InterconnectorNode.status.in_(["active", "inactive"])
         ).all()
 
-        logger.info(f"[SYNC] Returning {len(nodes)} active/inactive nodes")
+        logger.debug(f"[SYNC] Returning {len(nodes)} active/inactive nodes")
         for node in nodes:
-            logger.info(f"[SYNC] Active node: {node.node_name} ({node.node_id}), "
-                        f"status={node.status}, heartbeat={node.last_heartbeat}")
+            logger.debug(
+                f"[SYNC] Active node: {_node_log_label(node.node_id, node.node_name)}, "
+                f"status={node.status}"
+            )
 
         nodes_data = [node.to_dict() for node in nodes]
 
@@ -960,7 +1002,7 @@ def get_nodes():
 def get_sync_history():
     """Get sync history for this node (client mode only)."""
     try:
-        logger.info("[SYNC] Sync history request received")
+        logger.debug("[SYNC] Sync history request received")
         config = _get_config()
 
         if not config.get("is_enabled"):
@@ -985,7 +1027,7 @@ def get_sync_history():
         # Get latest sync info
         latest_sync = sync_history_records[0] if sync_history_records else None
         
-        logger.info(f"[SYNC] Returning {len(history_data)} sync history records")
+        logger.debug(f"[SYNC] Returning {len(history_data)} sync history records")
         
         return success_response(
             {
@@ -1005,7 +1047,7 @@ def get_sync_history():
 def test_all_client_connections():
     """Test connections to all client nodes and fetch their sync history (master mode only)."""
     try:
-        logger.info("[SYNC] Testing all client connections and fetching sync history")
+        logger.info("[SYNC] Testing all client connections")
         config = _get_config()
 
         if not config.get("is_enabled"):
@@ -1069,7 +1111,10 @@ def test_all_client_connections():
                 # Test connection and get sync history
                 sync_history_url = f"{client_url}/api/interconnector/sync/history"
                 
-                logger.info(f"[SYNC] Testing connection to client {node.node_name} ({node.node_id}) at {sync_history_url}")
+                logger.debug(
+                    f"[SYNC] Testing connection to client "
+                    f"{_node_log_label(node.node_id, node.node_name)}"
+                )
                 
                 start_time = time.time()
                 response = requests.get(
@@ -1091,7 +1136,10 @@ def test_all_client_connections():
                     
                     if node_result["latest_sync"]:
                         summary["with_sync_history"] += 1
-                        logger.info(f"[SYNC] Client {node.node_name} has sync history: last sync at {node_result['latest_sync'].get('sync_timestamp')}")
+                        logger.debug(
+                            f"[SYNC] Client {_node_log_label(node.node_id, node.node_name)} "
+                            "has sync history"
+                        )
                     
                     summary["successful"] += 1
                 else:
@@ -1118,8 +1166,10 @@ def test_all_client_connections():
 
             results.append(node_result)
 
-        logger.info(f"[SYNC] Client connections test complete: {summary['successful']} successful, "
-                   f"{summary['failed']} failed, {summary['with_sync_history']} with sync history")
+        logger.info(
+            f"[SYNC] Client connections test complete: {summary['successful']} successful, "
+            f"{summary['failed']} failed, {summary['with_sync_history']} with sync history"
+        )
 
         return success_response(
             {
@@ -1140,7 +1190,7 @@ def test_all_client_connections():
 def test_client_connection(node_id):
     """Test connection to a specific client node (master mode only)."""
     try:
-        logger.info(f"[SYNC] Testing connection to client node: {node_id}")
+        logger.info(f"[SYNC] Testing connection to client node: {_node_log_label(node_id)}")
         config = _get_config()
 
         if not config.get("is_enabled"):
@@ -1171,7 +1221,10 @@ def test_client_connection(node_id):
         # Test connection by calling client's status endpoint
         test_url = f"{client_url}/api/interconnector/status"
         
-        logger.info(f"[SYNC] Testing connection to client: {test_url}")
+        logger.debug(
+            f"[SYNC] Testing client status endpoint for "
+            f"{_node_log_label(node_id, node.node_name)}"
+        )
         
         try:
             start_time = time.time()
@@ -1184,7 +1237,10 @@ def test_client_connection(node_id):
             
             if response.status_code == 200:
                 client_status = response.json()
-                logger.info(f"[SYNC] Successfully connected to client {node_id}: {latency_ms}ms latency")
+                logger.info(
+                    f"[SYNC] Connected to client {_node_log_label(node_id, node.node_name)}: "
+                    f"{latency_ms}ms latency"
+                )
                 
                 return success_response(
                     {
@@ -1727,7 +1783,7 @@ def get_broadcast_status(broadcast_id: str):
 def test_file_scanning():
     """Test file scanning on server (master mode only, no API key required for local testing)."""
     try:
-        logger.info("[SYNC] File scanning test request received")
+        logger.debug("[SYNC] File scanning test request received")
         config = _get_config()
 
         if not config.get("is_enabled"):
@@ -1739,7 +1795,7 @@ def test_file_scanning():
             return error_response("File scan test is only available on master nodes", 400)
 
         file_sync_service = get_file_sync_service()
-        logger.info("[SYNC] File scan test: Starting file scan...")
+        logger.debug("[SYNC] File scan test: Starting file scan")
         
         # Test scanning with default paths
         files_list = file_sync_service.scan_files(None, None)
@@ -1790,7 +1846,10 @@ def test_file_scanning():
         
         logger.info(f"[SYNC] File scan test complete: {total_files} files, "
                    f"{total_size / 1024 / 1024:.2f} MB total")
-        logger.info(f"[SYNC] Critical files check: {len(found_critical)} found, {len(missing_critical)} missing")
+        logger.debug(
+            f"[SYNC] Critical files check: {len(found_critical)} found, "
+            f"{len(missing_critical)} missing"
+        )
         
         return success_response(
             {
@@ -1819,7 +1878,7 @@ def test_file_scanning():
 def verify_files():
     """Verify file integrity after manual copy (for debugging)."""
     try:
-        logger.info("[SYNC] File verification request received")
+        logger.debug("[SYNC] File verification request received")
         config = _get_config()
 
         if not config.get("is_enabled"):
@@ -1834,7 +1893,7 @@ def verify_files():
         
         if not file_checks:
             # If no files specified, verify all sync paths
-            logger.info("[SYNC] No files specified, verifying all sync paths")
+            logger.debug("[SYNC] No files specified, verifying all sync paths")
             file_sync_service = get_file_sync_service()
             files_list = file_sync_service.scan_files(None, None)
             
@@ -1843,7 +1902,7 @@ def verify_files():
                 {"path": f["path"], "hash": f.get("hash"), "size": f.get("size")}
                 for f in files_list
             ]
-            logger.info(f"[SYNC] Verifying {len(file_checks)} files from sync paths")
+            logger.debug(f"[SYNC] Verifying {len(file_checks)} files from sync paths")
 
         file_sync_service = get_file_sync_service()
         verification_results = file_sync_service.verify_files_batch(file_checks)
@@ -1946,7 +2005,7 @@ def fetch_output_content():
 def pull_files():
     """Pull code files from master (for client nodes to call)."""
     try:
-        logger.info("[SYNC] File pull request received (master endpoint)")
+        logger.debug("[SYNC] File pull request received (master endpoint)")
         config = _get_config()
 
         if not config.get("is_enabled"):
@@ -1968,9 +2027,9 @@ def pull_files():
         sync_paths = request.args.getlist("paths")
         if not sync_paths:
             sync_paths = None  # Use defaults
-            logger.info("[SYNC] File pull: Using default sync paths")
+            logger.debug("[SYNC] File pull: Using default sync paths")
         else:
-            logger.info(f"[SYNC] File pull: Using custom sync paths: {sync_paths}")
+            logger.debug(f"[SYNC] File pull: Using {len(sync_paths)} custom sync paths")
 
         include_patterns = request.args.getlist("include_patterns") or None
         exclude_patterns = request.args.getlist("exclude_patterns") or None
@@ -1981,18 +2040,18 @@ def pull_files():
         if since_str:
             try:
                 since = datetime.fromisoformat(since_str.replace('Z', '+00:00'))
-                logger.info(f"[SYNC] File pull: Filtering files modified after: {since}")
+                logger.debug(f"[SYNC] File pull: Filtering files modified after: {since}")
             except Exception as e:
                 logger.warning(f"[SYNC] File pull: Could not parse since timestamp '{since_str}': {e}")
 
         file_sync_service = get_file_sync_service()
-        logger.info("[SYNC] File pull: Starting file scan...")
+        logger.debug("[SYNC] File pull: Starting file scan")
         files_list = file_sync_service.scan_files(
             sync_paths, since, include_content=True,
             include_patterns=include_patterns,
             exclude_patterns=exclude_patterns,
         )
-        logger.info(f"[SYNC] File pull: Scan complete, found {len(files_list)} files")
+        logger.debug(f"[SYNC] File pull: Scan complete, found {len(files_list)} files")
         
         # Pre-send validation: filter out files missing content (prevents CLIENT crash)
         valid_files, invalid_files = file_sync_service.validate_files_batch(files_list)
@@ -2126,7 +2185,7 @@ def push_files():
 def trigger_manual_sync():
     """Trigger a manual synchronization."""
     try:
-        logger.info("[SYNC] Manual sync request received")
+        logger.debug("[SYNC] Manual sync request received")
         config = _get_config()
 
         if not config.get("is_enabled"):
@@ -2164,8 +2223,12 @@ def trigger_manual_sync():
             except Exception as e:
                 logger.error(f"[SYNC] Failed to apply profile {profile.name}: {e}", exc_info=True)
 
-        logger.info(f"[SYNC] Manual sync parameters: direction={direction}, entities={entities}, "
-                   f"sync_files={sync_files}, file_paths={file_paths}, node_mode={config.get('node_mode')}")
+        logger.info(
+            f"[SYNC] Manual sync parameters: direction={direction}, "
+            f"entities={len(entities) if entities else 0}, sync_files={sync_files}, "
+            f"file_paths={len(file_paths) if file_paths else 0}, "
+            f"node_mode={config.get('node_mode')}"
+        )
 
         if direction not in ["bidirectional", "pull", "push"]:
             logger.error(f"[SYNC] Invalid sync direction: {direction}")
@@ -2191,7 +2254,10 @@ def trigger_manual_sync():
         if not master_url.startswith(('http://', 'https://')):
             master_url = f"http://{master_url}"
 
-        logger.info(f"[SYNC] Starting sync to master: {master_url}, direction={direction}")
+        logger.info(
+            f"[SYNC] Starting sync to master {_redact_log_value(master_url)}, "
+            f"direction={direction}"
+        )
         sync_start_time = time.time()
         summary = {
             "total_processed": 0,
@@ -2447,7 +2513,10 @@ def trigger_manual_sync():
                 # Pull files
                 if direction in ["pull", "bidirectional"]:
                     try:
-                        logger.info(f"[SYNC] File pull: Getting last sync time for node_id={local_node_id}")
+                        logger.debug(
+                            f"[SYNC] File pull: Getting last sync time for "
+                            f"node={_redact_log_value(local_node_id)}"
+                        )
                         # Get last sync time for incremental file sync
                         # Only use incremental sync if we have a previous file sync (not just entity sync)
                         last_sync = db.session.query(InterconnectorSyncHistory).filter(
@@ -2461,8 +2530,10 @@ def trigger_manual_sync():
                         # For now, we'll check if there's a sync history entry that suggests files were synced
                         last_sync_had_files = False
                         if last_sync:
-                            logger.info(f"[SYNC] File pull: Last sync found: {last_sync.sync_timestamp}, "
-                                       f"sync_direction={last_sync.sync_direction}")
+                            logger.debug(
+                                f"[SYNC] File pull: Last sync found at {last_sync.sync_timestamp}, "
+                                f"sync_direction={last_sync.sync_direction}"
+                            )
                             # Check if there are any file sync records by looking for syncs with file counts
                             # Since we don't track file sync separately, we'll check if this is a recent sync
                             # and if sync_files flag was used. For now, be conservative and assume first 
@@ -2472,23 +2543,28 @@ def trigger_manual_sync():
                             # Otherwise, do full sync to be safe
                             time_since_last_sync = datetime.now() - last_sync.sync_timestamp
                             if time_since_last_sync.total_seconds() < 3600:  # Less than 1 hour
-                                logger.info(f"[SYNC] File pull: Last sync was recent ({time_since_last_sync.total_seconds():.0f}s ago), "
-                                           f"assuming it included files, will use incremental sync")
+                                logger.debug(
+                                    f"[SYNC] File pull: Last sync was recent "
+                                    f"({time_since_last_sync.total_seconds():.0f}s ago), "
+                                    "using incremental sync"
+                                )
                                 last_sync_had_files = True
                             else:
-                                logger.info(f"[SYNC] File pull: Last sync was {time_since_last_sync.total_seconds()/3600:.1f} hours ago, "
-                                           f"performing full sync to be safe")
+                                logger.debug(
+                                    f"[SYNC] File pull: Last sync was "
+                                    f"{time_since_last_sync.total_seconds()/3600:.1f} hours ago, "
+                                    "performing full sync"
+                                )
                                 last_sync_had_files = False
                         else:
-                            logger.info(f"[SYNC] File pull: No previous sync found, performing full sync")
+                            logger.debug("[SYNC] File pull: No previous sync found, performing full sync")
 
                         since = None
                         if last_sync and last_sync_had_files:
                             since = last_sync.sync_timestamp
-                            logger.info(f"[SYNC] File pull: Using incremental sync since: {since}, "
-                                       f"will only sync files modified after this time")
+                            logger.debug(f"[SYNC] File pull: Using incremental sync since {since}")
                         else:
-                            logger.info(f"[SYNC] File pull: Performing full file sync (no previous file sync found)")
+                            logger.debug("[SYNC] File pull: Performing full file sync")
                             since = None  # Explicitly set to None for full sync
 
                         # Request files from master
@@ -2496,10 +2572,10 @@ def trigger_manual_sync():
                         files_params = {}
                         if file_paths:
                             files_params["paths"] = file_paths
-                            logger.info(f"[SYNC] File pull: Using custom paths: {file_paths}")
+                            logger.debug(f"[SYNC] File pull: Using {len(file_paths)} custom paths")
                         if since:
                             files_params["since"] = since.isoformat()
-                            logger.info(f"[SYNC] File pull: Using since timestamp: {since.isoformat()}")
+                            logger.debug(f"[SYNC] File pull: Using since timestamp: {since.isoformat()}")
                         if include_patterns:
                             files_params["include_patterns"] = include_patterns
                         if exclude_patterns:
@@ -2510,7 +2586,11 @@ def trigger_manual_sync():
                         if master_api_key:
                             headers["X-API-Key"] = master_api_key
 
-                        logger.info(f"[SYNC] File pull: Requesting files from {files_pull_url} with params={files_params}")
+                        logger.debug(
+                            f"[SYNC] File pull: Requesting files from "
+                            f"{_redact_log_value(files_pull_url)} "
+                            f"with param_keys={list(files_params.keys())}"
+                        )
                         files_response = requests.get(
                             files_pull_url,
                             headers=headers,
@@ -2519,7 +2599,7 @@ def trigger_manual_sync():
                             verify=False
                         )
 
-                        logger.info(f"[SYNC] File pull: Response status={files_response.status_code}")
+                        logger.debug(f"[SYNC] File pull: Response status={files_response.status_code}")
                         if files_response.status_code == 200:
                             files_data = files_response.json()
                             files_list = files_data.get("data", {}).get("files", [])
@@ -2579,16 +2659,7 @@ def trigger_manual_sync():
                                 # Prevent double-apply below
                                 files_list = []
                             
-                            # Log sample of files received
-                            if files_list:
-                                sample_files = files_list[:5]
-                                logger.info(f"[SYNC] File pull: Sample files received:")
-                                for f in sample_files:
-                                    has_content = f.get("content") is not None or f.get("content_compressed")
-                                    content_len = len(f.get("content", "")) if f.get("content") else (len(f.get("content_compressed", "")) if f.get("content_compressed") else 0)
-                                    logger.info(f"[SYNC]   - {f.get('path')}: size={f.get('size')}, "
-                                               f"has_content={has_content}, content_length={content_len}")
-                            else:
+                            if not files_list:
                                 logger.warning(f"[SYNC] File pull: No files received from master!")
 
                             # Pre-apply: check import dependencies (JS/TS)
@@ -2923,7 +2994,7 @@ def check_for_updates():
             logger.warning("[UPDATES] Check rejected: No master URL configured")
             return error_response("Master URL not configured", 400)
         
-        logger.info(f"[UPDATES] Fetching manifest from master: {master_url}")
+        logger.info(f"[UPDATES] Fetching manifest from master {_redact_log_value(master_url)}")
         
         # Build headers
         headers = {}

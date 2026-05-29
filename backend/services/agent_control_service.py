@@ -343,7 +343,7 @@ class AgentControlService:
             "label": label or "",
             "reasoning": reasoning or "",
         })
-        logger.info(
+        logger.debug(
             f"[THINKING-PERSIST] emit iter={iteration} label={label!r} "
             f"buffer_len={len(self._thinking_steps_buffer)} id(self)={id(self)}"
         )
@@ -368,7 +368,7 @@ class AgentControlService:
         """
         steps = list(self._thinking_steps_buffer)
         self._thinking_steps_buffer.clear()
-        logger.info(
+        logger.debug(
             f"[THINKING-PERSIST] drain returning {len(steps)} steps id(self)={id(self)}"
         )
         return steps
@@ -630,7 +630,7 @@ class AgentControlService:
                 # 2.1s, deliberately odd to stand out on grep. Skipped on iter 0
                 # (no prior action) and when training_mode already paused.
                 if iteration > 0 and not training_mode:
-                    logger.warning(f"[AGENT][STEP {iteration+1}][BREATHE] pausing 2.1s before next See")
+                    logger.debug(f"[AGENT][STEP {iteration+1}][BREATHE] pausing before next See")
                     if _breathe(2.1):
                         return finish(AgentResult(
                             success=False, reason="killed",
@@ -640,7 +640,7 @@ class AgentControlService:
 
                 # 1. SEE — Capture screenshot
                 screenshot, cursor_pos = self._capture_with_retry(screen)
-                logger.warning(f"[AGENT][STEP {iteration+1}][SEE] Capturing screen, cursor at {cursor_pos}")
+                logger.debug(f"[AGENT][STEP {iteration+1}][SEE] Capturing screen, cursor at {cursor_pos}")
 
                 scene_desc = ""  # Will be populated by either unified or split path
 
@@ -667,7 +667,7 @@ class AgentControlService:
                     # index, etc. into every decision.
                     persistent_system = self._build_persistent_knowledge_system()
                     if persistent_system:
-                        logger.warning(
+                        logger.debug(
                             f"[AGENT][PROMPT-UNIFIED] system_msg={len(persistent_system)}ch "
                             f"user_prompt={len(unified_prompt)}ch"
                         )
@@ -681,7 +681,7 @@ class AgentControlService:
                         consecutive_failures += 1
                         continue
                     scene_desc = result.description[:200]
-                    logger.warning(f"[AGENT][STEP {iteration+1}][UNIFIED] {scene_desc}")
+                    logger.debug(f"[AGENT][STEP {iteration+1}][UNIFIED] {scene_desc}")
                     decision = self._parse_decision(result.description)
                 else:
                     # SPLIT MODE: Separate SEE → ASSESS → THINK pipeline
@@ -693,7 +693,7 @@ class AgentControlService:
                         consecutive_failures += 1
                         continue
                     scene_desc = scene.description[:200].replace('\n', ' ')
-                    logger.warning(f"[AGENT][STEP {iteration+1}][SEE] {scene_desc}")
+                    logger.debug(f"[AGENT][STEP {iteration+1}][SEE] {scene_desc}")
                     self._world_state = self._build_world_state(
                         cursor_pos=cursor_pos,
                         scene_hint=scene_desc,
@@ -702,10 +702,10 @@ class AgentControlService:
                     # 2b. ASSESS — Check for obstacles before proceeding
                     obstacle = self._assess_obstacles(scene.description, analyzer, screen, iteration)
                     if obstacle == "handled":
-                        logger.warning(f"[AGENT][STEP {iteration+1}][ASSESS] Obstacle handled, re-scanning")
+                        logger.info(f"[AGENT][STEP {iteration+1}][ASSESS] Obstacle handled, re-scanning")
                         continue
                     elif obstacle == "escalated":
-                        logger.warning(f"[AGENT][STEP {iteration+1}][ASSESS] Escalated to thinking model")
+                        logger.info(f"[AGENT][STEP {iteration+1}][ASSESS] Escalated to thinking model")
                         continue
 
                     # 3. THINK — Text LLM decides next action
@@ -718,11 +718,14 @@ class AgentControlService:
                         consecutive_failures += 1
                         continue
                     decision = self._parse_decision(decision_result.description)
-                logger.warning(f"[AGENT][STEP {iteration+1}][THINK] action={decision.action.action_type} "
-                              f"target=\"{decision.action.target_description or ''}\" "
-                              f"text=\"{decision.action.text or ''}\" "
-                              f"keys={decision.action.keys or ''} "
-                              f"reasoning=\"{decision.action.reasoning or ''}\"")
+                logger.debug(
+                    f"[AGENT][STEP {iteration+1}][THINK] "
+                    f"action={decision.action.action_type} "
+                    f"target=\"{decision.action.target_description or ''}\" "
+                    f"text_len={len(decision.action.text or '')} "
+                    f"keys={decision.action.keys or ''} "
+                    f"reasoning_len={len(decision.action.reasoning or '')}"
+                )
                 self._emit_thinking(
                     iteration=iteration + 1,
                     label=self._build_action_label(decision.action),
@@ -787,9 +790,9 @@ class AgentControlService:
                         consecutive_failures += 1
                         continue
 
-                    logger.warning(f"[AGENT][DONE] Task complete after {iteration+1} steps, "
-                                  f"{time.time() - start_time:.1f}s "
-                                  f"(proof: {proof[:80]!r})")
+                    logger.info(f"[AGENT][DONE] Task complete after {iteration+1} steps, "
+                                f"{time.time() - start_time:.1f}s "
+                                f"(proof_len={len(proof)})")
                     return finish(AgentResult(
                         success=True, reason="completed",
                         steps=self._action_history,
@@ -934,8 +937,12 @@ class AgentControlService:
                                 result["post_action_effect"] = "verified"
 
                     status_icon = "OK" if not failed else "FAIL"
-                    logger.warning(f"[AGENT][STEP {iteration+1}][ACT] {decision.action.action_type} \"{target}\" "
-                                  f"at ({decision.action.coordinates[0]},{decision.action.coordinates[1]}) [{status_icon}]")
+                    log_action = logger.warning if failed else logger.debug
+                    log_action(
+                        f"[AGENT][STEP {iteration+1}][ACT] {decision.action.action_type} "
+                        f"\"{target}\" at ({decision.action.coordinates[0]},"
+                        f"{decision.action.coordinates[1]}) [{status_icon}]"
+                    )
                 elif decision.action.action_type in ("double_click", "triple_click", "hover"):
                     # Locate the target without clicking, then dispatch to the
                     # native gesture method. Splitting locate+act is what makes
@@ -982,7 +989,8 @@ class AgentControlService:
                             }
                     pixel_diff_value: Optional[float] = None
                     coords_str = f"({decision.action.coordinates[0]},{decision.action.coordinates[1]})" if decision.action.coordinates else "(?,?)"
-                    logger.warning(
+                    log_action = logger.warning if failed else logger.debug
+                    log_action(
                         f"[AGENT][STEP {iteration+1}][ACT] {decision.action.action_type} "
                         f"\"{target}\" at {coords_str} [{'OK' if not failed else 'FAIL'}]"
                     )
@@ -1027,7 +1035,8 @@ class AgentControlService:
                                 "reason": "" if not failed else act_result.get("error", "drag_failed"),
                             }
                     pixel_diff_value: Optional[float] = None
-                    logger.warning(
+                    log_action = logger.warning if failed else logger.debug
+                    log_action(
                         f"[AGENT][STEP {iteration+1}][ACT] drag \"{src_desc}\" → \"{dst_desc}\" "
                         f"[{'OK' if not failed else 'FAIL'}]"
                     )
@@ -1073,13 +1082,17 @@ class AgentControlService:
                                 failed = True
                             else:
                                 result["verified"] = True
-                                logger.warning(f"[AGENT][STEP {iteration+1}][VERIFY] Screen changed after "
-                                              f"{decision.action.action_type} (delta={pixel_diff:.2f})")
+                                logger.debug(f"[AGENT][STEP {iteration+1}][VERIFY] Screen changed after "
+                                             f"{decision.action.action_type} (delta={pixel_diff:.2f})")
 
                     status_icon = "OK" if not failed else "FAIL"
-                    detail = decision.action.text or str(decision.action.keys) or ""
-                    logger.warning(f"[AGENT][STEP {iteration+1}][ACT] {decision.action.action_type} "
-                                  f"\"{detail}\" [{status_icon}]")
+                    detail_len = len(decision.action.text or "")
+                    keys = decision.action.keys or []
+                    log_action = logger.warning if failed else logger.debug
+                    log_action(
+                        f"[AGENT][STEP {iteration+1}][ACT] {decision.action.action_type} "
+                        f"detail_len={detail_len} keys={keys} [{status_icon}]"
+                    )
 
                 signal = self._semantic_progress_signal(
                     decision.action,
@@ -1878,14 +1891,14 @@ class AgentControlService:
         if not detected_type:
             return "clear"
 
-        logger.warning(f"[AGENT][STEP {iteration+1}][ASSESS] Obstacle detected: {detected_type}")
+        logger.info(f"[AGENT][STEP {iteration+1}][ASSESS] Obstacle detected: {detected_type}")
 
         # Stage 1: Fast model handles known obstacles with simple actions
         if detected_type == "permission":
             # Permission dialogs: try Escape, then look for Block/Deny button
             screen.hotkey("Escape")
             _time.sleep(0.5)
-            logger.warning(f"[AGENT][STEP {iteration+1}][ASSESS] Tried Escape for permission dialog")
+            logger.info(f"[AGENT][STEP {iteration+1}][ASSESS] Tried Escape for permission dialog")
             return "handled"
 
         elif detected_type == "restore":
@@ -1896,23 +1909,23 @@ class AgentControlService:
             # (1000, 100) is a safe bet for a 1024px screen
             screen.click(1000, 100)
             _time.sleep(0.5)
-            logger.warning(f"[AGENT][STEP {iteration+1}][ASSESS] Dismissed restore session bar")
+            logger.info(f"[AGENT][STEP {iteration+1}][ASSESS] Dismissed restore session bar")
             return "handled"
 
         elif detected_type == "cookie":
             screen.hotkey("Escape")
             _time.sleep(0.5)
-            logger.warning(f"[AGENT][STEP {iteration+1}][ASSESS] Tried Escape for cookie banner")
+            logger.info(f"[AGENT][STEP {iteration+1}][ASSESS] Tried Escape for cookie banner")
             return "handled"
 
         elif detected_type == "error":
             # 404 or connection error — this is informational, not blocking
             # Let the THINK step handle it (might need to navigate elsewhere)
-            logger.warning(f"[AGENT][STEP {iteration+1}][ASSESS] Error page detected, letting THINK handle")
+            logger.info(f"[AGENT][STEP {iteration+1}][ASSESS] Error page detected, letting THINK handle")
             return "clear"
 
         # Stage 2: Unknown popup — escalate to thinking model
-        logger.warning(f"[AGENT][STEP {iteration+1}][ASSESS] Unknown obstacle, escalating to thinking model")
+        logger.info(f"[AGENT][STEP {iteration+1}][ASSESS] Unknown obstacle, escalating to thinking model")
 
         thinking_model = self._get_thinking_model()
         if not thinking_model:
@@ -1934,7 +1947,7 @@ class AgentControlService:
 
         thinking_result = analyzer.text_query(escalation_prompt, model=thinking_model)
         if thinking_result.success:
-            logger.warning(f"[AGENT][STEP {iteration+1}][ASSESS][THINKING] {thinking_result.description[:200]}")
+            logger.debug(f"[AGENT][STEP {iteration+1}][ASSESS][THINKING] {thinking_result.description[:200]}")
             decision = self._parse_decision(thinking_result.description)
             if decision.action.action_type == "click" and decision.action.target_description:
                 from backend.services.servo_controller import ServoController
@@ -2349,7 +2362,7 @@ Reply ONLY with JSON:
                     # If the recipe wants to LAUNCH Firefox but it's already running,
                     # just focus the existing window instead of the desktop-menu dance.
                     if recipe_name in ("open_firefox",) and self._is_firefox_running(screen):
-                        logger.warning(f"[AGENT][RECIPE] Skipping '{recipe_name}' — Firefox already running, focusing it")
+                        logger.info(f"[AGENT][RECIPE] Skipping '{recipe_name}' — Firefox already running, focusing it")
                         return self._focus_firefox(screen)
                     # Recipes can declare preconditions for the UI state they assume.
                     # When the world doesn't match (e.g. Firefox is already up but the
@@ -2362,7 +2375,7 @@ Reply ONLY with JSON:
                             f"({recipe.get('preconditions')}); deferring to vision loop"
                         )
                         continue
-                    logger.warning(f"[AGENT][RECIPE] Matched '{recipe_name}': {recipe['description']}")
+                    logger.info(f"[AGENT][RECIPE] Matched '{recipe_name}': {recipe['description']}")
                     return self._execute_recipe(recipe_name, recipe, match, screen)
 
         return None
@@ -2431,7 +2444,7 @@ Reply ONLY with JSON:
                     capture_output=True, timeout=3, env=env,
                 )
                 _time.sleep(0.5)
-                logger.warning("[AGENT][RECIPE] Focused existing Firefox window")
+                logger.info("[AGENT][RECIPE] Focused existing Firefox window")
         except Exception as e:
             logger.warning(f"[AGENT][RECIPE] Firefox focus failed: {e}")
 
@@ -3460,6 +3473,11 @@ Reply ONLY with JSON:
                         importance=0.55,
                         session_id=session_id,
                         tags=tags,
+                        metadata={
+                            "element": lesson.get("element"),
+                            "source": src,
+                            "source_line": src_line,
+                        },
                     )
                     if mem is not None:
                         written += 1

@@ -416,7 +416,7 @@ Format as a clear, organized list."""
         Returns:
             Dict containing analysis results and suggested response
         """
-        logger.info(f"Processing pasted image with message: '{user_message[:50]}...'")
+        logger.info(f"Processing pasted image (message_len={len(user_message or '')})")
         
         # Determine analysis type based on user message
         analysis_type = "describe"  # Default

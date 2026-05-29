@@ -12,6 +12,12 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import voiceService from "../../api/voiceService";
 import AudioVisualizer from "./AudioVisualizer";
 
+const debugLog = (...args) => {
+  if (import.meta.env.DEV) {
+    console.debug(...args);
+  }
+};
+
 const pulseAnimation = keyframes`
   0% { transform: scale(1); opacity: 0.8; }
   50% { transform: scale(1.1); opacity: 0.6; }
@@ -205,7 +211,7 @@ const VoiceChatButton = ({
 
   const handleStopRecording = useCallback(async () => {
     try {
-      console.log("VoiceChatButton: Stopping recording...");
+      debugLog("VoiceChatButton: Stopping recording");
 
       if (isProcessing) {
         console.warn(
@@ -233,7 +239,7 @@ const VoiceChatButton = ({
         );
       }
 
-      console.log("VoiceChatButton: Processing audio blob", {
+      debugLog("VoiceChatButton: Processing audio blob", {
         size: audioBlob.size,
         type: audioBlob.type,
         duration: duration,
@@ -241,7 +247,10 @@ const VoiceChatButton = ({
 
       const result = await voiceService.streamVoiceChat(audioBlob, sessionId);
 
-      console.log("VoiceChatButton: Voice API response:", result);
+      debugLog("VoiceChatButton: Voice API response", {
+        hasTranscription: Boolean(result?.transcribed_text || result?.transcript || result?.text),
+        hasResponse: Boolean(result?.llm_response || result?.response),
+      });
 
       if (!result || typeof result !== 'object') {
         throw new Error("Invalid API response format. Please try again.");
@@ -255,25 +264,21 @@ const VoiceChatButton = ({
         throw new Error("No transcription received from API. Please try speaking again.");
       }
 
-      console.log("VOICECHATBUTTON: Extracted from API response:", {
+      debugLog("VoiceChatButton: Extracted from API response", {
         hasTranscription: !!transcription,
         transcriptionLength: transcription?.length || 0,
         hasLlmResponse: !!llmResponse,
         llmResponseLength: llmResponse?.length || 0,
-        transcriptionPreview: transcription
-          ? transcription.substring(0, 50) + "..."
-          : null,
-        llmResponsePreview: llmResponse
-          ? llmResponse.substring(0, 100) + "..."
-          : null,
       });
 
       if (transcription && transcription.trim()) {
-        console.log("VoiceChatButton: Transcription received:", transcription);
+        debugLog("VoiceChatButton: Transcription received", {
+          transcriptionLength: transcription.length,
+        });
 
         if (onTranscriptionReceived) {
-          console.log("VOICECHATBUTTON: Sending to ChatInput:", {
-            userMessage: transcription.trim().substring(0, 50) + "...",
+          debugLog("VoiceChatButton: Sending to ChatInput", {
+            userMessageLength: transcription.trim().length,
             hasAiResponse: !!(llmResponse || null),
             aiResponseLength: (llmResponse || "").length,
             isVoiceStream: true,
@@ -312,11 +317,11 @@ const VoiceChatButton = ({
         }
 
         if (llmResponse && llmResponse.trim()) {
-          console.log(
+          debugLog(
             "VoiceChatButton: Playing TTS for AI response:",
-            llmResponse
+            { responseLength: llmResponse.length }
           );
-          console.log(
+          debugLog(
             "VoiceChatButton: TTS will be handled by parent component"
           );
         }
@@ -495,7 +500,7 @@ const VoiceChatButton = ({
         setDuration(elapsed);
 
         if (elapsed >= 60000 && !isProcessing) {
-          console.log("VoiceChatButton: Auto-stopping recording at 60 seconds");
+          debugLog("VoiceChatButton: Auto-stopping recording at 60 seconds");
           handleStopRecording();
         }
       }, 100);
@@ -517,7 +522,7 @@ const VoiceChatButton = ({
 
   const handleStartRecording = useCallback(async () => {
     try {
-      console.log("VoiceChatButton: Starting recording...");
+      debugLog("VoiceChatButton: Starting recording");
       setRecordingError(null);
       setIsProcessing(false);
 
@@ -530,7 +535,7 @@ const VoiceChatButton = ({
       setIsRecording(true);
       startTimeRef.current = Date.now();
 
-      console.log("VoiceChatButton: Recording started successfully");
+      debugLog("VoiceChatButton: Recording started successfully");
     } catch (error) {
       console.error("VoiceChatButton: Failed to start recording:", error);
       

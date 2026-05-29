@@ -808,7 +808,7 @@ def generate_from_prompts():
 
         # Extract prompts
         prompts = data.get('prompts', [])
-        logger.info(f"--- DEBUG: API RECEIVED PROMPTS: {prompts} ---")
+        logger.debug(f"Batch image API received prompts (count={len(prompts)})")
         if not prompts:
             return error_response("No prompts provided", 400)
 

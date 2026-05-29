@@ -4,6 +4,12 @@ import { BASE_URL, handleResponse } from "./apiClient";
 import { validateChatInput, checkRateLimit, ValidationError } from "../utils/inputValidation";
 import { RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_WINDOW_MS } from "../config/constants";
 
+const debugLog = (...args) => {
+  if (import.meta.env.DEV) {
+    console.debug(...args);
+  }
+};
+
 export const sendQuery = async (
   inputText,
   tags = [],
@@ -82,7 +88,11 @@ export const sendCommandToQueryApi = async (
   sessionId = null,
   projectId = null
 ) => {
-  console.log(`chatService: Sending command "${commandText}" to /api/query`);
+  debugLog("chatService: Sending command to /api/query", {
+    commandLength: commandText?.length || 0,
+    sessionId,
+    projectId,
+  });
   try {
     const payload = {
       prompt: commandText,
@@ -133,12 +143,16 @@ class EnhancedChatService {
       onDeltaReceived = null,
     } = options;
 
-    console.log('CHAT_DEBUG: sendEnhancedMessage called', { sessionId, requestId, message: message?.substring(0, 50) + '...' });
+    debugLog('chatService: sendEnhancedMessage called', {
+      sessionId,
+      requestId,
+      messageLength: message?.length || 0,
+    });
 
     // Check for duplicate requests
     const requestKey = `${sessionId}_${message}`;
     if (this.activeRequests.has(requestKey)) {
-      console.warn('CHAT_DEBUG: Duplicate request detected, blocking:', requestKey);
+      debugLog('chatService: Duplicate request detected, blocking', { sessionId });
       throw new Error('Duplicate request detected');
     }
 
@@ -147,14 +161,14 @@ class EnhancedChatService {
       const cachedResult = this.requestResults.get(requestKey);
       const timeDiff = Date.now() - cachedResult.timestamp;
       if (timeDiff < 2000) { // 2 second cache
-        console.log('CHAT_DEBUG: Returning cached result for recent duplicate request');
+        debugLog('chatService: Returning cached result for recent duplicate request');
         return { ...cachedResult.result, cached: true };
       }
     }
 
     // Mark request as active
     this.activeRequests.add(requestKey);
-    console.log('CHAT_DEBUG: Marked request as active:', requestKey);
+    debugLog('chatService: Marked request as active', { sessionId });
 
     try {
       // Check if we should use web search for this query
@@ -166,7 +180,7 @@ class EnhancedChatService {
 
       // Perform web search if needed
       if (shouldUseWebSearch) {
-        console.log('CHAT_DEBUG: Using web search for query');
+        debugLog('chatService: Using web search for query');
         try {
           const searchResult = await this.performWebSearch(message);
           if (searchResult.success && searchResult.data.has_result) {
@@ -174,7 +188,7 @@ class EnhancedChatService {
             enhancedMessage = `${message}\n\n[Web Search Context: ${searchResult.data.snippet}]`;
           }
         } catch (error) {
-          console.warn('CHAT_DEBUG: Web search failed, continuing without:', error);
+          debugLog('chatService: Web search failed, continuing without', error);
         }
       }
 
@@ -183,7 +197,7 @@ class EnhancedChatService {
 
       // Try enhanced chat API first
       try {
-        console.log('CHAT_DEBUG: Trying enhanced chat API');
+        debugLog('chatService: Trying enhanced chat API');
         const response = await fetch(`${BASE_URL}/enhanced-chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -203,7 +217,7 @@ class EnhancedChatService {
         
         if (data.success) {
           enhancedSuccess = true;
-          console.log('CHAT_DEBUG: Enhanced chat API succeeded');
+          debugLog('chatService: Enhanced chat API succeeded');
           
           // Store context locally for persistence
           this._updateSessionContext(sessionId, message, data.data.response);
@@ -225,15 +239,15 @@ class EnhancedChatService {
             onDeltaReceived(data.data.response);
           }
         } else {
-          console.warn('CHAT_DEBUG: Enhanced chat API returned unsuccessful response');
+          debugLog('chatService: Enhanced chat API returned unsuccessful response');
         }
       } catch (enhancedError) {
-        console.warn('CHAT_DEBUG: Enhanced Chat API failed, will try fallback:', enhancedError);
+        debugLog('chatService: Enhanced chat API failed, will try fallback', enhancedError);
       }
 
       // Only use fallback if enhanced API completely failed
       if (!enhancedSuccess) {
-        console.log('CHAT_DEBUG: Using fallback to basic chat API');
+        debugLog('chatService: Using fallback to basic chat API');
         result = await this._fallbackToBasicChat(sessionId, enhancedMessage, projectId);
         result.requestId = requestId;
       }
@@ -250,7 +264,7 @@ class EnhancedChatService {
         this.requestResults.delete(oldestKey);
       }
 
-      console.log('CHAT_DEBUG: sendEnhancedMessage completed successfully', { 
+      debugLog('chatService: sendEnhancedMessage completed successfully', { 
         enhanced: result.enhanced, 
         fallback: result.fallback,
         requestId: requestId
@@ -259,12 +273,12 @@ class EnhancedChatService {
       return result;
 
     } catch (error) {
-      console.error('CHAT_DEBUG: Error in sendEnhancedMessage:', error);
+      console.error('chatService: Error in sendEnhancedMessage:', error);
       throw error;
     } finally {
       // Always remove from active requests
       this.activeRequests.delete(requestKey);
-      console.log('CHAT_DEBUG: Removed request from active set:', requestKey);
+      debugLog('chatService: Removed request from active set', { sessionId });
     }
   }
 
@@ -400,7 +414,7 @@ class EnhancedChatService {
    * Fallback to basic chat API
    */
   async _fallbackToBasicChat(sessionId, message, projectId) {
-    console.log('CHAT_DEBUG: Starting fallback to basic chat API', { sessionId, projectId });
+    debugLog('chatService: Starting fallback to basic chat API', { sessionId, projectId });
     
     const debugId = `fallback-${Date.now()}`;
     const response = await fetch(`${BASE_URL}/simple-chat`, {
@@ -418,11 +432,11 @@ class EnhancedChatService {
     });
 
     if (!response.ok) {
-      console.error('CHAT_DEBUG: Basic chat API error:', response.status, response.statusText);
+      console.error('chatService: Basic chat API error:', response.status, response.statusText);
       throw new Error(`Chat API error: ${response.status}`);
     }
 
-    console.log('CHAT_DEBUG: Basic chat API response received, processing stream');
+    debugLog('chatService: Basic chat API response received, processing stream');
 
     // Handle streaming response
     const reader = response.body.getReader();
@@ -434,7 +448,7 @@ class EnhancedChatService {
     while (true) {
       const { done, value } = await reader.read();
       if (done) {
-        console.log('CHAT_DEBUG: Stream completed, total chunks:', chunkCount);
+        debugLog('chatService: Stream completed', { chunkCount });
         break;
       }
 
@@ -450,13 +464,15 @@ class EnhancedChatService {
               content += data.delta;
             }
           } catch (e) {
-            console.warn('CHAT_DEBUG: Failed to parse streaming data:', line);
+            debugLog('chatService: Failed to parse streaming data', {
+              lineLength: line.length,
+            });
           }
         }
       }
     }
 
-    console.log('CHAT_DEBUG: Fallback chat completed', { 
+    debugLog('chatService: Fallback chat completed', { 
       contentLength: content.length,
       debugId: debugId
     });
@@ -486,16 +502,16 @@ export const sendChatMessage = async (
   _chatMode = null,
   rulesCutoff = false
 ) => {
-  console.log('CHAT_DEBUG: sendChatMessage called', {
+  debugLog('chatService: sendChatMessage called', {
     sessionId,
-    userMessage: typeof userMessage === 'string' ? userMessage.substring(0, 50) + '...' : userMessage,
+    userMessageLength: typeof userMessage === 'string' ? userMessage.length : 0,
     projectId,
     rulesCutoff
   });
   
   // Track this request to prevent duplicate processing
   const requestId = `${sessionId}_${Date.now()}_${Math.random()}`;
-  console.log('CHAT_DEBUG: Request ID:', requestId);
+  debugLog('chatService: Request ID', requestId);
   
   // Use enhanced chat service for better features
   const result = await enhancedChatService.sendEnhancedMessage(sessionId, userMessage, {
@@ -509,7 +525,7 @@ export const sendChatMessage = async (
     onDeltaReceived: onDeltaReceived,
   });
 
-  console.log('CHAT_DEBUG: sendChatMessage result:', {
+  debugLog('chatService: sendChatMessage result', {
     success: result.success,
     enhanced: result.enhanced,
     fallback: result.fallback,
@@ -578,24 +594,21 @@ export const getChatHistory = async (
     if (beforeId) params.append("before_id", beforeId);
     params.append("limit", limit.toString());
     const url = `${BASE_URL}/enhanced-chat/${sessionId}/history?${params.toString()}`;
-    console.log("DEBUG: getChatHistory URL:", url);
+    debugLog("chatService: getChatHistory request", { sessionId, beforeId, limit });
     const response = await fetch(url);
     const raw = await handleResponse(response);
-    console.log("DEBUG: getChatHistory raw response:", raw);
     let data = raw;
     if (raw && typeof raw === "object" && raw.data) {
       data = raw.data;
     }
-    console.log("DEBUG: getChatHistory processed data:", data);
     if (
       typeof data === "object" &&
       data !== null &&
       Array.isArray(data.messages)
     ) {
-      console.log(
-        "DEBUG: getChatHistory returning messages, count:",
-        data.messages.length
-      );
+      debugLog("chatService: getChatHistory returning messages", {
+        count: data.messages.length,
+      });
       return data;
     }
     console.warn(

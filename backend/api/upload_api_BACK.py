@@ -477,8 +477,8 @@ def upload_file_endpoint():
             # Store the filename itself as the relative path within the upload folder
             db_relative_path = filename
             # --- END MODIFICATION ---
-            logger.info(f"DEBUG: Calculated absolute save_path: {save_path_abs}")
-            logger.info(f"DEBUG: Storing relative path in DB: {db_relative_path}")
+            logger.debug("Calculated upload save path")
+            logger.debug(f"Storing upload relative path (filename={db_relative_path})")
 
             # Save the file
             file.save(save_path_abs)

@@ -53,6 +53,12 @@ import CharacterPicker from '../components/filmcrew/CharacterPicker';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
+const debugLog = (...args) => {
+  if (import.meta.env.DEV) {
+    console.debug(...args);
+  }
+};
+
 // Utility function to sanitize text for display
 const sanitizeText = (text) => {
   if (!text) return '';
@@ -688,7 +694,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
           });
         }
 
-        console.log('--- DEBUG: PROMPTS BEING SENT TO BACKEND:', promptsToGenerate);
+        debugLog('Batch image prompts prepared', { promptCount: promptsToGenerate.length });
 
         response = await fetch(`${API_BASE}/batch-image/generate/prompts`, {
           method: 'POST',

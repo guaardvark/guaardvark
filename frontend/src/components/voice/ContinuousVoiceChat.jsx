@@ -20,6 +20,12 @@ import voiceService from '../../api/voiceService';
 import { checkForWakeWord } from '../../utils/wakeWordMatcher';
 import CanvasWaveform from './CanvasWaveform';
 
+const debugLog = (...args) => {
+  if (import.meta.env.DEV) {
+    console.debug(...args);
+  }
+};
+
 const pulseAnimation = keyframes`
   0% { transform: scale(1); opacity: 1; }
   50% { transform: scale(1.1); opacity: 0.8; }
@@ -203,7 +209,7 @@ const ContinuousVoiceChat = React.forwardRef(({
       playbackSpeedRef.current = settings.playbackSpeed ?? 1.0;
       // Update active listening duration from settings
       activeListeningDurationRef.current = settings.activeListeningDuration || 30000;
-      console.log('ContinuousVoiceChat: VAD + playback settings updated from settings change');
+      debugLog('ContinuousVoiceChat: VAD + playback settings updated from settings change');
     };
 
     window.addEventListener('voiceSettingsChanged', handleSettingsChanged);
@@ -243,7 +249,7 @@ const ContinuousVoiceChat = React.forwardRef(({
 
   // Set initial listening mode based on wakeWordEnabled
   useEffect(() => {
-    console.log('ContinuousVoiceChat: wakeWordEnabled changed to:', wakeWordEnabled, 'systemName:', systemName);
+    debugLog('ContinuousVoiceChat: wakeWordEnabled changed', { wakeWordEnabled, hasSystemName: Boolean(systemName) });
     if (wakeWordEnabled) {
       listeningModeRef.current = 'passive';
       setListeningMode('passive');
@@ -311,12 +317,12 @@ const ContinuousVoiceChat = React.forwardRef(({
       clearTimeout(activeListeningTimeoutRef.current);
     }
     activeListeningTimeoutRef.current = setTimeout(() => {
-      console.log('ContinuousVoiceChat: Active listening timeout, returning to passive');
+      debugLog('ContinuousVoiceChat: Active listening timeout, returning to passive');
       listeningModeRef.current = 'passive';
       setListeningMode('passive');
     }, activeListeningDurationRef.current);
 
-    console.log('ContinuousVoiceChat: Wake word detected, active listening mode');
+    debugLog('ContinuousVoiceChat: Wake word detected, active listening mode');
   }, [onWakeWordDetected]);
 
   const resetActiveListeningTimeout = useCallback(() => {
@@ -325,7 +331,7 @@ const ContinuousVoiceChat = React.forwardRef(({
       clearTimeout(activeListeningTimeoutRef.current);
     }
     activeListeningTimeoutRef.current = setTimeout(() => {
-      console.log('ContinuousVoiceChat: Active listening timeout, returning to passive');
+      debugLog('ContinuousVoiceChat: Active listening timeout, returning to passive');
       listeningModeRef.current = 'passive';
       setListeningMode('passive');
     }, activeListeningDurationRef.current);
@@ -404,10 +410,10 @@ const ContinuousVoiceChat = React.forwardRef(({
         isSpeaking = true;
         // Talk-over interruption: if AI is speaking, silence it immediately
         if (voiceService.getIsTTSPlaying()) {
-          console.log('ContinuousVoiceChat: Interrupting AI playback (user started speaking)');
+          debugLog('ContinuousVoiceChat: Interrupting AI playback (user started speaking)');
           voiceService.stopPlayback();
         }
-        console.log('ContinuousVoiceChat: Speech confirmed (hysteresis start)', {
+        debugLog('ContinuousVoiceChat: Speech confirmed (hysteresis start)', {
           smoothedVolume: smoothedVolume.toFixed(4),
           speechThreshold: speechStartThreshold.toFixed(4),
           consecutiveFrames: consecutiveSpeechFramesRef.current
@@ -417,7 +423,7 @@ const ContinuousVoiceChat = React.forwardRef(({
       if (consecutiveSilenceFramesRef.current >= vad.silenceConfirmationFrames) {
         confirmedSpeakingRef.current = false;
         isSpeaking = false;
-        console.log('ContinuousVoiceChat: Silence confirmed (hysteresis end)', {
+        debugLog('ContinuousVoiceChat: Silence confirmed (hysteresis end)', {
           smoothedVolume: smoothedVolume.toFixed(4),
           silenceThreshold: silenceConfirmThreshold.toFixed(4),
           consecutiveFrames: consecutiveSilenceFramesRef.current
@@ -433,7 +439,7 @@ const ContinuousVoiceChat = React.forwardRef(({
 
       if (now - lastThresholdResetTimeRef.current > vad.thresholdDecayTimeout) {
         if (adaptiveThresholdRef.current < vad.energyThreshold * 0.9) {
-          console.log('ContinuousVoiceChat: Resetting adaptive threshold after prolonged silence');
+          debugLog('ContinuousVoiceChat: Resetting adaptive threshold after prolonged silence');
           adaptiveThresholdRef.current = vad.energyThreshold;
         }
         lastThresholdResetTimeRef.current = now;
@@ -449,7 +455,7 @@ const ContinuousVoiceChat = React.forwardRef(({
     if (isSpeaking) {
       if (!speechStartTimeRef.current) {
         speechStartTimeRef.current = now;
-        console.log('ContinuousVoiceChat: Speech started');
+        debugLog('ContinuousVoiceChat: Speech started');
       }
       lastSpeechTimeRef.current = now;
 
@@ -470,7 +476,7 @@ const ContinuousVoiceChat = React.forwardRef(({
           currentSegmentChunksRef.current.length > 0;
 
         if (shouldSegment) {
-          console.log('ContinuousVoiceChat: Natural pause detected, segmenting...', {
+          debugLog('ContinuousVoiceChat: Natural pause detected, segmenting...', {
             speechDuration,
             silenceDuration,
             smoothedVolume: smoothedVolume.toFixed(4),
@@ -502,18 +508,18 @@ const ContinuousVoiceChat = React.forwardRef(({
     const vad = vadConfigRef.current;
 
     if (currentSegmentChunksRef.current.length === 0) {
-      console.log('ContinuousVoiceChat: No audio chunks to segment');
+      debugLog('ContinuousVoiceChat: No audio chunks to segment');
       return;
     }
 
     const now = Date.now();
     if (lastSegmentTimeRef.current && (now - lastSegmentTimeRef.current) < vad.minPauseBetweenSegments) {
-      console.log('ContinuousVoiceChat: Skipping segment - too soon after last segment');
+      debugLog('ContinuousVoiceChat: Skipping segment - too soon after last segment');
       return;
     }
 
     if (isAISpeaking || isMicMuted) {
-      console.log('ContinuousVoiceChat: Skipping segment - AI is speaking or mic is muted');
+      debugLog('ContinuousVoiceChat: Skipping segment - AI is speaking or mic is muted');
       return;
     }
 
@@ -594,7 +600,7 @@ const ContinuousVoiceChat = React.forwardRef(({
         return;
       }
 
-      console.log('ContinuousVoiceChat: Segmented audio for processing', {
+      debugLog('ContinuousVoiceChat: Segmented audio for processing', {
         size: audioBlob.size,
         chunks: segmentChunks.length,
         queueSize: audioQueueRef.current.length,
@@ -635,7 +641,7 @@ const ContinuousVoiceChat = React.forwardRef(({
         return false;
       }
 
-      console.log('ContinuousVoiceChat: Audio blob passed minimal validation', {
+      debugLog('ContinuousVoiceChat: Audio blob passed minimal validation', {
         size: audioBlob.size,
         type: audioBlob.type || 'unknown'
       });
@@ -655,7 +661,7 @@ const ContinuousVoiceChat = React.forwardRef(({
     try {
       // --- PASSIVE MODE: transcribe only, check for wake word ---
       if (wakeWordEnabled && listeningModeRef.current === 'passive') {
-        console.log('ContinuousVoiceChat: Passive mode - transcribing for wake word...');
+        debugLog('ContinuousVoiceChat: Passive mode - transcribing for wake word');
         setIsMicMuted(true);
 
         try {
@@ -667,14 +673,16 @@ const ContinuousVoiceChat = React.forwardRef(({
             return;
           }
 
-          console.log('ContinuousVoiceChat: Passive transcription:', JSON.stringify(text), 'checking against systemName:', JSON.stringify(systemNameRef.current));
+          debugLog('ContinuousVoiceChat: Passive transcription received', {
+            textLength: text.length,
+            hasSystemName: Boolean(systemNameRef.current),
+          });
           const wakeResult = checkForWakeWord(text, systemNameRef.current);
-          console.log('ContinuousVoiceChat: Wake word check result:', JSON.stringify(wakeResult));
+          debugLog('ContinuousVoiceChat: Wake word check result', { detected: wakeResult.detected });
 
           if (wakeResult.detected) {
-            console.log('ContinuousVoiceChat: Wake word detected!', {
-              matchedPhrase: wakeResult.matchedPhrase,
-              remainder: wakeResult.remainder
+            debugLog('ContinuousVoiceChat: Wake word detected', {
+              remainderLength: wakeResult.remainder?.length || 0
             });
 
             activateListening();
@@ -697,7 +705,7 @@ const ContinuousVoiceChat = React.forwardRef(({
       }
 
       // --- ACTIVE MODE: transcribe, then send through normal chat pipeline for streaming ---
-      console.log('ContinuousVoiceChat: Active mode - transcribing segment...');
+      debugLog('ContinuousVoiceChat: Active mode - transcribing segment');
 
       setIsMicMuted(true);
 
@@ -705,7 +713,7 @@ const ContinuousVoiceChat = React.forwardRef(({
       const text = transcription?.text || transcription?.transcribed_text || '';
 
       if (text.trim()) {
-        console.log('ContinuousVoiceChat: Active transcription:', text);
+        debugLog('ContinuousVoiceChat: Active transcription received', { textLength: text.length });
 
         // Send transcription through the normal chat pipeline (no aiResponse = uses streaming)
         onMessageReceived({
@@ -784,7 +792,7 @@ const ContinuousVoiceChat = React.forwardRef(({
   // --- Start listening ---
   const startListening = useCallback(async () => {
     try {
-      console.log('ContinuousVoiceChat: Starting continuous listening mode...');
+      debugLog('ContinuousVoiceChat: Starting continuous listening mode');
       setError(null);
 
       // Set initial mode based on wake word
@@ -819,7 +827,7 @@ const ContinuousVoiceChat = React.forwardRef(({
       for (const type of mimeTypes) {
         if (MediaRecorder.isTypeSupported(type)) {
           mimeType = type;
-          console.log('ContinuousVoiceChat: Using MIME type:', type);
+          debugLog('ContinuousVoiceChat: Using MIME type:', type);
           break;
         }
       }
@@ -895,7 +903,7 @@ const ContinuousVoiceChat = React.forwardRef(({
 
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      console.log('ContinuousVoiceChat: Audio analyzer ready, starting monitoring...');
+      debugLog('ContinuousVoiceChat: Audio analyzer ready, starting monitoring');
 
       volumeMonitorRef.current = setInterval(() => {
         if (!isMountedRef.current) return;
@@ -929,14 +937,14 @@ const ContinuousVoiceChat = React.forwardRef(({
             const hasActiveData = sampledLevels.some(level => level > 0);
             if (hasActiveData && !waveformActive) {
               setWaveformActive(true);
-              console.log('ContinuousVoiceChat: Waveform now receiving audio data');
+              debugLog('ContinuousVoiceChat: Waveform now receiving audio data');
             }
           }
 
           const vadResult = detectVoiceActivity(validVolume);
 
           if (Math.random() < 0.05) {
-            console.log('ContinuousVoiceChat: VAD state:', {
+            debugLog('ContinuousVoiceChat: VAD state:', {
               ...vadResult,
               volume: validVolume.toFixed(4),
               hasAudioLevels: levels && levels.length > 0,
@@ -954,7 +962,7 @@ const ContinuousVoiceChat = React.forwardRef(({
         const speechDuration = Date.now() - speechStartTimeRef.current;
 
         if (speechDuration >= vadConfigRef.current.maxSegmentDuration) {
-          console.log('ContinuousVoiceChat: Max segment duration reached, force segmenting...');
+          debugLog('ContinuousVoiceChat: Max segment duration reached, force segmenting');
           segmentCurrentAudio();
           speechStartTimeRef.current = null;
           lastSpeechTimeRef.current = null;
@@ -962,7 +970,7 @@ const ContinuousVoiceChat = React.forwardRef(({
         }
       }, 1000);
 
-      console.log('ContinuousVoiceChat: Continuous listening started successfully');
+      debugLog('ContinuousVoiceChat: Continuous listening started successfully');
 
     } catch (err) {
       console.error('ContinuousVoiceChat: Failed to start listening:', err);
@@ -975,7 +983,7 @@ const ContinuousVoiceChat = React.forwardRef(({
 
 
   const stopListening = useCallback(async () => {
-    console.log('ContinuousVoiceChat: Stopping continuous listening...');
+    debugLog('ContinuousVoiceChat: Stopping continuous listening');
 
     if (volumeMonitorRef.current) {
       clearInterval(volumeMonitorRef.current);
@@ -994,7 +1002,7 @@ const ContinuousVoiceChat = React.forwardRef(({
     if (hadRecording) {
       await new Promise((resolve) => {
         mediaRecorderRef.current.onstop = () => {
-          console.log('ContinuousVoiceChat: MediaRecorder stopped, finalizing data...');
+          debugLog('ContinuousVoiceChat: MediaRecorder stopped, finalizing data');
           resolve();
         };
         mediaRecorderRef.current.stop();
@@ -1009,7 +1017,7 @@ const ContinuousVoiceChat = React.forwardRef(({
         const mimeType = mediaRecorderRef.current?.mimeType || 'audio/webm;codecs=opus';
         const audioBlob = new Blob(segmentChunks, { type: mimeType });
         if (audioBlob.size >= (vadConfigRef.current?.minChunkSize || 1000)) {
-          console.log('ContinuousVoiceChat: Processing final segment after stop...', {
+          debugLog('ContinuousVoiceChat: Processing final segment after stop', {
             size: audioBlob.size, chunks: segmentChunks.length
           });
           // enqueueAudioSegment(audioBlob);
@@ -1041,12 +1049,12 @@ const ContinuousVoiceChat = React.forwardRef(({
     consecutiveSpeechFramesRef.current = 0;
     confirmedSpeakingRef.current = false;
 
-    console.log('ContinuousVoiceChat: Stopped successfully');
+    debugLog('ContinuousVoiceChat: Stopped successfully');
   }, [enqueueAudioSegment]);
 
 
   const cleanup = useCallback(() => {
-    console.log('ContinuousVoiceChat: Cleaning up resources...');
+    debugLog('ContinuousVoiceChat: Cleaning up resources');
 
     if (volumeMonitorRef.current) {
       clearInterval(volumeMonitorRef.current);
@@ -1147,7 +1155,7 @@ const ContinuousVoiceChat = React.forwardRef(({
 
     return () => {
       isMountedRef.current = false;
-      console.log('ContinuousVoiceChat: Component unmounting, cleaning up...');
+      debugLog('ContinuousVoiceChat: Component unmounting, cleaning up');
       cleanup();
     };
   }, [cleanup]);

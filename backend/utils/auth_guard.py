@@ -61,6 +61,8 @@ def _is_protected():
             return True
     if path.startswith('/api/files/') and request.method not in ('GET', 'HEAD', 'OPTIONS'):
         return True
+    if path.startswith('/api/memory') and request.method not in ('GET', 'HEAD', 'OPTIONS'):
+        return True
     if request.method == 'DELETE':
         for prefix in PROTECTED_DELETE_PREFIXES:
             if path.startswith(prefix):

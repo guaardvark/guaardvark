@@ -4,6 +4,12 @@
 
 import { getResourceManager } from "../utils/resource_manager";
 
+const debugLog = (...args) => {
+  if (import.meta.env.DEV) {
+    console.debug(...args);
+  }
+};
+
 /**
  * Enhanced Session State Service
  * Prevents memory resets and maintains conversation context across all interactions
@@ -15,7 +21,7 @@ class SessionStateService {
     this.contextBackups = new Map();
     this.conversationHistory = new Map();
 
-    // CLAUDE_FIX: Initialize context preservation tracking
+    // Initialize context preservation tracking
     this.initializeContextPreservation();
   }
 
@@ -44,7 +50,7 @@ class SessionStateService {
   }
 
   /**
-   * CLAUDE_FIX: Register a session for advanced state management
+   * Register a session for advanced state management
    */
   registerSession(sessionId, options = {}) {
     const {
@@ -67,7 +73,7 @@ class SessionStateService {
         maxHistoryItems,
         fileGenerationCapable
       },
-      // CLAUDE_FIX: Memory reset prevention flags
+      // Memory reset prevention flags
       memoryResetPrevention: {
         lastMessageBeforeFileGeneration: null,
         fileGenerationContext: null,
@@ -81,12 +87,12 @@ class SessionStateService {
     const processId = this.resourceManager.createProcess('session_management', { sessionId });
     sessionState.processId = processId;
 
-    console.log(`CLAUDE_FIX: Session ${sessionId} registered with advanced state management`);
+    debugLog("Session registered with advanced state management", { sessionId });
     return sessionState;
   }
 
   /**
-   * CLAUDE_FIX: Record a message with context preservation
+   * Record a message with context preservation
    */
   recordMessage(sessionId, message, role = 'user', metadata = {}) {
     let sessionState = this.sessionStates.get(sessionId);
@@ -107,12 +113,12 @@ class SessionStateService {
       }
     };
 
-    // CLAUDE_FIX: Always preserve the conversation context
+    // Always preserve the conversation context
     sessionState.conversationContext.push(messageRecord);
     sessionState.messageCount++;
     sessionState.lastActivity = Date.now();
 
-    // CLAUDE_FIX: Special handling for file generation scenarios
+    // Special handling for file generation scenarios
     if (metadata.fileGenerationTriggered) {
       sessionState.memoryResetPrevention.lastMessageBeforeFileGeneration = messageRecord;
       sessionState.memoryResetPrevention.fileGenerationContext = {
@@ -121,13 +127,15 @@ class SessionStateService {
         continuityMarker: `file_gen_${Date.now()}`
       };
 
-      console.log(`CLAUDE_FIX: Preserved context before file generation for session ${sessionId}`);
+      debugLog("Preserved context before file generation", { sessionId });
     }
 
     // Limit history size to prevent memory issues
     if (sessionState.conversationContext.length > sessionState.options.maxHistoryItems) {
       const removed = sessionState.conversationContext.shift();
-      console.log(`CLAUDE_FIX: Archived old message to prevent memory overflow: ${removed.id}`);
+      debugLog("Archived old message to prevent memory overflow", {
+        messageId: removed.id,
+      });
     }
 
     // Auto-backup if enabled
@@ -139,12 +147,12 @@ class SessionStateService {
   }
 
   /**
-   * CLAUDE_FIX: Ensure conversation continuity during file generation
+   * Ensure conversation continuity during file generation
    */
   preserveContextDuringFileGeneration(sessionId, userMessage, fileGenerationData) {
     const sessionState = this.sessionStates.get(sessionId);
     if (!sessionState) {
-      console.warn(`CLAUDE_FIX: No session state found for ${sessionId}, creating new one`);
+      console.warn(`No session state found for ${sessionId}, creating new one`);
       return this.registerSession(sessionId);
     }
 
@@ -155,7 +163,7 @@ class SessionStateService {
       systemRouting: 'file_generation_parallel'
     });
 
-    // CLAUDE_FIX: Create a continuity marker to prevent memory reset
+    // Create a continuity marker to prevent memory reset
     const continuityMarker = {
       id: `continuity_${Date.now()}`,
       type: 'file_generation_continuity',
@@ -175,20 +183,20 @@ class SessionStateService {
         JSON.stringify(continuityMarker)
       );
     } catch (e) {
-      console.warn('CLAUDE_FIX: Failed to store continuity marker in sessionStorage:', e);
+      console.warn('Failed to store continuity marker in sessionStorage:', e);
     }
 
-    console.log(`CLAUDE_FIX: Context preserved during file generation for session ${sessionId}`);
+    debugLog("Context preserved during file generation", { sessionId });
     return continuityMarker;
   }
 
   /**
-   * CLAUDE_FIX: Restore conversation context after system routing
+   * Restore conversation context after system routing
    */
   restoreConversationContext(sessionId) {
     const sessionState = this.sessionStates.get(sessionId);
     if (!sessionState) {
-      console.warn(`CLAUDE_FIX: No session state found for restoration: ${sessionId}`);
+      console.warn(`No session state found for restoration: ${sessionId}`);
       return null;
     }
 
@@ -197,7 +205,7 @@ class SessionStateService {
       const storedMarker = sessionStorage.getItem(`conversation_continuity_${sessionId}`);
       if (storedMarker) {
         const continuityMarker = JSON.parse(storedMarker);
-        console.log(`CLAUDE_FIX: Found conversation continuity marker for session ${sessionId}`);
+        debugLog("Found conversation continuity marker", { sessionId });
 
         // Verify the marker is recent (within last 5 minutes)
         if (Date.now() - continuityMarker.timestamp < 300000) {
@@ -210,7 +218,7 @@ class SessionStateService {
         }
       }
     } catch (e) {
-      console.warn('CLAUDE_FIX: Failed to restore continuity marker:', e);
+      console.warn('Failed to restore continuity marker:', e);
     }
 
     // Fallback to session state
@@ -223,7 +231,7 @@ class SessionStateService {
   }
 
   /**
-   * CLAUDE_FIX: Backup session state to prevent data loss
+   * Backup session state to prevent data loss
    */
   backupSessionState(sessionId) {
     const sessionState = this.sessionStates.get(sessionId);
@@ -244,13 +252,13 @@ class SessionStateService {
       this.contextBackups.set(sessionId, backup);
       return true;
     } catch (e) {
-      console.warn(`CLAUDE_FIX: Failed to backup session ${sessionId}:`, e);
+      console.warn(`Failed to backup session ${sessionId}:`, e);
       return false;
     }
   }
 
   /**
-   * CLAUDE_FIX: Restore session state from backup
+   * Restore session state from backup
    */
   restoreSessionFromBackup(sessionId) {
     try {
@@ -261,7 +269,7 @@ class SessionStateService {
 
       // Verify backup is recent (within last 24 hours)
       if (Date.now() - backup.timestamp > 24 * 60 * 60 * 1000) {
-        console.log(`CLAUDE_FIX: Backup for session ${sessionId} is too old, discarding`);
+        debugLog("Backup for session is too old, discarding", { sessionId });
         localStorage.removeItem(`session_backup_${sessionId}`);
         return null;
       }
@@ -280,11 +288,11 @@ class SessionStateService {
         conversationContinuityMarkers: []
       };
 
-      console.log(`CLAUDE_FIX: Restored session ${sessionId} from backup`);
+      debugLog("Restored session from backup", { sessionId });
       return restoredState;
 
     } catch (e) {
-      console.error(`CLAUDE_FIX: Failed to restore session ${sessionId} from backup:`, e);
+      console.error(`Failed to restore session ${sessionId} from backup:`, e);
       return null;
     }
   }
@@ -306,9 +314,9 @@ class SessionStateService {
       const sessionIds = Array.from(this.sessionStates.keys());
       sessionStorage.setItem('active_sessions', JSON.stringify(sessionIds));
       this.backupAllSessions();
-      console.log('CLAUDE_FIX: Emergency backup completed for all sessions');
+      debugLog('Emergency backup completed for all sessions');
     } catch (e) {
-      console.error('CLAUDE_FIX: Emergency backup failed:', e);
+      console.error('Emergency backup failed:', e);
     }
   }
 
@@ -345,7 +353,7 @@ class SessionStateService {
     for (const [sessionId, sessionState] of this.sessionStates) {
       if (now - sessionState.lastActivity > maxAge) {
         this.sessionStates.delete(sessionId);
-        console.log(`CLAUDE_FIX: Cleaned up old session state: ${sessionId}`);
+        debugLog("Cleaned up old session state", { sessionId });
       }
     }
 
@@ -354,7 +362,7 @@ class SessionStateService {
       if (now - backup.timestamp > maxAge) {
         this.contextBackups.delete(sessionId);
         localStorage.removeItem(`session_backup_${sessionId}`);
-        console.log(`CLAUDE_FIX: Cleaned up old backup: ${sessionId}`);
+        debugLog("Cleaned up old backup", { sessionId });
       }
     }
   }
@@ -373,7 +381,7 @@ class SessionStateService {
     this.contextBackups.clear();
     this.conversationHistory.clear();
 
-    console.log('CLAUDE_FIX: SessionStateService shutdown complete');
+    debugLog('SessionStateService shutdown complete');
   }
 }
 

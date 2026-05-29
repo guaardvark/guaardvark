@@ -38,12 +38,12 @@ def register_content_tools() -> List[str]:
         register_tool(WordPressContentTool())
         registered.append("generate_wordpress_content")
         _tool_categories["generate_wordpress_content"] = category
-        logger.info("Registered: WordPressContentTool")
+        logger.debug("Registered: WordPressContentTool")
 
         register_tool(EnhancedWordPressContentTool())
         registered.append("generate_enhanced_wordpress_content")
         _tool_categories["generate_enhanced_wordpress_content"] = category
-        logger.info("Registered: EnhancedWordPressContentTool")
+        logger.debug("Registered: EnhancedWordPressContentTool")
 
     except ImportError as e:
         logger.error(f"Failed to import content tools: {e}")
@@ -69,17 +69,17 @@ def register_generation_tools() -> List[str]:
         register_tool(BulkCSVGeneratorTool())
         registered.append("generate_bulk_csv")
         _tool_categories["generate_bulk_csv"] = category
-        logger.info("Registered: BulkCSVGeneratorTool")
+        logger.debug("Registered: BulkCSVGeneratorTool")
 
         register_tool(FileGeneratorTool())
         registered.append("generate_file")
         _tool_categories["generate_file"] = category
-        logger.info("Registered: FileGeneratorTool")
+        logger.debug("Registered: FileGeneratorTool")
 
         register_tool(CSVGeneratorTool())
         registered.append("generate_csv")
         _tool_categories["generate_csv"] = category
-        logger.info("Registered: CSVGeneratorTool")
+        logger.debug("Registered: CSVGeneratorTool")
 
     except ImportError as e:
         logger.error(f"Failed to import generation tools: {e}")
@@ -104,12 +104,12 @@ def register_code_tools() -> List[str]:
         register_tool(CodeGeneratorTool())
         registered.append("codegen")
         _tool_categories["codegen"] = category
-        logger.info("Registered: CodeGeneratorTool")
+        logger.debug("Registered: CodeGeneratorTool")
 
         register_tool(CodeAnalysisTool())
         registered.append("analyze_code")
         _tool_categories["analyze_code"] = category
-        logger.info("Registered: CodeAnalysisTool")
+        logger.debug("Registered: CodeAnalysisTool")
 
         from backend.tools.agent_tools.code_manipulation_tools import CODE_MANIPULATION_TOOLS
 
@@ -117,7 +117,7 @@ def register_code_tools() -> List[str]:
             register_tool(tool)
             registered.append(tool.name)
             _tool_categories[tool.name] = category
-            logger.info(f"Registered: {tool.__class__.__name__}")
+            logger.debug(f"Registered: {tool.__class__.__name__}")
 
     except ImportError as e:
         logger.error(f"Failed to import code tools: {e}")
@@ -143,17 +143,17 @@ def register_web_tools() -> List[str]:
         register_tool(FetchUrlTool())
         registered.append("fetch_url")
         _tool_categories["fetch_url"] = category
-        logger.info("Registered: FetchUrlTool")
+        logger.debug("Registered: FetchUrlTool")
 
         register_tool(WebAnalysisTool())
         registered.append("analyze_website")
         _tool_categories["analyze_website"] = category
-        logger.info("Registered: WebAnalysisTool")
+        logger.debug("Registered: WebAnalysisTool")
 
         register_tool(WebSearchTool())
         registered.append("web_search")
         _tool_categories["web_search"] = category
-        logger.info("Registered: WebSearchTool")
+        logger.debug("Registered: WebSearchTool")
 
     except ImportError as e:
         logger.error(f"Failed to import web tools: {e}")
@@ -184,42 +184,42 @@ def register_browser_tools() -> List[str]:
         register_tool(BrowserNavigateTool())
         registered.append("browser_navigate")
         _tool_categories["browser_navigate"] = category
-        logger.info("Registered: BrowserNavigateTool")
+        logger.debug("Registered: BrowserNavigateTool")
 
         register_tool(BrowserClickTool())
         registered.append("browser_click")
         _tool_categories["browser_click"] = category
-        logger.info("Registered: BrowserClickTool")
+        logger.debug("Registered: BrowserClickTool")
 
         register_tool(BrowserFillTool())
         registered.append("browser_fill")
         _tool_categories["browser_fill"] = category
-        logger.info("Registered: BrowserFillTool")
+        logger.debug("Registered: BrowserFillTool")
 
         register_tool(BrowserScreenshotTool())
         registered.append("browser_screenshot")
         _tool_categories["browser_screenshot"] = category
-        logger.info("Registered: BrowserScreenshotTool")
+        logger.debug("Registered: BrowserScreenshotTool")
 
         register_tool(BrowserExtractTool())
         registered.append("browser_extract")
         _tool_categories["browser_extract"] = category
-        logger.info("Registered: BrowserExtractTool")
+        logger.debug("Registered: BrowserExtractTool")
 
         register_tool(BrowserWaitTool())
         registered.append("browser_wait")
         _tool_categories["browser_wait"] = category
-        logger.info("Registered: BrowserWaitTool")
+        logger.debug("Registered: BrowserWaitTool")
 
         register_tool(BrowserExecuteJSTool())
         registered.append("browser_execute_js")
         _tool_categories["browser_execute_js"] = category
-        logger.info("Registered: BrowserExecuteJSTool")
+        logger.debug("Registered: BrowserExecuteJSTool")
 
         register_tool(BrowserGetHTMLTool())
         registered.append("browser_get_html")
         _tool_categories["browser_get_html"] = category
-        logger.info("Registered: BrowserGetHTMLTool")
+        logger.debug("Registered: BrowserGetHTMLTool")
 
     except ImportError as e:
         logger.error(f"Failed to import browser tools: {e}")
@@ -255,67 +255,67 @@ def register_desktop_tools() -> List[str]:
         register_tool(FileWatchTool())
         registered.append("file_watch")
         _tool_categories["file_watch"] = category
-        logger.info("Registered: FileWatchTool")
+        logger.debug("Registered: FileWatchTool")
 
         register_tool(FileBulkOperationTool())
         registered.append("file_bulk_operation")
         _tool_categories["file_bulk_operation"] = category
-        logger.info("Registered: FileBulkOperationTool")
+        logger.debug("Registered: FileBulkOperationTool")
 
         register_tool(AppLaunchTool())
         registered.append("app_launch")
         _tool_categories["app_launch"] = category
-        logger.info("Registered: AppLaunchTool")
+        logger.debug("Registered: AppLaunchTool")
 
         register_tool(AppListTool())
         registered.append("app_list")
         _tool_categories["app_list"] = category
-        logger.info("Registered: AppListTool")
+        logger.debug("Registered: AppListTool")
 
         register_tool(AppFocusTool())
         registered.append("app_focus")
         _tool_categories["app_focus"] = category
-        logger.info("Registered: AppFocusTool")
+        logger.debug("Registered: AppFocusTool")
 
         register_tool(GUIClickTool())
         registered.append("gui_click")
         _tool_categories["gui_click"] = category
-        logger.info("Registered: GUIClickTool")
+        logger.debug("Registered: GUIClickTool")
 
         register_tool(GUITypeTool())
         registered.append("gui_type")
         _tool_categories["gui_type"] = category
-        logger.info("Registered: GUITypeTool")
+        logger.debug("Registered: GUITypeTool")
 
         register_tool(GUIHotkeyTool())
         registered.append("gui_hotkey")
         _tool_categories["gui_hotkey"] = category
-        logger.info("Registered: GUIHotkeyTool")
+        logger.debug("Registered: GUIHotkeyTool")
 
         register_tool(GUIScreenshotTool())
         registered.append("gui_screenshot")
         _tool_categories["gui_screenshot"] = category
-        logger.info("Registered: GUIScreenshotTool")
+        logger.debug("Registered: GUIScreenshotTool")
 
         register_tool(GUILocateImageTool())
         registered.append("gui_locate_image")
         _tool_categories["gui_locate_image"] = category
-        logger.info("Registered: GUILocateImageTool")
+        logger.debug("Registered: GUILocateImageTool")
 
         register_tool(ClipboardGetTool())
         registered.append("clipboard_get")
         _tool_categories["clipboard_get"] = category
-        logger.info("Registered: ClipboardGetTool")
+        logger.debug("Registered: ClipboardGetTool")
 
         register_tool(ClipboardSetTool())
         registered.append("clipboard_set")
         _tool_categories["clipboard_set"] = category
-        logger.info("Registered: ClipboardSetTool")
+        logger.debug("Registered: ClipboardSetTool")
 
         register_tool(NotificationSendTool())
         registered.append("notification_send")
         _tool_categories["notification_send"] = category
-        logger.info("Registered: NotificationSendTool")
+        logger.debug("Registered: NotificationSendTool")
 
     except ImportError as e:
         logger.error(f"Failed to import desktop tools: {e}")
@@ -344,32 +344,32 @@ def register_mcp_tools() -> List[str]:
         register_tool(MCPListServersTool())
         registered.append("mcp_list_servers")
         _tool_categories["mcp_list_servers"] = category
-        logger.info("Registered: MCPListServersTool")
+        logger.debug("Registered: MCPListServersTool")
 
         register_tool(MCPConnectTool())
         registered.append("mcp_connect")
         _tool_categories["mcp_connect"] = category
-        logger.info("Registered: MCPConnectTool")
+        logger.debug("Registered: MCPConnectTool")
 
         register_tool(MCPDisconnectTool())
         registered.append("mcp_disconnect")
         _tool_categories["mcp_disconnect"] = category
-        logger.info("Registered: MCPDisconnectTool")
+        logger.debug("Registered: MCPDisconnectTool")
 
         register_tool(MCPListToolsTool())
         registered.append("mcp_list_tools")
         _tool_categories["mcp_list_tools"] = category
-        logger.info("Registered: MCPListToolsTool")
+        logger.debug("Registered: MCPListToolsTool")
 
         register_tool(MCPExecuteTool())
         registered.append("mcp_execute")
         _tool_categories["mcp_execute"] = category
-        logger.info("Registered: MCPExecuteTool")
+        logger.debug("Registered: MCPExecuteTool")
 
         register_tool(MCPGetStateTool())
         registered.append("mcp_get_state")
         _tool_categories["mcp_get_state"] = category
-        logger.info("Registered: MCPGetStateTool")
+        logger.debug("Registered: MCPGetStateTool")
 
     except ImportError as e:
         logger.error(f"Failed to import MCP tools: {e}")
@@ -391,7 +391,7 @@ def register_system_tools() -> List[str]:
         register_tool(SystemCommandTool())
         registered.append("system_command")
         _tool_categories["system_command"] = category
-        logger.info("Registered: SystemCommandTool")
+        logger.debug("Registered: SystemCommandTool")
 
     except ImportError as e:
         logger.error(f"Failed to import system tools: {e}")
@@ -417,17 +417,17 @@ def register_memory_tools() -> List[str]:
         register_tool(SaveMemoryTool())
         registered.append("save_memory")
         _tool_categories["save_memory"] = category
-        logger.info("Registered: SaveMemoryTool")
+        logger.debug("Registered: SaveMemoryTool")
 
         register_tool(SearchMemoryTool())
         registered.append("search_memory")
         _tool_categories["search_memory"] = category
-        logger.info("Registered: SearchMemoryTool")
+        logger.debug("Registered: SearchMemoryTool")
         
         register_tool(DeleteMemoryTool())
         registered.append("delete_memory")
         _tool_categories["delete_memory"] = category
-        logger.info("Registered: DeleteMemoryTool")
+        logger.debug("Registered: DeleteMemoryTool")
 
     except ImportError as e:
         logger.error(f"Failed to import memory tools: {e}")
@@ -449,7 +449,7 @@ def register_rag_tools() -> List[str]:
         register_tool(KnowledgeSearchTool())
         registered.append("search_knowledge_base")
         _tool_categories["search_knowledge_base"] = category
-        logger.info("Registered: KnowledgeSearchTool")
+        logger.debug("Registered: KnowledgeSearchTool")
 
     except ImportError as e:
         logger.error(f"Failed to import RAG tools: {e}")
@@ -476,22 +476,22 @@ def register_media_tools() -> List[str]:
         register_tool(MediaPlayTool())
         registered.append("media_play")
         _tool_categories["media_play"] = category
-        logger.info("Registered: MediaPlayTool")
+        logger.debug("Registered: MediaPlayTool")
 
         register_tool(MediaControlTool())
         registered.append("media_control")
         _tool_categories["media_control"] = category
-        logger.info("Registered: MediaControlTool")
+        logger.debug("Registered: MediaControlTool")
 
         register_tool(MediaVolumeTool())
         registered.append("media_volume")
         _tool_categories["media_volume"] = category
-        logger.info("Registered: MediaVolumeTool")
+        logger.debug("Registered: MediaVolumeTool")
 
         register_tool(MediaStatusTool())
         registered.append("media_status")
         _tool_categories["media_status"] = category
-        logger.info("Registered: MediaStatusTool")
+        logger.debug("Registered: MediaStatusTool")
 
     except ImportError as e:
         logger.error(f"Failed to import media tools: {e}")
@@ -508,7 +508,7 @@ def register_image_tools() -> List[str]:
         from backend.tools.image_tools import ImageGeneratorTool
         register_tool(ImageGeneratorTool())
         registered.append("generate_image")
-        logger.info("Registered: ImageGeneratorTool")
+        logger.debug("Registered: ImageGeneratorTool")
     except Exception as e:
         logger.warning(f"Failed to register image tools: {e}")
 
@@ -517,7 +517,7 @@ def register_image_tools() -> List[str]:
         register_tool(AnimationGeneratorTool())
         registered.append("generate_animation")
         _tool_categories["generate_animation"] = "image"
-        logger.info("Registered: AnimationGeneratorTool")
+        logger.debug("Registered: AnimationGeneratorTool")
     except Exception as e:
         logger.warning(f"Failed to register animation tools: {e}")
 
@@ -536,7 +536,7 @@ def register_test_execution_tools() -> List[str]:
         register_tool(tool)
         registered.append("execute_python")
         _tool_categories["execute_python"] = category
-        logger.info("Registered sandboxed: ExecutePythonTool")
+        logger.debug("Registered sandboxed: ExecutePythonTool")
     except ImportError as e:
         logger.warning(f"Could not import code execution tools: {e}")
     except Exception as e:
@@ -573,7 +573,7 @@ def register_outreach_tools() -> List[str]:
             register_tool(tool)
             registered.append(tool.name)
             _tool_categories[tool.name] = category
-            logger.info(f"Registered: {cls.__name__}")
+            logger.debug(f"Registered: {cls.__name__}")
 
     except ImportError as e:
         logger.error(f"Failed to import outreach tools: {e}")
@@ -602,32 +602,32 @@ def register_agent_control_tools() -> List[str]:
         register_tool(AgentModeStartTool())
         registered.append("agent_mode_start")
         _tool_categories["agent_mode_start"] = category
-        logger.info("Registered: AgentModeStartTool")
+        logger.debug("Registered: AgentModeStartTool")
 
         register_tool(AgentModeStopTool())
         registered.append("agent_mode_stop")
         _tool_categories["agent_mode_stop"] = category
-        logger.info("Registered: AgentModeStopTool")
+        logger.debug("Registered: AgentModeStopTool")
 
         register_tool(AgentTaskExecuteTool())
         registered.append("agent_task_execute")
         _tool_categories["agent_task_execute"] = category
-        logger.info("Registered: AgentTaskExecuteTool")
+        logger.debug("Registered: AgentTaskExecuteTool")
 
         register_tool(AgentScreenCaptureTool())
         registered.append("agent_screen_capture")
         _tool_categories["agent_screen_capture"] = category
-        logger.info("Registered: AgentScreenCaptureTool")
+        logger.debug("Registered: AgentScreenCaptureTool")
 
         register_tool(AgentReadTextFromElementTool())
         registered.append("agent_read_text_from_element")
         _tool_categories["agent_read_text_from_element"] = category
-        logger.info("Registered: AgentReadTextFromElementTool")
+        logger.debug("Registered: AgentReadTextFromElementTool")
 
         register_tool(AgentStatusTool())
         registered.append("agent_status")
         _tool_categories["agent_status"] = category
-        logger.info("Registered: AgentStatusTool")
+        logger.debug("Registered: AgentStatusTool")
 
     except ImportError as e:
         logger.error(f"Failed to import agent control tools: {e}")
@@ -651,9 +651,7 @@ def initialize_all_tools() -> ToolRegistry:
         logger.info("Tool registry already initialized, returning existing registry")
         return get_tool_registry()
 
-    logger.info("=" * 60)
-    logger.info("INITIALIZING TOOL REGISTRY")
-    logger.info("=" * 60)
+    logger.debug("Initializing tool registry")
 
     # Register all tool categories
     _registered_tools.extend(register_content_tools())
@@ -675,10 +673,8 @@ def initialize_all_tools() -> ToolRegistry:
     # Get the registry for status reporting
     registry = get_tool_registry()
 
-    logger.info("=" * 60)
     logger.info(f"TOOL REGISTRY INITIALIZED: {len(registry)} tools registered")
-    logger.info(f"Registered tools: {', '.join(_registered_tools)}")
-    logger.info("=" * 60)
+    logger.debug(f"Registered tools: {', '.join(_registered_tools)}")
 
     _initialization_complete = True
     return registry

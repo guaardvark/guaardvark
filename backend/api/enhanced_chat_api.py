@@ -187,7 +187,7 @@ class EnhancedChatManager:
         # Intent detection cache (simple replacement for hardcoded methods)
         self.intent_cache = {}
 
-        # BUG FIX #4: Start automatic cleanup thread for guaranteed memory management
+        # Start automatic cleanup thread for guaranteed memory management
         self._cleanup_thread = threading.Thread(
             target=self._periodic_cleanup,
             daemon=True,
@@ -258,17 +258,23 @@ class EnhancedChatManager:
                 self.stats['sessions_cleaned'] += 1
                 self.stats['memory_saved_mb'] += (session_memory_size + session_messages_size) / (1024 * 1024)
 
-                logger.info(f"BUG FIX 4: Cleaned up session {session_id} (age: {session_age/3600:.1f}h, inactive: {inactive_time/3600:.1f}h)")
+                logger.debug(
+                    f"Cleaned up chat session {session_id} "
+                    f"(age={session_age/3600:.1f}h, inactive={inactive_time/3600:.1f}h)"
+                )
 
             except Exception as cleanup_error:
-                logger.error(f"BUG FIX 4: Error cleaning up session {session_id}: {cleanup_error}")
+                logger.error(f"Error cleaning up session {session_id}: {cleanup_error}")
 
         if sessions_to_remove:
             sessions_after = len(self.session_memories)
             memory_after = sum(len(str(memory)) for memory in self.session_memories.values())
             memory_saved = (memory_before - memory_after) / (1024 * 1024)
 
-            logger.info(f"BUG FIX 4: Cleanup completed - removed {len(sessions_to_remove)} sessions, saved {memory_saved:.2f}MB memory")
+            logger.info(
+                f"Chat session cleanup removed {len(sessions_to_remove)} sessions "
+                f"and saved {memory_saved:.2f}MB"
+            )
 
     def _update_session_activity(self, session_id):
         """Update session activity timestamp"""
@@ -866,13 +872,16 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
     def _retrieve_relevant_context(self, query: str, session_id: str, max_chunks: int = 5, project_id: int = None) -> List[Dict[str, Any]]:
         """Retrieve relevant context from the knowledge base, including entity context and uploaded files"""
         try:
-            logger.info(f"DEBUG: _retrieve_relevant_context called with query: '{query}'")
+            logger.debug(
+                "Retrieving relevant context "
+                f"(query_len={len(query)}, session_id={session_id}, project_id={project_id})"
+            )
             # UNIVERSAL RAG: Always retrieve entity context for CLIENT/WEBSITE/FILE/PROJECT access
             entity_context = self._retrieve_entity_context(query, max_chunks=2, project_id=project_id)
             logger.info(f"UNIVERSAL RAG: Retrieved {len(entity_context)} entity context chunks")
 
             # First, check for uploaded code files that match the query
-            # CRITICAL FIX: Use original message for file matching, not the enhanced message with timestamps
+            # Use original message for file matching, not the enhanced message with timestamps
             # The enhance_message_with_time() adds timestamps that confuse file matching logic
             original_query = query
             if "[CURRENT SYSTEM TIME]" in query:
@@ -880,24 +889,30 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
                 parts = query.split("\n\n", 1)  # Split at first double newline
                 if len(parts) > 1:
                     original_query = parts[1].strip()
-                    logger.info(f"DEBUG: Extracted original query from enhanced message: '{original_query}'")
+                    logger.debug(
+                        "Extracted original query from enhanced message "
+                        f"(query_len={len(original_query)})"
+                    )
 
-            print(f"=== ENHANCED CHAT DEBUG: About to call _retrieve_uploaded_files_context with original_query='{original_query}', session_id='{session_id}' ===")
-            logger.debug(f"DEBUG: About to call _retrieve_uploaded_files_context with original_query='{original_query}', session_id='{session_id}'")
-            print(f"CALLING FILE RETRIEVAL: query='{original_query}', session='{session_id}'")
+            logger.debug(
+                "Retrieving uploaded file context "
+                f"(query_len={len(original_query)}, session_id={session_id})"
+            )
             # When user explicitly asks for a project file (e.g. "read backend/config.py"), inject actual file content
             project_file_chunk = self._detect_and_read_project_file(original_query)
             if project_file_chunk:
-                logger.info(f"DEBUG: Injected project file context for query")
+                logger.debug("Injected project file context for query")
             uploaded_file_context = self._retrieve_uploaded_files_context(original_query, session_id, project_id=project_id)
             if project_file_chunk:
                 uploaded_file_context = [project_file_chunk] + uploaded_file_context
-            print(f"FILE RETRIEVAL RESULT: {len(uploaded_file_context)} files returned")
-            logger.info(f"DEBUG: Got {len(uploaded_file_context)} uploaded file contexts")
+            logger.debug(f"Retrieved {len(uploaded_file_context)} uploaded file contexts")
             if uploaded_file_context:
-                logger.info(f"DEBUG: File contexts: {[f['source'] for f in uploaded_file_context]}")
+                logger.debug(
+                    "Uploaded file context sources: "
+                    f"{[f.get('source') for f in uploaded_file_context]}"
+                )
             else:
-                logger.info(f"DEBUG: No file contexts returned")
+                logger.debug("No uploaded file contexts returned")
 
             # Try to get retriever from index manager for traditional RAG
             rag_context = []
@@ -906,7 +921,11 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
                 from backend.services.indexing_service import search_with_llamaindex
                 try:
                     search_results = search_with_llamaindex(query, max_chunks=max_chunks * 2, project_id=project_id)
-                    logger.info(f"DEBUG: search_with_llamaindex returned {len(search_results) if search_results else 0} results (project_id={project_id})")
+                    logger.debug(
+                        "search_with_llamaindex returned "
+                        f"{len(search_results) if search_results else 0} results "
+                        f"(project_id={project_id})"
+                    )
 
                     # Convert search results directly to rag_context instead of using retriever
                     if search_results:
@@ -928,7 +947,7 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
 
                 if retriever:
                     # Try to retrieve relevant nodes
-                    # CRITICAL FIX: Wrap string query in QueryBundle for LlamaIndex retriever
+                    # Wrap string query in QueryBundle for LlamaIndex retriever
                     query_bundle = QueryBundle(query_str=query)
                     nodes = retriever.retrieve(query_bundle)
 
@@ -973,18 +992,19 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
             all_contexts = uploaded_file_chunks + entity_context + additional_entity_chunks + document_chunks
             context_chunks = all_contexts[:max_chunks]
             
-            # CRITICAL FIX: Ensure uploaded file context is always included
+            # Ensure uploaded file context is always included
             if uploaded_file_chunks and not context_chunks:
                 context_chunks = uploaded_file_chunks[:max_chunks]
-                logger.info(f"CRITICAL FIX: Using uploaded file context as fallback: {len(context_chunks)} chunks")
+                logger.debug(
+                    f"Using uploaded file context as fallback: {len(context_chunks)} chunks"
+                )
             
-            # DEBUG: Log what we're actually returning
-            logger.info(f"DEBUG: Final context_chunks length: {len(context_chunks)}")
-            logger.info(f"DEBUG: uploaded_file_chunks: {len(uploaded_file_chunks)}")
-            logger.info(f"DEBUG: entity_context: {len(entity_context)}")
-            logger.info(f"DEBUG: additional_entity_chunks: {len(additional_entity_chunks)}")
-            logger.info(f"DEBUG: document_chunks: {len(document_chunks)}")
-            logger.info(f"DEBUG: all_contexts total: {len(all_contexts)}")
+            logger.debug(
+                "Context retrieval counts: "
+                f"final={len(context_chunks)}, uploaded={len(uploaded_file_chunks)}, "
+                f"entity={len(entity_context)}, additional_entity={len(additional_entity_chunks)}, "
+                f"documents={len(document_chunks)}, total={len(all_contexts)}"
+            )
 
             # Add to context manager with enhanced metadata
             if context_chunks:
@@ -1587,7 +1607,10 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
             result = has_url or needs_current_info or has_question_pattern
 
         if result:
-            logger.info(f"Web search ENABLED for: '{message[:50]}...' (web_access_setting={web_access_enabled})")
+            logger.info(
+                f"Web search enabled for message (message_len={len(message)}, "
+                f"web_access_setting={web_access_enabled})"
+            )
         else:
             logger.debug(f"Web search SKIPPED for: '{message[:50]}...'")
 
@@ -1596,7 +1619,7 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
     def _perform_web_search_safe(self, query: str) -> Dict[str, Any]:
         """BULLETPROOF: Safely perform web search with comprehensive error handling"""
         try:
-            logger.info(f"DEBUG: _perform_web_search_safe received query: '{query}'")
+            logger.debug(f"Preparing web search (query_len={len(query)})")
 
             # Import web search functionality with error handling
             try:
@@ -1622,21 +1645,23 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
                     "fallback_available": True
                 }
 
-            logger.info(f"Performing web search for: '{query[:100]}...'")
+            logger.info(f"Performing web search (query_len={len(query)})")
 
             # Perform the web search
-            logger.info(f"CHANGE 5: Starting web search for query: '{query[:100]}...'")
+            logger.debug(f"Starting web search (query_len={len(query)})")
             search_results = enhanced_web_search(query)
 
             if search_results.get("success"):
                 data = search_results.get("data", {})
                 strategy = search_results.get("strategy_used", "unknown")
 
-                logger.info(f"CHANGE 5: Web search successful using {strategy}, data type: {data.get('type', 'unknown')}")
+                logger.info(
+                    f"Web search successful using {strategy}, data type: {data.get('type', 'unknown')}"
+                )
 
                 # Format results for LLM context
                 formatted_context = self._format_web_search_context(search_results, query)
-                logger.info(f"CHANGE 5: Web search context formatted, length: {len(formatted_context)} characters")
+                logger.debug(f"Web search context formatted, length={len(formatted_context)}")
 
                 return {
                     "success": True,
@@ -1731,7 +1756,7 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
         context_parts.append("INSTRUCTION: Answer the user's question using the web search results above. Cite the sources when referencing this information.")
 
         formatted = "\n".join(context_parts)
-        logger.info(f"CHANGE 4: Formatted web search context (length: {len(formatted)}, type: {data_type})")
+        logger.debug(f"Formatted web search context (length={len(formatted)}, type={data_type})")
         return formatted
 
     def process_chat_message(self, session_id: str, message: str,
@@ -1757,7 +1782,11 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
             from backend.utils.prompt_utils import enhance_message_with_time
             enhanced_message = enhance_message_with_time(message)
 
-            logger.info(f"Enhanced chat: process_chat_message called with session_id={session_id}, message='{message[:50]}...', use_rag={use_rag}, simple_mode={simple_mode}, bypass_rules={bypass_rules}")
+            logger.info(
+                "Enhanced chat processing started "
+                f"(session_id={session_id}, message_len={len(message)}, "
+                f"use_rag={use_rag}, simple_mode={simple_mode}, bypass_rules={bypass_rules})"
+            )
 
             # Respect user preferences for simple mode and RAG
             # Allow simple mode for basic conversations without RAG overhead
@@ -1768,10 +1797,10 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
                 logger.info(f"Enhanced chat: Auto-detected simple message, enabling simple mode")
 
             if chat_mode:
-                logger.debug(f"FLOW DEBUG: Chat mode provided: {chat_mode}")
+                logger.debug(f"Chat mode provided: {chat_mode}")
                 logger.info(f"Enhanced chat: Explicit chat_mode '{chat_mode}' provided - using enhanced mode with universal RAG")
             else:
-                logger.debug(f"FLOW DEBUG: No chat mode, proceeding to intent detection...")
+                logger.debug("No chat mode, proceeding to intent detection")
                 logger.info(f"Enhanced chat: No specific mode - using enhanced mode with universal RAG")
 
             # Use rule-based intent detection (leverages existing Rules System)
@@ -1780,12 +1809,11 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
                 logger.info(f"Enhanced chat: Rules bypass enabled, skipping intent detection and routing to regular chat")
                 detected_intent = "general_chat"
             else:
-                logger.debug(f"FLOW DEBUG: About to call rule-based intent detection...")
+                logger.debug("About to call rule-based intent detection")
                 logger.info(f"Enhanced chat: About to call rule-based intent detection...")
                 try:
                     detected_intent = self._detect_intent_with_rules(enhanced_message)
-                    logger.info(f"Enhanced chat: Rule-based detected intent: {detected_intent}")
-                    logger.info(f"DEBUG: Intent detection for message: '{message[:100]}...' -> {detected_intent}")
+                    logger.debug(f"Enhanced chat detected intent: {detected_intent}")
                 except Exception as intent_error:
                     logger.error(f"Enhanced chat: Intent detection failed: {intent_error}")
                     import traceback
@@ -1796,31 +1824,33 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
             # Route to appropriate handler based on detected intent
             # Skip special routing when bypass_rules is enabled
             if not bypass_rules:
-                logger.info(f"DEBUG: Routing based on detected intent: {detected_intent}")
+                logger.debug(f"Routing based on detected intent: {detected_intent}")
                 if detected_intent == "explicit_file_generation":
-                    logger.info(f"DEBUG: Routing to file generation handler")
+                    logger.debug("Routing to file generation handler")
                     return self._handle_file_generation_request(session_id, enhanced_message, project_id=project_id)
                 elif detected_intent == "file_analysis":
-                    logger.info(f"DEBUG: Routing to file analysis handler")
+                    logger.debug("Routing to file analysis handler")
                     return self._handle_file_analysis_request(session_id, enhanced_message, project_id=project_id)
                 elif detected_intent == "file_improvement":
-                    logger.info(f"DEBUG: Routing to file improvement handler")
+                    logger.debug("Routing to file improvement handler")
                     return self._handle_file_improvement_request(session_id, enhanced_message, project_id=project_id)
                 elif detected_intent == "bulk_csv_generation":
-                    logger.info(f"DEBUG: Routing to bulk CSV generation handler")
+                    logger.debug("Routing to bulk CSV generation handler")
                     return self._handle_file_generation_request(session_id, enhanced_message, project_id=project_id)
                 elif detected_intent == "website_analysis":
-                    logger.info(f"DEBUG: Routing to website analysis handler")
+                    logger.debug("Routing to website analysis handler")
                     return self._handle_website_analysis_request(session_id, enhanced_message, project_id=project_id)
                 elif detected_intent == "file_generation":
-                    logger.info(f"DEBUG: Routing to file generation handler")
+                    logger.debug("Routing to file generation handler")
                     return self._handle_file_generation_request(session_id, enhanced_message, project_id=project_id)
             # For general_chat and other intents, proceed with regular chat
-            logger.info(f"DEBUG: Routing to general chat handler (intent: {detected_intent})")
+            logger.debug(f"Routing to general chat handler (intent={detected_intent})")
 
             # Regular chat processing (includes uploaded file discussion)
-            logger.info(f"Enhanced chat: Proceeding with regular chat processing...")
-            logger.info(f"DEBUG: About to call _process_regular_chat with use_rag={use_rag}, simple_mode={simple_mode}, bypass_rules={bypass_rules}")
+            logger.debug(
+                "Proceeding with regular chat processing "
+                f"(use_rag={use_rag}, simple_mode={simple_mode}, bypass_rules={bypass_rules})"
+            )
             return self._process_regular_chat(session_id, message, use_rag, debug_mode, simple_mode, start_time, chat_mode, voice_mode, bypass_rules, project_id=project_id)
 
         except Exception as e:
@@ -1859,7 +1889,11 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
         has_analysis = any(keyword in message_lower for keyword in analysis_keywords)
         has_file = any(keyword in message_lower for keyword in file_keywords)
 
-        logger.debug(f"[FILE_ANALYSIS_DEBUG] File analysis detection: message='{message}', has_analysis={has_analysis}, has_file={has_file}, result={has_analysis and has_file}")
+        logger.debug(
+            "[FILE_ANALYSIS] File analysis detection: "
+            f"message_len={len(message)}, has_analysis={has_analysis}, "
+            f"has_file={has_file}, result={has_analysis and has_file}"
+        )
 
         return has_analysis and has_file
 
@@ -1896,7 +1930,10 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
         has_generation = any(keyword in message_lower for keyword in generation_keywords)
         has_file = any(keyword in message_lower for keyword in file_keywords)
 
-        logger.info(f"File generation detection: message='{message}', has_generation={has_generation}, has_file={has_file}")
+        logger.debug(
+            f"File generation detection: message_len={len(message)}, "
+            f"has_generation={has_generation}, has_file={has_file}"
+        )
 
         return has_generation and has_file
 
@@ -1936,7 +1973,11 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
         ]
         has_small_quantity = any(re.search(pattern, message_lower) for pattern in small_quantity_patterns)
 
-        logger.info(f"Bulk CSV generation detection: message='{message}', has_bulk={has_bulk}, has_csv={has_csv}, has_generation={has_generation}, has_large_quantity={has_large_quantity}, has_small_quantity={has_small_quantity}")
+        logger.debug(
+            f"Bulk CSV generation detection: message_len={len(message)}, "
+            f"has_bulk={has_bulk}, has_csv={has_csv}, has_generation={has_generation}, "
+            f"has_large_quantity={has_large_quantity}, has_small_quantity={has_small_quantity}"
+        )
 
         # Only trigger bulk generation if:
         # 1. Has bulk keywords AND csv AND generation, OR
@@ -1963,7 +2004,10 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
         url_pattern = r'(?:https?://|www\.)[^\s]+'
         has_url = bool(re.search(url_pattern, message))
 
-        logger.info(f"Website analysis detection: message='{message}', has_website={has_website}, has_analysis={has_analysis}, has_url={has_url}")
+        logger.debug(
+            f"Website analysis detection: message_len={len(message)}, "
+            f"has_website={has_website}, has_analysis={has_analysis}, has_url={has_url}"
+        )
 
         return (has_website and has_analysis) or has_url
 
@@ -1976,7 +2020,10 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
 
             # If no session documents found, try enhanced file retrieval for any uploaded code files
             if not documents:
-                logger.info(f"No session documents found, trying enhanced file retrieval for query: '{message}'")
+                logger.debug(
+                    f"No session documents found, trying enhanced file retrieval "
+                    f"(query_len={len(message)})"
+                )
                 file_contexts = self._retrieve_uploaded_files_context(message, session_id, project_id=project_id)
 
                 # Convert file contexts to document format
@@ -2690,7 +2737,11 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
             from backend.utils.prompt_utils import enhance_message_with_time
             enhanced_message = enhance_message_with_time(message)
 
-            logger.info(f"Enhanced chat: process_chat_message called with session_id={session_id}, message='{message[:50]}...', use_rag={use_rag}, simple_mode={simple_mode}")
+            logger.info(
+                "Enhanced chat processing started "
+                f"(session_id={session_id}, message_len={len(message)}, "
+                f"use_rag={use_rag}, simple_mode={simple_mode})"
+            )
 
             # SMART ROUTING SYSTEM - Route query before heavy processing
             if classify_user_intent and not simple_mode:
@@ -2763,7 +2814,7 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
                         intent_metadata['command_fallback'] = True
                         intent_metadata['enhanced_command_processing'] = True
 
-                # CRITICAL FIX: Route WEB_SEARCH intent to trigger web search
+                # Route WEB_SEARCH intent to trigger web search
                 if intent_type == IntentType.WEB_SEARCH:
                     logger.info(f"Smart Router: WEB_SEARCH intent detected (confidence: {confidence:.2f}) - will trigger web search")
                     intent_metadata['force_web_search'] = True
@@ -2811,44 +2862,43 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
             should_web_search = force_web_search or self._should_use_web_search(enhanced_message)
 
             if not simple_mode and should_web_search:
-                logger.info(f"CHANGE 5: Web search triggered for query")
-                logger.info(f"CHANGE 5: Original message to search: '{message}'")
-                logger.info(f"CHANGE 5: Enhanced message (not used for search): '{enhanced_message[:200]}...'")
+                logger.info(f"Web search triggered (message_len={len(message)})")
+                logger.debug(f"Enhanced message length for web search path: {len(enhanced_message)}")
                 web_search_result = self._perform_web_search_safe(message)  # Use original message, not enhanced
                 web_search_used = True
 
                 if web_search_result.get("success"):
                     web_search_context = web_search_result.get("formatted_context", "")
-                    logger.info(f"CHANGE 5: Web search successful, context length: {len(web_search_context)}")
-                    logger.info(f"CHANGE 5: Web search context preview: {web_search_context[:200]}...")
+                    logger.info(f"Web search context ready (length={len(web_search_context)})")
                 else:
                     # Web search failed - add transparent error message to context
                     error_message = web_search_result.get("user_message", "Web search failed")
                     web_search_context = f"=== WEB SEARCH STATUS ===\n{error_message}\n=== END WEB SEARCH STATUS ==="
-                    logger.warning(f"CHANGE 5: Web search failed: {web_search_result.get('error', 'Unknown error')}")
+                    logger.warning(f"Web search failed: {web_search_result.get('error', 'Unknown error')}")
             else:
-                logger.info(f"CHANGE 5: Web search not triggered (simple_mode={simple_mode}, should_use={self._should_use_web_search(enhanced_message) if not simple_mode else False})")
+                logger.debug(
+                    "Web search not triggered "
+                    f"(simple_mode={simple_mode}, should_use={self._should_use_web_search(enhanced_message) if not simple_mode else False})"
+                )
 
             # Retrieve relevant RAG context if enabled and not in simple mode
             rag_context = []
-            logger.info(f"DEBUG: RAG check - use_rag={use_rag}, simple_mode={simple_mode}")
+            logger.debug(f"RAG check: use_rag={use_rag}, simple_mode={simple_mode}")
             if use_rag and not simple_mode:
-                logger.info(f"Enhanced chat: Attempting RAG context retrieval...")
-                logger.info(f"DEBUG: use_rag={use_rag}, simple_mode={simple_mode}")
+                logger.debug("Attempting RAG context retrieval")
                 try:
-                    logger.info(f"DEBUG: About to call _retrieve_relevant_context (project_id={project_id})")
+                    logger.debug(f"Calling _retrieve_relevant_context (project_id={project_id})")
                     rag_context = self._retrieve_relevant_context(enhanced_message, session_id, project_id=project_id)
                     logger.info(f"Enhanced chat: RAG context retrieved: {len(rag_context)} chunks")
-                    logger.info(f"DEBUG: rag_context type: {type(rag_context)}")
+                    logger.debug(f"rag_context type: {type(rag_context)}")
                     if rag_context:
-                        logger.info(f"DEBUG: First chunk keys: {list(rag_context[0].keys()) if rag_context else 'None'}")
+                        logger.debug(f"First RAG chunk keys: {list(rag_context[0].keys())}")
                 except Exception as rag_error:
                     logger.error(f"RAG context retrieval failed with exception: {rag_error}")
                     import traceback
                     logger.error(f"RAG error traceback: {traceback.format_exc()}")
 
-                    # BUG FIX 5: Implement graceful fallback with context preservation
-                    logger.warning("BUG FIX 5: RAG failed, implementing graceful fallback with context preservation")
+                    logger.warning("RAG failed; using graceful fallback with context preservation")
 
                     # Try to preserve minimal context from previous conversation
                     try:
@@ -2866,7 +2916,9 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
 
                             if recent_messages:
                                 rag_context = recent_messages
-                                logger.info(f"BUG FIX 5: Preserved {len(recent_messages)} conversation messages as fallback context")
+                                logger.info(
+                                    f"Preserved {len(recent_messages)} conversation messages as fallback context"
+                                )
                             else:
                                 rag_context = []
                                 simple_mode = True
@@ -2875,11 +2927,11 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
                             simple_mode = True
 
                     except Exception as fallback_error:
-                        logger.error(f"BUG FIX 5: Fallback context preservation failed: {fallback_error}")
+                        logger.error(f"Fallback context preservation failed: {fallback_error}")
                         simple_mode = True
                         rag_context = []
             else:
-                logger.info(f"DEBUG: Skipping RAG - use_rag={use_rag}, simple_mode={simple_mode}")
+                logger.debug(f"Skipping RAG: use_rag={use_rag}, simple_mode={simple_mode}")
 
             # User message already saved earlier in function (line 2027)
             logger.info(f"Enhanced chat: User message already saved earlier")
@@ -3152,8 +3204,9 @@ You are analyzing code files. When responding to questions about code:
 
             # Generate response with AssertionError handling for vector store failures
             logger.info(f"Enhanced chat: Generating response with chat engine...")
-            print(f"DEBUG TRACE: About to call chat_engine.stream_chat with message length: {len(enhanced_message_with_context)}")
-            logger.debug(f"DEBUG TRACE: About to call chat_engine.stream_chat with message length: {len(enhanced_message_with_context)}")
+            logger.debug(
+                f"Calling chat_engine.stream_chat with message length: {len(enhanced_message_with_context)}"
+            )
             
             try:
                 response_stream = chat_engine.stream_chat(enhanced_message_with_context)
@@ -3176,10 +3229,10 @@ You are analyzing code files. When responding to questions about code:
                 else:
                     raise
             except AssertionError as ae:
-                logger.warning(f"BUG FIX 7: LlamaIndex AssertionError (vector store query failed): {ae}")
-                logger.info("BUG FIX 7: Implementing comprehensive vector store failure recovery")
+                logger.warning(f"LlamaIndex AssertionError (vector store query failed): {ae}")
+                logger.info("Starting vector store failure recovery")
 
-                # BUG FIX 7: Enhanced vector store failure handling with multiple recovery strategies
+                # Enhanced vector store failure handling with multiple recovery strategies
                 recovery_strategies = [
                     "simple_chat_engine",
                     "direct_llm_with_context",
@@ -3191,15 +3244,15 @@ You are analyzing code files. When responding to questions about code:
                     try:
                         if strategy == "simple_chat_engine":
                             # Try creating a simple chat engine without vector store
-                            logger.info("BUG FIX 3: Attempting simple chat engine recovery")
+                            logger.info("Attempting simple chat engine recovery")
                             fallback_engine = self._create_simple_chat_engine(session_id, model_name, "", voice_mode)
                             response_stream = fallback_engine.stream_chat(message)  # Use original message, not enhanced
-                            logger.info("BUG FIX 3: Simple chat engine recovery successful")
+                            logger.info("Simple chat engine recovery successful")
                             break
 
                         elif strategy == "direct_llm_with_context":
                             # Use direct LLM with minimal context
-                            logger.info("BUG FIX 3: Attempting direct LLM with context recovery")
+                            logger.info("Attempting direct LLM with context recovery")
                             from backend.utils.llm_service import run_llm_chat_prompt
                             from flask import current_app
                             llm_instance = current_app.config.get("LLAMA_INDEX_LLM")
@@ -3228,12 +3281,12 @@ You are analyzing code files. When responding to questions about code:
                                         self.response = text
 
                                 response_stream = MockResponseStream(direct_response)
-                                logger.info("BUG FIX 3: Direct LLM with context recovery successful")
+                                logger.info("Direct LLM with context recovery successful")
                                 break
 
                         elif strategy == "direct_llm_minimal":
                             # Use direct LLM with just the user message
-                            logger.info("BUG FIX 3: Attempting direct LLM minimal recovery")
+                            logger.info("Attempting direct LLM minimal recovery")
                             from backend.utils.llm_service import run_llm_chat_prompt
                             from flask import current_app
                             llm_instance = current_app.config.get("LLAMA_INDEX_LLM")
@@ -3251,12 +3304,12 @@ You are analyzing code files. When responding to questions about code:
                                         self.response = text
 
                                 response_stream = MockResponseStream(direct_response)
-                                logger.info("BUG FIX 3: Direct LLM minimal recovery successful")
+                                logger.info("Direct LLM minimal recovery successful")
                                 break
 
                         elif strategy == "emergency_fallback":
                             # Emergency hardcoded response with helpful guidance
-                            logger.info("BUG FIX 3: Using emergency fallback response")
+                            logger.info("Using emergency fallback response")
                             emergency_response = "I'm experiencing some technical difficulties with my document search capabilities, but I'm still here to help. I can assist with general questions, explanations, and generating content. Please try rephrasing your question or let me know how else I can help you."
 
                             class MockResponseStream:
@@ -3265,16 +3318,16 @@ You are analyzing code files. When responding to questions about code:
                                     self.response = text
 
                             response_stream = MockResponseStream(emergency_response)
-                            logger.info("BUG FIX 3: Emergency fallback response used")
+                            logger.info("Emergency fallback response used")
                             break
 
                     except Exception as strategy_error:
-                        logger.warning(f"BUG FIX 3: Strategy '{strategy}' failed: {strategy_error}")
+                        logger.warning(f"Recovery strategy '{strategy}' failed: {strategy_error}")
                         continue
 
                 # If all strategies failed, use the original code as final fallback
                 if 'response_stream' not in locals():
-                    logger.error("BUG FIX 3: All recovery strategies failed, using original fallback")
+                    logger.error("All recovery strategies failed, using original fallback")
                     from backend.utils.llm_service import run_llm_chat_prompt
                     from flask import current_app
                     llm_instance = current_app.config.get("LLAMA_INDEX_LLM")
@@ -3302,8 +3355,7 @@ You are analyzing code files. When responding to questions about code:
                     chat_engine = self._create_simple_chat_engine(session_id, model_name, web_search_context, voice_mode)
                     response_stream = chat_engine.stream_chat(enhanced_message_with_context)
             logger.info(f"Enhanced chat: Response stream obtained")
-            print(f"DEBUG TRACE: Got response_stream from chat_engine")
-            logger.debug(f"DEBUG TRACE: Got response_stream from chat_engine")
+            logger.debug("Got response_stream from chat_engine")
 
             # Collect response chunks
             logger.info(f"Enhanced chat: Collecting response chunks...")
@@ -3321,12 +3373,11 @@ You are analyzing code files. When responding to questions about code:
             # Combine response
             full_response = "".join(response_chunks)
             logger.info(f"Enhanced chat: Combined response length: {len(full_response)}")
-            print(f"DEBUG TRACE: Full response content: '{full_response}'")
-            logger.debug(f"DEBUG TRACE: Full response content: '{full_response}'")
+            logger.debug(f"Full response length: {len(full_response)}")
 
-            # BUG FIX 6: Enhanced handling of context overflow with intelligent fallback
+            # Enhanced handling of context overflow with intelligent fallback
             if full_response.strip() == "Empty Response" or full_response.strip() == "":
-                logger.warning("BUG FIX 6: LlamaIndex returned 'Empty Response' - implementing intelligent context overflow recovery")
+                logger.warning("LlamaIndex returned empty response; trying context overflow recovery")
 
                 # Implement multiple fallback strategies
                 fallback_success = False
@@ -3349,9 +3400,9 @@ You are analyzing code files. When responding to questions about code:
                         if candidate_response and candidate_response != "Empty Response" and len(candidate_response) > 5:
                             full_response = candidate_response
                             fallback_success = True
-                            logger.info(f"BUG FIX 6: Successful fallback with minimal context, length: {len(full_response)}")
+                            logger.info(f"Successful fallback with minimal context, length={len(full_response)}")
                     except Exception as fallback_error:
-                        logger.warning(f"BUG FIX 6: Minimal context fallback failed: {fallback_error}")
+                        logger.warning(f"Minimal context fallback failed: {fallback_error}")
 
                     # Strategy 2: Pure user message only
                     if not fallback_success:
@@ -3362,9 +3413,9 @@ You are analyzing code files. When responding to questions about code:
                             if candidate_response and candidate_response != "Empty Response" and len(candidate_response) > 5:
                                 full_response = candidate_response
                                 fallback_success = True
-                                logger.info(f"BUG FIX 6: Successful fallback with pure message, length: {len(full_response)}")
+                                logger.info(f"Successful fallback with pure message, length={len(full_response)}")
                         except Exception as fallback_error:
-                            logger.warning(f"BUG FIX 6: Pure message fallback failed: {fallback_error}")
+                            logger.warning(f"Pure message fallback failed: {fallback_error}")
 
                 # Strategy 3: Emergency hardcoded responses
                 if not fallback_success:
@@ -3378,7 +3429,7 @@ You are analyzing code files. When responding to questions about code:
                     else:
                         full_response = "I'm experiencing some technical difficulties but I'm still here to help. Please try rephrasing your message."
 
-                    logger.info(f"BUG FIX 2: Used emergency response for context overflow")
+                    logger.info("Used emergency response for context overflow")
                     simple_mode = True
                     rag_context = []
 
@@ -3568,7 +3619,11 @@ You are analyzing code files. When responding to questions about code:
 
         result = (has_generation and has_improvement and has_file) or has_improvement_phrase
 
-        logger.info(f"Improved file generation detection: message='{message}', has_generation={has_generation}, has_improvement={has_improvement}, has_file={has_file}, has_phrase={has_improvement_phrase}, result={result}")
+        logger.debug(
+            f"Improved file generation detection: message_len={len(message)}, "
+            f"has_generation={has_generation}, has_improvement={has_improvement}, "
+            f"has_file={has_file}, has_phrase={has_improvement_phrase}, result={result}"
+        )
 
         return result
 
@@ -3804,7 +3859,9 @@ You are analyzing code files. When responding to questions about code:
 
         result = has_explicit_request or (has_file_extension and has_command_pattern)
 
-        logger.info(f"Explicit file generation detection: '{message[:50]}...' -> {result}")
+        logger.debug(
+            f"Explicit file generation detection: message_len={len(message)} -> {result}"
+        )
         return result
 
     def _detect_and_read_project_file(self, query: str) -> Optional[Dict[str, Any]]:
@@ -3875,7 +3932,7 @@ You are analyzing code files. When responding to questions about code:
             from datetime import datetime, timedelta
             from backend.models import Document as DBDocument, db
 
-            # CRITICAL FIX: Prevent document upload notifications from being processed as queries
+            # Prevent document upload notifications from being processed as queries
             upload_notification_patterns = [
                 'document uploaded successfully',
                 'file uploaded successfully',
@@ -3890,10 +3947,13 @@ You are analyzing code files. When responding to questions about code:
             is_upload_notification = any(pattern in query_lower for pattern in upload_notification_patterns)
 
             if is_upload_notification:
-                logger.info(f"[ENHANCED_FILE_ANALYSIS] Detected upload notification, skipping file retrieval: '{query[:100]}...'")
+                logger.debug(
+                    "[ENHANCED_FILE_ANALYSIS] Detected upload notification, "
+                    f"skipping file retrieval (query_len={len(query)})"
+                )
                 return []
 
-            # CRITICAL FIX: Prevent web search queries from triggering file retrieval
+            # Prevent web search queries from triggering file retrieval
             web_search_patterns = [
                 'duckduckgo', 'ddg', 'google', 'search web', 'search for',
                 'weather', 'temperature', 'forecast', 'news', 'current events',
@@ -3907,10 +3967,16 @@ You are analyzing code files. When responding to questions about code:
             is_time_query = any(pattern in query_lower for pattern in time_patterns)
 
             if is_web_search or is_time_query:
-                logger.info(f"[ENHANCED_FILE_ANALYSIS] Detected web/time query, skipping file retrieval: '{query[:100]}...'")
+                logger.debug(
+                    "[ENHANCED_FILE_ANALYSIS] Detected web/time query, "
+                    f"skipping file retrieval (query_len={len(query)})"
+                )
                 return []
 
-            logger.info(f"[ENHANCED_FILE_ANALYSIS] Starting complete file content retrieval for query: '{query}'")
+            logger.debug(
+                "[ENHANCED_FILE_ANALYSIS] Starting complete file content retrieval "
+                f"(query_len={len(query)})"
+            )
 
             # Search for uploaded files that match the query (expanded beyond just code files)
             query_lower = query.lower()
@@ -4024,7 +4090,7 @@ You are analyzing code files. When responding to questions about code:
                 has_medium_match = match_score >= 6.0
                 logger.info(f"[ENHANCED_FILE_ANALYSIS] {file_doc.filename} - score: {match_score:.1f}, analysis_request: {is_analysis_request}, strong_match: {has_strong_match}, medium_match: {has_medium_match}")
 
-                # CRITICAL FIX: Add context length limits to prevent massive context injection
+                # Add context length limits to prevent massive context injection
                 # Adaptive context limits based on query complexity (REDUCED 10x for better performance)
                 query_words = len(query.lower().split())
                 if query_words <= 5 and any(word in query.lower() for word in ['read', 'show', 'what']):
@@ -4122,10 +4188,10 @@ You are analyzing code files. When responding to questions about code:
                                         logger.warning(f"[ENHANCED_RAG] Chunking failed for {file_doc.filename}, using original content")
                                         
                             except Exception as e:
-                                logger.warning(f"BUG FIX 5: RAG chunking error for {file_doc.filename}: {e}")
+                                logger.warning(f"RAG chunking error for {file_doc.filename}: {e}")
 
-                                # FIX BUG 5: Implement comprehensive chunking fallback strategies
-                                logger.info("BUG FIX 5: Implementing chunking fallback strategies")
+                                # Use fallback chunking strategies when adaptive chunking fails.
+                                logger.debug("Using chunking fallback strategies")
 
                                 # Strategy 1: Simple text splitting by paragraphs
                                 try:
@@ -4141,7 +4207,9 @@ You are analyzing code files. When responding to questions about code:
 
                                         if fallback_content.strip():
                                             file_content = fallback_content.strip()
-                                            logger.info(f"BUG FIX 5: Used paragraph-based fallback for {file_doc.filename}")
+                                            logger.debug(
+                                                f"Used paragraph-based fallback for {file_doc.filename}"
+                                            )
                                         else:
                                             raise Exception("Paragraph fallback failed")
                                     else:
@@ -4150,7 +4218,7 @@ You are analyzing code files. When responding to questions about code:
                                 except Exception as para_error:
                                     # Strategy 2: Simple character truncation with word boundary
                                     try:
-                                        logger.warning(f"BUG FIX 5: Paragraph fallback failed: {para_error}")
+                                        logger.warning(f"Paragraph fallback failed: {para_error}")
                                         if len(file_content) > max_context_length:
                                             # Find last word boundary before the limit
                                             truncate_point = max_context_length - 100  # Leave some buffer
@@ -4160,18 +4228,21 @@ You are analyzing code files. When responding to questions about code:
                                             else:
                                                 file_content = file_content[:truncate_point] + "\n\n[Content truncated due to length limits]"
 
-                                        logger.info(f"BUG FIX 5: Used truncation fallback for {file_doc.filename}")
+                                        logger.debug(f"Used truncation fallback for {file_doc.filename}")
 
                                     except Exception as truncate_error:
                                         # Strategy 3: Emergency minimal content
-                                        logger.error(f"BUG FIX 5: All chunking strategies failed: {truncate_error}")
+                                        logger.error(f"All chunking strategies failed: {truncate_error}")
                                         file_content = f"File: {file_doc.filename}\nSize: {len(file_content)} characters\nContent type: {getattr(file_doc, 'content_type', 'unknown')}\n\n[Content could not be processed due to technical difficulties. File is available but chunking failed.]"
-                                        logger.info(f"BUG FIX 5: Used emergency minimal content for {file_doc.filename}")
+                                        logger.debug(f"Used emergency minimal content for {file_doc.filename}")
 
                                 # Log the final fallback strategy used
-                                logger.info(f"BUG FIX 5: Successfully recovered from chunking error for {file_doc.filename}, final content length: {len(file_content)}")
+                                logger.debug(
+                                    f"Recovered from chunking error for {file_doc.filename}, "
+                                    f"final content length={len(file_content)}"
+                                )
                         
-                        # CRITICAL FIX: Enforce context length limits with user notification
+                        # Enforce context length limits with user notification
                         if len(file_content) > max_context_length:
                             truncation_warning = f"\n\n[WARNING: File {file_doc.filename} was truncated from {len(file_content)} to {max_context_length} characters due to length limits. Consider splitting large files for better analysis.]"
                             logger.warning(f"[ENHANCED_FILE_ANALYSIS] File {file_doc.filename} exceeds length limit ({len(file_content)} > {max_context_length}), truncating")
@@ -4376,8 +4447,7 @@ def enhanced_chat():
         if not session_id or not message:
             return error_response("Missing session_id or message", 400)
 
-        print(f"CHAT_DEBUG: Request ID {request_id}, session {session_id}")
-        logger.info(f"CHAT_DEBUG: Request ID {request_id}, session {session_id}")
+        logger.debug(f"Enhanced chat request received: request_id={request_id}, session={session_id}")
 
         # DUPLICATE PREVENTION: Check for active or recent duplicate requests
         request_key = f"{session_id}_{message.strip()}"
@@ -4385,8 +4455,9 @@ def enhanced_chat():
         with _cache_lock:
             # Check if this exact request is already being processed
             if request_key in _active_requests:
-                print(f"CHAT_DEBUG: Blocking duplicate active request: {request_key}")
-                logger.warning(f"CHAT_DEBUG: Blocking duplicate active request: {request_key}")
+                logger.warning(
+                    f"Blocking duplicate active chat request for session={session_id}"
+                )
                 return error_response("Duplicate request already being processed", 429)
 
             # Check for recent identical request (within 2 seconds)
@@ -4394,8 +4465,7 @@ def enhanced_chat():
             if request_key in _request_cache:
                 last_time, cached_response = _request_cache[request_key]
                 if current_time - last_time < 2.0:
-                    print(f"CHAT_DEBUG: Returning cached response for recent duplicate: {request_key}")
-                    logger.info(f"CHAT_DEBUG: Returning cached response for recent duplicate: {request_key}")
+                    logger.debug(f"Returning cached response for recent duplicate: session={session_id}")
                     return jsonify({
                         "success": True,
                         "data": {
@@ -4407,8 +4477,7 @@ def enhanced_chat():
 
             # Mark this request as active
             _active_requests.add(request_key)
-            print(f"CHAT_DEBUG: Marked request as active: {request_key}")
-            logger.info(f"CHAT_DEBUG: Marked request as active: {request_key}")
+            logger.debug(f"Marked chat request active: session={session_id}")
 
         # Process message
         chat_manager = get_chat_manager()
@@ -4433,8 +4502,7 @@ def enhanced_chat():
                     del _request_cache[oldest_key]
 
             response_data['request_id'] = request_id
-            print(f"CHAT_DEBUG: Successfully processed request: {request_key}")
-            logger.info(f"CHAT_DEBUG: Successfully processed request: {request_key}")
+            logger.debug(f"Successfully processed chat request: session={session_id}")
 
             return success_response(response_data)
 
@@ -4449,8 +4517,7 @@ def enhanced_chat():
             # Always remove from active requests
             with _cache_lock:
                 _active_requests.discard(request_key)
-                print(f"CHAT_DEBUG: Removed request from active set: {request_key}")
-                logger.info(f"CHAT_DEBUG: Removed request from active set: {request_key}")
+                logger.debug(f"Removed chat request from active set: session={session_id}")
 
     except Exception as e:
         import traceback
@@ -4467,9 +4534,7 @@ def enhanced_chat():
 def enhanced_chat_stream():
     """Enhanced streaming chat endpoint"""
     try:
-        # INVESTIGATION: Log distinctive message to trace if this endpoint is being called
-        print("🔴 STREAMING_ENDPOINT_DEBUG: /api/enhanced-chat/stream endpoint HIT!")
-        logger.debug("🔴 STREAMING_ENDPOINT_DEBUG: /api/enhanced-chat/stream endpoint HIT!")
+        logger.debug("Enhanced chat stream endpoint hit")
         # Validate request
         if not request.is_json:
             return jsonify({"error": "Request must be JSON"}), 400
@@ -4532,7 +4597,7 @@ def enhanced_chat_stream():
                     else:
                         raise
 
-                # CRITICAL FIX: Handle LlamaIndex "Empty Response" from context overflow in streaming
+                # Handle LlamaIndex "Empty Response" from context overflow in streaming
                 if full_response.strip() == "Empty Response" or full_response.strip() == "":
                     logger.warning("Streaming: LlamaIndex returned 'Empty Response' - using direct LLM fallback.")
                     try:

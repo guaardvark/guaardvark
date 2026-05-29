@@ -147,7 +147,7 @@ class CSVFormatter:
                     headers = next(reader)
                     # Validate headers (should be reasonable column names)
                     if all(len(h.strip()) > 0 and len(h.strip()) < 50 for h in headers):
-                        logger.info(f"Extracted headers from content: {headers}")
+                        logger.debug(f"Extracted headers from content (count={len(headers)})")
                         return [h.strip() for h in headers]
                 except Exception:
                     continue
@@ -338,7 +338,7 @@ Generate the complete CSV content now:"""
             # 1. Determine CSV structure
             if specified_headers:
                 headers = specified_headers
-                logger.info(f"Using specified headers: {headers}")
+                logger.debug(f"Using specified headers (count={len(headers)})")
             else:
                 # Try to extract headers from content
                 extracted_headers = self.extract_csv_headers_from_content(content)
@@ -348,7 +348,7 @@ Generate the complete CSV content now:"""
                     # Use template-based detection
                     template = self.detect_csv_template(content, user_prompt)
                     headers = [col.name for col in template]
-                    logger.info(f"Using template headers: {headers}")
+                    logger.debug(f"Using template headers (count={len(headers)})")
             
             # 2. Parse content into rows
             rows = self.parse_llm_content_to_rows(content, headers)
@@ -373,7 +373,8 @@ Generate the complete CSV content now:"""
             formatted_csv = output.getvalue()
             output.close()
             
-            logger.info(f"Successfully formatted CSV with {len(headers)} columns and {len(rows)} data rows")
+            column_count = len(headers)
+            logger.info(f"Successfully formatted CSV with {column_count} columns and {len(rows)} data rows")
             return formatted_csv
             
         except Exception as e:

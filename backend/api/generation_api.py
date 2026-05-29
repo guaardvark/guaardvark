@@ -484,11 +484,10 @@ Generate the complete file content now:"""
                 else:
                     logger.info("ENHANCED GENERATION: No file context available")
                 
-                # DEBUG: Log the exact prompt being sent to LLM
-                logger.info(f"DEBUG GENERATION: System message preview: {system_message[:200]}...")
-                logger.info(f"DEBUG GENERATION: System message length: {len(system_message)} chars")
-                logger.info(f"DEBUG GENERATION: Enhanced prompt preview: {enhanced_prompt[:200]}...")
-                logger.info(f"DEBUG GENERATION: Enhanced prompt length: {len(enhanced_prompt)} chars")
+                logger.debug(
+                    f"Generation prompt prepared "
+                    f"(system_message_len={len(system_message)}, enhanced_prompt_len={len(enhanced_prompt)})"
+                )
                 
                 generated_content = llm_service.run_llm_chat_prompt(
                     enhanced_prompt,
@@ -499,12 +498,10 @@ Generate the complete file content now:"""
                     ]
                 )
                 
-                # DEBUG: Log the LLM response
-                logger.info(f"DEBUG GENERATION: LLM response preview: {str(generated_content)[:300]}...")
-                logger.info(f"DEBUG GENERATION: LLM response length: {len(str(generated_content))} chars")
+                logger.debug(f"Generation response received (response_len={len(str(generated_content))})")
                 
                 if not generated_content or not str(generated_content).strip():
-                    logger.warning(f"LLM returned empty content for prompt: {enhanced_prompt[:100]}...")
+                    logger.warning(f"LLM returned empty content (prompt_len={len(enhanced_prompt)})")
                     return jsonify({
                         "error": "LLM failed to generate content",
                         "details": "The LLM returned empty or invalid content. Please try rephrasing your request or check if the model is available.",
@@ -630,14 +627,16 @@ def generate_from_command():
 
         # 3. Prepare Prompt with security validation
         final_prompt = command_rule.rule_text
-        logger.info(f"DEBUG: Original rule text: {final_prompt}")
-        logger.info(f"DEBUG: Generation parameters: {generation_parameters}")
+        logger.debug(
+            f"Preparing command rule generation "
+            f"(rule_len={len(final_prompt)}, parameter_count={len(generation_parameters)})"
+        )
             
         for key, value in generation_parameters.items():
             placeholder = f"{{{{{key}}}}}"
             final_prompt = final_prompt.replace(placeholder, str(value))
-            logger.info(f"DEBUG: Replaced {placeholder} with {value}")
-        logger.info(f"DEBUG: Final prompt: {final_prompt}")
+            logger.debug(f"Applied command rule placeholder (key={key})")
+        logger.debug(f"Command rule prompt prepared (prompt_len={len(final_prompt)})")
 
         # Security validation removed for local system
 

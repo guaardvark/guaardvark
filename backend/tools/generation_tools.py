@@ -7,6 +7,7 @@ Wraps existing generation services for agent system integration.
 
 import logging
 import os
+from pathlib import Path
 from typing import Any, Optional
 from datetime import datetime
 
@@ -242,14 +243,17 @@ class FileGeneratorTool(BaseTool):
     """
 
     name = "generate_file"
-    description = "Generate file content (code, documents, data files) based on specifications"
+    description = (
+        "Generate new output file content (code, documents, data files) under data/outputs/files. "
+        "Does not edit existing source code; use edit_code for repo changes."
+    )
 
     parameters = {
         "filename": ToolParameter(
             name="filename",
             type="string",
             required=True,
-            description="Output filename with extension (e.g., 'script.py', 'config.json')"
+            description="Relative output filename with extension; nested paths are allowed (e.g., 'frontend/src/page.jsx')"
         ),
         "content_description": ToolParameter(
             name="content_description",
@@ -301,6 +305,35 @@ class FileGeneratorTool(BaseTool):
             return "config"
         return "unknown"
 
+    def _resolve_output_path(self, output_dir: str, filename: str) -> str:
+        """Resolve a relative output filename safely beneath the output directory."""
+        if not filename or not str(filename).strip():
+            raise ValueError("Filename is required")
+
+        raw_filename = str(filename).strip().replace("\\", "/")
+        relative_path = Path(raw_filename)
+
+        if relative_path.is_absolute():
+            raise ValueError("Filename must be a relative path inside the output directory")
+
+        if any(part in ("", ".", "..") for part in relative_path.parts):
+            raise ValueError("Filename cannot contain empty, current-directory, or parent-directory segments")
+
+        output_root = Path(output_dir).resolve()
+        output_root.mkdir(parents=True, exist_ok=True)
+
+        output_path = (output_root / relative_path).resolve()
+        try:
+            output_path.relative_to(output_root)
+        except ValueError:
+            raise ValueError("Filename resolves outside the output directory")
+
+        if output_path == output_root:
+            raise ValueError("Filename must point to a file, not the output directory")
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        return str(output_path)
+
     def execute(self, **kwargs) -> ToolResult:
         """Generate file content"""
         filename = kwargs.get("filename")
@@ -309,11 +342,17 @@ class FileGeneratorTool(BaseTool):
         save_to_disk = kwargs.get("save_to_disk", True)
 
         try:
-            llm = self._get_llm()
-
             # Detect file type if auto
             if file_type == "auto":
                 file_type = self._detect_file_type(filename)
+
+            output_path = None
+            if save_to_disk:
+                from backend.config import OUTPUT_DIR
+                output_dir = os.path.join(OUTPUT_DIR, "files")
+                output_path = self._resolve_output_path(output_dir, filename)
+
+            llm = self._get_llm()
 
             # Build generation prompt
             prompt = f"""You are a file generator. Generate ONLY the file content requested.
@@ -350,13 +389,7 @@ Generate the file content now:"""
                     lines = lines[:-1]
                 file_content = '\n'.join(lines)
 
-            output_path = None
             if save_to_disk:
-                from backend.config import OUTPUT_DIR
-                output_dir = os.path.join(OUTPUT_DIR, "files")
-                os.makedirs(output_dir, exist_ok=True)
-                output_path = os.path.join(output_dir, filename)
-
                 with open(output_path, 'w', encoding='utf-8') as f:
                     f.write(file_content)
 
@@ -372,7 +405,8 @@ Generate the file content now:"""
                 metadata={
                     "filename": filename,
                     "file_type": file_type,
-                    "saved": save_to_disk
+                    "saved": save_to_disk,
+                    "destination": "output_dir"
                 }
             )
 

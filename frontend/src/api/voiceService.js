@@ -4,6 +4,12 @@
 import { BASE_URL, SOCKET_URL, handleResponse } from './apiClient';
 import { io } from 'socket.io-client';
 
+const debugLog = (...args) => {
+  if (import.meta.env.DEV) {
+    console.debug(...args);
+  }
+};
+
 /**
  * Voice API Service - Handles all voice-related API interactions
  * Supports streaming voice chat, status checks, and configuration
@@ -45,7 +51,7 @@ class VoiceService {
       });
       
       this.socket.on('connect', () => {
-        console.log('VoiceService: WebSocket connected');
+        debugLog('VoiceService: WebSocket connected');
       });
       
       this.socket.on('voice:final_transcript', (data) => {
@@ -370,12 +376,12 @@ class VoiceService {
       this.mediaRecorder.start(options.timeslice || 1000); // 1 second chunks by default
 
       // Ensure audio analyzer is fully connected before returning
-      console.log('VoiceService: Setting up audio analyzer for volume detection...');
+      debugLog('VoiceService: Setting up audio analyzer for volume detection');
       const analyzer = await this.createAudioAnalyzer(this.stream);
       if (!analyzer) {
         console.warn('VoiceService: Failed to setup audio analyzer - volume detection may not work');
       } else {
-        console.log('VoiceService: Audio analyzer setup complete and connected');
+        debugLog('VoiceService: Audio analyzer setup complete and connected');
         
         // Wait a brief moment for the analyzer to fully connect and stabilize
         await new Promise(resolve => setTimeout(resolve, 200));
@@ -421,7 +427,7 @@ class VoiceService {
             try {
               this.audioAnalyzer.source.disconnect();
               this.audioAnalyzer = null;
-              console.log('VoiceService: Audio analyzer disconnected before stream cleanup');
+              debugLog('VoiceService: Audio analyzer disconnected before stream cleanup');
             } catch (error) {
               console.warn('VoiceService: Failed to disconnect audio analyzer:', error);
             }
@@ -431,7 +437,7 @@ class VoiceService {
           if (this.stream) {
             this.stream.getTracks().forEach(track => track.stop());
             this.stream = null;
-            console.log('VoiceService: Stream tracks stopped after delay');
+            debugLog('VoiceService: Stream tracks stopped after delay');
           }
         }, 100); // 100ms delay to ensure final processing completes
         
@@ -540,7 +546,7 @@ class VoiceService {
     if (this.audioContext && this.audioContext.state === 'suspended') {
       try {
         await this.audioContext.resume();
-        console.log('VoiceService: AudioContext resumed before playback, state:', this.audioContext.state);
+        debugLog('VoiceService: AudioContext resumed before playback, state:', this.audioContext.state);
       } catch (e) {
         console.warn('VoiceService: Could not resume AudioContext before playback:', e);
       }
@@ -551,15 +557,15 @@ class VoiceService {
       audio.crossOrigin = 'anonymous'; // Required for Web Audio API analysis
 
       audio.onload = () => {
-        console.log('Audio loaded successfully');
+        debugLog('Audio loaded successfully');
       };
 
       audio.oncanplaythrough = () => {
-        console.log('Audio can play through');
+        debugLog('Audio can play through');
       };
 
       audio.onended = () => {
-        console.log('Audio playback ended');
+        debugLog('Audio playback ended');
         this.isTTSPlaying = false;
         this.ttsAudioElement = null;
         // Clean up TTS analyzer
@@ -648,7 +654,7 @@ class VoiceService {
         timeArray: new Uint8Array(analyzer.fftSize),
       };
 
-      console.log('VoiceService: TTS audio analyzer setup successfully');
+      debugLog('VoiceService: TTS audio analyzer setup successfully');
       return this.ttsAnalyzer;
     } catch (error) {
       console.error('VoiceService: Failed to setup TTS analyzer:', error);
@@ -749,11 +755,11 @@ class VoiceService {
     if (!this.audioContext) {
       try {
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        console.log('VoiceService: Created new audio context, state:', this.audioContext.state);
+        debugLog('VoiceService: Created new audio context, state:', this.audioContext.state);
         
         // Add user interaction handler if context is suspended
         if (this.audioContext.state === 'suspended') {
-          console.log('VoiceService: Audio context suspended - requires user interaction');
+          debugLog('VoiceService: Audio context suspended - requires user interaction');
           this.addUserInteractionHandler();
         }
       } catch (error) {
@@ -779,9 +785,9 @@ class VoiceService {
     
     const resumeAudioContext = () => {
       if (this.audioContext && this.audioContext.state === 'suspended') {
-        console.log('VoiceService: User interaction detected, resuming audio context');
+        debugLog('VoiceService: User interaction detected, resuming audio context');
         this.audioContext.resume().then(() => {
-          console.log('VoiceService: Audio context resumed successfully');
+          debugLog('VoiceService: Audio context resumed successfully');
         }).catch(err => {
           console.warn('VoiceService: Failed to resume audio context on user interaction:', err);
         });
@@ -795,7 +801,7 @@ class VoiceService {
     });
     
     this.userInteractionAdded = true;
-    console.log('VoiceService: Added user interaction handlers for audio context resume');
+    debugLog('VoiceService: Added user interaction handlers for audio context resume');
   }
 
   /**
@@ -804,10 +810,10 @@ class VoiceService {
   async resumeAudioContext() {
     const audioContext = this.getAudioContext();
     if (audioContext.state === 'suspended') {
-      console.log('VoiceService: Resuming suspended audio context...');
+      debugLog('VoiceService: Resuming suspended audio context');
       try {
         await audioContext.resume();
-        console.log('VoiceService: Audio context resumed, state:', audioContext.state);
+        debugLog('VoiceService: Audio context resumed, state:', audioContext.state);
         return true;
       } catch (error) {
         console.error('VoiceService: Failed to resume audio context:', error);
@@ -828,7 +834,9 @@ class VoiceService {
    */
   async createAudioAnalyzer(stream) {
     try {
-      console.log('VoiceService: Creating audio analyzer for stream:', stream);
+      debugLog('VoiceService: Creating audio analyzer for stream', {
+        activeTracks: stream?.getAudioTracks?.().length || 0,
+      });
       
       if (!stream) {
         const error = new Error('VoiceService: No stream provided to createAudioAnalyzer');
@@ -915,7 +923,7 @@ class VoiceService {
           this.currentVolume = event.data.volume;
           this.isSpeaking = event.data.isSpeaking;
         };
-        console.log('VoiceService: VAD AudioWorklet connected successfully');
+        debugLog('VoiceService: VAD AudioWorklet connected successfully');
       } catch (workletError) {
         console.warn('VoiceService: Failed to load VAD AudioWorklet, falling back to AnalyserNode:', workletError);
       }
@@ -1051,21 +1059,21 @@ class VoiceService {
     }
     this.isCleaningUp = true;
     
-    console.log('VoiceService: Starting cleanup...');
+    debugLog('VoiceService: Starting cleanup');
     
     if (this.isRecording) {
-      console.log('VoiceService: Stopping recording during cleanup');
+      debugLog('VoiceService: Stopping recording during cleanup');
       this.stopRecording().catch(console.error);
     }
     
     if (this.stream) {
-      console.log('VoiceService: Stopping media stream tracks');
+      debugLog('VoiceService: Stopping media stream tracks');
       this.stream.getTracks().forEach(track => track.stop());
       this.stream = null;
     }
     
     if (this.audioAnalyzer) {
-      console.log('VoiceService: Disconnecting audio analyzer');
+      debugLog('VoiceService: Disconnecting audio analyzer');
       try {
         this.audioAnalyzer.source.disconnect();
       } catch (error) {
@@ -1077,7 +1085,7 @@ class VoiceService {
     // Don't close audio context immediately - let it be reused
     // Audio context will be closed when the page unloads or by browser GC
     if (this.audioContext) {
-      console.log('VoiceService: Suspending audio context (not closing for reuse)');
+      debugLog('VoiceService: Suspending audio context (not closing for reuse)');
       try {
         this.audioContext.suspend();
       } catch (error) {
@@ -1093,7 +1101,7 @@ class VoiceService {
     // Reset user interaction handler flag so it can be re-added if needed
     this.userInteractionAdded = false;
     
-    console.log('VoiceService: Cleanup completed');
+    debugLog('VoiceService: Cleanup completed');
     this.isCleaningUp = false;
   }
 
@@ -1104,7 +1112,7 @@ class VoiceService {
     this.cleanup();
 
     if (this.audioContext) {
-      console.log('VoiceService: Force closing audio context');
+      debugLog('VoiceService: Force closing audio context');
       try {
         this.audioContext.close();
       } catch (error) {

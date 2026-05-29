@@ -441,7 +441,7 @@ def quick_search():
         if not query:
             return error_response("Query is required", status_code=400)
         
-        logger.info(f"Enhanced quick search request: {query[:100]}...")
+        logger.info(f"Enhanced quick search request received (query_len={len(query)})")
         
         search_results = enhanced_web_search(query)
         
@@ -473,7 +473,7 @@ def quick_search():
                 "timestamp": datetime.now().isoformat()
             }
             
-            logger.warning(f"Enhanced quick search failed for: {query[:50]}...")
+            logger.warning(f"Enhanced quick search failed (query_len={len(query)})")
             return success_response(result)
             
     except Exception as e:
@@ -494,7 +494,7 @@ def web_search():
         if not query:
             return error_response("Query is required", status_code=400)
         
-        logger.info(f"Enhanced web search request: {query[:100]}...")
+        logger.info(f"Enhanced web search request received (query_len={len(query)})")
         
         search_results = enhanced_web_search(query)
         

@@ -26,6 +26,12 @@ import AudioVisualizer from './AudioVisualizer';
 import VolumeMeter from './VolumeMeter';
 import VoiceSettingsModal from './VoiceSettingsModal';
 
+const debugLog = (...args) => {
+  if (import.meta.env.DEV) {
+    console.debug(...args);
+  }
+};
+
 const VoiceChat = ({ 
   sessionId = 'default',
   onMessageReceived = () => {},
@@ -89,7 +95,7 @@ const VoiceChat = ({
           setAudioLevels(levels);
           
           if (Math.random() < 0.1) {
-            console.log('VoiceChat: Volume detected (direct voiceService):', {
+            debugLog('VoiceChat: Volume detected (direct voiceService):', {
               volume: (volume || 0).toFixed(3),
               audioLevels: levels.length,
               timestamp: Date.now()
@@ -167,7 +173,7 @@ const VoiceChat = ({
 
   useEffect(() => {
     if (isRecording) {
-      console.log('VoiceChat: Recording status:', {
+      debugLog('VoiceChat: Recording status:', {
         isRecording: isRecording,
         volume: recordingVolume || 0,
         audioLevels: audioLevels?.length || 0,
@@ -179,7 +185,7 @@ const VoiceChat = ({
 
   const handleStartRecording = async () => {
     try {
-      console.log('VoiceChat: Starting recording...');
+      debugLog('VoiceChat: Starting recording');
       
       const resumed = await voiceService.resumeAudioContext();
       if (!resumed) {
@@ -191,7 +197,7 @@ const VoiceChat = ({
       setRecordingError(null);
       setPermission('unknown');
       await voiceService.startRecording();
-      console.log('VoiceChat: Recording started successfully');
+      debugLog('VoiceChat: Recording started successfully');
     } catch (error) {
       console.error('VoiceChat: Failed to start recording:', error);
       setRecordingError(error.message || 'Failed to start recording');
@@ -429,12 +435,12 @@ const VoiceChat = ({
 
   const handleStopRecording = async () => {
     try {
-      console.log('VoiceChat: Stopping recording...');
+      debugLog('VoiceChat: Stopping recording');
       setIsRecording(false);
       const audioBlob = await voiceService.stopRecording();
       
       if (audioBlob) {
-        console.log('VoiceChat: Recording stopped successfully', {
+        debugLog('VoiceChat: Recording stopped successfully', {
           size: audioBlob.size,
           type: audioBlob.type,
           duration: duration
@@ -455,7 +461,7 @@ const VoiceChat = ({
   };
 
   const handleCancelRecording = () => {
-    console.log('VoiceChat: Cancelling recording...');
+    debugLog('VoiceChat: Cancelling recording');
     setIsRecording(false);
     setRecordingVolume(0);
     setDuration(0);
@@ -481,7 +487,7 @@ const VoiceChat = ({
       return;
     }
 
-    console.log('VoiceChat: Sending stopped audio blob', {
+    debugLog('VoiceChat: Sending stopped audio blob', {
       size: stoppedAudioBlob.size,
       type: stoppedAudioBlob.type
     });

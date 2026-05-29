@@ -733,22 +733,22 @@ def _induce_candidate_recipe(app, session_id: str, feedback_task: str, strong_po
             if strong_positive:
                 row_tags.append("strong_positive")
                 row_importance = 0.9
-            row = AgentMemory(
-                id=str(_uuid.uuid4()),
+            from backend.api.memory_api import add_memory
+            row = add_memory(
                 content=content_json,
                 source="candidate_recipe",
                 session_id=session_id,
-                type="snippet",
+                memory_type="snippet",
                 importance=row_importance,
-                tags=_json.dumps(row_tags),
+                tags=row_tags,
+                metadata={"candidate_recipe": normalized, "promoted": True},
             )
-            db.session.add(row)
-            db.session.commit()
-            logger.info(
-                f"[INDUCE] saved recipe audit log {row.id[:8]} — "
-                f"\"{description[:60]}\" with {len(normalized['steps'])} steps "
-                f"(importance={row_importance}{', strong_positive' if strong_positive else ''})"
-            )
+            if row:
+                logger.info(
+                    f"[INDUCE] saved recipe audit log {row.id[:8]} — "
+                    f"\"{description[:60]}\" with {len(normalized['steps'])} steps "
+                    f"(importance={row_importance}{', strong_positive' if strong_positive else ''})"
+                )
         except Exception as e:
             logger.warning(f"[INDUCE] failed for session {session_id[:12]}: {e}", exc_info=True)
 
@@ -866,17 +866,17 @@ def _distill_pearl_memory(app, session_id: str):
                 existing.updated_at = datetime.now()
                 logger.info(f"[DISTILL] Updated pearl memory for session {session_id[:12]}: {note[:80]}")
             else:
-                import uuid
-                mem = AgentMemory(
-                    id=uuid.uuid4().hex[:12],
+                from backend.api.memory_api import add_memory
+                mem = add_memory(
                     content=note,
                     source="learned_from_feedback",
                     session_id=session_id,
-                    type="note",
+                    memory_type="note",
                     importance=0.7,
                 )
-                db.session.add(mem)
                 logger.info(f"[DISTILL] Saved pearl memory for session {session_id[:12]}: {note[:80]}")
+                if mem is None:
+                    return
             db.session.commit()
         except Exception as e:
             logger.error(f"[DISTILL] session {session_id[:12]} failed: {e}", exc_info=True)

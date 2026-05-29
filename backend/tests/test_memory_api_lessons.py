@@ -108,6 +108,30 @@ class TestPatchMemory:
             assert m.type == "fact"
             assert abs(m.importance - 0.9) < 1e-6
 
+    def test_patch_normalizes_instruction_to_note(self, app, client):
+        _mem(app, "m-instruction", "c", importance=0.5)
+        resp = client.patch("/api/memory/m-instruction", json={"type": "instruction"})
+        assert resp.status_code == 200
+        assert resp.get_json()["memory"]["type"] == "note"
+
+    def test_clear_requires_confirmation_token(self, app, client):
+        _mem(app, "m-clear", "c")
+        missing = client.delete("/api/memory/clear", json={})
+        assert missing.status_code == 400
+
+        ok = client.delete("/api/memory/clear", json={"confirmation": "CLEAR_MEMORIES"})
+        assert ok.status_code == 200
+        with app.app_context():
+            assert db.session.query(AgentMemory).count() == 0
+
+    def test_lesson_memory_rejects_malformed_json(self, client):
+        resp = client.post("/api/memory", json={
+            "content": "not json",
+            "type": "lesson",
+            "source": "lesson_summary",
+        })
+        assert resp.status_code == 400
+
     def test_patch_rejects_non_numeric_importance(self, app, client):
         _mem(app, "m-imp-bad", "c", importance=0.5)
         resp = client.patch("/api/memory/m-imp-bad", json={"importance": "not-a-number"})
@@ -304,3 +328,63 @@ class TestLessonFlattening:
         assert len(content_line) <= 1200
         if len(content_line) == 1200:
             assert content_line.endswith("...")
+
+
+class TestScopedRecallAndToolParity:
+    def test_scoped_recall_prefers_project_and_query_match(self, app):
+        with app.app_context():
+            db.session.add_all([
+                AgentMemory(
+                    id="global-important",
+                    content="Always preserve user formatting preferences",
+                    source="manual",
+                    type="note",
+                    importance=0.95,
+                ),
+                AgentMemory(
+                    id="project-hit",
+                    content="Use the llama dataset cache for tokenizer experiments",
+                    source="manual",
+                    type="fact",
+                    importance=0.6,
+                    project_id=7,
+                    tags=_json.dumps(["tokenizer"]),
+                ),
+                AgentMemory(
+                    id="other-project",
+                    content="Use the unrelated billing cache",
+                    source="manual",
+                    type="fact",
+                    importance=1.0,
+                    project_id=99,
+                ),
+            ])
+            db.session.commit()
+
+            out = get_memories_for_context(
+                limit=3,
+                query="tokenizer cache",
+                project_id=7,
+            )
+
+        assert "llama dataset cache" in out
+        assert "preserve user formatting preferences" in out
+        assert "unrelated billing cache" not in out
+
+    def test_save_memory_tool_uses_api_defaults(self, app):
+        from backend.tools.memory_tools import SaveMemoryTool
+
+        with app.app_context():
+            result = SaveMemoryTool().execute(
+                content="Remember this as an instruction",
+                type="instruction",
+                tags=["Test"],
+                _agent_context={"session_id": "s-1", "project_id": 3},
+            )
+
+            assert result.success is True
+            memory = db.session.query(AgentMemory).filter_by(id=result.metadata["id"]).one()
+            assert memory.type == "note"
+            assert memory.source == "agent"
+            assert memory.session_id == "s-1"
+            assert memory.project_id == 3

@@ -38,6 +38,12 @@ import {
 import * as interconnectorApi from "../../api/interconnectorService";
 import { useSnackbar } from "../common/SnackbarProvider";
 
+const debugLog = (...args) => {
+  if (import.meta.env.DEV) {
+    console.debug(...args);
+  }
+};
+
 const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
   const { showMessage } = useSnackbar();
 
@@ -68,16 +74,19 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
   // Define checkForUpdates first so it can be used in useEffect
   const checkForUpdates = useCallback(async () => {
     if (!isEnabled || !masterUrl) {
-      console.log("[ClientUpdatePanel] Skipping update check - not enabled or no master URL");
+      debugLog("[ClientUpdatePanel] Skipping update check - not enabled or no master URL");
       return;
     }
 
-    console.log("[ClientUpdatePanel] Checking for updates from master...");
+    debugLog("[ClientUpdatePanel] Checking for updates from master");
     setUpdateStatus((prev) => ({ ...prev, checking: true, error: null }));
 
     try {
       const response = await interconnectorApi.checkForUpdates();
-      console.log("[ClientUpdatePanel] Update check response:", response);
+      debugLog("[ClientUpdatePanel] Update check response", {
+        success: response?.success,
+        hasData: Boolean(response?.data),
+      });
 
       if (response.error) {
         console.error("[ClientUpdatePanel] Update check error:", response.error);
@@ -90,7 +99,7 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
       }
 
       const data = response.data || response;
-      console.log("[ClientUpdatePanel] Update check data:", {
+      debugLog("[ClientUpdatePanel] Update check data", {
         available: data.available,
         count: data.count,
         summary: data.summary
@@ -127,7 +136,7 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
   // Check for updates on mount and periodically
   useEffect(() => {
     if (!isEnabled || !masterUrl) {
-      console.log("[ClientUpdatePanel] Not checking - isEnabled:", isEnabled, "masterUrl:", masterUrl);
+      debugLog("[ClientUpdatePanel] Not checking", { isEnabled, hasMasterUrl: Boolean(masterUrl) });
       return;
     }
 
@@ -212,7 +221,7 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
         // Refresh update status after a short delay to confirm with server
         // (in case there are still more updates)
         setTimeout(async () => {
-          console.log("[ClientUpdatePanel] Re-checking for updates after apply...");
+          debugLog("[ClientUpdatePanel] Re-checking for updates after apply");
           await checkForUpdates();
         }, 1000);
       }

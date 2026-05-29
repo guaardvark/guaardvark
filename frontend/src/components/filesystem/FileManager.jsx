@@ -444,8 +444,6 @@ const FileManager = () => {
 
     if (!needsMigration) return layout;
 
-    console.log('Migrating legacy folder layout to new grid dimensions');
-
     // Reset all items to new fixed dimensions and default positions
     const colsPerRow = Math.floor(FOLDER_LAYOUT_COLS / FOLDER_GRID_WIDTH);
 
@@ -1651,7 +1649,6 @@ const FileManager = () => {
               saveFolderLayouts(updated);
             }}
             onContextMenu={(e) => {
-              console.log('[FolderGridLayout contextMenu] triggered');
               // Call with just event to let defaults apply
               handleContextMenu(e);
             }}
@@ -1748,13 +1745,7 @@ const FileManager = () => {
           spacing={2}
           sx={{ p: 2, pt: 3, cursor: 'default' }}
           onContextMenu={(e) => {
-            console.log('[Grid files contextMenu]', {
-              target: e.target,
-              currentTarget: e.currentTarget,
-              isCurrentTarget: e.target === e.currentTarget,
-            });
             if (e.target === e.currentTarget || e.target.closest('.MuiGrid-root') === e.currentTarget) {
-              console.log('[Grid files] Triggering blank space context menu');
               // Call with just event to let defaults apply
               handleContextMenu(e);
             }
@@ -2157,13 +2148,7 @@ const FileManager = () => {
                                 e.target.closest('.MuiTableRow-root') ||
                                 e.target.closest('.react-grid-item');
 
-          console.log('[FileManager Paper contextMenu]', {
-            target: e.target,
-            clickedOnItem: !!clickedOnItem,
-          });
-
           if (!clickedOnItem) {
-            console.log('[FileManager Paper] Triggering blank space context menu');
             // Call with just event to let defaults apply (item=null, type=null means blank space)
             handleContextMenu(e);
           }

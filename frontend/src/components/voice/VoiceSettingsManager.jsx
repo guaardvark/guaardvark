@@ -1,6 +1,12 @@
 
 import { useState, useCallback } from 'react';
 
+const debugLog = (...args) => {
+  if (import.meta.env.DEV) {
+    console.debug(...args);
+  }
+};
+
 export const useVoiceSettingsManager = (initialSettings = {}) => {
   const [voiceSettings, setVoiceSettings] = useState({
     voice: 'libritts',
@@ -68,7 +74,7 @@ export const useVoiceSettingsManager = (initialSettings = {}) => {
   }, []);
 
   const handleSettingsSave = useCallback((newSettings) => {
-    console.log('VoiceSettingsManager: Saving settings:', newSettings);
+    debugLog('VoiceSettingsManager: Saving settings');
     setVoiceSettings(newSettings);
     
     try {

@@ -11,6 +11,12 @@ import { BACKEND_URL } from "../api/apiClient";
 const VoiceContext = createContext();
 export const useVoice = () => useContext(VoiceContext);
 
+const debugLog = (...args) => {
+  if (import.meta.env.DEV) {
+    console.debug(...args);
+  }
+};
+
 export const VoiceProvider = ({ children }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -139,8 +145,10 @@ export const VoiceProvider = ({ children }) => {
     try {
       incrementActiveTTS();
       const cleanedText = cleanTextForSpeech(text);
-      console.log('TTS: Original text:', text.substring(0, 100) + '...');
-      console.log('TTS: Cleaned text:', cleanedText.substring(0, 100) + '...');
+      debugLog('TTS text prepared', {
+        originalLength: text.length,
+        cleanedLength: cleanedText.length,
+      });
       
       const result = await textToSpeech(cleanedText, selectedVoice);
       if (result.audio_url) {
