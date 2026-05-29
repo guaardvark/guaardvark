@@ -154,7 +154,17 @@ except ImportError as e:
 except Exception as e:
     print(f"Warning: CUDA optimization failed (non-critical): {e}")
 
-__version__ = "2.5.3"
+# Version is sourced from the repo-root VERSION file (single source of truth).
+# Read via a path relative to this file so it is independent of GUAARDVARK_ROOT,
+# which may be overridden to a writable data dir. Falls back if the file is absent.
+try:
+    with open(
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "VERSION"),
+        encoding="utf-8",
+    ) as _vf:
+        __version__ = _vf.read().strip()
+except OSError:
+    __version__ = "2.5.4"
 
 backend_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = str(config.GUAARDVARK_ROOT)

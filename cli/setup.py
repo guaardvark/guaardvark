@@ -7,6 +7,11 @@ from setuptools import setup, find_packages
 # paths are rewritten to absolute raw.githubusercontent.com URLs so they
 # render on PyPI, which does not serve repo-relative assets.
 _repo_root = Path(__file__).resolve().parent.parent
+
+# Single source of truth for the version: the repo-root VERSION file.
+_version_path = _repo_root / "VERSION"
+_version = _version_path.read_text(encoding="utf-8").strip() if _version_path.exists() else "2.5.4"
+
 _readme_path = _repo_root / "README.md"
 _long_description = ""
 if _readme_path.exists():
@@ -21,7 +26,7 @@ if _readme_path.exists():
 
 setup(
     name="guaardvark",
-    version="2.5.3",
+    version=_version,
     description="Guaardvark CLI — full-stack AI platform with RAG, image/video generation, and agents",
     long_description=_long_description,
     long_description_content_type="text/markdown",
