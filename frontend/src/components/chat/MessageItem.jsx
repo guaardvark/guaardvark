@@ -272,8 +272,30 @@ const MessageItem = ({ message, sessionId: sessionIdProp }) => {
         flexDirection: "row",
         alignItems: "flex-start",
         gap: 1,
+        // Reveal the user-message copy affordance on hover (AI messages keep
+        // their always-visible action row below).
+        "&:hover .msg-user-copy": { opacity: 1 },
       }}
     >
+      {/* User messages get a hover-revealed copy button beside the bubble.
+          AI messages already carry copy in their action row. */}
+      {isUser && (
+        <Tooltip title={copied ? "Copied" : "Copy"}>
+          <IconButton
+            className="msg-user-copy"
+            size="small"
+            onClick={handleCopy}
+            aria-label="Copy message"
+            sx={{ p: 0.25, alignSelf: "center", opacity: 0, transition: "opacity 0.15s" }}
+          >
+            {copied ? (
+              <CheckIcon sx={{ fontSize: 14, color: "success.main" }} />
+            ) : (
+              <ContentCopyIcon sx={{ fontSize: 14, opacity: 0.6 }} />
+            )}
+          </IconButton>
+        </Tooltip>
+      )}
       {!isUser && (
         <Avatar
           src={logoUrl}
