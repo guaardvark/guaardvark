@@ -11,7 +11,6 @@ import {
   Button,
   IconButton,
   Chip,
-  Divider,
   CircularProgress,
   Alert,
   Tooltip,
@@ -20,9 +19,7 @@ import {
   PlayArrow as PlayIcon,
   Pause as PauseIcon,
   AutoFixHigh as RenderIcon,
-  TextFields as TextIcon,
   MovieFilter as VideoIcon,
-  GraphicEq as AudioIcon,
   AutoAwesome as PlanIcon,
   OpenInNew as ShotcutIcon,
   RocketLaunch as QuickRenderIcon,
@@ -74,13 +71,6 @@ const VE_CARD_TITLES = {
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
-// Track lane colors — keep video / text / audio visually distinct.
-const TRACK_COLORS = {
-  video: "#2196f3",
-  text: "#ff9800",
-  audio: "#9c27b0",
-};
-
 // Initial blank timeline state. Bin holds clips for THIS project; song is
 // the master soundtrack. Text overlays are kept for A2+ — currently they
 // don't flow through the Plan pipeline.
@@ -93,13 +83,13 @@ const _emptyTimeline = () => ({
 });
 
 const VideoEditorPage = () => {
-  const { timeline, commitTimeline, handleUndo, pendingSnapshotRef } = useTimelineHistory(_emptyTimeline());
+  const { timeline, commitTimeline, handleUndo } = useTimelineHistory(_emptyTimeline());
   const videoElRef = useRef(null);
   const [mediaLibrary, setMediaLibrary] = useState([]);
   const [audioLibrary, setAudioLibrary] = useState([]);
   const [imageLibrary, setImageLibrary] = useState([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
-  const [videoDuration, setVideoDuration] = useState(0);  // for visual trim slider
+  const [, setVideoDuration] = useState(0);  // for visual trim slider
   const [selectedItem, setSelectedItem] = useState(null);  // {type, id} for properties panel
   const [previewPlaying, setPreviewPlaying] = useState(false);
   const [rendering, setRendering] = useState(false);
@@ -109,7 +99,7 @@ const VideoEditorPage = () => {
   const [styleRecipeName, setStyleRecipeName] = useState("Default");
   const [recipes, setRecipes] = useState([]);
   const planJob = usePlanJob();
-  const [gate, setGate] = useState(null);
+  const [, setGate] = useState(null);
   const [error, setError] = useState(null);
 
   // Director's Notes overrides — keyed by clip_id. Local until next Plan.
@@ -201,7 +191,7 @@ const VideoEditorPage = () => {
       .catch(() => {})
       .finally(() => { if (!cancelled) sessionLoadedRef.current = true; });
     return () => { cancelled = true; };
-  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);  // deps intentionally limited
 
   useEffect(() => {
     if (!sessionLoadedRef.current) return;
@@ -355,30 +345,6 @@ const VideoEditorPage = () => {
   // Click on the preview to add a text element at that point. Phase 3 of
   // the editor plan adds drag/resize/rotate handles via react-rnd or
   // react-moveable; for now click-to-place + edit-in-properties.
-  const handleAddText = useCallback((x, y) => {
-    const newId = `text_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    commitTimeline((prev) => {
-      return {
-        ...prev,
-        textElements: [
-          ...prev.textElements,
-          {
-            id: newId,
-            text: "Sample text",
-            fontSize: 48,
-            fontColor: "white",
-            x: x ?? 320,
-            y: y ?? 240,
-            rotation: 0,
-            startSeconds: 0,
-            endSeconds: null,
-          },
-        ],
-      };
-    });
-    setSelectedItem({ type: "text", id: newId });
-  }, []);
-
   const handleDeleteText = (textId) => {
     commitTimeline((prev) => {
       return {
@@ -495,7 +461,6 @@ const VideoEditorPage = () => {
     const result = planJob.result;
     if (!result) return;
     const kept = result.kept_ranges_by_clip || {};
-    const songDuration = result.song?.duration_seconds || null;
     commitTimeline((prev) => ({
       ...prev,
       bin: prev.bin.map((c) => ({
@@ -509,7 +474,7 @@ const VideoEditorPage = () => {
           : c.durationSeconds,
       })),
     }));
-  }, [planJob.result]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [planJob.result]);  // deps intentionally limited
 
   // Master soundtrack = the flagged audio bin clip. Plan arranges the VIDEO
   // clips against it; audio/image clips aren't part of the auto-edit material.
@@ -628,7 +593,7 @@ const VideoEditorPage = () => {
     } else if (planJob.error) {
       setQuickRenderPending(false);
     }
-  }, [quickRenderPending, planJob.result, planJob.planning, planJob.error, rendering]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [quickRenderPending, planJob.result, planJob.planning, planJob.error, rendering]);  // deps intentionally limited
 
   const handleOpenInShotcut = useCallback(async () => {
     if (!renderResult?.mlt_path) return;

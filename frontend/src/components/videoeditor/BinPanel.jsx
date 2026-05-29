@@ -3,7 +3,7 @@
 // supported; the bin owns its clips. Remove via the X on each tile.
 
 import React from "react";
-import { Box, Stack, Typography, LinearProgress, Alert, IconButton, Tooltip } from "@mui/material";
+import { Box, Stack, Typography, LinearProgress, Alert } from "@mui/material";
 import { VideoLibrary as VideoIcon, FolderOpen as OpenFolderIcon } from "@mui/icons-material";
 import BinClipTile from "./BinClipTile";
 import { useExternalDrop } from "./useExternalDrop";

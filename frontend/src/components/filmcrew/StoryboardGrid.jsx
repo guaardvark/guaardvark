@@ -20,7 +20,7 @@ import {
 import RefreshIcon from '@mui/icons-material/Refresh';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
-const StoryboardGrid = ({ productionId, currentStage, shots, onRegenerate, onApproveAll, isApproving }) => {
+const StoryboardGrid = ({ _productionId, currentStage, shots, onRegenerate, onApproveAll, isApproving }) => {
   const [regenShot, setRegenShot] = useState(null);
   const [promptOverride, setPromptOverride] = useState('');
   const [loading, setLoading] = useState(false);

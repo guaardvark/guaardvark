@@ -4,7 +4,7 @@
 // silent-removal classic.
 
 import React from "react";
-import { Box, ToggleButton, ToggleButtonGroup, Stack, Typography, Tooltip } from "@mui/material";
+import { ToggleButton, ToggleButtonGroup, Stack, Typography, Tooltip } from "@mui/material";
 
 const MODES = [
   { value: "audio", label: "Audio", tip: "Cut silence based on audio loudness." },

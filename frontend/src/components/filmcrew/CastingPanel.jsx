@@ -22,7 +22,7 @@ import {
 import { listCastLibrary, listProductionSubjects, castSubject } from '../../api/productionService';
 import DragDropImageUpload from './DragDropImageUpload';
 
-const CastingPanel = ({ productionId, shots, onCastingConfirmed }) => {
+const CastingPanel = ({ productionId, _shots, onCastingConfirmed }) => {
   const [castingData, setCastingData] = useState({});
   const [castLibrary, setCastLibrary] = useState([]);
   const [subjectsToCast, setSubjectsToCast] = useState([]);

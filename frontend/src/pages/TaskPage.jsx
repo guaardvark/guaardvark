@@ -12,7 +12,6 @@ import {
   Chip,
   Divider,
   FormControl,
-  IconButton,
   InputLabel,
   ListItemIcon,
   ListItemText,
@@ -22,22 +21,15 @@ import {
   Paper,
   Select,
   Snackbar,
-  Tooltip,
-  Typography,
 } from "@mui/material";
-import { useTheme } from "@mui/material/styles";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 
 import AddIcon from "@mui/icons-material/Add";
-import RefreshIcon from "@mui/icons-material/Refresh";
-import FileCopyIcon from "@mui/icons-material/FileCopy";
-import CloseIcon from "@mui/icons-material/Close";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import CodeIcon from "@mui/icons-material/Code";
 import TableChartIcon from "@mui/icons-material/TableChart";
 import AnalyticsIcon from "@mui/icons-material/Analytics";
-import SmartToyIcon from "@mui/icons-material/SmartToy";
 import ClearAllIcon from "@mui/icons-material/ClearAll";
 import AssignmentOutlined from "@mui/icons-material/AssignmentOutlined";
 import DescriptionIcon from "@mui/icons-material/Description";
@@ -63,39 +55,17 @@ import { ContextualLoader } from "../components/common/LoadingStates";
 
 // Removed TaskStatusChip - now handled in TaskCard component
 
-const formatDate = (dateString) => {
-  if (!dateString) return "-";
-  try {
-    const date = new Date(dateString);
-    // Return timestamp format: YYYY-MM-DD HH:MM:SS
-    return date.toLocaleString("en-US", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-    }).replace(/(\d+)\/(\d+)\/(\d+),?\s*(.+)/, "$3-$1-$2 $4");
-  } catch (error) {
-    return "-";
-  }
-};
-
 // Removed table-related functions and constants - now using card-based layout
 
 const TaskPage = () => {
-  const theme = useTheme();
-  const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const { activeModel, isLoadingModel, modelError } = useStatus();
   useUnifiedProgress();
 
   // State management
   const [tasks, setTasks] = useState([]);
   const [availableProjects, setAvailableProjects] = useState([]);
-  const [availableModels, setAvailableModels] = useState([]);
+  const [, setAvailableModels] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -110,10 +80,9 @@ const TaskPage = () => {
   // Task creation state
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
-  const [viewMode, setViewMode] = useState("cards"); // "cards" or "table"
 
   // Sorting state (simplified for card view)
-  const [sortBy, setSortBy] = useState("created_at");
+  const [sortBy] = useState("created_at");
 
   // New Job menu state
   const [newTaskMenuAnchor, setNewTaskMenuAnchor] = useState(null);
@@ -299,7 +268,7 @@ const TaskPage = () => {
     }
   };
 
-  const handleTaskDeleted = (taskId) => {
+  const handleTaskDeleted = () => {
     setShowTaskForm(false);
     setEditingTask(null);
     setFeedback({

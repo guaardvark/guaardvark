@@ -138,9 +138,7 @@ const InfographicModelsModal = ({ open, onClose, showMessage }) => {
     // Poll the backend directly between rounds; relying on the local
     // `dl` ref would capture a stale closure here.
     for (const m of missing) {
-      // eslint-disable-next-line no-await-in-loop
       await handleInstall(m.id);
-      // eslint-disable-next-line no-await-in-loop
       await new Promise((resolve) => {
         const check = setInterval(async () => {
           try {

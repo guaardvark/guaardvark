@@ -23,6 +23,10 @@
     {
       "files": ["*.config.js", "vite.config.js"],
       "env": { "node": true }
+    },
+    {
+      "files": ["**/*.test.{js,jsx}", "**/*.spec.{js,jsx}"],
+      "env": { "node": true }
     }
   ]
 }

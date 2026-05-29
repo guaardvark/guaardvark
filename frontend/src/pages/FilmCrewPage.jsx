@@ -31,7 +31,7 @@ const FilmCrewPage = () => {
   const [productions, setProductions] = useState([]);
   const [selectedProdId, setSelectedProdId] = useState(null);
   const [productionDetail, setProductionDetail] = useState(null);
-  const [loadingList, setLoadingList] = useState(false);
+  const [, setLoadingList] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [approving, setApproving] = useState(false);
   const [error, setError] = useState(null);

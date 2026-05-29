@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage, subscribeWithSelector, devtools } from "zustand/middleware";
 
-// eslint-disable-next-line no-unused-vars
 const createUISlice = (set, get) => ({
   themeName: "guaardvark",
   setThemeName: (name) => set({ themeName: name }),

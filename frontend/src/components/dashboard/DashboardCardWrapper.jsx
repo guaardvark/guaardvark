@@ -35,7 +35,7 @@ const DashboardCardWrapper = React.forwardRef(
       _maxW,
       _minH,
       _maxH, // Size constraints
-      isDraggable,
+      _isDraggable,
       _isResizable,
       _isBounded,
       static: _staticProp, // Interaction props

@@ -6,7 +6,7 @@
 // will overwrite them. v2 will persist overrides into the plan job so a
 // Re-plan respects them.
 
-import React, { useState, useMemo } from "react";
+import React from "react";
 import {
   Box, Stack, Typography, Chip,
   Button, Divider, Tooltip, CircularProgress,
