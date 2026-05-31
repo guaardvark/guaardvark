@@ -28,7 +28,7 @@ except ImportError:
 class VideoGenerationRequest:
     prompt: str = ""
     negative_prompt: str = ""
-    model: str = "svd"
+    model: str = "cogvideox-5b"
     duration_frames: int = 25
     fps: int = 7
     width: int = 512
@@ -214,7 +214,6 @@ class ComfyUIVideoGenerator:
     # ── CogVideoX model mapping ──────────────────────────────────────────────
 
     COGVIDEOX_MODELS = {
-        "cogvideox-2b": "THUDM/CogVideoX-2b",
         "cogvideox-5b": "THUDM/CogVideoX-5b",
         "cogvideox-5b-i2v": "kijai/CogVideoX-5b-1.5-I2V",
     }
@@ -254,7 +253,7 @@ class ComfyUIVideoGenerator:
             return "wan"
         if model in cls.COGVIDEOX_MODELS:
             return "cogvideox"
-        return "svd"
+        return "cogvideox"  # SVD retired; unknown models default to the cogvideox family
 
     @classmethod
     def _align_dimensions(cls, width: int, height: int, model: str) -> tuple[int, int]:
@@ -1349,7 +1348,7 @@ class ComfyUIVideoGenerator:
 
         try:
             image_path = request.metadata.get("image_path") if request.metadata else None
-            model = request.model or "svd"
+            model = request.model or "cogvideox-5b"
             seed = request.seed if request.seed is not None else int(time.time() * 1000) % (2**31)
 
             # Defense-in-depth: snap dims before they enter any workflow builder.
@@ -1408,12 +1407,12 @@ class ComfyUIVideoGenerator:
                     )
                     logger.info(f"Using Wan 2.2 text-to-video ({model_key}) via ComfyUI GGUF")
 
-            elif model in ("cogvideox-2b", "cogvideox-5b"):
+            elif model == "cogvideox-5b":
                 if image_path:
                     result.error = f"{model} is text-to-video only. Use cogvideox-5b-i2v for image-to-video."
                     return result
                 # Text-to-video via CogVideoX
-                hf_model = self.COGVIDEOX_MODELS.get(model, "THUDM/CogVideoX-2b")
+                hf_model = self.COGVIDEOX_MODELS.get(model, "THUDM/CogVideoX-5b")
                 workflow = self._create_cogvideox_text2video_workflow(
                     prompt=request.prompt,
                     model_name=hf_model,
@@ -1468,23 +1467,13 @@ class ComfyUIVideoGenerator:
                 logger.info(f"Using CogVideoX image-to-video via ComfyUI")
 
             else:
-                # SVD image-to-video (legacy)
-                if not image_path or not Path(image_path).exists():
-                    result.error = "SVD requires an input image."
-                    return result
-                uploaded_image = self._upload_image_to_comfyui(image_path)
-                if not uploaded_image:
-                    result.error = "Failed to upload image to ComfyUI"
-                    return result
-                motion_bucket_id = max(1, min(255, int(request.motion_strength * 127)))
-                workflow = self._create_svd_workflow(
-                    image_filename=uploaded_image,
-                    num_frames=request.duration_frames,
-                    motion_bucket_id=motion_bucket_id,
-                    fps=request.fps,
-                    seed=seed,
+                # SVD retired 2026-05-29. Supported models: wan22-14b(-i2v),
+                # cogvideox-5b, cogvideox-5b-i2v.
+                result.error = (
+                    f"Unsupported video model '{model}'. Use wan22-14b, wan22-14b-i2v, "
+                    f"cogvideox-5b, or cogvideox-5b-i2v."
                 )
-                logger.info(f"Using SVD image-to-video via ComfyUI")
+                return result
 
             # Apply Real-ESRGAN 2x upscale if requested
             upscale = request.metadata.get("upscale", False) if request.metadata else False
@@ -1648,11 +1637,12 @@ class SvdI2VGenerator:
         self, *, image_path: str, prompt: str, loras: list[str],
         duration_seconds: float, output_path: str,
     ) -> str:
-        # SVD-XT tops out at 25 frames; clamp the requested duration to that.
+        # SVD retired — use CogVideoX-5b I2V to animate the single identity frame.
+        # Clamp to a short clip (≤25 frames) to keep VRAM in budget on 16 GB.
         frames = max(14, min(25, int(round(duration_seconds * self.fps)) or 25))
         gen = get_video_generator()
         req = VideoGenerationRequest(
-            model="svd",
+            model="cogvideox-5b-i2v",
             duration_frames=frames,
             fps=self.fps,
             enhance_prompt=False,
@@ -1660,7 +1650,7 @@ class SvdI2VGenerator:
         )
         result = gen.generate_video(req)
         if not result.success or not result.video_path:
-            raise RuntimeError(f"SVD I2V failed: {result.error or 'no video produced'}")
+            raise RuntimeError(f"I2V failed: {result.error or 'no video produced'}")
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(result.video_path, output_path)
         return output_path

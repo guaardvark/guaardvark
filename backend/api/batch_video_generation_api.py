@@ -103,7 +103,7 @@ def generate_text_to_video_batch():
             return error_response("No prompts provided", 400)
 
         params = {
-            "model": data.get("model", "svd"),
+            "model": data.get("model", "cogvideox-5b"),
             "duration_frames": int(data.get("duration_frames", 25)),
             "fps": int(data.get("fps", 7)),
             "width": int(data.get("width", 512)),
@@ -158,7 +158,7 @@ def generate_image_to_video_batch():
 
         params = {
             "prompt": data.get("prompt", ""),
-            "model": data.get("model", "svd"),
+            "model": data.get("model", "cogvideox-5b-i2v"),
             "duration_frames": int(data.get("duration_frames", 25)),
             "fps": int(data.get("fps", 7)),
             "width": int(data.get("width", 512)),
@@ -486,16 +486,6 @@ def _get_comfyui_models_dir():
 
 
 VIDEO_MODEL_REGISTRY = {
-    "cogvideox-2b": {
-        "name": "CogVideoX 2B",
-        "description": "Text-to-video, 6s clips. Good quality, fits in 12GB VRAM.",
-        "hf_repo": "THUDM/CogVideoX-2b",
-        "local_subdir": "CogVideo/CogVideoX-2b",
-        "check_files": ["transformer/diffusion_pytorch_model.safetensors", "vae/diffusion_pytorch_model.safetensors"],
-        "size_gb": 13.0,
-        "vram_mb": 12000,
-        "type": "cogvideox",
-    },
     "cogvideox-5b": {
         "name": "CogVideoX 5B",
         "description": "Text-to-video, 6s clips. Best quality, needs ~16GB VRAM.",
@@ -516,17 +506,6 @@ VIDEO_MODEL_REGISTRY = {
         "size_gb": 10.4,
         "vram_mb": 16000,
         "type": "cogvideox",
-    },
-    "svd-xt": {
-        "name": "SVD-XT (Legacy)",
-        "description": "Image-to-video, 3.5s clips, 512x512. Stable Video Diffusion.",
-        "hf_repo": "stabilityai/stable-video-diffusion-img2vid-xt",
-        "hf_filename": "svd_xt.safetensors",
-        "local_subdir": "checkpoints",
-        "check_files": ["svd_xt.safetensors"],
-        "size_gb": 9.0,
-        "vram_mb": 10000,
-        "type": "svd",
     },
     "wan22-14b": {
         "name": "Wan 2.2 14B MoE (GGUF Q5_K)",

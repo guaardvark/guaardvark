@@ -24,6 +24,10 @@ data/database/
 data/models/
 data/context/
 
+# Video editor projects + migrated session (runtime user data, per-machine)
+data/video-editor-projects/
+data/video_editor_session.json.migrated
+
 # Plugin runtime artifacts (generated per-machine, never sync)
 plugins/*/outputs/
 plugins/*/output/

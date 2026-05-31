@@ -78,20 +78,15 @@ model_download_status = {
 }
 model_download_lock = threading.Lock()
 
-# Approximate model sizes in GB (HuggingFace repo total)
+# Approximate model sizes in GB (HuggingFace repo total). Curated set only —
+# matches offline_image_generator.available_models after the 2026-05-29 cull.
 IMAGE_MODEL_SIZES = {
-    "runwayml/stable-diffusion-v1-5": 4.3,
-    "stabilityai/stable-diffusion-2-1": 5.2,
+    "Tongyi-MAI/Z-Image-Turbo": 16.0,
     "stabilityai/stable-diffusion-xl-base-1.0": 6.9,
-    "dreamlike-art/dreamlike-photoreal-2.0": 2.1,
-    "XpucT/Deliberate": 2.1,
+    "stabilityai/sdxl-turbo": 6.9,
     "SG161222/Realistic_Vision_V5.1_noVAE": 2.1,
     "emilianJR/epiCRealism": 2.1,
-    "stabilityai/sd-turbo": 3.4,
-    "stabilityai/sdxl-turbo": 6.9,
-    "prompthero/openjourney": 2.1,
-    "wavymulder/Analog-Diffusion": 2.1,
-    "Linaqruf/anything-v3.0": 2.1,
+    "runwayml/stable-diffusion-v1-5": 4.3,  # hidden fallback
 }
 
 def _validate_csv_upload(file):
@@ -155,13 +150,16 @@ def _parse_generation_params(data: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict
     params['generate_thumbnails'] = bool(data.get('generate_thumbnails', True))
     params['save_metadata'] = bool(data.get('save_metadata', True))
 
-    # Model selection - validate against available models
-    valid_models = ['sd-1.5', 'sd-2.1', 'sd-xl', 'dreamlike', 'deliberate',
-                   'realistic-vision', 'epic-realism', 'sd-turbo', 'sdxl-turbo',
-                   'openjourney', 'analog', 'anything-v3']
-    # Default to sd-1.5 (most reliable, always works)
-    model = data.get('model', 'sd-1.5')
-    params['model'] = model if model in valid_models else 'sd-1.5'
+    # Model selection — validate against the canonical catalog (single source of
+    # truth) so this can never drift from offline_image_generator.available_models.
+    # 'auto' is allowed: the generator's router picks the best downloaded model.
+    try:
+        from backend.services.offline_image_generator import get_image_generator
+        valid_models = set(get_image_generator().available_models.keys()) | {'auto'}
+    except Exception:
+        valid_models = {'auto'}
+    model = data.get('model', 'auto')
+    params['model'] = model if model in valid_models else 'auto'
 
     # Default image parameters
     params['style'] = data.get('style', 'realistic')
@@ -295,20 +293,25 @@ def list_models():
         if not generator.image_generator:
             return error_response("Image generator not initialized", 503)
             
+        # Curated, ordered, menu-ready list (excludes hidden fallbacks like sd-1.5,
+        # carries label/description/recommended). Single source of truth.
+        meta = generator.image_generator.get_available_models()
         models = []
-        for model_id, model_path in generator.image_generator.available_models.items():
-            is_downloaded = generator.image_generator._is_model_downloaded(model_path)
+        for model_id, info in sorted(meta.items(), key=lambda kv: kv[1].get("order", 99)):
             models.append({
                 "id": model_id,
-                "path": model_path,
-                "is_downloaded": is_downloaded,
-                "name": model_id.replace('-', ' ').title(),
-                "size_gb": IMAGE_MODEL_SIZES.get(model_path, 2.5),
+                "path": info["id"],
+                "is_downloaded": info["downloaded"],
+                "name": info.get("label", model_id),
+                "label": info.get("label", model_id),
+                "description": info.get("description", ""),
+                "recommended": info.get("recommended", False),
+                "size_gb": IMAGE_MODEL_SIZES.get(info["id"], 2.5),
             })
-            
+
         return success_response({
             "models": models,
-            "default_model": generator.image_generator.default_model
+            "default_model": "auto",
         })
 
     except Exception as e:

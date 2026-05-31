@@ -15,10 +15,11 @@ from __future__ import annotations
 
 import logging
 import shutil
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+
+from .kdenlive import parse_kept_ranges
+from .proc import run_logged
 
 logger = logging.getLogger(__name__)
 
@@ -89,10 +90,10 @@ def analyze_clip(
     ]
 
     logger.info("analyze: %s", " ".join(cmd))
-    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s, check=False)
+    proc = run_logged(cmd, timeout_s=timeout_s)
 
     if proc.returncode != 0 or not kdenlive_path.exists():
-        tail = (proc.stderr or proc.stdout or "")[-1500:]
+        tail = proc.output[-1500:]
         # Common case: clip has no audio stream and mode includes audio. Caller
         # can retry in motion-only mode if they want, but we surface the error.
         raise RuntimeError(f"auto-editor failed (rc={proc.returncode}): {tail}")
@@ -125,42 +126,5 @@ def _build_edit_expr(mode: str, audio_t: float, motion_t: float) -> str:
 
 
 def _parse_kept_ranges(kdenlive_path: Path) -> list[KeptRange]:
-    """Extract kept (in,out) segments from auto-editor's kdenlive MLT output.
-
-    auto-editor emits both a video AND audio track with mirrored `<entry>` ranges.
-    We dedupe to a single chronological list.
-    """
-    from lxml import etree
-
-    try:
-        tree = etree.parse(str(kdenlive_path))
-    except etree.XMLSyntaxError:
-        return []
-
-    seen: set[tuple[float, float]] = set()
-    ranges: list[KeptRange] = []
-    for entry in tree.getroot().iter("entry"):
-        in_s = _smpte_to_seconds(entry.get("in"))
-        out_s = _smpte_to_seconds(entry.get("out"))
-        if in_s is None or out_s is None or out_s <= in_s:
-            continue
-        key = (round(in_s, 4), round(out_s, 4))
-        if key in seen:
-            continue
-        seen.add(key)
-        ranges.append(KeptRange(start=in_s, end=out_s))
-    ranges.sort(key=lambda r: r.start)
-    return ranges
-
-
-def _smpte_to_seconds(smpte: Optional[str]) -> Optional[float]:
-    if not smpte:
-        return None
-    try:
-        parts = smpte.split(":")
-        if len(parts) == 3:
-            h, m, s = parts
-            return int(h) * 3600 + int(m) * 60 + float(s)
-        return float(smpte)
-    except (ValueError, TypeError):
-        return None
+    """Deduped, chronological kept segments (delegates to mlt.kdenlive)."""
+    return [KeptRange(start=s, end=e) for s, e in parse_kept_ranges(kdenlive_path)]

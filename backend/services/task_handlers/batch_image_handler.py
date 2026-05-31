@@ -68,9 +68,9 @@ class BatchImageHandler(BaseTaskHandler):
                 },
                 "model": {
                     "type": "string",
-                    "default": "sd-1.5",
-                    "enum": ["sd-1.5", "sd-xl", "dreamlike", "deliberate", "realistic-vision"],
-                    "description": "Default image generation model"
+                    "default": "auto",
+                    "enum": ["auto", "zimage-turbo", "sd-xl", "sdxl-turbo", "realistic-vision", "epic-realism"],
+                    "description": "Image model; 'auto' lets the router pick the best downloaded model"
                 },
                 "max_workers": {
                     "type": "integer",

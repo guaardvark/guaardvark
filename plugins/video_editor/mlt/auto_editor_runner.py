@@ -14,10 +14,11 @@ from __future__ import annotations
 
 import logging
 import shutil
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+
+from .kdenlive import parse_kept_ranges
+from .proc import run_logged
 
 logger = logging.getLogger(__name__)
 
@@ -95,12 +96,16 @@ def run_auto_editor(
         raise ValueError(f"unknown mode {mode!r} (expected 'mp4' or 'kdenlive')")
 
     logger.info("auto-editor: %s", " ".join(cmd))
-    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s, check=False)
+    proc = run_logged(cmd, timeout_s=timeout_s)
     if proc.returncode != 0 or not out_path.exists():
-        tail = (proc.stderr or proc.stdout or "")[-1500:]
+        tail = proc.output[-1500:]
         raise RuntimeError(f"auto-editor failed (rc={proc.returncode}): {tail}")
 
-    clips = _parse_kdenlive_clips(out_path) if mode == "kdenlive" else []
+    clips = (
+        [AutoEditorClip(start=s, end=e) for s, e in parse_kept_ranges(out_path)]
+        if mode == "kdenlive"
+        else []
+    )
 
     return AutoEditorResult(
         source_path=source,
@@ -111,37 +116,5 @@ def run_auto_editor(
     )
 
 
-def _parse_kdenlive_clips(kdenlive_path: Path) -> list[AutoEditorClip]:
-    """Parse a Kdenlive (MLT) project for the non-silent segments auto-editor kept.
-
-    auto-editor's kdenlive export builds a producer per kept segment with
-    in/out attributes in 'HH:MM:SS.mmm'. We harvest those and return
-    source-relative seconds.
-    """
-    from lxml import etree
-
-    try:
-        tree = etree.parse(str(kdenlive_path))
-    except etree.XMLSyntaxError:
-        return []
-    out: list[AutoEditorClip] = []
-    for entry in tree.getroot().iter("entry"):
-        in_s = _smpte_to_seconds(entry.get("in"))
-        out_s = _smpte_to_seconds(entry.get("out"))
-        if in_s is None or out_s is None or out_s <= in_s:
-            continue
-        out.append(AutoEditorClip(start=in_s, end=out_s))
-    return out
-
-
-def _smpte_to_seconds(smpte: Optional[str]) -> Optional[float]:
-    if not smpte:
-        return None
-    try:
-        parts = smpte.split(":")
-        if len(parts) == 3:
-            h, m, s = parts
-            return int(h) * 3600 + int(m) * 60 + float(s)
-        return float(smpte)
-    except (ValueError, TypeError):
-        return None
+# kdenlive cut-list parsing lives in mlt.kdenlive (shared with mlt.analyze);
+# it dedupes the mirrored video/audio <entry> elements that auto-editor emits.

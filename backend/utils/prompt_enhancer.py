@@ -6,6 +6,32 @@ output from Wan2.2, CogVideoX, and other video generation models.
 No LLM calls, no API calls — pure string concatenation.
 """
 
+import re
+
+
+def has_text_intent(prompt: str) -> bool:
+    """True if the prompt asks for specific text rendered in the image/video.
+
+    Shared by image and video generation. When on-image text is requested we
+    skip prompt enhancement: the generic quality/style boilerplate dilutes the
+    text tokens and the model drops/garbles letters (observed HULK -> HUK).
+    """
+    if not prompt:
+        return False
+    # Quoted literal: "HULK", 'OPEN', curly quotes "SALE". Concatenate the quote
+    # chars so neither quote type breaks the string literal.
+    quotes = '"“”‘’' + "'"
+    if re.search('[' + quotes + '].{1,60}?[' + quotes + ']', prompt):
+        return True
+    p = prompt.lower()
+    keywords = (
+        'text ', 'text:', 'the word', 'the words', 'says ', 'saying ', 'reads ',
+        'that reads', 'sign that', 'label', 'caption', 'title ', 'logo', 'letters',
+        'written', 'spelled', 'banner', 'headline', 'subtitle', 'billboard', 'slogan',
+    )
+    return any(k in p for k in keywords)
+
+
 # Style enhancement suffixes keyed by preset name.
 # Each entry is appended to the user's prompt as-is.
 STYLE_SUFFIXES = {
@@ -125,6 +151,11 @@ def enhance_video_prompt(
         The enhanced prompt string.
     """
     if not prompt or not prompt.strip():
+        return prompt
+
+    # On-screen text requested — keep the prompt verbatim so the exact characters
+    # survive (style boilerplate otherwise garbles rendered letters).
+    if has_text_intent(prompt):
         return prompt
 
     style = (style or "cinematic").lower().strip()

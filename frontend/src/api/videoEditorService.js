@@ -153,3 +153,80 @@ export const openInShotcut = async (mlt_path) => {
   const res = await request(axios.post(`${API_BASE}/video-editor/open-in-shotcut`, { mlt_path }), "Could not launch Shotcut");
   return res.data;
 };
+
+// ---------- Named projects -------------------------------------------------
+// Draft-buffer model: autosaveCurrentProject() writes a draft; saveProject()
+// is the explicit Save that promotes the draft to the named project file.
+const PROJECTS = `${API_BASE}/video-editor/projects`;
+
+// Gallery catalog: { currentId, projects: [{id,name,createdAt,updatedAt,posterDocumentId,clipCount}] }.
+export const listProjects = async () => {
+  const res = await request(axios.get(PROJECTS), "Could not list projects");
+  return res.data || { currentId: null, projects: [] };
+};
+
+// The project to open on load (migrates the legacy session / creates Untitled).
+// Returns the working state (draft if newer) plus a `_meta` { id, name, isDirty, savedAt, draftAt }.
+export const getCurrentProject = async () => {
+  const res = await request(axios.get(`${PROJECTS}/current`), "Could not load current project");
+  return res.data;
+};
+
+export const openProject = async (id) => {
+  const res = await request(axios.get(`${PROJECTS}/${encodeURIComponent(id)}`), "Could not open project");
+  return res.data;
+};
+
+export const createProject = async (name = "Untitled", editable = undefined) => {
+  const res = await request(axios.post(PROJECTS, { name, editable }), "Could not create project");
+  return res.data;
+};
+
+// Autosave → writes the draft of the current project. Returns { id, name, isDirty, savedAt, draftAt }.
+export const autosaveCurrentProject = async (editable) => {
+  const res = await request(axios.put(`${PROJECTS}/current`, editable), "Autosave failed");
+  return res.data;
+};
+
+// Autosave → writes the draft of a SPECIFIC project id (race-safe: targets the
+// project being edited regardless of the server's 'current' pointer).
+export const autosaveProjectDraft = async (id, editable) => {
+  const res = await request(
+    axios.put(`${PROJECTS}/${encodeURIComponent(id)}/draft`, editable),
+    "Autosave failed",
+  );
+  return res.data;
+};
+
+// Explicit Save → promote the draft (or send an explicit body) to the project file.
+export const saveProject = async (id, editable = undefined) => {
+  const res = await request(axios.put(`${PROJECTS}/${encodeURIComponent(id)}`, editable || {}), "Could not save project");
+  return res.data;
+};
+
+export const saveProjectAs = async (id, name, editable = undefined) => {
+  const res = await request(
+    axios.post(`${PROJECTS}/${encodeURIComponent(id)}/save-as`, { name, editable }),
+    "Could not save project as",
+  );
+  return res.data;
+};
+
+export const renameProject = async (id, name) => {
+  const res = await request(
+    axios.patch(`${PROJECTS}/${encodeURIComponent(id)}`, { name }),
+    "Could not rename project",
+  );
+  return res.data;
+};
+
+export const deleteProject = async (id) => {
+  const res = await request(axios.delete(`${PROJECTS}/${encodeURIComponent(id)}`), "Could not delete project");
+  return res.data;
+};
+
+// Reference-integrity report: { clips: [{clipId, status: ok|missing|stale}], missing, stale }.
+export const validateProject = async (id) => {
+  const res = await request(axios.post(`${PROJECTS}/${encodeURIComponent(id)}/validate`), "Could not validate project");
+  return res.data;
+};

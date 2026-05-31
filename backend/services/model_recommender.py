@@ -42,40 +42,15 @@ class ModelRecommender:
                 "speed": 2,
                 "best_for": ["high_res", "anatomy", "landscapes", "full_body"]
             },
-            "deliberate": {
-                "face_quality": 4,
-                "anatomy": 4,
-                "photorealism": 4,
-                "speed": 3,
-                "best_for": ["artistic", "realistic", "versatile"]
-            },
-            "dreamlike": {
-                "face_quality": 4,
-                "anatomy": 4,
-                "photorealism": 4,
-                "speed": 3,
-                "best_for": ["photorealism", "artistic"]
-            },
-            "sd-2.1": {
-                "face_quality": 3,
-                "anatomy": 4,
-                "photorealism": 3,
-                "speed": 3,
-                "best_for": ["general", "anatomy"]
-            },
+            # sd-1.5 retained only as the hidden internal fallback (see
+            # offline_image_generator.hidden_models); kept here so scoring/validation
+            # can still resolve it if the fallback ever fires.
             "sd-1.5": {
                 "face_quality": 2,
                 "anatomy": 2,
                 "photorealism": 2,
                 "speed": 4,
                 "best_for": ["general", "speed", "reliability"]
-            },
-            "sd-turbo": {
-                "face_quality": 2,
-                "anatomy": 2,
-                "photorealism": 2,
-                "speed": 5,
-                "best_for": ["speed", "previews"]
             },
             "sdxl-turbo": {
                 "face_quality": 3,
@@ -84,26 +59,13 @@ class ModelRecommender:
                 "speed": 4,
                 "best_for": ["speed", "high_res", "previews"]
             },
-            "openjourney": {
-                "face_quality": 3,
-                "anatomy": 3,
-                "photorealism": 3,
-                "speed": 3,
-                "best_for": ["artistic", "midjourney_style"]
-            },
-            "analog": {
-                "face_quality": 3,
-                "anatomy": 3,
-                "photorealism": 3,
-                "speed": 3,
-                "best_for": ["film_photography", "aesthetic"]
-            },
-            "anything-v3": {
-                "face_quality": 2,
-                "anatomy": 2,
-                "photorealism": 1,
-                "speed": 3,
-                "best_for": ["anime", "illustration"]
+            "zimage-turbo": {
+                "face_quality": 5,
+                "anatomy": 5,
+                "photorealism": 5,
+                "speed": 4,
+                "best_for": ["faces", "portraits", "people", "photorealism",
+                             "anatomy", "versatile", "high_res", "text"]
             }
         }
 

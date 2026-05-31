@@ -103,6 +103,21 @@ export function usePlanJob() {
     setState(initialState);
   }, [stopPolling]);
 
+  // Seed a previously-computed result (e.g. an arrangement restored from a saved
+  // project) so reopening doesn't force a re-Plan. Marks the job done.
+  const hydrate = useCallback((result) => {
+    if (!result) return;
+    stopPolling();
+    setState({
+      ...initialState,
+      status: "done",
+      result,
+      progress: 1,
+      stageLabel: "Plan restored",
+      finishedAt: Date.now(),
+    });
+  }, [stopPolling]);
+
   const clearResult = useCallback(() => {
     setState((prev) => ({
       ...prev,
@@ -160,6 +175,7 @@ export function usePlanJob() {
     cancel,
     reset,
     clearResult,
+    hydrate,
     updateClipAnalysis,
     planning,
     status: state.status,

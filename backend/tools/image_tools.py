@@ -27,7 +27,13 @@ class ImageGeneratorTool(BaseTool):
         "prompt": ToolParameter(
             name="prompt",
             type="string",
-            description="Detailed description of the image to generate. Be specific about subject, style, lighting, composition.",
+            description=(
+                "Detailed description of the image to generate. Be specific about subject, style, "
+                "lighting, composition. IF the image must contain specific text (a poster title, "
+                "sign, label, logo), put the EXACT text in double quotes and keep it short — e.g. "
+                'a movie poster with bold title \"BATMAN\". Quote the words verbatim; do not just '
+                "describe them, or the letters will come out wrong."
+            ),
             required=True,
         ),
         "style": ToolParameter(
@@ -40,23 +46,28 @@ class ImageGeneratorTool(BaseTool):
         "width": ToolParameter(
             name="width",
             type="int",
-            description="Image width in pixels. Default: 512. Options: 512, 768, 1024.",
+            description="Image width in pixels. Default: 1024. Options: 512, 768, 1024.",
             required=False,
-            default=512,
+            default=1024,
         ),
         "height": ToolParameter(
             name="height",
             type="int",
-            description="Image height in pixels. Default: 512. Options: 512, 768, 1024.",
+            description="Image height in pixels. Default: 1024. Options: 512, 768, 1024.",
             required=False,
-            default=512,
+            default=1024,
         ),
         "model": ToolParameter(
             name="model",
             type="string",
-            description="Model to use: 'sd-1.5', 'sd-xl', 'realistic-vision', 'dreamlike', 'openjourney'. Default: 'sd-1.5'.",
+            description=(
+                "Model to use. Default 'auto' — recommended; the system auto-picks the best "
+                "downloaded model for the prompt (usually Z-Image-Turbo or SDXL). "
+                "Only override when the user names a specific model: 'zimage-turbo' (best all-round), "
+                "'sd-xl', 'sdxl-turbo' (fast), 'realistic-vision' (photoreal faces), 'epic-realism'."
+            ),
             required=False,
-            default="sd-1.5",
+            default="auto",
         ),
     }
 
@@ -64,8 +75,8 @@ class ImageGeneratorTool(BaseTool):
         super().__init__()
 
     def execute(self, prompt: str, style: str = "realistic",
-                width: int = 512, height: int = 512,
-                model: str = "sd-1.5", **kwargs) -> ToolResult:
+                width: int = 1024, height: int = 1024,
+                model: str = "auto", **kwargs) -> ToolResult:
         # If the LLM guessed dimensions that aren't standard sizes, force 512x512
         # Standard sizes the user would intentionally pick: 512, 768, 1024, or custom like 1500x300
         # LLM hallucinated sizes (800, 1080, 1920) get reset to fast defaults
@@ -75,8 +86,8 @@ class ImageGeneratorTool(BaseTool):
             import re
             dim_pattern = re.compile(rf'(?:^|\D){width}\s*[xX×]\s*{height}(?:\D|$)')
             if not dim_pattern.search(prompt):
-                logger.info(f"ImageGeneratorTool: LLM guessed {width}x{height}, resetting to 512x512 (fast default)")
-                width, height = 512, 512
+                logger.info(f"ImageGeneratorTool: LLM guessed {width}x{height}, resetting to 1024x1024 (default)")
+                width, height = 1024, 1024
 
         logger.info(f"ImageGeneratorTool: Generating image {width}x{height} for prompt: {prompt[:80]}...")
 

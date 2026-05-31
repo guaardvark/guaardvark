@@ -110,28 +110,6 @@ const QUALITY_PRESETS = {
   },
 };
 
-// Duration presets for SVD models
-const SVD_DURATION_PRESETS = {
-  short: {
-    label: "Short",
-    description: "~2 seconds",
-    duration_frames: 14,
-    fps: 7,
-  },
-  medium: {
-    label: "Medium",
-    description: "~3 seconds",
-    duration_frames: 21,
-    fps: 7,
-  },
-  long: {
-    label: "Long",
-    description: "~4 seconds",
-    duration_frames: 25,
-    fps: 6,
-  },
-};
-
 // Duration presets for CogVideoX models (49 frames max @ 8fps = 6 seconds)
 const COGVIDEOX_DURATION_PRESETS = {
   short: {
@@ -316,19 +294,7 @@ const MODEL_OPTIONS = {
     supportsI2V: true,
     dimensionAlignment: 16,
   },
-  // CogVideoX models — 5b is the recommended one for quality.
-  // 2b is materially weaker and only worth picking for quick draft passes.
-  "cogvideox-2b": {
-    label: "CogVideoX 2B (Fast/Draft)",
-    description: "6s draft videos, lower quality (~12GB VRAM) — prefer 5B",
-    type: "cogvideox",
-    maxFrames: 49,
-    resolution: [720, 480],
-    defaultSteps: 30,
-    supportsT2V: true,
-    supportsI2V: false,
-    dimensionAlignment: 16,
-  },
+  // CogVideoX 5b — the in-process diffusers option (no ComfyUI needed).
   "cogvideox-5b": {
     label: "CogVideoX 5B (Recommended)",
     description: "6s videos, best quality (~16GB VRAM)",
@@ -350,29 +316,6 @@ const MODEL_OPTIONS = {
     supportsT2V: false,
     supportsI2V: true,
     dimensionAlignment: 16,
-  },
-  // SVD models (legacy)
-  svd: {
-    label: "SVD (legacy)",
-    description: "2s videos, 512x512",
-    type: "svd",
-    maxFrames: 14,
-    resolution: [512, 512],
-    defaultSteps: 25,
-    supportsT2V: false,
-    supportsI2V: true,
-    dimensionAlignment: 8,
-  },
-  "svd-xt": {
-    label: "SVD-XT (legacy)",
-    description: "3.5s videos, 512x512",
-    type: "svd",
-    maxFrames: 25,
-    resolution: [512, 512],
-    defaultSteps: 25,
-    supportsT2V: false,
-    supportsI2V: true,
-    dimensionAlignment: 8,
   },
 };
 
@@ -472,12 +415,39 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   const pollingRef = useRef(null);
   const queuePollingRef = useRef(null);
 
-  // Filter models by current input mode
+  // Authoritative set of selectable model ids from the backend registry. Null
+  // until loaded (then we don't filter). Keeps the dropdown from ever drifting
+  // from the backend cull — remove a model from VIDEO_MODEL_REGISTRY and it
+  // disappears here automatically. Rich per-model metadata stays in MODEL_OPTIONS.
+  const [apiModelIds, setApiModelIds] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/batch-video/models`);
+        const data = await res.json();
+        if (data.success && data.data?.models) {
+          const ids = new Set(
+            data.data.models
+              .filter(m => m.type === "cogvideox" || m.type === "wan")
+              .map(m => m.id)
+          );
+          if (ids.size > 0) setApiModelIds(ids);
+        }
+      } catch (e) {
+        // Offline / API down — fall back to the (already-culled) MODEL_OPTIONS.
+      }
+    })();
+  }, []);
+
+  // Filter models by current input mode AND the backend allowlist.
   const availableModels = useMemo(() => {
-    return Object.entries(MODEL_OPTIONS).filter(([_, config]) =>
-      inputMode === "image" ? config.supportsI2V : config.supportsT2V
-    );
-  }, [inputMode]);
+    return Object.entries(MODEL_OPTIONS).filter(([key, config]) => {
+      const modeOk = inputMode === "image" ? config.supportsI2V : config.supportsT2V;
+      const allowed = apiModelIds == null || apiModelIds.has(key);
+      return modeOk && allowed;
+    });
+  }, [inputMode, apiModelIds]);
 
   // Auto-select best model when input mode changes
   useEffect(() => {
@@ -493,8 +463,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   // Get duration presets based on selected model
   const durationPresets = useMemo(() => {
     if (isWanModel(model)) return WAN_DURATION_PRESETS;
-    if (isCogVideoXModel(model)) return COGVIDEOX_DURATION_PRESETS;
-    return SVD_DURATION_PRESETS;
+    return COGVIDEOX_DURATION_PRESETS;  // cogvideox (svd retired)
   }, [model]);
 
   // Calculate video dimensions from aspect ratio and size
@@ -533,7 +502,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   // Compute final params from presets
   const computedParams = useMemo(() => {
     const quality = QUALITY_PRESETS[qualityPreset] || QUALITY_PRESETS.standard;
-    const currentDurationPresets = isWanModel(model) ? WAN_DURATION_PRESETS : isCogVideoXModel(model) ? COGVIDEOX_DURATION_PRESETS : SVD_DURATION_PRESETS;
+    const currentDurationPresets = isWanModel(model) ? WAN_DURATION_PRESETS : COGVIDEOX_DURATION_PRESETS;
     const baseDuration = currentDurationPresets[durationPreset] || currentDurationPresets.short;
     const motion = MOTION_PRESETS[motionPreset] || MOTION_PRESETS.normal;
     const modelConfig = MODEL_OPTIONS[model] || {};
@@ -568,13 +537,9 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     }
 
     // Low VRAM safe preset for CogVideoX on 16GB GPUs
-    // Very aggressive settings based on successful test: 8 frames, 15 steps, 480x320
+    // Very aggressive settings based on successful test: 8 frames, 15 steps, 480x320.
+    // (cogvideox-2b was retired; cogvideox-5b stays and is tamed via the clamps below.)
     if (lowVramMode && isCogVideoXModel(model)) {
-      // Force to 2B for T2V models, but preserve I2V model identity
-      if (model !== "cogvideox-5b-i2v") {
-        effectiveModel = "cogvideox-2b";
-      }
-
       // Aggressively clamp frames - tested working with 8 frames
       if (effectiveDurationFrames > 12) {
         effectiveDurationFrames = 12;

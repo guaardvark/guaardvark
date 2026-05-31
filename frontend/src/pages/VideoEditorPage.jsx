@@ -24,6 +24,8 @@ import {
   RocketLaunch as QuickRenderIcon,
 } from "@mui/icons-material";
 import PageLayout from "../components/layout/PageLayout";
+import ProjectBar from "../components/videoeditor/ProjectBar";
+import OpenProjectDialog from "../components/videoeditor/OpenProjectDialog";
 import MediaLibraryPanel from "../components/videoeditor/MediaLibraryPanel";
 import OverlayLayer from "../components/videoeditor/OverlayLayer";
 import BinPanel from "../components/videoeditor/BinPanel";
@@ -42,6 +44,13 @@ import {
   rescanClip,
   getClipHash,
   getVideoEditorErrorMessage,
+  getCurrentProject,
+  openProject,
+  createProject,
+  autosaveProjectDraft,
+  saveProject,
+  saveProjectAs,
+  renameProject,
 } from "../api/videoEditorService";
 import ReactGridLayout, { WidthProvider } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
@@ -109,7 +118,19 @@ const VideoEditorPage = () => {
     start: startPlan,
     clearResult: clearPlanResult,
     updateClipAnalysis,
+    hydrate: hydratePlan,
   } = planJob;
+
+  // --- Named-project state (file-per-project store on the backend). ---
+  const [currentProjectId, setCurrentProjectId] = useState(null);
+  const [projectName, setProjectName] = useState("Untitled");
+  const [isDirty, setIsDirty] = useState(false);
+  const [openProjectDialog, setOpenProjectDialog] = useState(false);
+  // Always-current id (for guarding in-flight autosave .then callbacks) and a
+  // monotonic load token so the latest New/Open/mount-load wins any race.
+  const currentIdRef = useRef(null);
+  const loadTokenRef = useRef(0);
+  useEffect(() => { currentIdRef.current = currentProjectId; }, [currentProjectId]);
   const [error, setError] = useState(null);
 
   // Director's Notes overrides — keyed by clip_id. Local until next Plan.
@@ -185,42 +206,154 @@ const VideoEditorPage = () => {
     }
   }, []);
 
-  // Restore the working session (bin / song / overlays / scan mode / recipe /
-  // overrides) on mount, then auto-save it (debounced) whenever it changes.
+  // --- Named-project working state ----------------------------------------
+  // The editable subset persisted per project (the layout/card grid stays a
+  // separate, GLOBAL state at /api/state/video-editor — not per project).
+  const buildEditable = useCallback(() => ({
+    timeline,
+    scanMode,
+    styleRecipeName,
+    clipOverrides,
+    plan: planJob.result ? { result: planJob.result } : null,
+  }), [timeline, scanMode, styleRecipeName, clipOverrides, planJob.result]);
+
+  const applyServerError = useCallback((e, fallback) => {
+    setError(e?.videoEditorMessage || getVideoEditorErrorMessage(e, fallback));
+  }, []);
+
+  // Load an opened project's payload into editor state (+ restore its cached
+  // arrangement so reopening doesn't force a re-Plan). Reseeds the autosave
+  // baseline so opening a project is never mistaken for an edit.
+  const loadProjectPayload = useCallback((p) => {
+    if (p.timeline) commitTimeline(() => normalizeTimeline(p.timeline));
+    setScanMode(p.scanMode || "both-and");
+    setStyleRecipeName(p.styleRecipeName || "Default");
+    setClipOverrides(p.clipOverrides || {});
+    if (p.plan?.result) hydratePlan(p.plan.result);
+    else clearPlanResult();
+    // Don't let a previous project's render output / pending Quick Render bleed
+    // across a switch (stale preview + Shotcut target, or a spurious auto-render).
+    setRenderResult(null);
+    setQuickRenderPending(false);
+    const meta = p._meta || { id: p.id, name: p.name, isDirty: false };
+    setCurrentProjectId(meta.id || null);
+    setProjectName(meta.name || "Untitled");
+    setIsDirty(!!meta.isDirty);
+    lastSavedSessionRef.current = null;  // re-baseline on next render
+  }, [commitTimeline, hydratePlan, clearPlanResult]);
+
+  // On mount: open the current project (migrating the legacy single session if
+  // present, else most-recent / fresh Untitled — handled server-side).
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/state/video-editor/session")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((s) => {
-        if (cancelled || !s) return;
-        if (s.timeline) commitTimeline(() => normalizeTimeline(s.timeline));
-        if (s.scanMode) setScanMode(s.scanMode);
-        if (s.styleRecipeName) setStyleRecipeName(s.styleRecipeName);
-        if (s.clipOverrides) setClipOverrides(s.clipOverrides);
-      })
-      .catch(() => {})
+    const myToken = ++loadTokenRef.current;
+    getCurrentProject()
+      // Token guard: a slow initial fetch must not clobber a user New/Open that
+      // happened while it was in flight.
+      .then((p) => { if (!cancelled && p && loadTokenRef.current === myToken) loadProjectPayload(p); })
+      .catch((e) => console.warn("video-editor project load failed:", e))
       .finally(() => { if (!cancelled) sessionLoadedRef.current = true; });
     return () => { cancelled = true; };
-  }, [commitTimeline]);
+  }, [loadProjectPayload]);
 
+  // Debounced AUTOSAVE → writes the current project's DRAFT only (never the
+  // saved project file). Seeds its own baseline on the first post-load render so
+  // opening a project doesn't fire a spurious save or flip the dirty flag.
   useEffect(() => {
-    if (!sessionLoadedRef.current) return;
-    const payload = { timeline, scanMode, styleRecipeName, clipOverrides };
-    const serialized = JSON.stringify(payload);
+    if (!sessionLoadedRef.current || !currentProjectId) return;
+    const editable = buildEditable();
+    const serialized = JSON.stringify(editable);
+    if (lastSavedSessionRef.current === null) {
+      lastSavedSessionRef.current = serialized;  // baseline, not an edit
+      return;
+    }
     if (lastSavedSessionRef.current === serialized) return;  // nothing changed
+    // Eagerly mark dirty the moment local state diverges from the baseline — so
+    // a discard-confirm or the Save button reflects edits made inside the 800ms
+    // debounce window, not just after the autosave round-trip completes.
+    setIsDirty(true);
+    const pid = currentProjectId;  // target THIS project explicitly (race-safe)
     const t = setTimeout(() => {
       setIsSaving(true);
-      fetch("/api/state/video-editor/session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, lastSaved: new Date().toISOString() }),
-      })
-        .then((r) => { if (r.ok) { lastSavedSessionRef.current = serialized; setLastSaveTime(new Date()); } })
-        .catch((e) => console.warn("video-editor session save failed:", e))
+      autosaveProjectDraft(pid, editable)
+        .then(() => {
+          // Only update the baseline if we're still on the same project — a
+          // switch mid-flight must not poison the newly-opened project's state.
+          if (currentIdRef.current === pid) {
+            lastSavedSessionRef.current = serialized;
+            setLastSaveTime(new Date());
+          }
+        })
+        .catch((e) => console.warn("video-editor autosave failed:", e))
         .finally(() => setIsSaving(false));
     }, 800);
     return () => clearTimeout(t);
-  }, [timeline, scanMode, styleRecipeName, clipOverrides]);
+  }, [timeline, scanMode, styleRecipeName, clipOverrides, planJob.result, currentProjectId, buildEditable]);
+
+  // --- File-menu handlers (driven by ProjectBar) --------------------------
+  const confirmDiscardIfDirty = useCallback(
+    () => !isDirty || window.confirm("Discard unsaved changes in the current project?"),
+    [isDirty],
+  );
+
+  const handleProjectNew = useCallback(async () => {
+    if (!confirmDiscardIfDirty()) return;
+    setError(null);
+    const myToken = ++loadTokenRef.current;
+    try {
+      const p = await createProject("Untitled");
+      if (loadTokenRef.current === myToken) {
+        loadProjectPayload({ ...p, _meta: { id: p.id, name: p.name, isDirty: false } });
+      }
+    } catch (e) { applyServerError(e, "Could not create project"); }
+  }, [confirmDiscardIfDirty, loadProjectPayload, applyServerError]);
+
+  const handleOpenProjectById = useCallback(async (id) => {
+    if (!confirmDiscardIfDirty()) return;
+    setError(null);
+    const myToken = ++loadTokenRef.current;
+    try {
+      const p = await openProject(id);
+      if (loadTokenRef.current === myToken) loadProjectPayload(p);
+      setOpenProjectDialog(false);
+    } catch (e) { applyServerError(e, "Could not open project"); }
+  }, [confirmDiscardIfDirty, loadProjectPayload, applyServerError]);
+
+  const handleProjectSave = useCallback(async () => {
+    if (!currentProjectId) return;
+    setIsSaving(true);
+    try {
+      const editable = buildEditable();
+      const saved = await saveProject(currentProjectId, editable);
+      setProjectName(saved.name || projectName);
+      setIsDirty(false);
+      lastSavedSessionRef.current = JSON.stringify(editable);
+      setLastSaveTime(new Date());
+    } catch (e) { applyServerError(e, "Could not save project"); }
+    finally { setIsSaving(false); }
+  }, [currentProjectId, buildEditable, projectName, applyServerError]);
+
+  const handleProjectSaveAs = useCallback(async (name) => {
+    if (!currentProjectId) return;
+    setError(null);
+    try {
+      const editable = buildEditable();
+      const np = await saveProjectAs(currentProjectId, name, editable);
+      setCurrentProjectId(np.id);
+      setProjectName(np.name || name);
+      setIsDirty(false);
+      lastSavedSessionRef.current = JSON.stringify(editable);
+      setLastSaveTime(new Date());
+    } catch (e) { applyServerError(e, "Could not save project as"); }
+  }, [currentProjectId, buildEditable, applyServerError]);
+
+  const handleProjectRename = useCallback(async (name) => {
+    if (!currentProjectId) { setProjectName(name); return; }
+    try {
+      const r = await renameProject(currentProjectId, name);
+      setProjectName(r.name || name);
+    } catch (e) { applyServerError(e, "Could not rename project"); }
+  }, [currentProjectId, applyServerError]);
 
   const onLayoutChange = useCallback((next) => {
     if (!layoutLoadedRef.current) return;
@@ -794,10 +927,28 @@ const VideoEditorPage = () => {
 
   return (
     <PageLayout title="Video Editor" subtitle="Compose videos with overlays, audio, and text">
+      {/* Project File menu (New/Open/Save/Save As/Rename) + dirty indicator.
+          Named projects persist per-project; the card layout below stays global. */}
+      <ProjectBar
+        projectName={projectName}
+        isDirty={isDirty}
+        isSaving={isSaving}
+        onNew={handleProjectNew}
+        onOpen={() => setOpenProjectDialog(true)}
+        onSave={handleProjectSave}
+        onSaveAs={handleProjectSaveAs}
+        onRename={handleProjectRename}
+      />
+      <OpenProjectDialog
+        open={openProjectDialog}
+        onClose={() => setOpenProjectDialog(false)}
+        onOpenProject={handleOpenProjectById}
+        currentId={currentProjectId}
+      />
       {/* Window/card system — drag by the title bar, resize from any edge,
           double-click a header to minimize. Layout persists per-machine via
           /api/state/video-editor. Same pattern as the Documents & Code Editor pages. */}
-      <Box sx={{ height: "calc(100vh - 96px)", overflow: "auto", p: 0.5 }}>
+      <Box sx={{ height: "calc(100vh - 136px)", overflow: "auto", p: 0.5 }}>
         <GridLayout
           className="layout"
           layout={layout}

@@ -11,11 +11,14 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any, Optional
 
 import requests
 from flask import Blueprint, jsonify, request as flask_request
+
+from backend.services.video_editor_projects import ProjectStore
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +29,17 @@ QUICK_TIMEOUT = 10        # /health, /status, /config, /jobs
 RENDER_TIMEOUT = 1200     # /beat-sync/render returns a job_id immediately,
                           # but a synchronous melt encode can take ~minutes;
                           # keep generous in case render_mp4=true is requested.
+
+# Named-project store. Lives under STORAGE_DIR/video-editor-projects; migrates the
+# legacy single-slot session (state_api's video_editor_session.json) on first use.
+try:
+    from backend.config import STORAGE_DIR
+except ImportError:  # pragma: no cover - script-style import fallback
+    from config import STORAGE_DIR  # type: ignore
+
+_PROJECTS_DIR = os.path.join(STORAGE_DIR, "video-editor-projects")
+_LEGACY_SESSION_FILE = os.path.join(STORAGE_DIR, "video_editor_session.json")
+_project_store = ProjectStore(_PROJECTS_DIR)
 
 
 def _stringify_detail(detail: Any) -> str:
@@ -343,3 +357,142 @@ def open_in_shotcut():
     payload = flask_request.get_json(silent=True) or {}
     body, status_code = _proxy_post("/open-in-shotcut", payload, timeout=QUICK_TIMEOUT)
     return jsonify(body), status_code
+
+
+# ---------- Named projects (file-per-project store) --------------------------
+# Draft-buffer save model: PUT /projects/current = autosave (writes the draft);
+# PUT /projects/<id> = explicit Save (promotes the draft to the project file).
+# Card layout stays GLOBAL on /api/state/video-editor — not per project.
+
+def _project_error(e: Exception, what: str):
+    if isinstance(e, FileNotFoundError):
+        return jsonify({"error": f"{what}: project not found"}), 404
+    if isinstance(e, ValueError):  # invalid project id (path-traversal guard)
+        return jsonify({"error": f"{what}: {e}"}), 400
+    logger.exception("video-editor projects: %s failed", what)
+    return jsonify({"error": str(e)}), 500
+
+
+@video_editor_bp.route("/projects", methods=["GET"])
+def list_projects():
+    """Metadata-only catalog for the gallery + the current project id."""
+    try:
+        return jsonify(_project_store.list_projects()), 200
+    except Exception as e:  # noqa: BLE001
+        return _project_error(e, "list")
+
+
+@video_editor_bp.route("/projects", methods=["POST"])
+def create_project():
+    payload = flask_request.get_json(silent=True) or {}
+    name = (payload.get("name") or "Untitled").strip() or "Untitled"
+    try:
+        return jsonify(_project_store.create(name, editable=payload.get("editable"))), 201
+    except Exception as e:  # noqa: BLE001
+        return _project_error(e, "create")
+
+
+@video_editor_bp.route("/projects/current", methods=["GET"])
+def get_current_project():
+    """The project to open on load — migrating the legacy session or creating an
+    Untitled if there's nothing yet. Returns working state (draft if newer) + _meta."""
+    try:
+        return jsonify(_project_store.ensure_current(legacy_path=_LEGACY_SESSION_FILE)), 200
+    except Exception as e:  # noqa: BLE001
+        return _project_error(e, "current")
+
+
+@video_editor_bp.route("/projects/current", methods=["PUT"])
+def autosave_current_project():
+    """Autosave → writes the draft shadow of the current project (never the project)."""
+    payload = flask_request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        return jsonify({"error": "autosave body must be a JSON object"}), 400
+    try:
+        pid = _project_store.get_current_id()
+        if not pid or not _project_store.exists(pid):
+            # Establish current FIRST (migrating the legacy session if present), so a
+            # debounced autosave racing the initial load can't bypass migration and
+            # strand the old single-slot session.
+            pid = _project_store.ensure_current(legacy_path=_LEGACY_SESSION_FILE)["_meta"]["id"]
+        return jsonify(_project_store.save_draft(pid, payload)), 200
+    except Exception as e:  # noqa: BLE001
+        return _project_error(e, "autosave")
+
+
+@video_editor_bp.route("/projects/<pid>/draft", methods=["PUT"])
+def autosave_project_draft(pid: str):
+    """Autosave → writes the draft of a SPECIFIC project id (not the server's
+    'current' pointer). The client targets the id it is editing, so an in-flight
+    autosave can never land in a different project after the user switches."""
+    payload = flask_request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        return jsonify({"error": "draft body must be a JSON object"}), 400
+    try:
+        return jsonify(_project_store.save_draft(pid, payload)), 200
+    except Exception as e:  # noqa: BLE001
+        return _project_error(e, "autosave-draft")
+
+
+@video_editor_bp.route("/projects/<pid>", methods=["GET"])
+def open_project(pid: str):
+    try:
+        return jsonify(_project_store.open(pid)), 200
+    except Exception as e:  # noqa: BLE001
+        return _project_error(e, "open")
+
+
+@video_editor_bp.route("/projects/<pid>", methods=["PUT"])
+def save_project(pid: str):
+    """Explicit Save → promote the draft (or an explicit body) to the project file."""
+    payload = flask_request.get_json(silent=True)
+    # A dict body merges on top of the newest state; no body (or empty) promotes
+    # the draft. A non-dict body is rejected rather than silently mishandled.
+    if payload is not None and not isinstance(payload, dict):
+        return jsonify({"error": "save body must be a JSON object"}), 400
+    editable = payload if payload else None
+    try:
+        return jsonify(_project_store.save(pid, editable=editable)), 200
+    except Exception as e:  # noqa: BLE001
+        return _project_error(e, "save")
+
+
+@video_editor_bp.route("/projects/<pid>/save-as", methods=["POST"])
+def save_project_as(pid: str):
+    payload = flask_request.get_json(silent=True) or {}
+    name = (payload.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "name is required"}), 400
+    try:
+        return jsonify(_project_store.save_as(pid, name, editable=payload.get("editable"))), 201
+    except Exception as e:  # noqa: BLE001
+        return _project_error(e, "save-as")
+
+
+@video_editor_bp.route("/projects/<pid>", methods=["PATCH"])
+def rename_project(pid: str):
+    payload = flask_request.get_json(silent=True) or {}
+    name = (payload.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "name is required"}), 400
+    try:
+        return jsonify(_project_store.rename(pid, name)), 200
+    except Exception as e:  # noqa: BLE001
+        return _project_error(e, "rename")
+
+
+@video_editor_bp.route("/projects/<pid>", methods=["DELETE"])
+def delete_project(pid: str):
+    try:
+        return jsonify(_project_store.delete(pid)), 200
+    except Exception as e:  # noqa: BLE001
+        return _project_error(e, "delete")
+
+
+@video_editor_bp.route("/projects/<pid>/validate", methods=["POST"])
+def validate_project(pid: str):
+    """Reference-integrity report: each bin clip classified ok|missing|stale."""
+    try:
+        return jsonify(_project_store.validate_refs(pid, _resolve_document)), 200
+    except Exception as e:  # noqa: BLE001
+        return _project_error(e, "validate")

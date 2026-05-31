@@ -28,6 +28,15 @@ except ImportError as e:
     diffusion_available = False
     logger.warning(f"Diffusion dependencies not available: {e}")
 
+# Z-Image (Tongyi-MAI) ships in diffusers >= 0.38. Import separately so an older
+# diffusers that lacks ZImagePipeline doesn't disable the whole diffusion stack.
+try:
+    from diffusers import ZImagePipeline
+    zimage_available = True
+except Exception:  # ImportError on older diffusers
+    ZImagePipeline = None
+    zimage_available = False
+
 try:
     from backend.config import CACHE_DIR
     config_available = True
@@ -52,7 +61,7 @@ class ImageGenerationRequest:
     guidance_scale: float = 7.5
     style: str = "realistic"
     seed: Optional[int] = None
-    model: str = "sd-1.5"
+    model: str = "auto"
     content_preset: Optional[str] = None
     auto_enhance: bool = True
     enhance_anatomy: bool = True
@@ -86,23 +95,31 @@ class OfflineImageGenerator:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
         self.default_model = "runwayml/stable-diffusion-v1-5"
+        # Curated quality lineup (2026-05-29 cull). Outdated SD1.5/2.1-era models
+        # (sd-2.1, sd-turbo, dreamlike, deliberate, openjourney, analog) were removed.
+        # sd-1.5 is kept ONLY as a hidden internal fallback (see hidden_models).
         self.available_models = {
-            "sd-1.5": "runwayml/stable-diffusion-v1-5",
-            "sd-2.1": "stabilityai/stable-diffusion-2-1",
+            # Z-Image-Turbo (Tongyi-MAI): 6B, Apache-2.0, ungated. Best prompt
+            # adherence per VRAM on a 16 GB card — the preferred all-rounder.
+            "zimage-turbo": "Tongyi-MAI/Z-Image-Turbo",
             "sd-xl": "stabilityai/stable-diffusion-xl-base-1.0",
-
-            "dreamlike": "dreamlike-art/dreamlike-photoreal-2.0",
-            "deliberate": "XpucT/Deliberate",
+            "sdxl-turbo": "stabilityai/sdxl-turbo",
             "realistic-vision": "SG161222/Realistic_Vision_V5.1_noVAE",
             "epic-realism": "emilianJR/epiCRealism",
-
-            "sd-turbo": "stabilityai/sd-turbo",
-            "sdxl-turbo": "stabilityai/sdxl-turbo",
-
-            "openjourney": "prompthero/openjourney",
-            "analog": "wavymulder/Analog-Diffusion",
-
-            "anything-v3": "Linaqruf/anything-v3.0"
+            # Hidden fallback — resolvable for default_model / load-failure recovery
+            # but excluded from user-facing menus (see hidden_models below).
+            "sd-1.5": "runwayml/stable-diffusion-v1-5",
+        }
+        # Models resolvable internally but NOT shown in menus / list_available_models.
+        self.hidden_models = {"sd-1.5"}
+        # UI metadata for the visible models (label/description/recommended/order).
+        # Drives the centralized dropdown via get_available_models().
+        self.model_meta = {
+            "zimage-turbo": {"label": "Z-Image Turbo (Best)", "description": "Strongest prompt adherence + text, fast (~8 steps). Recommended.", "recommended": True, "order": 0},
+            "sd-xl": {"label": "SDXL Base", "description": "High-res 1024, reliable, huge LoRA ecosystem.", "recommended": False, "order": 1},
+            "sdxl-turbo": {"label": "SDXL Turbo (Fast)", "description": "Fast 1024 previews, few steps.", "recommended": False, "order": 2},
+            "realistic-vision": {"label": "Realistic Vision", "description": "Top photoreal faces & portraits.", "recommended": False, "order": 3},
+            "epic-realism": {"label": "Epic Realism", "description": "Cinematic photorealism.", "recommended": False, "order": 4},
         }
 
         self.anatomy_negative = "deformed body, distorted anatomy, extra limbs, missing limbs, extra arms, missing arms, extra legs, missing legs, fused limbs, disconnected limbs, floating limbs, asymmetrical body, disproportionate limbs, twisted torso, broken spine, impossible pose, malformed body, mutated anatomy, gross proportions, extra heads, conjoined, siamese, bad anatomy, cropped body, out of frame body, duplicate person, clone"
@@ -235,6 +252,59 @@ class OfflineImageGenerator:
         model_path = self._get_model_path(model_id)
         return model_path.exists() and any(model_path.iterdir())
 
+    def _model_family(self, model_id: str) -> str:
+        """Map an HF model id to a pipeline family: 'zimage', 'sdxl', or 'sd'.
+
+        Drives pipeline class, scheduler, VRAM strategy, and generation params.
+        """
+        mid = model_id.lower()
+        if 'z-image' in mid or 'zimage' in mid:
+            return 'zimage'
+        if 'xl' in mid or 'sdxl' in mid:
+            return 'sdxl'
+        return 'sd'
+
+    def _has_text_intent(self, prompt: str) -> bool:
+        """True if the prompt asks for on-image text — bypass enhancement to keep
+        spelling intact (HULK -> HUK otherwise). Shared detector lives in
+        prompt_enhancer.has_text_intent so image + video stay in sync.
+        """
+        from backend.utils.prompt_enhancer import has_text_intent
+        return has_text_intent(prompt)
+
+    def _auto_select_model(self, prompt: str, style: str = "realistic") -> str:
+        """Pick the best DOWNLOADED model for this prompt (chat auto-router).
+
+        Intent-ordered preferences, best first; always falls through to a model
+        that actually exists on disk. Z-Image-Turbo leads when present — it has
+        the strongest prompt adherence of anything installed.
+        """
+        detection = self.detect_content_type(prompt)
+        p = prompt.lower()
+
+        if detection.get("has_face") and detection.get("has_person"):
+            prefs = ["zimage-turbo", "realistic-vision", "epic-realism", "sd-xl"]
+        elif detection.get("has_person"):
+            prefs = ["zimage-turbo", "sd-xl", "realistic-vision", "epic-realism"]
+        elif any(w in p for w in ("anime", "manga", "cartoon", "illustration", "comic")):
+            prefs = ["zimage-turbo", "sd-xl"]
+        elif detection.get("recommended_preset") in ("landscape", "product_photo"):
+            prefs = ["zimage-turbo", "sd-xl", "epic-realism"]
+        else:  # general / complex
+            prefs = ["zimage-turbo", "sd-xl", "realistic-vision", "sd-1.5"]
+
+        for key in prefs:
+            model_id = self.available_models.get(key)
+            if model_id and self._is_model_downloaded(model_id):
+                logger.info(f"Auto-router selected '{key}' for prompt: {prompt[:60]}...")
+                return key
+
+        # Nothing preferred is downloaded — fall back to any downloaded model.
+        for key, model_id in self.available_models.items():
+            if self._is_model_downloaded(model_id):
+                return key
+        return "sd-1.5"
+
     def _download_model(self, model_id: str) -> bool:
         if not self.service_available:
             logger.error("Diffusion service not available for model download")
@@ -244,9 +314,16 @@ class OfflineImageGenerator:
             model_path = self._get_model_path(model_id)
             logger.info(f"Downloading model {model_id} to {model_path}")
 
-            is_sdxl = 'xl' in model_id.lower() or 'sdxl' in model_id.lower()
-
-            pipeline_class = StableDiffusionXLPipeline if is_sdxl else StableDiffusionPipeline
+            family = self._model_family(model_id)
+            if family == 'zimage':
+                if ZImagePipeline is None:
+                    logger.error("Z-Image requested but ZImagePipeline unavailable (upgrade diffusers >= 0.38)")
+                    return False
+                pipeline_class = ZImagePipeline
+            elif family == 'sdxl':
+                pipeline_class = StableDiffusionXLPipeline
+            else:
+                pipeline_class = StableDiffusionPipeline
 
             # Use bf16 on Ada Lovelace+, fp16 otherwise
             if self._device == "cuda":
@@ -258,11 +335,12 @@ class OfflineImageGenerator:
                 "torch_dtype": gpu_dtype,
             }
 
-            if not is_sdxl:
+            # safety_checker kwargs only exist on the classic SD pipeline.
+            if family == 'sd':
                 load_kwargs["safety_checker"] = None
                 load_kwargs["requires_safety_checker"] = False
 
-            logger.info(f"Downloading with {pipeline_class.__name__} (SDXL: {is_sdxl})")
+            logger.info(f"Downloading with {pipeline_class.__name__} (family: {family})")
 
             pipeline = pipeline_class.from_pretrained(
                 model_id,
@@ -301,10 +379,14 @@ class OfflineImageGenerator:
 
             model_path = self._get_model_path(model_id)
 
-            is_sdxl = 'xl' in model_id.lower() or 'sdxl' in model_id.lower()
-
-            pipeline_class = StableDiffusionXLPipeline if is_sdxl else StableDiffusionPipeline
-            logger.info(f"Loading model with {pipeline_class.__name__} (SDXL: {is_sdxl})")
+            family = self._model_family(model_id)
+            if family == 'zimage':
+                pipeline_class = ZImagePipeline
+            elif family == 'sdxl':
+                pipeline_class = StableDiffusionXLPipeline
+            else:
+                pipeline_class = StableDiffusionPipeline
+            logger.info(f"Loading model with {pipeline_class.__name__} (family: {family})")
 
             # Use bf16 on Ada Lovelace+ (SM 8.x), fall back to fp16, then fp32
             if self._device == "cuda":
@@ -321,7 +403,7 @@ class OfflineImageGenerator:
                 "torch_dtype": gpu_dtype,
             }
 
-            if not is_sdxl:
+            if family == 'sd':
                 load_kwargs["safety_checker"] = None
                 load_kwargs["requires_safety_checker"] = False
 
@@ -330,11 +412,26 @@ class OfflineImageGenerator:
                 **load_kwargs
             )
 
-            self._pipeline.scheduler = DPMSolverMultistepScheduler.from_config(
-                self._pipeline.scheduler.config
-            )
+            # Z-Image is a flow-matching DiT with its own scheduler — don't force
+            # the DPM solver (that's SD/SDXL UNet tuning and breaks Z-Image).
+            if family != 'zimage':
+                self._pipeline.scheduler = DPMSolverMultistepScheduler.from_config(
+                    self._pipeline.scheduler.config
+                )
 
-            self._pipeline = self._pipeline.to(self._device)
+            # Device placement. Z-Image (6B DiT + large text encoder) is too tight
+            # to sit fully resident alongside other models on a 16 GB card, so use
+            # accelerate's model-cpu-offload (whole-module swap, modest speed cost).
+            # SD/SDXL are small enough to keep fully on-GPU for max speed.
+            if family == 'zimage' and self._device == "cuda":
+                try:
+                    self._pipeline.enable_model_cpu_offload()
+                    logger.info("Z-Image: enabled model CPU offload (16 GB VRAM safety)")
+                except Exception as e:
+                    logger.warning(f"Z-Image CPU offload unavailable ({e}); loading fully on GPU")
+                    self._pipeline = self._pipeline.to(self._device)
+            else:
+                self._pipeline = self._pipeline.to(self._device)
 
             # channels_last (NHWC) memory format — 10-20% speedup on Ada Lovelace
             if self._device == "cuda" and hasattr(self._pipeline, 'unet'):
@@ -750,13 +847,26 @@ Negative Prompt: {negative_prompt}""",
                 except Exception as e:
                     logger.debug(f"GPU orchestrator unavailable (non-critical): {e}")
 
+                # Auto-router: pick the best downloaded model for this prompt.
+                if request.model in (None, "", "auto"):
+                    request.model = self._auto_select_model(request.prompt, request.style)
+
                 model_id = self.available_models.get(request.model, self.default_model)
                 logger.info(f"Using model: {request.model} -> {model_id}")
 
-                is_sdxl = 'xl' in model_id.lower() or 'sdxl' in model_id.lower()
+                family = self._model_family(model_id)
+                is_sdxl = family == 'sdxl'
 
-                # Clamp dimensions to safe maximums (prevents CUDA OOM)
-                max_dim = 1536 if is_sdxl else 768
+                # Z-Image-Turbo is CFG-distilled: it wants very few steps and
+                # near-zero guidance. Honour that regardless of incoming request
+                # defaults (which are tuned for SD/SDXL).
+                if family == 'zimage':
+                    request.num_inference_steps = 8
+                    request.guidance_scale = 1.0
+
+                # Clamp dimensions to safe maximums (prevents CUDA OOM).
+                # SDXL and Z-Image are native high-res; classic SD tops out at 768.
+                max_dim = 1536 if family in ('sdxl', 'zimage') else 768
                 if request.width > max_dim or request.height > max_dim:
                     logger.warning(f"Resolution {request.width}x{request.height} exceeds safe max {max_dim}x{max_dim}, clamping")
                     request.width = min(request.width, max_dim)
@@ -777,10 +887,33 @@ Negative Prompt: {negative_prompt}""",
                     request.guidance_scale = 15.0
 
                 if not self._load_pipeline(model_id):
-                    result.error = f"Failed to load model {request.model} ({model_id})"
-                    return result
+                    # Requested model failed to load (gated/removed repo, missing
+                    # download, OOM). Fall back to the default model instead of
+                    # failing the whole request — keeps chat image-gen resilient.
+                    if model_id != self.default_model:
+                        logger.warning(
+                            f"Model {request.model} ({model_id}) failed to load; "
+                            f"falling back to default {self.default_model}"
+                        )
+                        model_id = self.default_model
+                        is_sdxl = 'xl' in model_id.lower() or 'sdxl' in model_id.lower()
+                        if not self._load_pipeline(model_id):
+                            result.error = f"Failed to load fallback model {self.default_model}"
+                            return result
+                    else:
+                        result.error = f"Failed to load model {request.model} ({model_id})"
+                        return result
 
-                if request.auto_enhance:
+                text_mode = self._has_text_intent(request.prompt)
+                if text_mode:
+                    # On-image text requested: keep the prompt verbatim so the exact
+                    # (quoted) characters dominate. Enhancement boilerplate dilutes
+                    # text tokens and makes the model drop/garble letters.
+                    enhanced_prompt = request.prompt
+                    style_negative = ""
+                    detection = self.detect_content_type(request.prompt)
+                    logger.info("Text-rendering intent detected — skipping enhancement to preserve spelling")
+                elif request.auto_enhance:
                     enhanced_prompt, style_negative, detection = self.enhance_prompt_for_quality(
                         prompt=request.prompt,
                         style=request.style,
@@ -795,7 +928,9 @@ Negative Prompt: {negative_prompt}""",
                     enhanced_prompt, style_negative = self._enhance_prompt(request.prompt, request.style)
                     detection = {}
 
-                enhanced_prompt = self._optimize_prompt_for_tokens(enhanced_prompt)
+                # Don't token-trim in text mode — the quoted characters must survive intact.
+                if not text_mode:
+                    enhanced_prompt = self._optimize_prompt_for_tokens(enhanced_prompt)
 
                 combined_negative = request.negative_prompt
                 if style_negative:
@@ -824,7 +959,22 @@ Negative Prompt: {negative_prompt}""",
                     elif hasattr(self._pipeline, 'disable_vae_tiling'):
                         self._pipeline.disable_vae_tiling()
 
-                if self._device == "cuda":
+                if family == 'zimage':
+                    # Z-Image is a bf16 flow-matching DiT. Do NOT wrap in
+                    # torch.autocast — fp16 autocast overflows the transformer to
+                    # NaN and produces a pure-black image. The pipeline manages its
+                    # own dtype. CFG is distilled out (guidance ~1.0), so the
+                    # negative prompt is unused — pass None to skip wasted compute.
+                    output = self._pipeline(
+                        prompt=enhanced_prompt,
+                        negative_prompt=None,
+                        width=request.width,
+                        height=request.height,
+                        num_inference_steps=request.num_inference_steps,
+                        guidance_scale=request.guidance_scale,
+                        generator=generator
+                    )
+                elif self._device == "cuda":
                     try:
                         with torch.autocast("cuda"):
                             output = self._pipeline(
@@ -1118,12 +1268,23 @@ Negative Prompt: {negative_prompt}""",
         return result
 
     def get_available_models(self) -> Dict[str, Any]:
+        """Visible image models for menus/API. Excludes hidden fallbacks (sd-1.5)
+        and carries UI metadata (label/description/recommended/order) so the
+        frontend dropdowns can be driven entirely from this single source.
+        """
         models = {}
 
         for model_key, model_id in self.available_models.items():
+            if model_key in self.hidden_models:
+                continue
+            meta = self.model_meta.get(model_key, {})
             models[model_key] = {
                 "id": model_id,
                 "name": model_key,
+                "label": meta.get("label", model_key),
+                "description": meta.get("description", ""),
+                "recommended": meta.get("recommended", False),
+                "order": meta.get("order", 99),
                 "downloaded": self._is_model_downloaded(model_id),
                 "current": model_id == self._current_model,
                 "size_estimate": "4-7GB" if "xl" not in model_id.lower() else "12-15GB"

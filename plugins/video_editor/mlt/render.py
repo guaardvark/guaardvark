@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from .proc import run_logged
+
 logger = logging.getLogger(__name__)
 
 
@@ -61,16 +63,10 @@ def render_mlt(
         cmd.extend(extra_args)
 
     logger.info("render: %s", " ".join(cmd))
-    proc = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        timeout=timeout_s,
-        check=False,
-    )
+    proc = run_logged(cmd, timeout_s=timeout_s)
 
     if proc.returncode != 0 or not out.exists():
-        tail = (proc.stderr or "")[-1500:]
+        tail = proc.output[-1500:]
         raise RuntimeError(f"melt render failed (rc={proc.returncode}): {tail}")
 
     duration = _probe_duration(out)
@@ -78,7 +74,7 @@ def render_mlt(
         output_path=out,
         duration_seconds=duration,
         returncode=proc.returncode,
-        stderr_tail=(proc.stderr or "")[-500:],
+        stderr_tail=proc.output[-500:],
     )
 
 

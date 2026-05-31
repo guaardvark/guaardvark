@@ -154,7 +154,7 @@ def force_clear_gpu_memory() -> dict:
 class VideoGenerationRequest:
     prompt: str = ""
     negative_prompt: str = ""
-    model: str = "svd"
+    model: str = "cogvideox-5b"
     duration_frames: int = 25
     fps: int = 7
     width: int = 512
@@ -183,20 +183,12 @@ class VideoGenerationResult:
 
 class OfflineVideoGenerator:
 
-    SVD_MODELS = {
-        "svd": "stabilityai/stable-video-diffusion-img2vid",
-        "svd-xt": "stabilityai/stable-video-diffusion-img2vid-xt",
-    }
+    # SVD (Stable Video Diffusion, 2023) retired 2026-05-29 — legacy 2-3.5s clips,
+    # superseded by CogVideoX / Wan 2.2. Left empty so it's unselectable everywhere;
+    # the SVD pipeline helpers below are now dead code kept only to avoid churn.
+    SVD_MODELS = {}
 
     COGVIDEOX_MODELS = {
-        "cogvideox-2b": {
-            "repo": "THUDM/CogVideoX-2b",
-            "type": "text2video",
-            "max_frames": 49,
-            "fps": 8,
-            "resolution": (720, 480),
-            "vram_required": 12,
-        },
         "cogvideox-5b": {
             "repo": "THUDM/CogVideoX-5b",
             "type": "text2video",
@@ -408,7 +400,7 @@ class OfflineVideoGenerator:
             except Exception as e:
                 logger.warning(f"Failed to unload SVD pipeline: {e}")
 
-    def _load_cogvideox_pipeline(self, model_key: str = "cogvideox-2b"):
+    def _load_cogvideox_pipeline(self, model_key: str = "cogvideox-5b"):
         if not cogvideox_available:
             raise RuntimeError("CogVideoX not available - diffusers version may be too old")
 
@@ -526,7 +518,7 @@ class OfflineVideoGenerator:
         num_inference_steps: int = 50,
         guidance_scale: float = 6.0,
         seed: Optional[int] = None,
-        model_key: str = "cogvideox-2b",
+        model_key: str = "cogvideox-5b",
         image: Optional[Image.Image] = None,
     ) -> List[str]:
         if not cogvideox_available:
@@ -604,31 +596,52 @@ class OfflineVideoGenerator:
                     reserved = allocated
                 logger.info(f"GPU memory before inference: {allocated / 1024**3:.2f} GB allocated, {reserved / 1024**3:.2f} GB reserved")
 
-            inference_mode = torch.inference_mode if torch_available else nullcontext
-            with inference_mode() if torch_available else nullcontext():
-                with torch.no_grad() if torch_available else nullcontext():
-                    if model_config["type"] == "image2video" and image is not None:
-                        image_resized = image.resize((target_width, target_height), Image.Resampling.LANCZOS)
-                        video_frames = pipeline(
-                            prompt=prompt,
-                            image=image_resized,
-                            num_frames=actual_num_frames,
-                            num_inference_steps=num_inference_steps,
-                            guidance_scale=guidance_scale,
-                            generator=generator,
-                        ).frames[0]
-                    else:
-                        video_frames = pipeline(
-                            prompt=prompt,
-                            num_frames=actual_num_frames,
-                            num_inference_steps=num_inference_steps,
-                            guidance_scale=guidance_scale,
-                            generator=generator,
-                        ).frames[0]
-                    
+            def _run_pipeline(n_frames):
+                inference_mode = torch.inference_mode if torch_available else nullcontext
+                with inference_mode() if torch_available else nullcontext():
+                    with torch.no_grad() if torch_available else nullcontext():
+                        if model_config["type"] == "image2video" and image is not None:
+                            image_resized = image.resize((target_width, target_height), Image.Resampling.LANCZOS)
+                            vf = pipeline(
+                                prompt=prompt,
+                                image=image_resized,
+                                num_frames=n_frames,
+                                num_inference_steps=num_inference_steps,
+                                guidance_scale=guidance_scale,
+                                generator=generator,
+                            ).frames[0]
+                        else:
+                            vf = pipeline(
+                                prompt=prompt,
+                                num_frames=n_frames,
+                                num_inference_steps=num_inference_steps,
+                                guidance_scale=guidance_scale,
+                                generator=generator,
+                            ).frames[0]
+                        if torch_available and torch.cuda.is_available():
+                            torch.cuda.empty_cache()
+                            torch.cuda.synchronize()
+                        return vf
+
+            # OOM-adaptive generation: on out-of-memory, halve the frame count and
+            # retry (down to a floor of 9) instead of failing. This replaces the old
+            # "downgrade to cogvideox-2b" fallback now that 2b is removed.
+            video_frames = None
+            while True:
+                try:
+                    video_frames = _run_pipeline(actual_num_frames)
+                    break
+                except torch.cuda.OutOfMemoryError:
                     if torch_available and torch.cuda.is_available():
                         torch.cuda.empty_cache()
                         torch.cuda.synchronize()
+                    if actual_num_frames <= 9:
+                        raise
+                    reduced = max(9, actual_num_frames // 2)
+                    logger.warning(
+                        f"CogVideoX OOM at {actual_num_frames} frames — retrying with {reduced} frames"
+                    )
+                    actual_num_frames = reduced
 
             for idx, frame in enumerate(video_frames):
                 frame_name = f"frame_{idx + 1:04d}.png"
@@ -661,15 +674,15 @@ class OfflineVideoGenerator:
             self._unload_cogvideox_pipeline()
             if torch_available and torch.cuda.is_available():
                 torch.cuda.empty_cache()
-            raise RuntimeError(f"GPU out of memory - try cogvideox-2b model or reduce frames: {e}")
+            raise RuntimeError(f"GPU out of memory - try reducing frames or resolution: {e}")
         except RuntimeError as e:
             error_str = str(e)
             if "expandable_segment" in error_str or "INTERNAL ASSERT FAILED" in error_str:
                 logger.error(f"CogVideoX CUDA allocator error (expandable_segment): {e}")
                 logger.info("This error is often caused by memory fragmentation. Try:")
                 logger.info("1. Restarting the application to clear GPU memory")
-                logger.info("2. Using cogvideox-2b instead of cogvideox-5b")
-                logger.info("3. Reducing the number of frames")
+                logger.info("2. Reducing the number of frames")
+                logger.info("3. Reducing the resolution")
                 self._unload_cogvideox_pipeline()
                 if torch_available and torch.cuda.is_available():
                     torch.cuda.empty_cache()
@@ -928,6 +941,18 @@ class OfflineVideoGenerator:
 
                 if is_cogvideox and self.cogvideox_available:
                     try:
+                        # Prompt enhancement parity with the ComfyUI path: enrich the
+                        # prompt with the chosen style. has_text_intent inside
+                        # enhance_video_prompt auto-skips it for on-screen-text prompts
+                        # so rendered letters aren't garbled.
+                        if getattr(request, "enhance_prompt", True):
+                            from backend.utils.prompt_enhancer import enhance_video_prompt
+                            style = getattr(request, "prompt_style", "cinematic")
+                            request.prompt = enhance_video_prompt(
+                                request.prompt, style=style,
+                                width=request.width, height=request.height,
+                            )
+
                         initial_image = None
                         model_config = self.COGVIDEOX_MODELS.get(request.model, {})
 
@@ -936,8 +961,8 @@ class OfflineVideoGenerator:
                                 logger.info(f"Using provided image: {image_path}")
                                 initial_image = Image.open(image_path).convert("RGB")
                             else:
-                                logger.warning("CogVideoX I2V model requires an input image")
-                                request.model = "cogvideox-2b"
+                                logger.warning("CogVideoX I2V model requires an input image; using cogvideox-5b for text-to-video")
+                                request.model = "cogvideox-5b"
                                 model_config = self.COGVIDEOX_MODELS.get(request.model, {})
 
                         frame_paths = self._generate_cogvideox_frames(

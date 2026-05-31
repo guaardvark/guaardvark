@@ -52,17 +52,6 @@ MODEL_SETTINGS = {
         "warnings": [],
         "max_dimensions": (768, 768)
     },
-    "sd-2.1": {
-        "guidance_range": (7.0, 12.0),
-        "recommended_guidance": 7.5,
-        "min_dimensions": (512, 512),
-        "recommended_dimensions": (768, 768),
-        "steps_range": (25, 50),
-        "recommended_steps": 30,
-        "best_for": ["general", "anatomy"],
-        "warnings": [],
-        "max_dimensions": (768, 768)
-    },
     "realistic-vision": {
         "guidance_range": (7.0, 10.0),
         "recommended_guidance": 8.0,
@@ -85,71 +74,17 @@ MODEL_SETTINGS = {
         "warnings": [],
         "max_dimensions": (768, 768)
     },
-    "deliberate": {
-        "guidance_range": (7.0, 10.0),
-        "recommended_guidance": 7.5,
+    "zimage-turbo": {
+        # CFG-distilled turbo model: very few steps, near-zero guidance.
+        "guidance_range": (1.0, 2.0),
+        "recommended_guidance": 1.0,
         "min_dimensions": (512, 512),
-        "recommended_dimensions": (512, 512),
-        "steps_range": (20, 35),
-        "recommended_steps": 25,
-        "best_for": ["artistic", "realistic", "versatile"],
-        "warnings": [],
-        "max_dimensions": (768, 768)
-    },
-    "dreamlike": {
-        "guidance_range": (7.0, 10.0),
-        "recommended_guidance": 7.5,
-        "min_dimensions": (512, 512),
-        "recommended_dimensions": (512, 512),
-        "steps_range": (20, 35),
-        "recommended_steps": 25,
-        "best_for": ["photorealism", "artistic"],
-        "warnings": [],
-        "max_dimensions": (768, 768)
-    },
-    "sd-turbo": {
-        "guidance_range": (0.0, 1.0),
-        "recommended_guidance": 0.0,
-        "min_dimensions": (512, 512),
-        "recommended_dimensions": (512, 512),
-        "steps_range": (1, 4),
-        "recommended_steps": 4,
-        "best_for": ["speed", "previews"],
-        "warnings": ["Not for final quality images", "Guidance not used by turbo models"],
-        "max_dimensions": (512, 512)
-    },
-    "openjourney": {
-        "guidance_range": (7.0, 10.0),
-        "recommended_guidance": 7.5,
-        "min_dimensions": (512, 512),
-        "recommended_dimensions": (512, 512),
-        "steps_range": (20, 35),
-        "recommended_steps": 25,
-        "best_for": ["artistic", "midjourney_style"],
-        "warnings": [],
-        "max_dimensions": (768, 768)
-    },
-    "analog": {
-        "guidance_range": (7.0, 10.0),
-        "recommended_guidance": 7.5,
-        "min_dimensions": (512, 512),
-        "recommended_dimensions": (512, 512),
-        "steps_range": (20, 35),
-        "recommended_steps": 25,
-        "best_for": ["film_photography", "aesthetic"],
-        "warnings": [],
-        "max_dimensions": (768, 768)
-    },
-    "anything-v3": {
-        "guidance_range": (7.0, 10.0),
-        "recommended_guidance": 7.5,
-        "min_dimensions": (512, 512),
-        "recommended_dimensions": (512, 512),
-        "steps_range": (20, 35),
-        "recommended_steps": 25,
-        "best_for": ["anime", "illustration"],
-        "warnings": [],
-        "max_dimensions": (768, 768)
+        "recommended_dimensions": (1024, 1024),
+        "steps_range": (6, 12),
+        "recommended_steps": 8,
+        "best_for": ["versatile", "photorealism", "faces", "anatomy", "text", "high_res"],
+        "warnings": ["Guidance not used by turbo models"],
+        "max_dimensions": (1536, 1536)
     }
 }
 

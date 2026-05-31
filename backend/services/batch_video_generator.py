@@ -73,7 +73,7 @@ class BatchVideoRequest:
     batch_id: str
     items: List[BatchVideoItem]
     output_dir: str
-    model: str = "svd"
+    model: str = "cogvideox-5b"
     duration_frames: int = 25
     fps: int = 7
     width: int = 512
@@ -435,7 +435,7 @@ class BatchVideoGenerator:
             batch_id=batch_id,
             items=items,
             output_dir=str(batch_dir),
-            model=params.get("model", "svd"),
+            model=params.get("model", "cogvideox-5b"),
             duration_frames=int(params.get("duration_frames", 25)),
             fps=int(params.get("fps", 7)),
             width=int(params.get("width", 512)),
