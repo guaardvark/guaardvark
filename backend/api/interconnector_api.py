@@ -730,6 +730,88 @@ def debug_nodes():
         return error_response(f"Debug failed: {str(e)}", 500)
 
 
+def _safe_json(text):
+    """Parse a JSON text column into a dict; empty/invalid -> {}."""
+    try:
+        return json.loads(text) if text else {}
+    except (ValueError, TypeError):
+        return {}
+
+
+def _profile_fingerprint(profile) -> Optional[str]:
+    """A stable, IP-INDEPENDENT machine fingerprint from a hardware profile.
+
+    Uses hostname — which does not change with DHCP leases, VPN/Tailscale
+    routing, or which browser registered the node. Returns None when there's
+    nothing trustworthy to match on.
+    """
+    if isinstance(profile, dict):
+        host = profile.get("hostname")
+        if host:
+            return str(host).strip().lower()
+    return None
+
+
+def _prune_duplicate_nodes(keep_id: str, fingerprint: Optional[str]) -> int:
+    """Self-heal: delete other rows describing the SAME physical machine.
+
+    The old IP-coupled identity logic minted a fresh node_id whenever a node
+    reappeared from a different address, leaving a trail of stale duplicate
+    rows for one machine. Now that identity is machine-stable, any OTHER row
+    with the same hostname fingerprint is a leftover duplicate and is removed
+    (cascades to its sync history / conflicts). Runs on every registration, so
+    every install self-heals over time. Conservative: skips weak fingerprints.
+    """
+    if not fingerprint or fingerprint in ("", "localhost", "unknown", "guaardvark"):
+        return 0
+    try:
+        removed = 0
+        for other in db.session.query(InterconnectorNode).filter(
+            InterconnectorNode.node_id != keep_id
+        ).all():
+            if _profile_fingerprint(_safe_json(other.hardware_profile)) == fingerprint:
+                db.session.delete(other)
+                removed += 1
+        if removed:
+            db.session.commit()
+            logger.info(
+                "[SYNC] Pruned %d duplicate node row(s) for host '%s' (kept %s)",
+                removed, fingerprint, _redact_log_value(keep_id),
+            )
+        return removed
+    except Exception as exc:  # dedup must never break registration
+        db.session.rollback()
+        logger.warning("[SYNC] Duplicate-node prune failed (non-fatal): %s", exc)
+        return 0
+
+
+@interconnector_bp.route("/nodes/local-identity", methods=["GET"])
+def local_identity():
+    """Return THIS machine's stable, IP-independent node identity.
+
+    So the UI registers/heartbeats with the machine id (persisted at
+    ~/.guaardvark/node_id, exported as CLUSTER_NODE_ID) instead of a
+    browser-localStorage id that changes per browser/cache-clear. Works for
+    every install out of the box; needs no master mode (a node asking itself).
+    """
+    import socket
+    node_id = os.environ.get("CLUSTER_NODE_ID") or ""
+    hostname = None
+    try:
+        hostname = socket.gethostname()
+    except Exception:
+        pass
+    if not node_id:
+        try:
+            from backend.services.hardware_detector import HardwareDetector
+            prof = HardwareDetector().detect()
+            node_id = prof.get("node_id") or ""
+            hostname = prof.get("hostname") or hostname
+        except Exception as exc:
+            logger.debug("[SYNC] local-identity hardware detect failed: %s", exc)
+    return success_response({"node_id": node_id, "hostname": hostname}, "Local identity")
+
+
 @interconnector_bp.route("/nodes/register", methods=["POST"])
 def register_node():
     """Register a client node with the master."""
@@ -806,32 +888,45 @@ def register_node():
             port = default_port
             logger.debug(f"[SYNC] Using default port: {port}")
 
-        # Generate node ID — always generate fresh for new registrations to
-        # prevent collisions when Full Backups are restored to multiple machines.
-        # Only reuse a provided node_id if it already exists AND the IP matches.
+        # ---- Stable, IP-INDEPENDENT node identity -------------------------
+        # A node's identity is its machine-stable id (persisted at
+        # ~/.guaardvark/node_id on the worker and carried in
+        # hardware_profile["node_id"]), NOT its IP address. A node reachable via
+        # multiple paths (LAN, VPN, Tailscale) or with a changed DHCP lease is
+        # the SAME node — we update its row rather than minting a duplicate.
+        # Only trust the profile for identity when the CLIENT actually sent it.
+        # When the server fills it in via fallback detection, that profile carries
+        # the SERVER's node_id/hostname, which must never become the client's id.
+        profile_was_provided = bool(data.get("hardware_profile"))
+        profile_node_id = None
+        incoming_host = None
+        if profile_was_provided and isinstance(profile_from_payload, dict):
+            profile_node_id = profile_from_payload.get("node_id")
+            incoming_host = _profile_fingerprint(profile_from_payload)
         provided_id = data.get("node_id")
-        node_id = None
+        # Prefer the machine-stable id from the hardware profile; fall back to an
+        # explicitly provided node_id; only mint a UUID if we have neither.
+        node_id = profile_node_id or provided_id
 
-        if provided_id:
-            existing_node = db.session.get(InterconnectorNode, provided_id)
-            if existing_node and existing_node.host == client_ip:
-                # Same machine re-registering (e.g., after reboot) — safe to reuse
-                node_id = provided_id
-                logger.debug(
-                    f"[SYNC] Reusing node {_node_log_label(node_id)} "
-                    f"(IP matches {_redact_log_value(client_ip)})"
-                )
-            elif existing_node:
-                # COLLISION: Different machine using same node_id (backup restore scenario)
-                logger.warning(
-                    f"[SYNC] Node ID collision detected: {_redact_log_value(provided_id)} "
-                    f"registered to {_redact_log_value(existing_node.host)} but request "
-                    f"from {_redact_log_value(client_ip)}. Generating fresh ID."
-                )
-                node_id = str(uuid.uuid4())
-            else:
-                node_id = provided_id
-
+        if node_id:
+            existing_node = db.session.get(InterconnectorNode, node_id)
+            if existing_node:
+                existing_host = _profile_fingerprint(_safe_json(existing_node.hardware_profile))
+                # A genuine collision is a DIFFERENT physical machine claiming the
+                # same id (e.g. a Full Backup that copied ~/.guaardvark/node_id to
+                # another box). Detect it by hostname fingerprint — never by IP.
+                if existing_host and incoming_host and existing_host != incoming_host:
+                    logger.warning(
+                        "[SYNC] node_id %s is claimed by a different machine "
+                        "(existing host='%s', incoming host='%s') — minting a fresh id",
+                        _redact_log_value(node_id), existing_host, incoming_host,
+                    )
+                    node_id = str(uuid.uuid4())
+                else:
+                    logger.debug(
+                        "[SYNC] Reusing stable node %s (machine match; IP may differ)",
+                        _node_log_label(node_id),
+                    )
         if not node_id:
             node_id = str(uuid.uuid4())
         logger.debug(f"[SYNC] Using node: {_node_log_label(node_id, node_name)}")
@@ -846,6 +941,7 @@ def register_node():
             existing_node.port = port
             existing_node.node_mode = node_mode
             existing_node.status = "active"
+            existing_node.online = True
             existing_node.last_heartbeat = datetime.now()
             existing_node.hardware_profile = json.dumps(profile_from_payload, sort_keys=True)
             existing_node.sync_entities = json.dumps(sync_entities)
@@ -892,6 +988,10 @@ def register_node():
                 )
             else:
                 logger.error(f"[SYNC] CRITICAL: Node {node_id} was not saved to database!")
+
+        # Self-heal: collapse any duplicate rows left by the old IP-coupled
+        # identity logic for this same physical machine.
+        _prune_duplicate_nodes(node_id, incoming_host)
 
         # Return node ID
         return success_response(
@@ -1009,7 +1109,10 @@ def get_nodes():
                 f"[SYNC] Marking stale node disconnected: "
                 f"{_node_log_label(node.node_id, node.node_name)}"
             )
+            # Keep the two liveness fields in agreement — they used to disagree
+            # (status='disconnected' while online=True), which read as flapping.
             node.status = "disconnected"
+            node.online = False
         
         db.session.commit()
 

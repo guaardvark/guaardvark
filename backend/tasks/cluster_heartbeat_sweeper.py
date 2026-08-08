@@ -14,7 +14,10 @@ from celery import shared_task
 
 log = logging.getLogger(__name__)
 
-DEFAULT_TIMEOUT_S = 15  # per spec §6.2
+# Must be comfortably LARGER than the heartbeat send interval (60s browser /
+# any daemon), or a healthy node merely *between* beats gets flapped offline on
+# nearly every sweep. 150s tolerates two missed 60s beats before declaring dead.
+DEFAULT_TIMEOUT_S = 150
 
 
 def _run_sweep(timeout_s: int) -> dict:
@@ -22,7 +25,11 @@ def _run_sweep(timeout_s: int) -> dict:
     from backend.models import db, InterconnectorNode
     from backend.services.fleet_map import get_fleet_map
 
-    threshold = datetime.utcnow() - timedelta(seconds=timeout_s)
+    # Use the SAME clock the heartbeat writer uses (interconnector_api writes
+    # last_heartbeat with datetime.now(), naive local). Comparing a UTC
+    # threshold against a local timestamp made the sweeper mark everything
+    # stale (or nothing) by the host's UTC offset. Match the writer here.
+    threshold = datetime.now() - timedelta(seconds=timeout_s)
 
     marked_offline: list[str] = []
     marked_online: list[str] = []
@@ -33,6 +40,7 @@ def _run_sweep(timeout_s: int) -> dict:
         is_stale = node.last_heartbeat < threshold
         if is_stale and node.online:
             node.online = False
+            node.status = "disconnected"  # keep the two liveness fields in sync
             marked_offline.append(node.node_id)
             fm = get_fleet_map()
             fm.set_online(node.node_id, False)
@@ -44,6 +52,7 @@ def _run_sweep(timeout_s: int) -> dict:
             )
         elif not is_stale and not node.online:
             node.online = True
+            node.status = "active"
             get_fleet_map().set_online(node.node_id, True)
             marked_online.append(node.node_id)
             log.info("[CLUSTER] node %s back online", node.node_id)

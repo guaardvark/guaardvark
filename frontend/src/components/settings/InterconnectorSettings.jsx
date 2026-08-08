@@ -114,11 +114,35 @@ const InterconnectorSettings = () => {
   // Client simplified view mode - show simple update panel by default for clients
   const [showAdvancedClientView, setShowAdvancedClientView] = useState(false);
   
-  // Node ID for client registration (stored in localStorage for persistence)
+  // Node ID for client registration. Seeded from localStorage, but upgraded to
+  // this machine's STABLE, IP-independent id (~/.guaardvark/node_id) below so a
+  // node keeps one identity across browsers, cache clears, DHCP leases, and VPN
+  // paths — instead of registering as a brand-new node each time.
   const [nodeId, setNodeId] = useState(() => {
     const stored = localStorage.getItem('interconnector_node_id');
     return stored || null;
   });
+
+  // Prefer the machine-stable identity from this box's own backend.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetch('/api/interconnector/nodes/local-identity');
+        if (!resp.ok) return;
+        const body = await resp.json();
+        const machineId = body?.data?.node_id || body?.node_id;
+        if (!cancelled && machineId) {
+          setNodeId(machineId);
+          localStorage.setItem('interconnector_node_id', machineId);
+        }
+      } catch (_e) {
+        // No local identity available (e.g. dev without hardware.json) —
+        // keep the localStorage id.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Load initial data
   useEffect(() => {
