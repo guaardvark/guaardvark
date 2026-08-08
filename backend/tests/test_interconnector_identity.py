@@ -129,5 +129,18 @@ def test_local_identity_endpoint_returns_machine_id(app, monkeypatch):
     assert r.get_json()["data"]["node_id"] == "machine-stable-uuid"
 
 
+def test_ensure_local_self_node_creates_and_is_idempotent(app):
+    """The self-row that lets local sync-history FK writes succeed (previously a
+    ForeignKeyViolation) is created once and reused."""
+    from backend.api.interconnector_api import _ensure_local_self_node
+    with app.app_context():
+        n1 = _ensure_local_self_node("self-id", "myhost", "client")
+        db.session.commit()
+        assert n1.node_id == "self-id" and n1.node_name == "myhost"
+        n2 = _ensure_local_self_node("self-id", "myhost", "client")
+        assert n2.node_id == "self-id"
+        assert InterconnectorNode.query.filter_by(node_id="self-id").count() == 1
+
+
 def _hostname(node):
     return json.loads(node.hardware_profile or "{}").get("hostname")

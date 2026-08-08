@@ -785,6 +785,39 @@ def _prune_duplicate_nodes(keep_id: str, fingerprint: Optional[str]) -> int:
         return 0
 
 
+def _stable_local_node_id(config: dict, fallback: str = "local_node") -> str:
+    """This node's stable id for local records — the machine id (CLUSTER_NODE_ID),
+    falling back to the configured node_name for very old setups."""
+    return os.environ.get("CLUSTER_NODE_ID") or config.get("node_name") or fallback
+
+
+def _ensure_local_self_node(node_id: str, node_name: Optional[str],
+                            node_mode: str = "client"):
+    """Ensure a row exists for THIS node so local sync-history writes (which FK to
+    interconnector_nodes.node_id) and last_sync_time updates succeed.
+
+    Previously these used node_name as the id with no matching row, causing
+    ForeignKeyViolations that aborted the sync transaction. On a client this row
+    is never exposed — get_nodes is master-only.
+    """
+    node = db.session.get(InterconnectorNode, node_id)
+    if node:
+        return node
+    node = InterconnectorNode(
+        node_id=node_id,
+        node_name=node_name or "local",
+        host="127.0.0.1",
+        port=int(os.environ.get("FLASK_PORT", 5000)),
+        node_mode=node_mode or "client",
+        status="active",
+        last_heartbeat=datetime.now(),
+        hardware_profile="{}",
+    )
+    db.session.add(node)
+    db.session.flush()
+    return node
+
+
 @interconnector_bp.route("/nodes/local-identity", methods=["GET"])
 def local_identity():
     """Return THIS machine's stable, IP-independent node identity.
@@ -2427,8 +2460,11 @@ def trigger_manual_sync():
         }
         details = {}
 
-        # Get local node ID (use node_name as identifier for now)
-        local_node_id = config.get("node_name", "local_node")
+        # Local node identity = the machine-stable id; ensure a self-row exists
+        # so the sync-history FK and last_sync_time update below succeed.
+        local_node_id = _stable_local_node_id(config)
+        _ensure_local_self_node(local_node_id, config.get("node_name"),
+                                config.get("node_mode", "client"))
 
         try:
             # Pull sync
@@ -3762,7 +3798,9 @@ def apply_updates():
         # The files themselves are persisted on disk by apply_files_atomic (written + hash-matched
         # on future checks).
         try:
-            local_node_id = config.get("node_name") or "local_client"
+            local_node_id = _stable_local_node_id(config, fallback="local_client")
+            _ensure_local_self_node(local_node_id, config.get("node_name"),
+                                    config.get("node_mode", "client"))
             sync_history = InterconnectorSyncHistory(
                 node_id=local_node_id,
                 sync_direction="pull",
