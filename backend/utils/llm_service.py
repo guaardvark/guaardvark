@@ -59,7 +59,9 @@ def _safe_content(message) -> Optional[str]:
         return None
 
 
-def get_llm_instance(model: Optional[str] = None) -> Optional[LLM]:
+def get_llm_instance(
+    model: Optional[str] = None, thinking: Optional[bool] = None
+) -> Optional[LLM]:
     """Return the active LLM, or a per-call Ollama bound to `model`.
 
     `model=None` (the default) preserves the historical behavior: cloud
@@ -70,15 +72,22 @@ def get_llm_instance(model: Optional[str] = None) -> Optional[LLM]:
     a DIFFERENT model than the proposer (same-model judging is
     self-confirmation bias). Cloud routing is deliberately skipped for
     explicit local model requests.
+
+    `thinking` is only meaningful with an explicit `model`: None keeps the
+    model's own default; False disables reasoning mode. Thinking-capable
+    models (qwen3-family) reason by default, and for mechanical structured
+    extraction that burned 2-4k reasoning tokens per call — enough to blow
+    the request timeout (2026-08-18).
     """
     if model:
         try:
-            from backend.config import OLLAMA_BASE_URL
+            from backend.config import LLM_REQUEST_TIMEOUT, OLLAMA_BASE_URL
             from llama_index.llms.ollama import Ollama
             return Ollama(
                 model=model,
                 base_url=OLLAMA_BASE_URL,
-                request_timeout=120.0,
+                request_timeout=min(LLM_REQUEST_TIMEOUT, 180.0),
+                thinking=thinking,
             )
         except Exception as e:
             logger.warning("Per-model LLM construction failed for %r: %s", model, e)
