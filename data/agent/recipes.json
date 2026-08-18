@@ -491,5 +491,117 @@
         "seconds": 1.2
       }
     ]
+  },
+  "new_tab": {
+    "description": "Open a new browser tab.",
+    "triggers": [
+      "^(?:open|create)\\s+(?:a\\s+)?new\\s+tab\\s*$"
+    ],
+    "steps": [
+      {
+        "action": "hotkey",
+        "keys": [
+          "ctrl",
+          "t"
+        ]
+      },
+      {
+        "action": "wait_until_settled",
+        "timeout_s": 1.5
+      }
+    ]
+  },
+  "close_tab": {
+    "description": "Close the current browser tab.",
+    "triggers": [
+      "^close\\s+(?:the\\s+)?(?:current\\s+)?tab\\s*$"
+    ],
+    "steps": [
+      {
+        "action": "hotkey",
+        "keys": [
+          "ctrl",
+          "w"
+        ]
+      },
+      {
+        "action": "wait_until_settled",
+        "timeout_s": 1.0
+      }
+    ]
+  },
+  "refresh_page": {
+    "description": "Refresh the current page.",
+    "triggers": [
+      "^(?:refresh|reload)\\s+(?:the\\s+)?(?:page|tab)\\s*$"
+    ],
+    "steps": [
+      {
+        "action": "hotkey",
+        "keys": [
+          "ctrl",
+          "r"
+        ]
+      },
+      {
+        "action": "wait_until_settled",
+        "timeout_s": 2.0
+      },
+      {
+        "action": "wait_until_visible",
+        "target_description": "page content loaded after refresh",
+        "timeout_s": 8.0
+      }
+    ]
+  },
+  "go_back": {
+    "description": "Navigate back in browser history.",
+    "triggers": [
+      "^go\\s+back\\s*$",
+      "^navigate\\s+back\\s*$"
+    ],
+    "steps": [
+      {
+        "action": "hotkey",
+        "keys": [
+          "alt",
+          "Left"
+        ]
+      },
+      {
+        "action": "wait_until_settled",
+        "timeout_s": 2.0
+      },
+      {
+        "action": "wait_until_visible",
+        "target_description": "previous page content loaded",
+        "timeout_s": 8.0
+      }
+    ]
+  },
+  "go_forward": {
+    "description": "Navigate forward in browser history.",
+    "triggers": [
+      "^go\\s+forward\\s*$",
+      "^navigate\\s+forward\\s*$"
+    ],
+    "steps": [
+      {
+        "action": "hotkey",
+        "keys": [
+          "alt",
+          "Right"
+        ]
+      },
+      {
+        "action": "wait_until_settled",
+        "timeout_s": 2.0
+      },
+      {
+        "action": "wait_until_visible",
+        "target_description": "next page content loaded",
+        "timeout_s": 8.0
+      }
+    ]
   }
 }
