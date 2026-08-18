@@ -102,6 +102,26 @@ class TestConfiguredModel(unittest.TestCase):
         self.assertEqual(entry["dimension_alignment"] % 8, 0)
 
 
+class TestPeopleExclusion(unittest.TestCase):
+    """Figures are excluded unless a shot asks for one."""
+
+    def test_default_excludes_people(self):
+        neg = visuals.negative_for(False)
+        for term in ("person", "people", "face"):
+            self.assertIn(term, neg)
+
+    def test_a_shot_can_admit_people(self):
+        neg = visuals.negative_for(True)
+        self.assertNotIn("person", neg)
+        # the rest of the exclusions survive
+        self.assertIn("watermark", neg)
+        self.assertIn("cartoon", neg)
+
+    def test_both_forms_keep_the_base_exclusions(self):
+        for people in (True, False):
+            self.assertTrue(visuals.negative_for(people).startswith(visuals.NEGATIVE))
+
+
 class TestRenderedClipLookup(unittest.TestCase):
     """Mirrors a settled batch's status payload.
 

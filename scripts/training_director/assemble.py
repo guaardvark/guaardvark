@@ -45,6 +45,9 @@ class Shot:
     reference: tuple[str, str, str] | None = None
     motion: bool = False               # render image-to-video instead of a push
     variant: int = 0                   # which cached still to use
+    # Figures are excluded from b-roll by default; set where the shot is
+    # about a hand or a stance and the frame is meaningless without one.
+    people: bool = False
 
 
 @dataclass
@@ -190,7 +193,9 @@ def produce(script: TrainingScript, only: list[str] | None = None,
     workdir.mkdir(parents=True, exist_ok=True)
 
     print(f"[{script.slug}] stills for {len(shots)} shot(s)…")
-    library = visuals.stills_for([s.prompt for s in shots])
+    library = visuals.stills_for(
+        [s.prompt for s in shots],
+        people={s.prompt for s in shots if s.people})
 
     # After the stills pass, which may have stopped the voice service to free
     # VRAM. Restarting here also means a missing clip fails before any picture
