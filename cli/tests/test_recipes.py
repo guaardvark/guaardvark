@@ -5,7 +5,13 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from llx.commands.recipes import load_recipes, validate_recipes
+from llx.commands.recipes import (
+    KNOWN_ACTIONS,
+    SUPPORTED_RECIPE_ACTIONS,
+    load_recipes,
+    validate_recipe_library,
+    validate_recipes,
+)
 from llx.main import app
 
 
@@ -17,7 +23,7 @@ def _recipe(action: str = "click") -> dict:
     return {
         "description": "A test recipe.",
         "triggers": ["^test$"],
-        "steps": [{"action": action}],
+        "steps": [{"action": action, "target_description": "Submit button"}],
     }
 
 
@@ -38,6 +44,38 @@ def test_validate_reports_required_fields_and_unknown_actions():
     assert any("missing_triggers" in error and "triggers" in error for error in errors)
     assert any("empty_steps" in error and "steps" in error for error in errors)
     assert any("unknown_action" in error and "launch_rocket" in error for error in errors)
+
+
+def test_cli_actions_match_canonical_backend_actions():
+    assert validate_recipe_library is not None
+    assert KNOWN_ACTIONS == frozenset(SUPPORTED_RECIPE_ACTIONS)
+
+
+def test_validate_uses_strict_canonical_trigger_checks():
+    invalid_regex = _recipe()
+    invalid_regex["triggers"] = ["^[broken$"]
+    unanchored = _recipe()
+    unanchored["triggers"] = ["test"]
+
+    errors = validate_recipes({"invalid_regex": invalid_regex, "unanchored": unanchored})
+
+    assert any("invalid_regex.triggers[0]" in error and "invalid regex" in error for error in errors)
+    assert any("unanchored.triggers[0]" in error and "anchored with ^" in error for error in errors)
+    assert any("unanchored.triggers[0]" in error and "anchored at the end" in error for error in errors)
+
+
+def test_validate_rejects_unsafe_click_targets_and_coordinates():
+    no_target = _recipe()
+    no_target["steps"] = [{"action": "click"}]
+    stored_coordinates = _recipe()
+    stored_coordinates["steps"] = [
+        {"action": "click", "target_description": "Submit button", "x": 100, "y": 200}
+    ]
+
+    errors = validate_recipes({"no_target": no_target, "stored_coordinates": stored_coordinates})
+
+    assert any("no_target.steps[0]" in error and "target_description" in error for error in errors)
+    assert any("stored_coordinates.steps[0]" in error and "x/y coordinates" in error for error in errors)
 
 
 def test_validate_rejects_invalid_json(tmp_path):
