@@ -13,12 +13,30 @@ CURRENT_USER=$(whoami)
 
 stopped=0
 
-# Step 1: Try sudo systemctl stop ollama (fast path if sudoers rule exists)
+# Step 1: systemd stop — only when this app owns the daemon. An enabled unit is
+# a machine-wide service other consumers (e.g. a sibling install on the same box)
+# may depend on, so it is never ours to stop; a disabled unit is stopped only if
+# scripts/start.sh recorded that it started it (observed 2026-08-18: an
+# unconditional stop here killed the shared daemon mid-claim-extraction).
+SYSTEMD_MARKER="$PIDS_DIR/ollama.systemd-started-by-app"
+left_system_unit=0
 if command -v systemctl >/dev/null 2>&1; then
-    if sudo -n systemctl stop ollama 2>/dev/null; then
-        echo "Stopped via sudo systemctl"
-        stopped=1
-    fi
+    case "$(systemctl is-enabled ollama 2>/dev/null || true)" in
+        enabled*)
+            echo "Ollama systemd unit is enabled (system-managed) — leaving it running"
+            left_system_unit=1
+            rm -f "$SYSTEMD_MARKER"
+            ;;
+        *)
+            if [ -f "$SYSTEMD_MARKER" ]; then
+                if sudo -n systemctl stop ollama 2>/dev/null; then
+                    echo "Stopped via sudo systemctl"
+                    stopped=1
+                fi
+                rm -f "$SYSTEMD_MARKER"
+            fi
+            ;;
+    esac
 fi
 
 # Step 2: Kill by PID file
@@ -68,6 +86,13 @@ fi
 
 # Clean up PID file
 rm -f "$PID_FILE" 2>/dev/null
+
+# When the system-managed unit was deliberately left running, the port staying
+# occupied is success, not failure — only app-owned processes needed cleanup.
+if [ "$left_system_unit" -eq 1 ]; then
+    echo "Ollama stop complete (system-managed unit left running)"
+    exit 0
+fi
 
 # Wait for port to actually free up (up to 10 seconds)
 for i in $(seq 1 10); do

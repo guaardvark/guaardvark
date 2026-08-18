@@ -2010,6 +2010,10 @@ if [ "$OLLAMA_AVAILABLE" -eq 1 ] && [ "$OLLAMA_ENABLED" != "False" ]; then
                 if curl -sf --max-time 3 http://127.0.0.1:11434/ >/dev/null 2>&1; then
                     OLLAMA_STARTED=1
                     vader_success "Ollama service started (systemctl)"
+                    # Record that WE started the unit — stop.sh's systemd stop is
+                    # gated on this marker (and skipped entirely for enabled units).
+                    mkdir -p "$SCRIPT_DIR/pids"
+                    touch "$SCRIPT_DIR/pids/ollama.systemd-started-by-app"
                     break
                 fi
             done

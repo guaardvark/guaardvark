@@ -43,6 +43,9 @@ started=0
 if command -v systemctl >/dev/null 2>&1; then
     if sudo -n systemctl start ollama 2>/dev/null; then
         echo "Started via sudo systemctl"
+        # Record that WE started the unit — stop.sh only stops the systemd unit
+        # when this marker exists (and never when the unit is enabled).
+        touch "$PIDS_DIR/ollama.systemd-started-by-app"
         started=1
     fi
 fi

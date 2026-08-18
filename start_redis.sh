@@ -26,6 +26,16 @@ REDIS_PID_FILE="$PIDS_DIR/redis.pid"
 # Sidecar data dir (not /tmp alone) so we can find our process after restart.
 REDIS_ALT_DIR="${REDIS_ALT_DIR:-$SCRIPT_DIR/data/redis-broker}"
 
+# DB index for every URL we write. Sibling installs sharing one box separate
+# their brokers by Redis DB number (the Celery queue names are identical, so a
+# shared DB lets one install's workers consume the other's tasks). Honor an
+# explicit REDIS_DB, else keep the index .env already carries — clobbering it
+# back to /0 silently re-merges the brokers.
+if [ -z "${REDIS_DB:-}" ] && [ -f "$ENV_FILE" ]; then
+  REDIS_DB=$(grep '^REDIS_URL=' "$ENV_FILE" 2>/dev/null | tail -1 | sed -nE 's|^.*:[0-9]+/([0-9]+)[[:space:]]*$|\1|p')
+fi
+case "${REDIS_DB:-}" in (''|*[!0-9]*) REDIS_DB=0 ;; esac
+
 command_exists() { command -v "$1" >/dev/null 2>&1; }
 
 # ─── Helper: extract Redis password from .env ────────────────────────────────
@@ -131,7 +141,7 @@ sync_env_to_reachable_broker() {
 
   # 1) Default port, passwordless — preferred durable path (systemd redis).
   if redis_ping "" "$PORT"; then
-    write_redis_env_urls "redis://localhost:${PORT}/0"
+    write_redis_env_urls "redis://localhost:${PORT}/${REDIS_DB}"
     # Not our sidecar — drop stale alt pid if it pointed at a dead process.
     clear_redis_pid_if_dead
     if [ -n "$env_port" ] && [ "$env_port" != "$PORT" ]; then
@@ -144,7 +154,7 @@ sync_env_to_reachable_broker() {
 
   # 2) Default port with password from .env.
   if [ -n "$pass" ] && redis_ping "$pass" "$PORT"; then
-    write_redis_env_urls "redis://:${pass}@localhost:${PORT}/0"
+    write_redis_env_urls "redis://:${pass}@localhost:${PORT}/${REDIS_DB}"
     clear_redis_pid_if_dead
     vader_success "Redis broker URL set to :${PORT} (authenticated)."
     return 0
@@ -154,9 +164,9 @@ sync_env_to_reachable_broker() {
   if [ -n "$env_port" ] && [ "$env_port" != "$PORT" ]; then
     if redis_ping "" "$env_port" || { [ -n "$pass" ] && redis_ping "$pass" "$env_port"; }; then
       if [ -n "$pass" ] && redis_ping "$pass" "$env_port"; then
-        write_redis_env_urls "redis://:${pass}@localhost:${env_port}/0"
+        write_redis_env_urls "redis://:${pass}@localhost:${env_port}/${REDIS_DB}"
       else
-        write_redis_env_urls "redis://localhost:${env_port}/0"
+        write_redis_env_urls "redis://localhost:${env_port}/${REDIS_DB}"
       fi
       write_redis_pid "$env_port"
       vader_success "Redis already running on port ${env_port}."
@@ -193,7 +203,7 @@ start_redis_alt_port() {
   done
 
   if redis_ping "" "$alt_port"; then
-    write_redis_env_urls "redis://localhost:${alt_port}/0"
+    write_redis_env_urls "redis://localhost:${alt_port}/${REDIS_DB}"
     write_redis_pid "$alt_port"
     vader_success "Redis broker already up on port ${alt_port}."
     return 0
@@ -205,7 +215,7 @@ start_redis_alt_port() {
     --stop-writes-on-bgsave-error no --save "" >/dev/null 2>&1
   sleep 2
   if redis_ping "" "$alt_port"; then
-    write_redis_env_urls "redis://localhost:${alt_port}/0"
+    write_redis_env_urls "redis://localhost:${alt_port}/${REDIS_DB}"
     write_redis_pid "$alt_port"
     vader_success "Redis broker running on port ${alt_port} (passwordless, local-only, pidfile)."
     return 0
@@ -248,7 +258,7 @@ if [ "$(uname -s)" = "Darwin" ]; then
 
   # Point Celery/Redis at the local passwordless broker (idempotent rewrite).
   if [ -f "$ENV_FILE" ]; then
-    NEW_URL="redis://localhost:${PORT}/0"
+    NEW_URL="redis://localhost:${PORT}/${REDIS_DB}"
     if ! grep -q "^REDIS_URL=${NEW_URL}$" "$ENV_FILE"; then
       _tmp="${ENV_FILE}.tmp.$$"
       grep -vE '^(REDIS_URL|CELERY_BROKER_URL|CELERY_RESULT_BACKEND)=' "$ENV_FILE" > "$_tmp"
@@ -312,7 +322,7 @@ if command_exists redis-cli; then
       exit 1
     fi
     if redis_ping ""; then
-      write_redis_env_urls "redis://localhost:${PORT}/0"
+      write_redis_env_urls "redis://localhost:${PORT}/${REDIS_DB}"
       vader_success "Redis already running on port $PORT (passwordless)."
       exit 0
     fi
@@ -377,7 +387,7 @@ REDISEOF
 
   # Update .env with Redis credentials
   if [ -n "$REDIS_PASS" ] && [ -f "$ENV_FILE" ]; then
-    REDIS_URL="redis://:${REDIS_PASS}@localhost:${PORT}/0"
+    REDIS_URL="redis://:${REDIS_PASS}@localhost:${PORT}/${REDIS_DB}"
 
     # Append or update each key
     for key in REDIS_URL CELERY_BROKER_URL CELERY_RESULT_BACKEND; do
@@ -435,7 +445,7 @@ if redis_port_listening "$PORT"; then
     start_redis_alt_port && exit 0
   fi
   if redis_ping ""; then
-    write_redis_env_urls "redis://localhost:${PORT}/0"
+    write_redis_env_urls "redis://localhost:${PORT}/${REDIS_DB}"
     vader_success "Redis already running on port $PORT."
     exit 0
   fi
@@ -450,9 +460,9 @@ fi
 sleep 2
 if command_exists redis-cli && redis_ping "$REDIS_PASS"; then
   if [ -n "$REDIS_PASS" ]; then
-    write_redis_env_urls "redis://:${REDIS_PASS}@localhost:${PORT}/0"
+    write_redis_env_urls "redis://:${REDIS_PASS}@localhost:${PORT}/${REDIS_DB}"
   else
-    write_redis_env_urls "redis://localhost:${PORT}/0"
+    write_redis_env_urls "redis://localhost:${PORT}/${REDIS_DB}"
   fi
   vader_success "redis-server started on port $PORT."
   exit 0
