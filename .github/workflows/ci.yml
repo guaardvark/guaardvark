@@ -7,6 +7,23 @@ on:
     branches: [main]
 
 jobs:
+  cli:
+    name: CLI Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install CLI package
+        run: pip install -e ./cli pytest
+
+      - name: Run CLI test suite
+        run: python -m pytest cli/tests -q
+
   frontend:
     name: Frontend Lint & Build
     runs-on: ubuntu-latest
