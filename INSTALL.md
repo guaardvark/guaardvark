@@ -16,6 +16,8 @@ curl -fsSL https://guaardvark.com/install.sh | bash
 
 Clones to `~/guaardvark` (override with `GUAARDVARK_HOME=/path`) and hands off to `./start.sh`. Re-running updates an existing install; `GUAARDVARK_NO_START=1` clones without launching.
 
+**Not sure what your machine can run?** See [docs/HARDWARE.md](docs/HARDWARE.md) — a tier-by-tier guide to what works CPU-only, on 8–12 GB cards, on the 16 GB design target, and beyond.
+
 **Or from a release zip:**
 
 1. **Extract:**
