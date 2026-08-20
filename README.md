@@ -244,7 +244,7 @@ State-of-the-art video generation running entirely on your GPU. No cloud APIs, n
 - **Quality tiers** — Fast (10 steps), Standard (30), High (40), Maximum (50)
 - **Frame interpolation** — 1x raw, 2x doubled FPS, 2x + upscale for cinema-quality output
 - **Prompt enhancement** — Cinematic, Realistic, Artistic, Anime, or raw
-- **Low VRAM mode** — automatically reduces resolution, frames, and inference steps for 8–12GB GPUs (mutually exclusive with High consistency)
+- **Low VRAM mode** — reduces resolution, frames, and inference steps to keep 16GB cards inside budget (mutually exclusive with High consistency); video generation itself needs a 16GB-class card — see [docs/HARDWARE.md](docs/HARDWARE.md)
 - **Batch processing** — queue multiple videos from a prompt list via an in-process worker (one batch at a time; ComfyUI primary, offline CogVideoX fallback)
 - **ComfyUI integration** — one-click launch to the node editor for custom workflows; Wan/LTX require ComfyUI. LTX-2.5 needs ComfyUI ≥ 0.32.0 and a one-time license accept on [Lightricks/LTX-2.5](https://huggingface.co/Lightricks/LTX-2.5) (`HF_TOKEN` in `.env`); after download, generation stays local.
 
@@ -444,15 +444,19 @@ guaardvark files upload report.pdf      # Upload and index
 | Ollama | latest | Local LLM inference |
 | CUDA GPU | 8GB+ VRAM | 16GB recommended for video generation |
 
+**Which tier is your machine?** See **[docs/HARDWARE.md](docs/HARDWARE.md)** for what runs CPU-only, on 8–12 GB, on the 16 GB design target, and with 24 GB+ of headroom.
+
 ### GPU Memory Guide
 
 | Feature | Minimum | Recommended |
 |---------|---------|-------------|
 | Chat + RAG | 4GB | 8GB |
 | Image generation | 6GB | 12GB |
-| Wan 2.2 video | 11GB | 16GB |
+| Wan 2.2 video | 16GB* | 16GB |
 | CogVideoX-5B video | 16GB | 20GB |
 | Upscaling | 0.5GB | 2–4GB |
+
+\* Wan's weights fit in ~11GB, but the generation preflight requires a 16GB-class card for every current video family — see [docs/HARDWARE.md](docs/HARDWARE.md).
 
 ---
 
