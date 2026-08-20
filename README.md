@@ -34,6 +34,20 @@ One style prompt and a short narrative, then **go**. Guaardvark wrote every shot
 
 **And media generation is one of the _smaller_ parts of what Guaardvark does** — agent swarms, a coding agent, voice chat, RAG, system mapping, a project manager, a backup system, and a 70+ tool engine are all below.
 
+## ▶ The Walkthrough Series — every feature, on camera
+
+Short, unscripted-feeling screen recordings of the real system doing real work — narrated by a voice the system cloned itself (that's Episode 7). Ten episodes are live; the full series covers all twelve subsystems.
+
+| | |
+|:---:|:---:|
+| [![One Chat Box, Three Different Brains — Guaardvark Ep 2](https://img.youtube.com/vi/5HcSAf96j_M/maxresdefault.jpg)](https://www.youtube.com/watch?v=5HcSAf96j_M)<br>**Ep 2 — Chat Brain:** one chat box, three speeds | [![Your Files Get a Desktop — Guaardvark Ep 3](https://img.youtube.com/vi/qzub19w9M_4/maxresdefault.jpg)](https://www.youtube.com/watch?v=qzub19w9M_4)<br>**Ep 3 — File Desktop:** your files get a desktop, plus RAG that shows its work |
+| [![The Agent Behind the Glass — Guaardvark Ep 4](https://img.youtube.com/vi/3VfHrJmqYos/maxresdefault.jpg)](https://www.youtube.com/watch?v=3VfHrJmqYos)<br>**Ep 4 — Screen Agent:** its own desktop, eyes, and hands | [![Local Image Gen — Guaardvark Ep 5](https://img.youtube.com/vi/s9I_0gD9Iko/maxresdefault.jpg)](https://www.youtube.com/watch?v=s9I_0gD9Iko)<br>**Ep 5 — Image Gen:** one prompt, a whole story |
+| [![Local Video Generation — Guaardvark Ep 6](https://img.youtube.com/vi/9rae9IJhXow/maxresdefault.jpg)](https://www.youtube.com/watch?v=9rae9IJhXow)<br>**Ep 6 — Video Gen:** seven models, one GPU | [![Local Voice Cloning — Guaardvark Ep 7](https://img.youtube.com/vi/BXlm7p-SxtU/maxresdefault.jpg)](https://www.youtube.com/watch?v=BXlm7p-SxtU)<br>**Ep 7 — Voice Clone:** consent-gated, self-checking |
+| [![Local AI Music Video — Guaardvark Ep 8](https://img.youtube.com/vi/l2LqKA9GQDc/maxresdefault.jpg)](https://www.youtube.com/watch?v=l2LqKA9GQDc)<br>**Ep 8 — Music Video:** drop a song, get a film | [![Local AI Film Crew — Guaardvark Ep 9](https://img.youtube.com/vi/sq104u9N4Qg/maxresdefault.jpg)](https://www.youtube.com/watch?v=sq104u9N4Qg)<br>**Ep 9 — Film Crew:** script, cast, storyboard, cut |
+| [![The System That Fixes Itself — Guaardvark Ep 11](https://img.youtube.com/vi/7kHvi_2vT6U/maxresdefault.jpg)](https://www.youtube.com/watch?v=7kHvi_2vT6U)<br>**Ep 11 — Self-Repair:** it fixes its own code, behind a gate you control | [![Command Center — Guaardvark Ep 12](https://img.youtube.com/vi/IMEnss9gjl4/maxresdefault.jpg)](https://www.youtube.com/watch?v=IMEnss9gjl4)<br>**Ep 12 — Command Center:** see everything, gate everything, kill everything |
+
+**[▶ Watch the full playlist](https://www.youtube.com/playlist?list=PLYycooXIy1Qs)** — Episode 1 (the full tour) and Episode 10 (the video editor) are on the way.
+
 ## Highlights (as of latest release)
 
 - **Video & Audio Production** — Wan 2.2 (T2V + I2V, 5B default + 14B MoE), CogVideoX-5B, LTX-2.3 + LTX-2.5; ACE-Step full-song generation with LLM tag polish; Chatterbox/Kokoro neural voice + Piper; explicit consent-gated voice cloning; frame-by-frame 4K/8K upscaling.
@@ -457,6 +471,25 @@ guaardvark files upload report.pdf      # Upload and index
 | Upscaling | 0.5GB | 2–4GB |
 
 \* Wan's weights fit in ~11GB, but the generation preflight requires a 16GB-class card for every current video family — see [docs/HARDWARE.md](docs/HARDWARE.md).
+
+### Making It Fast
+
+Chat and agent latency are dominated by a few settings, all in **Settings**
+unless noted. Defaults favor visibility while you learn the system; flip
+these once you trust it:
+
+- **Thinking mode off** — extended reasoning (`/thinking`, or the
+  chat-thinking default under Settings) adds a long deliberation pass to
+  every turn. Off, simple turns answer in a second or two.
+- **Developer toggles off** — *RAG Debug*, *Verbose Logging*, and *LLM
+  Debug* each add per-request work. Leave them off outside debugging
+  sessions.
+- **Pick one reliable model and stay on it** — every model switch evicts
+  and reloads weights on the GPU (seconds to a minute). A single mid-size
+  model that stays resident beats a bigger one that thrashes.
+- **Mind the VRAM neighbors** — renders wait politely for the card, but
+  idle services holding VRAM (voice models, image pipelines) slow
+  everything's admission. The Plugins page shows who's holding what.
 
 ---
 
