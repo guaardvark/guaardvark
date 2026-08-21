@@ -477,6 +477,24 @@ def _suggest_platform_from_host(host: str) -> Optional[str]:
     return None
 
 
+_REDDIT_HOSTS = frozenset({"reddit.com", "www.reddit.com", "old.reddit.com", "new.reddit.com", "m.reddit.com"})
+
+
+def _reddit_thread_path(url: str) -> Optional[str]:
+    """Path of a reddit.com thread URL, or None when the host is not Reddit.
+
+    The host is matched exactly against ``_REDDIT_HOSTS`` so the JSON fetch can
+    be issued to a fixed host; a substring check would accept look-alikes such as
+    ``reddit.com.example.net``.
+    """
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or (parsed.hostname or "").lower() not in _REDDIT_HOSTS:
+        return None
+    return parsed.path or "/"
+
+
 def _scout_reddit_url(url: str) -> Optional[Dict[str, Any]]:
     """For a Reddit thread URL, pull OP + top-5 comments via the public JSON API.
 
@@ -489,11 +507,13 @@ def _scout_reddit_url(url: str) -> Optional[Dict[str, Any]]:
 
     # Reddit's JSON endpoint accepts the same path with .json appended. Strip
     # any trailing slash + querystring before tacking it on.
-    base = url.split("?", 1)[0].split("#", 1)[0].rstrip("/")
-    json_url = base + ".json?limit=10&depth=1"
+    path = _reddit_thread_path(url)
+    if path is None:
+        return None
+    json_url = "https://www.reddit.com" + path.rstrip("/") + ".json?limit=10&depth=1"
     headers = {"User-Agent": "guaardvark-outreach/0.1 scout"}
     try:
-        resp = requests.get(json_url, headers=headers, timeout=10, allow_redirects=True)
+        resp = requests.get(json_url, headers=headers, timeout=10, allow_redirects=False)
         if not resp.ok:
             return None
         data = resp.json()
@@ -686,7 +706,7 @@ def scout_url():
         pass
 
     # Reddit JSON API — primary path unless caller forces DOM.
-    if "reddit.com" in parsed_host and not force_dom:
+    if _reddit_thread_path(url) is not None and not force_dom:
         scouted = _scout_reddit_url(url)
         if scouted:
             return jsonify(scouted)
