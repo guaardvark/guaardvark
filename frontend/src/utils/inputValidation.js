@@ -40,14 +40,14 @@ const PATTERNS = {
   FILE_EXTENSION: /^\.[a-zA-Z0-9]+$/,
 
   // Security patterns (things to watch for)
-  SUSPICIOUS_SCRIPT: /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,
+  SUSPICIOUS_SCRIPT: /<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi,
   SUSPICIOUS_EVAL: /\b(eval|setTimeout|setInterval|Function|document\.write)\s*\(/gi,
   SUSPICIOUS_URL: /javascript:|data:|vbscript:|file:|about:/gi,
   SQL_INJECTION: /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|UNION)\b)/gi,
 
   // XSS patterns
   XSS_PATTERNS: [
-    /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,
+    /<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi,
     /javascript:/gi,
     /on\w+\s*=/gi,
     /<iframe[\s\S]*?>/gi,

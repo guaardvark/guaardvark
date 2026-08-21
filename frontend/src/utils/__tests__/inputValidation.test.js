@@ -18,8 +18,9 @@ describe("stripHtmlTags", () => {
 
 describe("script detection", () => {
   it("flags script blocks whose closing tag carries whitespace", () => {
-    const sample = "<script type=\"text/javascript\">x()</script >";
-    expect(detectXSS(sample)).toBe(true);
-    expect(detectSuspiciousCode(sample)).toBe(true);
+    for (const sample of ["<script type=\"text/javascript\">x()</script >", "<script>x()</script\t\n bar>"]) {
+      expect(detectXSS(sample)).toBe(true);
+      expect(detectSuspiciousCode(sample)).toBe(true);
+    }
   });
 });
