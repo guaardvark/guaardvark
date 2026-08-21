@@ -462,6 +462,17 @@ Five-agent swarm for coordinated media generation:
 
 Dedicated upscaling plugin for sharpening generated content to 4K/8K.
 
+| Model | Scale | Size | Best For |
+|-------|-------|------|----------|
+| HAT-L SRx4 | 4x | 159 MB | Maximum quality restoration |
+| RealESRGAN x4plus | 4x | 64 MB | General-purpose, photorealistic |
+| RealESRGAN x2plus | 2x | 64 MB | Mild upscaling |
+| RealESRGAN x4plus (Anime) | 4x | 17 MB | Anime and stylized content |
+| realesr-animevideov3 | 4x | 6 MB | Video-optimized anime |
+| 4x-UltraSharp | 4x | 67 MB | Enhanced sharpness |
+| 4x NMKD-Superscale | 4x | 67 MB | Advanced super-scaling |
+| 4x Foolhardy Remacri | 4x | 67 MB | Texture-focused upscaling |
+
 ### Models
 - **Real-ESRGAN 2x / 4x** — proven anime/photo upscaler
 - **Custom checkpoints** — drop-in via the model browser
