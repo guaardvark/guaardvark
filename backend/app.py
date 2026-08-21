@@ -625,6 +625,11 @@ def _initialize_app_components(app):
             VIDEO_RENDER_STALE_HIGH = 3600  # 60 min at >=95% (long encode still OK)
             VIDEO_RENDER_STALE_MID = 7200   # 120 min mid-render (maxed Wan denoising)
 
+            # A single missed 2 s probe is normal while ComfyUI's HTTP thread
+            # starves behind a pegged GPU; only sustained silence counts as down.
+            COMFYUI_DOWN_GRACE = 30  # seconds of consecutive failed probes
+            comfy_fail_since = {"t": None}
+
             def _comfyui_is_down() -> bool:
                 try:
                     from backend.config import config as _cfg
@@ -633,9 +638,15 @@ def _initialize_app_components(app):
                         "GUAARDVARK_COMFYUI_URL", "http://127.0.0.1:8188"
                     )
                     resp = _requests.get(url, timeout=2)
-                    return resp.status_code != 200
+                    failed = resp.status_code != 200
                 except Exception:
-                    return True
+                    failed = True
+                if not failed:
+                    comfy_fail_since["t"] = None
+                    return False
+                if comfy_fail_since["t"] is None:
+                    comfy_fail_since["t"] = time.time()
+                return (time.time() - comfy_fail_since["t"]) >= COMFYUI_DOWN_GRACE
 
             def _job_age_seconds(metadata: dict, file_mtime: float) -> float:
                 last_raw = (
@@ -656,15 +667,17 @@ def _initialize_app_components(app):
             def _stale_threshold_seconds(metadata: dict, redis_healthy: bool, comfyui_down: bool) -> float:
                 if metadata.get("status") in TERMINAL_STATUSES:
                     return float("inf")
-                if not redis_healthy:
-                    return float(REDIS_LOSS_STALE)
                 if metadata.get("process_type") == "video_render":
+                    # Renders report through ComfyUI polling, not the Redis
+                    # relay, so a relay outage says nothing about their health.
                     if comfyui_down and metadata.get("status") == "processing":
                         return 0.0
                     progress = int(metadata.get("progress") or 0)
                     if progress >= 95:
                         return float(VIDEO_RENDER_STALE_HIGH)
                     return float(VIDEO_RENDER_STALE_MID)
+                if not redis_healthy:
+                    return float(REDIS_LOSS_STALE)
                 return float(STALE_THRESHOLD)
 
             def _stale_error_message(metadata: dict, comfyui_down: bool) -> str:
@@ -685,6 +698,16 @@ def _initialize_app_components(app):
                         get_batch_video_generator().cancel_batch(str(batch_id))
                     except Exception:
                         pass
+                # The batch worker owns the GPU gate and releases it when its
+                # session exits; taking it away while that thread is alive hands
+                # the card to a second job mid-render. Only a dead worker leaves
+                # the gate orphaned.
+                worker_alive = any(
+                    t.name == "batch-video-worker" and t.is_alive()
+                    for t in threading.enumerate()
+                )
+                if worker_alive:
+                    return
                 try:
                     from backend.services.job_operation_gate import get_gate
                     from backend.services.job_types import JobKind
