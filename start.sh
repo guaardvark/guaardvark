@@ -2415,35 +2415,61 @@ export GUAARDVARK_ROOT="$SCRIPT_DIR"
 export TZ="America/New_York"
 export CUDA_DEVICE_ORDER="PCI_BUS_ID"
 export TORCH_CUDNN_V8_API_ENABLED=1
-export OLLAMA_NUM_PARALLEL=2
-
 export OLLAMA_NUM_CTX=8192
+# OLLAMA_NUM_PARALLEL / OLLAMA_MAX_LOADED_MODELS come from hardware_policy (exported
+# in the Ollama tuning step above); a backend-relaunched daemon inherits them.
+export OLLAMA_MAX_LOADED_MODELS="${OLLAMA_MAX_LOADED_MODELS:-1}"
 
-GPU_VRAM_MB=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -1 || echo 0)
-if [ "${GPU_VRAM_MB:-0}" -gt 12000 ]; then
-    export OLLAMA_MAX_LOADED_MODELS=2
-    vader_info "OLLAMA_MAX_LOADED_MODELS=2 (${GPU_VRAM_MB}MB VRAM detected)"
-elif [ "${GPU_VRAM_MB:-0}" -gt 0 ]; then
-    export OLLAMA_MAX_LOADED_MODELS=1
-    vader_info "OLLAMA_MAX_LOADED_MODELS=1 (${GPU_VRAM_MB}MB VRAM — small GPU)"
-else
-    export OLLAMA_MAX_LOADED_MODELS=1
-    vader_info "OLLAMA_MAX_LOADED_MODELS=1 (no GPU detected)"
-fi
-
+# Must match start_celery.sh: both processes share the card and the allocator policy.
 export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True,max_split_size_mb:512,garbage_collection_threshold:0.8"
 
-# Raise GPU power limit to max for higher sustained boost clocks
+# GPU power limit policy. The board limit is the operator's call: a limit the
+# supply cannot sustain hard-freezes the box mid-generation, and an operator-set
+# limit must survive every launch. Precedence, highest first:
+#   GUAARDVARK_GPU_POWER_LIMIT=<watts>  explicit target, clamped to [min,max]
+#   GUAARDVARK_GPU_POWER_LIMIT=max      raise to the card maximum
+#   GUAARDVARK_GPU_POWER_LIMIT=off      leave the limit exactly as found
+#   otherwise                           leave the limit as found (factory or operator)
+# Read from the environment, or from .env so it survives reboots without touching
+# a shell profile.
 if command -v nvidia-smi &>/dev/null; then
-    MAX_PL=$(nvidia-smi --query-gpu=power.max_limit --format=csv,noheader,nounits 2>/dev/null | head -1 | cut -d. -f1)
-    CUR_PL=$(nvidia-smi --query-gpu=power.limit --format=csv,noheader,nounits 2>/dev/null | head -1 | cut -d. -f1)
-    if [ -n "$MAX_PL" ] && [ -n "$CUR_PL" ] && [ "$MAX_PL" -gt "$CUR_PL" ]; then
-        if sudo -n nvidia-smi -pl "$MAX_PL" 2>/dev/null; then
-            vader_info "GPU power limit raised: ${CUR_PL}W → ${MAX_PL}W"
-        else
-            vader_warn "GPU power limit ${CUR_PL}W < max ${MAX_PL}W (needs sudo nvidia-smi -pl ${MAX_PL})"
-        fi
+    if [ -z "${GUAARDVARK_GPU_POWER_LIMIT:-}" ] && [ -f "$SCRIPT_DIR/.env" ]; then
+        _envpl=$(grep -E "^GUAARDVARK_GPU_POWER_LIMIT=" "$SCRIPT_DIR/.env" 2>/dev/null | tail -1 | sed "s/^GUAARDVARK_GPU_POWER_LIMIT=//" | tr -d '"'"'"' ')
+        [ -n "$_envpl" ] && GUAARDVARK_GPU_POWER_LIMIT="$_envpl"
     fi
+    _pl_q() { nvidia-smi --query-gpu="$1" --format=csv,noheader,nounits 2>/dev/null | head -1 | cut -d. -f1; }
+    MAX_PL=$(_pl_q power.max_limit)
+    CUR_PL=$(_pl_q power.limit)
+    DEF_PL=$(_pl_q power.default_limit)
+    MIN_PL=$(_pl_q power.min_limit)
+    _want="${GUAARDVARK_GPU_POWER_LIMIT:-}"
+
+    if [ "${_want,,}" = "off" ]; then
+        vader_info "GPU power limit: left at ${CUR_PL}W (GUAARDVARK_GPU_POWER_LIMIT=off)"
+    elif [ "${_want,,}" = "max" ] && [ -n "$MAX_PL" ]; then
+        if [ "$MAX_PL" = "$CUR_PL" ]; then
+            vader_info "GPU power limit: already at card maximum ${CUR_PL}W"
+        elif sudo -n nvidia-smi -pl "$MAX_PL" >/dev/null 2>&1; then
+            vader_success "GPU power limit raised: ${CUR_PL}W → ${MAX_PL}W (GUAARDVARK_GPU_POWER_LIMIT=max)"
+        else
+            vader_warn "GPU power limit: could not raise to ${MAX_PL}W (needs: sudo nvidia-smi -pl ${MAX_PL})"
+        fi
+    elif [ -n "$_want" ] && [ "$_want" -eq "$_want" ] 2>/dev/null; then
+        [ -n "$MIN_PL" ] && [ "$_want" -lt "$MIN_PL" ] && _want="$MIN_PL"
+        [ -n "$MAX_PL" ] && [ "$_want" -gt "$MAX_PL" ] && _want="$MAX_PL"
+        if [ "$_want" = "$CUR_PL" ]; then
+            vader_info "GPU power limit: already ${CUR_PL}W"
+        elif sudo -n nvidia-smi -pl "$_want" >/dev/null 2>&1; then
+            vader_success "GPU power limit set: ${CUR_PL}W → ${_want}W (GUAARDVARK_GPU_POWER_LIMIT)"
+        else
+            vader_warn "GPU power limit: could not set ${_want}W (needs: sudo nvidia-smi -pl ${_want})"
+        fi
+    elif [ -n "$CUR_PL" ] && [ -n "$DEF_PL" ] && [ "$CUR_PL" != "$DEF_PL" ]; then
+        vader_info "GPU power limit: respecting operator setting ${CUR_PL}W (factory default ${DEF_PL}W)"
+    elif [ -n "$CUR_PL" ]; then
+        vader_info "GPU power limit: ${CUR_PL}W (factory default; GUAARDVARK_GPU_POWER_LIMIT=<watts|max|off> to change)"
+    fi
+    unset -f _pl_q; unset _want _envpl
 fi
 # Pick up the auth-bearing URLs that start_redis.sh / start_postgres.sh wrote to .env.
 # Without this, the `${X:-default}` exports below would set no-auth defaults that win

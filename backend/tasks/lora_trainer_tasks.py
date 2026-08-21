@@ -171,9 +171,14 @@ def _train_impl(subject_id: int, job_id: str | None = None) -> dict:
             # which left no room for SDXL on the 16GB card. The bare gate did no
             # VRAM math, so training claimed "exclusive" while ollama still owned
             # 6.7GB → CUDA OOM. Reclaim runs only AFTER we hold the slot.
+            # cross_process: the Flask API renders stills under its own in-PID
+            # gate, so only the file lease keeps training off a card mid-render.
+            from backend.services.gpu_resource_policy import compositor_vram_reserve_mb
             with gpu_session(JobKind.LORA_TRAIN, f"subject_{s.id}",
                              evict_ollama=True, free_comfyui=True,
-                             vram_estimate_mb=12000, require_fit=True):
+                             vram_estimate_mb=12000, require_fit=True,
+                             cross_process=True, lease_seconds=4 * 3600,
+                             vram_reserve_mb=compositor_vram_reserve_mb()):
                 if job_id:
                     try:
                         get_unified_progress().update_process(job_id, 30, "GPU claimed, training epochs running (can take hours)")
@@ -308,7 +313,40 @@ def train_subject_lora_for_subject(subject_id: int, job_id: str | None = None) -
         except Exception:
             pass
 
-    result = _train_impl(subject_id, job_id=job_id)
+    try:
+        result = _train_impl(subject_id, job_id=job_id)
+    except Exception as e:
+        # Daemon protocol failures (stdout closed, watchdog kill, non-JSON reply)
+        # escape _train_impl; without this the Subject sits at 'training' until
+        # the reaper notices.
+        logger.exception("lora train for %s crashed", subject_id)
+        db.session.rollback()
+        s = db.session.get(Subject, subject_id)
+        if s is not None and s.training_status == "training":
+            s.training_status = "failed"
+            s.training_error = f"{type(e).__name__}: {e}"[:2000]
+            db.session.commit()
+        if job_id:
+            try:
+                get_unified_progress().error_process(job_id, f"training crashed: {e}")
+            except Exception:
+                pass
+        return
+
+    # Cancel or delete may have moved the row while the GPU work ran; only a
+    # Subject still marked 'training' may be promoted to 'trained'.
+    db.session.refresh(s)
+    if s.training_status != "training":
+        logger.warning(
+            "lora train for %s finished but status is %r; result not recorded",
+            subject_id, s.training_status,
+        )
+        if job_id:
+            try:
+                get_unified_progress().error_process(job_id, f"training superseded (status={s.training_status})")
+            except Exception:
+                pass
+        return
 
     # Perform all DB updates and commit BEFORE notifying the progress system.
     # This avoids a race where the frontend receives the "complete" event and

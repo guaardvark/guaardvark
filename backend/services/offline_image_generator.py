@@ -812,6 +812,21 @@ class OfflineImageGenerator:
             pass
         return 0.0
 
+    def _seed_generator(self, seed: int) -> "torch.Generator":
+        """Seeded RNG on the pipeline device, falling back to CPU when CUDA cannot
+        be initialised (no device, driver mismatch). A CPU generator is accepted by
+        every diffusers pipeline, so such a process still reaches admission and
+        OOM handling instead of failing at RNG construction. On a working CUDA box
+        the generator stays on the GPU, so seeds reproduce as before.
+        """
+        device = self._device
+        if device == "cuda" and not torch.cuda.is_available():
+            device = "cpu"
+        try:
+            return torch.Generator(device=device).manual_seed(seed)
+        except RuntimeError:
+            return torch.Generator().manual_seed(seed)
+
     @staticmethod
     def _is_cuda_oom(exc: BaseException) -> bool:
         if isinstance(exc, torch.cuda.OutOfMemoryError):
@@ -2145,11 +2160,11 @@ Negative Prompt: {negative_prompt}""",
 
                 generator = None
                 if request.seed is not None:
-                    generator = torch.Generator(device=self._device).manual_seed(request.seed)
+                    generator = self._seed_generator(request.seed)
                     result.seed_used = request.seed
                 else:
                     seed = torch.randint(0, 2**32, (1,)).item()
-                    generator = torch.Generator(device=self._device).manual_seed(seed)
+                    generator = self._seed_generator(seed)
                     result.seed_used = seed
 
                 logger.debug(
@@ -2373,12 +2388,12 @@ Negative Prompt: {negative_prompt}""",
                                 try:
                                     # Rebuild generator after OOM (device state may be dirty)
                                     if request.seed is not None:
-                                        generator = torch.Generator(device=self._device).manual_seed(
+                                        generator = self._seed_generator(
                                             request.seed
                                         )
                                     else:
                                         seed = result.seed_used or torch.randint(0, 2**32, (1,)).item()
-                                        generator = torch.Generator(device=self._device).manual_seed(seed)
+                                        generator = self._seed_generator(seed)
                                         result.seed_used = seed
                                     output = _call_pipeline(enhanced_prompt, neg)
                                     logger.info(
@@ -2443,12 +2458,12 @@ Negative Prompt: {negative_prompt}""",
                                     f"OOM fallback model '{fb_key}' failed to load"
                                 ) from infer_err
                             if request.seed is not None:
-                                generator = torch.Generator(device=self._device).manual_seed(
+                                generator = self._seed_generator(
                                     request.seed
                                 )
                             else:
                                 seed = result.seed_used or torch.randint(0, 2**32, (1,)).item()
-                                generator = torch.Generator(device=self._device).manual_seed(seed)
+                                generator = self._seed_generator(seed)
                                 result.seed_used = seed
                             output = _call_pipeline(enhanced_prompt, neg)
                             logger.info(f"OOM fallback to '{fb_key}' succeeded")
@@ -2884,11 +2899,17 @@ Negative Prompt: {negative_prompt}""",
 
         with self._generation_lock:
             self._notify_vision_pipeline("start")
+            pipeline_pinned = False
             try:
                 if model in (None, "", "auto"):
                     model = self._auto_select_model(prompt, "realistic")
 
-                model_id = self.available_models.get(model, model)
+                if model not in self.available_models:
+                    # Same catalog rule as txt2img: never resolve an arbitrary
+                    # string into a Hugging Face repo download.
+                    result.error = f"Unknown image model: {model}"
+                    return result
+                model_id = self.available_models[model]
                 family = self._model_family(model_id)
 
                 if family == 'krea2':
@@ -2910,10 +2931,25 @@ Negative Prompt: {negative_prompt}""",
                 from backend.services.image_resolution_limits import clamp_image_dimensions
                 width, height, _ = clamp_image_dimensions(int(width), int(height), family)
 
+                # Priced admission, as for txt2img: book sd:pipeline against the
+                # real card before loading, so a too-large edit is refused as
+                # busy instead of thrashing CUDA.
+                try:
+                    self._ensure_vram_for_pipeline(model_id, width, height)
+                except RuntimeError as admit_err:
+                    result.error = f"GPU busy: {admit_err}"
+                    return result
+
                 # Ensure the base txt2img pipeline is loaded (downloads model if needed)
                 if not self._load_pipeline(model_id):
                     result.error = f"Failed to load model {model} ({model_id})"
                     return result
+                try:
+                    from backend.services.gpu_memory_orchestrator import get_orchestrator
+                    get_orchestrator().begin_use("sd:pipeline")
+                    pipeline_pinned = True
+                except Exception:
+                    pipeline_pinned = False
 
                 if (
                     self._img2img_pipeline is None
@@ -2938,11 +2974,11 @@ Negative Prompt: {negative_prompt}""",
 
                 generator = None
                 if seed is not None:
-                    generator = torch.Generator(device=self._device).manual_seed(seed)
+                    generator = self._seed_generator(seed)
                     result.seed_used = seed
                 else:
                     seed = torch.randint(0, 2**32, (1,)).item()
-                    generator = torch.Generator(device=self._device).manual_seed(seed)
+                    generator = self._seed_generator(seed)
                     result.seed_used = seed
 
                 combined_negative = negative_prompt or "blurry, low quality, distorted"
@@ -2962,6 +2998,9 @@ Negative Prompt: {negative_prompt}""",
                     guidance_scale=guidance_scale,
                     generator=generator,
                 )
+                _watchdog = self._ram_watchdog_callback()
+                if _watchdog:
+                    call_kwargs["callback_on_step_end"] = _watchdog
 
                 if family == 'zimage':
                     # Z-Image is bf16 flow-matching — no autocast; CFG distilled out.
@@ -3010,6 +3049,12 @@ Negative Prompt: {negative_prompt}""",
                 result.generation_time = time.time() - start_time
             finally:
                 self._notify_vision_pipeline("stop")
+                if pipeline_pinned:
+                    try:
+                        from backend.services.gpu_memory_orchestrator import get_orchestrator
+                        get_orchestrator().end_use("sd:pipeline")
+                    except Exception:
+                        pass
                 if not keep_pipeline_loaded:
                     self._unload_pipeline()
 

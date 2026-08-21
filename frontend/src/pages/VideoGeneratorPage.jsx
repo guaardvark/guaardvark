@@ -40,9 +40,8 @@ import useJobsGate from "../hooks/useJobsGate";
 import useBatchVideo from "../hooks/useBatchVideo";
 import {
   QUALITY_PRESETS,
-  COGVIDEOX_DURATION_PRESETS,
-  WAN_DURATION_PRESETS,
-  LTX_DURATION_PRESETS,
+  durationPresetsFor,
+  WAN5B_SAMPLER_PROFILES,
   MOTION_PRESETS,
   OUTPUT_QUALITY_TIERS,
   KEYFRAME_MODEL_OPTIONS,
@@ -57,6 +56,7 @@ import {
   isCogVideoXModel,
   isWanModel,
   isLtxModel,
+  isHunyuanModel,
   snapDimensions,
   fitAreaToRatio,
 } from "../constants/videoGeneratorPresets";
@@ -182,6 +182,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     face_restore: false,
     lora_name: "",
     lora_strength: 1.0,
+    wan_sampler_profile: "adaptive",
   });
 
   // Cast picker: trained character Subjects whose LoRA locks identity into a
@@ -367,7 +368,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
       const data = await res.json();
       if (data.success && data.data?.models) {
         const vids = data.data.models.filter(
-          m => m.type === "cogvideox" || m.type === "wan" || m.type === "ltx"
+          m => m.type === "cogvideox" || m.type === "wan" || m.type === "ltx" || m.type === "hunyuan"
         );
         const ids = new Set(vids.map(m => m.id));
         if (ids.size > 0) setApiModelIds(ids);
@@ -441,12 +442,8 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     }
   }, [inputMode]);
 
-  // Get duration presets based on selected model
-  const durationPresets = useMemo(() => {
-    if (isLtxModel(model)) return LTX_DURATION_PRESETS;
-    if (isWanModel(model)) return WAN_DURATION_PRESETS;
-    return COGVIDEOX_DURATION_PRESETS;  // cogvideox (svd retired)
-  }, [model]);
+  // Duration presets follow the selected model's native fps.
+  const durationPresets = useMemo(() => durationPresetsFor(model), [model]);
 
   // Calculate video dimensions from aspect ratio and size
   const videoDimensions = useMemo(() => {
@@ -504,11 +501,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   // Compute final params from presets
   const computedParams = useMemo(() => {
     const quality = QUALITY_PRESETS[qualityPreset] || QUALITY_PRESETS.standard;
-    const currentDurationPresets = isLtxModel(model)
-      ? LTX_DURATION_PRESETS
-      : isWanModel(model)
-        ? WAN_DURATION_PRESETS
-        : COGVIDEOX_DURATION_PRESETS;
+    const currentDurationPresets = durationPresetsFor(model);
     const baseDuration = currentDurationPresets[durationPreset] || currentDurationPresets.short;
     const motion = MOTION_PRESETS[motionPreset] || MOTION_PRESETS.normal;
     const modelConfig = MODEL_OPTIONS[model] || {};
@@ -619,9 +612,9 @@ const VideoGeneratorPage = ({ embedded = false }) => {
       }
       // Cap frames to keep VRAM in check on 16GB cards
       if (pixelArea >= 2_000_000 && effectiveDurationFrames > 33) {
-        effectiveDurationFrames = 33; // ~2s at 16fps — still looks great at 1080p
+        effectiveDurationFrames = 33; // still looks great at 1080p
       } else if (effectiveDurationFrames > 49) {
-        effectiveDurationFrames = 49; // ~3s at 16fps for 720p HD
+        effectiveDurationFrames = 49; // 720p HD budget on 16GB
       }
     }
 
@@ -651,6 +644,9 @@ const VideoGeneratorPage = ({ embedded = false }) => {
       face_restore: advancedParams.face_restore,
       lora_name: advancedParams.lora_name,
       lora_strength: advancedParams.lora_strength,
+      wan_sampler_profile: MODEL_OPTIONS[effectiveModel]?.samplerProfiles
+        ? advancedParams.wan_sampler_profile
+        : undefined,
       subject_ids: selectedSubjectIds,
       interpolation_multiplier: tier.interpolation,
       upscale: tier.upscale || postUpscale,
@@ -1120,6 +1116,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
           ...prev,
           num_inference_steps: p.num_inference_steps ?? prev.num_inference_steps,
           guidance_scale: p.guidance_scale ?? prev.guidance_scale,
+          wan_sampler_profile: p.wan_sampler_profile ?? prev.wan_sampler_profile,
           freeu: !!p.freeu,
           face_restore: !!p.face_restore,
           lora_name: p.lora_name || "",
@@ -1930,6 +1927,36 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                   </Select>
                 </FormControl>
               </Grid>
+
+              {/* Motion Preset — carried as motion_strength and expressed through prompt enhancement */}
+              <Grid item xs={12} sm={6} md={4}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                      <EnhanceIcon fontSize="small" /> Motion
+                    </Box>
+                  </InputLabel>
+                  <Select
+                    value={motionPreset}
+                    onChange={(e) => setMotionPreset(e.target.value)}
+                    label="Motion"
+                  >
+                    {Object.entries(MOTION_PRESETS).map(([key, preset]) => (
+                      <MenuItem key={key} value={key}>
+                        <Box>
+                          <Typography variant="body2">{preset.label}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {preset.description}
+                          </Typography>
+                        </Box>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+                    Added to the prompt by the enhancer — no effect with Verbatim Prompts or enhancement off.
+                  </Typography>
+                </FormControl>
+              </Grid>
             </Grid>
             {isCogVideoXModel(model) && qualityPreset !== "maximum" && (
               <Alert severity="info" sx={{ mb: 2 }}>
@@ -2136,6 +2163,27 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                     }
                   />
                 )}
+                {MODEL_OPTIONS[model]?.samplerProfiles && (
+                  <FormControl fullWidth size="small" sx={{ mt: 1.5 }}>
+                    <InputLabel>Sampler profile</InputLabel>
+                    <Select
+                      value={advancedParams.wan_sampler_profile}
+                      onChange={(e) => setAdvancedParams({ ...advancedParams, wan_sampler_profile: e.target.value })}
+                      label="Sampler profile"
+                    >
+                      {MODEL_OPTIONS[model].samplerProfiles.map((key) => (
+                        <MenuItem key={key} value={key}>
+                          <Box>
+                            <Typography variant="body2">{WAN5B_SAMPLER_PROFILES[key]?.label || key}</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {WAN5B_SAMPLER_PROFILES[key]?.description}
+                            </Typography>
+                          </Box>
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
                 {isCogVideoXModel(model) && (
                   <>
                     <FormControlLabel
@@ -2187,7 +2235,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                       guidance_scale: Number(e.target.value),
                     })
                   }
-                  helperText={`Default for ${isLtxModel(model) ? 'LTX' : isWanModel(model) ? 'Wan' : 'CogVideoX'}: ${MODEL_DEFAULT_GUIDANCE[MODEL_OPTIONS[model]?.type] ?? 6}. Higher = stricter prompt adherence.`}
+                  helperText={`Default for ${isHunyuanModel(model) ? 'HunyuanVideo' : isLtxModel(model) ? 'LTX' : isWanModel(model) ? 'Wan' : 'CogVideoX'}: ${MODEL_DEFAULT_GUIDANCE[MODEL_OPTIONS[model]?.type] ?? 6}. Higher = stricter prompt adherence.`}
                   sx={{
                     width: { xs: '100%', sm: '280px' },
                     '& .MuiFormHelperText-root': {

@@ -296,6 +296,63 @@ def _acquire_cross_process_lease(slot: str, *, lease_seconds: Optional[int] = No
     raise GpuBusyError(f"GPU is held by another process ({res.get('error', 'busy')}).")
 
 
+def _default_lease_seconds(kind) -> int:
+    """Lease length by job kind; the heartbeat renews it, so this only bounds a
+    holder that dies without releasing."""
+    name = str(getattr(kind, "value", kind)).lower()
+    if "train" in name:
+        return 4 * 3600
+    if "video" in name:
+        return 3600
+    return 900
+
+
+def _start_lease_heartbeat(slot: str, lease_seconds: int) -> "threading.Event":
+    """Renew the cross-process lease every lease/3 until the returned event is set."""
+    import threading
+    stop = threading.Event()
+    interval = max(60.0, lease_seconds / 3.0)
+
+    def _beat():
+        try:
+            from backend.services.gpu_resource_coordinator import get_gpu_coordinator
+            coord = get_gpu_coordinator()
+        except Exception:  # noqa: BLE001
+            return
+        while not stop.wait(interval):
+            try:
+                if not coord.renew_generic(slot, lease_seconds=lease_seconds):
+                    log.warning("gpu lease heartbeat for %s: lock no longer ours; stopping", slot)
+                    return
+            except Exception as e:  # noqa: BLE001
+                log.warning("gpu lease heartbeat for %s failed: %s", slot, e)
+
+    threading.Thread(target=_beat, name=f"gpu-lease-heartbeat:{slot}", daemon=True).start()
+    return stop
+
+
+def _reclaim_needed(estimate_mb: int, *, reserve_mb: int = 0, margin_mb: int = 1024) -> bool:
+    """Decide whether evicting residents can help before doing it.
+
+    Returns False when the estimate already fits in free VRAM (nothing to
+    reclaim) and raises the capacity refusal when the estimate exceeds the
+    card outright — in both cases the user's resident chat model survives.
+    Probe failure returns True (reclaim as before).
+    """
+    try:
+        from backend.services.gpu_resource_coordinator import get_gpu_coordinator
+        info = get_gpu_coordinator().get_available_vram()
+    except Exception:  # noqa: BLE001
+        return True
+    if not info.get("success"):
+        return True
+    free = int(info.get("available_mb") or 0)
+    total = int(info.get("total_mb") or 0)
+    if total > 0 and int(estimate_mb) > total:
+        _ensure_fits_or_busy(estimate_mb, "preflight", margin_mb=margin_mb, reserve_mb=reserve_mb)
+    return max(0, free - max(0, int(reserve_mb))) < int(estimate_mb) + int(margin_mb)
+
+
 def _release_cross_process_lease(slot: str) -> None:
     try:
         from backend.services.gpu_resource_coordinator import get_gpu_coordinator
@@ -384,6 +441,7 @@ def gpu_session(
     _slot = slot_id or f"{getattr(kind, 'value', kind)}:{op_id}"
     acquired = False
     lease_held = False
+    heartbeat_stop = None
     load_weight = None
     try:
         with gate.gpu_exclusive(
@@ -395,10 +453,22 @@ def gpu_session(
                 # Cross-process lease (opt-in): acquire AFTER the in-PID gate (lock
                 # ordering), BEFORE eviction — only evict once we own both locks.
                 if cross_process:
+                    lease_len = int(lease_seconds or _default_lease_seconds(kind))
                     lease_held = _acquire_cross_process_lease(
-                        _slot, lease_seconds=lease_seconds
+                        _slot, lease_seconds=lease_len
                     )
-                reclaim_gpu(evict_ollama=evict_ollama, free_comfyui=free_comfyui)
+                    if lease_held:
+                        heartbeat_stop = _start_lease_heartbeat(_slot, lease_len)
+                # Evict residents only when the estimate does not already fit and
+                # the card could hold it at all; otherwise the caller's refusal
+                # would have cost the user their chat model for nothing.
+                if (evict_ollama or free_comfyui) and require_fit and vram_estimate_mb:
+                    if _reclaim_needed(vram_estimate_mb, reserve_mb=vram_reserve_mb):
+                        reclaim_gpu(evict_ollama=evict_ollama, free_comfyui=free_comfyui)
+                    else:
+                        log.info("gpu_session(%s): %d MB already fits; skipping eviction", op_id, vram_estimate_mb)
+                else:
+                    reclaim_gpu(evict_ollama=evict_ollama, free_comfyui=free_comfyui)
                 # Strict admission (opt-in): after eviction, refuse with a clean "busy" if
                 # the estimate still won't physically fit — turns a CUDA OOM/hang into retry.
                 if require_fit and vram_estimate_mb:
@@ -435,23 +505,24 @@ def gpu_session(
         if acquired:
             _session_tls.held = False
         _load_release(load_weight)
+        if heartbeat_stop is not None:
+            heartbeat_stop.set()
         if lease_held:
             _release_cross_process_lease(_slot)
         if acquired and vram_estimate_mb:
             _orchestrator_release(_slot)
 
-            # Proactive cleanup for VIDEO slots on gpu_session release (vram specialist rec):
-            # If this was a high-VRAM video_render (music-video, film-crew, etc.), free
-            # ComfyUI resident models and force-evict the slot from the orchestrator
-            # registry so tracked_vram drops immediately (instead of waiting for idle
-            # timeout or next exclusive route). Prevents lingering LOADED/LOADING bookings
-            # after a ~14GB render finishes. Best-effort, non-fatal.
+            # Video-slot release: ask ComfyUI to drop resident models and forget the
+            # session's booking so tracked_vram falls immediately. Only the booking
+            # is dropped — unloading in-process pipelines is the generator's job
+            # (force_evict would route a keep_pipeline image pipeline through the
+            # video teardown path).
             slot_lower = _slot.lower()
             if "video" in slot_lower or "video_render" in slot_lower:
                 try:
                     free_comfyui_vram()
                     from backend.services.gpu_memory_orchestrator import get_orchestrator
-                    get_orchestrator().force_evict(_slot)
-                    log.info(f"Proactive free_comfyui + force_evict for video slot {_slot} on release")
+                    get_orchestrator().drop_booking(_slot)
+                    log.info(f"Released video slot {_slot}: ComfyUI /free sent, booking dropped")
                 except Exception:
                     pass

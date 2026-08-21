@@ -34,13 +34,19 @@ STYLE_SUFFIX = (
     "shallow depth of field, no text, no watermark"
 )
 
-# A generated worker cannot be trusted to wear the right protection or hold
-# the right stance, and in a safety module a wrong one reads as instruction.
-# Note this only binds on models that use classifier-free guidance: the
-# distilled turbo models run at CFG 0 and ignore it, so emptiness has to be
-# stated positively in the prompt itself.
-NEGATIVE = ("text, watermark, logo, caption, diagram, illustration, cartoon, "
-            "person, people, portrait, face, headshot")
+NEGATIVE = "text, watermark, logo, caption, diagram, illustration, cartoon"
+
+# Excluded unless a shot asks for a figure. A generated worker cannot be
+# trusted to wear the right protection or hold the right stance, and in a
+# safety module a wrong one reads as instruction. Only binds on models using
+# classifier-free guidance — the distilled turbo models run at CFG 0 and
+# ignore it, so emptiness also has to be stated positively in the prompt.
+NO_PEOPLE = "person, people, portrait, face, headshot"
+
+
+def negative_for(people: bool) -> str:
+    """Negative prompt for a shot that does or does not want a figure."""
+    return NEGATIVE if people else f"{NEGATIVE}, {NO_PEOPLE}"
 
 
 def _key(prompt: str) -> str:
@@ -62,7 +68,8 @@ def full_prompt(prompt: str) -> str:
     return f"{prompt.rstrip().rstrip(',')}, {STYLE_SUFFIX}"
 
 
-def dispatch_stills(prompts: list[str], variants: int = 2) -> str:
+def dispatch_stills(prompts: list[str], variants: int = 2,
+                    negative: str | None = None) -> str:
     """Queue one batch covering `prompts`; returns the batch id."""
     expanded = [full_prompt(p) for p in prompts for _ in range(variants)]
     r = requests.post(f"{API}/api/batch-image/generate/prompts", json={
@@ -70,7 +77,7 @@ def dispatch_stills(prompts: list[str], variants: int = 2) -> str:
         "model": IMAGE_MODEL,
         "width": IMAGE_W,
         "height": IMAGE_H,
-        "negative_prompt": NEGATIVE,
+        "negative_prompt": negative or negative_for(False),
         "style": "realistic",
     }, timeout=60)
     r.raise_for_status()
@@ -170,9 +177,11 @@ def _free_vram(attempt: int) -> None:
         stop_voice_service()
 
 
-def _dispatch_with_retry(prompts: list[str], variants: int) -> list[Path]:
+def _dispatch_with_retry(prompts: list[str], variants: int,
+                         negative: str | None = None) -> list[Path]:
     for attempt in range(1, HEADROOM_RETRIES + 1):
-        batch_id = dispatch_stills(prompts, variants=variants)
+        batch_id = dispatch_stills(prompts, variants=variants,
+                                   negative=negative)
         try:
             return wait_for_batch(batch_id)
         except RuntimeError as e:
@@ -186,12 +195,37 @@ def _dispatch_with_retry(prompts: list[str], variants: int) -> list[Path]:
     raise RuntimeError("unreachable")
 
 
-def stills_for(prompts: list[str], variants: int = 2) -> dict[str, list[Path]]:
+def _generate_group(missing: list[str], variants: int, negative: str,
+                    index: dict) -> None:
+    """Generate and cache one group of prompts sharing a negative prompt."""
+    produced = _dispatch_with_retry(missing, variants, negative=negative)
+    if len(produced) < len(missing) * variants:
+        raise RuntimeError(
+            f"batch returned {len(produced)} images for {len(missing)} "
+            f"prompt(s) x{variants} variants — check the image service log")
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    for i, prompt in enumerate(missing):
+        chunk = produced[i * variants:(i + 1) * variants]
+        kept = []
+        for j, src in enumerate(chunk):
+            dst = CACHE_DIR / f"{_key(prompt)}_{j}{src.suffix}"
+            dst.write_bytes(src.read_bytes())
+            kept.append(str(dst))
+        index[_key(prompt)] = kept
+
+
+def stills_for(prompts: list[str], variants: int = 2,
+               people: set[str] | None = None) -> dict[str, list[Path]]:
     """Return cached-or-generated stills keyed by prompt.
 
     Only prompts absent from the cache are dispatched, so an approved look
     survives re-runs and script edits.
+
+    `people` names the prompts that deliberately want a figure in frame. They
+    are dispatched as their own batch, because the rest are generated with
+    people excluded and a batch carries a single negative prompt.
     """
+    people = people or set()
     index = _load_index()
     missing = [p for p in prompts
                if not (index.get(_key(p))
@@ -200,20 +234,11 @@ def stills_for(prompts: list[str], variants: int = 2) -> dict[str, list[Path]]:
         print(f"generating {len(missing)} new still prompt(s) "
               f"x{variants} variants…")
         release_voice_vram()
-        produced = _dispatch_with_retry(missing, variants)
-        if len(produced) < len(missing):
-            raise RuntimeError(
-                f"batch returned {len(produced)} images for {len(missing)} "
-                f"prompt(s) x{variants} variants — check the image service log")
-        CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        for i, prompt in enumerate(missing):
-            chunk = produced[i * variants:(i + 1) * variants]
-            kept = []
-            for j, src in enumerate(chunk):
-                dst = CACHE_DIR / f"{_key(prompt)}_{j}{src.suffix}"
-                dst.write_bytes(src.read_bytes())
-                kept.append(str(dst))
-            index[_key(prompt)] = kept
+        for wants_people in (False, True):
+            group = [p for p in missing if (p in people) is wants_people]
+            if group:
+                _generate_group(group, variants,
+                                negative_for(wants_people), index)
         _save_index(index)
 
     return {p: [Path(f) for f in index[_key(p)]] for p in prompts}

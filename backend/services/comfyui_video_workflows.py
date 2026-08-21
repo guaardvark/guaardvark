@@ -794,6 +794,7 @@ class ComfyUIVideoWorkflowMixin:
         seed: Optional[int] = None,
         fps: int = 24,
         interpolation_multiplier: int = 1,
+        sampler_profile: Optional[str] = None,
     ) -> dict:
         """Wan 2.2 TI2V-5B — single-model text+image-to-video that FITS 16GB (no MoE
         two-pass, no CPU offload → none of the 38-min-per-clip A14B pain). Graph mirrors
@@ -828,9 +829,14 @@ class ComfyUIVideoWorkflowMixin:
             "batch_size": 1,
         }
         
-        shift = self._wan_dynamic_shift(width, height)
+        profile_key = self._wan5b_sampler_profile(sampler_profile)
+        profile = self.WAN5B_SAMPLER_PROFILES[profile_key]
+        shift = profile["shift"] if profile["shift"] is not None else self._wan_dynamic_shift(width, height)
 
-        logger.info("Wan TI2V-5B workflow clip_device=%s, dynamic_shift=%.1f", clip_device, shift)
+        logger.info(
+            "Wan TI2V-5B workflow clip_device=%s profile=%s sampler=%s shift=%.1f",
+            clip_device, profile_key, profile["sampler"], shift,
+        )
 
         workflow = {
             "1": {"class_type": "UNETLoader", "inputs": {"unet_name": unet, "weight_dtype": "default"}},
@@ -851,7 +857,7 @@ class ComfyUIVideoWorkflowMixin:
                     "seed": seed,
                     "steps": num_inference_steps,
                     "cfg": guidance_scale,
-                    "sampler_name": "euler",
+                    "sampler_name": profile["sampler"],
                     "scheduler": "simple",
                     "denoise": 1.0,
                 },
@@ -1609,6 +1615,213 @@ class ComfyUIVideoWorkflowMixin:
             )
         return workflow
 
+
+    # ── HunyuanVideo (Tencent, 13B) ────────────────────────────────────────
+    # Guidance-distilled flow model: no negative prompt; the guidance scale rides
+    # in FluxGuidance. Values mirror ComfyUI's bundled hunyuan_video template.
+    HUNYUAN_SHIFT = 7.0
+    HUNYUAN_VAE_TILE = {"tile_size": 256, "overlap": 64, "temporal_size": 64, "temporal_overlap": 8}
+    # I2V v2 ("replace") weights. Higher = more weight on the text prompt vs the image.
+    HUNYUAN_I2V_IMAGE_INTERLEAVE = 4
+
+    def _hunyuan_cfg(self, model_key: str, fallback_key: str) -> dict:
+        cfg = self.HUNYUAN_MODELS.get(model_key) or self.HUNYUAN_MODELS.get(fallback_key) or {}
+        return {
+            "unet": cfg.get("unet") or f"hunyuan-video-{'i2v' if 'i2v' in fallback_key else 't2v'}-720p-Q5_K_M.gguf",
+            "clip_l": cfg.get("clip_l") or "clip_l.safetensors",
+            "clip_llava": cfg.get("clip_llava") or "llava_llama3_fp8_scaled.safetensors",
+            "vae": cfg.get("vae") or "hunyuan_video_vae_bf16.safetensors",
+            "clip_vision": cfg.get("clip_vision") or "llava_llama3_vision.safetensors",
+        }
+
+    def _hunyuan_loader_nodes(self, cfg: dict) -> dict:
+        """Nodes 1-3: GGUF UNet, DualCLIPLoader (clip_l + LLaVA-3), VAE."""
+        clip_device = self._wan_clip_device()
+        logger.info("HunyuanVideo workflow unet=%s clip_device=%s", cfg["unet"], clip_device)
+        return {
+            "1": {"class_type": "UnetLoaderGGUF", "inputs": {"unet_name": cfg["unet"]}},
+            "2": {
+                "class_type": "DualCLIPLoader",
+                "inputs": {
+                    "clip_name1": cfg["clip_l"],
+                    "clip_name2": cfg["clip_llava"],
+                    "type": "hunyuan_video",
+                    "device": clip_device,
+                },
+            },
+            "3": {"class_type": "VAELoader", "inputs": {"vae_name": cfg["vae"]}},
+        }
+
+    def _hunyuan_tail_nodes(
+        self,
+        *,
+        guidance_node: str,
+        latent: list,
+        num_inference_steps: int,
+        seed: int,
+        fps: int,
+        filename_prefix: str,
+    ) -> dict:
+        """Nodes 20-27: shift → guider/scheduler/sampler → tiled decode → mp4 mux."""
+        return {
+            "20": {"class_type": "ModelSamplingSD3", "inputs": {"model": ["1", 0], "shift": self.HUNYUAN_SHIFT}},
+            "21": {"class_type": "BasicGuider", "inputs": {"model": ["20", 0], "conditioning": [guidance_node, 0]}},
+            "22": {
+                "class_type": "BasicScheduler",
+                "inputs": {"model": ["20", 0], "scheduler": "simple", "steps": num_inference_steps, "denoise": 1.0},
+            },
+            "23": {"class_type": "KSamplerSelect", "inputs": {"sampler_name": "euler"}},
+            "24": {"class_type": "RandomNoise", "inputs": {"noise_seed": seed}},
+            "25": {
+                "class_type": "SamplerCustomAdvanced",
+                "inputs": {
+                    "noise": ["24", 0],
+                    "guider": ["21", 0],
+                    "sampler": ["23", 0],
+                    "sigmas": ["22", 0],
+                    "latent_image": latent,
+                },
+            },
+            "26": {
+                "class_type": "VAEDecodeTiled",
+                "inputs": {"samples": ["25", 0], "vae": ["3", 0], **self.HUNYUAN_VAE_TILE},
+            },
+            "27": {
+                "class_type": "VHS_VideoCombine",
+                "inputs": {
+                    "images": ["26", 0],
+                    "frame_rate": fps,
+                    "loop_count": 0,
+                    "filename_prefix": filename_prefix,
+                    "format": "video/h264-mp4",
+                    "pix_fmt": "yuv420p",
+                    "crf": 19,
+                    "save_metadata": True,
+                    "pingpong": False,
+                    "save_output": True,
+                    "videopreview": {"hidden": False, "paused": False, "params": {}},
+                },
+            },
+        }
+
+    def _create_hunyuan_t2v_workflow(
+        self,
+        prompt: str,
+        model_key: str = "hunyuan-t2v",
+        num_frames: int = 73,
+        num_inference_steps: int = 20,
+        guidance_scale: float = 6.0,
+        width: int = 848,
+        height: int = 480,
+        seed: Optional[int] = None,
+        fps: int = 24,
+        interpolation_multiplier: int = 1,
+    ) -> dict:
+        """HunyuanVideo text-to-video on ComfyUI's native nodes with a GGUF UNet.
+
+        Graph: DualCLIPLoader(clip_l + LLaVA-3, hunyuan_video) → CLIPTextEncode →
+        FluxGuidance → BasicGuider → SamplerCustomAdvanced (euler/simple, shift 7)
+        → VAEDecodeTiled → VHS mp4. ``num_frames`` must already be 4n+1.
+        """
+        if seed is None:
+            seed = int(time.time() * 1000) % (2**31)
+        cfg = self._hunyuan_cfg(model_key, "hunyuan-t2v")
+        workflow = self._hunyuan_loader_nodes(cfg)
+        workflow.update({
+            "4": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0], "text": prompt}},
+            "5": {"class_type": "FluxGuidance", "inputs": {"conditioning": ["4", 0], "guidance": guidance_scale}},
+            "6": {
+                "class_type": "EmptyHunyuanLatentVideo",
+                "inputs": {"width": width, "height": height, "length": num_frames, "batch_size": 1},
+            },
+        })
+        workflow.update(self._hunyuan_tail_nodes(
+            guidance_node="5",
+            latent=["6", 0],
+            num_inference_steps=num_inference_steps,
+            seed=seed,
+            fps=fps,
+            filename_prefix="hunyuan_t2v",
+        ))
+        if interpolation_multiplier > 1:
+            self._add_rife_interpolation(
+                workflow,
+                source_node_id="26",
+                video_combine_node_id="27",
+                base_fps=fps,
+                multiplier=interpolation_multiplier,
+            )
+        return workflow
+
+    def _create_hunyuan_i2v_workflow(
+        self,
+        image_filename: str,
+        prompt: str,
+        model_key: str = "hunyuan-i2v",
+        num_frames: int = 73,
+        num_inference_steps: int = 20,
+        guidance_scale: float = 6.0,
+        width: int = 848,
+        height: int = 480,
+        seed: Optional[int] = None,
+        fps: int = 24,
+        interpolation_multiplier: int = 1,
+    ) -> dict:
+        """HunyuanVideo image-to-video (v2 "replace" conditioning).
+
+        The start frame goes through the LLaVA vision tower into
+        TextEncodeHunyuanVideo_ImageToVideo and is also written into the first
+        latent frame by HunyuanImageToVideo; sampling/decoding matches the T2V graph.
+        """
+        if seed is None:
+            seed = int(time.time() * 1000) % (2**31)
+        cfg = self._hunyuan_cfg(model_key, "hunyuan-i2v")
+        workflow = self._hunyuan_loader_nodes(cfg)
+        workflow.update({
+            "4": {"class_type": "CLIPVisionLoader", "inputs": {"clip_name": cfg["clip_vision"]}},
+            "5": {"class_type": "LoadImage", "inputs": {"image": image_filename}},
+            "6": {"class_type": "CLIPVisionEncode", "inputs": {"clip_vision": ["4", 0], "image": ["5", 0], "crop": "center"}},
+            "7": {
+                "class_type": "TextEncodeHunyuanVideo_ImageToVideo",
+                "inputs": {
+                    "clip": ["2", 0],
+                    "clip_vision_output": ["6", 0],
+                    "prompt": prompt,
+                    "image_interleave": self.HUNYUAN_I2V_IMAGE_INTERLEAVE,
+                },
+            },
+            "8": {
+                "class_type": "HunyuanImageToVideo",
+                "inputs": {
+                    "positive": ["7", 0],
+                    "vae": ["3", 0],
+                    "width": width,
+                    "height": height,
+                    "length": num_frames,
+                    "batch_size": 1,
+                    "guidance_type": "v2 (replace)",
+                    "start_image": ["5", 0],
+                },
+            },
+            "9": {"class_type": "FluxGuidance", "inputs": {"conditioning": ["8", 0], "guidance": guidance_scale}},
+        })
+        workflow.update(self._hunyuan_tail_nodes(
+            guidance_node="9",
+            latent=["8", 1],
+            num_inference_steps=num_inference_steps,
+            seed=seed,
+            fps=fps,
+            filename_prefix="hunyuan_i2v",
+        ))
+        if interpolation_multiplier > 1:
+            self._add_rife_interpolation(
+                workflow,
+                source_node_id="26",
+                video_combine_node_id="27",
+                base_fps=fps,
+                multiplier=interpolation_multiplier,
+            )
+        return workflow
 
     def _build_vae_decode_node(self, samples_node: str, vae_node: str, width: int, height: int) -> dict:
         """Pick the right VAE decode strategy based on resolution.

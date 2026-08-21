@@ -137,11 +137,16 @@ class TestPluginRegistry:
     def test_update_plugin_config(self, plugins_dir):
         """update_plugin_config refuses runtime-state keys (enabled, auto_start) —
         those go through PluginManager.enable_plugin/disable_plugin which writes
-        data/plugin_state.json. Static manifest fields like timeout still pass
-        through and persist to plugin.json."""
+        data/plugin_state.json. Static fields like timeout persist to the
+        per-machine overlay (data/plugin_config.json), NOT to plugin.json:
+        the manifest is tracked in git and forked into customer projects."""
         registry = PluginRegistry(plugins_dir=plugins_dir)
 
-        # Runtime-state key is refused; manifest stays clean.
+        plugin_json_path = plugins_dir / "test-plugin" / "plugin.json"
+        with open(plugin_json_path) as f:
+            manifest_before = json.load(f)
+
+        # Runtime-state key is refused.
         assert registry.update_plugin_config("test-plugin", {"enabled": True}) is False
 
         # Static field updates succeed.
@@ -150,12 +155,36 @@ class TestPluginRegistry:
         metadata = registry.get_plugin("test-plugin")
         assert metadata.config.timeout == 60
 
-        plugin_json_path = plugins_dir / "test-plugin" / "plugin.json"
+        # The overlay holds it...
+        assert registry.config_store.get("test-plugin")["timeout"] == 60
+
+        # ...and the tracked manifest is untouched.
         with open(plugin_json_path) as f:
-            saved_config = json.load(f)
-        assert saved_config["config"]["timeout"] == 60
-        # Confirm 'enabled' did not sneak in.
-        assert "enabled" not in saved_config["config"]
+            assert json.load(f) == manifest_before
+
+        # A fresh registry over the same dir picks the override back up.
+        reloaded = PluginRegistry(
+            plugins_dir=plugins_dir, config_store=registry.config_store
+        )
+        assert reloaded.get_plugin("test-plugin").config.timeout == 60
+
+    def test_update_plugin_config_drops_default_state_keys(self, plugins_dir):
+        """The config dialog posts the whole config object back, so default_*
+        keys ride along. They have no PluginConfig attribute, so storing them
+        would put them in `extra`, where to_dict() would let them shadow the
+        real values."""
+        registry = PluginRegistry(plugins_dir=plugins_dir)
+        assert registry.update_plugin_config(
+            "test-plugin", {"default_enabled": True, "timeout": 45}
+        ) is True
+
+        stored = registry.config_store.get("test-plugin")
+        assert stored == {"timeout": 45}
+
+        config = registry.get_plugin("test-plugin").config
+        assert "default_enabled" not in config.extra
+        # to_dict still reports enable-state from the real field.
+        assert config.to_dict()["default_enabled"] is config.enabled
     
     def test_list_plugins_by_type(self, plugins_dir):
         """Test filtering plugins by type."""

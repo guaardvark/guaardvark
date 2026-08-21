@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 
 from flask import Blueprint, current_app, jsonify, request, send_file, Response, stream_with_context
+from werkzeug.security import safe_join
 from werkzeug.utils import secure_filename
 from datetime import datetime
 import time
@@ -284,6 +285,7 @@ def _parse_generation_params(data: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict
     # Default image parameters — family-aware (stills_defaults), not SD-era 512/20/7.5
     from backend.services.stills_defaults import resolve_stills_defaults
     params['style'] = data.get('style', 'realistic')
+    params['negative_prompt'] = str(data.get('negative_prompt') or '').strip()
     _raw_w = data.get('width', None)
     _raw_h = data.get('height', None)
     _raw_steps = data.get('steps', None)
@@ -305,8 +307,10 @@ def _parse_generation_params(data: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict
     # Guidance scale - will be validated by SettingsValidator
     guidance = float(_resolved['guidance'])
 
-    # Use SettingsValidator for comprehensive validation
-    if service_available and settings_validator_available and get_settings_validator:
+    # Use SettingsValidator for comprehensive validation. 'auto' is resolved to a
+    # concrete model by the generator's router, so validating it here would apply
+    # the validator's unknown-model (SD 1.5) rules to a Z-Image/FLUX render.
+    if service_available and settings_validator_available and get_settings_validator and params['model'] != 'auto':
         try:
             validator = get_settings_validator()
             validation_result = validator.validate_settings(
@@ -1444,6 +1448,24 @@ def _resolve_batch_output_dir(generator, batch_id: str) -> Optional[Path]:
     return None
 
 
+def _contained_file(base_dir: Path, name: str) -> Optional[Path]:
+    """Resolve ``name`` as a direct child of ``base_dir``.
+
+    Returns None when the name is empty, carries a path separator, or resolves
+    (through ``..`` or a symlink) anywhere other than directly inside ``base_dir``.
+    Werkzeug has already URL-decoded the route segment once; it must not be
+    decoded again here.
+    """
+    if not name or name in (".", "..") or "/" in name or "\\" in name or "\x00" in name:
+        return None
+    base = base_dir.resolve()
+    joined = safe_join(str(base), name)
+    if joined is None:
+        return None
+    candidate = Path(joined).resolve()
+    return candidate if candidate.parent == base else None
+
+
 def _ensure_thumbnail(generator, source: Path, thumbnail_dir: Path) -> Optional[Path]:
     """Return a cached 256px thumbnail for `source`, generating it if missing.
 
@@ -1478,52 +1500,38 @@ def get_batch_image(batch_id: str, image_name: str):
         if not output_dir:
             return error_response("Batch not found", 404)
 
-        # URL decode the image name in case it was encoded
-        from urllib.parse import unquote
-        decoded_image_name = unquote(image_name)
-
-        # Secure filename to prevent directory traversal
-        safe_image_name = secure_filename(decoded_image_name)
-
         want_thumbnail = request.args.get('thumbnail') == 'true'
         thumbnail_dir = output_dir / "thumbnails"
+        images_dir = output_dir / "images"
 
         # Check if it's a thumbnail request
         if want_thumbnail:
-            image_path = thumbnail_dir / safe_image_name
+            image_path = _contained_file(thumbnail_dir, image_name)
+            if image_path is None:
+                return error_response("Invalid image name", 400)
 
             # Special case: BatchImageGenerator saves thumbnails as .jpg
             if not image_path.exists():
-                jpg_name = Path(safe_image_name).with_suffix('.jpg')
-                image_path = thumbnail_dir / jpg_name
-
-            # If not found with safe name, try with original decoded name
-            if not image_path.exists() and safe_image_name != decoded_image_name:
-                image_path = thumbnail_dir / decoded_image_name
-                if not image_path.exists():
-                    jpg_name = Path(decoded_image_name).with_suffix('.jpg')
-                    image_path = thumbnail_dir / jpg_name
+                jpg_path = _contained_file(thumbnail_dir, Path(image_name).with_suffix('.jpg').name)
+                if jpg_path is not None:
+                    image_path = jpg_path
         else:
-            image_path = output_dir / "images" / safe_image_name
-            # If not found with safe name, try with original decoded name
-            if not image_path.exists() and safe_image_name != decoded_image_name:
-                image_path = output_dir / "images" / decoded_image_name
+            image_path = _contained_file(images_dir, image_name)
+            if image_path is None:
+                return error_response("Invalid image name", 400)
 
         if not image_path.exists():
             # Thumbnail requested but absent: build it from the full image rather than
             # serving the full image itself. Use stem matching because thumbnails are
             # always .jpg while images keep their original extension.
             if want_thumbnail:
-                stem = Path(safe_image_name).stem
-                images_dir = output_dir / "images"
+                stem = Path(image_name).stem
                 candidates = [f"{stem}{ext}" for ext in ('.png', '.jpg', '.jpeg', '.webp', '.gif')]
-                candidates.append(safe_image_name)
-                if safe_image_name != decoded_image_name:
-                    candidates.append(decoded_image_name)
+                candidates.append(image_name)
 
                 for candidate_name in candidates:
-                    candidate = images_dir / candidate_name
-                    if not candidate.exists():
+                    candidate = _contained_file(images_dir, candidate_name)
+                    if candidate is None or not candidate.exists():
                         continue
                     generated = _ensure_thumbnail(generator, candidate, thumbnail_dir)
                     if generated:
@@ -1533,11 +1541,11 @@ def get_batch_image(batch_id: str, image_name: str):
                     # full-resolution image is heavy but beats showing nothing.
                     logger.info(f"Thumbnail generation failed, serving full image: {candidate}")
                     return send_file(str(candidate), max_age=IMAGE_CACHE_MAX_AGE)
-            logger.warning(f"Image not found: {image_path} (requested: {image_name}, decoded: {decoded_image_name}, safe: {safe_image_name})")
-            images_dir = output_dir / ("thumbnails" if want_thumbnail else "images")
-            if images_dir.exists():
-                available_files = [f.name for f in images_dir.iterdir() if f.is_file()]
-                logger.warning(f"Available files in {images_dir}: {available_files[:5]}")
+            logger.warning(f"Image not found: {image_path} (requested: {image_name})")
+            listing_dir = thumbnail_dir if want_thumbnail else images_dir
+            if listing_dir.exists():
+                available_files = [f.name for f in listing_dir.iterdir() if f.is_file()]
+                logger.warning(f"Available files in {listing_dir}: {available_files[:5]}")
             return error_response(f"Image not found: {image_name}", 404)
 
         # Determine MIME type from extension
@@ -1575,23 +1583,18 @@ def delete_batch_image(batch_id: str, image_name: str):
         if not status or not status.output_dir:
             return error_response("Batch not found", 404)
 
-        # URL decode the image name
-        from urllib.parse import unquote
-        decoded_image_name = unquote(image_name)
-        safe_image_name = secure_filename(decoded_image_name)
-
         output_dir = Path(status.output_dir)
         images_dir = output_dir / "images"
         thumbnails_dir = output_dir / "thumbnails"
 
+        image_path = _contained_file(images_dir, image_name)
+        thumbnail_path = _contained_file(thumbnails_dir, image_name)
+        if image_path is None or thumbnail_path is None:
+            return error_response("Invalid image name", 400)
+
         deleted_files = []
         errors = []
 
-        # Delete main image
-        image_path = images_dir / safe_image_name
-        if not image_path.exists() and safe_image_name != decoded_image_name:
-            image_path = images_dir / decoded_image_name
-        
         if image_path.exists():
             try:
                 image_path.unlink()
@@ -1600,11 +1603,6 @@ def delete_batch_image(batch_id: str, image_name: str):
             except Exception as e:
                 errors.append(f"Failed to delete image: {str(e)}")
 
-        # Delete thumbnail if it exists
-        thumbnail_path = thumbnails_dir / safe_image_name
-        if not thumbnail_path.exists() and safe_image_name != decoded_image_name:
-            thumbnail_path = thumbnails_dir / decoded_image_name
-        
         if thumbnail_path.exists():
             try:
                 thumbnail_path.unlink()
@@ -1627,10 +1625,7 @@ def delete_batch_image(batch_id: str, image_name: str):
                 if 'results' in metadata:
                     metadata['results'] = [
                         r for r in metadata['results']
-                        if r.get('image_path') and not (
-                            decoded_image_name in r.get('image_path', '') or
-                            safe_image_name in r.get('image_path', '')
-                        )
+                        if r.get('image_path') and Path(r['image_path']).name != image_name
                     ]
                 
                 # Update counts
@@ -1689,27 +1684,24 @@ def rename_batch_image(batch_id: str, image_name: str):
         if not status or not status.output_dir:
             return error_response("Batch not found", 404)
 
-        # URL decode the image name
-        from urllib.parse import unquote
-        decoded_image_name = unquote(image_name)
-        safe_image_name = secure_filename(decoded_image_name)
-
         output_dir = Path(status.output_dir)
         images_dir = output_dir / "images"
         thumbnails_dir = output_dir / "thumbnails"
 
+        old_image_path = _contained_file(images_dir, image_name)
+        old_thumbnail_path = _contained_file(thumbnails_dir, image_name)
+        if old_image_path is None or old_thumbnail_path is None:
+            return error_response("Invalid image name", 400)
+
         # Preserve file extension
-        old_ext = Path(decoded_image_name).suffix or Path(safe_image_name).suffix
-        if not new_name.endswith(old_ext):
+        old_ext = Path(image_name).suffix
+        if old_ext and not new_name.endswith(old_ext):
             new_name = new_name + old_ext
 
         safe_new_name = secure_filename(new_name)
+        if not safe_new_name or safe_new_name in (".", ".."):
+            return error_response("Invalid new name", 400)
 
-        # Rename main image
-        old_image_path = images_dir / safe_image_name
-        if not old_image_path.exists() and safe_image_name != decoded_image_name:
-            old_image_path = images_dir / decoded_image_name
-        
         if not old_image_path.exists():
             return error_response(f"Image not found: {image_name}", 404)
 
@@ -1723,11 +1715,6 @@ def rename_batch_image(batch_id: str, image_name: str):
         except Exception as e:
             return error_response(f"Failed to rename image: {str(e)}", 500)
 
-        # Rename thumbnail if it exists
-        old_thumbnail_path = thumbnails_dir / safe_image_name
-        if not old_thumbnail_path.exists() and safe_image_name != decoded_image_name:
-            old_thumbnail_path = thumbnails_dir / decoded_image_name
-        
         if old_thumbnail_path.exists():
             new_thumbnail_path = thumbnails_dir / safe_new_name
             try:
@@ -1746,10 +1733,7 @@ def rename_batch_image(batch_id: str, image_name: str):
                 # Update results to reflect new filename
                 if 'results' in metadata:
                     for result in metadata['results']:
-                        if result.get('image_path') and (
-                            decoded_image_name in result.get('image_path', '') or
-                            safe_image_name in result.get('image_path', '')
-                        ):
+                        if result.get('image_path') and Path(result['image_path']).name == image_name:
                             # Update image_path
                             old_path = result.get('image_path', '')
                             if old_path:

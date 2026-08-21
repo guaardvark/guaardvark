@@ -177,3 +177,29 @@ def test_cpu_device_refuses_dit_families(gen, harness):
     assert result.success is False
     assert result.error and "refusing to run zimage on CPU" in result.error
     assert harness["loads"] == [], "no pipeline load on a CPU box for DiT"
+
+
+def test_oom_gate_reached_when_cuda_rng_cannot_init(gen, harness, monkeypatch):
+    """A CUDA-less process (CI runner, driver mismatch) must still reach the
+    large-canvas OOM gate instead of dying while building the seed generator."""
+    real_generator = oig.torch.Generator
+
+    class _DriverlessGenerator:
+        def __init__(self, device="cpu"):
+            if str(device).startswith("cuda"):
+                raise RuntimeError(
+                    "CUDA error: CUDA driver version is insufficient for CUDA runtime version"
+                )
+            self._g = real_generator(device=device)
+
+        def manual_seed(self, seed):
+            self._g.manual_seed(seed)
+            return self._g
+
+    monkeypatch.setattr(oig.torch.cuda, "is_available", lambda: False)
+    monkeypatch.setattr(oig.torch, "Generator", _DriverlessGenerator)
+
+    result = gen.generate_image(_request(2048, 2048))
+    assert result.success is False
+    assert result.error and "disabled by design" in result.error
+    assert harness["loads"] == [False]

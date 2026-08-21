@@ -31,11 +31,15 @@ except ImportError:
 try:
     from backend.services.video_model_registry import wan_comfyui_map as _wan_comfyui_map
     from backend.services.video_model_registry import ltx_comfyui_map as _ltx_comfyui_map
+    from backend.services.video_model_registry import hunyuan_comfyui_map as _hunyuan_comfyui_map
 except Exception:  # pragma: no cover - defensive
     def _wan_comfyui_map():
         return {}
 
     def _ltx_comfyui_map():
+        return {}
+
+    def _hunyuan_comfyui_map():
         return {}
 
 from backend.services.comfyui_video_workflows import ComfyUIVideoWorkflowMixin
@@ -112,6 +116,7 @@ class VideoGenerationRequest:
     prompt_style: str = "cinematic"   # Enhancement style: cinematic, realistic, artistic, anime, none
     enhance_prompt: bool = True       # Whether to run prompt through the enhancer
     fidelity_mode: bool = False       # Light enhancement only (Exact text / preserve fidelity mode)
+    wan_sampler_profile: Optional[str] = None  # Wan 5B: "adaptive" | "official" (see WAN5B_SAMPLER_PROFILES)
     freeu: bool = False
     face_restore: bool = False
     lora_name: Optional[str] = None
@@ -232,11 +237,14 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         "cogvideox-5b-i2v": 16,
         "wan22-14b": 16,
         "wan22-14b-i2v": 16,
+        "wan22-5b": 11,
         "ltx23-distilled-fp8": 16,
         "ltx25-distilled-int8": 16,
+        "hunyuan-t2v": 16,
+        "hunyuan-i2v": 16,
     }
     # Family floors when an exact id isn't in the table (aliases like "wan22").
-    _FAMILY_MIN_VRAM_GB = {"wan": 16, "cogvideox": 16, "ltx": 16}
+    _FAMILY_MIN_VRAM_GB = {"wan": 16, "cogvideox": 16, "ltx": 16, "hunyuan": 16}
 
     # ── Wan 2.2 model mapping ────────────────────────────────────────────────
     # DERIVED from the shared registry (backend/services/video_model_registry.py)
@@ -245,6 +253,8 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
     WAN22_MODELS = _wan_comfyui_map()
     # LTX-2.3 loader map — same SSOT pattern as Wan.
     LTX_MODELS = _ltx_comfyui_map()
+    # HunyuanVideo loader map — same SSOT pattern.
+    HUNYUAN_MODELS = _hunyuan_comfyui_map()
 
     # CogVideoX/Wan are 8x VAE × 2x patch → /16. SVD is U-Net only → /8.
     # LTX-2.3 spatial downscale is 32 (see EmptyLTXVLatentVideo).
@@ -256,6 +266,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         "wan": 16,
         "svd": 8,
         "ltx": 32,
+        "hunyuan": 16,
     }
 
     @classmethod
@@ -289,9 +300,25 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         return cls.LTX_MODELS
 
     @classmethod
+    def _ensure_hunyuan_models(cls) -> dict:
+        """Same lazy re-resolve as `_ensure_wan_models` for the HunyuanVideo map."""
+        if not cls.HUNYUAN_MODELS:
+            try:
+                from backend.services.video_model_registry import hunyuan_comfyui_map
+                fresh = hunyuan_comfyui_map() or {}
+                if fresh:
+                    cls.HUNYUAN_MODELS = fresh
+            except Exception:  # pragma: no cover - defensive
+                pass
+        return cls.HUNYUAN_MODELS
+
+    @classmethod
     def _model_family(cls, model: str) -> str:
         cls._ensure_wan_models()  # unfreeze the map if it froze empty at import
         cls._ensure_ltx_models()
+        cls._ensure_hunyuan_models()
+        if model in cls.HUNYUAN_MODELS or str(model).startswith("hunyuan"):
+            return "hunyuan"
         if model in cls.LTX_MODELS or str(model).startswith("ltx"):
             return "ltx"
         if model in cls.WAN22_MODELS or model in ("wan22", "wan2.2"):
@@ -299,6 +326,12 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         if model in cls.COGVIDEOX_MODELS:
             return "cogvideox"
         return "cogvideox"  # SVD retired; unknown models default to the cogvideox family
+
+    @staticmethod
+    def _hunyuan_frame_count(num_frames: int) -> int:
+        """HunyuanVideo latent length is 4n+1 frames (1 = still image); snap to nearest."""
+        n = max(1, int(num_frames or 73))
+        return int((n - 1) / 4 + 0.5) * 4 + 1
 
     @staticmethod
     def _ltx_frame_count(num_frames: int) -> int:
@@ -311,7 +344,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
 
     # Timeout guard per family: ~1.0 MPx (1280×736) is proven on 16GB cards;
     # 3.7 MPx (1920×1920) never finished on either Wan. Aspect is preserved.
-    _MAX_PIXEL_AREA_BY_FAMILY = {"wan": 1_050_000, "ltx": 1_050_000}
+    _MAX_PIXEL_AREA_BY_FAMILY = {"wan": 1_050_000, "ltx": 1_050_000, "hunyuan": 1_050_000}
 
     @classmethod
     def _clamp_pixel_area(cls, width: int, height: int, model: str) -> tuple[int, int]:
@@ -392,6 +425,25 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             return "cpu"
         return "default"
 
+    # Wan 2.2 5B sampling profiles. "adaptive" is the in-house pairing (euler +
+    # resolution-scaled shift); "official" mirrors ComfyUI's bundled template
+    # (uni_pc + fixed shift 8 at every size). Per-job via the request field,
+    # default via GUAARDVARK_WAN5B_SAMPLER.
+    WAN5B_SAMPLER_PROFILES = {
+        "adaptive": {"sampler": "euler", "shift": None},
+        "official": {"sampler": "uni_pc", "shift": 8.0},
+    }
+    WAN5B_DEFAULT_SAMPLER_PROFILE = "adaptive"
+
+    @classmethod
+    def _wan5b_sampler_profile(cls, requested: Optional[str] = None) -> str:
+        """Resolve the Wan 5B sampling profile: request → env → "adaptive"."""
+        for candidate in (requested, os.environ.get("GUAARDVARK_WAN5B_SAMPLER")):
+            key = (candidate or "").strip().lower()
+            if key in cls.WAN5B_SAMPLER_PROFILES:
+                return key
+        return cls.WAN5B_DEFAULT_SAMPLER_PROFILE
+
     @staticmethod
     def _wan_dynamic_shift(width: int, height: int) -> float:
         """ModelSamplingSD3 shift for Wan, scaled to resolution.
@@ -445,7 +497,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         need_mb = need * 1024
         if need and total_mb + 512 < need_mb:  # ~0.5 GB grace
             return (
-                f"{model} needs ~{need}g GB VRAM; detected {total_gb:.2f}g GB "
+                f"{model} needs ~{need} GB VRAM; detected {total_gb:.2f} GB "
                 f"({total_mb} MB total). "
                 "Try a lighter model or preview resolution."
             )
@@ -942,6 +994,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                     height=request.height,
                     model_family=mf,
                     fidelity_mode=getattr(request, "fidelity_mode", False),
+                    motion_strength=request.motion_strength,
                 )
                 if not request.negative_prompt:
                     request.negative_prompt = get_default_negative_prompt(style=request.prompt_style)
@@ -1025,6 +1078,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             # ── Route by model type ──────────────────────────────────
             self._ensure_wan_models()
             self._ensure_ltx_models()
+            self._ensure_hunyuan_models()
             if model in self.WAN22_MODELS or model in ("wan22", "wan2.2"):
                 model_key = model if model in self.WAN22_MODELS else "wan22-14b"
                 cfg = self.WAN22_MODELS[model_key]
@@ -1058,6 +1112,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                         negative_prompt=request.negative_prompt,
                         model_key=model_key,
                         image_filename=img_name,
+                        sampler_profile=request.wan_sampler_profile,
                         num_frames=request.duration_frames,
                         num_inference_steps=request.num_inference_steps,
                         guidance_scale=request.guidance_scale,
@@ -1109,6 +1164,60 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                         interpolation_multiplier=interpolation,
                     )
                     logger.info(f"Using Wan 2.2 text-to-video ({model_key}) via ComfyUI GGUF")
+
+            elif model in self.HUNYUAN_MODELS or str(model).startswith("hunyuan"):
+                model_key = model if model in self.HUNYUAN_MODELS else "hunyuan-t2v"
+                if not self.comfy_node_available("UnetLoaderGGUF"):
+                    return VideoGenerationResult(
+                        success=False,
+                        error=(
+                            "ComfyUI is missing UnetLoaderGGUF (ComfyUI-GGUF custom node). "
+                            "HunyuanVideo GGUF models need gguf in the backend venv. "
+                            "Fix: backend/venv/bin/pip install 'gguf>=0.13.0' sentencepiece protobuf, "
+                            "then restart ComfyUI."
+                        ),
+                        prompt_used=request.prompt,
+                    )
+                frames = self._hunyuan_frame_count(request.duration_frames)
+                if (self.HUNYUAN_MODELS.get(model_key) or {}).get("type") == "i2v":
+                    if not image_path or not Path(image_path).exists():
+                        result.error = "HunyuanVideo I2V requires an input image."
+                        return result
+                    uploaded_image = self._upload_image_to_comfyui(image_path)
+                    if not uploaded_image:
+                        result.error = "Failed to upload image to ComfyUI"
+                        return result
+                    workflow = self._create_hunyuan_i2v_workflow(
+                        image_filename=uploaded_image,
+                        prompt=request.prompt,
+                        model_key=model_key,
+                        num_frames=frames,
+                        num_inference_steps=request.num_inference_steps,
+                        guidance_scale=request.guidance_scale,
+                        width=request.width,
+                        height=request.height,
+                        seed=seed,
+                        fps=request.fps,
+                        interpolation_multiplier=interpolation,
+                    )
+                    logger.info(f"Using HunyuanVideo image-to-video ({model_key}) via ComfyUI GGUF")
+                else:
+                    if image_path:
+                        result.error = f"{model_key} is text-to-video only. Use hunyuan-i2v for image-to-video."
+                        return result
+                    workflow = self._create_hunyuan_t2v_workflow(
+                        prompt=request.prompt,
+                        model_key=model_key,
+                        num_frames=frames,
+                        num_inference_steps=request.num_inference_steps,
+                        guidance_scale=request.guidance_scale,
+                        width=request.width,
+                        height=request.height,
+                        seed=seed,
+                        fps=request.fps,
+                        interpolation_multiplier=interpolation,
+                    )
+                    logger.info(f"Using HunyuanVideo text-to-video ({model_key}) via ComfyUI GGUF")
 
             elif model == "cogvideox-5b":
                 if image_path:

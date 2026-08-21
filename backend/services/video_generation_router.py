@@ -113,7 +113,11 @@ class VideoGenerationRouter:
         if self._backend_pref == "auto":
             gen = self._get_offline()
             if gen:
-                logger.info("ComfyUI unavailable, falling back to Offline Diffusers backend")
+                logger.error(
+                    "ComfyUI unavailable after start attempt — falling back to the in-process "
+                    "Offline Diffusers backend (slower, runs inside the API process). "
+                    "Check logs/comfyui.log; set GUAARDVARK_VIDEO_BACKEND=comfyui to refuse instead."
+                )
                 return gen
 
         raise RuntimeError(
@@ -189,17 +193,35 @@ class VideoGenerationRouter:
         return self._start_comfyui_direct(comfyui_dir)
 
     def _start_comfyui_via_plugin(self, start_script: Path) -> bool:
-        """Start ComfyUI using the plugin's start.sh script."""
+        """Start ComfyUI using the plugin's start.sh script.
+
+        The script provisions dependencies before it launches ComfyUI, so it
+        can legitimately run for minutes on a fresh install. It is never
+        killed on timeout: a killed launcher leaves half-installed pip state
+        in the shared venv. The budget only bounds how long this call waits.
+        """
         logger.info(f"Starting ComfyUI via plugin script: {start_script}")
+        budget_s = int(os.environ.get("GUAARDVARK_COMFYUI_START_TIMEOUT_S", "180"))
         try:
-            result = subprocess.run(
+            proc = subprocess.Popen(
                 ["bash", str(start_script)],
-                capture_output=True, text=True, timeout=10,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                start_new_session=True,
             )
-            if result.returncode != 0:
-                logger.error(f"Plugin start script failed (rc={result.returncode}): {result.stderr}")
+            deadline = time.time() + budget_s
+            while proc.poll() is None and time.time() < deadline:
+                time.sleep(1)
+            if proc.poll() is None:
+                logger.error(
+                    f"Plugin start script still running after {budget_s}s "
+                    "(dependency provisioning?); leaving it to finish, not starting a render"
+                )
                 return False
-            logger.info(f"Plugin start script output: {result.stdout.strip()}")
+            stdout, stderr = proc.communicate()
+            if proc.returncode != 0:
+                logger.error(f"Plugin start script failed (rc={proc.returncode}): {stderr.strip()}")
+                return False
+            logger.info(f"Plugin start script output: {stdout.strip()}")
 
             # Read PID from the file the script wrote
             if self._pid_file.exists():
@@ -277,8 +299,17 @@ class VideoGenerationRouter:
         logger.info(f"Starting ComfyUI directly at {comfyui_dir}...")
         try:
             log_file = open(str(log_path), "a")
+            # Mirror plugins/comfyui/scripts/start.sh: loopback bind and the
+            # memory flags the #13109 patch depends on.
+            listen = os.environ.get("GUAARDVARK_COMFYUI_LISTEN", "127.0.0.1")
+            args = [
+                str(venv_python), str(main_py), "--listen", listen, "--port", "8188",
+                "--disable-smart-memory", "--cache-none", "--reserve-vram", "1.0",
+            ]
+            if os.environ.get("GUAARDVARK_COMFYUI_PINNED_MEMORY", "0") != "1":
+                args.append("--disable-pinned-memory")
             proc = subprocess.Popen(
-                [str(venv_python), str(main_py), "--listen", "--port", "8188"],
+                args,
                 cwd=str(comfyui_dir),
                 stdout=log_file,
                 stderr=subprocess.STDOUT,
@@ -378,10 +409,26 @@ class VideoGenerationRouter:
             self._idle_timer.cancel()
             self._idle_timer = None
 
+    def _comfyui_queue_busy(self) -> bool:
+        """True when ComfyUI reports running or pending prompts from any client."""
+        try:
+            import requests
+            data = requests.get(f"{COMFYUI_URL}/queue", timeout=5).json()
+            return bool(data.get("queue_running") or data.get("queue_pending"))
+        except Exception:
+            return False
+
     def _idle_shutdown(self):
-        """Called by timer — stop ComfyUI if still idle and no active generations."""
-        if self.is_generating:
-            logger.info("ComfyUI idle timeout fired but generation is active, rescheduling...")
+        """Called by timer — stop ComfyUI if still idle and no active generations.
+
+        Only a ComfyUI this router launched itself is eligible: the plugin
+        manager owns the lifecycle otherwise, and Celery, the stills pipeline
+        or a sibling install may be mid-render through the same server.
+        """
+        if self._comfyui_process is None:
+            return
+        if self.is_generating or self._comfyui_queue_busy():
+            logger.info("ComfyUI idle timeout fired but work is in flight, rescheduling...")
             self._schedule_idle_shutdown()
             return
         if self._check_comfyui():

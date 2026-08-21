@@ -98,3 +98,56 @@ jobs:
               sys.exit(1)
           print('All Python files compile successfully')
           "
+
+  backend-tests:
+    name: Backend Tests (CPU smoke)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m venv backend/venv
+          source backend/venv/bin/activate
+          pip install -r backend/requirements.txt
+          pip install pytest pytest-timeout
+
+      # CPU-only suites that must stay green: security guards, the GPU
+      # resource layer (gate, lease, orchestrator, admission), video/image
+      # admission and unload paths, registries, plugin state, progress.
+      - name: Run smoke suites
+        run: |
+          source backend/venv/bin/activate
+          python -m pytest --timeout=900 -q \
+            backend/tests/api/test_batch_image_path_safety.py \
+            backend/tests/test_audit_batch2_security.py \
+            backend/tests/services/test_resource_hardening.py \
+            backend/tests/services/test_gpu_resource_policy.py \
+            backend/tests/services/test_gpu_pipeline_pin.py \
+            backend/tests/services/test_gpu_hard_fit.py \
+            backend/tests/services/test_gpu_load_gates.py \
+            backend/tests/services/test_gpu_session_wraps_generation.py \
+            backend/tests/services/test_video_vram_wait.py \
+            backend/tests/api/test_batch_video_lifecycle.py \
+            backend/tests/services/test_offline_image_unload_hooks.py \
+            backend/tests/services/test_offline_image_oom_ladder.py \
+            backend/tests/services/test_offline_image_vae_tiling.py \
+            backend/tests/services/test_image_resolution_limits.py \
+            backend/tests/services/test_image_prompt_sanitize.py \
+            backend/tests/services/test_media_model_registry.py \
+            backend/tests/services/test_model_availability.py \
+            backend/tests/services/test_video_dimension_limits.py \
+            backend/tests/services/test_video_model_preflight.py \
+            backend/tests/services/test_music_video_service.py \
+            backend/tests/services/test_music_video_director.py \
+            backend/tests/unit/test_plugin_state_store.py \
+            backend/tests/unit/test_plugin_core_exemption.py \
+            backend/tests/unit/test_plugin_local_overrides.py \
+            backend/tests/integration/test_plugins_system.py \
+            backend/tests/unit/test_unified_progress_system.py

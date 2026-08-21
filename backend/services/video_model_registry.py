@@ -530,6 +530,96 @@ VIDEO_MODEL_REGISTRY = {
         "vram_mb": 0,
         "type": "upscaler",
     },
+    # ── HunyuanVideo (Tencent) — 13B, GGUF Q5_K_M sized for 16GB cards ──────
+    # Base weights ship without a content filter. Native ComfyUI nodes plus the
+    # ComfyUI-GGUF loader; the LLaVA-3 8B text encoder sits on CPU on ≤20GB
+    # cards (same residency policy as Wan's UMT5).
+    "hunyuan-t2v": {
+        "name": "HunyuanVideo 13B T2V (GGUF Q5_K_M)",
+        "description": "Tencent HunyuanVideo 720p text-to-video. Cinematic motion, "
+                       "strong prompt adherence, no content filter. ~9.5GB UNet; "
+                       "LLaVA-3 text encoder loads on CPU on 16GB GPUs. 24fps, "
+                       "frame counts 4n+1 (73 ≈ 3s).",
+        "hf_repo": "city96/HunyuanVideo-gguf",
+        "local_subdir": "unet",
+        "files": [
+            {"src": "hunyuan-video-t2v-720p-Q5_K_M.gguf", "dst": "hunyuan-video-t2v-720p-Q5_K_M.gguf"},
+        ],
+        "requires": ["hunyuan-llava-te", "hunyuan-clip-l", "hunyuan-vae"],
+        "size_gb": 9.45,
+        "vram_mb": 11000,
+        "type": "hunyuan",
+        "dimension_alignment": 16,
+        "max_pixel_area": 1_000_000,
+    },
+    "hunyuan-i2v": {
+        "name": "HunyuanVideo 13B I2V (GGUF Q5_K_M)",
+        "description": "Tencent HunyuanVideo-I2V (v2 'replace' weights) — image-to-video "
+                       "that follows the start frame closely. Same text encoder + VAE "
+                       "as the T2V model plus the LLaVA vision tower. 24fps, 4n+1 frames.",
+        "hf_repo": "city96/HunyuanVideo-I2V-gguf",
+        "local_subdir": "unet",
+        "files": [
+            {"src": "hunyuan-video-i2v-720p-Q5_K_M.gguf", "dst": "hunyuan-video-i2v-720p-Q5_K_M.gguf"},
+        ],
+        "requires": ["hunyuan-llava-te", "hunyuan-clip-l", "hunyuan-vae", "hunyuan-clip-vision"],
+        "size_gb": 9.45,
+        "vram_mb": 11000,
+        "type": "hunyuan",
+        "dimension_alignment": 16,
+        "max_pixel_area": 1_000_000,
+    },
+    "hunyuan-llava-te": {
+        "name": "LLaVA-Llama-3 8B Text Encoder (FP8) — HunyuanVideo",
+        "description": "Required by HunyuanVideo T2V/I2V. Loaded through DualCLIPLoader "
+                       "together with clip_l; placed on CPU on 16GB cards.",
+        "hf_repo": "Comfy-Org/HunyuanVideo_repackaged",
+        "local_subdir": "text_encoders",
+        "files": [
+            {"src": "split_files/text_encoders/llava_llama3_fp8_scaled.safetensors",
+             "dst": "llava_llama3_fp8_scaled.safetensors"},
+        ],
+        "size_gb": 9.09,
+        "vram_mb": 0,
+        "type": "encoder",
+    },
+    "hunyuan-clip-l": {
+        "name": "CLIP-L Text Encoder — HunyuanVideo",
+        "description": "Required by HunyuanVideo (second half of the DualCLIPLoader pair).",
+        "hf_repo": "Comfy-Org/HunyuanVideo_repackaged",
+        "local_subdir": "text_encoders",
+        "files": [
+            {"src": "split_files/text_encoders/clip_l.safetensors", "dst": "clip_l.safetensors"},
+        ],
+        "size_gb": 0.25,
+        "vram_mb": 0,
+        "type": "encoder",
+    },
+    "hunyuan-vae": {
+        "name": "HunyuanVideo VAE (BF16)",
+        "description": "Required by HunyuanVideo T2V/I2V. Decoded tiled (256px / 64 frames).",
+        "hf_repo": "Comfy-Org/HunyuanVideo_repackaged",
+        "local_subdir": "vae",
+        "files": [
+            {"src": "split_files/vae/hunyuan_video_vae_bf16.safetensors", "dst": "hunyuan_video_vae_bf16.safetensors"},
+        ],
+        "size_gb": 0.49,
+        "vram_mb": 0,
+        "type": "vae",
+    },
+    "hunyuan-clip-vision": {
+        "name": "LLaVA-Llama-3 Vision Tower — HunyuanVideo I2V",
+        "description": "Required by HunyuanVideo I2V only: encodes the start frame for "
+                       "TextEncodeHunyuanVideo_ImageToVideo.",
+        "hf_repo": "Comfy-Org/HunyuanVideo_repackaged",
+        "local_subdir": "clip_vision",
+        "files": [
+            {"src": "split_files/clip_vision/llava_llama3_vision.safetensors", "dst": "llava_llama3_vision.safetensors"},
+        ],
+        "size_gb": 0.65,
+        "vram_mb": 0,
+        "type": "clip_vision",
+    },
 }
 
 
@@ -619,6 +709,26 @@ def preflight_video_model(model_id: str) -> tuple[bool, str]:
         if not _comfyui_reachable():
             return False, (
                 f"{name} requires ComfyUI for image-to-video. Start ComfyUI, then retry."
+            )
+        return True, ""
+
+    if mtype == "hunyuan":
+        if not is_model_installed(model_id):
+            return False, (
+                f"{name} is not installed. Open Manage Video Models to download it "
+                f"(and its LLaVA / CLIP-L / VAE companions) before queuing a batch."
+            )
+        for dep in entry.get("requires", []):
+            if not is_model_installed(dep):
+                dep_name = (VIDEO_MODEL_REGISTRY.get(dep) or {}).get("name") or dep
+                return False, (
+                    f"{name} is missing companion '{dep_name}'. "
+                    f"Open Manage Video Models and Install again (companions auto-pull)."
+                )
+        if not _comfyui_reachable():
+            return False, (
+                f"{name} requires ComfyUI with the ComfyUI-GGUF custom node. "
+                f"Start the ComfyUI plugin, then retry."
             )
         return True, ""
 
@@ -783,6 +893,49 @@ def ltx_comfyui_map() -> dict:
     return out
 
 
+def hunyuan_comfyui_map() -> dict:
+    """Build the ComfyUI HunyuanVideo loader map from the registry (never raises).
+
+    Returns {model_id: {type, unet, clip_l, clip_llava, vae, clip_vision}} with
+    every filename taken from the same ``files[].dst`` the downloader writes.
+    ``clip_vision`` is only populated for image-to-video entries.
+    """
+    out = {}
+    try:
+        for mid, entry in VIDEO_MODEL_REGISTRY.items():
+            if entry.get("type") != "hunyuan":
+                continue
+            dsts = [f["dst"] for f in entry.get("files", [])]
+            mapped = {
+                "type": "i2v" if "i2v" in mid else "t2v",
+                "unet": dsts[0] if dsts else None,
+                "clip_l": None,
+                "clip_llava": None,
+                "vae": None,
+                "clip_vision": None,
+            }
+            for dep in entry.get("requires", []):
+                dep_entry = VIDEO_MODEL_REGISTRY.get(dep, {})
+                dep_files = dep_entry.get("files", [])
+                dep_dst = dep_files[0]["dst"] if dep_files else (dep_entry.get("check_files") or [None])[0]
+                if not dep_dst:
+                    continue
+                dep_type = dep_entry.get("type")
+                if dep_type == "vae":
+                    mapped["vae"] = dep_dst
+                elif dep_type == "clip_vision":
+                    mapped["clip_vision"] = dep_dst
+                elif dep_type == "encoder":
+                    if "clip_l" in dep_dst:
+                        mapped["clip_l"] = dep_dst
+                    else:
+                        mapped["clip_llava"] = dep_dst
+            out[mid] = mapped
+    except Exception as e:
+        logger.error("hunyuan_comfyui_map() build failed: %s", e, exc_info=True)
+    return out
+
+
 def verify_registry() -> list:
     """Sanity-check the registry is internally complete. Returns a list of
     human-readable problems (empty = healthy). Never raises."""
@@ -811,6 +964,14 @@ def verify_registry() -> list:
                 for k in required:
                     if not m.get(k):
                         problems.append(f"{mid}: LTX ComfyUI map missing '{k}'")
+            if entry.get("type") == "hunyuan":
+                m = hunyuan_comfyui_map().get(mid, {})
+                required = ("unet", "clip_l", "clip_llava", "vae")
+                if m.get("type") == "i2v":
+                    required += ("clip_vision",)
+                for k in required:
+                    if not m.get(k):
+                        problems.append(f"{mid}: Hunyuan ComfyUI map missing '{k}'")
     except Exception as e:
         problems.append(f"verify_registry crashed: {e}")
     return problems

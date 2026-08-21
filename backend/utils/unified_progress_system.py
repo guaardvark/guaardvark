@@ -456,6 +456,8 @@ class UnifiedProgressSystem:
         # completed jobs back into activeProcesses, preventing ProgressFooterBar from hiding
         # Updated to 60s to give frontend enough time to read final state before disk cleanup
         cleanup_timer = threading.Timer(60.0, self._cleanup_process, args=[process_id])
+        # Housekeeping timers must never keep the interpreter alive at exit.
+        cleanup_timer.daemon = True
         cleanup_timer.start()
         self._timeout_timers[f"{process_id}_cleanup"] = cleanup_timer
         
@@ -469,6 +471,7 @@ class UnifiedProgressSystem:
         
         # Schedule new timeout timer
         timeout_timer = threading.Timer(timeout_seconds, self._timeout_stuck_process, args=[process_id])
+        timeout_timer.daemon = True
         timeout_timer.start()
         self._timeout_timers[f"{process_id}_timeout"] = timeout_timer
         

@@ -1842,6 +1842,7 @@ class BatchImageGenerator:
         from backend.services.stills_defaults import resolve_stills_defaults
 
         prompt_params = ['model', 'style', 'width', 'height', 'steps', 'guidance',
+                        'negative_prompt',
                         'content_preset', 'auto_enhance', 'enhance_anatomy',
                         'enhance_faces', 'enhance_hands', 'loras', 'subject_ids',
                         'trigger_word']

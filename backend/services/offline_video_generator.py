@@ -195,15 +195,13 @@ def force_clear_gpu_memory() -> dict:
                 img_gen = get_image_generator()
                 if hasattr(img_gen, '_pipeline') and img_gen._pipeline is not None:
                     logger.info("Force unloading image generator pipeline...")
-                    try:
-                        if hasattr(img_gen._pipeline, 'to'):
-                            img_gen._pipeline.to('cpu')
-                    except Exception:
-                        pass
-                    del img_gen._pipeline
-                    img_gen._pipeline = None
-                    if hasattr(img_gen, '_current_model'):
-                        img_gen._current_model = None
+                    # The generator's own teardown detaches offload hooks under
+                    # its generation lock; wait=False refuses mid-render.
+                    if hasattr(img_gen, '_unload_pipeline'):
+                        img_gen._unload_pipeline(wait=False)
+                    else:
+                        del img_gen._pipeline
+                        img_gen._pipeline = None
             except Exception as e:
                 logger.warning(f"Error unloading image generator: {e}")
 
@@ -428,15 +426,11 @@ class OfflineVideoGenerator:
                 img_gen = get_image_generator()
                 if hasattr(img_gen, '_pipeline') and img_gen._pipeline is not None:
                     logger.info("Unloading image generator pipeline to free GPU memory")
-                    try:
-                        if hasattr(img_gen._pipeline, 'to'):
-                            img_gen._pipeline.to('cpu')
-                    except Exception:
-                        pass
-                    del img_gen._pipeline
-                    img_gen._pipeline = None
-                    if hasattr(img_gen, '_current_model'):
-                        img_gen._current_model = None
+                    if hasattr(img_gen, '_unload_pipeline'):
+                        img_gen._unload_pipeline(wait=False)
+                    else:
+                        del img_gen._pipeline
+                        img_gen._pipeline = None
                     if hasattr(img_gen, '_loaded_model'):
                         img_gen._loaded_model = None
                     gc.collect()
@@ -1015,6 +1009,7 @@ class OfflineVideoGenerator:
                                 width=request.width, height=request.height,
                                 model_family=mf,
                                 fidelity_mode=getattr(request, "fidelity_mode", False),
+                                motion_strength=getattr(request, "motion_strength", None),
                             )
 
                         initial_image = None

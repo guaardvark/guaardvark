@@ -44,6 +44,8 @@ plugins/*/tmp/
 plugins/*/.cache/
 plugins/*/__pycache__/
 data/plugin_state.json
+# Per-machine plugin config overlay (see backend/plugins/plugin_config_store.py)
+data/plugin_config.json
 data/social_outreach/
 # Interconnector runtime state (master core_files_registry.json + client last_core_sync.json)
 data/interconnector/

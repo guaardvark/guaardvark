@@ -173,11 +173,19 @@ echo "Log: $LOG_FILE"
 #                           unpatch_model() relies on to rebuild patches
 #   --reserve-vram 1.0      the desktop compositor holds 600-800MB VRAM; without
 #                           headroom a maxed 16GB card starves it and Wayland dies
+#   --disable-pinned-memory ComfyUI otherwise page-locks up to ~90% of system RAM
+#                           for offload buffers; pinned pages cannot be swapped or
+#                           reclaimed, so the desktop starves before the OOM killer
+#                           acts. GUAARDVARK_COMFYUI_PINNED_MEMORY=1 re-enables it.
+#   --listen 127.0.0.1      ComfyUI has no auth; every consumer is on this host.
+#                           GUAARDVARK_COMFYUI_LISTEN overrides for deliberate LAN use.
 cd "$COMFYUI_DIR"
 # Under memory pressure the kernel must kill ComfyUI, never the desktop
 # (2026-08-04 client box lockups). Children inherit; unprivileged raises allowed.
 echo "${GUAARDVARK_OOM_SCORE_ADJ:-500}" > /proc/self/oom_score_adj 2>/dev/null || true
-"$VENV_PYTHON" main.py --listen --port "$PORT" --disable-smart-memory --cache-none --reserve-vram 1.0 >> "$LOG_FILE" 2>&1 &
+PIN_FLAG="--disable-pinned-memory"
+[ "${GUAARDVARK_COMFYUI_PINNED_MEMORY:-0}" = "1" ] && PIN_FLAG=""
+"$VENV_PYTHON" main.py --listen "${GUAARDVARK_COMFYUI_LISTEN:-127.0.0.1}" --port "$PORT" --disable-smart-memory --cache-none --reserve-vram 1.0 $PIN_FLAG >> "$LOG_FILE" 2>&1 &
 
 # Save PID
 PID_DIR="$PROJECT_ROOT/pids"

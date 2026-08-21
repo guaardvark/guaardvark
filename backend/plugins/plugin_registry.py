@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 
 from .plugin_base import PluginMetadata, PluginStatus, PluginType
+from .plugin_config_store import PluginConfigStore
 
 logger = logging.getLogger(__name__)
 
@@ -20,18 +21,30 @@ class PluginRegistry:
     discovered plugins with their metadata.
     """
     
-    def __init__(self, plugins_dir: Optional[Path] = None):
+    def __init__(
+        self,
+        plugins_dir: Optional[Path] = None,
+        config_store: Optional[PluginConfigStore] = None,
+    ):
         """
         Initialize plugin registry.
         
         Args:
             plugins_dir: Path to plugins directory. Defaults to project root /plugins/
+            config_store: Per-machine config overlay. Defaults to a store at
+                <plugins_dir>.parent/data/plugin_config.json, so tests that pass
+                a temp plugins_dir get isolated config for free.
         """
         if plugins_dir is None:
             # Default: project_root/plugins/
             plugins_dir = Path(__file__).parent.parent.parent / 'plugins'
         
         self.plugins_dir = plugins_dir
+        if config_store is None:
+            config_store = PluginConfigStore(
+                Path(plugins_dir).parent / 'data' / 'plugin_config.json'
+            )
+        self.config_store = config_store
         self._plugins: Dict[str, PluginMetadata] = {}
         self._plugin_dirs: Dict[str, Path] = {}
         
@@ -70,6 +83,7 @@ class PluginRegistry:
             if plugin_json.exists():
                 try:
                     metadata = PluginMetadata.from_json_file(plugin_json)
+                    self._apply_overrides(metadata)
                     self._plugins[metadata.id] = metadata
                     self._plugin_dirs[metadata.id] = item
                     discovered.append(metadata.id)
@@ -186,21 +200,49 @@ class PluginRegistry:
             return False
 
         metadata = self._plugins[plugin_id]
-        plugin_dir = self._plugin_dirs[plugin_id]
 
-        for key, value in config_updates.items():
+        # The config dialog posts the whole config object back, which includes
+        # the manifest's default_* keys. They are not runtime-state keys, so the
+        # guard above lets them through — but PluginConfig has no such
+        # attributes, so they would land in `extra` and then shadow the real
+        # fields via to_dict()'s `result.update(self.extra)`. Drop them here.
+        updates = {
+            k: v
+            for k, v in config_updates.items()
+            if k not in ('default_enabled', 'default_auto_start')
+        }
+        if not updates:
+            return True
+
+        try:
+            # Per-machine overlay — never plugins/<id>/plugin.json, which is
+            # tracked in git and forked into customer projects.
+            self.config_store.update(plugin_id, updates)
+        except Exception as e:
+            logger.error(f"Failed to save plugin config overlay: {e}")
+            return False
+
+        # Reflect it in the live metadata so the running process sees it now.
+        self._assign_config(metadata, updates)
+        logger.info(f"Updated config overlay for plugin: {plugin_id}")
+        return True
+
+    def _assign_config(self, metadata: PluginMetadata, values: Dict[str, Any]) -> None:
+        for key, value in values.items():
             if hasattr(metadata.config, key):
                 setattr(metadata.config, key, value)
             else:
                 metadata.config.extra[key] = value
 
+    def _apply_overrides(self, metadata: PluginMetadata) -> None:
+        """Layer this machine's saved settings over the shipped manifest."""
         try:
-            metadata.save(plugin_dir / 'plugin.json')
-            logger.info(f"Updated manifest for plugin: {plugin_id}")
-            return True
+            overrides = self.config_store.get(metadata.id)
         except Exception as e:
-            logger.error(f"Failed to save plugin manifest: {e}")
-            return False
+            logger.warning(f"Could not read config overrides for {metadata.id}: {e}")
+            return
+        if overrides:
+            self._assign_config(metadata, overrides)
 
 
 # Global registry instance

@@ -111,6 +111,7 @@ def _run_smoke_once(
         subject_id, prompt[:200], Path(lora_path).name,
     )
 
+    from backend.services.gpu_resource_policy import compositor_vram_reserve_mb
     with gpu_session(
         JobKind.LORA_TRAIN,
         f"smoke_{subject_id}",
@@ -118,6 +119,8 @@ def _run_smoke_once(
         free_comfyui=True,
         vram_estimate_mb=11000,
         require_fit=True,
+        cross_process=True,
+        vram_reserve_mb=compositor_vram_reserve_mb(),
     ):
         still = render_character_still(
             prompt,

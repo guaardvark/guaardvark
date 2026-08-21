@@ -79,6 +79,32 @@ MOTION_TERMS = {
     "ltx": "natural camera motion, sharp temporal detail, coherent subject movement across frames, cinematic pacing",
 }
 
+# Motion preset → prompt phrase. The video UI's Motion control travels as
+# ``motion_strength`` (0.5 subtle · 1.0 normal · 1.5 dynamic · 2.0 intense);
+# no current video model takes a numeric motion input, so it is expressed in
+# the prompt. ``None`` marks the neutral band, which adds nothing.
+MOTION_STRENGTH_HINTS = (
+    (0.75, "slow, subtle movement, gentle camera drift"),
+    (1.25, None),
+    (1.75, "dynamic, energetic movement, active camera motion"),
+    (float("inf"), "fast, intense movement, rapid action, sweeping camera motion"),
+)
+
+
+def motion_strength_hint(strength: Optional[float]) -> Optional[str]:
+    """Prompt phrase for a Motion preset value; None for the neutral band or no value."""
+    if strength is None:
+        return None
+    try:
+        value = float(strength)
+    except (TypeError, ValueError):
+        return None
+    for upper, phrase in MOTION_STRENGTH_HINTS:
+        if value < upper:
+            return phrase
+    return None
+
+
 # Style-specific descriptors (style flavor only — base quality and motion appended at runtime).
 # Kept shorter to reduce boilerplate duplication.
 STYLE_SUFFIXES = {
@@ -191,6 +217,7 @@ def enhance_video_prompt(
     *,
     fidelity_mode: bool = False,
     model_family: Optional[str] = None,
+    motion_strength: Optional[float] = None,
 ) -> str:
     """Enhance a user prompt with quality descriptors for better video generation.
 
@@ -219,6 +246,8 @@ def enhance_video_prompt(
         fidelity_mode: If True, force the light/partial enhancement path even
             for non-text prompts (user-controlled "preserve text fidelity").
         model_family: Optional hint ("wan" | "cogvideox") for motion-term selection.
+        motion_strength: Motion preset value (0.5–2.0); outside the neutral band
+            a matching movement phrase is added ahead of the model motion terms.
 
     Returns:
         The enhanced prompt string.
@@ -260,6 +289,9 @@ def enhance_video_prompt(
     # Pick motion terms (model-aware when possible)
     fam = (model_family or "default").lower().strip()
     motion = MOTION_TERMS.get(fam, MOTION_TERMS["default"])
+    strength_hint = motion_strength_hint(motion_strength)
+    if strength_hint:
+        motion = f"{strength_hint}, {motion}"
 
     if use_fidelity:
         # LIGHT / FIDELITY PATH — minimal safe additions only.

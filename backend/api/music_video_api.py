@@ -6,6 +6,7 @@ expensive per-clip generation.
 """
 import logging
 import os
+import time
 from pathlib import Path
 
 from flask import Blueprint, request, jsonify, send_file
@@ -21,6 +22,9 @@ from backend.services.music_video_director import _is_embedding_model
 
 bp = Blueprint("music_video_api", __name__, url_prefix="/api/music-video")
 log = logging.getLogger(__name__)
+
+# A storyboard_generating flag older than this is treated as left behind by a dead worker.
+STORYBOARD_FLAG_TTL_S = 1800
 
 # Rough per-clip wall-clock for the approval-gate estimate: FLUX still (~20s) +
 # WAN i2v (~45s) + gate cooldown (~8s) + ffmpeg fill (~2s). Display-only.
@@ -511,9 +515,15 @@ def generate_storyboards(mv_id):
 
     settings = dict(mv.settings_json or {})
     if settings.get("storyboard_generating"):
-        return jsonify({"error": "storyboard generation already in progress"}), 409
+        # A worker that died mid-storyboard never clears the flag; treat a
+        # flag older than the TTL as stale rather than locking the video forever.
+        started = float(settings.get("storyboard_started_at") or 0)
+        if started and (time.time() - started) < STORYBOARD_FLAG_TTL_S:
+            return jsonify({"error": "storyboard generation already in progress"}), 409
+        log.warning("music_video %s: stale storyboard_generating flag ignored", mv_id)
 
     settings["storyboard_generating"] = True
+    settings["storyboard_started_at"] = time.time()
     settings.pop("storyboard_error", None)
     mv.settings_json = settings
     db.session.commit()
@@ -545,7 +555,7 @@ def regen_mv_storyboard(mv_id, idx):
         from backend.services.plugin_bridge import prepare_plugins_for_route
         prepare_plugins_for_route("/music-video/storyboard")
     except Exception:
-        logger.warning("Failed to prepare plugins for music-video storyboard regen (non-fatal)", exc_info=True)  # noqa: BLE001
+        log.warning("Failed to prepare plugins for music-video storyboard regen (non-fatal)", exc_info=True)  # noqa: BLE001
 
     body = request.get_json(silent=True) or {}
     prompt_override = body.get("prompt")
