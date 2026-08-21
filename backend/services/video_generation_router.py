@@ -277,8 +277,17 @@ class VideoGenerationRouter:
         logger.info(f"Starting ComfyUI directly at {comfyui_dir}...")
         try:
             log_file = open(str(log_path), "a")
+            # Mirror plugins/comfyui/scripts/start.sh: loopback bind and the
+            # memory flags the #13109 patch depends on.
+            listen = os.environ.get("GUAARDVARK_COMFYUI_LISTEN", "127.0.0.1")
+            args = [
+                str(venv_python), str(main_py), "--listen", listen, "--port", "8188",
+                "--disable-smart-memory", "--cache-none", "--reserve-vram", "1.0",
+            ]
+            if os.environ.get("GUAARDVARK_COMFYUI_PINNED_MEMORY", "0") != "1":
+                args.append("--disable-pinned-memory")
             proc = subprocess.Popen(
-                [str(venv_python), str(main_py), "--listen", "--port", "8188"],
+                args,
                 cwd=str(comfyui_dir),
                 stdout=log_file,
                 stderr=subprocess.STDOUT,
