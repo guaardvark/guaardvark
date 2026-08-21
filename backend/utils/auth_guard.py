@@ -64,6 +64,16 @@ MUTATION_PROTECTED_PREFIXES = (
     '/api/jobs',
     '/api/meta',
     '/api/progress-test',
+    # Destructive batch-image file operations (delete/rename/move). Generation
+    # and reads stay reachable from LAN browsers, which have no API-key field.
+    '/api/batch-image/image/',
+    '/api/batch-image/delete/',
+    '/api/batch-image/rename/',
+    '/api/batch-image/move/',
+    '/api/batch-image/folder',
+    # GPU control (stop Ollama, force-release leases, evict) and upscaling jobs.
+    '/api/gpu',
+    '/api/upscaling',
 )
 
 

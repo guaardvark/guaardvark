@@ -58,12 +58,13 @@ echo "Plugin dir: $PLUGIN_ROOT"
 echo "Service port: $SERVICE_PORT"
 echo "Log: $LOG_FILE"
 
-# Start uvicorn
+# Start uvicorn. /health hands out the bearer token, so the bind stays on
+# loopback unless GUAARDVARK_UPSCALING_HOST says otherwise.
 cd "$PLUGIN_ROOT"
 PYTHONPATH="$PLUGIN_ROOT:$PYTHONPATH" \
 CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0} \
 PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True" \
-python -m uvicorn service.app:app --host 0.0.0.0 --port $SERVICE_PORT --workers 1 \
+python -m uvicorn service.app:app --host "${GUAARDVARK_UPSCALING_HOST:-127.0.0.1}" --port $SERVICE_PORT --workers 1 \
     >> "$LOG_FILE" 2>&1 &
 
 # Save PID

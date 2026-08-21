@@ -741,7 +741,7 @@ class GPUResourceCoordinator:
                 "models_unloaded": models_unloaded
             }
 
-    def force_release_lock(self, restart_ollama: bool = True) -> Dict[str, Any]:
+    def force_release_lock(self, restart_ollama: bool = False) -> Dict[str, Any]:
         """
         Force release GPU lock (admin operation).
 

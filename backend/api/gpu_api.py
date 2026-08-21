@@ -48,11 +48,11 @@ def release_gpu_lock():
     Release GPU lock after video generation.
 
     Body (optional JSON):
-        - restart_ollama: bool (default: true) - Whether to restart Ollama after release
+        - restart_ollama: bool (default: false) - Whether to restart Ollama after release
     """
     try:
         data = request.get_json(silent=True) or {}
-        restart_ollama = data.get("restart_ollama", True)
+        restart_ollama = bool(data.get("restart_ollama", False))
 
         coordinator = get_gpu_coordinator()
         result = coordinator.release_video_generation_lock(restart_ollama=restart_ollama)
@@ -75,11 +75,11 @@ def force_release_gpu_lock():
     Use with caution - may interrupt running video generation operations.
 
     Body (optional JSON):
-        - restart_ollama: bool (default: true) - Whether to restart Ollama after release
+        - restart_ollama: bool (default: false) - Whether to restart Ollama after release
     """
     try:
         data = request.get_json(silent=True) or {}
-        restart_ollama = data.get("restart_ollama", True)
+        restart_ollama = bool(data.get("restart_ollama", False))
 
         coordinator = get_gpu_coordinator()
         result = coordinator.force_release_lock(restart_ollama=restart_ollama)
