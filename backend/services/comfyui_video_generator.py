@@ -1,12 +1,14 @@
 
 import logging
 import json
+import threading
 import subprocess
 import time
 import os
 import shutil
 import urllib.request
 import urllib.parse
+from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -135,6 +137,32 @@ class VideoGenerationResult:
 
 
 class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
+
+    # Prompt ids this process has queued, newest last. Class-level because
+    # generate and cancel do not always hold the same generator: the batch
+    # runner uses the module singleton, the router keeps its own instance and
+    # replaces it on every get_active_generator(). Bounded, and a stale id
+    # costs nothing — ComfyUI matches it against what is actually running.
+    _queued_prompts: deque = deque(maxlen=16)
+    _queued_prompts_lock = threading.Lock()
+
+    @classmethod
+    def _track_prompt(cls, prompt_id: str) -> None:
+        with cls._queued_prompts_lock:
+            cls._queued_prompts.append(prompt_id)
+
+    @classmethod
+    def _forget_prompt(cls, prompt_id: str) -> None:
+        with cls._queued_prompts_lock:
+            try:
+                cls._queued_prompts.remove(prompt_id)
+            except ValueError:
+                pass
+
+    @classmethod
+    def _known_prompts(cls) -> List[str]:
+        with cls._queued_prompts_lock:
+            return list(cls._queued_prompts)
 
     def __init__(self):
         project_root = Path(__file__).parent.parent.parent
@@ -526,23 +554,55 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
 
 
 
-    def interrupt(self) -> bool:
-        """Force-stop whatever ComfyUI is currently sampling.
+    def interrupt(self, prompt_id: Optional[str] = None) -> bool:
+        """Stop the named prompt, or every prompt this process queued.
 
-        Yells "ABORT!" at the kitchen — ComfyUI bails on the current sampler,
-        history gets a partial entry, and our wait loop returns.
+        ComfyUI is a shared sidecar: a bare ``/interrupt`` stops whatever is
+        sampling no matter who queued it, and ``/queue {"clear": true}`` drops
+        other clients' pending work with it. Both are scoped here — ComfyUI
+        matches the id against what is actually running and no-ops otherwise,
+        so a stale id is free.
+
+        Falls back to the unscoped interrupt when this process queued nothing
+        it knows of, which is how a cancel raised in Flask still reaches a clip
+        queued by the Celery worker. The fallback skips the queue clear, and
+        goes away once cancellation is a flag both processes can see.
         """
-        try:
-            requests.post(f"{self.comfy_url}/interrupt", timeout=5)
+        targets = [prompt_id] if prompt_id else self._known_prompts()
+        if not targets:
+            return self._interrupt_unscoped()
+
+        acked = False
+        for pid in targets:
+            try:
+                requests.post(
+                    f"{self.comfy_url}/interrupt",
+                    json={"prompt_id": pid},
+                    timeout=5,
+                )
+                acked = True
+            except Exception as e:
+                logger.warning(f"Failed to interrupt ComfyUI prompt {pid}: {e}")
+                continue
             try:
                 requests.post(
                     f"{self.comfy_url}/queue",
-                    json={"clear": True},
+                    json={"delete": [pid]},
                     timeout=5,
                 )
-            except Exception as clear_err:
-                logger.debug(f"Queue clear failed (non-fatal): {clear_err}")
-            logger.info("Sent interrupt + queue-clear to ComfyUI")
+            except Exception as delete_err:
+                logger.debug(f"Queue delete for {pid} failed (non-fatal): {delete_err}")
+            self._forget_prompt(pid)
+
+        if acked:
+            logger.info(f"Sent scoped interrupt to ComfyUI for {len(targets)} prompt(s)")
+        return acked
+
+    def _interrupt_unscoped(self) -> bool:
+        """Stop whatever ComfyUI is sampling, whoever queued it."""
+        try:
+            requests.post(f"{self.comfy_url}/interrupt", timeout=5)
+            logger.info("Sent unscoped interrupt to ComfyUI (no prompt of ours tracked)")
             return True
         except Exception as e:
             logger.warning(f"Failed to interrupt ComfyUI: {e}")
@@ -565,6 +625,8 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
 
             result = response.json()
             prompt_id = result.get("prompt_id")
+            if prompt_id:
+                self._track_prompt(prompt_id)
             logger.info(f"Queued workflow in ComfyUI: {prompt_id}")
             return prompt_id
 
@@ -1585,6 +1647,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             outputs = self._wait_for_completion(
                 prompt_id, timeout=gen_timeout, hard_ceiling_s=hard_ceiling
             )
+            self._forget_prompt(prompt_id)
             progress_bridge.stop()  # /history poll owns completion; bridge is done
 
             if not outputs:
