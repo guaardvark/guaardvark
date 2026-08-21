@@ -58,7 +58,7 @@
     "rollup-plugin-polyfill-node": "^0.13.0",
     "terser": "^5.43.1",
     "vite": "^7.3.5",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.10"
   },
   "overrides": {
     "ws": "^8.20.1",
