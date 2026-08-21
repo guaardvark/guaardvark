@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 
 from flask import Blueprint, current_app, jsonify, request, send_file, Response, stream_with_context
+from werkzeug.security import safe_join
 from werkzeug.utils import secure_filename
 from datetime import datetime
 import time
@@ -1458,7 +1459,10 @@ def _contained_file(base_dir: Path, name: str) -> Optional[Path]:
     if not name or name in (".", "..") or "/" in name or "\\" in name or "\x00" in name:
         return None
     base = base_dir.resolve()
-    candidate = (base / name).resolve()
+    joined = safe_join(str(base), name)
+    if joined is None:
+        return None
+    candidate = Path(joined).resolve()
     return candidate if candidate.parent == base else None
 
 
