@@ -176,6 +176,8 @@ class GPUMemoryOrchestrator:
     - Delegates to gpu_resource_coordinator for exclusive video locks
     - Delegates to ollama_resource_manager for model metadata
     """
+    # Slots younger than this survive a hardware sync even when the probe cannot see them.
+    SYNC_GRACE_SECONDS = 90
 
     _instance = None
     _creation_lock = threading.Lock()
@@ -883,7 +885,9 @@ class GPUMemoryOrchestrator:
             try:
                 from backend.services.offline_image_generator import _generator_instance
                 if _generator_instance is not None and hasattr(_generator_instance, '_pipeline') and _generator_instance._pipeline is not None:
-                    prefix = f"sd:{_generator_instance._current_model or 'pipeline'}"
+                    # The generator pins its slot as "sd:pipeline"; keep that id
+                    # when it exists so begin_use()/end_use() keep working.
+                    prefix = "sd:pipeline" if "sd:pipeline" in self._registry else f"sd:{_generator_instance._current_model or 'pipeline'}"
                     existing = self._registry.get(prefix)
                     if existing:
                         existing.state = SlotState.LOADED
@@ -901,7 +905,23 @@ class GPUMemoryOrchestrator:
             except Exception as e:
                 logger.debug(f"SD pipeline sync failed (non-critical): {e}")
 
-            # Merge: keep anything in discovered, drop anything not found
+            # Merge, never replace: hardware can only tell us about Ollama and the
+            # resident SD pipeline. Session bookings (video_render:*, image_batch:*),
+            # pinned slots and slots still loading are invisible to the probe and
+            # are released by their owners (drop_booking / end_use / force_evict)
+            # or by idle eviction — dropping them here made hard_fit blind to every
+            # concurrent caller within 30 s of admission.
+            for slot_id, slot in self._registry.items():
+                if slot_id in discovered:
+                    continue
+                keep = (
+                    int(getattr(slot, "in_use", 0) or 0) > 0
+                    or slot.state == SlotState.LOADING
+                    or slot.model_type not in (ModelType.OLLAMA_LLM, ModelType.OLLAMA_EMBEDDING, ModelType.SD_PIPELINE)
+                    or (now - float(slot.loaded_at or 0)) < self.SYNC_GRACE_SECONDS
+                )
+                if keep:
+                    discovered[slot_id] = slot
             self._registry = discovered
 
         logger.debug(f"Hardware sync complete: {len(self._registry)} models tracked")

@@ -10,6 +10,7 @@ Uses file-based locking with PID tracking for crash recovery.
 
 import logging
 import os
+from contextlib import contextmanager
 import json
 import time
 import subprocess
@@ -468,9 +469,41 @@ class GPUResourceCoordinator:
     # does not touch the vision pipeline. Non-blocking: returns success=False if held.
     GENERIC_LEASE_SECONDS = 900  # 15 min — ample for any single image/edit/render
 
+    @contextmanager
+    def _cross_process_critical_section(self):
+        """Serialize read-check-write of the lock file across processes.
+
+        The JSON lock file alone is racy: two processes can both read "free"
+        and both write. An advisory flock on a sidecar file closes that window;
+        platforms without fcntl fall back to the in-process lock only.
+        """
+        try:
+            import fcntl
+        except ImportError:
+            yield
+            return
+        flock_path = self.LOCK_FILE.with_suffix(".flock")
+        with open(flock_path, "a+") as fh:
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+
+    def renew_generic(self, label: str, lease_seconds: int = None) -> bool:
+        """Extend the lease of a lock this process holds under ``label``."""
+        lease_seconds = lease_seconds or self.GENERIC_LEASE_SECONDS
+        with self._internal_lock, self._cross_process_critical_section():
+            current_lock = self._read_lock_file()
+            if current_lock is None or current_lock.owner != label or current_lock.pid != os.getpid():
+                return False
+            current_lock.lease_expires_at = (datetime.now() + timedelta(seconds=lease_seconds)).isoformat()
+            self._write_lock_file(current_lock)
+            return True
+
     def acquire_generic(self, label: str, lease_seconds: int = None) -> Dict[str, Any]:
         """Acquire the cross-process GPU lock for a generic heavy op (non-blocking)."""
-        with self._internal_lock:
+        with self._internal_lock, self._cross_process_critical_section():
             lease_seconds = lease_seconds or self.GENERIC_LEASE_SECONDS
             current_lock = self._read_lock_file()
             if current_lock is not None:
@@ -505,7 +538,7 @@ class GPUResourceCoordinator:
 
     def release_generic(self, label: str) -> Dict[str, Any]:
         """Release a generic GPU lock previously acquired by THIS process under `label`."""
-        with self._internal_lock:
+        with self._internal_lock, self._cross_process_critical_section():
             current_lock = self._read_lock_file()
             if current_lock is None:
                 return {"success": True, "message": "No lock to release"}
