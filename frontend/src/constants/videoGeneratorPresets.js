@@ -89,6 +89,12 @@ export const KEYFRAME_MODEL_OPTIONS = {
 
 export const DEFAULT_KEYFRAME_MODEL = "flux-schnell";
 
+/** Wan 2.2 5B sampling profiles (backend WAN5B_SAMPLER_PROFILES). */
+export const WAN5B_SAMPLER_PROFILES = {
+  adaptive: { label: "Guaardvark — euler, adaptive shift", description: "Shift scales with resolution (8 at 1280×704, lower below)" },
+  official: { label: "Official — uni_pc, shift 8", description: "ComfyUI's bundled Wan 2.2 5B template settings" },
+};
+
 export const MODEL_DEFAULT_GUIDANCE = { wan: 5.0, cogvideox: 6.0, ltx: 1.0, hunyuan: 6.0 };
 
 export const ASPECT_RATIO_PRESETS = {
@@ -125,6 +131,7 @@ export const MODEL_OPTIONS = {
     description: "Fast 5s clips, fits 16GB — no offload. Text + image to video.",
     type: "wan",
     nativeFps: 24,
+    samplerProfiles: ["adaptive", "official"],
     maxFrames: 121,
     resolution: [1280, 704],
     defaultSteps: 20,

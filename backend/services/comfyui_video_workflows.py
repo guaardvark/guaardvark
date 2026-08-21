@@ -794,6 +794,7 @@ class ComfyUIVideoWorkflowMixin:
         seed: Optional[int] = None,
         fps: int = 24,
         interpolation_multiplier: int = 1,
+        sampler_profile: Optional[str] = None,
     ) -> dict:
         """Wan 2.2 TI2V-5B — single-model text+image-to-video that FITS 16GB (no MoE
         two-pass, no CPU offload → none of the 38-min-per-clip A14B pain). Graph mirrors
@@ -828,9 +829,14 @@ class ComfyUIVideoWorkflowMixin:
             "batch_size": 1,
         }
         
-        shift = self._wan_dynamic_shift(width, height)
+        profile_key = self._wan5b_sampler_profile(sampler_profile)
+        profile = self.WAN5B_SAMPLER_PROFILES[profile_key]
+        shift = profile["shift"] if profile["shift"] is not None else self._wan_dynamic_shift(width, height)
 
-        logger.info("Wan TI2V-5B workflow clip_device=%s, dynamic_shift=%.1f", clip_device, shift)
+        logger.info(
+            "Wan TI2V-5B workflow clip_device=%s profile=%s sampler=%s shift=%.1f",
+            clip_device, profile_key, profile["sampler"], shift,
+        )
 
         workflow = {
             "1": {"class_type": "UNETLoader", "inputs": {"unet_name": unet, "weight_dtype": "default"}},
@@ -851,7 +857,7 @@ class ComfyUIVideoWorkflowMixin:
                     "seed": seed,
                     "steps": num_inference_steps,
                     "cfg": guidance_scale,
-                    "sampler_name": "euler",
+                    "sampler_name": profile["sampler"],
                     "scheduler": "simple",
                     "denoise": 1.0,
                 },

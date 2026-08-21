@@ -41,6 +41,7 @@ import useBatchVideo from "../hooks/useBatchVideo";
 import {
   QUALITY_PRESETS,
   durationPresetsFor,
+  WAN5B_SAMPLER_PROFILES,
   MOTION_PRESETS,
   OUTPUT_QUALITY_TIERS,
   KEYFRAME_MODEL_OPTIONS,
@@ -181,6 +182,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     face_restore: false,
     lora_name: "",
     lora_strength: 1.0,
+    wan_sampler_profile: "adaptive",
   });
 
   // Cast picker: trained character Subjects whose LoRA locks identity into a
@@ -642,6 +644,9 @@ const VideoGeneratorPage = ({ embedded = false }) => {
       face_restore: advancedParams.face_restore,
       lora_name: advancedParams.lora_name,
       lora_strength: advancedParams.lora_strength,
+      wan_sampler_profile: MODEL_OPTIONS[effectiveModel]?.samplerProfiles
+        ? advancedParams.wan_sampler_profile
+        : undefined,
       subject_ids: selectedSubjectIds,
       interpolation_multiplier: tier.interpolation,
       upscale: tier.upscale || postUpscale,
@@ -1111,6 +1116,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
           ...prev,
           num_inference_steps: p.num_inference_steps ?? prev.num_inference_steps,
           guidance_scale: p.guidance_scale ?? prev.guidance_scale,
+          wan_sampler_profile: p.wan_sampler_profile ?? prev.wan_sampler_profile,
           freeu: !!p.freeu,
           face_restore: !!p.face_restore,
           lora_name: p.lora_name || "",
@@ -2156,6 +2162,27 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                       </Box>
                     }
                   />
+                )}
+                {MODEL_OPTIONS[model]?.samplerProfiles && (
+                  <FormControl fullWidth size="small" sx={{ mt: 1.5 }}>
+                    <InputLabel>Sampler profile</InputLabel>
+                    <Select
+                      value={advancedParams.wan_sampler_profile}
+                      onChange={(e) => setAdvancedParams({ ...advancedParams, wan_sampler_profile: e.target.value })}
+                      label="Sampler profile"
+                    >
+                      {MODEL_OPTIONS[model].samplerProfiles.map((key) => (
+                        <MenuItem key={key} value={key}>
+                          <Box>
+                            <Typography variant="body2">{WAN5B_SAMPLER_PROFILES[key]?.label || key}</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {WAN5B_SAMPLER_PROFILES[key]?.description}
+                            </Typography>
+                          </Box>
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
                 )}
                 {isCogVideoXModel(model) && (
                   <>

@@ -116,6 +116,7 @@ class VideoGenerationRequest:
     prompt_style: str = "cinematic"   # Enhancement style: cinematic, realistic, artistic, anime, none
     enhance_prompt: bool = True       # Whether to run prompt through the enhancer
     fidelity_mode: bool = False       # Light enhancement only (Exact text / preserve fidelity mode)
+    wan_sampler_profile: Optional[str] = None  # Wan 5B: "adaptive" | "official" (see WAN5B_SAMPLER_PROFILES)
     freeu: bool = False
     face_restore: bool = False
     lora_name: Optional[str] = None
@@ -423,6 +424,25 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         if total_mb <= cls.WAN_CLIP_CPU_TOTAL_VRAM_MB:
             return "cpu"
         return "default"
+
+    # Wan 2.2 5B sampling profiles. "adaptive" is the in-house pairing (euler +
+    # resolution-scaled shift); "official" mirrors ComfyUI's bundled template
+    # (uni_pc + fixed shift 8 at every size). Per-job via the request field,
+    # default via GUAARDVARK_WAN5B_SAMPLER.
+    WAN5B_SAMPLER_PROFILES = {
+        "adaptive": {"sampler": "euler", "shift": None},
+        "official": {"sampler": "uni_pc", "shift": 8.0},
+    }
+    WAN5B_DEFAULT_SAMPLER_PROFILE = "adaptive"
+
+    @classmethod
+    def _wan5b_sampler_profile(cls, requested: Optional[str] = None) -> str:
+        """Resolve the Wan 5B sampling profile: request → env → "adaptive"."""
+        for candidate in (requested, os.environ.get("GUAARDVARK_WAN5B_SAMPLER")):
+            key = (candidate or "").strip().lower()
+            if key in cls.WAN5B_SAMPLER_PROFILES:
+                return key
+        return cls.WAN5B_DEFAULT_SAMPLER_PROFILE
 
     @staticmethod
     def _wan_dynamic_shift(width: int, height: int) -> float:
@@ -1092,6 +1112,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                         negative_prompt=request.negative_prompt,
                         model_key=model_key,
                         image_filename=img_name,
+                        sampler_profile=request.wan_sampler_profile,
                         num_frames=request.duration_frames,
                         num_inference_steps=request.num_inference_steps,
                         guidance_scale=request.guidance_scale,

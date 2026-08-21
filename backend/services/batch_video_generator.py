@@ -143,6 +143,7 @@ class BatchVideoRequest:
     prompt_style: str = "cinematic"
     enhance_prompt: bool = True
     fidelity_mode: bool = False  # "Exact text / preserve fidelity" — light enhancement only
+    wan_sampler_profile: Optional[str] = None  # Wan 5B: "adaptive" | "official"
     negative_prompt: str = ""
     freeu: bool = False
     face_restore: bool = False
@@ -1085,6 +1086,7 @@ class BatchVideoGenerator:
                             prompt_style=batch_request.prompt_style,
                             enhance_prompt=batch_request.enhance_prompt,
                             fidelity_mode=batch_request.fidelity_mode,
+                            wan_sampler_profile=batch_request.wan_sampler_profile,
                             freeu=batch_request.freeu,
                             face_restore=batch_request.face_restore,
                             lora_name=batch_request.lora_name,
@@ -1331,6 +1333,7 @@ class BatchVideoGenerator:
             prompt_style=params.get("prompt_style", "cinematic"),
             enhance_prompt=bool(params.get("enhance_prompt", True)),
             fidelity_mode=bool(params.get("fidelity_mode", False)),
+            wan_sampler_profile=params.get("wan_sampler_profile") or None,
             negative_prompt=params.get("negative_prompt", "") or "",
             freeu=bool(params.get("freeu", False)),
             face_restore=bool(params.get("face_restore", False)),
@@ -1377,6 +1380,7 @@ class BatchVideoGenerator:
                 "prompt_style": batch_request.prompt_style,
                 "enhance_prompt": batch_request.enhance_prompt,
                 "fidelity_mode": batch_request.fidelity_mode,
+                "wan_sampler_profile": batch_request.wan_sampler_profile,
                 "negative_prompt": batch_request.negative_prompt,
                 "freeu": batch_request.freeu,
                 "face_restore": batch_request.face_restore,

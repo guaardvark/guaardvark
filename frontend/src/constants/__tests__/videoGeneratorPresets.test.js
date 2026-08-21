@@ -43,3 +43,11 @@ describe("MOTION_PRESETS", () => {
     expect(strengths).toEqual([0.5, 1.0, 1.5, 2.0]);
   });
 });
+
+describe("WAN5B_SAMPLER_PROFILES", () => {
+  it("offers exactly the profiles the 5B entry advertises", async () => {
+    const { WAN5B_SAMPLER_PROFILES } = await import("../videoGeneratorPresets");
+    expect(MODEL_OPTIONS["wan22-5b"].samplerProfiles).toEqual(Object.keys(WAN5B_SAMPLER_PROFILES));
+    expect(MODEL_OPTIONS["wan22-14b"].samplerProfiles).toBeUndefined();
+  });
+});
