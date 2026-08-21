@@ -239,6 +239,8 @@ State-of-the-art video generation running entirely on your GPU. No cloud APIs, n
 | **CogVideoX-5B I2V** | Image-to-Video | 6s (49 frames @ 8fps) | 720x480 | 16GB |
 | **LTX-2.3 Distilled FP8** | Text + Image-to-Video | ~10s (161 frames @ 16fps) | 768x512 | ~14GB |
 | **LTX-2.5 Distilled Int8** | Text + Image-to-Video | ~10s (161 frames @ 16fps) | 768x512 | ~14GB |
+| **HunyuanVideo 13B** (GGUF Q5) | Text-to-Video | ~3s (73 frames @ 24fps, up to 129) | 848x480 | ~11GB |
+| **HunyuanVideo 13B I2V** (GGUF Q5) | Image-to-Video | ~3s (73 frames @ 24fps, up to 129) | 848x480 | ~11GB |
 
 - **Resolution options** — 512px, 576px, 720px, 1280px, 1920px (1080p), and custom dimensions (aligned per model)
 - **Quality tiers** — Fast (10 steps), Standard (30), High (40), Maximum (50)

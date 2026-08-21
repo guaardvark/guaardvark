@@ -760,6 +760,10 @@ const MusicVideoPage = () => {
       label: "CogVideoX 5B I2V",
       description: "Solid alternative I2V (~6s)",
     },
+    "hunyuan-i2v": {
+      label: "HunyuanVideo 13B I2V (GGUF Q5)",
+      description: "Follows the keyframe closely, 24fps, ~3s clips",
+    },
   };
 
   const refreshList = useCallback(async () => {

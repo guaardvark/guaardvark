@@ -43,6 +43,7 @@ import {
   COGVIDEOX_DURATION_PRESETS,
   WAN_DURATION_PRESETS,
   LTX_DURATION_PRESETS,
+  HUNYUAN_DURATION_PRESETS,
   MOTION_PRESETS,
   OUTPUT_QUALITY_TIERS,
   KEYFRAME_MODEL_OPTIONS,
@@ -57,6 +58,7 @@ import {
   isCogVideoXModel,
   isWanModel,
   isLtxModel,
+  isHunyuanModel,
   snapDimensions,
   fitAreaToRatio,
 } from "../constants/videoGeneratorPresets";
@@ -367,7 +369,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
       const data = await res.json();
       if (data.success && data.data?.models) {
         const vids = data.data.models.filter(
-          m => m.type === "cogvideox" || m.type === "wan" || m.type === "ltx"
+          m => m.type === "cogvideox" || m.type === "wan" || m.type === "ltx" || m.type === "hunyuan"
         );
         const ids = new Set(vids.map(m => m.id));
         if (ids.size > 0) setApiModelIds(ids);
@@ -443,6 +445,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
 
   // Get duration presets based on selected model
   const durationPresets = useMemo(() => {
+    if (isHunyuanModel(model)) return HUNYUAN_DURATION_PRESETS;
     if (isLtxModel(model)) return LTX_DURATION_PRESETS;
     if (isWanModel(model)) return WAN_DURATION_PRESETS;
     return COGVIDEOX_DURATION_PRESETS;  // cogvideox (svd retired)
@@ -504,7 +507,9 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   // Compute final params from presets
   const computedParams = useMemo(() => {
     const quality = QUALITY_PRESETS[qualityPreset] || QUALITY_PRESETS.standard;
-    const currentDurationPresets = isLtxModel(model)
+    const currentDurationPresets = isHunyuanModel(model)
+      ? HUNYUAN_DURATION_PRESETS
+      : isLtxModel(model)
       ? LTX_DURATION_PRESETS
       : isWanModel(model)
         ? WAN_DURATION_PRESETS
@@ -2187,7 +2192,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                       guidance_scale: Number(e.target.value),
                     })
                   }
-                  helperText={`Default for ${isLtxModel(model) ? 'LTX' : isWanModel(model) ? 'Wan' : 'CogVideoX'}: ${MODEL_DEFAULT_GUIDANCE[MODEL_OPTIONS[model]?.type] ?? 6}. Higher = stricter prompt adherence.`}
+                  helperText={`Default for ${isHunyuanModel(model) ? 'HunyuanVideo' : isLtxModel(model) ? 'LTX' : isWanModel(model) ? 'Wan' : 'CogVideoX'}: ${MODEL_DEFAULT_GUIDANCE[MODEL_OPTIONS[model]?.type] ?? 6}. Higher = stricter prompt adherence.`}
                   sx={{
                     width: { xs: '100%', sm: '280px' },
                     '& .MuiFormHelperText-root': {

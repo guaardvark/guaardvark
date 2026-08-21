@@ -48,6 +48,13 @@ export const LTX_DURATION_PRESETS = {
   long: { label: "Long", description: "~10 seconds", duration_frames: 161, fps: 16 },
 };
 
+/** HunyuanVideo frame counts must be 4n+1; native 24fps. 73 @ 24fps ≈ 3s (official template). */
+export const HUNYUAN_DURATION_PRESETS = {
+  short: { label: "Short", description: "~2 seconds", duration_frames: 49, fps: 24 },
+  medium: { label: "Medium", description: "~3 seconds", duration_frames: 73, fps: 24 },
+  long: { label: "Long", description: "~4 seconds", duration_frames: 97, fps: 24 },
+};
+
 export const MOTION_PRESETS = {
   subtle: { label: "🌊 Subtle", description: "Gentle movement", motion_strength: 0.5 },
   normal: { label: "🎯 Normal", description: "Balanced motion", motion_strength: 1.0 },
@@ -74,7 +81,7 @@ export const KEYFRAME_MODEL_OPTIONS = {
 
 export const DEFAULT_KEYFRAME_MODEL = "flux-schnell";
 
-export const MODEL_DEFAULT_GUIDANCE = { wan: 5.0, cogvideox: 6.0, ltx: 1.0 };
+export const MODEL_DEFAULT_GUIDANCE = { wan: 5.0, cogvideox: 6.0, ltx: 1.0, hunyuan: 6.0 };
 
 export const ASPECT_RATIO_PRESETS = {
   "16:9": { label: "16:9", description: "Widescreen", ratio: 16 / 9 },
@@ -188,6 +195,30 @@ export const MODEL_OPTIONS = {
     supportsI2V: true,
     dimensionAlignment: 32,
   },
+  "hunyuan-t2v": {
+    label: "HunyuanVideo 13B T2V (GGUF Q5)",
+    description: "Tencent HunyuanVideo — cinematic motion, no content filter. 24fps, ~3s clips (~11GB VRAM)",
+    type: "hunyuan",
+    maxFrames: 129,
+    resolution: [848, 480],
+    defaultSteps: 20,
+    supportsT2V: true,
+    supportsI2V: false,
+    dimensionAlignment: 16,
+    maxPixelArea: 1_000_000,
+  },
+  "hunyuan-i2v": {
+    label: "HunyuanVideo 13B I2V (GGUF Q5)",
+    description: "HunyuanVideo image-to-video (v2) — follows the start frame closely. 24fps, ~3s (~11GB VRAM)",
+    type: "hunyuan",
+    maxFrames: 129,
+    resolution: [848, 480],
+    defaultSteps: 20,
+    supportsT2V: false,
+    supportsI2V: true,
+    dimensionAlignment: 16,
+    maxPixelArea: 1_000_000,
+  },
 };
 
 export const DEFAULT_T2V_MODEL = "wan22-5b";
@@ -196,6 +227,7 @@ export const DEFAULT_I2V_MODEL = "wan22-5b";
 export const isCogVideoXModel = (model) => MODEL_OPTIONS[model]?.type === "cogvideox";
 export const isWanModel = (model) => MODEL_OPTIONS[model]?.type === "wan";
 export const isLtxModel = (model) => MODEL_OPTIONS[model]?.type === "ltx";
+export const isHunyuanModel = (model) => MODEL_OPTIONS[model]?.type === "hunyuan";
 
 export const snapDimensions = (width, height, model, registryMeta) => {
   const align =
