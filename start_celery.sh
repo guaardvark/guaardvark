@@ -201,7 +201,8 @@ export PYTHONPATH="$SCRIPT_DIR:$PYTHONPATH"
 export GUAARDVARK_ENHANCED_MODE=true
 export GUAARDVARK_ROOT="$SCRIPT_DIR"
 export CELERY_WORKER_MODE=true
-export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:False,max_split_size_mb:512"
+# Must match start.sh: both processes share the card and the allocator policy.
+export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True,max_split_size_mb:512,garbage_collection_threshold:0.8"
 
 ulimit -n 65535
 vader_info "File descriptor limit set to: $(ulimit -n)"
