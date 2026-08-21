@@ -42,6 +42,8 @@ PROTECTED_FILE_PREFIXES = (
 # Endpoints protected only on DELETE
 PROTECTED_DELETE_PREFIXES = (
     '/api/backups/',
+    # Cast subjects, reference images and samples; generate/train stay LAN-usable.
+    '/api/cast-library/',
 )
 
 # Explicitly safe operations that are exempt from the host check even though they

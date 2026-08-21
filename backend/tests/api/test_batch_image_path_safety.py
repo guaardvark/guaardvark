@@ -148,3 +148,15 @@ def test_gpu_and_upscaling_mutations_are_protected():
     for path in ["/api/gpu/status", "/api/upscaling/jobs", "/api/upscaling/health"]:
         with app.test_request_context(path, method="GET"):
             assert _is_protected() is False, f"GET {path}"
+
+
+def test_cast_library_deletes_are_protected_but_posts_stay_public():
+    from backend.utils.auth_guard import _is_protected
+    app = Flask(__name__)
+    for path in ["/api/cast-library/subjects/3", "/api/cast-library/subjects/3/refs/0",
+                 "/api/cast-library/subjects/3/samples/9"]:
+        with app.test_request_context(path, method="DELETE"):
+            assert _is_protected() is True, f"DELETE {path}"
+    for path in ["/api/cast-library/subjects/3/train", "/api/cast-library/subjects/3/generate"]:
+        with app.test_request_context(path, method="POST"):
+            assert _is_protected() is False, f"POST {path}"
