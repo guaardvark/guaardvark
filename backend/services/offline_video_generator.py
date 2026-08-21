@@ -1009,6 +1009,7 @@ class OfflineVideoGenerator:
                                 width=request.width, height=request.height,
                                 model_family=mf,
                                 fidelity_mode=getattr(request, "fidelity_mode", False),
+                                motion_strength=getattr(request, "motion_strength", None),
                             )
 
                         initial_image = None

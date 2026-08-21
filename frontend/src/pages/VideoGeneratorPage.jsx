@@ -40,10 +40,7 @@ import useJobsGate from "../hooks/useJobsGate";
 import useBatchVideo from "../hooks/useBatchVideo";
 import {
   QUALITY_PRESETS,
-  COGVIDEOX_DURATION_PRESETS,
-  WAN_DURATION_PRESETS,
-  LTX_DURATION_PRESETS,
-  HUNYUAN_DURATION_PRESETS,
+  durationPresetsFor,
   MOTION_PRESETS,
   OUTPUT_QUALITY_TIERS,
   KEYFRAME_MODEL_OPTIONS,
@@ -443,13 +440,8 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     }
   }, [inputMode]);
 
-  // Get duration presets based on selected model
-  const durationPresets = useMemo(() => {
-    if (isHunyuanModel(model)) return HUNYUAN_DURATION_PRESETS;
-    if (isLtxModel(model)) return LTX_DURATION_PRESETS;
-    if (isWanModel(model)) return WAN_DURATION_PRESETS;
-    return COGVIDEOX_DURATION_PRESETS;  // cogvideox (svd retired)
-  }, [model]);
+  // Duration presets follow the selected model's native fps.
+  const durationPresets = useMemo(() => durationPresetsFor(model), [model]);
 
   // Calculate video dimensions from aspect ratio and size
   const videoDimensions = useMemo(() => {
@@ -507,13 +499,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   // Compute final params from presets
   const computedParams = useMemo(() => {
     const quality = QUALITY_PRESETS[qualityPreset] || QUALITY_PRESETS.standard;
-    const currentDurationPresets = isHunyuanModel(model)
-      ? HUNYUAN_DURATION_PRESETS
-      : isLtxModel(model)
-      ? LTX_DURATION_PRESETS
-      : isWanModel(model)
-        ? WAN_DURATION_PRESETS
-        : COGVIDEOX_DURATION_PRESETS;
+    const currentDurationPresets = durationPresetsFor(model);
     const baseDuration = currentDurationPresets[durationPreset] || currentDurationPresets.short;
     const motion = MOTION_PRESETS[motionPreset] || MOTION_PRESETS.normal;
     const modelConfig = MODEL_OPTIONS[model] || {};
@@ -624,9 +610,9 @@ const VideoGeneratorPage = ({ embedded = false }) => {
       }
       // Cap frames to keep VRAM in check on 16GB cards
       if (pixelArea >= 2_000_000 && effectiveDurationFrames > 33) {
-        effectiveDurationFrames = 33; // ~2s at 16fps — still looks great at 1080p
+        effectiveDurationFrames = 33; // still looks great at 1080p
       } else if (effectiveDurationFrames > 49) {
-        effectiveDurationFrames = 49; // ~3s at 16fps for 720p HD
+        effectiveDurationFrames = 49; // 720p HD budget on 16GB
       }
     }
 
@@ -1933,6 +1919,36 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                       </MenuItem>
                     ))}
                   </Select>
+                </FormControl>
+              </Grid>
+
+              {/* Motion Preset — carried as motion_strength and expressed through prompt enhancement */}
+              <Grid item xs={12} sm={6} md={4}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                      <EnhanceIcon fontSize="small" /> Motion
+                    </Box>
+                  </InputLabel>
+                  <Select
+                    value={motionPreset}
+                    onChange={(e) => setMotionPreset(e.target.value)}
+                    label="Motion"
+                  >
+                    {Object.entries(MOTION_PRESETS).map(([key, preset]) => (
+                      <MenuItem key={key} value={key}>
+                        <Box>
+                          <Typography variant="body2">{preset.label}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {preset.description}
+                          </Typography>
+                        </Box>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+                    Added to the prompt by the enhancer — no effect with Verbatim Prompts or enhancement off.
+                  </Typography>
                 </FormControl>
               </Grid>
             </Grid>

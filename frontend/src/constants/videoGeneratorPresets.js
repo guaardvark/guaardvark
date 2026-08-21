@@ -35,10 +35,18 @@ export const COGVIDEOX_DURATION_PRESETS = {
   long: { label: "Long", description: "~6 seconds", duration_frames: 49, fps: 8 },
 };
 
+/** Wan 2.2 14B (T2V / I2V) is 16fps-native. */
 export const WAN_DURATION_PRESETS = {
   short: { label: "Short", description: "~2 seconds", duration_frames: 33, fps: 16 },
   medium: { label: "Medium", description: "~3 seconds", duration_frames: 49, fps: 16 },
   long: { label: "Long", description: "~5 seconds", duration_frames: 81, fps: 16 },
+};
+
+/** Wan 2.2 TI2V-5B is 24fps-native (official template: 121 frames @ 24fps); frames 4n+1. */
+export const WAN_5B_DURATION_PRESETS = {
+  short: { label: "Short", description: "~2 seconds", duration_frames: 49, fps: 24 },
+  medium: { label: "Medium", description: "~3 seconds", duration_frames: 73, fps: 24 },
+  long: { label: "Long", description: "~5 seconds", duration_frames: 121, fps: 24 },
 };
 
 /** LTX-2.3 / 2.5 frame counts must be 8n+1. 161 @ 16fps ≈ 10s (16GB Ada target). */
@@ -116,6 +124,7 @@ export const MODEL_OPTIONS = {
     label: "Wan 2.2 5B TI2V (Recommended)",
     description: "Fast 5s clips, fits 16GB — no offload. Text + image to video.",
     type: "wan",
+    nativeFps: 24,
     maxFrames: 121,
     resolution: [1280, 704],
     defaultSteps: 20,
@@ -130,6 +139,7 @@ export const MODEL_OPTIONS = {
     label: "Wan 2.2 14B (GGUF Q5)",
     description: "Best quality, 5s videos (~11GB VRAM)",
     type: "wan",
+    nativeFps: 16,
     maxFrames: 81,
     resolution: [832, 480],
     defaultSteps: 25,
@@ -142,6 +152,7 @@ export const MODEL_OPTIONS = {
     label: "Wan 2.2 14B I2V (GGUF Q5)",
     description: "Top-tier image-to-video, 5s clips (~11GB VRAM)",
     type: "wan",
+    nativeFps: 16,
     maxFrames: 81,
     resolution: [832, 480],
     defaultSteps: 25,
@@ -228,6 +239,17 @@ export const isCogVideoXModel = (model) => MODEL_OPTIONS[model]?.type === "cogvi
 export const isWanModel = (model) => MODEL_OPTIONS[model]?.type === "wan";
 export const isLtxModel = (model) => MODEL_OPTIONS[model]?.type === "ltx";
 export const isHunyuanModel = (model) => MODEL_OPTIONS[model]?.type === "hunyuan";
+
+/** Duration presets for a model. The preset fps must match the model's native
+ *  rate — muxing 24fps-native frames at 16fps plays every clip in slow motion. */
+export const durationPresetsFor = (model) => {
+  if (isHunyuanModel(model)) return HUNYUAN_DURATION_PRESETS;
+  if (isLtxModel(model)) return LTX_DURATION_PRESETS;
+  if (isWanModel(model)) {
+    return MODEL_OPTIONS[model]?.nativeFps === 24 ? WAN_5B_DURATION_PRESETS : WAN_DURATION_PRESETS;
+  }
+  return COGVIDEOX_DURATION_PRESETS;
+};
 
 export const snapDimensions = (width, height, model, registryMeta) => {
   const align =

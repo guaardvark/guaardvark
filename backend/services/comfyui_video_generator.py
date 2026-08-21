@@ -974,6 +974,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                     height=request.height,
                     model_family=mf,
                     fidelity_mode=getattr(request, "fidelity_mode", False),
+                    motion_strength=request.motion_strength,
                 )
                 if not request.negative_prompt:
                     request.negative_prompt = get_default_negative_prompt(style=request.prompt_style)
