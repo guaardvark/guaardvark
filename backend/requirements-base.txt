@@ -21,7 +21,7 @@ eventlet==0.40.3
 # Data Processing & Analysis
 numpy<2.0,>=1.26.4  # Pin to <2.0 for PyTorch compatibility
 pandas==2.2.2
-pydantic==2.11.7
+pydantic==2.13.4
 psutil==5.9.8
 
 # Web Scraping & File Processing
