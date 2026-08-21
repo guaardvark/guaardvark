@@ -7,8 +7,9 @@
 // keep it cohesive), lifecycle drives alpha, importer count drives size.
 //
 // Wheel zooms. Drag pans (left, middle, or shift+left — all the same).
-// R resets the view. The canvas itself is transparent — the page
-// background shows through, so theme changes propagate automatically.
+// R resets the view. The canvas itself is transparent — the page background
+// shows through — and every stroke comes from ./palette, so light and dark
+// themes both get ink with enough contrast to read.
 //
 // Inputs: a SystemMap dict (see backend/services/system_mapper).
 // Notifies parent of hover/click via onNodeHover / onNodeClick.
@@ -25,6 +26,7 @@ import {
   forceY,
 } from "d3-force";
 import { pathToSection, moduleNameToPath } from "./pathUtils";
+import { createMapPalette, useMapPalette } from "./palette";
 
 // ────────────────────────────────────────────────────────────────────────
 // Color palette
@@ -74,21 +76,11 @@ const LIFECYCLE = {
   skip:        { alpha: 0.20, sat: 20, light: 65 },
 };
 
-const PALETTE = {
-  // Canvas is transparent — page bg shows through, so we never paint our
-  // own background. Edges and effects only.
-  edge: "rgba(168, 216, 255, 0.18)",
-  cycleEdge: "rgba(255, 110, 110, 0.55)",
-  highFinding: "rgba(255, 170, 80, 0.95)",
-  mediumFinding: "rgba(255, 220, 130, 0.7)",
-};
-
-// HSLA string from a hue with lifecycle bias.
-function nodeColor(section, lifecycle, alphaMult = 1) {
+// HSLA string from a hue with lifecycle bias, toned for the active theme.
+function nodeColor(palette, section, lifecycle, alphaMult = 1) {
   const hue = SECTION_HUE[section] ?? SECTION_HUE.other;
   const lc = LIFECYCLE[lifecycle] || LIFECYCLE.active;
-  const a = lc.alpha * alphaMult;
-  return `hsla(${hue}, ${lc.sat}%, ${lc.light}%, ${a})`;
+  return palette.hue(hue, lc.sat, lc.light, lc.alpha * alphaMult);
 }
 
 // Higher-importer modules render bigger. Log-scaled, clamped.
@@ -327,8 +319,14 @@ const SystemMapCanvas = forwardRef(function SystemMapCanvas(
     highlightedPrefixes: null, // mirror of prop, read inside the render loop
     showGhostEndpoints: false, // mirror of prop (overlay toggle, default OFF)
     showToolGraph: false,      // mirror of prop (overlay toggle, default OFF)
+    palette: createMapPalette("dark"), // mirror of the theme palette
     pulseClockMs: performance.now(),
   });
+
+  const palette = useMapPalette();
+  useEffect(() => {
+    stateRef.current.palette = palette;
+  }, [palette]);
 
   // Reflect highlightedPrefixes into the ref so the render loop sees updates
   // without re-binding the loop on every prop change.
@@ -607,6 +605,7 @@ const SystemMapCanvas = forwardRef(function SystemMapCanvas(
     function tick(now) {
       const dt = Math.min(48, now - (st.pulseClockMs || now)) / 16.666;
       st.pulseClockMs = now;
+      const pal = st.palette;
 
       const w = st.width;
       const h = st.height;
@@ -654,9 +653,9 @@ const SystemMapCanvas = forwardRef(function SystemMapCanvas(
           if (!aIn && !bIn) alpha *= 0.18;
         }
         if (l.cycle) {
-          ctx.strokeStyle = `rgba(255, 110, 110, ${Math.max(0.18, alpha * 1.2)})`;
+          ctx.strokeStyle = pal.danger(Math.max(0.18, alpha * 1.2));
         } else {
-          ctx.strokeStyle = `rgba(168, 216, 255, ${alpha * 0.4})`;
+          ctx.strokeStyle = pal.ink(alpha * pal.edgeAlpha);
         }
         ctx.beginPath();
         ctx.moveTo(a.sx, a.sy);
@@ -670,7 +669,7 @@ const SystemMapCanvas = forwardRef(function SystemMapCanvas(
       if (st.showToolGraph && st.graph.toolEdges && st.graph.toolEdges.length) {
         ctx.save();
         ctx.setLineDash([4, 4]);
-        ctx.strokeStyle = "rgba(120, 220, 180, 0.35)";
+        ctx.strokeStyle = pal.ghost(0.35);
         ctx.lineWidth = 1;
         for (const te of st.graph.toolEdges) {
           const a = st.graph.nodeIndex[te.source];
@@ -706,19 +705,19 @@ const SystemMapCanvas = forwardRef(function SystemMapCanvas(
         if (inHl === false) alpha *= 0.22;       // fade non-matching when highlight active
         // (inHl === true or null → no penalty)
 
-        const baseColor = nodeColor(n.section, n.lifecycle, alpha);
+        const baseColor = nodeColor(pal, n.section, n.lifecycle, alpha);
 
         // Soft glow on pulse
         if (n.pulse > 0.05) {
           const glow = ctx.createRadialGradient(n.sx, n.sy, 0, n.sx, n.sy, r * 4);
           const glowColor =
             n.topSeverity === "high"
-              ? PALETTE.highFinding
+              ? pal.finding(0.95)
               : n.topSeverity === "medium"
-                ? PALETTE.mediumFinding
-                : "rgba(168, 216, 255, 0.55)";
+                ? pal.findingSoft(0.7)
+                : pal.ink(0.55);
           glow.addColorStop(0, glowColor);
-          glow.addColorStop(1, "rgba(168, 216, 255, 0)");
+          glow.addColorStop(1, pal.ink(0));
           ctx.globalAlpha = n.pulse * 0.5;
           ctx.fillStyle = glow;
           ctx.beginPath();
@@ -731,8 +730,8 @@ const SystemMapCanvas = forwardRef(function SystemMapCanvas(
         if (inHl === true) {
           const auraR = r * 3;
           const aura = ctx.createRadialGradient(n.sx, n.sy, 0, n.sx, n.sy, auraR);
-          aura.addColorStop(0, "rgba(255, 255, 255, 0.18)");
-          aura.addColorStop(1, "rgba(168, 216, 255, 0)");
+          aura.addColorStop(0, pal.halo(pal.haloAlpha));
+          aura.addColorStop(1, pal.ink(0));
           ctx.fillStyle = aura;
           ctx.beginPath();
           ctx.arc(n.sx, n.sy, auraR, 0, Math.PI * 2);
@@ -745,7 +744,7 @@ const SystemMapCanvas = forwardRef(function SystemMapCanvas(
         if (st.showGhostEndpoints && n.isGhostEndpoint) {
           ctx.save();
           ctx.setLineDash([3, 3]);
-          ctx.strokeStyle = "rgba(255, 170, 80, 0.9)";
+          ctx.strokeStyle = pal.finding(0.9);
           ctx.lineWidth = 1.5;
           ctx.beginPath();
           ctx.arc(n.sx, n.sy, r + 4, 0, Math.PI * 2);
@@ -756,7 +755,7 @@ const SystemMapCanvas = forwardRef(function SystemMapCanvas(
         // Tool-node overlay ring (default OFF). Solid green ring marking a
         // module a registered LLM tool resolves to.
         if (st.showToolGraph && n.isToolNode) {
-          ctx.strokeStyle = "rgba(120, 220, 180, 0.85)";
+          ctx.strokeStyle = pal.ghost(0.85);
           ctx.lineWidth = 1.5;
           ctx.beginPath();
           ctx.arc(n.sx, n.sy, r + 2.5, 0, Math.PI * 2);
@@ -765,7 +764,7 @@ const SystemMapCanvas = forwardRef(function SystemMapCanvas(
 
         // Hover ring
         if (st.hover === n.id) {
-          ctx.strokeStyle = `rgba(255, 255, 255, 0.75)`;
+          ctx.strokeStyle = pal.halo(pal.ringAlpha);
           ctx.lineWidth = 1;
           ctx.beginPath();
           ctx.arc(n.sx, n.sy, r + 3, 0, Math.PI * 2);
