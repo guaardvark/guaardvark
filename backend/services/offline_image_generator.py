@@ -812,6 +812,21 @@ class OfflineImageGenerator:
             pass
         return 0.0
 
+    def _seed_generator(self, seed: int) -> "torch.Generator":
+        """Seeded RNG on the pipeline device, falling back to CPU when CUDA cannot
+        be initialised (no device, driver mismatch). A CPU generator is accepted by
+        every diffusers pipeline, so such a process still reaches admission and
+        OOM handling instead of failing at RNG construction. On a working CUDA box
+        the generator stays on the GPU, so seeds reproduce as before.
+        """
+        device = self._device
+        if device == "cuda" and not torch.cuda.is_available():
+            device = "cpu"
+        try:
+            return torch.Generator(device=device).manual_seed(seed)
+        except RuntimeError:
+            return torch.Generator().manual_seed(seed)
+
     @staticmethod
     def _is_cuda_oom(exc: BaseException) -> bool:
         if isinstance(exc, torch.cuda.OutOfMemoryError):
@@ -2145,11 +2160,11 @@ Negative Prompt: {negative_prompt}""",
 
                 generator = None
                 if request.seed is not None:
-                    generator = torch.Generator(device=self._device).manual_seed(request.seed)
+                    generator = self._seed_generator(request.seed)
                     result.seed_used = request.seed
                 else:
                     seed = torch.randint(0, 2**32, (1,)).item()
-                    generator = torch.Generator(device=self._device).manual_seed(seed)
+                    generator = self._seed_generator(seed)
                     result.seed_used = seed
 
                 logger.debug(
@@ -2373,12 +2388,12 @@ Negative Prompt: {negative_prompt}""",
                                 try:
                                     # Rebuild generator after OOM (device state may be dirty)
                                     if request.seed is not None:
-                                        generator = torch.Generator(device=self._device).manual_seed(
+                                        generator = self._seed_generator(
                                             request.seed
                                         )
                                     else:
                                         seed = result.seed_used or torch.randint(0, 2**32, (1,)).item()
-                                        generator = torch.Generator(device=self._device).manual_seed(seed)
+                                        generator = self._seed_generator(seed)
                                         result.seed_used = seed
                                     output = _call_pipeline(enhanced_prompt, neg)
                                     logger.info(
@@ -2443,12 +2458,12 @@ Negative Prompt: {negative_prompt}""",
                                     f"OOM fallback model '{fb_key}' failed to load"
                                 ) from infer_err
                             if request.seed is not None:
-                                generator = torch.Generator(device=self._device).manual_seed(
+                                generator = self._seed_generator(
                                     request.seed
                                 )
                             else:
                                 seed = result.seed_used or torch.randint(0, 2**32, (1,)).item()
-                                generator = torch.Generator(device=self._device).manual_seed(seed)
+                                generator = self._seed_generator(seed)
                                 result.seed_used = seed
                             output = _call_pipeline(enhanced_prompt, neg)
                             logger.info(f"OOM fallback to '{fb_key}' succeeded")
@@ -2959,11 +2974,11 @@ Negative Prompt: {negative_prompt}""",
 
                 generator = None
                 if seed is not None:
-                    generator = torch.Generator(device=self._device).manual_seed(seed)
+                    generator = self._seed_generator(seed)
                     result.seed_used = seed
                 else:
                     seed = torch.randint(0, 2**32, (1,)).item()
-                    generator = torch.Generator(device=self._device).manual_seed(seed)
+                    generator = self._seed_generator(seed)
                     result.seed_used = seed
 
                 combined_negative = negative_prompt or "blurry, low quality, distorted"
