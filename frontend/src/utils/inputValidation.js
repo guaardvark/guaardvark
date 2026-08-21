@@ -270,12 +270,20 @@ export const validateId = (id, type = 'ID') => {
 };
 
 // Security check functions
+
+// The patterns carry the g flag, so RegExp#test would resume from lastIndex
+// on the next call; reset it so every check starts at the beginning.
+const matches = (pattern, input) => {
+  pattern.lastIndex = 0;
+  return pattern.test(input);
+};
+
 export const detectXSS = (input) => {
   if (typeof input !== 'string') {
     return false;
   }
 
-  return PATTERNS.XSS_PATTERNS.some(pattern => pattern.test(input));
+  return PATTERNS.XSS_PATTERNS.some((pattern) => matches(pattern, input));
 };
 
 export const detectSQLInjection = (input) => {
@@ -283,7 +291,7 @@ export const detectSQLInjection = (input) => {
     return false;
   }
 
-  return PATTERNS.SQL_INJECTION.test(input);
+  return matches(PATTERNS.SQL_INJECTION, input);
 };
 
 export const detectSuspiciousCode = (input) => {
@@ -292,9 +300,9 @@ export const detectSuspiciousCode = (input) => {
   }
 
   return (
-    PATTERNS.SUSPICIOUS_SCRIPT.test(input) ||
-    PATTERNS.SUSPICIOUS_EVAL.test(input) ||
-    PATTERNS.SUSPICIOUS_URL.test(input)
+    matches(PATTERNS.SUSPICIOUS_SCRIPT, input) ||
+    matches(PATTERNS.SUSPICIOUS_EVAL, input) ||
+    matches(PATTERNS.SUSPICIOUS_URL, input)
   );
 };
 
