@@ -38,6 +38,8 @@ import BubbleChartIcon from "@mui/icons-material/BubbleChart";
 import ScienceIcon from "@mui/icons-material/Science";
 import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
 import VideoCameraBackIcon from "@mui/icons-material/VideoCameraBack";
+import InsertChartOutlinedIcon from "@mui/icons-material/InsertChartOutlined";
+import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 
 const env = import.meta.env;
 
@@ -70,6 +72,8 @@ const navGroups = [
       { text: "Video Editor", icon: <MovieFilterIcon />, path: "/video-editor" },
       { text: "Video Gen", icon: <VideoCameraBackIcon />, path: "/video" },
       { text: "Image Gen", icon: <ImageIcon />, path: "/batch-images" },
+      { text: "Infographic", icon: <InsertChartOutlinedIcon />, path: "/infographic" },
+      { text: "Upscaling", icon: <AutoFixHighIcon />, path: "/upscaling" },
       { text: "Audio Studio", icon: <GraphicEqIcon />, path: "/audio" },
       { text: "Video Text", icon: <TextFieldsIcon />, path: "/video-text-overlay" },
     ],

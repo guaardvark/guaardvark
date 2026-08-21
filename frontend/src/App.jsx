@@ -41,7 +41,6 @@ const UploadPage = lazy(() => import("./pages/UploadPage"));
 const TrainingPage = lazy(() => import("./pages/TrainingPage"));
 const ImagesPage = lazy(() => import("./pages/ImagesPage"));
 const AudioFoundryPage = lazy(() => import("./pages/AudioFoundryPage"));
-const VideoGeneratorPage = lazy(() => import("./pages/VideoGeneratorPage"));
 const VideoTextOverlayPage = lazy(() => import("./pages/VideoTextOverlayPage"));
 const VideoEditorPage = lazy(() => import("./pages/VideoEditorPage"));
 const BulkImportDocumentsPage = lazy(() => import("./pages/BulkImportDocumentsPage"));
@@ -337,7 +336,27 @@ const AppContainer = () => {
                         element={
                           <AppLayout>
                             <ErrorBoundary>
-                              <VideoGeneratorPage />
+                              <ImagesPage />
+                            </ErrorBoundary>
+                          </AppLayout>
+                        }
+                      />
+                      <Route
+                        path="/infographic"
+                        element={
+                          <AppLayout>
+                            <ErrorBoundary>
+                              <ImagesPage />
+                            </ErrorBoundary>
+                          </AppLayout>
+                        }
+                      />
+                      <Route
+                        path="/upscaling"
+                        element={
+                          <AppLayout>
+                            <ErrorBoundary>
+                              <ImagesPage />
                             </ErrorBoundary>
                           </AppLayout>
                         }

@@ -4,12 +4,13 @@
 // - Desktop icons for folders and root-level images (thumbnails)
 // - ImageThumbnailGrid inside folder windows
 // - ImageLightbox for full-size viewing with prev/next
-// - Tabs: Image Library + Image Gen
+// - Hosts the five media-workspace tabs (see constants/mediaTabs.js); each
+//   tab is a route, so the strip is present whichever one you arrive on
 // - No upload action (images come from generation only)
 // - Root path scoped to /Images/
 
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -59,6 +60,7 @@ import ImagesContextMenu from '../components/images/ImagesContextMenu';
 import ImageLightbox from '../components/images/ImageLightbox';
 import PublishModal from '../components/modals/PublishModal';
 import PageLayout from '../components/layout/PageLayout';
+import { MEDIA_TABS, MEDIA_LIBRARY_TAB, mediaTabIndexForPath } from '../constants/mediaTabs';
 import { useLayout } from '../contexts/LayoutContext';
 import { useSnackbar } from '../components/common/SnackbarProvider';
 import { ContextualLoader } from '../components/common/LoadingStates';
@@ -94,19 +96,12 @@ const ImagesPage = () => {
   const { _activeModel, _isLoadingModel, _modelError } = useStatus();
   const theme = useTheme();
 
-  // Tabs — the /batch-images route is the "Image Gen" sidebar entry; it shares
-  // this page with the Media Library (/images) but must open on the Image Gen
-  // tab (index 1), not the library. Drive the initial tab from the route.
+  // Every tab is its own route, so the route is the single source of truth for
+  // which one is showing — no local tab state to drift out of sync.
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState(
-    location.pathname.startsWith('/batch-images') ? 1 : 0
-  );
-
-  // Keep the tab in sync if the route changes while the page stays mounted
-  // (e.g. clicking Media then Image Gen without a full remount).
-  useEffect(() => {
-    setActiveTab(location.pathname.startsWith('/batch-images') ? 1 : 0);
-  }, [location.pathname]);
+  const navigate = useNavigate();
+  const activeTab = mediaTabIndexForPath(location.pathname);
+  const activeTabPath = MEDIA_TABS[activeTab].path;
 
   // Data
   const [rootFolders, setRootFolders] = useState([]);
@@ -240,8 +235,12 @@ const ImagesPage = () => {
     }
   }, []);
 
-  // Initialize: load data + saved window state
+  // Initialize: load data + saved window state. Only the Media Library tab
+  // needs either, and all five tabs share this page, so it waits for that tab.
+  const libraryInitStartedRef = useRef(false);
   useEffect(() => {
+    if (activeTab !== MEDIA_LIBRARY_TAB || libraryInitStartedRef.current) return;
+    libraryInitStartedRef.current = true;
     const init = async () => {
       const { folders } = await fetchData();
 
@@ -322,7 +321,7 @@ const ImagesPage = () => {
       setLoading(false);
     };
     init();
-  }, [fetchData]);
+  }, [activeTab, fetchData]);
 
   // Refresh data without page reload
   const refreshData = useCallback(async () => {
@@ -446,7 +445,7 @@ const ImagesPage = () => {
 
   // Load video batches when switching to Video Library tab
   useEffect(() => {
-    if (activeTab === 0) {
+    if (activeTab === MEDIA_LIBRARY_TAB) {
       fetchVideoBatches();
     }
   }, [activeTab, fetchVideoBatches]);
@@ -1357,7 +1356,7 @@ const ImagesPage = () => {
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Only handle when Image Library tab is active
-      if (activeTab !== 0) return;
+      if (activeTab !== MEDIA_LIBRARY_TAB) return;
       if (e.defaultPrevented) return;
       const targetTag = e.target?.tagName;
       if (targetTag === 'INPUT' || targetTag === 'TEXTAREA' || e.target?.isContentEditable) return;
@@ -1521,7 +1520,7 @@ const ImagesPage = () => {
 
   // ──────────────────── Render ────────────────────
 
-  if (loading) {
+  if (loading && activeTab === MEDIA_LIBRARY_TAB) {
     return (
       <PageLayout title="Images">
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
@@ -1536,7 +1535,7 @@ const ImagesPage = () => {
       title="Media"
       variant="grid"
       noPadding
-      actions={activeTab === 0 ? (
+      actions={activeTab === MEDIA_LIBRARY_TAB ? (
         <>
           <Tooltip title={desktopViewMode === 'icons' ? 'List View' : 'Icon View'}>
             <IconButton
@@ -1566,17 +1565,20 @@ const ImagesPage = () => {
     >
       {/* Tab bar */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
-        <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
-          <Tab label="Media Library" />
-          <Tab label="Image Gen" />
-          <Tab label="Infographic" />
-          <Tab label="Video Gen" />
-          <Tab label="Upscaling" />
+        <Tabs
+          value={activeTab}
+          onChange={(e, v) => navigate(MEDIA_TABS[v].path)}
+          variant="scrollable"
+          scrollButtons="auto"
+        >
+          {MEDIA_TABS.map((tab) => (
+            <Tab key={tab.path} label={tab.label} />
+          ))}
         </Tabs>
       </Box>
 
       {/* Media Library Tab */}
-      {activeTab === 0 && (<>
+      {activeTab === MEDIA_LIBRARY_TAB && (<>
         <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
           {/* Toolbar */}
           <Box sx={{
@@ -2102,7 +2104,7 @@ const ImagesPage = () => {
         </Box>
 
         {/* Video Batches Section — stacked thumbnails within Media Library */}
-        {/* (still inside activeTab === 0 conditional) */}
+        {/* (still inside activeTab === MEDIA_LIBRARY_TAB conditional) */}
         {videoBatches.length > 0 && (
           <Box sx={{ px: 2, pb: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
@@ -2246,27 +2248,27 @@ const ImagesPage = () => {
       </>)}
 
       {/* Image Gen Tab */}
-      {activeTab === 1 && (
+      {activeTabPath === '/batch-images' && (
         <Box sx={{ flexGrow: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 2, p: 1 }}>
           <BatchImageGeneratorPage embedded />
         </Box>
       )}
 
       {/* Infographic Tab */}
-      {activeTab === 2 && (
+      {activeTabPath === '/infographic' && (
         <Box sx={{ flexGrow: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
           <InfographicGenerator />
         </Box>
       )}
 
       {/* Video Gen Tab */}
-      {activeTab === 3 && (
+      {activeTabPath === '/video' && (
         <Box sx={{ flexGrow: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
           <VideoGeneratorPage embedded />
         </Box>
       )}
 
-      {activeTab === 4 && (
+      {activeTabPath === '/upscaling' && (
         <Box sx={{ flexGrow: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
           <UpscalingPage embedded />
         </Box>
