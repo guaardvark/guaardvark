@@ -27,13 +27,12 @@ See [Quick Start](#quick-start) for details and manual install options.
 
 ## ▶ Watch it work
 
-<!-- hero-video: to rotate the clip, replace this block with a bare
-     github user-attachments video URL on its own line -->
-<p align="center">
-  <a href="https://www.youtube.com/shorts/rh0LJRK_jAM">
-    <img src="docs/screenshots/music-video-hero.jpg" alt="Watch: Guaardvark generates a beat-synced music video end-to-end (real frame from the demo)" width="440">
-  </a>
-</p>
+<!-- hero-video rotation: swap the bare user-attachments URL below.
+     Asset registry: https://github.com/guaardvark/guaardvark/issues/64
+     bladevark: 158c431c-0ff8-4b25-a1b2-b5fbebdc81d4
+     batvark:   b8f28582-6c1d-45b8-862e-9206a28cf103 -->
+
+https://github.com/user-attachments/assets/158c431c-0ff8-4b25-a1b2-b5fbebdc81d4
 
 <p align="center"><em>Made end-to-end by Guaardvark — written, storyboarded, rendered, and cut on one desktop GPU.</em></p>
 
