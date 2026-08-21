@@ -222,9 +222,25 @@ class BatchVideoGenerator:
         )
         self._worker_thread.start()
 
-        self._restore_pending_batches()
+        # Only the API process resumes on-disk batches. Celery, the MCP stdio
+        # server and ad-hoc scripts construct this class too; if they restored,
+        # every restart would render the same batch from two PIDs into one dir.
+        if self._restore_allowed():
+            self._restore_pending_batches()
+        else:
+            logger.info("BatchVideoGenerator: restore-on-start skipped in this process")
 
         logger.info(f"BatchVideoGenerator initialized - Service available: {self.service_available}")
+
+    @staticmethod
+    def _restore_allowed() -> bool:
+        if os.environ.get("GUAARDVARK_VIDEO_RESTORE_ON_START", "1") != "1":
+            return False
+        if os.environ.get("CELERY_WORKER_MODE", "").lower() == "true":
+            return False
+        if os.environ.get("GUAARDVARK_MCP_PROCESS") == "1":
+            return False
+        return True
 
     def _restore_pending_batches(self) -> None:
         """Re-enqueue batches left queued/running on disk after a process restart."""

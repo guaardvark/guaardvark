@@ -16,6 +16,10 @@ import os
 import sys
 from contextlib import contextmanager
 
+# Tell shared services this is the MCP stdio process, not the API server
+# (e.g. BatchVideoGenerator must not resume on-disk batches here).
+os.environ.setdefault("GUAARDVARK_MCP_PROCESS", "1")
+
 
 def _configure_stderr_logging(level: int = logging.INFO) -> None:
     # Log to STDERR only — stdout is the JSON-RPC pipe.
