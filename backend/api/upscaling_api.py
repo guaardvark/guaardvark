@@ -8,10 +8,13 @@ Auth token is fetched from the plugin's /health endpoint and cached.
 import io
 import logging
 import os
+import uuid
 from pathlib import Path
+from typing import Optional
 
 import requests
 from flask import Blueprint, request as flask_request, send_file
+from werkzeug.security import safe_join
 from werkzeug.utils import secure_filename
 
 from backend.utils.response_utils import success_response, error_response
@@ -281,7 +284,193 @@ def _get_upload_dir() -> Path:
     return upload_dir
 
 
+def _proxy_error(data, fallback: str) -> str:
+    """Pull a message out of a plugin error body (FastAPI uses ``detail``)."""
+    if isinstance(data, dict):
+        message = data.get("error") or data.get("detail")
+        if isinstance(message, list):
+            return "; ".join(
+                str(item.get("msg", item)) if isinstance(item, dict) else str(item)
+                for item in message
+            )
+        if message:
+            return str(message)
+    return fallback
+
+
+def _contained_file(base_dir: Path, name: str) -> Optional[Path]:
+    """Resolve ``name`` as a direct child of ``base_dir``.
+
+    Returns None when the name is empty, carries a path separator, or resolves
+    (through ``..`` or a symlink) anywhere other than directly inside ``base_dir``.
+    """
+    if not name or name in (".", "..") or "/" in name or "\\" in name or "\x00" in name:
+        return None
+    base = base_dir.resolve()
+    joined = safe_join(str(base), name)
+    if joined is None:
+        return None
+    candidate = Path(joined).resolve()
+    return candidate if candidate.parent == base else None
+
+
 ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".wmv"}
+ALLOWED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"}
+
+# A single still is seconds of GPU work; the request is held open for the result.
+UPSCALING_IMAGE_TIMEOUT = 300  # seconds
+
+IMAGE_MIME_TYPES = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".bmp": "image/bmp",
+    ".tif": "image/tiff",
+    ".tiff": "image/tiff",
+}
+
+
+def _image_input_dir() -> Path:
+    """Staging directory for uploaded images awaiting upscale."""
+    path = _get_upload_dir() / "input" / "images"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _image_output_dir() -> Path:
+    """Directory the plugin writes upscaled stills into."""
+    path = _get_upload_dir() / "output" / "images"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _stage_image(file) -> Path:
+    """Save one uploaded image into the staging directory.
+
+    The stored name is derived from ``secure_filename`` plus a short random
+    token, so nothing the caller sends reaches the filesystem as a path and two
+    uploads of the same name never collide. Raises ValueError on a rejected file.
+    """
+    if not file.filename:
+        raise ValueError("No filename")
+    safe_name = secure_filename(file.filename)
+    ext = os.path.splitext(safe_name)[1].lower()
+    if ext not in ALLOWED_IMAGE_EXTENSIONS:
+        raise ValueError(f"Unsupported image type: {ext or file.filename}")
+    stem = os.path.splitext(safe_name)[0] or "image"
+    staged = _image_input_dir() / f"{stem}_{uuid.uuid4().hex[:8]}{ext}"
+    file.save(str(staged))
+    return staged
+
+
+def _image_options_from_form(form) -> dict:
+    """Collect the shared upscale knobs out of a multipart form."""
+    options = {}
+    model = form.get("model")
+    if model:
+        options["model"] = model
+    scale = form.get("scale")
+    if scale:
+        options["scale"] = float(scale)
+    sharpen = form.get("sharpen")
+    if sharpen is not None:
+        options["sharpen"] = float(sharpen)
+    denoise = form.get("denoise_strength")
+    if denoise is not None:
+        options["denoise_strength"] = float(denoise)
+    for flag in ("two_pass", "face_enhance"):
+        value = form.get(flag)
+        if value and value.lower() in ("true", "1", "yes"):
+            options[flag] = True
+    return options
+
+
+@upscaling_bp.route("/upscale/image", methods=["POST"])
+def upscale_image():
+    """Upload one image and upscale it synchronously.
+
+    A still finishes in seconds, so this returns the finished file rather than
+    a job id; batches go through ``/upscale/images`` and the job queue instead.
+    """
+    if "file" not in flask_request.files:
+        return error_response("No file uploaded", 400)
+
+    try:
+        staged = _stage_image(flask_request.files["file"])
+    except ValueError as exc:
+        return error_response(str(exc), 400)
+
+    output_path = _image_output_dir() / f"{staged.stem}_upscaled.png"
+    payload = {
+        "input_path": str(staged),
+        "output_path": str(output_path),
+        **_image_options_from_form(flask_request.form),
+    }
+
+    data, status = _proxy_post("/upscale/image", payload, timeout=UPSCALING_IMAGE_TIMEOUT)
+    if status == 200:
+        return success_response(
+            data={
+                "output_file": output_path.name,
+                "url": f"/api/upscaling/output/image/{output_path.name}",
+            },
+            message="Image upscaled",
+        )
+    return error_response(_proxy_error(data, "Failed to upscale image"), status)
+
+
+@upscaling_bp.route("/upscale/images", methods=["POST"])
+def upscale_images():
+    """Upload N images and queue them as one job on the plugin's GPU worker."""
+    files = flask_request.files.getlist("files")
+    if not files:
+        return error_response("No files uploaded", 400)
+
+    staged = []
+    rejected = []
+    for file in files:
+        try:
+            staged.append(_stage_image(file))
+        except ValueError as exc:
+            rejected.append(str(exc))
+
+    if not staged:
+        return error_response(rejected[0] if rejected else "No usable images", 400)
+
+    payload = {
+        "inputs": [str(p) for p in staged],
+        "output_dir": str(_image_output_dir()),
+        "suffix": "upscaled",
+        **_image_options_from_form(flask_request.form),
+    }
+
+    data, status = _proxy_post("/upscale/images", payload, timeout=30)
+    if status in (200, 202):
+        return success_response(
+            data={
+                **(data if isinstance(data, dict) else {}),
+                "queued": len(staged),
+                "rejected": rejected,
+            },
+            message=f"Queued {len(staged)} image(s) for upscaling",
+        )
+    return error_response(_proxy_error(data, "Failed to submit image batch"), status)
+
+
+@upscaling_bp.route("/output/image/<path:filename>", methods=["GET"])
+def serve_image_output(filename):
+    """Serve an upscaled still out of the plugin's image output directory."""
+    output_dir = _image_output_dir()
+    file_path = _contained_file(output_dir, filename)
+    if file_path is None:
+        return error_response("Invalid path", 400)
+    if not file_path.exists():
+        return error_response("File not found", 404)
+
+    mimetype = IMAGE_MIME_TYPES.get(file_path.suffix.lower(), "application/octet-stream")
+    return send_file(str(file_path), mimetype=mimetype)
+
 
 
 @upscaling_bp.route("/upload", methods=["POST"])
@@ -360,12 +549,9 @@ def upload_and_upscale():
 def serve_output(filename):
     """Serve an upscaled output video."""
     output_dir = _get_upload_dir() / "output"
-    file_path = (output_dir / filename).resolve()
-    try:
-        file_path.relative_to(output_dir.resolve())
-    except ValueError:
+    file_path = _contained_file(output_dir, filename)
+    if file_path is None:
         return error_response("Invalid path", 400)
-
     if not file_path.exists():
         return error_response("File not found", 404)
 

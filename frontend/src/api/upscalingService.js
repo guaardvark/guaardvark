@@ -43,6 +43,43 @@ export const uploadAndUpscale = async (file, options = {}) => {
   return handleResponse(response);
 };
 
+const appendImageOptions = (formData, options) => {
+  if (options.model) formData.append("model", options.model);
+  if (options.scale) formData.append("scale", String(options.scale));
+  if (options.sharpen !== undefined) formData.append("sharpen", String(options.sharpen));
+  if (options.denoise_strength !== undefined) {
+    formData.append("denoise_strength", String(options.denoise_strength));
+  }
+  if (options.two_pass) formData.append("two_pass", "true");
+  if (options.face_enhance) formData.append("face_enhance", "true");
+};
+
+// Single still — the backend holds the request open and returns the finished file.
+export const upscaleImage = async (file, options = {}) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  appendImageOptions(formData, options);
+
+  const response = await fetch(`${BASE_URL}/upscale/image`, {
+    method: "POST",
+    body: formData,
+  });
+  return handleResponse(response);
+};
+
+// Batch — one queued job covering every file, tracked alongside video jobs.
+export const upscaleImages = async (files, options = {}) => {
+  const formData = new FormData();
+  files.forEach((file) => formData.append("files", file));
+  appendImageOptions(formData, options);
+
+  const response = await fetch(`${BASE_URL}/upscale/images`, {
+    method: "POST",
+    body: formData,
+  });
+  return handleResponse(response);
+};
+
 export const previewImage = async (blob, options = {}) => {
   const formData = new FormData();
   formData.append("file", blob, "preview.png");
@@ -113,6 +150,8 @@ export default {
   getModels,
   downloadModel,
   uploadAndUpscale,
+  upscaleImage,
+  upscaleImages,
   upscaleVideo,
   listJobs,
   getJob,

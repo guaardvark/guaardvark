@@ -82,3 +82,50 @@ def test_job_not_found(client):
 def test_cancel_job_requires_auth(client):
     resp = client.delete("/jobs/someid")
     assert resp.status_code == 401
+
+
+def test_upscale_images_requires_auth(client):
+    resp = client.post(
+        "/upscale/images",
+        json={"inputs": ["/fake.png"], "output_dir": "/tmp/out"},
+    )
+    assert resp.status_code == 401
+
+
+def test_upscale_images_rejects_empty_input_list(client):
+    resp = client.post(
+        "/upscale/images",
+        json={"inputs": [], "output_dir": "/tmp/out"},
+        headers=AUTH_HEADER,
+    )
+    assert resp.status_code == 400
+
+
+def test_upscale_images_validates_inputs_exist(client):
+    resp = client.post(
+        "/upscale/images",
+        json={"inputs": ["/nonexistent/frame.png"], "output_dir": "/tmp/out"},
+        headers=AUTH_HEADER,
+    )
+    assert resp.status_code == 400
+
+
+def test_atomic_imwrite_keeps_the_target_extension(tmp_path):
+    """OpenCV picks its encoder off the final extension, so the temp file keeps it."""
+    import numpy as np
+    from service.app import _atomic_imwrite
+
+    target = tmp_path / "still_upscaled.png"
+    assert _atomic_imwrite(str(target), np.zeros((4, 4, 3), np.uint8)) is True
+    assert target.read_bytes().startswith(b"\x89PNG")
+    assert list(tmp_path.iterdir()) == [target]
+
+
+def test_atomic_imwrite_creates_missing_directories(tmp_path):
+    import numpy as np
+    from service.app import _atomic_imwrite
+
+    target = tmp_path / "nested" / "out.png"
+    assert _atomic_imwrite(str(target), np.zeros((4, 4, 3), np.uint8)) is True
+    assert target.exists()
+
