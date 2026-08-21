@@ -4,5 +4,5 @@ python-socketio>=5.10.0
 httpx>=0.28.1
 websocket-client>=1.6.0
 requests>=2.31.0
-prompt_toolkit>=3.0.0
+prompt_toolkit>=3.0.53
 tenacity>=8.0.0
