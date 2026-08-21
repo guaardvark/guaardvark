@@ -79,14 +79,45 @@ _proc_cwd() {
     printf '%s' "$cwd"
 }
 
-# ── Helper: check if a plugin is enabled in its plugin.json ──
+# ── Helper: is a plugin enabled? data/plugin_state.json (user choice) wins over
+# the manifest's default_enabled (plugin.local.json overrides plugin.json). ──
 _plugin_enabled() {
-    local plugin_json="$SCRIPT_DIR/plugins/$1/plugin.json"
-    if [ -f "$plugin_json" ] && command -v python3 >/dev/null 2>&1; then
-        python3 -c "import json; print(json.load(open('$plugin_json')).get('config',{}).get('enabled',False))" 2>/dev/null
+    if command -v python3 >/dev/null 2>&1; then
+        python3 - "$SCRIPT_DIR" "$1" <<'PY' 2>/dev/null || echo "False"
+import json, sys
+root, pid = sys.argv[1], sys.argv[2]
+try:
+    state = json.load(open(f"{root}/data/plugin_state.json")).get("user_enabled", {})
+    if pid in state:
+        print(bool(state[pid])); sys.exit(0)
+except Exception:
+    pass
+for name in ("plugin.local.json", "plugin.json"):
+    try:
+        cfg = json.load(open(f"{root}/plugins/{pid}/{name}")).get("config", {})
+        if "default_enabled" in cfg:
+            print(bool(cfg["default_enabled"])); sys.exit(0)
+    except Exception:
+        continue
+print(False)
+PY
     else
         echo "False"
     fi
+}
+
+# ── Helper: a plugin's port from plugin.local.json / plugin.json ──
+_plugin_port() {
+    python3 - "$SCRIPT_DIR" "$1" "$2" <<'PY' 2>/dev/null || echo "$2"
+import json, sys
+root, pid, fallback = sys.argv[1], sys.argv[2], sys.argv[3]
+for name in ("plugin.local.json", "plugin.json"):
+    try:
+        print(int(json.load(open(f"{root}/plugins/{pid}/{name}"))["port"])); sys.exit(0)
+    except Exception:
+        continue
+print(fallback)
+PY
 }
 
 # ── Helper: check if a plugin is actually running (PID file + process alive) ──
@@ -119,6 +150,8 @@ comfyui_running=false
 _plugin_running "comfyui" && comfyui_running=true
 
 comfyui_stopped=false
+
+COMFYUI_PORT=$(_plugin_port comfyui 8188)
 
 if [ "$comfyui_enabled" = "False" ] && [ "$comfyui_running" = false ]; then
     vader_info "ComfyUI: not enabled, skipping."
@@ -153,28 +186,28 @@ else
         rm -f "$PIDS_DIR/comfyui.pid"
     fi
 
-    # 3. Kill any remaining process on port 8188 (ComfyUI default)
-    if command -v lsof >/dev/null 2>&1; then
-        port_8188_pids=$(lsof -i TCP:8188 -sTCP:LISTEN -t 2>/dev/null)
-        if [ -n "$port_8188_pids" ]; then
-            for pid in $port_8188_pids; do
-                vader_info "Killing orphaned ComfyUI process on port 8188 (PID: $pid)..."
-                kill -TERM "$pid" 2>/dev/null
-                sleep 1
-                if kill -0 "$pid" 2>/dev/null; then
-                    kill -KILL "$pid" 2>/dev/null
-                fi
-                comfyui_stopped=true
-            done
-        fi
-    fi
-
 if [ "$comfyui_stopped" = true ]; then
     vader_success "ComfyUI shutdown complete."
 else
     vader_info "ComfyUI was not running."
 fi
 fi  # end comfyui_enabled/running check
+
+# 3. Orphaned listener on the ComfyUI port — always swept, because a router
+#    direct-launch or a crashed plugin leaves no PID file.
+if command -v lsof >/dev/null 2>&1; then
+    port_pids=$(lsof -i TCP:"$COMFYUI_PORT" -sTCP:LISTEN -t 2>/dev/null)
+    if [ -n "$port_pids" ]; then
+        for pid in $port_pids; do
+            vader_info "Killing orphaned ComfyUI process on port $COMFYUI_PORT (PID: $pid)..."
+            kill -TERM "$pid" 2>/dev/null
+            sleep 1
+            if kill -0 "$pid" 2>/dev/null; then
+                kill -KILL "$pid" 2>/dev/null
+            fi
+        done
+    fi
+fi
 
 # ── Stop Ollama (PID file → user processes → systemd → port cleanup) ──
 vader_info "Stopping Ollama..."
@@ -287,8 +320,8 @@ kill_and_cleanup "frontend"
 kill_and_cleanup "celery"
 
 # Clear Python bytecode cache so stale .pyc files never load old code
-find "$SCRIPT_DIR/backend" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null
-find "$SCRIPT_DIR/backend" -name "*.pyc" -delete 2>/dev/null
+find "$SCRIPT_DIR/backend" -path "*/venv" -prune -o -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null
+find "$SCRIPT_DIR/backend" -path "*/venv" -prune -o -name "*.pyc" -type f -exec rm -f {} + 2>/dev/null
 
 vader_info "Cleaning up any remaining processes from this environment..."
 
