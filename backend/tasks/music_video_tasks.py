@@ -13,6 +13,7 @@ crash-resumes per-clip, and lets other queued work interleave between clips.
 """
 import logging
 import os
+import time
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -37,6 +38,8 @@ PLUGIN_URL = "http://127.0.0.1:8207"   # video_editor plugin (analyze + assemble
 # tail-call hits "GPU cooling down" immediately. Also the retry delay for transient
 # GPU-busy / plugin-cooldown conditions.
 GPU_COOLDOWN_RETRY_S = 12
+# Longest a single clip may keep deferring on GPU-busy / plugin-unavailable before the stage fails.
+CLIP_DEFER_MAX_S = int(os.environ.get("GUAARDVARK_MV_CLIP_DEFER_MAX_S", str(3 * 3600)))
 
 
 def _settings(mv: MusicVideo) -> dict:
@@ -515,7 +518,13 @@ def run_analyzer(mv_id: int):
             sp = shot_plans.get(idx, {})
             # Prefer the unique visual prompt from the detailed shot plan (produced by the Director from the treatment)
             # over the flat prompts list. This ensures we get the per-cut variation the model was instructed to create.
+            # The Director is told the caller appends the global style, so do it here; the flat
+            # `prompts` list already carries it from _ensure_distinct_and_energy_aware.
             shot_prompt = sp.get("prompt") or (prompts[idx] if idx < len(prompts) else mv.style_prompt)
+            if sp.get("prompt") and mv.style_prompt:
+                style_suffix = f", {mv.style_prompt}" if not mv.style_prompt.startswith(",") else mv.style_prompt
+                if not shot_prompt.rstrip().endswith(style_suffix.strip()):
+                    shot_prompt = f"{shot_prompt.rstrip().rstrip(',')}{style_suffix}"
             clip = {
                 "index": idx,
                 "start": c["start_s"],
@@ -576,8 +585,21 @@ def run_clip_generator(mv_id: int):
         _generate_one_clip(mv, target)
     except (GpuBusyError, PluginUnavailable) as e:
         # TRANSIENT — the GPU gate is cooling down / busy, or the plugin is still
-        # coming up. Do NOT fail the stage; re-dispatch this same clip after the
-        # cooldown clears. The clip is still pending, so we resume exactly here.
+        # coming up. Re-dispatch this same clip after the cooldown clears, but
+        # only for so long: a disabled plugin or a model that never fits would
+        # otherwise re-dispatch every 12 s forever.
+        since = float(target.get("deferred_since") or 0) or time.time()
+        if time.time() - since > CLIP_DEFER_MAX_S:
+            log.error("music_video %s clip %s could not start within %ss: %s",
+                      mv_id, target.get("index"), CLIP_DEFER_MAX_S, e)
+            MusicVideoService(db.session).fail_stage(
+                mv_id, stage="generating",
+                error=f"clip {target.get('index')} waited {int(CLIP_DEFER_MAX_S // 60)} min for the GPU/plugin: {e}",
+            )
+            return
+        target["deferred_since"] = since
+        mv.clips = clips
+        db.session.commit()
         log.info("music_video %s clip %s deferred (transient): %s", mv_id, target.get("index"), e)
         celery.send_task("music_video.run_clip_generator", args=[mv_id], countdown=GPU_COOLDOWN_RETRY_S)
         return

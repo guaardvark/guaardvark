@@ -232,6 +232,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         "cogvideox-5b-i2v": 16,
         "wan22-14b": 16,
         "wan22-14b-i2v": 16,
+        "wan22-5b": 11,
         "ltx23-distilled-fp8": 16,
         "ltx25-distilled-int8": 16,
     }
@@ -445,7 +446,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         need_mb = need * 1024
         if need and total_mb + 512 < need_mb:  # ~0.5 GB grace
             return (
-                f"{model} needs ~{need}g GB VRAM; detected {total_gb:.2f}g GB "
+                f"{model} needs ~{need} GB VRAM; detected {total_gb:.2f} GB "
                 f"({total_mb} MB total). "
                 "Try a lighter model or preview resolution."
             )

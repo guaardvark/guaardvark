@@ -284,6 +284,7 @@ def _parse_generation_params(data: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict
     # Default image parameters — family-aware (stills_defaults), not SD-era 512/20/7.5
     from backend.services.stills_defaults import resolve_stills_defaults
     params['style'] = data.get('style', 'realistic')
+    params['negative_prompt'] = str(data.get('negative_prompt') or '').strip()
     _raw_w = data.get('width', None)
     _raw_h = data.get('height', None)
     _raw_steps = data.get('steps', None)
@@ -305,8 +306,10 @@ def _parse_generation_params(data: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict
     # Guidance scale - will be validated by SettingsValidator
     guidance = float(_resolved['guidance'])
 
-    # Use SettingsValidator for comprehensive validation
-    if service_available and settings_validator_available and get_settings_validator:
+    # Use SettingsValidator for comprehensive validation. 'auto' is resolved to a
+    # concrete model by the generator's router, so validating it here would apply
+    # the validator's unknown-model (SD 1.5) rules to a Z-Image/FLUX render.
+    if service_available and settings_validator_available and get_settings_validator and params['model'] != 'auto':
         try:
             validator = get_settings_validator()
             validation_result = validator.validate_settings(
