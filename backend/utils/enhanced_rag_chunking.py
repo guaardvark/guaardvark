@@ -155,7 +155,7 @@ class BaseChunker(ABC):
         entities.extend(emails)
         
         # Extract URLs
-        urls = re.findall(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', text)
+        urls = re.findall(r'https?://[A-Za-z0-9$\-_@.&+!*(),%/?=:#~;]+', text)
         entities.extend(urls)
         
         # Extract phone numbers

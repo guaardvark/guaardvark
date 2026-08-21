@@ -1,4 +1,5 @@
 import React from 'react';
+import { stripHtmlTags } from '../../utils/inputValidation';
 import {
   Alert,
   AlertTitle,
@@ -68,20 +69,8 @@ export const ErrorDisplay = ({
   const sanitizeErrorMessage = (message) => {
     if (typeof message !== 'string') return 'An error occurred';
     
-    // Remove HTML tags and potentially dangerous characters
-    return message
-      .replace(/<[^>]*>/g, '') // Remove HTML tags
-      .replace(/[<>'"&]/g, (char) => { // Escape dangerous characters
-        const escapeMap = {
-          '<': '&lt;',
-          '>': '&gt;',
-          '"': '&quot;',
-          "'": '&#x27;',
-          '&': '&amp;'
-        };
-        return escapeMap[char];
-      })
-      .trim();
+    // Strip markup but keep its text; React escapes the result when rendering.
+    return stripHtmlTags(message).trim();
   };
 
   // Format error for user display

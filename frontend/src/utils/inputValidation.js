@@ -40,14 +40,14 @@ const PATTERNS = {
   FILE_EXTENSION: /^\.[a-zA-Z0-9]+$/,
 
   // Security patterns (things to watch for)
-  SUSPICIOUS_SCRIPT: /<script[\s\S]*?>[\s\S]*?<\/script>/gi,
+  SUSPICIOUS_SCRIPT: /<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi,
   SUSPICIOUS_EVAL: /\b(eval|setTimeout|setInterval|Function|document\.write)\s*\(/gi,
   SUSPICIOUS_URL: /javascript:|data:|vbscript:|file:|about:/gi,
   SQL_INJECTION: /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|UNION)\b)/gi,
 
   // XSS patterns
   XSS_PATTERNS: [
-    /<script[\s\S]*?>[\s\S]*?<\/script>/gi,
+    /<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi,
     /javascript:/gi,
     /on\w+\s*=/gi,
     /<iframe[\s\S]*?>/gi,
@@ -67,6 +67,23 @@ export class ValidationError extends Error {
 }
 
 // Input sanitization functions
+/**
+ * Remove HTML tags from a string, keeping the text between them.
+ * Re-applies the strip until the string stops changing so nested or
+ * split-up tags (e.g. `<<script>script>`) cannot survive a single pass.
+ * @param {string} value
+ * @returns {string}
+ */
+export const stripHtmlTags = (value) => {
+  let current = String(value ?? "");
+  let previous;
+  do {
+    previous = current;
+    current = current.replace(/<[^>]*>/g, "");
+  } while (current !== previous);
+  return current;
+};
+
 export const sanitizeText = (input, options = {}) => {
   if (typeof input !== 'string') {
     throw new ValidationError('Input must be a string', 'input', 'INVALID_TYPE');
@@ -92,8 +109,7 @@ export const sanitizeText = (input, options = {}) => {
 
   // Basic sanitization
   if (stripHtml && !allowHtml) {
-    // Remove HTML tags but preserve content
-    sanitized = sanitized.replace(/<[^>]*>/g, '');
+    sanitized = stripHtmlTags(sanitized);
   } else if (allowHtml) {
     // Sanitize HTML using DOMPurify
     sanitized = DOMPurify.sanitize(sanitized, {
@@ -254,12 +270,20 @@ export const validateId = (id, type = 'ID') => {
 };
 
 // Security check functions
+
+// The patterns carry the g flag, so RegExp#test would resume from lastIndex
+// on the next call; reset it so every check starts at the beginning.
+const matches = (pattern, input) => {
+  pattern.lastIndex = 0;
+  return pattern.test(input);
+};
+
 export const detectXSS = (input) => {
   if (typeof input !== 'string') {
     return false;
   }
 
-  return PATTERNS.XSS_PATTERNS.some(pattern => pattern.test(input));
+  return PATTERNS.XSS_PATTERNS.some((pattern) => matches(pattern, input));
 };
 
 export const detectSQLInjection = (input) => {
@@ -267,7 +291,7 @@ export const detectSQLInjection = (input) => {
     return false;
   }
 
-  return PATTERNS.SQL_INJECTION.test(input);
+  return matches(PATTERNS.SQL_INJECTION, input);
 };
 
 export const detectSuspiciousCode = (input) => {
@@ -276,9 +300,9 @@ export const detectSuspiciousCode = (input) => {
   }
 
   return (
-    PATTERNS.SUSPICIOUS_SCRIPT.test(input) ||
-    PATTERNS.SUSPICIOUS_EVAL.test(input) ||
-    PATTERNS.SUSPICIOUS_URL.test(input)
+    matches(PATTERNS.SUSPICIOUS_SCRIPT, input) ||
+    matches(PATTERNS.SUSPICIOUS_EVAL, input) ||
+    matches(PATTERNS.SUSPICIOUS_URL, input)
   );
 };
 

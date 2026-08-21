@@ -534,7 +534,16 @@ def post_comment_via_servo(permalink: str, comment_text: str) -> tuple[bool, str
     from backend.utils.agent_display_utils import start_agent_display_if_needed
 
     # www.reddit.com — modern UI; vision model finds the comment box visually.
-    target_url = permalink if permalink.startswith("https://www.reddit.com") else permalink.replace("https://reddit.com", "https://www.reddit.com").replace("https://old.reddit.com", "https://www.reddit.com")
+    from urllib.parse import urlparse, urlunparse
+
+    from backend.utils.hosts import host_matches
+
+    _parsed = urlparse(permalink)
+    target_url = (
+        urlunparse(_parsed._replace(scheme="https", netloc="www.reddit.com"))
+        if host_matches(_parsed.hostname, "reddit.com")
+        else permalink
+    )
 
     service = get_agent_control_service()
     if service.is_active:
