@@ -20,6 +20,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 
+from backend.utils.hosts import host_matches
+
 logger = logging.getLogger(__name__)
 
 CDP_PORT = 9222
@@ -490,13 +492,13 @@ class DOMMetadataExtractor:
             host = (urlparse(url).hostname or "").lower()
         except Exception:
             return None
-        if "reddit.com" in host:
+        if host_matches(host, "reddit.com"):
             return "reddit"
-        if "discord.com" in host or "discord.gg" in host:
+        if host_matches(host, "discord.com", "discord.gg"):
             return "discord"
-        if "facebook.com" in host or "fb.com" in host:
+        if host_matches(host, "facebook.com", "fb.com"):
             return "facebook"
-        if "twitter.com" in host or "x.com" in host:
+        if host_matches(host, "twitter.com", "x.com"):
             return "twitter"
         return None
 

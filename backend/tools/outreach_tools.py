@@ -227,7 +227,8 @@ class OutreachDraftPostTool(BaseTool):
                         _host = (urlparse(target_url or "").hostname or "").lower()
                     except Exception:
                         _host = ""
-                    if _host.endswith("reddit.com") or _host == "reddit.com":
+                    from backend.utils.hosts import host_matches, url_host_matches
+                    if host_matches(_host, "reddit.com"):
                         scouted = _scout_reddit_url(target_url)
                     if scouted is None:
                         result = _scout_generic_url(target_url)
@@ -242,7 +243,7 @@ class OutreachDraftPostTool(BaseTool):
                     target_thread_id = scouted.get("target_thread_id")
                     # YouTube target_thread_id = video id from ?v= or /shorts/.
                     # Useful for dedupe so we don't draft on the same video twice.
-                    if not target_thread_id and "youtube.com" in (target_url or ""):
+                    if not target_thread_id and url_host_matches(target_url, "youtube.com"):
                         import re
                         m = re.search(r"[?&]v=([\w-]{6,})", target_url)
                         if m:

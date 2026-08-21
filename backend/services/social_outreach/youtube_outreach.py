@@ -45,10 +45,16 @@ def _normalize_youtube_url(target_url: str) -> Optional[str]:
     """Coerce youtu.be / mobile / share URLs to canonical youtube.com/watch?v=.
     Returns None if the URL isn't a YouTube watch URL at all.
     """
-    if "youtu.be/" in target_url:
-        vid = target_url.split("youtu.be/")[-1].split("?")[0].split("&")[0]
-        return f"https://www.youtube.com/watch?v={vid}"
-    if "youtube.com" in target_url:
+    from urllib.parse import urlparse
+
+    from backend.utils.hosts import host_matches
+
+    parsed = urlparse(target_url or "")
+    host = (parsed.hostname or "").lower()
+    if host_matches(host, "youtu.be"):
+        vid = parsed.path.strip("/").split("/")[0]
+        return f"https://www.youtube.com/watch?v={vid}" if vid else None
+    if host_matches(host, "youtube.com"):
         return target_url
     return None
 

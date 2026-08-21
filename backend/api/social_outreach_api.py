@@ -31,6 +31,7 @@ from typing import Any, Dict, Optional
 from flask import Blueprint, jsonify, request
 
 from backend.services.social_outreach import audit, kill_switch, persona
+from backend.utils.hosts import host_matches
 
 logger = logging.getLogger(__name__)
 
@@ -465,14 +466,13 @@ def fetch_meta():
 
 def _suggest_platform_from_host(host: str) -> Optional[str]:
     """Map a hostname to one of the queue's known platform slugs."""
-    host = (host or "").lower()
-    if "reddit.com" in host:
+    if host_matches(host, "reddit.com"):
         return "reddit"
-    if "discord.com" in host or "discord.gg" in host:
+    if host_matches(host, "discord.com", "discord.gg"):
         return "discord"
-    if "facebook.com" in host or "fb.com" in host:
+    if host_matches(host, "facebook.com", "fb.com"):
         return "facebook"
-    if "twitter.com" in host or "x.com" in host:
+    if host_matches(host, "twitter.com", "x.com"):
         return "twitter"
     return None
 
