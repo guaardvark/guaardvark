@@ -35,7 +35,7 @@
     "react-router": "^7.18.0",
     "react-router-dom": "^7.18.0",
     "react-syntax-highlighter": "^16.1.1",
-    "react-virtuoso": "^4.18.1",
+    "react-virtuoso": "^4.18.12",
     "reactflow": "^11.11.4",
     "socket.io-client": "^4.8.1",
     "zod": "^4.1.11",
