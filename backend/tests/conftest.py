@@ -1,3 +1,4 @@
+import pytest
 import os
 import sys
 
@@ -91,3 +92,25 @@ def pytest_sessionfinish(session, exitstatus):
     with open(summary, "a", encoding="utf-8") as f:
         sym = "\u2713" if exitstatus == 0 else "\u2717"
         f.write(f"{_timestamp} {sym} exit={exitstatus}\n")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _isolate_gpu_lock_file(tmp_path_factory):
+    """Keep the test session off the production GPU lock file.
+
+    The cross-process lease lives in pids/gpu_lock.json; a test that acquires
+    it would block (or be blocked by) a render running in a real backend on
+    the same checkout. Point the singleton at a private file for the session.
+    """
+    try:
+        from backend.services.gpu_resource_coordinator import get_gpu_coordinator
+    except Exception:
+        yield
+        return
+    coord = get_gpu_coordinator()
+    original = coord.LOCK_FILE
+    coord.LOCK_FILE = tmp_path_factory.mktemp("pids") / "gpu_lock.json"
+    try:
+        yield
+    finally:
+        coord.LOCK_FILE = original
