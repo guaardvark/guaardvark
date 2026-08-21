@@ -205,9 +205,10 @@ class GlobalLoadGate:
         ram_floor = effective_ram_hard_min_gb()
         if eff_ram - weight.ram_gb < ram_floor:
             return (
-                f"RAM too low: {eff_ram:.1f} GB available "
+                f"system RAM too low (not VRAM): {eff_ram:.1f} GB available "
                 f"(reserved {reading.reserved_ram_gb:.1f} GB), "
-                f"need {weight.ram_gb:.1f} GB + {ram_floor:.1f} GB floor"
+                f"need {weight.ram_gb:.1f} GB + {ram_floor:.1f} GB floor. "
+                "Swap does not count; pick a lighter model or add system RAM"
             )
         if reading.swap_used_gb > SWAP_HARD_MAX_GB:
             return f"swap in use: {reading.swap_used_gb:.1f} GB > {SWAP_HARD_MAX_GB:.0f} GB"

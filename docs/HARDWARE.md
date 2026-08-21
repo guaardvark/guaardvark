@@ -127,6 +127,13 @@ behavior, not a bug. Your desktop compositor also permanently holds
   calibrated figures range from ~10 GB (SDXL) to ~21–24 GB (Z-Image / Krea2)
   of resident memory per job. 32 GB of system RAM is a sensible floor for the
   generation stack; 64 GB is comfortable.
+- **Big GPU, small RAM (cloud shapes):** the system-RAM gate applies no matter
+  how large the card is. Z-Image and Krea2 always run with CPU offload, so
+  their weights live in system RAM between stages even on a 24 GB GPU. A
+  16 GB-RAM VM such as Google Cloud's `g2-standard-4` (one 24 GB L4) will
+  refuse them with `system RAM too low (not VRAM)`; the 32 GB `g2-standard-8`
+  admits them. On 16 GB of RAM, pick SDXL or SD 1.5 explicitly — Auto resolves
+  to Z-Image. Swap does not count toward the gate.
 - **Swap:** ≥ 16 GB swap with low swappiness is recommended so a spike
   degrades instead of freezing the desktop — setup commands are in
   [INSTALL.md](../INSTALL.md).
