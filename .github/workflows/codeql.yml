@@ -26,16 +26,7 @@ jobs:
       - uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
-          # The repo vendors heavy runtime state; scanning it would drown the
-          # analysis in third-party and generated code.
-          config: |
-            paths-ignore:
-              - "**/venv"
-              - "**/node_modules"
-              - frontend/dist
-              - data
-              - backups
-              - logs
+          config-file: ./.github/codeql/codeql-config.yml
       - uses: github/codeql-action/analyze@v3
         with:
           category: "/language:${{ matrix.language }}"

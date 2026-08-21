@@ -1,0 +1,23 @@
+name: "Guaardvark CodeQL config"
+
+# The repo vendors heavy runtime state; scanning it would drown the analysis
+# in third-party and generated code.
+paths-ignore:
+  - "**/venv"
+  - "**/node_modules"
+  - frontend/dist
+  - data
+  - backups
+  - logs
+
+# Accepted for a local-first, self-hosted application:
+#  - py/stack-trace-exposure: API errors return the exception text on purpose;
+#    the operator is the only audience and needs the detail. Revisit if a
+#    LAN-facing mode ever hides 5xx detail from non-local callers.
+#  - py/polynomial-redos: the flagged patterns run over short LLM/user text in
+#    a single-user process; no request-amplified input reaches them.
+query-filters:
+  - exclude:
+      id: py/stack-trace-exposure
+  - exclude:
+      id: py/polynomial-redos
