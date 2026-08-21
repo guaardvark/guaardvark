@@ -113,7 +113,11 @@ class VideoGenerationRouter:
         if self._backend_pref == "auto":
             gen = self._get_offline()
             if gen:
-                logger.info("ComfyUI unavailable, falling back to Offline Diffusers backend")
+                logger.error(
+                    "ComfyUI unavailable after start attempt — falling back to the in-process "
+                    "Offline Diffusers backend (slower, runs inside the API process). "
+                    "Check logs/comfyui.log; set GUAARDVARK_VIDEO_BACKEND=comfyui to refuse instead."
+                )
                 return gen
 
         raise RuntimeError(
@@ -189,17 +193,35 @@ class VideoGenerationRouter:
         return self._start_comfyui_direct(comfyui_dir)
 
     def _start_comfyui_via_plugin(self, start_script: Path) -> bool:
-        """Start ComfyUI using the plugin's start.sh script."""
+        """Start ComfyUI using the plugin's start.sh script.
+
+        The script provisions dependencies before it launches ComfyUI, so it
+        can legitimately run for minutes on a fresh install. It is never
+        killed on timeout: a killed launcher leaves half-installed pip state
+        in the shared venv. The budget only bounds how long this call waits.
+        """
         logger.info(f"Starting ComfyUI via plugin script: {start_script}")
+        budget_s = int(os.environ.get("GUAARDVARK_COMFYUI_START_TIMEOUT_S", "180"))
         try:
-            result = subprocess.run(
+            proc = subprocess.Popen(
                 ["bash", str(start_script)],
-                capture_output=True, text=True, timeout=10,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                start_new_session=True,
             )
-            if result.returncode != 0:
-                logger.error(f"Plugin start script failed (rc={result.returncode}): {result.stderr}")
+            deadline = time.time() + budget_s
+            while proc.poll() is None and time.time() < deadline:
+                time.sleep(1)
+            if proc.poll() is None:
+                logger.error(
+                    f"Plugin start script still running after {budget_s}s "
+                    "(dependency provisioning?); leaving it to finish, not starting a render"
+                )
                 return False
-            logger.info(f"Plugin start script output: {result.stdout.strip()}")
+            stdout, stderr = proc.communicate()
+            if proc.returncode != 0:
+                logger.error(f"Plugin start script failed (rc={proc.returncode}): {stderr.strip()}")
+                return False
+            logger.info(f"Plugin start script output: {stdout.strip()}")
 
             # Read PID from the file the script wrote
             if self._pid_file.exists():
