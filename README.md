@@ -32,7 +32,11 @@ See [Quick Start](#quick-start) for details and manual install options.
      bladevark: 158c431c-0ff8-4b25-a1b2-b5fbebdc81d4
      batvark:   b8f28582-6c1d-45b8-862e-9206a28cf103 -->
 
+<div align="center">
+
 https://github.com/user-attachments/assets/158c431c-0ff8-4b25-a1b2-b5fbebdc81d4
+
+</div>
 
 <p align="center"><em>Made end-to-end by Guaardvark — written, storyboarded, rendered, and cut on one desktop GPU.</em></p>
 
