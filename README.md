@@ -597,7 +597,7 @@ git clone https://github.com/guaardvark/guaardvark.git && cd guaardvark
 ```
 
 Web UI → http://localhost:5173 · API → http://localhost:5000  
-Details: [INSTALL.md](INSTALL.md) · full feature list: [CAPABILITIES.md](CAPABILITIES.md)
+Details: [INSTALL.md](INSTALL.md) · [agent mental model](docs/AGENT_MENTAL_MODEL.md) · full feature list: [CAPABILITIES.md](CAPABILITIES.md)
 
 ### 3. Pick a good first issue
 
