@@ -331,10 +331,10 @@ def finetune_model_task(self, job_id: str, config: dict, resume: bool = False):
         # point too WITHOUT a double-claim/double-release. On contention,
         # GpuBusyError propagates to the except-block below (marks job failed,
         # re-raises) rather than double-loading the GPU.
-        from backend.services.job_operation_gate import get_gate
+        from backend.services.gpu_resource_policy import gpu_session
         from backend.services.job_types import JobKind
-        _gate = get_gate()
-        with _gate.gpu_exclusive(JobKind.TRAINING, str(job_id)):
+        with gpu_session(JobKind.TRAINING, str(job_id), cross_process=True,
+                         lease_seconds=4 * 3600):
             if images_path:
                  _emit_progress(job_id, 8, f"Detected vision task. Using vision trainer with images from {images_path}", "processing")
                  from finetune_vision import finetune

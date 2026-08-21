@@ -387,10 +387,26 @@ class VideoGenerationRouter:
             self._idle_timer.cancel()
             self._idle_timer = None
 
+    def _comfyui_queue_busy(self) -> bool:
+        """True when ComfyUI reports running or pending prompts from any client."""
+        try:
+            import requests
+            data = requests.get(f"{COMFYUI_URL}/queue", timeout=5).json()
+            return bool(data.get("queue_running") or data.get("queue_pending"))
+        except Exception:
+            return False
+
     def _idle_shutdown(self):
-        """Called by timer — stop ComfyUI if still idle and no active generations."""
-        if self.is_generating:
-            logger.info("ComfyUI idle timeout fired but generation is active, rescheduling...")
+        """Called by timer — stop ComfyUI if still idle and no active generations.
+
+        Only a ComfyUI this router launched itself is eligible: the plugin
+        manager owns the lifecycle otherwise, and Celery, the stills pipeline
+        or a sibling install may be mid-render through the same server.
+        """
+        if self._comfyui_process is None:
+            return
+        if self.is_generating or self._comfyui_queue_busy():
+            logger.info("ComfyUI idle timeout fired but work is in flight, rescheduling...")
             self._schedule_idle_shutdown()
             return
         if self._check_comfyui():

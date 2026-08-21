@@ -402,6 +402,20 @@ class GPUMemoryOrchestrator:
                 slot.last_used = time.time()
                 logger.debug(f"Model {slot_id} released (still in VRAM, eviction timer started)")
 
+    def drop_booking(self, slot_id: str) -> bool:
+        """Forget a session booking without touching any model.
+
+        Session slots (video_render:*, image_batch:*) account for VRAM a caller
+        holds; once the caller's gpu_session exits the booking is stale, but the
+        weights behind it belong to whichever generator owns them.
+        """
+        with self._lock:
+            slot = self._registry.pop(slot_id, None)
+            if slot is None:
+                return False
+            slot.state = SlotState.UNLOADED
+            return True
+
     def force_evict(self, slot_id: str) -> bool:
         """Force-evict a specific model from GPU."""
         with self._lock:

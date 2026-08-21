@@ -195,7 +195,8 @@ class PipelineService:
         if self.gate is None:
             return fn(*args, **kwargs)
         from backend.services.job_types import JobKind
+        from backend.services.gpu_resource_policy import gpu_session
         if kind is None:
             kind = JobKind.VIDEO_RENDER
-        with self.gate.gpu_exclusive(kind, op_id):
+        with gpu_session(kind, op_id, cross_process=True):
             return fn(*args, **kwargs)
