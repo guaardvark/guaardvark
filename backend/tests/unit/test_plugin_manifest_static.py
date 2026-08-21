@@ -94,20 +94,27 @@ def test_registry_update_config_does_not_mutate_plugin_json_for_enabled(tmp_path
     assert before == after
 
 
-def test_registry_update_config_allows_non_runtime_fields(tmp_path):
-    """Static manifest fields like timeout are still editable via the registry.
-    They are not per-machine state, so changing them in plugin.json is fine."""
+def test_registry_update_config_writes_overlay_not_manifest(tmp_path):
+    """Config edits are per-machine and go to data/plugin_config.json.
+
+    plugin.json is tracked in git and forked into customer projects, so a
+    setting written there shows up as a repo diff and leaks one machine's
+    setup into every checkout.
+    """
     plugins_dir = tmp_path / "plugins"
     plugin_dir = plugins_dir / "demo"
     _write_manifest(plugin_dir, "demo", enabled=False)
+
+    json_path = plugin_dir / "plugin.json"
+    manifest_before = json_path.read_text()
 
     registry = PluginRegistry(plugins_dir=plugins_dir)
     result = registry.update_plugin_config("demo", {"timeout": 90})
     assert result is True
 
-    json_path = plugin_dir / "plugin.json"
-    data = json.loads(json_path.read_text())
-    assert data["config"]["timeout"] == 90
+    assert registry.get_plugin("demo").config.timeout == 90
+    assert registry.config_store.get("demo")["timeout"] == 90
+    assert json_path.read_text() == manifest_before
 
 
 from backend.plugins.plugin_base import PluginConfig

@@ -71,7 +71,13 @@ class PluginConfig:
             'timeout': self.timeout,
             'fallback_enabled': self.fallback_enabled,
         }
-        result.update(self.extra)
+        # `extra` must not shadow the canonical fields. Anything that landed in
+        # extra under one of these names is stale (it got there by being posted
+        # back from the UI, which sends the whole config object), and letting it
+        # win would freeze default_enabled at whatever was last submitted.
+        for key, value in self.extra.items():
+            if key not in result:
+                result[key] = value
         return result
 
 
