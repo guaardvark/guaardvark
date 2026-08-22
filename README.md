@@ -1,6 +1,12 @@
 <p align="center">
-  <img src="docs/screenshots/og-image.jpg" alt="Guaardvark — Secure Offline AI Platform" width="480">
+  <img src="docs/media/guaardvark-banner.png" alt="Guaardvark AI System — www.guaardvark.com" width="480">
 </p>
+
+<!-- hero-video rotation: swap the bare user-attachments URL below.
+     Asset registry: https://github.com/guaardvark/guaardvark/issues/64
+     batman:    c6d9d18b-cfff-4ae2-8220-dc7f329fee5d
+     bladevark: 158c431c-0ff8-4b25-a1b2-b5fbebdc81d4
+     batvark:   b8f28582-6c1d-45b8-862e-9206a28cf103 -->
 
 <div align="center">
 
@@ -32,24 +38,6 @@ curl -fsSL https://guaardvark.com/install.sh | bash
 See [Quick Start](#quick-start) for details and manual install options.
 
 > **For the exhaustive feature list, models, surfaces, and plugin details, see [CAPABILITIES.md](CAPABILITIES.md).** This README focuses on the marquee experience, quick start, and what makes Guaardvark different.
-
-## ▶ Watch it work
-
-<!-- hero-video rotation: swap the bare user-attachments URL below.
-     Asset registry: https://github.com/guaardvark/guaardvark/issues/64
-     bladevark: 158c431c-0ff8-4b25-a1b2-b5fbebdc81d4
-     batvark:   b8f28582-6c1d-45b8-862e-9206a28cf103
-     batman (top-of-page hero, 1080x1080, 86s): c6d9d18b-cfff-4ae2-8220-dc7f329fee5d -->
-
-<div align="center">
-
-https://github.com/user-attachments/assets/158c431c-0ff8-4b25-a1b2-b5fbebdc81d4
-
-</div>
-
-<p align="center"><em>Made end-to-end by Guaardvark — written, storyboarded, rendered, and cut on one desktop GPU.</em></p>
-
-**The video is the demo. The platform is the product** — video generation is one subsystem of about a dozen.
 
 ## What's in the box
 
