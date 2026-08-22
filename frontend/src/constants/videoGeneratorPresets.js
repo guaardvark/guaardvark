@@ -91,8 +91,8 @@ export const DEFAULT_KEYFRAME_MODEL = "flux-schnell";
 
 /** Wan 2.2 5B sampling profiles (backend WAN5B_SAMPLER_PROFILES). */
 export const WAN5B_SAMPLER_PROFILES = {
-  adaptive: { label: "Guaardvark — euler, adaptive shift", description: "Shift scales with resolution (8 at 1280×704, lower below)" },
-  official: { label: "Official — uni_pc, shift 8", description: "ComfyUI's bundled Wan 2.2 5B template settings" },
+  official: { label: "Official — uni_pc, shift 8 (default)", description: "ComfyUI's bundled Wan 2.2 5B template settings" },
+  adaptive: { label: "Guaardvark — euler, adaptive shift", description: "Experimental: shift scales with resolution, floors at 3 below ~740px" },
 };
 
 export const MODEL_DEFAULT_GUIDANCE = { wan: 5.0, cogvideox: 6.0, ltx: 1.0, hunyuan: 6.0 };
@@ -131,7 +131,7 @@ export const MODEL_OPTIONS = {
     description: "Fast 5s clips, fits 16GB — no offload. Text + image to video.",
     type: "wan",
     nativeFps: 24,
-    samplerProfiles: ["adaptive", "official"],
+    samplerProfiles: ["official", "adaptive"],
     maxFrames: 121,
     resolution: [1280, 704],
     // Native 1280x704. Off-native frames — a square especially — smear and colour

@@ -184,7 +184,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     face_restore: false,
     lora_name: "",
     lora_strength: 1.0,
-    wan_sampler_profile: "adaptive",
+    wan_sampler_profile: "official",
   });
 
   // Cast picker: trained character Subjects whose LoRA locks identity into a

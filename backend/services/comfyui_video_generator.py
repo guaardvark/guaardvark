@@ -510,11 +510,15 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         "adaptive": {"sampler": "euler", "shift": None},
         "official": {"sampler": "uni_pc", "shift": 8.0},
     }
-    WAN5B_DEFAULT_SAMPLER_PROFILE = "adaptive"
+    # "official" is the ComfyUI template's own config and is what actually renders
+    # cleanly here — verified at both 1280x736 and 736x416. "adaptive" scales shift
+    # linearly with pixel area, which floors at 3.0 by 736x416 against the 8.0 the
+    # model is tuned for, and produced warping and colour bleed at every size.
+    WAN5B_DEFAULT_SAMPLER_PROFILE = "official"
 
     @classmethod
     def _wan5b_sampler_profile(cls, requested: Optional[str] = None) -> str:
-        """Resolve the Wan 5B sampling profile: request → env → "adaptive"."""
+        """Resolve the Wan 5B sampling profile: request → env → the default."""
         for candidate in (requested, os.environ.get("GUAARDVARK_WAN5B_SAMPLER")):
             key = (candidate or "").strip().lower()
             if key in cls.WAN5B_SAMPLER_PROFILES:
