@@ -1,0 +1,27 @@
+# Categories for auto-generated release notes (Releases → Generate release notes).
+# Order here is the order they appear. Dependency bumps outnumber everything else,
+# so they go last rather than burying the changes people actually care about.
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+  categories:
+    - title: 🚀 Features
+      labels: [enhancement]
+    - title: 🐛 Fixes
+      labels: [bug]
+    - title: 📚 Documentation
+      labels: [documentation]
+    - title: 🖥️ Backend
+      labels: [backend]
+    - title: 🎨 Frontend
+      labels: [frontend]
+    - title: ⌨️ CLI
+      labels: [cli]
+    - title: 🔧 Ops & CI
+      labels: [devops, github_actions]
+    # Catch-all: unlabelled PRs land here rather than vanishing.
+    - title: Other changes
+      labels: ["*"]
+    - title: 📦 Dependencies
+      labels: [dependencies]
