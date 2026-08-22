@@ -13,6 +13,11 @@ Usage:
     capture.stop()            # Clean up
 """
 
+# Annotations stay strings so `Image.Image` in a signature never has to resolve
+# at import time — dbus/gi are system packages a venv usually cannot see, and
+# without this the guarded import below fails to keep the module importable.
+from __future__ import annotations
+
 import logging
 import threading
 import time
