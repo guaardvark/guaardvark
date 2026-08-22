@@ -3,10 +3,12 @@
 </p>
 
 <p align="center">
-  <video src="https://github.com/guaardvark/guaardvark/raw/main/docs/media/guaardvark-batman-demo.mp4" controls muted playsinline width="640"></video>
+  <a href="https://github.com/guaardvark/guaardvark/blob/main/docs/media/guaardvark-batman-demo.mp4">
+    <img src="docs/media/guaardvark-batman-poster.jpg" alt="Watch: 86 seconds written, shot, scored and cut by Guaardvark on one desktop GPU" width="420">
+  </a>
 </p>
 
-<p align="center"><em>Written, shot, scored and cut by Guaardvark on one desktop GPU — no cloud, no stock footage, no API keys.</em></p>
+<p align="center"><em>▶ Written, shot, scored and cut by Guaardvark on one desktop GPU — no cloud, no stock footage, no API keys.</em></p>
 
 # Guaardvark
 
