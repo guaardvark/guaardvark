@@ -41,6 +41,8 @@ import useBatchVideo from "../hooks/useBatchVideo";
 import {
   QUALITY_PRESETS,
   durationPresetsFor,
+  aspectRatiosFor,
+  resolveAspectRatio,
   WAN5B_SAMPLER_PROFILES,
   MOTION_PRESETS,
   OUTPUT_QUALITY_TIERS,
@@ -445,8 +447,19 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   // Duration presets follow the selected model's native fps.
   const durationPresets = useMemo(() => durationPresetsFor(model), [model]);
 
+  // A model that declares aspectRatios offers only those. Switching to one that
+  // cannot render the current selection snaps it rather than leaving a ratio on
+  // screen that the model will warp — 1:1 on Wan 5B being the case that bit.
+  const allowedAspectRatios = useMemo(() => aspectRatiosFor(model), [model]);
+  useEffect(() => {
+    setAspectRatio((current) => resolveAspectRatio(model, current));
+  }, [model]);
+
   // Calculate video dimensions from aspect ratio and size
   const videoDimensions = useMemo(() => {
+    // Resolve through the model: the snap effect settles a render later, and
+    // a restored config can name a ratio this model never supported.
+    const effectiveAspectRatio = resolveAspectRatio(model, aspectRatio);
     // CogVideoX is trained on 720x480 (3:2). Aspect-ratio math at 16:9 lands
     // on 720x405 → snaps to 720x400, which is off-spec and produces distorted
     // output every time. Pin to the model's native frame and let the user
@@ -462,11 +475,11 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     // stays pinned to the budget and its dropdown is disabled for LTX.
     if (isLtxModel(model)) {
       const [nativeW, nativeH] = MODEL_OPTIONS[model].resolution;
-      const ratioConfig = ASPECT_RATIO_PRESETS[aspectRatio] || ASPECT_RATIO_PRESETS["16:9"];
+      const ratioConfig = ASPECT_RATIO_PRESETS[effectiveAspectRatio] || ASPECT_RATIO_PRESETS["16:9"];
       return fitAreaToRatio(nativeW * nativeH, ratioConfig.ratio, model, modelMeta[model]);
     }
 
-    const ratioConfig = ASPECT_RATIO_PRESETS[aspectRatio] || ASPECT_RATIO_PRESETS["16:9"];
+    const ratioConfig = ASPECT_RATIO_PRESETS[effectiveAspectRatio] || ASPECT_RATIO_PRESETS["16:9"];
     const sizeConfig = VIDEO_SIZE_PRESETS[videoSize] || VIDEO_SIZE_PRESETS.large;
     const baseSize = sizeConfig.baseSize;
     const ratio = ratioConfig.ratio;
@@ -1987,7 +2000,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                         onChange={(e) => setAspectRatio(e.target.value)}
                         label="Aspect Ratio"
                       >
-                        {Object.entries(ASPECT_RATIO_PRESETS).map(([key, preset]) => (
+                        {Object.entries(allowedAspectRatios).map(([key, preset]) => (
                           <MenuItem key={key} value={key}>
                             <Box>
                               <Typography variant="body2">{preset.label}</Typography>

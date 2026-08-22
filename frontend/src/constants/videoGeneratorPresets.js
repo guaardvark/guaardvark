@@ -134,6 +134,9 @@ export const MODEL_OPTIONS = {
     samplerProfiles: ["adaptive", "official"],
     maxFrames: 121,
     resolution: [1280, 704],
+    // Native 1280x704. Off-native frames — a square especially — smear and colour
+    // bleed, and push _wan_dynamic_shift above the 8.0 that native is tuned for.
+    aspectRatios: ["16:9", "9:16"],
     defaultSteps: 20,
     supportsT2V: true,
     supportsI2V: true,
@@ -149,6 +152,7 @@ export const MODEL_OPTIONS = {
     nativeFps: 16,
     maxFrames: 81,
     resolution: [832, 480],
+    aspectRatios: ["16:9", "9:16"],
     defaultSteps: 25,
     supportsT2V: true,
     supportsI2V: false,
@@ -162,6 +166,7 @@ export const MODEL_OPTIONS = {
     nativeFps: 16,
     maxFrames: 81,
     resolution: [832, 480],
+    aspectRatios: ["16:9", "9:16"],
     defaultSteps: 25,
     supportsT2V: false,
     supportsI2V: true,
@@ -256,6 +261,25 @@ export const durationPresetsFor = (model) => {
     return MODEL_OPTIONS[model]?.nativeFps === 24 ? WAN_5B_DURATION_PRESETS : WAN_DURATION_PRESETS;
   }
   return COGVIDEOX_DURATION_PRESETS;
+};
+
+/** Aspect ratios a model can actually render.
+ *
+ *  A model declaring `aspectRatios` offers only those; anything else is off its
+ *  training distribution and the frame comes back warped rather than merely
+ *  cropped. Models without the key are unconstrained. */
+export const aspectRatiosFor = (model) => {
+  const allowed = MODEL_OPTIONS[model]?.aspectRatios;
+  if (!allowed?.length) return ASPECT_RATIO_PRESETS;
+  return Object.fromEntries(
+    allowed.filter((k) => ASPECT_RATIO_PRESETS[k]).map((k) => [k, ASPECT_RATIO_PRESETS[k]]),
+  );
+};
+
+/** The selected ratio if the model supports it, otherwise its first supported one. */
+export const resolveAspectRatio = (model, aspectRatio) => {
+  const allowed = aspectRatiosFor(model);
+  return allowed[aspectRatio] ? aspectRatio : Object.keys(allowed)[0];
 };
 
 export const snapDimensions = (width, height, model, registryMeta) => {
