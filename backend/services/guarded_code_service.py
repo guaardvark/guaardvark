@@ -11,9 +11,11 @@ import difflib
 import hashlib
 import logging
 import os
+import subprocess
 import threading
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -445,7 +447,11 @@ def browse_repo_path(path: str = "", repo_root: str | Path | None = None) -> dic
         child_rel = _normalized_relative(child, root)
         if forbidden_path_reason(child_rel):
             continue
-        stat = child.stat()
+        try:
+            stat = child.stat()
+        except OSError:
+            # Broken symlinks and vanished entries must not fail the listing.
+            continue
         item_id = f"repo:{child_rel}"
         if child.is_dir():
             folders.append({
@@ -484,6 +490,70 @@ def browse_repo_path(path: str = "", repo_root: str | Path | None = None) -> dic
         "total_documents": len(files),
         "has_more": False,
     }
+
+
+_ANALYSIS_CACHE: dict[str, tuple[float, dict]] = {}
+_ANALYSIS_TTL_S = 900
+
+
+def _repo_file_list(root: Path) -> list[str]:
+    """Relative paths that count as repository content.
+
+    Git's index is the authority where available — tracked files are the
+    repository, so runtime data, venvs, and caches never pollute the stats.
+    Non-git checkouts fall back to a walk under the same visibility rules
+    as browsing.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(root), "ls-files"],
+            capture_output=True, text=True, check=True, timeout=15,
+        )
+        paths = [p for p in out.stdout.splitlines()
+                 if p and not forbidden_path_reason(p)]
+        if paths:
+            return paths
+    except (OSError, subprocess.SubprocessError):
+        pass
+    paths = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        rel_dir = os.path.relpath(dirpath, root)
+        kept = []
+        for d in dirnames:
+            rel = d if rel_dir == "." else f"{rel_dir}/{d}"
+            if not forbidden_path_reason(rel):
+                kept.append(d)
+        dirnames[:] = kept
+        for f in filenames:
+            rel = f if rel_dir == "." else f"{rel_dir}/{f}"
+            if not forbidden_path_reason(rel):
+                paths.append(rel)
+    return paths
+
+
+def live_repo_analysis_summary(repo_root: str | Path | None = None) -> dict:
+    """Language/framework summary for the live repo mount.
+
+    The mount has no Folder row, so the DB-backed repository analysis can't
+    describe it; this computes the same headline fields from paths alone and
+    caches per root.
+    """
+    root = Path(repo_root).expanduser().resolve() if repo_root else default_repo_root()
+    key = str(root)
+    now = time.time()
+    cached = _ANALYSIS_CACHE.get(key)
+    if cached and now - cached[0] < _ANALYSIS_TTL_S:
+        return cached[1]
+    from backend.services.repository_analysis_service import RepositoryAnalysisService
+    paths = _repo_file_list(root)
+    summary = {
+        "languages": RepositoryAnalysisService.get_language_breakdown(paths),
+        "frameworks": RepositoryAnalysisService.detect_frameworks(paths),
+        "file_count": len(paths),
+        "analyzed_at": datetime.now(timezone.utc).isoformat(),
+    }
+    _ANALYSIS_CACHE[key] = (now, summary)
+    return summary
 
 
 def build_unified_diff(relative_path: str, old_text: str, new_text: str) -> str:

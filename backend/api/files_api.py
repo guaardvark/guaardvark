@@ -19,7 +19,12 @@ from sqlalchemy import func as sa_func
 
 from backend.config import GUAARDVARK_PROJECT_NAME
 from backend.models import Folder, Document as DBDocument, Client, Project, Website, db
-from backend.services.guarded_code_service import GuardedCodeError, browse_repo_path, default_repo_root
+from backend.services.guarded_code_service import (
+    GuardedCodeError,
+    browse_repo_path,
+    default_repo_root,
+    live_repo_analysis_summary,
+)
 from backend.utils.db_utils import ensure_db_session_cleanup
 from backend.utils.response_utils import success_response, error_response
 
@@ -194,6 +199,7 @@ def _live_repo_mount_folder() -> dict:
             "source_type": "live_repo",
             "repo_root": str(root),
             "mount_mode": "read_first_review_apply",
+            **live_repo_analysis_summary(root),
         },
         "subfolder_count": 0,
         "document_count": 0,
