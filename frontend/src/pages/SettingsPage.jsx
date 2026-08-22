@@ -3633,6 +3633,22 @@ const SettingsPage = () => {
               >
                 PayPal
               </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => window.open(SUPPORT_LINKS.venmo, "_blank", "noopener,noreferrer")}
+                sx={{ fontSize: "0.75rem", textTransform: "none" }}
+              >
+                Venmo
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => window.open(SUPPORT_LINKS.cashApp, "_blank", "noopener,noreferrer")}
+                sx={{ fontSize: "0.75rem", textTransform: "none" }}
+              >
+                Cash App
+              </Button>
             </Box>
           </SettingsCardWrapper>
         </Box>

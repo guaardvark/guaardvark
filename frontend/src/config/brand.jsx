@@ -136,6 +136,8 @@ export const brand = {
     buyMeACoffee: "https://www.buymeacoffee.com/guaardvark",
     koFi: "https://ko-fi.com/albenze",
     paypal: "https://paypal.me/albenze",
+    venmo: "https://venmo.com/albenze",
+    cashApp: "https://cash.app/$DeanAlbenze",
   },
   navGroups,
 };
