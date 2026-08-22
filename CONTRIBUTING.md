@@ -193,6 +193,11 @@ refactor(api): extract indexing logic into dedicated service
 - **Include screenshots** for UI changes.
 - **Keep PRs reviewable** — under 500 lines of diff when possible.
 - **Don't break the build.** Run `npm run lint` and `python3 run_tests.py` before pushing.
+- **Sign the CLA.** On your first PR a bot will ask you to read the
+  [Contributor License Agreement](CLA.md) and post one line as a comment. It takes a minute
+  and you only do it once. You keep the copyright to your work — the CLA grants the project a
+  licence to use it and to relicense the project later, which is impossible to do retroactively
+  once contributions accumulate. Say `recheck` in a comment if the bot needs another look.
 
 ---
 

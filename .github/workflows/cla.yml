@@ -1,0 +1,44 @@
+# Contributions have to be licensable by the project, or the licence can never
+# change. Signatures land in the `cla-signatures` branch, not in main.
+name: CLA
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_target:
+    types: [opened, closed, synchronize]
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+  statuses: write
+
+jobs:
+  cla:
+    name: Check CLA signature
+    runs-on: ubuntu-latest
+    steps:
+      # pull_request_target runs the base branch's workflow, never the PR's
+      # code, and nothing here checks the PR out — which is what makes the
+      # write permissions above safe.
+      - name: Check or record signature
+        if: >-
+          github.event_name == 'pull_request_target' ||
+          github.event.comment.body == 'recheck' ||
+          github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA'
+        uses: contributor-assistant/github-action@v2.6.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          path-to-signatures: signatures/version1/cla.json
+          path-to-document: https://github.com/guaardvark/guaardvark/blob/main/CLA.md
+          branch: cla-signatures
+          allowlist: guaardvark,dependabot[bot],*[bot]
+          custom-notsigned-prcomment: >-
+            Thanks for the pull request. Before it can be merged, please read the
+            [Contributor License Agreement](https://github.com/guaardvark/guaardvark/blob/main/CLA.md)
+            and then post the line below as a comment on this PR. You keep the copyright to your work —
+            this only grants the project a licence to use and relicense it.
+          custom-pr-sign-comment: I have read the CLA Document and I hereby sign the CLA
+          custom-allsigned-prcomment: All contributors have signed the CLA. Thanks!
