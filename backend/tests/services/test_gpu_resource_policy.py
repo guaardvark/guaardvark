@@ -10,7 +10,11 @@ import pytest
 try:
     import backend.services.gpu_resource_policy as grp
     import backend.services.job_operation_gate as jog
-    from backend.services.job_operation_gate import JobOperationGate, GpuBusyError
+    from backend.services.job_operation_gate import (
+        GpuBusyError,
+        GpuCapacityError,
+        JobOperationGate,
+    )
     from backend.services.job_types import JobKind
 except Exception:
     pytest.skip("Backend modules not available", allow_module_level=True)
@@ -180,3 +184,101 @@ def test_ensure_fits_rejects_when_another_consumer_resident(monkeypatch):
     _patch_vram(monkeypatch, free_mb=5000, total_mb=16376)
     with pytest.raises(GpuBusyError, match="another model/render may be resident"):
         grp._ensure_fits_or_busy(14000, "video:ltx", margin_mb=1024)
+
+
+# --- release order + typed refusals ------------------------------------------
+
+def test_gpu_session_release_order_free_then_lease_then_gate(fresh_gate, monkeypatch):
+    """Teardown of a cross-process video slot: ComfyUI /free, then the lease
+    release, and only then the in-PID gate holder."""
+    import requests
+    import backend.services.gpu_resource_coordinator as coord
+
+    events = []
+
+    def fake_post(url, json=None, timeout=None):
+        if url.endswith("/free"):
+            events.append(("free", fresh_gate.snapshot()["gpu_busy"]))
+        return object()
+
+    class _FakeCoord:
+        def acquire_generic(self, label, lease_seconds=None):
+            return {"success": True}
+
+        def renew_generic(self, label, lease_seconds=None):
+            return True
+
+        def release_generic(self, label):
+            events.append(("release_generic", fresh_gate.snapshot()["gpu_busy"]))
+            return {"success": True}
+
+    monkeypatch.setattr(requests, "post", fake_post)
+    monkeypatch.setattr(coord, "get_gpu_coordinator", lambda: _FakeCoord())
+    monkeypatch.setattr(grp, "_orchestrator_request", lambda slot, mb, **kw: None)
+    monkeypatch.setattr(
+        grp, "_orchestrator_release",
+        lambda slot: events.append(("orch_release", fresh_gate.snapshot()["gpu_busy"])),
+    )
+    monkeypatch.setattr(grp, "_load_admit_or_busy", lambda slot, ram_gb=2.0: None)
+
+    with grp.gpu_session(
+        JobKind.VIDEO_RENDER, "rel",
+        cross_process=True, vram_estimate_mb=8000,
+        slot_id="video_render:rel", lease_seconds=60,
+    ):
+        assert fresh_gate.snapshot()["gpu_busy"] is True
+
+    names = [name for name, _ in events]
+    assert names.index("orch_release") < names.index("free") < names.index("release_generic")
+    assert all(busy for _, busy in events), "gate must still be held during teardown"
+    assert fresh_gate.snapshot()["gpu_busy"] is False
+
+
+def test_gpu_session_fit_refusal_after_claim_skips_cooldown(fresh_gate, monkeypatch):
+    """A require_fit refusal never touched the card: the gate is released with
+    no post-release cooldown, while a completed session still starts one."""
+    _patch_vram(monkeypatch, free_mb=5000, total_mb=16376)
+    with pytest.raises(GpuBusyError, match="another model/render may be resident"):
+        with grp.gpu_session(JobKind.VIDEO_RENDER, "fit", vram_estimate_mb=14000, require_fit=True):
+            pass
+    snap = fresh_gate.snapshot()
+    assert snap["gpu_busy"] is False
+    assert snap["gpu_cooldown_remaining_s"] == 0
+
+    with grp.gpu_session(JobKind.VIDEO_RENDER, "ok"):
+        pass
+    assert fresh_gate.snapshot()["gpu_cooldown_remaining_s"] > 0
+
+
+def test_gpu_session_capacity_refuses_before_reclaim(fresh_gate, monkeypatch):
+    """estimate > card total → GpuCapacityError before any resident is evicted."""
+    _patch_vram(monkeypatch, free_mb=100, total_mb=16376)
+    seen = []
+    monkeypatch.setattr(grp, "reclaim_gpu", lambda **kw: seen.append(kw))
+    with pytest.raises(GpuCapacityError, match="estimate exceeds GPU capacity"):
+        with grp.gpu_session(
+            JobKind.VIDEO_RENDER, "big",
+            evict_ollama=True, free_comfyui=True, vram_estimate_mb=20000, require_fit=True,
+        ):
+            pass
+    assert seen == []
+    assert fresh_gate.snapshot()["gpu_busy"] is False
+    assert fresh_gate.snapshot()["gpu_cooldown_remaining_s"] == 0
+
+
+def test_gpu_session_evicts_ollama_at_most_once(fresh_gate, monkeypatch):
+    """One reclaim per session, followed by one settle before the fit probe."""
+    _patch_vram(monkeypatch, free_mb=5000, total_mb=16376)
+    evictions = []
+    sleeps = []
+    monkeypatch.setattr(grp, "evict_ollama_models", lambda: evictions.append(1) or True)
+    monkeypatch.setattr(grp, "free_comfyui_vram", lambda: True)
+    monkeypatch.setattr(grp.time, "sleep", lambda s: sleeps.append(s))
+    with pytest.raises(GpuBusyError, match="another model/render may be resident"):
+        with grp.gpu_session(
+            JobKind.VIDEO_RENDER, "once",
+            evict_ollama=True, free_comfyui=True, vram_estimate_mb=14000, require_fit=True,
+        ):
+            pass
+    assert evictions == [1]
+    assert sleeps == [grp._RECLAIM_SETTLE_S]

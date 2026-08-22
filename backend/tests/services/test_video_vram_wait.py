@@ -11,29 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from backend.services.job_operation_gate import GpuBusyError
-
-
-# ---------------------------------------------------------------------------
-# Capacity overflow classifier
-# ---------------------------------------------------------------------------
-
-def test_is_capacity_overflow_error():
-    from backend.services.gpu_resource_policy import is_capacity_overflow_error
-
-    assert is_capacity_overflow_error(
-        GpuBusyError(
-            "Not enough free VRAM for video_render:x: estimate exceeds GPU capacity "
-            "(~15024MB needed = est 14000 + 1024 headroom, card total ~16376MB)"
-        )
-    )
-    assert not is_capacity_overflow_error(
-        GpuBusyError(
-            "Not enough free VRAM for video_render:x: need ~12024MB "
-            "(est 11000 + 1024 headroom), only 2899MB usable (2899MB free) "
-            "after eviction — another model/render may be resident. Try again shortly."
-        )
-    )
+from backend.services.job_operation_gate import GpuBusyError, GpuCapacityError
 
 
 # ---------------------------------------------------------------------------
@@ -228,39 +206,23 @@ def test_run_batch_retries_resident_vram_then_succeeds(monkeypatch):
             raise resident
         yield True
 
-    monkeypatch.setattr(
-        "backend.services.gpu_resource_policy.gpu_session", fake_session
-    )
-    # Import path used inside _run_batch
-    import backend.services.batch_video_generator as bvg_mod
-    monkeypatch.setattr(
-        "backend.services.gpu_resource_policy.gpu_session", fake_session
-    )
+    # Patch the symbols where _run_batch imports them from.
+    import backend.services.gpu_resource_policy as grp
 
-    # Patch the symbols as imported inside the method via the module
+    reclaims = []
+    monkeypatch.setattr(grp, "gpu_session", fake_session)
+    monkeypatch.setattr(grp, "reclaim_gpu", lambda **k: reclaims.append(k))
+    monkeypatch.setattr(grp, "evict_ollama_models", lambda: reclaims.append("ollama"))
+    monkeypatch.setattr(grp, "free_comfyui_vram", lambda **k: reclaims.append("comfy"))
     monkeypatch.setenv("GUAARDVARK_VIDEO_VRAM_WAIT_S", "120")
     monkeypatch.setattr(
         "backend.services.video_model_registry.vram_mb_for_model",
         lambda m: 11000,
     )
     monkeypatch.setattr(
-        "backend.services.gpu_resource_policy.reclaim_and_settle",
-        lambda **k: {"free_mb": 4000, "success": True},
-    )
-    monkeypatch.setattr(
-        "backend.services.gpu_resource_policy.vram_probe_snapshot",
-        lambda **k: {"free_mb": 3000, "success": True},
-    )
-    monkeypatch.setattr(
-        "backend.services.gpu_resource_policy.is_capacity_overflow_error",
-        lambda e: "estimate exceeds GPU capacity" in str(e),
+        grp, "vram_probe_snapshot", lambda **k: {"free_mb": 3000, "success": True}
     )
     monkeypatch.setattr("time.sleep", lambda s: None)
-
-    # Re-bind gpu_session where _run_batch imports it from
-    import backend.services.gpu_resource_policy as grp
-
-    monkeypatch.setattr(grp, "gpu_session", fake_session)
 
     status = _Status(batch_id="VideoBatch_retry")
     req = _Req(batch_id="VideoBatch_retry")
@@ -271,6 +233,7 @@ def test_run_batch_retries_resident_vram_then_succeeds(monkeypatch):
     assert status.status == "completed"
     assert "gpu_wait" in stages
     assert status.status != "error"
+    assert reclaims == [], "the wait loop must not evict; gpu_session reclaims after it wins"
 
 
 def test_run_batch_capacity_overflow_no_retry(monkeypatch):
@@ -282,28 +245,82 @@ def test_run_batch_capacity_overflow_no_retry(monkeypatch):
     gen._save_metadata = lambda status: None
     gen._run_batch_inner = lambda *a, **k: (_ for _ in ()).throw(AssertionError("should not run"))
 
-    overflow = GpuBusyError(
+    overflow = GpuCapacityError(
         "Not enough free VRAM for video_render:x: estimate exceeds GPU capacity "
         "(~20000MB needed, card total ~16376MB)"
     )
+    attempts = {"n": 0}
 
     @contextmanager
     def fake_session(*a, **k):
+        attempts["n"] += 1
         raise overflow
         yield  # pragma: no cover
 
     import backend.services.gpu_resource_policy as grp
     monkeypatch.setattr(grp, "gpu_session", fake_session)
     monkeypatch.setattr(grp, "vram_probe_snapshot", lambda **k: {"free_mb": 16000, "success": True})
-    monkeypatch.setattr(grp, "is_capacity_overflow_error", lambda e: "estimate exceeds GPU capacity" in str(e))
     monkeypatch.setattr(
         "backend.services.video_model_registry.vram_mb_for_model", lambda m: 20000
     )
+    monkeypatch.setattr("time.sleep", lambda s: None)
 
     status = _Status(batch_id="VideoBatch_cap")
     gen._run_batch(_Req(batch_id="VideoBatch_cap", model="huge"), status)
+    assert attempts["n"] == 1, "a capacity refusal is terminal"
     assert status.status == "error"
+    assert status.stage == "done"
     assert "estimate exceeds GPU capacity" in (status.error or "") or "Could not acquire GPU" in (status.error or "")
+
+
+def test_run_batch_busy_until_deadline_fails_without_evicting(monkeypatch):
+    """A plain GpuBusyError is retried with backoff until the deadline, and the
+    loop itself never evicts anything."""
+    from backend.services.batch_video_generator import BatchVideoGenerator
+
+    gen = object.__new__(BatchVideoGenerator)
+    gen.cancel_events = {}
+    gen._set_stage = lambda status, stage, current_item=None, save=True: setattr(status, "stage", stage)
+    gen._save_metadata = lambda status: None
+    gen._run_batch_inner = lambda *a, **k: (_ for _ in ()).throw(AssertionError("should not run"))
+
+    attempts = {"n": 0}
+
+    @contextmanager
+    def fake_session(*a, **k):
+        attempts["n"] += 1
+        raise GpuBusyError("GPU is held by training:job-7 — wait for completion")
+        yield  # pragma: no cover
+
+    import backend.services.gpu_resource_policy as grp
+    reclaims = []
+    monkeypatch.setattr(grp, "gpu_session", fake_session)
+    monkeypatch.setattr(grp, "reclaim_gpu", lambda **k: reclaims.append(k))
+    monkeypatch.setattr(grp, "evict_ollama_models", lambda: reclaims.append("ollama"))
+    monkeypatch.setattr(grp, "free_comfyui_vram", lambda **k: reclaims.append("comfy"))
+    monkeypatch.setattr(grp, "vram_probe_snapshot", lambda **k: {"free_mb": 2000, "success": True})
+    monkeypatch.setattr(
+        "backend.services.video_model_registry.vram_mb_for_model", lambda m: 11000
+    )
+    monkeypatch.setenv("GUAARDVARK_VIDEO_VRAM_WAIT_S", "60")
+
+    clock = {"t": 1_000_000.0}
+
+    def fake_time():
+        clock["t"] += 2.0
+        return clock["t"]
+
+    monkeypatch.setattr("time.time", fake_time)
+    monkeypatch.setattr("time.sleep", lambda s: None)
+
+    status = _Status(batch_id="VideoBatch_deadline")
+    gen._run_batch(_Req(batch_id="VideoBatch_deadline"), status)
+
+    assert status.status == "error"
+    assert status.stage == "done"
+    assert "Could not acquire enough free VRAM after waiting 60s" in (status.error or "")
+    assert attempts["n"] > 1
+    assert reclaims == []
 
 
 def test_run_batch_cancel_during_vram_wait(monkeypatch):
@@ -333,8 +350,6 @@ def test_run_batch_cancel_during_vram_wait(monkeypatch):
     import backend.services.gpu_resource_policy as grp
     monkeypatch.setattr(grp, "gpu_session", fake_session)
     monkeypatch.setattr(grp, "vram_probe_snapshot", lambda **k: {"free_mb": 2000, "success": True})
-    monkeypatch.setattr(grp, "reclaim_and_settle", lambda **k: {"free_mb": 2000, "success": True})
-    monkeypatch.setattr(grp, "is_capacity_overflow_error", lambda e: False)
     monkeypatch.setattr(
         "backend.services.video_model_registry.vram_mb_for_model", lambda m: 11000
     )

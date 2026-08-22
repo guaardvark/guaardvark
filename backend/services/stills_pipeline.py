@@ -310,7 +310,8 @@ def _generate_one(
                     vram_reserve_mb=compositor_vram_reserve_mb(),
                 ):
                     gen_result = generator.generate_image(request)
-            except GpuBusyError:
+            except GpuBusyError as busy:
+                logger.warning("stills admission refused (%s): %s", source, busy)
                 return StillResult(
                     success=False,
                     error="GPU is busy with another render right now — try again in a moment.",

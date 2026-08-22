@@ -150,6 +150,20 @@ def test_reclaim_needed_when_probe_unavailable():
         assert p._reclaim_needed(8000) is True
 
 
+def test_fit_verdict_capacity_raises_typed_error():
+    from backend.services import gpu_resource_policy as p
+    from backend.services.job_operation_gate import GpuCapacityError
+    with patch("backend.services.gpu_resource_coordinator.get_gpu_coordinator", return_value=_probe(100, 16000)):
+        fit = p.fit_verdict(20000)
+    assert fit.ok is False and fit.capacity is True
+    assert (fit.free_mb, fit.total_mb, fit.need_mb) == (100, 16000, 21024)
+    with pytest.raises(
+        GpuCapacityError,
+        match="Not enough free VRAM for video_render:x: estimate exceeds GPU capacity",
+    ):
+        p._raise_unless_fits(fit, "video_render:x")
+
+
 def test_default_lease_by_kind():
     from backend.services import gpu_resource_policy as p
     from backend.services.job_types import JobKind
