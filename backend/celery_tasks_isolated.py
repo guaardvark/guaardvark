@@ -418,7 +418,9 @@ def index_document_task(document_id, process_id=None):
         
         # Construct full file path
         upload_dir = os.environ.get('GUAARDVARK_UPLOAD_DIR', os.path.join(STORAGE_DIR, 'uploads'))
-        full_file_path = os.path.join(upload_dir, document['file_path'])
+        # document paths are uploads-relative; tolerate a stray leading slash,
+        # which os.path.join would otherwise treat as an absolute path
+        full_file_path = os.path.join(upload_dir, document['file_path'].lstrip('/'))
         
         # Index the document using enhanced code-aware processing
         update_progress(70, f'Processing file content for {document["filename"]}')
@@ -625,8 +627,8 @@ def bulk_import_documents_task(job_id, source_path, target_folder, project_id=No
                     # Create new folder record
                     now_iso = datetime.datetime.now().isoformat()
                     insert_result = session.execute(text("""
-                        INSERT INTO folders (name, path, created_at, updated_at)
-                        VALUES (:name, :path, :created_at, :updated_at)
+                        INSERT INTO folders (name, path, is_repository, created_at, updated_at)
+                        VALUES (:name, :path, false, :created_at, :updated_at)
                         RETURNING id
                     """), {"name": target_folder, "path": folder_path_for_db,
                            "created_at": now_iso, "updated_at": now_iso})
@@ -657,8 +659,16 @@ def bulk_import_documents_task(job_id, source_path, target_folder, project_id=No
         
         # Scan for files
         update_job_status("processing", "Scanning for files...", 20)
-        supported_extensions = {'.txt', '.pdf', '.doc', '.docx', '.md', '.csv', '.json', 
-                               '.py', '.js', '.jsx', '.ts', '.tsx', '.html', '.css', '.xml'}
+        text_extensions = {'.txt', '.md', '.csv', '.json',
+                           '.py', '.js', '.jsx', '.ts', '.tsx', '.html', '.css', '.xml'}
+        # Media and binary documents import as browsable/viewable documents;
+        # only plain-text files are queued for the RAG index — this pipeline
+        # reads bytes raw, so PDFs/DOCX would index as mojibake garbage.
+        media_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.webp',
+                            '.wav', '.mp3', '.ogg', '.flac', '.m4a',
+                            '.mp4', '.webm', '.mov', '.mkv',
+                            '.pdf', '.doc', '.docx'}
+        supported_extensions = text_extensions | media_extensions
         
         files_to_import = []
         for root, dirs, files in os.walk(source_path):
@@ -686,20 +696,65 @@ def bulk_import_documents_task(job_id, source_path, target_folder, project_id=No
         indexed_count = 0
         
         session = get_db_session()
+
+        # Folder rows per nested source directory — the imported tree keeps
+        # its shape instead of flattening into the target folder.
+        folder_cache = {}
+        if folder_id is not None and folder_path_for_db:
+            folder_cache[folder_path_for_db] = folder_id
+
+        def ensure_folder_chain(rel_dir):
+            """Return (folder_id, folder_path) for target/rel_dir, creating rows."""
+            if not folder_path_for_db:
+                return None, None
+            cur_path = folder_path_for_db
+            cur_id = folder_cache.get(cur_path)
+            if rel_dir in ("", "."):
+                return cur_id, cur_path
+            for part in rel_dir.replace(os.sep, "/").split("/"):
+                nxt = f"{cur_path}/{part}"
+                if nxt in folder_cache:
+                    cur_id, cur_path = folder_cache[nxt], nxt
+                    continue
+                row = session.execute(
+                    text("SELECT id FROM folders WHERE path = :p"), {"p": nxt}
+                ).fetchone()
+                if row:
+                    folder_cache[nxt] = row[0]
+                    cur_id, cur_path = row[0], nxt
+                    continue
+                now_iso = datetime.datetime.now().isoformat()
+                new_row = session.execute(text("""
+                    INSERT INTO folders (name, path, parent_id, is_repository,
+                                         created_at, updated_at)
+                    VALUES (:name, :path, :parent, false, :now, :now)
+                    RETURNING id
+                """), {"name": part, "path": nxt, "parent": cur_id,
+                       "now": now_iso}).fetchone()
+                session.commit()
+                folder_cache[nxt] = new_row[0]
+                cur_id, cur_path = new_row[0], nxt
+            return cur_id, cur_path
+
         try:
             for idx, (source_file, rel_path, filename) in enumerate(files_to_import):
                 progress = 30 + int((idx / total_files) * 60)
                 update_job_status("processing", f"Importing {filename} ({idx+1}/{total_files})", progress)
 
                 try:
-                    # Copy or move file
-                    target_file = os.path.join(target_dir, filename)
+                    rel_dir = os.path.dirname(rel_path)
+                    file_folder_id, file_folder_path = ensure_folder_chain(rel_dir)
+
+                    # Copy or move file, preserving the source subdirectory
+                    dest_dir = os.path.join(target_dir, rel_dir) if rel_dir else target_dir
+                    os.makedirs(dest_dir, exist_ok=True)
+                    target_file = os.path.join(dest_dir, filename)
 
                     # Handle duplicate filenames
                     counter = 1
                     base_name, ext = os.path.splitext(filename)
                     while os.path.exists(target_file):
-                        target_file = os.path.join(target_dir, f"{base_name}_{counter}{ext}")
+                        target_file = os.path.join(dest_dir, f"{base_name}_{counter}{ext}")
                         counter += 1
 
                     if force_copy:
@@ -711,9 +766,10 @@ def bulk_import_documents_task(job_id, source_path, target_folder, project_id=No
 
                     # Create relative path for database
                     # Use folder path if available, otherwise use target_folder
-                    if folder_path_for_db:
-                        # Match API pattern: folder_path/filename (folder_path already has leading /)
-                        db_path = f"{folder_path_for_db}/{os.path.basename(target_file)}"
+                    if file_folder_path:
+                        # document.path is relative to the uploads dir (no leading
+                        # slash) — only folder.path carries one
+                        db_path = f"{file_folder_path}/{os.path.basename(target_file)}".lstrip('/')
                     else:
                         # Fallback: use target_folder name without leading slash
                         db_path = os.path.join(target_folder or "Imports", os.path.basename(target_file))
@@ -723,9 +779,13 @@ def bulk_import_documents_task(job_id, source_path, target_folder, project_id=No
                                             {"db_path": db_path})
                     existing = result.fetchone()
 
+                    indexable = (os.path.splitext(filename)[1].lower()
+                                 in text_extensions
+                                 or not os.path.splitext(filename)[1])
+
                     if existing:
                         doc_id, index_status = existing
-                        if reindex_missing and index_status != 'INDEXED':
+                        if reindex_missing and index_status != 'INDEXED' and indexable:
                             # Queue for reindexing
                             try:
                                 from backend.celery_tasks_isolated import index_document_task
@@ -746,7 +806,8 @@ def bulk_import_documents_task(job_id, source_path, target_folder, project_id=No
                             RETURNING id
                         """), {"filename": filename, "path": db_path, "type": file_ext, "size": file_size,
                                "project_id": project_id, "client_id": client_id, "website_id": website_id,
-                               "folder_id": folder_id, "index_status": 'PENDING',
+                               "folder_id": file_folder_id,
+                               "index_status": 'PENDING' if indexable else 'STORED',
                                "uploaded_at": datetime.datetime.now().isoformat()})
                         doc_id = insert_result.fetchone()[0]
                         session.commit()
@@ -754,13 +815,14 @@ def bulk_import_documents_task(job_id, source_path, target_folder, project_id=No
                         imported_count += 1
                         logger.info(f"Created document record {doc_id}: {filename}")
 
-                        # Queue for indexing
-                        try:
-                            from backend.celery_tasks_isolated import index_document_task
-                            index_document_task.apply_async((doc_id,), queue='indexing')
-                            indexed_count += 1
-                        except Exception as e:
-                            logger.warning(f"Could not queue indexing for document {doc_id}: {e}")
+                        if indexable:
+                            # Queue for indexing
+                            try:
+                                from backend.celery_tasks_isolated import index_document_task
+                                index_document_task.apply_async((doc_id,), queue='indexing')
+                                indexed_count += 1
+                            except Exception as e:
+                                logger.warning(f"Could not queue indexing for document {doc_id}: {e}")
 
                 except Exception as e:
                     session.rollback()
