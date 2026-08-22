@@ -22,6 +22,18 @@ def _run_entry(env_overrides: dict, cwd: Path) -> subprocess.CompletedProcess:
     )
 
 
+def _run_entry_args(env_overrides: dict, cwd: Path, *args) -> subprocess.CompletedProcess:
+    env = {**os.environ, **env_overrides, "PYTHONPATH": str(REPO_ROOT)}
+    return subprocess.run(
+        [sys.executable, str(ENTRY), f"--repo-root={cwd}", *args],
+        env=env,
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+
 def _make_min_repo(tmp_path):
     """A minimal repo with no manifests — every reconciler is inactive."""
     (tmp_path / "data" / "dep_reconciler").mkdir(parents=True)
@@ -132,3 +144,74 @@ def test_only_does_not_prune_other_plugin_state(tmp_path):
     # Both entries must survive the partial run.
     assert "backend_venv" in state["reconcilers"]
     assert "plugin:discord" in state["reconcilers"]
+
+
+# --- failure sentinel (logs/.dep_reconcile_failed) ---------------------------
+# preflight_check.py fails RED while this file exists, so a run that proves a
+# recorded failure is gone has to be able to remove it.
+
+def _write_fail_sentinel(repo: Path, *reconciler_ids: str) -> Path:
+    sentinel = repo / "logs" / ".dep_reconcile_failed"
+    sentinel.write_text(
+        "dep_reconciler failed at 2026-01-01T00:00:00Z\n"
+        + "".join(f"  - {rid}: exit 1\n" for rid in reconciler_ids)
+        + "Full log: /dev/null\n"
+    )
+    return sentinel
+
+
+def test_successful_run_clears_the_failure_sentinel(tmp_path):
+    repo = _make_min_repo(tmp_path)
+    sentinel = _write_fail_sentinel(repo, "plugin_bundle")
+    r = _run_entry(
+        {"GUAARDVARK_DEP_STATE_FILE": str(repo / "state.json")},
+        cwd=repo,
+    )
+    assert r.returncode == 0, r.stderr
+    assert not sentinel.exists()
+
+
+def test_scoped_run_clears_a_failure_inside_its_own_scope(tmp_path):
+    """A plugin_bundle failure must be clearable by a plugin_bundle run.
+
+    Gating the clear on backend_venv alone left preflight jammed RED until some
+    unrelated run happened to cover the venv.
+    """
+    repo = _make_min_repo(tmp_path)
+    sentinel = _write_fail_sentinel(repo, "plugin_bundle")
+    r = _run_entry_args(
+        {"GUAARDVARK_DEP_STATE_FILE": str(repo / "state.json")},
+        repo,
+        "--only=plugin_bundle",
+    )
+    assert r.returncode == 0, r.stderr
+    assert not sentinel.exists()
+
+
+def test_scoped_run_leaves_a_failure_outside_its_scope_alone(tmp_path):
+    repo = _make_min_repo(tmp_path)
+    sentinel = _write_fail_sentinel(repo, "backend_venv")
+    r = _run_entry_args(
+        {"GUAARDVARK_DEP_STATE_FILE": str(repo / "state.json")},
+        repo,
+        "--only=frontend",
+    )
+    assert r.returncode == 0, r.stderr
+    assert sentinel.exists()
+    assert "backend_venv" in sentinel.read_text()
+
+
+def test_scoped_run_keeps_the_members_it_did_not_cover(tmp_path):
+    repo = _make_min_repo(tmp_path)
+    sentinel = _write_fail_sentinel(repo, "plugin_bundle", "backend_venv")
+    r = _run_entry_args(
+        {"GUAARDVARK_DEP_STATE_FILE": str(repo / "state.json")},
+        repo,
+        "--only=plugin_bundle",
+    )
+    assert r.returncode == 0, r.stderr
+    assert sentinel.exists()
+    body = sentinel.read_text()
+    assert "backend_venv" in body
+    assert "plugin_bundle" not in body
+
