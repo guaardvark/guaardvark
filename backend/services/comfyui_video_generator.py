@@ -374,6 +374,55 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
     # 3.7 MPx (1920×1920) never finished on either Wan. Aspect is preserved.
     _MAX_PIXEL_AREA_BY_FAMILY = {"wan": 1_050_000, "ltx": 1_050_000, "hunyuan": 1_050_000}
 
+    # Ratio presets the UI offers, as width/height. Kept here so a clamp can name
+    # the ratio it snapped to rather than emitting an arbitrary decimal.
+    _ASPECT_RATIOS = {
+        "16:9": 16 / 9, "9:16": 9 / 16, "1:1": 1.0, "4:3": 4 / 3, "3:2": 3 / 2,
+    }
+
+    @classmethod
+    def _supported_aspect_ratios(cls, model: str) -> list:
+        """Ratio keys a model declares in the registry, or [] when unconstrained."""
+        try:
+            from backend.services.video_model_registry import VIDEO_MODEL_REGISTRY
+            entry = VIDEO_MODEL_REGISTRY.get(model) or {}
+        except Exception:  # noqa: BLE001 — never block a render on a registry read
+            return []
+        return [r for r in (entry.get("aspect_ratios") or []) if r in cls._ASPECT_RATIOS]
+
+    @classmethod
+    def _clamp_aspect_ratio(cls, width: int, height: int, model: str) -> tuple[int, int]:
+        """Reshape to the nearest aspect the model declares, keeping pixel area.
+
+        The UI no longer offers an unsupported ratio, but the API still accepts
+        one and old batch retry_data replays whatever it stored. A square frame
+        on a model trained at 1280x704 comes back warped, so reshape instead of
+        rendering it — area is preserved, and the clamp below still applies.
+        """
+        supported = cls._supported_aspect_ratios(model)
+        if not supported or width <= 0 or height <= 0:
+            return width, height
+
+        # 6% covers alignment drift without reaching a different preset: a 32px
+        # snap moves 1280x704 (native, 1.82) 2.3% off exact 16:9, while the
+        # nearest wrong preset (3:2) sits 15.6% away.
+        requested = width / height
+        if any(abs(requested / cls._ASPECT_RATIOS[k] - 1.0) <= 0.06 for k in supported):
+            return width, height
+
+        import math
+        key = min(supported, key=lambda k: abs(math.log(requested / cls._ASPECT_RATIOS[k])))
+        target = cls._ASPECT_RATIOS[key]
+        area = width * height
+        new_w = int(round(math.sqrt(area * target)))
+        new_h = int(round(new_w / target)) or 1
+        logger.warning(
+            "Reshaped %s video dims %dx%d (%.2f:1) → %dx%d (%s) — the model declares "
+            "%s; off-native frames warp rather than crop",
+            model, width, height, requested, new_w, new_h, key, "/".join(supported),
+        )
+        return new_w, new_h
+
     @classmethod
     def _clamp_pixel_area(cls, width: int, height: int, model: str) -> tuple[int, int]:
         """Scale (width, height) down to the family's pixel-area budget,
@@ -1128,6 +1177,9 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             # watchdog timeout on both Wan variants and read as a hang — and old
             # batch retry_data can replay those dims verbatim.
             # Off-by-one in the snap is the "tensor a (51) must match tensor b (50)" crash.
+            request.width, request.height = self._clamp_aspect_ratio(
+                request.width, request.height, model
+            )
             request.width, request.height = self._clamp_pixel_area(
                 request.width, request.height, model
             )

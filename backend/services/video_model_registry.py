@@ -102,6 +102,9 @@ VIDEO_MODEL_REGISTRY = {
         "type": "wan",
         "dimension_alignment": 32,
         "max_pixel_area": 1_000_000,
+        # Native landscape and its transpose. Off-native frames come back warped
+        # rather than cropped, and area drives the sampler shift.
+        "aspect_ratios": ["16:9", "9:16"],
     },
     "wan22-14b-i2v": {
         "name": "Wan 2.2 14B I2V MoE (GGUF Q5_K)",
@@ -120,6 +123,9 @@ VIDEO_MODEL_REGISTRY = {
         "type": "wan",
         "dimension_alignment": 32,
         "max_pixel_area": 1_000_000,
+        # Native landscape and its transpose. Off-native frames come back warped
+        # rather than cropped, and area drives the sampler shift.
+        "aspect_ratios": ["16:9", "9:16"],
     },
     "wan22-5b": {
         "name": "Wan 2.2 TI2V-5B (fp16)",
@@ -136,6 +142,9 @@ VIDEO_MODEL_REGISTRY = {
         "type": "wan",
         "dimension_alignment": 32,
         "max_pixel_area": 1_000_000,
+        # Native landscape and its transpose. Off-native frames come back warped
+        # rather than cropped, and area drives the sampler shift.
+        "aspect_ratios": ["16:9", "9:16"],
     },
     "wan-vae": {
         "name": "Wan 2.1/2.2 VAE",
