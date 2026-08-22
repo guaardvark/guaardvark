@@ -517,7 +517,7 @@ Flask (~90+ API modules, auto-discovered) + GraphQL + Socket.IO
     +-- AgentBrain (3-tier routing: Reflex → Instinct → Deliberation)
     |
 Service Layer (many modules; plugin sidecars for heavy GPU work)
-|-- Agent Executor (ReACT + ~70 tool classes + BrainState)
+|-- Agent Executor (ReACT + ~60 tool classes + BrainState)
 |-- Screen Control (See-Think-Act-Verify + live reasoning stream)
 |-- RAG + Autoresearch + Entity extraction
 |-- Self-Improvement (detect/fix/verify/broadcast + guardian)
