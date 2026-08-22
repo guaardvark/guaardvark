@@ -42,6 +42,7 @@ import { io } from "socket.io-client";
 import PageLayout from "../components/layout/PageLayout";
 import { SystemMapCanvas } from "../components/systemmap";
 import { pathToSection, moduleNameToPath } from "../components/systemmap/pathUtils";
+import { useMapPalette } from "../components/systemmap/palette";
 import {
   fetchSystemMap,
   fetchFindings,
@@ -49,13 +50,6 @@ import {
   dismissFinding,
 } from "../api/systemMapService";
 import { SOCKET_URL } from "../api/apiClient";
-
-const SEVERITY_COLOR = {
-  high: "#ff6e6e",
-  medium: "#ffb84d",
-  low: "rgba(168, 216, 255, 0.7)",
-  info: "rgba(168, 216, 255, 0.4)",
-};
 
 // Mirror of the SECTION_HUE in SystemMapCanvas — keep these in sync.
 // `prefix` is what the canvas matches each node's section against
@@ -106,6 +100,7 @@ function findModuleForTool(toolName, moduleNames) {
 // primitive as the section legend; `activeColor` is an "r, g, b" triplet so the
 // active state tints to the overlay's render color.
 function OverlayChip({ label, active, activeColor, onToggle }) {
+  const P = useMapPalette();
   return (
     <Box
       role="button"
@@ -129,11 +124,11 @@ function OverlayChip({ label, active, activeColor, onToggle }) {
         userSelect: "none",
         border: active
           ? `1px solid rgba(${activeColor}, 0.85)`
-          : "1px solid rgba(168, 216, 255, 0.12)",
-        bgcolor: active ? `rgba(${activeColor}, 0.18)` : "rgba(168, 216, 255, 0.04)",
+          : `1px solid ${P.ink(0.12)}`,
+        bgcolor: active ? `rgba(${activeColor}, 0.18)` : P.ink(0.04),
         transition: "all 160ms ease",
         "&:hover": {
-          bgcolor: active ? `rgba(${activeColor}, 0.26)` : "rgba(168, 216, 255, 0.10)",
+          bgcolor: active ? `rgba(${activeColor}, 0.26)` : P.ink(0.10),
           borderColor: `rgba(${activeColor}, 0.55)`,
         },
       }}
@@ -150,7 +145,7 @@ function OverlayChip({ label, active, activeColor, onToggle }) {
       <Typography
         variant="caption"
         sx={{
-          color: active ? `rgba(${activeColor}, 0.95)` : "rgba(168, 216, 255, 0.55)",
+          color: active ? `rgba(${activeColor}, 0.95)` : P.ink(0.55),
           fontSize: "0.65rem",
           letterSpacing: 0.5,
           textTransform: "uppercase",
@@ -163,6 +158,8 @@ function OverlayChip({ label, active, activeColor, onToggle }) {
 }
 
 export default function SystemMapPage() {
+  const P = useMapPalette();
+  const SEVERITY_COLOR = P.severity;
   const [map, setMap] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -437,11 +434,11 @@ export default function SystemMapPage() {
           }}
         >
           <Stack direction="row" spacing={1} alignItems="center" sx={{ pointerEvents: "auto" }}>
-            <BubbleChartIcon sx={{ color: "rgba(168, 216, 255, 0.85)", fontSize: 28 }} />
+            <BubbleChartIcon sx={{ color: P.ink(0.85), fontSize: 28 }} />
             <Typography
               variant="h6"
               sx={{
-                color: "rgba(168, 216, 255, 0.95)",
+                color: P.ink(0.95),
                 fontWeight: 300,
                 letterSpacing: 1.5,
               }}
@@ -449,7 +446,7 @@ export default function SystemMapPage() {
               System Map
             </Typography>
             {map && (
-              <Typography variant="caption" sx={{ color: "rgba(168, 216, 255, 0.55)", ml: 1 }}>
+              <Typography variant="caption" sx={{ color: P.ink(0.55), ml: 1 }}>
                 {map.file_count} modules ·{" "}
                 {map.dependency_graph
                   ? Object.values(map.dependency_graph).reduce(
@@ -470,9 +467,9 @@ export default function SystemMapPage() {
                   size="small"
                   label={`${sev.high} critical`}
                   sx={{
-                    bgcolor: "rgba(255, 110, 110, 0.18)",
+                    bgcolor: P.danger(0.18),
                     color: SEVERITY_COLOR.high,
-                    border: "1px solid rgba(255, 110, 110, 0.4)",
+                    border: `1px solid ${P.danger(0.4)}`,
                   }}
                 />
               )}
@@ -481,9 +478,9 @@ export default function SystemMapPage() {
                   size="small"
                   label={`${sev.medium} medium`}
                   sx={{
-                    bgcolor: "rgba(255, 184, 77, 0.15)",
+                    bgcolor: P.warn(0.15),
                     color: SEVERITY_COLOR.medium,
-                    border: "1px solid rgba(255, 184, 77, 0.35)",
+                    border: `1px solid ${P.warn(0.35)}`,
                   }}
                 />
               )}
@@ -491,9 +488,9 @@ export default function SystemMapPage() {
                 size="small"
                 label={`${sev.low} hygiene`}
                 sx={{
-                  bgcolor: "rgba(168, 216, 255, 0.10)",
+                  bgcolor: P.ink(0.10),
                   color: SEVERITY_COLOR.low,
-                  border: "1px solid rgba(168, 216, 255, 0.25)",
+                  border: `1px solid ${P.ink(0.25)}`,
                 }}
               />
             </Stack>
@@ -514,21 +511,21 @@ export default function SystemMapPage() {
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <SearchIcon sx={{ color: "rgba(168, 216, 255, 0.5)", fontSize: 18 }} />
+                    <SearchIcon sx={{ color: P.ink(0.5), fontSize: 18 }} />
                   </InputAdornment>
                 ),
                 endAdornment: search && (
                   <InputAdornment position="end">
                     <IconButton size="small" onClick={() => setSearch("")}>
-                      <CloseIcon sx={{ color: "rgba(168, 216, 255, 0.5)", fontSize: 16 }} />
+                      <CloseIcon sx={{ color: P.ink(0.5), fontSize: 16 }} />
                     </IconButton>
                   </InputAdornment>
                 ),
                 sx: {
-                  bgcolor: "rgba(20, 30, 50, 0.6)",
-                  color: "rgba(168, 216, 255, 0.85)",
-                  "& fieldset": { borderColor: "rgba(168, 216, 255, 0.2)" },
-                  "&:hover fieldset": { borderColor: "rgba(168, 216, 255, 0.4)" },
+                  bgcolor: P.fieldBg,
+                  color: P.ink(0.85),
+                  "& fieldset": { borderColor: P.ink(0.2) },
+                  "&:hover fieldset": { borderColor: P.ink(0.4) },
                   fontFamily: "monospace",
                   fontSize: "0.8rem",
                 },
@@ -540,9 +537,9 @@ export default function SystemMapPage() {
             <IconButton
               onClick={() => canvasRef.current?.resetView()}
               sx={{
-                color: "rgba(168, 216, 255, 0.7)",
+                color: P.ink(0.7),
                 pointerEvents: "auto",
-                "&:hover": { color: "rgba(168, 216, 255, 1)" },
+                "&:hover": { color: P.ink(1) },
               }}
             >
               <RestartAltIcon />
@@ -563,13 +560,13 @@ export default function SystemMapPage() {
               }}
               disabled={loading}
               sx={{
-                color: "rgba(168, 216, 255, 0.7)",
+                color: P.ink(0.7),
                 pointerEvents: "auto",
-                "&:hover": { color: "rgba(168, 216, 255, 1)" },
+                "&:hover": { color: P.ink(1) },
               }}
             >
               {loading ? (
-                <CircularProgress size={20} sx={{ color: "rgba(168, 216, 255, 0.7)" }} />
+                <CircularProgress size={20} sx={{ color: P.ink(0.7) }} />
               ) : (
                 <RefreshIcon />
               )}
@@ -617,17 +614,17 @@ export default function SystemMapPage() {
                   cursor: "pointer",
                   userSelect: "none",
                   border: active
-                    ? `1px solid hsla(${s.hue}, 80%, 78%, 0.85)`
-                    : "1px solid rgba(168, 216, 255, 0.12)",
+                    ? `1px solid ${P.hue(s.hue, 80, 78, 0.85)}`
+                    : `1px solid ${P.ink(0.12)}`,
                   bgcolor: active
-                    ? `hsla(${s.hue}, 70%, 70%, 0.18)`
-                    : "rgba(168, 216, 255, 0.04)",
+                    ? P.hue(s.hue, 70, 70, 0.18)
+                    : P.ink(0.04),
                   transition: "all 160ms ease",
                   "&:hover": {
                     bgcolor: active
-                      ? `hsla(${s.hue}, 70%, 72%, 0.26)`
-                      : "rgba(168, 216, 255, 0.10)",
-                    borderColor: `hsla(${s.hue}, 80%, 78%, 0.55)`,
+                      ? P.hue(s.hue, 70, 72, 0.26)
+                      : P.ink(0.10),
+                    borderColor: P.hue(s.hue, 80, 78, 0.55),
                   },
                 }}
               >
@@ -636,18 +633,18 @@ export default function SystemMapPage() {
                     width: 8,
                     height: 8,
                     borderRadius: "50%",
-                    bgcolor: `hsla(${s.hue}, 75%, 78%, ${active ? 1 : 0.85})`,
-                    boxShadow: `0 0 ${active ? 12 : 8}px hsla(${s.hue}, 75%, 78%, ${
-                      active ? 0.7 : 0.45
-                    })`,
+                    bgcolor: P.hue(s.hue, 75, 78, active ? 1 : 0.85),
+                    boxShadow: `0 0 ${active ? 12 : 8}px ${P.hue(
+                      s.hue, 75, 78, active ? 0.7 : 0.45,
+                    )}`,
                   }}
                 />
                 <Typography
                   variant="caption"
                   sx={{
                     color: active
-                      ? `hsla(${s.hue}, 90%, 90%, 0.95)`
-                      : "rgba(168, 216, 255, 0.55)",
+                      ? P.hue(s.hue, 90, 90, 0.95)
+                      : P.ink(0.55),
                     fontSize: "0.65rem",
                     letterSpacing: 0.5,
                     textTransform: "uppercase",
@@ -671,11 +668,11 @@ export default function SystemMapPage() {
                 borderRadius: "999px",
                 cursor: "pointer",
                 userSelect: "none",
-                color: "rgba(168, 216, 255, 0.55)",
+                color: P.ink(0.55),
                 fontSize: "0.65rem",
                 letterSpacing: 0.5,
                 textTransform: "uppercase",
-                "&:hover": { color: "rgba(168, 216, 255, 0.9)" },
+                "&:hover": { color: P.ink(0.9) },
               }}
             >
               clear
@@ -691,20 +688,20 @@ export default function SystemMapPage() {
                 sx={{
                   width: "1px",
                   alignSelf: "stretch",
-                  bgcolor: "rgba(168, 216, 255, 0.15)",
+                  bgcolor: P.ink(0.15),
                   mx: 0.5,
                 }}
               />
               <OverlayChip
                 label={`Ghost endpoints${ghostEndpointCount ? ` (${ghostEndpointCount})` : ""}`}
                 active={showGhostEndpoints}
-                activeColor="255, 170, 80"
+                activeColor={P.warnRGB}
                 onToggle={() => setShowGhostEndpoints((v) => !v)}
               />
               <OverlayChip
                 label={`Tool graph${toolCount ? ` (${toolCount})` : ""}`}
                 active={showToolGraph}
-                activeColor="120, 220, 180"
+                activeColor={P.ghostRGB}
                 onToggle={() => setShowToolGraph((v) => !v)}
               />
             </>
@@ -720,9 +717,9 @@ export default function SystemMapPage() {
               left: 16,
               right: 16,
               zIndex: 10,
-              bgcolor: "rgba(255, 100, 100, 0.15)",
-              color: "rgba(255, 200, 200, 0.95)",
-              border: "1px solid rgba(255, 100, 100, 0.3)",
+              bgcolor: P.errorBg,
+              color: P.errorInk,
+              border: `1px solid ${P.errorBorder}`,
             }}
           >
             {error}
@@ -753,7 +750,7 @@ export default function SystemMapPage() {
             bottom: 16,
             left: 16,
             zIndex: 8,
-            color: "rgba(168, 216, 255, 0.45)",
+            color: P.ink(0.45),
             fontSize: "0.7rem",
             fontFamily: "monospace",
             letterSpacing: 0.4,
@@ -775,11 +772,11 @@ export default function SystemMapPage() {
             p: 0,
             // 90% transparent, glass effect via heavier blur + saturate.
             // Text inside stays opaque (set on individual elements).
-            bgcolor: "rgba(14, 22, 40, 0.10)",
+            bgcolor: P.panelBg,
             backdropFilter: "blur(20px) saturate(1.4)",
             WebkitBackdropFilter: "blur(20px) saturate(1.4)",
-            border: "1px solid rgba(168, 216, 255, 0.15)",
-            color: "rgba(168, 216, 255, 0.85)",
+            border: `1px solid ${P.ink(0.15)}`,
+            color: P.ink(0.85),
             zIndex: 9,
             display: "flex",
             flexDirection: "column",
@@ -792,7 +789,7 @@ export default function SystemMapPage() {
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography
                     variant="overline"
-                    sx={{ color: "rgba(168, 216, 255, 0.5)", letterSpacing: 1.2 }}
+                    sx={{ color: P.ink(0.5), letterSpacing: 1.2 }}
                   >
                     {hovered ? "Hovered" : "Selected"}
                   </Typography>
@@ -802,7 +799,7 @@ export default function SystemMapPage() {
                       fontFamily: "monospace",
                       fontSize: "0.85rem",
                       wordBreak: "break-all",
-                      color: "rgba(168, 216, 255, 0.95)",
+                      color: P.ink(0.95),
                     }}
                   >
                     {activeNodeId}
@@ -810,7 +807,7 @@ export default function SystemMapPage() {
                 </Box>
                 {selected && !hovered && (
                   <IconButton size="small" onClick={() => setSelected(null)}>
-                    <CloseIcon sx={{ color: "rgba(168, 216, 255, 0.5)", fontSize: 18 }} />
+                    <CloseIcon sx={{ color: P.ink(0.5), fontSize: 18 }} />
                   </IconButton>
                 )}
               </Stack>
@@ -821,8 +818,8 @@ export default function SystemMapPage() {
                     size="small"
                     label={activeNode.section}
                     sx={{
-                      bgcolor: "rgba(168, 216, 255, 0.10)",
-                      color: "rgba(168, 216, 255, 0.85)",
+                      bgcolor: P.ink(0.10),
+                      color: P.ink(0.85),
                       fontSize: "0.7rem",
                       height: 22,
                       mr: 0.5,
@@ -834,8 +831,8 @@ export default function SystemMapPage() {
                     size="small"
                     label={activeNode.lifecycle}
                     sx={{
-                      bgcolor: "rgba(168, 216, 255, 0.10)",
-                      color: "rgba(168, 216, 255, 0.85)",
+                      bgcolor: P.ink(0.10),
+                      color: P.ink(0.85),
                       fontSize: "0.7rem",
                       height: 22,
                       mr: 0.5,
@@ -847,8 +844,8 @@ export default function SystemMapPage() {
                     size="small"
                     label={`${activeNode.importers} importer${activeNode.importers === 1 ? "" : "s"}`}
                     sx={{
-                      bgcolor: "rgba(168, 216, 255, 0.06)",
-                      color: "rgba(168, 216, 255, 0.7)",
+                      bgcolor: P.ink(0.06),
+                      color: P.ink(0.7),
                       fontSize: "0.7rem",
                       height: 22,
                       mr: 0.5,
@@ -861,7 +858,7 @@ export default function SystemMapPage() {
                 <Box sx={{ mt: 2 }}>
                   <Typography
                     variant="overline"
-                    sx={{ color: "rgba(168, 216, 255, 0.5)", letterSpacing: 1.2 }}
+                    sx={{ color: P.ink(0.5), letterSpacing: 1.2 }}
                   >
                     Findings ({activeFindings.length})
                   </Typography>
@@ -872,7 +869,7 @@ export default function SystemMapPage() {
                         mt: 0.5,
                         p: 1,
                         borderLeft: `2px solid ${SEVERITY_COLOR[f.severity] || SEVERITY_COLOR.low}`,
-                        bgcolor: "rgba(168, 216, 255, 0.04)",
+                        bgcolor: P.ink(0.04),
                       }}
                     >
                       <Typography
@@ -889,7 +886,7 @@ export default function SystemMapPage() {
                       <Typography
                         variant="body2"
                         sx={{
-                          color: "rgba(168, 216, 255, 0.8)",
+                          color: P.ink(0.8),
                           fontSize: "0.78rem",
                           mt: 0.25,
                         }}
@@ -901,7 +898,7 @@ export default function SystemMapPage() {
                   {activeFindings.length > 8 && (
                     <Typography
                       variant="caption"
-                      sx={{ color: "rgba(168, 216, 255, 0.4)", mt: 0.5, display: "block" }}
+                      sx={{ color: P.ink(0.4), mt: 0.5, display: "block" }}
                     >
                       … and {activeFindings.length - 8} more
                     </Typography>
@@ -912,7 +909,7 @@ export default function SystemMapPage() {
               {!hovered && selected && (
                 <Typography
                   variant="caption"
-                  sx={{ color: "rgba(168, 216, 255, 0.4)", mt: 2, display: "block" }}
+                  sx={{ color: P.ink(0.4), mt: 2, display: "block" }}
                 >
                   Press <code>Esc</code> to clear
                 </Typography>
@@ -951,9 +948,9 @@ export default function SystemMapPage() {
               right: 16,
               zIndex: 12,
               maxWidth: 360,
-              bgcolor: "rgba(20, 40, 60, 0.95)",
-              color: "rgba(200, 230, 255, 0.95)",
-              border: "1px solid rgba(168, 216, 255, 0.3)",
+              bgcolor: P.tooltipBg,
+              color: P.tooltipInk,
+              border: `1px solid ${P.ink(0.3)}`,
             }}
           >
             {toast}
@@ -973,11 +970,11 @@ export default function SystemMapPage() {
               gap: 2,
             }}
           >
-            <CircularProgress sx={{ color: "rgba(168, 216, 255, 0.7)" }} />
+            <CircularProgress sx={{ color: P.ink(0.7) }} />
             <Typography
               variant="caption"
               sx={{
-                color: "rgba(168, 216, 255, 0.5)",
+                color: P.ink(0.5),
                 letterSpacing: 2,
                 textTransform: "uppercase",
               }}
@@ -995,6 +992,7 @@ export default function SystemMapPage() {
 
 // Shared tab header for the right-side panel base views.
 function PanelTabs({ activeTab, onTab, badge }) {
+  const P = useMapPalette();
   const tab = (key, label) => (
     <Box
       role="button"
@@ -1013,10 +1011,10 @@ function PanelTabs({ activeTab, onTab, badge }) {
         py: 0.5,
         borderBottom:
           activeTab === key
-            ? "2px solid rgba(168, 216, 255, 0.85)"
+            ? `2px solid ${P.ink(0.85)}`
             : "2px solid transparent",
         color:
-          activeTab === key ? "rgba(168, 216, 255, 0.95)" : "rgba(168, 216, 255, 0.45)",
+          activeTab === key ? P.ink(0.95) : P.ink(0.45),
         fontSize: "0.7rem",
         letterSpacing: 1.2,
         textTransform: "uppercase",
@@ -1033,8 +1031,8 @@ function PanelTabs({ activeTab, onTab, badge }) {
             fontSize: "0.6rem",
             px: 0.6,
             borderRadius: "999px",
-            bgcolor: "rgba(255, 184, 77, 0.2)",
-            color: "#ffb84d",
+            bgcolor: P.warn(0.2),
+            color: P.severity.medium,
           }}
         >
           {badge}
@@ -1062,6 +1060,8 @@ function FindingsView({
   activeTab,
   onTab,
 }) {
+  const P = useMapPalette();
+  const SEVERITY_COLOR = P.severity;
   const filters = [
     { key: "high,medium", label: "Actionable" },
     { key: "high", label: "Critical" },
@@ -1072,8 +1072,8 @@ function FindingsView({
       <PanelTabs activeTab={activeTab} onTab={onTab} badge={openCount} />
       <Box sx={{ px: 1.5, pb: 1 }}>
         <Stack direction="row" alignItems="center" spacing={1}>
-          <WarningAmberIcon sx={{ color: "rgba(255, 184, 77, 0.7)", fontSize: 16 }} />
-          <Typography variant="caption" sx={{ color: "rgba(168, 216, 255, 0.55)", fontSize: "0.7rem" }}>
+          <WarningAmberIcon sx={{ color: P.warn(0.7), fontSize: 16 }} />
+          <Typography variant="caption" sx={{ color: P.ink(0.55), fontSize: "0.7rem" }}>
             Ranked findings · click to locate · dispatch to fix
           </Typography>
         </Stack>
@@ -1101,12 +1101,12 @@ function FindingsView({
                 textTransform: "uppercase",
                 border:
                   sevFilter === f.key
-                    ? "1px solid rgba(168, 216, 255, 0.6)"
-                    : "1px solid rgba(168, 216, 255, 0.15)",
+                    ? `1px solid ${P.ink(0.6)}`
+                    : `1px solid ${P.ink(0.15)}`,
                 color:
                   sevFilter === f.key
-                    ? "rgba(168, 216, 255, 0.95)"
-                    : "rgba(168, 216, 255, 0.5)",
+                    ? P.ink(0.95)
+                    : P.ink(0.5),
               }}
             >
               {f.label}
@@ -1114,13 +1114,13 @@ function FindingsView({
           ))}
         </Stack>
       </Box>
-      <Divider sx={{ borderColor: "rgba(168, 216, 255, 0.08)" }} />
+      <Divider sx={{ borderColor: P.ink(0.08) }} />
       <Box sx={{ flex: 1, overflowY: "auto", p: 1.5, pt: 1 }}>
         {findings.length === 0 ? (
           <Typography
             variant="caption"
             sx={{
-              color: "rgba(168, 216, 255, 0.35)",
+              color: P.ink(0.35),
               fontStyle: "italic",
               display: "block",
               mt: 2,
@@ -1137,7 +1137,7 @@ function FindingsView({
                 mt: 0.8,
                 p: 1,
                 borderLeft: `2px solid ${SEVERITY_COLOR[f.severity] || SEVERITY_COLOR.low}`,
-                bgcolor: "rgba(168, 216, 255, 0.04)",
+                bgcolor: P.ink(0.04),
                 borderRadius: "2px",
               }}
             >
@@ -1164,7 +1164,7 @@ function FindingsView({
                 </Typography>
                 <Typography
                   variant="body2"
-                  sx={{ color: "rgba(168, 216, 255, 0.85)", fontSize: "0.78rem", mt: 0.25 }}
+                  sx={{ color: P.ink(0.85), fontSize: "0.78rem", mt: 0.25 }}
                 >
                   {f.summary}
                 </Typography>
@@ -1173,7 +1173,7 @@ function FindingsView({
                     key={p}
                     variant="caption"
                     sx={{
-                      color: "rgba(168, 216, 255, 0.4)",
+                      color: P.ink(0.4),
                       fontFamily: "monospace",
                       fontSize: "0.65rem",
                       display: "block",
@@ -1191,10 +1191,10 @@ function FindingsView({
                         size="small"
                         disabled={dispatchingId === f.id}
                         onClick={() => onDispatch(f)}
-                        sx={{ color: "rgba(120, 220, 180, 0.8)" }}
+                        sx={{ color: P.ghost(0.8) }}
                       >
                         {dispatchingId === f.id ? (
-                          <CircularProgress size={14} sx={{ color: "rgba(120, 220, 180, 0.8)" }} />
+                          <CircularProgress size={14} sx={{ color: P.ghost(0.8) }} />
                         ) : (
                           <SendIcon sx={{ fontSize: 15 }} />
                         )}
@@ -1206,7 +1206,7 @@ function FindingsView({
                   <IconButton
                     size="small"
                     onClick={() => onDismiss(f)}
-                    sx={{ color: "rgba(168, 216, 255, 0.5)" }}
+                    sx={{ color: P.ink(0.5) }}
                   >
                     <VisibilityOffIcon sx={{ fontSize: 15 }} />
                   </IconButton>
@@ -1221,15 +1221,16 @@ function FindingsView({
 }
 
 function ActivityLogView({ activity, activeTab, onTab }) {
+  const P = useMapPalette();
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {onTab && <PanelTabs activeTab={activeTab} onTab={onTab} />}
       <Box sx={{ p: 2, pb: 1.5 }}>
         <Stack direction="row" alignItems="center" spacing={1}>
-          <BoltIcon sx={{ color: "rgba(168, 216, 255, 0.7)", fontSize: 18 }} />
+          <BoltIcon sx={{ color: P.ink(0.7), fontSize: 18 }} />
           <Typography
             variant="overline"
-            sx={{ color: "rgba(168, 216, 255, 0.7)", letterSpacing: 1.5 }}
+            sx={{ color: P.ink(0.7), letterSpacing: 1.5 }}
           >
             Live activity
           </Typography>
@@ -1237,7 +1238,7 @@ function ActivityLogView({ activity, activeTab, onTab }) {
           <Typography
             variant="caption"
             sx={{
-              color: "rgba(168, 216, 255, 0.4)",
+              color: P.ink(0.4),
               fontFamily: "monospace",
               fontSize: "0.7rem",
             }}
@@ -1248,7 +1249,7 @@ function ActivityLogView({ activity, activeTab, onTab }) {
         <Typography
           variant="caption"
           sx={{
-            color: "rgba(168, 216, 255, 0.4)",
+            color: P.ink(0.4),
             fontSize: "0.7rem",
             display: "block",
             mt: 0.5,
@@ -1257,13 +1258,13 @@ function ActivityLogView({ activity, activeTab, onTab }) {
           Tool calls flowing through the chat appear here. Matched modules pulse in the constellation.
         </Typography>
       </Box>
-      <Divider sx={{ borderColor: "rgba(168, 216, 255, 0.08)" }} />
+      <Divider sx={{ borderColor: P.ink(0.08) }} />
       <Box sx={{ flex: 1, overflowY: "auto", p: 1.5, pt: 1 }}>
         {activity.length === 0 ? (
           <Typography
             variant="caption"
             sx={{
-              color: "rgba(168, 216, 255, 0.35)",
+              color: P.ink(0.35),
               fontStyle: "italic",
               display: "block",
               mt: 2,
@@ -1281,10 +1282,10 @@ function ActivityLogView({ activity, activeTab, onTab }) {
                 p: 0.8,
                 borderLeft: `2px solid ${
                   evt.kind === "result"
-                    ? "rgba(120, 220, 180, 0.6)"
-                    : "rgba(168, 216, 255, 0.55)"
+                    ? P.ghost(0.6)
+                    : P.ink(0.55)
                 }`,
-                bgcolor: "rgba(168, 216, 255, 0.03)",
+                bgcolor: P.ink(0.03),
                 borderRadius: "2px",
               }}
             >
@@ -1294,8 +1295,8 @@ function ActivityLogView({ activity, activeTab, onTab }) {
                   sx={{
                     color:
                       evt.kind === "result"
-                        ? "rgba(120, 220, 180, 0.85)"
-                        : "rgba(168, 216, 255, 0.8)",
+                        ? P.ghost(0.85)
+                        : P.ink(0.8),
                     fontFamily: "monospace",
                     fontSize: "0.72rem",
                   }}
@@ -1306,7 +1307,7 @@ function ActivityLogView({ activity, activeTab, onTab }) {
                 <Typography
                   variant="caption"
                   sx={{
-                    color: "rgba(168, 216, 255, 0.35)",
+                    color: P.ink(0.35),
                     fontFamily: "monospace",
                     fontSize: "0.65rem",
                   }}
@@ -1318,7 +1319,7 @@ function ActivityLogView({ activity, activeTab, onTab }) {
                 <Typography
                   variant="caption"
                   sx={{
-                    color: "rgba(168, 216, 255, 0.4)",
+                    color: P.ink(0.4),
                     fontFamily: "monospace",
                     fontSize: "0.65rem",
                     display: "block",

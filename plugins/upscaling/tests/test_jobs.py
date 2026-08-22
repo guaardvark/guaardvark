@@ -96,3 +96,41 @@ def test_active_job_count():
     assert jm.active_job_count == 2  # both RUNNING
     jm.complete_job(job1["job_id"])
     assert jm.active_job_count == 1  # 1 RUNNING
+
+
+def test_create_job_defaults_to_a_video_job():
+    jm = JobManager(max_history=5)
+    job = jm.create_job("/tmp/in.mp4", "/tmp/out.mp4", "m", 4.0)
+    assert job["kind"] == "video"
+    assert job["item_count"] == 1
+    assert job["outputs"] == []
+
+
+def test_image_batch_job_collects_outputs():
+    jm = JobManager(max_history=5)
+    job = jm.create_job(
+        "/tmp/a.png", "/tmp/out", "m", 4.0, kind="image_batch", item_count=2,
+    )
+    jm.start_job(job["job_id"], total_frames=2)
+    jm.add_output(job["job_id"], "/tmp/out/a_upscaled.png")
+    jm.add_output(job["job_id"], "/tmp/out/b_upscaled.png")
+    jm.complete_job(job["job_id"])
+
+    updated = jm.get_job(job["job_id"])
+    assert updated["kind"] == "image_batch"
+    assert updated["item_count"] == 2
+    assert updated["outputs"] == ["/tmp/out/a_upscaled.png", "/tmp/out/b_upscaled.png"]
+    assert updated["status"] == JobStatus.COMPLETED.value
+
+
+def test_set_error_leaves_status_alone():
+    jm = JobManager(max_history=5)
+    job = jm.create_job("/tmp/a.png", "/tmp/out", "m", 4.0, kind="image_batch", item_count=2)
+    jm.start_job(job["job_id"], total_frames=2)
+    jm.set_error(job["job_id"], "1 skipped: b.png: unreadable")
+    jm.complete_job(job["job_id"])
+
+    updated = jm.get_job(job["job_id"])
+    assert updated["status"] == JobStatus.COMPLETED.value
+    assert "unreadable" in updated["error"]
+

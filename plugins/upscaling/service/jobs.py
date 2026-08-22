@@ -1,4 +1,4 @@
-"""Job state machine and history for video upscaling jobs."""
+"""Job state machine and history for upscaling jobs (video and image batches)."""
 import threading
 import time
 import uuid
@@ -34,11 +34,21 @@ class JobManager:
         two_pass: bool = False,
         face_enhance: bool = False,
         double_fps: bool = False,
+        kind: str = "video",
+        item_count: int = 1,
     ) -> Dict[str, Any]:
+        """Register a PENDING job.
+
+        ``kind`` is ``"video"`` or ``"image_batch"``; for an image batch the
+        frame counters count images and ``outputs`` collects each written file.
+        """
         job_id = uuid.uuid4().hex[:12]
         job = {
             "job_id": job_id,
             "status": JobStatus.PENDING.value,
+            "kind": kind,
+            "item_count": item_count,
+            "outputs": [],
             "input_path": input_path,
             "output_path": output_path,
             "model": model,
@@ -88,6 +98,23 @@ class JobManager:
                 job["fps"] = fps
                 remaining = job["frames_total"] - frames_done
                 job["eta_seconds"] = round(remaining / fps) if fps > 0 else None
+
+    def add_output(self, job_id: str, output_path: str) -> None:
+        """Record one finished output file on a multi-item job."""
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is not None:
+                job["outputs"].append(output_path)
+
+    def set_error(self, job_id: str, error: str) -> None:
+        """Attach an error note without moving the job out of its current state.
+
+        Used for per-item failures inside a batch that still finishes.
+        """
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is not None:
+                job["error"] = error
 
     def complete_job(self, job_id: str) -> None:
         with self._lock:

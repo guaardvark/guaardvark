@@ -9,7 +9,7 @@ import queue
 import threading
 import time
 from contextlib import asynccontextmanager
-from typing import Optional
+from typing import List, Optional
 
 import cv2
 import numpy as np
@@ -68,6 +68,18 @@ class ImageUpscaleRequest(BaseModel):
     sharpen: Optional[float] = 0.3
     two_pass: Optional[bool] = False
     face_enhance: Optional[bool] = False
+
+
+class ImageBatchUpscaleRequest(BaseModel):
+    inputs: List[str]
+    output_dir: str
+    model: Optional[str] = None
+    scale: Optional[float] = None
+    denoise_strength: Optional[float] = 0.0
+    sharpen: Optional[float] = 0.3
+    two_pass: Optional[bool] = False
+    face_enhance: Optional[bool] = False
+    suffix: str = "upscaled"
 
 
 class VideoUpscaleRequest(BaseModel):
@@ -172,6 +184,23 @@ def _submit_watch_job(input_path: str):
 
 # --- Helpers ---
 
+def _atomic_imwrite(output_path: str, image) -> bool:
+    """Write ``image`` to ``output_path`` via a sibling temp file.
+
+    The temp name keeps the target extension: OpenCV chooses its encoder from
+    the final extension and refuses to write one it does not recognise.
+    """
+    output_dir = os.path.dirname(output_path)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+    root, ext = os.path.splitext(output_path)
+    tmp_path = f"{root}.tmp{ext}"
+    if not cv2.imwrite(tmp_path, image):
+        return False
+    os.replace(tmp_path, output_path)
+    return True
+
+
 def _ensure_model(model_name: Optional[str] = None) -> str:
     """Ensure the requested (or default) model is loaded. Returns model name."""
     name = model_name or _config.default_model
@@ -213,9 +242,74 @@ def _start_video_job(
         _job_manager.fail_job(job["job_id"], error="Job queue not initialized")
         return job
 
-    _job_queue.put(
-        (job["job_id"], input_path, output_path, name, scale, denoise_strength, sharpen, two_pass, face_enhance, double_fps, cancel_event)
+    _job_queue.put({
+        "kind": "video",
+        "job_id": job["job_id"],
+        "input_path": input_path,
+        "output_path": output_path,
+        "model_name": name,
+        "scale": scale,
+        "denoise_strength": denoise_strength,
+        "sharpen": sharpen,
+        "two_pass": two_pass,
+        "face_enhance": face_enhance,
+        "double_fps": double_fps,
+        "cancel_event": cancel_event,
+    })
+    return job
+
+
+def _start_image_batch_job(
+    inputs: list,
+    output_dir: str,
+    model_name: Optional[str],
+    scale: Optional[float],
+    denoise_strength: float,
+    sharpen: float,
+    two_pass: bool,
+    face_enhance: bool,
+    suffix: str,
+) -> dict:
+    """Create one job covering N images and drop it on the shared GPU queue.
+
+    Image batches ride the same single-consumer queue as video so a folder of
+    stills never competes with a running render for VRAM.
+    """
+    name = model_name or _config.default_model
+    job = _job_manager.create_job(
+        input_path=inputs[0] if inputs else output_dir,
+        output_path=output_dir,
+        model=name,
+        scale=scale or 0,
+        denoise_strength=denoise_strength,
+        sharpen=sharpen,
+        two_pass=two_pass,
+        face_enhance=face_enhance,
+        double_fps=False,
+        kind="image_batch",
+        item_count=len(inputs),
     )
+    cancel_event = threading.Event()
+    _cancel_flags[job["job_id"]] = cancel_event
+
+    if _job_queue is None:
+        _job_manager.fail_job(job["job_id"], error="Job queue not initialized")
+        return job
+
+    _job_queue.put({
+        "kind": "image_batch",
+        "job_id": job["job_id"],
+        "inputs": list(inputs),
+        "output_dir": output_dir,
+        "model_name": name,
+        "scale": scale,
+        "denoise_strength": denoise_strength,
+        "sharpen": sharpen,
+        "two_pass": two_pass,
+        "face_enhance": face_enhance,
+        "suffix": suffix,
+        "cancel_event": cancel_event,
+    })
     return job
 
 
@@ -226,12 +320,25 @@ def _job_worker():
         task = _job_queue.get()
         if task is None:
             break
-        job_id, input_path, output_path, model_name, scale, denoise, sharpen, two_pass, face_enhance, double_fps, cancel_event = task
+        job_id = task["job_id"]
         try:
-            _run_video_job(job_id, input_path, output_path, model_name, scale, denoise, sharpen, two_pass, face_enhance, double_fps, cancel_event)
+            if task["kind"] == "image_batch":
+                _run_image_batch_job(
+                    job_id, task["inputs"], task["output_dir"], task["model_name"],
+                    task["scale"], task["denoise_strength"], task["sharpen"],
+                    task["two_pass"], task["face_enhance"], task["suffix"],
+                    task["cancel_event"],
+                )
+            else:
+                _run_video_job(
+                    job_id, task["input_path"], task["output_path"], task["model_name"],
+                    task["scale"], task["denoise_strength"], task["sharpen"],
+                    task["two_pass"], task["face_enhance"], task["double_fps"],
+                    task["cancel_event"],
+                )
         except Exception as e:
-            # _run_video_job already records failure into the job manager;
-            # this is a last-resort log so a worker crash doesn't kill the loop.
+            # The runners already record failure into the job manager; this is a
+            # last-resort log so a worker crash doesn't kill the loop.
             logger.exception(f"Worker crashed processing {job_id}: {e}")
 
 
@@ -368,6 +475,119 @@ def _run_video_job(
             torch.cuda.empty_cache()
 
 
+def _run_image_batch_job(
+    job_id: str,
+    inputs: list,
+    output_dir: str,
+    model_name: str,
+    scale: Optional[float],
+    denoise_strength: float,
+    sharpen: float,
+    two_pass: bool,
+    face_enhance: bool,
+    suffix: str,
+    cancel_event: threading.Event,
+):
+    """Background worker for an image-batch upscale job.
+
+    Frame counters count images. A file that fails to decode or write is
+    recorded in ``error`` and skipped; the batch only fails outright when no
+    image succeeded.
+    """
+    start_time = time.time()
+    try:
+        if cancel_event.is_set():
+            _job_manager.cancel_job(job_id)
+            logger.info(f"Job {job_id} cancelled before start")
+            return
+
+        if torch.cuda.is_available():
+            free, _total = torch.cuda.mem_get_info(0)
+            free_mb = free / (1024 * 1024)
+            if free_mb < 500:
+                raise RuntimeError(f"Insufficient VRAM: {free_mb:.0f}MB free, need ~500MB minimum")
+
+        _ensure_model(model_name)
+        model = _model_manager.get_model()
+        model_scale = _model_manager.scale or 4
+
+        tile_size = 400
+        if _config.max_tile_size != "auto":
+            tile_size = int(_config.max_tile_size)
+
+        os.makedirs(output_dir, exist_ok=True)
+        _job_manager.start_job(job_id, total_frames=len(inputs))
+        _send_callback("upscale:job_started", {
+            "job_id": job_id,
+            "input_file": inputs[0] if inputs else output_dir,
+            "model": model_name,
+        })
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        done = 0
+        failures = []
+
+        for input_path in inputs:
+            if cancel_event.is_set():
+                raise InterruptedError("Job cancelled")
+
+            img = cv2.imread(input_path, cv2.IMREAD_UNCHANGED)
+            if img is None:
+                failures.append(f"{os.path.basename(input_path)}: unreadable")
+                done += 1
+                _job_manager.update_progress(job_id, done, 0.0)
+                continue
+
+            # Same lock the sync image endpoints take — model swap and upscale
+            # must not interleave with a concurrent request.
+            with _image_upscale_lock:
+                output = upscale_image(
+                    img, model, model_scale,
+                    outscale=scale, tile_size=tile_size,
+                    device=device, precision=_config.precision,
+                    sharpen=sharpen, denoise_strength=denoise_strength,
+                    two_pass=two_pass, face_enhance=face_enhance,
+                )
+
+            stem = os.path.splitext(os.path.basename(input_path))[0]
+            output_path = os.path.join(output_dir, f"{stem}_{suffix}.png")
+            if not _atomic_imwrite(output_path, output):
+                failures.append(f"{os.path.basename(input_path)}: write failed")
+                done += 1
+                _job_manager.update_progress(job_id, done, 0.0)
+                continue
+            _job_manager.add_output(job_id, output_path)
+
+            done += 1
+            elapsed = time.time() - start_time
+            _job_manager.update_progress(job_id, done, done / elapsed if elapsed > 0 else 0.0)
+
+        if failures and len(failures) == len(inputs):
+            raise RuntimeError("; ".join(failures[:5]))
+        if failures:
+            _job_manager.set_error(job_id, f"{len(failures)} skipped: " + "; ".join(failures[:5]))
+        _job_manager.complete_job(job_id)
+        logger.info(f"Job {job_id} completed: {done - len(failures)}/{len(inputs)} images -> {output_dir}")
+
+        _send_callback("upscale:job_completed", {
+            "job_id": job_id,
+            "output_file": output_dir,
+            "duration_seconds": round(time.time() - start_time, 1),
+        })
+
+    except InterruptedError as e:
+        _job_manager.cancel_job(job_id)
+        logger.info(f"Job {job_id} stopped: {e}")
+    except Exception as e:
+        logger.error(f"Job {job_id} failed: {e}", exc_info=True)
+        _job_manager.fail_job(job_id, error=str(e))
+        _send_callback("upscale:job_failed", {"job_id": job_id, "error": str(e)})
+    finally:
+        _cancel_flags.pop(job_id, None)
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+
 def _send_callback(event: str, payload: dict):
     """Send event callback to Guaardvark backend (best-effort)."""
     if not _config or not _config.callback_url:
@@ -454,14 +674,8 @@ def upscale_image_endpoint(req: ImageUpscaleRequest, request: Request):
             face_enhance=req.face_enhance if req.face_enhance is not None else False,
         )
 
-    # `os.path.dirname("foo.png")` returns "" — `os.makedirs("")` raises
-    # FileNotFoundError. Only call it when there's actually a directory part.
-    output_dir = os.path.dirname(req.output_path)
-    if output_dir:
-        os.makedirs(output_dir, exist_ok=True)
-    tmp_path = req.output_path + ".tmp"
-    cv2.imwrite(tmp_path, output)
-    os.replace(tmp_path, req.output_path)
+    if not _atomic_imwrite(req.output_path, output):
+        raise HTTPException(500, f"Could not write image: {req.output_path}")
     return {"status": "completed", "output_path": req.output_path}
 
 
@@ -515,6 +729,31 @@ async def upscale_image_upload(
         filename=f"upscaled_{file.filename}",
         background=BackgroundTask(os.unlink, tmp_file.name),
     )
+
+
+@app.post("/upscale/images", status_code=202)
+def upscale_images_endpoint(req: ImageBatchUpscaleRequest, request: Request):
+    """Queue a batch of images as a single job on the shared GPU worker."""
+    verify_token(request)
+    if not req.inputs:
+        raise HTTPException(400, "inputs must not be empty")
+
+    missing = [p for p in req.inputs if not os.path.isfile(p)]
+    if missing:
+        raise HTTPException(400, f"Input file not found: {missing[0]}")
+
+    job = _start_image_batch_job(
+        inputs=req.inputs,
+        output_dir=req.output_dir,
+        model_name=req.model,
+        scale=req.scale,
+        denoise_strength=req.denoise_strength if req.denoise_strength is not None else 0.0,
+        sharpen=req.sharpen if req.sharpen is not None else 0.3,
+        two_pass=req.two_pass if req.two_pass is not None else False,
+        face_enhance=req.face_enhance if req.face_enhance is not None else False,
+        suffix=req.suffix,
+    )
+    return job
 
 
 @app.post("/upscale/video", status_code=202)

@@ -2,6 +2,16 @@
   <img src="docs/screenshots/og-image.jpg" alt="Guaardvark — Secure Offline AI Platform" width="480">
 </p>
 
+> **The aardvark** (/ˈɑːrd.vɑːrk/; *Orycteropus afer*) is a medium-sized, burrowing, nocturnal mammal native to Africa. The aardvark is the only living member of the genus *Orycteropus*, the family Orycteropodidae and the order Tubulidentata. It is found over much of the southern two-thirds of the African continent, avoiding areas that are mainly rocky. A nocturnal feeder, the aardvark subsists on ants and termites (myrmecophagy) by using its sharp claws and powerful legs to dig the insects out of their hills, and its long snout to sniff out food. It digs a burrow in which to live and rear its young.
+>
+> — [Wikipedia](https://en.wikipedia.org/wiki/Aardvark), CC BY-SA
+
+**The Guaardvark** (/ˈɡwɑːrd.vɑːrk/; *Workstationus selfhosticus*) is a badass, burrowing, nocturnal AI system native to consumer hardware. The Guaardvark is the only living member of the repository [github.com/guaardvark/guaardvark](https://github.com/guaardvark/guaardvark), the family LocalAI, and the order AutonomousAgents.
+
+The Guaardvark is a local-first platform, a clade that also includes Ollama, Llama, and ComfyUI.
+
+It is found across most of the modern desktop, avoiding regions that are mainly cloud. A nocturnal feeder, the Guaardvark subsists on prompts and unstructured data (promptophagy) by using its sixty-odd tools and a swarm of parallel coding agents to dig bugs out of their codebases, and a retrieval index to sniff out knowledge in the dark. It is fiercely territorial about its single GPU, admitting one process to the card at a time and evicting any language model found loitering there. It digs isolated git worktrees in which to work, and rears its images, video, music, and cloned voices entirely on your own machine.
+
 # Guaardvark
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -507,7 +517,7 @@ Flask (~90+ API modules, auto-discovered) + GraphQL + Socket.IO
     +-- AgentBrain (3-tier routing: Reflex → Instinct → Deliberation)
     |
 Service Layer (many modules; plugin sidecars for heavy GPU work)
-|-- Agent Executor (ReACT + ~70 tool classes + BrainState)
+|-- Agent Executor (ReACT + ~60 tool classes + BrainState)
 |-- Screen Control (See-Think-Act-Verify + live reasoning stream)
 |-- RAG + Autoresearch + Entity extraction
 |-- Self-Improvement (detect/fix/verify/broadcast + guardian)

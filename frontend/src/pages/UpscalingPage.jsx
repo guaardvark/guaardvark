@@ -1,5 +1,7 @@
 // frontend/src/pages/UpscalingPage.jsx
-// Dedicated upscaling page with video upload, model selection, and job tracking
+// Upscaling workspace for video and stills: upload, model selection, job tracking.
+// Videos and image batches queue on the plugin's single GPU worker; a single
+// still is upscaled inline and returned with the request.
 
 import React, { useEffect, useState, useRef, useCallback, Suspense } from "react";
 import {
@@ -38,6 +40,8 @@ import {
   ArrowBack as BackIcon,
   Close as CloseIcon,
   Visibility as PreviewIcon,
+  Movie as MovieIcon,
+  Image as ImageIcon,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import * as upscalingService from "../api/upscalingService";
@@ -53,6 +57,21 @@ const TARGET_PRESETS = {
   "4k": { label: "4K (3840px)", width: 3840 },
   "8k": { label: "8K (7680px)", width: 7680 },
 };
+
+const VIDEO_EXTENSIONS = ["mp4", "mkv", "avi", "mov", "webm", "flv", "wmv"];
+const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "webp", "bmp", "tif", "tiff"];
+
+// null means "whatever the model's native factor is" — the plugin decides.
+const IMAGE_SCALES = [
+  { value: "", label: "Model default" },
+  { value: "2", label: "2x" },
+  { value: "3", label: "3x" },
+  { value: "4", label: "4x" },
+];
+
+const extensionOf = (name) => (name.split(".").pop() || "").toLowerCase();
+const isVideoFile = (name) => VIDEO_EXTENSIONS.includes(extensionOf(name));
+const isImageFile = (name) => IMAGE_EXTENSIONS.includes(extensionOf(name));
 
 const UpscalingPage = ({ embedded = false }) => {
   const navigate = useNavigate();
@@ -70,8 +89,13 @@ const UpscalingPage = ({ embedded = false }) => {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploadProgress, setUploadProgress] = useState(null); // { current, total, name }
 
+  // "video" or "image" — drives which files are accepted and which endpoint
+  // the Upscale button calls. Switching kinds drops the pending selection.
+  const [mediaKind, setMediaKind] = useState("video");
+
   // Settings
   const [selectedModel, setSelectedModel] = useState("");
+  const [imageScale, setImageScale] = useState("");
   const [targetResolution, setTargetResolution] = useState("4k");
   const [twoPass, setTwoPass] = useState(false);
   const [faceEnhance, setFaceEnhance] = useState(false);
@@ -83,6 +107,10 @@ const UpscalingPage = ({ embedded = false }) => {
   const [jobs, setJobs] = useState([]);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  // Result of a single-image upscale: before/after pair shown on the right.
+  const [imageResult, setImageResult] = useState(null);
+  const imageResultRef = useRef(null);
 
   const [previewFile, setPreviewFile] = useState(null);
   const [previewOriginalUrl, setPreviewOriginalUrl] = useState(null);
@@ -120,6 +148,20 @@ const UpscalingPage = ({ embedded = false }) => {
       setServiceAvailable(false);
     }
   };
+
+  // The single-image "before" thumbnail is an object URL; release it when the
+  // page goes away so a long session doesn't leak every image it upscaled.
+  useEffect(() => {
+    return () => {
+      if (imageResultRef.current?.originalUrl) {
+        URL.revokeObjectURL(imageResultRef.current.originalUrl);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    imageResultRef.current = imageResult;
+  }, [imageResult]);
 
   const refreshModels = useCallback(
     async (options = {}) => {
@@ -230,31 +272,42 @@ const UpscalingPage = ({ embedded = false }) => {
     setDragActive(false);
   }, []);
 
+  const acceptsFile = useCallback(
+    (name) => (mediaKind === "image" ? isImageFile(name) : isVideoFile(name)),
+    [mediaKind],
+  );
+
+  const addFiles = useCallback(
+    (incoming) => {
+      const accepted = incoming.filter((f) => acceptsFile(f.name));
+      const rejected = incoming.length - accepted.length;
+      if (accepted.length > 0) {
+        setSelectedFiles((prev) => [...prev, ...accepted]);
+      }
+      if (rejected > 0) {
+        const allowed = (mediaKind === "image" ? IMAGE_EXTENSIONS : VIDEO_EXTENSIONS)
+          .map((ext) => `.${ext}`)
+          .join(", ");
+        setError(`Skipped ${rejected} unsupported file(s). Allowed: ${allowed}`);
+      }
+    },
+    [acceptsFile, mediaKind],
+  );
+
   const handleDrop = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
     if (e.dataTransfer.files?.length > 0) {
-      const dropped = Array.from(e.dataTransfer.files);
-      const videos = dropped.filter((f) => isVideoFile(f.name));
-      const rejected = dropped.length - videos.length;
-      if (videos.length > 0) {
-        setSelectedFiles((prev) => [...prev, ...videos]);
-      }
-      if (rejected > 0) {
-        setError(`Skipped ${rejected} non-video file(s). Allowed: .mp4, .mkv, .avi, .mov, .webm`);
-      }
+      addFiles(Array.from(e.dataTransfer.files));
     }
-  }, []);
+  }, [addFiles]);
 
   const handleFileSelect = useCallback((e) => {
     if (e.target.files?.length > 0) {
-      const picked = Array.from(e.target.files).filter((f) => isVideoFile(f.name));
-      if (picked.length > 0) {
-        setSelectedFiles((prev) => [...prev, ...picked]);
-      }
+      addFiles(Array.from(e.target.files));
     }
-  }, []);
+  }, [addFiles]);
 
   const handleRemoveFile = useCallback((idx) => {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== idx));
@@ -265,10 +318,21 @@ const UpscalingPage = ({ embedded = false }) => {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }, []);
 
-  const isVideoFile = (name) => {
-    const ext = name.split(".").pop().toLowerCase();
-    return ["mp4", "mkv", "avi", "mov", "webm", "flv", "wmv"].includes(ext);
-  };
+  // A video selection means nothing in image mode (and vice versa), so the
+  // pending queue and any single-image result reset on every switch.
+  const handleKindChange = useCallback((_e, next) => {
+    if (!next) return;
+    setMediaKind(next);
+    setSelectedFiles([]);
+    setPreviewFile(null);
+    setImageResult((prev) => {
+      if (prev?.originalUrl) URL.revokeObjectURL(prev.originalUrl);
+      return null;
+    });
+    setError("");
+    setSuccess("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, []);
 
   // --- Submit upscale ---
   // Loops through every selected file and submits a job per file. The backend
@@ -318,6 +382,70 @@ const UpscalingPage = ({ embedded = false }) => {
     await Promise.all([fetchJobs(), refreshHealth()]);
     startPolling();
     setIsUploading(false);
+  };
+
+  // --- Submit image upscale ---
+  // One file returns the finished still with the response; more than one goes
+  // to the plugin queue as a single job so a folder of stills doesn't fight a
+  // running video render for VRAM.
+  const handleUpscaleImages = async () => {
+    if (selectedFiles.length === 0) return;
+    setIsUploading(true);
+    setError("");
+    setSuccess("");
+
+    const options = {
+      model: selectedModel || undefined,
+      scale: imageScale || undefined,
+      two_pass: twoPass,
+      face_enhance: faceEnhance,
+      sharpen,
+      denoise_strength: denoiseStrength,
+    };
+
+    try {
+      if (selectedFiles.length === 1) {
+        const file = selectedFiles[0];
+        setUploadProgress({ current: 1, total: 1, name: file.name });
+        const res = await upscalingService.upscaleImage(file, options);
+        const data = res.data || res;
+        setImageResult((prev) => {
+          if (prev?.originalUrl) URL.revokeObjectURL(prev.originalUrl);
+          return {
+            name: file.name,
+            originalUrl: URL.createObjectURL(file),
+            url: `${API_BASE}/upscaling/output/image/${encodeURIComponent(data.output_file)}`,
+          };
+        });
+        setSuccess(`Upscaled "${file.name}"`);
+        setSelectedFiles([]);
+      } else {
+        const res = await upscalingService.upscaleImages(selectedFiles, options);
+        const data = res.data || res;
+        setSuccess(`Queued ${data.queued ?? selectedFiles.length} images for upscaling`);
+        if (data.rejected?.length > 0) {
+          setError(`Skipped: ${data.rejected.join("; ")}`);
+        }
+        setSelectedFiles([]);
+        await Promise.all([fetchJobs(), refreshHealth()]);
+        startPolling();
+      }
+    } catch (e) {
+      setError(e.message || "Image upscale failed");
+    } finally {
+      setUploadProgress(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      setIsUploading(false);
+    }
+  };
+
+  const handleSubmit = () => (mediaKind === "image" ? handleUpscaleImages() : handleUpscale());
+
+  const closeImageResult = () => {
+    setImageResult((prev) => {
+      if (prev?.originalUrl) URL.revokeObjectURL(prev.originalUrl);
+      return null;
+    });
   };
 
   // --- Cancel job ---
@@ -409,9 +537,11 @@ const UpscalingPage = ({ embedded = false }) => {
   const vramTotal = serviceHealth?.vram_total_mb || 0;
   const modelLoaded = serviceHealth?.model_loaded;
 
+  const isImageMode = mediaKind === "image";
+
   const Wrapper = embedded ? React.Fragment : PageLayout;
   const wrapperProps = embedded ? {} : {
-    title: "Video Upscaling",
+    title: "Upscaling",
     variant: "standard",
     actions: (
       <Stack direction="row" spacing={1} alignItems="center">
@@ -452,8 +582,26 @@ const UpscalingPage = ({ embedded = false }) => {
           <Card sx={{ boxShadow: 2, borderRadius: 2, mb: 3 }}>
             <CardContent sx={{ p: 3 }}>
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                Upload Video
+                {isImageMode ? "Upload Images" : "Upload Video"}
               </Typography>
+
+              <ToggleButtonGroup
+                value={mediaKind}
+                exclusive
+                onChange={handleKindChange}
+                size="small"
+                fullWidth
+                sx={{ mb: 2 }}
+              >
+                <ToggleButton value="video">
+                  <MovieIcon fontSize="small" sx={{ mr: 1 }} />
+                  Video
+                </ToggleButton>
+                <ToggleButton value="image">
+                  <ImageIcon fontSize="small" sx={{ mr: 1 }} />
+                  Image
+                </ToggleButton>
+              </ToggleButtonGroup>
 
               {/* Drop zone */}
               <Box
@@ -477,7 +625,7 @@ const UpscalingPage = ({ embedded = false }) => {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="video/*"
+                  accept={isImageMode ? "image/*" : "video/*"}
                   multiple
                   onChange={handleFileSelect}
                   style={{ display: "none" }}
@@ -485,7 +633,9 @@ const UpscalingPage = ({ embedded = false }) => {
                 <UploadIcon sx={{ fontSize: 48, color: "text.secondary", mb: 1 }} />
                 {selectedFiles.length === 0 ? (
                   <Typography variant="body1" color="text.secondary">
-                    Drag & drop videos here, or click to browse
+                    {isImageMode
+                      ? "Drag & drop images here, or click to browse"
+                      : "Drag & drop videos here, or click to browse"}
                   </Typography>
                 ) : (
                   <Stack spacing={0.5} sx={{ mt: 0.5 }} onClick={(e) => e.stopPropagation()}>
@@ -526,13 +676,15 @@ const UpscalingPage = ({ embedded = false }) => {
                           {(f.size / (1024 * 1024)).toFixed(1)} MB
                         </Typography>
                         <Stack direction="row">
-                          <IconButton
-                            size="small"
-                            onClick={() => setPreviewFile(f)}
-                            disabled={isUploading}
-                          >
-                            <PreviewIcon fontSize="inherit" />
-                          </IconButton>
+                          {!isImageMode && (
+                            <IconButton
+                              size="small"
+                              onClick={() => setPreviewFile(f)}
+                              disabled={isUploading}
+                            >
+                              <PreviewIcon fontSize="inherit" />
+                            </IconButton>
+                          )}
                           <IconButton
                             size="small"
                             onClick={() => handleRemoveFile(i)}
@@ -575,24 +727,41 @@ const UpscalingPage = ({ embedded = false }) => {
                   </Button>
                 </Stack>
 
-                <Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    Target Resolution
-                  </Typography>
-                  <ToggleButtonGroup
-                    value={targetResolution}
-                    exclusive
-                    onChange={(_, v) => v && setTargetResolution(v)}
-                    size="small"
-                    fullWidth
-                  >
-                    {Object.entries(TARGET_PRESETS).map(([key, preset]) => (
-                      <ToggleButton key={key} value={key}>
-                        {preset.label}
-                      </ToggleButton>
-                    ))}
-                  </ToggleButtonGroup>
-                </Box>
+                {isImageMode ? (
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Output Scale</InputLabel>
+                    <Select
+                      value={imageScale}
+                      label="Output Scale"
+                      onChange={(e) => setImageScale(e.target.value)}
+                    >
+                      {IMAGE_SCALES.map((option) => (
+                        <MenuItem key={option.value || "native"} value={option.value}>
+                          {option.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                ) : (
+                  <Box>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      Target Resolution
+                    </Typography>
+                    <ToggleButtonGroup
+                      value={targetResolution}
+                      exclusive
+                      onChange={(_, v) => v && setTargetResolution(v)}
+                      size="small"
+                      fullWidth
+                    >
+                      {Object.entries(TARGET_PRESETS).map(([key, preset]) => (
+                        <ToggleButton key={key} value={key}>
+                          {preset.label}
+                        </ToggleButton>
+                      ))}
+                    </ToggleButtonGroup>
+                  </Box>
+                )}
 
                 <FormControlLabel
                   control={
@@ -630,23 +799,25 @@ const UpscalingPage = ({ embedded = false }) => {
                   }
                 />
 
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={doubleFps}
-                      onChange={(e) => setDoubleFps(e.target.checked)}
-                      size="small"
-                    />
-                  }
-                  label={
-                    <Stack>
-                      <Typography variant="body2">Double Framerate</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Interpolates frames for smoother motion (slower)
-                      </Typography>
-                    </Stack>
-                  }
-                />
+                {!isImageMode && (
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={doubleFps}
+                        onChange={(e) => setDoubleFps(e.target.checked)}
+                        size="small"
+                      />
+                    }
+                    label={
+                      <Stack>
+                        <Typography variant="body2">Double Framerate</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Interpolates frames for smoother motion (slower)
+                        </Typography>
+                      </Stack>
+                    }
+                  />
+                )}
 
                 <Box>
                   <Stack direction="row" justifyContent="space-between">
@@ -686,7 +857,7 @@ const UpscalingPage = ({ embedded = false }) => {
                   variant="contained"
                   size="large"
                   startIcon={isUploading ? <CircularProgress size={20} color="inherit" /> : <EnhanceIcon />}
-                  onClick={handleUpscale}
+                  onClick={handleSubmit}
                   disabled={selectedFiles.length === 0 || isUploading || !serviceAvailable}
                   fullWidth
                   sx={{ mt: 1 }}
@@ -696,10 +867,8 @@ const UpscalingPage = ({ embedded = false }) => {
                       ? `Uploading ${uploadProgress.current}/${uploadProgress.total}...`
                       : "Uploading..."
                     : selectedFiles.length > 1
-                      ? `Upscale ${selectedFiles.length} Videos${twoPass ? " (2-Pass)" : ""}`
-                      : twoPass
-                        ? "Upscale Video (2-Pass)"
-                        : "Upscale Video"}
+                      ? `Upscale ${selectedFiles.length} ${isImageMode ? "Images" : "Videos"}${twoPass ? " (2-Pass)" : ""}`
+                      : `Upscale ${isImageMode ? "Image" : "Video"}${twoPass ? " (2-Pass)" : ""}`}
                 </Button>
               </Stack>
             </CardContent>
@@ -748,6 +917,64 @@ const UpscalingPage = ({ embedded = false }) => {
 
         {/* Right: Preview & Job History */}
         <Grid item xs={12} lg={7}>
+          {imageResult && (
+            <Card sx={{ boxShadow: 2, borderRadius: 2, mb: 3 }}>
+              <CardContent sx={{ p: 3 }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }} noWrap>
+                    {imageResult.name}
+                  </Typography>
+                  <IconButton size="small" onClick={closeImageResult}>
+                    <CloseIcon />
+                  </IconButton>
+                </Stack>
+                <Grid container spacing={2}>
+                  <Grid item xs={6}>
+                    <Typography variant="subtitle2" align="center" gutterBottom>
+                      Original
+                    </Typography>
+                    <img
+                      src={imageResult.originalUrl}
+                      alt="Original"
+                      style={{ width: "100%", height: "auto", display: "block", borderRadius: "8px" }}
+                    />
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="subtitle2" align="center" gutterBottom>
+                      Upscaled
+                    </Typography>
+                    <img
+                      src={imageResult.url}
+                      alt="Upscaled"
+                      style={{ width: "100%", height: "auto", display: "block", borderRadius: "8px" }}
+                    />
+                  </Grid>
+                </Grid>
+                <Stack direction="row" spacing={1} justifyContent="center" sx={{ mt: 2 }}>
+                  <Button
+                    size="small"
+                    startIcon={<PreviewIcon />}
+                    component="a"
+                    href={imageResult.url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open full size
+                  </Button>
+                  <Button
+                    size="small"
+                    startIcon={<DownloadIcon />}
+                    component="a"
+                    href={imageResult.url}
+                    download
+                  >
+                    Download
+                  </Button>
+                </Stack>
+              </CardContent>
+            </Card>
+          )}
+
           {previewFile && (
             <Card sx={{ boxShadow: 2, borderRadius: 2, mb: 3 }}>
               <CardContent sx={{ p: 3 }}>
@@ -846,17 +1073,23 @@ const UpscalingPage = ({ embedded = false }) => {
 
               {jobs.length === 0 ? (
                 <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center", py: 4 }}>
-                  No upscale jobs yet. Upload a video to get started.
+                  No upscale jobs yet. Upload a video or a batch of images to get started.
                 </Typography>
               ) : (
                 <Stack spacing={2}>
-                  {jobs.map((job) => (
+                  {jobs.map((job) => {
+                    const isBatch = job.kind === "image_batch";
+                    const done = job.frames_done || 0;
+                    const total = job.frames_total || 0;
+                    return (
                     <Card key={job.job_id} variant="outlined">
                       <CardContent sx={{ pb: 1 }}>
                         <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
                           <Box sx={{ flex: 1, minWidth: 0 }}>
                             <Typography variant="subtitle2" noWrap>
-                              {job.input_path?.split("/").pop() || job.job_id}
+                              {isBatch
+                                ? `${job.item_count || total} image${(job.item_count || total) === 1 ? "" : "s"}`
+                                : job.input_path?.split("/").pop() || job.job_id}
                             </Typography>
                             <Stack direction="row" spacing={0.5} sx={{ mt: 0.5, flexWrap: "wrap" }}>
                               <Chip
@@ -884,17 +1117,15 @@ const UpscalingPage = ({ embedded = false }) => {
                           <Box sx={{ mt: 1.5 }}>
                             <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
                               <Typography variant="caption" color="text.secondary">
-                                Frame {job.current_frame || 0} / {job.total_frames || "?"}
+                                {isBatch ? "Image" : "Frame"} {done} / {total || "?"}
                               </Typography>
                               <Typography variant="caption" color="text.secondary">
-                                {job.total_frames > 0
-                                  ? `${Math.round(((job.current_frame || 0) / job.total_frames) * 100)}%`
-                                  : ""}
+                                {total > 0 ? `${Math.round((done / total) * 100)}%` : ""}
                               </Typography>
                             </Stack>
                             <LinearProgress
-                              variant={job.total_frames > 0 ? "determinate" : "indeterminate"}
-                              value={job.total_frames > 0 ? ((job.current_frame || 0) / job.total_frames) * 100 : 0}
+                              variant={total > 0 ? "determinate" : "indeterminate"}
+                              value={total > 0 ? (done / total) * 100 : 0}
                             />
                           </Box>
                         )}
@@ -906,8 +1137,27 @@ const UpscalingPage = ({ embedded = false }) => {
                           </Typography>
                         )}
                       </CardContent>
-                      <CardActions sx={{ pt: 0 }}>
-                        {job.status === "completed" && job.output_path && (
+                      <CardActions sx={{ pt: 0, flexWrap: "wrap" }}>
+                        {isBatch && job.outputs?.length > 0 && (
+                          <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", gap: 0.5 }}>
+                            {job.outputs.map((outputPath) => {
+                              const name = outputPath.split("/").pop();
+                              return (
+                                <Button
+                                  key={outputPath}
+                                  size="small"
+                                  startIcon={<DownloadIcon />}
+                                  component="a"
+                                  href={`${API_BASE}/upscaling/output/image/${encodeURIComponent(name)}`}
+                                  download
+                                >
+                                  {name}
+                                </Button>
+                              );
+                            })}
+                          </Stack>
+                        )}
+                        {!isBatch && job.status === "completed" && job.output_path && (
                           <>
                             <Button
                               size="small"
@@ -942,7 +1192,8 @@ const UpscalingPage = ({ embedded = false }) => {
                         )}
                       </CardActions>
                     </Card>
-                  ))}
+                    );
+                  })}
                 </Stack>
               )}
             </CardContent>
