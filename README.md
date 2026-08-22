@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="docs/media/guaardvark-banner.png" alt="Guaardvark AI System — www.guaardvark.com" width="480">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/guaardvark-banner-dark.png">
+    <img src="docs/media/guaardvark-banner-light.png" alt="Guaardvark AI System — www.guaardvark.com" width="480">
+  </picture>
 </p>
 
 <!-- hero-video rotation: swap the bare user-attachments URL below.
