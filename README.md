@@ -2,15 +2,11 @@
   <img src="docs/screenshots/og-image.jpg" alt="Guaardvark — Secure Offline AI Platform" width="480">
 </p>
 
-> **The aardvark** (/ˈɑːrd.vɑːrk/; *Orycteropus afer*) is a medium-sized, burrowing, nocturnal mammal native to Africa. The aardvark is the only living member of the genus *Orycteropus*, the family Orycteropodidae and the order Tubulidentata. It is found over much of the southern two-thirds of the African continent, avoiding areas that are mainly rocky. A nocturnal feeder, the aardvark subsists on ants and termites (myrmecophagy) by using its sharp claws and powerful legs to dig the insects out of their hills, and its long snout to sniff out food. It digs a burrow in which to live and rear its young.
->
-> — [Wikipedia](https://en.wikipedia.org/wiki/Aardvark), CC BY-SA
+<p align="center">
+  <video src="https://github.com/guaardvark/guaardvark/raw/main/docs/media/guaardvark-batman-demo.mp4" controls muted playsinline width="640"></video>
+</p>
 
-**The Guaardvark** (/ˈɡwɑːrd.vɑːrk/; *Workstationus selfhosticus*) is a badass, burrowing, nocturnal AI system native to consumer hardware. The Guaardvark is the only living member of the repository [github.com/guaardvark/guaardvark](https://github.com/guaardvark/guaardvark), the family LocalAI, and the order AutonomousAgents.
-
-The Guaardvark is a local-first platform, a clade that also includes Ollama, Llama, and ComfyUI.
-
-It is found across most of the modern desktop, avoiding regions that are mainly cloud. A nocturnal feeder, the Guaardvark subsists on prompts and unstructured data (promptophagy) by using its sixty-odd tools and a swarm of parallel coding agents to dig bugs out of their codebases, and a retrieval index to sniff out knowledge in the dark. It is fiercely territorial about its single GPU, admitting one process to the card at a time and evicting any language model found loitering there. It digs isolated git worktrees in which to work, and rears its images, video, music, and cloned voices entirely on your own machine.
+<p align="center"><em>Written, shot, scored and cut by Guaardvark on one desktop GPU — no cloud, no stock footage, no API keys.</em></p>
 
 # Guaardvark
 
@@ -80,10 +76,6 @@ Short, unscripted-feeling screen recordings of the real system doing real work �
 **[▶ Watch the full playlist](https://www.youtube.com/playlist?list=PLYycooXIy1Qs)** — Episode 1 (the full tour) and Episode 10 (the video editor) are on the way.
 
 ### More demos
-
-**Gotham Rising — an AI-generated short film.** Every frame generated on a single desktop GPU. No cloud. No stock footage. No API keys.
-
-[![Gotham Rising — AI-Generated Short Film](https://img.youtube.com/vi/8MdtM3HurJo/maxresdefault.jpg)](https://www.youtube.com/watch?v=8MdtM3HurJo)
 
 **The beat-synced music video** — [watch on YouTube](https://www.youtube.com/shorts/rh0LJRK_jAM). One style prompt and a short narrative, then **go**: Guaardvark wrote every shot prompt, generated the storyboards, rendered the clips, and assembled the cuts to the beat it detected in the song. *(Full disclosure: the glitch effect was the one manual touch, added in Shotcut; the song was made in Suno — Guaardvark's own music generation is being wired into this pipeline.)*
 
