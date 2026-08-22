@@ -254,7 +254,7 @@ def unified_chat():
                         llm = get_llm_for_startup()
                     except Exception:
                         pass
-                    eng = UnifiedChatEngine(registry=reg, llm_instance=llm or object())
+                    eng = UnifiedChatEngine(tool_registry=reg, llm_instance=llm or object())
                     eng.app = app
                     rid = str(uuid.uuid4())
                     disp = message or f"/{options.get('slash_command', d_tool)}"
@@ -399,7 +399,7 @@ def direct_tool_sync():
         from backend.utils.llm_service import get_llm_for_startup
 
         registry = initialize_all_tools()
-        engine = UnifiedChatEngine(registry=registry, llm_instance=get_llm_for_startup())
+        engine = UnifiedChatEngine(tool_registry=registry, llm_instance=get_llm_for_startup())
         engine.app = current_app._get_current_object()
 
         def _noop_emit(_event, _payload):

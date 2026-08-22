@@ -100,7 +100,9 @@ class AgentControlConfig:
     # don't kill the loop. The failure counter still resets on every successful
     # action, so this only matters for genuinely-stuck sequences.
     max_consecutive_failures: int = 5
-    task_timeout_seconds: int = 60  # 1 minute — good tasks finish in <10s
+    # Must exceed worst-case iterations: a few vision calls at ~20s each plus
+    # actions already pass 60s on a healthy run
+    task_timeout_seconds: int = 120
     action_timeout_seconds: int = 60
     verify_actions: bool = True
     grid_cols: int = 8
@@ -1748,15 +1750,45 @@ class AgentControlService:
                 engine._step_confirm_event = self._step_confirm_event
                 engine._answer_queue = self._learning_answer_queue
 
+                def _apprentice_emit(event: str, payload: dict) -> None:
+                    """Adapt the engine's emit_fn(event, payload) contract to
+                    the kwarg-style socketio emitters."""
+                    try:
+                        if event == "step_preview":
+                            emit_step_preview(
+                                demonstration_id=payload.get("demonstration_id"),
+                                step_index=payload.get("step_index", 0),
+                                target_description=payload.get(
+                                    "target_description", ""),
+                                action_type=payload.get("action_type", ""),
+                                confidence=payload.get("confidence", 1.0),
+                            )
+                        elif event in ("step_complete", "step_executed"):
+                            emit_step_executed(
+                                demonstration_id=payload.get("demonstration_id"),
+                                step_index=payload.get("step_index", 0),
+                                success=payload.get("success", False),
+                                action_type=payload.get("action_type", ""),
+                            )
+                        elif event == "learning_question":
+                            emit_learning_question(
+                                question_id=payload.get("question_id", ""),
+                                question_type=payload.get("question_type", ""),
+                                text=payload.get("text", ""),
+                                demonstration_id=payload.get(
+                                    "demonstration_id"),
+                                step_index=payload.get("step_index"),
+                                options=payload.get("options"),
+                            )
+                    except Exception as emit_err:  # noqa: BLE001
+                        logger.warning(
+                            f"[APPRENTICE] emit {event} failed: {emit_err}")
+
                 result = engine.execute(
                     steps=steps,
                     autonomy_level=level,
                     demonstration_id=demonstration_id,
-                    emit_fn={
-                        "learning_question": emit_learning_question,
-                        "step_preview": emit_step_preview,
-                        "step_executed": emit_step_executed,
-                    },
+                    emit_fn=_apprentice_emit,
                 )
 
                 emit_attempt_complete(

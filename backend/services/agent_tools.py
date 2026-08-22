@@ -4,6 +4,7 @@ Agent Tools System - Base Infrastructure
 Provides tool definition, registry, and execution patterns for agent capabilities
 """
 
+import inspect
 import logging
 import difflib
 import json
@@ -581,9 +582,20 @@ class ToolRegistry:
             if agent_context:
                 tool.set_context(agent_context)
                 
-            # Pass agent_context as a dedicated kwarg — tools opt in to reading it
+            # Pass agent_context as a dedicated kwarg — tools opt in by
+            # accepting **kwargs or an explicit _agent_context parameter
             if agent_context:
-                kwargs["_agent_context"] = agent_context
+                try:
+                    sig = inspect.signature(tool.execute)
+                    accepts_context = any(
+                        p.kind is inspect.Parameter.VAR_KEYWORD
+                        or p.name == "_agent_context"
+                        for p in sig.parameters.values()
+                    )
+                except (TypeError, ValueError):
+                    accepts_context = True
+                if accepts_context:
+                    kwargs["_agent_context"] = agent_context
             
             # Handle generator (streaming) tools vs normal tools
             result_obj = tool.execute(**kwargs)
