@@ -26,8 +26,13 @@ class TorchVenvDetector:
             setup = plugin / "scripts" / "setup_venv.sh"
             if not setup.is_file():
                 continue
-            # Find any venv-* directories the plugin uses.
-            venv_dirs = [d for d in plugin.iterdir() if d.is_dir() and d.name.startswith("venv-")]
+            # Match what the setup scripts actually create: lora_trainer makes
+            # `venv-torch`, video_editor makes plain `venv`. Globbing only for
+            # `venv-*` reported a working editor venv as missing.
+            venv_dirs = [
+                d for d in plugin.iterdir()
+                if d.is_dir() and (d.name == "venv" or d.name.startswith("venv-"))
+            ]
             if not venv_dirs:
                 msg = (
                     f"{plugin.name} torch venv missing — run "

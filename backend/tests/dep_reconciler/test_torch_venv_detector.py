@@ -35,3 +35,39 @@ def test_run_no_warnings_when_no_isolated_plugins(tmp_path):
     (tmp_path / "plugins").mkdir()
     d = TorchVenvDetector(tmp_path)
     assert d.detect() == []
+
+
+def test_plain_venv_directory_counts_as_provisioned(tmp_path):
+    """video_editor's setup script creates `venv`, not `venv-torch`.
+
+    Globbing only for `venv-*` reported a working editor venv as missing, which
+    reads as "run setup_venv.sh" for a plugin that is already fine.
+    """
+    plugin = tmp_path / "plugins" / "video_editor"
+    (plugin / "scripts").mkdir(parents=True)
+    (plugin / "scripts" / "setup_venv.sh").write_text("#!/bin/sh\n")
+    (plugin / "venv" / "bin").mkdir(parents=True)
+    (plugin / "venv" / "bin" / "python").write_text("")
+
+    assert TorchVenvDetector(tmp_path).detect() == []
+
+
+def test_hyphenated_venv_directory_still_counts(tmp_path):
+    plugin = tmp_path / "plugins" / "lora_trainer"
+    (plugin / "scripts").mkdir(parents=True)
+    (plugin / "scripts" / "setup_venv.sh").write_text("#!/bin/sh\n")
+    (plugin / "venv-torch" / "bin").mkdir(parents=True)
+    (plugin / "venv-torch" / "bin" / "python").write_text("")
+
+    assert TorchVenvDetector(tmp_path).detect() == []
+
+
+def test_a_genuinely_absent_venv_is_still_reported(tmp_path):
+    plugin = tmp_path / "plugins" / "lora_trainer"
+    (plugin / "scripts").mkdir(parents=True)
+    (plugin / "scripts" / "setup_venv.sh").write_text("#!/bin/sh\n")
+
+    warnings = TorchVenvDetector(tmp_path).detect()
+    assert len(warnings) == 1
+    assert "lora_trainer" in warnings[0]
+
