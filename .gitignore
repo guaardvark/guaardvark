@@ -344,3 +344,6 @@ data/demo_assets/*/render/
 
 # Episode production notes are working documents, not shipped docs.
 data/demo_assets/*/README.md
+
+# Per-machine Claude Code hooks/overrides
+.claude/settings.local.json
