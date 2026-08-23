@@ -170,6 +170,30 @@ const AppContainer = () => {
     }
   }, [systemName]);
 
+  // index.css declares these as static values, so body and scrollbars kept the
+  // old dark defaults no matter which theme was chosen. Publish the active
+  // palette to them, and to the browser chrome colour.
+  React.useEffect(() => {
+    const { palette } = theme;
+    const root = document.documentElement;
+    const vars = {
+      "--bg-default": palette.background.default,
+      "--bg-paper": palette.background.paper,
+      "--text-primary": palette.text.primary,
+      "--text-secondary": palette.text.secondary,
+      "--divider": palette.divider,
+      "--scrollbar-track": palette.background.paper,
+      "--scrollbar-thumb": palette.divider,
+      "--scrollbar-thumb-hover": palette.action.hover,
+      "--scrollbar-thumb-active": palette.primary.main,
+    };
+    Object.entries(vars).forEach(([name, value]) => {
+      if (value) root.style.setProperty(name, value);
+    });
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", palette.background.default);
+  }, [theme]);
+
   return (
     <MuiThemeProvider theme={theme}>
       <CssBaseline />

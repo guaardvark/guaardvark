@@ -16,8 +16,26 @@ import ViewModuleIcon from "@mui/icons-material/ViewModule";
 import ViewListIcon from "@mui/icons-material/ViewList";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { spacing, typography as typoTokens } from "../../theme/tokens";
+
+/**
+ * Colour for the current route from the active theme's `moduleAccents` map,
+ * longest prefix wins. Returns undefined when the theme defines none.
+ */
+function accentForPath(accents, pathname) {
+  if (!accents) return undefined;
+  let best;
+  let bestLength = -1;
+  Object.keys(accents).forEach((prefix) => {
+    const matches = pathname === prefix || pathname.startsWith(`${prefix}/`);
+    if (matches && prefix.length > bestLength) {
+      best = accents[prefix];
+      bestLength = prefix.length;
+    }
+  });
+  return best;
+}
 
 /**
  * PageLayout — wraps all pages with consistent chrome.
@@ -29,6 +47,7 @@ import { spacing, typography as typoTokens } from "../../theme/tokens";
  * @param {boolean} modelStatus  — Show active model chip in header
  * @param {boolean} noPadding    — Disable content padding (useful for fullscreen)
  * @param {ReactNode} headerContent — Extra content below the header bar
+ * @param {string}  accent       — Override the route's theme accent colour
  * @param {ReactNode} children   — Page content
  */
 const PageLayout = ({
@@ -40,10 +59,14 @@ const PageLayout = ({
   activeModel,
   noPadding = false,
   headerContent,
+  accent,
   children,
 }) => {
-  const _theme = useTheme();
+  const theme = useTheme();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const accentColor =
+    accent ?? accentForPath(theme.palette.moduleAccents, pathname);
   const showHeader = variant !== "fullscreen";
   const contentPadding = noPadding || variant === "grid" ? 0 : { xs: 1.5, sm: spacing.sectionGap };
 
@@ -63,6 +86,9 @@ const PageLayout = ({
           sx={{
             borderBottom: 1,
             borderColor: "divider",
+            borderTop: accentColor ? 3 : 0,
+            borderTopColor: accentColor,
+            borderTopStyle: "solid",
             flexShrink: 0,
           }}
         >
@@ -96,7 +122,7 @@ const PageLayout = ({
                 sx={{
                   fontWeight: typoTokens.pageTitle.fontWeight,
                   fontSize: typoTokens.pageTitle.fontSize,
-                  color: "text.primary",
+                  color: accentColor || "text.primary",
                 }}
               >
                 {title}
