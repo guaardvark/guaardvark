@@ -1,0 +1,5 @@
+# The version lives at the repo root, which an sdist cannot reach. The release
+# build copies it to cli/VERSION; include it so a wheel built from the sdist
+# reads the real number instead of failing.
+include VERSION
+include requirements.txt
