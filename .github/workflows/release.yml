@@ -1,0 +1,87 @@
+# Publish the CLI package to PyPI. Nothing about a git tag updates PyPI on its
+# own, so without this the repo VERSION and the installable version drift apart
+# silently — which is how `pip install guaardvark` ended up two minor versions
+# behind the repo.
+#
+# Trigger: push a tag matching the VERSION file, e.g.
+#   git tag v$(cat VERSION) && git push origin v$(cat VERSION)
+#
+# Or run it manually from the Actions tab with publish=false to build and check
+# the artefacts without spending a version number.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Upload to PyPI (false = build and verify only)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Build and publish to PyPI
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      # PyPI trusted publishing exchanges this for a short-lived token, so no
+      # long-lived API secret is stored in the repository.
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Refuse a tag that disagrees with VERSION
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          file_version="$(cat VERSION)"
+          tag_version="${GITHUB_REF_NAME#v}"
+          echo "VERSION file: $file_version"
+          echo "tag:          $tag_version"
+          if [ "$file_version" != "$tag_version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match VERSION ($file_version)."
+            exit 1
+          fi
+
+      - name: Refuse a version already on PyPI
+        run: |
+          version="$(cat VERSION)"
+          if curl -sf "https://pypi.org/pypi/guaardvark/$version/json" > /dev/null; then
+            echo "::error::guaardvark $version is already on PyPI. Version numbers cannot be reused — bump VERSION."
+            exit 1
+          fi
+          echo "$version is free."
+
+      - name: Build
+        run: |
+          python -m pip install --upgrade build
+          # The version lives at the repo root, which an sdist cannot reach.
+          # Without this copy the wheel is built from the sdist with no VERSION
+          # in scope and setup.py raises rather than guessing.
+          cp VERSION cli/VERSION
+          python -m build --outdir dist cli/
+
+      - name: Verify both artefacts carry the expected version
+        run: |
+          version="$(cat VERSION)"
+          ls -1 dist
+          test -f "dist/guaardvark-${version}.tar.gz" \
+            || { echo "::error::sdist is not version ${version}"; exit 1; }
+          test -f "dist/guaardvark-${version}-py3-none-any.whl" \
+            || { echo "::error::wheel is not version ${version} — pip prefers the wheel, refusing to publish"; exit 1; }
+          python -m pip install --upgrade twine
+          twine check dist/*
+
+      - name: Publish to PyPI
+        if: startsWith(github.ref, 'refs/tags/') || inputs.publish
+        uses: pypa/gh-action-pypi-publish@release/v1

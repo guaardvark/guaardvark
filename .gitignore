@@ -363,3 +363,7 @@ data/demo_assets/*/README.md
 # which is itself ignored, so the whole directory stays local. To ship a hook or
 # skill deliberately, un-ignore that one path; never the directory.
 .claude/
+
+# Build-time copy of the repo-root VERSION, so an sdist can carry it. Generated
+# by the release workflow; the root VERSION file stays the source of truth.
+cli/VERSION

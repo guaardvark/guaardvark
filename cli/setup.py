@@ -8,9 +8,21 @@ from setuptools import setup, find_packages
 # render on PyPI, which does not serve repo-relative assets.
 _repo_root = Path(__file__).resolve().parent.parent
 
-# Single source of truth for the version: the repo-root VERSION file.
-_version_path = _repo_root / "VERSION"
-_version = _version_path.read_text(encoding="utf-8").strip() if _version_path.exists() else "2.6.2"
+# Single source of truth for the version: the repo-root VERSION file. An sdist
+# cannot carry a file from outside the package, so the release build copies it
+# to cli/VERSION (see MANIFEST.in) and that copy is what a wheel built from the
+# sdist reads. Never fall back to a literal: pip prefers the wheel, so a stale
+# default here publishes the wrong version under the right filename.
+_version = None
+for _candidate in (Path(__file__).resolve().parent / "VERSION", _repo_root / "VERSION"):
+    if _candidate.exists():
+        _version = _candidate.read_text(encoding="utf-8").strip()
+        break
+if not _version:
+    raise RuntimeError(
+        "VERSION not found. Expected cli/VERSION (created by the release build) "
+        "or VERSION at the repo root. Refusing to guess a version number."
+    )
 
 _readme_path = _repo_root / "README.md"
 _long_description = ""

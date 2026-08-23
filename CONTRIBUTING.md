@@ -201,6 +201,38 @@ refactor(api): extract indexing logic into dedicated service
 
 ---
 
+## Releasing (maintainers)
+
+`pip install guaardvark` serves a real package, not a placeholder page. It is built
+from `cli/setup.py`, which reads the repo-root `VERSION` file as the single source
+of truth for the version number.
+
+**Never announce a release without publishing it.** Bumping `VERSION`, tagging or
+posting a version while PyPI still serves the previous one means every `pip install`
+gets stale software while the README badge advertises the new number. The two drift
+apart silently, because nothing about a tag updates PyPI on its own.
+
+1. Bump `VERSION` — the package version follows automatically.
+2. Land everything on `main` and confirm CI is green.
+3. Tag it: `git tag v$(cat VERSION) && git push origin v$(cat VERSION)`.
+   The `release` workflow builds the package and publishes it to PyPI.
+4. Confirm what is actually live:
+   `curl -s https://pypi.org/pypi/guaardvark/json | jq -r .info.version`
+5. Only then announce.
+
+To publish by hand instead — or if the workflow is unavailable:
+
+```bash
+python -m build cli/
+twine upload cli/dist/*
+```
+
+A bad upload cannot be deleted and reused; the fix is `yank`, which leaves the
+version visible but stops `pip` installing it by default. Version numbers are never
+recycled, so a botched publish costs you the number.
+
+---
+
 ## Code of Conduct
 
 Be respectful, constructive, and kind. We're building something together. Harassment, trolling, and bad faith participation won't be tolerated.
