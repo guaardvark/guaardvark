@@ -444,6 +444,20 @@ def create_celery_app():
         logger.warning(f"Could not import cluster heartbeat sweeper: {e}")
 
     try:
+        from backend.tasks import interconnector_client_heartbeat  # noqa: F401 - registers task
+        # Scheduled on EVERY node; the task early-returns cheaply unless this node
+        # is a configured, enabled client with a master URL. Makes a worker's
+        # liveness independent of whether a browser tab is open.
+        celery_app.conf.beat_schedule['interconnector-client-heartbeat'] = {
+            'task': 'interconnector.client_heartbeat',
+            'schedule': float(os.environ.get("INTERCONNECTOR_HEARTBEAT_INTERVAL_S", 60)),
+            'options': {'queue': 'health'},
+        }
+        logger.info("Interconnector client-heartbeat task registered and scheduled")
+    except ImportError as e:
+        logger.warning(f"Could not import interconnector client heartbeat: {e}")
+
+    try:
         from backend.tasks.plugin_tasks import reconcile_plugin_deps  # noqa: F401
         logger.info("Plugin dependency reconciler task imported successfully")
     except ImportError as e:
