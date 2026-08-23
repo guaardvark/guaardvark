@@ -34,7 +34,11 @@ jobs:
           path-to-signatures: signatures/version1/cla.json
           path-to-document: https://github.com/guaardvark/guaardvark/blob/main/CLA.md
           branch: cla-signatures
-          allowlist: guaardvark,dependabot[bot],*[bot]
+          # Every identity this project's own commits are authored under, or
+          # our pull requests are held for a signature the owner grants anyway:
+          # albenze is the maintainer's second login, claude the one commits
+          # attributed to the assistant resolve to.
+          allowlist: guaardvark,albenze,claude,dependabot[bot],*[bot]
           custom-notsigned-prcomment: >-
             Thanks for the pull request. Before it can be merged, please read the
             [Contributor License Agreement](https://github.com/guaardvark/guaardvark/blob/main/CLA.md)
