@@ -1489,6 +1489,27 @@ class EnhancedRAGChunker:
                         for _k, _v in doc_meta.items():
                             _n.metadata.setdefault(_k, _v)
 
+                        # Keep the carried keys out of the embed/LLM metadata budget.
+                        # LlamaIndex counts metadata against chunk size, and the
+                        # hierarchical splitter's smallest tier is a quarter of the
+                        # configured size -- a long file path plus a heading breadcrumb
+                        # overruns it and the whole document drops to a fallback
+                        # splitter ("Metadata length (409) is longer than chunk size
+                        # (250)"). The information is not lost: it stays queryable for
+                        # filters and citations, and contextual_prepender already puts
+                        # source, section and page into the text itself, so leaving it
+                        # in the metadata budget would double-count it.
+                        try:
+                            for _attr in ("excluded_embed_metadata_keys",
+                                          "excluded_llm_metadata_keys"):
+                                _cur = list(getattr(_n, _attr, None) or [])
+                                for _k in doc_meta:
+                                    if _k not in _cur:
+                                        _cur.append(_k)
+                                setattr(_n, _attr, _cur)
+                        except Exception:
+                            pass
+
                 all_nodes.extend(nodes)
 
                 self.chunking_stats['total_documents'] += 1
