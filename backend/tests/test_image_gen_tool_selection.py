@@ -159,3 +159,76 @@ class TestUserWantsImageGeneration:
             "sess", lambda *a, **k: None, "req", {},
         )
         assert result is None
+
+
+class TestPastedDescriptionsDoNotGenerate:
+    """A pasted prompt or scene description is not a request to render it.
+
+    These all reached generate_image through substring matching: "withdrawal"
+    contains "draw", "animated reflections" contains "animate". The direct
+    natural-language path bypasses the LLM, so a match here rendered an image
+    with nothing to veto it.
+    """
+
+    @pytest.mark.parametrize("message", [
+        "A cinematic wide shot of a rain-soaked alley, neon signs, "
+        "animated reflections on wet asphalt",
+        "Here's the prompt I want to save for later: lone astronaut on a red "
+        "dune, drawn in ink wash",
+        "Can you review this description? Slow push-in on a lighthouse, gulls "
+        "wheeling, moving image quality",
+        "The client asked for a withdrawal form redesign",
+        "The animation industry uses a lot of GPU time",
+    ])
+    def test_pasted_description_does_not_want_generation(self, message):
+        from backend.services.unified_chat_engine import user_wants_image_generation
+        assert user_wants_image_generation(message) is False
+
+    @pytest.mark.parametrize("message", [
+        "The client asked for a withdrawal form redesign",
+        "A cinematic wide shot with animated reflections on wet asphalt",
+    ])
+    def test_pasted_description_does_not_pin_generate_image(self, message):
+        from backend.services.unified_chat_engine import _pin_image_generation_tools
+        selected = _pin_image_generation_tools(message, [], ["web_search", "generate_image"])
+        assert "generate_image" not in selected
+
+
+class TestCommandOnlyMode:
+    """chat_media_requires_command: only an explicit command may create media."""
+
+    @staticmethod
+    def _force(monkeypatch, enabled):
+        import backend.services.unified_chat_engine as uce
+        monkeypatch.setattr(uce, "_media_requires_explicit_command", lambda: enabled)
+        return uce
+
+    @pytest.mark.parametrize("message", [
+        "generate an image of a cat",
+        "draw me a duck",
+        "make a picture of a sunset",
+    ])
+    def test_natural_language_suppressed_when_on(self, monkeypatch, message):
+        uce = self._force(monkeypatch, True)
+        assert uce.user_wants_image_generation(message) is False
+
+    @pytest.mark.parametrize("message", [
+        "/imagine a fox in tall grass",
+        "  /imagine a fox",
+    ])
+    def test_slash_command_still_honoured_when_on(self, monkeypatch, message):
+        uce = self._force(monkeypatch, True)
+        assert uce.user_wants_image_generation(message) is True
+
+    def test_natural_language_works_when_off(self, monkeypatch):
+        uce = self._force(monkeypatch, False)
+        assert uce.user_wants_image_generation("generate an image of a cat") is True
+
+    def test_video_suppressed_when_on_but_slash_survives(self, monkeypatch):
+        uce = self._force(monkeypatch, True)
+        assert uce.user_wants_video_generation("generate a video of a fox") is False
+        assert uce.user_wants_video_generation("/video a fox") is True
+
+    def test_defaults_off_so_existing_behaviour_is_unchanged(self):
+        from backend.services.unified_chat_engine import _media_requires_explicit_command
+        assert _media_requires_explicit_command() is False
