@@ -379,29 +379,37 @@ def _vector_backend() -> str:
     return os.environ.get("GUAARDVARK_VECTOR_STORE", "pgvector").lower()
 
 
-def _pg_table_name(project_id=None) -> Optional[str]:
-    """Per (scope, dimension) table.
+def _pg_table_name(project_id=None, profile: Optional[str] = None) -> Optional[str]:
+    """Per (profile, scope, dimension) table.
 
     Putting the dimension in the name means switching embedding models lands in a
     different table instead of contaminating an existing one -- the failure the
     name-based dimension lock and _sanitize_vector_store_dimensions exist to paper
-    over on the JSON store.
+    over on the JSON store. The profile makes each projection its own table, so
+    two profiles over the same corpus cannot read each other's vectors.
+
+    The default profile resolves to the bare scope, so an installation that never
+    touches profiles keeps the table name it already has.
     """
     dim = _active_embed_dim()
     if not dim:
         return None
-    scope = str(project_id) if project_id else "global"
-    scope = re.sub(r"[^A-Za-z0-9_]", "_", scope)[:40]
+    try:
+        from backend.services.index_profiles import projection_key
+        scope = projection_key(profile, project_id)
+    except Exception:
+        scope = str(project_id) if project_id else "global"
+    scope = re.sub(r"[^A-Za-z0-9_]", "_", scope)[:60]
     return f"guaardvark_{scope}_{dim}"
 
 
-def _make_vector_store(project_id=None):
+def _make_vector_store(project_id=None, profile: Optional[str] = None):
     """Build the configured vector store. Returns None to mean 'use the default'."""
     backend = _vector_backend()
     if backend != "pgvector":
         return SimpleVectorStore() if SimpleVectorStore else None
 
-    table = _pg_table_name(project_id)
+    table = _pg_table_name(project_id, profile)
     dim = _active_embed_dim()
     if not table or not dim:
         logger.warning("pgvector requested but embedding dimension is unknown — using SimpleVectorStore")
@@ -453,7 +461,7 @@ def _pg_connect():
     return psycopg2.connect(host=host, port=port, dbname=database, user=user, password=password)
 
 
-def drop_vector_store(project_id=None) -> Dict[str, Any]:
+def drop_vector_store(project_id=None, profile: Optional[str] = None) -> Dict[str, Any]:
     """Drop the backing vector table for a scope.
 
     Resetting the index used to mean deleting JSON files. With the vectors in
@@ -462,7 +470,7 @@ def drop_vector_store(project_id=None) -> Dict[str, Any]:
     """
     if _vector_backend() != "pgvector":
         return {"backend": "simple", "dropped": False}
-    table = _pg_table_name(project_id)
+    table = _pg_table_name(project_id, profile)
     if not table:
         return {"backend": "pgvector", "dropped": False, "error": "dimension unknown"}
     full = f"data_{table}"
@@ -481,11 +489,11 @@ def drop_vector_store(project_id=None) -> Dict[str, Any]:
         return {"backend": "pgvector", "dropped": False, "table": full, "error": str(e)[:200]}
 
 
-def vector_store_stats(project_id=None) -> Dict[str, Any]:
+def vector_store_stats(project_id=None, profile: Optional[str] = None) -> Dict[str, Any]:
     """Row count and on-disk size of the backing vector store."""
     if _vector_backend() != "pgvector":
         return {"backend": "simple"}
-    table = _pg_table_name(project_id)
+    table = _pg_table_name(project_id, profile)
     if not table:
         return {"backend": "pgvector", "error": "dimension unknown"}
     full = f"data_{table}"
@@ -1010,6 +1018,7 @@ def search_with_llamaindex(
     project_id: Optional[int] = None,
     filters: Optional[Dict[str, Any]] = None,
     with_trace: bool = False,
+    profile: Optional[str] = None,
 ):
     """Hybrid retrieval over the knowledge index.
 
@@ -1034,6 +1043,7 @@ def search_with_llamaindex(
         "mmr_applied": False,
         "rerank": None,
         "dedup_removed": 0,
+        "profile": None,
         "project_scope": "global" if project_id is None else str(project_id),
         "filters": dict(filters) if filters else {},
         "returned": 0,
@@ -1086,6 +1096,22 @@ def search_with_llamaindex(
             effective_top_k = overlay["top_k"]
         else:
             effective_top_k = 5
+
+        prof_params: Dict[str, Any] = {}
+        try:
+            from backend.services.index_profiles import resolve_retrieval_params
+            prof_params = resolve_retrieval_params(profile)
+            trace["profile"] = prof_params.get("profile")
+        except Exception as e:
+            logger.debug("index profile unavailable (%s); using global params", e)
+
+        # Precedence: experiment > explicit max_chunks > profile > overlay > default.
+        # A profile must not override an autoresearch experiment, or the experiment
+        # would be measuring the profile instead of the change under test.
+        if prof_params and max_chunks is None and not (exp_config and "top_k" in exp_config) \
+                and "top_k" not in overlay:
+            effective_top_k = int(prof_params.get("top_k") or effective_top_k)
+
         trace["top_k"] = effective_top_k
         try:
             from backend.config import get_active_embedding_model
@@ -1299,7 +1325,10 @@ def search_with_llamaindex(
         # the trace says why.
         try:
             from backend.utils.reranker import rerank as _ce_rerank
-            results, _ce_info = _ce_rerank(query if isinstance(query, str) else "", results)
+            if prof_params.get("rerank") is False:
+                _ce_info = {"applied": False, "reason": f"disabled by profile '{prof_params.get('profile')}'"}
+            else:
+                results, _ce_info = _ce_rerank(query if isinstance(query, str) else "", results)
             trace["rerank"] = _ce_info
             if not _ce_info.get("applied") and _ce_info.get("reason") and len(results) >= 2:
                 reason = _ce_info["reason"]
@@ -1330,7 +1359,8 @@ def search_with_llamaindex(
         # caller didn't pass an explicit max_chunks cap of its own. The default
         # of 3 preserves chat's pre-layer behavior (it used to pass max_chunks=3).
         if max_chunks is None:
-            cwc = overlay.get("context_window_chunks", 3)
+            cwc = overlay.get("context_window_chunks",
+                              prof_params.get("context_window_chunks", 3))
             results = results[:cwc]
         elif _widened:
             # The pool was widened for filtering/reranking; honour the requested count.

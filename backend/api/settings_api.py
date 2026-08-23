@@ -789,3 +789,96 @@ def set_music_directory():
         db.session.rollback()
         current_app.logger.error(f"Failed to update music_directory setting: {e}")
         return error_response(f"Failed to update setting: {e}", status_code=500)
+
+
+@settings_bp.route("/index_profiles", methods=["GET"])
+def get_index_profiles():
+    """List index profiles, their activation state, and each projection's real size."""
+    try:
+        from backend.services.index_profiles import load_profiles
+        profiles = load_profiles()
+    except Exception as e:
+        current_app.logger.error(f"Failed to load index profiles: {e}")
+        return error_response("Failed to load index profiles", status_code=500)
+
+    out = []
+    for p in profiles:
+        entry = p.to_dict()
+        # Report what the projection actually holds rather than whether it is
+        # configured: a profile can be active and still have nothing indexed.
+        try:
+            from backend.services.indexing_service import vector_store_stats
+            entry["projection"] = vector_store_stats(profile=p.name)
+        except Exception as e:
+            entry["projection"] = {"error": str(e)[:160]}
+        out.append(entry)
+    return success_response({"profiles": out})
+
+
+@settings_bp.route("/index_profiles", methods=["POST"])
+def set_index_profiles():
+    """Activate a set of profiles, and optionally update one profile's settings.
+
+    Body: {"active": ["default", "mcp"]} and/or {"profile": {...}}
+    """
+    if not request.is_json:
+        return error_response("Request must be JSON")
+    data = request.get_json() or {}
+
+    try:
+        from backend.services.index_profiles import (
+            IndexProfile, load_profiles, save_profiles, set_active,
+        )
+
+        if isinstance(data.get("profile"), dict):
+            incoming = IndexProfile.from_dict(data["profile"])
+            if not incoming.name:
+                return error_response("profile.name is required")
+            profiles = load_profiles()
+            for i, existing in enumerate(profiles):
+                if existing.name == incoming.name:
+                    # Activation is owned by the "active" field below, so an edit
+                    # cannot silently switch a projection on.
+                    incoming.active = existing.active
+                    incoming.embed_dim = existing.embed_dim
+                    profiles[i] = incoming
+                    break
+            else:
+                profiles.append(incoming)
+            save_profiles(profiles)
+
+        if isinstance(data.get("active"), list):
+            set_active([str(n) for n in data["active"]])
+
+        from backend.services.index_profiles import load_profiles as reload_profiles
+        return success_response({"profiles": [p.to_dict() for p in reload_profiles()]})
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Failed to update index profiles: {e}", exc_info=True)
+        return error_response(f"Failed to update index profiles: {e}", status_code=500)
+
+
+@settings_bp.route("/index_profiles/<name>/rebuild", methods=["POST"])
+def rebuild_index_profile(name):
+    """Drop a profile's projection so it can be rebuilt from the Document registry.
+
+    Deletion happens at the projection, never at the registry: the registry is the
+    source of truth and dropping a derived table must not remove a document.
+    """
+    try:
+        from backend.services.index_profiles import get_profile
+        if get_profile(name) is None:
+            return error_response(f"Unknown profile '{name}'", status_code=404)
+        from backend.services.indexing_service import drop_vector_store
+        result = drop_vector_store(profile=name)
+        if result.get("error"):
+            return error_response(f"Could not drop projection: {result['error']}", status_code=500)
+        return success_response({
+            "profile": name,
+            "dropped": result.get("dropped", False),
+            "table": result.get("table"),
+            "note": "Projection cleared. Re-index documents to rebuild it.",
+        })
+    except Exception as e:
+        current_app.logger.error(f"Failed to rebuild profile {name}: {e}", exc_info=True)
+        return error_response(f"Failed to rebuild profile: {e}", status_code=500)

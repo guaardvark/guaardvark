@@ -67,6 +67,7 @@ import AgentDisplaySection from "../components/settings/AgentDisplaySection";
 import KillSwitchModal from "../components/modals/KillSwitchModal";
 import RebootProgressModal from "../components/modals/RebootProgressModal";
 import RAGDebugSection from "../components/settings/RAGDebugSection";
+import IndexProfilesSection from "../components/settings/IndexProfilesSection";
 import ImageModelsModal from "../components/modals/ImageModelsModal";
 import InfographicModelsModal from "../components/modals/InfographicModelsModal";
 import VideoModelsModal from "../components/modals/VideoModelsModal";
@@ -3181,6 +3182,10 @@ const SettingsPage = () => {
 
           <SettingsCardWrapper title="RAG Performance">
               <RAGDebugSection ragDebugEnabled={ragDebug} />
+          </SettingsCardWrapper>
+
+          <SettingsCardWrapper title="Knowledge Index">
+              <IndexProfilesSection />
           </SettingsCardWrapper>
 
           <SettingsCardWrapper title="Uncle Claude">

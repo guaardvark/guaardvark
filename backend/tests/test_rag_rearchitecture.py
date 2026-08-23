@@ -164,3 +164,49 @@ def test_knowledge_nav_pin_does_not_fire_on_unrelated_messages():
 
     allt = ["search_knowledge_base", "list_documents", "generate_image"]
     assert _pin_knowledge_nav_tools("draw me a cat", ["generate_image"], allt) == ["generate_image"]
+
+
+# --------------------------------------------------------------------------
+# Index profiles: projections of one registry, not mirrored peers
+# --------------------------------------------------------------------------
+def test_default_profile_keeps_the_existing_table_name():
+    """Profiles must not rename the table an existing install already has."""
+    from backend.services.index_profiles import projection_key
+
+    assert projection_key(None) == "global"
+    assert projection_key("default") == "global"
+
+
+def test_each_profile_gets_its_own_projection_key():
+    from backend.services.index_profiles import projection_key
+
+    assert projection_key("mcp") == "mcp_global"
+    assert projection_key("local") == "local_global"
+    assert projection_key("mcp", 42) == "mcp_42"
+
+
+def test_active_profiles_never_returns_empty(monkeypatch):
+    """An empty active set would silently disable retrieval everywhere."""
+    from backend.services import index_profiles as ip
+
+    monkeypatch.setattr(ip, "load_profiles", lambda: [
+        ip.IndexProfile(name="default", active=False),
+        ip.IndexProfile(name="mcp", active=False),
+    ])
+    active = ip.active_profiles()
+    assert len(active) == 1 and active[0].name == "default"
+
+
+def test_profile_retrieval_params_differ_between_consumers():
+    from backend.services.index_profiles import resolve_retrieval_params
+
+    local = resolve_retrieval_params("local")
+    mcp = resolve_retrieval_params("mcp")
+    assert local["top_k"] < mcp["top_k"]
+    assert local["chunk_chars"] > mcp["chunk_chars"]
+
+
+def test_unknown_profile_falls_back_to_primary():
+    from backend.services.index_profiles import resolve_retrieval_params, primary_profile
+
+    assert resolve_retrieval_params("does-not-exist")["profile"] == primary_profile().name
