@@ -92,9 +92,22 @@ def test_purge_requires_a_selection(purge_client):
     assert "Select at least one" in resp.get_json()["error"]
 
 
-def test_purge_no_longer_returns_placebo_acknowledged(purge_client):
+def test_purge_no_longer_returns_placebo_acknowledged(purge_client, monkeypatch):
     # The old placebo returned 200 "acknowledged" for any input. With a real
     # selection it must do real work (or fail honestly), never the placebo 200.
+    #
+    # The endpoint falls back to initialize_llama_index_from_service() whenever the
+    # app config has no index -- which is exactly this bare test app. Unpatched, that
+    # loads the REAL index and purges it: this test used to delete live indexed data
+    # as a side effect (measured: 417 -> 63 vectors). Hand it a stand-in so the
+    # endpoint's contract is exercised against nothing real.
+    from backend.api import index_mgmt_api as mod
+
+    fake_index = MagicMock()
+    fake_index.storage_context = MagicMock()
+    fake_index.storage_context.docstore.docs = {}
+    monkeypatch.setattr(mod, "initialize_llama_index_from_service", lambda: fake_index)
+
     resp = purge_client.post("/api/meta/purge-index", json={"purgeDocuments": True})
     body = resp.get_json()
     assert not (resp.status_code == 200 and body.get("message", "").startswith("Purge request acknowledged"))
