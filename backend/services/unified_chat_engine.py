@@ -165,11 +165,40 @@ IMAGE_TOOLS = ["generate_image", "generate_animation", "generate_video"]
 # "image of X on the website" references that falsely triggered direct generate_image.
 IMAGE_GEN_INTENT_KEYWORDS = [
     "generate image", "generate an image", "create image", "draw", "make a picture",
-    "make an image", "generate a photo", "render image", "animate", "animation", "gif",
-    "moving image", "video of", "make a video", "create a video", "generate video",
-    "generate a gif", "animated", "generate_image", "use the generate_image tool",
+    "make an image", "generate a photo", "render image", "animate",
+    "make a video", "create a video", "generate video",
+    "generate a gif", "generate_image", "use the generate_image tool",
     "/imagine",
 ]
+
+# Matched on word boundaries, never as substrings: "withdrawal" contains "draw"
+# and "animated reflections" contains "animate". A pasted visual description is
+# not a request to render it — bare nouns ("gif", "animation", "video of") only
+# count via the create-verb rule below.
+_IMAGE_GEN_INTENT_RE = re.compile(
+    r"generate\s+(an?\s+)?image|create\s+(an?\s+)?image|make\s+an?\s+image"
+    r"|make\s+a\s+picture|generate\s+a\s+photo|render\s+(an?\s+)?image"
+    r"|make\s+a\s+video|create\s+a\s+video|generate\s+(a\s+)?video"
+    r"|generate\s+a\s+gif|generate_image|/imagine|\bdraw\b|\banimate\b",
+    re.IGNORECASE,
+)
+
+# An explicit slash command is always honoured, even in command-only mode.
+_SLASH_MEDIA_RE = re.compile(r"^\s*/(imagine|image|video)\b", re.IGNORECASE)
+
+
+def _media_requires_explicit_command() -> bool:
+    """True when chat may only create media via an explicit command such as /imagine.
+
+    Off by default: natural-language requests ("generate an image of a cat") keep
+    working. Turn on to guarantee that pasted prompts and scene descriptions are
+    never rendered, whatever they happen to contain.
+    """
+    try:
+        from backend.utils.settings_utils import get_setting
+        return bool(get_setting("chat_media_requires_command", default=False, cast=bool))
+    except Exception:
+        return False
 
 _IMAGE_GEN_NEGATIVE_PATTERNS = (
     r"\bthere is an image\b",
@@ -327,7 +356,7 @@ TOOL_CONTEXT_KEYWORDS = {
 
 def _has_explicit_image_gen_intent(msg_lower: str) -> bool:
     """True when the message explicitly asks to create new image/video media."""
-    if any(kw in msg_lower for kw in IMAGE_GEN_INTENT_KEYWORDS):
+    if _IMAGE_GEN_INTENT_RE.search(msg_lower):
         return True
     if re.search(r"\b(generate|draw|make|create|render|visuali[sz]e)\b", msg_lower):
         if re.search(r"\b(image|picture|photo|illustration|gif|animation|video)\b", msg_lower):
@@ -340,6 +369,10 @@ def user_wants_image_generation(message: str) -> bool:
     if not message or not message.strip():
         return False
     msg_lower = message.lower()
+    if _SLASH_MEDIA_RE.match(msg_lower):
+        return True
+    if _media_requires_explicit_command():
+        return False
     if not _has_explicit_image_gen_intent(msg_lower):
         return False
     for pat in _IMAGE_GEN_NEGATIVE_PATTERNS:
@@ -368,6 +401,10 @@ def user_wants_video_generation(message: str) -> bool:
     if not message or not message.strip():
         return False
     msg_lower = message.lower()
+    if _SLASH_MEDIA_RE.match(msg_lower):
+        return True
+    if _media_requires_explicit_command():
+        return False
     if not (_VIDEO_INTENT_RE.search(msg_lower) or msg_lower.startswith("video of ")):
         return False
     if any(w in msg_lower for w in ("gif", "animate", "animation", "animated")):
