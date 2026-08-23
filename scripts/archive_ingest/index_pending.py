@@ -17,8 +17,13 @@ import time
 import warnings
 
 warnings.filterwarnings("ignore")
-logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(message)s")
+# basicConfig sets the level on the ROOT HANDLER, so raising only this logger's
+# level still leaves its INFO records filtered on the way out -- which is how a
+# long run ends up emitting no progress at all while working perfectly.
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logging.getLogger("httpx").setLevel(logging.ERROR)
+for _noisy in ("backend", "llama_index", "docling", "urllib3", "sentence_transformers"):
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
 log = logging.getLogger("index_pending")
 log.setLevel(logging.INFO)
 

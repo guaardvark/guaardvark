@@ -1359,12 +1359,23 @@ class CodeChunker(BaseChunker):
 
         return nodes
 
+    # Prose sizing for the non-code branch of the code chunker. The code strategy
+    # runs at 8000 tokens to keep functions whole; applying that to prose yields
+    # ~32k-character chunks that are far too coarse to retrieve against -- one chunk
+    # covers several unrelated topics, so its embedding means nothing in particular.
+    PROSE_CHUNK_SIZE = 1000
+    PROSE_CHUNK_OVERLAP = 200
+
     def _chunk_standard(self, document: LlamaDocument) -> List[BaseNode]:
         """Standard chunking for non-code files"""
-        # Use the existing sentence splitter for non-code content
+        # Deliberately NOT self.strategy.max_chunk_size: this method is reached when
+        # the code chunker is handed content that is not code -- which happens
+        # whenever prose trips the code detector, e.g. a design document quoting
+        # snippets. Inheriting the code size there produced chunks averaging 15k
+        # characters and peaking at 42k.
         splitter = SentenceSplitter(
-            chunk_size=self.strategy.max_chunk_size,
-            chunk_overlap=self.strategy.overlap_size
+            chunk_size=min(self.strategy.max_chunk_size, self.PROSE_CHUNK_SIZE),
+            chunk_overlap=min(self.strategy.overlap_size, self.PROSE_CHUNK_OVERLAP)
         )
 
         nodes = splitter.get_nodes_from_documents([document])
