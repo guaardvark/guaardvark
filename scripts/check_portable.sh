@@ -15,8 +15,9 @@
 #   scripts/check_portable.sh            scan every tracked file (CI, lint)
 #   scripts/check_portable.sh --staged   scan lines about to be committed
 #
-# Install as a pre-commit hook:
-#   ln -sf ../../scripts/pre-commit .git/hooks/pre-commit
+# Install as a pre-commit hook (works from a worktree, where .git is a file and
+# every worktree shares the main repo's one hooks directory):
+#   ln -sf ../../scripts/pre-commit "$(git rev-parse --git-common-dir)/hooks/pre-commit"
 #
 # Exits non-zero on a finding.
 set -uo pipefail
