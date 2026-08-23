@@ -177,6 +177,15 @@ class LlxClient:
         }
         return self.post("/api/chat/unified/direct-tool", json=body)
 
+    def abort_session(self, session_id: str) -> dict:
+        """Hard-abort an in-flight unified chat session and any active agent task."""
+        result = self.post(f"/api/chat/unified/{session_id}/abort")
+        try:
+            self.post("/api/agent-control/kill")
+        except LlxError:
+            pass
+        return result
+
     # --- Code intelligence (mirrors frontend/src/api/codeIntelligenceService.js) ---
     def analyze_code(self, file_path, language="text", content=None, custom_prompt=None, rules_cutoff=False):
         """Use backend code intelligence for analysis (same as GUI editor)."""

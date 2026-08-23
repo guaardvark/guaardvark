@@ -253,6 +253,19 @@ def _handle_chat(state: dict, ctx: ContextSnapshot, message: str, raw_message: s
         context_block = build_cli_context(ctx.format_context_block(), memory)
         renderer = ChatRenderer()
         streamer = LlxStreamer(server)
+        client = get_client(server)
+        proj_root = memory.get("project_root") or state.get("cwd")
+        chat_body = {
+            "session_id": session_id,
+            "message": message,
+            "options": {
+                "use_rag": use_rag,
+                "context": context_block,
+                "agent_screen_active": screen_active,
+                "cli_working_memory": memory,
+                "project_root": str(proj_root) if proj_root else None,
+            },
+        }
 
         streamer.stream_chat(
             session_id,
@@ -265,49 +278,66 @@ def _handle_chat(state: dict, ctx: ContextSnapshot, message: str, raw_message: s
         )
         renderer.start()
 
-        try:
-            client = get_client(server)
-            # Include project_root so backend can auto-load GUAARDVARK.md and project context
-            # (makes analysis + instructions consistent with GUI)
-            proj_root = memory.get("project_root") or state.get("cwd")
-            client.post("/api/chat/unified", json={
-                "session_id": session_id,
-                "message": message,
-                "options": {
-                    "use_rag": use_rag,
-                    "context": context_block,
-                    "agent_screen_active": screen_active,
-                    "cli_working_memory": memory,
-                    "project_root": str(proj_root) if proj_root else None,
-                },
-            })
-        except (LlxConnectionError, LlxError, Exception) as e:
+        posted = False
+        for attempt in range(2):
+            try:
+                client.post("/api/chat/unified", json=chat_body)
+                posted = True
+                break
+            except LlxError as e:
+                if e.status_code == 409 and attempt == 0:
+                    console.print(
+                        "[llx.dim]Previous request still running — aborting and retrying…[/llx.dim]"
+                    )
+                    try:
+                        client.abort_session(session_id)
+                    except Exception:
+                        pass
+                    continue
+                renderer.stop()
+                console.print(f"[llx.error]Chat error: {e}[/llx.error]")
+                if e.status_code == 409:
+                    console.print(
+                        "[llx.dim]Try /abort, then send again — or /new for a fresh session.[/llx.dim]"
+                    )
+                streamer.disconnect()
+                return
+            except (LlxConnectionError, Exception) as e:
+                renderer.stop()
+                console.print(f"[llx.error]Chat error: {e}[/llx.error]")
+                streamer.disconnect()
+                return
+
+        if not posted:
             renderer.stop()
-            console.print(f"[llx.error]Chat error: {e}[/llx.error]")
             streamer.disconnect()
             return
 
         completed = False
+        aborted_by_user = False
         try:
             completed = streamer.wait_for_completion(
                 approval_handler=lambda data: renderer.prompt_for_approval(
                     data,
                     expected_target=expected_edit_target(memory),
                 ),
-                timeout=300,
             )
         except KeyboardInterrupt:
-            # User hit Ctrl+C at the approval prompt — chat already aborted
-            completed = True
+            aborted_by_user = True
+            streamer.hard_abort(session_id, client)
             console.print("[llx.dim]Chat aborted.[/llx.dim]")
         finally:
             renderer.stop()
+            if not completed and not aborted_by_user:
+                streamer.hard_abort(session_id, client)
             streamer.disconnect()
 
-        if not completed:
+        if aborted_by_user:
+            pass
+        elif not completed:
             console.print(
-                "[llx.error]No response after 5 minutes — server may be stalled "
-                "(check backend log / Ollama). Returning to prompt.[/llx.error]"
+                "[llx.error]No response after 5 minutes of silence — session aborted. "
+                "Try again, or /abort / /new if it stays stuck.[/llx.error]"
             )
         assistant_text = "".join(renderer._tokens)
 

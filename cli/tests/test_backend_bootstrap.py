@@ -25,6 +25,12 @@ class TestFlaskPortResolution:
 
         monkeypatch.delenv("FLASK_PORT", raising=False)
         monkeypatch.delenv("FLASK_RUN_PORT", raising=False)
+        # runtime.json is a real per-user file and resolution reads it before
+        # falling back, so without this the default is only reached on a machine
+        # with no instance running.
+        monkeypatch.setattr(
+            "llx.backend_bootstrap.RUNTIME_FILE", tmp_path / "absent-runtime.json"
+        )
         assert resolve_flask_port(tmp_path) == 5000
 
 
@@ -62,6 +68,9 @@ class TestEnsureBackendRunning:
         root.mkdir()
         (root / "start.sh").write_text("#!/bin/bash\nexit 0\n")
         monkeypatch.setattr("llx.backend_bootstrap.resolve_guaardvark_root", lambda: root)
+        monkeypatch.setattr(
+            "llx.backend_bootstrap.RUNTIME_FILE", tmp_path / "absent-runtime.json"
+        )
 
         with patch("llx.backend_bootstrap.is_backend_healthy", return_value=True):
             from llx.backend_bootstrap import ensure_backend_running

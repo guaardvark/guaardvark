@@ -26,7 +26,7 @@ def _subapp_usage(name: str) -> str:
     return f"Usage: /{name}"
 
 _HELP_GROUPS: list[tuple[str, list[str]]] = [
-    ("Session Commands", ["new", "history", "export", "clear"]),
+    ("Session Commands", ["new", "abort", "history", "export", "clear"]),
     ("System Commands", ["health", "status", "doctor", "start", "stop", "dashboard"]),
     ("Data Commands", ["files", "projects", "rules", "agents", "clients", "websites", "tasks"]),
     ("AI Commands", ["search", "models", "generate", "images", "videos", "index", "rag"]),
@@ -116,6 +116,7 @@ class SlashRouter:
     def _register_repl_commands(self):
         """Register REPL-only commands (implemented inline)."""
         self._commands["new"] = self._cmd_new
+        self._commands["abort"] = self._cmd_abort
         self._commands["clear"] = self._cmd_clear
         self._commands["history"] = self._cmd_history
         self._commands["export"] = self._cmd_export
@@ -316,6 +317,34 @@ class SlashRouter:
         self._state["working_memory"] = empty_working_memory()
         self._console.print(f"[llx.success]New session started.[/llx.success]")
         self._console.print(f"[llx.dim]Session: {new_id[:8]}...[/llx.dim]")
+
+    def _cmd_abort(self, args: list[str]):
+        """Hard-abort the in-flight chat for the current session."""
+        session_id = self._state.get("session_id")
+        if not session_id:
+            self._console.print("[llx.error]No active session.[/llx.error]")
+            return
+
+        server = self._state.get("server")
+        try:
+            from llx.client import get_client
+            client = get_client(server)
+            result = client.abort_session(session_id)
+            cleared = result.get("inflight_cleared")
+            self._console.print("[llx.success]Abort requested.[/llx.success]")
+            if cleared:
+                self._console.print(
+                    "[llx.dim]In-flight request cleared — you can send another message.[/llx.dim]"
+                )
+            else:
+                self._console.print(
+                    "[llx.dim]No in-flight request was registered; abort flag set.[/llx.dim]"
+                )
+        except Exception as e:
+            self._console.print(f"[llx.error]Abort failed: {e}[/llx.error]")
+            self._console.print(
+                "[llx.dim]Try /new for a fresh session, or restart the backend.[/llx.dim]"
+            )
 
     def _cmd_clear(self, args: list[str]):
         """Clear the console screen."""
