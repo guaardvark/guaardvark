@@ -21,9 +21,22 @@ export function createFullTheme(config) {
     mode = "dark",
     fontFamily = '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
     componentOverrides = {},
+    // Semantic hues. A theme that leaves these unset keeps MUI's stock
+    // green/amber/red, which reads as generic against a tuned background.
+    success,
+    warning,
+    error,
+    info,
+    // Route prefix -> colour, so each area of the app can carry its own hue.
+    // Themes that omit it simply get no accent rule.
+    moduleAccents = {},
   } = config;
 
   const dividerColor = divider || (mode === "light" ? "rgba(0, 0, 0, 0.08)" : "rgba(255, 255, 255, 0.08)");
+  const successColor = success || "#4caf50";
+  const warningColor = warning || "#ff9800";
+  const errorColor = error || "#f44336";
+  const infoColor = info || accent;
 
   const base = muiCreateTheme({
     palette: {
@@ -46,7 +59,12 @@ export function createFullTheme(config) {
         primary: textPrimary,
         secondary: textSecondary,
       },
+      success: { main: successColor },
+      warning: { main: warningColor },
+      error: { main: errorColor },
+      info: { main: infoColor },
       divider: dividerColor,
+      moduleAccents,
     },
     typography: {
       fontFamily,
@@ -116,22 +134,22 @@ export function createFullTheme(config) {
           filledInfo: {
             backgroundColor: bgPaper,
             color: textPrimary,
-            border: `1px solid ${accent}`,
+            border: `1px solid ${infoColor}`,
           },
           filledSuccess: {
             backgroundColor: bgPaper,
             color: textPrimary,
-            border: "1px solid #4caf50",
+            border: `1px solid ${successColor}`,
           },
           filledWarning: {
             backgroundColor: bgPaper,
             color: textPrimary,
-            border: "1px solid #ff9800",
+            border: `1px solid ${warningColor}`,
           },
           filledError: {
             backgroundColor: bgPaper,
             color: textPrimary,
-            border: "1px solid #f44336",
+            border: `1px solid ${errorColor}`,
           },
         },
       },

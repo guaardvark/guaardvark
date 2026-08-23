@@ -73,6 +73,66 @@ def set_web_access():
     return success_response({"allow_web_search": allow})
 
 
+@settings_bp.route("/address_provider", methods=["GET"])
+def get_address_provider():
+    """Address-suggestion provider status. The key itself is never returned."""
+    from backend.services import address_lookup
+
+    return success_response(
+        {
+            "provider": address_lookup.provider_name(),
+            "has_key": bool(address_lookup.api_key()),
+            "available": address_lookup.is_configured(),
+            "unavailable_reason": address_lookup.unavailable_reason(),
+            "attribution": address_lookup.ATTRIBUTION,
+        }
+    )
+
+
+@settings_bp.route("/address_provider", methods=["POST"])
+def set_address_provider():
+    """Store the provider name and/or key. An empty key clears it.
+
+    Address fields keep working from on-file addresses either way; this only
+    controls the optional third-party source.
+    """
+    from backend.services import address_lookup
+
+    if not request.is_json:
+        return error_response("Request must be JSON")
+    data = request.get_json() or {}
+    updates = {}
+    if "provider" in data:
+        updates[address_lookup.PROVIDER_SETTING] = (
+            str(data.get("provider") or "").strip().lower()
+            or address_lookup.DEFAULT_PROVIDER
+        )
+    if "api_key" in data:
+        updates[address_lookup.API_KEY_SETTING] = str(data.get("api_key") or "").strip()
+    if not updates:
+        return error_response("Nothing to update")
+    try:
+        for key, value in updates.items():
+            setting = db.session.get(Setting, key)
+            if setting:
+                setting.value = value
+            else:
+                db.session.add(Setting(key=key, value=value))
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Failed to update address provider setting: {e}")
+        return error_response("Failed to update setting", status_code=500)
+    return success_response(
+        {
+            "provider": address_lookup.provider_name(),
+            "has_key": bool(address_lookup.api_key()),
+            "available": address_lookup.is_configured(),
+            "unavailable_reason": address_lookup.unavailable_reason(),
+        }
+    )
+
+
 @settings_bp.route("/verbatim_prompts", methods=["GET"])
 def get_verbatim_prompts():
     """Whether image/video prompts go to the model verbatim (director-LLM rewrite OFF)."""

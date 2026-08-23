@@ -70,31 +70,40 @@ const Sidebar = () => {
     activateResourceManager();
   }, []);
 
-  const getNavLinkStyle = (isActive) => ({
-    backgroundColor: isActive ? theme.palette.action.selected : "transparent",
-    color: "inherit",
-    width: "100%",
-    minHeight: 40,
-    justifyContent: isExpanded ? "flex-start" : "center",
-    px: isExpanded ? 2 : 1.5,
-    py: 0.75,
-    mb: 0.25,
-    borderRadius: "6px",
-    "&:hover": {
-      backgroundColor: isActive
-        ? theme.palette.action.selected
-        : theme.palette.action.hover,
-      "& .MuiListItemIcon-root svg": { color: theme.palette.primary.main },
-    },
-    "& .MuiListItemIcon-root": {
-      minWidth: isExpanded ? 36 : 0,
-      justifyContent: "center",
-      color: isActive
-        ? theme.palette.primary.main
-        : theme.palette.text.secondary,
-      "& svg": { fontSize: 22 },
-    },
-  });
+  // Each nav item can carry its area's hue from the theme's `moduleAccents`
+  // map, so the sidebar is scannable by colour. Themes without one fall back to
+  // the primary/secondary pair and look exactly as before.
+  const getNavLinkStyle = (isActive, accent) => {
+    const activeColor = accent || theme.palette.primary.main;
+    return {
+      backgroundColor: isActive ? theme.palette.action.selected : "transparent",
+      color: "inherit",
+      width: "100%",
+      minHeight: 40,
+      justifyContent: isExpanded ? "flex-start" : "center",
+      px: isExpanded ? 2 : 1.5,
+      py: 0.75,
+      mb: 0.25,
+      borderRadius: "6px",
+      borderLeft: "2px solid",
+      borderLeftColor: isActive && accent ? accent : "transparent",
+      "&:hover": {
+        backgroundColor: isActive
+          ? theme.palette.action.selected
+          : theme.palette.action.hover,
+        "& .MuiListItemIcon-root svg": { color: activeColor },
+      },
+      "& .MuiListItemIcon-root": {
+        minWidth: isExpanded ? 36 : 0,
+        justifyContent: "center",
+        // Inactive icons keep a muted tint of their own hue rather than a flat
+        // grey, which is what makes the collapsed rail readable.
+        color: isActive ? activeColor : accent || theme.palette.text.secondary,
+        opacity: isActive ? 1 : 0.75,
+        "& svg": { fontSize: 22 },
+      },
+    };
+  };
 
   return (
     <>
@@ -227,7 +236,7 @@ const Sidebar = () => {
                       <ListItemButton
                         component={NavLink}
                         to={item.path}
-                        sx={() => getNavLinkStyle(isActive)}
+                        sx={() => getNavLinkStyle(isActive, theme.palette.moduleAccents?.[item.path])}
                       >
                         <ListItemIcon>
                           {badgeCount > 0 ? (
