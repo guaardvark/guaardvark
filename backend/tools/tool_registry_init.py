@@ -481,6 +481,19 @@ def register_rag_tools() -> List[str]:
         _tool_categories["search_knowledge_base"] = category
         logger.debug("Registered: KnowledgeSearchTool")
 
+        # Navigation surface. Search alone is a lookup primitive: without these there
+        # is no way to ask what the corpus contains, what a document is made of, or
+        # what the collection covers overall. Same category as search, so the MCP
+        # policy gate treats them identically.
+        from backend.tools.knowledge_tools import KNOWLEDGE_NAV_TOOLS
+
+        for tool_cls in KNOWLEDGE_NAV_TOOLS:
+            tool = tool_cls()
+            register_tool(tool)
+            registered.append(tool.name)
+            _tool_categories[tool.name] = category
+            logger.debug(f"Registered: {tool_cls.__name__}")
+
     except ImportError as e:
         logger.error(f"Failed to import RAG tools: {e}")
     except Exception as e:

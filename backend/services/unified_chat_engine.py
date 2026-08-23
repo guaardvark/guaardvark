@@ -248,6 +248,21 @@ MCP_NATIVE_TOOLS: List[str] = []
 # the Worker class" queries, so they also get a deterministic pin at the
 # selection chokepoint (see _pin_repo_intel_tools) keyed on REPO_INTEL_KEYWORDS.
 REPO_INTEL_TOOLS = ["get_repository_map", "get_dependency_graph", "read_ast_node"]
+# Knowledge-base navigation. search_knowledge_base is a CORE tool and always present,
+# which makes the selector treat "what documents do you have" as already served and
+# drop the tools that actually answer it. Same deterministic pin as the repo trio.
+KNOWLEDGE_NAV_TOOLS_PINNED = [
+    "list_documents", "get_document_outline", "read_document_section", "summarize_corpus",
+]
+KNOWLEDGE_NAV_KEYWORDS = [
+    "what documents", "which documents", "list documents", "list the documents",
+    "what files do you have", "what is in the knowledge base", "what's in the knowledge base",
+    "knowledge base contain", "indexed documents", "what have you indexed", "what do you know about",
+    "table of contents", "outline of", "sections of", "structure of the document",
+    "summarize the corpus", "summarise the corpus", "overall themes", "what themes",
+    "high level summary", "high-level summary", "overview of the documents",
+    "what is this collection", "across the documents", "recurring themes",
+]
 REPO_INTEL_KEYWORDS = [
     "repository", "repo map", "repo structure", "repository map", "code repo",
     "dependency", "dependencies", "depends on", "depend on", "imported by",
@@ -544,6 +559,22 @@ def _pin_repo_intel_tools(message: str, selected: List[str], all_tool_names: Lis
         return selected
     available = set(all_tool_names)
     pinned = [t for t in REPO_INTEL_TOOLS if t in available and t not in selected]
+    return pinned + list(selected) if pinned else selected
+
+
+def _pin_knowledge_nav_tools(message: str, selected: List[str], all_tool_names: List[str]) -> List[str]:
+    """Guarantee the knowledge-navigation tools survive selection on corpus questions.
+
+    "What documents do you have?" and "what are the overall themes?" are not passage
+    lookups, but they sit close enough to search_knowledge_base in embedding space that
+    the selector keeps the always-on search tool and drops the ones that can answer.
+    Cheap: four tools, ~80 prompt tokens, and only on a clear keyword match.
+    """
+    msg = (message or "").lower()
+    if not any(kw in msg for kw in KNOWLEDGE_NAV_KEYWORDS):
+        return selected
+    available = set(all_tool_names)
+    pinned = [t for t in KNOWLEDGE_NAV_TOOLS_PINNED if t in available and t not in selected]
     return pinned + list(selected) if pinned else selected
 
 
@@ -1417,6 +1448,7 @@ class UnifiedChatEngine:
                 selected_tools = merged
 
             selected_tools = _pin_repo_intel_tools(message, selected_tools, self.registry.list_tools())
+            selected_tools = _pin_knowledge_nav_tools(message, selected_tools, self.registry.list_tools())
             selected_tools = _pin_image_edit_tools(bool(self._image_data), selected_tools, self.registry.list_tools())
             selected_tools = _pin_image_generation_tools(
                 message, selected_tools, self.registry.list_tools(), session_id=session_id,
