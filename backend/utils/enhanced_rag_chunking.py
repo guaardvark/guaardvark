@@ -1467,6 +1467,41 @@ class EnhancedRAGChunker:
         # Use adaptive for other files
         return 'adaptive'
 
+    def _reduce_to_leaf_nodes(self, nodes: List[BaseNode]) -> List[BaseNode]:
+        """Drop hierarchical parent nodes, keeping only the leaves.
+
+        HierarchicalNodeParser emits every tier -- a 1000-token parent, its
+        500-token children, their 250-token children -- and a parent contains its
+        children's text verbatim. Indexing all tiers therefore embeds the same
+        prose two or three times (measured: 1.95x the nodes, 43% of the embedded
+        characters duplicated), doubles the vectors stored, and lets one query
+        match both a parent and its own child so the same passage is returned
+        twice at different granularities.
+
+        Leaves go to the vector store, the docstore and BM25 alike, so every
+        retrieval leg sees one consistent granularity. Set
+        GUAARDVARK_INDEX_LEAF_NODES_ONLY=false to index every tier instead.
+        """
+        if os.environ.get("GUAARDVARK_INDEX_LEAF_NODES_ONLY", "true").lower() != "true":
+            return nodes
+        if not nodes:
+            return nodes
+        try:
+            from llama_index.core.node_parser import get_leaf_nodes
+            leaves = get_leaf_nodes(nodes)
+        except Exception as e:
+            logger.debug(f"leaf-node reduction skipped: {e}")
+            return nodes
+        # A flat parser returns every node as a leaf; only act on a real hierarchy,
+        # and never reduce to nothing.
+        if not leaves or len(leaves) >= len(nodes):
+            return nodes
+        logger.info(
+            "Hierarchical chunking: indexing %d leaf node(s), dropping %d parent copies",
+            len(leaves), len(nodes) - len(leaves),
+        )
+        return leaves
+
     def chunk_documents(self, documents: List[LlamaDocument],
                        strategy_name: str = 'auto') -> List[BaseNode]:
         """Chunk multiple documents using specified strategy"""
@@ -1532,6 +1567,8 @@ class EnhancedRAGChunker:
             except Exception as e:
                 logger.error(f"Error chunking document {document.doc_id}: {e}")
                 self.chunking_stats['chunking_errors'] += 1
+
+        all_nodes = self._reduce_to_leaf_nodes(all_nodes)
 
         return all_nodes
     

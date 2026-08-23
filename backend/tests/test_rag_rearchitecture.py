@@ -210,3 +210,58 @@ def test_unknown_profile_falls_back_to_primary():
     from backend.services.index_profiles import resolve_retrieval_params, primary_profile
 
     assert resolve_retrieval_params("does-not-exist")["profile"] == primary_profile().name
+
+
+# --------------------------------------------------------------------------
+# Hierarchical chunking must not index a passage twice
+# --------------------------------------------------------------------------
+def _hierarchy(monkeypatch):
+    """Two leaves whose parent repeats their text verbatim."""
+    from llama_index.core.schema import TextNode, NodeRelationship, RelatedNodeInfo
+
+    parent = TextNode(text="alpha beta", id_="p1")
+    a = TextNode(text="alpha", id_="c1")
+    b = TextNode(text="beta", id_="c2")
+    for child in (a, b):
+        child.relationships[NodeRelationship.PARENT] = RelatedNodeInfo(node_id=parent.node_id)
+    parent.relationships[NodeRelationship.CHILD] = [
+        RelatedNodeInfo(node_id=a.node_id), RelatedNodeInfo(node_id=b.node_id)
+    ]
+    return [parent, a, b]
+
+
+def test_leaf_reduction_drops_parent_copies(monkeypatch):
+    monkeypatch.setenv("GUAARDVARK_INDEX_LEAF_NODES_ONLY", "true")
+    from backend.utils.enhanced_rag_chunking import EnhancedRAGChunker
+
+    nodes = _hierarchy(monkeypatch)
+    out = EnhancedRAGChunker()._reduce_to_leaf_nodes(nodes)
+    assert len(out) == 2, "parent node was indexed alongside its own children"
+    assert {n.text for n in out} == {"alpha", "beta"}
+
+
+def test_leaf_reduction_can_be_disabled(monkeypatch):
+    monkeypatch.setenv("GUAARDVARK_INDEX_LEAF_NODES_ONLY", "false")
+    from backend.utils.enhanced_rag_chunking import EnhancedRAGChunker
+
+    nodes = _hierarchy(monkeypatch)
+    assert len(EnhancedRAGChunker()._reduce_to_leaf_nodes(nodes)) == 3
+
+
+def test_leaf_reduction_is_a_noop_for_flat_chunkers(monkeypatch):
+    """A flat parser reports every node as a leaf; reducing must not empty the list."""
+    monkeypatch.setenv("GUAARDVARK_INDEX_LEAF_NODES_ONLY", "true")
+    from llama_index.core.schema import TextNode
+    from backend.utils.enhanced_rag_chunking import EnhancedRAGChunker
+
+    flat = [TextNode(text="one", id_="a"), TextNode(text="two", id_="b")]
+    assert len(EnhancedRAGChunker()._reduce_to_leaf_nodes(flat)) == 2
+    assert EnhancedRAGChunker()._reduce_to_leaf_nodes([]) == []
+
+
+def test_prose_is_not_chunked_at_code_scale():
+    """The code chunker's non-code branch must not inherit the 8000-token code size."""
+    from backend.utils.enhanced_rag_chunking import CodeChunker
+
+    assert CodeChunker.PROSE_CHUNK_SIZE <= 1000
+    assert CodeChunker.PROSE_CHUNK_OVERLAP <= 200
