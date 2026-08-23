@@ -203,6 +203,20 @@ def reset_index():
                 except OSError as e:
                     logger.error(f"Reset Index: Failed to delete {index_file}: {e}")
         
+        # Vectors live in Postgres under the pgvector backend, so deleting the JSON
+        # state alone would leave every embedding orphaned while the index reported
+        # itself empty. Drop the backing table too.
+        try:
+            from backend.services.indexing_service import drop_vector_store
+            vs_result = drop_vector_store()
+            if vs_result.get("dropped"):
+                deleted_files.append(vs_result.get("table", "vector_table"))
+                logger.info(f"Reset Index: dropped vector table {vs_result.get('table')}")
+            elif vs_result.get("error"):
+                logger.error(f"Reset Index: vector table drop failed: {vs_result['error']}")
+        except Exception as e:
+            logger.error(f"Reset Index: could not drop vector store: {e}")
+
         # Delete per-project index directories if they exist
         projects_dir = os.path.join(abs_storage_dir, "projects")
         if os.path.isdir(projects_dir):

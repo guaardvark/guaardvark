@@ -1,7 +1,9 @@
 
 import datetime
 import json
+import hashlib
 import logging
+import re
 import os
 import time
 import threading
@@ -167,7 +169,14 @@ def _get_cached_bm25_retriever(docstore, similarity_top_k: int):
     object identity or its document count changes. Returns None if BM25 is unavailable."""
     try:
         from llama_index.retrievers.bm25 import BM25Retriever
-    except ImportError:
+    except Exception as e:
+        # Not just ImportError: bm25s imports jax at module scope and guards only
+        # (ImportError, RuntimeError), so a jax/numpy ABI mismatch surfaces here as
+        # AttributeError. Catching narrowly is how hybrid search died unnoticed.
+        logger.warning(
+            "BM25 unavailable (%s: %s) — hybrid search will degrade to vector-only",
+            e.__class__.__name__, str(e)[:160],
+        )
         return None
     try:
         doc_count = len(getattr(docstore, "docs", {}) or {})
@@ -207,8 +216,11 @@ def _adaptive_alpha(query: str, base_alpha: float) -> float:
 
 def _mmr_rerank(results: list, top_k: int = 8, lambda_: float = 0.7) -> list:
     """CPU-only MMR reranker over the already-retrieved top candidates. Balances relevance
-    (retrieval score) against diversity (token-Jaccard overlap) to demote near-redundant
-    chunks. Zero VRAM, no model — safe on CPU/Pi. On any failure returns `results` as-is."""
+    against diversity (token-Jaccard overlap) to demote near-redundant chunks. Zero VRAM,
+    no model — safe on CPU/Pi. On any failure returns `results` as-is.
+
+    Relevance is the cross-encoder score when one is present, else the retrieval score:
+    ranking on the weaker signal would silently undo the reranker that just ran."""
     try:
         if not results or len(results) <= 2:
             return results
@@ -216,7 +228,15 @@ def _mmr_rerank(results: list, top_k: int = 8, lambda_: float = 0.7) -> list:
         working = results[:top_k]
         tail = results[top_k:]
 
-        scores = [float(r.get("score", 0.0) or 0.0) if isinstance(r, dict) else 0.0 for r in working]
+        def _rel_score(r):
+            if not isinstance(r, dict):
+                return 0.0
+            v = r.get("rerank_score")
+            if v is None:
+                v = r.get("score", 0.0)
+            return float(v or 0.0)
+
+        scores = [_rel_score(r) for r in working]
         lo, hi = min(scores), max(scores)
         span = (hi - lo) or 1.0
         rel = [(s - lo) / span for s in scores]  # normalize relevance to [0,1]
@@ -324,6 +344,172 @@ def _persist_dir_for(project_id=None) -> str:
     return index_root
 
 
+_embed_dim_cache: Dict[str, int] = {}
+
+
+def _active_embed_dim() -> Optional[int]:
+    """Embedding width of the active model, probed once per model and cached.
+
+    pgvector bakes the dimension into the column type, so this has to be known
+    before the table exists. Probing beats a hardcoded map: the operator can point
+    the system at any Ollama embedding model.
+    """
+    try:
+        from backend.config import get_active_embedding_model
+        model = get_active_embedding_model()
+    except Exception:
+        model = "unknown"
+    if model in _embed_dim_cache:
+        return _embed_dim_cache[model]
+    try:
+        from llama_index.core import Settings
+        embed_model = getattr(Settings, "embed_model", None)
+        if embed_model is None:
+            return None
+        dim = len(embed_model.get_query_embedding("dimension probe"))
+        _embed_dim_cache[model] = dim
+        logger.info("Embedding dimension for %s: %d", model, dim)
+        return dim
+    except Exception as e:
+        logger.warning("Could not probe embedding dimension: %s", e)
+        return None
+
+
+def _vector_backend() -> str:
+    return os.environ.get("GUAARDVARK_VECTOR_STORE", "pgvector").lower()
+
+
+def _pg_table_name(project_id=None) -> Optional[str]:
+    """Per (scope, dimension) table.
+
+    Putting the dimension in the name means switching embedding models lands in a
+    different table instead of contaminating an existing one -- the failure the
+    name-based dimension lock and _sanitize_vector_store_dimensions exist to paper
+    over on the JSON store.
+    """
+    dim = _active_embed_dim()
+    if not dim:
+        return None
+    scope = str(project_id) if project_id else "global"
+    scope = re.sub(r"[^A-Za-z0-9_]", "_", scope)[:40]
+    return f"guaardvark_{scope}_{dim}"
+
+
+def _make_vector_store(project_id=None):
+    """Build the configured vector store. Returns None to mean 'use the default'."""
+    backend = _vector_backend()
+    if backend != "pgvector":
+        return SimpleVectorStore() if SimpleVectorStore else None
+
+    table = _pg_table_name(project_id)
+    dim = _active_embed_dim()
+    if not table or not dim:
+        logger.warning("pgvector requested but embedding dimension is unknown — using SimpleVectorStore")
+        return SimpleVectorStore() if SimpleVectorStore else None
+
+    try:
+        from llama_index.vector_stores.postgres import PGVectorStore
+        from backend.config import DATABASE_URL
+        m = re.match(r"postgresql(?:\+\w+)?://([^:]+):([^@]+)@([^:/]+):(\d+)/(.+)", DATABASE_URL)
+        if not m:
+            raise ValueError("DATABASE_URL is not a parseable postgresql:// URL")
+        user, password, host, port, database = m.groups()
+        store = PGVectorStore.from_params(
+            host=host, port=port, database=database, user=user, password=password,
+            table_name=table,
+            embed_dim=dim,
+            hybrid_search=True,
+            text_search_config="english",
+            # pgvector's hnsw index rejects vector columns above 2000 dimensions.
+            # halfvec (16-bit) raises the ceiling to 4000 and indexes fine at 2560.
+            # The precision loss is immaterial for cosine ranking; being unindexed
+            # is not -- it would mean a sequential scan of every row per query.
+            use_halfvec=(dim > 2000),
+            hnsw_kwargs={
+                "hnsw_m": 16,
+                "hnsw_ef_construction": 64,
+                "hnsw_ef_search": 40,
+                # halfvec columns need the halfvec opclass; the vector one is rejected.
+                "hnsw_dist_method": "halfvec_cosine_ops" if dim > 2000 else "vector_cosine_ops",
+            },
+        )
+        logger.info("Vector store: pgvector table data_%s (dim=%d)", table, dim)
+        return store
+    except Exception as e:
+        logger.error(
+            "pgvector unavailable (%s: %s) — falling back to SimpleVectorStore",
+            e.__class__.__name__, str(e)[:180],
+        )
+        return SimpleVectorStore() if SimpleVectorStore else None
+
+
+def _pg_connect():
+    from backend.config import DATABASE_URL
+    m = re.match(r"postgresql(?:\+\w+)?://([^:]+):([^@]+)@([^:/]+):(\d+)/(.+)", DATABASE_URL)
+    if not m:
+        raise ValueError("DATABASE_URL is not a parseable postgresql:// URL")
+    import psycopg2
+    user, password, host, port, database = m.groups()
+    return psycopg2.connect(host=host, port=port, dbname=database, user=user, password=password)
+
+
+def drop_vector_store(project_id=None) -> Dict[str, Any]:
+    """Drop the backing vector table for a scope.
+
+    Resetting the index used to mean deleting JSON files. With the vectors in
+    Postgres that would leave every embedding orphaned while the index looked
+    empty, so the reset path has to reach the database too.
+    """
+    if _vector_backend() != "pgvector":
+        return {"backend": "simple", "dropped": False}
+    table = _pg_table_name(project_id)
+    if not table:
+        return {"backend": "pgvector", "dropped": False, "error": "dimension unknown"}
+    full = f"data_{table}"
+    try:
+        conn = _pg_connect()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(f'DROP TABLE IF EXISTS "{full}"')
+            conn.commit()
+        finally:
+            conn.close()
+        logger.info("Dropped vector table %s", full)
+        return {"backend": "pgvector", "dropped": True, "table": full}
+    except Exception as e:
+        logger.error("Failed dropping vector table %s: %s", full, e)
+        return {"backend": "pgvector", "dropped": False, "table": full, "error": str(e)[:200]}
+
+
+def vector_store_stats(project_id=None) -> Dict[str, Any]:
+    """Row count and on-disk size of the backing vector store."""
+    if _vector_backend() != "pgvector":
+        return {"backend": "simple"}
+    table = _pg_table_name(project_id)
+    if not table:
+        return {"backend": "pgvector", "error": "dimension unknown"}
+    full = f"data_{table}"
+    try:
+        conn = _pg_connect()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT to_regclass(%s)", (f"public.{full}",))
+                if cur.fetchone()[0] is None:
+                    return {"backend": "pgvector", "table": full, "exists": False,
+                            "rows": 0, "size_bytes": 0}
+                cur.execute(f'SELECT count(*) FROM "{full}"')
+                rows = cur.fetchone()[0]
+                cur.execute("SELECT pg_total_relation_size(%s)", (f"public.{full}",))
+                size = cur.fetchone()[0]
+            return {"backend": "pgvector", "table": full, "exists": True,
+                    "rows": rows, "size_bytes": int(size or 0),
+                    "embed_dim": _active_embed_dim()}
+        finally:
+            conn.close()
+    except Exception as e:
+        return {"backend": "pgvector", "table": full, "error": str(e)[:200]}
+
+
 def _index_embedding_meta_path(persist_dir: str) -> str:
     return os.path.join(persist_dir, "embedding_meta.json")
 
@@ -397,6 +583,12 @@ def _sanitize_vector_store_dimensions(storage_context_obj, persist_dir: Optional
     """
     removed = 0
     try:
+        # Only meaningful for SimpleVectorStore: it keeps a plain dict of embeddings and
+        # np.array() over mixed dimensions raises. A dimensioned backend (pgvector) makes
+        # the failure impossible -- the column has one width, and a model change lands in
+        # a differently-named table.
+        if _vector_backend() != "simple":
+            return 0
         from collections import Counter
         stores = []
         vs = getattr(storage_context_obj, "vector_store", None)
@@ -556,6 +748,16 @@ def _initialize_index(storage_path: str):
     
     docstore_file_path = Path(abs_storage_path) / "docstore.json"
 
+    # The vector store is addressed by scope, not by directory. In global mode the
+    # persist dir IS the index root; in per_project mode it is a child named for the
+    # project, so the directory name is the scope.
+    from backend.config import INDEX_ROOT as _INDEX_ROOT
+    _project_scope_hint = (
+        None
+        if os.path.abspath(abs_storage_path) == os.path.abspath(_INDEX_ROOT)
+        else os.path.basename(abs_storage_path.rstrip("/\\"))
+    )
+
     should_create_new = False
     if not os.path.isdir(abs_storage_path):
         logger.warning(
@@ -614,24 +816,16 @@ def _initialize_index(storage_path: str):
                     "persist_dir": abs_storage_path,
                 }
 
-                try:
-                    from inspect import signature
-
-                    sig_params = signature(StorageContext.from_defaults).parameters
-                    if SimpleVectorStore and "vector_store" in sig_params:
-                        storage_defaults["vector_store"] = SimpleVectorStore()
-                except Exception:
-                    if SimpleVectorStore:
-                        try:
-                            storage_defaults["vector_store"] = SimpleVectorStore()
-                        except Exception:
-                            pass
+                _vs = _make_vector_store(_project_scope_hint)
+                if _vs is not None:
+                    storage_defaults["vector_store"] = _vs
 
                 storage_context_instance = StorageContext.from_defaults(**storage_defaults)
 
                 index_instance = VectorStoreIndex.from_documents(
                     [],
                     storage_context=storage_context_instance,
+                    store_nodes_override=True,
                 )
                 storage_context_instance.persist(persist_dir=abs_storage_path)
 
@@ -650,10 +844,14 @@ def _initialize_index(storage_path: str):
     else:
         try:
             logger.info(f"Attempting to load existing index from: {abs_storage_path}")
-            storage_context_instance = StorageContext.from_defaults(
-                persist_dir=abs_storage_path
+            _load_kwargs = {"persist_dir": abs_storage_path}
+            _vs_load = _make_vector_store(_project_scope_hint)
+            if _vs_load is not None:
+                _load_kwargs["vector_store"] = _vs_load
+            storage_context_instance = StorageContext.from_defaults(**_load_kwargs)
+            index_instance = load_index_from_storage(
+                storage_context_instance, store_nodes_override=True
             )
-            index_instance = load_index_from_storage(storage_context_instance)
 
             index = index_instance
             storage_context = storage_context_instance
@@ -687,23 +885,15 @@ def _initialize_index(storage_path: str):
                         "persist_dir": abs_storage_path,
                     }
 
-                    try:
-                        from inspect import signature
-
-                        sig_params = signature(StorageContext.from_defaults).parameters
-                        if SimpleVectorStore and "vector_store" in sig_params:
-                            storage_defaults["vector_store"] = SimpleVectorStore()
-                    except Exception:
-                        if SimpleVectorStore:
-                            try:
-                                storage_defaults["vector_store"] = SimpleVectorStore()
-                            except Exception:
-                                pass
+                    _vs = _make_vector_store(_project_scope_hint)
+                    if _vs is not None:
+                        storage_defaults["vector_store"] = _vs
 
                     storage_context_instance = StorageContext.from_defaults(**storage_defaults)
                     index_instance = VectorStoreIndex.from_documents(
                         [],
                         storage_context=storage_context_instance,
+                        store_nodes_override=True,
                     )
                     storage_context_instance.persist(persist_dir=abs_storage_path)
 
@@ -814,8 +1004,45 @@ def _expand_query(query: str) -> Optional[str]:
     return None
 
 
-def search_with_llamaindex(query: str, max_chunks: Optional[int] = None, project_id: Optional[int] = None) -> List[Dict[str, Any]]:
+def search_with_llamaindex(
+    query: str,
+    max_chunks: Optional[int] = None,
+    project_id: Optional[int] = None,
+    filters: Optional[Dict[str, Any]] = None,
+    with_trace: bool = False,
+):
+    """Hybrid retrieval over the knowledge index.
+
+    Returns a list of {text, score, metadata, node_id} chunks. When `with_trace`
+    is set, returns {"results": [...], "trace": {...}} instead — the trace records
+    which retrieval legs actually ran, so a degraded answer is distinguishable
+    from a bad one. `filters` are metadata equality filters ANDed with the
+    project scope.
+    """
     global index
+
+    trace: Dict[str, Any] = {
+        "legs": [],
+        "fusion": None,
+        "degraded": False,
+        "degraded_reason": None,
+        "eff_alpha": None,
+        "base_alpha": None,
+        "top_k": None,
+        "embedding_model": None,
+        "embedding_dims": None,
+        "mmr_applied": False,
+        "rerank": None,
+        "dedup_removed": 0,
+        "project_scope": "global" if project_id is None else str(project_id),
+        "filters": dict(filters) if filters else {},
+        "returned": 0,
+        "error": None,
+    }
+
+    def _out(results):
+        trace["returned"] = len(results)
+        return {"results": results, "trace": trace} if with_trace else results
 
     try:
         with _index_operation_lock:
@@ -827,16 +1054,23 @@ def search_with_llamaindex(query: str, max_chunks: Optional[int] = None, project
 
         if local_index is None:
             logger.error("search_with_llamaindex: Failed to load index")
-            return []
+            trace["error"] = "index_unavailable"
+            return _out([])
 
         if not query or not isinstance(query, str):
             logger.warning("search_with_llamaindex: Invalid query input")
-            return []
+            trace["error"] = "invalid_query"
+            return _out([])
 
         # Dimension-lock: refuse vector search if the index was built with a different
         # embedding model (proactive + actionable, vs. the old silent post-hoc empty return).
         if not _check_index_embedding_model(project_id):
-            return []
+            trace["error"] = "embedding_model_mismatch"
+            trace["degraded"] = True
+            trace["degraded_reason"] = (
+                "index built with a different embedding model; vector search refused"
+            )
+            return _out([])
 
         # Layered RAG params (autoresearch): experiment override > explicit
         # max_chunks argument > promoted active config > legacy default (5).
@@ -852,21 +1086,57 @@ def search_with_llamaindex(query: str, max_chunks: Optional[int] = None, project
             effective_top_k = overlay["top_k"]
         else:
             effective_top_k = 5
+        trace["top_k"] = effective_top_k
+        try:
+            from backend.config import get_active_embedding_model
+            trace["embedding_model"] = get_active_embedding_model()
+        except Exception:
+            pass
 
+        # Metadata scope: project id (when scoped) ANDed with any caller-supplied
+        # equality filters. A filter the store cannot apply must not be silently
+        # dropped -- it is recorded in the trace so the caller can see it failed.
+        _filter_pairs = []
         if project_id is not None:
+            _filter_pairs.append(("project_id", str(project_id)))
+        for _k, _v in (filters or {}).items():
+            if _v is not None:
+                _filter_pairs.append((str(_k), str(_v)))
+
+        # Filtering happens after fusion (the sparse leg cannot filter), so retrieve a
+        # wider pool when a filter is set -- otherwise an unfiltered top_k can arrive
+        # entirely non-matching and the caller gets nothing for no good reason.
+        try:
+            from backend.utils.reranker import is_enabled as _rerank_enabled
+            _widen_for_rerank = _rerank_enabled()
+        except Exception:
+            _widen_for_rerank = False
+        # A reranker handed exactly top_k candidates cannot improve anything, and a
+        # post-fusion filter needs spare candidates to survive. Both want a wider pool.
+        _widened = bool(_filter_pairs or _widen_for_rerank)
+        candidate_top_k = min(50, effective_top_k * 4) if _widened else effective_top_k
+        trace["candidate_top_k"] = candidate_top_k
+
+        if _filter_pairs:
             try:
                 from llama_index.core.vector_stores.types import MetadataFilters, MetadataFilter, FilterOperator
                 metadata_filters = MetadataFilters(
                     filters=[
-                        MetadataFilter(key="project_id", value=str(project_id), operator=FilterOperator.EQ)
+                        MetadataFilter(key=_k, value=_v, operator=FilterOperator.EQ)
+                        for _k, _v in _filter_pairs
                     ]
                 )
-                base_retriever = local_index.as_retriever(similarity_top_k=effective_top_k, filters=metadata_filters)
+                base_retriever = local_index.as_retriever(similarity_top_k=candidate_top_k, filters=metadata_filters)
+                trace["filters_applied"] = True
             except Exception:
                 logger.debug("search_with_llamaindex: MetadataFilters not available, falling back to unfiltered")
-                base_retriever = local_index.as_retriever(similarity_top_k=effective_top_k)
+                base_retriever = local_index.as_retriever(similarity_top_k=candidate_top_k)
+                trace["filters_applied"] = False
+                trace["degraded"] = True
+                trace["degraded_reason"] = "metadata filters unavailable; results are UNFILTERED"
         else:
-            base_retriever = local_index.as_retriever(similarity_top_k=effective_top_k)
+            base_retriever = local_index.as_retriever(similarity_top_k=candidate_top_k)
+            trace["filters_applied"] = None
         # Hybrid search: add BM25 retrieval alongside vector search.
         # Promoted/experiment alpha wins; env var is the legacy default.
         hybrid_alpha = overlay.get(
@@ -875,12 +1145,15 @@ def search_with_llamaindex(query: str, max_chunks: Optional[int] = None, project
         )
         retriever = base_retriever  # Default to vector-only
         use_query_embedding = True  # False only when we fall back to BM25-only (no vector leg)
+        trace["base_alpha"] = hybrid_alpha
+        trace["legs"] = ["vector"]
+        trace["fusion"] = "vector_only"
 
         if hybrid_alpha > 0.0 and storage_context is not None:
             try:
                 from llama_index.core.retrievers import QueryFusionRetriever
 
-                bm25_retriever = _get_cached_bm25_retriever(storage_context.docstore, effective_top_k)
+                bm25_retriever = _get_cached_bm25_retriever(storage_context.docstore, candidate_top_k)
                 if bm25_retriever is None:
                     raise ImportError("BM25Retriever unavailable")
 
@@ -892,6 +1165,13 @@ def search_with_llamaindex(query: str, max_chunks: Optional[int] = None, project
                     )
                     retriever = bm25_retriever
                     use_query_embedding = False  # don't embed the query under pressure
+                    trace["legs"] = ["bm25"]
+                    trace["fusion"] = "bm25_only"
+                    trace["degraded"] = True
+                    trace["degraded_reason"] = (
+                        "resource pressure (low free VRAM or high RAM): vector leg skipped, "
+                        "BM25-only results"
+                    )
                 else:
                     # Effective vector weight (alpha). Adaptive per-query unless disabled.
                     eff_alpha = hybrid_alpha
@@ -904,27 +1184,43 @@ def search_with_llamaindex(query: str, max_chunks: Optional[int] = None, project
                         # Order matches retrievers=[vector, bm25] → [eff_alpha, 1-eff_alpha].
                         retriever = QueryFusionRetriever(
                             retrievers=[base_retriever, bm25_retriever],
-                            similarity_top_k=effective_top_k,
+                            similarity_top_k=candidate_top_k,
                             num_queries=1,
                             mode="relative_score",
                             retriever_weights=[eff_alpha, 1.0 - eff_alpha],
                         )
+                        trace["legs"] = ["vector", "bm25"]
+                        trace["fusion"] = "relative_score"
+                        trace["eff_alpha"] = eff_alpha
                     except (TypeError, ValueError) as weight_err:
                         # Older llama-index without relative_score/retriever_weights → plain RRF.
                         logger.debug(f"Weighted fusion unavailable ({weight_err}); using reciprocal_rerank")
                         retriever = QueryFusionRetriever(
                             retrievers=[base_retriever, bm25_retriever],
-                            similarity_top_k=effective_top_k,
+                            similarity_top_k=candidate_top_k,
                             num_queries=1,
                             mode="reciprocal_rerank",
                         )
+                        trace["legs"] = ["vector", "bm25"]
+                        trace["fusion"] = "reciprocal_rerank"
+                        trace["eff_alpha"] = None
                     logger.info(
                         f"Hybrid search (vector={eff_alpha:.2f}, bm25={1.0 - eff_alpha:.2f}, base_alpha={hybrid_alpha})"
                     )
             except ImportError:
-                logger.debug("BM25Retriever not available, using vector-only search")
+                logger.warning("BM25Retriever not available, using vector-only search")
+                trace["degraded"] = True
+                trace["degraded_reason"] = (
+                    "hybrid requested (alpha=%.2f) but BM25 is unavailable; vector-only results"
+                    % hybrid_alpha
+                )
             except Exception as e:
-                logger.debug(f"Hybrid search setup failed, using vector-only: {e}")
+                logger.warning(f"Hybrid search setup failed, using vector-only: {e}")
+                trace["degraded"] = True
+                trace["degraded_reason"] = (
+                    "hybrid requested (alpha=%.2f) but the sparse leg failed (%s); vector-only results"
+                    % (hybrid_alpha, str(e)[:120])
+                )
 
         from llama_index.core.schema import QueryBundle
 
@@ -936,6 +1232,10 @@ def search_with_llamaindex(query: str, max_chunks: Optional[int] = None, project
                 cached_vec = _get_cached_query_embedding(query)
                 if cached_vec is not None:
                     query_bundle.embedding = cached_vec
+                    try:
+                        trace["embedding_dims"] = len(cached_vec)
+                    except TypeError:
+                        pass
         else:
             query_bundle = query
 
@@ -950,6 +1250,21 @@ def search_with_llamaindex(query: str, max_chunks: Optional[int] = None, project
                     nodes.extend(retriever.retrieve(QueryBundle(query_str=expanded)))
                 except Exception as e:
                     logger.debug(f"Expanded-query retrieval failed: {e}")
+
+        # Metadata filters must hold for every returned node, not just the ones the
+        # vector store filtered. BM25Retriever has no filter support, so fusion
+        # re-admits nodes the vector leg excluded -- including nodes from other
+        # projects. Enforce the scope here, where both legs have already landed.
+        if _filter_pairs:
+            def _passes(nws):
+                n = nws.node if hasattr(nws, "node") else nws
+                md = getattr(n, "metadata", None) or {}
+                return all(str(md.get(k)) == v for k, v in _filter_pairs)
+
+            _pre_filter = len(nodes)
+            nodes = [n for n in nodes if _passes(n)]
+            trace["filtered_out"] = _pre_filter - len(nodes)
+            trace["filters_applied"] = True
 
         results = []
         for node_with_score in nodes:
@@ -974,7 +1289,26 @@ def search_with_llamaindex(query: str, max_chunks: Optional[int] = None, project
         )
 
         # Deduplicate near-identical chunks
+        _pre_dedup = len(results)
         results = deduplicate_chunks(results)
+        trace["dedup_removed"] = _pre_dedup - len(results)
+
+        # Cross-encoder rerank: re-score query+passage together, which the bi-encoder
+        # and BM25 legs cannot do. Runs before MMR on purpose -- this decides what is
+        # relevant, MMR then decides what is diverse. Never raises; if it did not run,
+        # the trace says why.
+        try:
+            from backend.utils.reranker import rerank as _ce_rerank
+            results, _ce_info = _ce_rerank(query if isinstance(query, str) else "", results)
+            trace["rerank"] = _ce_info
+            if not _ce_info.get("applied") and _ce_info.get("reason") and len(results) >= 2:
+                reason = _ce_info["reason"]
+                # "disabled" and "too few candidates" are configuration, not failure.
+                if not reason.startswith("disabled") and not reason.startswith("fewer than"):
+                    trace["degraded"] = True
+                    trace["degraded_reason"] = f"cross-encoder rerank unavailable ({reason})"
+        except Exception as e:
+            trace["rerank"] = {"applied": False, "reason": f"import failed: {e}"}
 
         # CPU-only MMR rerank of the top candidates (relevance × diversity). Zero VRAM.
         # Env var is the operator's master allow; the tunable param decides per-query
@@ -982,6 +1316,7 @@ def search_with_llamaindex(query: str, max_chunks: Optional[int] = None, project
         if (os.environ.get("GUAARDVARK_RERANK_ENABLED", "true").lower() == "true"
                 and overlay.get("reranking_enabled", True)):
             results = _mmr_rerank(results)
+            trace["mmr_applied"] = True
 
         # Expand results with cross-file dependency context
         try:
@@ -997,13 +1332,23 @@ def search_with_llamaindex(query: str, max_chunks: Optional[int] = None, project
         if max_chunks is None:
             cwc = overlay.get("context_window_chunks", 3)
             results = results[:cwc]
+        elif _widened:
+            # The pool was widened for filtering/reranking; honour the requested count.
+            results = results[:effective_top_k]
 
         # Fallback: if project-scoped search returned 0 results, retry with global scope
         if not results and project_id is not None:
             logger.info(f"search_with_llamaindex: No project-scoped results, falling back to global search")
-            return search_with_llamaindex(query, max_chunks=max_chunks, project_id=None)
+            _fb = search_with_llamaindex(
+                query, max_chunks=max_chunks, project_id=None,
+                filters=filters, with_trace=True,
+            )
+            _fb_trace = _fb["trace"]
+            _fb_trace["project_scope"] = "global_fallback"
+            _fb_trace["fallback_from_project"] = str(project_id)
+            return {"results": _fb["results"], "trace": _fb_trace} if with_trace else _fb["results"]
 
-        return results
+        return _out(results)
 
     except Exception as e:
         err_msg = str(e)
@@ -1015,7 +1360,10 @@ def search_with_llamaindex(query: str, max_chunks: Optional[int] = None, project
             )
         else:
             logger.error(f"search_with_llamaindex failed: {e}", exc_info=True)
-        return []
+        trace["error"] = err_msg[:200]
+        trace["degraded"] = True
+        trace["degraded_reason"] = "retrieval raised; empty result set"
+        return _out([])
 
 
 def add_text_to_index(text: str, metadata: Dict[str, Any], project_id: Optional[str] = None) -> Optional[bool]:
@@ -1108,6 +1456,41 @@ def add_text_to_index(text: str, metadata: Dict[str, Any], project_id: Optional[
         gc.collect()
 
 
+
+def _md_supports(file_extension: str) -> bool:
+    try:
+        from backend.utils.markdown_sections import supports
+        return supports(file_extension)
+    except Exception:
+        return False
+
+
+def _md_load(file_path: str, filename: str, doc_cls):
+    try:
+        from backend.utils.markdown_sections import load_documents
+        return load_documents(file_path, filename, doc_cls)
+    except Exception as e:
+        logger.warning("Markdown loader unavailable for %s: %s", filename, e)
+        return None
+
+
+def _docling_supports(file_extension: str) -> bool:
+    try:
+        from backend.utils.docling_loader import supports
+        return supports(file_extension)
+    except Exception:
+        return False
+
+
+def _docling_load(file_path: str, filename: str, doc_cls):
+    try:
+        from backend.utils.docling_loader import load_documents
+        return load_documents(file_path, filename, doc_cls)
+    except Exception as e:
+        logger.warning("Docling loader unavailable for %s: %s", filename, e)
+        return None
+
+
 def get_documents_from_file(file_path: str, client: Optional[str] = None, upload_date: Optional[str] = None) -> List[LlamaDocument]:
     documents: List[LlamaDocument] = []
     try:
@@ -1122,6 +1505,30 @@ def get_documents_from_file(file_path: str, client: Optional[str] = None, upload
         if not path_obj.is_file():
             logger.error(f"Path is not a file: {file_path}")
             return []
+
+        # Docling runs ahead of EnhancedFileProcessor for the layout-bearing formats.
+        # The adapter also claims .pdf/.docx, but it returns flat text; Docling returns
+        # reading order, section headers and page provenance, which is what makes a
+        # retrieved chunk citable. It returns None when it cannot help, so the adapter
+        # and the legacy readers below remain the fallback chain.
+        if _docling_supports(file_extension):
+            _dl_docs = _docling_load(str(path_obj), filename, LlamaDocument)
+            if _dl_docs:
+                for _d in _dl_docs:
+                    _d.metadata.setdefault("client", client)
+                    _d.metadata.setdefault("upload_date", upload_date)
+                logger.info("Docling handled %s (%d page docs)", filename, len(_dl_docs))
+                return _dl_docs
+
+        # Markdown: split on headings so each section carries a breadcrumb. Previously
+        # .md fell all the way through to SimpleDirectoryReader as one flat blob.
+        if _md_supports(file_extension):
+            _md_docs = _md_load(str(path_obj), filename, LlamaDocument)
+            if _md_docs:
+                for _d in _md_docs:
+                    _d.metadata.setdefault("client", client)
+                    _d.metadata.setdefault("upload_date", upload_date)
+                return _md_docs
 
         try:
             from backend.utils.file_processor_adapter import (
@@ -1405,6 +1812,33 @@ def get_documents_from_file(file_path: str, client: Optional[str] = None, upload
             documents = parse_csv_rows(str(path_obj), client=client, upload_date=upload_date)
         elif file_extension == ".xml" and parse_sitemap:
             documents = parse_sitemap(str(path_obj))
+        elif file_extension == ".pdf" and _docling_supports(file_extension):
+            # Docling first: recovers reading order, section headers and per-item page
+            # provenance. Returns None (not an exception) when it cannot help, so the
+            # PDFReader path below still runs rather than dropping the file.
+            _dl = _docling_load(str(path_obj), filename, LlamaDocument)
+            if _dl:
+                documents.extend(_dl)
+            elif PDFReaderClass:
+                try:
+                    logger.debug(f"Docling unavailable for {filename}; using PDFReader")
+                    pdf_reader = PDFReaderClass()
+                    loaded_docs = pdf_reader.load_data(file=path_obj)
+                    for doc in loaded_docs:
+                        doc.metadata = doc.metadata or {}
+                        doc.metadata["source_filename"] = filename
+                        doc.metadata["file_path"] = str(path_obj)
+                        doc.metadata["parsed_by"] = "PDFReader"
+                    documents.extend(loaded_docs)
+                except Exception as e:
+                    logger.error(f"Failed to parse PDF {filename}: {e}", exc_info=True)
+                    return []
+
+        elif file_extension in (".docx", ".pptx") and _docling_supports(file_extension):
+            _dl = _docling_load(str(path_obj), filename, LlamaDocument)
+            if _dl:
+                documents.extend(_dl)
+
         elif file_extension == ".pdf" and PDFReaderClass:
             try:
                 logger.debug(f"Using PydfReader for: {filename}")
@@ -1592,7 +2026,7 @@ def add_file_to_index(file_path: str, db_document: DBDocument, progress_callback
             if db_document.notes:
                 doc.metadata["notes"] = db_document.notes
 
-            doc.id_ = f"doc_{db_document.id}_{hash(doc.text)}"
+            doc.id_ = f"doc_{db_document.id}_{hashlib.sha256((doc.text or '').encode('utf-8')).hexdigest()[:16]}"
         
         logger.info(f"Adding documents to index for {db_document.filename}")
         progress_system.update_process(process_id, 70, f"Adding to vector index: {db_document.filename}")
@@ -1665,6 +2099,17 @@ def add_file_to_index(file_path: str, db_document: DBDocument, progress_callback
                 rag_chunker = EnhancedRAGChunker()
                 nodes = rag_chunker.chunk_documents(documents, strategy_name='auto')
                 logger.info(f"Enhanced RAG chunking produced {len(nodes)} nodes from {len(documents)} documents")
+
+                # Contextual Retrieval for prose, mirroring the code branch above: the
+                # embedded text names its document, section and page, so a chunk lifted
+                # out of the middle of a file still says where it came from. Raw text is
+                # preserved in metadata["original_text"].
+                try:
+                    from backend.utils.contextual_prepender import prepend_context_to_document_nodes
+                    _ctx_n = prepend_context_to_document_nodes(nodes)
+                    logger.info(f"Contextual prefix applied to {_ctx_n}/{len(nodes)} prose nodes")
+                except Exception as e:
+                    logger.warning(f"Document context prepending skipped: {e}")
 
                 try:
                     stats = rag_chunker.get_chunking_stats()

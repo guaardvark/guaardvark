@@ -2,6 +2,21 @@
 # Enhanced RAG Chunking System
 # Implements hierarchical and semantic chunking with intelligent content analysis
 
+import os
+
+# NLTK's CWE-427 import guard (nltk/inisec.py) blocks any module whose file resolves
+# *under* the current working directory. This project's venv lives at backend/venv/ --
+# inside the repo -- and the backend runs from the repo root, so every site-packages
+# module looks like a CWD import and nltk cannot import its own `regex` dependency.
+# Measured cost: chunking a 29-section document yielded 76 nodes with nltk blocked
+# versus 115 with it working, and semantic chunking degraded to semantic_fallback.
+#
+# The guard defends against a hostile module shadowing a dependency from the CWD.
+# That is not the situation here: the "CWD" is the application's own repository, and
+# nothing attacker-writable is on sys.path (uploads land in data/uploads/, which is
+# not an import path). Set before any import that can pull nltk in.
+os.environ.setdefault("NLTK_DISABLE_IMPORT_SECURITY", "1")
+
 # Force local LlamaIndex configuration BEFORE any LlamaIndex imports
 import backend.utils.llama_index_local_config
 
@@ -1460,6 +1475,20 @@ class EnhancedRAGChunker:
 
                 chunker = self.chunkers[actual_strategy]
                 nodes = chunker.chunk_document(document)
+
+                # Carry the source document's metadata onto every chunk. The per-chunk
+                # metadata is built fresh by _create_enhanced_metadata, which never sees
+                # the document, so without this the file name, page label and heading
+                # path are lost at chunk time -- and a chunk that cannot name its source
+                # cannot be cited. setdefault so chunk-specific keys always win.
+                doc_meta = getattr(document, "metadata", None) or {}
+                if doc_meta:
+                    for _n in nodes:
+                        if getattr(_n, "metadata", None) is None:
+                            _n.metadata = {}
+                        for _k, _v in doc_meta.items():
+                            _n.metadata.setdefault(_k, _v)
+
                 all_nodes.extend(nodes)
 
                 self.chunking_stats['total_documents'] += 1

@@ -3,6 +3,11 @@
 Implements Anthropic's Contextual Retrieval technique: prepend a short context
 string to each chunk before embedding so the embedding captures file-level and
 repo-level context.
+
+Two templates, because code and prose situate a chunk differently: code by
+repository/file/symbol, prose by document/section/page. Both preserve the raw
+text in metadata["original_text"] so the prefix never reaches the reader as if
+it were part of the source.
 """
 
 import logging
@@ -61,3 +66,49 @@ def prepend_context_to_nodes(
 
         node.metadata["original_text"] = node.text
         node.text = context + node.text
+
+
+def generate_document_context(
+    source_filename: str,
+    heading_path: Optional[str] = None,
+    page_label: Optional[str] = None,
+) -> str:
+    """Generate a context prefix for a prose chunk.
+
+    Mirrors generate_chunk_context for documents: names the file, the section it
+    came from, and the page when the parser recovered one.
+    """
+    parts = [f"Document: {source_filename}."]
+    if heading_path:
+        parts.append(f"Section: {heading_path}.")
+    if page_label:
+        parts.append(f"Page {page_label}.")
+    return " ".join(parts) + "\n\n"
+
+
+def prepend_context_to_document_nodes(nodes: List[TextNode]) -> int:
+    """Prepend document context to prose nodes in-place. Returns how many were changed.
+
+    Skips nodes already carrying a prefix (original_text set) and nodes with no
+    source filename -- prefixing "Document: unknown." would add tokens and no
+    information.
+    """
+    changed = 0
+    for node in nodes:
+        meta = getattr(node, "metadata", None) or {}
+        if "original_text" in meta:
+            continue
+        source = meta.get("source_filename") or meta.get("filename")
+        if not source:
+            continue
+
+        context = generate_document_context(
+            source_filename=source,
+            heading_path=meta.get("heading_path"),
+            page_label=meta.get("page_label"),
+        )
+        meta["original_text"] = node.text
+        node.metadata = meta
+        node.text = context + node.text
+        changed += 1
+    return changed

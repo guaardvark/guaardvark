@@ -661,10 +661,27 @@ def get_system_health():
         docstore_path = os.path.join(index_root, "docstore.json")
         if os.path.exists(docstore_path):
             docstore_size = os.path.getsize(docstore_path)
-            vector_store_path = os.path.join(index_root, "default__vector_store.json")
-            vector_size = os.path.getsize(vector_store_path) if os.path.exists(vector_store_path) else 0
+            # Under pgvector the embeddings are not on disk here; asking the database
+            # keeps this from reporting a vector store of zero bytes.
+            vector_size = 0
+            vector_info = {}
+            try:
+                from backend.services.indexing_service import vector_store_stats
+                vector_info = vector_store_stats()
+                if vector_info.get("backend") == "pgvector":
+                    vector_size = vector_info.get("size_bytes", 0)
+                else:
+                    vector_store_path = os.path.join(index_root, "default__vector_store.json")
+                    vector_size = os.path.getsize(vector_store_path) if os.path.exists(vector_store_path) else 0
+            except Exception:
+                vector_store_path = os.path.join(index_root, "default__vector_store.json")
+                vector_size = os.path.getsize(vector_store_path) if os.path.exists(vector_store_path) else 0
             total_memory = docstore_size + vector_size
-            persisted_indexes["global"] = {"project_id": "global", "size": docstore_size + vector_size}
+            persisted_indexes["global"] = {
+                "project_id": "global",
+                "size": docstore_size + vector_size,
+                "vector_store": vector_info,
+            }
 
         # Check for per-project indexes (subdirectories with docstore.json)
         for entry in os.listdir(index_root):

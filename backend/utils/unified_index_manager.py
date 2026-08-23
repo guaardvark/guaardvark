@@ -139,10 +139,16 @@ class UnifiedIndexManager:
             docstore = SimpleDocumentStore()
             index_store = SimpleIndexStore()
             
-            # Create storage context with explicit vector store
-            from llama_index.core.vector_stores import SimpleVectorStore
-            
-            vector_store = SimpleVectorStore()
+            # Use the same vector-store factory as indexing_service: two independent
+            # construction sites silently disagreeing about the backend is how an index
+            # ends up half in Postgres and half in a JSON file.
+            try:
+                from backend.services.indexing_service import _make_vector_store
+                vector_store = _make_vector_store()
+            except Exception:
+                from llama_index.core.vector_stores import SimpleVectorStore
+                vector_store = SimpleVectorStore()
+
             storage_context = StorageContext.from_defaults(
                 docstore=docstore,
                 index_store=index_store,
@@ -150,10 +156,12 @@ class UnifiedIndexManager:
                 persist_dir=str(persist_dir)
             )
             
-            # Create empty index
+            # Create empty index. store_nodes_override keeps the docstore populated,
+            # which BM25 retrieval depends on when the vector store stores text itself.
             index = VectorStoreIndex.from_documents(
                 [],
-                storage_context=storage_context
+                storage_context=storage_context,
+                store_nodes_override=True,
             )
             
             # Persist the empty index
