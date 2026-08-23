@@ -4,8 +4,9 @@
 # or secrets. A push cannot be taken back, so this is the last cheap place to
 # catch them.
 #
-# Install:
-#   ln -sf ../../scripts/pre-commit .git/hooks/pre-commit
+# Install. Worktrees share the main repo's single hooks directory, and their
+# .git is a file, so resolve the target rather than writing .git/hooks directly:
+#   ln -sf ../../scripts/pre-commit "$(git rev-parse --git-common-dir)/hooks/pre-commit"
 #
 # Bypass for a commit you are certain about:
 #   git commit --no-verify
