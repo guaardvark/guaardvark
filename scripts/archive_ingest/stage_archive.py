@@ -31,6 +31,10 @@ EXCLUDED_DIRS = {
     "coverage", "htmlcov", ".mypy_cache", "bower_components",
 }
 DOC_EXTENSIONS = {".md", ".markdown", ".mdx", ".txt", ".pdf", ".docx", ".rst"}
+# Bytes map to tokens only for plain text. A PDF or DOCX is a compressed container
+# whose size says almost nothing about how much text it holds, so estimating tokens
+# from its byte count overstates the corpus by an order of magnitude.
+TEXT_EXTENSIONS = {".md", ".markdown", ".mdx", ".txt", ".rst"}
 
 # Vendored boilerplate that survives dedup because each copy differs slightly,
 # yet carries nothing about the project being reconstructed.
@@ -101,7 +105,10 @@ def main() -> int:
         except OSError:
             skipped += 1
             continue
-        entry = by_hash.setdefault(digest, {"paths": [], "size": stat.st_size})
+        entry = by_hash.setdefault(
+            digest,
+            {"paths": [], "size": stat.st_size, "ext": path.suffix.lower()},
+        )
         entry["paths"].append({
             "path": str(path),
             "mtime": datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat(),
@@ -111,9 +118,18 @@ def main() -> int:
             print(f"  {scanned} documents, {len(by_hash)} unique so far", flush=True)
 
     unique_bytes = sum(e["size"] for e in by_hash.values())
+    text_entries = [e for e in by_hash.values() if e["ext"] in TEXT_EXTENSIONS]
+    binary_entries = [e for e in by_hash.values() if e["ext"] not in TEXT_EXTENSIONS]
+    text_bytes = sum(e["size"] for e in text_entries)
+    binary_bytes = sum(e["size"] for e in binary_entries)
+
     print(f"\nscanned:        {scanned} documents ({skipped} unreadable)")
     print(f"unique content: {len(by_hash)}")
-    print(f"unique bytes:   {unique_bytes / 1048576:.1f} MB  (~{unique_bytes / 4 / 1e6:.2f}M tokens)")
+    print(f"unique bytes:   {unique_bytes / 1048576:.1f} MB")
+    print(f"  text  ({len(text_entries):4d} files): {text_bytes / 1048576:6.1f} MB"
+          f"  ~{text_bytes / 4 / 1e6:.2f}M tokens")
+    print(f"  binary({len(binary_entries):4d} files): {binary_bytes / 1048576:6.1f} MB"
+          f"  (token count unknown until extraction)")
     dup = scanned - len(by_hash)
     print(f"duplicates:     {dup} ({(dup / scanned * 100) if scanned else 0:.1f}%)")
 
@@ -147,6 +163,7 @@ def main() -> int:
                 continue
         manifest.append({
             "hash": digest,
+            "ext": entry["ext"],
             "staged_as": out_name,
             "size": entry["size"],
             "first_seen": first["mtime"],
