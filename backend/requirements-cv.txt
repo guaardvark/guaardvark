@@ -27,7 +27,7 @@
 # import time, so this stays installable against current torch.
 
 # --- Face Restoration & Enhancement ---
-gfpgan==1.3.5          # Downgraded from 1.3.8 for torchvision compatibility
+gfpgan==1.3.8          # Downgraded from 1.3.8 for torchvision compatibility
 realesrgan==0.3.0
 facexlib==0.3.0        # transitive (pulled by gfpgan); pinned for reproducibility
 basicsr>=1.4.2         # Required by GFPGAN and RealESRGAN
