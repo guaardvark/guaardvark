@@ -1162,7 +1162,7 @@ ensure_pip_tmpdir() {
     # Network hardening for EVERY pip call this process spawns (requirements
     # installs, requirements-cv, install_pytorch.sh, dep_reconciler). pip's
     # default socket timeout is 15s — too tight for multi-hundred-MB wheels on
-    # links that stall under sustained load. ALPACA 2026-08-13: a mid-download
+    # links that stall under sustained load. Observed 2026-08-13: a mid-download
     # read timeout on files.pythonhosted.org (fetching the 35MB av wheel)
     # aborted the whole bootstrap. Operator-set values win.
     export PIP_DEFAULT_TIMEOUT="${PIP_DEFAULT_TIMEOUT:-60}"
@@ -1220,7 +1220,7 @@ ensure_pip_tmpdir() {
 # known-fixable signatures (missing dev headers → apt once; transient network
 # fault → back off and retry, downloads resume from PIP_CACHE_DIR so every
 # retry makes forward progress); else fail LOUD with the actual first error.
-# ALPACA 2026-08-13: one PyPI read timeout mid-wheel aborted the entire
+# Observed 2026-08-13: one PyPI read timeout mid-wheel aborted the entire
 # bootstrap because nothing retried at this level.
 PIP_NET_FAULT_RE="Read timed out|ReadTimeoutError|Connection broken|ConnectionResetError|Connection aborted|NewConnectionError|ProtocolError|IncompleteRead|Temporary failure in name resolution|Network is unreachable"
 pip_install_requirements() {
@@ -1631,7 +1631,7 @@ mkdir -p "$HOME/.guaardvark"
 # Invoke by FILE PATH, not `-m backend.services...`: -m imports backend/__init__.py,
 # which pulls socketio_events → numpy. Pre-venv (system python3, no numpy) that
 # GUARANTEED a "ModuleNotFoundError: numpy" traceback at the top of setup.log on
-# every fresh box — the red herring that derailed the ALPACA install diagnosis.
+# every fresh box — the red herring that derailed a real install diagnosis.
 # The detector itself is pure stdlib and needs no package context.
 if python3 "$SCRIPT_DIR/backend/services/hardware_detector.py" \
         --output "$HOME/.guaardvark/hardware.json" >> "$SETUP_LOG" 2>&1; then
@@ -1649,7 +1649,7 @@ fi
 # most Intel desktop boards) have a years-old, Intel-acknowledged TX engine bug:
 # under sustained transmit load the NIC hangs ("Detected Hardware Unit Hang" in
 # dmesg), the driver resets it, and the interface drops mid-transfer. Our
-# bootstrap is exactly that load profile. ALPACA (ASRock Z390 Pro4, I219-V)
+# bootstrap is exactly that load profile. On an ASRock Z390 Pro4 (I219-V),
 # 2026-08-13: repeated bootstrap deaths (read timeouts, DNS gone, BrokenPipe),
 # CURED by disabling offloads — install completed first try afterwards. BIOS
 # ASPM settings do not govern this NIC (it is not a PCIe device); the offload

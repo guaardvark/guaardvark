@@ -34,7 +34,7 @@ KNOWN_SERVICES = (
 # e1000e (Intel I217/I218/I219, the PCH-integrated NIC on most Intel desktop
 # boards): years-old, Intel-acknowledged TX engine hang under sustained load —
 # dmesg shows "Detected Hardware Unit Hang", driver resets the adapter, the
-# interface drops mid-transfer. Diagnosed on ALPACA (ASRock Z390 Pro4, I219-V)
+# interface drops mid-transfer. Diagnosed on an ASRock Z390 Pro4 (I219-V)
 # 2026-08-13: repeated bootstrap deaths; fix CONFIRMED by disabling offloads.
 # BIOS ASPM settings do NOT govern this NIC (it is not a PCIe device).
 KNOWN_NIC_QUIRKS: dict[str, dict[str, str]] = {

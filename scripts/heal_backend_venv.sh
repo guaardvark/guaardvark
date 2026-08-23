@@ -96,7 +96,7 @@ ensure_python_headers() {
 
 # Same pip network hardening as start.sh: default 15s socket timeout is too
 # tight for multi-hundred-MB wheels; a transient read timeout must not kill
-# the heal (ALPACA 2026-08-13). PIP_RESUME_RETRIES is ignored by pip < 25.1.
+# the heal (observed 2026-08-13). PIP_RESUME_RETRIES is ignored by pip < 25.1.
 export PIP_DEFAULT_TIMEOUT="${PIP_DEFAULT_TIMEOUT:-60}"
 export PIP_RETRIES="${PIP_RETRIES:-5}"
 export PIP_RESUME_RETRIES="${PIP_RESUME_RETRIES:-5}"

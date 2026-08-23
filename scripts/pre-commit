@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+#
+# Pre-commit hook: refuse to commit machine-specific paths, operator identity
+# or secrets. A push cannot be taken back, so this is the last cheap place to
+# catch them.
+#
+# Install:
+#   ln -sf ../../scripts/pre-commit .git/hooks/pre-commit
+#
+# Bypass for a commit you are certain about:
+#   git commit --no-verify
+set -uo pipefail
+
+# Resolved from git, not from BASH_SOURCE: git invokes this through the
+# .git/hooks symlink, which bash does not follow.
+repo_root="$(git rev-parse --show-toplevel)" || exit 1
+exec "$repo_root/scripts/check_portable.sh" --staged

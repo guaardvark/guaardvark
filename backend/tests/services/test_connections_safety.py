@@ -114,13 +114,18 @@ def test_connection_secrets_never_join_the_cluster_sync_allowlist():
 
 def test_credential_file_lives_outside_the_repo(tmp_path, monkeypatch):
     """A release archive walks the repo; credentials must not be reachable there."""
+    from pathlib import Path
+
     from backend.utils import credential_store
 
     monkeypatch.delenv("GUAARDVARK_CONFIG_DIR", raising=False)
     importlib.reload(credential_store)
-    path = str(credential_store.credentials_path())
-    assert "/GX1/" not in path
-    assert path.endswith(".config/guaardvark/credentials.json")
+    path = credential_store.credentials_path().resolve()
+    # Derived, not a literal: a hardcoded clone name would make this pass
+    # everywhere except the one machine it was written on.
+    repo_root = Path(__file__).resolve().parents[3]
+    assert repo_root not in path.parents, f"credentials inside the repo: {path}"
+    assert str(path).endswith(".config/guaardvark/credentials.json")
 
 
 def test_redact_strips_stored_secrets_from_error_text(tmp_path, monkeypatch):
