@@ -169,7 +169,8 @@ refactor(api): extract indexing logic into dedicated service
 - Follow existing patterns in the codebase
 - Use type hints where the surrounding code does
 - Keep imports organized: stdlib, third-party, local
-- Use `backend.config` for all path resolution — never hardcode paths
+- Use `backend.config` for all path resolution — never hardcode paths (see
+  [Portability and Secrets](#portability-and-secrets))
 
 ### JavaScript/React
 
@@ -178,11 +179,92 @@ refactor(api): extract indexing logic into dedicated service
 - Zustand for global state, React Context for layout/status
 - Apollo Client for GraphQL, Axios for REST
 
+### Comments and Docstrings
+
+This repo is public. Comments are written for the next contributor — and for the
+coding agents many of us run — never as a record of the session that produced the
+change.
+
+- **Follow the standard convention for the language:** PEP 257 docstrings for Python
+  modules, classes and functions; JSDoc for exported JS/JSX functions and components;
+  a short usage header for shell scripts. API documentation belongs in a docstring,
+  not a `#` block above it.
+- **An inline comment earns its place by stating a constraint or intent the code
+  cannot express.** If the code already says it, delete the comment.
+- **Don't narrate history.** No "used to", "previously", "fixed by", "this was broken
+  because". That belongs in the commit message, where it is attached to the diff it
+  explains.
+- **Don't argue with the reviewer in the code.** "This ensures…", "this is correct
+  because…" — once merged, that is noise.
+- **One or two lines.** If it needs a paragraph, it belongs in `docs/` or the commit
+  message, with at most a one-line pointer in the code.
+- **Don't retrofit these rules across files you aren't otherwise touching.** Apply
+  them to comments you write or edit.
+
 ### General
 
 - Don't over-engineer. Keep changes focused on what was asked.
 - Match the style of surrounding code.
 - If you're unsure about an approach, open an issue or draft PR to discuss first.
+
+---
+
+## Portability and Secrets
+
+This repo is public, it gets forked into other people's projects, and **git history is
+permanent**. By the time anyone notices a bad commit it has been cloned, forked and
+cached; rewriting history to remove it breaks every fork downstream. Treat every commit
+as unrecallable — checking costs seconds.
+
+**Four things never enter a commit:**
+
+1. **Machine paths.** Derive them from the repo root
+   (`Path(__file__).resolve().parents[N]`) or read an environment variable with a
+   portable default. Never an absolute path in a literal — Linux, macOS or Windows
+   alike. `os.path.expanduser("~/Downloads")` is fine; it resolves per user.
+2. **Identity.** No personal names, private hostnames or tailnet addresses, in code or
+   comments. Describe the role — "the operator", "the production box" — not the person
+   or the machine. A machine nickname is identity too: keep the technical detail that
+   helps a stranger debug (*"an ASRock Z390 Pro4, I219-V"*), drop the name.
+3. **Secrets.** No keys, tokens or credentials in any file, ever — test fixtures and
+   example configs included. Credentials belong outside the repo tree so a release
+   archive cannot carry them.
+4. **Machine-generated state.** Browser profiles, virtualenvs, caches, session and
+   permission files. These arrive innocuous and fill up later — a browser profile is
+   empty today and holds cookies and saved logins after the next run. Ignore the whole
+   class rather than the one instance you happened to see.
+
+The one deliberate exception is the project's own public identity: the `LICENSE`
+copyright holder, `.github/FUNDING.yml`, and the sponsorship links in `README.md` and
+`frontend/src/config/brand.jsx`. Those name the owner on purpose and are allowlisted.
+Nothing else is.
+
+### How this is enforced
+
+`scripts/check_portable.sh` scans every tracked file and runs in CI and
+`scripts/lint.sh`. It is a *detector* — it can only tell you something is already
+committed.
+
+`scripts/check_portable.sh --staged` scans the lines a commit would add, and is the
+gate that actually prevents a leak. **Install it once per clone:**
+
+```bash
+ln -sf ../../scripts/pre-commit "$(git rev-parse --git-common-dir)/hooks/pre-commit"
+```
+
+Resolve the path rather than writing `.git/hooks` directly: in a git worktree `.git` is
+a file, and every worktree shares the main clone's single hooks directory — so a naive
+install from a worktree rewrites the main clone's hook and breaks when that worktree is
+removed.
+
+Identifiers specific to your own machine belong in the untracked
+`scripts/.portable-local-patterns`, one `pattern<TAB>explanation` per line. The guard
+picks them up automatically, and your machine names stay out of the public script.
+
+The riskiest moment is adding a **new** file, not editing a tracked one. Run
+`git status` before `git add`, and never `git add -A` without reading what it staged.
+If a check fires, fix the content — don't widen the allowlist and don't reach for
+`--no-verify`. An allowlist entry is permanent permission for an entire path.
 
 ---
 
@@ -193,6 +275,10 @@ refactor(api): extract indexing logic into dedicated service
 - **Include screenshots** for UI changes.
 - **Keep PRs reviewable** — under 500 lines of diff when possible.
 - **Don't break the build.** Run `npm run lint` and `python3 run_tests.py` before pushing.
+- **Install the pre-commit hook** once per clone — see
+  [Portability and Secrets](#portability-and-secrets). It catches machine paths and
+  secrets before they reach a commit, which is the only point at which they are still
+  cheap to remove.
 - **Sign the CLA.** On your first PR a bot will ask you to read the
   [Contributor License Agreement](CLA.md) and post one line as a comment. It takes a minute
   and you only do it once. You keep the copyright to your work — the CLA grants the project a
