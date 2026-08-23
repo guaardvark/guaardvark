@@ -659,6 +659,26 @@ def register_outreach_tools() -> List[str]:
     return registered
 
 
+def register_workstation_tools() -> List[str]:
+    """Register chat tools that wrap mapper / GPU / logs / swarm / self-improvement."""
+    global _tool_categories
+    registered = []
+    category = "workstation"
+    try:
+        from backend.tools.workstation_tools import WORKSTATION_TOOLS
+
+        for tool in WORKSTATION_TOOLS:
+            register_tool(tool)
+            registered.append(tool.name)
+            _tool_categories[tool.name] = category
+            logger.debug(f"Registered: {tool.__class__.__name__}")
+    except ImportError as e:
+        logger.error(f"Failed to import workstation tools: {e}")
+    except Exception as e:
+        logger.error(f"Failed to register workstation tools: {e}")
+    return registered
+
+
 def register_agent_control_tools() -> List[str]:
     """Register agent vision control tools"""
     global _tool_categories
@@ -746,6 +766,7 @@ def initialize_all_tools() -> ToolRegistry:
     _registered_tools.extend(register_test_execution_tools())
     _registered_tools.extend(register_agent_control_tools())
     _registered_tools.extend(register_outreach_tools())
+    _registered_tools.extend(register_workstation_tools())
 
     # Get the registry for status reporting
     registry = get_tool_registry()

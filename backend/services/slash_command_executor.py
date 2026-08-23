@@ -18,6 +18,10 @@ SLASH_COMMAND_TOOL_MAP: Dict[str, str] = {
     # CLI-only today; browser handler can be added later
     "video": "generate_animation",
     "remember": "save_memory",
+    "gpu": "inspect_gpu",
+    "logs": "read_logs",
+    "sysmap": "map_codebase",
+    "swarm": "swarm_status",
 }
 
 
@@ -74,6 +78,22 @@ def resolve_slash_direct_tool(
         if not content:
             return None, {}
         return mapped, {"content": content}
+    if slash == "gpu":
+        return mapped, {}
+    if slash == "logs":
+        out = dict(params)
+        bits = args.split(None, 1)
+        if bits and bits[0].endswith(".log"):
+            out["name"] = bits[0]
+            if len(bits) > 1:
+                out["query"] = bits[1]
+        elif args:
+            out["query"] = args
+        return mapped, out
+    if slash == "sysmap":
+        return mapped, {"refresh": args.lower() in ("refresh", "--refresh", "1", "true")}
+    if slash == "swarm":
+        return mapped, {"swarm_id": args} if args else {}
 
     return mapped, dict(params)
 

@@ -21,6 +21,10 @@ export async function executeBuiltinCommand(name, args, context) {
     "/imagemodel": handleImageModel,
     "/imagine": handleImagine,
     "/websearch": handleWebSearch,
+    "/gpu": handleGpu,
+    "/logs": handleLogs,
+    "/sysmap": handleSysmap,
+    "/swarm": handleSwarmSlash,
     "/outreach": handleOutreach,
     "/plan": handlePlan,
     "/training": handleTraining,
@@ -319,6 +323,42 @@ async function handleWebSearch(args, { addMessage, onSendMessage }) {
     slash_args: args,
   });
 
+  return { handled: true };
+}
+
+function handleGpu(_args, { onSendMessage }) {
+  onSendMessage("/gpu", null, {
+    direct_tool: "inspect_gpu",
+    direct_tool_params: {},
+    slash_command: "gpu",
+  });
+  return { handled: true };
+}
+
+function handleLogs(args, { onSendMessage }) {
+  onSendMessage(args ? `/logs ${args}` : "/logs", null, {
+    direct_tool: "read_logs",
+    slash_command: "logs",
+    slash_args: args || "",
+  });
+  return { handled: true };
+}
+
+function handleSysmap(args, { onSendMessage }) {
+  onSendMessage(args ? `/sysmap ${args}` : "/sysmap", null, {
+    direct_tool: "map_codebase",
+    slash_command: "sysmap",
+    slash_args: args || "",
+  });
+  return { handled: true };
+}
+
+function handleSwarmSlash(args, { onSendMessage }) {
+  onSendMessage(args ? `/swarm ${args}` : "/swarm", null, {
+    direct_tool: "swarm_status",
+    slash_command: "swarm",
+    slash_args: args || "",
+  });
   return { handled: true };
 }
 

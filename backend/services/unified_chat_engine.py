@@ -251,6 +251,29 @@ REPO_INTEL_TOOLS = ["get_repository_map", "get_dependency_graph", "read_ast_node
 # Knowledge-base navigation. search_knowledge_base is a CORE tool and always present,
 # which makes the selector treat "what documents do you have" as already served and
 # drop the tools that actually answer it. Same deterministic pin as the repo trio.
+WORKSTATION_TOOLS = [
+    "map_codebase", "dispatch_map_finding",
+    "inspect_gpu", "read_logs",
+    "swarm_status", "launch_swarm",
+    "self_improvement_status", "submit_improvement",
+]
+WORKSTATION_KEYWORDS = [
+    "system mapper", "system map", "system-map", "constellation",
+    "map the codebase", "map this codebase", "map the repo",
+    "what's wrong with this codebase", "whats wrong with this codebase",
+    "codebase findings", "dispatch finding", "dispatch the finding",
+    "gpu", "vram", "nvidia", "oom", "out of memory",
+    "gpu status", "gpu issue", "gpu issues", "debug gpu", "using the gpu",
+    "who's using vram", "who is using vram",
+    "review the logs", "check the logs", "read the logs", "tail the log",
+    "backend.log", "celery log", "show logs", "what's in the logs",
+    "what is in the logs", "error log",
+    "swarm", "coding swarm", "launch a swarm", "worktree",
+    "swarm status", "parallel agents",
+    "self improve", "self-improve", "self-improvement", "self improvement",
+    "pending fix", "pending fixes", "directed task",
+    "fix this codebase", "improve the codebase",
+]
 KNOWLEDGE_NAV_TOOLS_PINNED = [
     "list_documents", "get_document_outline", "read_document_section", "summarize_corpus",
 ]
@@ -335,6 +358,8 @@ TOOL_CONTEXT_KEYWORDS = {
                       AGENT_CONTROL_TOOLS),
     "mcp": (["mcp", "model context protocol", "external server", "external tool",
              "external service", "remote tool", "claude desktop"], MCP_TOOLS),
+    "workstation": (WORKSTATION_KEYWORDS, WORKSTATION_TOOLS),
+    "knowledge": (KNOWLEDGE_NAV_KEYWORDS, KNOWLEDGE_NAV_TOOLS_PINNED),
     "outreach": (["outreach", "social outreach", "reddit post", "reddit comment",
                   "draft a comment", "draft a post", "draft a reply",
                   "draft a reddit", "draft a discord", "draft a tweet",
@@ -575,6 +600,60 @@ def _pin_knowledge_nav_tools(message: str, selected: List[str], all_tool_names: 
         return selected
     available = set(all_tool_names)
     pinned = [t for t in KNOWLEDGE_NAV_TOOLS_PINNED if t in available and t not in selected]
+    return pinned + list(selected) if pinned else selected
+
+
+_WORKSTATION_DIRECT = (
+    (re.compile(
+        r"\b(?:use (?:the )?system mapper|system mapper|system map|"
+        r"map (?:the |this )?(?:codebase|repo))\b",
+        re.I,
+    ), "map_codebase", {}),
+    (re.compile(
+        r"\b(?:debug gpu(?: issues?)?|gpu issues?|gpu status|"
+        r"inspect gpu|what'?s using vram|who'?s using (?:the )?gpu)\b",
+        re.I,
+    ), "inspect_gpu", {}),
+    (re.compile(
+        r"\b(?:review the logs|check the logs|read the logs|"
+        r"show (?:me )?(?:the )?logs|tail the logs?)\b",
+        re.I,
+    ), "read_logs", {}),
+    (re.compile(
+        r"\b(?:swarm status|is (?:the )?swarm (?:running|up|online))\b",
+        re.I,
+    ), "swarm_status", {}),
+    (re.compile(
+        r"\b(?:self[- ]improvement status|pending fixes|"
+        r"is self[- ]improvement (?:on|enabled))\b",
+        re.I,
+    ), "self_improvement_status", {}),
+)
+
+
+def match_workstation_direct(message: str) -> Optional[tuple]:
+    """Unambiguous NL → tool, so small local models cannot narrate instead of acting."""
+    msg = (message or "").strip()
+    if not msg or len(msg) > 240:
+        return None
+    for pattern, tool, params in _WORKSTATION_DIRECT:
+        if pattern.search(msg):
+            return tool, dict(params)
+    return None
+
+
+def _pin_workstation_tools(message: str, selected: List[str], all_tool_names: List[str]) -> List[str]:
+    """Guarantee mapper/GPU/log/swarm/SI tools survive selection on NL ops queries.
+
+    These capabilities lived only as pages/APIs. Semantic ranking never offered
+    them, so chat invented answers. Pin the whole family when the utterance
+    matches — same pattern as _pin_repo_intel_tools.
+    """
+    msg = (message or "").lower()
+    if not any(kw in msg for kw in WORKSTATION_KEYWORDS):
+        return selected
+    available = set(all_tool_names)
+    pinned = [t for t in WORKSTATION_TOOLS if t in available and t not in selected]
     return pinned + list(selected) if pinned else selected
 
 
@@ -1350,6 +1429,11 @@ class UnifiedChatEngine:
         from backend.utils.agent_output_parser import parse_tool_calls_xml, format_tool_result_for_llm
 
         # 0. Slash / explicit direct-tool intercept — bypass LLM (e.g. /imagine → generate_image)
+        if isinstance(options, dict) and not options.get("direct_tool"):
+            ws_hit = match_workstation_direct(message)
+            if ws_hit:
+                tool_name, params = ws_hit
+                options = {**options, "direct_tool": tool_name, "direct_tool_params": params}
         direct_result = self._try_direct_tool(message, session_id, options, emit_fn, request_id)
         if direct_result is not None:
             return direct_result
@@ -1449,6 +1533,7 @@ class UnifiedChatEngine:
 
             selected_tools = _pin_repo_intel_tools(message, selected_tools, self.registry.list_tools())
             selected_tools = _pin_knowledge_nav_tools(message, selected_tools, self.registry.list_tools())
+            selected_tools = _pin_workstation_tools(message, selected_tools, self.registry.list_tools())
             selected_tools = _pin_image_edit_tools(bool(self._image_data), selected_tools, self.registry.list_tools())
             selected_tools = _pin_image_generation_tools(
                 message, selected_tools, self.registry.list_tools(), session_id=session_id,
