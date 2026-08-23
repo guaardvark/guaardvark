@@ -18,6 +18,11 @@ from typing import Callable
 from llx.config import get_api_key, get_server_url
 from llx.working_memory import approval_target_mismatch, extract_approval_targets
 
+# Idle silence before treating a stream as stalled (activity resets this).
+DEFAULT_IDLE_TIMEOUT = 300.0
+# Absolute ceiling so a continuously chatty but never-completing stream ends.
+DEFAULT_HARD_TIMEOUT = 1800.0
+
 
 class LlxStreamer:
     """Handles Socket.IO connections for streaming chat and job progress."""
@@ -34,6 +39,9 @@ class LlxStreamer:
         self._approval_data: dict | None = None
         self._approval_lock = threading.Lock()
         self._session_id: str | None = None
+        self._last_activity = time.monotonic()
+        self._activity_lock = threading.Lock()
+        self._closing = False
 
     def _connect_headers(self) -> dict[str, str]:
         headers: dict[str, str] = {}
@@ -41,6 +49,10 @@ class LlxStreamer:
         if api_key:
             headers["X-API-Key"] = api_key
         return headers
+
+    def _touch_activity(self):
+        with self._activity_lock:
+            self._last_activity = time.monotonic()
 
     def stream_chat(
         self,
@@ -66,25 +78,31 @@ class LlxStreamer:
         with self._approval_lock:
             self._approval_data = None
         self._session_id = session_id
+        self._closing = False
+        self._touch_activity()
 
         @self.sio.on("chat:token")
         def handle_token(data):
+            self._touch_activity()
             content = data.get("content", "")
             if content:
                 on_token(content)
 
         @self.sio.on("chat:thinking")
         def handle_thinking(data):
+            self._touch_activity()
             if on_thinking:
                 on_thinking(data)
 
         @self.sio.on("chat:tool_call")
         def handle_tool_call(data):
+            self._touch_activity()
             if on_tool_call:
                 on_tool_call(data)
 
         @self.sio.on("chat:tool_approval_request")
         def handle_tool_approval_request(data):
+            self._touch_activity()
             # Stash and signal — never block this thread on user I/O.
             with self._approval_lock:
                 self._approval_data = data
@@ -92,25 +110,37 @@ class LlxStreamer:
 
         @self.sio.on("chat:tool_output_chunk")
         def handle_tool_output_chunk(data):
+            self._touch_activity()
             if on_tool_output_chunk:
                 on_tool_output_chunk(data)
 
         @self.sio.on("chat:complete")
         def handle_complete(data):
+            self._touch_activity()
             if on_complete:
                 on_complete(data)
             self._done.set()
 
         @self.sio.on("chat:error")
         def handle_error(data):
+            self._touch_activity()
             if on_error:
                 on_error(data.get("error", "Unknown error"))
             self._done.set()
 
         @self.sio.on("chat:aborted")
         def handle_aborted(data):
+            self._touch_activity()
             if on_error:
                 on_error("Chat aborted")
+            self._done.set()
+
+        @self.sio.event
+        def disconnect():
+            if self._closing or self._done.is_set():
+                return
+            if on_error:
+                on_error("Stream disconnected before completion")
             self._done.set()
 
         try:
@@ -127,7 +157,7 @@ class LlxStreamer:
             self._done.set()
             return
 
-    def wait(self, timeout: float = 300.0) -> bool:
+    def wait(self, timeout: float = DEFAULT_IDLE_TIMEOUT) -> bool:
         """Block until streaming is done. Returns True if completed, False on timeout."""
         return self._done.wait(timeout=timeout)
 
@@ -145,10 +175,14 @@ class LlxStreamer:
     def wait_for_completion(
         self,
         approval_handler: Callable[[dict], bool] | None = None,
-        timeout: float = 300.0,
+        timeout: float = DEFAULT_IDLE_TIMEOUT,
+        hard_timeout: float = DEFAULT_HARD_TIMEOUT,
     ) -> bool:
         """Block until chat is done, dispatching approval requests to the
         current thread via approval_handler(data) -> bool.
+
+        ``timeout`` is idle silence (activity resets it). ``hard_timeout`` is
+        an absolute ceiling from the start of the wait.
 
         If approval_handler is None, any approval request is auto-rejected
         (suitable for non-interactive / json mode). KeyboardInterrupt raised
@@ -156,17 +190,26 @@ class LlxStreamer:
 
         Returns True if chat completed, False on timeout.
         """
-        deadline = time.monotonic() + timeout
+        started = time.monotonic()
+        self._touch_activity()
         while True:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
+            now = time.monotonic()
+            if now - started >= hard_timeout:
+                return False
+            with self._activity_lock:
+                idle_for = now - self._last_activity
+            if idle_for >= timeout:
                 return False
             # Wake up regularly to check for pending approvals.
-            if self._done.wait(timeout=min(0.25, remaining)):
+            slice_timeout = min(0.25, timeout - idle_for, hard_timeout - (now - started))
+            if slice_timeout <= 0:
+                return False
+            if self._done.wait(timeout=slice_timeout):
                 return True
             data = self.pop_pending_approval()
             if data is None:
                 continue
+            self._touch_activity()
             if approval_handler is None:
                 approved = False
             else:
@@ -186,10 +229,25 @@ class LlxStreamer:
                 self.send_approval_response(self._session_id, approved)
 
     def abort(self, session_id: str):
-        """Send abort signal for current chat."""
+        """Send abort signal for current chat over Socket.IO."""
         if self._connected:
             try:
                 self.sio.emit("chat:abort", {"session_id": session_id})
+            except Exception:
+                pass
+
+    def hard_abort(self, session_id: str, client=None):
+        """Abort via Socket.IO (if connected) and HTTP hard-kill endpoint."""
+        self.abort(session_id)
+        if client is not None:
+            try:
+                client.abort_session(session_id)
+            except Exception:
+                pass
+        else:
+            try:
+                from llx.client import get_client
+                get_client(self.server_url).abort_session(session_id)
             except Exception:
                 pass
 
@@ -203,6 +261,7 @@ class LlxStreamer:
 
     def disconnect(self):
         """Disconnect from Socket.IO."""
+        self._closing = True
         if self._connected:
             try:
                 self.sio.disconnect()
@@ -263,6 +322,17 @@ _ICON_LLAMA = "\U0001f999"  # 🦙
 
 # 8-step "shining cursor" spinner — edge sweeps clockwise around a block
 _SPINNER_FRAMES = ["▀", "▜", "▐", "▟", "▄", "▙", "▌", "▛"]
+
+_WEB_ACCESS_HINT = (
+    "Web access is disabled. Enable it in Settings (allow_web_search), then retry."
+)
+
+
+def _maybe_web_access_hint(message: str) -> str | None:
+    lowered = (message or "").lower()
+    if "web access is disabled" in lowered or "web search is disabled" in lowered:
+        return _WEB_ACCESS_HINT
+    return None
 
 
 def _set_title(title: str):
@@ -361,10 +431,16 @@ class ChatRenderer:
         if full_text.strip():
             self._console.print(Text(f"{_ICON_LLAMA} ", style="bold"), end="")
             self._console.print(Markdown(full_text))
+            hint = _maybe_web_access_hint(full_text)
+            if hint:
+                self._console.print(f"[llx.dim]{hint}[/llx.dim]")
 
         # Print error if any
         if self._error:
             self._console.print(f"[llx.error]{self._error}[/llx.error]")
+            hint = _maybe_web_access_hint(self._error)
+            if hint:
+                self._console.print(f"[llx.dim]{hint}[/llx.dim]")
 
         self._console.print()
 

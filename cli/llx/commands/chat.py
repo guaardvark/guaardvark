@@ -247,9 +247,16 @@ def _chat_streaming(session_id: str, message: str, no_rag: bool, server: str | N
 
         response_parts = []
         start_time = time.time()
+        live_holder = {"live": None}
 
         def on_token(content):
             response_parts.append(content)
+            live = live_holder.get("live")
+            if live is not None:
+                try:
+                    live.update(Markdown("".join(response_parts)))
+                except Exception:
+                    pass
 
         def on_complete(data):
             pass
@@ -263,8 +270,8 @@ def _chat_streaming(session_id: str, message: str, no_rag: bool, server: str | N
                 console.print(chunk, end="")
 
         # Connect streaming first. Approval requests are pulled from the
-        # streamer in the main render loop below — never from the socketio
-        # receive thread, which would deadlock the event stream.
+        # streamer in wait_for_completion — never from the socketio receive
+        # thread, which would deadlock the event stream.
         streamer.stream_chat(
             session_id=session_id,
             on_token=on_token,
@@ -277,7 +284,7 @@ def _chat_streaming(session_id: str, message: str, no_rag: bool, server: str | N
         original_sigint = signal.getsignal(signal.SIGINT)
 
         def sigint_handler(sig, frame):
-            streamer.abort(session_id)
+            streamer.hard_abort(session_id, client)
             console.print("\n[llx.warning]Aborted.[/llx.warning]")
             streamer.disconnect()
             signal.signal(signal.SIGINT, original_sigint)
@@ -307,17 +314,50 @@ def _chat_streaming(session_id: str, message: str, no_rag: bool, server: str | N
                 body["options"]["cli_working_memory"] = mem
             except Exception:
                 pass
-        client.post("/api/chat/unified", json=body)
+
+        for attempt in range(2):
+            try:
+                client.post("/api/chat/unified", json=body)
+                break
+            except LlxError as e:
+                if e.status_code == 409 and attempt == 0:
+                    try:
+                        client.abort_session(session_id)
+                    except Exception:
+                        pass
+                    continue
+                raise
+
+        def _approval_handler(pending):
+            from llx.working_memory import extract_approval_targets
+
+            tools_str = ", ".join(pending.get("tools", [])) or "(unknown tools)"
+            targets = extract_approval_targets(pending)
+            console.print(f"\n[bold yellow]\u26a0 Approval Required[/bold yellow]")
+            console.print(f"  Tool(s): [bold]{tools_str}[/bold]")
+            if targets:
+                console.print(f"  Actual target(s): [bold]{', '.join(targets)}[/bold]")
+            try:
+                approved = typer.confirm("Allow execution?", default=False)
+            except (KeyboardInterrupt, EOFError, typer.Abort):
+                console.print("[red]\u2717 Aborted.[/red]\n")
+                raise KeyboardInterrupt
+            console.print(
+                "[green]\u2713 Approved.[/green]\n" if approved
+                else "[red]\u2717 Rejected.[/red]\n"
+            )
+            return approved
 
         # Stream output
         if json_out or output.is_pipe():
-            # Non-interactive mode: auto-reject any approval requests
-            streamer.wait_for_completion(approval_handler=None, timeout=300)
+            completed = streamer.wait_for_completion(approval_handler=None)
+            if not completed:
+                streamer.hard_abort(session_id, client)
             full_response = "".join(response_parts)
             if json_out:
                 output.print_json(
                     {
-                        "status": "success",
+                        "status": "success" if completed else "timeout",
                         "data": {
                             "session_id": session_id,
                             "response": full_response,
@@ -328,49 +368,28 @@ def _chat_streaming(session_id: str, message: str, no_rag: bool, server: str | N
             else:
                 print(full_response)
         else:
-            deadline = time.time() + 300
-            with Live("", console=console, refresh_per_second=15, transient=False) as live:
-                last_render_time = 0.0
-                while not streamer._done.is_set() and time.time() < deadline:
-                    # Approval prompts must run in the main thread, not the
-                    # socketio receive thread. Drain any pending request
-                    # before doing the next render tick.
-                    pending = streamer.pop_pending_approval()
-                    if pending is not None:
-                        from llx.working_memory import extract_approval_targets
-
-                        live.stop()
-                        tools_str = ", ".join(pending.get("tools", [])) or "(unknown tools)"
-                        targets = extract_approval_targets(pending)
-                        console.print(f"\n[bold yellow]\u26a0 Approval Required[/bold yellow]")
-                        console.print(f"  Tool(s): [bold]{tools_str}[/bold]")
-                        if targets:
-                            console.print(f"  Actual target(s): [bold]{', '.join(targets)}[/bold]")
-                        try:
-                            approved = typer.confirm("Allow execution?", default=False)
-                        except (KeyboardInterrupt, EOFError, typer.Abort):
-                            streamer.send_approval_response(session_id, False)
-                            streamer.abort(session_id)
-                            console.print("[red]\u2717 Aborted.[/red]\n")
-                            live.start()
-                            break
-                        streamer.send_approval_response(session_id, approved)
-                        console.print(
-                            "[green]\u2713 Approved.[/green]\n" if approved
-                            else "[red]\u2717 Rejected.[/red]\n"
-                        )
-                        live.start()
-                        continue
-
+            completed = False
+            try:
+                with Live("", console=console, refresh_per_second=15, transient=False) as live:
+                    live_holder["live"] = live
+                    completed = streamer.wait_for_completion(
+                        approval_handler=_approval_handler,
+                    )
                     current = "".join(response_parts)
-                    now = time.time()
-                    if current and now - last_render_time > 0.05:
+                    if current:
                         live.update(Markdown(current))
-                        last_render_time = now
-                    streamer._done.wait(timeout=0.05)
-                current = "".join(response_parts)
-                if current:
-                    live.update(Markdown(current))
+            except KeyboardInterrupt:
+                streamer.hard_abort(session_id, client)
+                console.print("[llx.dim]Chat aborted.[/llx.dim]")
+                completed = True
+            finally:
+                live_holder["live"] = None
+
+            if not completed:
+                streamer.hard_abort(session_id, client)
+                console.print(
+                    "\n[llx.error]No response after 5 minutes of silence — session aborted.[/llx.error]"
+                )
 
             elapsed = time.time() - start_time
             console.print(f"\n[llx.dim]Session: {session_id[:8]}  |  {elapsed:.1f}s[/llx.dim]")
