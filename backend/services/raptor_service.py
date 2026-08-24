@@ -128,11 +128,18 @@ def build_raptor_tree(
     target_cluster_size: int = 8,
     max_chars_per_cluster: int = 12000,
     progress_cb: Optional[Callable[[str], None]] = None,
+    replace: bool = True,
 ) -> Dict[str, Any]:
     """Build summary levels over the indexed corpus and insert them into the index.
 
-    Returns a report; never raises. Existing summaries are left alone -- rebuild by
-    clearing them first (see clear_raptor_summaries).
+    Returns a report; never raises.
+
+    `replace` (default true) clears existing summaries first, because the vector
+    store appends rather than upserting: a second build without it leaves both
+    generations in the index, and a query then retrieves two summaries of the same
+    cluster. Requiring the caller to remember `clear_raptor_summaries()` made
+    correctness depend on a docstring. Pass replace=False only to add levels on
+    top of a tree that is known to be current.
     """
     from llama_index.core.schema import TextNode
     import backend.services.indexing_service as isvc
@@ -156,6 +163,11 @@ def build_raptor_tree(
     isvc.get_or_create_index(project_id=str(project_id) if project_id else None)
     if isvc.index is None:
         return {"ok": False, "error": "index unavailable"}
+
+    if replace:
+        cleared = clear_raptor_summaries(project_id)
+        if cleared.get("removed"):
+            note(f"cleared {cleared['removed']} summary node(s) from the previous build")
 
     import numpy as np
     texts = data["texts"]

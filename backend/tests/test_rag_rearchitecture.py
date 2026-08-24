@@ -317,3 +317,53 @@ def test_purge_document_vectors_filters_by_document_id(monkeypatch):
     assert ix.purge_document_vectors(42) == 3
     assert "WHERE" in seen["sql"] and "document_id" in seen["sql"]
     assert seen["params"] == ("42",)
+
+
+# --------------------------------------------------------------------------
+# RAPTOR rebuilds must be idempotent
+# --------------------------------------------------------------------------
+def test_raptor_rebuild_clears_previous_summaries_by_default(monkeypatch):
+    """Without this a second build leaves both generations in the index."""
+    import numpy as np
+    from backend.services import raptor_service as rs
+    import backend.services.indexing_service as isvc
+
+    calls = {"cleared": 0}
+    monkeypatch.setattr(rs, "_get_llm", lambda: object())
+    monkeypatch.setattr(rs, "_fetch_leaf_embeddings", lambda pid: {
+        "ids": ["a"], "texts": ["x"], "embeddings": np.zeros((1, 4), dtype="float32"),
+        "metadata": [{}],
+    })
+    monkeypatch.setattr(rs, "clear_raptor_summaries",
+                        lambda pid=None: (calls.__setitem__("cleared", calls["cleared"] + 1),
+                                          {"ok": True, "removed": 7})[1])
+    monkeypatch.setattr(isvc, "get_or_create_index", lambda **k: None)
+    monkeypatch.setattr(isvc, "index", object(), raising=False)
+    monkeypatch.setattr(isvc, "storage_context", None, raising=False)
+    monkeypatch.setattr(isvc, "_persist_dir_for", lambda pid: "/tmp", raising=False)
+
+    rs.build_raptor_tree(max_levels=1)
+    assert calls["cleared"] == 1, "rebuild did not clear the previous generation"
+
+
+def test_raptor_rebuild_can_append_when_asked(monkeypatch):
+    import numpy as np
+    from backend.services import raptor_service as rs
+    import backend.services.indexing_service as isvc
+
+    calls = {"cleared": 0}
+    monkeypatch.setattr(rs, "_get_llm", lambda: object())
+    monkeypatch.setattr(rs, "_fetch_leaf_embeddings", lambda pid: {
+        "ids": ["a"], "texts": ["x"], "embeddings": np.zeros((1, 4), dtype="float32"),
+        "metadata": [{}],
+    })
+    monkeypatch.setattr(rs, "clear_raptor_summaries",
+                        lambda pid=None: (calls.__setitem__("cleared", calls["cleared"] + 1),
+                                          {"ok": True, "removed": 0})[1])
+    monkeypatch.setattr(isvc, "get_or_create_index", lambda **k: None)
+    monkeypatch.setattr(isvc, "index", object(), raising=False)
+    monkeypatch.setattr(isvc, "storage_context", None, raising=False)
+    monkeypatch.setattr(isvc, "_persist_dir_for", lambda pid: "/tmp", raising=False)
+
+    rs.build_raptor_tree(max_levels=1, replace=False)
+    assert calls["cleared"] == 0
