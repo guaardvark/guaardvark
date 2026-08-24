@@ -265,3 +265,55 @@ def test_prose_is_not_chunked_at_code_scale():
 
     assert CodeChunker.PROSE_CHUNK_SIZE <= 1000
     assert CodeChunker.PROSE_CHUNK_OVERLAP <= 200
+
+
+# --------------------------------------------------------------------------
+# Re-indexing must replace a document's vectors, not append a second copy
+# --------------------------------------------------------------------------
+def test_purge_document_vectors_is_a_noop_without_pgvector(monkeypatch):
+    from backend.services import indexing_service as ix
+
+    monkeypatch.setenv("GUAARDVARK_VECTOR_STORE", "simple")
+    assert ix.purge_document_vectors(123) == 0
+
+
+def test_purge_document_vectors_ignores_a_missing_document_id(monkeypatch):
+    """Never issue an unfiltered DELETE against the vector table."""
+    from backend.services import indexing_service as ix
+
+    monkeypatch.setenv("GUAARDVARK_VECTOR_STORE", "pgvector")
+    called = {"n": 0}
+
+    def _boom(*a, **k):
+        called["n"] += 1
+        raise AssertionError("must not open a connection for a null document_id")
+
+    monkeypatch.setattr(ix, "_pg_connect", _boom)
+    assert ix.purge_document_vectors(None) == 0
+    assert called["n"] == 0
+
+
+def test_purge_document_vectors_filters_by_document_id(monkeypatch):
+    """The DELETE must be scoped to one document, never the whole table."""
+    from backend.services import indexing_service as ix
+
+    monkeypatch.setenv("GUAARDVARK_VECTOR_STORE", "pgvector")
+    monkeypatch.setattr(ix, "_pg_table_name", lambda *a, **k: "t")
+    seen = {}
+
+    class _Cur:
+        rowcount = 3
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def execute(self, sql, params=None):
+            seen["sql"], seen["params"] = sql, params
+
+    class _Conn:
+        def cursor(self): return _Cur()
+        def commit(self): pass
+        def close(self): pass
+
+    monkeypatch.setattr(ix, "_pg_connect", lambda: _Conn())
+    assert ix.purge_document_vectors(42) == 3
+    assert "WHERE" in seen["sql"] and "document_id" in seen["sql"]
+    assert seen["params"] == ("42",)

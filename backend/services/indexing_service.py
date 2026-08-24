@@ -461,6 +461,45 @@ def _pg_connect():
     return psycopg2.connect(host=host, port=port, dbname=database, user=user, password=password)
 
 
+def purge_document_vectors(document_id, project_id=None, profile: Optional[str] = None) -> int:
+    """Remove a document's existing vectors before re-indexing it. Returns rows removed.
+
+    The JSON store kept embeddings in a dict keyed by node id, so re-indexing a file
+    overwrote its nodes in place. pgvector does not: `add()` INSERTs, so every
+    re-index appended a second full copy of the document. Measured before this
+    existed: 74,451 rows for 30,945 distinct nodes -- 58% of the index was
+    duplicates, one chunk stored 135 times -- which inflates storage, slows every
+    query, and lets one passage occupy several of the caller's result slots.
+
+    Deletes by the `document_id` metadata stamped on every node at ingest, which
+    covers all of a file's parsed documents at once (a PDF contributes one per page).
+    """
+    if _vector_backend() != "pgvector" or document_id is None:
+        return 0
+    table = _pg_table_name(project_id, profile)
+    if not table:
+        return 0
+    try:
+        conn = _pg_connect()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f'DELETE FROM "data_{table}" WHERE metadata_->>\'document_id\' = %s',
+                    (str(document_id),),
+                )
+                removed = cur.rowcount or 0
+            conn.commit()
+        finally:
+            conn.close()
+        if removed:
+            logger.info("Re-index: removed %d existing vector(s) for document %s",
+                        removed, document_id)
+        return removed
+    except Exception as e:
+        logger.warning("Could not purge existing vectors for document %s: %s", document_id, e)
+        return 0
+
+
 def drop_vector_store(project_id=None, profile: Optional[str] = None) -> Dict[str, Any]:
     """Drop the backing vector table for a scope.
 
@@ -2149,6 +2188,15 @@ def add_file_to_index(file_path: str, db_document: DBDocument, progress_callback
 
             logger.info(f"Generated {len(nodes)} nodes from {len(documents)} documents")
             
+            # Replace, don't append: pgvector INSERTs rather than upserting by node id,
+            # so without this a re-index leaves the previous copy in place alongside
+            # the new one.
+            try:
+                purge_document_vectors(getattr(db_document, "id", None),
+                                       getattr(db_document, "project_id", None))
+            except Exception as _pe:
+                logger.warning("Pre-insert purge skipped: %s", _pe)
+
             with _index_operation_lock:
                 index.insert_nodes(nodes)
                 _record_index_embedding_model(getattr(db_document, "project_id", None))  # stamp model
