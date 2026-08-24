@@ -316,7 +316,34 @@ def test_purge_document_vectors_filters_by_document_id(monkeypatch):
     monkeypatch.setattr(ix, "_pg_connect", lambda: _Conn())
     assert ix.purge_document_vectors(42) == 3
     assert "WHERE" in seen["sql"] and "document_id" in seen["sql"]
-    assert seen["params"] == ("42",)
+    # Prefix match, not equality: the stored key is `doc_<db_id>_<content_hash>`,
+    # one per parsed section/page, and the hash changes when the file changes.
+    assert seen["params"] == ("doc\\_42\\_%",)
+    # The underscores must be escaped or `doc_42_%` also matches `doc_420_...`
+    # and deletes another document's vectors.
+    assert "ESCAPE" in seen["sql"]
+
+
+def test_purge_pattern_cannot_match_a_neighbouring_document_id():
+    """`_` is a LIKE wildcard; unescaped, doc_42_% would swallow doc_420_*."""
+    import re
+
+    def like_to_regex(pattern: str) -> str:
+        out, i = "", 0
+        while i < len(pattern):
+            ch = pattern[i]
+            if ch == "\\" and i + 1 < len(pattern):
+                out += re.escape(pattern[i + 1]); i += 2; continue
+            out += ".*" if ch == "%" else ("." if ch == "_" else re.escape(ch))
+            i += 1
+        return "^" + out + "$"
+
+    escaped = like_to_regex("doc\\_42\\_%")
+    assert re.match(escaped, "doc_42_abc")
+    assert not re.match(escaped, "doc_420_abc"), "escaped pattern leaked into a neighbour"
+
+    unescaped = like_to_regex("doc_42_%")
+    assert re.match(unescaped, "doc_420_abc"), "demonstrates why escaping is required"
 
 
 # --------------------------------------------------------------------------
@@ -367,3 +394,61 @@ def test_raptor_rebuild_can_append_when_asked(monkeypatch):
 
     rs.build_raptor_tree(max_levels=1, replace=False)
     assert calls["cleared"] == 0
+
+
+# --------------------------------------------------------------------------
+# F-RAG-9: chunking must not explode on a heading-less document
+# --------------------------------------------------------------------------
+def test_oversized_heading_less_section_is_split():
+    """A long run of prose with no headings must not become one giant section.
+
+    One real archive file held 270,845 characters between headings; handing that
+    to the hierarchical chunker produced 353,154 nodes from 495 KB of source.
+    """
+    from backend.utils.markdown_sections import split_sections, MAX_SECTION_CHARS
+
+    body = "\n\n".join(f"paragraph {i} " + "x" * 400 for i in range(300))
+    secs = split_sections("# Title\n" + body)
+    assert len(secs) > 1, "oversized section was not split"
+    assert all(len(s["text"]) <= MAX_SECTION_CHARS * 2 for s in secs)
+    # Every part keeps its breadcrumb, so a retrieved chunk still names its section.
+    assert all(s["heading_path"] == "Title" for s in secs)
+    # Only the first part repeats the heading line.
+    assert secs[0]["text"].startswith("# Title")
+    assert not secs[1]["text"].startswith("# Title")
+
+
+def test_small_sections_are_untouched_by_the_cap():
+    from backend.utils.markdown_sections import split_sections
+
+    secs = split_sections("# A\nshort\n\n## B\nalso short\n")
+    assert [s["heading_path"] for s in secs] == ["A", "A > B"]
+    assert all("part" not in s for s in secs)
+
+
+def test_hierarchical_overlap_is_clamped_to_the_smallest_tier():
+    """One overlap applies to every tier, so it must be safe for the smallest.
+
+    1000/200 gives tiers [1000, 500, 250] with overlap 200 -- stride 50 at the
+    finest tier, i.e. 80% overlap, which multiplies node count per tier.
+    """
+    from backend.utils.enhanced_rag_chunking import _safe_hierarchical_overlap
+
+    smallest = 1000 // 4
+    safe = _safe_hierarchical_overlap(1000, 200)
+    assert safe < smallest // 2, "overlap still dominates the smallest tier"
+    assert smallest - safe >= smallest * 0.5, "stride collapsed"
+
+
+def test_already_safe_overlap_is_left_alone():
+    from backend.utils.enhanced_rag_chunking import _safe_hierarchical_overlap
+
+    # 8000/400: smallest tier 2000, quarter of that is 500 -> 400 is fine as-is.
+    assert _safe_hierarchical_overlap(8000, 400) == 400
+
+
+def test_overlap_clamp_never_returns_negative():
+    from backend.utils.enhanced_rag_chunking import _safe_hierarchical_overlap
+
+    for mx, ov in ((100, 500), (4, 10), (1, 1), (0, 0)):
+        assert _safe_hierarchical_overlap(mx, ov) >= 0

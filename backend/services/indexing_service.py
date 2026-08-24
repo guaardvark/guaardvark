@@ -479,13 +479,24 @@ def purge_document_vectors(document_id, project_id=None, profile: Optional[str] 
     table = _pg_table_name(project_id, profile)
     if not table:
         return 0
+    # The stored key is the LlamaIndex document id, `doc_<db_id>_<content_hash>` --
+    # NOT the bare database id. One file yields several of them (a PDF contributes
+    # one per page), and the hash changes whenever the file's content changes, which
+    # is exactly when a re-index happens. So match the `doc_<db_id>_` prefix rather
+    # than an exact id, or a re-index of edited content leaves the old copy behind.
+    #
+    # The underscores must be escaped: `_` is a LIKE wildcard, so an unescaped
+    # `doc_2216_%` would also match `doc_22160_...` and delete another document's
+    # vectors.
+    pattern = "doc\\_{}\\_%".format(str(document_id).replace("\\", "\\\\"))
     try:
         conn = _pg_connect()
         try:
             with conn.cursor() as cur:
                 cur.execute(
-                    f'DELETE FROM "data_{table}" WHERE metadata_->>\'document_id\' = %s',
-                    (str(document_id),),
+                    f'DELETE FROM "data_{table}" '
+                    f'WHERE metadata_->>\'document_id\' LIKE %s ESCAPE \'\\\'',
+                    (pattern,),
                 )
                 removed = cur.rowcount or 0
             conn.commit()

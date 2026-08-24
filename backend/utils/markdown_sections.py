@@ -22,6 +22,12 @@ SUPPORTED_EXTENSIONS = {".md", ".markdown", ".mdx"}
 _HEADING = re.compile(r"^(#{1,6})\s+(.*\S)\s*$")
 _FENCE = re.compile(r"^\s*(```|~~~)")
 
+# A section is bounded by headings, so a long run of prose with no headings stays
+# whole -- one real archive file produced a single 270,845-character "section".
+# Handing that to the hierarchical chunker is what turned 495 KB of source into
+# 353,154 nodes. Cap the size and split the overflow on paragraph boundaries.
+MAX_SECTION_CHARS = int(os.environ.get("GUAARDVARK_MD_MAX_SECTION_CHARS", "20000"))
+
 
 def is_enabled() -> bool:
     return os.environ.get("GUAARDVARK_MD_SECTIONS_ENABLED", "true").lower() == "true"
@@ -45,16 +51,46 @@ def split_sections(text: str) -> List[dict]:
     cur_path = ""
     in_fence = False
 
+    def _emit(heading, path, level, body, part=None):
+        title = f"{'#' * level} {heading}\n{body}" if heading else body
+        entry = {
+            "heading": heading,
+            "heading_path": path,
+            "level": level,
+            "text": title.strip(),
+        }
+        if part is not None:
+            entry["part"] = part
+        sections.append(entry)
+
     def flush():
         body = "\n".join(cur_lines).strip()
         if not body and not cur_heading:
             return
-        sections.append({
-            "heading": cur_heading,
-            "heading_path": cur_path,
-            "level": cur_level,
-            "text": (f"{'#' * cur_level} {cur_heading}\n{body}" if cur_heading else body).strip(),
-        })
+        if MAX_SECTION_CHARS <= 0 or len(body) <= MAX_SECTION_CHARS:
+            _emit(cur_heading, cur_path, cur_level, body)
+            return
+
+        # Oversized: split on blank lines so paragraphs stay intact, and keep the
+        # breadcrumb on every part so a retrieved chunk still names its section.
+        parts, buf, size = [], [], 0
+        for para in body.split("\n\n"):
+            if size and size + len(para) > MAX_SECTION_CHARS:
+                parts.append("\n\n".join(buf))
+                buf, size = [], 0
+            buf.append(para)
+            size += len(para) + 2
+        if buf:
+            parts.append("\n\n".join(buf))
+
+        logger.info(
+            "Section %r is %d chars; splitting into %d parts (cap %d)",
+            (cur_heading or "(no heading)")[:60], len(body), len(parts), MAX_SECTION_CHARS,
+        )
+        for i, chunk in enumerate(parts):
+            # Only the first part carries the heading line, so the text is not
+            # repeated; the breadcrumb metadata carries the context for the rest.
+            _emit(cur_heading if i == 0 else None, cur_path, cur_level, chunk, part=i)
 
     for line in text.splitlines():
         if _FENCE.match(line):

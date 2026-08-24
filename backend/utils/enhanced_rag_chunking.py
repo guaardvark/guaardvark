@@ -235,6 +235,19 @@ class BaseChunker(ABC):
         
         return min(1.0, importance)
 
+
+def _safe_hierarchical_overlap(max_chunk_size: int, overlap: int) -> int:
+    """Clamp overlap so it stays proportionate to the SMALLEST hierarchical tier.
+
+    HierarchicalNodeParser applies one chunk_overlap across tiers of
+    [n, n/2, n/4]. An overlap sized for the largest tier is close to the whole of
+    the smallest, collapsing the stride and multiplying node count. Returns at
+    most a quarter of the smallest tier.
+    """
+    smallest = max(1, int(max_chunk_size) // 4)
+    return max(0, min(int(overlap), smallest // 4))
+
+
 class HierarchicalChunker(BaseChunker):
     """Hierarchical chunker that creates parent-child relationships"""
     
@@ -242,7 +255,15 @@ class HierarchicalChunker(BaseChunker):
         super().__init__(strategy)
         self.node_parser = HierarchicalNodeParser.from_defaults(
             chunk_sizes=[strategy.max_chunk_size, strategy.max_chunk_size // 2, strategy.max_chunk_size // 4],
-            chunk_overlap=strategy.overlap_size
+            # One overlap applies to EVERY tier, so it has to be safe for the
+            # smallest. The configured 1000/200 gives tiers [1000, 500, 250] and an
+            # overlap of 200 -- a stride of 50 at the finest tier, i.e. 80% overlap,
+            # which multiplies output several-fold per tier. Unnoticeable on small
+            # sections; on a large one it turned 495 KB of source into 353,154 nodes.
+            # Cap at a quarter of the smallest tier so overlap stays proportionate.
+            chunk_overlap=_safe_hierarchical_overlap(
+                strategy.max_chunk_size, strategy.overlap_size
+            )
         )
     
     def chunk_document(self, document: LlamaDocument) -> List[BaseNode]:
