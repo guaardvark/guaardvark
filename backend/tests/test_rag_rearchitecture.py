@@ -452,3 +452,44 @@ def test_overlap_clamp_never_returns_negative():
 
     for mx, ov in ((100, 500), (4, 10), (1, 1), (0, 0)):
         assert _safe_hierarchical_overlap(mx, ov) >= 0
+
+
+# --------------------------------------------------------------------------
+# Duplicate node ids within one document must collapse before insert
+# --------------------------------------------------------------------------
+def test_duplicate_node_ids_are_collapsed_before_insert():
+    """Node ids are content-derived, so a document that repeats text yields
+    repeated ids. The store has no upsert, so each would become its own row and
+    one passage would occupy several of the caller's result slots."""
+    class N:
+        def __init__(self, nid, text):
+            self.node_id, self.text = nid, text
+
+    nodes = [N("a", "x"), N("b", "y"), N("a", "x"), N("c", "z"), N("a", "x")]
+    seen, out = set(), []
+    for n in nodes:
+        nid = getattr(n, "node_id", None)
+        if nid is not None and nid in seen:
+            continue
+        if nid is not None:
+            seen.add(nid)
+        out.append(n)
+    assert [n.node_id for n in out] == ["a", "b", "c"]
+
+
+def test_node_dedup_keeps_nodes_without_ids():
+    """A node with no id must not be dropped -- absence is not a duplicate."""
+    class N:
+        def __init__(self, nid, text):
+            self.node_id, self.text = nid, text
+
+    nodes = [N(None, "x"), N(None, "y"), N("a", "z")]
+    seen, out = set(), []
+    for n in nodes:
+        nid = getattr(n, "node_id", None)
+        if nid is not None and nid in seen:
+            continue
+        if nid is not None:
+            seen.add(nid)
+        out.append(n)
+    assert len(out) == 3

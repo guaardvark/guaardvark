@@ -2208,6 +2208,26 @@ def add_file_to_index(file_path: str, db_document: DBDocument, progress_callback
             except Exception as _pe:
                 logger.warning("Pre-insert purge skipped: %s", _pe)
 
+            # Collapse duplicate node ids before inserting. Node ids are derived from
+            # (document, section, chunk text), so a document that genuinely repeats
+            # content -- a code inventory full of ``` fences, say -- yields several
+            # chunks with the SAME id. The vector store has no upsert, so each becomes
+            # its own row, and one passage then occupies several of the caller's
+            # result slots. Observed: one file at 1,638 rows for 796 distinct ids,
+            # with a single id stored 11 times.
+            _seen_ids, _deduped = set(), []
+            for _n in nodes:
+                _nid = getattr(_n, "node_id", None)
+                if _nid is not None and _nid in _seen_ids:
+                    continue
+                if _nid is not None:
+                    _seen_ids.add(_nid)
+                _deduped.append(_n)
+            if len(_deduped) != len(nodes):
+                logger.info("Collapsed %d duplicate node id(s) before insert",
+                            len(nodes) - len(_deduped))
+                nodes = _deduped
+
             with _index_operation_lock:
                 index.insert_nodes(nodes)
                 _record_index_embedding_model(getattr(db_document, "project_id", None))  # stamp model
