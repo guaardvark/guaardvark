@@ -505,7 +505,9 @@ def _restore_pg_dump(dump_path: Path, sanity_check=None) -> bool:
     Follow-up: deep restore verification (row counts vs. the dump's manifest,
     index integrity) is not yet wired here. Pass ``sanity_check`` from
     the caller, or run a smoke query against the restored DB, until that lands.
-    Note (RAG audit): the vector store is SimpleVectorStore (JSON, in-memory), not pgvector.
+    Note: knowledge-base embeddings live in pgvector tables inside this database,
+    so they are captured by the dump and restored with it. The restore target must
+    have the ``vector`` extension available, or those tables will fail to restore.
     """
     db_url = config.DATABASE_URL
     if not db_url or not db_url.startswith("postgresql"):

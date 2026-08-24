@@ -67,6 +67,92 @@ scripts/lint.sh                                    # flake8 (syntax-only: E9,E11
 
 SQLAlchemy models in `backend/models.py` (~56 models; `db = SQLAlchemy()` shared instance). **Schema is kept in sync via `scripts/schema_sync.py`, not migration replay** — it diffs `models.py` against the live DB and applies changes (`--check` to verify only). `start.sh` and `run_tests.py` run schema sync / `scripts/check_migrations.py` automatically. After changing `models.py`, run `python3 scripts/schema_sync.py` (or `--check` in CI). Default DB URL: `postgresql://guaardvark:guaardvark@localhost:5432/guaardvark` (override via `DATABASE_URL`).
 
+## Knowledge index (RAG)
+
+**Storage is PostgreSQL + pgvector**, one table per *(profile, scope, embedding dimension)* —
+e.g. `data_guaardvark_global_2560`. The dimension is part of the table name on purpose: switching
+embedding models lands in a new table instead of contaminating an existing one. `backend/services/
+indexing_service.py` builds it through a single factory (`_make_vector_store`) that
+`backend/utils/unified_index_manager.py` also uses, so the two construction sites cannot disagree
+about the backend. Set `GUAARDVARK_VECTOR_STORE=simple` to fall back to the on-disk JSON store.
+
+Each table carries a `vector`/`halfvec` embedding column with an **HNSW** index, and a generated
+`text_search_tsv` column with a **GIN** index — a persisted sparse index, rather than one rebuilt
+per process.
+
+### Two traps when changing the embedding model or the store
+
+1. **HNSW rejects vector columns above 2000 dimensions.** The default embedding model is 2560-dim,
+   so the column must be `halfvec` (`use_halfvec=True`, ceiling 4000) **and** the index must use
+   `halfvec_cosine_ops` — `vector_cosine_ops` is rejected outright against a halfvec column. Get
+   either wrong and Postgres logs a warning at table-creation time and carries on **with no ANN
+   index at all**: every query becomes a sequential scan, which looks like "retrieval got slow"
+   rather than an error.
+2. **`store_nodes_override=True` must be set on the *load* path, not just at creation.**
+   `PGVectorStore` stores node text itself, which leaves the docstore empty — and **BM25 reads
+   `docstore.docs`**. `load_index_from_storage` rebuilds the index without the flag, so setting it
+   only where the index is first created gives a working system that silently loses its sparse
+   retrieval leg on the next restart.
+
+Both failures are quiet. Neither raises.
+
+### Retrieval
+
+`search_with_llamaindex()` is the retrieval path; `query_index()` is a thin legacy wrapper and
+should not be used for new work. The pipeline is: vector + BM25 retrieval fused by
+`relative_score` with a per-query adaptive alpha (keyword-ish queries lean sparse, prose leans
+dense) → metadata filters enforced **after** fusion → dedup → cross-encoder rerank
+(`backend/utils/reranker.py`, admitted against free VRAM with a CPU fallback) → MMR for diversity
+→ trim to the caller's count.
+
+Filters are enforced post-fusion deliberately: `BM25Retriever` has no metadata-filter support, so
+fusion would otherwise re-admit nodes the vector leg excluded — including nodes outside the
+requested project scope.
+
+Pass `with_trace=True` to get a **provenance trace** alongside the results: which legs actually
+ran, the effective alpha, whether resource pressure forced a BM25-only fallback, the embedding
+model and dimensions, and whether reranking applied. Under low free VRAM retrieval degrades to
+BM25-only by design; the trace is how a caller tells a degraded answer from a bad one. The
+`search_knowledge_base` tool renders it as a banner **before** the passages, because callers
+truncate tool output and a clipped degradation notice is worse than none.
+
+### Ingest
+
+Per-format dispatch in `get_documents_from_file()`: **Docling** for `.pdf`/`.docx`/`.pptx`
+(reading order, section headers, page numbers and bounding boxes), heading-aware sectioning for
+markdown, existing readers for the rest. Docling returns `None` rather than raising when it cannot
+help, so the legacy readers remain the fallback chain.
+
+OCR is deliberately **not** installed: the OCR extra pulls `opencv-python>=5`, which requires
+`numpy>=2` and is incompatible with the pinned ML stack. Born-digital PDFs are read from the text
+layer and unaffected; a scanned PDF yields no text and says so rather than indexing an empty
+document.
+
+Chunks carry their source, section breadcrumb and page so a retrieved passage can cite itself, and
+`backend/utils/contextual_prepender.py` writes that context into the embedded text as well
+(Anthropic's Contextual Retrieval). Carried metadata is excluded from the embed/LLM metadata budget
+— LlamaIndex counts metadata against chunk size, and a long path plus a breadcrumb will otherwise
+overrun the smallest hierarchical tier and silently drop the document to a fallback splitter.
+
+Only **leaf** nodes are indexed. `HierarchicalNodeParser` emits every tier and a parent repeats its
+children's text verbatim, so indexing all tiers embeds the same prose two or three times and lets
+one query match both a parent and its own child. `GUAARDVARK_INDEX_LEAF_NODES_ONLY=false` restores
+the old behaviour.
+
+### Profiles and corpus summaries
+
+An **index profile** is a named projection of the corpus — chunking strategy, embedding model and
+retrieval defaults — managed in `backend/services/index_profiles.py` and toggled in Settings. The
+`Document` table is the single source of truth; profiles are derived projections, so deletion
+happens once at the registry rather than being mirrored across stores. Profile parameters sit below
+an autoresearch experiment and below an explicit caller request in the precedence chain.
+
+**RAPTOR** (`backend/services/raptor_service.py`) recursively clusters chunks and writes LLM
+summaries, inserted into the same index as ordinary nodes. Top-k retrieval answers "where is X
+stated" but not "what are the recurring themes"; because the summaries live in the same index, a
+broad question retrieves them and a specific one retrieves leaves, with no routing logic. It is an
+explicit operation — one LLM call per cluster per level — never a side effect of ingest.
+
 ## Configuration
 
 All paths resolve through `backend/config.py` — **never hardcode paths.** `GUAARDVARK_ROOT` anchors everything; storage/upload/output/cache/log/backup dirs are derived (`data/`, `logs/`, `backups/`) and overridable via `GUAARDVARK_*` env vars. Secrets and `DATABASE_URL` come from the repo-root `.env`. `GUAARDVARK_MODE` selects runtime mode (`default` / `test`).

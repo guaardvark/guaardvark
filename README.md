@@ -51,7 +51,7 @@ See [Quick Start](#quick-start) for details and manual install options.
 | **Coding agent & code intelligence** | Monaco editor, AST-aware analysis and dependency graphs, System Mapper: a live constellation of the whole codebase | [CAPABILITIES.md](CAPABILITIES.md) |
 | **Agent swarms** | Up to 20 parallel coding agents in isolated git worktrees with dependency-aware merging; fully-local backend via Ollama | [CAPABILITIES.md](CAPABILITIES.md) |
 | **Screen agents** | A real Ubuntu/XFCE desktop of their own, vision + closed-loop servo clicking, live VNC viewer on any page | Ep [4](https://www.youtube.com/watch?v=3VfHrJmqYos) |
-| **Knowledge** | Hybrid RAG with AST code chunking, retrieval that shows its chunks and scores, Autoresearch that tunes retrieval overnight | Ep [3](https://www.youtube.com/watch?v=pT_J93qTCL0) |
+| **Knowledge** | Hybrid RAG on pgvector with cross-encoder reranking, layout-aware document parsing with page-level citations, retrieval that shows its chunks and scores, Autoresearch that tunes retrieval overnight | Ep [3](https://www.youtube.com/watch?v=pT_J93qTCL0) |
 | **Voice & channels** | Continuous voice chat, a three-tier chat brain, Discord bot, supervised outreach, MCP in both directions, a 25-module CLI | Ep [2](https://www.youtube.com/watch?v=5HcSAf96j_M) |
 | **Self-running platform** | Self-improvement behind guardian review and kill switches, rules engine, jobs & scheduling, schema-aware backups, GPU orchestrator, multi-machine Interconnector | Eps [11](https://www.youtube.com/watch?v=7kHvi_2vT6U) · [12](https://www.youtube.com/watch?v=IMEnss9gjl4) |
 
@@ -95,7 +95,7 @@ Short, unscripted-feeling screen recordings of the real system doing real work �
 - MCP server + client integration (Claude Desktop, Cursor, etc.).
 
 **Knowledge, Code & Workflow**
-- Strong RAG (hybrid BM25 + vector, AST code chunking, entity extraction, RAG Autoresearch, per-project isolation).
+- Strong RAG (hybrid BM25 + vector on pgvector, cross-encoder reranking, AST code chunking, layout-aware PDF/DOCX parsing, entity extraction, RAG Autoresearch, per-project isolation).
 - Monaco code editor + Code Analyzer + per-repo indexing + dependency graphs + System Mapper (constellation view of the whole codebase).
 - Full desktop-grade file/project/client/website/notes/media management with cross-links and recursive indexing.
 - Task scheduler (Celery beat), Rules & Prompts (portable bundles), Interconnector for multi-machine clusters (master/client, approval gates, learning broadcast).
@@ -220,12 +220,18 @@ The system runs its own test suite, identifies failures, dispatches an AI agent 
 
 Chat grounded in your documents. Upload files, build a knowledge base, and ask questions. The AI reads and understands your content — not just keyword matching.
 
-- **Hybrid retrieval** — BM25 keyword + vector semantic search combined
+- **Hybrid retrieval** — BM25 keyword + vector semantic search, fused with a per-query weighting that leans keyword-ward for identifier-like queries and semantic-ward for prose
+- **Cross-encoder reranking** — a reranker reads the query and passage *together* and reorders the candidates, which a bi-encoder cannot do; it is admitted against free VRAM and falls back to CPU rather than competing with image or video generation
 - **Smart chunking** — code files get AST-informed chunking (a function stays one chunk instead of being split mid-body), prose gets semantic splitting
+- **Layout-aware document parsing** — PDFs, DOCX and PPTX are parsed for reading order, section headers and page positions, so a retrieved passage can cite the page it came from. (Scanned documents need OCR, which is not installed by default — they report that rather than indexing as empty.)
+- **Grounded citations** — every chunk carries its source file, section breadcrumb and page, and that context is written into the embedded text as well, so a passage lifted out of the middle of a document still says where it came from
+- **Postgres-backed vector store** — embeddings live in pgvector alongside the rest of your data, with an ANN index and a persisted full-text index; they are covered by the same database backups
+- **Index profiles** — the same documents can be projected more than one way (fewer, larger passages for a small local model; finer-grained ones for an external client), switched in Settings
+- **Corpus-level summaries** — a recursive summarisation pass answers "what are the themes across all of this", which passage search structurally cannot
 - **Multiple embedding models** — switch between lightweight (300M) and high-quality (4B+) via UI
 - **Entity extraction** — automatic entity and relationship indexing
 - **Per-project isolation** — each project has its own knowledge base and chat context
-- **Retrieval that shows its work** — live retrieval tests display the actual chunks and scores behind an answer ([Episode 3](https://www.youtube.com/watch?v=pT_J93qTCL0)), instead of just asserting one
+- **Retrieval that shows its work** — live retrieval tests display the actual chunks and scores behind an answer ([Episode 3](https://www.youtube.com/watch?v=pT_J93qTCL0)), instead of just asserting one. Every query can also return a trace of which retrieval legs actually ran, so a degraded answer is distinguishable from a bad one
 
 **Autoresearch — retrieval that tunes itself.** An autonomous optimization loop runs overnight experiments on your corpus: it proposes changes to chunking and retrieval parameters, evaluates them with an LLM-as-judge harness, keeps wins, and reverts regressions — bounded by a wall-clock budget, a run ledger, and a circuit breaker ([Episode 11](https://www.youtube.com/watch?v=7kHvi_2vT6U)). Your retrieval gets better while you sleep, and the morning report says exactly what changed and why.
 
