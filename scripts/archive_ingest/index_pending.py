@@ -93,7 +93,27 @@ def main() -> int:
                     skipped += 1
                     db.session.commit()
                     continue
-                result = isvc.add_file_to_index(file_path, doc)
+                # Embedding goes to Ollama over HTTP, and the GPU orchestrator
+                # periodically evicts idle models (dossier F49: keep_alive=0 every
+                # ~300s), which surfaces here as a transient ConnectionError. Over
+                # hundreds of documents that is near-certain to happen at least once,
+                # and without a retry it marks good documents ERROR and moves on --
+                # the run "completes" with holes in it that nothing reports.
+                result = None
+                for _attempt in range(1, 4):
+                    try:
+                        result = isvc.add_file_to_index(file_path, doc)
+                        break
+                    except Exception as exc:
+                        transient = any(t in str(exc).lower() for t in
+                                        ("connect", "connection", "timeout", "refused",
+                                         "temporarily unavailable"))
+                        if not transient or _attempt == 3:
+                            raise
+                        wait = 5 * _attempt
+                        log.warning("transient failure on %s (attempt %d/3): %s — retrying in %ds",
+                                    doc.filename, _attempt, str(exc)[:100], wait)
+                        time.sleep(wait)
                 if result:
                     doc.index_status = "INDEXED"
                     from datetime import datetime

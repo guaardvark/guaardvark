@@ -32,6 +32,10 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--path-prefix", default="ArchiveHistory/")
     ap.add_argument("--per-type", type=int, default=3, help="Documents per file extension")
+    ap.add_argument("--max-kb", type=int, default=96,
+                    help="Skip documents larger than this. The point of this loop is speed, and a "
+                         "single 500KB file can produce thousands of chunks and take ten minutes to "
+                         "embed while exercising exactly the same code paths as a 20KB one. 0 = no cap.")
     ap.add_argument("--reindex", action="store_true",
                     help="Include already-INDEXED documents (re-runs them)")
     args = ap.parse_args()
@@ -60,8 +64,21 @@ def main() -> int:
         # Stratify: the parsers differ by extension, so sampling off the top of the
         # list would exercise one path repeatedly and miss the rest.
         by_ext = collections.defaultdict(list)
+        oversized = 0
         for d in candidates:
+            _rel = getattr(d, "file_path", None) or d.path
+            _fp = _rel if os.path.isabs(_rel) else os.path.join(UPLOAD_DIR, _rel)
+            if args.max_kb:
+                try:
+                    if os.path.getsize(_fp) > args.max_kb * 1024:
+                        oversized += 1
+                        continue
+                except OSError:
+                    continue
             by_ext[os.path.splitext(d.filename or "")[1].lower()].append(d)
+        if oversized:
+            log.info("skipped %d document(s) over %dKB (--max-kb 0 to include them)",
+                     oversized, args.max_kb)
         sample = []
         for ext in sorted(by_ext):
             sample.extend(by_ext[ext][: args.per_type])
@@ -77,6 +94,14 @@ def main() -> int:
             # tens of seconds each, and a harness meant for a fast iteration loop
             # that shows nothing until it finishes is unusable for that loop.
             log.info("[%d/%d] %s", _i, len(sample), (doc.filename or "")[:60])
+            # Watermark so the measurement below counts only rows this run added.
+            _mid = isvc._pg_connect()
+            try:
+                with _mid.cursor() as _c:
+                    _c.execute(f'SELECT coalesce(max(id), 0) FROM "data_{isvc._pg_table_name(None)}"')
+                    _max_id_before = _c.fetchone()[0]
+            finally:
+                _mid.close()
             rel = getattr(doc, "file_path", None) or doc.path
             path = rel if os.path.isabs(rel) else os.path.join(UPLOAD_DIR, rel)
             ext = os.path.splitext(doc.filename or "")[1].lower()
@@ -104,6 +129,10 @@ def main() -> int:
             got = isvc._pg_connect()
             try:
                 with got.cursor() as cur:
+                    # Only THIS run's rows. Matching on source_filename alone counted
+                    # every historical chunk for the file, so re-running the harness
+                    # inflated its own numbers -- one document appeared to produce
+                    # 20,480 chunks.
                     cur.execute(
                         f"""SELECT metadata_->>'chunk_type',
                                    metadata_->>'source_filename',
@@ -112,8 +141,9 @@ def main() -> int:
                                    metadata_->>'parsed_by',
                                    metadata_->>'text_quality'
                             FROM "data_{table}"
-                            WHERE metadata_->>'source_filename' = %s""",
-                        (doc.filename,),
+                            WHERE metadata_->>'source_filename' = %s
+                              AND id > %s""",
+                        (doc.filename, _max_id_before),
                     )
                     chunk_rows = cur.fetchall()
             finally:
