@@ -55,6 +55,19 @@ except Exception as e:
     CogVideoXImageToVideoPipeline = None
     cogvideox_available = False
 
+# --- MPS (Apple Silicon) support for offline video (ported/adapted for L/M users) ---
+# Must stay above the `gpu_available` computation below: that runs at import and
+# calls this, and on a non-CUDA machine the `or` does not short-circuit away.
+def _mps_available() -> bool:
+    """Apple Silicon Metal (MPS) backend present?
+    Mirrors the pattern from feat/mac-mps-video preview (kept minimal & testable).
+    """
+    try:
+        return bool(torch_available and torch.backends.mps.is_available())
+    except Exception:
+        return False
+
+
 # Edge audit (P3 + lead): graceful degradation on CPU-only / non-NVIDIA.
 # Heavy video gens (CogVideoX 8-16GB+, SVD) require an accelerator (CUDA or MPS).
 # Advertise unavailable with a clear reason instead of runtime OOM or silent fail.
@@ -71,17 +84,6 @@ cogvideox_available = cogvideox_available and gpu_available
 svd_available = svd_available and gpu_available
 diffusers_available = diffusers_available and gpu_available
 video_generator_available = cogvideox_available or svd_available or diffusers_available
-
-
-# --- MPS (Apple Silicon) support for offline video (ported/adapted for L/M users) ---
-def _mps_available() -> bool:
-    """Apple Silicon Metal (MPS) backend present?
-    Mirrors the pattern from feat/mac-mps-video preview (kept minimal & testable).
-    """
-    try:
-        return bool(torch_available and torch.backends.mps.is_available())
-    except Exception:
-        return False
 
 
 def _select_accelerator():
