@@ -493,3 +493,31 @@ def test_node_dedup_keeps_nodes_without_ids():
             seen.add(nid)
         out.append(n)
     assert len(out) == 3
+
+
+# --------------------------------------------------------------------------
+# Auto-resume: must yield to the operator and to the GPU, and say why
+# --------------------------------------------------------------------------
+def test_auto_resume_can_be_disabled(monkeypatch):
+    monkeypatch.setenv("GUAARDVARK_INDEX_AUTO_RESUME", "false")
+    from backend.tasks import index_resume_tasks as t
+
+    out = t.resume_pending_tick()
+    assert "skipped" in out and "disabled" in out["skipped"]
+
+
+def test_auto_resume_reports_a_reason_when_it_skips(monkeypatch):
+    """A catch-up job that silently does nothing is indistinguishable from one
+    that has finished, which is the failure mode this whole effort kept hitting."""
+    monkeypatch.setenv("GUAARDVARK_INDEX_AUTO_RESUME", "false")
+    from backend.tasks import index_resume_tasks as t
+
+    out = t.resume_pending_tick()
+    assert out.get("skipped"), "skip carried no reason"
+
+
+def test_auto_resume_batch_is_bounded_by_default():
+    """A tick must not be able to monopolise the GPU."""
+    from backend.tasks import index_resume_tasks as t
+
+    assert 0 < t.DEFAULT_BATCH <= 25

@@ -80,6 +80,7 @@ def create_celery_app():
             'backend.tasks.task_scheduler_celery.check_scheduled_tasks': {'queue': 'default'},
             'backend.tasks.task_scheduler_celery.recover_stuck_tasks': {'queue': 'default'},
             'backend.tasks.task_scheduler_celery.scheduler_health_check': {'queue': 'health'},
+            'indexing.resume_pending_tick': {'queue': 'indexing'},
             'training.finetune_model': {'queue': 'training_gpu'},
             'training.export_gguf': {'queue': 'training_gpu'},
             'training.parse_transcripts': {'queue': 'training'},
@@ -126,6 +127,17 @@ def create_celery_app():
                 'task': 'maintenance.daily_backup',
                 'schedule': 86400.0,  # 24 hours
                 'options': {'queue': 'default'},
+            },
+            # Documents left PENDING by an interrupted run — a reboot, a killed
+            # worker — would otherwise sit there indefinitely, because indexing
+            # progress is durable but nothing restarted it. Deliberately slow and
+            # small: the task yields to the Pause Indexing toggle and to GPU
+            # pressure, so it catches up during quiet periods instead of competing
+            # with generation work.
+            'resume-pending-indexing': {
+                'task': 'indexing.resume_pending_tick',
+                'schedule': float(os.environ.get("GUAARDVARK_INDEX_RESUME_INTERVAL_S", 900)),
+                'options': {'queue': 'indexing'},
             },
             'google-indexing-drip': {
                 'task': 'google_indexing.drip_tick',
@@ -493,6 +505,14 @@ def create_celery_app():
         logger.info("Google Indexing tasks imported successfully")
     except ImportError as e:
         logger.warning(f"Could not import Google Indexing tasks: {e}")
+
+    try:
+        from backend.tasks.index_resume_tasks import (  # noqa: F401
+            resume_pending_tick,
+        )
+        logger.info("Index auto-resume task imported successfully")
+    except ImportError as e:
+        logger.warning(f"Could not import index auto-resume task: {e}")
 
     logger.info("Celery app configured with enhanced performance settings and Beat schedule")
     return celery_app
