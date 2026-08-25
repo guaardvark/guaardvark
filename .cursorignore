@@ -3,6 +3,5 @@ backend/tools/voice/whisper.cpp/*
 frontend/node_modules/*
 */venv/*
 docs/*
-docs/local-workspace-only/*
 pids/*
 # Add directories or file patterns to ignore during indexing (e.g. foo/ or *.csv)
