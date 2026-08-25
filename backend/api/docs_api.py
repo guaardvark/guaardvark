@@ -766,9 +766,14 @@ def manage_document(doc_id):
                 hasattr(index_instance, "delete_ref_doc")):
                 
                 try:
-                    ref_doc_id_to_delete = str(document.id)
-                    index_instance.delete_ref_doc(ref_doc_id_to_delete, delete_from_docstore=True)
-                    logger.info(f"Removed document {doc_id} from vector index")
+                    from backend.services.indexing_service import purge_document_vectors
+                    # Node ids are `doc_<id>_<hash>` per source fragment, so `delete_ref_doc`
+                    # matched on a bare document id never found anything -- it removed nothing
+                    # and logged success, leaving deleted documents answering questions.
+                    # purge_document_vectors does the prefix match the ids actually need.
+                    _removed = purge_document_vectors(
+                        document.id, getattr(document, "project_id", None))
+                    logger.info(f"Removed document {doc_id} from vector index ({_removed} chunk(s))")
                     
                     try:
                         index_instance.storage_context.persist(persist_dir=storage_dir)

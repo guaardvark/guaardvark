@@ -948,3 +948,35 @@ def test_entity_metadata_indexers_replace_their_previous_entry():
 
     assert inspect.getsource(mis).count("replace_where=['id']") == 3
     assert inspect.getsource(eri).count("replace_where=['id']") == 2
+
+
+# --------------------------------------------------------------------------
+# Deleting a document must actually remove it from the index
+# --------------------------------------------------------------------------
+def test_delete_paths_purge_by_document_id_not_ref_doc_id():
+    """Node ids are `doc_<id>_<hash>` per source fragment, so `delete_ref_doc`
+    called with a bare document id matched nothing: it removed no rows, logged
+    success, and left a deleted document still answering questions. Measured on a
+    live corpus, one document alone kept 4,149 chunks."""
+    import inspect
+    from backend.api import docs_api, files_api
+
+    for mod in (docs_api, files_api):
+        src = inspect.getsource(mod)
+        assert "purge_document_vectors" in src, f"{mod.__name__} does not purge"
+        assert "delete_ref_doc(ref_doc_id" not in src, (
+            f"{mod.__name__} still deletes by an id shape that cannot match"
+        )
+        assert "delete_ref_doc(ref_doc_id_to_delete" not in src
+
+
+def test_purge_pattern_accepts_both_id_shapes():
+    """files_api passes a str, docs_api an int; both must build the same pattern."""
+    import inspect
+    import backend.services.indexing_service as isvc
+
+    src = inspect.getsource(isvc.purge_document_vectors)
+    # The id is stringified before being escaped into the LIKE pattern.
+    assert "str(document_id)" in src
+    # And the LIKE is a prefix match with an explicit escape, not equality.
+    assert "LIKE" in src and "ESCAPE" in src

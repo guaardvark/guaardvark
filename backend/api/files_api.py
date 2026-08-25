@@ -19,7 +19,12 @@ from sqlalchemy import func as sa_func
 
 from backend.config import GUAARDVARK_PROJECT_NAME
 from backend.models import Folder, Document as DBDocument, Client, Project, Website, db
-from backend.services.guarded_code_service import GuardedCodeError, browse_repo_path, default_repo_root
+from backend.services.guarded_code_service import (
+    GuardedCodeError,
+    browse_repo_path,
+    default_repo_root,
+    live_repo_analysis_summary,
+)
 from backend.utils.db_utils import ensure_db_session_cleanup
 from backend.utils.response_utils import success_response, error_response
 
@@ -194,6 +199,7 @@ def _live_repo_mount_folder() -> dict:
             "source_type": "live_repo",
             "repo_root": str(root),
             "mount_mode": "read_first_review_apply",
+            **live_repo_analysis_summary(root),
         },
         "subfolder_count": 0,
         "document_count": 0,
@@ -696,10 +702,15 @@ def _delete_folder_recursive(folder: Folder, deleted_folders: list, deleted_docu
     index_instance = current_app.config.get("LLAMA_INDEX_INDEX")
     storage_dir = current_app.config.get("STORAGE_DIR")
     if doc_ids_to_deindex and index_instance and storage_dir and hasattr(index_instance, "delete_ref_doc"):
+        from backend.services.indexing_service import purge_document_vectors
+        # Node ids are `doc_<id>_<hash>` per source fragment, so `delete_ref_doc`
+        # matched on a bare document id never found anything -- it removed nothing
+        # and logged success, leaving deleted documents answering questions.
+        # purge_document_vectors does the prefix match the ids actually need.
         for ref_doc_id in doc_ids_to_deindex:
             try:
-                index_instance.delete_ref_doc(ref_doc_id, delete_from_docstore=True)
-                logger.info(f"Removed document {ref_doc_id} from vector index")
+                _removed = purge_document_vectors(ref_doc_id)
+                logger.info(f"Removed document {ref_doc_id} from vector index ({_removed} chunk(s))")
             except Exception:
                 logger.warning(f"Failed to remove doc {ref_doc_id} from index (continuing)")
         try:
@@ -1076,9 +1087,14 @@ def delete_document(doc_id):
         if (index_instance and storage_dir and
                 hasattr(index_instance, "delete_ref_doc")):
             try:
-                ref_doc_id = str(document.id)
-                index_instance.delete_ref_doc(ref_doc_id, delete_from_docstore=True)
-                logger.info(f"Removed document {doc_id} from vector index")
+                from backend.services.indexing_service import purge_document_vectors
+                # Node ids are `doc_<id>_<hash>` per source fragment, so `delete_ref_doc`
+                # matched on a bare document id never found anything -- it removed nothing
+                # and logged success, leaving deleted documents answering questions.
+                # purge_document_vectors does the prefix match the ids actually need.
+                _removed = purge_document_vectors(
+                    document.id, getattr(document, "project_id", None))
+                logger.info(f"Removed document {doc_id} from vector index ({_removed} chunk(s))")
                 try:
                     index_instance.storage_context.persist(persist_dir=storage_dir)
                 except Exception as persist_err:
@@ -1170,10 +1186,13 @@ def bulk_delete():
         index_instance = current_app.config.get("LLAMA_INDEX_INDEX")
         storage_dir = current_app.config.get("STORAGE_DIR")
         if doc_ids_to_deindex and index_instance and storage_dir and hasattr(index_instance, "delete_ref_doc"):
+            from backend.services.indexing_service import purge_document_vectors
+            # Same id mismatch as the other delete paths: node ids are
+            # `doc_<id>_<hash>`, so a bare document id matched nothing.
             for ref_doc_id in doc_ids_to_deindex:
                 try:
-                    index_instance.delete_ref_doc(ref_doc_id, delete_from_docstore=True)
-                    logger.info(f"Bulk: removed document {ref_doc_id} from vector index")
+                    _removed = purge_document_vectors(ref_doc_id)
+                    logger.info(f"Bulk: removed document {ref_doc_id} from vector index ({_removed} chunk(s))")
                 except Exception:
                     logger.warning(f"Bulk: failed to remove doc {ref_doc_id} from index (continuing)")
             try:
