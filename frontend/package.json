@@ -44,7 +44,7 @@
   "devDependencies": {
     "@esbuild-plugins/node-globals-polyfill": "^0.2.2",
     "@esbuild-plugins/node-modules-polyfill": "^0.2.2",
-    "@testing-library/jest-dom": "^6.1.0",
+    "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^14.1.0",
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",
