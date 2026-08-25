@@ -41,7 +41,7 @@ What works, and how the system adapts:
   download, vision-capable). With no GPU, models are kept resident in RAM
   instead of being unloaded, so you pay the load cost once.
 - **Retrieval degrades honestly.** Advanced (vector) RAG defaults off on
-  CPU-only hosts; retrieval falls back to BM25 keyword search under memory
+  CPU-only hosts; retrieval falls back to keyword-only search under memory
   pressure rather than thrashing.
 - **Voice.** Speech-to-text (whisper.cpp) is a CPU build. Kokoro TTS is
   near-realtime on CPU; Chatterbox TTS works on CPU but is slow.

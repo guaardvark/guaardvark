@@ -106,7 +106,7 @@ A neural router that decides how much work a message deserves before any tools f
 Retrieval-Augmented Generation grounds chat responses in your actual documents.
 
 ### Retrieval Pipeline
-- **Hybrid search** — BM25 keyword matching + vector semantic search, combined for best results
+- **Hybrid search** — Postgres full-text keyword matching + vector semantic search, combined for best results
 - **Per-project indexes** — each project maintains its own vector store; global index for unassigned documents
 - **Content-aware chunking** — code files use AST-informed strategies; prose uses semantic splitting
 - **Entity extraction** — automatic identification of entities (people, orgs, concepts) and their relationships

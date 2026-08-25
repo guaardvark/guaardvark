@@ -80,7 +80,7 @@ Each table carries a `vector`/`halfvec` embedding column with an **HNSW** index,
 `text_search_tsv` column with a **GIN** index — a persisted sparse index, rather than one rebuilt
 per process.
 
-### Two traps when changing the embedding model or the store
+### Three traps when changing the embedding model or the store
 
 1. **HNSW rejects vector columns above 2000 dimensions.** The default embedding model is 2560-dim,
    so the column must be `halfvec` (`use_halfvec=True`, ceiling 4000) **and** the index must use
@@ -88,31 +88,53 @@ per process.
    either wrong and Postgres logs a warning at table-creation time and carries on **with no ANN
    index at all**: every query becomes a sequential scan, which looks like "retrieval got slow"
    rather than an error.
-2. **`store_nodes_override=True` must be set on the *load* path, not just at creation.**
-   `PGVectorStore` stores node text itself, which leaves the docstore empty — and **BM25 reads
-   `docstore.docs`**. `load_index_from_storage` rebuilds the index without the flag, so setting it
-   only where the index is first created gives a working system that silently loses its sparse
-   retrieval leg on the next restart.
+2. **Keyword ranking needs length normalisation, and has no IDF.** The sparse leg ranks with
+   `ts_rank_cd(..., 34)`. The `34` is `32` (bounded scaling) **plus `2` (divide by document
+   length)**, and the length half is not optional: without it a short chunk holding the answer
+   ranks below longer chunks that merely mention the query's words more often. Separately,
+   `ts_rank_cd` has no IDF at all — a term appearing in 800 chunks scores like one appearing in
+   14 — so `PostgresSparseRetriever` selects the *rarest* query terms before broadening a query,
+   because Postgres cannot weight terms inside a `tsquery`. Skip either and retrieval still
+   works; it just quietly answers with the wrong passage.
 
-Both failures are quiet. Neither raises.
+3. **The docstore must stay empty on pgvector.** `store_nodes_override` mirrors every node into a
+   `SimpleDocumentStore`, and `storage_context.persist()` rewrites that store **in full, as JSON,
+   on every ingested document** — so the cost of adding one document grows with the size of the
+   corpus already added. It is set only for the file-backed store, which genuinely needs it.
+   Re-enabling it against pgvector reintroduces quadratic ingest and, at a few million nodes, a
+   `json.dumps` that cannot fit in memory.
+
+All three failures are quiet. None of them raise.
 
 ### Retrieval
 
 `search_with_llamaindex()` is the retrieval path; `query_index()` is a thin legacy wrapper and
-should not be used for new work. The pipeline is: vector + BM25 retrieval fused by
+should not be used for new work. The pipeline is: vector + keyword retrieval fused by
 `relative_score` with a per-query adaptive alpha (keyword-ish queries lean sparse, prose leans
 dense) → metadata filters enforced **after** fusion → dedup → cross-encoder rerank
 (`backend/utils/reranker.py`, admitted against free VRAM with a CPU fallback) → MMR for diversity
 → trim to the caller's count.
 
-Filters are enforced post-fusion deliberately: `BM25Retriever` has no metadata-filter support, so
-fusion would otherwise re-admit nodes the vector leg excluded — including nodes outside the
-requested project scope.
+The keyword leg is `PostgresSparseRetriever`, querying the `text_search_tsv`/GIN index directly.
+It tries `websearch_to_tsquery` first — AND-by-default, so it stays precise and its candidate set
+stays small — and broadens to an OR over the query's *rarest* terms only when the precise form
+matches nothing. Broadening by default measurably hurts: the vector leg already supplies recall,
+and a keyword leg returning many loosely-matched chunks crowds out the one the vector leg ranked
+correctly.
+
+`VectorStoreQueryMode.HYBRID` is deliberately **not** used. It ignores `alpha` and concatenates
+cosine scores with raw `ts_rank` values without normalising either, which would silently destroy
+the adaptive alpha. Fusion min-max normalises each leg independently, so only the ordering within
+a leg matters, not its scale.
+
+Filters are still enforced post-fusion, but the reason has changed: the sparse leg *can* filter in
+SQL (`BM25Retriever` could not), so the post-fusion pass is now a backstop rather than the only
+line of defence against a leg re-admitting nodes outside the requested project scope.
 
 Pass `with_trace=True` to get a **provenance trace** alongside the results: which legs actually
-ran, the effective alpha, whether resource pressure forced a BM25-only fallback, the embedding
+ran, the effective alpha, whether resource pressure forced a keyword-only fallback, the embedding
 model and dimensions, and whether reranking applied. Under low free VRAM retrieval degrades to
-BM25-only by design; the trace is how a caller tells a degraded answer from a bad one. The
+keyword-only by design; the trace is how a caller tells a degraded answer from a bad one. The
 `search_knowledge_base` tool renders it as a banner **before** the passages, because callers
 truncate tool output and a clipped degradation notice is worse than none.
 
@@ -138,6 +160,29 @@ Only **leaf** nodes are indexed. `HierarchicalNodeParser` emits every tier and a
 children's text verbatim, so indexing all tiers embeds the same prose two or three times and lets
 one query match both a parent and its own child. `GUAARDVARK_INDEX_LEAF_NODES_ONLY=false` restores
 the old behaviour.
+
+**One entry point.** `add_file_to_index()` is the pipeline; `add_file_to_index_by_id()` is the same
+thing for callers that cannot hold an ORM object (the Celery worker avoids Flask by design).
+`add_text_to_index()` is for synthetic text with no file behind it — a repository summary, a client
+profile — and takes `replace_where=[...]` naming the metadata keys that identify the caller's
+content, so re-running a producer replaces its previous output instead of leaving a stale copy to
+compete with the current one at query time.
+
+Three things keep ingest cheap, and all three are easy to undo without noticing:
+
+- **Metadata is excluded from the embed budget on the *document*, before splitting.** LlamaIndex
+  sizes each chunk as `chunk_size - len(metadata)` and reads that from the document being split,
+  not from the nodes coming out — so excluding keys afterwards fixes what is embedded but not what
+  is *counted*, and a document carrying a long path plus tags loses most of its chunk to metadata
+  it was never going to embed.
+- **`original_text` is excluded too.** `contextual_prepender` stashes each chunk's pre-prefix text
+  in metadata so citations can quote the document rather than the breadcrumb. Metadata is
+  concatenated ahead of the chunk before embedding, so leaving that key in the budget embeds every
+  chunk twice — once as its text, once as its own metadata.
+- **`gc.collect()` is amortised, not per document.** A full collection in this process walks
+  LlamaIndex, torch and a resident model: ~250 ms, which on a small file exceeds parsing, chunking
+  and embedding combined. `GUAARDVARK_INDEX_GC_EVERY` (default 25) controls it. A micro-benchmark
+  in a fresh interpreter reports ~4 ms, so the cost is invisible unless measured in place.
 
 ### Profiles and corpus summaries
 

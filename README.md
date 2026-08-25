@@ -95,7 +95,7 @@ Short, unscripted-feeling screen recordings of the real system doing real work �
 - MCP server + client integration (Claude Desktop, Cursor, etc.).
 
 **Knowledge, Code & Workflow**
-- Strong RAG (hybrid BM25 + vector on pgvector, cross-encoder reranking, AST code chunking, layout-aware PDF/DOCX parsing, entity extraction, RAG Autoresearch, per-project isolation).
+- Strong RAG (hybrid keyword + vector search on pgvector, cross-encoder reranking, AST code chunking, layout-aware PDF/DOCX parsing, entity extraction, RAG Autoresearch, per-project isolation).
 - Monaco code editor + Code Analyzer + per-repo indexing + dependency graphs + System Mapper (constellation view of the whole codebase).
 - Full desktop-grade file/project/client/website/notes/media management with cross-links and recursive indexing.
 - Task scheduler (Celery beat), Rules & Prompts (portable bundles), Interconnector for multi-machine clusters (master/client, approval gates, learning broadcast).
@@ -220,7 +220,7 @@ The system runs its own test suite, identifies failures, dispatches an AI agent 
 
 Chat grounded in your documents. Upload files, build a knowledge base, and ask questions. The AI reads and understands your content — not just keyword matching.
 
-- **Hybrid retrieval** — BM25 keyword + vector semantic search, fused with a per-query weighting that leans keyword-ward for identifier-like queries and semantic-ward for prose
+- **Hybrid retrieval** — Postgres full-text keyword + vector semantic search, fused with a per-query weighting that leans keyword-ward for identifier-like queries and semantic-ward for prose
 - **Cross-encoder reranking** — a reranker reads the query and passage *together* and reorders the candidates, which a bi-encoder cannot do; it is admitted against free VRAM and falls back to CPU rather than competing with image or video generation
 - **Smart chunking** — code files get AST-informed chunking (a function stays one chunk instead of being split mid-body), prose gets semantic splitting
 - **Layout-aware document parsing** — PDFs, DOCX and PPTX are parsed for reading order, section headers and page positions, so a retrieved passage can cite the page it came from. (Scanned documents need OCR, which is not installed by default — they report that rather than indexing as empty.)
