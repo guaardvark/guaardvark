@@ -310,17 +310,18 @@ class EntityRelationshipIndexer:
             
             overview_text = self.create_system_overview_document()
             
-            overview_doc = type('Document', (), {
+            overview_doc = {
                 'id': 'system_overview',
                 'filename': 'Guaardvark_System_Overview.txt',
                 'type': 'system_metadata',
                 'path': 'metadata/system_overview.txt'
-            })()
+            }
             
             success = self.add_text_to_index(
                 overview_text,
                 overview_doc,
-                progress_callback=None
+                # 'id' is unique per entity, so a re-run replaces its entry.
+                replace_where=['id']
             )
             
             if success:
@@ -346,17 +347,18 @@ class EntityRelationshipIndexer:
                         doc_text = self._create_detailed_client_relationships(client)
                         
                         if self.add_text_to_index and doc_text:
-                            relationship_doc = type('Document', (), {
+                            relationship_doc = {
                                 'id': f'client_{client.id}_relationships',
                                 'filename': f'Client_{client.name}_Relationships.txt',
                                 'type': 'relationship_metadata',
                                 'path': f'metadata/client_{client.id}_relationships.txt'
-                            })()
+                            }
                             
                             success = self.add_text_to_index(
                                 doc_text,
                                 relationship_doc,
-                                progress_callback=None
+                                # 'id' is unique per entity, so a re-run replaces its entry.
+                                replace_where=['id']
                             )
                             
                             results[f'client_{client.id}'] = success

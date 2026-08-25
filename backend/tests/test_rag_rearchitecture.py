@@ -907,3 +907,44 @@ def test_sparse_rarity_lookup_degrades_instead_of_raising():
     r = isvc.PostgresSparseRetriever("no_such_table_here", top_k=8)
     out = r._rarest(["alpha", "beta", "gamma", "delta", "epsilon", "zeta"], keep=3)
     assert out and len(out) <= 3
+
+
+# --------------------------------------------------------------------------
+# Metadata / relationship indexing was silently dead
+# --------------------------------------------------------------------------
+def test_synthetic_metadata_is_a_dict_not_an_attribute_object():
+    """These services built `type('Document', (), {...})()` and passed it where a
+    dict was required. LlamaDocument rejects it with a ValidationError, so
+    add_text_to_index returned False and the caller logged 'Failed to index' --
+    every time. Client, project and job metadata was never in the index."""
+    import inspect
+    from backend.services import metadata_indexing_service as mis
+    from backend.services import entity_relationship_indexer as eri
+
+    for mod in (mis, eri):
+        src = inspect.getsource(mod)
+        assert "type('Document', (), {" not in src, (
+            f"{mod.__name__} still builds an attribute object where a dict is required"
+        )
+
+
+def test_metadata_indexers_do_not_pass_an_argument_that_does_not_exist():
+    """entity_relationship_indexer passed progress_callback=, which is not a
+    parameter of add_text_to_index -- a TypeError before anything was indexed."""
+    import inspect
+    from backend.services import entity_relationship_indexer as eri
+    import backend.services.indexing_service as isvc
+
+    params = set(inspect.signature(isvc.add_text_to_index).parameters)
+    assert "progress_callback" not in params
+    assert "progress_callback" not in inspect.getsource(eri)
+
+
+def test_entity_metadata_indexers_replace_their_previous_entry():
+    """Each entity has a unique `id`, so a re-run must replace rather than stack."""
+    import inspect
+    from backend.services import metadata_indexing_service as mis
+    from backend.services import entity_relationship_indexer as eri
+
+    assert inspect.getsource(mis).count("replace_where=['id']") == 3
+    assert inspect.getsource(eri).count("replace_where=['id']") == 2

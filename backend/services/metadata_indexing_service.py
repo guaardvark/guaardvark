@@ -58,16 +58,19 @@ class MetadataIndexingService:
                 if self.add_text_to_index and client_doc:
                     try:
                         # Create a synthetic document for the client metadata
-                        metadata_doc = type('Document', (), {
+                        metadata_doc = {
                             'id': f'client_{client_id}_metadata',
                             'filename': f'Client_{client.name}_Metadata.txt',
                             'type': 'metadata',
                             'path': f'metadata/client_{client_id}.txt'
-                        })()
+                        }
                         
                         success = self.add_text_to_index(
                             client_doc,
-                            metadata_doc
+                            metadata_doc,
+                            # 'id' is unique per client/project/job, so re-indexing replaces that
+                            # entity's entry instead of leaving a stale copy to compete with it.
+                            replace_where=['id'],
                         )
                         
                         if success:
@@ -177,16 +180,19 @@ class MetadataIndexingService:
                 if self.add_text_to_index and project_doc:
                     try:
                         # Create a synthetic document for the project metadata
-                        metadata_doc = type('Document', (), {
+                        metadata_doc = {
                             'id': f'project_{project_id}_metadata',
                             'filename': f'Project_{project.name}_Metadata.txt',
                             'type': 'metadata',
                             'path': f'metadata/project_{project_id}.txt'
-                        })()
+                        }
                         
                         success = self.add_text_to_index(
                             project_doc,
-                            metadata_doc
+                            metadata_doc,
+                            # 'id' is unique per client/project/job, so re-indexing replaces that
+                            # entity's entry instead of leaving a stale copy to compete with it.
+                            replace_where=['id'],
                         )
                         
                         if success:
@@ -289,16 +295,19 @@ class MetadataIndexingService:
                     task_name = job_context.get('task', {}).get('name', 'Unknown')
                     
                     # Create a synthetic document for the job metadata
-                    metadata_doc = type('Document', (), {
+                    metadata_doc = {
                         'id': f'job_{task_id}_metadata',
                         'filename': f'Job_{task_name}_Metadata.txt',
                         'type': 'metadata',
                         'path': f'metadata/job_{task_id}.txt'
-                    })()
+                    }
                     
                     success = self.add_text_to_index(
                         job_doc,
-                        metadata_doc
+                        metadata_doc,
+                        # 'id' is unique per client/project/job, so re-indexing replaces that
+                        # entity's entry instead of leaving a stale copy to compete with it.
+                        replace_where=['id'],
                     )
                     
                     if success:
