@@ -51,7 +51,14 @@ NEEDLES = {
     "tiny": "Relay bypass authority for Module 7 rests with the duty supervisor, not the shift lead.",
     # Deliberately placed in two documents: a correct ranking puts the fuller
     # treatment first, which a single-document needle cannot measure.
-    "shared": "Calibration drift above 0.30 units per hour requires a same-shift inspection.",
+    #
+    # Its wording is kept clear of WORDS above. The first attempt reused the filler
+    # vocabulary -- calibration, drift, inspection, shift -- so every content word in
+    # the fact also appeared in hundreds of chunks of generated noise, and no
+    # retrieval system could have separated it. A planted fact has to be findable in
+    # the corpus it is planted in, or the test measures the fixture instead of the
+    # pipeline.
+    "shared": "Ledger anomalies exceeding 0.30 units per hour mandate an immediate quarantine review.",
 }
 
 

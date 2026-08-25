@@ -62,7 +62,7 @@ QUESTIONS = [
     },
     {
         "id": "shared-fact",
-        "q": "What level of calibration drift requires a same-shift inspection?",
+        "q": "What ledger anomaly level mandates an immediate quarantine review?",
         "needle": "shared",
         "expect_file": None,  # present in two documents; either is correct
         "why": "Appears in two documents — checks ranking, not just recall.",
