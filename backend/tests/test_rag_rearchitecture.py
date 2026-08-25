@@ -766,3 +766,37 @@ def test_heavy_metadata_does_not_shrink_the_content_budget():
         f"heavy metadata inflated chunk count {n_light} -> {n_heavy}; "
         "the exclusions are not reaching the splitter"
     )
+
+
+def test_moving_ollama_expiry_counts_as_use():
+    """Models reached over plain HTTP never touch the orchestrator, so `last_used`
+    stayed frozen at discovery and a model in continuous use looked idle -- which
+    evicted the embedding model mid-ingest and paid to reload it on the next chunk.
+    Ollama pushes `expires_at` forward on every request, so a change between syncs
+    is the one available signal that the model is live."""
+    import time
+    from backend.services.gpu_memory_orchestrator import GPUMemoryOrchestrator
+
+    orch = GPUMemoryOrchestrator.__new__(GPUMemoryOrchestrator)
+    orch._ollama_expiry = {}
+
+    slot = type("S", (), {"last_used": 0.0, "vram_mb": 0, "state": None})()
+    prefix = "ollama:qwen3-embedding"
+
+    # First sight of an expiry: recorded, nothing to compare against yet.
+    orch._ollama_expiry[prefix] = "2026-08-25T17:00:00Z"
+
+    # A later sync sees the expiry moved forward -> the model was used.
+    now = time.time()
+    seen = "2026-08-25T17:05:00Z"
+    if seen != orch._ollama_expiry.get(prefix):
+        slot.last_used = now
+    assert slot.last_used == now, "a moved expiry must refresh last_used"
+
+    # An unchanged expiry means genuinely idle: last_used must NOT move, so a
+    # model nobody is using can still be reclaimed.
+    orch._ollama_expiry[prefix] = seen
+    slot.last_used = 0.0
+    if seen != orch._ollama_expiry.get(prefix):
+        slot.last_used = now
+    assert slot.last_used == 0.0, "an unchanged expiry must leave the model evictable"

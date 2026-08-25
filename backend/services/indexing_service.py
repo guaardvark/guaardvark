@@ -241,6 +241,192 @@ class _EmbedClock:
 _bm25_cache: dict = {}  # id(docstore) -> {"doc_count": int, "top_k": int, "retriever": BM25Retriever}
 
 
+
+
+def _needs_docstore_nodes(vstore) -> bool:
+    """Whether the docstore must hold node copies for retrieval to work.
+
+    `store_nodes_override=True` mirrors every node into a SimpleDocumentStore, and
+    that docstore is what `storage_context.persist()` rewrites -- in full, as JSON,
+    on every ingested document. On a file-backed store it is not optional: BM25
+    reads from it, and SimpleVectorStore does not keep text.
+
+    With pgvector it is pure cost. The rows already carry their text and a tsvector,
+    the keyword leg reads them straight from SQL, and the mirror only exists to be
+    serialised again. Returning False here is what stops the per-document rewrite
+    from growing with the corpus.
+    """
+    return type(vstore).__name__ != "PGVectorStore"
+
+
+class PostgresSparseRetriever:
+    """Keyword retrieval straight from Postgres, replacing BM25 over the docstore.
+
+    BM25Retriever reads a `SimpleDocumentStore`, which only holds nodes because
+    `store_nodes_override=True` keeps it populated -- and keeping it populated is
+    what forced a full rewrite of a JSON file on every ingested document. Postgres
+    already maintains a `tsvector` column and a GIN index over the same rows
+    (PGVectorStore is created with hybrid_search=True), so the keyword leg can be
+    served from there and the docstore can go.
+
+    Two deliberate choices about the SQL:
+
+    `websearch_to_tsquery` rather than llama-index's own sparse path, which
+    OR-joins every term and then ranks every match. On a large corpus an OR over
+    common words matches a large fraction of the table, and `ORDER BY rank LIMIT k`
+    has to score all of it. websearch_to_tsquery is AND-by-default and understands
+    quoted phrases, so the candidate set stays small.
+
+    `ts_rank_cd` with normalisation 34 -- that is 2 (divide by document length)
+    combined with 32 (rank / (rank + 1)). The length term is the important half and
+    was found the hard way: without it, a short chunk holding the answer ranks below
+    eight longer near-identical siblings that mention the same words more often, and
+    a planted fact inside a code block dropped out of the results entirely. Length
+    normalisation is one of the things BM25 does for free; bare cover-density
+    ranking does not. This is still not BM25 -- there is no IDF saturation and no
+    k1/b -- but fusion min-max normalises each leg independently, so only the
+    ordering matters, not the scale.
+
+    Unlike BM25Retriever this can filter, so project scoping happens in SQL rather
+    than by over-fetching and discarding afterwards.
+    """
+
+    def __init__(self, table: str, top_k: int = 10, filters: Optional[Dict[str, Any]] = None):
+        self.table = table
+        self.top_k = top_k
+        self.filters = filters or {}
+
+    # Terms too common to be worth OR-ing over a large corpus; an OR containing one
+    # of these matches most of the table and makes the ranking do all the work.
+    _STOPISH = frozenset("""a an and are as at be by for from has have how in is it
+        its of on or that the this to was what when where which who why with""".split())
+
+    def _tsquery_or(self, query: str) -> Optional[str]:
+        """An OR query over the useful terms, or None if nothing is left."""
+        terms = [t for t in re.findall(r"[A-Za-z0-9_]{2,}", query.lower())
+                 if t not in self._STOPISH]
+        # Deduplicate, keep order.
+        seen, out = set(), []
+        for t in terms:
+            if t not in seen:
+                seen.add(t)
+                out.append(t)
+        return " | ".join(out[:12]) or None
+
+    def _run(self, match_sql: str, match_arg: str):
+        where = [match_sql]
+        # Placeholder order must match the statement below: the rank expression in
+        # the SELECT, then the match in the WHERE, then any filters, then the limit.
+        params: List[Any] = [match_arg, match_arg]
+        for key, value in self.filters.items():
+            where.append("metadata_->>%s = %s")
+            params.extend([key, str(value)])
+        params.append(self.top_k)
+        rank_fn = match_sql.split(" @@ ")[1].replace("%s", "%s")
+        sql = (
+            f"SELECT node_id, text, metadata_, "
+            f"ts_rank_cd(text_search_tsv, {rank_fn}, 34) AS rank "
+            f'FROM "data_{self.table}" WHERE ' + " AND ".join(where) +
+            " ORDER BY rank DESC LIMIT %s"
+        )
+        conn = _pg_connect()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+                return cur.fetchall()
+        finally:
+            conn.close()
+
+    def _rows(self, query: str):
+        """Precise first; broaden only when nothing matched at all.
+
+        websearch_to_tsquery is AND-by-default, which is the right default at scale:
+        an OR over common words matches a large fraction of the table and forces the
+        ranker to score all of it.
+
+        Broadening to an OR looks like an obvious improvement -- it turns one hit into
+        eight -- and measurably makes retrieval worse. The vector leg already supplies
+        recall; what fusion needs from the keyword leg is precision. Eight loosely
+        matched chunks crowd out the one the vector leg ranked correctly, and on the
+        validation corpus that cost a planted fact that had been returned at rank 1
+        (a value inside a code block, whose near-identical sibling chunks all score
+        similarly on the broadened query).
+
+        So the OR is a fallback for "no keyword match at all", not a way to fill the
+        result list.
+        """
+        rows = self._run("text_search_tsv @@ websearch_to_tsquery('english', %s)", query)
+        if rows:
+            return rows
+        or_query = self._tsquery_or(query)
+        if not or_query:
+            return rows
+        try:
+            broadened = self._run("text_search_tsv @@ to_tsquery('english', %s)", or_query)
+        except Exception as e:
+            logger.debug("Sparse OR broadening failed (%s); keeping strict results", e)
+            return rows
+        # Prefer the broader set only if it genuinely found more.
+        return broadened if len(broadened) > len(rows) else rows
+
+    def retrieve(self, query) -> List[Any]:
+        from llama_index.core.schema import NodeWithScore, TextNode
+        text = query if isinstance(query, str) else getattr(query, "query_str", str(query))
+        if not (text or "").strip():
+            return []
+        try:
+            rows = self._rows(text)
+        except Exception as e:
+            logger.warning("Sparse (postgres) retrieval failed: %s", e)
+            return []
+        out = []
+        for node_id, node_text, meta, rank in rows:
+            meta = meta if isinstance(meta, dict) else (json.loads(meta) if meta else {})
+            meta.pop("_node_content", None)
+            meta.pop("_node_type", None)
+            out.append(NodeWithScore(
+                node=TextNode(id_=node_id, text=node_text or "", metadata=meta),
+                score=float(rank or 0.0),
+            ))
+        return out
+
+    # QueryFusionRetriever calls both of these.
+    def _retrieve(self, query) -> List[Any]:
+        return self.retrieve(query)
+
+    async def _aretrieve(self, query) -> List[Any]:
+        return self.retrieve(query)
+
+    async def aretrieve(self, query) -> List[Any]:
+        return self.retrieve(query)
+
+
+
+def _get_sparse_retriever(storage_ctx, top_k: int, project_id=None, profile: Optional[str] = None):
+    """The keyword leg: Postgres full-text when available, BM25 as the fallback.
+
+    Returns None when neither can serve, which the caller treats as "vector only"
+    and records in the trace -- a silently missing leg would look like a relevance
+    regression rather than a missing retriever.
+    """
+    table = None
+    try:
+        table = resolve_existing_vector_table(project_id, profile)
+    except Exception:
+        table = None
+    if table:
+        filters = {}
+        if project_id is not None:
+            filters["project_id_str"] = str(project_id)
+        return PostgresSparseRetriever(table, top_k=top_k, filters=filters)
+
+    # File-backed store: fall back to the docstore-driven BM25.
+    try:
+        return _get_cached_bm25_retriever(storage_ctx.docstore, top_k)
+    except Exception:
+        return None
+
+
 def _get_cached_bm25_retriever(docstore, similarity_top_k: int):
     """Return a cached BM25Retriever for this docstore, rebuilding only when the docstore
     object identity or its document count changes. Returns None if BM25 is unavailable."""
@@ -553,12 +739,47 @@ def _make_vector_store(project_id=None, profile: Optional[str] = None):
             },
         )
         logger.info("Vector store: pgvector table data_%s (dim=%d)", table, dim)
+        _ensure_document_id_index(table)
         _vector_store_fallback_reason = None
         return store
     except Exception as e:
         return _fall_back_to_simple(
             f"it is unavailable ({e.__class__.__name__}: {str(e)[:180]})"
         )
+
+
+
+def _ensure_document_id_index(table: str) -> None:
+    """Index the document_id prefix that re-indexing deletes by.
+
+    Re-indexing a document first removes its existing vectors, matching
+    `metadata_->>'document_id' LIKE 'doc\\_<id>\\_%'`. PGVectorStore builds an
+    HNSW index on the embedding and a GIN index on the text, but nothing on that
+    expression, so the delete was a sequential scan of the whole table -- and
+    because `metadata_` is large enough to be TOASTed, every row had to be
+    detoasted to evaluate it. Measured at 55,844 rows: 591 ms per document, and
+    growing linearly, so the cost of ingesting one document rose with the size of
+    the corpus already ingested.
+
+    `text_pattern_ops` is required: on a non-C collation the default operator
+    class cannot serve a prefix LIKE. Created here so a fresh install gets it
+    without a migration step; IF NOT EXISTS makes it idempotent.
+    """
+    ddl = (
+        f'CREATE INDEX IF NOT EXISTS "{table}_docid_prefix" '
+        f'ON "data_{table}" ((metadata_->>\'document_id\') text_pattern_ops)'
+    )
+    try:
+        conn = _pg_connect()
+        try:
+            conn.autocommit = True
+            with conn.cursor() as cur:
+                cur.execute(ddl)
+        finally:
+            conn.close()
+    except Exception as e:
+        # Not fatal: without it re-indexing is slower, not wrong.
+        logger.warning("Could not ensure document_id index on data_%s: %s", table, e)
 
 
 def _pg_connect():
@@ -1046,7 +1267,7 @@ def _initialize_index(storage_path: str):
                 index_instance = VectorStoreIndex.from_documents(
                     [],
                     storage_context=storage_context_instance,
-                    store_nodes_override=True,
+                    store_nodes_override=_needs_docstore_nodes(_vs),
                 )
                 storage_context_instance.persist(persist_dir=abs_storage_path)
 
@@ -1071,7 +1292,8 @@ def _initialize_index(storage_path: str):
                 _load_kwargs["vector_store"] = _vs_load
             storage_context_instance = StorageContext.from_defaults(**_load_kwargs)
             index_instance = load_index_from_storage(
-                storage_context_instance, store_nodes_override=True
+                storage_context_instance,
+                store_nodes_override=_needs_docstore_nodes(_vs_load)
             )
 
             index = index_instance
@@ -1114,7 +1336,7 @@ def _initialize_index(storage_path: str):
                     index_instance = VectorStoreIndex.from_documents(
                         [],
                         storage_context=storage_context_instance,
-                        store_nodes_override=True,
+                        store_nodes_override=_needs_docstore_nodes(_vs),
                     )
                     storage_context_instance.persist(persist_dir=abs_storage_path)
 
@@ -1415,9 +1637,11 @@ def search_with_llamaindex(
             try:
                 from llama_index.core.retrievers import QueryFusionRetriever
 
-                bm25_retriever = _get_cached_bm25_retriever(storage_context.docstore, candidate_top_k)
+                bm25_retriever = _get_sparse_retriever(
+                    storage_context, candidate_top_k, project_id=project_id, profile=profile
+                )
                 if bm25_retriever is None:
-                    raise ImportError("BM25Retriever unavailable")
+                    raise ImportError("no sparse retriever available")
 
                 # Resource-pressure fallback: under VRAM/RAM pressure, skip the vector leg
                 # entirely (no query embedding) and serve BM25-only rather than thrash.
