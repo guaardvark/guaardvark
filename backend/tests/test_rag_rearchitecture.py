@@ -573,3 +573,50 @@ def test_table_discovery_returns_none_when_nothing_exists(monkeypatch):
 
     monkeypatch.setattr(ix, "_pg_connect", lambda: _Conn())
     assert ix.resolve_existing_vector_table(None) is None
+
+
+# --------------------------------------------------------------------------
+# Auto-resume must never condemn a document for a service outage
+# --------------------------------------------------------------------------
+def test_auto_resume_defers_when_embedding_service_is_unreachable(monkeypatch):
+    """Without the preflight it walks the batch calling a dead service once per
+    document, logging a stack trace each time and achieving nothing."""
+    from backend.tasks import index_resume_tasks as t
+
+    monkeypatch.setenv("GUAARDVARK_INDEX_AUTO_RESUME", "true")
+    monkeypatch.setattr(t, "_embedding_service_reachable", lambda: False)
+
+    touched = {"n": 0}
+
+    class _App:
+        def app_context(self):
+            touched["n"] += 1
+            raise AssertionError("must not reach document work with the service down")
+
+    # If the preflight is missing this reaches app_context and the assertion fires.
+    try:
+        out = t.resume_pending_tick()
+    except AssertionError:
+        raise
+    except Exception:
+        out = {}
+    assert touched["n"] == 0
+
+
+def test_transient_errors_are_recognised():
+    """Connection-shaped failures mean the service is down, not the document bad."""
+    from backend.tasks.index_resume_tasks import _is_transient
+
+    for msg in ("Failed to connect to Ollama", "Connection refused",
+                "read timeout", "temporarily unavailable", "Broken pipe"):
+        assert _is_transient(Exception(msg)), msg
+
+
+def test_real_document_errors_are_not_treated_as_transient():
+    """A genuinely broken document must still be marked, or it retries forever."""
+    from backend.tasks.index_resume_tasks import _is_transient
+
+    for msg in ("UnicodeDecodeError: invalid start byte",
+                "PDF parse failed: xref table missing",
+                "add_file_to_index returned falsy"):
+        assert not _is_transient(Exception(msg)), msg

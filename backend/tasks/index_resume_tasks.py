@@ -24,8 +24,35 @@ logger = logging.getLogger(__name__)
 DEFAULT_BATCH = int(os.environ.get("GUAARDVARK_INDEX_RESUME_BATCH", "5"))
 
 
+# Connection-shaped failures mean "the service is down", not "this document is
+# bad". Marking a document ERROR for one is destructive: it is removed from the
+# PENDING set this task works from, so it never gets retried once the service
+# returns, and a transient outage silently eats the backlog.
+_TRANSIENT = ("connect", "connection", "timeout", "refused", "temporarily unavailable",
+              "broken pipe", "reset by peer")
+
+
+def _is_transient(exc: Exception) -> bool:
+    return any(t in str(exc).lower() for t in _TRANSIENT)
+
+
 def _enabled() -> bool:
     return os.environ.get("GUAARDVARK_INDEX_AUTO_RESUME", "true").lower() == "true"
+
+
+def _embedding_service_reachable() -> bool:
+    """Cheap preflight against Ollama's API.
+
+    Without this the task walks its batch calling an unreachable service once per
+    document, logging a stack trace each time and achieving nothing. One check up
+    front turns that into a single, quiet "come back later".
+    """
+    try:
+        import requests
+        from backend.config import OLLAMA_BASE_URL
+        return requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=3).ok
+    except Exception:
+        return False
 
 
 @shared_task(name="indexing.resume_pending_tick")
@@ -65,9 +92,14 @@ def resume_pending_tick(limit: int = None) -> dict:
         # catch-up job should simply wait for a quieter moment.
         try:
             if isvc._under_resource_pressure():
+                logger.info("index resume: deferring — resource pressure")
                 return {"skipped": "resource pressure — deferring"}
         except Exception:
             pass
+
+        if not _embedding_service_reachable():
+            logger.info("index resume: deferring — embedding service unreachable")
+            return {"skipped": "embedding service unreachable — deferring"}
 
         try:
             pending = (
@@ -101,14 +133,34 @@ def resume_pending_tick(limit: int = None) -> dict:
                 continue
             try:
                 ok = isvc.add_file_to_index(path, doc)
-                doc.index_status = "INDEXED" if ok else "ERROR"
                 if ok:
+                    doc.index_status = "INDEXED"
                     doc.indexed_at = datetime.now()
                     indexed += 1
                 else:
+                    # A falsy return here is usually the embedding call failing
+                    # inside add_file_to_index. Re-check the service rather than
+                    # condemning the document: if it went away mid-batch, stop and
+                    # leave the rest PENDING for the next tick.
+                    if not _embedding_service_reachable():
+                        logger.info(
+                            "index resume: embedding service went away mid-batch — "
+                            "stopping, %d document(s) left PENDING", len(pending) - indexed,
+                        )
+                        db.session.rollback()
+                        return {"indexed": indexed, "failed": failed, "missing": missing,
+                                "stopped": "embedding service went away mid-batch"}
+                    doc.index_status = "ERROR"
                     doc.error_message = "add_file_to_index returned falsy"
                     failed += 1
             except Exception as exc:
+                if _is_transient(exc):
+                    # Leave it PENDING. The service is down, the document is fine.
+                    logger.info("index resume: transient failure on %s — leaving PENDING (%s)",
+                                doc.filename, str(exc)[:100])
+                    db.session.rollback()
+                    return {"indexed": indexed, "failed": failed, "missing": missing,
+                            "stopped": f"transient: {str(exc)[:120]}"}
                 doc.index_status = "ERROR"
                 doc.error_message = str(exc)[:500]
                 failed += 1
