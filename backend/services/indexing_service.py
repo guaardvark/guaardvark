@@ -1856,6 +1856,40 @@ def search_with_llamaindex(
         return _out([])
 
 
+
+def add_file_to_index_by_id(file_path: str, document_id) -> bool:
+    """Run the full ingest pipeline for a file, given only a document id.
+
+    The Celery ingest path is written to avoid Flask, so it cannot hold the ORM
+    object `add_file_to_index` needs. Rather than skip the pipeline it called
+    `add_text_to_index` with the file read as UTF-8 -- which means a PDF or DOCX
+    arrived as mojibake, markdown was never sectioned, and nothing purged the
+    previous vectors, so re-indexing appended a second copy instead of replacing
+    it. The UI dispatches to that path, so every improvement made to
+    `add_file_to_index` was invisible to the people actually using the product.
+
+    This bridges the two: open a context, load the row, run the real pipeline.
+    """
+    try:
+        from backend.app import get_or_create_app
+        app = get_or_create_app()
+    except Exception as e:
+        logger.warning("Cannot reach an app context to index document %s: %s", document_id, e)
+        return False
+
+    with app.app_context():
+        from backend.models import db, Document as DBDocument
+        try:
+            doc = db.session.get(DBDocument, int(document_id))
+        except Exception as e:
+            logger.warning("Could not load document %s: %s", document_id, e)
+            return False
+        if doc is None:
+            logger.warning("No document row %s to index", document_id)
+            return False
+        return bool(add_file_to_index(file_path, doc))
+
+
 def add_text_to_index(text: str, metadata: Dict[str, Any], project_id: Optional[str] = None) -> Optional[bool]:
     """Add text to the vector index.
 

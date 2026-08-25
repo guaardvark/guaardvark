@@ -112,19 +112,33 @@ def main():
         meta = {d.id: {"name": d.filename, "size": d.size or 0} for d in docs}
 
         if not args.no_warmup:
-            # The first document of a cold process pays for loading the embedding
-            # model into VRAM and building the chunker's clients -- measured at ~3.7 s
-            # against ~0.4 s steady state. Charging that to "fixed cost per document"
-            # overstates it by an order of magnitude and would misdirect exactly the
-            # optimisation this benchmark is meant to rank.
-            warm = docs[0]
+            # A cold process is slow for more than one document, and for more than
+            # one reason: the embedding model has to reach VRAM, the chunker builds
+            # its clients, and the GPU itself ramps. Measured on the same file ten
+            # times in a row: 23.9s, 4.9s, then 3.4s +/- 0.05 for the rest. A single
+            # discarded document is not enough -- it leaves the second run 40% high,
+            # and charging that to "fixed cost per document" is how a startup
+            # transient gets mistaken for a per-document cost.
+            #
+            # So warm until two consecutive runs agree within 20%, or give up after a
+            # few tries and say so rather than pretending the numbers are settled.
+            warm = docs[-1]  # the largest, so the ramp is actually exercised
             wp = warm.path if os.path.isabs(warm.path) else os.path.join(UPLOAD_DIR, warm.path)
             if os.path.exists(wp):
                 say("warmup (discarded) ...")
-                t0 = time.perf_counter()
-                isvc.add_file_to_index(wp, warm)
-                db.session.commit()
-                say(f"  cold start cost {time.perf_counter()-t0:.2f}s\n")
+                prev = None
+                for attempt in range(1, 6):
+                    t0 = time.perf_counter()
+                    isvc.add_file_to_index(wp, warm)
+                    db.session.commit()
+                    took = time.perf_counter() - t0
+                    say(f"  warmup {attempt}: {took:5.2f}s")
+                    if prev is not None and abs(took - prev) <= 0.20 * min(took, prev):
+                        break
+                    prev = took
+                else:
+                    say("  ^ still not settled; treat the numbers below as noisy")
+                say("")
 
         for rep in range(1, args.repeats + 1):
             say(f"--- run {rep}/{args.repeats} ---")

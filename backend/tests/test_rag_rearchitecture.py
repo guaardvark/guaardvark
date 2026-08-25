@@ -800,3 +800,46 @@ def test_moving_ollama_expiry_counts_as_use():
     if seen != orch._ollama_expiry.get(prefix):
         slot.last_used = now
     assert slot.last_used == 0.0, "an unchanged expiry must leave the model evictable"
+
+
+# --------------------------------------------------------------------------
+# Both ingest paths must run the same pipeline
+# --------------------------------------------------------------------------
+def test_celery_ingest_path_uses_the_file_pipeline():
+    """The UI dispatches to the Celery task, which read the file as UTF-8 and
+    called add_text_to_index: a PDF arrived as mojibake, markdown was never
+    sectioned, and nothing purged the previous vectors, so re-indexing appended a
+    second copy. Every improvement to add_file_to_index was invisible to users."""
+    import inspect
+    from backend import celery_tasks_isolated as cti
+
+    src = inspect.getsource(cti.enhanced_code_aware_indexing)
+    assert "add_file_to_index_by_id" in src, "celery path must use the file pipeline"
+    assert "add_text_to_index" not in src, (
+        "celery path still falls back to the text-only pipeline"
+    )
+    # An empty document must stay distinguishable from a failure: the caller marks
+    # failures ERROR/retryable, and an empty file will not index better next time.
+    assert 'vector_outcome = "empty"' in src
+
+
+def test_file_pipeline_bridge_reports_missing_rows_instead_of_raising():
+    """Called from a Celery worker, so it must fail as a value, not an exception."""
+    import backend.services.indexing_service as isvc
+
+    assert isvc.add_file_to_index_by_id("/nonexistent/path.md", 99999999) is False
+
+
+def test_reindex_replaces_vectors_rather_than_appending():
+    """purge_document_vectors runs before insert, so the count after a second
+    index of the same document must not grow. Guards the defect that made the
+    vector store 58% duplicates."""
+    import inspect
+    import backend.services.indexing_service as isvc
+
+    src = inspect.getsource(isvc.add_file_to_index)
+    purge_at = src.find("purge_document_vectors")
+    insert_at = src.find("insert_nodes")
+    assert purge_at != -1, "no purge in the ingest path"
+    assert insert_at != -1
+    assert purge_at < insert_at, "purge must run before insert, or it deletes the new rows"
