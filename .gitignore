@@ -295,9 +295,9 @@ data/demo_assets/*/render/
 data/demo_assets/*/README.md
 
 # Claude Code workspace config. Every file here so far — permission allowlists,
-# hooks, workflows — points at this machine or at docs/local-workspace-only/,
-# which is itself ignored, so the whole directory stays local. To ship a hook or
-# skill deliberately, un-ignore that one path; never the directory.
+# hooks, workflows — is specific to one machine and its local-only working
+# files, so the whole directory stays local. To ship a hook or skill
+# deliberately, un-ignore that one path; never the directory.
 .claude/
 
 # Build-time copy of the repo-root VERSION, so an sdist can carry it. Generated
