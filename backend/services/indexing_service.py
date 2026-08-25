@@ -1,5 +1,6 @@
 
 import datetime
+import gc
 import json
 import hashlib
 import logging
@@ -7,6 +8,7 @@ import re
 import os
 import time
 import threading
+from contextlib import contextmanager
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 
@@ -155,6 +157,81 @@ index: Optional[VectorStoreIndex] = None
 storage_context: Optional[StorageContext] = None
 
 _index_operation_lock = threading.RLock()
+
+# --- ingest phase timing --------------------------------------------------
+# Half of a measured 93-minute ingest could not be attributed to any phase: the
+# only timestamps available -- progress events and `indexed_at` -- do not bracket
+# parsing, and they miss the gap between documents entirely. Optimising against a
+# model that explains half the clock is guesswork, so the pipeline times itself.
+#
+# Timings are kept in module state rather than logged, because application logging
+# defaults to WARNING (BACKEND_LOG_LEVEL) and a routine measurement is not a
+# warning. A benchmark harness runs in-process and reads them directly.
+_LAST_PHASE_TIMINGS: Dict[str, Any] = {}
+
+
+
+# A full gc.collect() costs roughly 250 ms in this process: the heap holds
+# LlamaIndex, torch and a resident model, so the collector walks a very large
+# object graph. Two unconditional calls per document made that the single largest
+# fixed cost of ingesting a small file -- measured at 0.49 s of a 0.50 s document,
+# dwarfing parsing, chunking and the embedding itself.
+#
+# Python collects cycles on its own; these calls exist for the large transient
+# objects a big file leaves behind. So run them when that is actually the case,
+# and otherwise amortise across a batch.
+_GC_EVERY_N_DOCS = int(os.environ.get("GUAARDVARK_INDEX_GC_EVERY", "25"))
+_GC_LARGE_FILE_MB = float(os.environ.get("GUAARDVARK_INDEX_GC_LARGE_MB", "1.0"))
+_docs_since_gc = 0
+
+
+def _maybe_collect(file_size_mb: float = 0.0) -> None:
+    """Collect after a large file, or once every _GC_EVERY_N_DOCS documents."""
+    global _docs_since_gc
+    _docs_since_gc += 1
+    if file_size_mb > _GC_LARGE_FILE_MB or _docs_since_gc >= _GC_EVERY_N_DOCS:
+        _docs_since_gc = 0
+        gc.collect()
+
+
+@contextmanager
+def _phase(name: str, into: Dict[str, float]):
+    """Accumulate wall-clock milliseconds for one ingest phase."""
+    t0 = time.perf_counter()
+    try:
+        yield
+    finally:
+        into[name] = into.get(name, 0.0) + (time.perf_counter() - t0) * 1000.0
+
+
+def get_last_phase_timings() -> Dict[str, Any]:
+    """Phase timings for the most recently indexed document."""
+    return dict(_LAST_PHASE_TIMINGS)
+
+
+class _EmbedClock:
+    """Separates embedding time from vector-store time inside `insert_nodes`.
+
+    LlamaIndex emits embedding start/end events around the model call, so
+    subscribing is enough to split the two -- no monkeypatching, and it keeps
+    working if the insert path changes underneath.
+    """
+
+    def __init__(self):
+        self.ms = 0.0
+        self.calls = 0
+        self._starts = {}
+
+    def handle(self, event):
+        name = type(event).__name__
+        if name == "EmbeddingStartEvent":
+            self._starts[getattr(event, "span_id", None)] = time.perf_counter()
+        elif name == "EmbeddingEndEvent":
+            t0 = self._starts.pop(getattr(event, "span_id", None), None)
+            if t0 is not None:
+                self.ms += (time.perf_counter() - t0) * 1000.0
+                self.calls += 1
+
 
 # BM25 retriever cache. BM25Retriever.from_defaults() re-tokenizes the ENTIRE docstore, so
 # rebuilding it on every query is expensive. Cache keyed on (id(docstore), doc_count):
@@ -1584,8 +1661,8 @@ def add_text_to_index(text: str, metadata: Dict[str, Any], project_id: Optional[
 
         document = LlamaDocument(text=text, metadata=metadata)
         
-        from backend.utils.enhanced_rag_chunking import EnhancedRAGChunker
-        rag_chunker = EnhancedRAGChunker()
+        from backend.utils.enhanced_rag_chunking import get_shared_chunker
+        rag_chunker = get_shared_chunker()
 
         nodes = rag_chunker.chunk_documents([document], strategy_name='auto')
         
@@ -1641,8 +1718,7 @@ def add_text_to_index(text: str, metadata: Dict[str, Any], project_id: Optional[
             del valid_nodes
         if 'document' in locals():
             del document
-        import gc
-        gc.collect()
+        _maybe_collect()
 
 
 
@@ -2116,10 +2192,14 @@ def add_file_to_index(file_path: str, db_document: DBDocument, progress_callback
 
     global index, storage_context
 
+    timings: Dict[str, float] = {}
+    _embed_clock = _EmbedClock()
+
     _lazy_load_llamaindex()
     _lazy_load_optional_components()
 
-    get_or_create_index(db_document.project_id if db_document else None)
+    with _phase("index_init_ms", timings):
+        get_or_create_index(db_document.project_id if db_document else None)
 
     if index is None or storage_context is None:
         logger.error(
@@ -2169,11 +2249,12 @@ def add_file_to_index(file_path: str, db_document: DBDocument, progress_callback
             progress_callback(30, f"Loading document: {db_document.filename}")
         
         try:
-            documents = get_documents_from_file(
-                file_path=file_path,
-                client=db_document.project.client.name if db_document.project and db_document.project.client else None,
-                upload_date=db_document.uploaded_at.isoformat() if db_document.uploaded_at else None
-            )
+            with _phase("parse_ms", timings):
+                documents = get_documents_from_file(
+                    file_path=file_path,
+                    client=db_document.project.client.name if db_document.project and db_document.project.client else None,
+                    upload_date=db_document.uploaded_at.isoformat() if db_document.uploaded_at else None
+                )
             
             if not documents:
                 logger.error(f"No documents loaded from {file_path}")
@@ -2284,9 +2365,10 @@ def add_file_to_index(file_path: str, db_document: DBDocument, progress_callback
                 logger.info(f"AST code chunking produced {len(nodes)} nodes from {db_document.filename}")
             else:
                 # Standard chunking for non-code files
-                from backend.utils.enhanced_rag_chunking import EnhancedRAGChunker
-                rag_chunker = EnhancedRAGChunker()
-                nodes = rag_chunker.chunk_documents(documents, strategy_name='auto')
+                from backend.utils.enhanced_rag_chunking import get_shared_chunker
+                rag_chunker = get_shared_chunker()
+                with _phase("chunk_ms", timings):
+                    nodes = rag_chunker.chunk_documents(documents, strategy_name='auto')
                 logger.info(f"Enhanced RAG chunking produced {len(nodes)} nodes from {len(documents)} documents")
 
                 # Contextual Retrieval for prose, mirroring the code branch above: the
@@ -2312,8 +2394,9 @@ def add_file_to_index(file_path: str, db_document: DBDocument, progress_callback
             # so without this a re-index leaves the previous copy in place alongside
             # the new one.
             try:
-                purge_document_vectors(getattr(db_document, "id", None),
-                                       getattr(db_document, "project_id", None))
+                with _phase("purge_ms", timings):
+                    purge_document_vectors(getattr(db_document, "id", None),
+                                           getattr(db_document, "project_id", None))
             except Exception as _pe:
                 logger.warning("Pre-insert purge skipped: %s", _pe)
 
@@ -2338,7 +2421,22 @@ def add_file_to_index(file_path: str, db_document: DBDocument, progress_callback
                 nodes = _deduped
 
             with _index_operation_lock:
-                index.insert_nodes(nodes)
+                _dispatcher = None
+                try:
+                    from llama_index.core.instrumentation import get_dispatcher
+                    _dispatcher = get_dispatcher()
+                    _dispatcher.add_event_handler(_embed_clock)
+                except Exception:
+                    pass
+                try:
+                    with _phase("insert_ms", timings):
+                        index.insert_nodes(nodes)
+                finally:
+                    if _dispatcher is not None:
+                        try:
+                            _dispatcher.event_handlers.remove(_embed_clock)
+                        except Exception:
+                            pass
                 _record_index_embedding_model(getattr(db_document, "project_id", None))  # stamp model
 
                 logger.info(f"Persisting index for {db_document.filename}")
@@ -2355,8 +2453,19 @@ def add_file_to_index(file_path: str, db_document: DBDocument, progress_callback
                         from backend.config import INDEX_ROOT
                         persist_dir = INDEX_ROOT
                         logger.warning(f"Prevented use of legacy storage folder, using {persist_dir} instead")
-                    storage_context.persist(persist_dir=persist_dir)
+                    with _phase("persist_ms", timings):
+                        storage_context.persist(persist_dir=persist_dir)
             
+            timings["embed_ms"] = round(_embed_clock.ms, 1)
+            timings["embed_calls"] = _embed_clock.calls
+            timings["vstore_ms"] = round(timings.get("insert_ms", 0.0) - _embed_clock.ms, 1)
+            timings["nodes"] = len(nodes)
+            timings["document_id"] = getattr(db_document, "id", None)
+            timings["filename"] = getattr(db_document, "filename", None)
+            _LAST_PHASE_TIMINGS.clear()
+            _LAST_PHASE_TIMINGS.update({k: (round(v, 1) if isinstance(v, float) else v)
+                                        for k, v in timings.items()})
+
             logger.info(f"Successfully indexed {file_path} with {len(nodes)} nodes")
             
         except Exception as e:
@@ -2401,8 +2510,6 @@ def add_file_to_index(file_path: str, db_document: DBDocument, progress_callback
             except Exception as e:
                 logger.warning(f"Failed to store symbol metadata: {e}")
 
-        gc.collect()
-
         logger.info(f"Successfully indexed {db_document.filename}")
 
         # Notify autoresearch that corpus has changed
@@ -2441,11 +2548,7 @@ def add_file_to_index(file_path: str, db_document: DBDocument, progress_callback
             if 'node_parser' in locals():
                 node_parser = None
             
-            if file_size_mb > 1.0:
-                collected = gc.collect()
-                logger.debug(f"Garbage collected {collected} objects for large file ({file_size_mb:.2f}MB)")
-            else:
-                gc.collect()
+            _maybe_collect(file_size_mb)
                 
             logger.debug("Memory cleanup completed")
         except Exception as cleanup_error:

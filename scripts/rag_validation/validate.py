@@ -54,6 +54,13 @@ QUESTIONS = [
         "why": "Binary parsed by Docling; the fact sits on a later page.",
     },
     {
+        "id": "tiny-note",
+        "q": "Who holds relay bypass authority for Module 7?",
+        "needle": "tiny",
+        "expect_file": "tiny_note.md",
+        "why": "A very short document -- must not be lost among larger neighbours.",
+    },
+    {
         "id": "shared-fact",
         "q": "What level of calibration drift requires a same-shift inspection?",
         "needle": "shared",
@@ -105,8 +112,12 @@ def main():
                     hit_rank = i
                     break
 
-            files = [(r.get("metadata") or {}).get("file_name")
-                     or (r.get("metadata") or {}).get("filename") or "" for r in results]
+            # The loaders write `source_filename`; `file_path` is the absolute path
+            # and `file_name` is a LlamaIndex convention this pipeline does not use.
+            files = [((r.get("metadata") or {}).get("source_filename")
+                      or (r.get("metadata") or {}).get("file_path")
+                      or (r.get("metadata") or {}).get("file_name") or "")
+                     for r in results]
             file_rank = None
             if spec["expect_file"]:
                 for i, f in enumerate(files, 1):

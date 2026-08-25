@@ -64,8 +64,26 @@ def prepend_context_to_nodes(
             symbol_type=symbol_type,
         )
 
-        node.metadata["original_text"] = node.text
+        _stash_original(node, node.text)
         node.text = context + node.text
+
+
+def _stash_original(node: TextNode, text: str) -> None:
+    """Keep the pre-prefix text for citation, out of the embedding.
+
+    The raw text is worth keeping: a citation should quote what the document
+    said, not the breadcrumb this module prepended. But metadata is concatenated
+    ahead of the chunk before embedding, so storing it without excluding it means
+    every chunk is embedded twice -- once as its text and once as its own
+    metadata. Measured on a live corpus, that duplicate was 63.7% of the metadata
+    string and about a third of everything sent to the model.
+    """
+    node.metadata["original_text"] = text
+    for attr in ("excluded_embed_metadata_keys", "excluded_llm_metadata_keys"):
+        current = list(getattr(node, attr, None) or [])
+        if "original_text" not in current:
+            current.append("original_text")
+            setattr(node, attr, current)
 
 
 def generate_document_context(
@@ -107,8 +125,8 @@ def prepend_context_to_document_nodes(nodes: List[TextNode]) -> int:
             heading_path=meta.get("heading_path"),
             page_label=meta.get("page_label"),
         )
-        meta["original_text"] = node.text
         node.metadata = meta
+        _stash_original(node, node.text)
         node.text = context + node.text
         changed += 1
     return changed

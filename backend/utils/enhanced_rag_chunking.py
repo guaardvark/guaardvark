@@ -21,6 +21,7 @@ os.environ.setdefault("NLTK_DISABLE_IMPORT_SECURITY", "1")
 import backend.utils.llama_index_local_config
 
 import logging
+import threading
 import re
 import hashlib
 from typing import List, Dict, Optional, Any, Tuple
@@ -77,6 +78,22 @@ class ChunkMetadata:
     chunk_position: int  # Position in original document
     parent_chunk_id: Optional[str] = None
     child_chunk_ids: List[str] = field(default_factory=list)
+
+# Per-chunk bookkeeping that must never reach the embedding model. LlamaIndex
+# concatenates the metadata string ahead of the chunk text before embedding, so
+# anything left in here is paid for twice: once in tokens, and once in retrieval
+# quality, because values that are near-identical across every chunk pull all the
+# vectors toward each other. `chunk_id` is a hash, `created_at`/`cached_at` are
+# timestamps, `relationships` is usually empty, and `entities` is every
+# capitalised word in the chunk. None of it describes what the chunk is about.
+# The values stay queryable for filters and citations -- only the embedding
+# stops seeing them.
+NON_SEMANTIC_CHUNK_METADATA = frozenset({
+    "cached_at", "chunk_id", "chunk_position", "chunk_type", "content_type",
+    "created_at", "entities", "importance_score", "language", "original_text",
+    "relationships", "source_document", "token_count", "topics",
+})
+
 
 @dataclass
 class ChunkingStrategy:
@@ -1570,7 +1587,9 @@ class EnhancedRAGChunker:
                             for _attr in ("excluded_embed_metadata_keys",
                                           "excluded_llm_metadata_keys"):
                                 _cur = list(getattr(_n, _attr, None) or [])
-                                for _k in doc_meta:
+                                _drop = set(doc_meta) | (
+                                    set(_n.metadata) & NON_SEMANTIC_CHUNK_METADATA)
+                                for _k in _drop:
                                     if _k not in _cur:
                                         _cur.append(_k)
                                 setattr(_n, _attr, _cur)
@@ -1651,3 +1670,29 @@ class EnhancedRAGChunker:
             recommended_strategy = 'adaptive'
         
         return recommended_strategy 
+
+
+_shared_chunker = None
+_shared_chunker_lock = threading.Lock()
+
+
+def get_shared_chunker() -> "EnhancedRAGChunker":
+    """One chunker for the process, built on first use.
+
+    Constructing an EnhancedRAGChunker is not cheap: it eagerly builds four
+    chunkers, and two of them are SemanticChunkers that each construct an
+    OllamaEmbedding -- a pair of httpx clients and a settings lookup apiece. Doing
+    that per document meant four HTTP clients and two database round-trips built
+    and discarded for every file ingested. The chunkers hold configuration, not
+    per-document state, so one instance serves the whole process.
+
+    `chunking_stats` becomes cumulative across documents rather than per call;
+    it is a counter, and callers that want per-document figures read the returned
+    node list instead.
+    """
+    global _shared_chunker
+    if _shared_chunker is None:
+        with _shared_chunker_lock:
+            if _shared_chunker is None:
+                _shared_chunker = EnhancedRAGChunker()
+    return _shared_chunker

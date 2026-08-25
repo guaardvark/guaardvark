@@ -48,6 +48,7 @@ NEEDLES = {
     "code_prose": "Throughput collapsed once the retry budget exceeded four attempts per request.",
     "code_body": "MAX_RETRY_BUDGET = 4  # above this, throughput collapses",
     "docx": "Sample K-19 recorded a coolant drift of 0.42 units per hour, the highest in the survey.",
+    "tiny": "Relay bypass authority for Module 7 rests with the duty supervisor, not the shift lead.",
     # Deliberately placed in two documents: a correct ranking puts the fuller
     # treatment first, which a single-document needle cannot measure.
     "shared": "Calibration drift above 0.30 units per hour requires a same-shift inspection.",
@@ -61,6 +62,23 @@ def para(rng, n_sentences=6):
         s = " ".join(rng.choice(WORDS) for _ in range(n))
         out.append(s[0].upper() + s[1:] + ".")
     return " ".join(out)
+
+
+def make_tiny(rng):
+    """A short note -- the shape most of a real corpus is made of.
+
+    Its value to the benchmark is what it does NOT contain. At a couple of
+    kilobytes the per-chunk work is negligible, so whatever this document costs
+    is very nearly the fixed price of ingesting any document at all. A corpus of
+    large files hides that term completely, and it is the term that decides
+    whether a hundred thousand small files is an afternoon or a fortnight.
+    """
+    return "\n\n".join([
+        "# Module 7 Handover Note",
+        para(rng, 3),
+        NEEDLES["tiny"],
+        para(rng, 2),
+    ]) + "\n"
 
 
 def make_flat(rng, target_kb):
@@ -179,6 +197,7 @@ def main():
 
     written = []
     for name, text in (
+        ("tiny_note.md", make_tiny(rng)),
         ("flat_prose_no_headings.md", make_flat(rng, args.flat_kb)),
         ("structured_manual.md", make_structured(rng, 60)),
         ("mixed_prose_and_code.md", make_mixed(rng, 40)),
