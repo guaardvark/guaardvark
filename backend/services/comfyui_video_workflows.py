@@ -660,6 +660,7 @@ class ComfyUIVideoWorkflowMixin:
         seed: Optional[int] = None,
         fps: int = 16,
         interpolation_multiplier: int = 2,
+        sampler_profile: Optional[str] = None,
     ) -> dict:
         # Same MoE two-pass dance as Wan T2V, but the empty latent gets swapped
         # for WanImageToVideo — that node bakes the start frame into the
@@ -679,11 +680,25 @@ class ComfyUIVideoWorkflowMixin:
             )
 
         midpoint = num_inference_steps // 2
-        shift = self._wan_dynamic_shift(width, height)
+
+        # The 14B experts are trained at shift 8.0. `3497c52` replaced that with a
+        # curve scaled by pixel area, on the theory that a fixed 8.0 over-shifts at
+        # lower resolutions; three weeks later `a4301f8` found the opposite -- that
+        # the curve starves sampling at high noise and produces the warping and
+        # colour bleed reported as "the character goes crazy and rainbow morphs" --
+        # and restored a fixed 8.0 for the 5B. The 14B was left on the curve that had
+        # just been shown to be the cause, which is why it renders cleanly at native
+        # 1280x704 (where the curve happens to return 8.0) and badly everywhere else.
+        #
+        # Same profile mechanism as the 5B, so the two models behave alike and the
+        # scaled curve stays available for whoever wants to re-test it.
+        profile_key = self._wan5b_sampler_profile(sampler_profile)
+        profile = self.WAN5B_SAMPLER_PROFILES[profile_key]
+        shift = profile["shift"] if profile["shift"] is not None else self._wan_dynamic_shift(width, height)
         logger.info(
-            "Wan I2V MoE workflow clip_device=%s, dynamic_shift=%.1f (TE off-GPU frees UNet residency on 16GB)",
-            clip_device,
-            shift,
+            "Wan I2V MoE workflow clip_device=%s profile=%s shift=%.1f "
+            "(TE off-GPU frees UNet residency on 16GB)",
+            clip_device, profile_key, shift,
         )
 
         workflow = {

@@ -58,16 +58,18 @@ describe("WAN5B_SAMPLER_PROFILES", () => {
 
 
 describe("aspectRatiosFor", () => {
-  it("offers Wan only its native ratio and the portrait transpose", () => {
+  it("offers Wan its native ratio, the portrait transpose, and square", () => {
     for (const id of ["wan22-5b", "wan22-14b", "wan22-14b-i2v"]) {
-      expect(Object.keys(aspectRatiosFor(id))).toEqual(["16:9", "9:16"]);
+      expect(Object.keys(aspectRatiosFor(id))).toEqual(["16:9", "9:16", "1:1"]);
     }
   });
 
-  it("keeps square out of reach on Wan 5B", () => {
-    // 1:1 clamped to 1024x1024, which is off-native and lifts the dynamic shift
-    // above the 8.0 that 1280x704 is tuned for — smearing and colour bleed.
-    expect(aspectRatiosFor("wan22-5b")["1:1"]).toBeUndefined();
+  it("offers square on Wan, which renders it", () => {
+    // Square was withdrawn on the theory that off-native frames warp. The output
+    // directory disproves it: seven 1:1 Wan I2V renders at 512x512 and 736x736.
+    // The warping came from the sampler shift being scaled by pixel area, which
+    // starved every non-native size; that is fixed at its source.
+    expect(aspectRatiosFor("wan22-5b")["1:1"]).toBeDefined();
   });
 
   it("leaves a model that declares nothing unconstrained", () => {
@@ -90,22 +92,23 @@ describe("resolveAspectRatio", () => {
   });
 
   it("snaps a ratio the model cannot render to its first supported one", () => {
-    for (const bad of ["1:1", "4:3", "3:2"]) {
+    for (const bad of ["4:3", "3:2"]) {
       expect(resolveAspectRatio("wan22-5b", bad)).toBe("16:9");
     }
+  });
+
+  it("keeps square on Wan rather than snapping it away", () => {
+    expect(resolveAspectRatio("wan22-5b", "1:1")).toBe("1:1");
   });
 
   it("leaves any ratio alone on an unconstrained model", () => {
     expect(resolveAspectRatio("cogvideox-5b", "1:1")).toBe("1:1");
   });
 
-  it("never resolves to a square frame on Wan 5B, whatever it is handed", () => {
+  it("always resolves to a ratio the model actually declares", () => {
+    const allowed = Object.keys(aspectRatiosFor("wan22-5b"));
     for (const key of Object.keys(ASPECT_RATIO_PRESETS).concat(["junk", undefined])) {
-      const resolved = resolveAspectRatio("wan22-5b", key);
-      const { width, height } = fitAreaToRatio(
-        1280 * 704, ASPECT_RATIO_PRESETS[resolved].ratio, "wan22-5b", undefined,
-      );
-      expect(width).not.toBe(height);
+      expect(allowed).toContain(resolveAspectRatio("wan22-5b", key));
     }
   });
 });

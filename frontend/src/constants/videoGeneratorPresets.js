@@ -136,7 +136,7 @@ export const MODEL_OPTIONS = {
     resolution: [1280, 704],
     // Native 1280x704. Off-native frames — a square especially — smear and colour
     // bleed, and push _wan_dynamic_shift above the 8.0 that native is tuned for.
-    aspectRatios: ["16:9", "9:16"],
+    aspectRatios: ["16:9", "9:16", "1:1"],
     defaultSteps: 20,
     supportsT2V: true,
     supportsI2V: true,
@@ -152,7 +152,7 @@ export const MODEL_OPTIONS = {
     nativeFps: 16,
     maxFrames: 81,
     resolution: [832, 480],
-    aspectRatios: ["16:9", "9:16"],
+    aspectRatios: ["16:9", "9:16", "1:1"],
     defaultSteps: 25,
     supportsT2V: true,
     supportsI2V: false,
@@ -166,7 +166,7 @@ export const MODEL_OPTIONS = {
     nativeFps: 16,
     maxFrames: 81,
     resolution: [832, 480],
-    aspectRatios: ["16:9", "9:16"],
+    aspectRatios: ["16:9", "9:16", "1:1"],
     defaultSteps: 25,
     supportsT2V: false,
     supportsI2V: true,

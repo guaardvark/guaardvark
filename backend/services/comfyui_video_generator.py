@@ -411,7 +411,18 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             return width, height
 
         import math
-        key = min(supported, key=lambda k: abs(math.log(requested / cls._ASPECT_RATIOS[k])))
+
+        # Snap within the requested orientation first. Log-distance alone stops
+        # preserving orientation once square is a candidate: 4:3 (1.333) sits
+        # exactly as far from 16:9 as from 1:1, so a landscape request could come
+        # back square. Orientation is the part a caller notices, so it wins; the
+        # nearest ratio is chosen within it.
+        def _orient(r: float) -> int:
+            return (r > 1.0) - (r < 1.0)
+
+        candidates = [k for k in supported
+                      if _orient(cls._ASPECT_RATIOS[k]) == _orient(requested)] or supported
+        key = min(candidates, key=lambda k: abs(math.log(requested / cls._ASPECT_RATIOS[k])))
         target = cls._ASPECT_RATIOS[key]
         area = width * height
         new_w = int(round(math.sqrt(area * target)))
@@ -502,10 +513,12 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             return "cpu"
         return "default"
 
-    # Wan 2.2 5B sampling profiles. "adaptive" is the in-house pairing (euler +
-    # resolution-scaled shift); "official" mirrors ComfyUI's bundled template
-    # (uni_pc + fixed shift 8 at every size). Per-job via the request field,
-    # default via GUAARDVARK_WAN5B_SAMPLER.
+    # Wan sampling profiles, used by BOTH the 5B and the 14B MoE workflow.
+    # "adaptive" is the in-house pairing (euler + resolution-scaled shift);
+    # "official" mirrors ComfyUI's bundled template (uni_pc + fixed shift 8 at
+    # every size). Per-job via the request field, default via
+    # GUAARDVARK_WAN5B_SAMPLER. The name keeps its 5B spelling because it is the
+    # public env var and the frontend key; it is not 5B-only.
     WAN5B_SAMPLER_PROFILES = {
         "adaptive": {"sampler": "euler", "shift": None},
         "official": {"sampler": "uni_pc", "shift": 8.0},
@@ -1257,6 +1270,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                         num_frames=request.duration_frames,
                         num_inference_steps=request.num_inference_steps,
                         guidance_scale=request.guidance_scale,
+                        sampler_profile=request.wan_sampler_profile,
                         width=request.width,
                         height=request.height,
                         seed=seed,

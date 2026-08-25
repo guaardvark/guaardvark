@@ -102,9 +102,17 @@ VIDEO_MODEL_REGISTRY = {
         "type": "wan",
         "dimension_alignment": 32,
         "max_pixel_area": 1_000_000,
-        # Native landscape and its transpose. Off-native frames come back warped
-        # rather than cropped, and area drives the sampler shift.
-        "aspect_ratios": ["16:9", "9:16"],
+        # Landscape, its transpose, and square. The earlier claim that off-native
+        # frames "come back warped" does not survive the evidence: the output
+        # directory holds seven 1:1 Wan I2V renders (512x512 and 736x736,
+        # 2026-08-14), one of them the project's own demo clip.
+        #
+        # What actually warped was the sampler shift. It was scaled by pixel area,
+        # so every non-native size sampled at 3.0-4.8 against the 8.0 these models
+        # are trained at, and the result was the colour bleed reported as "rainbow
+        # morphs". Forbidding the ratio treated the symptom; the shift is fixed at
+        # its source instead. The area clamp below still applies.
+        "aspect_ratios": ["16:9", "9:16", "1:1"],
     },
     "wan22-14b-i2v": {
         "name": "Wan 2.2 14B I2V MoE (GGUF Q5_K)",
@@ -123,9 +131,17 @@ VIDEO_MODEL_REGISTRY = {
         "type": "wan",
         "dimension_alignment": 32,
         "max_pixel_area": 1_000_000,
-        # Native landscape and its transpose. Off-native frames come back warped
-        # rather than cropped, and area drives the sampler shift.
-        "aspect_ratios": ["16:9", "9:16"],
+        # Landscape, its transpose, and square. The earlier claim that off-native
+        # frames "come back warped" does not survive the evidence: the output
+        # directory holds seven 1:1 Wan I2V renders (512x512 and 736x736,
+        # 2026-08-14), one of them the project's own demo clip.
+        #
+        # What actually warped was the sampler shift. It was scaled by pixel area,
+        # so every non-native size sampled at 3.0-4.8 against the 8.0 these models
+        # are trained at, and the result was the colour bleed reported as "rainbow
+        # morphs". Forbidding the ratio treated the symptom; the shift is fixed at
+        # its source instead. The area clamp below still applies.
+        "aspect_ratios": ["16:9", "9:16", "1:1"],
     },
     "wan22-5b": {
         "name": "Wan 2.2 TI2V-5B (fp16)",
@@ -142,9 +158,17 @@ VIDEO_MODEL_REGISTRY = {
         "type": "wan",
         "dimension_alignment": 32,
         "max_pixel_area": 1_000_000,
-        # Native landscape and its transpose. Off-native frames come back warped
-        # rather than cropped, and area drives the sampler shift.
-        "aspect_ratios": ["16:9", "9:16"],
+        # Landscape, its transpose, and square. The earlier claim that off-native
+        # frames "come back warped" does not survive the evidence: the output
+        # directory holds seven 1:1 Wan I2V renders (512x512 and 736x736,
+        # 2026-08-14), one of them the project's own demo clip.
+        #
+        # What actually warped was the sampler shift. It was scaled by pixel area,
+        # so every non-native size sampled at 3.0-4.8 against the 8.0 these models
+        # are trained at, and the result was the colour bleed reported as "rainbow
+        # morphs". Forbidding the ratio treated the symptom; the shift is fixed at
+        # its source instead. The area clamp below still applies.
+        "aspect_ratios": ["16:9", "9:16", "1:1"],
     },
     "wan-vae": {
         "name": "Wan 2.1/2.2 VAE",

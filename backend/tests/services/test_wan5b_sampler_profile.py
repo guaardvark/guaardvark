@@ -1,4 +1,10 @@
-"""Wan 2.2 5B sampler profiles: adaptive (euler + scaled shift) vs official (uni_pc + shift 8)."""
+"""Wan sampler profiles: adaptive (euler + scaled shift) vs official (uni_pc + shift 8).
+
+Used by both the 5B and the 14B MoE workflow. "official" is the default because
+the scaled shift starves every non-native resolution -- 3.0 at 512x512 against
+the 8.0 these models are trained at -- which is the colour bleed reported as
+"rainbow morphs".
+"""
 
 import os
 import sys
@@ -25,12 +31,17 @@ def _sampler(wf):
     return wf["10"]["inputs"]["sampler_name"], wf["8"]["inputs"]["shift"]
 
 
-def test_default_is_adaptive(gen):
+def test_default_is_official(gen):
+    """The default is the trained shift, not the scaled one.
+
+    The scaled curve returns 3.5 at 832x480 against the 8.0 these models are
+    trained at, which under-resolves global structure at high noise.
+    """
     wf = gen._create_wan22_5b_workflow(prompt="x", width=832, height=480, seed=1)
     sampler, shift = _sampler(wf)
-    assert sampler == "euler"
-    assert shift == ComfyUIVideoGenerator._wan_dynamic_shift(832, 480)
-    assert shift < 8.0
+    assert sampler == "uni_pc"
+    assert shift == 8.0
+    assert ComfyUIVideoGenerator._wan_dynamic_shift(832, 480) < 8.0
 
 
 def test_official_profile_uses_uni_pc_and_fixed_shift(gen):
@@ -50,9 +61,9 @@ def test_env_sets_default_and_request_wins(gen, monkeypatch):
 
 
 @pytest.mark.parametrize("bad", ["", "  ", "dpm", None])
-def test_unknown_profile_falls_back_to_adaptive(gen, bad, monkeypatch):
+def test_unknown_profile_falls_back_to_the_default(gen, bad, monkeypatch):
     monkeypatch.setenv("GUAARDVARK_WAN5B_SAMPLER", "nonsense")
-    assert ComfyUIVideoGenerator._wan5b_sampler_profile(bad) == "adaptive"
+    assert ComfyUIVideoGenerator._wan5b_sampler_profile(bad) == "official"
 
 
 def test_profile_resolution_is_case_insensitive():
