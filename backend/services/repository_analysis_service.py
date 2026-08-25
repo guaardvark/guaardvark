@@ -132,6 +132,10 @@ class RepositoryAnalysisService:
                     "source": "repository_analysis",
                     "content_type": "repository_summary",
                 },
+                # Re-analysing a repository must replace its previous summary, not
+                # add a second one. Both stay retrievable otherwise, and the stale
+                # one competes with the current at query time.
+                replace_where=["type", "folder_id"],
             )
             logger.info(f"Indexed repository summary for {folder.name}")
         except Exception as e:
@@ -466,6 +470,10 @@ class RepositoryAnalysisService:
                     "content_type": "repository_map",
                     "source": "repository_analysis",
                 },
+                # Re-analysing a repository must replace its previous summary, not
+                # add a second one. Both stay retrievable otherwise, and the stale
+                # one competes with the current at query time.
+                replace_where=["type", "folder_id"],
             )
             logger.info(f"Indexed repository map for {folder.name}")
         except Exception as e:

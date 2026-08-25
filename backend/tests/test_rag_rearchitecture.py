@@ -843,3 +843,32 @@ def test_reindex_replaces_vectors_rather_than_appending():
     assert purge_at != -1, "no purge in the ingest path"
     assert insert_at != -1
     assert purge_at < insert_at, "purge must run before insert, or it deletes the new rows"
+
+
+def test_text_index_replace_key_is_opt_in_and_defensive():
+    """Re-running a producer must be able to replace its previous output. Without
+    it, re-analysing a repository left the old architectural summary indexed, still
+    retrievable and competing with the new one at query time."""
+    import inspect
+    import backend.services.indexing_service as isvc
+
+    src = inspect.getsource(isvc.add_text_to_index)
+    assert "replace_where" in src
+    # Opt-in: callers that pass nothing keep the old append behaviour.
+    assert "if replace_where:" in src
+    # Callers do not all pass dicts.
+    assert "getattr(metadata, key, None)" in src
+
+    sig = inspect.signature(isvc.add_text_to_index)
+    assert sig.parameters["replace_where"].default is None
+
+
+def test_repository_analysis_replaces_its_previous_summary():
+    """The specific defect: re-analysing a repo indexed a second summary."""
+    import inspect
+    from backend.services import repository_analysis_service as ras
+
+    src = inspect.getsource(ras)
+    assert src.count("replace_where=[\"type\", \"folder_id\"]") == 2, (
+        "both the summary and the map call sites must replace, not append"
+    )

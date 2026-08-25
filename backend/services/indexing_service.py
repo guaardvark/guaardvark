@@ -1857,6 +1857,44 @@ def search_with_llamaindex(
 
 
 
+
+def purge_nodes_by_metadata(filters: Dict[str, Any], profile: Optional[str] = None) -> int:
+    """Remove nodes whose metadata matches every key/value in `filters`.
+
+    `purge_document_vectors` keys off a document id, which only exists for content
+    that came from a file. Text indexed directly -- a repository summary, a client
+    profile, an extracted relationship -- has no document row, so re-running its
+    producer used to leave the previous version in the index next to the new one.
+    That is worse than stale storage: the old summary is still retrievable, still
+    scores well, and now competes with the current one at query time.
+
+    Callers pass the metadata keys that identify their content (see
+    `add_text_to_index(replace_where=...)`), and this removes the previous copy.
+    """
+    if not filters:
+        return 0
+    table = resolve_existing_vector_table(None, profile)
+    if not table:
+        return 0
+    clauses, params = [], []
+    for key, value in filters.items():
+        clauses.append("metadata_->>%s = %s")
+        params.extend([str(key), str(value)])
+    sql = f'DELETE FROM "data_{table}" WHERE ' + " AND ".join(clauses)
+    try:
+        conn = _pg_connect()
+        try:
+            conn.autocommit = True
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+                return cur.rowcount or 0
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.warning("Could not purge nodes by metadata %s: %s", filters, e)
+        return 0
+
+
 def add_file_to_index_by_id(file_path: str, document_id) -> bool:
     """Run the full ingest pipeline for a file, given only a document id.
 
@@ -1890,8 +1928,16 @@ def add_file_to_index_by_id(file_path: str, document_id) -> bool:
         return bool(add_file_to_index(file_path, doc))
 
 
-def add_text_to_index(text: str, metadata: Dict[str, Any], project_id: Optional[str] = None) -> Optional[bool]:
+def add_text_to_index(text: str, metadata: Dict[str, Any], project_id: Optional[str] = None,
+                      replace_where: Optional[List[str]] = None) -> Optional[bool]:
     """Add text to the vector index.
+
+    `replace_where` names the metadata keys that identify this content, e.g.
+    ["source", "folder_id"]. Nodes matching those values are removed first, so
+    re-running a producer replaces its previous output instead of leaving a rival
+    copy behind. Without it, re-analysing a repository left the old architectural
+    summary in the index, still retrievable and still competing with the new one.
+    Omitted, behaviour is unchanged and the text is simply appended.
 
     Returns: True = indexed; False = a real failure (no index / exception);
     None = nothing to index (content produced no chunkable text — a benign skip,
@@ -1901,6 +1947,20 @@ def add_text_to_index(text: str, metadata: Dict[str, Any], project_id: Optional[
     global index, storage_context
 
     try:
+        if replace_where:
+            # Not every caller passes a plain dict -- metadata_indexing_service builds a
+            # small object with attributes -- so read defensively rather than assume.
+            def _meta_get(key):
+                if isinstance(metadata, dict):
+                    return metadata.get(key)
+                return getattr(metadata, key, None)
+
+            _identity = {k: _meta_get(k) for k in replace_where if _meta_get(k) is not None}
+            if _identity:
+                _removed = purge_nodes_by_metadata(_identity)
+                if _removed:
+                    logger.info("Replaced %d previously indexed node(s) for %s",
+                                _removed, _identity)
         # Ensure project_id is stored in document metadata for retrieval filtering
         if project_id and 'project_id' not in metadata:
             metadata['project_id'] = str(project_id)
