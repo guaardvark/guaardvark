@@ -17,8 +17,6 @@ https://github.com/user-attachments/assets/c6d9d18b-cfff-4ae2-8220-dc7f329fee5d
 
 </div>
 
-<p align="center"><em>Written, shot, scored and cut by Guaardvark on one desktop GPU — no cloud, no stock footage, no API keys.</em></p>
-
 # Guaardvark
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)

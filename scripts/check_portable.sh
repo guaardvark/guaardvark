@@ -15,6 +15,11 @@
 #   scripts/check_portable.sh            scan every tracked file (CI, lint)
 #   scripts/check_portable.sh --staged   scan lines about to be committed
 #
+# Two untracked lists extend it per-clone, because naming their contents in a
+# tracked file would publish exactly what they exist to withhold:
+#   scripts/.portable-local-patterns   content patterns (box nicknames, ...)
+#   scripts/.portable-local-paths      whole files that may never be committed
+#
 # Install as a pre-commit hook (works from a worktree, where .git is a file and
 # every worktree shares the main repo's one hooks directory):
 #   ln -sf ../../scripts/pre-commit "$(git rev-parse --git-common-dir)/hooks/pre-commit"
@@ -61,6 +66,13 @@ if [ -f "$LOCAL_PATTERNS" ]; then
     RULES="$RULES"$'\n'"$(grep -vE '^\s*(#|$)' "$LOCAL_PATTERNS")"
 fi
 
+# Some files must never be committed at all: private working documents, local
+# backlogs, operator notes. Naming them in the tracked .gitignore would publish
+# the very names being withheld, so they are kept out of `git add` per-clone via
+# .git/info/exclude and enforced here from an untracked list, one
+# "path-regex<TAB>explanation" per line.
+LOCAL_PATHS="${PORTABLE_LOCAL_PATHS:-scripts/.portable-local-paths}"
+
 status=0
 
 # Scan the full content of every tracked file. This is the CI gate: it proves
@@ -101,6 +113,34 @@ scan_staged() {
     done < <(git diff --cached --unified=0 --no-color)
 }
 
+# Refuse whole files by path. .git/info/exclude already keeps these out of a
+# `git add -A`, but that is per-clone and does not stop an explicit `git add
+# <path>`, so this is the gate that does not depend on a clone being set up
+# correctly. Missing list means nothing to enforce, which is the correct
+# default for a fresh clone that has no private files in it.
+scan_paths() {
+    local listing pattern explanation file
+    [ -f "$LOCAL_PATHS" ] || return 0
+    if [ "$MODE" = "--staged" ]; then
+        listing=$(git diff --cached --name-only --diff-filter=d)
+    else
+        listing=$(git ls-files)
+    fi
+    [ -z "$listing" ] && return 0
+    while IFS=$'\t' read -r pattern explanation; do
+        [ -z "$pattern" ] && continue
+        while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            if printf '%s' "$file" | grep -qE -- "$pattern"; then
+                echo "✗ ${file} — ${explanation}"
+                status=1
+            fi
+        done <<< "$listing"
+    done < <(grep -vE '^\s*(#|$)' "$LOCAL_PATHS")
+}
+
+scan_paths
+
 while IFS=$'\t' read -r pattern explanation; do
     [ -z "$pattern" ] && continue
     if [ "$MODE" = "--staged" ]; then
@@ -114,13 +154,16 @@ if [ "$status" -ne 0 ]; then
     echo
     if [ "$MODE" = "--staged" ]; then
         echo "Refusing the commit: the staged changes carry machine-specific"
-        echo "content, operator identity or a secret. Nothing has been published"
-        echo "yet — fix the lines above and stage again."
+        echo "content, operator identity, a secret, or a file that is not the"
+        echo "public repo's to publish. Nothing has been published yet — fix"
+        echo "the findings above and stage again."
     else
         echo "Machine-specific content found in tracked files."
     fi
-    echo "Derive paths from the repo root (Path(__file__).resolve().parents[N])"
-    echo "or read them from an environment variable with a portable default."
+    echo "For content: derive paths from the repo root"
+    echo "(Path(__file__).resolve().parents[N]) or read them from an environment"
+    echo "variable with a portable default. For a whole file: unstage it — it is"
+    echo "listed as local-only and belongs outside the commit entirely."
     exit 1
 fi
 

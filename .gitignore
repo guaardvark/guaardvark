@@ -105,15 +105,13 @@ pids/
 .env
 /env
 
-# Local IDE/agent session state
+# Local IDE / assistant session state
 .antigravitycli/
-/SELF_CODE_AGENTS_EVIDENCE.md
+*.code-workspace
 
-# Local-only planning/design docs (never pushed)
-plans/
-
-# Local-only audit reports (slices, summaries, inventories)
-audit/
+# Local-only dev tooling config (not part of the shipped test config)
+pyrightconfig.json
+pytest.ini
 
 # Runtime cluster state — regenerated on startup, never committed
 data/cluster/
@@ -121,6 +119,9 @@ backend/data/
 
 # Scratch scripts at repo root (root-level only, not backend/tests/)
 /test_stream.py
+/test_rag.py
+backend/pytest_output.txt
+plugins/upscaling/test_gfpgan.py
 
 # Frontend build
 frontend/dist/
@@ -172,17 +173,13 @@ frontend/public/ort-*
 frontend/public/*.wasm
 frontend/public/*.onnx
 
-# Per-machine / personal training helper — hardcodes an absolute /home path and
-# targets the gitignored training/sage_harlow/ workspace; not portable source.
-scripts/gen_sage_candidates.py
-
 # Training model weights (too large for git)
 training/models/
 unsloth_compiled_cache/
 plugins/upscaling/models/*.pth
-# Root training snapshot archive — a 2GB binary (a full training/ dir tarball, e.g.
-# the gvk-eye model). Not source; must never reach a commit. Keep the FILE on disk
-# (it can be the only surviving copy of a trained model) but keep it out of git.
+# Root training snapshot archive — a multi-GB tarball of the whole training/ dir.
+# Not source; must never reach a commit. Keep the FILE on disk (it can be the only
+# surviving copy of a trained model) but keep it out of git.
 training.zip
 /*.zip
 
@@ -203,11 +200,9 @@ data/*-back.zip
 data/data-dir*.zip
 # Orchestrator runtime plans (per-machine state, not application source)
 data/system/orchestrator_plans.json
-# Loose training-knowledge dumps (feedback.jsonl already ignored; catch FUCKED_* etc.)
+# Loose training-knowledge dumps (feedback.jsonl above is the common one; this
+# catches the ad-hoc prefixes that accumulate beside it)
 data/training/knowledge/*feedback*.jsonl
-# Loose backup/scratch copies of agent knowledge files
-data/agent/backs of agent files in this folder/
-
 # Agent desktop runtime home — mime/dbus/gvfs/recently-used caches written per launch
 # (sibling of the already-ignored data/agent/xfce_config/)
 data/agent/data_home/
@@ -223,41 +218,14 @@ data/training/knowledge/OLD.*
 /*.wav
 /frame_*.jpg
 
-# Root scratch notes / AI session dumps / loose test scripts
-/GROK.md
-/.gemini_transcript_review.txt
-/test_rag.py
-backend/pytest_output.txt
-plugins/upscaling/test_gfpgan.py
-
-# Keep-local by decision: outreach targeting config + agent dev/strategy notes
-data/agent/social_outreach_targets.json
-data/agent/findings_response_2026-05-19.md
-data/agent/LEARNING_PRINCIPLES.local.md
-data/agent/PITCH.md
-data/agent/findings_*.md
-cursor_servo_diagnosis.md
-docs/android-litert-exploration.md
-docs/cluster-hardening-notes.md
-
 # Scratch YouTube manual run-scripts (ad-hoc run() scripts, not pytest)
 backend/tests/test_youtube_chat*.py
 backend/tests/test_youtube_final.py
 
-# Local migration backups and runtime editor/session state
-backend/FUCKED.migrations/
+# Runtime editor/session state and locally-trained adapters
 data/video_editor_session.json
 data/video_editor_state.json
 data/training/loras/
-
-# Local-only tooling/config and seeded demo/outreach content
-pyrightconfig.json
-pytest.ini
-scripts/seed_demo_data.py
-scripts/seed_social_outreach_tasks.py
-
-# Local-only notes and scripts (never pushed) 
-GUAARDVARK.md
 
 # Google Indexing service-account key
 data/credentials/
@@ -266,41 +234,11 @@ data/credentials/
 data/.swarm_internal_secret
 data/cast_refs/
 
-# --- Personal operator docs & AI-assistant session files (2026-06-13) ---
-# These were previously protected ONLY by .git/info/exclude, which is per-clone
-# and never shared — so a fresh clone or a stray `git add -A` could track and
-# publish them. Promoted here into the tracked .gitignore (same reasoning as the
-# firefox_profile promotion above) so the protection is durable and travels with
-# the repo. These are local operator context — NEVER for the public mirror.
-# NOTE: the repo-root CLAUDE.md ignored here is the operator's PRIVATE file. If a
-# public contributor-facing CLAUDE.md is ever wanted, it must live at a DIFFERENT
-# path (e.g. docs/ARCHITECTURE.md) to avoid colliding with / leaking this one.
-/CLAUDE.md
-/GEMINI.md
-/KNOWN_BUGS.md
-/AGENT_SESSION_SAVE.md
-/SESSION_HANDOFF*.md
-*.code-workspace
-/guaardvark_backup.json
-/AGENTS.md
-/PUSH_PREVIEW.md
-docs/local-workspace-only/*
-# (2026-08-05: removed a `!MASTER_TASKS.md` negation here — it re-included the
-# 581KB private backlog and one `git add -A` away from publishing it.)
-# Relocated local-only workspace (operator files, AI session state, .env backups
-# with secrets). Entire tree is personal/machine-local — NEVER for the public repo.
-.do-not-put-these-in-root/
-
-# --- Non-essential / generated artifacts (untracked 2026-06-18, public-push sweep) ---
-# Internal multi-agent audit/planning dumps (contain local absolute paths; not source)
-regroup-reports/
-# Per-clone check_portable.sh patterns — box nicknames and similar identifiers
-# that must stay out of the public file they are used to enforce.
+# Per-clone check_portable.sh lists — the names and patterns they hold must stay
+# out of the public file that enforces them. See CONTRIBUTING.md.
 scripts/.portable-local-patterns
-# One-off A/B harnesses that patch tracked files in place to bisect a fault on a
-# single box. Named for the box, useless anywhere else, and dangerous to ship:
-# they rewrite start.sh and the GPU orchestrator.
-scripts/*_ab/
+scripts/.portable-local-paths
+
 # Per-machine build/runtime state, regenerated by start.sh / verify_gpu_stack.sh
 frontend/.npm_stamp
 data/gpu_stack_status.json
@@ -324,14 +262,9 @@ plugins/lora_trainer/SimpleTuner/
 plugins/lora_trainer/ai-toolkit/
 plugins/lora_trainer/musubi-tuner/
 plugins/lora_trainer/sd-scripts-flux/
-# Per-run training workspaces: datasets, outputs, checkpoints, caches, run configs, logs
-training/sage_harlow/
-training/lora_smoke/
-cast_lora_16gb.yaml
 # Logs, debug dumps, LLM/agent transcripts (personal / regenerable)
 *.log
 debug.log
-grok-transcript.mc
 # Cursor IDE local rules/state (operator machine only — not product code)
 .cursor/
 # Per-machine runtime state written by the app
@@ -344,6 +277,9 @@ backend/tools/voice/whisper.cpp/
 plugins/comfyui/.custom_nodes_installed
 data/embedding_meta.json
 data/documents_windows_v2_state.json
+data/sticky_notes_state.json
+# Pre-migration copies of the file-backed index, kept on disk after the pgvector move
+data/_pre_pgvector_backup/
 # Per-install plugin manifest overrides (merged over plugin.json at load)
 plugins/*/plugin.local.json
 
@@ -359,9 +295,9 @@ data/demo_assets/*/render/
 data/demo_assets/*/README.md
 
 # Claude Code workspace config. Every file here so far — permission allowlists,
-# hooks, workflows — points at this machine or at docs/local-workspace-only/,
-# which is itself ignored, so the whole directory stays local. To ship a hook or
-# skill deliberately, un-ignore that one path; never the directory.
+# hooks, workflows — is specific to one machine and its local-only working
+# files, so the whole directory stays local. To ship a hook or skill
+# deliberately, un-ignore that one path; never the directory.
 .claude/
 
 # Build-time copy of the repo-root VERSION, so an sdist can carry it. Generated

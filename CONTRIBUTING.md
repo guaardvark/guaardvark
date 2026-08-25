@@ -261,6 +261,15 @@ Identifiers specific to your own machine belong in the untracked
 `scripts/.portable-local-patterns`, one `pattern<TAB>explanation` per line. The guard
 picks them up automatically, and your machine names stay out of the public script.
 
+Whole files that must never be committed — private notes, local planning documents,
+anything that is yours rather than the project's — go in the untracked
+`scripts/.portable-local-paths`, one `path-regex<TAB>explanation` per line. The guard
+refuses any of them that reaches the index. Pair it with `.git/info/exclude` rather
+than `.gitignore`: an ignore rule is itself published, so naming a private file there
+tells everyone it exists. `.git/info/exclude` keeps it out of `git add -A` without
+announcing it, and the guard covers the case that file cannot — an explicit
+`git add <path>` in a clone whose exclude list was never set up.
+
 The riskiest moment is adding a **new** file, not editing a tracked one. Run
 `git status` before `git add`, and never `git add -A` without reading what it staged.
 If a check fires, fix the content — don't widen the allowlist and don't reach for
