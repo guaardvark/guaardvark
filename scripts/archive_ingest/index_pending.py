@@ -88,7 +88,9 @@ def main() -> int:
                 rel = getattr(doc, "file_path", None) or doc.path
                 file_path = rel if os.path.isabs(rel) else os.path.join(UPLOAD_DIR, rel)
                 if not os.path.exists(file_path):
-                    doc.index_status = "ERROR"
+                    # Record it, but leave the status alone. A registry row pointing
+                    # at a file that is gone is a reconciliation question, and
+                    # rewriting its status here silently rewrites history.
                     doc.error_message = f"file not found: {file_path}"
                     skipped += 1
                     db.session.commit()
@@ -120,7 +122,10 @@ def main() -> int:
                     doc.indexed_at = datetime.now()
                     ok += 1
                 else:
-                    doc.index_status = "ERROR"
+                    # A falsy return also means "index not initialised" or "model
+                    # would not load" — environmental, not a property of the
+                    # document. Marking ERROR drops it from the set a later run
+                    # picks up, so an outage silently becomes permanent.
                     doc.error_message = "add_file_to_index returned falsy"
                     failed += 1
             except Exception as exc:
