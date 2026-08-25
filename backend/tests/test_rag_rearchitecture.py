@@ -620,3 +620,54 @@ def test_real_document_errors_are_not_treated_as_transient():
                 "PDF parse failed: xref table missing",
                 "add_file_to_index returned falsy"):
         assert not _is_transient(Exception(msg)), msg
+
+
+# --------------------------------------------------------------------------
+# Auto-resume scope: status is not a scope
+# --------------------------------------------------------------------------
+def test_auto_resume_services_documents_not_generated_media():
+    """The registry holds generated media alongside real documents, and media
+    outnumbers them several to one. A catch-up job that walks everything not yet
+    INDEXED spends its GPU captioning batch output and never reaches the backlog
+    it exists to finish."""
+    from backend.tasks.index_resume_tasks import _document_extensions
+
+    exts = _document_extensions()
+    for wanted in (".md", ".txt", ".pdf", ".docx"):
+        assert wanted in exts, wanted
+    for media in (".png", ".jpg", ".mp4", ".wav", ".mp3", ".webm"):
+        assert media not in exts, f"{media} would pull generated media into the backlog"
+
+
+def test_auto_resume_extension_scope_is_overridable(monkeypatch):
+    """Per-machine override, so widening the scope needs no code change."""
+    from backend.tasks import index_resume_tasks as t
+
+    monkeypatch.setenv("GUAARDVARK_INDEX_RESUME_EXTENSIONS", "md, txt,.epub")
+    assert t._document_extensions() == {".md", ".txt", ".epub"}
+
+
+def test_auto_resume_defers_without_reclassifying_the_document():
+    """`add_file_to_index` returns falsy for environmental reasons that say
+    nothing about the document. Writing ERROR removes the row from the set this
+    task works from, so a bad half-hour becomes permanent."""
+    from backend.tasks.index_resume_tasks import _defer
+
+    class _Doc:
+        index_status = "PENDING"
+        error_message = None
+        updated_at = None
+
+    class _Sess:
+        def commit(self):
+            pass
+
+    class _DB:
+        session = _Sess()
+
+    doc = _Doc()
+    _defer(doc, _DB(), "add_file_to_index returned falsy")
+
+    assert doc.index_status == "PENDING", "status must survive a failed attempt"
+    assert doc.error_message == "add_file_to_index returned falsy"
+    assert doc.updated_at is not None, "the attempt stamp is the ordering key"
