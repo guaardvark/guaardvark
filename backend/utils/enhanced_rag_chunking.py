@@ -88,6 +88,43 @@ class ChunkMetadata:
 # capitalised word in the chunk. None of it describes what the chunk is about.
 # The values stay queryable for filters and citations -- only the embedding
 # stops seeing them.
+# Semantic splitting embeds every sentence window to find its breakpoints, and
+# those chunks are then embedded again on insert -- the same text paid for twice,
+# during the phase that is supposed to be cheap. It also mints its nodes on a path
+# that bypasses the metadata exclusions below, so those chunks carry the full
+# bookkeeping block into their embedding. Off by default until both are fixed;
+# set GUAARDVARK_SEMANTIC_CHUNKING=true to re-enable.
+
+# Document metadata worth embedding. Empty by design: contextual_prepender already
+# writes the filename, heading path and page into the chunk text, so leaving those
+# keys in the metadata budget would spend the chunk twice on the same words. A
+# deployment that drops the contextual prefix should widen this instead.
+EMBEDDABLE_DOC_METADATA = frozenset()
+
+
+def _declare_embed_budget(document) -> None:
+    """Exclude document metadata from the chunk-size budget, before splitting."""
+    meta = getattr(document, "metadata", None) or {}
+    if not meta:
+        return
+    drop = set(meta) - EMBEDDABLE_DOC_METADATA
+    for attr in ("excluded_embed_metadata_keys", "excluded_llm_metadata_keys"):
+        current = list(getattr(document, attr, None) or [])
+        for key in drop:
+            if key not in current:
+                current.append(key)
+        try:
+            setattr(document, attr, current)
+        except Exception:
+            # Some loaders hand back objects that refuse attribute writes; the
+            # post-split pass below still covers those.
+            pass
+
+
+SEMANTIC_CHUNKING_ENABLED = os.environ.get(
+    "GUAARDVARK_SEMANTIC_CHUNKING", "false").lower() == "true"
+
+
 NON_SEMANTIC_CHUNK_METADATA = frozenset({
     "cached_at", "chunk_id", "chunk_position", "chunk_type", "content_type",
     "created_at", "entities", "importance_score", "language", "original_text",
@@ -747,7 +784,7 @@ class AdaptiveChunker(BaseChunker):
         elif code_score > 2 or table_count > 2:
             return 'hierarchical'
         elif section_count > 2 and len(content) > 2000:
-            return 'semantic'
+            return 'semantic' if SEMANTIC_CHUNKING_ENABLED else 'hierarchical'
         else:
             return 'adaptive'
     
@@ -1556,6 +1593,22 @@ class EnhancedRAGChunker:
                 if actual_strategy not in self.chunkers:
                     logger.warning(f"Unknown strategy '{actual_strategy}', using adaptive")
                     actual_strategy = 'adaptive'
+
+                # Declare the embed budget on the DOCUMENT, before it is split.
+                # LlamaIndex sizes each chunk as `chunk_size - len(metadata)`, and it
+                # reads that metadata from the document being split, not from the nodes
+                # coming out. Excluding keys afterwards therefore fixes what gets
+                # embedded but not what gets *counted* -- so a document carrying a long
+                # path, a heading breadcrumb, tags and notes silently loses most of its
+                # chunk to metadata it was never going to embed. Measured on a real
+                # corpus: a nominal 250-token tier left as little as 44 tokens of text.
+                #
+                # Set here, the exclusions propagate to every split
+                # (build_nodes_from_splits copies them), so the budget reflects what is
+                # actually embedded. Nothing is lost: the values stay on the nodes for
+                # filtering and citation, and contextual_prepender writes source,
+                # section and page into the chunk text itself.
+                _declare_embed_budget(document)
 
                 chunker = self.chunkers[actual_strategy]
                 nodes = chunker.chunk_document(document)

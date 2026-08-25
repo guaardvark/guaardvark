@@ -712,3 +712,57 @@ def test_auto_resume_source_routes_problem_ticks_to_warning():
     assert "if failed or missing:" in src
     assert "logger.warning(summary" in src
     assert "logger.info(summary" in src
+
+
+# --------------------------------------------------------------------------
+# The chunk-size budget must reflect what is actually embedded
+# --------------------------------------------------------------------------
+def test_document_metadata_is_excluded_before_splitting():
+    """LlamaIndex sizes chunks as `chunk_size - len(metadata)` and reads that
+    metadata from the document being split. Excluding keys on the output nodes
+    fixes what gets embedded but not what gets counted, so a document carrying a
+    long path plus tags and notes silently loses most of its chunk."""
+    from llama_index.core import Document as LlamaDocument
+    from backend.utils.enhanced_rag_chunking import _declare_embed_budget
+
+    doc = LlamaDocument(text="body", metadata={
+        "file_path": "/a/very/long/path/to/some/archived/document/file.md",
+        "heading_path": "Chapter 4 > Section 2 > Procedure 3",
+        "tags": "alpha,beta,gamma", "notes": "operator notes here",
+        "project_name": "Example", "source_filename": "file.md",
+    })
+    _declare_embed_budget(doc)
+
+    for key in doc.metadata:
+        assert key in doc.excluded_embed_metadata_keys, key
+        assert key in doc.excluded_llm_metadata_keys, key
+
+
+def test_heavy_metadata_does_not_shrink_the_content_budget():
+    """The regression this guards: identical text, one copy carrying heavy
+    document metadata, must not be chopped into smaller chunks than the other."""
+    from llama_index.core import Document as LlamaDocument
+    from backend.utils.enhanced_rag_chunking import get_shared_chunker
+
+    body = ("The station coolant manifest records pressure at each intake valve. "
+            "Operators log the reading at every shift handover. ") * 60
+
+    light = LlamaDocument(text=body, metadata={"source_filename": "f.md"})
+    heavy = LlamaDocument(text=body, metadata={
+        "source_filename": "f.md",
+        "file_path": "/srv/archive/2026/exports/session-transcripts/f.md",
+        "heading_path": "Operations > Maintenance > Coolant > Emergency Purge",
+        "tags": "coolant,maintenance,operations,archive,2026",
+        "notes": "Imported from the historical export; verify against the log.",
+        "project_name": "Station Operations Archive", "client": "Example Client",
+    })
+
+    chunker = get_shared_chunker()
+    n_light = len(chunker.chunk_documents([light], strategy_name="hierarchical"))
+    n_heavy = len(chunker.chunk_documents([heavy], strategy_name="hierarchical"))
+
+    # Before the fix the heavy document produced substantially more, smaller chunks.
+    assert n_heavy <= n_light * 1.25, (
+        f"heavy metadata inflated chunk count {n_light} -> {n_heavy}; "
+        "the exclusions are not reaching the splitter"
+    )
