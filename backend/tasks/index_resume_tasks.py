@@ -214,7 +214,7 @@ def resume_pending_tick(limit: int = None) -> dict:
                     # condemning the document: if it went away mid-batch, stop and
                     # leave the rest PENDING for the next tick.
                     if not _embedding_service_reachable():
-                        logger.info(
+                        logger.warning(
                             "index resume: embedding service went away mid-batch — "
                             "stopping, %d document(s) left PENDING", len(pending) - indexed,
                         )
@@ -238,6 +238,14 @@ def resume_pending_tick(limit: int = None) -> dict:
                 continue
             db.session.commit()
 
-        logger.info("index resume tick: %d indexed, %d deferred, %d missing",
-                    indexed, failed, missing)
+        # Application logging defaults to WARNING (BACKEND_LOG_LEVEL), so an INFO
+        # summary is invisible on a normal install — and an unattended job whose
+        # outcome nobody can see is one nobody can trust. A tick that deferred or
+        # skipped documents is saying something needs attention, so it reports at
+        # WARNING; a clean tick stays quiet.
+        summary = "index resume tick: %d indexed, %d deferred, %d missing"
+        if failed or missing:
+            logger.warning(summary, indexed, failed, missing)
+        else:
+            logger.info(summary, indexed, failed, missing)
         return {"indexed": indexed, "failed": failed, "missing": missing}

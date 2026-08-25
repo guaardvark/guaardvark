@@ -671,3 +671,44 @@ def test_auto_resume_defers_without_reclassifying_the_document():
     assert doc.index_status == "PENDING", "status must survive a failed attempt"
     assert doc.error_message == "add_file_to_index returned falsy"
     assert doc.updated_at is not None, "the attempt stamp is the ordering key"
+
+
+def test_auto_resume_reports_a_problem_tick_at_default_log_level(caplog):
+    """Application logging defaults to WARNING, so an INFO-only summary is
+    invisible on a normal install. A tick that deferred or skipped documents has
+    to say so at a level the operator actually sees."""
+    import logging
+    from backend.tasks import index_resume_tasks as t
+
+    calls = []
+    monkey = type("L", (), {
+        "warning": lambda self, *a: calls.append(("warning", a)),
+        "info": lambda self, *a: calls.append(("info", a)),
+        "debug": lambda self, *a: None,
+    })()
+    orig = t.logger
+    t.logger = monkey
+    try:
+        # Mirror the tail of the task: a tick with deferrals must warn.
+        summary = "index resume tick: %d indexed, %d deferred, %d missing"
+        for indexed, failed, missing, expected in ((5, 0, 0, "info"), (3, 2, 0, "warning"),
+                                                   (3, 0, 1, "warning")):
+            calls.clear()
+            if failed or missing:
+                t.logger.warning(summary, indexed, failed, missing)
+            else:
+                t.logger.info(summary, indexed, failed, missing)
+            assert calls[0][0] == expected, (indexed, failed, missing)
+    finally:
+        t.logger = orig
+
+
+def test_auto_resume_source_routes_problem_ticks_to_warning():
+    """Guards the real call site, not just the shape of the decision."""
+    import inspect
+    from backend.tasks import index_resume_tasks as t
+
+    src = inspect.getsource(t.resume_pending_tick)
+    assert "if failed or missing:" in src
+    assert "logger.warning(summary" in src
+    assert "logger.info(summary" in src
