@@ -301,17 +301,52 @@ class PostgresSparseRetriever:
     _STOPISH = frozenset("""a an and are as at be by for from has have how in is it
         its of on or that the this to was what when where which who why with""".split())
 
-    def _tsquery_or(self, query: str) -> Optional[str]:
-        """An OR query over the useful terms, or None if nothing is left."""
-        terms = [t for t in re.findall(r"[A-Za-z0-9_]{2,}", query.lower())
-                 if t not in self._STOPISH]
-        # Deduplicate, keep order.
+    def _terms(self, query: str) -> List[str]:
         seen, out = set(), []
-        for t in terms:
-            if t not in seen:
+        for t in re.findall(r"[A-Za-z0-9_]{2,}", query.lower()):
+            if t not in self._STOPISH and t not in seen:
                 seen.add(t)
                 out.append(t)
-        return " | ".join(out[:12]) or None
+        return out[:12]
+
+    def _rarest(self, terms: List[str], keep: int = 4) -> List[str]:
+        """Order terms by how few chunks contain them, keeping the rarest.
+
+        `ts_rank_cd` has no IDF: a match on a word in 836 chunks scores like a
+        match on one in 14. Broadening a question to an OR therefore lets chunks
+        stuffed with common words outrank the single chunk holding the
+        distinctive term the user actually asked about -- measured on this corpus,
+        "Meridian Protocol" (14 chunks) lost to "date" (836).
+
+        Postgres cannot weight query terms, so rarity is applied by selection
+        instead: count each term once against the GIN index, then keep only the
+        most selective. Cheap -- a handful of index-only counts -- and it turns an
+        OR over everything into an OR over the words that carry the meaning.
+        """
+        if len(terms) <= keep:
+            return terms
+        try:
+            conn = _pg_connect()
+            try:
+                freqs = {}
+                with conn.cursor() as cur:
+                    for t in terms:
+                        cur.execute(
+                            f'SELECT count(*) FROM "data_{self.table}" '
+                            f"WHERE text_search_tsv @@ to_tsquery('english', %s)", (t,))
+                        freqs[t] = cur.fetchone()[0]
+            finally:
+                conn.close()
+        except Exception as e:
+            logger.debug("Term-rarity lookup failed (%s); using query order", e)
+            return terms[:keep]
+        # Terms nothing matches are useless too; rank present-but-rare first.
+        ranked = sorted((t for t in terms if freqs.get(t, 0) > 0), key=lambda t: freqs[t])
+        return ranked[:keep] or terms[:keep]
+
+    def _tsquery_or(self, query: str) -> Optional[str]:
+        """An OR over the most selective terms, or None if nothing is left."""
+        return " | ".join(self._rarest(self._terms(query))) or None
 
     def _run(self, match_sql: str, match_arg: str):
         where = [match_sql]

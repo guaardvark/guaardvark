@@ -872,3 +872,38 @@ def test_repository_analysis_replaces_its_previous_summary():
     assert src.count("replace_where=[\"type\", \"folder_id\"]") == 2, (
         "both the summary and the map call sites must replace, not append"
     )
+
+
+def test_sparse_broadening_prefers_rare_terms():
+    """`ts_rank_cd` has no IDF, so a match on a word in 836 chunks scores like a
+    match on one in 14. Broadening a question to an OR therefore let chunks
+    stuffed with common words outrank the single chunk holding the distinctive
+    term the user asked about. Postgres cannot weight query terms, so rarity is
+    applied by selection: count each term against the GIN index, keep the most
+    selective."""
+    import backend.services.indexing_service as isvc
+
+    r = isvc.PostgresSparseRetriever("t", top_k=8)
+
+    # Stopwords never reach the query at all.
+    terms = r._terms("What is the maximum retry budget for a request?")
+    assert "what" not in terms and "is" not in terms and "the" not in terms
+    assert "retry" in terms and "budget" in terms
+
+    # With a corpus to consult, the rarest win. Stub the lookup so the test does
+    # not need a live table.
+    freq = {"date": 836, "protocol": 90, "member": 20, "meridian": 14, "ratified": 3}
+    r._rarest = lambda ts, keep=4: sorted(
+        (t for t in ts if t in freq), key=lambda t: freq[t])[:keep]
+    out = r._tsquery_or("What date was the Meridian Protocol ratified by member states?")
+    assert "meridian" in out and "ratified" in out
+    assert "date" not in out, "the least selective term must be dropped, not kept"
+
+
+def test_sparse_rarity_lookup_degrades_instead_of_raising():
+    """It runs inside retrieval, so a failed lookup must cost precision, not the query."""
+    import backend.services.indexing_service as isvc
+
+    r = isvc.PostgresSparseRetriever("no_such_table_here", top_k=8)
+    out = r._rarest(["alpha", "beta", "gamma", "delta", "epsilon", "zeta"], keep=3)
+    assert out and len(out) <= 3
