@@ -53,7 +53,7 @@ class VisionAnalyzer:
         ollama_url: str = None,
         default_model: str = None,
         max_width: int = 1024,
-        timeout: int = 90,
+        timeout: int = 45,
     ):
         self.ollama_url = ollama_url or OLLAMA_BASE_URL
         self.default_model = default_model or self._detect_vision_model()

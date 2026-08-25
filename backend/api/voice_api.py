@@ -5,6 +5,7 @@ import logging
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 import hashlib
@@ -1423,7 +1424,7 @@ def narrate():
                     temp_files.append(section_path)
 
                 cmd = [
-                    "python", "-m", "piper",
+                    sys.executable, "-m", "piper",
                     "--model", piper_model,
                     "--output_file", section_path
                 ]

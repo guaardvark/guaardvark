@@ -1,5 +1,6 @@
 
 import csv
+import hashlib
 import io
 import json
 import logging
@@ -128,6 +129,37 @@ class BatchGenerationStatus:
     # Optional UI label (first prompt snippet) for the queue panel
     display_name: Optional[str] = None
     retry_data: Optional[Dict[str, Any]] = None
+    # Set while the batch is admitted-but-waiting on VRAM; cleared on admit.
+    gpu_wait_reason: Optional[str] = None
+
+# Seed space shared with the offline path (offline_image_generator uses
+# torch.randint(0, 2**32)), so seeds stay comparable across generators.
+SEED_SPACE = 2 ** 32
+
+
+def resolve_image_seed(prompt: "BatchPrompt", batch_id: str = "") -> int:
+    """Effective seed for one batch image.
+
+    An explicit per-prompt seed is returned verbatim — deterministic rerun is a
+    supported workflow and must never be overridden. Otherwise the seed is
+    derived from (batch_id, prompt.id), which gives three properties the old
+    hardcoded ``42`` did not:
+
+      * every slot in a batch gets a DIFFERENT seed, so N prompts no longer
+        collapse to N identical renders on a deterministic model like FLUX;
+      * the same slot in the same batch is stable, so a batch is reproducible
+        from its id alone;
+      * a fresh batch_id yields fresh images, so re-running is a real re-roll.
+
+    Falls back to a random basis when there is no batch id to key on, so an
+    ad-hoc single call still varies rather than pinning to a constant.
+    """
+    if prompt.seed is not None:
+        return int(prompt.seed) % SEED_SPACE
+    key = batch_id or f"adhoc-{random.randrange(SEED_SPACE)}"
+    basis = f"{key}:{prompt.id or ''}".encode("utf-8", "replace")
+    return int.from_bytes(hashlib.blake2b(basis, digest_size=8).digest(), "big") % SEED_SPACE
+
 
 class BatchImageGenerator:
 
@@ -487,7 +519,7 @@ class BatchImageGenerator:
         k = (model_key or "").strip().lower()
         return k in ("flux-dev", "flux", "flux.1-dev", "flux1-dev") or k.startswith("flux-dev")
 
-    def _generate_with_comfy_flux(self, prompt: BatchPrompt) -> Optional[ImageGenerationResult]:
+    def _generate_with_comfy_flux(self, prompt: BatchPrompt, batch_id: str = "") -> Optional[ImageGenerationResult]:
         """Plain FLUX.1-dev stills (no LoRA) via ComfyUI — max-quality batch path."""
         try:
             from backend.services.comfyui_image_generator import ComfyUIImageGenerator
@@ -520,6 +552,11 @@ class BatchImageGenerator:
         out_path = _os.path.join(
             tempfile.gettempdir(), f"flux_{prompt.id}_{int(_time.time() * 1000)}.png"
         )
+        # FLUX is deterministic: identical prompt + identical seed = identical
+        # pixels. This branch used to pin the seed to a literal 42 whenever the
+        # caller supplied none, so a batch of N prompts burned full GPU time
+        # rendering N copies of the same image. Derive per-slot instead.
+        seed = resolve_image_seed(prompt, batch_id)
         try:
             gen = ComfyUIImageGenerator(model="flux-dev")
             path = gen.generate_image(
@@ -529,7 +566,7 @@ class BatchImageGenerator:
                 width=width,
                 height=height,
                 negative_prompt=prompt.negative_prompt or None,
-                seed=prompt.seed if prompt.seed is not None else 42,
+                seed=seed,
                 steps=steps,
                 cfg=guidance,
                 model="flux-dev",
@@ -540,7 +577,9 @@ class BatchImageGenerator:
                 prompt_used=prompt.prompt,
                 model_used="flux-dev",
                 image_size=(width, height),
-                seed_used=prompt.seed,
+                # The seed actually rendered, not the (often None) requested one —
+                # otherwise the batch cannot report or reproduce its own output.
+                seed_used=seed,
             )
         except Exception as e:
             logger.error("FLUX.1-dev batch generation failed: %s", e)
@@ -630,7 +669,7 @@ class BatchImageGenerator:
             if getattr(prompt, "subject_ids", None) or getattr(prompt, "loras", None):
                 result = self._generate_with_character_lora(prompt)
             elif self._is_comfy_flux_model(prompt.model):
-                result = self._generate_with_comfy_flux(prompt)
+                result = self._generate_with_comfy_flux(prompt, batch_id)
             else:
                 result = None
 
@@ -1230,45 +1269,126 @@ class BatchImageGenerator:
                         )
 
             if self._batch_uses_cuda_offline_gen():
-                from backend.services.gpu_resource_policy import gpu_session
-                from backend.services.job_operation_gate import GpuBusyError
+                from backend.services.gpu_resource_policy import (
+                    compositor_vram_reserve_mb,
+                    gpu_session,
+                    vram_probe_snapshot,
+                )
+                from backend.services.job_operation_gate import GpuBusyError, GpuCapacityError
                 from backend.services.job_types import JobKind
 
                 vram_mb, ram_gb = self._batch_resource_estimates(request)
                 slot_id = f"image_batch:{batch_id}"
+                reserve_mb = compositor_vram_reserve_mb()
+                cancel_event = self.cancel_events.get(batch_id)
                 logger.info(
                     f"Batch {batch_id} acquiring gpu_session "
                     f"(vram~{vram_mb}MB ram~{ram_gb}GB)"
                 )
+
+                # Retry a resident/busy refusal with backoff until the deadline;
+                # a capacity refusal is terminal. Mirrors the video batch loop
+                # (batch_video_generator._run_batch). Before this, a shortfall of
+                # ~130MB against a cross-encoder that idle-evicts minutes later
+                # killed the whole batch on the first try. Eviction belongs to
+                # gpu_session once it has won the slot; this loop never reclaims.
                 try:
-                    from backend.services.gpu_resource_policy import compositor_vram_reserve_mb
-                    with gpu_session(
-                        JobKind.VIDEO_RENDER,
-                        batch_id,
-                        on_busy="wait",
-                        wait_timeout=120.0,
-                        evict_ollama=True,
-                        free_comfyui=True,
-                        cross_process=True,
-                        vram_estimate_mb=vram_mb,
-                        ram_estimate_gb=ram_gb,
-                        require_fit=True,
-                        slot_id=slot_id,
-                        lease_seconds=1800,
-                        # 2026-08-04: diffusers-image sessions hold back the desktop
-                        # compositor's VRAM share (Wayland died when 2048² jobs were
-                        # admitted against raw card totals).
-                        vram_reserve_mb=compositor_vram_reserve_mb(),
-                    ):
-                        _run_batch_body(session_held=True)
-                except GpuBusyError as e:
-                    self._fail_batch_gpu_busy(
-                        batch_id,
-                        batch_status,
-                        output_dir,
-                        request,
-                        f"Could not acquire GPU / system RAM headroom: {e}",
+                    admit_deadline_s = float(
+                        os.environ.get("GUAARDVARK_IMAGE_VRAM_WAIT_S", "600")  # 10 min
                     )
+                except ValueError:
+                    admit_deadline_s = 600.0
+                admit_deadline_s = max(0.0, admit_deadline_s)
+                deadline = time.time() + admit_deadline_s
+                backoff_s = 2.0
+                need_mb = int(vram_mb) + 1024
+
+                while True:
+                    if cancel_event and cancel_event.is_set():
+                        batch_status.status = "cancelled"
+                        batch_status.error = "Cancelled while waiting for GPU/VRAM"
+                        batch_status.end_time = datetime.now()
+                        batch_status.gpu_wait_reason = None
+                        return
+
+                    try:
+                        with gpu_session(
+                            JobKind.VIDEO_RENDER,
+                            batch_id,
+                            on_busy="wait",
+                            wait_timeout=120.0,
+                            evict_ollama=True,
+                            free_comfyui=True,
+                            cross_process=True,
+                            vram_estimate_mb=vram_mb,
+                            ram_estimate_gb=ram_gb,
+                            require_fit=True,
+                            slot_id=slot_id,
+                            lease_seconds=1800,
+                            # 2026-08-04: diffusers-image sessions hold back the desktop
+                            # compositor's VRAM share (Wayland died when 2048² jobs were
+                            # admitted against raw card totals).
+                            vram_reserve_mb=reserve_mb,
+                        ):
+                            batch_status.gpu_wait_reason = None
+                            _run_batch_body(session_held=True)
+                        return
+                    except GpuCapacityError as e:
+                        # The estimate cannot fit this card at all. Waiting is
+                        # not a strategy; fail now with the honest reason.
+                        batch_status.gpu_wait_reason = None
+                        self._fail_batch_gpu_busy(
+                            batch_id, batch_status, output_dir, request,
+                            f"Could not acquire GPU / system RAM headroom: {e}",
+                        )
+                        return
+                    except GpuBusyError as e:
+                        remaining = deadline - time.time()
+                        if remaining <= 0:
+                            batch_status.gpu_wait_reason = None
+                            self._fail_batch_gpu_busy(
+                                batch_id, batch_status, output_dir, request,
+                                f"Could not acquire enough free VRAM after waiting "
+                                f"{int(admit_deadline_s)}s: {e}",
+                            )
+                            return
+
+                        snap = vram_probe_snapshot(reserve_mb=reserve_mb)
+                        wait_msg = (
+                            f"Waiting for VRAM — "
+                            f"{(snap.get('free_mb') or 0) / 1024:.1f}GB free, "
+                            f"need ~{need_mb / 1024:.1f}GB"
+                        )
+                        batch_status.gpu_wait_reason = wait_msg
+                        if batch_status.status not in ("running", "queued", "pending"):
+                            batch_status.status = "queued"
+                        if self.progress_system:
+                            try:
+                                self.progress_system.update_process(
+                                    process_id=batch_id,
+                                    progress=0,
+                                    message=wait_msg,
+                                    additional_data={
+                                        "batch_id": batch_id,
+                                        "gpu_wait_reason": wait_msg,
+                                        "vram_free_mb": snap.get("free_mb"),
+                                        "vram_need_mb": need_mb,
+                                    },
+                                )
+                            except Exception:
+                                pass
+                        logger.warning(
+                            "Batch %s VRAM resident/busy (%s) — retrying in %.0fs (%.0fs left)",
+                            batch_id, e, min(backoff_s, remaining), remaining,
+                        )
+
+                        sleep_for = min(backoff_s, max(0.5, deadline - time.time()))
+                        end_sleep = time.time() + sleep_for
+                        while time.time() < end_sleep:
+                            if cancel_event and cancel_event.is_set():
+                                break
+                            time.sleep(min(1.0, end_sleep - time.time()))
+                        backoff_s = min(15.0, backoff_s * 1.5)
             else:
                 _run_batch_body()
 
@@ -1335,6 +1455,8 @@ class BatchImageGenerator:
                 "end_time": status.end_time.isoformat() if status.end_time else None,
                 "display_name": status.display_name or batch_id,
                 "error": status.error,
+                # Non-null while the batch is waiting on VRAM rather than stuck.
+                "gpu_wait_reason": getattr(status, "gpu_wait_reason", None),
             })
         return snapshot
 

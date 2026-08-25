@@ -60,6 +60,35 @@ def get_faster_whisper_model(
     return model
 
 
+def is_loaded() -> bool:
+    return _whisper_model is not None
+
+
+def unload() -> bool:
+    """Release the cached model. Returns True if something was released.
+
+    device="auto" resolves to CUDA wherever CTranslate2 can see the card, so a
+    single voice message leaves an encoder/decoder and a cuBLAS workspace resident
+    for the life of the process. Only a request for a *different* model_size ever
+    replaced it, and only "tiny.en" is ever asked for. Never raises.
+    """
+    global _whisper_model, _current_model_size
+    if _whisper_model is None:
+        return False
+    _whisper_model = None
+    _current_model_size = None
+    try:
+        import gc
+        gc.collect()
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:  # noqa: BLE001
+        pass
+    logger.info("faster-whisper model unloaded")
+    return True
+
+
 def transcribe_audio_faster(audio_input, model_size: str = "tiny.en") -> Tuple[str, float]:
     """Transcribe an audio file or numpy array using faster-whisper.
 

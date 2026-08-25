@@ -657,6 +657,25 @@ class OfflineImageGenerator:
             return 0.0
         return max(0.0, (int(width) * int(height)) / 1_048_576.0 - 1.0)
 
+    def _uses_grouped_query_attention(self) -> bool:
+        """True when the loaded transformer has fewer KV heads than query heads.
+
+        That mismatch is what disqualifies the fused SDPA kernels: flash and the
+        mem-efficient kernel both refuse dense GQA, so a masked call falls through
+        to math. Krea 2 is 48/12; Z-Image is 30/30 and unaffected. Read from the
+        config rather than keyed on a model name so a future GQA model is covered
+        without anyone remembering to add it.
+        """
+        cfg = getattr(getattr(self._pipeline, "transformer", None), "config", None)
+        if cfg is None:
+            return False
+        q = getattr(cfg, "num_attention_heads", None) or getattr(cfg, "n_heads", None)
+        kv = getattr(cfg, "num_key_value_heads", None) or getattr(cfg, "n_kv_heads", None)
+        try:
+            return bool(q and kv and int(kv) < int(q))
+        except (TypeError, ValueError):
+            return False
+
     def _will_use_sequential_for_krea2(self) -> bool:
         """True when krea2 loads with sequential CPU offload (≤18GB CUDA cards)."""
         if self._force_sequential_offload:
@@ -1337,7 +1356,41 @@ class OfflineImageGenerator:
                     )
                     logger.info("Enabled channels_last (NHWC) memory format for transformer")
 
+            # Attention backend for grouped-query DiTs (2026-08-24 incident).
+            #
+            # Krea 2 is 48 query heads / 12 KV heads, and its processor forwards the
+            # pipeline's text padding mask into SDPA. On torch 2.5.1 flash refuses a
+            # mask and the mem-efficient kernel refuses the GQA head mismatch, so the
+            # dispatch silently lands on MATH — which materializes the whole
+            # [1, heads, S, S] score matrix. At 1024² (S=4609) that is ~3.8GB and
+            # survives; at 2048² (S=16897) it is **51.05GB** and the batch dies on
+            # denoise step 0, on a card with 10.8GB free. Measured on this box, same
+            # shapes: math 51.05GB (OOM) vs cuDNN 794MB vs no-mask flash 499MB.
+            #
+            # cuDNN attention takes both the mask and the GQA shape, so name it
+            # explicitly rather than leaving the choice to a fallback chain that
+            # picks the one kernel that cannot do this. Z-Image is 30/30 heads (no
+            # GQA) and never hit this; setting the backend is harmless there.
+            self._attention_backend_active = None
+            _transformer = getattr(self._pipeline, "transformer", None)
+            if _transformer is not None and hasattr(_transformer, "set_attention_backend"):
+                for _backend in ("_native_cudnn", "_native_efficient", "_native_flash"):
+                    try:
+                        _transformer.set_attention_backend(_backend)
+                        self._attention_backend_active = _backend
+                        logger.info("Attention backend set to %s for %s", _backend, family)
+                        break
+                    except Exception as e:  # noqa: BLE001
+                        logger.debug("Attention backend %s unavailable: %s", _backend, e)
+                if self._attention_backend_active is None:
+                    logger.warning(
+                        "No explicit attention backend could be set for %s; large "
+                        "canvases may fall back to the quadratic math kernel", family,
+                    )
+
             if hasattr(self._pipeline, "enable_attention_slicing"):
+                # No-op for DiT transformers (it drives UNet set_attention_slice), but
+                # still correct for the SD/SDXL pipelines that share this path.
                 self._pipeline.enable_attention_slicing()
 
             if hasattr(self._pipeline, "enable_xformers_memory_efficient_attention"):
@@ -2204,6 +2257,28 @@ Negative Prompt: {negative_prompt}""",
                         "tiling, which is unavailable on this pipeline build. Refusing "
                         "the untiled decode (it exhausts GPU+system memory). Retry at "
                         "≤1024×1024 or update diffusers."
+                    )
+                    result.generation_time = time.time() - start_time
+                    return result
+
+                # Same shape of gate for the DENOISE side. The tiling gate above only
+                # covers the VAE decode; the 2026-08-24 OOM was on denoise step 0.
+                # A grouped-query DiT whose attention lands on the math kernel
+                # materializes [1, heads, S, S]: at 2048² that is 51GB, which no
+                # amount of VRAM reclaim can serve. Refuse honestly instead of
+                # burning a full model load per prompt to reach the same OOM.
+                if (
+                    request.width * request.height > 1024 * 1024
+                    and self._uses_grouped_query_attention()
+                    and not getattr(self, "_attention_backend_active", None)
+                ):
+                    result.error = (
+                        f"{request.width}x{request.height} with {family} needs a "
+                        "mask-capable memory-efficient attention backend "
+                        "(cuDNN/efficient/flash); none could be set on this build, so "
+                        "attention would fall back to the quadratic math kernel "
+                        "(~51GB at 2048²). Refusing rather than OOMing. Retry at "
+                        "≤1024×1024 or update torch/diffusers."
                     )
                     result.generation_time = time.time() - start_time
                     return result

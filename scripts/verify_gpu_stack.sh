@@ -9,9 +9,35 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 STATUS_FILE="$REPO_ROOT/data/gpu_stack_status.json"
 DEGRADED=()
 
+# A plugin whose manifest declares requirements.gpu=false is a CPU pipeline by
+# design (e.g. video_editor: MLT/auto-editor, no torch import anywhere). Its venv
+# correctly carries the +cpu torch wheel, so torch.zeros(1).cuda() ALWAYS raises
+# "Torch not compiled with CUDA enabled". That is expected, not degraded — the
+# same false positive the darwin/MPS branch below already guards against.
+# Installing a CUDA wheel there costs ~2.5GB and buys nothing.
+plugin_declares_no_gpu() {
+    local py="$1" manifest
+    command -v python3 >/dev/null 2>&1 || return 1   # no parser: check as before
+    # .../plugins/<name>/venv*/bin/python  ->  .../plugins/<name>/plugin.json
+    manifest="$(cd "$(dirname "$py")/../.." 2>/dev/null && pwd)/plugin.json"
+    [ -f "$manifest" ] || return 1
+    python3 - "$manifest" <<'PYEOF' 2>/dev/null
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+except Exception:
+    sys.exit(1)
+sys.exit(0 if (d.get("requirements") or {}).get("gpu") is False else 1)
+PYEOF
+}
+
 check_venv() {
     local label="$1" py="$2"
     [ -x "$py" ] || { return 0; }   # venv absent = not provisioned, not degraded
+    if plugin_declares_no_gpu "$py"; then
+        echo "  – $label: CPU-only plugin (plugin.json requirements.gpu=false) — GPU check skipped"
+        return 0
+    fi
     # Distinguish a broken torch *import* from a torch that imports but can't run
     # a GPU kernel — totally different causes (missing/mismatched CUDA lib vs a
     # driver/VRAM issue). The old message blamed "GPU kernel" for both and sent

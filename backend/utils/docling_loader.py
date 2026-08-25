@@ -46,6 +46,45 @@ def _get_converter():
     return _converter
 
 
+def is_loaded() -> bool:
+    return _converter is not None
+
+
+def unload() -> bool:
+    """Drop the converter and its GPU-resident layout/table models.
+
+    docling's accelerator device defaults to "auto", which resolves to cuda here,
+    so ingesting a PDF leaves ~0.5GB of layout + tableformer weights on the card
+    for the life of the process. Nothing else releases them: the converter is a
+    module global and docling caches its built pipelines internally
+    (DocumentConverter.initialized_pipelines) with no eviction of its own.
+
+    Returns True if something was released. Never raises.
+    """
+    global _converter
+    if _converter is None:
+        return False
+    try:
+        # The pipeline cache holds the model references; clearing the converter
+        # alone would leave them alive inside docling.
+        cache = getattr(_converter, "initialized_pipelines", None)
+        if isinstance(cache, dict):
+            cache.clear()
+    except Exception as e:  # noqa: BLE001
+        logger.debug("docling pipeline cache clear failed: %s", e)
+    _converter = None
+    try:
+        import gc
+        gc.collect()
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:  # noqa: BLE001
+        pass
+    logger.info("Docling converter unloaded")
+    return True
+
+
 def _heading_level(item, fallback: int) -> int:
     lvl = getattr(item, "level", None)
     return int(lvl) if isinstance(lvl, int) and lvl > 0 else fallback
