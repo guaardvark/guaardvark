@@ -521,3 +521,55 @@ def test_auto_resume_batch_is_bounded_by_default():
     from backend.tasks import index_resume_tasks as t
 
     assert 0 < t.DEFAULT_BATCH <= 25
+
+
+# --------------------------------------------------------------------------
+# Knowledge tools must work in the MCP subprocess (no Flask, no loaded index)
+# --------------------------------------------------------------------------
+def test_vector_table_resolves_without_an_embedding_model(monkeypatch):
+    """The MCP server is a bare subprocess: no Flask context, no initialised
+    index, so Settings.embed_model is None and the dimension probe returns None.
+    Deriving the table name from the model therefore failed, breaking every
+    read-only knowledge tool on the interface they were built for. The dimension
+    is already encoded in the table name, so an existing table can be discovered.
+    """
+    from backend.services import indexing_service as ix
+
+    monkeypatch.setenv("GUAARDVARK_VECTOR_STORE", "pgvector")
+    monkeypatch.setattr(ix, "_pg_table_name", lambda *a, **k: None)  # probe unavailable
+
+    class _Cur:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def execute(self, sql, params=None):
+            assert "information_schema" in sql
+            assert "ESCAPE" in sql, "scope contains underscores; LIKE must escape them"
+        def fetchall(self): return [("data_guaardvark_global_2560",)]
+
+    class _Conn:
+        def cursor(self): return _Cur()
+        def close(self): pass
+
+    monkeypatch.setattr(ix, "_pg_connect", lambda: _Conn())
+    assert ix.resolve_existing_vector_table(None) == "guaardvark_global_2560"
+
+
+def test_table_discovery_returns_none_when_nothing_exists(monkeypatch):
+    """A first run has no table yet; callers must get None, not a bogus name."""
+    from backend.services import indexing_service as ix
+
+    monkeypatch.setenv("GUAARDVARK_VECTOR_STORE", "pgvector")
+    monkeypatch.setattr(ix, "_pg_table_name", lambda *a, **k: None)
+
+    class _Cur:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def execute(self, *a, **k): pass
+        def fetchall(self): return []
+
+    class _Conn:
+        def cursor(self): return _Cur()
+        def close(self): pass
+
+    monkeypatch.setattr(ix, "_pg_connect", lambda: _Conn())
+    assert ix.resolve_existing_vector_table(None) is None

@@ -354,6 +354,12 @@ def _active_embed_dim() -> Optional[int]:
     before the table exists. Probing beats a hardcoded map: the operator can point
     the system at any Ollama embedding model.
     """
+    override = os.environ.get("GUAARDVARK_EMBEDDING_DIM", "").strip()
+    if override:
+        try:
+            return int(override)
+        except ValueError:
+            logger.warning("GUAARDVARK_EMBEDDING_DIM=%r is not an integer; ignoring", override)
     try:
         from backend.config import get_active_embedding_model
         model = get_active_embedding_model()
@@ -403,17 +409,45 @@ def _pg_table_name(project_id=None, profile: Optional[str] = None) -> Optional[s
     return f"guaardvark_{scope}_{dim}"
 
 
+# Set when the configured vector store could not be built and an EMPTY in-memory
+# store was substituted. Retrieval still answers in that state, which is the whole
+# danger: every result looks normal while the real index is not being consulted.
+# Read by search_with_llamaindex so the trace says so.
+_vector_store_fallback_reason: Optional[str] = None
+# Latch so the warning below is emitted once per process, not per query.
+_fallback_warned = False
+
+
+def vector_store_fallback_reason() -> Optional[str]:
+    """Why the configured vector store is not in use, or None when it is."""
+    return _vector_store_fallback_reason
+
+
+def _fall_back_to_simple(reason: str):
+    global _vector_store_fallback_reason
+    _vector_store_fallback_reason = reason
+    logger.warning(
+        "pgvector requested but %s — using an EMPTY SimpleVectorStore; "
+        "the persisted index will NOT be consulted", reason,
+    )
+    return SimpleVectorStore() if SimpleVectorStore else None
+
+
 def _make_vector_store(project_id=None, profile: Optional[str] = None):
     """Build the configured vector store. Returns None to mean 'use the default'."""
+    global _vector_store_fallback_reason
     backend = _vector_backend()
     if backend != "pgvector":
+        _vector_store_fallback_reason = None
         return SimpleVectorStore() if SimpleVectorStore else None
 
     table = _pg_table_name(project_id, profile)
     dim = _active_embed_dim()
     if not table or not dim:
-        logger.warning("pgvector requested but embedding dimension is unknown — using SimpleVectorStore")
-        return SimpleVectorStore() if SimpleVectorStore else None
+        return _fall_back_to_simple(
+            "the embedding dimension is unknown (embedding backend unreachable? "
+            "set GUAARDVARK_EMBEDDING_DIM to pin it)"
+        )
 
     try:
         from llama_index.vector_stores.postgres import PGVectorStore
@@ -442,13 +476,12 @@ def _make_vector_store(project_id=None, profile: Optional[str] = None):
             },
         )
         logger.info("Vector store: pgvector table data_%s (dim=%d)", table, dim)
+        _vector_store_fallback_reason = None
         return store
     except Exception as e:
-        logger.error(
-            "pgvector unavailable (%s: %s) — falling back to SimpleVectorStore",
-            e.__class__.__name__, str(e)[:180],
+        return _fall_back_to_simple(
+            f"it is unavailable ({e.__class__.__name__}: {str(e)[:180]})"
         )
-        return SimpleVectorStore() if SimpleVectorStore else None
 
 
 def _pg_connect():
@@ -509,6 +542,59 @@ def purge_document_vectors(document_id, project_id=None, profile: Optional[str] 
     except Exception as e:
         logger.warning("Could not purge existing vectors for document %s: %s", document_id, e)
         return 0
+
+
+def resolve_existing_vector_table(project_id=None, profile: Optional[str] = None) -> Optional[str]:
+    """Name of the vector table for a scope, WITHOUT needing an embedding model.
+
+    `_pg_table_name` derives the name from the active model's dimension, which
+    means probing the model. That is fine inside the app, but the MCP server runs
+    as a bare subprocess with no Flask context and no initialised index, so the
+    probe returns None and every read-only knowledge tool fails on an interface
+    built specifically for MCP.
+
+    The dimension is already encoded in the table name, so an existing table can
+    simply be looked up. Falls back to the derived name when nothing is found, so
+    a first-run caller still gets the table it is about to create.
+    """
+    try:
+        derived = _pg_table_name(project_id, profile)
+    except Exception:
+        derived = None
+    if derived:
+        return derived
+    if _vector_backend() != "pgvector":
+        return None
+
+    try:
+        from backend.services.index_profiles import projection_key
+        scope = projection_key(profile, project_id)
+    except Exception:
+        scope = str(project_id) if project_id else "global"
+    scope = re.sub(r"[^A-Za-z0-9_]", "_", scope)[:60]
+
+    try:
+        conn = _pg_connect()
+        try:
+            with conn.cursor() as cur:
+                # Escaped: `_` is a LIKE wildcard and the scope contains them.
+                cur.execute(
+                    "SELECT table_name FROM information_schema.tables "
+                    "WHERE table_schema='public' AND table_name LIKE %s ESCAPE '\\' "
+                    "ORDER BY table_name",
+                    ("data\\_guaardvark\\_" + scope.replace("_", "\\_") + "\\_%",),
+                )
+                rows = [r[0] for r in cur.fetchall()]
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.debug("vector table discovery failed: %s", e)
+        return None
+
+    if not rows:
+        return None
+    # Strip the "data_" prefix the store adds, to match _pg_table_name's contract.
+    return rows[0][len("data_"):] if rows[0].startswith("data_") else rows[0]
 
 
 def drop_vector_store(project_id=None, profile: Optional[str] = None) -> Dict[str, Any]:
@@ -1131,6 +1217,29 @@ def search_with_llamaindex(
                 "index built with a different embedding model; vector search refused"
             )
             return _out([])
+
+        # The configured store may have been swapped for an empty in-memory one at
+        # build time. Retrieval keeps working in that state and returns ordinary
+        # looking results from nothing, so it has to be said out loud here.
+        _vs_fallback = vector_store_fallback_reason()
+        if _vs_fallback:
+            trace["vector_store"] = "simple_fallback"
+            trace["degraded"] = True
+            trace["degraded_reason"] = (
+                f"persisted vector index NOT in use — {_vs_fallback}"
+            )
+            # The trace alone is not enough: with_trace=True is passed by exactly
+            # one caller in the tree, so chat, the generation pipeline and the
+            # eval harness all take the bare list and never see `degraded`. Log it
+            # once per process at WARNING so the condition is at least visible
+            # somewhere an operator looks.
+            global _fallback_warned
+            if not _fallback_warned:
+                _fallback_warned = True
+                logger.warning(
+                    "RAG degraded: answering from an EMPTY in-memory vector store "
+                    "— %s. The persisted index is NOT being consulted.", _vs_fallback,
+                )
 
         # Layered RAG params (autoresearch): experiment override > explicit
         # max_chunks argument > promoted active config > legacy default (5).

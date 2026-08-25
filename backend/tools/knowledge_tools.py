@@ -26,12 +26,19 @@ _MAX_TEXT = 1200
 def _table() -> Tuple[Optional[str], Optional[str]]:
     """Return (qualified_table, error)."""
     try:
-        from backend.services.indexing_service import _pg_table_name, _vector_backend
+        from backend.services.indexing_service import (
+            resolve_existing_vector_table, _vector_backend,
+        )
         if _vector_backend() != "pgvector":
             return None, "These tools require the pgvector backend."
-        t = _pg_table_name(None)
+        # Discovery rather than derivation: deriving the name needs the embedding
+        # model's dimension, and the MCP server is a bare subprocess with no Flask
+        # context and no initialised index, so that probe returns nothing. These
+        # tools are read-only and the dimension is already in the table name.
+        t = resolve_existing_vector_table(None)
         if not t:
-            return None, "Embedding dimension unknown; the index may not be initialised."
+            return None, ("No knowledge index found. Index some documents first, "
+                          "or check that the pgvector table exists.")
         return f"data_{t}", None
     except Exception as e:
         return None, f"Index unavailable: {e}"
