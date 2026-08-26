@@ -888,9 +888,41 @@ def _initialize_app_components(app):
                         time.sleep(reconnect_delay)
                         reconnect_delay = min(30, reconnect_delay * 2)  # backoff
 
+            def relay_redis_preview():
+                """Independent of the progress relay so a bad JPEG cannot stall percents."""
+                from backend.utils.preview_emitter import REDIS_CHANNEL, SOCKET_EVENT
+                redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+                reconnect_delay = 5
+                while True:
+                    try:
+                        r = redis.Redis.from_url(redis_url)
+                        r.ping()
+                        pubsub = r.pubsub()
+                        pubsub.subscribe(REDIS_CHANNEL)
+                        app.logger.info("Redis preview relay subscribed to %s", REDIS_CHANNEL)
+                        reconnect_delay = 5
+                        for msg in pubsub.listen():
+                            if msg['type'] != 'message':
+                                continue
+                            try:
+                                event_data = json.loads(msg['data'])
+                            except (json.JSONDecodeError, TypeError, ValueError) as e:
+                                app.logger.warning(f"Bad preview message from Redis: {e}")
+                                continue
+                            process_id = event_data.get('job_id', '')
+                            if process_id:
+                                socketio.emit(SOCKET_EVENT, event_data, to=process_id, namespace='/')
+                            socketio.emit(SOCKET_EVENT, event_data, to='global_progress', namespace='/')
+                    except Exception as e:
+                        app.logger.warning(f"Redis preview relay lost (will reconnect): {e}")
+                        time.sleep(reconnect_delay)
+                        reconnect_delay = min(30, reconnect_delay * 2)
+
             relay_thread = threading.Thread(target=relay_redis_progress, daemon=True)
             relay_thread.start()
-            app.logger.info("Started Redis progress relay thread")
+            preview_relay_thread = threading.Thread(target=relay_redis_preview, daemon=True)
+            preview_relay_thread.start()
+            app.logger.info("Started Redis progress and preview relay threads")
         else:
             app.logger.info("Redis progress relay thread already running, skipping")
 

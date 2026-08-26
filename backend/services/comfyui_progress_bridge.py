@@ -29,21 +29,72 @@
 import json
 import logging
 import os
+import struct
 import threading
 import time
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 import websocket  # websocket-client 1.8.0 — already in backend venv
 
+from backend.utils.preview_emitter import emit_preview_event
 from backend.utils.progress_emitter import emit_progress_event
 
 logger = logging.getLogger(__name__)
+
+# ComfyUI protocol.BinaryEventTypes — keep numeric to avoid importing ComfyUI.
+_PREVIEW_IMAGE = 1
+_PREVIEW_IMAGE_WITH_METADATA = 4
+_PREVIEW_THROTTLE_S = 0.25
 
 
 def ws_progress_enabled() -> bool:
     """Master switch. ON by default; set GUAARDVARK_COMFYUI_WS_PROGRESS=0 to fall
     back to poll-only (the pre-bridge behavior). This is the ROLLBACK lever."""
     return os.environ.get("GUAARDVARK_COMFYUI_WS_PROGRESS", "1") not in ("0", "false", "False", "")
+
+
+def ws_preview_enabled() -> bool:
+    """Sampler thumbnails ride the same /ws as progress. Off if progress is off,
+    or when GUAARDVARK_COMFYUI_WS_PREVIEW=0 (percent rail stays)."""
+    if not ws_progress_enabled():
+        return False
+    return os.environ.get("GUAARDVARK_COMFYUI_WS_PREVIEW", "1") not in ("0", "false", "False", "")
+
+
+def parse_comfy_preview_frame(raw: bytes) -> Optional[Tuple[str, bytes]]:
+    """Decode a ComfyUI binary /ws message into (mime, image_bytes).
+
+    PREVIEW_IMAGE (1): [>I event][>I type 1=jpeg|2=png][payload]
+    PREVIEW_IMAGE_WITH_METADATA (4): [>I event][>I meta_len][json][payload]
+    Anything else, truncated, or empty payload → None.
+    """
+    if not raw or len(raw) < 8:
+        return None
+    event = struct.unpack_from(">I", raw, 0)[0]
+    if event == _PREVIEW_IMAGE:
+        type_num = struct.unpack_from(">I", raw, 4)[0]
+        payload = bytes(raw[8:])
+        if not payload:
+            return None
+        mime = "image/png" if type_num == 2 else "image/jpeg"
+        return mime, payload
+    if event == _PREVIEW_IMAGE_WITH_METADATA:
+        meta_len = struct.unpack_from(">I", raw, 4)[0]
+        header = 8 + meta_len
+        if meta_len < 0 or header > len(raw):
+            return None
+        payload = bytes(raw[header:])
+        if not payload:
+            return None
+        mime = "image/jpeg"
+        try:
+            meta = json.loads(bytes(raw[8:header]).decode("utf-8"))
+            if isinstance(meta, dict) and meta.get("image_type"):
+                mime = str(meta["image_type"])
+        except (ValueError, UnicodeDecodeError):
+            pass
+        return mime, payload
+    return None
 
 
 # class_type substring -> human stage label. ComfyUI only tells us the node *id*
@@ -102,6 +153,7 @@ class ComfyUIProgressBridge:
         self._thread: Optional[threading.Thread] = None
         self._stop = threading.Event()
         self._ws: Optional[websocket.WebSocket] = None
+        self._last_preview_emit = 0.0
 
     def start(
         self,
@@ -115,6 +167,7 @@ class ComfyUIProgressBridge:
     ) -> None:
         if not ws_progress_enabled():
             return
+        self._last_preview_emit = 0.0
         # Build node_id -> friendly label map from the workflow we're about to queue.
         # Wan MoE: two KSamplerAdvanced nodes in step order → high/low noise labels
         # so UnifiedProgress shows which expert is running (architecture visibility).
@@ -171,6 +224,7 @@ class ComfyUIProgressBridge:
             return
 
         last_pct = -1
+        previews = ws_preview_enabled()
         try:
             while not self._stop.is_set() and time.time() < deadline:
                 try:
@@ -180,8 +234,14 @@ class ComfyUIProgressBridge:
                 except Exception as e:
                     logger.debug(f"ws progress bridge recv ended: {e}")
                     break
-                if not raw or not isinstance(raw, str):
-                    continue  # binary frames are preview images — ignore
+                if not raw:
+                    continue
+                if isinstance(raw, (bytes, bytearray, memoryview)):
+                    if previews:
+                        self._maybe_emit_preview(process_id, bytes(raw))
+                    continue
+                if not isinstance(raw, str):
+                    continue
                 try:
                     msg = json.loads(raw)
                 except (json.JSONDecodeError, TypeError):
@@ -234,3 +294,18 @@ class ComfyUIProgressBridge:
             except Exception:
                 pass
             self._ws = None
+
+    def _maybe_emit_preview(self, process_id: str, raw: bytes) -> None:
+        parsed = parse_comfy_preview_frame(raw)
+        if not parsed:
+            return
+        now = time.monotonic()
+        if self._last_preview_emit and (now - self._last_preview_emit) < _PREVIEW_THROTTLE_S:
+            return
+        mime, image_bytes = parsed
+        if emit_preview_event(process_id, mime, image_bytes):
+            self._last_preview_emit = now
+        else:
+            # Redis/Socket both down: still stamp so we do not retry the same
+            # burst every recv; the next frame after the window is enough.
+            self._last_preview_emit = now

@@ -17,6 +17,11 @@ import { io } from "socket.io-client";
 import { useTheme } from "@mui/material/styles";
 import { BASE_URL as API_BASE, SOCKET_URL } from "../api/apiClient";
 import { debugLog } from "../utils/debugLog";
+import {
+  applyPreviewFrame,
+  clearAllPreviews,
+  dropStalePreviews,
+} from "../utils/jobPreviewUrls";
 
 const UnifiedProgressContext = createContext();
 
@@ -112,6 +117,8 @@ export const UnifiedProgressProvider = ({ children }) => {
   });
 
   const { activeProcesses, unifiedJobs } = state;
+  const [previewUrls, setPreviewUrls] = useState(() => new Map());
+  const previewLiveRef = useRef(new Set());
 
   const socketRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
@@ -347,6 +354,15 @@ export const UnifiedProgressProvider = ({ children }) => {
           }
         });
 
+        socket.on("job_preview", (data) => {
+          try {
+            if (!data || !data.job_id || !data.b64) return;
+            setPreviewUrls((prev) => applyPreviewFrame(prev, data));
+          } catch (error) {
+            console.error("UnifiedProgressContext: Error handling job_preview:", error);
+          }
+        });
+
         socket.on("disconnect", () => {
           // console.log("UnifiedProgressContext: Disconnected from SocketIO");
           setConnectionState('disconnected');
@@ -436,6 +452,7 @@ export const UnifiedProgressProvider = ({ children }) => {
 
       // Clear all listeners
       listenersRef.current.clear();
+      setPreviewUrls((prev) => clearAllPreviews(prev));
 
       // Execute all registered cleanup functions
       cleanupRef.current.forEach(cleanup => {
@@ -809,6 +826,18 @@ export const UnifiedProgressProvider = ({ children }) => {
     [activeProcesses]
   );
 
+  const getPreviewUrl = useCallback(
+    (processId) => (processId ? previewUrls.get(processId) || null : null),
+    [previewUrls]
+  );
+
+  useEffect(() => {
+    const live = new Set(activeProcesses.keys());
+    const previouslyLive = previewLiveRef.current;
+    setPreviewUrls((prev) => dropStalePreviews(prev, live, previouslyLive));
+    previewLiveRef.current = live;
+  }, [activeProcesses]);
+
   // Enhanced listener management with proper cleanup tracking
   const addProcessListener = useCallback((processId, listener) => {
     if (!listenersRef.current.has(processId)) {
@@ -905,6 +934,7 @@ export const UnifiedProgressProvider = ({ children }) => {
     getProcessesByType,
     isProcessActive,
     getProcess,
+    getPreviewUrl,
 
     // Listener management
     addProcessListener,
@@ -929,6 +959,7 @@ export const UnifiedProgressProvider = ({ children }) => {
     getProcessesByType,
     isProcessActive,
     getProcess,
+    getPreviewUrl,
     addProcessListener,
     removeProcessListener,
     handleJobProgress,

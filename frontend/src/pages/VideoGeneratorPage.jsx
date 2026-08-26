@@ -63,6 +63,7 @@ import {
   fitAreaToRatio,
 } from "../constants/videoGeneratorPresets";
 import VideoGenEffectiveSettings from "../components/videogen/VideoGenEffectiveSettings";
+import LiveLatentPreview from "../components/videogen/LiveLatentPreview";
 import { videoGenStageLabel } from "../components/videogen/stageLabels";
 import {
   PlayArrow as PlayIcon,
@@ -1199,7 +1200,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   // active clip, fed by the ComfyUI ws progress bridge (process_type=video_render,
   // process_id=item_id). Single GPU = at most one active render, so we just take
   // the freshest non-terminal video_render process (preferring this batch's).
-  const { getProcessesByType, activeProcesses } = useUnifiedProgress();
+  const { getProcessesByType, activeProcesses, getPreviewUrl } = useUnifiedProgress();
   const activeStep = useMemo(() => {
     if (!batchStatus || batchStatus.status !== "running") return null;
     const live = (getProcessesByType("video_render") || []).filter((p) =>
@@ -2553,6 +2554,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                 {/* Live current-step (per-clip) progress from the ComfyUI ws bridge */}
                 {activeStep && (
                   <Box sx={{ mb: 2 }}>
+                    <LiveLatentPreview src={getPreviewUrl(activeStep.job_id)} />
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                       <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'capitalize' }}>
                         {activeStep.message || 'Rendering…'}
@@ -2612,6 +2614,9 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                     const thumbUrl = res.thumbnail_path
                       ? `${API_BASE}/batch-video/video/${batchStatus.batch_id}/${encodePathSegments(PathFromUrl(res.thumbnail_path))}`
                       : null;
+                    const liveThumb = (!thumbUrl && activeStep && res.item_id === activeStep.job_id)
+                      ? getPreviewUrl(activeStep.job_id)
+                      : null;
                     return (
                     <Grid item xs={12} sm={6} key={res.item_id}>
                       <Card variant="outlined">
@@ -2640,10 +2645,10 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                               });
                             }}
                           >
-                            {thumbUrl ? (
+                            {thumbUrl || liveThumb ? (
                               <Box
                                 component="img"
-                                src={thumbUrl}
+                                src={thumbUrl || liveThumb}
                                 alt="thumb"
                                 sx={{ width: "100%", height: "100%", objectFit: "cover" }}
                               />

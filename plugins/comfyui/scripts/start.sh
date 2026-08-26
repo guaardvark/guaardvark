@@ -179,13 +179,27 @@ echo "Log: $LOG_FILE"
 #                           acts. GUAARDVARK_COMFYUI_PINNED_MEMORY=1 re-enables it.
 #   --listen 127.0.0.1      ComfyUI has no auth; every consumer is on this host.
 #                           GUAARDVARK_COMFYUI_LISTEN overrides for deliberate LAN use.
+#   --preview-method/size   ComfyUI defaults to none, so API runs emit no sampler
+#                           thumbnails. auto → Latent2RGB. Keep in lockstep with
+#                           backend/services/comfyui_launch_flags.py.
+#                           GUAARDVARK_COMFYUI_PREVIEW_METHOD=none turns them off.
 cd "$COMFYUI_DIR"
 # Under memory pressure the kernel must kill ComfyUI, never the desktop
 # (2026-08-04 client box lockups). Children inherit; unprivileged raises allowed.
 echo "${GUAARDVARK_OOM_SCORE_ADJ:-500}" > /proc/self/oom_score_adj 2>/dev/null || true
 PIN_FLAG="--disable-pinned-memory"
 [ "${GUAARDVARK_COMFYUI_PINNED_MEMORY:-0}" = "1" ] && PIN_FLAG=""
-"$VENV_PYTHON" main.py --listen "${GUAARDVARK_COMFYUI_LISTEN:-127.0.0.1}" --port "$PORT" --disable-smart-memory --cache-none --reserve-vram 1.0 $PIN_FLAG >> "$LOG_FILE" 2>&1 &
+PREVIEW_METHOD="${GUAARDVARK_COMFYUI_PREVIEW_METHOD:-auto}"
+case "$PREVIEW_METHOD" in
+    none|auto|latent2rgb|taesd) ;;
+    *) PREVIEW_METHOD=auto ;;
+esac
+PREVIEW_SIZE="${GUAARDVARK_COMFYUI_PREVIEW_SIZE:-256}"
+PREVIEW_FLAGS="--preview-method ${PREVIEW_METHOD}"
+if [ "$PREVIEW_METHOD" != "none" ]; then
+    PREVIEW_FLAGS="$PREVIEW_FLAGS --preview-size ${PREVIEW_SIZE}"
+fi
+"$VENV_PYTHON" main.py --listen "${GUAARDVARK_COMFYUI_LISTEN:-127.0.0.1}" --port "$PORT" --disable-smart-memory --cache-none --reserve-vram 1.0 $PIN_FLAG $PREVIEW_FLAGS >> "$LOG_FILE" 2>&1 &
 
 # Save PID
 PID_DIR="$PROJECT_ROOT/pids"

@@ -44,6 +44,7 @@ import { getAvailableModels } from "../api/modelService";
 import GpuGateBanner from "../components/common/GpuGateBanner";
 import useJobsGate from "../hooks/useJobsGate";
 import { useUnifiedProgress } from "../contexts/UnifiedProgressContext";
+import LiveLatentPreview from "../components/videogen/LiveLatentPreview";
 import { formatUiError } from "../utils/uiError";
 
 const POLL_MS = 5000;
@@ -611,7 +612,7 @@ const stageLabel = (mv) => {
 
 const MusicVideoPage = () => {
   const { gpuBusy, gpuSubmitBlocked, blockReason } = useJobsGate({ submitMode: "queue" });
-  const { getProcessesByType, activeProcesses } = useUnifiedProgress();
+  const { getProcessesByType, activeProcesses, getPreviewUrl } = useUnifiedProgress();
   const [videos, setVideos] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [detail, setDetail] = useState(null);
@@ -1496,6 +1497,7 @@ const MusicVideoPage = () => {
                   />
                   {activeClipStep && (
                     <Box>
+                      <LiveLatentPreview src={getPreviewUrl(activeClipStep.job_id)} />
                       <LinearProgress
                         variant={activeClipStep.progress != null ? "determinate" : "indeterminate"}
                         value={activeClipStep.progress || 0}
