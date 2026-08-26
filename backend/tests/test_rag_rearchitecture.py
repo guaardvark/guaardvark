@@ -1090,3 +1090,51 @@ def test_celery_path_does_not_invent_a_project_id():
     src = inspect.getsource(cti.enhanced_code_aware_indexing)
     assert "project_id', 1" not in src and 'project_id", 1' not in src
     assert "doc_metadata" not in src
+
+
+# --------------------------------------------------------------------------
+# A failed index load must not destroy the store it failed to read
+# --------------------------------------------------------------------------
+def test_failed_load_does_not_overwrite_the_store():
+    """On a load failure the recovery built an empty index and persisted it over
+    the files it had just failed to read. The likeliest cause of that failure is a
+    half-written file from a previous persist -- so the recovery destroyed exactly
+    what a retry would have recovered. On a file-backed store, that is everything."""
+    import inspect
+    import backend.services.indexing_service as isvc
+
+    src = inspect.getsource(isvc._initialize_index)
+    rebuild = src[src.index("rebuilding as an empty index"):]
+    assert "persist(persist_dir=abs_storage_path)" not in rebuild, (
+        "the empty rebuild must not be written to disk"
+    )
+    assert 'globals()["_index_load_failed"] = True' in rebuild
+
+
+def test_persist_is_suppressed_while_holding_a_placeholder_index():
+    """An ingest arriving after a failed load would persist the empty placeholder
+    on the failure path's behalf, so the guard has to live at the persist."""
+    import inspect
+    import backend.services.indexing_service as isvc
+
+    assert "_safe_persist" in inspect.getsource(isvc.add_file_to_index)
+    guard = inspect.getsource(isvc._safe_persist)
+    assert "_index_load_failed" in guard
+
+    isvc._index_load_failed = True
+    try:
+        class _Ctx:
+            def persist(self, **kw):
+                raise AssertionError("must not persist while degraded")
+        assert isvc._safe_persist(_Ctx(), "/tmp/nowhere") is False
+    finally:
+        isvc._index_load_failed = False
+
+
+def test_a_successful_load_clears_the_degraded_flag():
+    """Otherwise one bad start suppresses persistence for the life of the process."""
+    import inspect
+    import backend.services.indexing_service as isvc
+
+    src = inspect.getsource(isvc._initialize_index)
+    assert 'globals()["_index_load_failed"] = False' in src

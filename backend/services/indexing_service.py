@@ -243,6 +243,26 @@ _bm25_cache: dict = {}  # id(docstore) -> {"doc_count": int, "top_k": int, "retr
 
 
 
+
+# Set when an index load failed and we are serving an empty in-memory index to
+# keep chat alive. Every persist checks it: writing that empty state to disk is
+# how a transient read failure became permanent deletion, and an ingest arriving
+# afterwards would do exactly that on the failure path's behalf.
+_index_load_failed = False
+
+
+def _safe_persist(ctx, persist_dir: str) -> bool:
+    """Persist unless we are holding a placeholder index. Returns whether it wrote."""
+    if _index_load_failed:
+        logger.warning(
+            "Skipping persist to %s: the loaded index is an empty placeholder after a "
+            "failed load, and writing it would overwrite the real store.", persist_dir,
+        )
+        return False
+    ctx.persist(persist_dir=persist_dir)
+    return True
+
+
 def _needs_docstore_nodes(vstore) -> bool:
     """Whether the docstore must hold node copies for retrieval to work.
 
@@ -1336,6 +1356,7 @@ def _initialize_index(storage_path: str):
 
             index = index_instance
             storage_context = storage_context_instance
+            globals()["_index_load_failed"] = False
             # Self-heal mixed-dimension contamination from a past embedding-model switch
             # before any query hits np.array(embeddings) and crashes the vector leg.
             _sanitize_vector_store_dimensions(storage_context_instance, abs_storage_path)
@@ -1376,12 +1397,27 @@ def _initialize_index(storage_path: str):
                         storage_context=storage_context_instance,
                         store_nodes_override=_needs_docstore_nodes(_vs),
                     )
-                    storage_context_instance.persist(persist_dir=abs_storage_path)
 
+                    # Deliberately NOT persisted. Keeping chat alive needs an index
+                    # object in memory; it does not need the empty one written over
+                    # the files that failed to load. Persisting here turned a
+                    # transient read failure into permanent deletion -- and the
+                    # likeliest cause of that read failure is a half-written file
+                    # from a previous persist, so the recovery destroyed exactly
+                    # what a retry would have recovered. On a file-backed store
+                    # that is the entire index.
+                    #
+                    # Left alone, a restart retries the load and an operator can
+                    # inspect what is actually on disk.
                     index = index_instance
                     storage_context = storage_context_instance
-                    logger.info(
-                        f"Rebuilt empty index at {abs_storage_path} after load failure."
+                    globals()["_index_load_failed"] = True
+                    logger.error(
+                        "Index load failed at %s; serving an EMPTY in-memory index so chat "
+                        "stays up. The on-disk store was NOT overwritten and NOT repaired -- "
+                        "retrieval will return nothing until it loads. Inspect the store and "
+                        "restart.",
+                        abs_storage_path,
                     )
                 except Exception as rebuild_err:
                     logger.error(
@@ -2066,7 +2102,7 @@ def add_text_to_index(text: str, metadata: Dict[str, Any], project_id: Optional[
                     from backend.config import INDEX_ROOT
                     persist_dir = INDEX_ROOT
                     logger.warning(f"Prevented use of legacy storage folder, using {persist_dir} instead")
-                storage_context.persist(persist_dir=persist_dir)
+                _safe_persist(storage_context, persist_dir)
 
         logger.info(f"add_text_to_index: Successfully added text with {len(nodes)} nodes")
 
@@ -2826,7 +2862,7 @@ def add_file_to_index(file_path: str, db_document: DBDocument, progress_callback
                         persist_dir = INDEX_ROOT
                         logger.warning(f"Prevented use of legacy storage folder, using {persist_dir} instead")
                     with _phase("persist_ms", timings):
-                        storage_context.persist(persist_dir=persist_dir)
+                        _safe_persist(storage_context, persist_dir)
             
             timings["embed_ms"] = round(_embed_clock.ms, 1)
             timings["embed_calls"] = _embed_clock.calls
