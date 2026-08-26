@@ -3243,6 +3243,25 @@ const SettingsPage = () => {
                   <Button variant="outlined" size="small" onClick={handleOpenPurgeModal} disabled={isLoading}>Purge</Button>
                   <Button variant="outlined" size="small" color="error" onClick={() => handleActionClick(apiService.resetIndexStorage, [], "Reset index? All indexed knowledge will be lost.", "Resetting...", "Index reset.", "Failed")} disabled={isLoading}>Reset</Button>
                   <Button variant="outlined" size="small" onClick={() => handleActionClick(apiService.optimizeIndex, [], null, "Optimizing...", "Index optimized.", "Failed")} disabled={isLoading}>Optimize</Button>
+                  {/* RAPTOR. Queued, not inline: it is one LLM call per cluster per
+                      level over the whole corpus, so it runs for minutes and competes
+                      with generation work for the GPU. Rebuild after a large ingest,
+                      or after changing the embedding model. */}
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => handleActionClick(
+                      apiService.buildCorpusSummaries,
+                      [{ replace: true }],
+                      "Build corpus summaries? This runs in the background and uses the GPU for several minutes.",
+                      "Queuing summary build...",
+                      "Corpus summary build queued — it runs in the background.",
+                      "Failed to queue the summary build",
+                    )}
+                    disabled={isLoading}
+                  >
+                    Build Summaries
+                  </Button>
                   {/* Pause indexing to relieve system/GPU load during heavy embedding batches */}
                   <Button
                     variant="outlined"

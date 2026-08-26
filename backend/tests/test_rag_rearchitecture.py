@@ -1157,3 +1157,63 @@ def test_a_successful_load_clears_the_degraded_flag():
 
     src = inspect.getsource(isvc._initialize_index)
     assert 'globals()["_index_load_failed"] = False' in src
+
+
+# --------------------------------------------------------------------------
+# Index management controls must act on the store that actually holds the data
+# --------------------------------------------------------------------------
+def test_reset_drops_every_vector_table_not_just_the_active_one():
+    """The table name carries the embedding dimension, and changing the model is
+    the main reason to reset. Dropping only the derived name leaves the old
+    vectors, in the old dimension, behind a reset that said it cleared them."""
+    import inspect
+    from backend.api import index_mgmt_api
+    import backend.services.indexing_service as isvc
+
+    assert "drop_all_vector_stores" in inspect.getsource(index_mgmt_api.reset_index)
+    src = inspect.getsource(isvc.drop_all_vector_stores)
+    # Enumerate by prefix, so a scope this process never saw is still dropped.
+    assert "pg_tables" in src and "data_guaardvark%" in src
+
+
+def test_purge_and_optimize_do_not_walk_the_empty_docstore():
+    """On pgvector the docstore is deliberately empty, so anything iterating
+    `docstore.docs` collects nothing, deletes nothing, and reports success."""
+    import inspect
+    from backend.api import index_mgmt_api
+
+    purge = inspect.getsource(index_mgmt_api.purge_index)
+    assert "purge_document_vectors" in purge
+
+    opt = inspect.getsource(index_mgmt_api.optimize_index)
+    assert "find_orphaned_vectors" in opt
+    assert '_vector_backend() == "pgvector"' in opt
+
+
+def test_orphan_sweep_only_considers_file_derived_nodes():
+    """RAPTOR summaries, entity and repository summaries and metadata documents all
+    legitimately have no Document row. A plain anti-join calls them orphaned --
+    measured at 1,404 live rows on this corpus -- so candidacy is restricted to ids
+    actually shaped `doc_<digits>_`."""
+    import inspect
+    import backend.services.indexing_service as isvc
+
+    src = inspect.getsource(isvc.find_orphaned_vectors)
+    assert "^doc_[0-9]+_" in src, "orphan candidates must be file-derived nodes only"
+
+
+def test_raptor_build_is_queued_and_never_scheduled():
+    """One LLM call per cluster per level is minutes of GPU work: too long for a
+    request, and not something to run on a timer behind the operator."""
+    import inspect
+    from backend.api import indexing_api
+    from backend.tasks import raptor_tasks
+
+    ep = inspect.getsource(indexing_api.build_corpus_summaries)
+    assert "send_task" in ep and "raptor.build_tree" in ep
+
+    task = inspect.getsource(raptor_tasks)
+    assert "is_indexing_paused" in task, "must respect the operator's pause"
+    # No beat entry: rebuilding is a decision about when to spend the GPU.
+    from backend import celery_app as ca
+    assert "raptor.build_tree" not in inspect.getsource(ca).split("beat_schedule")[-1][:4000]

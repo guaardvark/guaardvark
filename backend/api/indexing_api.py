@@ -360,6 +360,38 @@ def trigger_bulk_indexing():
 
 # (pause helpers defined at top of file)
 
+@indexing_bp.route("/build-corpus-summaries", methods=["POST"])
+def build_corpus_summaries():
+    """Kick off a RAPTOR build.
+
+    Queued rather than run inline: it is one LLM call per cluster per level over
+    the whole corpus, which is minutes of sustained GPU work and contends with
+    image and video generation. Returns the task id so the caller can poll.
+    """
+    try:
+        payload = request.get_json(silent=True) or {}
+        project_id = payload.get("project_id")
+        max_levels = int(payload.get("max_levels") or 2)
+        replace = bool(payload.get("replace", True))
+
+        from backend.celery_app import celery
+        async_result = celery.send_task(
+            "raptor.build_tree",
+            kwargs={"project_id": project_id, "max_levels": max_levels, "replace": replace},
+            queue="indexing",
+        )
+        logger.info("Queued RAPTOR build task %s (levels=%s replace=%s)",
+                    async_result.id, max_levels, replace)
+        return jsonify({
+            "message": "Corpus summary build queued. It runs in the background and "
+                       "competes with generation work for the GPU.",
+            "task_id": async_result.id,
+        }), 202
+    except Exception as e:
+        logger.error("API build-corpus-summaries: %s", e, exc_info=True)
+        return jsonify({"error": f"Could not queue the summary build: {e}"}), 500
+
+
 @indexing_bp.route("/resume-pending", methods=["POST"])
 @ensure_db_session_cleanup
 def resume_pending_indexing():

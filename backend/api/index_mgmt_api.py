@@ -205,15 +205,26 @@ def reset_index():
         
         # Vectors live in Postgres under the pgvector backend, so deleting the JSON
         # state alone would leave every embedding orphaned while the index reported
-        # itself empty. Drop the backing table too.
+        # itself empty. Drop the backing tables too.
+        #
+        # ALL of them, not the one the active scope names. Changing the embedding
+        # model is the main reason to reset, and the table name carries the model's
+        # dimension -- so after that change the derived name points at the new
+        # table and the old vectors would survive a reset that said it cleared
+        # everything. Per-project and per-profile tables are the same story.
         try:
-            from backend.services.indexing_service import drop_vector_store
-            vs_result = drop_vector_store()
-            if vs_result.get("dropped"):
-                deleted_files.append(vs_result.get("table", "vector_table"))
-                logger.info(f"Reset Index: dropped vector table {vs_result.get('table')}")
-            elif vs_result.get("error"):
-                logger.error(f"Reset Index: vector table drop failed: {vs_result['error']}")
+            from backend.services.indexing_service import drop_all_vector_stores
+            vs_result = drop_all_vector_stores()
+            _dropped = vs_result.get("dropped") or []
+            if _dropped:
+                deleted_files.extend(_dropped)
+                logger.info("Reset Index: dropped %d vector table(s): %s",
+                            len(_dropped), ", ".join(_dropped))
+            for _f in (vs_result.get("failed") or []):
+                logger.error("Reset Index: could not drop %s: %s",
+                             _f.get("table"), _f.get("error"))
+            if vs_result.get("error"):
+                logger.error(f"Reset Index: vector table enumeration failed: {vs_result['error']}")
         except Exception as e:
             logger.error(f"Reset Index: could not drop vector store: {e}")
 
@@ -384,35 +395,46 @@ def purge_index():
                 return jsonify({"message": "No documents matched the date range; nothing purged.",
                                 "nodes_removed": 0, "metadata_cleared": 0, "documents_reset": 0}), 200
 
-        docstore = index_instance.storage_context.docstore
-
-        # 2) Map docstore nodes -> owning document_id; collect what's in scope.
-        ref_ids_to_delete = set()
-        node_ids_in_scope = []
-        for node_id, node in list(docstore.docs.items()):
-            meta = getattr(node, "metadata", {}) or {}
-            doc_id = str(meta.get("document_id") or "")
-            if target_ids is not None and doc_id not in target_ids:
-                continue
-            node_ids_in_scope.append(node_id)
-            ref = getattr(node, "ref_doc_id", None)
-            if ref:
-                ref_ids_to_delete.add(ref)
-
         removed_nodes = 0
         cleared_metadata = 0
 
-        # 3a) Remove documents/embeddings: delete_ref_doc removes nodes + their vectors
-        #     (and docstore entries when purging the documents themselves).
+        # Purge from the vector store, not from the docstore. On pgvector the
+        # docstore is deliberately empty -- node text lives in Postgres -- so
+        # walking `docstore.docs` collected nothing, deleted nothing, and reported
+        # success. The rows are addressable directly, and by the same document-id
+        # prefix the ingest path purges by.
         if purge_documents or purge_embeddings:
-            for ref in ref_ids_to_delete:
+            from backend.services.indexing_service import purge_document_vectors
+            if target_ids is None:
+                # Whole-index purge: every document the registry knows about.
+                from backend.models import Document as _Doc
+                target_ids = {str(d.id) for d in _Doc.query.with_entities(_Doc.id).all()}
+            for _did in target_ids:
                 try:
-                    index_instance.delete_ref_doc(ref, delete_from_docstore=purge_documents)
-                    removed_nodes += 1
+                    removed_nodes += purge_document_vectors(_did)
                 except Exception as e:
-                    logger.warning(f"Purge Index: delete_ref_doc({ref}) failed: {e}")
+                    logger.warning(f"Purge Index: purge_document_vectors({_did}) failed: {e}")
         # 3b) Metadata-only purge (keep the nodes): clear their metadata entries.
         elif purge_metadata:
+            # Metadata-only purge reaches into SimpleVectorStore's in-memory dicts,
+            # which PGVectorStore does not have. Rather than silently clear nothing,
+            # say so: the rows are in Postgres and clearing their metadata there is a
+            # different operation than this one was written for.
+            from backend.services.indexing_service import _vector_backend
+            if _vector_backend() == "pgvector":
+                return jsonify({
+                    "error": "Metadata-only purge is not supported on the pgvector "
+                             "backend. Purge documents or embeddings instead.",
+                }), 400
+
+            # File-backed store only, so the docstore is populated and is the right
+            # place to resolve which nodes are in scope.
+            node_ids_in_scope = [
+                node_id
+                for node_id, node in list(index_instance.storage_context.docstore.docs.items())
+                if target_ids is None
+                or str((getattr(node, "metadata", {}) or {}).get("document_id") or "") in target_ids
+            ]
             sc = index_instance.storage_context
             stores = []
             vs = getattr(sc, "vector_store", None)
@@ -602,6 +624,28 @@ def optimize_index():
         return jsonify({"error": "Database not available"}), 503
 
     try:
+        # On pgvector the docstore is deliberately empty, so the sweep below finds
+        # nothing to inspect. The rows are in Postgres and can be checked against
+        # the registry directly -- and only file-derived nodes are candidates,
+        # because RAPTOR summaries, entity and repository summaries and metadata
+        # documents all legitimately have no Document row. Measured on this corpus,
+        # a plain anti-join would have called 1,404 live rows orphaned.
+        from backend.services.indexing_service import _vector_backend, find_orphaned_vectors
+        if _vector_backend() == "pgvector":
+            res = find_orphaned_vectors(delete=True)
+            if res.get("error"):
+                return jsonify({"error": f"Orphan sweep failed: {res['error']}"}), 500
+            removed = res.get("removed", 0)
+            logger.info("Optimize Index: removed %d orphaned vector(s) from %s",
+                        removed, res.get("table"))
+            return jsonify({
+                "message": (f"Removed {removed} orphaned vector(s)."
+                            if removed else "No orphaned vectors found."),
+                "orphans_found": res.get("orphans", 0),
+                "removed": removed,
+                "table": res.get("table"),
+            }), 200
+
         docstore = index_instance.storage_context.docstore
 
         # Collect all unique ref_doc_ids from the docstore

@@ -193,6 +193,26 @@ export const resumePendingIndexing = async () => {
   }
 };
 
+export const buildCorpusSummaries = async (options = {}) => {
+  // RAPTOR: minutes of sustained GPU work, so the backend queues it and returns a
+  // task id rather than holding the request open.
+  const endpoint = `${BASE_URL}/index/build-corpus-summaries`;
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(options),
+    });
+    const data = await handleResponse(response);
+    if (typeof data === "object" && data !== null && data.error)
+      throw new Error(data.error);
+    return data;
+  } catch (err) {
+    console.error("settingsService: Error queuing corpus summary build:", err.message);
+    throw err;
+  }
+};
+
 export const runSelfTest = async (options = {}) => {
   const endpoint = `${BASE_URL}/meta/selftest`;
   try {

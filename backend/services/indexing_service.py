@@ -981,6 +981,92 @@ def drop_vector_store(project_id=None, profile: Optional[str] = None) -> Dict[st
         return {"backend": "pgvector", "dropped": False, "table": full, "error": str(e)[:200]}
 
 
+
+def drop_all_vector_stores() -> Dict[str, Any]:
+    """Drop every vector table this installation owns, whatever its scope or dimension.
+
+    `drop_vector_store` derives one table name from the *active* embedding
+    dimension, which is the wrong tool for a reset. Changing the embedding model
+    is the main reason to reset at all, and after that change the derived name
+    points at the NEW table -- so the old vectors, in the old dimension, would be
+    left behind untouched while the UI reported the index cleared. Same for any
+    per-project or per-profile table the scope in hand does not name.
+
+    Matches on the storage layer's own prefix rather than a guessed list, so a
+    table created by a scope this process has never seen is still removed.
+    """
+    if _vector_backend() != "pgvector":
+        return {"backend": "simple", "dropped": []}
+    dropped, failed = [], []
+    try:
+        conn = _pg_connect()
+        try:
+            conn.autocommit = True
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT tablename FROM pg_tables "
+                    "WHERE schemaname = current_schema() AND tablename LIKE %s",
+                    ("data_guaardvark%",),
+                )
+                tables = [r[0] for r in cur.fetchall()]
+                for t in tables:
+                    try:
+                        cur.execute(f'DROP TABLE IF EXISTS "{t}" CASCADE')
+                        dropped.append(t)
+                    except Exception as e:  # noqa: BLE001
+                        failed.append({"table": t, "error": str(e)[:160]})
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.error("Could not enumerate vector tables to drop: %s", e)
+        return {"backend": "pgvector", "dropped": dropped, "error": str(e)[:200]}
+    logger.info("Dropped %d vector table(s): %s", len(dropped), ", ".join(dropped) or "none")
+    return {"backend": "pgvector", "dropped": dropped, "failed": failed}
+
+
+
+def find_orphaned_vectors(project_id=None, profile: Optional[str] = None,
+                          delete: bool = False) -> Dict[str, Any]:
+    """Vectors whose owning Document row is gone. Counts, or removes when asked.
+
+    Only file-derived nodes are candidates. Their ids are `doc_<document_id>_<hash>`,
+    so a row is an orphan when that embedded id no longer exists in `documents`.
+
+    Everything else is deliberately out of scope, because plenty of legitimate
+    content has no Document row at all: RAPTOR summaries, entity and repository
+    summaries, client and project metadata. An anti-join against `documents`
+    would call all of it orphaned and delete it, which is a far worse outcome
+    than leaving a stale vector behind.
+    """
+    table = resolve_existing_vector_table(project_id, profile)
+    if not table or _vector_backend() != "pgvector":
+        return {"backend": _vector_backend(), "orphans": 0, "removed": 0}
+
+    # Candidates only: the id must actually be shaped `doc_<digits>_...`.
+    where = (
+        "metadata_->>'document_id' ~ '^doc_[0-9]+_' "
+        "AND NOT EXISTS (SELECT 1 FROM documents d "
+        "                WHERE d.id = split_part(metadata_->>'document_id', '_', 2)::int)"
+    )
+    try:
+        conn = _pg_connect()
+        try:
+            conn.autocommit = True
+            with conn.cursor() as cur:
+                cur.execute(f'SELECT count(*) FROM "data_{table}" WHERE {where}')
+                n = cur.fetchone()[0]
+                removed = 0
+                if delete and n:
+                    cur.execute(f'DELETE FROM "data_{table}" WHERE {where}')
+                    removed = cur.rowcount or 0
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.warning("Orphan scan failed on data_%s: %s", table, e)
+        return {"backend": "pgvector", "orphans": 0, "removed": 0, "error": str(e)[:200]}
+    return {"backend": "pgvector", "table": f"data_{table}", "orphans": n, "removed": removed}
+
+
 def vector_store_stats(project_id=None, profile: Optional[str] = None) -> Dict[str, Any]:
     """Row count and on-disk size of the backing vector store."""
     if _vector_backend() != "pgvector":

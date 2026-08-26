@@ -511,8 +511,14 @@ def create_celery_app():
             resume_pending_tick,
         )
         logger.info("Index auto-resume task imported successfully")
-    except ImportError as e:
-        logger.warning(f"Could not import index auto-resume task: {e}")
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Index auto-resume task not available: %s", e)
+
+    try:
+        from backend.tasks.raptor_tasks import build_raptor_tree_task  # noqa: F401
+        logger.info("RAPTOR build task registered (on demand only, never scheduled)")
+    except Exception as e:  # noqa: BLE001
+        logger.warning("RAPTOR build task not available: %s", e)
 
     logger.info("Celery app configured with enhanced performance settings and Beat schedule")
     return celery_app
