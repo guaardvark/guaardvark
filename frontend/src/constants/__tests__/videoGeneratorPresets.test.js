@@ -113,3 +113,21 @@ describe("resolveAspectRatio", () => {
   });
 });
 
+
+describe("guidance defaults", () => {
+  it("uses the Wan family default the backend workflows use", async () => {
+    const { MODEL_DEFAULT_GUIDANCE } = await import("../videoGeneratorPresets");
+    // Backend _create_wan22_t2v_workflow / _create_wan22_i2v_workflow both
+    // default to 3.5. The UI sending 5.0 meant the 14B never ran at the value
+    // its own workflow chose.
+    expect(MODEL_DEFAULT_GUIDANCE.wan).toBe(3.5);
+  });
+
+  it("lets a model override its family when its backend default differs", async () => {
+    const { MODEL_OPTIONS } = await import("../videoGeneratorPresets");
+    // _create_wan22_5b_workflow defaults to 5.0.
+    expect(MODEL_OPTIONS["wan22-5b"].defaultGuidance).toBe(5.0);
+    // The 14B has no override, so it takes the family value.
+    expect(MODEL_OPTIONS["wan22-14b-i2v"].defaultGuidance).toBeUndefined();
+  });
+});

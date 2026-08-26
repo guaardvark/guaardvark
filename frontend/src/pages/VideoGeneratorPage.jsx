@@ -276,7 +276,9 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   // Sync guidance scale to model-family defaults when the model changes.
   useEffect(() => {
     const family = MODEL_OPTIONS[model]?.type;
-    const defaultCfg = MODEL_DEFAULT_GUIDANCE[family];
+    // Per-model wins: some models' backend workflows default differently from
+    // their family, and the UI should send what the backend would have chosen.
+    const defaultCfg = MODEL_OPTIONS[model]?.defaultGuidance ?? MODEL_DEFAULT_GUIDANCE[family];
     if (defaultCfg != null) {
       setAdvancedParams((prev) => ({ ...prev, guidance_scale: defaultCfg }));
     }

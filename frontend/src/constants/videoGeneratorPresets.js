@@ -95,7 +95,11 @@ export const WAN5B_SAMPLER_PROFILES = {
   adaptive: { label: "Guaardvark — euler, adaptive shift", description: "Experimental: shift scales with resolution, floors at 3 below ~740px" },
 };
 
-export const MODEL_DEFAULT_GUIDANCE = { wan: 5.0, cogvideox: 6.0, ltx: 1.0, hunyuan: 6.0 };
+// Family defaults, mirroring the backend workflow signatures. A model whose
+// backend default differs from its family carries `defaultGuidance` in
+// MODEL_OPTIONS below; keep the two in step or the UI will send a value the
+// backend never chose for itself.
+export const MODEL_DEFAULT_GUIDANCE = { wan: 3.5, cogvideox: 6.0, ltx: 1.0, hunyuan: 6.0 };
 
 export const ASPECT_RATIO_PRESETS = {
   "16:9": { label: "16:9", description: "Widescreen", ratio: 16 / 9 },
@@ -134,8 +138,11 @@ export const MODEL_OPTIONS = {
     samplerProfiles: ["official", "adaptive"],
     maxFrames: 121,
     resolution: [1280, 704],
-    // Native 1280x704. Off-native frames — a square especially — smear and colour
-    // bleed, and push _wan_dynamic_shift above the 8.0 that native is tuned for.
+    // The 5B's backend workflow defaults to 5.0, unlike the 14B's 3.5.
+    defaultGuidance: 5.0,
+    // Native 1280x704, plus the portrait transpose and square. Square renders
+    // fine; what smeared was the sampler shift scaled by pixel area, and that is
+    // fixed at its source.
     aspectRatios: ["16:9", "9:16", "1:1"],
     defaultSteps: 20,
     supportsT2V: true,
