@@ -226,6 +226,14 @@ def build_raptor_tree(
                 "covers_sources": ", ".join(sources[:20]),
                 "parsed_by": "raptor",
             }
+            # Scope is enforced by which table is read, so this is not what keeps a
+            # summary out of another project. It is here so a summary answers the
+            # same metadata questions its leaves do: anything that filters on
+            # project would otherwise drop every corpus-level answer while keeping
+            # the documents it was built from.
+            if project_id is not None:
+                node_meta["project_id"] = str(project_id)
+                node_meta["project_id_str"] = str(project_id)
             summary_nodes.append(TextNode(text=summary, metadata=node_meta))
             summary_texts.append(summary)
 

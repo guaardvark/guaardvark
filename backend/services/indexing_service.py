@@ -450,10 +450,13 @@ def _get_sparse_retriever(storage_ctx, top_k: int, project_id=None, profile: Opt
     except Exception:
         table = None
     if table:
-        filters = {}
-        if project_id is not None:
-            filters["project_id_str"] = str(project_id)
-        return PostgresSparseRetriever(table, top_k=top_k, filters=filters)
+        # No project filter here on purpose. `resolve_existing_vector_table`
+        # already returns that project's own table -- scope is enforced by which
+        # table is read, not by a column -- so filtering again inside it adds no
+        # isolation and silently drops any node that does not carry the key.
+        # RAPTOR summaries are exactly such nodes, so the filter made corpus-level
+        # answers disappear from project-scoped questions.
+        return PostgresSparseRetriever(table, top_k=top_k)
 
     # File-backed store: fall back to the docstore-driven BM25.
     try:

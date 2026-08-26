@@ -1049,3 +1049,44 @@ def test_tool_banner_announces_an_out_of_project_result():
     src = inspect.getsource(rag_tools)
     assert 'trace.get("project_scope") == "global_fallback"' in src
     assert "OUT OF SCOPE" in src
+
+
+# --------------------------------------------------------------------------
+# Project scope: enforced by the table, not by filtering inside it
+# --------------------------------------------------------------------------
+def test_sparse_leg_does_not_filter_by_project_inside_the_table():
+    """`resolve_existing_vector_table` already returns that project's own table,
+    so scope comes from which table is read. Filtering again inside it adds no
+    isolation and drops any node without the key -- which is what made RAPTOR
+    summaries vanish from project-scoped questions."""
+    import inspect
+    import backend.services.indexing_service as isvc
+
+    src = inspect.getsource(isvc._get_sparse_retriever)
+    assert "project_id_str" not in src, (
+        "the sparse leg must not re-filter by project inside a project table"
+    )
+    assert "resolve_existing_vector_table" in src
+
+
+def test_raptor_summaries_carry_their_project_scope():
+    """Not what keeps them out of another project -- that is the table -- but a
+    summary should answer the same metadata questions its leaves do."""
+    import inspect
+    from backend.services import raptor_service
+
+    src = inspect.getsource(raptor_service)
+    assert 'node_meta["project_id"] = str(project_id)' in src
+    assert 'node_meta["project_id_str"] = str(project_id)' in src
+
+
+def test_celery_path_does_not_invent_a_project_id():
+    """A project-less document was tagged as project 1 by a metadata dict that
+    became dead when the path moved to the file pipeline. Dead or not, a default
+    of 1 is a claim about ownership nothing checked."""
+    import inspect
+    from backend import celery_tasks_isolated as cti
+
+    src = inspect.getsource(cti.enhanced_code_aware_indexing)
+    assert "project_id', 1" not in src and 'project_id", 1' not in src
+    assert "doc_metadata" not in src

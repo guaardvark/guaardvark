@@ -172,19 +172,6 @@ def enhanced_code_aware_indexing(file_path, document, document_id, update_progre
                 from backend.services.indexing_service import add_file_to_index_by_id
                 logger.info(f"Adding document {document_id} to vector index for RAG search")
 
-                # Create LlamaIndex document with proper metadata (consistent with search expectations)
-                doc_metadata = {
-                    'filename': document['filename'],
-                    'source_filename': document['filename'],
-                    'document_id': str(document_id),
-                    'file_type': metadata['file_type'],
-                    'language': metadata['language'],
-                    'project_id': str(document.get('project_id', 1)),
-                    'indexed_at': metadata['processed_at'],
-                    'content_type': 'document',
-                    'entity_type': metadata['file_type']
-                }
-
                 # Index the FILE, not the text read above. Reading a PDF or DOCX as
                 # UTF-8 yields mojibake; the file path lets Docling parse it properly,
                 # lets markdown be sectioned, and purges the previous vectors so a
