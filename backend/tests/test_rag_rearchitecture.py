@@ -1217,3 +1217,47 @@ def test_raptor_build_is_queued_and_never_scheduled():
     # No beat entry: rebuilding is a decision about when to spend the GPU.
     from backend import celery_app as ca
     assert "raptor.build_tree" not in inspect.getsource(ca).split("beat_schedule")[-1][:4000]
+
+
+# --------------------------------------------------------------------------
+# Every chunk must know which document it came from
+# --------------------------------------------------------------------------
+def test_every_chunker_produces_nodes_linked_to_their_document():
+    """`document_id` on a vector row comes from the node's SOURCE relationship;
+    LlamaIndex writes the literal string "None" when it is missing. Such a row
+    cannot be purged, cannot be replaced on re-index, and survives its document's
+    deletion -- it just accumulates. Measured before the fix: 1,404 of 36,522 rows.
+
+    Only the hierarchical path inherited the relationship; the paths that build a
+    node from raw text had no parent to inherit from."""
+    from llama_index.core import Document as LlamaDocument
+    from backend.utils.enhanced_rag_chunking import get_shared_chunker
+
+    body = ("The station coolant manifest records pressure at each intake valve. "
+            "Operators log the reading at every shift handover. ") * 40
+    doc = LlamaDocument(text=body, metadata={"source_filename": "f.md"})
+    doc.id_ = "doc_2136_deadbeefdeadbeef"
+
+    chunker = get_shared_chunker()
+    for strategy in ("hierarchical", "adaptive"):
+        nodes = chunker.chunk_documents([doc], strategy_name=strategy)
+        assert nodes, f"{strategy} produced no nodes"
+        unlinked = [n for n in nodes if not getattr(n, "ref_doc_id", None)]
+        assert not unlinked, (
+            f"{strategy}: {len(unlinked)}/{len(nodes)} chunks have no source document"
+        )
+        assert {n.ref_doc_id for n in nodes} == {"doc_2136_deadbeefdeadbeef"}
+
+
+def test_source_relationship_is_set_centrally_not_per_chunker():
+    """Nine node-construction sites exist; patching them individually is how the
+    tenth gets missed. The link is set once, after whichever chunker ran."""
+    import inspect
+    from backend.utils import enhanced_rag_chunking as erc
+
+    src = inspect.getsource(erc.EnhancedRAGChunker.chunk_documents)
+    assert "_ensure_source_relationship(nodes, document)" in src
+    helper = inspect.getsource(erc._ensure_source_relationship)
+    assert "NodeRelationship.SOURCE" in helper
+    # Must not clobber a relationship a chunker did set.
+    assert "rels.get(NodeRelationship.SOURCE) is None" in helper
