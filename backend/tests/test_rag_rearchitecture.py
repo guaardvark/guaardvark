@@ -1095,6 +1095,23 @@ def test_celery_path_does_not_invent_a_project_id():
 # --------------------------------------------------------------------------
 # A failed index load must not destroy the store it failed to read
 # --------------------------------------------------------------------------
+def test_an_absent_store_is_not_treated_as_corruption():
+    """A first run, or a deliberately cleared store, also fails to load. Treating
+    that as corruption suppressed every persist for the life of the process and
+    logged data loss that had not happened -- so a fresh install would never write
+    its index store at all."""
+    import inspect
+    import backend.services.indexing_service as isvc
+
+    src = inspect.getsource(isvc._initialize_index)
+    assert "_has_content" in src
+    # Existence must be checked before size: getsize raises on a missing file,
+    # which is exactly the case being recognised.
+    body = src[src.index("def _has_content"):]
+    assert body.index("os.path.exists(path)") < body.index("os.path.getsize(path)")
+    assert 'globals()["_index_load_failed"] = bool(_existing)' in src
+
+
 def test_failed_load_does_not_overwrite_the_store():
     """On a load failure the recovery built an empty index and persisted it over
     the files it had just failed to read. The likeliest cause of that failure is a
@@ -1108,7 +1125,9 @@ def test_failed_load_does_not_overwrite_the_store():
     assert "persist(persist_dir=abs_storage_path)" not in rebuild, (
         "the empty rebuild must not be written to disk"
     )
-    assert 'globals()["_index_load_failed"] = True' in rebuild
+    # The flag is now conditional -- raised only when a store is actually present
+    # -- so assert the decision is made, not that it is hardcoded.
+    assert 'globals()["_index_load_failed"] = bool(_existing)' in rebuild
 
 
 def test_persist_is_suppressed_while_holding_a_placeholder_index():

@@ -1411,14 +1411,37 @@ def _initialize_index(storage_path: str):
                     # inspect what is actually on disk.
                     index = index_instance
                     storage_context = storage_context_instance
-                    globals()["_index_load_failed"] = True
-                    logger.error(
-                        "Index load failed at %s; serving an EMPTY in-memory index so chat "
-                        "stays up. The on-disk store was NOT overwritten and NOT repaired -- "
-                        "retrieval will return nothing until it loads. Inspect the store and "
-                        "restart.",
-                        abs_storage_path,
-                    )
+
+                    # Only guard against overwriting a store that is actually
+                    # THERE. A first run, or a deliberately cleared store, also
+                    # fails to load -- and treating that as corruption would
+                    # suppress every persist for the life of the process and log an
+                    # error about data loss that has not happened.
+                    def _has_content(name: str) -> bool:
+                        # Existence first: getsize raises on a missing file, which is
+                        # precisely the case this is here to recognise. ">2" treats an
+                        # empty "{}" as absent, because that is what a cleared store
+                        # looks like.
+                        path = os.path.join(abs_storage_path, name)
+                        try:
+                            return os.path.exists(path) and os.path.getsize(path) > 2
+                        except OSError:
+                            return False
+
+                    _existing = [f for f in ("docstore.json", "index_store.json")
+                                 if _has_content(f)]
+                    globals()["_index_load_failed"] = bool(_existing)
+                    if not _existing:
+                        logger.info(
+                            "No index store at %s; starting a fresh one.", abs_storage_path
+                        )
+                    else:
+                        logger.error(
+                            "Index load failed at %s but a store IS present (%s); serving an "
+                            "EMPTY in-memory index so chat stays up. The on-disk store was NOT "
+                            "overwritten and NOT repaired. Inspect it and restart.",
+                            abs_storage_path, ", ".join(_existing),
+                        )
                 except Exception as rebuild_err:
                     logger.error(
                         f"Rebuild after load failure also failed at {abs_storage_path}: {rebuild_err}",
