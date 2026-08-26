@@ -43,6 +43,16 @@ def _render(query: str, results: List[Dict[str, Any]], trace: Dict[str, Any]) ->
         detail += f" · filters={trace.get('filters')}"
     head.append(detail)
 
+    # A project-scoped question answered from outside that project is the one
+    # result a caller must not mistake for a normal one: the passages may belong
+    # to a different client. Say so before the passages, not in a trace nobody
+    # reads.
+    if trace.get("project_scope") == "global_fallback":
+        head.append(
+            f"!! OUT OF SCOPE — no matches in project "
+            f"{trace.get('fallback_from_project')}; these passages come from "
+            f"elsewhere in the index and may belong to another client"
+        )
     if trace.get("degraded"):
         head.append(f"!! DEGRADED — {trace.get('degraded_reason')}")
     if trace.get("error"):

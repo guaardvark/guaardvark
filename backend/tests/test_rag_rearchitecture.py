@@ -1011,3 +1011,41 @@ def test_entity_identity_is_present_on_every_entity_type():
     src = inspect.getsource(eis)
     assert src.count("'entity_type':") == 4
     assert src.count("'entity_id':") == 4
+
+
+# --------------------------------------------------------------------------
+# A project-scoped question must not be answered from another client
+# --------------------------------------------------------------------------
+def test_global_fallback_is_off_by_default():
+    """Project belongs to Client, so widening a project-scoped query to the whole
+    index answers it from another client's documents. Nothing in the result marked
+    it as out-of-scope, so the caller could not tell."""
+    import inspect
+    import backend.services.indexing_service as isvc
+
+    src = inspect.getsource(isvc.search_with_llamaindex)
+    assert 'GUAARDVARK_RAG_GLOBAL_FALLBACK", "false"' in src, (
+        "the cross-project fallback must default to off"
+    )
+    assert "fallback_suppressed" in src
+
+
+def test_global_fallback_marks_itself_when_enabled():
+    """If an install opts in, the result has to say where it came from."""
+    import inspect
+    import backend.services.indexing_service as isvc
+
+    src = inspect.getsource(isvc.search_with_llamaindex)
+    assert '_fb_trace["degraded"] = True' in src
+    assert "may belong to another client" in src
+
+
+def test_tool_banner_announces_an_out_of_project_result():
+    """The trace recorded the fallback but the banner never showed it, so the
+    model and the user saw another client's passages with no indication."""
+    import inspect
+    from backend.tools import rag_tools
+
+    src = inspect.getsource(rag_tools)
+    assert 'trace.get("project_scope") == "global_fallback"' in src
+    assert "OUT OF SCOPE" in src

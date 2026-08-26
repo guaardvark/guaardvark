@@ -1861,8 +1861,19 @@ def search_with_llamaindex(
             # The pool was widened for filtering/reranking; honour the requested count.
             results = results[:effective_top_k]
 
-        # Fallback: if project-scoped search returned 0 results, retry with global scope
-        if not results and project_id is not None:
+        # Fallback: if project-scoped search returned 0 results, retry with global
+        # scope. OFF by default, because Project belongs to Client: widening a
+        # project-scoped question to the whole index answers it from another
+        # client's documents. "Some answer beats none" is the wrong trade when the
+        # answer is someone else's data, and nothing in the result marks it as
+        # out-of-scope. Set GUAARDVARK_RAG_GLOBAL_FALLBACK=true for a single-tenant
+        # install where the wider search is genuinely wanted.
+        _global_fallback = os.environ.get(
+            "GUAARDVARK_RAG_GLOBAL_FALLBACK", "false").lower() == "true"
+        if not results and project_id is not None and not _global_fallback:
+            trace["project_scope"] = "project_only"
+            trace["fallback_suppressed"] = True
+        if not results and project_id is not None and _global_fallback:
             logger.info(f"search_with_llamaindex: No project-scoped results, falling back to global search")
             _fb = search_with_llamaindex(
                 query, max_chunks=max_chunks, project_id=None,
@@ -1871,6 +1882,11 @@ def search_with_llamaindex(
             _fb_trace = _fb["trace"]
             _fb_trace["project_scope"] = "global_fallback"
             _fb_trace["fallback_from_project"] = str(project_id)
+            _fb_trace["degraded"] = True
+            _fb_trace["degraded_reason"] = (
+                f"no results in project {project_id}; these passages come from "
+                f"OUTSIDE that project and may belong to another client"
+            )
             return {"results": _fb["results"], "trace": _fb_trace} if with_trace else _fb["results"]
 
         return _out(results)
