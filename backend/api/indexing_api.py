@@ -368,6 +368,9 @@ def build_corpus_summaries():
     the whole corpus, which is minutes of sustained GPU work and contends with
     image and video generation. Returns the task id so the caller can poll.
     """
+    # This module has no module-level logger; each endpoint resolves one, so that
+    # a request logs through the app and a bare call still works.
+    logger = current_app.logger if current_app else logging.getLogger(__name__)
     try:
         payload = request.get_json(silent=True) or {}
         project_id = payload.get("project_id")
