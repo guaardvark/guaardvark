@@ -17,6 +17,31 @@ from backend.utils.unified_progress_system import get_unified_progress, ProcessT
 
 logger = logging.getLogger(__name__)
 
+
+def _replace_entity_nodes(metadata: dict) -> int:
+    """Drop this entity's previous node before inserting the new one.
+
+    Every index_* method here is a re-run path -- index_all_entities, and the
+    per-entity endpoints, are called whenever an entity changes. `insert_nodes`
+    appends, so without this a client re-indexed ten times had ten summaries in
+    the index, nine of them describing a state that no longer exists and all ten
+    competing at query time.
+
+    `entity_type` + `entity_id` is the identity; both are set on every node built
+    below. Never raises: failing to purge should degrade to a duplicate, not lose
+    the write.
+    """
+    try:
+        from backend.services.indexing_service import purge_nodes_by_metadata
+        ident = {k: metadata[k] for k in ("entity_type", "entity_id") if metadata.get(k)}
+        if len(ident) != 2:
+            return 0
+        return purge_nodes_by_metadata(ident)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Could not replace previous entity nodes (%s); inserting anyway", e)
+        return 0
+
+
 class EntityIndexingService:
     """Service for indexing entities as searchable documents"""
     
@@ -240,6 +265,7 @@ class EntityIndexingService:
             
             # VECTOR INDEX LOCK CONTENTION FIX: Use thread lock for concurrent operations
             with _index_operation_lock:
+                _replace_entity_nodes(node.metadata or {})
                 self.index.insert_nodes([node])
             logger.info(f"Indexed client: {client.name} (ID: {client.id})")
             return True
@@ -296,6 +322,7 @@ class EntityIndexingService:
             
             # VECTOR INDEX LOCK CONTENTION FIX: Use thread lock for concurrent operations
             with _index_operation_lock:
+                _replace_entity_nodes(node.metadata or {})
                 self.index.insert_nodes([node])
             logger.info(f"Indexed project: {project.name} (ID: {project.id})")
             return True
@@ -350,6 +377,7 @@ class EntityIndexingService:
                 id_=doc.id_
             )
             
+            _replace_entity_nodes(node.metadata or {})
             self.index.insert_nodes([node])
             logger.info(f"Indexed website: {website.url} (ID: {website.id})")
             return True
@@ -406,6 +434,7 @@ class EntityIndexingService:
                 id_=doc.id_
             )
             
+            _replace_entity_nodes(node.metadata or {})
             self.index.insert_nodes([node])
             logger.info(f"Indexed task: {task.name} (ID: {task.id})")
             return True

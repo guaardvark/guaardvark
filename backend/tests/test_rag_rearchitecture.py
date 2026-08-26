@@ -980,3 +980,34 @@ def test_purge_pattern_accepts_both_id_shapes():
     assert "str(document_id)" in src
     # And the LIKE is a prefix match with an explicit escape, not equality.
     assert "LIKE" in src and "ESCAPE" in src
+
+
+def test_entity_indexing_replaces_rather_than_stacks():
+    """Every index_* method here is a re-run path -- index_all_entities and the
+    per-entity endpoints run whenever an entity changes -- and insert_nodes
+    appends. Without a purge a client re-indexed ten times had ten summaries,
+    nine describing a state that no longer exists, all competing at query time."""
+    import inspect
+    from backend.services import entity_indexing_service as eis
+
+    src = inspect.getsource(eis)
+    # Every insert must be immediately preceded by the replace.
+    inserts = [i for i, l in enumerate(src.splitlines())
+               if "self.index.insert_nodes([node])" in l]
+    assert len(inserts) == 4, f"expected 4 insert sites, found {len(inserts)}"
+    lines = src.splitlines()
+    for i in inserts:
+        assert "_replace_entity_nodes" in lines[i - 1], (
+            f"insert at source line {i + 1} is not guarded"
+        )
+
+
+def test_entity_identity_is_present_on_every_entity_type():
+    """The purge keys on entity_type + entity_id; if either is missing the
+    replace silently becomes a no-op and duplicates return."""
+    import inspect
+    from backend.services import entity_indexing_service as eis
+
+    src = inspect.getsource(eis)
+    assert src.count("'entity_type':") == 4
+    assert src.count("'entity_id':") == 4
