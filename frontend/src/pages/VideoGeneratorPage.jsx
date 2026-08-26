@@ -542,12 +542,17 @@ const VideoGeneratorPage = ({ embedded = false }) => {
       effectiveSteps = modelConfig.defaultSteps || 25;
     }
 
-    // CogVideoX is unusually step-sensitive — anything below ~50 produces visibly
-    // smeared / underbaked output regardless of the rest of the params. Floor it
-    // unless the user explicitly opts into fewer in advanced settings.
-    if (isCogVideoXModel(model) && effectiveSteps < 50 &&
+    // A model may declare the fewest steps at which it produces something worth
+    // looking at. Below it the output is not "faster", it is wrong — smeared,
+    // under-resolved, colour-bled — and a quality preset offering that is a
+    // preset offering a broken render. CogVideoX needs 50; Wan needs 20.
+    //
+    // An explicit value in Advanced still wins: the floor exists to stop a preset
+    // silently choosing a bad number, not to overrule someone who typed one.
+    const declaredMin = modelConfig.minSteps ?? (isCogVideoXModel(model) ? 50 : null);
+    if (declaredMin && effectiveSteps < declaredMin &&
         (advancedParams.num_inference_steps === null || advancedParams.num_inference_steps === undefined)) {
-      effectiveSteps = 50;
+      effectiveSteps = declaredMin;
     }
 
     // LTX distilled is trained for 8 steps @ CFG=1 — quality presets that

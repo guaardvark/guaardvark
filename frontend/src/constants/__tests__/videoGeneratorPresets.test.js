@@ -131,3 +131,25 @@ describe("guidance defaults", () => {
     expect(MODEL_OPTIONS["wan22-14b-i2v"].defaultGuidance).toBeUndefined();
   });
 });
+
+describe("step floors", () => {
+  it("declares the fewest steps Wan can render usefully", async () => {
+    const { MODEL_OPTIONS, QUALITY_PRESETS } = await import("../videoGeneratorPresets");
+    for (const id of ["wan22-5b", "wan22-14b", "wan22-14b-i2v"]) {
+      expect(MODEL_OPTIONS[id].minSteps).toBe(20);
+      // The Fast preset is below it, which is the whole point of the floor.
+      expect(QUALITY_PRESETS.fast.num_inference_steps).toBeLessThan(
+        MODEL_OPTIONS[id].minSteps,
+      );
+    }
+  });
+
+  it("does not floor models that are trained for few steps", async () => {
+    const { MODEL_OPTIONS } = await import("../videoGeneratorPresets");
+    // LTX distilled runs at 8 by design; a floor here would waste time and can
+    // degrade distilled output.
+    for (const id of ["ltx23-distilled-fp8", "ltx25-distilled-int8"]) {
+      expect(MODEL_OPTIONS[id].minSteps).toBeUndefined();
+    }
+  });
+});

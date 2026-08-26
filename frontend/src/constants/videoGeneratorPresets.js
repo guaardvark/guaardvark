@@ -145,6 +145,10 @@ export const MODEL_OPTIONS = {
     // fixed at its source.
     aspectRatios: ["16:9", "9:16", "1:1"],
     defaultSteps: 20,
+    // Below this Wan is under-resolved: structure never settles at high noise,
+    // which reads as smearing and colour bleed rather than as a faster render.
+    // A quality preset must not be able to reach below it.
+    minSteps: 20,
     supportsT2V: true,
     supportsI2V: true,
     dimensionAlignment: 32,
@@ -161,6 +165,10 @@ export const MODEL_OPTIONS = {
     resolution: [832, 480],
     aspectRatios: ["16:9", "9:16", "1:1"],
     defaultSteps: 25,
+    // Below this Wan is under-resolved: structure never settles at high noise,
+    // which reads as smearing and colour bleed rather than as a faster render.
+    // A quality preset must not be able to reach below it.
+    minSteps: 20,
     supportsT2V: true,
     supportsI2V: false,
     dimensionAlignment: 32,
@@ -175,6 +183,10 @@ export const MODEL_OPTIONS = {
     resolution: [832, 480],
     aspectRatios: ["16:9", "9:16", "1:1"],
     defaultSteps: 25,
+    // Below this Wan is under-resolved: structure never settles at high noise,
+    // which reads as smearing and colour bleed rather than as a faster render.
+    // A quality preset must not be able to reach below it.
+    minSteps: 20,
     supportsT2V: false,
     supportsI2V: true,
     dimensionAlignment: 32,
