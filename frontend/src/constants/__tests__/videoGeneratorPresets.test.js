@@ -3,7 +3,6 @@ import {
   ASPECT_RATIO_PRESETS,
   aspectRatiosFor,
   durationPresetsFor,
-  fitAreaToRatio,
   resolveAspectRatio,
   MODEL_OPTIONS,
   MOTION_PRESETS,
