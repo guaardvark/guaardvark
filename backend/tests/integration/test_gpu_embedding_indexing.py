@@ -80,6 +80,7 @@ def client(app):
     return app.test_client()
 
 
+@pytest.mark.skip(reason="GPU embedding plugin deprecated — VRAM-aware selection in config.py")
 class TestGPUPluginConfiguration:
     """Tests for GPU plugin configuration checks."""
     

@@ -67,7 +67,9 @@ def test_render_timeline_task_invokes_render_timeline_service(monkeypatch, app):
     from types import ModuleType
     mock_app_module = ModuleType("backend.app")
     mock_app_module.create_app = lambda: app
-    sys.modules["backend.app"] = mock_app_module
+    # setitem, not assignment: the stub has no `app` attribute, so leaking it past
+    # this test breaks every later `from backend.app import app`.
+    monkeypatch.setitem(sys.modules, "backend.app", mock_app_module)
     
     with app.app_context():
         # Mock the celery app and create the task
