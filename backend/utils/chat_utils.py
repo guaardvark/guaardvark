@@ -23,6 +23,34 @@ Please respond to the user's query.
 If you have access to relevant documents for the query, use them to inform your answer.
 Otherwise, use web search to get current information."""
 
+
+def get_active_system_prompt(model_name: Optional[str] = None) -> Optional[str]:
+    """The chat persona, or None when no active rule supplies one.
+
+    `brain_state._build_system_prompts` reserves the persona position ahead of the
+    memory and desktop blocks and calls this to fill it. Returns None outside an
+    app context, so a caller running before the app exists degrades to no persona
+    rather than raising — the position is optional.
+
+    `model_name` selects a model-specific variant via the rule's
+    ``target_models_json``; without one the ``__ALL__`` rule applies.
+    """
+    try:
+        from flask import has_app_context
+
+        if not has_app_context():
+            return None
+        from backend import rule_utils
+        from backend.models import db
+
+        text, _rule_id = rule_utils.get_active_system_prompt(
+            GLOBAL_DEFAULT_SYSTEM_PROMPT_RULE_NAME, db.session, model_name
+        )
+        return text or None
+    except Exception as e:  # noqa: BLE001 - a missing persona must never break chat
+        logger.debug("No active system prompt: %s", e)
+        return None
+
 # Vision model detection patterns (for fallback when API unavailable)
 VISION_MODEL_PATTERNS = [
     "vision", "llava", "gpt-4", "gpt4", "gpt-4o",
