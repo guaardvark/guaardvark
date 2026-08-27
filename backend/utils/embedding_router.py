@@ -48,7 +48,9 @@ class LatencyTracker:
         self.window_size = window_size
         self.gpu_latencies = deque(maxlen=window_size)
         self.cpu_latencies = deque(maxlen=window_size)
-        self.lock = threading.Lock()
+        # Reentrant: get_stats() holds this and calls get_optimal_split_ratio(),
+        # which takes it again.
+        self.lock = threading.RLock()
 
     def record(self, backend: str, latency_ms: float):
         with self.lock:
