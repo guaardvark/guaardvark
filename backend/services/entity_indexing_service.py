@@ -30,6 +30,12 @@ def _replace_entity_nodes(metadata: dict) -> int:
     `entity_type` + `entity_id` is the identity; both are set on every node built
     below. Never raises: failing to purge should degrade to a duplicate, not lose
     the write.
+
+    No `project_id` is passed deliberately. `_ensure_index()` takes the global
+    index, so the global table is the one being written and therefore the one to
+    purge from. The `project_id` some of these nodes carry in metadata is a
+    retrieval filter, not a storage scope — passing it here would aim the delete
+    at a table the insert never touches.
     """
     try:
         from backend.services.indexing_service import purge_nodes_by_metadata

@@ -35,18 +35,41 @@ Summary:"""
 
 
 def _get_llm():
+    """The LLM to summarise with, with thinking disabled.
+
+    Summarisation wants a dense restatement of text it has been handed, not
+    reasoning, and chain-of-thought is not free here. Measured on this project's
+    workstation against an identical prompt, three runs each:
+
+        thinking on  -> 18.6 s / 20.7 s / 30.0 s
+        thinking off ->  0.48 s / 0.48 s / 0.45 s
+
+    ~45x, and the no-thinking answer was *longer* (168 vs 75 chars) and no worse.
+    Across a build this is the difference between minutes and most of a day. The
+    shared `Settings.llm` is copied rather than mutated so turning thinking off
+    for summaries does not turn it off for chat.
+    """
+    llm = None
     try:
         from llama_index.core import Settings
         llm = getattr(Settings, "llm", None)
-        if llm is not None:
-            return llm
     except Exception:
         pass
-    try:
-        from flask import current_app
-        return current_app.config.get("LLAMA_INDEX_LLM")
-    except Exception:
+    if llm is None:
+        try:
+            from flask import current_app
+            llm = current_app.config.get("LLAMA_INDEX_LLM")
+        except Exception:
+            return None
+    if llm is None:
         return None
+    # Only Ollama-backed LLMs carry `thinking`; anything else is returned as-is.
+    if getattr(llm, "thinking", None) in (None, True) and hasattr(llm, "model_copy"):
+        try:
+            return llm.model_copy(update={"thinking": False})
+        except Exception:
+            logger.debug("RAPTOR: could not disable thinking on %s", type(llm).__name__)
+    return llm
 
 
 def _fetch_leaf_embeddings(project_id=None) -> Dict[str, Any]:

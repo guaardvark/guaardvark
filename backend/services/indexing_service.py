@@ -2057,7 +2057,8 @@ def search_with_llamaindex(
 
 
 
-def purge_nodes_by_metadata(filters: Dict[str, Any], profile: Optional[str] = None) -> int:
+def purge_nodes_by_metadata(filters: Dict[str, Any], profile: Optional[str] = None,
+                            project_id=None) -> int:
     """Remove nodes whose metadata matches every key/value in `filters`.
 
     `purge_document_vectors` keys off a document id, which only exists for content
@@ -2069,10 +2070,17 @@ def purge_nodes_by_metadata(filters: Dict[str, Any], profile: Optional[str] = No
 
     Callers pass the metadata keys that identify their content (see
     `add_text_to_index(replace_where=...)`), and this removes the previous copy.
+
+    `project_id` must name the same scope the caller is writing into. It was
+    hardcoded to None here, which is invisible while only the global table
+    exists and silently wrong the moment one does not: the delete would run
+    against the global table, match nothing, report 0, and the caller would
+    append a second copy into its own project table believing it had replaced
+    the first.
     """
     if not filters:
         return 0
-    table = resolve_existing_vector_table(None, profile)
+    table = resolve_existing_vector_table(project_id, profile)
     if not table:
         return 0
     clauses, params = [], []
@@ -2156,7 +2164,9 @@ def add_text_to_index(text: str, metadata: Dict[str, Any], project_id: Optional[
 
             _identity = {k: _meta_get(k) for k in replace_where if _meta_get(k) is not None}
             if _identity:
-                _removed = purge_nodes_by_metadata(_identity)
+                # Same scope this call is about to write into, or the purge and
+                # the insert address different tables.
+                _removed = purge_nodes_by_metadata(_identity, project_id=project_id)
                 if _removed:
                     logger.info("Replaced %d previously indexed node(s) for %s",
                                 _removed, _identity)

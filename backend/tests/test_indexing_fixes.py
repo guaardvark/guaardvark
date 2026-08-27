@@ -44,10 +44,18 @@ def test_session_in_transaction_never_raises_on_broken_session(monkeypatch):
 # #5 — add_text_to_index distinguishes empty (None) from failure (False).
 # --------------------------------------------------------------------------
 def _fake_chunker(nodes):
+    """Stand in for the process-wide chunker.
+
+    Patches `get_shared_chunker`, not `EnhancedRAGChunker`. The class is only
+    constructed on the first call and cached in a module global, so patching it
+    does nothing once any earlier test has warmed the singleton — these two
+    tests passed alone and failed after `test_rag_rearchitecture.py`, which is
+    an order dependency, not a real result. `get_shared_chunker` is the seam
+    `add_text_to_index` actually calls.
+    """
     inst = MagicMock()
     inst.chunk_documents.return_value = nodes
-    cls = MagicMock(return_value=inst)
-    return cls
+    return lambda: inst
 
 
 def test_add_text_to_index_returns_none_when_no_nodes(monkeypatch):
@@ -55,7 +63,7 @@ def test_add_text_to_index_returns_none_when_no_nodes(monkeypatch):
     monkeypatch.setattr(ix, "storage_context", MagicMock())
     monkeypatch.setattr(ix, "_lazy_load_llamaindex", lambda: None)
     monkeypatch.setattr(ix, "LlamaDocument", lambda **kw: object())
-    with patch("backend.utils.enhanced_rag_chunking.EnhancedRAGChunker", _fake_chunker([])):
+    with patch("backend.utils.enhanced_rag_chunking.get_shared_chunker", _fake_chunker([])):
         assert ix.add_text_to_index("anything", metadata={}) is None  # empty, not False
 
 
@@ -65,7 +73,7 @@ def test_add_text_to_index_returns_none_when_all_nodes_empty(monkeypatch):
     monkeypatch.setattr(ix, "_lazy_load_llamaindex", lambda: None)
     monkeypatch.setattr(ix, "LlamaDocument", lambda **kw: object())
     empty_node = SimpleNamespace(text="", metadata={})  # has attrs but empty text -> invalid
-    with patch("backend.utils.enhanced_rag_chunking.EnhancedRAGChunker", _fake_chunker([empty_node])):
+    with patch("backend.utils.enhanced_rag_chunking.get_shared_chunker", _fake_chunker([empty_node])):
         assert ix.add_text_to_index("anything", metadata={}) is None
 
 

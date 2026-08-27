@@ -653,14 +653,22 @@ def bulk_import_documents_task(job_id, source_path, target_folder, project_id=No
         update_job_status("processing", "Scanning for files...", 20)
         text_extensions = {'.txt', '.md', '.csv', '.json',
                            '.py', '.js', '.jsx', '.ts', '.tsx', '.html', '.css', '.xml'}
-        # Media and binary documents import as browsable/viewable documents;
-        # only plain-text files are queued for the RAG index — this pipeline
-        # reads bytes raw, so PDFs/DOCX would index as mojibake garbage.
+        # What is *indexable* is whatever the loaders can actually parse, asked
+        # of the loaders rather than restated here. The old hardcoded answer put
+        # .pdf/.docx in `media_extensions` on the grounds that "this pipeline
+        # reads bytes raw, so PDFs/DOCX would index as mojibake garbage" — true
+        # once, but get_documents_from_file() has run Docling ahead of the raw
+        # read since 4277256, and docling_loader declares .pdf/.docx/.pptx. The
+        # comment outlived its code and stranded every PDF and DOCX at STORED.
+        # `.doc` (legacy binary) has no loader and correctly stays out.
+        from backend.tasks.index_resume_tasks import _document_extensions
+        indexable_extensions = _document_extensions() | text_extensions
+        # Media still imports as browsable/viewable only: registered, never queued.
         media_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.webp',
                             '.wav', '.mp3', '.ogg', '.flac', '.m4a',
                             '.mp4', '.webm', '.mov', '.mkv',
                             '.pdf', '.doc', '.docx'}
-        supported_extensions = text_extensions | media_extensions
+        supported_extensions = text_extensions | media_extensions | indexable_extensions
         
         files_to_import = []
         for root, dirs, files in os.walk(source_path):
@@ -772,7 +780,7 @@ def bulk_import_documents_task(job_id, source_path, target_folder, project_id=No
                     existing = result.fetchone()
 
                     indexable = (os.path.splitext(filename)[1].lower()
-                                 in text_extensions
+                                 in indexable_extensions
                                  or not os.path.splitext(filename)[1])
 
                     if existing:
