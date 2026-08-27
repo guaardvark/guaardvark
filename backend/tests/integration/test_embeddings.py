@@ -189,22 +189,28 @@ def test_document_indexing_with_embeddings(app, tmp_path):
         # Verify indexing succeeded (function returns True on success)
         assert result is True, f"Indexing failed (returned {result})"
 
-        # Reload document and check status
+        # Reload the row; add_file_to_index does not own index_status.
         indexed_doc = db.session.get(DBDocument, doc_id)
         assert indexed_doc is not None
-        assert indexed_doc.index_status == "INDEXED", f"Document status is {indexed_doc.index_status}, expected INDEXED"
 
         # Verify index was created
         index_root = Path(app.config["INDEX_ROOT"])
         assert index_root.exists(), "Index root directory should exist"
 
-        # Check for vector store files
+        # Empty on pgvector by design: mirroring nodes into the docstore rewrites
+        # the whole file per document, so ingest cost grows with the corpus.
         docstore_file = index_root / "docstore.json"
         if docstore_file.exists():
             with open(docstore_file, 'r') as f:
                 docstore_data = json.load(f)
-            assert len(docstore_data.get('docstore/data', {})) > 0, "Docstore should contain documents"
-            print(f"Documents in docstore: {len(docstore_data.get('docstore/data', {}))}")
+            count = len(docstore_data.get('docstore/data', {}))
+            if indexing_service._vector_store_fallback_reason:
+                assert count > 0, "the file-backed store has nothing else to retrieve from"
+            else:
+                assert count == 0, (
+                    f"docstore holds {count} node(s) while pgvector is active - "
+                    "store_nodes_override is back, and ingest is quadratic again"
+                )
 
 
 @pytest.mark.indexing

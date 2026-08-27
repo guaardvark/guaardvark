@@ -172,7 +172,7 @@ class TestGPUEmbeddingAdapter:
             timeout=30
         )
         
-        assert adapter.client is not None
+        assert adapter._client is not None
     
     @patch('plugins.gpu_embedding.client.embedding_adapter.create_client')
     def test_get_text_embedding(self, mock_create_client):
@@ -191,7 +191,7 @@ class TestGPUEmbeddingAdapter:
         embedding = adapter._get_text_embedding("Test text")
         
         assert len(embedding) == 768
-        mock_client.generate_embedding.assert_called_once_with("Test text")
+        mock_client.generate_embedding.assert_called_once_with("Test text", model=adapter._model_name)
     
     @patch('plugins.gpu_embedding.client.embedding_adapter.create_client')
     def test_get_text_embeddings_batch(self, mock_create_client):
@@ -359,30 +359,18 @@ class TestGPUEmbeddingServiceReal:
 class TestCreateClientFactory:
     """Tests for the client factory function."""
     
-    def test_create_client_with_defaults(self, tmp_path):
-        """Test creating client with default configuration."""
-        # Create a mock plugin.json
-        plugin_dir = tmp_path / "plugins" / "gpu_embedding"
-        plugin_dir.mkdir(parents=True)
-        
-        plugin_json = {
-            "config": {
-                "service_url": "http://localhost:5002",
-                "timeout": 30
-            }
-        }
-        
-        with open(plugin_dir / "plugin.json", "w") as f:
-            json.dump(plugin_json, f)
-        
-        # Patch the file path
-        with patch('plugins.gpu_embedding.client.gpu_embedding_client.Path') as mock_path:
-            mock_path.return_value.parent.parent = plugin_dir
-            
-            client = create_client()
-            
-            assert client is not None
-            assert client.service_url == "http://localhost:5002"
+    def test_create_client_with_defaults(self):
+        """Defaults come from the plugin's own plugin.json."""
+        import plugins.gpu_embedding.client.gpu_embedding_client as mod
+        config = json.loads(
+            (Path(mod.__file__).parent.parent / "plugin.json").read_text()
+        )["config"]
+
+        client = create_client()
+
+        assert client is not None
+        assert client.service_url == config["service_url"]
+        assert client.timeout == config["timeout"]
     
     def test_create_client_with_overrides(self):
         """Test creating client with explicit overrides."""
