@@ -76,15 +76,16 @@ def test_get_formatted_rules_order_and_filter(app):
         )
         lines = [l.strip() for l in result.splitlines() if l.strip()]
         assert "Learned rule 2" not in result
+        # Grouped by level, then by created_at within a level. Each header
+        # appears once: a repeated header means level ordering did nothing and
+        # the rows came back interleaved by timestamp.
         expected_order = [
             "--- Applicable Rules & Guidelines ---",
             "## System Rules:",
             "- System rule 1",
-            "## Learned Rules:",
-            "- Learned rule 1",
-            "## System Rules:",
             "- System rule 2",
             "## Learned Rules:",
+            "- Learned rule 1",
             "- Learned rule 3",
         ]
         assert lines == expected_order

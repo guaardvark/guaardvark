@@ -76,7 +76,7 @@ def _cached_formatted_rules(key: Tuple) -> str:
     if reference_id:
         query = query.filter(Rule.reference_id == reference_id)
     level_priority = case(
-        (Rule.level == "system", 0), (Rule.level == "learned", 1), else_=99
+        (Rule.level == "SYSTEM", 0), (Rule.level == "LEARNED", 1), else_=99
     )
     fetched_rules = query.order_by(level_priority, Rule.created_at).all()
     if model_name:
@@ -178,7 +178,7 @@ def _cached_active_qa_template(
 
 
 def get_formatted_rules(
-    levels: List[str] = ["system", "learned"],
+    levels: List[str] = ["SYSTEM", "LEARNED"],
     model_name: Optional[str] = None,
     reference_id: Optional[str] = None,
 ) -> str:
@@ -187,7 +187,12 @@ def get_formatted_rules(
         logger.error("DB or Rule model unavailable in get_formatted_rules.")
         return ""
 
-    levels_tuple: Tuple[str, ...] = tuple(levels)
+    # `level` is CHECK-constrained to upper case and Postgres `IN` is case
+    # sensitive, so a lower-case caller silently matches nothing. Normalising
+    # here covers both queries and keeps one cache entry per level set.
+    levels_tuple: Tuple[str, ...] = tuple(
+        dict.fromkeys(str(level).upper() for level in levels)
+    )
     key = _rules_cache_key(levels_tuple, model_name, reference_id)
     try:
         result = _cached_formatted_rules(key)
