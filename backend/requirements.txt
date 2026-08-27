@@ -71,6 +71,12 @@ llama-index-retrievers-bm25>=0.5.0  # Hybrid search: BM25 keyword retrieval
 # is skipped. Verified at 0.8.1 / 6.0.0 against llama-index-core 0.14.24.
 llama-index-vector-stores-postgres>=0.8.0
 sentence-transformers>=5.0.0
+# Layout-aware parsing for .pdf/.docx/.pptx (backend/utils/docling_loader.py).
+# Without it those formats have no reader at all and fall through to a legacy
+# path that raises. Pulls rapidocr, which requires opencv-python>=4.5 with no
+# upper bound, so install under backend/constraints.txt (PIP_CONSTRAINT) to keep
+# numpy<2.0. Verified at 2.123.0: numpy 1.26.4 and opencv-python 4.8.1.78 held.
+docling>=2.123.0
 # PyTorch is installed by scripts/install_pytorch.sh (smart installer) - do not pin versions here
 # torch, torchvision, torchaudio versions are auto-detected based on GPU hardware
 
