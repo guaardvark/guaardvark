@@ -41,6 +41,13 @@ llama-index-core>=0.13.0,<0.15.0  # Compatible with llama-index-embeddings-ollam
 llama-index-llms-ollama>=0.7.0  # Updated for llama-index-core 0.14.x
 llama-index-embeddings-ollama>=0.8.0
 llama-index-readers-file>=0.5.0  # Updated for llama-index-core 0.14.x
+# Retrieval storage and reranking. Both were silent missing deps: without the
+# pgvector store the index falls back to SimpleVectorStore and reports success
+# throughout — measured 0/7 needles retrieved on scripts/rag_validation, 6/7 at
+# rank 1 once installed. Without sentence-transformers the cross-encoder rerank
+# is skipped. Verified at 0.8.1 / 6.0.0 against llama-index-core 0.14.24.
+llama-index-vector-stores-postgres>=0.8.0
+sentence-transformers>=5.0.0
 
 # Image Generation Dependencies (without torch)
 diffusers>=0.38.0

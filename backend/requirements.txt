@@ -64,6 +64,13 @@ llama-index-llms-ollama>=0.7.0  # Updated for llama-index-core 0.14.x
 llama-index-embeddings-ollama>=0.8.0
 llama-index-readers-file>=0.5.0  # Updated for llama-index-core 0.14.x
 llama-index-retrievers-bm25>=0.5.0  # Hybrid search: BM25 keyword retrieval
+# Retrieval storage and reranking. Both were silent missing deps: without the
+# pgvector store the index falls back to SimpleVectorStore and reports success
+# throughout — measured 0/7 needles retrieved on scripts/rag_validation, 6/7 at
+# rank 1 once installed. Without sentence-transformers the cross-encoder rerank
+# is skipped. Verified at 0.8.1 / 6.0.0 against llama-index-core 0.14.24.
+llama-index-vector-stores-postgres>=0.8.0
+sentence-transformers>=5.0.0
 # PyTorch is installed by scripts/install_pytorch.sh (smart installer) - do not pin versions here
 # torch, torchvision, torchaudio versions are auto-detected based on GPU hardware
 
