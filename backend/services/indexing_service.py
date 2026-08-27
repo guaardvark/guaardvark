@@ -706,6 +706,22 @@ def _vector_backend() -> str:
     return os.environ.get("GUAARDVARK_VECTOR_STORE", "pgvector").lower()
 
 
+def _test_table_prefix() -> str:
+    """Scope prefix that keeps a test run out of the real vector tables.
+
+    Tests give the ORM its own database, so `Document.id` restarts at 1 while the
+    vector store still resolves `DATABASE_URL` from `backend.config` directly.
+    `add_file_to_index` purges by document id before inserting, so a test
+    indexing its first document deletes the real document 1's vectors. Scoping
+    the table name is the one place that closes every such path at once.
+    """
+    if os.environ.get("GUAARDVARK_MODE") == "test":
+        return "test_"
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        return "test_"
+    return ""
+
+
 def _pg_table_name(project_id=None, profile: Optional[str] = None) -> Optional[str]:
     """Per (profile, scope, dimension) table.
 
@@ -727,7 +743,7 @@ def _pg_table_name(project_id=None, profile: Optional[str] = None) -> Optional[s
     except Exception:
         scope = str(project_id) if project_id else "global"
     scope = re.sub(r"[^A-Za-z0-9_]", "_", scope)[:60]
-    return f"guaardvark_{scope}_{dim}"
+    return f"guaardvark_{_test_table_prefix()}{scope}_{dim}"
 
 
 # Set when the configured vector store could not be built and an EMPTY in-memory
