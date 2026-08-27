@@ -17,10 +17,6 @@ try:
     from backend.app import app, db
     # Model (previously ModelInfo) is kept as an alias so legacy seed code still runs.
     from backend.models import Rule, Client, Project, Website, Task, Model as ModelInfo
-    from backend.utils.prompt_utils import (
-        FALLBACK_QA_PROMPT_TEXT,
-        FALLBACK_CODE_GEN_PROMPT_TEXT,
-    )
     import json
 
     logger = logging.getLogger(__name__)
