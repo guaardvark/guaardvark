@@ -63,7 +63,6 @@ const FilmCrewPage = lazy(() => import("./pages/FilmCrewPage"));
 const MusicVideoPage = lazy(() => import("./pages/MusicVideoPage"));
 const CastStudioPage = lazy(() => import("./pages/CastStudioPage"));
 const CastMemberPage = lazy(() => import("./pages/CastMemberPage"));
-const NetworkMonitorPage = lazy(() => import("./pages/NetworkMonitorPage"));
 import Sidebar from "./components/layout/Sidebar";
 import ProgressFooterBar from "./components/layout/ProgressFooterBar";
 import { StatusProvider } from "./contexts/StatusContext";
@@ -382,16 +381,6 @@ const AppContainer = () => {
                           <AppLayout>
                             <ErrorBoundary>
                               <ImagesPage />
-                            </ErrorBoundary>
-                          </AppLayout>
-                        }
-                      />
-                      <Route
-                        path="/network-monitor"
-                        element={
-                          <AppLayout>
-                            <ErrorBoundary>
-                              <NetworkMonitorPage />
                             </ErrorBoundary>
                           </AppLayout>
                         }
