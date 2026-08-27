@@ -11,7 +11,7 @@
   "core": false,
   "dependencies": [],
   "config": {
-    "default_enabled": true,
+    "default_enabled": false,
     "default_auto_start": false,
     "service_url": "http://127.0.0.1:8206",
     "timeout": 120,

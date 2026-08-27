@@ -18,7 +18,7 @@
     "flight_mode": false,
     "auto_merge": false,
     "run_tests_before_merge": true,
-    "default_enabled": true,
+    "default_enabled": false,
     "default_auto_start": false
   },
   "requirements": {
