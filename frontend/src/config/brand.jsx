@@ -38,6 +38,7 @@ import BubbleChartIcon from "@mui/icons-material/BubbleChart";
 import ScienceIcon from "@mui/icons-material/Science";
 import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
 import VideoCameraBackIcon from "@mui/icons-material/VideoCameraBack";
+import RouterIcon from "@mui/icons-material/Router";
 import InsertChartOutlinedIcon from "@mui/icons-material/InsertChartOutlined";
 import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 
@@ -92,6 +93,7 @@ const navGroups = [
       // /api/jobs adapter layer.
       { text: "Jobs", icon: <QueueIcon />, path: "/tasks" },
       { text: "Activity", icon: <MonitorHeartIcon />, path: "/activity" },
+      { text: "Network Monitor", icon: <RouterIcon />, path: "/network-monitor" },
       { text: "Outreach", icon: <CampaignIcon />, path: "/outreach" },
     ],
   },
