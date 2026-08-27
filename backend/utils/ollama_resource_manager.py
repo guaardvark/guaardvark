@@ -402,6 +402,68 @@ def validate_model_before_load(model_name: str) -> Tuple[bool, str, int]:
     return True, f"OK — recommended num_ctx={recommended_ctx}", recommended_ctx
 
 
+def resolve_num_ctx(model_name: str, explicit: Optional[int] = None) -> int:
+    """The context window to request from Ollama for ``model_name``.
+
+    An explicit value a caller passed through wins untouched — the bound below
+    exists to stop a silent default choosing something unusable, not to overrule
+    a deliberate choice.
+
+    Why this is not optional: llama-index-llms-ollama defaults ``context_window``
+    to ``-1``, and ``-1`` means "ask the model for its native context length and
+    send that as ``num_ctx`` on every call". Measured on this project's own
+    workstation (RTX 4070 Ti SUPER, 16,376 MiB), ``qwen3.5:9b`` advertises a
+    native 262,144:
+
+      * unbounded — 16 GB resident, split 25%/75% CPU/GPU, 2.6 tok/s generation,
+        39-60 s per summariser call
+      * bounded at 8,192 — 5.9 GB resident, 100% GPU, 3.24 s cold / 0.58 s warm
+
+    So constructing an ``Ollama`` without a context window is never a neutral
+    default; it is a ~100x slowdown of every LLM feature in the product, and it
+    reports nothing when it happens.
+    """
+    if explicit is not None:
+        return int(explicit)
+    try:
+        return compute_optimal_num_ctx(model_name)
+    except Exception as e:
+        logger.warning(
+            "Could not size num_ctx for %r (%s); falling back to %d",
+            model_name, e, DEFAULT_TEXT_NUM_CTX,
+        )
+        return DEFAULT_TEXT_NUM_CTX
+
+
+def build_ollama(model_name: str, **kwargs):
+    """Build a llama-index ``Ollama`` whose context window is always bounded.
+
+    Every knob is passed straight through except ``context_window``, which is
+    filled in from :func:`resolve_num_ctx` when the caller did not set one. Use
+    this instead of constructing ``Ollama`` directly: the library's own default
+    is the failure described above, and it is invisible at the call site.
+
+    ``num_ctx`` is mirrored into ``additional_kwargs`` because that dict is
+    spread *after* the base kwargs in the library's ``_model_kwargs``, so a
+    caller-supplied ``additional_kwargs`` would otherwise be able to silently
+    reintroduce an unbounded value.
+    """
+    from llama_index.llms.ollama import Ollama
+
+    num_ctx = resolve_num_ctx(model_name, kwargs.pop("context_window", None))
+    additional = dict(kwargs.pop("additional_kwargs", None) or {})
+    additional.setdefault("num_ctx", num_ctx)
+    if "base_url" not in kwargs:
+        from backend.config import OLLAMA_BASE_URL
+        kwargs["base_url"] = OLLAMA_BASE_URL
+    return Ollama(
+        model=model_name,
+        context_window=num_ctx,
+        additional_kwargs=additional,
+        **kwargs,
+    )
+
+
 def clear_cache():
     """Clear the model info cache."""
     _model_info_cache.clear()

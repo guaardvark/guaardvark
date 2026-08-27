@@ -399,15 +399,20 @@ class BulkCSVGenerator:
         try:
             if model_name:
                 # Use the specified model instead of default
-                from llama_index.llms.ollama import Ollama
+                from backend.utils.ollama_resource_manager import build_ollama
                 from backend.config import OLLAMA_BASE_URL, LLM_REQUEST_TIMEOUT
                 timeout_value = min(LLM_REQUEST_TIMEOUT, 180.0)
-                self.llm = Ollama(
-                    model=model_name,
+                # 8192 was already pinned here via additional_kwargs, which
+                # happened to mask the unbounded default — pass it as the context
+                # window proper so it is the stated intent rather than a side
+                # effect of dict-merge order.
+                self.llm = build_ollama(
+                    model_name,
                     base_url=OLLAMA_BASE_URL,
                     request_timeout=timeout_value,
                     temperature=0.4,
-                    additional_kwargs={"num_ctx": 8192, "top_p": 0.8, "top_k": 30}
+                    context_window=8192,
+                    additional_kwargs={"top_p": 0.8, "top_k": 30},
                 )
                 self._log_info(f"LLM initialized with specified model: {model_name}")
             else:

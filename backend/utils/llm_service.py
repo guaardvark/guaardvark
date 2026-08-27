@@ -74,9 +74,9 @@ def get_llm_instance(model: Optional[str] = None) -> Optional[LLM]:
     if model:
         try:
             from backend.config import OLLAMA_BASE_URL
-            from llama_index.llms.ollama import Ollama
-            return Ollama(
-                model=model,
+            from backend.utils.ollama_resource_manager import build_ollama
+            return build_ollama(
+                model,
                 base_url=OLLAMA_BASE_URL,
                 request_timeout=120.0,
             )

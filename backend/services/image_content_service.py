@@ -47,6 +47,25 @@ except ImportError as e:
     LLM_REQUEST_TIMEOUT = 120
     VISION_MODEL_PATTERNS = ["vision", "llava", "gpt-4", "gpt4", "gpt-4o"]
 
+# Whether the `ollama` package is importable, which is a separate question from
+# `import_source` above: that one records how *LlamaIndex* was found, and a
+# LlamaIndex LLM cannot carry an image. Only these two transports can.
+try:
+    import ollama as _ollama_client  # noqa: F401
+    _OLLAMA_CLIENT_AVAILABLE = True
+except ImportError:
+    _OLLAMA_CLIENT_AVAILABLE = False
+
+# One prompt, shared by both transports, so they cannot drift apart and quietly
+# start asking the model for different things.
+OCR_PROMPT = """Please extract all text content from this image. Include:
+1. Any visible text, words, or characters
+2. Text from signs, labels, documents, or screenshots
+3. Handwritten text if legible
+4. Text in any language
+
+Please provide only the extracted text content, without explanations or descriptions of the image itself. If no text is visible, respond with 'NO_TEXT_FOUND'."""
+
 
 class ImageContentExtractor:
     """Extracts text content from images using vision models."""
@@ -69,11 +88,16 @@ class ImageContentExtractor:
             logger.warning("Ollama service not available for vision model detection")
             return None
         
-        # First check if current text model supports vision
+        # First check if current text model supports vision. Preferring the model
+        # that is already resident matters on a single card: the alternative is
+        # evicting it to cold-load a second multi-GB vision model to read one
+        # image. `Settings` is LlamaIndex's, not backend.config's — importing it
+        # from there raised ImportError every time, so this whole branch was dead
+        # and selection always fell through to the pattern search below.
         try:
             from backend.utils.chat_utils import is_vision_model
-            from backend.config import Settings
-            
+            from llama_index.core import Settings
+
             # Get current text model
             llm = Settings.llm
             current_model = getattr(llm, "model", None) if llm else None
@@ -148,80 +172,29 @@ class ImageContentExtractor:
             logger.error(f"Failed to encode image {image_path}: {e}")
             return None
     
-    def _create_vision_llm(self, model_name: str) -> Optional[Any]:
-        """Create Ollama vision model instance with fallback support."""
-        if not self.service_available:
-            return None
-            
-        try:
-            if self.import_source == "llama_index.llms.ollama" or self.import_source == "llama_index_llms_ollama":
-                # Use LlamaIndex Ollama wrapper with adaptive context
-                timeout_value = min(LLM_REQUEST_TIMEOUT, 120.0)  # Cap at 2 minutes for vision
-                try:
-                    from backend.utils.ollama_resource_manager import compute_optimal_num_ctx
-                    num_ctx = compute_optimal_num_ctx(model_name)
-                except Exception:
-                    num_ctx = 4096  # Conservative default for vision models
-                vision_llm = Ollama(
-                    model=model_name,
-                    base_url=OLLAMA_BASE_URL,
-                    request_timeout=timeout_value,
-                    context_window=num_ctx,
-                    additional_kwargs={"num_ctx": num_ctx}
-                )
+    # `_create_vision_llm` used to live here. It built a LlamaIndex `Ollama` and
+    # burned a round-trip proving the model answered "Test" — which proved only
+    # that the model was reachable, never that it could see an image, because the
+    # object it returned had no way to carry one. Extraction now goes straight to
+    # a transport that takes image bytes, so there is nothing left to pre-build.
 
-                # Test the model with a simple prompt
-                test_response = vision_llm.complete("Test")
-                logger.debug(f"Vision model {model_name} test successful (num_ctx={num_ctx})")
-                return vision_llm
-
-            elif self.import_source == "ollama_direct":
-                # Use direct ollama client
-                import ollama
-                client = ollama.Client(host=OLLAMA_BASE_URL)
-                # Test the model with explicit num_ctx to prevent huge KV cache
-                try:
-                    from backend.utils.ollama_resource_manager import compute_optimal_num_ctx
-                    num_ctx = compute_optimal_num_ctx(model_name)
-                except Exception:
-                    num_ctx = 4096
-                response = client.generate(
-                    model=model_name, prompt="Test",
-                    options={"num_ctx": num_ctx}
-                )
-                logger.debug(f"Direct Ollama model {model_name} test successful (num_ctx={num_ctx})")
-                return client
-                
-        except Exception as e:
-            logger.error(f"Failed to create vision LLM for {model_name}: {e}")
-            return None
-    
     def _extract_with_direct_api(self, model_name: str, image_path: str) -> Dict[str, Any]:
         """Extract text using direct Ollama API calls."""
         try:
             import ollama
-            
-            # Create vision prompt for OCR
-            ocr_prompt = """Please extract all text content from this image. Include:
-1. Any visible text, words, or characters
-2. Text from signs, labels, documents, or screenshots
-3. Handwritten text if legible
-4. Text in any language
-
-Please provide only the extracted text content, without explanations or descriptions of the image itself. If no text is visible, respond with 'NO_TEXT_FOUND'."""
 
             # Use direct API call with image, with adaptive context to prevent OOM
             client = ollama.Client(host=OLLAMA_BASE_URL)
             try:
-                from backend.utils.ollama_resource_manager import compute_optimal_num_ctx
-                num_ctx = compute_optimal_num_ctx(model_name)
+                from backend.utils.ollama_resource_manager import resolve_num_ctx
+                num_ctx = resolve_num_ctx(model_name)
             except Exception:
                 num_ctx = 4096
 
             with open(image_path, 'rb') as image_file:
                 response = client.generate(
                     model=model_name,
-                    prompt=ocr_prompt,
+                    prompt=OCR_PROMPT,
                     images=[image_file.read()],
                     options={"num_ctx": num_ctx}
                 )
@@ -285,56 +258,65 @@ Please provide only the extracted text content, without explanations or descript
             
         logger.info(f"Extracting text from image: {image_path} using model: {vision_model}")
         
-        # Try direct API approach first (more reliable)
-        if self.import_source == "ollama_direct":
+        # There is only one correct transport here: one that actually sends the
+        # image bytes. The LlamaIndex `Ollama.complete(prompt)` wrapper cannot —
+        # it posts the prompt alone — so a branch that used it was not a weaker
+        # OCR path, it was a model inventing text it had never seen and this
+        # function returning it as `success=True, confidence=0.8`. That reached
+        # the knowledge base through get_documents_from_file() labelled
+        # `extraction_method: vision_model_ocr`. Both remaining paths pass the
+        # image; `import_source` now selects a transport, never whether the
+        # model gets to look at the file.
+        if _OLLAMA_CLIENT_AVAILABLE:
             return self._extract_with_direct_api(vision_model, image_path)
-        
-        # Fallback to LlamaIndex wrapper approach
-        try:
-            # Encode image to base64
-            encoded_image = self._encode_image_to_base64(image_path)
-            if not encoded_image:
-                result['error'] = "Failed to encode image to base64"
-                return result
-                
-            # Create vision LLM
-            vision_llm = self._create_vision_llm(vision_model)
-            if not vision_llm:
-                result['error'] = f"Failed to create vision LLM for {vision_model}"
-                return result
-            
-            # Create vision prompt for OCR
-            ocr_prompt = """Please extract all text content from this image. Include:
-1. Any visible text, words, or characters
-2. Text from signs, labels, documents, or screenshots
-3. Handwritten text if legible
-4. Text in any language
+        return self._extract_with_http_api(vision_model, image_path)
 
-Please provide only the extracted text content, without explanations or descriptions of the image itself. If no text is visible, respond with 'NO_TEXT_FOUND'."""
-            
-            # Send prompt to vision model
-            response = vision_llm.complete(ocr_prompt)
-            extracted_text = str(response).strip()
-            
-            if extracted_text and extracted_text != 'NO_TEXT_FOUND':
-                result['success'] = True
-                result['text_content'] = extracted_text
-                result['confidence'] = 0.8  # Default confidence for successful extraction
-                result['model_used'] = vision_model
-                
-                logger.info(f"Successfully extracted {len(extracted_text)} characters from {image_path}")
-                logger.debug(f"Extracted text preview: {extracted_text[:200]}...")
-            else:
-                result['success'] = True  # Successful processing, but no text found
-                result['text_content'] = ''
-                result['confidence'] = 0.9  # High confidence in "no text" result
-                result['model_used'] = vision_model
-                logger.info(f"No text found in image: {image_path}")
-                
+    def _extract_with_http_api(self, model_name: str, image_path: str) -> Dict[str, Any]:
+        """Extract text over Ollama's HTTP API, without the `ollama` package.
+
+        Same contract as `_extract_with_direct_api`; used when only `requests` is
+        available. `/api/generate` takes `images` as base64 strings.
+        """
+        result = {
+            'success': False, 'text_content': '', 'confidence': 0.0,
+            'model_used': model_name, 'error': None, 'method': 'http_api',
+        }
+        encoded_image = self._encode_image_to_base64(image_path)
+        if not encoded_image:
+            result['error'] = "Failed to encode image to base64"
+            return result
+        try:
+            from backend.utils.ollama_resource_manager import resolve_num_ctx
+            num_ctx = resolve_num_ctx(model_name)
+        except Exception:
+            num_ctx = 4096
+        try:
+            response = requests.post(
+                f"{OLLAMA_BASE_URL}/api/generate",
+                json={
+                    "model": model_name,
+                    "prompt": OCR_PROMPT,
+                    "images": [encoded_image],
+                    "stream": False,
+                    "options": {"num_ctx": num_ctx},
+                },
+                timeout=LLM_REQUEST_TIMEOUT,
+            )
+            if response.status_code != 200:
+                result['error'] = (
+                    f"Ollama returned {response.status_code}: {response.text[:200]}"
+                )
+                return result
+            extracted_text = (response.json().get('response') or '').strip()
         except Exception as e:
-            logger.error(f"Vision model extraction failed for {image_path}: {e}")
-            result['error'] = f"Vision model processing failed: {str(e)}"
-            
+            logger.error(f"HTTP API extraction failed for {image_path}: {e}")
+            result['error'] = f"Vision model processing failed: {e}"
+            return result
+
+        found = extracted_text and extracted_text != 'NO_TEXT_FOUND'
+        result['success'] = True
+        result['text_content'] = extracted_text if found else ''
+        result['confidence'] = 0.8 if found else 0.9
         return result
     
     def batch_extract_text(self, image_paths: List[str]) -> Dict[str, Dict[str, Any]]:

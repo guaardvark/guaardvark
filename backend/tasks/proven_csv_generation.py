@@ -35,10 +35,10 @@ def generate_proven_csv_task(self, topics, output_filename, client_name, project
         
         if model_name:
             logger.info(f"Using specified model: {model_name}")
-            from llama_index.llms.ollama import Ollama
+            from backend.utils.ollama_resource_manager import build_ollama
             from backend.config import OLLAMA_BASE_URL, LLM_REQUEST_TIMEOUT
             timeout_value = min(LLM_REQUEST_TIMEOUT, 180.0)
-            llm = Ollama(model=model_name, base_url=OLLAMA_BASE_URL, request_timeout=timeout_value)
+            llm = build_ollama(model_name, base_url=OLLAMA_BASE_URL, request_timeout=timeout_value)
         else:
             logger.info("Using default/active model")
             llm = get_default_llm()

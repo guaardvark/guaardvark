@@ -152,11 +152,11 @@ def _execute_task(app, task_id: int) -> None:
                     # Generate content using basic LLM for non-code requests
                     try:
                         # Create LLM instance with the specified model
-                        from llama_index.llms.ollama import Ollama
+                        from backend.utils.ollama_resource_manager import build_ollama
                         from backend.config import OLLAMA_BASE_URL, LLM_REQUEST_TIMEOUT
 
                         timeout_value = min(LLM_REQUEST_TIMEOUT, 300.0)  # Cap at 5 minutes for tasks
-                        task_llm = Ollama(model=model_name, base_url=OLLAMA_BASE_URL, request_timeout=timeout_value)
+                        task_llm = build_ollama(model_name, base_url=OLLAMA_BASE_URL, request_timeout=timeout_value)
 
                         output = llm_service.generate_text_basic(prompt=prompt, llm=task_llm)
                     except Exception as llm_error:
@@ -492,11 +492,11 @@ User request: {prompt}
 Generate the content now:"""
 
         # Create LLM instance with the specified model
-        from llama_index.llms.ollama import Ollama
+        from backend.utils.ollama_resource_manager import build_ollama
         from backend.config import OLLAMA_BASE_URL, LLM_REQUEST_TIMEOUT
 
         timeout_value = min(LLM_REQUEST_TIMEOUT, 600.0)  # Allow more time for code generation
-        task_llm = Ollama(model=model_name, base_url=OLLAMA_BASE_URL, request_timeout=timeout_value)
+        task_llm = build_ollama(model_name, base_url=OLLAMA_BASE_URL, request_timeout=timeout_value)
 
         # Use enhanced generation instead of basic
         from llama_index.core.llms import ChatMessage, MessageRole

@@ -220,10 +220,10 @@ class CSVGenerationHandler(BaseTaskHandler):
             progress_callback(5, "Initializing LLM...", None)
 
             if model_name and model_name != "default":
-                from llama_index.llms.ollama import Ollama
+                from backend.utils.ollama_resource_manager import build_ollama
                 from backend.config import OLLAMA_BASE_URL, LLM_REQUEST_TIMEOUT
                 timeout_value = min(LLM_REQUEST_TIMEOUT, 180.0)
-                llm = Ollama(model=model_name, base_url=OLLAMA_BASE_URL, request_timeout=timeout_value)
+                llm = build_ollama(model_name, base_url=OLLAMA_BASE_URL, request_timeout=timeout_value)
             else:
                 from backend.utils.llm_service import get_default_llm
                 llm = get_default_llm()

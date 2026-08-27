@@ -152,7 +152,8 @@ def force_local_llama_index_config():
 
         # Configure Ollama with active model (checks saved model first, then preference list)
         try:
-            from llama_index.llms.ollama import Ollama
+            from llama_index.llms.ollama import Ollama  # noqa: F401  (availability probe)
+            from backend.utils.ollama_resource_manager import build_ollama
 
             try:
                 from backend.config import get_default_llm
@@ -160,13 +161,13 @@ def force_local_llama_index_config():
                 active_model = get_default_llm()
                 logger.info(f"Using active model from file: {active_model}")
 
-                local_llm = Ollama(model=active_model, request_timeout=60.0)
+                local_llm = build_ollama(active_model, request_timeout=60.0)
                 logger.info(f" Configured Ollama with real model: {active_model}")
 
             except ImportError as e:
                 logger.warning(f"Could not import config, using fallback: {e}")
                 active_model = "llama3:latest"
-                local_llm = Ollama(model=active_model, request_timeout=60.0)
+                local_llm = build_ollama(active_model, request_timeout=60.0)
                 logger.info(f" Configured Ollama with fallback model: {active_model}")
 
         except ImportError:
@@ -293,14 +294,15 @@ def get_local_embedding_model():
 def get_local_llm():
     """Get a local LLM instance using real active model"""
     try:
-        from llama_index.llms.ollama import Ollama
+        from llama_index.llms.ollama import Ollama  # noqa: F401  (availability probe)
+        from backend.utils.ollama_resource_manager import build_ollama
 
         try:
             from backend.config import get_default_llm
             active_model = get_default_llm()
-            return Ollama(model=active_model, request_timeout=60.0)
+            return build_ollama(active_model, request_timeout=60.0)
         except ImportError:
-            return Ollama(model="llama3:latest", request_timeout=60.0)
+            return build_ollama("llama3:latest", request_timeout=60.0)
 
     except ImportError:
         logger.error("Ollama not available - no real LLM possible")
