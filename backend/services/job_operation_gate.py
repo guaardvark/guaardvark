@@ -58,6 +58,25 @@ class GpuBusyError(Exception):
     caller can surface it (UI banner) or fail the stage cleanly."""
 
 
+class GpuCapacityError(GpuBusyError):
+    """The estimate can never fit this card; retrying will not help."""
+
+
+class GpuOOMError(RuntimeError):
+    """CUDA/MPS ran out of memory during a render."""
+
+
+def is_cuda_oom(exc: BaseException) -> bool:
+    """True for torch/MPS out-of-memory errors, by type name or message."""
+    if type(exc).__name__ == "OutOfMemoryError" or isinstance(exc, GpuOOMError):
+        return True
+    msg = (str(exc) or "").lower()
+    return (
+        "out of memory" in msg
+        and any(k in msg for k in ("cuda", "cublas", "cudnn", "mps"))
+    ) or "cuda out of memory" in msg
+
+
 class JobOperationGate:
     """Thread-safe gate coordinating cross-surface job ops.
 
@@ -152,8 +171,14 @@ class JobOperationGate:
             self._in_progress[kind].add(str(native_id))
             return True, "GPU claimed exclusively"
 
-    def release_gpu_exclusive(self, kind: JobKind, native_id: str) -> None:
-        """Release a previously-claimed GPU-exclusive slot. Idempotent."""
+    def release_gpu_exclusive(
+        self, kind: JobKind, native_id: str, *, cooldown: bool = True
+    ) -> None:
+        """Release a previously-claimed GPU-exclusive slot. Idempotent.
+
+        ``cooldown=False`` clears the holder without starting the post-release
+        cooldown — for a claim that was refused before any work touched the card.
+        """
         with self._lock:
             if self._gpu_holder is None:
                 self._in_progress[kind].discard(str(native_id))
@@ -166,7 +191,8 @@ class JobOperationGate:
                 return
             self._gpu_holder = None
             self._holder_thread = None
-            self._gpu_last_released = time.monotonic()
+            if cooldown:
+                self._gpu_last_released = time.monotonic()
             self._in_progress[kind].discard(str(native_id))
 
     # ---- contextmanager ----------------------------------------------------

@@ -697,17 +697,11 @@ class BatchVideoGenerator:
             return None
 
     def _run_batch(self, batch_request: BatchVideoRequest, status: BatchVideoStatus) -> None:
-        # gpu_session composes gate + cross-process lease + Ollama eviction + VRAM
-        # orchestrator debit (P0.3c). Serial background queue waits out the gate
-        # busy/cooldown, then retries require_fit while residual Comfy weights
-        # still occupy the card — never cascade-fail the rest of the queue.
-        from backend.services.gpu_resource_policy import (
-            gpu_session,
-            is_capacity_overflow_error,
-            reclaim_and_settle,
-            vram_probe_snapshot,
-        )
-        from backend.services.job_operation_gate import GpuBusyError
+        # Serial background queue: retry a busy/resident refusal with backoff
+        # until the deadline; a capacity refusal is terminal. Eviction belongs to
+        # gpu_session once it has won the slot — this loop never reclaims.
+        from backend.services.gpu_resource_policy import gpu_session, vram_probe_snapshot
+        from backend.services.job_operation_gate import GpuBusyError, GpuCapacityError
         from backend.services.job_types import JobKind
         from backend.services.video_model_registry import vram_mb_for_model
 
@@ -776,20 +770,19 @@ class BatchVideoGenerator:
                         parallel_comfyui=parallel_comfyui,
                     )
                 return
+            except GpuCapacityError as e:
+                status.status = "error"
+                status.error = f"Could not acquire GPU: {e}"
+                status.end_time = datetime.now()
+                self._set_stage(status, "done", save=False)
+                self._save_metadata(status)
+                logger.error(
+                    "Batch %s capacity refuse (no retry): %s",
+                    batch_request.batch_id,
+                    e,
+                )
+                return
             except GpuBusyError as e:
-                if is_capacity_overflow_error(e):
-                    status.status = "error"
-                    status.error = f"Could not acquire GPU: {e}"
-                    status.end_time = datetime.now()
-                    self._set_stage(status, "done", save=False)
-                    self._save_metadata(status)
-                    logger.error(
-                        "Batch %s capacity refuse (no retry): %s",
-                        batch_request.batch_id,
-                        e,
-                    )
-                    return
-
                 remaining = deadline - time.time()
                 if remaining <= 0:
                     status.status = "error"
@@ -808,26 +801,13 @@ class BatchVideoGenerator:
                     return
 
                 logger.warning(
-                    "Batch %s VRAM resident/busy (%s) — reclaiming and retrying "
+                    "Batch %s VRAM resident/busy (%s) — retrying "
                     "in %.0fs (%.0fs left)",
                     batch_request.batch_id,
                     e,
                     min(backoff_s, remaining),
                     remaining,
                 )
-                try:
-                    settled = reclaim_and_settle(
-                        evict_ollama=True, free_comfyui=True, settle_s=3.0
-                    )
-                    status.metadata["vram_free_mb"] = settled.get("free_mb")
-                    status.metadata["gpu_wait_reason"] = (
-                        f"Waiting for VRAM — "
-                        f"{(settled.get('free_mb') or 0) / 1024:.1f}GB free, "
-                        f"need ~{need_mb / 1024:.1f}GB"
-                    )
-                    self._save_metadata(status)
-                except Exception as reclaim_err:
-                    logger.debug("reclaim_and_settle failed: %s", reclaim_err)
 
                 sleep_for = min(backoff_s, max(0.5, deadline - time.time()))
                 # Wake early on cancel.
