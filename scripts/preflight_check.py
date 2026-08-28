@@ -178,9 +178,17 @@ def check_reconciler_sentinel():
     print(f"  {FAIL} Last dependency reconcile FAILED and has not succeeded since:")
     for line in detail.splitlines():
         print(f"      {line}")
+    # Name the reconciler(s) that failed and where their log is; "run the
+    # repair script" alone loops when the failing step is one the repair
+    # does not cover (seen on macOS, #41).
+    failed = [ln.strip() for ln in detail.splitlines() if ln.strip().startswith("- ")]
+    log_line = next((ln.strip() for ln in detail.splitlines() if ln.strip().startswith("Full log:")), "")
     errors.append(
-        "Dependency reconciler failed (logs/.dep_reconcile_failed present). "
-        "Repair: ./scripts/heal_backend_venv.sh  or  ./scripts/dep_reconciler.py --force"
+        "Dependency reconciler failed: "
+        + ("; ".join(failed) if failed else "(see logs/.dep_reconcile_failed)")
+        + (f". {log_line}" if log_line else "")
+        + ". Repair: ./scripts/dep_reconciler.py --force  (or ./scripts/heal_backend_venv.sh); "
+        "if the same step fails again, paste that log in an issue"
     )
     return False
 

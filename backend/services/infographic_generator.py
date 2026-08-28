@@ -27,7 +27,7 @@ import requests
 try:
     from backend.config import COMFYUI_URL  # type: ignore
 except ImportError:
-    COMFYUI_URL = "http://127.0.0.1:8188"
+    COMFYUI_URL = None  # resolved at construction via backend.utils.comfyui_url
 
 logger = logging.getLogger(__name__)
 
@@ -188,7 +188,9 @@ class InfographicGenerator:
     """Thin wrapper around ComfyUI's /prompt + /history + /view for Flux."""
 
     def __init__(self, comfy_url: Optional[str] = None):
-        self.comfy_url = (comfy_url or COMFYUI_URL).rstrip("/")
+        from backend.utils.comfyui_url import get_comfyui_url
+
+        self.comfy_url = (comfy_url or get_comfyui_url()).rstrip("/")
 
     # -- public API --------------------------------------------------------
 

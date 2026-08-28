@@ -38,6 +38,16 @@ def _prune_old_screenshots(directory: str, max_keep: int = MAX_SCREENSHOTS):
 
 def _ensure_agent_display():
     """Start the virtual display if needed and set DISPLAY for mss/xdotool."""
+    import platform
+
+    if platform.system() == "Darwin":
+        # The screen agent is Xvfb + X11; the start script refuses on macOS,
+        # so pointing a Mac user at it only sends them in a circle.
+        raise RuntimeError(
+            "The screen agent needs an X11 virtual display (Xvfb), which macOS does not have. "
+            "Agent screen tools are not available on macOS yet; use the chat and document "
+            "tools instead."
+        )
     from backend.utils.agent_display_utils import start_agent_display_if_needed
     if not start_agent_display_if_needed():
         raise RuntimeError(

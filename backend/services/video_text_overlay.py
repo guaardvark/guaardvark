@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 import re
 import shutil
+import os
 import subprocess
 from pathlib import Path
 from typing import Optional
@@ -24,10 +25,41 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
-# Default font on Debian/Ubuntu/Mint — confirmed available at install time
-# (`fc-list :lang=en family file` showed DejaVuSans-Bold.ttf in the standard
-# location). If we ever ship to a distro without it, this needs a fallback.
-_DEFAULT_FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+# A bold sans font for drawtext. The Debian path was the only one for a long
+# time and every Mac hit it; the list now covers the common platform locations,
+# an explicit override wins, and fontconfig is asked before giving up.
+_FONT_CANDIDATES = (
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",       # Debian/Ubuntu/Mint
+    "/usr/share/fonts/dejavu-sans-fonts/DejaVuSans-Bold.ttf",     # Fedora
+    "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",                    # Arch
+    "/System/Library/Fonts/Supplemental/Arial Bold.ttf",           # macOS
+    "/Library/Fonts/Arial Bold.ttf",                               # macOS (user-installed)
+    "/System/Library/Fonts/Helvetica.ttc",                         # macOS (always present)
+    "C:/Windows/Fonts/arialbd.ttf",                                # Windows
+)
+
+
+def resolve_font_path() -> str:
+    """The first usable bold sans font on this machine, or raise with the reason."""
+    override = (os.environ.get("GUAARDVARK_OVERLAY_FONT") or "").strip()
+    if override:
+        if Path(override).is_file():
+            return override
+        raise VideoOverlayError(f"GUAARDVARK_OVERLAY_FONT points at a missing file: {override}")
+    for candidate in _FONT_CANDIDATES:
+        if Path(candidate).is_file():
+            return candidate
+    try:
+        found = subprocess.run(
+            ["fc-match", "-f", "%{file}", "sans:bold"], capture_output=True, text=True, timeout=5
+        ).stdout.strip()
+        if found and Path(found).is_file():
+            return found
+    except (OSError, subprocess.SubprocessError):
+        pass
+    raise VideoOverlayError(
+        "No bold sans font found for the text overlay. Set GUAARDVARK_OVERLAY_FONT to a .ttf path."
+    )
 
 # Named positions → (x, y) ffmpeg drawtext expressions. The text_w / text_h
 # variables are populated by ffmpeg at filter eval time. 20px margin keeps
@@ -133,7 +165,7 @@ def add_text_to_video(
         logger.warning("Unknown position %r; defaulting to bottom-center", position)
     x_expr, y_expr = _POSITION_EXPRESSIONS[pos_key]
 
-    chosen_font = font_path or _DEFAULT_FONT
+    chosen_font = font_path or resolve_font_path()
     if not Path(chosen_font).is_file():
         raise VideoOverlayError(
             f"Font file not found: {chosen_font}. "

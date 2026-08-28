@@ -2396,7 +2396,7 @@ if [ "$FAST_START" -eq 0 ]; then
         # known-broken capability (missing torch on a GPU box, unhealed
         # reconcile). Print the actual errors so nobody has to dig in logs.
         vader_error "Preflight check FAILED — the app will start DEGRADED:"
-        grep -E "^    - " "$GUAARDVARK_LOG_DIR/preflight.log" | tail -n 10 | sed 's/^/      /'
+        grep -E "^    - " "$GUAARDVARK_LOG_DIR/preflight.log" | awk '!seen[$0]++' | tail -n 10 | sed 's/^/      /'
         vader_error "Full report: logs/preflight.log"
         vader_info "Continuing startup so you can use unaffected features; fix the above and re-run ./start.sh"
     else
