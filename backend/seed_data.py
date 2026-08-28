@@ -138,6 +138,98 @@ def load_rule_bundle(bundle_file: str) -> Dict[str, int]:
     return counts
 
 
+def _lesson_title_from_row(row) -> str:
+    """Title stored in lesson JSON content, falling back to extra_data."""
+    payload = None
+    try:
+        decoded = json.loads(row.content or "")
+        if isinstance(decoded, dict):
+            payload = decoded
+    except (json.JSONDecodeError, TypeError):
+        payload = None
+    if payload is None:
+        extra = row.extra_data if isinstance(getattr(row, "extra_data", None), dict) else {}
+        lesson = extra.get("lesson") if isinstance(extra.get("lesson"), dict) else {}
+        payload = lesson
+    return str((payload or {}).get("title") or "").strip()
+
+
+def load_lesson_bundle(path: str) -> Dict[str, int]:
+    """Apply a lesson bundle, upserting procedures by title.
+
+    Each entry is validated with ``validate_lesson_payload``. A lesson row with
+    the same title is updated in place; otherwise a new row is written via
+    ``add_memory`` with ``memory_type="lesson"`` and ``source="bundle"``.
+    Re-applying a bundle does not create duplicates.
+    """
+    from backend.api.memory_api import add_memory
+    from backend.models import AgentMemory
+    from backend.services.memory_contract import (
+        coerce_importance,
+        normalize_tags,
+        validate_lesson_payload,
+    )
+
+    with open(path, "r") as f:
+        data = json.load(f)
+
+    counts = {"inserted": 0, "updated": 0, "invalid": 0}
+    existing_by_title = {}
+    for row in AgentMemory.query.filter(AgentMemory.type == "lesson").all():
+        title = _lesson_title_from_row(row)
+        if title and title.lower() not in existing_by_title:
+            existing_by_title[title.lower()] = row
+
+    for entry in data.get("lessons") or []:
+        ok, err = validate_lesson_payload(entry)
+        if not ok:
+            logger.warning("Skipping invalid lesson in %s: %s", path, err)
+            counts["invalid"] += 1
+            continue
+
+        title = str(entry.get("title") or "").strip()
+        payload = {
+            "title": title,
+            "steps": entry["steps"],
+            "parameters": entry.get("parameters") or [],
+        }
+        content = json.dumps(payload)
+        tags = normalize_tags(entry.get("tags"))
+        importance = coerce_importance(entry.get("importance", 0.8), "lesson")
+        match = existing_by_title.get(title.lower())
+
+        if match is None:
+            memory = add_memory(
+                content=content,
+                memory_type="lesson",
+                source="bundle",
+                importance=importance,
+                tags=tags,
+            )
+            if memory is None:
+                logger.warning("Failed to insert lesson %r from %s", title, path)
+                counts["invalid"] += 1
+                continue
+            existing_by_title[title.lower()] = memory
+            counts["inserted"] += 1
+        else:
+            match.content = content
+            extra = dict(match.extra_data or {})
+            extra["lesson"] = payload
+            match.extra_data = extra
+            match.tags = json.dumps(tags) if tags else None
+            match.importance = importance
+            match.source = "bundle"
+            match.status = "active"
+            match.updated_at = datetime.now()
+            db.session.commit()
+            existing_by_title[title.lower()] = match
+            counts["updated"] += 1
+
+    logger.info("Applied lesson bundle %s: %s", path, counts)
+    return counts
+
+
 def seed_essential_system_data():
     """Seeds only essential system data - NO dummy client data."""
     logger.info("Seeding essential system data...")

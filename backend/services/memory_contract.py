@@ -44,6 +44,7 @@ MEMORY_SOURCES = {
     "cli",
     "agent",
     "auto",
+    "bundle",
     "lesson_summary",
     "learned_from_feedback",
     "candidate_recipe",
@@ -64,6 +65,7 @@ DEFAULT_IMPORTANCE_BY_TYPE = {
 SOURCE_TRUST_WEIGHTS = {
     "manual": 1.0,
     "cli": 0.95,
+    "bundle": 0.93,
     "chat": 0.88,
     "lesson_summary": 0.86,
     "learned_from_feedback": 0.84,

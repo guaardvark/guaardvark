@@ -2253,6 +2253,24 @@ def load_rules_cli(bundle_file, enable):
     click.echo("If the server is running: curl -X POST <host>/api/brain/refresh")
 
 
+@app.cli.command("load-lessons")
+@click.argument("bundle_file", type=click.Path(exists=True, dir_okay=False))
+def load_lessons_cli(bundle_file):
+    """Apply a lesson bundle, upserting procedures by title.
+
+    Bundles live in backend/lesson_bundles/. Lessons are stored as agent_memories
+    and surface in chat via get_memories_for_context.
+    """
+    from backend.seed_data import load_lesson_bundle
+
+    with app.app_context():
+        counts = load_lesson_bundle(bundle_file)
+    click.echo(
+        f"{bundle_file}: inserted {counts['inserted']}, updated {counts['updated']}, "
+        f"invalid {counts['invalid']}"
+    )
+
+
 @app.cli.command("seed-db")
 @click.option("--force", is_flag=True, help="Force seeding even if models exist.")
 def seed_database_cli(force):

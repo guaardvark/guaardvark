@@ -1,0 +1,34 @@
+{
+  "bundle": "guaardvark",
+  "description": "Shipped procedures for the engine itself. A vertical adds its own bundle alongside this one.",
+  "lessons": [
+    {
+      "title": "Index a folder of documents",
+      "steps": [
+        {"order": 1, "text": "Ask for the folder path if the user did not give one."},
+        {"order": 2, "text": "Index the folder with the document indexing tool."},
+        {"order": 3, "text": "Report how many files were indexed and name any that failed."}
+      ],
+      "parameters": [
+        {
+          "name": "folder_path",
+          "description": "Directory on this machine to index",
+          "example": "docs/"
+        }
+      ],
+      "tags": ["indexing", "documents"],
+      "importance": 0.8
+    },
+    {
+      "title": "Report a failed tool honestly",
+      "steps": [
+        {"order": 1, "text": "If a tool returns an error, say that the tool failed."},
+        {"order": 2, "text": "Name the tool and quote the error."},
+        {"order": 3, "text": "Do not invent a successful result."}
+      ],
+      "parameters": [],
+      "tags": ["honesty", "tools"],
+      "importance": 0.8
+    }
+  ]
+}
