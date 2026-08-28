@@ -37,6 +37,7 @@
     "react-syntax-highlighter": "^16.1.1",
     "react-virtuoso": "^4.18.12",
     "reactflow": "^11.11.4",
+    "remark-gfm": "^4.0.1",
     "socket.io-client": "^4.8.1",
     "zod": "^4.1.11",
     "zustand": "^4.4.0"

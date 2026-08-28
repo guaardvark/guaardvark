@@ -16,6 +16,7 @@ import {
 } from "@mui/material";
 import { BrandLogo } from "../branding";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { a11yDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { useAppStore } from "../../stores/useAppStore";
@@ -551,7 +552,7 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
               },
             }}
           >
-            <ReactMarkdown
+            <ReactMarkdown remarkPlugins={[remarkGfm]}
               components={{
                 // Offline-first: never load a remote image URL from message markdown.
                 img: (props) => <img {...props} src={guardedMediaSrc(props.src)} alt={props.alt || ""} />,

@@ -35,6 +35,7 @@ import {
   NightsStay as NightIcon,
 } from "@mui/icons-material";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { io } from "socket.io-client";
 import { SOCKET_URL } from "../api/apiClient";
 import { ragAutoresearchService } from "../api/ragAutoresearchService";
@@ -397,7 +398,7 @@ const AutoresearchPage = () => {
                   },
                 }}
               >
-                <ReactMarkdown>{selectedRun.report_md}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{selectedRun.report_md}</ReactMarkdown>
               </Box>
             ) : (
               <Typography variant="body2" color="text.secondary">

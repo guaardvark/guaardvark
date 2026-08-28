@@ -6,6 +6,7 @@ import React, { useState, useCallback, useEffect } from "react";
 import PropTypes from "prop-types";
 import { Box, Paper, Avatar, CardMedia, Chip, CircularProgress, Typography } from "@mui/material";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { a11yDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { guardedMediaSrc } from "../../utils/assetGuard";
@@ -648,7 +649,7 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate }
             },
           }}
         >
-          <ReactMarkdown
+          <ReactMarkdown remarkPlugins={[remarkGfm]}
             components={{
               // Offline-first: never load a remote image URL from message markdown.
               img: (props) => <img {...props} src={guardedMediaSrc(props.src)} alt={props.alt || ""} />,
