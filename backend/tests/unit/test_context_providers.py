@@ -122,7 +122,33 @@ def test_engine_turn_context_includes_the_provider_block():
     from backend.services.unified_chat_engine import UnifiedChatEngine
 
     source = inspect.getsource(UnifiedChatEngine._run_chat)
-    assert "build_context_block" in source
+    assert "build_context_entries" in source
     assert 'options if isinstance(options, dict) else {}' in source
     assert '"page_context"' in source
     assert "Current context:" in source
+
+
+def test_entries_name_their_provider_and_skip_empty():
+    from backend.services import context_providers as cp
+
+    cp.register_context_provider("facts", lambda pc, o: "- Client: Jane")
+    cp.register_context_provider("silent", lambda pc, o: "")
+    try:
+        entries = cp.build_context_entries({"page": "Clients", "entityType": "client", "entityId": 4}, {})
+        names = [n for n, _ in entries]
+        assert cp.PAGE_PROVIDER_NAME in names and "facts" in names and "silent" not in names
+        assert dict(entries)["facts"] == "- Client: Jane"
+        assert cp.build_context_block({"page": "Clients", "entityType": "client", "entityId": 4}, {}) == "\n\n".join(t for _, t in entries)
+    finally:
+        cp.unregister_context_provider("facts")
+        cp.unregister_context_provider("silent")
+
+
+def test_engine_treats_supplied_facts_as_local_not_realtime():
+    """The realtime web-search path is gated on facts supplied this turn."""
+    import inspect
+
+    from backend.services.unified_chat_engine import UnifiedChatEngine
+
+    src = inspect.getsource(UnifiedChatEngine)
+    assert src.count("_local_facts_this_turn") >= 4  # reset, set, and both realtime checks

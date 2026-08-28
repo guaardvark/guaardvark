@@ -1499,6 +1499,7 @@ class UnifiedChatEngine:
         history = self._load_history(session_id, limit=AGENTIC_HISTORY_LIMIT)
 
         # 2. RAG context (optional, skipped for action-oriented, conversational, and image messages)
+        self._local_facts_this_turn = False
         rag_context = ""
         conversational = is_conversational(message)
         has_image = bool(self._image_data)
@@ -1654,9 +1655,17 @@ class UnifiedChatEngine:
         interface_context = self._format_interface_context(options)
         if interface_context:
             context_parts.append(interface_context)
-        from backend.services.context_providers import build_context_block
+        from backend.services.context_providers import (
+            PAGE_PROVIDER_NAME,
+            build_context_entries,
+        )
         _opts = options if isinstance(options, dict) else {}
-        provider_context = build_context_block(_opts.get("page_context"), _opts)
+        _entries = build_context_entries(_opts.get("page_context"), _opts)
+        provider_context = "\n\n".join(text for _, text in _entries)
+        # Facts a distribution supplied for this turn are the current state of
+        # the system; a question about them is not a web-search question even
+        # when it says "right now".
+        self._local_facts_this_turn = any(name != PAGE_PROVIDER_NAME for name, _ in _entries)
         if provider_context:
             context_parts.append(f"Current context:\n{provider_context}")
         if rag_context:
@@ -1871,7 +1880,11 @@ class UnifiedChatEngine:
                 # Anti-hallucination: for real-time queries, if web_search was never
                 # successfully called, prepend a disclaimer instead of letting the
                 # LLM answer from memory.
-                if self._is_realtime_query(message) and not tools_called:
+                if (
+                    self._is_realtime_query(message)
+                    and not tools_called
+                    and not getattr(self, "_local_facts_this_turn", False)
+                ):
                     final_text = (
                         "Note: I was unable to verify this through a web search. "
                         + final_text
@@ -2333,7 +2346,11 @@ class UnifiedChatEngine:
 
             # For real-time queries: force web_search if not yet called
             realtime_nudge = ""
-            if iteration == 1 and self._is_realtime_query(message):
+            if (
+                iteration == 1
+                and self._is_realtime_query(message)
+                and not getattr(self, "_local_facts_this_turn", False)
+            ):
                 web_search_called = any(
                     tc.tool_name == "web_search"
                     for s in steps for tc_info in s.get("tool_calls", [])

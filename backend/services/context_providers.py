@@ -19,7 +19,7 @@ awareness is an enhancement, and a broken one must never break chat.
 
 import logging
 import threading
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -55,16 +55,23 @@ def list_context_providers() -> List[str]:
         return list(_providers)
 
 
-def build_context_block(page_context: Optional[Dict[str, Any]], options: Dict[str, Any]) -> str:
-    """Render every registered provider into one block, blank-line separated.
+PAGE_PROVIDER_NAME = "page"
+
+
+def build_context_entries(
+    page_context: Optional[Dict[str, Any]], options: Dict[str, Any]
+) -> List[Tuple[str, str]]:
+    """Render every registered provider as ``(name, text)`` in render order.
 
     Empty results are skipped and a provider that raises is logged and dropped,
-    so the block degrades to whatever the healthy providers produced.
+    so the result degrades to whatever the healthy providers produced. The
+    names let a caller tell the built-in page hint from facts a distribution
+    supplied.
     """
     with _lock:
         providers = list(_providers.items())
 
-    blocks: List[str] = []
+    entries: List[Tuple[str, str]] = []
     for name, fn in providers:
         try:
             rendered = fn(page_context, options)
@@ -72,8 +79,13 @@ def build_context_block(page_context: Optional[Dict[str, Any]], options: Dict[st
             logger.warning(f"[CONTEXT_PROVIDERS] provider {name!r} failed: {e}")
             continue
         if isinstance(rendered, str) and rendered.strip():
-            blocks.append(rendered.strip())
-    return "\n\n".join(blocks)
+            entries.append((name, rendered.strip()))
+    return entries
+
+
+def build_context_block(page_context: Optional[Dict[str, Any]], options: Dict[str, Any]) -> str:
+    """Render every registered provider into one block, blank-line separated."""
+    return "\n\n".join(text for _, text in build_context_entries(page_context, options))
 
 
 def page_context_provider(
@@ -104,4 +116,4 @@ def page_context_provider(
     return f"The user is viewing the {page} page."
 
 
-register_context_provider("page", page_context_provider)
+register_context_provider(PAGE_PROVIDER_NAME, page_context_provider)
