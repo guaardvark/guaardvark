@@ -3752,18 +3752,25 @@ class UnifiedChatEngine:
         (promoted autoresearch config → context_window_chunks/top_k), falling
         back to the retrieval default when nothing is promoted. This is the
         production path autoresearch experiments are supposed to improve.
+
+        Hits from knowledge sources a distribution registered are appended in the
+        same source-labelled shape, so the model can cite either corpus.
         """
         try:
             from backend.services.indexing_service import search_with_llamaindex
             project_id = getattr(self, '_project_id', None)
             results = search_with_llamaindex(query, project_id=project_id)
-            if not results:
-                return ""
             chunks = []
-            for r in results:
+            for r in results or []:
                 source = r.get("metadata", {}).get("source_filename", "Unknown")
                 text = r.get("text", "")[:500]
                 chunks.append(f"[Source: {source}]\n{text}")
+            try:
+                from backend.services.knowledge_sources import retrieve_from_sources
+                for hit in retrieve_from_sources(query):
+                    chunks.append(f"[Source: {hit['title']}]\n{hit['snippet'][:500]}")
+            except Exception as e:
+                logger.debug(f"Knowledge source retrieval skipped: {e}")
             return "\n\n".join(chunks)
         except Exception as e:
             logger.debug(f"RAG retrieval skipped: {e}")
