@@ -3100,6 +3100,16 @@ const SettingsPage = () => {
                   Open
                 </Button>
               </SettingsRow>
+              <SettingsRow label="Plugins">
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+                    Start, stop and configure managed services — Ollama, ComfyUI, …
+                  </Typography>
+                  <Button variant="outlined" size="small" onClick={() => navigate("/plugins")}>
+                    Open
+                  </Button>
+                </Box>
+              </SettingsRow>
               <SettingsRow label="Rules">
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <Chip
