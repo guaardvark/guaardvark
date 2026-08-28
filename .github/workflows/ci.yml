@@ -99,6 +99,75 @@ jobs:
           print('All Python files compile successfully')
           "
 
+  macos:
+    name: macOS (Apple Silicon) install + platform smoke
+    runs-on: macos-latest
+    timeout-minutes: 40
+
+    # Every macOS bug in #41 was a Linux-workstation assumption that leaked
+    # into shared code: a Debian font path, a hardcoded service port, a
+    # function called before it was defined, an X11-only script recommended
+    # to Mac users. None needed a GPU to find. This job installs on a fresh
+    # Mac the way a user would and imports the modules those bugs lived in.
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies (as a user would)
+        run: |
+          python -m venv backend/venv
+          source backend/venv/bin/activate
+          pip install -r backend/requirements.txt
+          pip install pytest pytest-timeout
+
+      - name: Compile everything
+        run: |
+          source backend/venv/bin/activate
+          python -m compileall -q backend/api backend/services backend/utils backend/tools backend/tasks scripts
+
+      - name: Import the modules Mac users exercise
+        run: |
+          source backend/venv/bin/activate
+          python - <<'EOF'
+          import importlib, sys
+          modules = [
+              "backend.utils.platform",
+              "backend.utils.comfyui_url",
+              "backend.services.video_text_overlay",
+              "backend.services.infographic_generator",
+              "backend.services.video_generation_router",
+              "backend.services.offline_video_generator",
+              "backend.tools.agent_control_tools",
+              "backend.utils.agent_display_utils",
+          ]
+          failed = []
+          for m in modules:
+              try:
+                  importlib.import_module(m)
+              except Exception as e:
+                  failed.append(f"{m}: {type(e).__name__}: {e}")
+          if failed:
+              print("\n".join(failed)); sys.exit(1)
+          print(f"{len(modules)} modules import on macOS")
+          EOF
+
+      - name: Platform tests
+        run: |
+          source backend/venv/bin/activate
+          python -m pytest --timeout=600 -q \
+            backend/tests/unit/test_platform_fallbacks.py \
+            backend/tests/unit/test_platform.py \
+            backend/tests/test_media_import_no_cuda.py
+
+      - name: start.sh parses and the preflight runs
+        run: |
+          bash -n start.sh
+          source backend/venv/bin/activate
+          python scripts/preflight_check.py || true
+
   backend-tests:
     name: Backend Tests (CPU smoke)
     runs-on: ubuntu-latest

@@ -77,7 +77,10 @@ class StableAudioOpenBackend(AudioBackend):
         from diffusers import StableAudioPipeline
 
         if not torch.cuda.is_available():
-            raise RuntimeError("CUDA not available — SAO backend requires a GPU")
+            raise RuntimeError(
+                "FX Lab (Stable Audio) needs an NVIDIA GPU (CUDA). Apple Silicon (Metal) is "
+                "untested for this model, so it is not offered there yet."
+            )
 
         try:
             pipe = StableAudioPipeline.from_pretrained(

@@ -467,15 +467,25 @@ def train_subject_lora_for_subject(subject_id: int, job_id: str | None = None) -
         logger.warning(f"lora train failed for subject {subject_id}: {err}")
 
         if "CUDA not available" in err or "cuda.is_available" in err.lower():
-            s.training_error = (
-                "CUDA not available inside the isolated trainer venv.\n\n"
-                "Your RTX 4070 Ti SUPER should work. Run these on the host:\n"
-                "  1. nvidia-smi   (must show your 4070 Ti SUPER and a recent driver)\n"
-                "  2. cd plugins/lora_trainer && ./scripts/setup_venv.sh\n"
-                "  3. Reboot if drivers were just installed.\n"
-                "Then click 'Train LoRA' again from the Cast page.\n\n"
-                "Original error: " + err
-            )[:2000]
+            from backend.utils.platform import describe, has_cuda
+
+            if has_cuda():
+                # The host sees a CUDA GPU but the trainer's own venv does not:
+                # a driver/venv mismatch, repairable on the host.
+                guidance = (
+                    "CUDA not available inside the isolated trainer venv, although this host "
+                    f"has one ({describe()}). Run on the host:\n"
+                    "  1. nvidia-smi   (must list the GPU and a recent driver)\n"
+                    "  2. cd plugins/lora_trainer && ./scripts/setup_venv.sh\n"
+                    "  3. Reboot if drivers were just installed.\n"
+                    "Then click 'Train LoRA' again from the Cast page."
+                )
+            else:
+                guidance = (
+                    f"LoRA training needs an NVIDIA GPU (CUDA). This machine: {describe()}. "
+                    "Apple Silicon (Metal) is not supported by the trainer yet."
+                )
+            s.training_error = (guidance + "\n\nOriginal error: " + err)[:2000]
         db.session.commit()
 
         if job_id:

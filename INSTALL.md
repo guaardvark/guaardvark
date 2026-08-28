@@ -68,6 +68,27 @@ swapon --show   # if under 16G, grow it
 echo 'vm.swappiness=10' | sudo tee /etc/sysctl.d/99-guaardvark.conf && sudo sysctl --system
 ```
 
+## Install (macOS, Apple Silicon)
+
+The same `./start.sh` works on macOS. Known differences, and what to expect:
+
+- **Port 5000 is taken by AirPlay Receiver** on Monterey and later. Either turn it off
+  (System Settings → General → AirDrop & Handoff → AirPlay Receiver) or add
+  `FLASK_PORT=5055` to `.env`. `start.sh` detects the clash and says so.
+- **GPU work runs on Metal (MPS) where the feature supports it.** Image generation and video
+  generation via ComfyUI do; features that still need CUDA say so when you start them instead
+  of failing quietly: LoRA training, FX Lab (Stable Audio), ACE-Step song generation.
+- **The screen agent is Linux-only.** It is an X11 virtual display (Xvfb); on macOS the agent
+  tools report that plainly and the rest of the app is unaffected.
+- **Already running ComfyUI Desktop?** Point Guaardvark at it with the port override under
+  "Custom plugin ports" below; every page follows the effective port.
+- **Fonts** for the video text overlay are found automatically; set
+  `GUAARDVARK_OVERLAY_FONT=/path/to/font.ttf` to choose one.
+
+A fresh Apple Silicon runner installs and imports the backend in CI on every push, so a
+regression in the above shows up before a person hits it. Report anything else under the
+`mac` label — the install thread is issue #41.
+
 ## Alternative: Docker (Linux, core stack only)
 
 If you want to evaluate the UI/API without a native Python install:

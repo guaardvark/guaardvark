@@ -77,8 +77,20 @@ def _do_load(model_id: str) -> dict[str, Any]:
     import torch
     _torch = torch
 
-    if not torch.cuda.is_available():
-        return {"ok": False, "error": "CUDA not available — ACE-Step requires a GPU"}
+    # CUDA is the tested path. Apple Silicon runs the same pipeline on Metal
+    # (MPS) in ACE-Step's own Gradio app and in ComfyUI; here it is offered
+    # as experimental — say so in the log and in the error when neither exists.
+    if torch.cuda.is_available():
+        device = "cuda"
+    elif getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
+        device = "mps"
+        _eprint("[run_acestep] no CUDA; using Apple Silicon (MPS) — experimental, please report results")
+    else:
+        return {
+            "ok": False,
+            "error": "ACE-Step needs a GPU: NVIDIA (CUDA), or Apple Silicon via Metal (experimental). "
+                     "Neither is available on this machine.",
+        }
 
     try:
         from acestep.pipeline_ace_step import ACEStepPipeline
@@ -91,7 +103,7 @@ def _do_load(model_id: str) -> dict[str, Any]:
     try:
         _pipeline = ACEStepPipeline(
             checkpoint_path=model_id,
-            device="cuda",
+            device=device,
             torch_dtype=torch.float16,
         )
     except TypeError:
@@ -99,9 +111,9 @@ def _do_load(model_id: str) -> dict[str, Any]:
         _pipeline = ACEStepPipeline.from_pretrained(
             model_id,
             torch_dtype=torch.float16,
-        ).to("cuda")
+        ).to(device)
 
-    _eprint(f"[run_acestep] {model_id} loaded (fp16, cuda)")
+    _eprint(f"[run_acestep] {model_id} loaded (fp16, {device})")
     return {"ok": True}
 
 

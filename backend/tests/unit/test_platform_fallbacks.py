@@ -90,8 +90,9 @@ def test_preflight_names_the_failing_reconciler(monkeypatch, tmp_path, capsys):
 def test_screen_agent_explains_itself_on_macos(monkeypatch):
     from backend.tools import agent_control_tools as act
 
-    monkeypatch.setattr("platform.system", lambda: "Darwin")
+    monkeypatch.setattr("backend.utils.platform.screen_agent_available", lambda: False)
+    monkeypatch.setattr("backend.utils.platform.os_name", lambda: "Darwin")
     with pytest.raises(RuntimeError) as exc:
         act._ensure_agent_display()
-    assert "macOS" in str(exc.value) and "Xvfb" in str(exc.value)
+    assert "Darwin" in str(exc.value) and "Xvfb" in str(exc.value)
     assert "start_agent_display.sh" not in str(exc.value)
