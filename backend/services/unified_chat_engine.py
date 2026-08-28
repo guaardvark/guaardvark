@@ -1715,6 +1715,15 @@ class UnifiedChatEngine:
                 "messageType": "image_upload",
             }
         self._save_message(session_id, "user", message, extra_data=extra)
+        try:
+            from backend.services.memory_capture import capture_from_message
+            capture_from_message(
+                message,
+                session_id=session_id,
+                project_id=getattr(self, "_project_id", None),
+            )
+        except Exception:
+            logger.exception("Chat memory auto-capture failed")
 
         # 6. ReACT loop
         accumulated_response = ""
