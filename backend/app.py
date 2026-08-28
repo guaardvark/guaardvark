@@ -2223,6 +2223,36 @@ def handle_internal_server_error(e):
     )
 
 
+@app.cli.command("load-rules")
+@click.argument("bundle_file", type=click.Path(exists=True, dir_okay=False))
+@click.option("--enable", is_flag=True, help="Also switch the global rules toggle on.")
+def load_rules_cli(bundle_file, enable):
+    """Apply a rule bundle (persona + rules), upserting by name.
+
+    Bundles live in backend/rule_bundles/. The running server bakes the persona
+    into its prompts at startup; POST /api/brain/refresh picks the new one up
+    without a restart.
+    """
+    from backend.models import Setting
+    from backend.seed_data import load_rule_bundle
+
+    with app.app_context():
+        counts = load_rule_bundle(bundle_file)
+        if enable:
+            row = db.session.get(Setting, "rules_enabled")
+            if row is None:
+                db.session.add(Setting(key="rules_enabled", value="true"))
+            else:
+                row.value = "true"
+            db.session.commit()
+    click.echo(
+        f"{bundle_file}: inserted {counts['inserted']}, updated {counts['updated']}, "
+        f"deactivated {counts['deactivated']}"
+        + ("; rules_enabled=true" if enable else "")
+    )
+    click.echo("If the server is running: curl -X POST <host>/api/brain/refresh")
+
+
 @app.cli.command("seed-db")
 @click.option("--force", is_flag=True, help="Force seeding even if models exist.")
 def seed_database_cli(force):

@@ -5,7 +5,8 @@
 import logging
 import os
 import sys
-from typing import Optional
+from datetime import datetime
+from typing import Optional, Dict
 
 # Add backend to Python path for imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -77,6 +78,64 @@ def seed_rules_from_file(rules_file: Optional[str] = None):
         logger.error(f"Error seeding rules: {e}")
         db.session.rollback()
         return 0
+
+
+def load_rule_bundle(bundle_file: str) -> Dict[str, int]:
+    """Apply a rule bundle to the database, upserting by rule name.
+
+    A bundle is the voice of one distribution — the engine's own or a vertical's
+    — and a distribution has to be able to re-apply it after editing the text,
+    flipping ``is_active`` or changing model targets. ``seed_rules_from_file``
+    cannot do that: it skips every name it has already seen, so a rule that
+    shipped inactive stays inactive forever.
+
+    For each entry the row with the same name, level and type is updated in
+    place; any other active row carrying that name is deactivated first, so the
+    partial unique index on active identity is never violated; a missing row is
+    inserted. ``is_active`` comes from the bundle. Returns counts.
+    """
+    with open(bundle_file, "r") as f:
+        data = json.load(f)
+
+    counts = {"inserted": 0, "updated": 0, "deactivated": 0}
+    for entry in data.get("rules", []):
+        name = entry["name"]
+        level = entry.get("level", "SYSTEM")
+        rule_type = entry.get("type", "PROMPT_TEMPLATE")
+        active = bool(entry.get("is_active", True))
+
+        rows = Rule.query.filter_by(name=name).all()
+        match = next((r for r in rows if r.level == level and r.type == rule_type), None)
+
+        if active:
+            for row in rows:
+                if row is not match and row.is_active:
+                    row.is_active = False
+                    counts["deactivated"] += 1
+            # The unique index is checked per statement: retire the old identity
+            # before the new one becomes active.
+            db.session.flush()
+
+        if match is None:
+            match = Rule(name=name, level=level, type=rule_type, rule_text=entry["rule_text"])
+            db.session.add(match)
+            counts["inserted"] += 1
+        else:
+            counts["updated"] += 1
+
+        match.rule_text = entry["rule_text"]
+        match.description = entry.get("description", "")
+        match.command_label = entry.get("command_label")
+        match.output_schema_name = entry.get("output_schema_name")
+        match.target_models_json = entry.get("target_models_json", '["__ALL__"]')
+        match.is_active = active
+        # The active-prompt cache is keyed on the newest updated_at; bump it even
+        # when nothing else changed so a re-applied bundle is picked up.
+        match.updated_at = datetime.now()
+
+    db.session.commit()
+    logger.info("Applied rule bundle %s: %s", bundle_file, counts)
+    return counts
 
 
 def seed_essential_system_data():
