@@ -870,8 +870,16 @@ class PluginManager:
         stop_result = self.stop_plugin(plugin_id)
         if not stop_result.get('success') and 'already stopped' not in stop_result.get('message', ''):
             return stop_result
-        
-        time.sleep(1)
+
+        # The stop leaves the plugin in its per-plugin cooldown (and the system in
+        # the global one); starting inside that window is refused, which would end
+        # a restart with the plugin down and its toggle still on. Wait it out.
+        deadline = time.time() + 30
+        while time.time() < deadline:
+            remaining = max(self.cooldown_remaining(plugin_id), self._global_cooldown_active())
+            if remaining <= 0:
+                break
+            time.sleep(min(remaining, 1.0) + 0.05)
         return self.start_plugin(plugin_id)
     
     def enable_plugin(self, plugin_id: str) -> Dict[str, Any]:
