@@ -1654,6 +1654,11 @@ class UnifiedChatEngine:
         interface_context = self._format_interface_context(options)
         if interface_context:
             context_parts.append(interface_context)
+        from backend.services.context_providers import build_context_block
+        _opts = options if isinstance(options, dict) else {}
+        provider_context = build_context_block(_opts.get("page_context"), _opts)
+        if provider_context:
+            context_parts.append(f"Current context:\n{provider_context}")
         if rag_context:
             context_parts.append(f"Relevant context from knowledge base:\n{rag_context}")
         # Vision pipeline context (if active). Ask the plugin manager first so

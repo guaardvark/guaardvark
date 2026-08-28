@@ -265,19 +265,6 @@ const FloatingChatCard = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Build context prefix for messages
-  const buildContextPrefix = useCallback(() => {
-    if (!pageContext || pageContext.page === "Chat" || pageContext.page === "Unknown") {
-      return "";
-    }
-    let prefix = `[Context: User is viewing the ${pageContext.page} page`;
-    if (pageContext.entityType && pageContext.entityId) {
-      prefix += `, ${pageContext.entityType} ID: ${pageContext.entityId}`;
-    }
-    prefix += "]\n\n";
-    return prefix;
-  }, [pageContext]);
-
   // Send message handler — uses UnifiedChatService (Socket.IO streaming)
   const handleSendMessage = useCallback(async (overrideText) => {
     const text = overrideText || inputText;
@@ -297,16 +284,16 @@ const FloatingChatCard = () => {
     setIsSending(true);
     clearError();
 
-    const contextPrefix = buildContextPrefix();
-    const messageToSend = contextPrefix + text;
-
     if (unifiedChatService) {
       // Primary path: Socket.IO streaming via UnifiedChatService
       setIsStreamingMessage(true);
 
       try {
-        await unifiedChatService.sendMessage(sessionId, messageToSend, {
+        // Page awareness travels as an option so the engine's context providers
+        // can render it — keeping the saved message text exactly what was typed.
+        await unifiedChatService.sendMessage(sessionId, text, {
           use_rag: true,
+          page_context: pageContext,
         });
       } catch (err) {
         console.error("FloatingChat: Unified send failed:", err);
@@ -333,7 +320,7 @@ const FloatingChatCard = () => {
       });
       setError(errorText);
     }
-  }, [inputText, isSending, sessionId, buildContextPrefix, addMessage, setIsSending, clearError, setError, unifiedChatService, pushHistory]);
+  }, [inputText, isSending, sessionId, pageContext, addMessage, setIsSending, clearError, setError, unifiedChatService, pushHistory]);
 
   // The input is disabled while a reply streams, which makes the browser drop
   // focus. Restore it when sending finishes so the user can keep typing without
