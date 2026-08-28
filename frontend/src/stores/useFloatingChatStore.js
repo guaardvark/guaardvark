@@ -61,6 +61,7 @@ export const useFloatingChatStore = create(
         position: state.position,
         size: state.size,
         collapsed: state.collapsed,
+        isOpen: state.isOpen,
         sessionId: state.sessionId,
         messages: state.messages.slice(-MAX_PERSISTED_MESSAGES),
       }),
