@@ -884,7 +884,7 @@ const CastMemberPage = () => {
             </Box>
           )}
 
-          {/* Enhanced error + recovery for real hardware (RTX 4070 Ti SUPER etc.)
+          {/* Enhanced error + recovery for real hardware (a 16 GB consumer GPU etc.)
               Matches user's "no simulations" requirement and the exact failure mode
               seen when the venv-torch cannot see CUDA despite a working GPU. */}
           {subject.training_status === 'failed' && subject.training_error && (

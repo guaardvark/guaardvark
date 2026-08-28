@@ -54,11 +54,10 @@ class DemoCog(commands.Cog):
                 title="HARDWARE",
                 color=0xDC143C,
             )
-            hw_embed.add_field(name="CPU", value="AMD Ryzen 7 9800X3D\n8-Core / 16-Thread", inline=True)
-            hw_embed.add_field(name="GPU", value="NVIDIA RTX 4070 Ti SUPER\n16GB VRAM", inline=True)
-            hw_embed.add_field(name="RAM", value="64 GB DDR5", inline=True)
-            hw_embed.add_field(name="Storage", value="1.8 TB NVMe", inline=True)
-            hw_embed.add_field(name="OS", value="Ubuntu Linux", inline=True)
+            # Whatever box the bot is on: the point of this act is "one
+            # self-hosted machine", not a spec sheet for any particular one.
+            hw_embed.add_field(name="Where", value="One self-hosted machine\nthe operator's own hardware", inline=True)
+            hw_embed.add_field(name="GPU", value="Local GPU\nnothing rented", inline=True)
             hw_embed.add_field(name="Network", value="Localhost — no cloud", inline=True)
             hw_embed.set_footer(text="Pulling live system status...")
             await interaction.followup.send(embed=hw_embed)
@@ -136,7 +135,7 @@ class DemoCog(commands.Cog):
                 description="Generating on the local GPU right now...",
                 color=0xDC143C,
             )
-            img_embed.set_footer(text="Stable Diffusion · RTX 4070 Ti SUPER · 10 steps · 512x512")
+            img_embed.set_footer(text="Stable Diffusion · local GPU · 10 steps · 512x512")
             await interaction.followup.send(embed=img_embed)
 
             try:

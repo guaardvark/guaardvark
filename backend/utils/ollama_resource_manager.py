@@ -412,7 +412,7 @@ def resolve_num_ctx(model_name: str, explicit: Optional[int] = None) -> int:
     Why this is not optional: llama-index-llms-ollama defaults ``context_window``
     to ``-1``, and ``-1`` means "ask the model for its native context length and
     send that as ``num_ctx`` on every call". Measured on this project's own
-    workstation (RTX 4070 Ti SUPER, 16,376 MiB), ``qwen3.5:9b`` advertises a
+    workstation (a 16,376 MiB NVIDIA card), ``qwen3.5:9b`` advertises a
     native 262,144:
 
       * unbounded — 16 GB resident, split 25%/75% CPU/GPU, 2.6 tok/s generation,

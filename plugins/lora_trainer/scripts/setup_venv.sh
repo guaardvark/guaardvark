@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Bootstrap the isolated torch venv for the lora_trainer plugin.
 #
-# Run once on a host with a real NVIDIA GPU (e.g. RTX 4070 Ti SUPER).
+# Run once on a host with a real NVIDIA GPU (a 12-16 GB consumer card is enough).
 # Auto-detects the driver's CUDA version and installs a matching torch wheel
 # so that torch.cuda.is_available() returns True inside the venv at runtime.
 # Takes ~5-10 min. Can be re-run.
@@ -39,7 +39,7 @@ if command -v nvidia-smi >/dev/null 2>&1; then
     HOST_CUDA=$(nvidia-smi | grep -oP 'CUDA Version:\s*\K[0-9.]+' | head -1 || true)
 fi
 
-CU_INDEX="cu130"   # matches the working install on this box (RTX 4070 Ti SUPER, CUDA 13)
+CU_INDEX="cu130"   # matches the working install on the development box (CUDA 13 driver)
 # Pin the torch version that the live, known-good venv-torch actually runs. The old
 # 2.5.1 pin did NOT match disk (the working venv has 2.11.0+cu130), so re-running this
 # script would have downgraded torch and broken the real LoRA trainer. Verified via
