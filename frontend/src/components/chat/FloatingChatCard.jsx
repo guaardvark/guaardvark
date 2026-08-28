@@ -34,6 +34,33 @@ import { debugLog } from "../../utils/debugLog";
 const MIN_WIDTH = 280;
 const MIN_HEIGHT = 300;
 const DOUBLE_CLICK_MS = 400;
+const VIEWPORT_MARGIN = 8; // keep this much gap between the card and the window edge
+const COLLAPSED_HEIGHT = 48; // header-only height used for bounds while collapsed
+
+/**
+ * Fit the card's persisted geometry inside the current viewport.
+ *
+ * Position and size live in localStorage, so a spot chosen on a large window
+ * is replayed verbatim on a smaller one and can leave most of the card
+ * off-screen. Shrink the size to what the window can hold (a tiny window may
+ * override the MIN_* floors), then pull the position back so every edge is
+ * visible. Returns the same object references when nothing needs to change so
+ * callers can skip redundant store writes.
+ */
+const fitToViewport = (position, size, collapsed) => {
+  const maxW = Math.max(1, window.innerWidth - VIEWPORT_MARGIN * 2);
+  const maxH = Math.max(1, window.innerHeight - VIEWPORT_MARGIN * 2);
+  const w = Math.min(Math.max(MIN_WIDTH, size.w), maxW);
+  const h = Math.min(Math.max(MIN_HEIGHT, size.h), maxH);
+  const visibleH = collapsed ? Math.min(COLLAPSED_HEIGHT, maxH) : h;
+
+  const x = Math.max(VIEWPORT_MARGIN, Math.min(position.x, window.innerWidth - w - VIEWPORT_MARGIN));
+  const y = Math.max(VIEWPORT_MARGIN, Math.min(position.y, window.innerHeight - visibleH - VIEWPORT_MARGIN));
+
+  const nextSize = w === size.w && h === size.h ? size : { w, h };
+  const nextPosition = x === position.x && y === position.y ? position : { x, y };
+  return { position: nextPosition, size: nextSize };
+};
 
 const FloatingChatCard = () => {
   const theme = useTheme();
@@ -217,6 +244,22 @@ const FloatingChatCard = () => {
     }
   }, [position, size.w, size.h, setPosition]);
 
+  // Keep the card inside the viewport whenever it opens or the window resizes.
+  // Runs against the store directly so the resize listener never goes stale.
+  useEffect(() => {
+    if (!isOpen) return;
+    const fit = () => {
+      const s = useFloatingChatStore.getState();
+      if (s.position.x === -1 && s.position.y === -1) return; // default not yet applied
+      const next = fitToViewport(s.position, s.size, s.collapsed);
+      if (next.size !== s.size) s.setSize(next.size);
+      if (next.position !== s.position) s.setPosition(next.position);
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, [isOpen, collapsed, position, size]);
+
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -291,6 +334,18 @@ const FloatingChatCard = () => {
       setError(errorText);
     }
   }, [inputText, isSending, sessionId, buildContextPrefix, addMessage, setIsSending, clearError, setError, unifiedChatService, pushHistory]);
+
+  // The input is disabled while a reply streams, which makes the browser drop
+  // focus. Restore it when sending finishes so the user can keep typing without
+  // clicking back into the field. Because this card floats over other pages,
+  // only reclaim focus if nothing else on the page has taken it meanwhile.
+  useEffect(() => {
+    if (isSending || !isOpen) return;
+    const active = document.activeElement;
+    const focusIsFree =
+      !active || active === document.body || cardRef.current?.contains(active);
+    if (focusIsFree) inputRef.current?.focus();
+  }, [isSending, isOpen]);
 
   // Slash command hook — popup state, filtering, keyboard nav, command execution
   // Initialized after handleSendMessage so the reference is valid
@@ -490,9 +545,11 @@ const FloatingChatCard = () => {
         });
       }
       if (isResizing) {
+        const maxW = window.innerWidth - position.x - VIEWPORT_MARGIN;
+        const maxH = window.innerHeight - position.y - VIEWPORT_MARGIN;
         setSize({
-          w: Math.max(MIN_WIDTH, resizeStart.w + (e.clientX - resizeStart.x)),
-          h: Math.max(MIN_HEIGHT, resizeStart.h + (e.clientY - resizeStart.y)),
+          w: Math.min(Math.max(MIN_WIDTH, resizeStart.w + (e.clientX - resizeStart.x)), maxW),
+          h: Math.min(Math.max(MIN_HEIGHT, resizeStart.h + (e.clientY - resizeStart.y)), maxH),
         });
       }
     };
@@ -508,7 +565,7 @@ const FloatingChatCard = () => {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isDragging, isResizing, dragOffset, resizeStart, setPosition, setSize]);
+  }, [isDragging, isResizing, dragOffset, resizeStart, position, size.w, setPosition, setSize]);
 
   const formatTime = (timestamp) => {
     if (!timestamp) return "";
