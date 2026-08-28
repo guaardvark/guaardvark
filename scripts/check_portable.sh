@@ -12,17 +12,23 @@
 # this before the commit, not after — see --staged.
 #
 # Usage:
-#   scripts/check_portable.sh            scan every tracked file (CI, lint)
-#   scripts/check_portable.sh --staged   scan lines about to be committed
+#   scripts/check_portable.sh                  scan every tracked file (CI, lint)
+#   scripts/check_portable.sh --staged         scan lines about to be committed
+#   scripts/check_portable.sh --message FILE   scan a commit message (commit-msg hook)
+#   scripts/check_portable.sh --range REVS     scan messages and added lines of the
+#                                              commits REVS selects (pre-push hook),
+#                                              e.g. origin/main..HEAD
 #
 # Two untracked lists extend it per-clone, because naming their contents in a
 # tracked file would publish exactly what they exist to withhold:
 #   scripts/.portable-local-patterns   content patterns (box nicknames, ...)
 #   scripts/.portable-local-paths      whole files that may never be committed
 #
-# Install as a pre-commit hook (works from a worktree, where .git is a file and
-# every worktree shares the main repo's one hooks directory):
-#   ln -sf ../../scripts/pre-commit "$(git rev-parse --git-common-dir)/hooks/pre-commit"
+# Install the hooks (works from a worktree, where .git is a file and every
+# worktree shares the main repo's one hooks directory):
+#   for h in pre-commit commit-msg pre-push; do
+#     ln -sf ../../scripts/$h "$(git rev-parse --git-common-dir)/hooks/$h"
+#   done
 #
 # Exits non-zero on a finding.
 set -uo pipefail
@@ -30,6 +36,7 @@ set -uo pipefail
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 MODE="${1:-tracked}"
+TARGET="${2:-}"
 
 # Paths allowed to contain these patterns, as extended regex matched against
 # the repo-relative path. Tests need fake home directories; the architecture
@@ -139,27 +146,79 @@ scan_paths() {
     done < <(grep -vE '^\s*(#|$)' "$LOCAL_PATHS")
 }
 
+# A commit message travels with the push as surely as the diff does, and the
+# pre-commit gate never sees it.
+scan_message() {
+    local pattern="$1" explanation="$2" hit
+    [ -f "$TARGET" ] || return 0
+    if hit=$(grep -vE '^\s*#' "$TARGET" | grep -nE -- "$pattern" | head -1); then
+        echo "✗ commit message line ${hit%%:*} — ${explanation}"
+        echo "    ${hit#*:}"
+        status=1
+    fi
+}
+
+# Everything a push would publish: the message and the added lines of each
+# commit REVS selects. The last gate before content leaves the machine, and the
+# only one that sees commits made with --no-verify or before the hooks existed.
+scan_range() {
+    local pattern="$1" explanation="$2" commit subject hit file="" line content
+    for commit in $(git rev-list $TARGET 2>/dev/null); do
+        subject=$(git log -1 --format=%s "$commit")
+        if hit=$(git log -1 --format=%B "$commit" | grep -nE -- "$pattern" | head -1); then
+            echo "✗ ${commit:0:7} message — ${explanation}"
+            echo "    ${hit#*:}"
+            status=1
+        fi
+        file=""
+        while IFS= read -r line; do
+            case "$line" in
+                '+++ /dev/null') file="" ;;
+                '+++ b/'*)       file="${line#+++ b/}" ;;
+                '+'*)
+                    [ -z "$file" ] && continue
+                    [[ "$file" =~ $ALLOW ]] && continue
+                    content="${line#+}"
+                    if printf '%s' "$content" | grep -qE -- "$pattern"; then
+                        echo "✗ ${commit:0:7} ${file} — ${explanation}  (${subject:0:50})"
+                        echo "    ${content:0:120}"
+                        status=1
+                    fi
+                    ;;
+            esac
+        done < <(git show --format= --unified=0 --no-color "$commit")
+    done
+}
+
 scan_paths
 
 while IFS=$'\t' read -r pattern explanation; do
     [ -z "$pattern" ] && continue
-    if [ "$MODE" = "--staged" ]; then
-        scan_staged "$pattern" "$explanation"
-    else
-        scan_tracked "$pattern" "$explanation"
-    fi
+    case "$MODE" in
+        --staged)  scan_staged "$pattern" "$explanation" ;;
+        --message) scan_message "$pattern" "$explanation" ;;
+        --range)   scan_range "$pattern" "$explanation" ;;
+        *)         scan_tracked "$pattern" "$explanation" ;;
+    esac
 done <<< "$RULES"
 
 if [ "$status" -ne 0 ]; then
     echo
-    if [ "$MODE" = "--staged" ]; then
-        echo "Refusing the commit: the staged changes carry machine-specific"
-        echo "content, operator identity, a secret, or a file that is not the"
-        echo "public repo's to publish. Nothing has been published yet — fix"
-        echo "the findings above and stage again."
-    else
-        echo "Machine-specific content found in tracked files."
-    fi
+    case "$MODE" in
+        --staged)
+            echo "Refusing the commit: the staged changes carry machine-specific"
+            echo "content, operator identity, a secret, or a file that is not the"
+            echo "public repo's to publish. Nothing has been published yet — fix"
+            echo "the findings above and stage again." ;;
+        --message)
+            echo "Refusing the commit: the message names something this repo does"
+            echo "not publish. Reword it — describe the role, not the box or project." ;;
+        --range)
+            echo "Refusing the push: a commit in $TARGET would publish content this"
+            echo "repo keeps private. Amend or rewrite it before it leaves the machine." ;;
+        *)
+            echo "Machine-specific content found in tracked files." ;;
+    esac
     echo "For content: derive paths from the repo root"
     echo "(Path(__file__).resolve().parents[N]) or read them from an environment"
     echo "variable with a portable default. For a whole file: unstage it — it is"
@@ -167,8 +226,9 @@ if [ "$status" -ne 0 ]; then
     exit 1
 fi
 
-if [ "$MODE" = "--staged" ]; then
-    echo "✓ Staged changes carry no machine-specific paths, identity or secrets."
-else
-    echo "✓ No machine-specific paths or hosts in tracked files."
-fi
+case "$MODE" in
+    --staged)  echo "✓ Staged changes carry no machine-specific paths, identity or secrets." ;;
+    --message) echo "✓ Commit message carries no private names." ;;
+    --range)   echo "✓ $TARGET carries no machine-specific paths, identity or secrets." ;;
+    *)         echo "✓ No machine-specific paths or hosts in tracked files." ;;
+esac
