@@ -473,7 +473,22 @@ class PluginManager:
                 ['lsof', '-ti', f':{port}'],
                 capture_output=True, text=True, timeout=5
             )
-            pids = result.stdout.strip().split('\n')
+            pids = [p for p in result.stdout.strip().split('\n') if p.strip().isdigit()]
+            if not pids:
+                # A plugin running from a setcap'd binary (cap_net_raw for
+                # packet capture) is non-dumpable: its /proc/<pid>/fd is
+                # unreadable, so lsof/ss cannot map the port to it. The
+                # command line is still visible — match the port there.
+                try:
+                    alt = subprocess.run(
+                        ['pgrep', '-f', f'--port {port}( |$)'],
+                        capture_output=True, text=True, timeout=5
+                    )
+                    pids = [p for p in alt.stdout.split() if p.isdigit()]
+                    if pids:
+                        logger.info(f"Port {port}: lsof saw nothing, matched by command line: {pids}")
+                except (subprocess.SubprocessError, OSError):
+                    pids = []
             for pid_str in pids:
                 pid_str = pid_str.strip()
                 if not (pid_str and pid_str.isdigit()):
@@ -850,7 +865,13 @@ class PluginManager:
             if self._check_service_running(metadata) and metadata.port:
                 logger.info(f"Killing {plugin_id} by port {metadata.port}")
                 self._kill_by_port(metadata.port)
-                time.sleep(1)
+                # SIGTERM is graceful: a service draining connections or
+                # joining threads needs a few seconds. Poll instead of
+                # declaring failure after one, which left plugins marked
+                # running that exited moments later.
+                deadline = time.time() + 10
+                while time.time() < deadline and self._check_service_running(metadata):
+                    time.sleep(0.5)
 
             if not self._check_service_running(metadata):
                 self._plugin_status[plugin_id] = PluginStatus.STOPPED
