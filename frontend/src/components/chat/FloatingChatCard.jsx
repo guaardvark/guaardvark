@@ -30,6 +30,7 @@ import { useVoiceSettings } from "../../hooks/useVoiceSettings";
 import useSlashCommands from "../../hooks/useSlashCommands";
 import SlashCommandPopup from "./SlashCommandPopup";
 import { debugLog } from "../../utils/debugLog";
+import { contextChipLabel } from "../../utils/contextChipLabel";
 
 const MIN_WIDTH = 280;
 const MIN_HEIGHT = 300;
@@ -85,6 +86,7 @@ const FloatingChatCard = () => {
   const clearError = useFloatingChatStore((s) => s.clearError);
   const sessionId = useFloatingChatStore((s) => s.sessionId);
   const pageContext = useFloatingChatStore((s) => s.pageContext);
+  const entityLabel = useFloatingChatStore((s) => s.entityLabel);
 
   // Listener mode state
   const listenerModeEnabled = useAppStore((s) => s.listenerModeEnabled);
@@ -563,12 +565,7 @@ const FloatingChatCard = () => {
   };
 
   // Page context chip label
-  const contextLabel =
-    pageContext && pageContext.page !== "Unknown" && pageContext.page !== "Chat"
-      ? pageContext.entityId
-        ? `${pageContext.page} #${pageContext.entityId}`
-        : pageContext.page
-      : null;
+  const contextLabel = contextChipLabel(pageContext, entityLabel);
 
   return (
     <Grow in={isOpen} unmountOnExit mountOnEnter>
