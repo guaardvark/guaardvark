@@ -4,6 +4,7 @@ import FloatingChatCard from "./FloatingChatCard";
 import FloatingChatFAB from "./FloatingChatFAB";
 import { useFloatingChatStore } from "../../stores/useFloatingChatStore";
 import { usePageContext } from "../../hooks/usePageContext";
+import { isFloatingChatHiddenRoute } from "../../config/floatingChat";
 
 const FloatingChatProvider = () => {
   const location = useLocation();
@@ -30,15 +31,16 @@ const FloatingChatProvider = () => {
     return () => window.removeEventListener("keydown", handler);
   }, [toggleOpen]);
 
-  // Close the card if it is open when navigating to the Chat page
+  // A chat surface of its own does not get a second chat floating over it.
+  // Close the card too, so it does not pop back open on the next page.
+  const hidden = isFloatingChatHiddenRoute(location.pathname);
   useEffect(() => {
-    if (location.pathname === "/chat" && isOpen) {
+    if (hidden && isOpen) {
       setIsOpen(false);
     }
-  }, [location.pathname, isOpen, setIsOpen]);
+  }, [hidden, isOpen, setIsOpen]);
 
-  // Hide on /chat page to avoid two chat UIs
-  if (location.pathname === "/chat") return null;
+  if (hidden) return null;
 
   return (
     <>

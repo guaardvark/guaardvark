@@ -39,6 +39,7 @@ vi.mock('../../../stores/useFloatingChatStore', () => ({
 }));
 
 import { useLocation } from 'react-router-dom';
+import { isFloatingChatHiddenRoute } from '../../../config/floatingChat';
 
 describe('FloatingChatProvider', () => {
   beforeEach(() => {
@@ -65,5 +66,15 @@ describe('FloatingChatProvider', () => {
     
     // Should have called setIsOpen(false) to ensure it stays closed when navigating away
     expect(mockSetIsOpen).toHaveBeenCalledWith(false);
+  });
+
+  it('hides on exact routes and on prefixes ending in *', () => {
+    const routes = ['/chat', '/roofing', '/roofing/brain*'];
+    expect(isFloatingChatHiddenRoute('/chat', routes)).toBe(true);
+    expect(isFloatingChatHiddenRoute('/roofing', routes)).toBe(true);
+    expect(isFloatingChatHiddenRoute('/roofing/brain', routes)).toBe(true);
+    expect(isFloatingChatHiddenRoute('/roofing/brain/training', routes)).toBe(true);
+    expect(isFloatingChatHiddenRoute('/roofing/jobs', routes)).toBe(false);
+    expect(isFloatingChatHiddenRoute('/chat2', routes)).toBe(false);
   });
 });
