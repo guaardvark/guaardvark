@@ -65,6 +65,31 @@ os.makedirs(_log_dir, exist_ok=True)
 _log_file = os.path.join(_log_dir, f"{_timestamp}_testlog.json")
 
 
+# A whole test file that skips itself because a first-party import failed is
+# not "not applicable" — it is a feature outage with the alarm switched off.
+# 2026-08-28 the timeline-render tasks stopped importing and the only test on
+# that chain skipped for a day. Silent guard reasons become collection errors
+# here; a file that must stay out states an explicit reason instead.
+_SILENT_GUARD_REASONS = (
+    "backend modules not available",
+    "flask or backend modules not available",
+)
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_collectreport(report):
+    if not report.skipped or not isinstance(report.longrepr, tuple) or len(report.longrepr) < 3:
+        return
+    path, lineno, reason = report.longrepr
+    if any(r in str(reason).lower() for r in _SILENT_GUARD_REASONS):
+        report.outcome = "failed"
+        report.longrepr = (
+            f"{path}:{lineno}: this file skipped itself because a first-party import failed "
+            f"({reason!r}). That hides a broken feature — fix the import, or if the code "
+            f"this tests is intentionally absent, say so in the skip reason."
+        )
+
+
 def pytest_runtest_logreport(report):
     if report.when != "call":
         return

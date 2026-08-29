@@ -8,7 +8,7 @@ try:
     from backend.api.codex_analyzer_api import codex_analyzer_api
     from backend.models import db
 except Exception:
-    pytest.skip("Flask or backend modules not available", allow_module_level=True)
+    pytest.skip("feature absent from tree: backend.api.codex_analyzer_api has never existed in this repo", allow_module_level=True)
 
 
 @pytest.fixture

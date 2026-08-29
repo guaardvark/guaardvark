@@ -15,7 +15,7 @@ try:
     from backend.models import Rule, db
     from backend.utils.rule_utils import check_and_heal_prompts
 except Exception:
-    pytest.skip("Flask or backend modules not available", allow_module_level=True)
+    pytest.skip("feature absent from tree: backend.utils.rule_utils (check_and_heal_prompts) has never existed in this repo", allow_module_level=True)
 
 
 @pytest.fixture

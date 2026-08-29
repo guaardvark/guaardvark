@@ -11,7 +11,7 @@ try:
     from backend.models import Task, db
     from backend.utils import llm_service, progress_manager, prompt_templates
 except Exception:
-    pytest.skip("Flask or backend modules not available", allow_module_level=True)
+    pytest.skip("feature absent from tree: generation_api no longer exports CSV_HEADER_BATCH_SEO / _generate_batch_csv_background", allow_module_level=True)
 
 # Skip this test module if the batch CSV utilities are incompatible with the
 # current environment (e.g., due to SQLite differences).
