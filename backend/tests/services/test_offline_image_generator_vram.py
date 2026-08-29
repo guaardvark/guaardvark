@@ -147,7 +147,10 @@ def test_estimate_sd_family_default(gen):
 
 
 def test_ram_estimate_zimage(gen):
-    assert gen._ram_estimate_gb("Tongyi-MAI/Z-Image-Turbo") == 24.0
+    # The base is the family constant, not a number copied into the test:
+    # 2f0f522 lowered it 24 -> 21 (measured after the ladder/unload leak fixes)
+    # and this assertion kept saying 24 for weeks.
+    assert gen._ram_estimate_gb("Tongyi-MAI/Z-Image-Turbo") == oig.OfflineImageGenerator._FAMILY_RAM_GB["zimage"]
 
 
 def test_ram_estimate_sdxl(gen):
@@ -287,18 +290,23 @@ def test_build_img2img_sd_uses_unet(gen, monkeypatch):
 
 def test_estimate_dims_none_matches_constants(gen):
     assert gen._vram_estimate_mb("Tongyi-MAI/Z-Image-Turbo") == 11000
-    assert gen._ram_estimate_gb("Tongyi-MAI/Z-Image-Turbo") == 24.0
+    # The base is the family constant, not a number copied into the test:
+    # 2f0f522 lowered it 24 -> 21 (measured after the ladder/unload leak fixes)
+    # and this assertion kept saying 24 for weeks.
+    assert gen._ram_estimate_gb("Tongyi-MAI/Z-Image-Turbo") == oig.OfflineImageGenerator._FAMILY_RAM_GB["zimage"]
 
 
 def test_estimate_1mp_matches_constants(gen):
     assert gen._vram_estimate_mb("Tongyi-MAI/Z-Image-Turbo", 1024, 1024) == 11000
-    assert gen._ram_estimate_gb("Tongyi-MAI/Z-Image-Turbo", 1024, 1024) == 24.0
+    assert gen._ram_estimate_gb("Tongyi-MAI/Z-Image-Turbo", 1024, 1024) == oig.OfflineImageGenerator._FAMILY_RAM_GB["zimage"]
 
 
 def test_estimate_2048_adds_slope(gen):
     # 2048² = 4MP ⇒ 3 extra MP above the calibration point.
     assert gen._vram_estimate_mb("Tongyi-MAI/Z-Image-Turbo", 2048, 2048) == 11000 + 3 * 500
-    assert gen._ram_estimate_gb("Tongyi-MAI/Z-Image-Turbo", 2048, 2048) == 24.0 + 3 * 1.0
+    base = oig.OfflineImageGenerator._FAMILY_RAM_GB["zimage"]
+    slope = oig.OfflineImageGenerator._FAMILY_RAM_SLOPE_GB_PER_MP.get("zimage", 1.0)
+    assert gen._ram_estimate_gb("Tongyi-MAI/Z-Image-Turbo", 2048, 2048) == base + 3 * slope
 
 
 def test_estimate_monotonic_in_resolution(gen):

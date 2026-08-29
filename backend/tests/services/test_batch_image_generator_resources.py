@@ -1,6 +1,7 @@
 import pytest
 from backend.services.batch_image_generator import BatchImageGenerator, BatchImageRequest, BatchPrompt
 from backend.services.offline_image_generator import OfflineImageGenerator
+import backend.services.offline_image_generator as oig
 
 def test_batch_resource_estimates_non_resident():
     # Setup mock OfflineImageGenerator
@@ -23,10 +24,11 @@ def test_batch_resource_estimates_non_resident():
         output_dir="/tmp/test_batch"
     )
 
-    # When the model is NOT resident, it should return full estimates (11000MB VRAM, 24GB RAM)
+    # When the model is NOT resident, it should return the full family estimates
+    # (11000MB VRAM; RAM from _FAMILY_RAM_GB — 21 GB since 2f0f522, measured).
     vram_mb, ram_gb = batch_gen._batch_resource_estimates(request)
     assert vram_mb == 11000
-    assert ram_gb == 24.0
+    assert ram_gb == oig.OfflineImageGenerator._FAMILY_RAM_GB["zimage"]
 
 def test_batch_resource_estimates_resident():
     # Setup mock OfflineImageGenerator with resident model
@@ -56,7 +58,7 @@ def test_batch_resource_estimates_resident():
 
 def test_batch_resource_estimates_2048_raises_above_flat_constant():
     # 2026-08-04: a 2048² prompt must raise the batch booking above the flat
-    # 1024²-calibrated constant (11000MB/24GB for zimage).
+    # 1024²-calibrated constants (11000MB VRAM / _FAMILY_RAM_GB RAM for zimage).
     gen = OfflineImageGenerator()
     gen._pipeline = None
     gen._current_model = None
@@ -79,7 +81,9 @@ def test_batch_resource_estimates_2048_raises_above_flat_constant():
 
     vram_mb, ram_gb = batch_gen._batch_resource_estimates(request)
     assert vram_mb == 11000 + 3 * 500
-    assert ram_gb == 24.0 + 3 * 1.0
+    base = oig.OfflineImageGenerator._FAMILY_RAM_GB["zimage"]
+    slope = oig.OfflineImageGenerator._FAMILY_RAM_SLOPE_GB_PER_MP.get("zimage", 1.0)
+    assert ram_gb == base + 3 * slope
 
 
 def test_batch_resource_estimates_resident_still_prices_2048_surcharge():
