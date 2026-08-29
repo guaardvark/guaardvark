@@ -7,6 +7,16 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+from backend.services.local_weights import from_pretrained_local  # noqa: E402
+
+# No installer wires these weights yet, so the honest hint is the cache they
+# would have to be in. Until one exists, this service cannot silently pull
+# four models from Hugging Face mid-generation.
+_ANATOMY_INSTALL_HINT = (
+    "There is no Install button for the anatomy (ControlNet) weights yet; "
+    "they must already be in the local Hugging Face cache."
+)
+
 try:
     from PIL import Image
     import cv2
@@ -60,7 +70,10 @@ class AnatomyImprovementService:
 
         try:
             logger.info("Loading OpenPose detector...")
-            self._openpose_detector = OpenposeDetector.from_pretrained("lllyasviel/ControlNet")
+            self._openpose_detector = from_pretrained_local(
+                OpenposeDetector, "lllyasviel/ControlNet",
+                purpose="OpenPose detector", install_hint=_ANATOMY_INSTALL_HINT,
+            )
             logger.info("OpenPose detector loaded successfully")
             return True
 
@@ -77,7 +90,10 @@ class AnatomyImprovementService:
 
         try:
             logger.info("Loading depth detector...")
-            self._depth_detector = MidasDetector.from_pretrained("lllyasviel/ControlNet")
+            self._depth_detector = from_pretrained_local(
+                MidasDetector, "lllyasviel/ControlNet",
+                purpose="MiDaS depth detector", install_hint=_ANATOMY_INSTALL_HINT,
+            )
             logger.info("Depth detector loaded successfully")
             return True
 
@@ -93,25 +109,28 @@ class AnatomyImprovementService:
             logger.info(f"Loading ControlNet pipeline ({controlnet_type})...")
 
             if controlnet_type == "pose":
-                controlnet = ControlNetModel.from_pretrained(
-                    "lllyasviel/control_v11p_sd15_openpose",
-                    torch_dtype=torch.float16 if self._device == "cuda" else torch.float32
+                controlnet = from_pretrained_local(
+                    ControlNetModel, "lllyasviel/control_v11p_sd15_openpose",
+                    purpose="ControlNet (pose)", install_hint=_ANATOMY_INSTALL_HINT,
+                    torch_dtype=torch.float16 if self._device == "cuda" else torch.float32,
                 )
                 self._controlnet_pose = controlnet
             elif controlnet_type == "depth":
-                controlnet = ControlNetModel.from_pretrained(
-                    "lllyasviel/control_v11f1p_sd15_depth",
-                    torch_dtype=torch.float16 if self._device == "cuda" else torch.float32
+                controlnet = from_pretrained_local(
+                    ControlNetModel, "lllyasviel/control_v11f1p_sd15_depth",
+                    purpose="ControlNet (depth)", install_hint=_ANATOMY_INSTALL_HINT,
+                    torch_dtype=torch.float16 if self._device == "cuda" else torch.float32,
                 )
                 self._controlnet_depth = controlnet
             else:
                 raise ValueError(f"Unknown controlnet_type: {controlnet_type}")
 
-            self._pipeline = StableDiffusionControlNetPipeline.from_pretrained(
-                "SG161222/Realistic_Vision_V5.1_noVAE",
+            self._pipeline = from_pretrained_local(
+                StableDiffusionControlNetPipeline, "SG161222/Realistic_Vision_V5.1_noVAE",
+                purpose="ControlNet base pipeline", install_hint=_ANATOMY_INSTALL_HINT,
                 controlnet=controlnet,
                 torch_dtype=torch.float16 if self._device == "cuda" else torch.float32,
-                safety_checker=None
+                safety_checker=None,
             )
 
             self._pipeline.scheduler = UniPCMultistepScheduler.from_config(self._pipeline.scheduler.config)

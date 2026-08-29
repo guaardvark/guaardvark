@@ -725,7 +725,9 @@ def preflight_video_model(model_id: str) -> tuple[bool, str]:
             try:
                 from backend.services.offline_video_generator import OfflineVideoGenerator
                 off = OfflineVideoGenerator()
-                offline_ok = bool(getattr(off, "cogvideox_available", False))
+                # Importable diffusers + a GPU used to count as "ready"; with an
+                # empty in-process cache that let a batch start and download 20GB.
+                offline_ok = bool(getattr(off, "cogvideox_available", False)) and off.is_model_cached(model_id)
             except Exception:
                 offline_ok = False
             if offline_ok or is_model_installed(model_id):
