@@ -23,6 +23,10 @@ def app():
     db.init_app(app)
     with app.app_context():
         db.create_all()
+        # The prompt caches are keyed on max(updated_at); two tests creating rules
+        # inside the same second would share a key, so start each test cold.
+        rule_utils._cached_active_system_prompt.cache_clear()
+        rule_utils._cached_active_qa_template.cache_clear()
         yield app
         db.session.remove()
         db.drop_all()
@@ -125,19 +129,22 @@ def test_get_active_system_prompt_filters_and_ignores_inactive(app):
             db.session.commit()
         db.session.rollback()
 
-        # Binary prompt system now returns hardcoded prompts instead of database rules
+        # Database rules are the single source of truth: the active rule's own
+        # text and id come back, and an inactive rule is as good as absent.
         text, rule_id = rule_utils.get_active_system_prompt(
             "Prompt1", db.session, model_name="modelX"
         )
-        # Should return binary prompt system response, not database rule
-        assert "You are a professional AI assistant" in text
-        assert rule_id == -1  # Binary system uses -1 as rule_id
+        assert text == "Text for X"
+        assert rule_id == r1.id
+        # Targeted at modelX only: another model does not get it.
+        other_text, other_id = rule_utils.get_active_system_prompt(
+            "Prompt1", db.session, model_name="modelZ"
+        )
+        assert (other_text, other_id) == (None, None)
         missing_text, missing_id = rule_utils.get_active_system_prompt(
             "Prompt2", db.session, model_name="modelX"
         )
-        # Should also return binary prompt system response
-        assert "You are a professional AI assistant" in missing_text
-        assert missing_id == -1
+        assert (missing_text, missing_id) == (None, None)
 
 
 def test_get_active_system_prompt_supports_new_type(app):
@@ -153,11 +160,12 @@ def test_get_active_system_prompt_supports_new_type(app):
         db.session.add(rule)
         db.session.commit()
 
-        # Binary prompt system now returns hardcoded prompts instead of database rules
+        # SYSTEM_PROMPT is accepted alongside PROMPT_TEMPLATE; __ALL__ matches any model.
         text, rule_id = rule_utils.get_active_system_prompt("PromptNew", db.session)
-        # Should return binary prompt system response, not database rule
-        assert "You are a professional AI assistant" in text
-        assert rule_id == -1  # Binary system uses -1 as rule_id
+        assert text == "System text"
+        assert rule_id == rule.id
+        text_x, id_x = rule_utils.get_active_system_prompt("PromptNew", db.session, model_name="modelX")
+        assert (text_x, id_x) == ("System text", rule.id)
 
 
 def test_get_active_command_rule_filters_and_ignores_inactive(app):
@@ -228,14 +236,23 @@ def test_get_active_qa_default_template_unique(app):
         db.session.add(rule)
         db.session.commit()
 
-        # Binary prompt system now returns hardcoded QA template instead of database rule
         text, rule_id = rule_utils.get_active_qa_default_template(db.session)
-        # Should return binary prompt system response, not database rule
-        assert "You are a professional AI assistant" in text
-        assert rule_id == -1  # Binary system uses -1 as rule_id
+        assert text == "Hello"
+        assert rule_id == rule.id
 
 
-def test_get_active_qa_default_template_duplicate_returns_fallback(app):
+def test_get_active_qa_default_template_falls_back_without_a_rule(app):
+    with app.app_context():
+        from backend.utils import prompt_utils
+        text, rule_id = rule_utils.get_active_qa_default_template(db.session)
+        assert rule_id is None
+        assert text == prompt_utils.FALLBACK_QA_PROMPT_TEXT
+
+
+def test_get_active_qa_default_template_cannot_be_duplicated(app):
+    """Two qa_default rules would make "the" template ambiguous. The schema's
+    UNIQUE (name, level, type) refuses the second row, so the lookup never has
+    to pick; the first template stays the one in force."""
     with app.app_context():
         r1 = Rule(
             name="qa_default",
@@ -245,6 +262,8 @@ def test_get_active_qa_default_template_duplicate_returns_fallback(app):
             is_active=True,
             target_models_json='["__ALL__"]',
         )
+        db.session.add(r1)
+        db.session.commit()
         r2 = Rule(
             name="qa_default",
             level="SYSTEM",
@@ -253,12 +272,12 @@ def test_get_active_qa_default_template_duplicate_returns_fallback(app):
             is_active=True,
             target_models_json='["__ALL__"]',
         )
-        db.session.add_all([r1, r2])
-        db.session.commit()
-
+        db.session.add(r2)
+        with pytest.raises(IntegrityError):
+            db.session.commit()
+        db.session.rollback()
         text, rule_id = rule_utils.get_active_qa_default_template(db.session)
-        assert rule_id is not None
-        assert isinstance(text, str) and text != ""
+        assert (text, rule_id) == ("A", r1.id)
 
 
 @pytest.mark.skip(reason="ensure_qa_default_rule was removed as part of critical changes; runtime rule self-healing is no longer supported.")
