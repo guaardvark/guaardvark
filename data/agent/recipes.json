@@ -65,6 +65,7 @@
     "success_proof_timeout_s": 12.0
   },
   "open_firefox": {
+    "preconditions": ["firefox_not_running"],
     "description": "Open Firefox via its desktop icon",
     "triggers": [
       "^(?:open|start|launch)\\s+(?:the\\s+)?(?:firefox|chrome|chromium|browser)\\s*$",

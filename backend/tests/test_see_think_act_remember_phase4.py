@@ -339,10 +339,21 @@ class TestLessonReconciler:
     agree the same element wasn't visible."""
 
     @pytest.fixture
-    def app(self):
+    def app(self, tmp_path, monkeypatch):
         from flask import Flask
         from backend.models import db
         from backend.api.memory_api import memory_bp
+        from backend.services import lesson_reconciler
+        # The reconciler proposes an edit to a line of a knowledge file. Give it
+        # a synthetic file so the test does not depend on how long the real
+        # self_knowledge_compact.md happens to be (it shrank below the line the
+        # seeds point at, and these tests silently proposed nothing).
+        root = tmp_path / "data" / "agent"
+        root.mkdir(parents=True)
+        lines = [f"- filler line {i}\n" for i in range(1, 50)]
+        lines.append("- The Shortcuts panel is on the left edge of the window.\n")  # line 50
+        (root / "self_knowledge_compact.md").write_text("".join(lines))
+        monkeypatch.setattr(lesson_reconciler, "_knowledge_root", lambda: str(root))
         app = Flask(__name__)
         app.config.update({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
         db.init_app(app)

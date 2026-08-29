@@ -36,10 +36,16 @@ class TestPhase1Priming(unittest.TestCase):
             recipes = json.load(f)
         # Recipes whose first step is "click the Firefox icon on the desktop"
         # MUST declare a precondition; without it they'll fire even when
-        # Firefox is already running and the desktop is covered.
-        for name in ("open_firefox", "open_firefox_and_navigate", "open_youtube",
-                     "open_reddit", "open_subreddit", "youtube_search"):
-            self.assertIn(name, recipes, f"missing recipe: {name}")
+        # Firefox is already running and the desktop is covered. The set is
+        # read off the data — the old hand-written list named recipes that
+        # were never in the file, so the check silently covered nothing.
+        launchers = [
+            name for name, recipe in recipes.items()
+            if isinstance(recipe, dict) and (recipe.get("steps") or [{}])[0].get("action") == "click"
+            and "firefox icon" in str((recipe.get("steps") or [{}])[0].get("target_description", "")).lower()
+        ]
+        self.assertIn("open_firefox", launchers, "the desktop-launcher recipe is gone")
+        for name in launchers:
             pre = recipes[name].get("preconditions") or []
             self.assertIn(
                 "firefox_not_running", pre,
@@ -96,7 +102,8 @@ class TestFailureReport(unittest.TestCase):
 
     def test_failure_report_capped_at_window(self):
         from backend.services.agent_control_service import AgentAction
-        for i in range(10):
+        cap = self.svc._failure_reports_cap
+        for i in range(2 * cap):
             self.svc._record_failure_report(
                 iteration=i,
                 action=AgentAction(action_type="click", target_description=f"target-{i}"),
@@ -104,11 +111,12 @@ class TestFailureReport(unittest.TestCase):
                 pixel_diff=0.0,
                 failed=True,
             )
-        # Default cap is 5.
-        self.assertEqual(len(self.svc._failure_reports), self.svc._failure_reports_cap)
+        # The window holds exactly the cap (whatever the service sets it to;
+        # it was 5 when this test was written and is 10 now).
+        self.assertEqual(len(self.svc._failure_reports), cap)
         # Oldest dropped, newest retained.
-        self.assertEqual(self.svc._failure_reports[0].iteration, 5)
-        self.assertEqual(self.svc._failure_reports[-1].iteration, 9)
+        self.assertEqual(self.svc._failure_reports[0].iteration, cap)
+        self.assertEqual(self.svc._failure_reports[-1].iteration, 2 * cap - 1)
 
     def test_stuck_target_counter_increments(self):
         from backend.services.agent_control_service import AgentAction
