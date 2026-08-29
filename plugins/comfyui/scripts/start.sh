@@ -183,6 +183,19 @@ echo "Log: $LOG_FILE"
 #                           thumbnails. auto → Latent2RGB. Keep in lockstep with
 #                           backend/services/comfyui_launch_flags.py.
 #                           GUAARDVARK_COMFYUI_PREVIEW_METHOD=none turns them off.
+#   --disable-api-nodes     no cloud API nodes, and the ComfyUI frontend stops
+#                           talking to the internet.
+#
+# Nothing leaves the machine during generation. Custom nodes will download
+# weights from Hugging Face on their own when a file is missing (the CogVideoX
+# wrapper pulled 11GB mid-render, 2026-08-28), so the Hub client runs offline
+# in this process: a missing file is a loud error naming Manage Video Models,
+# never a silent download. Installs happen in the backend behind the Install
+# button. Keep in lockstep with LOCAL_ONLY_ENV in comfyui_launch_flags.py.
+export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
+export HF_HUB_DISABLE_TELEMETRY=1
+export DO_NOT_TRACK=1
 cd "$COMFYUI_DIR"
 # Under memory pressure the kernel must kill ComfyUI, never the desktop
 # (2026-08-04 client box lockups). Children inherit; unprivileged raises allowed.
@@ -199,7 +212,7 @@ PREVIEW_FLAGS="--preview-method ${PREVIEW_METHOD}"
 if [ "$PREVIEW_METHOD" != "none" ]; then
     PREVIEW_FLAGS="$PREVIEW_FLAGS --preview-size ${PREVIEW_SIZE}"
 fi
-"$VENV_PYTHON" main.py --listen "${GUAARDVARK_COMFYUI_LISTEN:-127.0.0.1}" --port "$PORT" --disable-smart-memory --cache-none --reserve-vram 1.0 $PIN_FLAG $PREVIEW_FLAGS >> "$LOG_FILE" 2>&1 &
+"$VENV_PYTHON" main.py --listen "${GUAARDVARK_COMFYUI_LISTEN:-127.0.0.1}" --port "$PORT" --disable-smart-memory --cache-none --reserve-vram 1.0 --disable-api-nodes $PIN_FLAG $PREVIEW_FLAGS >> "$LOG_FILE" 2>&1 &
 
 # Save PID
 PID_DIR="$PROJECT_ROOT/pids"

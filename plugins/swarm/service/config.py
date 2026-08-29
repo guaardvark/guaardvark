@@ -67,8 +67,11 @@ class SwarmConfig:
 
     backends: dict[str, BackendConfig] = field(default_factory=dict)
 
-    # offline detection
-    offline_ping_target: str = "api.anthropic.com"
+    # offline detection. Empty means "don't probe": with no target configured
+    # the swarm assumes it is online and lets a backend fail on its own. The
+    # previous default pinged api.anthropic.com from every /health poll —
+    # a third party learning the machine is up, from a local-first product.
+    offline_ping_target: str = ""
     offline_ping_timeout: int = 2
     auto_fallback: bool = True
 
@@ -137,7 +140,7 @@ def load_config(
         run_tests_before_merge=defaults.get("run_tests_before_merge", True),
         test_command=defaults.get("test_command", "python3 -m pytest"),
         flight_mode=(env_flight == "1") if env_flight else defaults.get("flight_mode", False),
-        offline_ping_target=offline_raw.get("target", "api.anthropic.com"),
+        offline_ping_target=offline_raw.get("target", ""),
         offline_ping_timeout=offline_raw.get("timeout_seconds", 2),
         auto_fallback=offline_raw.get("auto_fallback", True),
         cost_tracking_enabled=raw.get("cost_tracking", {}).get("enabled", True),
@@ -161,10 +164,16 @@ def load_config(
     return config
 
 
-def check_internet(target: str = "api.anthropic.com", timeout: int = 2) -> bool:
-    """Quick connectivity check. Returns False if we can't reach the target."""
+def check_internet(target: str = "", timeout: int = 2) -> bool:
+    """Quick connectivity check against a target the operator chose.
+
+    Returns False if the target can't be reached. With no target there is no
+    probe at all and the answer is True: nothing is contacted unless someone
+    set `offline_detection.target` in the swarm plugin config."""
     import subprocess
 
+    if not target:
+        return True
     try:
         result = subprocess.run(
             ["ping", "-c", "1", "-W", str(timeout), target],

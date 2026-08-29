@@ -1,7 +1,9 @@
 /* frontend/src/index.css */
 /* Version 2.0: CSS custom properties for theme-aligned colors */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+/* Inter is bundled from @fontsource/inter (imported in main.jsx). The old
+   Google Fonts @import contacted fonts.googleapis.com on every page load of a
+   local-first app, with no toggle. */
 
 :root {
   --bg-default: #121212;

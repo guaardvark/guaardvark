@@ -292,7 +292,8 @@ class ComfyUIVideoWorkflowMixin:
         image_filename: str,
         prompt: str,
         negative_prompt: str = "",
-        model_name: str = "kijai/CogVideoX-5b-1.5-I2V",
+        model_file: str = "CogVideoX_1_5_5b_I2V_bf16.safetensors",
+        vae_file: str = "cogvideox_vae_bf16.safetensors",
         num_frames: int = 49,
         num_inference_steps: int = 50,
         guidance_scale: float = 6.0,
@@ -302,6 +303,16 @@ class ComfyUIVideoWorkflowMixin:
         fps: int = 8,
         interpolation_multiplier: int = 2,
     ) -> dict:
+        """CogVideoX 1.5 5B I2V from the registry's local files — never a hub id.
+
+        CogVideoXModelLoader reads models/diffusion_models, CogVideoXVAELoader
+        reads models/vae; both names come from VIDEO_MODEL_REGISTRY via
+        cogvideox_comfyui_map(). The transformer is loaded to the offload
+        device: the wrapper's sampler moves it to the GPU only when sampling
+        starts, by which time the T5 encoder and the image VAE have been
+        offloaded again. Loading it to main_device up front is what put 14.4GB
+        on a 16GB card before T5 had even been encoded (OOM, 2026-08-28).
+        """
         if seed is None:
             seed = int(time.time() * 1000) % (2**31)
 
@@ -335,14 +346,21 @@ class ComfyUIVideoWorkflowMixin:
                 }
             },
             "4": {
-                "class_type": "DownloadAndLoadCogVideoModel",
+                "class_type": "CogVideoXModelLoader",
                 "inputs": {
-                    "model": model_name,
-                    "precision": "bf16",
-                    "fp8_transformer": "disabled",
-                    "compile": False,
+                    "model": model_file,
+                    "base_precision": "bf16",
+                    "quantization": "disabled",
+                    "load_device": "offload_device",
+                    "enable_sequential_cpu_offload": False,
                     "attention_mode": "sdpa",
-                    "device": "main_device",
+                }
+            },
+            "4v": {
+                "class_type": "CogVideoXVAELoader",
+                "inputs": {
+                    "model_name": vae_file,
+                    "precision": "bf16",
                 }
             },
             "5": {
@@ -369,7 +387,7 @@ class ComfyUIVideoWorkflowMixin:
             "9": {
                 "class_type": "CogVideoImageEncode",
                 "inputs": {
-                    "vae": ["4", 1],
+                    "vae": ["4v", 0],
                     "start_image": ["10", 0],
                 }
             },
@@ -392,7 +410,7 @@ class ComfyUIVideoWorkflowMixin:
             "7": {
                 "class_type": "CogVideoDecode",
                 "inputs": {
-                    "vae": ["4", 1],
+                    "vae": ["4v", 0],
                     "samples": ["6", 0],
                     "enable_vae_tiling": True,
                     "tile_sample_min_height": 240,
