@@ -53,6 +53,7 @@ import {
   PROMPT_STYLES,
   VIDEO_SIZE_PRESETS,
   MODEL_OPTIONS,
+  GENERATION_TYPES,
   DEFAULT_T2V_MODEL,
   DEFAULT_I2V_MODEL,
   isCogVideoXModel,
@@ -373,9 +374,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
       const res = await fetch(`${API_BASE}/batch-video/models`);
       const data = await res.json();
       if (data.success && data.data?.models) {
-        const vids = data.data.models.filter(
-          m => m.type === "cogvideox" || m.type === "wan" || m.type === "ltx" || m.type === "hunyuan"
-        );
+        const vids = data.data.models.filter(m => GENERATION_TYPES.has(m.type));
         const ids = new Set(vids.map(m => m.id));
         if (ids.size > 0) setApiModelIds(ids);
         setAnyModelReady(vids.some(m => m.is_ready));

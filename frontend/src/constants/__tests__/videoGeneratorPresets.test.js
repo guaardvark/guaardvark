@@ -5,6 +5,7 @@ import {
   durationPresetsFor,
   resolveAspectRatio,
   isMinimaxModel,
+  GENERATION_TYPES,
   MINIMAX_DURATION_PRESETS,
   MODEL_OPTIONS,
   MOTION_PRESETS,
@@ -84,6 +85,17 @@ describe("aspectRatiosFor", () => {
         expect(ASPECT_RATIO_PRESETS[key]).toBeDefined();
       }
     }
+  });
+});
+
+describe("GENERATION_TYPES", () => {
+  it("covers every family in MODEL_OPTIONS, MiniMax included", () => {
+    for (const cfg of Object.values(MODEL_OPTIONS)) {
+      expect(GENERATION_TYPES.has(cfg.type)).toBe(true);
+    }
+    expect(GENERATION_TYPES.has("minimax")).toBe(true);
+    // Companions are not generation targets.
+    expect(GENERATION_TYPES.has("vae")).toBe(false);
   });
 });
 

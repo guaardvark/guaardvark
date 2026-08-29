@@ -293,6 +293,12 @@ export const MODEL_OPTIONS = {
   },
 };
 
+/** Every family that renders video, derived from MODEL_OPTIONS so a new
+ *  family cannot be left out of a hand-written list. 2026-08-28: the video
+ *  page kept its own literal set, MiniMax H3 was not in it, and the model
+ *  never appeared in the menu even though it was installed. */
+export const GENERATION_TYPES = new Set(Object.values(MODEL_OPTIONS).map((m) => m.type));
+
 export const DEFAULT_T2V_MODEL = "wan22-5b";
 export const DEFAULT_I2V_MODEL = "wan22-5b";
 

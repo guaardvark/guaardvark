@@ -22,7 +22,8 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import MemoryIcon from "@mui/icons-material/Memory";
 import axios from "axios";
 
-const GENERATION_TYPES = new Set(["wan", "cogvideox", "ltx", "hunyuan", "minimax"]);
+import { GENERATION_TYPES } from "../../constants/videoGeneratorPresets";
+
 const TYPE_LABELS = {
   wan: "Video",
   cogvideox: "Video",
