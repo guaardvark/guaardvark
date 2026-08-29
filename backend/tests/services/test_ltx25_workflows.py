@@ -1,6 +1,8 @@
 """LTX-2.5 Comfy graph shape — local weights only, two-stage distilled."""
 import json
 
+import pytest
+
 from backend.services.comfyui_video_generator import ComfyUIVideoGenerator
 
 
@@ -48,7 +50,11 @@ def test_t2v_uses_cliploader_not_dualclip():
     assert "CLIPLoader" in types
     assert "DualCLIPLoader" not in types
     assert "UNETLoader" in types
-    assert "LTXVDualCFGGuider" in types
+    # The official distilled template drives both stages with CFGGuider at
+    # cfg=1. LTXVDualCFGGuider (separate video/audio cfg) collapses to the same
+    # thing when the two are equal, and audio is discarded here anyway.
+    assert "CFGGuider" in types
+    assert "LTXVDualCFGGuider" not in types
     assert "LTXVLatentUpsampler" in types
     assert "LatentUpscaleModelLoader" in types
     assert "VHS_VideoCombine" in types
@@ -112,3 +118,35 @@ def test_ltx23_graph_untouched():
     assert "CLIPLoader" not in types
     assert "LTXVLatentUpsampler" not in types
     assert "KSampler" in types
+
+
+def _live_object_info():
+    import json, urllib.request
+    try:
+        return json.load(urllib.request.urlopen("http://127.0.0.1:8188/object_info", timeout=5))
+    except Exception as e:  # noqa: BLE001
+        pytest.skip(f"live ComfyUI not reachable at 127.0.0.1:8188 ({type(e).__name__}); "
+                    f"registry validation needs the real node registry")
+
+
+@pytest.mark.parametrize("build", [_t2v, _i2v], ids=["t2v", "i2v"])
+def test_ltx25_graph_validates_against_live_comfyui(build):
+    """Every class_type exists in the running ComfyUI and every required input
+    is wired. 8a49f0a: a guider node that was not registered made every LTX-2.5
+    queue attempt 400 while the unit tests stayed green."""
+    info = _live_object_info()
+    wf = build()
+    problems = []
+    for nid, node in wf.items():
+        ct = node["class_type"]
+        if ct not in info:
+            problems.append(f"{nid}: unknown class {ct}")
+            continue
+        required = info[ct].get("input", {}).get("required", {})
+        missing = [k for k in required if k not in node["inputs"]]
+        if missing:
+            problems.append(f"{nid} {ct}: missing required {missing}")
+        for k, v in node["inputs"].items():
+            if isinstance(v, list) and len(v) == 2 and str(v[0]) not in wf:
+                problems.append(f"{nid} {ct}.{k} -> dangling ref {v}")
+    assert not problems, problems

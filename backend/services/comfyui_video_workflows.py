@@ -1287,7 +1287,7 @@ class ComfyUIVideoWorkflowMixin:
 
         Graph: UNETLoader + CLIPLoader(ltxv) + DiffVAE + audio VAE →
         CLIPTextEncode ×2 → EmptyLTXVLatentVideo (half) + LTXVEmptyLatentAudio →
-        concat → DualCFG + ManualSigmas stage-1 → upsample → DualCFG stage-2 →
+        concat → CFGGuider + ManualSigmas stage-1 → upsample → CFGGuider stage-2 →
         separate → VAEDecode → VHS_VideoCombine.
 
         Audio is sampled (required by rotary PE) then discarded — same contract as 2.3.
