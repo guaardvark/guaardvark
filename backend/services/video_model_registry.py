@@ -67,17 +67,45 @@ VIDEO_MODEL_REGISTRY = {
     },
     "cogvideox-5b-i2v": {
         "name": "CogVideoX 1.5 5B I2V (BF16)",
-        "description": "Image-to-video, 6s clips. Full precision, best quality. Needs ~16GB VRAM.",
+        "description": "Image-to-video, 6s clips. Full precision, best quality. Needs ~16GB VRAM. "
+                       "Pulls the CogVideoX VAE + T5 encoder.",
         "hf_repo": "Kijai/CogVideoX-comfy",
-        "hf_filename": "CogVideoX_1_5_5b_I2V_bf16.safetensors",
+        # The wrapper's single-file loader (CogVideoXModelLoader) enumerates
+        # models/diffusion_models, but this file has lived in checkpoints/ since
+        # the first install, so it stays canonical there and is hard-linked into
+        # diffusion_models/ (also_link at download; the generator reconciles
+        # existing installs). Before 2026-08-28 the workflow ignored this file
+        # entirely and asked DownloadAndLoadCogVideoModel for a hub id, which
+        # fetched a second 11GB diffusers snapshot from Hugging Face during
+        # generation — a download the person never clicked.
         "local_subdir": "checkpoints",
-        "check_files": ["CogVideoX_1_5_5b_I2V_bf16.safetensors"],
-        # ComfyUI's CogVideoX workflow loads the T5 encoder via CLIPLoader.
-        "requires": ["t5-encoder"],
+        "files": [
+            {
+                "src": "CogVideoX_1_5_5b_I2V_bf16.safetensors",
+                "dst": "CogVideoX_1_5_5b_I2V_bf16.safetensors",
+                "also_link": "diffusion_models",
+            },
+        ],
+        # ComfyUI's CogVideoX workflow loads the T5 encoder via CLIPLoader; the
+        # single-file loader needs the VAE as its own file (the diffusers
+        # snapshot used to carry it).
+        "requires": ["t5-encoder", "cogvideox-vae"],
         "size_gb": 10.4,
         "vram_mb": 16000,
         "type": "cogvideox",
         "dimension_alignment": 16,
+    },
+    "cogvideox-vae": {
+        "name": "CogVideoX VAE (BF16)",
+        "description": "Required by CogVideoX I2V — CogVideoXVAELoader reads it from vae/.",
+        "hf_repo": "Kijai/CogVideoX-comfy",
+        "local_subdir": "vae",
+        "files": [
+            {"src": "cogvideox_vae_bf16.safetensors", "dst": "cogvideox_vae_bf16.safetensors"},
+        ],
+        "size_gb": 0.43,
+        "vram_mb": 0,
+        "type": "vae",
     },
     # Wan GGUFs live in HighNoise/ and LowNoise/ subfolders in the repo, but
     # ComfyUI's UnetLoaderGGUF loads them flat from models/unet/. The `files`
@@ -739,6 +767,13 @@ def preflight_video_model(model_id: str) -> tuple[bool, str]:
             return False, (
                 f"{name} is not installed. Open Manage Video Models to download it."
             )
+        for dep in entry.get("requires", []):
+            if not is_model_installed(dep):
+                dep_name = (VIDEO_MODEL_REGISTRY.get(dep) or {}).get("name") or dep
+                return False, (
+                    f"{name} is missing companion '{dep_name}'. "
+                    f"Open Manage Video Models and Install again (companions auto-pull)."
+                )
         if not _comfyui_reachable():
             return False, (
                 f"{name} requires ComfyUI for image-to-video. Start ComfyUI, then retry."
@@ -926,6 +961,29 @@ def ltx_comfyui_map() -> dict:
     return out
 
 
+def cogvideox_comfyui_map() -> dict:
+    """Build the ComfyUI CogVideoX single-file loader map from the registry
+    (never raises). Returns {model_id: {unet, vae}} for the wrapper's
+    CogVideoXModelLoader (models/diffusion_models) + CogVideoXVAELoader
+    (models/vae). Only entries that use `files` are mapped — cogvideox-5b is a
+    diffusers snapshot loaded by directory and is not part of this map."""
+    out = {}
+    try:
+        for mid, entry in VIDEO_MODEL_REGISTRY.items():
+            if entry.get("type") != "cogvideox" or not entry.get("files"):
+                continue
+            unet = entry["files"][0]["dst"]
+            vae = None
+            for dep in entry.get("requires", []):
+                dep_entry = VIDEO_MODEL_REGISTRY.get(dep, {})
+                if dep_entry.get("type") == "vae" and dep_entry.get("files"):
+                    vae = dep_entry["files"][0]["dst"]
+            out[mid] = {"unet": unet, "vae": vae}
+    except Exception as e:
+        logger.error("cogvideox_comfyui_map() build failed: %s", e, exc_info=True)
+    return out
+
+
 def hunyuan_comfyui_map() -> dict:
     """Build the ComfyUI HunyuanVideo loader map from the registry (never raises).
 
@@ -997,6 +1055,11 @@ def verify_registry() -> list:
                 for k in required:
                     if not m.get(k):
                         problems.append(f"{mid}: LTX ComfyUI map missing '{k}'")
+            if entry.get("type") == "cogvideox" and entry.get("files"):
+                m = cogvideox_comfyui_map().get(mid, {})
+                for k in ("unet", "vae"):
+                    if not m.get(k):
+                        problems.append(f"{mid}: CogVideoX ComfyUI map missing '{k}'")
             if entry.get("type") == "hunyuan":
                 m = hunyuan_comfyui_map().get(mid, {})
                 required = ("unet", "clip_l", "clip_llava", "vae")

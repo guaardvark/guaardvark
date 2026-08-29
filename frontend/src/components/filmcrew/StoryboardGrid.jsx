@@ -21,6 +21,16 @@ import {
 import RefreshIcon from '@mui/icons-material/Refresh';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
+// Inline SVG so an empty shot never fetches from a third-party CDN.
+const NO_STORYBOARD_PLACEHOLDER =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180">' +
+    '<rect width="320" height="180" fill="#1e1e1e"/>' +
+    '<text x="160" y="96" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#888">No storyboard</text>' +
+    '</svg>'
+  );
+
 const StoryboardGrid = ({ currentStage, shots, onRegenerate, onApproveAll, isApproving }) => {
   const [regenShot, setRegenShot] = useState(null);
   const [promptOverride, setPromptOverride] = useState('');
@@ -80,7 +90,7 @@ const StoryboardGrid = ({ currentStage, shots, onRegenerate, onApproveAll, isApp
                 <CardMedia
                   component="img"
                   height="180"
-                  image={shot.storyboard_image_url || shot.storyboard_image_path || 'https://via.placeholder.com/320x180?text=No+Storyboard'}
+                  image={shot.storyboard_image_url || shot.storyboard_image_path || NO_STORYBOARD_PLACEHOLDER}
                   alt={`Shot ${shot.scene_number}.${shot.shot_number}`}
                   sx={{ backgroundColor: '#000' }}
                 />

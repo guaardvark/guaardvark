@@ -174,7 +174,7 @@ async def _require_internal_token(request: Request, call_next):
 def health():
     running = sum(1 for o in _active_orchestrators.values() if o.is_running())
     online = check_internet(
-        _config.offline_ping_target if _config else "api.anthropic.com",
+        _config.offline_ping_target if _config else "",
         _config.offline_ping_timeout if _config else 2,
     )
 
@@ -617,7 +617,7 @@ def save_template(req: SavePlanRequest):
 def check_connectivity():
     """Check internet connectivity — UI shows flight mode toggle based on this."""
     online = check_internet(
-        _config.offline_ping_target if _config else "api.anthropic.com",
+        _config.offline_ping_target if _config else "",
         _config.offline_ping_timeout if _config else 2,
     )
     available_backends = []

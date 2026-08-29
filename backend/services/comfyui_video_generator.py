@@ -34,6 +34,7 @@ try:
     from backend.services.video_model_registry import wan_comfyui_map as _wan_comfyui_map
     from backend.services.video_model_registry import ltx_comfyui_map as _ltx_comfyui_map
     from backend.services.video_model_registry import hunyuan_comfyui_map as _hunyuan_comfyui_map
+    from backend.services.video_model_registry import cogvideox_comfyui_map as _cogvideox_comfyui_map
 except Exception:  # pragma: no cover - defensive
     def _wan_comfyui_map():
         return {}
@@ -42,6 +43,9 @@ except Exception:  # pragma: no cover - defensive
         return {}
 
     def _hunyuan_comfyui_map():
+        return {}
+
+    def _cogvideox_comfyui_map():
         return {}
 
 from backend.services.comfyui_video_workflows import ComfyUIVideoWorkflowMixin
@@ -243,10 +247,21 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
 
     # ── CogVideoX model mapping ──────────────────────────────────────────────
 
+    # cogvideox-5b is a diffusers snapshot the registry installs under
+    # models/CogVideo/CogVideoX-5b; the wrapper's DownloadAndLoadCogVideoModel
+    # resolves that hub id to the same directory and only reaches for Hugging
+    # Face when the directory is absent (and the launch environment now forbids
+    # that: HF_HUB_OFFLINE in plugins/comfyui/scripts/start.sh).
     COGVIDEOX_MODELS = {
         "cogvideox-5b": "THUDM/CogVideoX-5b",
-        "cogvideox-5b-i2v": "kijai/CogVideoX-5b-1.5-I2V",
+        # I2V is deliberately NOT a hub id: it loads the registry's single file
+        # through CogVideoXModelLoader. See COGVIDEOX_I2V_FILES.
+        "cogvideox-5b-i2v": None,
     }
+    # Single-file CogVideoX loader map — DERIVED from the registry like Wan/LTX.
+    COGVIDEOX_I2V_FILES = _cogvideox_comfyui_map()
+    # Both wrapper loaders emit COGVIDEOMODEL; the FreeU/LoRA hooks below key on them.
+    _COG_MODEL_LOADER_NODES = ("DownloadAndLoadCogVideoModel", "CogVideoXModelLoader")
 
     # Conservative best-effort floor for the TOTAL VRAM a model needs to run at
     # all (not headroom-for-comfort). Used by the preflight in generate_video to
@@ -762,6 +777,56 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             name = files.get(key)
             if name and not (models_root / subdir / name).exists():
                 missing.append(f"{subdir}/{name}")
+        return missing
+
+    _COG_I2V_CANONICAL_SUBDIR = "checkpoints"
+    _COG_I2V_LOADER_SUBDIR = "diffusion_models"
+
+    def _cogvideox_i2v_files(self, model_key: str) -> dict:
+        if not self.COGVIDEOX_I2V_FILES:
+            try:
+                from backend.services.video_model_registry import cogvideox_comfyui_map
+                fresh = cogvideox_comfyui_map() or {}
+                if fresh:
+                    type(self).COGVIDEOX_I2V_FILES = fresh
+            except Exception:  # pragma: no cover - defensive
+                pass
+        cfg = self.COGVIDEOX_I2V_FILES.get(model_key, {})
+        return {
+            "unet": cfg.get("unet") or "CogVideoX_1_5_5b_I2V_bf16.safetensors",
+            "vae": cfg.get("vae") or "cogvideox_vae_bf16.safetensors",
+        }
+
+    def _cogvideox_i2v_missing_files(self, model_key: str) -> List[str]:
+        """Relative paths of CogVideoX I2V files the wrapper's loaders cannot see.
+
+        The transformer's canonical home is models/checkpoints (where every
+        existing install put it) but CogVideoXModelLoader enumerates
+        models/diffusion_models, so this reconciles the link a pre-2026-08-28
+        install never got. Empty when everything is in place, or when the
+        models tree isn't local (remote ComfyUI validates for itself)."""
+        if not COMFYUI_DIR:
+            return []
+        models_root = Path(COMFYUI_DIR) / "models"
+        if not models_root.is_dir():
+            return []
+        files = self._cogvideox_i2v_files(model_key)
+        missing: List[str] = []
+        loader_path = models_root / self._COG_I2V_LOADER_SUBDIR / files["unet"]
+        canonical = models_root / self._COG_I2V_CANONICAL_SUBDIR / files["unet"]
+        if not loader_path.exists():
+            if canonical.exists() and canonical.stat().st_size > 0:
+                loader_path.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    os.link(str(canonical), str(loader_path))
+                except OSError:
+                    os.symlink(str(canonical), str(loader_path))
+                logger.info("Linked %s into %s for CogVideoXModelLoader", canonical.name, loader_path.parent)
+            else:
+                missing.append(f"{self._COG_I2V_CANONICAL_SUBDIR}/{files['unet']}")
+        vae_path = models_root / "vae" / files["vae"]
+        if not vae_path.exists():
+            missing.append(f"vae/{files['vae']}")
         return missing
 
     def _comfyui_alive(self) -> bool:
@@ -1387,11 +1452,20 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                 if not uploaded_image:
                     result.error = "Failed to upload image to ComfyUI"
                     return result
-                hf_model = self.COGVIDEOX_MODELS.get(model, "THUDM/CogVideoX-5b-I2V")
+                missing = self._cogvideox_i2v_missing_files(model)
+                if missing:
+                    result.error = (
+                        f"CogVideoX I2V files missing on this machine: {', '.join(missing)}. "
+                        f"Open Manage Video Models and Install CogVideoX 1.5 5B I2V "
+                        f"(companions auto-pull). Generation never downloads on its own."
+                    )
+                    return result
+                files = self._cogvideox_i2v_files(model)
                 workflow = self._create_cogvideox_i2v_workflow(
                     image_filename=uploaded_image,
                     prompt=request.prompt,
-                    model_name=hf_model,
+                    model_file=files["unet"],
+                    vae_file=files["vae"],
                     num_frames=request.duration_frames,
                     num_inference_steps=request.num_inference_steps,
                     guidance_scale=request.guidance_scale,
@@ -1568,7 +1642,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             if request.freeu:
                 model_node_id = None
                 for nid, node in workflow.items():
-                    if node.get("class_type") == "DownloadAndLoadCogVideoModel":
+                    if node.get("class_type") in self._COG_MODEL_LOADER_NODES:
                         model_node_id = nid
                         break
                 if model_node_id:
@@ -1602,7 +1676,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                 model_node_id = None
                 clip_node_id = None
                 for nid, node in workflow.items():
-                    if node.get("class_type") == "DownloadAndLoadCogVideoModel":
+                    if node.get("class_type") in self._COG_MODEL_LOADER_NODES:
                         model_node_id = nid
                     elif node.get("class_type") == "CLIPLoader":
                         clip_node_id = nid
