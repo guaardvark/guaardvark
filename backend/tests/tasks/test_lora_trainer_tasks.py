@@ -58,12 +58,30 @@ def test_mock_trainer_fails_with_no_refs(tmp_path):
     assert "no reference images" in res["error"]
 
 
-def test_train_lora_for_subject_updates_subject_row(app, tmp_path, monkeypatch):
+def _seed_trainable_subject(app, tmp_path, name="Hero"):
+    """A subject that passes the real pre-train gate: four actual image files,
+    each with a rich, class-anchored caption sidecar so the captioner has
+    nothing to send to the VLM. The gate exists so no LoRA is trained on a
+    phantom dataset; the tests used to hand it one path that did not exist."""
+    from PIL import Image
+    refs = []
+    for i in range(4):
+        img = tmp_path / f"ref_{i}.png"
+        Image.new("RGB", (64, 64), (i * 40, 80, 120)).save(img)
+        img.with_suffix(".txt").write_text(
+            f"a photo of {name}, man with a red beard and round glasses, "
+            f"full body standing in a park, looking at the camera, outfit {i}"
+        )
+        refs.append(str(img))
     with app.app_context():
-        s = Subject(name="Hero", kind="character", training_status="training", ref_image_paths=["/tmp/1.jpg"])
+        s = Subject(name=name, kind="character", training_status="training", ref_image_paths=refs)
         db.session.add(s)
         db.session.commit()
-        s_id = s.id
+        return s.id
+
+
+def test_train_lora_for_subject_updates_subject_row(app, tmp_path, monkeypatch):
+    s_id = _seed_trainable_subject(app, tmp_path)
 
     monkeypatch.setattr("backend.tasks.lora_trainer_tasks._output_dir", lambda: str(tmp_path))
     # Pin mock — without this, auto-detect picks real once venv-torch exists
@@ -122,11 +140,7 @@ def test_train_lora_marks_failed_on_trainer_failure(app, monkeypatch):
         assert s.lora_path is None
 
 def test_backend_selector_uses_mock_when_env_set_to_mock(app, tmp_path, monkeypatch):
-    with app.app_context():
-        s = Subject(name="Hero", kind="character", training_status="training", ref_image_paths=["/tmp/1.jpg"])
-        db.session.add(s)
-        db.session.commit()
-        s_id = s.id
+    s_id = _seed_trainable_subject(app, tmp_path)
 
     monkeypatch.setattr("backend.tasks.lora_trainer_tasks._output_dir", lambda: str(tmp_path))
     monkeypatch.setenv("GUAARDVARK_LORA_BACKEND", "mock")
@@ -182,11 +196,7 @@ def test_backend_selector_fails_loud_when_real_unavailable_in_auto(app, tmp_path
     assert not list(tmp_path.iterdir())
 
 def test_backend_selector_uses_real_when_real_available_in_auto(app, tmp_path, monkeypatch):
-    with app.app_context():
-        s = Subject(name="Hero", kind="character", training_status="training", ref_image_paths=["/tmp/1.jpg"])
-        db.session.add(s)
-        db.session.commit()
-        s_id = s.id
+    s_id = _seed_trainable_subject(app, tmp_path)
 
     monkeypatch.setattr("backend.tasks.lora_trainer_tasks._output_dir", lambda: str(tmp_path))
     monkeypatch.setenv("GUAARDVARK_LORA_BACKEND", "auto")
