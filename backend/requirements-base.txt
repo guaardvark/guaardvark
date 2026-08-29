@@ -85,7 +85,7 @@ PyYAML>=6.0    # transitive dep of transformers/huggingface_hub (always-on)
 
 # Video Processing Dependencies
 imageio==2.34.0
-imageio-ffmpeg==0.5.1
+imageio-ffmpeg==0.6.0
 
 # Voice Processing Dependencies
 piper-tts==1.7.0
