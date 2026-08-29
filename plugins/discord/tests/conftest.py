@@ -38,6 +38,15 @@ def mock_api_client():
         "model_used": "llama3",
         "response_time": 1.2,
     })
+    client.unified_chat = AsyncMock(return_value={
+        "response": "Hello! I'm Guaardvark.",
+        "session_id": "discord_user_123456789",
+        "generated_images": [],
+    })
+    client.chat_claude = AsyncMock(return_value={
+        "response": "Claude says hello.",
+    })
+    client.fetch_by_url = AsyncMock(return_value=b"\x89PNG\r\n" + b"\x00" * 100)
     client.generate_image = AsyncMock(return_value={
         "batch_id": "test-batch-123",
         "message": "Batch generation started",
@@ -128,7 +137,9 @@ def sample_config():
             "max_prompt_length": 2000,
             "max_image_prompt_length": 2000,
         },
-        "rate_limits": {"ask": 10, "imagine": 3, "generate_csv": 2, "search": 15, "enhance_prompt": 10},
+        "rate_limits": {"ask": 10, "imagine": 3, "generate_csv": 2, "search": 15, "enhance_prompt": 10, "claude": 5},
+        "tools": {"auto_approve": False},
+        "channel_chat": {"channel_ids": [], "respond_to_mentions": True},
         "voice": {
             "enabled": True, "silence_threshold_ms": 1500,
             "max_listen_duration_s": 30, "tts_voice": "ryan", "interrupt_on_speech": True,

@@ -7,30 +7,11 @@ from discord import app_commands
 from discord.ext import commands
 
 from core.api_client import GuaardvarkClient, APIError
+from core.chat_reply import split_message
 from core.rate_limiter import RateLimiter
 from core.security import sanitize_input
 
 logger = logging.getLogger(__name__)
-DISCORD_MAX_LENGTH = 2000
-
-
-def split_message(text: str, max_length: int = DISCORD_MAX_LENGTH) -> list[str]:
-    """Split a long message into chunks that fit Discord's limit."""
-    if len(text) <= max_length:
-        return [text]
-    chunks = []
-    while text:
-        if len(text) <= max_length:
-            chunks.append(text)
-            break
-        split_at = text.rfind("\n", 0, max_length)
-        if split_at == -1:
-            split_at = text.rfind(" ", 0, max_length)
-        if split_at == -1:
-            split_at = max_length
-        chunks.append(text[:split_at])
-        text = text[split_at:].lstrip()
-    return chunks
 
 
 class ClaudeChatCog(commands.Cog):

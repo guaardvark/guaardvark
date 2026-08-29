@@ -1,9 +1,10 @@
 """Tests for the ChatCog (/ask command)."""
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import MagicMock, AsyncMock
 
-from commands.chat import ChatCog, split_message
+from commands.chat import ChatCog
 from core.api_client import APIError
+from core.chat_reply import split_message
 
 
 @pytest.fixture
@@ -48,14 +49,15 @@ class TestAskCommand:
         """Session ID should be discord_{user_id}."""
         await chat_cog._handle_ask(mock_interaction, "test prompt")
 
-        mock_api_client.chat.assert_awaited_once()
-        call_args = mock_api_client.chat.call_args
-        assert call_args.args[1] == "discord_123456789"
+        mock_api_client.unified_chat.assert_awaited_once()
+        mock_api_client.chat_claude.assert_not_awaited()
+        call_args = mock_api_client.unified_chat.call_args
+        assert call_args.kwargs["session_id"] == "discord_user_123456789"
 
     @pytest.mark.asyncio
     async def test_ask_handles_api_error(self, chat_cog, mock_interaction, mock_api_client):
         """API errors should be caught and reported to the user."""
-        mock_api_client.chat.side_effect = APIError("Backend offline", 503)
+        mock_api_client.unified_chat.side_effect = APIError("Backend offline", 503)
 
         await chat_cog._handle_ask(mock_interaction, "Hello")
 
@@ -69,7 +71,7 @@ class TestAskCommand:
         """Mentions and code blocks should be stripped before sending to API."""
         await chat_cog._handle_ask(mock_interaction, "<@!12345> tell me about ```code```")
 
-        call_args = mock_api_client.chat.call_args.args[0]
+        call_args = mock_api_client.unified_chat.call_args.args[0]
         assert "<@!12345>" not in call_args
         assert "```" not in call_args
 
@@ -77,7 +79,7 @@ class TestAskCommand:
     async def test_ask_splits_long_response(self, chat_cog, mock_interaction, mock_api_client):
         """Responses over 2000 chars should be split into multiple messages."""
         long_response = "word " * 600  # ~3000 chars, under 4000 so no file
-        mock_api_client.chat.return_value = {"response": long_response}
+        mock_api_client.unified_chat.return_value = {"response": long_response, "generated_images": []}
 
         await chat_cog._handle_ask(mock_interaction, "Give me a long answer")
 
@@ -87,12 +89,12 @@ class TestAskCommand:
     async def test_ask_very_long_response_as_file(self, chat_cog, mock_interaction, mock_api_client):
         """Responses over 4000 chars should be sent as a file attachment."""
         huge_response = "x" * 5000
-        mock_api_client.chat.return_value = {"response": huge_response}
+        mock_api_client.unified_chat.return_value = {"response": huge_response, "generated_images": []}
 
         await chat_cog._handle_ask(mock_interaction, "Give me a huge answer")
 
         call_kwargs = mock_interaction.followup.send.call_args.kwargs
-        assert call_kwargs.get("file") is not None
+        assert call_kwargs.get("files")
         assert "too long" in call_kwargs.get("content", "").lower()
 
     @pytest.mark.asyncio
@@ -118,3 +120,23 @@ class TestAskCommand:
         call_args = mock_interaction.response.send_message.call_args
         content = call_args.args[0] if call_args.args else call_args.kwargs.get("content", "")
         assert "not allowed" in content.lower()
+
+    @pytest.mark.asyncio
+    async def test_ask_does_not_call_claude(self, chat_cog, mock_interaction, mock_api_client):
+        await chat_cog._handle_ask(mock_interaction, "Hello AI")
+        mock_api_client.chat_claude.assert_not_awaited()
+        mock_api_client.unified_chat.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_ask_forwards_image_attachment(self, chat_cog, mock_interaction, mock_api_client):
+        image = AsyncMock()
+        image.read = AsyncMock(return_value=b"\x89PNG" + b"\x00" * 16)
+        image.size = 20
+        image.filename = "photo.png"
+        image.content_type = "image/png"
+
+        await chat_cog._handle_ask(mock_interaction, "edit this", image=image)
+
+        kwargs = mock_api_client.unified_chat.call_args.kwargs
+        assert kwargs["image"]
+        assert kwargs["session_id"] == "discord_user_123456789"

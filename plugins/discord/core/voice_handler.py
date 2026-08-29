@@ -10,6 +10,8 @@ from typing import Optional
 import discord
 
 from core.api_client import GuaardvarkClient, APIError
+from core.approvals import make_approval_handler
+from core.chat_reply import files_from_generated, send_chunks
 
 try:
     from discord.ext import voice_recv
@@ -196,12 +198,45 @@ class VoiceHandler:
             stt_s = time.monotonic() - t0
             logger.info("Voice STT (%s, %.1fs audio, %.1fs stt): '%s'", display_name, utt_seconds, stt_s, text[:100])
             t0 = time.monotonic()
-            chat_result = await self.api.chat(f"{display_name} says: {text}" if display_name else text, self.session_id)
+            prompt = f"{display_name} says: {text}" if display_name else text
+
+            async def send_fn(content, *, files=None, view=None):
+                kwargs = {"content": content}
+                if files:
+                    kwargs["files"] = files
+                if view is not None:
+                    kwargs["view"] = view
+                return await self.text_channel.send(**kwargs)
+
+            approval_handler = None
+            if self.text_channel is not None:
+                approval_handler = make_approval_handler(
+                    send_fn,
+                    user_id,
+                    auto_approve=bool(self.config.get("tools", {}).get("auto_approve", False)),
+                )
+
+            chat_result = await self.api.unified_chat(
+                prompt,
+                session_id=self.session_id,
+                approval_handler=approval_handler,
+                is_voice_message=True,
+            )
             response = chat_result.get("response", "")
-            if not response:
+            if not response and not chat_result.get("generated_images"):
                 return
-            logger.info("Voice LLM response (%.1fs): '%s'", time.monotonic() - t0, response[:100])
-            await self.speak(response)
+            logger.info("Voice LLM response (%.1fs): '%s'", time.monotonic() - t0, (response or "")[:100])
+            if response:
+                await self.speak(response)
+            images = chat_result.get("generated_images") or []
+            if images and self.text_channel is not None:
+                files = await files_from_generated(self.api, images)
+                if files:
+                    await send_chunks(
+                        send_fn,
+                        response or "Here's what Guaardvark made.",
+                        files=files,
+                    )
         except APIError as e:
             logger.error("Voice pipeline API error: %s", e)
             if self.text_channel:
