@@ -653,6 +653,94 @@ VIDEO_MODEL_REGISTRY = {
         "vram_mb": 0,
         "type": "clip_vision",
     },
+    # ── MiniMax H3 ────────────────────────────────────────────────────────────
+    # "Which MiniMax": the local-weights H3 release (Comfy-Org/MiniMax-H3), not
+    # the Hailuo cloud API nodes that share the template name. Native ComfyUI
+    # support (MiniMaxH3ImageToVideo etc.) landed in v0.30.0 (PR #15224); the
+    # bundled ComfyUI is v0.33.0. Variant choice follows the official
+    # video_minimax_h3_t2v template shipped in comfyui_workflow_templates:
+    # fl2va covers T2V and first/last-frame I2V in one file; ref2va (reference
+    # to video, 9 images / 3 clips) is a separate 21GB transformer and is not
+    # offered until something consumes it.
+    "minimax-h3-int8": {
+        "name": "MiniMax H3 (Int8, 16GB)",
+        "description": "MiniMax H3 omni-modal video — generates picture and native "
+                       "stereo audio in one pass. Pruned int8+convrot transformer for "
+                       "RTX 40xx 16GB. T2V + first/last-frame I2V, 24fps, ~5-15s. "
+                       "Requires ComfyUI ≥ 0.30.0. Pulls Qwen3-VL 32B encoder + "
+                       "video VAE + audio VAE (~42GB total).",
+        "hf_repo": "Comfy-Org/MiniMax-H3",
+        "local_subdir": "diffusion_models",
+        "files": [
+            {
+                "src": "diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+                "dst": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+            },
+        ],
+        "requires": ["minimax-h3-qwen3vl-nvfp4", "minimax-h3-vae", "minimax-h3-audio-vae"],
+        "size_gb": 20.97,
+        # Same class as ltx25-distilled-int8 (20GB int8+convrot transformer, which
+        # renders on this 16GB tier at 14000). Not yet measured for H3 itself —
+        # revisit when the generator workflow lands and a render is timed.
+        "vram_mb": 14000,
+        "type": "minimax",
+        "dimension_alignment": 32,
+        # Template note: native canvas is a 768px short edge, capped at 768x1344.
+        "max_pixel_area": 768 * 1344,
+        # Official template samples 20 steps (res_multistep / simple, CFG 1).
+        # Carry that as the floor into MODEL_OPTIONS when generation is wired;
+        # the 4/8-step turbo LoRAs on the repo are a separate, unmeasured path.
+    },
+    "minimax-h3-qwen3vl-nvfp4": {
+        "name": "Qwen3-VL 32B (NVFP4 AWQ) — MiniMax H3 text encoder",
+        "description": "Required by MiniMax H3 (CLIPLoader, type 'minimax'). NVFP4 is "
+                       "the template default and the smallest cut (15.7GB); on "
+                       "pre-Blackwell cards ComfyUI runs it as emulated ops via "
+                       "comfy_kitchen's dequantize_nvfp4 rather than native fp4 matmul.",
+        "hf_repo": "Comfy-Org/MiniMax-H3",
+        "local_subdir": "text_encoders",
+        "files": [
+            {
+                "src": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+                "dst": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+            },
+        ],
+        "size_gb": 15.69,
+        "vram_mb": 0,
+        "type": "encoder",
+    },
+    "minimax-h3-vae": {
+        "name": "MiniMax H3 Video VAE (FP16)",
+        "description": "Required by MiniMax H3. Loaded through the plain VAELoader from vae/.",
+        "hf_repo": "Comfy-Org/MiniMax-H3",
+        "local_subdir": "vae",
+        "files": [
+            {
+                "src": "vae/minimax_h3_video_vae_fp16.safetensors",
+                "dst": "minimax_h3_video_vae_fp16.safetensors",
+            },
+        ],
+        "size_gb": 5.21,
+        "vram_mb": 0,
+        "type": "vae",
+    },
+    "minimax-h3-audio-vae": {
+        "name": "MiniMax H3 Audio VAE (FP32)",
+        "description": "Required by MiniMax H3 — the model samples a joint video+audio "
+                       "latent, so the audio decoder is not optional. Plain VAELoader "
+                       "from vae/ (unlike LTX, no checkpoints/ link needed).",
+        "hf_repo": "Comfy-Org/MiniMax-H3",
+        "local_subdir": "vae",
+        "files": [
+            {
+                "src": "vae/minimax_h3_audio_vae_fp32.safetensors",
+                "dst": "minimax_h3_audio_vae_fp32.safetensors",
+            },
+        ],
+        "size_gb": 0.61,
+        "vram_mb": 0,
+        "type": "vae",
+    },
 }
 
 
@@ -790,6 +878,27 @@ def preflight_video_model(model_id: str) -> tuple[bool, str]:
             )
         return True, ""
 
+    if mtype == "minimax":
+        if not is_model_installed(model_id):
+            return False, (
+                f"{name} is not installed. Open Manage Video Models to download it "
+                f"(and its Qwen3-VL / VAE companions) before queuing a batch."
+            )
+        for dep in entry.get("requires", []):
+            if not is_model_installed(dep):
+                dep_name = (VIDEO_MODEL_REGISTRY.get(dep) or {}).get("name") or dep
+                return False, (
+                    f"{name} is missing companion '{dep_name}'. "
+                    f"Open Manage Video Models and Install again (companions auto-pull)."
+                )
+        # The download plan is wired; the ComfyUI workflow builder is not. Refuse
+        # here rather than letting _model_family() fall through to the CogVideoX
+        # default and fail deep inside the generator with an unrelated error.
+        return False, (
+            f"{name} is installed, but generating with it is not wired up yet. "
+            f"Pick a Wan or LTX model for this batch."
+        )
+
     return True, ""
 
 
@@ -926,6 +1035,35 @@ def ltx_comfyui_map() -> dict:
     return out
 
 
+def minimax_comfyui_map() -> dict:
+    """Build the ComfyUI MiniMax H3 loader map from the registry (never raises).
+
+    Returns {model_id: {unet, clip, vae, audio_vae}} derived from `files[].dst`,
+    so the (future) workflow builder loads exactly the bytes the downloader
+    wrote. The two VAEs are told apart by filename because both are type "vae".
+    """
+    out = {}
+    try:
+        for mid, entry in VIDEO_MODEL_REGISTRY.items():
+            if entry.get("type") != "minimax":
+                continue
+            dsts = [f["dst"] for f in entry.get("files", [])]
+            mapped = {"unet": dsts[0] if dsts else None, "clip": None, "vae": None, "audio_vae": None}
+            for dep in entry.get("requires", []):
+                dep_entry = VIDEO_MODEL_REGISTRY.get(dep, {})
+                dep_files = dep_entry.get("files", [])
+                dep_dst = dep_files[0]["dst"] if dep_files else (dep_entry.get("check_files") or [None])[0]
+                dep_type = dep_entry.get("type")
+                if dep_type == "encoder":
+                    mapped["clip"] = dep_dst
+                elif dep_type == "vae":
+                    mapped["audio_vae" if "audio" in (dep_dst or "") else "vae"] = dep_dst
+            out[mid] = mapped
+    except Exception as e:
+        logger.error("minimax_comfyui_map() build failed: %s", e, exc_info=True)
+    return out
+
+
 def hunyuan_comfyui_map() -> dict:
     """Build the ComfyUI HunyuanVideo loader map from the registry (never raises).
 
@@ -997,6 +1135,11 @@ def verify_registry() -> list:
                 for k in required:
                     if not m.get(k):
                         problems.append(f"{mid}: LTX ComfyUI map missing '{k}'")
+            if entry.get("type") == "minimax":
+                m = minimax_comfyui_map().get(mid, {})
+                for k in ("unet", "clip", "vae", "audio_vae"):
+                    if not m.get(k):
+                        problems.append(f"{mid}: MiniMax ComfyUI map missing '{k}'")
             if entry.get("type") == "hunyuan":
                 m = hunyuan_comfyui_map().get(mid, {})
                 required = ("unet", "clip_l", "clip_llava", "vae")
