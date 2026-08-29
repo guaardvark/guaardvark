@@ -90,7 +90,7 @@ mcp>=1.27.0
 diffusers>=0.38.0
 transformers>=5.2.0,<6.0  # Krea2/Qwen3-VL needs 5.2+ (rope_parameters); was <5.0 for legacy ComfyUI pin
 accelerate==1.2.1
-safetensors>=0.4.0
+safetensors>=0.8.0
 Pillow>=12.3.0
 pillow-heif>=1.3.0  # AVIF/HEIF image support for vision analysis
 mss>=10.0.0  # Fast screenshot capture for agent virtual display
