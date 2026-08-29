@@ -100,7 +100,7 @@ torchsde>=0.2.6
 sentencepiece>=0.2.0
 kornia>=0.7.1
 spandrel>=0.4.0
-av>=14.2.0
+av>=18.1.0
 pydantic-settings>=2.0
 gguf>=0.18.0
 
