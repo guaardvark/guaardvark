@@ -938,6 +938,48 @@ def preflight_video_model(model_id: str) -> tuple[bool, str]:
     return True, ""
 
 
+def supports_first_frame_i2v(model_id: str) -> bool:
+    """True when the model animates a supplied first frame itself.
+
+    Derived from what each family already declares — the Wan/Hunyuan loader
+    maps carry a t2v/i2v/ti2v type, LTX and MiniMax H3 take a first frame in
+    their own graphs, CogVideoX names its I2V build — so the cinematic
+    keyframe path never swaps a model for a different family behind the
+    person's back. Before 2026-08-29 every non-Cog model without "i2v" in its
+    id was animated by Wan 2.2 14B I2V: LTX, Wan 5B and MiniMax renders came
+    back as Wan renders."""
+    entry = VIDEO_MODEL_REGISTRY.get(model_id or "")
+    if not entry:
+        return False
+    mtype = entry.get("type")
+    if mtype in ("ltx", "minimax"):
+        return True
+    if mtype == "wan":
+        return (wan_comfyui_map().get(model_id) or {}).get("type") in ("i2v", "ti2v")
+    if mtype == "hunyuan":
+        return (hunyuan_comfyui_map().get(model_id) or {}).get("type") == "i2v"
+    if mtype == "cogvideox":
+        return "i2v" in model_id
+    return False
+
+
+def i2v_model_for(model_id: str, default: str = "wan22-14b-i2v") -> str:
+    """The model that animates a keyframe for `model_id`: the model itself
+    when it takes a first frame, else its same-family I2V sibling
+    (wan22-14b → wan22-14b-i2v, hunyuan-t2v → hunyuan-i2v, cogvideox-5b →
+    cogvideox-5b-i2v), else `default`."""
+    mid = model_id or ""
+    if supports_first_frame_i2v(mid):
+        return mid
+    entry = VIDEO_MODEL_REGISTRY.get(mid) or {}
+    for candidate in (f"{mid}-i2v", mid.replace("-t2v", "-i2v")):
+        if candidate != mid and candidate in VIDEO_MODEL_REGISTRY \
+                and VIDEO_MODEL_REGISTRY[candidate].get("type") == entry.get("type") \
+                and supports_first_frame_i2v(candidate):
+            return candidate
+    return default
+
+
 def wan_comfyui_map() -> dict:
     """Build the ComfyUI Wan loader map from the registry (never raises).
 

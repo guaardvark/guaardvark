@@ -584,14 +584,15 @@ class BatchVideoGenerator:
 
     @staticmethod
     def _to_i2v_model(model: Optional[str]) -> str:
-        """Map a text-to-video model to its image-to-video sibling for cinematic mode.
-        Defaults to the music-video quality animator (Wan 2.2 I2V)."""
-        m = (model or "").lower()
-        if "i2v" in m:
-            return model  # already an I2V model
-        if m.startswith("cogvideox"):
-            return "cogvideox-5b-i2v"
-        return "wan22-14b-i2v"
+        """The model that animates the cinematic keyframe.
+
+        A model that takes a first frame itself (LTX, MiniMax H3, Wan 5B TI2V,
+        any *-i2v) keeps the job; a pure T2V model hands it to its same-family
+        I2V sibling. Only an unknown model falls back to Wan 2.2 14B I2V. The
+        old rule swapped anything without "i2v" in its id for Wan 14B, so a
+        person who picked LTX or MiniMax got a Wan render."""
+        from backend.services.video_model_registry import i2v_model_for
+        return i2v_model_for(model or "")
 
     def _generate_keyframe_still(self, *, prompt: str, width: int, height: int,
                                  out_path: str, seed: int,
