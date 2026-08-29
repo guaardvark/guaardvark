@@ -99,3 +99,23 @@ def test_is_cached_sees_a_real_hub_cache_layout(tmp_path):
     (repo / "snapshots" / sha / "model_index.json").write_text("{}")
     assert lw.is_cached("THUDM/CogVideoX-5b", cache_dir=tmp_path) is True
     assert lw.is_cached("THUDM/CogVideoX-5b-I2V", cache_dir=tmp_path) is False
+
+
+def test_download_status_tells_the_form_what_will_happen(tmp_path):
+    # Not cached, looks like a hub id → the job will download.
+    s = lw.download_status("unsloth/gemma-2-2b", cache_dir=tmp_path)
+    assert s == {"name": "unsloth/gemma-2-2b", "looks_like_hub_id": True,
+                 "cached": False, "will_download": True}
+    # An Ollama tag is not something the hub can serve.
+    s = lw.download_status("llama3:8b", cache_dir=tmp_path)
+    assert s["looks_like_hub_id"] is False and s["will_download"] is False
+    # Cached → nothing to download.
+    repo = tmp_path / "models--unsloth--gemma-2-2b"
+    sha = "b" * 40
+    (repo / "refs").mkdir(parents=True)
+    (repo / "refs" / "main").write_text(sha)
+    (repo / "snapshots" / sha).mkdir(parents=True)
+    (repo / "snapshots" / sha / "config.json").write_text("{}")
+    s = lw.download_status("unsloth/gemma-2-2b", cache_dir=tmp_path)
+    assert s["cached"] is True and s["will_download"] is False
+    assert lw.download_status("")["name"] == ""

@@ -44,6 +44,26 @@ def from_pretrained_local(loader: Any, name_or_path: str, *, purpose: str,
         ) from e
 
 
+def download_status(name: str, probe_file: str = "config.json",
+                    cache_dir: Optional[str | Path] = None) -> dict:
+    """What starting a job with this base model would do on the network.
+
+    Used by the training form so a person sees "this will download X from
+    huggingface.co" before they press Create, instead of discovering it from
+    disk usage. `looks_like_hub_id` is False for Ollama-style tags (`llama3:8b`),
+    which the hub will not serve at all; the caller says so.
+    """
+    name = (name or "").strip()
+    looks_like_hub_id = "/" in name and ":" not in name and not name.startswith((".", "/"))
+    cached = bool(name) and is_cached(name, probe_file, cache_dir=cache_dir)
+    return {
+        "name": name,
+        "looks_like_hub_id": looks_like_hub_id,
+        "cached": cached,
+        "will_download": bool(name) and looks_like_hub_id and not cached,
+    }
+
+
 def is_cached(repo_id: str, probe_file: str = "model_index.json",
               cache_dir: Optional[str | Path] = None) -> bool:
     """True when `probe_file` of `repo_id` is already in the local HF cache.

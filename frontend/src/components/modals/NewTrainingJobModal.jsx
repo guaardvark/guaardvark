@@ -23,6 +23,7 @@ import {
   getTrainingDatasets,
   getDeviceProfiles,
   getBaseModels,
+  getBaseModelStatus,
   getImageFolders,
   getHardwareCapabilities,
 } from "../../api";
@@ -59,6 +60,23 @@ const NewTrainingJobModal = ({
   const [imageFolders, setImageFolders] = useState([]);
   const [hardwareCaps, setHardwareCaps] = useState(null);
   const [loading, setLoading] = useState(false);
+  // null = unknown / not checked yet; otherwise the backend's download_status.
+  const [baseModelStatus, setBaseModelStatus] = useState(null);
+
+  // Nothing leaves this machine unannounced: before Create, say whether the
+  // chosen base model is on disk or will be fetched from huggingface.co.
+  useEffect(() => {
+    const name = formData.base_model;
+    if (!name) {
+      setBaseModelStatus(null);
+      return undefined;
+    }
+    let cancelled = false;
+    getBaseModelStatus(name)
+      .then((status) => { if (!cancelled) setBaseModelStatus(status); })
+      .catch(() => { if (!cancelled) setBaseModelStatus(null); });
+    return () => { cancelled = true; };
+  }, [formData.base_model]);
 
   useEffect(() => {
     if (open) {
@@ -276,6 +294,26 @@ const NewTrainingJobModal = ({
                 ))}
               </Select>
             </FormControl>
+            {baseModelStatus && baseModelStatus.cached && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                Base model is already on this machine — no download.
+              </Typography>
+            )}
+            {baseModelStatus && !baseModelStatus.cached && (
+              <Alert severity="warning" sx={{ mt: 1 }}>
+                <Typography variant="body2">
+                  <strong>This job will download.</strong> {baseModelStatus.name} is not on this
+                  machine; training fetches it from huggingface.co when the job starts. Nothing
+                  else leaves this machine.
+                  {!baseModelStatus.looks_like_hub_id && (
+                    <>
+                      {" "}This looks like an Ollama tag, not a Hugging Face model id — the
+                      download will fail unless the trainer knows how to resolve it.
+                    </>
+                  )}
+                </Typography>
+              </Alert>
+            )}
           </Grid>
 
           <Grid item xs={12} sm={6}>
