@@ -215,3 +215,42 @@ def test_scoped_run_keeps_the_members_it_did_not_cover(tmp_path):
     assert "backend_venv" in body
     assert "plugin_bundle" not in body
 
+
+
+def test_rewritten_sentinel_keeps_an_isolated_plugin_id_intact(tmp_path):
+    """Isolated plugin ids contain a colon; the rewrite must not cut them at it.
+
+    A truncated "isolated_plugin_venv" can never be covered by any run, so the
+    sentinel — and the preflight failure — would stay forever.
+    """
+    repo = _make_min_repo(tmp_path)
+    sentinel = _write_fail_sentinel(repo, "isolated_plugin_venv:audio_foundry", "backend_venv")
+    r = _run_entry_args(
+        {"GUAARDVARK_DEP_STATE_FILE": str(repo / "state.json")},
+        repo,
+        "--only=frontend",
+    )
+    assert r.returncode == 0, r.stderr
+    body = sentinel.read_text()
+    assert "- isolated_plugin_venv:audio_foundry:" in body
+    assert "- backend_venv:" in body
+
+
+def test_scoped_run_clears_an_isolated_plugin_failure(tmp_path):
+    repo = _make_min_repo(tmp_path)
+    plugin = repo / "plugins" / "audio_foundry"
+    (plugin / "scripts").mkdir(parents=True)
+    setup = plugin / "scripts" / "setup_venv.sh"
+    setup.write_text("#!/bin/sh\nexit 0\n")
+    setup.chmod(0o755)
+    (repo / "data" / "plugin_state.json").write_text(
+        json.dumps({"version": 1, "user_enabled": {"audio_foundry": True}})
+    )
+    sentinel = _write_fail_sentinel(repo, "isolated_plugin_venv:audio_foundry")
+    r = _run_entry_args(
+        {"GUAARDVARK_DEP_STATE_FILE": str(repo / "state.json")},
+        repo,
+        "--only=isolated_plugin_venv:audio_foundry",
+    )
+    assert r.returncode == 0, r.stderr
+    assert not sentinel.exists()

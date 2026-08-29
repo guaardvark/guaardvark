@@ -144,8 +144,15 @@ def _run(
         found = set()
         for line in body.splitlines():
             line = line.strip()
-            if line.startswith("- ") and ":" in line:
-                found.add(line[2:].split(":", 1)[0].strip())
+            if not line.startswith("- ") or ":" not in line:
+                continue
+            # Each entry is "<id>: <message>". Split on the first ": " rather
+            # than the first ":" — isolated plugin ids carry a colon of their
+            # own ("isolated_plugin_venv:<plugin>"), and cutting at it left an
+            # id no run could ever cover.
+            head = line[2:]
+            rid = head.split(": ", 1)[0] if ": " in head else head.rstrip(":")
+            found.add(rid.strip())
         return found
 
     def _clear_sentinel_if_covered(covered: set[str] | None = None) -> None:

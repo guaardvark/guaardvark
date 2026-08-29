@@ -167,8 +167,30 @@ heal_pytorch() {
     "$VENV_PIP" uninstall -y flash-attn flash_attn xformers 2>/dev/null | tail -1 || true
 }
 
+# Reconciler ids named in logs/.dep_reconcile_failed, comma-joined; empty when
+# there is no sentinel. Entries look like "  - <id>: <message>", and an id may
+# itself contain a colon (isolated_plugin_venv:<plugin>), so the id ends at the
+# first ": " rather than the first ":".
+sentinel_reconciler_ids() {
+    local sentinel="$REPO_ROOT/logs/.dep_reconcile_failed"
+    [ -f "$sentinel" ] || return 0
+    sed -n 's/^[[:space:]]*- \([^[:space:]]*\): .*$/\1/p' "$sentinel" | sort -u | paste -sd, -
+}
+
 heal_dep_reconciler() {
-    log "=== Step 3: dep reconciler (backend_venv + cli_venv) ==="
+    # The venv reconcilers always run. On top of those, re-run whatever the
+    # failure sentinel names: the reconciler only clears the sentinel for the
+    # ids a run covers, so a scoped run that skipped the failing step
+    # (plugin_bundle, frontend, an isolated plugin venv) left preflight RED no
+    # matter how many times this script was re-run — the loop reported on
+    # issue #41.
+    local only="backend_venv,cli_venv"
+    local named
+    named="$(sentinel_reconciler_ids)"
+    if [ -n "$named" ]; then
+        only="$only,$named"
+    fi
+    log "=== Step 3: dep reconciler ($only) ==="
     if [ -x "$REPO_ROOT/scripts/dep_reconciler.py" ] || [ -f "$REPO_ROOT/scripts/dep_reconciler.py" ]; then
         # MUST run under the venv python: the reconcilers pip-install via
         # sys.executable, so `python3 ...` here made every install hit PEP 668
@@ -177,7 +199,7 @@ heal_dep_reconciler() {
         # cli_venv exit 1). dep_reconciler.py now also self-re-execs as a
         # backstop, but call it correctly regardless.
         "$VENV_PYTHON" "$REPO_ROOT/scripts/dep_reconciler.py" \
-            --force --only backend_venv,cli_venv --repo-root "$REPO_ROOT" 2>&1 | tail -15 \
+            --force --only "$only" --repo-root "$REPO_ROOT" 2>&1 | tail -15 \
             || log "WARNING: dep_reconciler reported issues (see logs/dep_reconciler.log)"
     fi
     repin_numpy_setuptools
