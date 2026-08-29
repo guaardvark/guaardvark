@@ -132,10 +132,27 @@ def create_progress_tracker(process_type: str, description: str = "") -> str:
         import uuid
         return str(uuid.uuid4())
 
+def _coerce_additional_data(additional_data, where: str):
+    """The pre-unification signature took ``process_type`` as the 4th positional
+    argument; the unified one takes ``additional_data`` there. A caller still on
+    the old shape hands us a str, which reached dict.update() and turned every
+    update into a logged "dictionary update sequence" error with no progress
+    shown. Drop it with a warning so the update itself still lands."""
+    if isinstance(additional_data, str):
+        logger.warning(
+            "%s: got a str (%r) where additional_data (a dict) is expected — the legacy "
+            "process_type positional is ignored; pass additional_data as a dict.",
+            where, additional_data,
+        )
+        return None
+    return additional_data
+
+
 def update_progress(process_id: str, progress: int, message: str, additional_data: Optional[Dict[str, Any]] = None):
     """Update progress - routes to unified progress system"""
     try:
         progress_system = get_unified_progress()
+        additional_data = _coerce_additional_data(additional_data, "update_progress")
         progress_system.update_process(process_id, progress, message, additional_data)
         logger.debug(f"Updated progress for {process_id}: {progress}% - {message}")
     except Exception as e:
@@ -145,6 +162,7 @@ def complete_progress(process_id: str, message: str = "Complete", additional_dat
     """Complete progress - routes to unified progress system"""
     try:
         progress_system = get_unified_progress()
+        additional_data = _coerce_additional_data(additional_data, "complete_progress")
         progress_system.complete_process(process_id, message, additional_data)
         logger.info(f"Completed progress for {process_id}: {message}")
     except Exception as e:
@@ -154,6 +172,7 @@ def error_progress(process_id: str, message: str = "Error", additional_data: Opt
     """Error progress - routes to unified progress system"""
     try:
         progress_system = get_unified_progress()
+        additional_data = _coerce_additional_data(additional_data, "error_progress")
         progress_system.error_process(process_id, message, additional_data)
         logger.info(f"Error progress for {process_id}: {message}")
     except Exception as e:
@@ -163,6 +182,7 @@ def cancel_progress(process_id: str, message: str = "Cancelled", additional_data
     """Cancel progress - routes to unified progress system"""
     try:
         progress_system = get_unified_progress()
+        additional_data = _coerce_additional_data(additional_data, "cancel_progress")
         progress_system.cancel_process(process_id, message, additional_data)
         logger.info(f"Cancelled progress for {process_id}: {message}")
     except Exception as e:
