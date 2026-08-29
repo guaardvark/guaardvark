@@ -1,34 +1,23 @@
 """Channel chat cog — respond to regular messages in designated channels or when mentioned."""
-import io
 import logging
 
 import discord
 from discord.ext import commands
 
 from core.api_client import GuaardvarkClient, APIError
+from core.approvals import make_approval_handler
+from core.chat_reply import (
+    attachment_to_b64,
+    channel_session_id,
+    files_from_generated,
+    first_image_attachment,
+    send_chunks,
+    user_session_id,
+)
 from core.rate_limiter import RateLimiter
 from core.security import sanitize_input
 
 logger = logging.getLogger("discord_bot")
-DISCORD_MAX_LENGTH = 2000
-
-
-def split_message(text: str, max_length: int = DISCORD_MAX_LENGTH) -> list[str]:
-    if len(text) <= max_length:
-        return [text]
-    chunks = []
-    while text:
-        if len(text) <= max_length:
-            chunks.append(text)
-            break
-        split_at = text.rfind("\n", 0, max_length)
-        if split_at == -1:
-            split_at = text.rfind(" ", 0, max_length)
-        if split_at == -1:
-            split_at = max_length
-        chunks.append(text[:split_at])
-        text = text[split_at:].lstrip()
-    return chunks
 
 
 class ChannelChatCog(commands.Cog):
@@ -39,99 +28,130 @@ class ChannelChatCog(commands.Cog):
         self.rate_limiter = RateLimiter(
             max_requests=config["rate_limits"].get("ask", 10), window_seconds=60
         )
-        # In-memory conversation history per user
-        self._history: dict[int, list[dict]] = {}
-        self._max_history = 20
-        # Channels where the bot listens to all messages (configured in config.yaml)
         self._chat_channels: set[int] = set(
             config.get("channel_chat", {}).get("channel_ids", [])
         )
-        # Also respond when mentioned anywhere
-        self._respond_to_mentions = config.get("channel_chat", {}).get("respond_to_mentions", True)
+        self._respond_to_mentions = config.get("channel_chat", {}).get(
+            "respond_to_mentions", True
+        )
 
-    def _get_history(self, user_id: int) -> list[dict]:
-        return self._history.get(user_id, [])
+    def _auto_approve(self) -> bool:
+        return bool(self.config.get("tools", {}).get("auto_approve", False))
 
-    def _add_to_history(self, user_id: int, role: str, content: str):
-        if user_id not in self._history:
-            self._history[user_id] = []
-        self._history[user_id].append({"role": role, "content": content})
-        if len(self._history[user_id]) > self._max_history:
-            self._history[user_id] = self._history[user_id][-self._max_history:]
+    def _session_id(self, message: discord.Message, is_chat_channel: bool) -> str:
+        if is_chat_channel:
+            return channel_session_id(message.channel.id)
+        return user_session_id(message.author.id)
+
+    async def _image_from_message(self, message: discord.Message) -> str | None:
+        att = first_image_attachment(message.attachments)
+        if att is None and message.reference:
+            resolved = getattr(message.reference, "resolved", None)
+            att = first_image_attachment(getattr(resolved, "attachments", None))
+        return await attachment_to_b64(att) if att is not None else None
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        # Ignore own messages and other bots
         if message.author.bot:
             return
 
-        # Determine if we should respond
         is_chat_channel = message.channel.id in self._chat_channels
-        is_mention = self.bot.user in message.mentions if self.bot.user else False
-        is_reply_to_bot = (
-            message.reference
-            and message.reference.resolved
-            and isinstance(message.reference.resolved, discord.Message)
-            and message.reference.resolved.author == self.bot.user
+        bot_id = self.bot.user.id if self.bot.user else None
+        is_mention = bool(bot_id) and any(
+            getattr(m, "id", None) == bot_id for m in (message.mentions or [])
         )
+        resolved = getattr(message.reference, "resolved", None) if message.reference else None
+        is_reply_to_bot = bool(bot_id) and getattr(
+            getattr(resolved, "author", None), "id", None
+        ) == bot_id
 
-        if not (is_chat_channel or (self._respond_to_mentions and is_mention) or is_reply_to_bot):
+        if not (
+            is_chat_channel
+            or (self._respond_to_mentions and is_mention)
+            or is_reply_to_bot
+        ):
             return
 
-        # Strip the mention from the message content
         content = message.content
         if self.bot.user:
-            content = content.replace(f"<@{self.bot.user.id}>", "").replace(f"<@!{self.bot.user.id}>", "").strip()
+            content = (
+                content.replace(f"<@{self.bot.user.id}>", "")
+                .replace(f"<@!{self.bot.user.id}>", "")
+                .strip()
+            )
 
-        if not content:
+        has_image = first_image_attachment(message.attachments) is not None
+        if not has_image and message.reference:
+            resolved = getattr(message.reference, "resolved", None)
+            has_image = first_image_attachment(
+                getattr(resolved, "attachments", None)
+            ) is not None
+
+        if not content and not has_image:
+            return
+        # Image-only posts in a listen-all channel without a mention/reply are noise.
+        if not content and has_image and is_chat_channel and not is_mention and not is_reply_to_bot:
             return
 
-        # Rate limit
         allowed, _, retry_after = self.rate_limiter.check(message.author.id, "ask")
         if not allowed:
-            await message.reply(f"Rate limited. Try again in {retry_after:.0f}s.", mention_author=False)
+            await message.reply(
+                f"Rate limited. Try again in {retry_after:.0f}s.", mention_author=False
+            )
             return
 
-        # Sanitize
-        cleaned = sanitize_input(content, max_length=self.config["security"]["max_prompt_length"])
-        if not cleaned:
+        cleaned = sanitize_input(
+            content, max_length=self.config["security"]["max_prompt_length"]
+        )
+        if not cleaned and not has_image:
             return
+        if not cleaned:
+            cleaned = "Describe this image."
 
         logger.info("[channel] user=%s msg=%r", message.author, cleaned[:100])
 
-        # Show typing indicator while generating
+        first = {"sent": False}
+
+        async def send_fn(text, *, files=None, view=None):
+            kwargs = {"content": text, "mention_author": False}
+            if files:
+                kwargs["files"] = files
+            if view is not None:
+                kwargs["view"] = view
+            if not first["sent"]:
+                first["sent"] = True
+                return await message.reply(**kwargs)
+            extra = {"content": kwargs["content"]}
+            if kwargs.get("files"):
+                extra["files"] = kwargs["files"]
+            if kwargs.get("view") is not None:
+                extra["view"] = kwargs["view"]
+            return await message.channel.send(**extra)
+
         async with message.channel.typing():
             try:
-                history = self._get_history(message.author.id)
-                result = await self.api.chat_claude(cleaned, history=history)
+                image_b64 = await self._image_from_message(message)
+                result = await self.api.unified_chat(
+                    cleaned,
+                    session_id=self._session_id(message, is_chat_channel),
+                    image=image_b64,
+                    approval_handler=make_approval_handler(
+                        send_fn, message.author.id, auto_approve=self._auto_approve()
+                    ),
+                )
                 response_text = result.get("response", "No response received.")
-
-                self._add_to_history(message.author.id, "user", cleaned)
-                self._add_to_history(message.author.id, "assistant", response_text)
-
-                if len(response_text) > 4000:
-                    file = discord.File(
-                        io.BytesIO(response_text.encode()), filename="response.md"
-                    )
-                    await message.reply(
-                        content=f"Response too long ({len(response_text)} chars). See attached file.",
-                        file=file,
-                        mention_author=False,
-                    )
-                else:
-                    for i, chunk in enumerate(split_message(response_text)):
-                        if i == 0:
-                            await message.reply(content=chunk, mention_author=False)
-                        else:
-                            await message.channel.send(content=chunk)
+                files = await files_from_generated(
+                    self.api, result.get("generated_images") or []
+                )
+                await send_chunks(send_fn, response_text, files=files)
 
             except APIError as e:
                 logger.error("Channel chat API error: %s", e)
                 await message.reply(
-                    content=f"Failed to get a response. ({e})",
+                    content=f"Failed to get a response. Guaardvark may be offline. ({e})",
                     mention_author=False,
                 )
-            except Exception as e:
+            except Exception:
                 logger.exception("Unexpected error in channel chat")
                 await message.reply(
                     content="An unexpected error occurred.",

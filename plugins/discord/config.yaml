@@ -49,7 +49,10 @@ vip:
   greeting: |
     Welcome to Guaardvark — a self-hosted AI platform you can make your own.
 
-    Try `/ask` to chat, `/claude` to talk to Claude directly, `/imagine` to generate images, or `/status` to see what's running.
+    Try `/ask` to chat with Guaardvark (whatever model and plugins are running), `/imagine` to generate images, or `/status` to see what's running. `/claude` is optional if an Anthropic key is configured.
+
+tools:
+  auto_approve: false  # Discord Approve/Deny buttons; true skips them (private servers only)
 
 outreach:
   enabled: false  # flip to true after seeding channel ids; backend kill switch is the master gate

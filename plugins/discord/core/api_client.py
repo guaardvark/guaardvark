@@ -1,7 +1,10 @@
 """Async REST client wrapping all Guaardvark backend endpoints."""
 import logging
 from typing import Any, Optional
+from urllib.parse import urlparse
 import aiohttp
+
+from core.chat_streamer import StreamError, UnifiedChatStreamer
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +15,11 @@ class GuaardvarkClient:
     def __init__(self, base_url: str = "http://localhost:5000/api"):
         self.base_url = base_url.rstrip("/")
         self.session: Optional[aiohttp.ClientSession] = None
+
+    @property
+    def origin(self) -> str:
+        """Backend origin (scheme+host+port), with the /api suffix stripped."""
+        return self.base_url.rsplit("/api", 1)[0]
 
     async def setup(self):
         self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=120))
@@ -30,14 +38,14 @@ class GuaardvarkClient:
         async with self.session.get(f"{self.base_url}{path}", **kwargs) as resp:
             data = await resp.json()
             if resp.status >= 400:
-                raise APIError(data.get("error", f"HTTP {resp.status}"), resp.status)
+                raise APIError(_error_message(data, resp.status), resp.status)
             return self._unwrap(data)
 
     async def _post(self, path: str, **kwargs) -> dict:
         async with self.session.post(f"{self.base_url}{path}", **kwargs) as resp:
             data = await resp.json()
             if resp.status >= 400:
-                raise APIError(data.get("error", f"HTTP {resp.status}"), resp.status)
+                raise APIError(_error_message(data, resp.status), resp.status)
             return self._unwrap(data)
 
     async def _get_raw(self, path: str, **kwargs) -> bytes:
@@ -47,6 +55,54 @@ class GuaardvarkClient:
             return await resp.read()
 
     # --- Chat ---
+    async def unified_chat(
+        self,
+        message: str,
+        session_id: str,
+        *,
+        image: str = None,
+        options: dict = None,
+        approval_handler=None,
+        is_voice_message: bool = False,
+        streamer=None,
+    ) -> dict:
+        """POST /chat/unified and wait for Socket.IO chat:complete.
+
+        Uses the same AgentBrain path as the web UI and CLI: active model,
+        tools, and plugins. ``image`` is optional base64. ``approval_handler``
+        is ``async (data) -> bool`` for tool-approval requests.
+        """
+        last_error = None
+        for attempt in range(2):
+            active = streamer or UnifiedChatStreamer(self.origin)
+
+            async def post_fn(body):
+                return await self._post("/chat/unified", json=body)
+
+            try:
+                return await active.run(
+                    session_id=session_id,
+                    message=message,
+                    post_fn=post_fn,
+                    image=image,
+                    options=options or {},
+                    approval_handler=approval_handler,
+                    is_voice_message=is_voice_message,
+                )
+            except StreamError as e:
+                raise APIError(str(e), e.status_code)
+            except APIError as e:
+                last_error = e
+                if e.status_code == 409 and attempt == 0:
+                    try:
+                        await self._post(f"/chat/unified/{session_id}/abort")
+                    except Exception:
+                        pass
+                    streamer = None
+                    continue
+                raise
+        raise last_error or APIError("Chat request failed", 502)
+
     SYSTEM_CONTEXT = (
         "You are the Guaardvark AI assistant — the built-in intelligence of the Guaardvark platform. "
         "You are running RIGHT NOW on a single self-hosted machine — the operator's own hardware, "
@@ -94,7 +150,7 @@ class GuaardvarkClient:
         return await self._post("/enhanced-chat", json=payload)
 
     async def chat_claude(self, message: str, history: list = None) -> dict:
-        """POST /claude/escalate — route chat through Uncle Claude."""
+        """POST /claude/escalate — explicit Uncle Claude path for /claude only."""
         return await self._post("/claude/escalate", json={
             "message": message,
             "history": history or [],
@@ -225,14 +281,32 @@ class GuaardvarkClient:
         return await self._get_raw(f"/voice/audio/{filename}")
 
     async def fetch_audio_by_url(self, audio_url: str) -> bytes:
-        """GET an /api-prefixed audio URL against the backend origin.
+        """GET an /api-prefixed audio URL against the backend origin."""
+        return await self.fetch_by_url(audio_url)
 
-        TTS returns audio_url as e.g. /api/voice/audio/<file> (audio_foundry) or
-        /api/voice/stream-tts/<id> (Piper) — both already carry the /api prefix,
-        so they must be resolved against the origin, not base_url.
-        """
-        origin = self.base_url.rsplit("/api", 1)[0]
-        async with self.session.get(f"{origin}{audio_url}") as resp:
+    def _resolve_fetch_url(self, url: str) -> str | None:
+        """Allow relative, origin, and loopback URLs only — no arbitrary SSRF."""
+        if not url:
+            return None
+        if url.startswith("/"):
+            return f"{self.origin}{url}"
+        parsed = urlparse(url)
+        if parsed.scheme in ("http", "https") and parsed.hostname in (
+            "localhost",
+            "127.0.0.1",
+            "::1",
+        ):
+            return url
+        if url.startswith(self.origin):
+            return url
+        return None
+
+    async def fetch_by_url(self, url: str) -> bytes:
+        """GET a backend-relative or loopback URL. Rejects remote hosts."""
+        resolved = self._resolve_fetch_url(url)
+        if not resolved:
+            raise APIError(f"Refusing to fetch non-local URL: {url}", 400)
+        async with self.session.get(resolved) as resp:
             if resp.status >= 400:
                 raise APIError(await resp.text(), resp.status)
             return await resp.read()
@@ -241,6 +315,15 @@ class GuaardvarkClient:
     async def health_check(self) -> dict:
         """GET /health"""
         return await self._get("/health")
+
+
+def _error_message(data, status_code: int) -> str:
+    if not isinstance(data, dict):
+        return f"HTTP {status_code}"
+    err = data.get("error", f"HTTP {status_code}")
+    if isinstance(err, dict):
+        return str(err.get("message") or err)
+    return str(err)
 
 
 class APIError(Exception):

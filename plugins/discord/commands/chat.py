@@ -1,5 +1,4 @@
-"""Chat cog — /ask command for LLM conversation."""
-import io
+"""Chat cog — /ask command for LLM conversation via Guaardvark unified chat."""
 import logging
 
 import discord
@@ -7,30 +6,17 @@ from discord import app_commands
 from discord.ext import commands
 
 from core.api_client import GuaardvarkClient, APIError
+from core.approvals import make_approval_handler
+from core.chat_reply import (
+    attachment_to_b64,
+    files_from_generated,
+    send_chunks,
+    user_session_id,
+)
 from core.rate_limiter import RateLimiter
 from core.security import sanitize_input, is_channel_allowed
 
 logger = logging.getLogger("discord_bot")
-DISCORD_MAX_LENGTH = 2000
-
-
-def split_message(text: str, max_length: int = DISCORD_MAX_LENGTH) -> list[str]:
-    """Split a long message into chunks that fit Discord's limit."""
-    if len(text) <= max_length:
-        return [text]
-    chunks = []
-    while text:
-        if len(text) <= max_length:
-            chunks.append(text)
-            break
-        split_at = text.rfind("\n", 0, max_length)
-        if split_at == -1:
-            split_at = text.rfind(" ", 0, max_length)
-        if split_at == -1:
-            split_at = max_length
-        chunks.append(text[:split_at])
-        text = text[split_at:].lstrip()
-    return chunks
 
 
 class ChatCog(commands.Cog):
@@ -41,27 +27,24 @@ class ChatCog(commands.Cog):
         self.rate_limiter = RateLimiter(
             max_requests=config["rate_limits"]["ask"], window_seconds=60
         )
-        # In-memory conversation history per user
-        self._history: dict[int, list[dict]] = {}
-        self._max_history = 20
 
-    def _get_history(self, user_id: int) -> list[dict]:
-        return self._history.get(user_id, [])
-
-    def _add_to_history(self, user_id: int, role: str, content: str):
-        if user_id not in self._history:
-            self._history[user_id] = []
-        self._history[user_id].append({"role": role, "content": content})
-        if len(self._history[user_id]) > self._max_history:
-            self._history[user_id] = self._history[user_id][-self._max_history:]
+    def _auto_approve(self) -> bool:
+        return bool(self.config.get("tools", {}).get("auto_approve", False))
 
     @app_commands.command(name="ask", description="Chat with Guaardvark AI")
-    @app_commands.describe(prompt="Your message or question")
-    async def ask(self, interaction: discord.Interaction, prompt: str):
-        await self._handle_ask(interaction, prompt)
+    @app_commands.describe(
+        prompt="Your message or question",
+        image="Optional image to send with the message",
+    )
+    async def ask(
+        self,
+        interaction: discord.Interaction,
+        prompt: str,
+        image: discord.Attachment | None = None,
+    ):
+        await self._handle_ask(interaction, prompt, image=image)
 
-    async def _handle_ask(self, interaction, prompt: str):
-        # Channel allowlist check
+    async def _handle_ask(self, interaction, prompt: str, image=None):
         if interaction.guild and not is_channel_allowed(
             interaction.channel.id, self.config["security"]["allowed_channels"]
         ):
@@ -70,8 +53,7 @@ class ChatCog(commands.Cog):
             )
             return
 
-        # Rate limit
-        allowed, remaining, retry_after = self.rate_limiter.check(
+        allowed, _, retry_after = self.rate_limiter.check(
             interaction.user.id, "ask"
         )
         if not allowed:
@@ -80,47 +62,61 @@ class ChatCog(commands.Cog):
             )
             return
 
-        # Sanitize
         cleaned = sanitize_input(
             prompt, max_length=self.config["security"]["max_prompt_length"]
         )
-        if not cleaned:
+        if not cleaned and image is None:
             await interaction.response.send_message(
                 "Your message was empty after sanitization.", ephemeral=True
             )
             return
+        if not cleaned:
+            cleaned = "Describe this image."
+
+        image_b64 = None
+        if image is not None:
+            image_b64 = await attachment_to_b64(image)
+            if image_b64 is None:
+                await interaction.response.send_message(
+                    "Could not read that image (missing or too large).",
+                    ephemeral=True,
+                )
+                return
 
         await interaction.response.defer()
 
+        async def send_fn(content, *, files=None, view=None):
+            kwargs = {"content": content}
+            if files:
+                kwargs["files"] = files
+            if view is not None:
+                kwargs["view"] = view
+            return await interaction.followup.send(**kwargs)
+
         try:
             logger.info("[/ask] user=%s msg=%r", interaction.user, cleaned[:100])
-            history = self._get_history(interaction.user.id)
-            result = await self.api.chat_claude(cleaned, history=history)
+            session_id = user_session_id(interaction.user.id)
+            result = await self.api.unified_chat(
+                cleaned,
+                session_id=session_id,
+                image=image_b64,
+                approval_handler=make_approval_handler(
+                    send_fn, interaction.user.id, auto_approve=self._auto_approve()
+                ),
+            )
             response_text = result.get("response", "No response received.")
             logger.info("[/ask] response=%r", response_text[:100])
-
-            # Update history
-            self._add_to_history(interaction.user.id, "user", cleaned)
-            self._add_to_history(interaction.user.id, "assistant", response_text)
-
-            if len(response_text) > 4000:
-                file = discord.File(
-                    io.BytesIO(response_text.encode()), filename="response.md"
-                )
-                await interaction.followup.send(
-                    content=f"Response too long ({len(response_text)} chars). See attached file.",
-                    file=file,
-                )
-            else:
-                for chunk in split_message(response_text):
-                    await interaction.followup.send(content=chunk)
+            files = await files_from_generated(
+                self.api, result.get("generated_images") or []
+            )
+            await send_chunks(send_fn, response_text, files=files)
 
         except APIError as e:
             logger.error("Chat API error: %s", e)
             await interaction.followup.send(
-                content=f"Failed to get a response. The backend may be offline. ({e})"
+                content=f"Failed to get a response. Guaardvark may be offline. ({e})"
             )
-        except Exception as e:
+        except Exception:
             logger.exception("Unexpected error in /ask")
             await interaction.followup.send(
                 content="An unexpected error occurred. Please try again."
