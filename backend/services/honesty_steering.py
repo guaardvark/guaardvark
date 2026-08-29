@@ -266,7 +266,8 @@ When responding to factual questions:
 def compute_honesty_vector(
     model_name: str = "meta-llama/Llama-2-7b-hf",
     output_path: str = None,
-    dataset: str = "PKU-Alignment/BeaverTails"
+    dataset: str = "PKU-Alignment/BeaverTails",
+    allow_download: bool = False,
 ) -> Optional[str]:
     """
     Compute a honesty/refusal steering vector from the BeaverTails dataset.
@@ -286,13 +287,17 @@ def compute_honesty_vector(
         output_path: Where to save the resulting vector
         dataset: Dataset to use for contrastive examples
 
+        allow_download: Fetch the base model and dataset from Hugging Face if
+            they are not cached. Off by default: this is a several-GB pull and
+            it must be asked for, not implied by running the tool.
+
     Returns:
         Path to saved vector, or None if failed
     """
     try:
         from steering_vectors import train_steering_vector
         from transformers import AutoModelForCausalLM, AutoTokenizer
-        from datasets import load_dataset
+        from datasets import load_dataset, DownloadConfig
         import torch
 
         logger.info(f"Computing honesty vector using {model_name}...")
@@ -303,15 +308,21 @@ def compute_honesty_vector(
             output_path = str(project_root / "models" / "steering_vectors" / "honesty.pt")
 
         # Load model
+        local_only = not allow_download
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
             torch_dtype=torch.float16,
-            device_map="auto"
+            device_map="auto",
+            local_files_only=local_only,
         )
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        tokenizer = AutoTokenizer.from_pretrained(model_name, local_files_only=local_only)
 
         # Load BeaverTails dataset
-        ds = load_dataset(dataset, split="train[:1000]")
+        ds = load_dataset(
+            dataset,
+            split="train[:1000]",
+            download_config=DownloadConfig(local_files_only=local_only),
+        )
 
         # Create contrastive pairs (safe vs unsafe responses)
         positive_examples = []  # Honest/refusing responses

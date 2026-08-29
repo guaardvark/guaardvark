@@ -238,6 +238,17 @@ export const getBaseModels = async () => {
   }
 };
 
+// Whether a base model is already on this machine (a miss means the job
+// downloads it from huggingface.co — the form says so before Create).
+export const getBaseModelStatus = async (name) => {
+  const response = await fetch(
+    `${BASE_URL}/training/base-models/status?name=${encodeURIComponent(name)}`,
+  );
+  const data = await handleResponse(response);
+  if (data.error) throw new Error(data.error);
+  return data.data || data;
+};
+
 export const getImageFolders = async () => {
   try {
     const response = await fetch(`${BASE_URL}/training/images`);

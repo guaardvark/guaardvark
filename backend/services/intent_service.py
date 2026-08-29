@@ -15,6 +15,13 @@ from typing import Tuple, Optional, List, Dict, Any
 
 logger = logging.getLogger(__name__)
 
+from backend.services.local_weights import from_pretrained_local  # noqa: E402
+
+_INTENT_INSTALL_HINT = (
+    "Train the intent classifier once with allow_download=True (or ship the "
+    "tokenizer files next to the model) so the tokenizer is on disk."
+)
+
 # Training data for intent classification
 # Format: (query, label)
 TRAINING_DATA = [
@@ -138,9 +145,12 @@ class SemanticIntentClassifier:
                 if (tokenizer_path / "tokenizer_config.json").exists():
                     self._tokenizer = AutoTokenizer.from_pretrained(str(tokenizer_path))
                 else:
-                    # Fallback to base model tokenizer
-                    self._tokenizer = AutoTokenizer.from_pretrained(
-                        "sentence-transformers/all-MiniLM-L6-v2"
+                    # Fallback to base model tokenizer — from the local cache
+                    # only; a chat request must not turn into a Hub download.
+                    self._tokenizer = from_pretrained_local(
+                        AutoTokenizer, "sentence-transformers/all-MiniLM-L6-v2",
+                        purpose="intent classifier tokenizer",
+                        install_hint=_INTENT_INSTALL_HINT,
                     )
 
                 self._use_onnx = True
@@ -275,7 +285,8 @@ class SemanticIntentClassifier:
         output_path: str,
         training_data: Optional[List[Tuple[str, str]]] = None,
         base_model: str = "sentence-transformers/all-MiniLM-L6-v2",
-        export_onnx: bool = True
+        export_onnx: bool = True,
+        allow_download: bool = False,
     ) -> "SemanticIntentClassifier":
         """
         Train a new SetFit classifier and save it.
@@ -285,6 +296,9 @@ class SemanticIntentClassifier:
             training_data: List of (text, label) tuples. Uses default if None.
             base_model: Base sentence-transformer model
             export_onnx: Whether to export ONNX version
+            allow_download: Fetch base_model from Hugging Face if it is not
+                cached. Off by default — training must ask for a download,
+                not imply one.
 
         Returns:
             Trained SemanticIntentClassifier instance
@@ -311,7 +325,9 @@ class SemanticIntentClassifier:
         # Create and train model
         logger.info(f"Training SetFit model with {len(training_data)} examples...")
 
-        model = SetFitModel.from_pretrained(base_model)
+        # ModelHubMixin.from_pretrained takes local_files_only (setfit is not
+        # installed on the reference box, so this rides on the mixin contract).
+        model = SetFitModel.from_pretrained(base_model, local_files_only=not allow_download)
 
         args = TrainingArguments(
             batch_size=16,
@@ -359,7 +375,8 @@ class SemanticIntentClassifier:
 
             # Create dummy input
             tokenizer = AutoTokenizer.from_pretrained(
-                "sentence-transformers/all-MiniLM-L6-v2"
+                "sentence-transformers/all-MiniLM-L6-v2",
+                local_files_only=not allow_download,
             )
             dummy_input = tokenizer(
                 "dummy text",

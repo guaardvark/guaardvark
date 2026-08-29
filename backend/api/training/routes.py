@@ -504,6 +504,24 @@ def list_base_models():
         return error_response(str(e), 500)
 
 
+@training_bp.route("/base-models/status", methods=["GET"])
+@ensure_db_session_cleanup
+def base_model_status():
+    """Whether the chosen base model is already on this machine.
+
+    Fine-tuning loads the base model through Hugging Face; a cache miss is a
+    multi-GB download the form must announce before the job is created."""
+    name = (request.args.get("name") or "").strip()
+    if not name:
+        return error_response("name is required", 400)
+    try:
+        from backend.services.local_weights import download_status
+        return success_response(download_status(name))
+    except Exception as e:
+        logger.error(f"Error checking base model status: {e}", exc_info=True)
+        return error_response(str(e), 500)
+
+
 @training_bp.route("/pipeline/parse", methods=["POST"])
 @ensure_db_session_cleanup
 def start_parse_job():

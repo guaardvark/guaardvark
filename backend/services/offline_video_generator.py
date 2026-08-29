@@ -10,6 +10,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
+from backend.services.local_weights import from_pretrained_local, is_cached  # noqa: E402
+
 if "PYTORCH_CUDA_ALLOC_CONF" not in os.environ:
     os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True,max_split_size_mb:512,garbage_collection_threshold:0.8"
     logger.info("Set PYTORCH_CUDA_ALLOC_CONF (expandable_segments:True, gc_threshold:0.8)")
@@ -365,6 +367,25 @@ class OfflineVideoGenerator:
         thumbs_dir.mkdir(parents=True, exist_ok=True)
         return videos_dir, frames_dir, thumbs_dir
 
+    # The in-process diffusers cache (data/models/video_diffusion) is filled only
+    # by backend/tools/video/download_cogvideox_models.py, run on purpose. Before
+    # 2026-08-28 a cache miss here meant from_pretrained fetched ~20GB from
+    # Hugging Face the moment ComfyUI happened to be down and the router fell
+    # back to this backend.
+    _INSTALL_HINT = (
+        "Run backend/tools/video/download_cogvideox_models.py to populate the "
+        "in-process cache, or start the ComfyUI plugin and use its models."
+    )
+
+    def is_model_cached(self, model_key: str) -> bool:
+        """True when the diffusers snapshot for model_key is already in the
+        in-process cache. Never touches the network."""
+        cfg = self.COGVIDEOX_MODELS.get(model_key) or {}
+        repo = cfg.get("repo") or self.SVD_MODELS.get(model_key)
+        if not repo:
+            return False
+        return is_cached(repo, "model_index.json", cache_dir=self.models_dir)
+
     def _load_svd_pipeline(self, model_key: str = "svd"):
         if not svd_available:
             raise RuntimeError("SVD not available - diffusers not installed properly")
@@ -388,8 +409,9 @@ class OfflineVideoGenerator:
         logger.info(f"Loading SVD model: {model_id}")
 
         try:
-            self._svd_pipeline = StableVideoDiffusionPipeline.from_pretrained(
-                model_id,
+            self._svd_pipeline = from_pretrained_local(
+                StableVideoDiffusionPipeline, model_id,
+                purpose="SVD video", install_hint=self._INSTALL_HINT,
                 torch_dtype=self.dtype,
                 variant="fp16" if self.dtype == torch.float16 else None,
                 cache_dir=str(self.models_dir),
@@ -531,8 +553,9 @@ class OfflineVideoGenerator:
                     use_dtype = torch.bfloat16
                     logger.info("Using bfloat16 for better memory efficiency")
 
-            self._cogvideox_pipeline = PipelineClass.from_pretrained(
-                model_id,
+            self._cogvideox_pipeline = from_pretrained_local(
+                PipelineClass, model_id,
+                purpose="CogVideoX (in-process)", install_hint=self._INSTALL_HINT,
                 torch_dtype=use_dtype,
                 cache_dir=str(self.models_dir),
             )
