@@ -19,7 +19,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Dict, List
+from typing import Dict, List, Optional
 from urllib.parse import urlparse
 from zipfile import ZIP_DEFLATED, ZipFile
 
@@ -352,6 +352,61 @@ def _parse_database_url(db_url: str) -> dict:
     }
 
 
+def _effective_db_url() -> str:
+    """The database the running application is actually connected to.
+
+    Inside an app context that is ``SQLALCHEMY_DATABASE_URI``; outside one it is
+    ``config.DATABASE_URL``. The distinction is the whole safety story:
+    2026-08-29 a unit test built its Flask app on sqlite while this module read
+    ``config.DATABASE_URL`` (the real Postgres), took a pg_dump of the live
+    database and then ran ``pg_restore --clean`` into it — every table dropped.
+    Dumps and restores now target only the database the app itself uses."""
+    if has_app_context():
+        uri = current_app.config.get("SQLALCHEMY_DATABASE_URI")
+        if uri:
+            return str(uri)
+    return config.DATABASE_URL or ""
+
+
+def _dump_dbname(dump_path: Path) -> Optional[str]:
+    """The ``dbname`` recorded in a custom-format dump's header, or None."""
+    try:
+        res = subprocess.run(
+            ["pg_restore", "--list", str(dump_path)],
+            capture_output=True, text=True, timeout=120,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if res.returncode != 0:
+        return None
+    m = re.search(r"^;\s+dbname:\s*(\S+)", res.stdout, re.M)
+    return m.group(1) if m else None
+
+
+def _write_restore_toc(dump_path: Path, toc_path: Path) -> bool:
+    """Write a pg_restore TOC that leaves extensions alone.
+
+    Extensions (pgvector) are provisioned by the database setup, not by a
+    restore, and the application role does not own them; with ``--clean`` the
+    DROP EXTENSION line failed with "must be owner of extension vector" AFTER
+    every table had already been dropped (2026-08-29). Skipping the EXTENSION
+    entries keeps the restore to the objects the role owns."""
+    try:
+        res = subprocess.run(
+            ["pg_restore", "--list", str(dump_path)],
+            capture_output=True, text=True, timeout=120,
+        )
+    except (OSError, subprocess.SubprocessError) as e:
+        logger.error("pg_restore --list failed: %s", e)
+        return False
+    if res.returncode != 0:
+        logger.error("pg_restore --list failed (rc=%d): %s", res.returncode, res.stderr[:300])
+        return False
+    kept = [ln for ln in res.stdout.splitlines() if " EXTENSION " not in ln and " EXTENSION -" not in ln]
+    toc_path.write_text("\n".join(kept) + "\n")
+    return True
+
+
 def _create_pg_dump(dest_path: Path) -> bool:
     """Create a PostgreSQL dump file using pg_dump.
 
@@ -361,9 +416,9 @@ def _create_pg_dump(dest_path: Path) -> bool:
     Returns:
         True if the dump was created successfully, False otherwise.
     """
-    db_url = config.DATABASE_URL
+    db_url = _effective_db_url()
     if not db_url or not db_url.startswith("postgresql"):
-        logger.warning("DATABASE_URL is not PostgreSQL, skipping pg_dump")
+        logger.warning("The application database is not PostgreSQL, skipping pg_dump")
         return False
 
     params = _parse_database_url(db_url)
@@ -509,12 +564,36 @@ def _restore_pg_dump(dump_path: Path, sanity_check=None) -> bool:
     so they are captured by the dump and restored with it. The restore target must
     have the ``vector`` extension available, or those tables will fail to restore.
     """
-    db_url = config.DATABASE_URL
+    db_url = _effective_db_url()
     if not db_url or not db_url.startswith("postgresql"):
-        logger.warning("DATABASE_URL is not PostgreSQL, skipping pg_restore")
+        logger.warning("The application database is not PostgreSQL, skipping pg_restore")
         return False
 
     params = _parse_database_url(db_url)
+    # A dump is restored only into the database it was taken from. A dump of
+    # another product's database (or another machine's) must never land here
+    # with --clean in front of it.
+    source_db = _dump_dbname(dump_path)
+    if source_db is not None and source_db != params["dbname"]:
+        logger.error(
+            "Refusing to restore: dump is of database %r, this application uses %r",
+            source_db, params["dbname"],
+        )
+        return False
+    # Undo path: dump what is there now before --clean removes it.
+    try:
+        safety_dir = Path(config.BACKUP_DIR) / "pre-restore"
+        safety_dir.mkdir(parents=True, exist_ok=True)
+        safety_path = safety_dir / f"{params['dbname']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pgdump"
+        if _create_pg_dump(safety_path):
+            logger.info("Pre-restore safety dump written: %s", safety_path)
+        else:
+            logger.warning("Pre-restore safety dump could not be verified (%s); continuing", safety_path)
+    except Exception as e:  # noqa: BLE001 — the safety net must not block the restore itself
+        logger.warning("Pre-restore safety dump failed: %s", e)
+    toc_path = dump_path.with_suffix(".toc")
+    if not _write_restore_toc(dump_path, toc_path):
+        return False
     env = os.environ.copy()
     env["PGPASSWORD"] = params["password"]
 
@@ -531,6 +610,7 @@ def _restore_pg_dump(dump_path: Path, sanity_check=None) -> bool:
                 "--clean",
                 "--if-exists",
                 "--exit-on-error",  # stop on the first real restore error
+                "-L", str(toc_path),
                 str(dump_path),
             ],
             env=env,
@@ -721,8 +801,12 @@ def create_data_backup(components: List[str] | None = None, name: str | None = N
         backup_name = _generate_backup_filename("data", name)
         zip_path = Path(config.BACKUP_DIR) / f"{backup_name}.zip"
 
-        # Get project root for state files
-        project_root = Path(__file__).parent.parent.parent
+        # The install root the app runs from — config.GUAARDVARK_ROOT, never
+        # this file's location: a test (or a relocated install) must be able to
+        # point it elsewhere. 2026-08-29: unit tests swept the real data/ tree
+        # (800MB per test, into tmpfs) and restored over it because this was
+        # hardcoded to the source checkout.
+        project_root = Path(config.GUAARDVARK_ROOT)
 
         # State JSON files always included in data backups
         state_json_files = [
@@ -811,7 +895,7 @@ def create_data_backup(components: List[str] | None = None, name: str | None = N
             # caller (e.g. the daily_backup task) records a failure and retries
             # rather than archiving a zip with a missing/empty DB dump.
             pg_dump_path = tmp / "data" / "database" / "guaardvark.pgdump"
-            db_url = config.DATABASE_URL
+            db_url = _effective_db_url()
             db_is_postgres = bool(db_url) and db_url.startswith("postgresql")
             if _create_pg_dump(pg_dump_path):
                 data["pg_dump_included"] = True
@@ -892,8 +976,8 @@ def create_full_backup(name: str | None = None) -> str:
         models.db.create_all()
         session = models.db.session
         
-        # Get project root directory
-        project_root = Path(__file__).parent.parent.parent
+        # Install root (see create_data_backup): config.GUAARDVARK_ROOT.
+        project_root = Path(config.GUAARDVARK_ROOT)
         logger.info("Project root: %s", project_root)
         
         # Collect all data

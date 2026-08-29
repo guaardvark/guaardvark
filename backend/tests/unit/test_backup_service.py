@@ -10,8 +10,36 @@ from backend import config, models
 from backend.services import backup_service
 
 
+@pytest.fixture(autouse=True)
+def _no_postgres_tools(monkeypatch):
+    """Tripwire: nothing in this file may run pg_dump/pg_restore/psql.
+
+    2026-08-29: test_restore_backup did — against the live database — and
+    pg_restore --clean dropped every table. The app under test is sqlite; if
+    a code path reaches for Postgres anyway, this fails the test on the spot.
+    Tests that need to observe the pg_restore --list output patch
+    subprocess.run themselves after this fixture."""
+    import subprocess as _sp
+    real_run = _sp.run
+
+    def guarded_run(cmd, *a, **kw):
+        exe = cmd[0] if isinstance(cmd, (list, tuple)) and cmd else str(cmd)
+        if str(exe) in {"pg_dump", "pg_restore", "psql"}:
+            raise AssertionError(f"test reached PostgreSQL tooling: {cmd[:3]}")
+        return real_run(cmd, *a, **kw)
+
+    monkeypatch.setattr(_sp, "run", guarded_run)
+
+
 @pytest.fixture
 def app(tmp_path, monkeypatch):
+    # A throwaway install root: data backups walk GUAARDVARK_ROOT/data and
+    # restores extract under it. Left at the real checkout, each test packed
+    # the real data/ tree (800MB) and the restore test wrote over it.
+    root = tmp_path / "root"
+    for d in ("data/uploads", "data/logos", "data/database"):
+        (root / d).mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(config, "GUAARDVARK_ROOT", str(root))
     monkeypatch.setattr(config, "BACKUP_DIR", str(tmp_path / "backups"))
     monkeypatch.setattr(config, "UPLOAD_FOLDER", str(tmp_path / "uploads"))
     monkeypatch.setattr(
@@ -62,11 +90,10 @@ def test_full_backup(tmp_path, app):
         assert Path(path).is_file()
         with zipfile.ZipFile(path, "r") as zf:
             meta = json.load(zf.open("guaardvark_backup.json"))
-        assert meta["version"] == "2.0"
-        assert meta["backup_type"] == "full"
-        assert set(meta["components"]) == set(
-            ["clients", "documents", "projects", "tasks", "websites", "chats", "rules", "system_settings"]
-        )
+        # create_backup("full") is the data backup with every component.
+        assert meta["version"] == "1.0"
+        assert meta["backup_type"] == "data"
+        assert set(meta["components"]) == set(backup_service._ALL_COMPONENTS)
         assert "clients" in meta and meta["clients"]
         assert "documents" in meta and meta["documents"]
 
@@ -77,7 +104,8 @@ def test_granular_backup(tmp_path, app):
         path = backup_service.create_backup("granular", ["clients", "tasks"])
         with zipfile.ZipFile(path, "r") as zf:
             meta = json.load(zf.open("guaardvark_backup.json"))
-        assert meta["backup_type"] == "granular"
+        # A component subset is still a data backup; the selection is the components list.
+        assert meta["backup_type"] == "data"
         assert set(meta["components"]) == {"clients", "tasks"}
         assert "clients" in meta
         assert "tasks" in meta
@@ -97,7 +125,9 @@ def test_restore_backup(tmp_path, app):
         assert models.Client.query.count() == 1
         with zipfile.ZipFile(path, "r") as zf:
             names = zf.namelist()
-        assert any(n.startswith("logos/") for n in names)
+        # The client's logo travels with the backup (its archive path is
+        # relative to the project root, not a fixed logos/ folder).
+        assert any(n.endswith("1_logo.png") for n in names), names
 
 
 def test_missing_file_in_backup(tmp_path, app):
@@ -259,3 +289,71 @@ def test_sanitize_preserves_unrelated_lines():
     assert "FLASK_PORT=5002" in out
     assert "VITE_PORT=5175" in out
     assert "GUAARDVARK_BROWSER_HEADLESS=true" in out
+
+
+# ---- the 2026-08-29 guards -------------------------------------------------
+
+def test_sqlite_app_never_dumps_or_restores_the_configured_postgres(tmp_path, app, monkeypatch):
+    """The app under test runs on sqlite; config.DATABASE_URL still names a
+    Postgres. Backup and restore must use the app's database, never the
+    configured one — with the tripwire above, reaching pg_* fails loudly."""
+    monkeypatch.setattr(config, "DATABASE_URL", "postgresql://u:p@localhost:5432/guaardvark")
+    with app.app_context():
+        assert backup_service._effective_db_url().startswith("sqlite")
+        _create_sample_data(app)
+        path = backup_service.create_backup("full")
+        with zipfile.ZipFile(path, "r") as zf:
+            meta = json.load(zf.open("guaardvark_backup.json"))
+        assert not meta.get("pg_dump_included")
+        models.db.session.query(models.Client).delete()
+        models.db.session.commit()
+        summary = backup_service.restore_backup(path)
+        assert summary.get("clients") == 1
+        assert "pg_restore" not in summary
+
+
+def test_restore_refuses_a_dump_of_another_database(tmp_path, monkeypatch):
+    """A dump taken from a different database (another product, another
+    machine) must never be restored here with --clean in front of it."""
+    monkeypatch.setattr(backup_service, "_effective_db_url",
+                        lambda: "postgresql://u:p@localhost:5432/guaardvark")
+    monkeypatch.setattr(backup_service, "_dump_dbname", lambda _p: "roofbrain")
+    dump = tmp_path / "foreign.pgdump"
+    dump.write_bytes(b"PGDMP")
+    assert backup_service._restore_pg_dump(dump) is False  # tripwire proves pg_restore never ran
+
+
+def test_restore_toc_leaves_extensions_alone(tmp_path, monkeypatch):
+    import subprocess
+    listing = (
+        ";\n; Archive created at 2026-08-29 01:23:46 EDT\n;     dbname: guaardvark\n;\n"
+        "2; 3079 37380 EXTENSION - vector \n"
+        "4630; 0 0 COMMENT - EXTENSION vector \n"
+        "215; 1259 37400 TABLE public clients guaardvark\n"
+        "4400; 0 37400 TABLE DATA public clients guaardvark\n"
+    )
+
+    def fake_run(cmd, *a, **kw):
+        assert cmd[:2] == ["pg_restore", "--list"]
+        return subprocess.CompletedProcess(cmd, 0, stdout=listing, stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    dump = tmp_path / "d.pgdump"; dump.write_bytes(b"PGDMP")
+    toc = tmp_path / "d.toc"
+    assert backup_service._write_restore_toc(dump, toc) is True
+    kept = toc.read_text()
+    assert "EXTENSION" not in kept
+    assert "TABLE public clients" in kept and "TABLE DATA public clients" in kept
+    assert backup_service._dump_dbname(dump) == "guaardvark"
+
+
+def test_data_backup_does_not_sweep_the_real_install(tmp_path, app):
+    """A test backup must contain only the fixture's data. If this grows past a
+    few MB the service is walking the real checkout again."""
+    with app.app_context():
+        _create_sample_data(app)
+        path = backup_service.create_backup("full")
+        size_mb = Path(path).stat().st_size / (1024 * 1024)
+        assert size_mb < 5, f"test backup is {size_mb:.0f}MB — real data is being packed"
+        with zipfile.ZipFile(path, "r") as zf:
+            assert not any(n.startswith("data/agent/") for n in zf.namelist())
