@@ -4,6 +4,8 @@ import {
   aspectRatiosFor,
   durationPresetsFor,
   resolveAspectRatio,
+  isMinimaxModel,
+  MINIMAX_DURATION_PRESETS,
   MODEL_OPTIONS,
   MOTION_PRESETS,
   WAN_5B_DURATION_PRESETS,
@@ -82,6 +84,22 @@ describe("aspectRatiosFor", () => {
         expect(ASPECT_RATIO_PRESETS[key]).toBeDefined();
       }
     }
+  });
+});
+
+describe("MiniMax H3 presets", () => {
+  it("keeps every duration on the model's 17k+5 frame grid and under maxFrames", () => {
+    for (const p of Object.values(MINIMAX_DURATION_PRESETS)) {
+      expect((p.duration_frames - 5) % 17).toBe(0);
+      expect(p.fps).toBe(24);
+      expect(p.duration_frames).toBeLessThanOrEqual(MODEL_OPTIONS["minimax-h3-int8"].maxFrames);
+    }
+    expect(durationPresetsFor("minimax-h3-int8")).toBe(MINIMAX_DURATION_PRESETS);
+  });
+
+  it("declares the template's 20-step floor", () => {
+    expect(MODEL_OPTIONS["minimax-h3-int8"].minSteps).toBe(20);
+    expect(isMinimaxModel("minimax-h3-int8")).toBe(true);
   });
 });
 

@@ -7,6 +7,7 @@ Methods are unchanged — ComfyUIVideoGenerator inherits ComfyUIVideoWorkflowMix
 from __future__ import annotations
 
 import logging
+import os
 import time
 from typing import Optional
 
@@ -1833,6 +1834,157 @@ class ComfyUIVideoWorkflowMixin:
                 workflow,
                 source_node_id="26",
                 video_combine_node_id="27",
+                base_fps=fps,
+                multiplier=interpolation_multiplier,
+            )
+        return workflow
+
+    # ── MiniMax H3 ────────────────────────────────────────────────────────────
+
+    def _minimax_loader_cfg(self, model_key: str) -> dict:
+        self._ensure_minimax_models()
+        cfg = self.MINIMAX_MODELS.get(model_key, {})
+        return {
+            "unet": cfg.get("unet") or "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+            "clip": cfg.get("clip") or "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+            "vae": cfg.get("vae") or "minimax_h3_video_vae_fp16.safetensors",
+            "audio_vae": cfg.get("audio_vae") or "minimax_h3_audio_vae_fp32.safetensors",
+        }
+
+    @staticmethod
+    def _minimax_clip_device() -> str:
+        """Where the Qwen3-VL 32B encoder loads. Unlike Wan/LTX this is not
+        pinned to CPU on 16GB cards: the encoder ships as NVFP4, which ComfyUI
+        runs as emulated ops on pre-Blackwell GPUs, and emulating a 32B model on
+        the CPU is the slowest possible way to run it. Let ComfyUI partial-load
+        it on the GPU (the official template does the same). The Wan override
+        is honoured for anyone who wants to force it."""
+        override = (os.environ.get("GUAARDVARK_WAN_CLIP_DEVICE") or "").strip().lower()
+        return override if override in ("cpu", "default") else "default"
+
+    def _create_minimax_workflow(
+        self,
+        prompt: str,
+        model_key: str = "minimax-h3-int8",
+        num_frames: int = 124,
+        num_inference_steps: int = 20,
+        width: int = 864,
+        height: int = 480,
+        seed: Optional[int] = None,
+        fps: float = 24.0,
+        interpolation_multiplier: int = 1,
+        image_filename: Optional[str] = None,
+    ) -> dict:
+        """MiniMax H3 T2V / first-frame I2V — the official ComfyUI template graph.
+
+        UNETLoader + CLIPLoader(minimax) + video VAE + audio VAE →
+        MiniMaxH3ImageToVideo (prompt + optional first_frame → conditioning and
+        an empty joint video+audio latent) → BasicGuider (the template runs no
+        CFG, so there is no negative prompt and guidance_scale is not a knob) →
+        SamplerCustomAdvanced (res_multistep / simple) → VAEDecode + VAEDecodeAudio
+        → VHS_VideoCombine with the audio track muxed in.
+
+        The model's whole point is native audio, so unlike the LTX builders the
+        audio latent is decoded and kept. Decode is the plain VAEDecode the
+        template uses: the sampler output is a nested (video, audio) latent and
+        VAEDecodeTiled has not been tried against it.
+        """
+        if seed is None:
+            seed = int(time.time() * 1000) % (2**31)
+
+        files = self._minimax_loader_cfg(model_key)
+        length = self._minimax_frame_count(num_frames)
+        steps = int(num_inference_steps or 20)
+
+        workflow = {
+            "1": {
+                "class_type": "UNETLoader",
+                "inputs": {"unet_name": files["unet"], "weight_dtype": "default"},
+            },
+            "2": {
+                "class_type": "CLIPLoader",
+                "inputs": {
+                    "clip_name": files["clip"],
+                    "type": "minimax",
+                    "device": self._minimax_clip_device(),
+                },
+            },
+            "3": {"class_type": "VAELoader", "inputs": {"vae_name": files["vae"]}},
+            "4": {"class_type": "VAELoader", "inputs": {"vae_name": files["audio_vae"]}},
+            "6": {
+                "class_type": "MiniMaxH3ImageToVideo",
+                "inputs": {
+                    "clip": ["2", 0],
+                    "vae": ["3", 0],
+                    "prompt": prompt,
+                    "width": int(width),
+                    "height": int(height),
+                    "length": length,
+                },
+            },
+            "7": {
+                "class_type": "BasicGuider",
+                "inputs": {"model": ["1", 0], "conditioning": ["6", 0]},
+            },
+            "8": {"class_type": "KSamplerSelect", "inputs": {"sampler_name": "res_multistep"}},
+            "9": {
+                "class_type": "BasicScheduler",
+                "inputs": {
+                    "model": ["1", 0],
+                    "scheduler": "simple",
+                    "steps": steps,
+                    "denoise": 1.0,
+                },
+            },
+            "10": {"class_type": "RandomNoise", "inputs": {"noise_seed": seed}},
+            "11": {
+                "class_type": "SamplerCustomAdvanced",
+                "inputs": {
+                    "noise": ["10", 0],
+                    "guider": ["7", 0],
+                    "sampler": ["8", 0],
+                    "sigmas": ["9", 0],
+                    "latent_image": ["6", 1],
+                },
+            },
+            "12": {
+                "class_type": "VAEDecode",
+                "inputs": {"samples": ["11", 0], "vae": ["3", 0]},
+            },
+            "13": {
+                "class_type": "VAEDecodeAudio",
+                "inputs": {"samples": ["11", 0], "vae": ["4", 0]},
+            },
+            "14": {
+                "class_type": "VHS_VideoCombine",
+                "inputs": {
+                    "images": ["12", 0],
+                    "audio": ["13", 0],
+                    "frame_rate": float(fps),
+                    "loop_count": 0,
+                    "filename_prefix": "minimax_h3_i2v" if image_filename else "minimax_h3_t2v",
+                    "format": "video/h264-mp4",
+                    "pix_fmt": "yuv420p",
+                    "crf": 19,
+                    "save_metadata": True,
+                    "pingpong": False,
+                    "save_output": True,
+                    "videopreview": {"hidden": False, "paused": False, "params": {}},
+                },
+            },
+        }
+
+        if image_filename:
+            # The node stretches the first frame to the canvas itself
+            # (MiniMaxH3ImageToVideo._resize "disabled"), so no pre-scale node.
+            workflow["5"] = {"class_type": "LoadImage", "inputs": {"image": image_filename}}
+            workflow["6"]["inputs"]["first_frame"] = ["5", 0]
+
+        if interpolation_multiplier > 1:
+            self._add_rife_interpolation(
+                workflow,
+                source_node_id="12",
+                video_combine_node_id="14",
                 base_fps=fps,
                 multiplier=interpolation_multiplier,
             )

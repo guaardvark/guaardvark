@@ -57,6 +57,15 @@ export const LTX_DURATION_PRESETS = {
 };
 
 /** HunyuanVideo frame counts must be 4n+1; native 24fps. 73 @ 24fps ≈ 3s (official template). */
+// MiniMax H3 samples on a 17k+5 frame grid at 24 fps; 124 (~5 s) is the
+// official template's default and the low end of the trained range. Longer
+// clips are unmeasured on 16GB, so "long" stops at ~7 s until one is timed.
+export const MINIMAX_DURATION_PRESETS = {
+  short: { label: "Short", description: "~3 seconds", duration_frames: 73, fps: 24 },
+  medium: { label: "Medium", description: "~5 seconds", duration_frames: 124, fps: 24 },
+  long: { label: "Long", description: "~7 seconds", duration_frames: 175, fps: 24 },
+};
+
 export const HUNYUAN_DURATION_PRESETS = {
   short: { label: "Short", description: "~2 seconds", duration_frames: 49, fps: 24 },
   medium: { label: "Medium", description: "~3 seconds", duration_frames: 73, fps: 24 },
@@ -99,7 +108,8 @@ export const WAN5B_SAMPLER_PROFILES = {
 // backend default differs from its family carries `defaultGuidance` in
 // MODEL_OPTIONS below; keep the two in step or the UI will send a value the
 // backend never chose for itself.
-export const MODEL_DEFAULT_GUIDANCE = { wan: 3.5, cogvideox: 6.0, ltx: 1.0, hunyuan: 6.0 };
+// MiniMax H3 runs without CFG (BasicGuider); the value is display-only.
+export const MODEL_DEFAULT_GUIDANCE = { wan: 3.5, cogvideox: 6.0, ltx: 1.0, hunyuan: 6.0, minimax: 1.0 };
 
 export const ASPECT_RATIO_PRESETS = {
   "16:9": { label: "16:9", description: "Widescreen", ratio: 16 / 9 },
@@ -237,6 +247,26 @@ export const MODEL_OPTIONS = {
     supportsI2V: true,
     dimensionAlignment: 32,
   },
+  "minimax-h3-int8": {
+    label: "MiniMax H3 Int8 (16GB)",
+    description: "MiniMax H3 — video with native stereo audio in one pass. 24fps, ~5s. T2V + first-frame I2V. ComfyUI ≥ 0.30.",
+    type: "minimax",
+    nativeFps: 24,
+    maxFrames: 175,
+    // 0.4 MPx is the official template's default (864×480 at 16:9); the native
+    // 768×1344 canvas is the cap, not the starting point, on a 16GB card.
+    resolution: [864, 480],
+    aspectRatios: ["16:9", "9:16", "1:1"],
+    // The official ComfyUI template samples 20 steps (res_multistep / simple).
+    // Below that the base model is under-resolved like Wan; the 4/8-step turbo
+    // LoRAs are a separate path that is not offered here.
+    defaultSteps: 20,
+    minSteps: 20,
+    supportsT2V: true,
+    supportsI2V: true,
+    dimensionAlignment: 32,
+    maxPixelArea: 768 * 1344,
+  },
   "hunyuan-t2v": {
     label: "HunyuanVideo 13B T2V (GGUF Q5)",
     description: "Tencent HunyuanVideo — cinematic motion, no content filter. 24fps, ~3s clips (~11GB VRAM)",
@@ -270,10 +300,12 @@ export const isCogVideoXModel = (model) => MODEL_OPTIONS[model]?.type === "cogvi
 export const isWanModel = (model) => MODEL_OPTIONS[model]?.type === "wan";
 export const isLtxModel = (model) => MODEL_OPTIONS[model]?.type === "ltx";
 export const isHunyuanModel = (model) => MODEL_OPTIONS[model]?.type === "hunyuan";
+export const isMinimaxModel = (model) => MODEL_OPTIONS[model]?.type === "minimax";
 
 /** Duration presets for a model. The preset fps must match the model's native
  *  rate — muxing 24fps-native frames at 16fps plays every clip in slow motion. */
 export const durationPresetsFor = (model) => {
+  if (isMinimaxModel(model)) return MINIMAX_DURATION_PRESETS;
   if (isHunyuanModel(model)) return HUNYUAN_DURATION_PRESETS;
   if (isLtxModel(model)) return LTX_DURATION_PRESETS;
   if (isWanModel(model)) {

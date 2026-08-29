@@ -59,6 +59,7 @@ import {
   isWanModel,
   isLtxModel,
   isHunyuanModel,
+  isMinimaxModel,
   snapDimensions,
   fitAreaToRatio,
 } from "../constants/videoGeneratorPresets";
@@ -476,7 +477,9 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     // portrait/square batches came out landscape. Honor the aspect by
     // redistributing the SAME pixel area (constant VRAM/compute); Video Size
     // stays pinned to the budget and its dropdown is disabled for LTX.
-    if (isLtxModel(model)) {
+    // MiniMax H3 uses the same fixed-budget treatment: its pixel area is what
+    // costs VRAM, and the aspect ratio reshapes the frame inside it.
+    if (isLtxModel(model) || isMinimaxModel(model)) {
       const [nativeW, nativeH] = MODEL_OPTIONS[model].resolution;
       const ratioConfig = ASPECT_RATIO_PRESETS[effectiveAspectRatio] || ASPECT_RATIO_PRESETS["16:9"];
       return fitAreaToRatio(nativeW * nativeH, ratioConfig.ratio, model, modelMeta[model]);
@@ -2022,7 +2025,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                     </FormControl>
                   </Grid>
                   <Grid item xs={12} sm={6} md={4}>
-                    <FormControl fullWidth size="small" disabled={isLtxModel(model)}>
+                    <FormControl fullWidth size="small" disabled={isLtxModel(model) || isMinimaxModel(model)}>
                       <InputLabel>Video Size</InputLabel>
                       <Select
                         value={videoSize}
@@ -2045,7 +2048,9 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                       Renders at {computedParams.width}×{computedParams.height}
                       {isLtxModel(model)
                         ? " — LTX runs a fixed pixel budget; aspect ratio reshapes the frame"
-                        : ""}
+                        : isMinimaxModel(model)
+                          ? " — MiniMax H3 runs a fixed pixel budget; aspect ratio reshapes the frame"
+                          : ""}
                     </Typography>
                   </Grid>
                 </>
@@ -2256,7 +2261,9 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                       guidance_scale: Number(e.target.value),
                     })
                   }
-                  helperText={`Default for ${isHunyuanModel(model) ? 'HunyuanVideo' : isLtxModel(model) ? 'LTX' : isWanModel(model) ? 'Wan' : 'CogVideoX'}: ${MODEL_DEFAULT_GUIDANCE[MODEL_OPTIONS[model]?.type] ?? 6}. Higher = stricter prompt adherence.`}
+                  helperText={isMinimaxModel(model)
+                    ? "MiniMax H3 samples without CFG — this value is not used."
+                    : `Default for ${isHunyuanModel(model) ? 'HunyuanVideo' : isLtxModel(model) ? 'LTX' : isWanModel(model) ? 'Wan' : 'CogVideoX'}: ${MODEL_DEFAULT_GUIDANCE[MODEL_OPTIONS[model]?.type] ?? 6}. Higher = stricter prompt adherence.`}
                   sx={{
                     width: { xs: '100%', sm: '280px' },
                     '& .MuiFormHelperText-root': {

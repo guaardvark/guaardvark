@@ -34,6 +34,7 @@ try:
     from backend.services.video_model_registry import wan_comfyui_map as _wan_comfyui_map
     from backend.services.video_model_registry import ltx_comfyui_map as _ltx_comfyui_map
     from backend.services.video_model_registry import hunyuan_comfyui_map as _hunyuan_comfyui_map
+    from backend.services.video_model_registry import minimax_comfyui_map as _minimax_comfyui_map
 except Exception:  # pragma: no cover - defensive
     def _wan_comfyui_map():
         return {}
@@ -42,6 +43,9 @@ except Exception:  # pragma: no cover - defensive
         return {}
 
     def _hunyuan_comfyui_map():
+        return {}
+
+    def _minimax_comfyui_map():
         return {}
 
 from backend.services.comfyui_video_workflows import ComfyUIVideoWorkflowMixin
@@ -270,9 +274,10 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         "ltx25-distilled-int8": 16,
         "hunyuan-t2v": 16,
         "hunyuan-i2v": 16,
+        "minimax-h3-int8": 16,
     }
     # Family floors when an exact id isn't in the table (aliases like "wan22").
-    _FAMILY_MIN_VRAM_GB = {"wan": 16, "cogvideox": 16, "ltx": 16, "hunyuan": 16}
+    _FAMILY_MIN_VRAM_GB = {"wan": 16, "cogvideox": 16, "ltx": 16, "hunyuan": 16, "minimax": 16}
 
     # ── Wan 2.2 model mapping ────────────────────────────────────────────────
     # DERIVED from the shared registry (backend/services/video_model_registry.py)
@@ -283,6 +288,8 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
     LTX_MODELS = _ltx_comfyui_map()
     # HunyuanVideo loader map — same SSOT pattern.
     HUNYUAN_MODELS = _hunyuan_comfyui_map()
+    # MiniMax H3 loader map — same SSOT pattern.
+    MINIMAX_MODELS = _minimax_comfyui_map()
 
     # CogVideoX/Wan are 8x VAE × 2x patch → /16. SVD is U-Net only → /8.
     # LTX-2.3 spatial downscale is 32 (see EmptyLTXVLatentVideo).
@@ -295,6 +302,8 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         "svd": 8,
         "ltx": 32,
         "hunyuan": 16,
+        # MiniMax H3 node inputs step by 32 (EmptyMiniMaxH3LatentAV).
+        "minimax": 32,
     }
 
     @classmethod
@@ -341,10 +350,26 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         return cls.HUNYUAN_MODELS
 
     @classmethod
+    def _ensure_minimax_models(cls) -> dict:
+        """Same lazy re-resolve as `_ensure_wan_models` for the MiniMax H3 map."""
+        if not cls.MINIMAX_MODELS:
+            try:
+                from backend.services.video_model_registry import minimax_comfyui_map
+                fresh = minimax_comfyui_map() or {}
+                if fresh:
+                    cls.MINIMAX_MODELS = fresh
+            except Exception:  # pragma: no cover - defensive
+                pass
+        return cls.MINIMAX_MODELS
+
+    @classmethod
     def _model_family(cls, model: str) -> str:
         cls._ensure_wan_models()  # unfreeze the map if it froze empty at import
         cls._ensure_ltx_models()
         cls._ensure_hunyuan_models()
+        cls._ensure_minimax_models()
+        if model in cls.MINIMAX_MODELS or str(model).startswith("minimax"):
+            return "minimax"
         if model in cls.HUNYUAN_MODELS or str(model).startswith("hunyuan"):
             return "hunyuan"
         if model in cls.LTX_MODELS or str(model).startswith("ltx"):
@@ -362,6 +387,14 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         return int((n - 1) / 4 + 0.5) * 4 + 1
 
     @staticmethod
+    def _minimax_frame_count(num_frames: int) -> int:
+        """MiniMax H3 samples on a 17k+5 frame grid at 24 fps (5, 22, 39, …, 124 ≈ 5s).
+        Snap UP like the official template's Math Expression node does, so a
+        requested duration is never silently shortened."""
+        n = max(5, int(num_frames or 124))
+        return n + (5 - n % 17) % 17
+
+    @staticmethod
     def _ltx_frame_count(num_frames: int) -> int:
         """LTX-2.3 latent length must be 8n+1 (65, 97, 121, 161, …)."""
         n = max(9, int(num_frames or 65))
@@ -372,7 +405,14 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
 
     # Timeout guard per family: ~1.0 MPx (1280×736) is proven on 16GB cards;
     # 3.7 MPx (1920×1920) never finished on either Wan. Aspect is preserved.
-    _MAX_PIXEL_AREA_BY_FAMILY = {"wan": 1_050_000, "ltx": 1_050_000, "hunyuan": 1_050_000}
+    _MAX_PIXEL_AREA_BY_FAMILY = {
+        "wan": 1_050_000,
+        "ltx": 1_050_000,
+        "hunyuan": 1_050_000,
+        # H3's native canvas caps at 768×1344 (template note); mirrors the
+        # registry's max_pixel_area.
+        "minimax": 768 * 1344,
+    }
 
     # Ratio presets the UI offers, as width/height. Kept here so a clamp can name
     # the ratio it snapped to rather than emitting an arbitrary decimal.
@@ -1508,12 +1548,46 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                     )
                     logger.info("Using LTX-2.3 distilled T2V (%s) via ComfyUI", model_key)
 
+            elif model in self.MINIMAX_MODELS or str(model).startswith("minimax"):
+                model_key = model if model in self.MINIMAX_MODELS else "minimax-h3-int8"
+                # Official template: 20 steps, res_multistep, no CFG. The floor is
+                # declared in MODEL_OPTIONS.minSteps; here only fill an absent value.
+                mm_steps = request.num_inference_steps or 20
+                if request.guidance_scale is not None and request.guidance_scale > 1.0:
+                    logger.info(
+                        "MiniMax H3 runs without CFG (BasicGuider); ignoring guidance_scale=%.2f",
+                        request.guidance_scale,
+                    )
+                uploaded_image = None
+                if image_path and Path(image_path).exists():
+                    uploaded_image = self._upload_image_to_comfyui(image_path)
+                    if not uploaded_image:
+                        result.error = "Failed to upload image to ComfyUI"
+                        return result
+                workflow = self._create_minimax_workflow(
+                    prompt=request.prompt,
+                    model_key=model_key,
+                    num_frames=request.duration_frames,
+                    num_inference_steps=mm_steps,
+                    width=request.width,
+                    height=request.height,
+                    seed=seed,
+                    fps=request.fps or 24,
+                    interpolation_multiplier=interpolation,
+                    image_filename=uploaded_image,
+                )
+                logger.info(
+                    "Using MiniMax H3 %s (%s) via ComfyUI",
+                    "first-frame I2V" if uploaded_image else "T2V",
+                    model_key,
+                )
+
             else:
-                # SVD retired 2026-05-29. Supported: wan22-*, cogvideox-*, ltx23-*, ltx25-*.
+                # SVD retired 2026-05-29. Supported: wan22-*, cogvideox-*, ltx23-*, ltx25-*, minimax-*.
                 result.error = (
                     f"Unsupported video model '{model}'. Use wan22-5b, wan22-14b, "
                     f"wan22-14b-i2v, cogvideox-5b, cogvideox-5b-i2v, "
-                    f"ltx23-distilled-fp8, or ltx25-distilled-int8."
+                    f"ltx23-distilled-fp8, ltx25-distilled-int8, or minimax-h3-int8."
                 )
                 return result
 

@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Chip, Typography } from "@mui/material";
 import {
   isLtxModel,
+  isMinimaxModel,
   isWanModel,
   PROMPT_STYLES,
 } from "../../constants/videoGeneratorPresets";
@@ -47,6 +48,8 @@ export default function VideoGenEffectiveSettings({
             label={String(model || "").startsWith("ltx25") ? "LTX-2.5" : "LTX-2.3"}
             sx={{ fontWeight: 600 }}
           />
+        ) : isMinimaxModel(model) ? (
+          <Chip size="small" color="success" label="MiniMax H3" sx={{ fontWeight: 600 }} />
         ) : isWanModel(model) ? (
           <Chip size="small" color="secondary" label="Wan 2.2" sx={{ fontWeight: 600 }} />
         ) : (

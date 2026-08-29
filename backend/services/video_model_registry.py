@@ -891,13 +891,12 @@ def preflight_video_model(model_id: str) -> tuple[bool, str]:
                     f"{name} is missing companion '{dep_name}'. "
                     f"Open Manage Video Models and Install again (companions auto-pull)."
                 )
-        # The download plan is wired; the ComfyUI workflow builder is not. Refuse
-        # here rather than letting _model_family() fall through to the CogVideoX
-        # default and fail deep inside the generator with an unrelated error.
-        return False, (
-            f"{name} is installed, but generating with it is not wired up yet. "
-            f"Pick a Wan or LTX model for this batch."
-        )
+        if not _comfyui_reachable():
+            return False, (
+                f"{name} requires ComfyUI ≥ 0.30.0 with MiniMax H3 support. "
+                f"Start the ComfyUI plugin, then retry."
+            )
+        return True, ""
 
     return True, ""
 

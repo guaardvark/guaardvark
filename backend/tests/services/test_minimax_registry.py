@@ -49,9 +49,15 @@ def test_preflight_minimax_requires_install(monkeypatch):
     assert "not installed" in err.lower()
 
 
-def test_preflight_minimax_refuses_generation_until_wired(monkeypatch):
+def test_preflight_minimax_requires_comfy(monkeypatch):
     monkeypatch.setattr(vmr, "is_model_installed", lambda _m: True)
-    monkeypatch.setattr(vmr, "_comfyui_reachable", lambda: True)
+    monkeypatch.setattr(vmr, "_comfyui_reachable", lambda: False)
     ok, err = vmr.preflight_video_model(MODEL)
     assert ok is False
-    assert "not wired" in err.lower()
+    assert "comfyui" in err.lower() and "0.30" in err
+
+
+def test_preflight_minimax_ok(monkeypatch):
+    monkeypatch.setattr(vmr, "is_model_installed", lambda _m: True)
+    monkeypatch.setattr(vmr, "_comfyui_reachable", lambda: True)
+    assert vmr.preflight_video_model(MODEL) == (True, "")
