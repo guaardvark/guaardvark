@@ -3,6 +3,6 @@ rich>=15.0.0
 python-socketio>=5.10.0
 httpx>=0.28.1
 websocket-client>=1.9.0
-requests>=2.31.0
+requests>=2.34.2
 prompt_toolkit>=3.0.53
 tenacity>=9.1.4
