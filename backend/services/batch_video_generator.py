@@ -544,11 +544,21 @@ class BatchVideoGenerator:
                     it.prompt = new_prompt.strip()
                     changed += 1
             # Director output is already a complete cinematic prompt; don't double-enhance.
-            batch_request.enhance_prompt = False
-            logger.info(
-                f"Video Director enhanced {changed}/{len(text_items)} prompt(s) for batch "
-                f"{batch_request.batch_id}"
-            )
+            # Only when it actually produced one: media_director hands the ORIGINALS back on
+            # failure (and plan() hands back nothing), and switching the light enhancer off
+            # on top of that shipped raw prompts with no enhancement at all.
+            if changed:
+                batch_request.enhance_prompt = False
+                logger.info(
+                    f"Video Director enhanced {changed}/{len(text_items)} prompt(s) for batch "
+                    f"{batch_request.batch_id}"
+                )
+            else:
+                logger.warning(
+                    f"Director returned no rewrites for batch {batch_request.batch_id} "
+                    f"({(result.diagnostics or {}).get('reason', 'originals returned')}); "
+                    f"prompts and the light enhancer stand as they were."
+                )
         except Exception as e:  # noqa: BLE001 — director must never fail a render
             logger.warning(f"Director pass skipped for batch {batch_request.batch_id} (non-fatal): {e}")
 
@@ -571,14 +581,25 @@ class BatchVideoGenerator:
                 extra_guidance=getattr(batch_request, "director_guidance", None),
             ))
             shots = [s.prompt for s in result.shots]
+            changed = 0
             for it, shot in zip(batch_request.items, shots):
                 if shot and shot.strip():
+                    if shot.strip() != (it.prompt or "").strip():
+                        changed += 1
                     it.prompt = shot.strip()
-            batch_request.enhance_prompt = False
-            logger.info(
-                f"Storyboard expanded one concept into {len(shots)} shot(s) for batch "
-                f"{batch_request.batch_id}"
-            )
+            # Same rule as the director pass: the fallback is "the concept, n times",
+            # which is not a storyboard and must not switch the enhancer off.
+            if changed:
+                batch_request.enhance_prompt = False
+                logger.info(
+                    f"Storyboard expanded one concept into {len(shots)} shot(s) for batch "
+                    f"{batch_request.batch_id}"
+                )
+            else:
+                logger.warning(
+                    f"Storyboard returned no shots beyond the concept for batch "
+                    f"{batch_request.batch_id}; placeholder prompts and the light enhancer stand."
+                )
         except Exception as e:  # noqa: BLE001 — storyboard must never fail a render
             logger.warning(f"Storyboard expansion skipped for batch {batch_request.batch_id} (non-fatal): {e}")
 
