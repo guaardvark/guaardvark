@@ -5,9 +5,14 @@ try:
     from backend.models import db, Document
     from backend.api.video_overlay_api import video_overlay_bp
     from backend.utils.unified_progress_system import get_unified_progress, ProcessType
-    from backend.tasks.video_render_tasks import create_video_render_tasks
 except Exception:
     pytest.skip("Backend modules not available", allow_module_level=True)
+
+# Deliberately outside the guard: if the render tasks cannot import, Celery
+# drops them and every timeline render silently never runs. That must fail
+# this file, not skip it (2026-08-28: a renamed font constant did exactly
+# this and the skip hid it for a day).
+from backend.tasks.video_render_tasks import create_video_render_tasks  # noqa: E402
 
 @pytest.fixture
 def app():
@@ -106,18 +111,22 @@ def test_render_timeline_task_invokes_render_timeline_service(monkeypatch, app):
             
         monkeypatch.setattr("backend.tasks.video_render_tasks.register_file", mock_register_file)
         
-        # Mock gate
-        gate_registered = False
-        gate_unregistered = False
-        class MockGate:
-            def register_running(self, kind, id):
-                nonlocal gate_registered
-                gate_registered = True
-            def unregister_running(self, kind, id):
-                nonlocal gate_unregistered
-                gate_unregistered = True
-                
-        monkeypatch.setattr("backend.tasks.video_render_tasks.get_gate", lambda: MockGate())
+        # The task claims the GPU through gpu_session (not the old get_gate
+        # register/unregister pair). Stand in a context manager that records use.
+        from contextlib import contextmanager
+        session_entered = False
+        session_exited = False
+
+        @contextmanager
+        def mock_gpu_session(kind, ident, **kwargs):
+            nonlocal session_entered, session_exited
+            session_entered = True
+            try:
+                yield
+            finally:
+                session_exited = True
+
+        monkeypatch.setattr("backend.tasks.video_render_tasks.gpu_session", mock_gpu_session)
         
         # Create dummy doc
         doc = Document(filename="source_video.mp4", path="source_video.mp4")
@@ -125,7 +134,8 @@ def test_render_timeline_task_invokes_render_timeline_service(monkeypatch, app):
         db.session.commit()
         doc_id = doc.id
         
-        monkeypatch.setattr("backend.tasks.video_render_tasks._resolve_video_path", lambda d: Path("dummy.mp4"))
+        # The task imports _resolve_video_path from the API module at call time; patch it there.
+        monkeypatch.setattr("backend.api.video_overlay_api._resolve_video_path", lambda d: Path("dummy.mp4"))
         
         # Create job
         progress_system = get_unified_progress()
@@ -137,8 +147,7 @@ def test_render_timeline_task_invokes_render_timeline_service(monkeypatch, app):
         
         assert called_render
         assert called_register
-        assert gate_registered
-        assert gate_unregistered
+        assert session_entered and session_exited
         
         proc = progress_system.get_process(job_id)
         assert proc.status.value == "complete"

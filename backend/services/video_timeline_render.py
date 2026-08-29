@@ -18,9 +18,9 @@ from pathlib import Path
 from typing import Any
 
 from backend.services.video_text_overlay import (
-    _DEFAULT_FONT,
     _ffmpeg_escape_text,
     _validate_color,
+    resolve_font_path,
     VideoOverlayError,
 )
 
@@ -39,8 +39,10 @@ def _build_drawtext_filter(text_el: dict, label_in: str, label_out: str) -> str:
     text = text_el.get("text") or ""
     if not text.strip():
         return None
+    # Resolved per call, like video_text_overlay does: the font lives wherever
+    # this machine keeps it (2026-08-28: the fixed Debian path broke every Mac).
     parts = [
-        f"fontfile={_DEFAULT_FONT}",
+        f"fontfile={resolve_font_path()}",
         f"text='{_ffmpeg_escape_text(text)}'",
         f"fontsize={int(text_el.get('fontSize', 48))}",
         f"fontcolor={_validate_color(text_el.get('fontColor', 'white'))}",
