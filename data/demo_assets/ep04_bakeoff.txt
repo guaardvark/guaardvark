@@ -1,0 +1,11 @@
+
+===== gemma4:latest =====
+  red circle     miss pred=(299, 145) gt=(200, 200) err=113.3px
+  blue circle    miss pred=(779, 258) gt=(800, 200) err=61.7px
+  green circle   miss pred=(553, 493) gt=(500, 500) err=53.5px
+  orange circle  miss pred=(284, 765) gt=(200, 800) err=91.0px
+  purple circle  miss pred=(875, 767) gt=(800, 800) err=81.9px
+  -> 5/5 parsed  mean=80.3px  max=113.3px  (40.9s)
+
+===== RANKING (lower mean error = better pointer) =====
+  1. gemma4:latest              mean=80.3px  hits=5/5
