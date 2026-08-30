@@ -126,22 +126,22 @@ Retrieval-Augmented Generation grounds chat responses in your actual documents.
 
 ---
 
-## RAG Autoresearch
+## Overnight research (RAG + code + Auto Improve)
 
-An autonomous optimization loop that continuously improves RAG retrieval quality.
+One director, three hands, one morning report. Default mode is **unified**.
 
-### How It Works
-1. **Eval harness** — generates a mixed eval set (specific / reasoning / multi-hop) and scores with two-fidelity eval: retrieval-only screen, then LLM-as-judge on a subset, then a full-set confirmation
-2. **Experiment agent** — proposes query-time parameter changes via TPE-lite over history, then LLM, then random
-3. **Bounded research run** — Celery task with a wall-clock budget, kill flag, and a morning report; winners stay candidates until a run-end A/B confirmation
-4. **Phase system** — Phase 1 (query-time params). Index-time and embedding phases return when per-experiment re-indexing lands
+### Hands
+1. **Retrieval (RAG Autoresearch)** — two-fidelity eval (retrieval screen → judge subset → full confirmation), TPE-lite then LLM then random, keep bar `0.05` or retrieval-up-without-drop. Candidates activate only after run-end A/B.
+2. **Code-tuning** — swarm arms in isolated worktrees. Fitness is the RAG eval harness plus pytest (preserve-and-extend). Keeps become PendingFixes. **Never auto-merges to main.** Requires Auto Improve enabled and codebase unlocked; skipped (not a failed night) if swarm is down or the lock is on.
+3. **Auto Improve** — analysis-only pytest snapshot at diagnose. Apply is never invoked by the director.
 
-### Features
-- **Celery Beat scheduling** — at most one run per night inside `autoresearch_nightly_window` (opt-in)
-- **Keep bar** — composite delta must meet the confirmation minimum, or retrieval must improve without a composite drop; judge parse failures are dropped from the mean
-- **Crash protection** — 3 consecutive failures automatically stops the loop
-- **Dashboard card + Autoresearch page** — run status, stop, eval-pair regenerate, promotions, ledger download
-- **Settings integration** — proposer/judge models, nightly window, auto-start toggle
+### Allocation
+If query-time params have not plateaued: ~70% wall-clock RAG, 30% code. If plateaued: 30/70. Code half skipped with a reason when lock/SI/swarm block it.
+
+### Surfaces
+- Autoresearch page: Unified / Retrieval / Code, Stop, eval-pair regenerate, promotions, code-keep PendingFixes, ledger TSV
+- Dashboard Play starts a bounded unified run
+- Beat: at most one unified run per night inside `autoresearch_nightly_window` (opt-in)
 
 ---
 
@@ -267,11 +267,12 @@ A ReACT-loop agent that can autonomously work with code and the system.
 
 Guaardvark speaks Model Context Protocol — both as a server (exposing its tools to external clients) and as a client (calling tools from external MCP servers).
 
-### MCP Server (Phase 1)
-- **Stdio transport** — `backend/mcp/` runs an MCP server that any MCP-compatible client (Claude Desktop, Cursor, etc.) can connect to
-- **23 native tools exposed** — covers chat, RAG, file management, image generation, agent control
-- **58 output resources** — file contents, generated images, search results, etc., available via MCP's resource protocol
-- **Tested against Claude Desktop** — works end-to-end
+### MCP Server
+- **Stdio + streamable HTTP transports** — `python -m backend.mcp` (stdio, what clients spawn) or `python -m backend.mcp http` (loopback-only by default; no auth yet)
+- **One-command client setup** — `python -m backend.mcp install` writes the server entry into the configs of detected clients (Cursor, Claude Code, Grok, Claude Desktop, Zed, Gemini); `python -m backend.mcp doctor` self-tests the server and flags stale client configs
+- **43 native tools exposed under the default-deny policy** (of 87 registered) — covers chat, RAG, code intelligence, file management, generation, memory, web; `python -m backend.mcp list-tools` prints the live list
+- **Read-only output resources** — generated files under `data/outputs/` served as `guaardvark://outputs/...` (listing capped at 500 entries)
+- **Verified end-to-end** — smoke tests drive a real initialize/tools-list handshake over stdio
 
 ### MCP Client
 - **`mcp_connect` tool** — register external MCP servers at runtime

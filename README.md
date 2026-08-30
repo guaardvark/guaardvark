@@ -246,9 +246,10 @@ A client's Linux desktop player refused to play a video — the distro was missi
 
 ### Model Context Protocol (MCP)
 
-Guaardvark speaks MCP both ways — exposes its tools to any MCP client (Claude Desktop, Cursor, IDE plugins, etc.) and can call tools from connected external MCP servers.
+Guaardvark speaks MCP both ways — exposes its tools to any MCP client (Claude Code, Cursor, Grok, Claude Desktop, Zed, Gemini, etc.) and can call tools from connected external MCP servers.
 
-- **As a server** — `python -m backend.mcp` (stdio). Strong default-deny policy (see `backend/mcp/config.py`): categories such as `desktop`, `agent_control`, `system`, `browser`, `test_execution`, and `mcp` meta-tools are denied by default. Dozens of safer tools (chat, RAG, files, generation, memory, etc.) plus read-only `guaardvark://outputs/` resources are exposed. Fully tested with Claude Desktop and similar clients.
+- **One-command setup** — `python -m backend.mcp install` detects the agent clients on your machine and writes the `guaardvark` server entry into their configs (existing files are backed up, other entries untouched). `python -m backend.mcp doctor` diagnoses a broken setup: server self-test, a real stdio handshake, and a scan of client configs for stale paths.
+- **As a server** — `python -m backend.mcp` (stdio, the default) or `python -m backend.mcp http` (streamable HTTP on `127.0.0.1:8788/mcp`; loopback-only by default since there is no auth yet). Strong default-deny policy (see `backend/mcp/config.py`): categories such as `desktop`, `agent_control`, `system`, `browser`, `test_execution`, and `mcp` meta-tools are denied by default. Dozens of safer tools (chat, RAG, files, generation, memory, etc.) plus read-only `guaardvark://outputs/` resources are exposed — `python -m backend.mcp list-tools` prints the live list. Verified end-to-end by an initialize/tools-list handshake in the smoke tests.
 - **As a client** — `mcp_connect` / `mcp_execute` + live tool inventory so the chat LLM can discover and use tools from other MCP servers by name.
 - Audit logging, timeouts, and circuit breakers are built in.
 
