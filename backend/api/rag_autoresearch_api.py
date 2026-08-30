@@ -26,7 +26,7 @@ def start_loop():
     if hours is None:
         hours = DEFAULT_START_BUDGET_HOURS
     result = get_research_run_service().kickoff(
-        mode=body.get("mode", "rag_tuning"),
+        mode=body.get("mode") or "unified",
         budget_hours=hours,
         trigger="manual",
     )
@@ -212,6 +212,28 @@ def log_experiment():
     if not body.get("parameter") or body.get("status") not in ("keep", "discard", "crash"):
         return jsonify({"error": "parameter and status(keep|discard|crash) required"}), 400
     import uuid as _uuid
+    from backend.config import AUTORESEARCH_KEEP_MIN_DELTA
+    status = body["status"]
+    source = body.get("source", "code_arm")
+    score = float(body.get("composite_score", 0.0) or 0.0)
+    baseline = float(body.get("baseline_score", 0.0) or 0.0)
+    delta = body.get("delta")
+    if delta is None:
+        delta = round(score - baseline, 4)
+    retr = body.get("retrieval_metrics") if isinstance(body.get("retrieval_metrics"), dict) else {}
+    retr = dict(retr)
+    retr.setdefault("layer", "code" if source == "code_arm" else source)
+    pytest_ok = body.get("pytest_passed", True)
+    if status == "keep" and source in ("code_arm", "heal"):
+        retr_up = (
+            (retr.get("mrr") or 0) > (retr.get("baseline_mrr") or 0)
+            or (retr.get("hit_rate_at_k") or 0) > (retr.get("baseline_hit_rate_at_k") or 0)
+        )
+        if (not pytest_ok) or score < baseline or not (
+            float(delta) >= AUTORESEARCH_KEEP_MIN_DELTA or retr_up
+        ):
+            status = "discard"
+            retr["preserve_and_extend_rejected"] = True
     row = ExperimentRun(
         id=str(_uuid.uuid4()),
         run_tag=body.get("run_tag"),
@@ -220,15 +242,16 @@ def log_experiment():
         old_value=None,
         new_value=str(body.get("new_value", ""))[:500],
         hypothesis=body.get("hypothesis"),
-        composite_score=float(body.get("composite_score", 0.0) or 0.0),
-        baseline_score=float(body.get("baseline_score", 0.0) or 0.0),
-        delta=body.get("delta"),
-        status=body["status"],
-        proposal_source=body.get("source", "code_arm"),
+        composite_score=score,
+        baseline_score=baseline,
+        delta=delta,
+        status=status,
+        proposal_source=source,
+        retrieval_metrics=retr or None,
     )
     db.session.add(row)
     db.session.commit()
-    return jsonify({"status": "logged", "id": row.id}), 201
+    return jsonify({"status": "logged", "id": row.id, "recorded_status": status}), 201
 
 
 @autoresearch_bp.route("/runs", methods=["POST"])
@@ -237,7 +260,7 @@ def create_run():
     from backend.services.research_run_service import get_research_run_service
     body = request.get_json(silent=True) or {}
     result = get_research_run_service().kickoff(
-        mode=body.get("mode", "rag_tuning"),
+        mode=body.get("mode") or "unified",
         budget_hours=body.get("budget_hours"),
         trigger="manual",
     )

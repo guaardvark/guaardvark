@@ -97,7 +97,7 @@ export const ragAutoresearchService = {
   // Kicks off a research run now ("research tonight"). Backend responds 202
   // on success and 409 when a run is already in progress — handleResponse
   // throws on 409 with error.status set, so callers can branch on it.
-  async createRun({ mode = "rag_tuning", budget_hours: budgetHours } = {}) {
+  async createRun({ mode = "unified", budget_hours: budgetHours } = {}) {
     const res = await fetch(`${BASE_URL}/autoresearch/runs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

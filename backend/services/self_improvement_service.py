@@ -191,6 +191,45 @@ class SelfImprovementService:
                 })
         return failures
 
+    def snapshot_pytest(self, timeout: int = 120) -> Dict[str, Any]:
+        """Analysis-only pytest snapshot. Never dispatches fixes or writes files.
+
+        Used by the overnight research director as a preflight signal. Tests
+        red is information, not a license to apply. If a self-check is already
+        running, we skip rather than race it.
+        """
+        if _is_codebase_locked():
+            return {"ok": False, "skipped": True, "reason": "codebase_locked", "red": False}
+        if not _is_self_improvement_enabled():
+            return {"ok": False, "skipped": True, "reason": "self_improvement_disabled", "red": False}
+        if self._running:
+            return {"ok": False, "skipped": True, "reason": "si_already_running", "red": False}
+        root = os.environ.get("GUAARDVARK_ROOT", ".")
+        try:
+            result = subprocess.run(
+                ["python3", "-m", "pytest",
+                 "backend/tests/test_self_improvement.py",
+                 "backend/tests/test_code_tools.py",
+                 "-q", "--tb=no", "--no-header"],
+                capture_output=True, text=True, timeout=timeout, cwd=root,
+                env={**os.environ, "GUAARDVARK_MODE": "test"},
+            )
+        except subprocess.TimeoutExpired:
+            return {"ok": False, "skipped": False, "reason": "pytest_timeout",
+                    "red": True, "failures": -1, "return_code": None}
+        except Exception as e:
+            return {"ok": False, "skipped": False, "reason": f"pytest_error:{e.__class__.__name__}",
+                    "red": False, "failures": 0, "return_code": None}
+        failures = self._parse_test_failures(result.stdout + result.stderr)
+        red = bool(failures) or result.returncode != 0
+        return {
+            "ok": True,
+            "skipped": False,
+            "red": red,
+            "failures": len(failures),
+            "return_code": result.returncode,
+        }
+
     def run_self_check(self) -> Dict[str, Any]:
         """Mode 1: Run test suite, identify failures, dispatch agent to fix."""
         if not self._is_safe_to_run():

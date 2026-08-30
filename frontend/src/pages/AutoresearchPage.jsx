@@ -41,6 +41,7 @@ import remarkGfm from "remark-gfm";
 import { io } from "socket.io-client";
 import { SOCKET_URL } from "../api/apiClient";
 import { ragAutoresearchService } from "../api/ragAutoresearchService";
+import { selfImprovementService } from "../api/selfImprovementService";
 import AlertSnackbar from "../components/common/AlertSnackbar";
 
 const RUN_STATUS_COLORS = {
@@ -92,6 +93,8 @@ const AutoresearchPage = () => {
   const [metrics, setMetrics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [budgetHours, setBudgetHours] = useState(6);
+  const [runMode, setRunMode] = useState("unified");
+  const [codeKeeps, setCodeKeeps] = useState([]);
   const [starting, setStarting] = useState(false);
   const [stopping, setStopping] = useState(false);
   const [status, setStatus] = useState(null);
@@ -146,6 +149,9 @@ const AutoresearchPage = () => {
       setStatus(data);
       if (typeof data.eval_pair_count === "number") {
         setEvalCount(data.eval_pair_count);
+      }
+      if (Array.isArray(data.code_keeps)) {
+        setCodeKeeps(data.code_keeps);
       }
     } catch (e) {
       /* ignore */
@@ -279,6 +285,7 @@ const AutoresearchPage = () => {
     setStarting(true);
     try {
       await ragAutoresearchService.createRun({
+        mode: runMode,
         budget_hours: Number(budgetHours) || 6,
       });
       showMessage("Research run started", "success");
@@ -313,6 +320,21 @@ const AutoresearchPage = () => {
       fetchPromotions();
     } catch (e) {
       showMessage(`Failed to activate: ${e.message}`, "error");
+    }
+  };
+
+  const handleCodeKeep = async (fixId, action) => {
+    try {
+      if (action === "approve") {
+        await selfImprovementService.approveFix(fixId);
+        showMessage("Code keep approved — apply from Settings Pending Fixes", "success");
+      } else {
+        await selfImprovementService.rejectFix(fixId);
+        showMessage("Code keep rejected", "info");
+      }
+      fetchStatus();
+    } catch (e) {
+      showMessage(`Failed to ${action} code keep: ${e.message}`, "error");
     }
   };
 
@@ -366,6 +388,23 @@ const AutoresearchPage = () => {
               Runs a bounded experiment loop against the current RAG config and
               writes a report when it finishes.
             </Typography>
+          </Box>
+          <Box sx={{ display: "flex", gap: 0.5 }}>
+            {[
+              { id: "unified", label: "Unified" },
+              { id: "rag_tuning", label: "Retrieval" },
+              { id: "code_tuning", label: "Code" },
+            ].map((m) => (
+              <Button
+                key={m.id}
+                size="small"
+                variant={runMode === m.id ? "contained" : "outlined"}
+                onClick={() => setRunMode(m.id)}
+                disabled={Boolean(activeRun)}
+              >
+                {m.label}
+              </Button>
+            ))}
           </Box>
           <TextField
             label="Budget (hours)"
@@ -539,6 +578,57 @@ const AutoresearchPage = () => {
           </Box>
         )}
       </Paper>
+
+      {/* --- Code keeps (PendingFixes staged by the director) --- */}
+      {codeKeeps.length > 0 && (
+        <Paper
+          elevation={0}
+          sx={{ p: 2, mb: 3, border: 1, borderColor: "divider" }}
+        >
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            Code keeps
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+            Swarm arms that passed preserve-and-extend. Approve here, then apply
+            from Settings — nothing auto-merges to main.
+          </Typography>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Description</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Created</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {codeKeeps.map((fix) => (
+                  <TableRow key={fix.id}>
+                    <TableCell>{fix.fix_description}</TableCell>
+                    <TableCell>
+                      <Chip label={fix.status} size="small" sx={{ height: 20, fontSize: "0.7rem" }} />
+                    </TableCell>
+                    <TableCell>{formatDate(fix.created_at)}</TableCell>
+                    <TableCell align="right">
+                      {fix.status === "proposed" && (
+                        <>
+                          <Button size="small" onClick={() => handleCodeKeep(fix.id, "approve")}>
+                            Approve
+                          </Button>
+                          <Button size="small" color="warning" onClick={() => handleCodeKeep(fix.id, "reject")}>
+                            Reject
+                          </Button>
+                        </>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      )}
 
       {/* --- Runs --- */}
       <Paper

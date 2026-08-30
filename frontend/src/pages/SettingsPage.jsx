@@ -2946,7 +2946,7 @@ const SettingsPage = () => {
 
           <SettingsCardWrapper title="RAG Autoresearch">
                 <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: "block" }}>
-                  Autonomous RAG optimization — Beat starts at most one bounded research run per night inside the nightly window. Idle threshold is unused.
+                  Overnight research is unified by default: retrieval knobs, then code arms if the RAG search plateaus. Auto Improve apply stays a separate opt-in; the codebase lock still kills the code half. Beat starts at most one run per night.
                 </Typography>
 
                 <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>

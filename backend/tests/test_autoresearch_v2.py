@@ -342,3 +342,95 @@ class TestResearchRunEngine:
             assert st["running"] is True
             assert st["active_run"]["run_tag"] == "t-status"
             assert st["active_run"]["budget_remaining_s"] is not None
+
+
+class TestDirector:
+    def test_allocate_plateaued_majority_code(self):
+        split = ResearchRunService()._allocate(
+            {"code_allowed": True, "rag_plateaued": True}, 1000)
+        assert split["code_s"] >= 500
+        assert split["code_s"] >= split["rag_s"]
+        assert split["code_skip"] is None
+
+    def test_allocate_skips_code_when_not_allowed(self):
+        split = ResearchRunService()._allocate(
+            {"code_allowed": False, "code_skip_reason": "codebase_locked",
+             "rag_plateaued": True}, 1000)
+        assert split["code_s"] == 0
+        assert split["rag_s"] == 1000
+        assert "codebase_locked" in split["code_skip"]
+
+    def test_kickoff_default_mode_is_unified(self):
+        import inspect
+        assert inspect.signature(ResearchRunService.kickoff).parameters["mode"].default == "unified"
+
+    def test_beat_kicks_unified(self):
+        import inspect
+        from backend.tasks import rag_autoresearch_tasks as tasks
+        src = inspect.getsource(tasks.create_autoresearch_tasks)
+        assert 'mode="unified"' in src
+
+    def test_unified_skips_code_when_swarm_down(self, app):
+        with app.app_context():
+            run = ResearchRun(
+                run_tag="t-unified-skip", mode="unified",
+                wall_clock_budget_s=0, status="pending",
+            )
+            db.session.add(run)
+            db.session.commit()
+            svc_run = ResearchRunService()
+            with patch.object(svc_run, "_check_preconditions", return_value=(True, "")), \
+                 patch.object(svc_run, "_diagnose", return_value={
+                     "code_allowed": False, "code_skip_reason": "swarm_unreachable",
+                     "rag_plateaued": False, "tests_red": False,
+                 }), \
+                 patch.object(svc_run, "_run_code_slice") as mock_code, \
+                 patch.object(svc_run, "_confirm_and_activate",
+                              return_value="no candidate configs produced"), \
+                 patch("backend.services.rag_autoresearch_service.get_autoresearch_service"):
+                svc_run.execute_run(run.id)
+            mock_code.assert_not_called()
+            db.session.refresh(run)
+            assert run.status == "completed"
+            assert "code half skipped" in (run.report_md or "")
+            assert "swarm_unreachable" in (run.report_md or "")
+
+    def test_code_keep_rejected_when_rag_drops(self, app):
+        from backend.api.rag_autoresearch_api import autoresearch_bp
+        if "autoresearch" not in app.blueprints:
+            app.register_blueprint(autoresearch_bp)
+        with app.test_client() as client:
+            res = client.post("/api/autoresearch/experiments", json={
+                "parameter": "chunker",
+                "new_value": "smarter dedup",
+                "status": "keep",
+                "source": "code_arm",
+                "composite_score": 2.0,
+                "baseline_score": 3.0,
+                "pytest_passed": True,
+                "run_tag": "t-pne",
+            })
+            assert res.status_code == 201
+            body = res.get_json()
+            assert body["recorded_status"] == "discard"
+
+    def test_snapshot_pytest_does_not_dispatch_fixes(self, app):
+        with app.app_context():
+            from backend.services.self_improvement_service import (
+                get_self_improvement_service,
+            )
+            si = get_self_improvement_service()
+            si._running = False
+            with patch("backend.services.self_improvement_service._is_codebase_locked",
+                       return_value=False), \
+                 patch("backend.services.self_improvement_service._is_self_improvement_enabled",
+                       return_value=True), \
+                 patch("backend.services.self_improvement_service.subprocess.run") as mock_run, \
+                 patch.object(si, "_attempt_fix") as mock_fix, \
+                 patch.object(si, "run_self_check") as mock_check:
+                mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+                out = si.snapshot_pytest()
+            mock_fix.assert_not_called()
+            mock_check.assert_not_called()
+            assert out.get("ok") is True
+            assert out.get("red") is False

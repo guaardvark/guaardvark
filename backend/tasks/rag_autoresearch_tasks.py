@@ -62,7 +62,7 @@ def create_autoresearch_tasks(celery_app):
                         f"({budget_hours:.1f}h budget)")
             from backend.services.research_run_service import get_research_run_service
             get_research_run_service().kickoff(
-                mode="rag_tuning", budget_hours=budget_hours, trigger="nightly"
+                mode="unified", budget_hours=budget_hours, trigger="nightly"
             )
         except Exception as e:
             logger.error(f"Autoresearch nightly check failed: {e}")

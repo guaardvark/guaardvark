@@ -43,21 +43,27 @@ EXECUTE_RUN_SOFT_LIMIT_S = int(MAX_BUDGET_HOURS * 3600) + 1800
 
 PROGRAM_PATH = os.path.join("data", "rag_research_program.md")
 
-DEFAULT_PROGRAM = """# RAG Research Program
+DEFAULT_PROGRAM = """# Research Program
 
 This file is YOURS to edit (the human's). It is snapshotted into every
-research run and shown to the proposer LLM. Use it to direct the search:
-which parameters matter, what you've observed, what to avoid.
+research run and shown to the proposer LLM and to code-tuning arms. Use it
+to direct the search: which parameters matter, what you've observed, what
+to avoid, whether tonight should prefer retrieval knobs or code.
 
 ## Directives
 - Prioritize retrieval quality (hit rate / MRR) over answer style.
 - Prefer simple changes; a small gain that complicates the config is not
   worth it (simplicity criterion).
 - If an experiment class keeps losing, say so here and steer elsewhere.
+- Code arms: one change, measure with the RAG eval harness, never self-score.
 
 ## Notes
 (none yet)
 """
+
+VALID_MODES = ("unified", "rag_tuning", "code_tuning")
+SWARM_POLL_S = 15
+SI_PREFLIGHT_CAP_S = 600  # 10 min — snapshot_pytest is usually far cheaper
 
 
 class ResearchRunService:
@@ -68,16 +74,17 @@ class ResearchRunService:
 
     # ---- kickoff -------------------------------------------------------
 
-    def kickoff(self, mode: str = "rag_tuning", budget_hours: float = None,
+    def kickoff(self, mode: str = "unified", budget_hours: float = None,
                 trigger: str = "manual") -> dict:
-        """Create a ResearchRun row and start executing it in a daemon thread.
+        """Create a ResearchRun row and enqueue the Celery owner task.
 
-        Returns the run dict (status may already be failed_precondition).
-        Caller must be inside an app context; the worker thread gets its own.
+        mode: unified (default) | rag_tuning | code_tuning
         """
         from backend.models import ResearchRun, db
 
         budget_hours = min(float(budget_hours or DEFAULT_BUDGET_HOURS), MAX_BUDGET_HOURS)
+        if mode not in VALID_MODES:
+            mode = "unified"
 
         self._recover_stale_runs()
 
@@ -87,10 +94,11 @@ class ResearchRunService:
         if active is not None:
             return {"error": "A research run is already in progress", "run": active.to_dict()}
 
-        if mode == "code_tuning":
-            # Code arms edit Guaardvark itself — gated on the self-improvement
-            # safety furniture, and delegated to the swarm orchestrator.
-            return self._kickoff_code_tuning(budget_hours, trigger)
+        if mode in ("code_tuning", "unified"):
+            gate = self._code_gate_error()
+            # unified degrades (code half skipped later); code-only refuses.
+            if gate and mode == "code_tuning":
+                return {"error": gate}
 
         run_tag = f"{mode}-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
         run = ResearchRun(
@@ -121,56 +129,162 @@ class ResearchRunService:
             return {"error": run.halt_reason, "run": run.to_dict()}
 
         logger.info(f"Research run {run_tag} kicked off ({trigger}, "
-                    f"budget {budget_hours:.1f}h) via celery")
+                    f"mode {mode}, budget {budget_hours:.1f}h) via celery")
         return {"status": "started", "run": run.to_dict()}
 
-    # ---- code-tuning mode (swarm engine) --------------------------------
+    # ---- director / code-tuning -----------------------------------------
 
-    def _kickoff_code_tuning(self, budget_hours: float, trigger: str) -> dict:
-        """Launch a Karpathy-style code-tuning swarm on a dedicated run branch.
-
-        The swarm orchestrator (plugins/swarm sidecar) runs the arms in
-        isolated worktrees with its pytest merge gate; arms report to the
-        experiment ledger via POST /api/autoresearch/experiments. Merging the
-        run branch to main stays MANUAL — the morning human's job.
-        """
-        from backend.models import ResearchRun, db
-
-        # Safety gates shared with self-improvement: a locked codebase or a
-        # disabled self-improvement toggle also forbids research code arms.
+    def _code_gate_error(self) -> str:
+        """Why the code half cannot run, or empty string if allowed."""
         try:
             from backend.services.self_improvement_service import (
                 _is_codebase_locked, _is_self_improvement_enabled,
             )
             if _is_codebase_locked():
-                return {"error": "codebase_locked — code-tuning runs are forbidden"}
+                return "codebase_locked — code-tuning runs are forbidden"
             if not _is_self_improvement_enabled():
-                return {"error": "self_improvement_disabled — enable it to allow code-tuning runs"}
+                return "self_improvement_disabled — enable it to allow code-tuning runs"
         except ImportError:
-            return {"error": "safety gates unavailable — refusing code-tuning run"}
+            return "safety gates unavailable — refusing code-tuning run"
+        return ""
 
-        run_tag = f"code-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
+    def _swarm_reachable(self) -> bool:
+        try:
+            from backend.api.swarm_api import _proxy_get
+            _data, status = _proxy_get("/swarm/status")
+            return status < 500
+        except Exception:
+            return False
 
-        # Render the plan template with the run tag baked in.
+    def _diagnose(self, svc) -> dict:
+        """Fail-soft probes. Never raises; never applies code."""
+        d = {
+            "rag_plateaued": False,
+            "phase": 1,
+            "plateau_count": 0,
+            "baseline": 0.0,
+            "code_allowed": True,
+            "code_skip_reason": None,
+            "swarm_up": False,
+            "tests_red": False,
+            "pending_fixes": 0,
+        }
+        try:
+            cfg = svc._load_config()
+            d["phase"] = cfg.get("phase", 1)
+            d["plateau_count"] = int(cfg.get("phase_plateau_count") or 0)
+            d["baseline"] = float(cfg.get("baseline_score") or 0.0)
+            d["rag_plateaued"] = (
+                d["plateau_count"] >= AUTORESEARCH_PHASE_PLATEAU_THRESHOLD
+            )
+        except Exception:
+            pass
+        gate = self._code_gate_error()
+        d["swarm_up"] = self._swarm_reachable()
+        if gate:
+            d["code_allowed"] = False
+            d["code_skip_reason"] = gate.split(" — ")[0] if " — " in gate else gate
+        elif not d["swarm_up"]:
+            d["code_allowed"] = False
+            d["code_skip_reason"] = "swarm_unreachable"
+        try:
+            from backend.services.self_improvement_service import (
+                get_self_improvement_service,
+            )
+            snap = get_self_improvement_service().snapshot_pytest()
+            d["pytest"] = {
+                k: snap.get(k) for k in
+                ("ok", "skipped", "reason", "red", "failures", "return_code")
+            }
+            d["tests_red"] = bool(snap.get("red"))
+            d["si_skipped"] = snap.get("skipped")
+        except Exception as e:
+            d["pytest"] = {"ok": False, "reason": e.__class__.__name__}
+        try:
+            from backend.models import PendingFix
+            d["pending_fixes"] = PendingFix.query.filter_by(status="proposed").count()
+        except Exception:
+            pass
+        return d
+
+    def _allocate(self, diagnose: dict, budget_s: int) -> dict:
+        """Split wall-clock. 70/30 unless RAG is plateaued (then 30/70).
+
+        Measured against AUTORESEARCH_PHASE_PLATEAU_THRESHOLD consecutive
+        discards (the 2026-08 overnight plateau) and swarm's RAM freeze-guard:
+        if the code half cannot run, 100% of remaining budget stays on RAG.
+        """
+        si_preflight_s = 0
+        remaining = max(0, int(budget_s))
+        if not diagnose.get("code_allowed"):
+            return {
+                "rag_s": remaining, "code_s": 0,
+                "si_preflight_s": si_preflight_s,
+                "code_skip": diagnose.get("code_skip_reason") or "code_not_allowed",
+            }
+        if diagnose.get("rag_plateaued"):
+            rag_frac, code_frac = 0.30, 0.70
+        else:
+            rag_frac, code_frac = 0.70, 0.30
+        rag_s = int(remaining * rag_frac)
+        code_s = max(0, remaining - rag_s)
+        return {
+            "rag_s": rag_s, "code_s": code_s,
+            "si_preflight_s": si_preflight_s,
+            "code_skip": None,
+        }
+
+    def _meta(self, run) -> dict:
+        p = run.promotions
+        return dict(p) if isinstance(p, dict) else {"candidate_ids": list(p or [])}
+
+    def _save_meta(self, run, meta: dict) -> None:
+        from backend.models import db
+        run.promotions = meta
+        db.session.commit()
+
+    def _log_heal_row(self, run, diagnose: dict) -> None:
+        try:
+            from backend.models import ExperimentRun, db
+            pytest_info = diagnose.get("pytest") or {}
+            row = ExperimentRun(
+                id=str(uuid.uuid4()),
+                run_tag=run.run_tag,
+                phase=0,
+                parameter_changed="pytest_snapshot",
+                old_value=None,
+                new_value=f"failures={pytest_info.get('failures')}",
+                hypothesis="SI analysis-only preflight (apply not invoked)",
+                composite_score=0.0,
+                baseline_score=run.baseline_score or 0.0,
+                delta=0.0,
+                status="discard" if diagnose.get("tests_red") else "keep",
+                proposal_source="heal",
+                retrieval_metrics={"layer": "heal", "pytest": pytest_info},
+            )
+            db.session.add(row)
+            db.session.commit()
+        except Exception:
+            logger.debug("heal ledger row skipped", exc_info=True)
+
+    def _launch_code_swarm(self, run_tag: str, diagnosis_text: str = "") -> dict:
         root = os.environ.get("GUAARDVARK_ROOT", "")
         template_path = os.path.join(
             root, "plugins", "swarm", "templates", "autoresearch-code-tuning.md"
         )
         try:
             with open(template_path, "r") as f:
-                plan = f.read().replace("{RUN_TAG}", run_tag)
+                plan = f.read()
         except FileNotFoundError:
             return {"error": f"plan template missing: {template_path}"}
-
-        # The sidecar consumes a plan FILE; render this run's plan to disk.
+        plan = (plan
+                .replace("{RUN_TAG}", run_tag)
+                .replace("{DIAGNOSIS}", diagnosis_text or "(no diagnosis)"))
         plan_dir = os.path.join(root, "data", "autoresearch", "plans")
         os.makedirs(plan_dir, exist_ok=True)
         plan_path = os.path.join(plan_dir, f"{run_tag}.md")
         with open(plan_path, "w") as f:
             f.write(plan)
-
-        # Launch through the swarm sidecar (same internal-token proxy the
-        # /api/swarm routes use). Offline → clean refusal, not a broken run.
         try:
             from backend.api.swarm_api import _proxy_post
             data, status = _proxy_post("/swarm/launch", json_data={
@@ -183,22 +297,95 @@ class ResearchRunService:
                 return {"error": f"swarm launch failed (HTTP {status}): {data}"}
         except Exception as e:
             return {"error": f"swarm sidecar unreachable: {e}"}
+        inner = data.get("data") if isinstance(data.get("data"), dict) else data
+        swarm_id = inner.get("swarm_id") or inner.get("id") or data.get("swarm_id")
+        return {"swarm_id": swarm_id, "plan": plan}
 
-        run = ResearchRun(
-            id=str(uuid.uuid4()),
-            run_tag=run_tag,
-            mode="code_tuning",
-            status="running",
-            started_at=datetime.utcnow(),
-            wall_clock_budget_s=int((budget_hours or DEFAULT_BUDGET_HOURS) * 3600),
-            program_snapshot=plan,
-            promotions={"swarm_id": data.get("swarm_id") or data.get("id")},
+    def _wait_swarm(self, swarm_id: str, deadline: float) -> str:
+        if not swarm_id:
+            return "no_swarm_id"
+        try:
+            from backend.api.swarm_api import _proxy_get
+        except Exception:
+            return "swarm_unreachable"
+        while time.time() < deadline:
+            if self._kill_requested():
+                return "killed"
+            try:
+                data, status = _proxy_get(f"/swarm/status/{swarm_id}")
+            except Exception:
+                time.sleep(SWARM_POLL_S)
+                continue
+            payload = data.get("data") if isinstance(data, dict) else None
+            if not isinstance(payload, dict):
+                payload = data if isinstance(data, dict) else {}
+            st = (payload.get("status") or "").lower()
+            if st in ("completed", "done", "failed", "stopped", "error"):
+                return st or "completed"
+            if status == 404:
+                return "completed"
+            time.sleep(SWARM_POLL_S)
+        return "budget_exhausted"
+
+    def _stage_code_keeps(self, run) -> list:
+        """Copy keep code-arms into PendingFix — human apply, never auto-merge."""
+        from backend.models import ExperimentRun, PendingFix, db
+        keeps = (
+            ExperimentRun.query
+            .filter_by(run_tag=run.run_tag, status="keep", proposal_source="code_arm")
+            .all()
         )
-        db.session.add(run)
-        db.session.commit()
-        logger.info(f"Code-tuning run {run_tag} launched on swarm "
-                    f"{run.promotions.get('swarm_id')} ({trigger})")
-        return {"status": "started", "run": run.to_dict()}
+        ids = []
+        for k in keeps:
+            diff = (
+                f"autoresearch code keep ({run.run_tag})\n"
+                f"parameter: {k.parameter_changed}\n"
+                f"change: {k.new_value}\n"
+                f"score: {k.composite_score} (baseline {k.baseline_score}, "
+                f"delta {k.delta})\n"
+                f"hypothesis: {k.hypothesis}\n"
+                f"Review the run branch; do not apply until the diff is real.\n"
+            )
+            pf = PendingFix(
+                file_path="(code-tuning arm — see swarm worktree / run branch)",
+                proposed_diff=diff,
+                original_content="",
+                proposed_new_content="",
+                fix_description=f"[autoresearch {run.run_tag}] {k.parameter_changed}",
+                severity="medium",
+                status="proposed",
+            )
+            db.session.add(pf)
+            db.session.flush()
+            ids.append(pf.id)
+        if ids:
+            db.session.commit()
+        return ids
+
+    def _run_code_slice(self, run, budget_s: int, diagnose: dict) -> str:
+        if budget_s <= 0:
+            return "code slice skipped (zero budget)"
+        diagnosis_text = (
+            f"RAG plateaued={diagnose.get('rag_plateaued')} "
+            f"phase={diagnose.get('phase')} "
+            f"plateau_count={diagnose.get('plateau_count')} "
+            f"baseline={diagnose.get('baseline')} "
+            f"tests_red={diagnose.get('tests_red')} "
+            f"pending_fixes={diagnose.get('pending_fixes')}"
+        )
+        launched = self._launch_code_swarm(run.run_tag, diagnosis_text)
+        if launched.get("error"):
+            return f"code slice skipped: {launched['error']}"
+        swarm_id = launched.get("swarm_id")
+        meta = self._meta(run)
+        meta["swarm_id"] = swarm_id
+        self._save_meta(run, meta)
+        halt = self._wait_swarm(swarm_id, time.time() + budget_s)
+        staged = self._stage_code_keeps(run)
+        meta = self._meta(run)
+        meta["pending_fix_ids"] = staged
+        self._save_meta(run, meta)
+        return f"swarm {swarm_id} halt={halt}; staged {len(staged)} PendingFix(es)"
 
     # ---- execution -----------------------------------------------------
 
@@ -211,6 +398,7 @@ class ResearchRunService:
             logger.error(f"Research run {run_id} vanished before start")
             return
         svc = get_autoresearch_service()
+        mode = run.mode or "rag_tuning"
 
         ok, reason = self._check_preconditions(svc)
         if not ok:
@@ -229,18 +417,91 @@ class ResearchRunService:
         self._running_run_id = run_id
 
         t0 = time.time()
-        # `is not None`, not `or`: a 0-second budget must mean "exhaust
-        # immediately", not "fall back to the 6-hour default".
         budget = run.wall_clock_budget_s if run.wall_clock_budget_s is not None \
             else int(DEFAULT_BUDGET_HOURS * 3600)
+
+        diagnose = {}
+        split = {"rag_s": budget, "code_s": 0, "code_skip": None}
+        if mode in ("unified", "code_tuning"):
+            diagnose = self._diagnose(svc)
+            if mode == "code_tuning":
+                split = {
+                    "rag_s": 0,
+                    "code_s": budget,
+                    "code_skip": None if diagnose.get("code_allowed")
+                    else diagnose.get("code_skip_reason"),
+                }
+            else:
+                split = self._allocate(diagnose, budget)
+            meta = self._meta(run)
+            meta["diagnose"] = diagnose
+            meta["split"] = split
+            self._save_meta(run, meta)
+            if diagnose.get("tests_red") or diagnose.get("pytest"):
+                self._log_heal_row(run, diagnose)
+
+        ledger = []
+        candidate_ids = []
+        halt_reason = "budget_exhausted"
+        status_at_end = "completed"
+        code_note = None
+        promotion_note = None
+
+        if split.get("rag_s", 0) > 0 and mode != "code_tuning":
+            ledger, candidate_ids, halt_reason, status_at_end = self._run_rag_slice(
+                run, svc, t0, split["rag_s"],
+            )
+            if status_at_end == "failed_precondition":
+                self._running_run_id = None
+                return
+
+        remaining = budget - (time.time() - t0)
+        if (mode in ("unified", "code_tuning")
+                and not split.get("code_skip")
+                and remaining > 0
+                and diagnose.get("code_allowed")):
+            code_budget = min(int(split.get("code_s") or 0), max(0, int(remaining)))
+            try:
+                code_note = self._run_code_slice(run, code_budget, diagnose)
+            except Exception as e:
+                code_note = f"code slice failed: {e}"
+                logger.warning(f"Run {run.run_tag} code slice failed: {e}")
+        elif split.get("code_skip"):
+            code_note = f"code half skipped: {split['code_skip']}"
+
+        if status_at_end == "completed" or halt_reason in (
+            "budget_exhausted", "plateaued",
+        ):
+            try:
+                promotion_note = self._confirm_and_activate(
+                    svc, run, candidate_ids=candidate_ids,
+                )
+            except Exception as e:
+                promotion_note = f"confirmation failed: {e}"
+                logger.warning(f"Run {run.run_tag} confirmation failed: {e}")
+
+        notes = [n for n in (promotion_note, code_note) if n]
+        run.status = status_at_end
+        run.halt_reason = halt_reason
+        run.ended_at = datetime.utcnow()
+        run.report_md = self._write_report(
+            run, ledger, promotion_note="; ".join(notes) if notes else None,
+        )
+        db.session.commit()
+        self._running_run_id = None
+        self._emit_run_complete(run)
+        logger.info(f"Research run {run.run_tag} finished: {halt_reason}, "
+                    f"{len(ledger)} experiments")
+
+    def _run_rag_slice(self, run, svc, t0, budget_s):
+        from backend.models import db
+
         ledger = []
         candidate_ids = []
         crash_streak = 0
         halt_reason = "budget_exhausted"
         status_at_end = "completed"
 
-        # Baseline: first measurement of the run, against current params
-        # (Karpathy: "your very first run should always be the baseline").
         cfg = svc._load_config()
         baseline = cfg.get("baseline_score") or 0.0
         if cfg.get("avg_pair_seconds") and not getattr(svc.eval_harness, "avg_pair_seconds", None):
@@ -260,13 +521,13 @@ class ResearchRunService:
                 run.report_md = self._write_report(run, [], precondition_failure=run.halt_reason)
                 db.session.commit()
                 self._emit_run_complete(run)
-                return
+                return [], [], "baseline_eval_failed", "failed_precondition"
         run.baseline_score = baseline
         db.session.commit()
 
         while True:
             elapsed = time.time() - t0
-            if elapsed >= budget:
+            if elapsed >= budget_s:
                 halt_reason = "budget_exhausted"
                 break
             if len(ledger) >= HARD_ITERATION_CAP:
@@ -277,8 +538,6 @@ class ResearchRunService:
                 status_at_end = "killed"
                 break
 
-            # GPU politeness: sleep (counted against the budget) while the
-            # user's generation workload owns the card.
             try:
                 from backend.utils.gpu_check import gpu_busy
                 if gpu_busy():
@@ -290,11 +549,17 @@ class ResearchRunService:
 
             result = svc.run_single_experiment(run_tag=run.run_tag,
                                                promote_mode="candidate")
+            if isinstance(result.get("retrieval_metrics"), dict):
+                result["retrieval_metrics"].setdefault("layer", "params")
+            elif result.get("retrieval_metrics") is None:
+                result["retrieval_metrics"] = {"layer": "params"}
             ledger.append(result)
             if result.get("config_id"):
                 candidate_ids.append(result["config_id"])
             run.experiments_completed = len(ledger)
-            run.promotions = list(candidate_ids)
+            meta = self._meta(run)
+            meta["candidate_ids"] = list(candidate_ids)
+            run.promotions = meta
             best = max((float(r.get("composite_score") or 0.0) for r in ledger), default=0.0)
             run.best_score = max(best, baseline)
             db.session.commit()
@@ -308,7 +573,6 @@ class ResearchRunService:
             else:
                 crash_streak = 0
 
-            # Terminal plateau: nothing left to explore in the last phase.
             cfg = svc._load_config()
             from backend.services.rag_experiment_agent import MAX_PHASE
             if (result.get("status") == "discard"
@@ -319,26 +583,7 @@ class ResearchRunService:
 
             time.sleep(AUTORESEARCH_MIN_EXPERIMENT_INTERVAL)
 
-        # Run-end: confirm the best candidate config (if any) before it goes live.
-        promotion_note = None
-        if status_at_end == "completed" or halt_reason == "budget_exhausted":
-            try:
-                promotion_note = self._confirm_and_activate(
-                    svc, run, candidate_ids=candidate_ids,
-                )
-            except Exception as e:
-                promotion_note = f"confirmation failed: {e}"
-                logger.warning(f"Run {run.run_tag} confirmation failed: {e}")
-
-        run.status = status_at_end
-        run.halt_reason = halt_reason
-        run.ended_at = datetime.utcnow()
-        run.report_md = self._write_report(run, ledger, promotion_note=promotion_note)
-        db.session.commit()
-        self._running_run_id = None
-        self._emit_run_complete(run)
-        logger.info(f"Research run {run.run_tag} finished: {halt_reason}, "
-                    f"{len(ledger)} experiments")
+        return ledger, candidate_ids, halt_reason, status_at_end
 
     # ---- confirmation (B5) --------------------------------------------
 
@@ -355,6 +600,9 @@ class ResearchRunService:
         ids = list(candidate_ids or [])
         if not ids and isinstance(run.promotions, list):
             ids = [x for x in run.promotions if isinstance(x, str)]
+        if not ids and isinstance(run.promotions, dict):
+            ids = [x for x in (run.promotions.get("candidate_ids") or [])
+                   if isinstance(x, str)]
         q = ResearchConfig.query.filter_by(status="candidate")
         if ids:
             q = q.filter(ResearchConfig.id.in_(ids))
@@ -565,11 +813,27 @@ class ResearchRunService:
             ]
             return "\n".join(lines)
 
+        try:
+            from backend.models import ExperimentRun
+            extra = ExperimentRun.query.filter_by(run_tag=run.run_tag).all()
+            seen = {r.get("experiment_id") or r.get("id") for r in ledger}
+            merged = list(ledger)
+            for row in extra:
+                if row.id not in seen:
+                    d = row.to_dict()
+                    d["parameter"] = d.get("parameter_changed")
+                    merged.append(d)
+            ledger = merged
+        except Exception:
+            pass
+
         keeps = [r for r in ledger if r.get("status") == "keep"]
         discards = [r for r in ledger if r.get("status") == "discard"]
         crashes = [r for r in ledger if r.get("status") == "crash"]
         llm_props = [r for r in ledger if r.get("proposal_source") == "llm"]
         tpe_props = [r for r in ledger if r.get("proposal_source") == "tpe"]
+        code_props = [r for r in ledger if r.get("proposal_source") == "code_arm"]
+        heal_props = [r for r in ledger if r.get("proposal_source") == "heal"]
         f0 = [r for r in ledger if r.get("fidelity") == 0]
 
         best = run.best_score or 0.0
@@ -578,11 +842,33 @@ class ResearchRunService:
             f"**Headline**: baseline {base:.3f} → best {best:.3f} "
             f"({'+' if best >= base else ''}{best - base:.3f}) over "
             f"{len(ledger)} experiments ({len(keeps)} keep / {len(discards)} discard / "
-            f"{len(crashes)} crash). Halt: `{run.halt_reason}`.",
+            f"{len(crashes)} crash; {len(code_props)} code-arm / {len(heal_props)} heal). "
+            f"Halt: `{run.halt_reason}`.",
             "",
             f"**Promotion**: {promotion_note or 'n/a'}",
             "",
         ]
+
+        meta = self._meta(run) if run is not None else {}
+        diagnose = meta.get("diagnose") or {}
+        split = meta.get("split") or {}
+        if diagnose or split:
+            skip = split.get("code_skip")
+            lines += [
+                "**Director**:",
+                f"- mode `{run.mode}`",
+                f"- RAG plateaued: {diagnose.get('rag_plateaued')} "
+                f"(phase {diagnose.get('phase')}, "
+                f"discards {diagnose.get('plateau_count')})",
+                f"- budget split: RAG {split.get('rag_s', '—')}s / "
+                f"code {split.get('code_s', '—')}s"
+                + (f" — code skipped `{skip}`" if skip else ""),
+                f"- pytest red: {diagnose.get('tests_red')} "
+                f"(apply not invoked)",
+                f"- swarm: {meta.get('swarm_id') or 'n/a'}; "
+                f"PendingFixes staged: {len(meta.get('pending_fix_ids') or [])}",
+                "",
+            ]
 
         if ledger:
             n = len(ledger)

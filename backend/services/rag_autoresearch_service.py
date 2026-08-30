@@ -695,6 +695,22 @@ class RAGAutoresearchService:
             )
         except Exception:
             pass
+        code_keeps = []
+        try:
+            from backend.models import PendingFix
+            rows = (
+                PendingFix.query
+                .filter(PendingFix.status.in_(("proposed", "approved")))
+                .order_by(PendingFix.created_at.desc())
+                .limit(20)
+                .all()
+            )
+            code_keeps = [
+                r.to_dict() for r in rows
+                if (r.fix_description or "").startswith("[autoresearch")
+            ]
+        except Exception:
+            pass
         running = bool(self._running or active_run)
         return {
             "running": running,
@@ -707,6 +723,7 @@ class RAGAutoresearchService:
             "total_experiments": self._count_experiments(),
             "total_improvements": self._count_improvements(),
             "active_run": active_run,
+            "code_keeps": code_keeps,
             "eval_pair_count": eval_pair_count,
         }
 
