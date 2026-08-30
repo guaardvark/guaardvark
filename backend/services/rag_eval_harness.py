@@ -21,6 +21,10 @@ from backend.config import (
     AUTORESEARCH_STALENESS_SAMPLE_RATE,
     AUTORESEARCH_STALENESS_THRESHOLD,
 )
+
+# A document below this many characters of extracted text cannot yield an
+# eval chunk; it is not corpus, whatever its row count says.
+EVAL_MIN_TEXT_CHARS = 50
 from backend.services.rag_experiment_agent import _extract_json
 
 logger = logging.getLogger(__name__)
@@ -190,11 +194,23 @@ class RAGEvalHarness:
         except Exception as e:
             raise LLMUnavailableError(f"LLM call failed for role '{role}': {e}") from e
 
-    def has_sufficient_corpus(self) -> bool:
-        """Check if enough documents are indexed for meaningful eval."""
+    def text_document_count(self) -> int:
+        """Documents that carry enough extracted text to yield an eval chunk.
+
+        Images, audio and unextracted binaries sit in the same table with an
+        empty `content`; counting them made a folder of 26 PNGs look like a
+        corpus (2026-08-29) and the run failed later with "no eval pairs".
+        """
         from backend.models import Document, db
-        count = db.session.query(Document).count()
-        return count >= AUTORESEARCH_MIN_CORPUS_SIZE
+        from sqlalchemy import func
+        return db.session.query(Document).filter(
+            Document.content.isnot(None),
+            func.length(Document.content) >= EVAL_MIN_TEXT_CHARS,
+        ).count()
+
+    def has_sufficient_corpus(self) -> bool:
+        """Enough TEXT documents are indexed for a meaningful eval set."""
+        return self.text_document_count() >= AUTORESEARCH_MIN_CORPUS_SIZE
 
     def _chunk_document(self, doc) -> list:
         """Chunk a Document the same way indexing does (EnhancedRAGChunker,
@@ -206,7 +222,7 @@ class RAGEvalHarness:
         retrieved chunk's hash — retrieval metrics scored a structural zero.
         """
         text = getattr(doc, "content", None) or ""
-        if len(text.strip()) < 50:
+        if len(text.strip()) < EVAL_MIN_TEXT_CHARS:
             return []
         try:
             from llama_index.core import Document as LlamaDocument
@@ -276,12 +292,13 @@ class RAGEvalHarness:
         from backend.models import Document
         import random
 
-        documents = Document.query.all()
-        if len(documents) < AUTORESEARCH_MIN_CORPUS_SIZE:
+        n_text = self.text_document_count()
+        if n_text < AUTORESEARCH_MIN_CORPUS_SIZE:
             logger.warning(
-                f"Insufficient corpus: {len(documents)} docs < {AUTORESEARCH_MIN_CORPUS_SIZE} minimum"
+                f"Insufficient corpus: {n_text} text docs < {AUTORESEARCH_MIN_CORPUS_SIZE} minimum"
             )
             return []
+        documents = Document.query.all()
 
         sampled = random.sample(documents, min(len(documents), target_count * 3))
         generation_id = f"gen-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"

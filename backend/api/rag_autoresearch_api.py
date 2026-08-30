@@ -121,7 +121,14 @@ def regenerate_eval_pairs():
     except LLMUnavailableError as e:
         return jsonify({"error": str(e)}), 503
     if not pairs:
-        return jsonify({"error": "No pairs generated — is the corpus indexed?"}), 400
+        from backend.config import AUTORESEARCH_MIN_CORPUS_SIZE
+        n_text = svc.eval_harness.text_document_count()
+        if n_text < AUTORESEARCH_MIN_CORPUS_SIZE:
+            return jsonify({"error": (
+                f"Only {n_text} indexed documents carry text; autoresearch needs "
+                f"{AUTORESEARCH_MIN_CORPUS_SIZE}. Images, audio and unextracted "
+                f"files do not count — index some documents first.")}), 400
+        return jsonify({"error": "No pairs generated — the LLM returned nothing usable for any document"}), 400
     # Regeneration REPLACES the active set: deactivate the old generation so
     # eval cost doesn't compound with every regenerate.
     EvalPair.query.filter(EvalPair.is_active.isnot(False)).update(

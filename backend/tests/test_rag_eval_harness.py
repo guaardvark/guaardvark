@@ -50,6 +50,24 @@ class TestEvalPairGeneration:
             harness = RAGEvalHarness()
             assert harness.has_sufficient_corpus() is False  # empty DB
 
+    def test_documents_without_text_are_not_corpus(self, app):
+        """A folder of images meets the row count and still is not a corpus."""
+        from backend.models import Document
+        from backend.config import AUTORESEARCH_MIN_CORPUS_SIZE
+        with app.app_context():
+            for i in range(AUTORESEARCH_MIN_CORPUS_SIZE + 5):
+                db.session.add(Document(filename=f"img_{i}.png", path=f"/x/img_{i}.png", content=None))
+            db.session.commit()
+            harness = RAGEvalHarness()
+            assert harness.text_document_count() == 0
+            assert harness.has_sufficient_corpus() is False
+            for i in range(AUTORESEARCH_MIN_CORPUS_SIZE):
+                db.session.add(Document(filename=f"doc_{i}.md", path=f"/x/doc_{i}.md",
+                                        content="A paragraph of real text. " * 10))
+            db.session.commit()
+            assert harness.text_document_count() == AUTORESEARCH_MIN_CORPUS_SIZE
+            assert harness.has_sufficient_corpus() is True
+
 
 class TestLLMJudge:
     def test_score_response_returns_composite(self):
