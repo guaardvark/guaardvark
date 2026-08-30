@@ -1830,7 +1830,9 @@ class PendingFix(db.Model):
         return {
             "id": self.id,
             "run_id": self.run_id,
-            "file_path": self.file_path,
+            # Repo-relative for display: the absolute path names the machine
+            # and the account, and the Settings dialog is on camera in Ep 11.
+            "file_path": self.display_path(),
             "proposed_diff": self.proposed_diff,
             "fix_description": self.fix_description,
             "severity": self.severity,
@@ -1841,6 +1843,20 @@ class PendingFix(db.Model):
             "reviewed_at": self.reviewed_at.isoformat() if self.reviewed_at else None,
             "applied_at": self.applied_at.isoformat() if self.applied_at else None,
         }
+
+    def display_path(self) -> str:
+        """The stored path relative to the repo root when it lies inside it."""
+        path = self.file_path or ""
+        try:
+            import os
+            from backend import config
+            root = os.path.realpath(str(config.GUAARDVARK_ROOT))
+            real = os.path.realpath(path)
+            if real == root or real.startswith(root + os.sep):
+                return os.path.relpath(real, root)
+        except Exception:
+            pass
+        return path
 
 
 # --- WordPress Integration Models ---

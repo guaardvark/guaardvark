@@ -106,3 +106,14 @@ class TestDirectedRunHonesty:
         run = SelfImprovementRun.query.order_by(SelfImprovementRun.id.desc()).first()
         assert run.status == "success"
         assert json.loads(run.changes_made)[0]["pending_fix_id"] == result["pending_fix_ids"][0]
+
+
+class TestPendingFixDisplayPath:
+    def test_to_dict_path_is_repo_relative(self, tmp_path):
+        from backend.models import PendingFix
+        from backend import config
+        with patch.object(config, "GUAARDVARK_ROOT", str(tmp_path)):
+            inside = PendingFix(file_path=str(tmp_path / "backend" / "x.py"), proposed_diff="", status="proposed")
+            outside = PendingFix(file_path="/elsewhere/y.py", proposed_diff="", status="proposed")
+            assert inside.to_dict()["file_path"] == "backend/x.py"
+            assert outside.to_dict()["file_path"] == "/elsewhere/y.py"
