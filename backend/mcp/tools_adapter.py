@@ -6,6 +6,10 @@ Walks the in-process ``ToolRegistry``, filters through the configured policy
 dispatches ``tools/call`` back through the tool registry — routed through
 the existing ``ToolExecutionGuard`` so MCP callers share the same circuit
 breaker as the in-process ReACT loop.
+
+Targets the mcp 2.x SDK: handlers are built here and passed to the
+``Server`` constructor (``on_list_tools`` / ``on_call_tool``) rather than
+registered via the removed v1 decorator API.
 """
 
 from __future__ import annotations
@@ -107,13 +111,13 @@ def collect_exposed_tools(config: MCPConfig) -> list[tuple[BaseTool, mcp_types.T
 
         annotations = mcp_types.ToolAnnotations(
             title=tool.name,
-            readOnlyHint=(category in {"web", "knowledge", "memory"} and not tool.is_dangerous) or None,
-            destructiveHint=bool(tool.is_dangerous) or None,
+            read_only_hint=(category in {"web", "knowledge", "memory"} and not tool.is_dangerous) or None,
+            destructive_hint=bool(tool.is_dangerous) or None,
         )
         mcp_tool = mcp_types.Tool(
             name=tool.name,
             description=(tool.description or "").strip() or tool.name,
-            inputSchema=_tool_input_schema(tool),
+            input_schema=_tool_input_schema(tool),
             annotations=annotations,
         )
         out.append((tool, mcp_tool))
@@ -131,10 +135,17 @@ def _content_blocks_from_result(result: Any) -> list[mcp_types.ContentBlock]:
     return [mcp_types.TextContent(type="text", text=str(result))]
 
 
-def register_tools(server: Any, config: MCPConfig) -> int:
+def _error_result(text: str) -> mcp_types.CallToolResult:
+    return mcp_types.CallToolResult(
+        content=[mcp_types.TextContent(type="text", text=text)],
+        is_error=True,
+    )
+
+
+def build_tool_handlers(config: MCPConfig) -> tuple[Any, Any, int]:
     """
-    Wire list_tools + call_tool handlers on the low-level Server. Returns the
-    number of tools currently exposed (useful for the smoke test banner).
+    Build the ``on_list_tools`` / ``on_call_tool`` handlers for the mcp 2.x
+    ``Server`` constructor. Returns (on_list_tools, on_call_tool, tool_count).
     """
     exposed = collect_exposed_tools(config)
     by_name = {mcp_tool.name: (base_tool, mcp_tool) for base_tool, mcp_tool in exposed}
@@ -144,27 +155,32 @@ def register_tools(server: Any, config: MCPConfig) -> int:
     # iteration field carries call order within the session instead.
     call_seq = count(1)
 
-    @server.list_tools()
-    async def _list_tools() -> list[mcp_types.Tool]:
-        return [mcp_tool for _base, mcp_tool in by_name.values()]
+    async def on_list_tools(
+        _ctx: Any,
+        _params: mcp_types.PaginatedRequestParams | None,
+    ) -> mcp_types.ListToolsResult:
+        return mcp_types.ListToolsResult(
+            tools=[mcp_tool for _base, mcp_tool in by_name.values()],
+        )
 
-    @server.call_tool()
-    async def _call_tool(name: str, arguments: dict[str, Any]):
+    async def on_call_tool(
+        _ctx: Any,
+        params: mcp_types.CallToolRequestParams,
+    ) -> mcp_types.CallToolResult:
+        name = params.name
+        arguments = params.arguments or {}
         with audit_call(method="tools/call", target=name) as rec:
-            rec["bytes_in"] = len(json.dumps(arguments or {}, default=str))
+            rec["bytes_in"] = len(json.dumps(arguments, default=str))
 
             pair = by_name.get(name)
             if pair is None:
                 rec["outcome"] = "error"
                 rec["error_code"] = "tool_not_exposed"
-                return [mcp_types.TextContent(
-                    type="text",
-                    text=f"Tool '{name}' is not exposed by this MCP server.",
-                )]
+                return _error_result(f"Tool '{name}' is not exposed by this MCP server.")
 
             base_tool, _ = pair
 
-            ok, guard_reason = guard.check_call(name, arguments or {})
+            ok, guard_reason = guard.check_call(name, arguments)
             if not ok:
                 rec["outcome"] = "error"
                 rec["error_code"] = "guard_blocked"
@@ -172,35 +188,33 @@ def register_tools(server: Any, config: MCPConfig) -> int:
                 msg = f"Blocked by execution guard: {guard_reason}"
                 if suggestion:
                     msg += f"\nSuggestion: {suggestion}"
-                return [mcp_types.TextContent(type="text", text=msg)]
+                return _error_result(msg)
 
             try:
-                tool_result = base_tool.execute(**(arguments or {}))
+                tool_result = base_tool.execute(**arguments)
             except Exception as exc:
                 guard.record_result(
-                    name, arguments or {}, success=False, error=str(exc),
+                    name, arguments, success=False, error=str(exc),
                     iteration=next(call_seq),
                 )
                 rec["outcome"] = "error"
                 rec["error_code"] = exc.__class__.__name__
-                return [mcp_types.TextContent(
-                    type="text",
-                    text=f"Tool raised {exc.__class__.__name__}: {exc}",
-                )]
+                return _error_result(f"Tool raised {exc.__class__.__name__}: {exc}")
 
+            success = bool(getattr(tool_result, "success", True))
             guard.record_result(
                 name,
-                arguments or {},
-                success=bool(getattr(tool_result, "success", True)),
+                arguments,
+                success=success,
                 error=getattr(tool_result, "error", None),
                 iteration=next(call_seq),
             )
-            if not getattr(tool_result, "success", True):
+            if not success:
                 rec["outcome"] = "error"
                 rec["error_code"] = "tool_failed"
 
             blocks = _content_blocks_from_result(getattr(tool_result, "output", tool_result))
             rec["bytes_out"] = sum(len(getattr(b, "text", "")) for b in blocks)
-            return blocks
+            return mcp_types.CallToolResult(content=blocks, is_error=not success)
 
-    return len(by_name)
+    return on_list_tools, on_call_tool, len(by_name)

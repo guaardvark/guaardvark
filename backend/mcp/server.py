@@ -19,8 +19,8 @@ from mcp.server.lowlevel import Server
 
 from backend.mcp import MCP_NAME, MCP_TITLE, get_version
 from backend.mcp.config import MCPConfig, load_config
-from backend.mcp.resources_adapter import register_resources
-from backend.mcp.tools_adapter import register_tools
+from backend.mcp.resources_adapter import build_resource_handlers
+from backend.mcp.tools_adapter import build_tool_handlers
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +47,10 @@ def build_server(config: MCPConfig | None = None) -> tuple[Server, dict[str, int
 
     _ensure_tools_initialized()
 
+    # mcp 2.x: handlers are constructor arguments, not decorators.
+    on_list_tools, on_call_tool, tool_count = build_tool_handlers(cfg)
+    on_list_resources, on_read_resource, resource_count = build_resource_handlers(cfg)
+
     server: Server = Server(
         name=MCP_NAME,
         version=version,
@@ -55,10 +59,11 @@ def build_server(config: MCPConfig | None = None) -> tuple[Server, dict[str, int
             "memory, and web tools plus generated outputs as MCP resources."
         ),
         website_url="https://guaardvark.com",
+        on_list_tools=on_list_tools,
+        on_call_tool=on_call_tool,
+        on_list_resources=on_list_resources,
+        on_read_resource=on_read_resource,
     )
-
-    tool_count = register_tools(server, cfg)
-    resource_count = register_resources(server, cfg)
 
     return server, {"tools": tool_count, "resources": resource_count}
 
@@ -81,3 +86,27 @@ async def run_stdio(
     )
     async with stdio_server() as (read, write):
         await server.run(read, write, server.create_initialization_options())
+
+
+def run_http(
+    host: str = "127.0.0.1",
+    port: int = 8788,
+    config: MCPConfig | None = None,
+    prebuilt: tuple[Server, dict[str, int]] | None = None,
+) -> None:
+    """
+    Serve MCP over streamable HTTP at ``http://{host}:{port}/mcp``.
+
+    Phase 1 has no auth, so the default bind is loopback-only. The SDK
+    auto-enables DNS-rebinding protection for localhost binds; anything
+    wider is a deliberate operator choice.
+    """
+    import uvicorn
+
+    server, stats = prebuilt or build_server(config)
+    logger.info(
+        "MCP server ready (http): %s v%s — %d tools, %d resources on http://%s:%d/mcp",
+        MCP_NAME, get_version(), stats["tools"], stats["resources"], host, port,
+    )
+    app = server.streamable_http_app(host=host)
+    uvicorn.run(app, host=host, port=port, log_level="info")

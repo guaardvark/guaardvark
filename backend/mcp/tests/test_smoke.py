@@ -225,28 +225,8 @@ async def test_stdio_initialize_and_list_tools():
 # ─────────────────────── tools/call dispatch ───────────────────────
 
 
-class _CaptureServer:
-    """Minimal stand-in for the low-level Server: keeps the handlers it is given."""
-
-    def __init__(self):
-        self.call_tool_handler = None
-        self.list_tools_handler = None
-
-    def list_tools(self):
-        def deco(fn):
-            self.list_tools_handler = fn
-            return fn
-        return deco
-
-    def call_tool(self):
-        def deco(fn):
-            self.call_tool_handler = fn
-            return fn
-        return deco
-
-
-def _register_fake_tool(monkeypatch, execute):
-    """Wire register_tools onto a capture server exposing a single fake tool."""
+def _build_fake_tool_handlers(monkeypatch, execute):
+    """Build mcp 2.x tool handlers exposing a single fake tool."""
     import mcp.types as mcp_types
     from backend.mcp import tools_adapter
     from backend.mcp.config import MCPConfig
@@ -262,22 +242,29 @@ def _register_fake_tool(monkeypatch, execute):
 
     base = _Fake()
     pair = (base, mcp_types.Tool(name="fake_echo", description="echo",
-                                 inputSchema={"type": "object", "properties": {}}))
+                                 input_schema={"type": "object", "properties": {}}))
     monkeypatch.setattr(tools_adapter, "collect_exposed_tools", lambda cfg: [pair])
 
-    server = _CaptureServer()
-    tools_adapter.register_tools(server, MCPConfig())
-    return server
+    on_list, on_call, count = tools_adapter.build_tool_handlers(MCPConfig())
+    assert count == 1
+    return on_list, on_call
+
+
+def _call_params(name: str, arguments: dict):
+    import mcp.types as mcp_types
+    return mcp_types.CallToolRequestParams(name=name, arguments=arguments)
 
 
 @pytest.mark.asyncio
 async def test_tools_call_returns_output_on_success(monkeypatch):
     from backend.services.agent_tools import ToolResult
 
-    server = _register_fake_tool(monkeypatch, lambda **kw: ToolResult(success=True, output="pong"))
-    blocks = await server.call_tool_handler("fake_echo", {})
+    _on_list, on_call = _build_fake_tool_handlers(
+        monkeypatch, lambda **kw: ToolResult(success=True, output="pong"))
+    result = await on_call(None, _call_params("fake_echo", {}))
 
-    assert [b.text for b in blocks] == ["pong"]
+    assert not result.is_error
+    assert [b.text for b in result.content] == ["pong"]
 
 
 @pytest.mark.asyncio
@@ -285,8 +272,21 @@ async def test_tools_call_reports_tool_exception_without_crashing(monkeypatch):
     def _boom(**kwargs):
         raise ValueError("kaboom")
 
-    server = _register_fake_tool(monkeypatch, _boom)
-    blocks = await server.call_tool_handler("fake_echo", {})
+    _on_list, on_call = _build_fake_tool_handlers(monkeypatch, _boom)
+    result = await on_call(None, _call_params("fake_echo", {}))
 
-    assert "ValueError" in blocks[0].text
-    assert "kaboom" in blocks[0].text
+    assert result.is_error
+    assert "ValueError" in result.content[0].text
+    assert "kaboom" in result.content[0].text
+
+
+@pytest.mark.asyncio
+async def test_tools_call_rejects_unexposed_tool(monkeypatch):
+    from backend.services.agent_tools import ToolResult
+
+    _on_list, on_call = _build_fake_tool_handlers(
+        monkeypatch, lambda **kw: ToolResult(success=True, output="pong"))
+    result = await on_call(None, _call_params("not_a_tool", {}))
+
+    assert result.is_error
+    assert "not exposed" in result.content[0].text

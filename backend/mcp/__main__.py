@@ -58,11 +58,37 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("stdio", help="Run MCP server on stdin/stdout (default)")
 
+    http_cmd = sub.add_parser("http", help="Run MCP server over streamable HTTP")
+    http_cmd.add_argument("--host", default="127.0.0.1",
+                          help="Bind address (default: 127.0.0.1 — no auth, keep it local)")
+    http_cmd.add_argument("--port", type=int, default=8788, help="Port (default: 8788)")
+
     config_cmd = sub.add_parser("config", help="Print client install snippet")
     config_cmd.add_argument(
         "--client",
         required=True,
         choices=("claude-desktop", "claude-code", "cursor", "zed"),
+    )
+
+    install_cmd = sub.add_parser(
+        "install",
+        help="Write the guaardvark entry into agent client configs (Cursor, Claude, Grok, ...)",
+    )
+    install_cmd.add_argument(
+        "--client",
+        action="append",
+        dest="clients",
+        choices=("cursor", "claude-code", "grok", "claude-desktop", "zed", "gemini"),
+        help="Client to configure (repeatable). Default: every client detected on this machine.",
+    )
+    install_cmd.add_argument(
+        "--dry-run", action="store_true",
+        help="Show what would be written/run without touching anything",
+    )
+
+    sub.add_parser(
+        "doctor",
+        help="Diagnose the MCP setup: server self-test + scan of agent client configs",
     )
 
     sub.add_parser(
@@ -91,9 +117,27 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         return 0
 
+    if cmd == "http":
+        with _stdout_to_stderr():
+            from backend.mcp.server import build_server, run_http
+            prebuilt = build_server()
+        try:
+            run_http(host=args.host, port=args.port, prebuilt=prebuilt)
+        except KeyboardInterrupt:
+            return 0
+        return 0
+
     if cmd == "config":
         from backend.mcp.cli import print_snippet
         return print_snippet(args.client)
+
+    if cmd == "install":
+        from backend.mcp.installer import run_install
+        return run_install(args.clients, dry_run=args.dry_run)
+
+    if cmd == "doctor":
+        from backend.mcp.doctor import run_doctor
+        return run_doctor()
 
     if cmd == "list-tools":
         with _stdout_to_stderr():

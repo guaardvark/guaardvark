@@ -13,6 +13,7 @@ if we measure it's a problem.
 
 from __future__ import annotations
 
+import base64
 import logging
 import mimetypes
 from pathlib import Path
@@ -20,7 +21,6 @@ from typing import Any
 from urllib.parse import quote, unquote, urlparse
 
 import mcp.types as mcp_types
-from pydantic import AnyUrl
 
 from backend.mcp.audit import audit_call
 from backend.mcp.config import MCPConfig
@@ -101,34 +101,43 @@ def _walk_outputs(root: Path) -> list[Path]:
     return files
 
 
-def register_resources(server: Any, config: MCPConfig) -> int:
-    """Wire list_resources + read_resource handlers. Returns count at registration time."""
+def build_resource_handlers(config: MCPConfig) -> tuple[Any, Any, int]:
+    """
+    Build ``on_list_resources`` / ``on_read_resource`` handlers for the mcp 2.x
+    ``Server`` constructor. Returns (on_list, on_read, count-at-build-time);
+    handlers are ``None`` when the outputs provider is disabled so the server
+    doesn't advertise a resources capability it can't serve.
+    """
     if not config.resources.outputs_enabled:
         logger.info("MCP: outputs resource provider disabled by config")
-        return 0
+        return None, None, 0
 
     root = _outputs_root(config)
     if not root.exists():
         logger.info("MCP: outputs root %s does not exist yet — serving empty list", root)
 
-    @server.list_resources()
-    async def _list_resources() -> list[mcp_types.Resource]:
+    async def on_list_resources(
+        _ctx: Any,
+        _params: mcp_types.PaginatedRequestParams | None,
+    ) -> mcp_types.ListResourcesResult:
         with audit_call(method="resources/list", target=str(root)) as rec:
             files = _walk_outputs(root)
             rec["bytes_out"] = sum(p.stat().st_size for p in files) if files else 0
-            return [
+            return mcp_types.ListResourcesResult(resources=[
                 mcp_types.Resource(
-                    uri=AnyUrl(_uri_for(path, root)),
+                    uri=_uri_for(path, root),
                     name=path.name,
                     description=f"Generated output: {path.relative_to(root).as_posix()}",
-                    mimeType=_mime_for(path),
+                    mime_type=_mime_for(path),
                 )
                 for path in files
-            ]
+            ])
 
-    @server.read_resource()
-    async def _read_resource(uri: AnyUrl):
-        uri_str = str(uri)
+    async def on_read_resource(
+        _ctx: Any,
+        params: mcp_types.ReadResourceRequestParams,
+    ) -> mcp_types.ReadResourceResult:
+        uri_str = str(params.uri)
         with audit_call(method="resources/read", target=uri_str) as rec:
             path = _path_for_uri(uri_str, root)
             if path is None or not path.is_file():
@@ -139,12 +148,23 @@ def register_resources(server: Any, config: MCPConfig) -> int:
             mime = _mime_for(path)
             rec["bytes_out"] = path.stat().st_size
 
-            # Text vs binary split. Text MIME types go as UTF-8 text; everything
-            # else goes as base64 blob via the SDK's ReadResourceContents helper.
+            # Text MIME types go as UTF-8 text; everything else as base64 blob.
             if mime.startswith("text/") or mime in {"application/json", "application/xml"}:
-                return path.read_text(encoding="utf-8", errors="replace")
-            return path.read_bytes()
+                contents: mcp_types.TextResourceContents | mcp_types.BlobResourceContents = (
+                    mcp_types.TextResourceContents(
+                        uri=uri_str,
+                        mime_type=mime,
+                        text=path.read_text(encoding="utf-8", errors="replace"),
+                    )
+                )
+            else:
+                contents = mcp_types.BlobResourceContents(
+                    uri=uri_str,
+                    mime_type=mime,
+                    blob=base64.b64encode(path.read_bytes()).decode("ascii"),
+                )
+            return mcp_types.ReadResourceResult(contents=[contents])
 
-    # Count at registration time for the startup banner; the real list is
-    # re-walked on every request so new files show up without restart.
-    return len(_walk_outputs(root))
+    # Count at build time for the startup banner; the real list is re-walked
+    # on every request so new files show up without restart.
+    return on_list_resources, on_read_resource, len(_walk_outputs(root))
