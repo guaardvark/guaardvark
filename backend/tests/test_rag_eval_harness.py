@@ -68,6 +68,20 @@ class TestEvalPairGeneration:
             assert harness.text_document_count() == AUTORESEARCH_MIN_CORPUS_SIZE
             assert harness.has_sufficient_corpus() is True
 
+    def test_raw_binary_content_is_not_text(self):
+        """Imported .pdf/.docx rows carry raw bytes in `content`; not corpus."""
+        from types import SimpleNamespace
+        from backend.services.rag_eval_harness import document_text
+        pdf = SimpleNamespace(content="%PDF-1.3\n%\u00e2\u00e3\n1 0 obj\n<<\n/Count 1\n/Kids " + "x" * 100)
+        docx = SimpleNamespace(content="PK\x03\x04\x14\x08\x00\x00[Content_Types].xml" + "\x00" * 100)
+        noisy = SimpleNamespace(content="".join(chr(1 + i % 20) for i in range(300)))
+        prose = SimpleNamespace(content="# Market Notes\nThe regional market grew 12% in Q3. " * 3)
+        assert document_text(pdf) == ""
+        assert document_text(docx) == ""
+        assert document_text(noisy) == ""
+        assert document_text(prose).startswith("# Market Notes")
+        assert RAGEvalHarness()._chunk_document(pdf) == []
+
 
 class TestLLMJudge:
     def test_score_response_returns_composite(self):

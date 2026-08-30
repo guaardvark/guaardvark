@@ -25,6 +25,26 @@ from backend.config import (
 # A document below this many characters of extracted text cannot yield an
 # eval chunk; it is not corpus, whatever its row count says.
 EVAL_MIN_TEXT_CHARS = 50
+
+
+def document_text(doc) -> str:
+    """The text an eval chunk may be cut from, or '' when there is none.
+
+    Document.content holds raw file bytes for imported .pdf/.docx rows
+    (observed 2026-08-29: "PK\x03\x04…" and "%PDF-1.3…"), and the harness
+    then asked the LLM about "/FlateDecode" streams. Binary-looking content
+    is not corpus; the extracted text of those files lives in the index.
+    """
+    text = getattr(doc, "content", None) or ""
+    if len(text.strip()) < EVAL_MIN_TEXT_CHARS:
+        return ""
+    head = text[:2000]
+    if "\x00" in head or head.startswith(("%PDF", "PK\x03\x04")):
+        return ""
+    unprintable = sum(1 for ch in head if not ch.isprintable() and ch not in "\n\r\t")
+    if unprintable > len(head) * 0.05:
+        return ""
+    return text
 from backend.services.rag_experiment_agent import _extract_json
 
 logger = logging.getLogger(__name__)
@@ -203,10 +223,11 @@ class RAGEvalHarness:
         """
         from backend.models import Document, db
         from sqlalchemy import func
-        return db.session.query(Document).filter(
+        candidates = db.session.query(Document).filter(
             Document.content.isnot(None),
             func.length(Document.content) >= EVAL_MIN_TEXT_CHARS,
-        ).count()
+        ).all()
+        return sum(1 for d in candidates if document_text(d))
 
     def has_sufficient_corpus(self) -> bool:
         """Enough TEXT documents are indexed for a meaningful eval set."""
@@ -221,8 +242,8 @@ class RAGEvalHarness:
         hashed the whole (truncated) document, which could never equal any
         retrieved chunk's hash — retrieval metrics scored a structural zero.
         """
-        text = getattr(doc, "content", None) or ""
-        if len(text.strip()) < EVAL_MIN_TEXT_CHARS:
+        text = document_text(doc)
+        if not text:
             return []
         try:
             from llama_index.core import Document as LlamaDocument
