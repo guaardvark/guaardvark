@@ -146,6 +146,7 @@ CORE_TOOLS = [
     "search_memory",
     "delete_memory",
     "agent_status",  # cheap introspection — agent should always be able to report its state
+    "list_documents",  # registered in tool_registry_init but unreachable: system-map finding a21f45035732cf31
 ]
 BROWSER_TOOLS = ["browser_navigate", "browser_click", "browser_fill", "browser_screenshot",
                  "browser_extract", "browser_wait", "browser_execute_js", "browser_get_html"]
