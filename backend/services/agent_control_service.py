@@ -1984,7 +1984,7 @@ class AgentControlService:
             any_failures = any(s.failed for s in result.steps)
             if any_failures:
                 try:
-                    from backend.celery_app import celery_app
+                    from backend.celery_app import celery as celery_app
                     step_dicts = [
                         {
                             "iteration": s.iteration,

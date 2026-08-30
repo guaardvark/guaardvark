@@ -232,7 +232,7 @@ def dispatch(finding_id):
     priority = body.get("priority", "medium")
     target_files = list(finding.get("paths") or [])
     try:
-        from backend.celery_app import celery_app
+        from backend.celery_app import celery as celery_app
         async_res = celery_app.send_task(
             "self_improvement.run_directed_async",
             kwargs={"task_description": description,

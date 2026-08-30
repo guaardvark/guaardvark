@@ -2243,7 +2243,7 @@ def add_text_to_index(text: str, metadata: Dict[str, Any], project_id: Optional[
 
         # Notify autoresearch that corpus has changed
         try:
-            from backend.celery_app import celery_app as _celery
+            from backend.celery_app import celery as _celery
             _celery.send_task("autoresearch.on_index_complete")
         except Exception:
             pass  # autoresearch is optional
@@ -3057,7 +3057,7 @@ def add_file_to_index(file_path: str, db_document: DBDocument, progress_callback
 
         # Notify autoresearch that corpus has changed
         try:
-            from backend.celery_app import celery_app as _celery
+            from backend.celery_app import celery as _celery
             _celery.send_task("autoresearch.on_index_complete")
         except Exception:
             pass  # autoresearch is optional
