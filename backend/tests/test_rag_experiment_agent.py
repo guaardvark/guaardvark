@@ -91,3 +91,23 @@ class TestTpeAndProgram:
         assert proposal["source"] == "tpe"
         assert proposal["parameter"] == "top_k"
         assert proposal["new_value"] == 8
+
+
+def test_proposer_binds_saved_active_model_when_app_has_no_llm():
+    """The proposer runs in a Celery worker whose app never builds LLAMA_INDEX_LLM."""
+    from unittest.mock import MagicMock, patch
+    from backend.services.rag_experiment_agent import RAGExperimentAgent
+    agent = RAGExperimentAgent()
+    calls = []
+
+    def fake_get_llm_instance(model=None):
+        calls.append(model)
+        return MagicMock(model=model) if model else None
+
+    with patch("backend.utils.llm_service.get_llm_instance", side_effect=fake_get_llm_instance), \
+         patch("backend.utils.llm_service.get_saved_active_model_name", return_value="gemma4:12b"), \
+         patch("backend.models.Setting") as setting:
+        setting.query.filter_by.return_value.first.return_value = None
+        llm = agent._get_llm()
+    assert llm is not None and agent.proposer_model_name == "gemma4:12b"
+    assert calls == [None, "gemma4:12b"]

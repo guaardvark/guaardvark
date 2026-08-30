@@ -120,6 +120,17 @@ class RAGExperimentAgent:
                     self._llm = current_app.config.get("LLAMA_INDEX_LLM")
                 except RuntimeError:
                     pass
+            if self._llm is None:
+                # Research runs execute in a Celery worker whose app has no
+                # LLAMA_INDEX_LLM; without this the proposer silently went
+                # 100% random on the first live run (2026-08-30).
+                try:
+                    from backend.utils.llm_service import get_saved_active_model_name
+                    active = get_saved_active_model_name()
+                except Exception:
+                    active = None
+                if active:
+                    self._llm = get_llm_instance(model=active)
             if self._llm is not None and self.proposer_model_name is None:
                 self.proposer_model_name = getattr(self._llm, "model", None) or "active"
         return self._llm
