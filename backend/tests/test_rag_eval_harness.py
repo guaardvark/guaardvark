@@ -169,3 +169,20 @@ class TestLLMJudge:
             assert result is not None
             assert len(result["source_chunk_hashes"]) == 2
             assert result["source_chunk_hashes"][0] != result["source_chunk_hashes"][1]
+
+
+class TestWorkerLLMResolution:
+    def test_falls_back_to_saved_active_model_when_app_has_no_llm(self):
+        """Research runs execute in a Celery worker whose app has no LLAMA_INDEX_LLM."""
+        harness = RAGEvalHarness()
+        calls = []
+
+        def fake_get_llm_instance(model=None):
+            calls.append(model)
+            return MagicMock(model=model) if model else None
+
+        with patch("backend.utils.llm_service.get_llm_instance", side_effect=fake_get_llm_instance), \
+             patch("backend.utils.llm_service.get_saved_active_model_name", return_value="gemma4:12b"):
+            llm = harness._get_llm("answer")
+        assert llm is not None and llm.model == "gemma4:12b"
+        assert calls == [None, "gemma4:12b"]

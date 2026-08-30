@@ -163,6 +163,18 @@ class RAGEvalHarness:
                     llm = current_app.config.get("LLAMA_INDEX_LLM")
                 except RuntimeError:
                     llm = None
+            if llm is None:
+                # A Celery worker's app never builds LLAMA_INDEX_LLM (worker mode
+                # skips model warm-up), and every research run executes there.
+                # Bind to the persisted active model instead of failing the run
+                # with "No LLM available" while Ollama is up (2026-08-30).
+                try:
+                    from backend.utils.llm_service import get_saved_active_model_name
+                    active = get_saved_active_model_name()
+                except Exception:
+                    active = None
+                if active:
+                    llm = get_llm_instance(model=active)
             if role == "judge" and llm is not None and self.judge_model_name is None:
                 self.judge_model_name = getattr(llm, "model", None) or "active"
 
