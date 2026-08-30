@@ -119,6 +119,7 @@ class RAGEvalHarness:
         # Running estimate of wall seconds per judged pair (EMA), fed into the
         # per-experiment deadline so a slow local model is not a crash.
         self.avg_pair_seconds = None
+        self.avg_retrieval_pair_seconds = None
         self._call_budget = AUTORESEARCH_MAX_LLM_CALLS_PER_EXPERIMENT
 
     @staticmethod
@@ -202,6 +203,14 @@ class RAGEvalHarness:
             self.avg_pair_seconds = seconds
         else:
             self.avg_pair_seconds = 0.7 * self.avg_pair_seconds + 0.3 * seconds
+
+    def _note_retrieval_seconds(self, seconds: float) -> None:
+        if seconds < 0:
+            return
+        if self.avg_retrieval_pair_seconds is None:
+            self.avg_retrieval_pair_seconds = seconds
+        else:
+            self.avg_retrieval_pair_seconds = 0.7 * self.avg_retrieval_pair_seconds + 0.3 * seconds
 
     def _budget_ok(self) -> bool:
         if self._deadline is not None and time.monotonic() >= self._deadline:
@@ -638,6 +647,7 @@ class RAGEvalHarness:
                     "hit_rate_at_k": 0.0, "mrr": 0.0, "ndcg_at_10": 0.0}
         details = []
         for pair in pairs:
+            t_pair = time.monotonic()
             try:
                 score = self._eval_retrieval_only(pair, config)
             except Exception as e:
@@ -645,6 +655,7 @@ class RAGEvalHarness:
                 continue
             score["eval_pair_id"] = pair.get("id")
             details.append(score)
+            self._note_retrieval_seconds(time.monotonic() - t_pair)
         summary = self._retrieval_summary(details) or {
             "num_scored": 0, "hit_rate_at_k": 0.0, "mrr": 0.0, "ndcg_at_10": 0.0,
         }

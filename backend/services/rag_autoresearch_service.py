@@ -16,6 +16,7 @@ from backend.config import (
     AUTORESEARCH_KEEP_MIN_DELTA,
     AUTORESEARCH_MAX_EXPERIMENT_DURATION,
     AUTORESEARCH_EXPERIMENT_DEADLINE_HEADROOM,
+    AUTORESEARCH_EXPERIMENT_DEADLINE_UNMEASURED,
     AUTORESEARCH_MAX_EXPERIMENTS_PER_RUN,
     AUTORESEARCH_MIN_EXPERIMENT_INTERVAL,
     AUTORESEARCH_PHASE_PLATEAU_THRESHOLD,
@@ -101,17 +102,39 @@ class RAGAutoresearchService:
     # --- Experiment execution ---
 
     def _experiment_deadline_seconds(self, config: dict) -> float:
-        """Per-experiment wall-clock cap: the configured floor, or the measured
-        cost of judging the whole active set with headroom for F1 + F2."""
-        per = getattr(self.eval_harness, "avg_pair_seconds", None) or config.get("avg_pair_seconds")
+        """Per-experiment wall-clock cap.
+
+        Measured: headroom x pairs x (judged-pair seconds + 2 x retrieval-pair
+        seconds, for the two F0 screens). Unmeasured: the generous
+        AUTORESEARCH_EXPERIMENT_DEADLINE_UNMEASURED, never the bare floor.
+        """
+        h = self.eval_harness
+        per = getattr(h, "avg_pair_seconds", None) or config.get("avg_pair_seconds")
+        retr = getattr(h, "avg_retrieval_pair_seconds", None) or config.get("avg_retrieval_pair_seconds") or 0.0
         if not per:
-            return float(AUTORESEARCH_MAX_EXPERIMENT_DURATION)
+            return float(max(AUTORESEARCH_MAX_EXPERIMENT_DURATION, AUTORESEARCH_EXPERIMENT_DEADLINE_UNMEASURED))
         try:
-            n_pairs = len(self.eval_harness._get_active_eval_pairs())
+            n_pairs = len(h._get_active_eval_pairs())
         except Exception:
             n_pairs = 0
-        scaled = AUTORESEARCH_EXPERIMENT_DEADLINE_HEADROOM * n_pairs * float(per)
+        scaled = AUTORESEARCH_EXPERIMENT_DEADLINE_HEADROOM * n_pairs * (float(per) + 2.0 * float(retr))
         return max(float(AUTORESEARCH_MAX_EXPERIMENT_DURATION), scaled)
+
+    def _persist_timings(self, config: dict) -> None:
+        """Keep the harness's measured pair costs in the config so the next
+        run (a fresh worker process) starts with a real deadline."""
+        h = self.eval_harness
+        changed = False
+        for key in ("avg_pair_seconds", "avg_retrieval_pair_seconds"):
+            v = getattr(h, key, None)
+            if v and round(v, 2) != config.get(key):
+                config[key] = round(v, 2)
+                changed = True
+        if changed:
+            try:
+                self._save_config(config)
+            except Exception as e:
+                logger.debug(f"timing persist skipped: {e}")
 
     def run_single_experiment(self, run_tag: str = None,
                               promote_mode: str = "active") -> dict:
@@ -123,7 +146,16 @@ class RAGAutoresearchService:
         run-end A/B confirmation to activate.
         """
         config = self._load_config()
+        from backend.services.rag_experiment_agent import MAX_PHASE
         phase = config.get("phase", 1)
+        if not isinstance(phase, int) or phase < 1 or phase > MAX_PHASE:
+            # Persisted by an older build (phase 3 while only phase 1 exists,
+            # 2026-08-30). Clamp and persist rather than propose nothing forever.
+            logger.warning(f"autoresearch config phase {phase!r} is not a known phase; resetting to {MAX_PHASE}")
+            phase = MAX_PHASE
+            config["phase"] = phase
+            config["phase_plateau_count"] = 0
+            self._save_config(config)
         baseline = config.get("baseline_score", 0.0)
         params = config.get("params", dict(AUTORESEARCH_DEFAULT_PARAMS))
 
@@ -235,8 +267,10 @@ class RAGAutoresearchService:
                             )
             new_score = eval_result["composite_score"]
             duration = time.time() - t0
+            self._persist_timings(config)
         except Exception as e:
             logger.error(f"Experiment crashed: {e}")
+            self._persist_timings(config)
             result = {
                 "experiment_id": experiment_id,
                 "parameter": param_name,

@@ -111,3 +111,9 @@ def test_proposer_binds_saved_active_model_when_app_has_no_llm():
         llm = agent._get_llm()
     assert llm is not None and agent.proposer_model_name == "gemma4:12b"
     assert calls == [None, "gemma4:12b"]
+
+
+def test_phase_without_tunable_params_does_not_fabricate_a_proposal():
+    from backend.services.rag_experiment_agent import RAGExperimentAgent
+    with pytest.raises(ValueError):
+        RAGExperimentAgent().propose_experiment([], {"top_k": 5}, phase=3)

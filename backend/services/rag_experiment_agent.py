@@ -180,7 +180,12 @@ class RAGExperimentAgent:
             if p not in PROTECTED_RAG_PARAMS
         ]
         if not available:
-            return self._random_proposal(available or ["top_k"], current_config)
+            # A phase with nothing tunable must not turn into an endless
+            # stream of random top_k "experiments" (a persisted phase=3 from
+            # the old loop did exactly that on 2026-08-30).
+            raise ValueError(
+                f"phase {phase} has no tunable parameters "
+                f"(known phases: {sorted(PHASE_PARAMS)})")
 
         tpe = self._tpe_proposal(history, current_config, available)
         if tpe is not None:

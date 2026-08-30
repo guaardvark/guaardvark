@@ -183,6 +183,12 @@ AUTORESEARCH_MAX_EXPERIMENT_DURATION = 300  # floor for the per-experiment deadl
 # so a fixed 300s crashed every experiment at exactly 300.7s. F1 judges a subset
 # and F2 may re-run the full set, hence 2x the full-set estimate.
 AUTORESEARCH_EXPERIMENT_DEADLINE_HEADROOM = 2.0
+# Before any pair cost has been measured (fresh box, or a baseline cached by an
+# older build) the floor is a trap: on 2026-08-30 the F0 retrieval screen alone
+# took ~400s because Ollama swapped the 12B answer model and the 4B embedding
+# model on every pair, and three experiments in a row died at "calls=0". The
+# first experiment gets this instead; every later one uses measurements.
+AUTORESEARCH_EXPERIMENT_DEADLINE_UNMEASURED = 1800
 AUTORESEARCH_MAX_LLM_CALLS_PER_EXPERIMENT = 200
 AUTORESEARCH_PHASE_PLATEAU_THRESHOLD = 10  # consecutive discards before phase advance
 # Keep bar matches run-end confirmation (research_run_service). Any smaller
