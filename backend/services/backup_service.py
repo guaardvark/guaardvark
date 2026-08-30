@@ -63,6 +63,10 @@ GLOBAL_IGNORE_PATTERNS = [
     # AI model files — never include in backups (re-downloadable)
     '*.safetensors', '*.ckpt', '*.pt', '*.pth', '*.bin', '*.onnx',
     '*.gguf', '*.ggml', 'models', 'checkpoints', 'ComfyUI',
+    # Packet captures, GeoIP databases and OS packages are never code. A
+    # 2026-08-29 code release came out at 451 MB; 475 MB of it (compressed)
+    # was one plugin's pcaps, DB-IP .mmdb files and a google-chrome.deb.
+    '*.pcap', '*.pcapng', '*.mmdb', '*.mmdb.gz', '*.deb', '*.rpm',
 ]
 
 # Same as GLOBAL_IGNORE_PATTERNS but WITHOUT database file exclusions (*.db, *.sqlite, *.sqlite3)
@@ -299,8 +303,34 @@ def _gather_system_settings(session) -> tuple[list, dict[str, str]]:
     return settings, files
 
 
-def _create_plugin_ignore_function():
-    """Create an ignore function for plugins directory that excludes large data/training directories."""
+def _external_symlinks(dirname: str, names, project_root) -> set:
+    """Return the entries in `names` that are symlinks resolving outside `project_root`.
+
+    A plugin that lives elsewhere on disk and is symlinked into plugins/ is not
+    part of this checkout, and a release cannot carry it usefully: on another
+    machine the link would dangle. shutil.copytree follows symlinks by default,
+    so without this an external plugin's whole tree lands in the archive.
+    """
+    if project_root is None:
+        return set()
+    root = Path(project_root).resolve()
+    skipped = set()
+    for name in names:
+        full = os.path.join(dirname, name)
+        if not os.path.islink(full):
+            continue
+        target = Path(full).resolve()
+        if root != target and root not in target.parents:
+            logger.info("Skipping symlink outside project: %s -> %s", full, target)
+            skipped.add(name)
+    return skipped
+
+
+def _create_plugin_ignore_function(project_root=None):
+    """Create an ignore function for plugins directory that excludes large data/training directories.
+
+    Symlinks under plugins/ that point outside `project_root` are skipped too.
+    """
     standard_ignore = shutil.ignore_patterns(
         *GLOBAL_IGNORE_PATTERNS,
         '*.bin',
@@ -335,7 +365,7 @@ def _create_plugin_ignore_function():
         # Apply standard ignore patterns
         standard_ignored = standard_ignore(dirname, names)
         
-        return ignored | set(standard_ignored)
+        return ignored | set(standard_ignored) | _external_symlinks(dirname, names, project_root)
     
     return ignore_plugins
 
@@ -879,7 +909,7 @@ def create_data_backup(components: List[str] | None = None, name: str | None = N
                     try:
                         shutil.copytree(
                             plugins_src, plugins_dest,
-                            ignore=_create_plugin_ignore_function(),
+                            ignore=_create_plugin_ignore_function(project_root),
                         )
                         data["plugins_included"] = True
                         logger.info("Plugins directory included in data backup")
@@ -1230,7 +1260,7 @@ def create_full_backup(name: str | None = None) -> str:
                         try:
                             # Use custom ignore function for plugins directory
                             if file_path == "plugins/":
-                                ignore_func = _create_plugin_ignore_function()
+                                ignore_func = _create_plugin_ignore_function(project_root)
                             else:
                                 # Standard ignore function for other directories
                                 ignore_func = shutil.ignore_patterns(
@@ -1621,7 +1651,7 @@ def create_code_release(name: str | None = None) -> str:
                                         for name in names:
                                             if name in ['datasets', 'processed', 'raw_transcripts', 'output', 'batch_input']:
                                                 ignored.add(name)
-                                    return ignored
+                                    return ignored | _external_symlinks(dirname, names, project_root)
 
                                 ignored = set(shutil.ignore_patterns(
                                     *GLOBAL_IGNORE_PATTERNS,
