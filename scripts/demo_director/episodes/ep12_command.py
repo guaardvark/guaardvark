@@ -99,6 +99,10 @@ def act_conflict(st: Stage):
     st.cursor.glide(x, y, dur=0.8)
     time.sleep(1.0)
     st.glide_click(card.get_by_role("checkbox").first, dur=0.8)
+    # The referee snackbar is the shot. Do not wait out ComfyUI's cold
+    # start on camera: the 2026-08-23 take held for the Running state and
+    # ran 89.5s of video under 16.6s of narration. "Starting" is enough
+    # proof the toggle went through; the plugin keeps booting off camera.
     try:
         st.page.get_by_text(re.compile(
             "is also using the GPU")).first.wait_for(
@@ -108,10 +112,10 @@ def act_conflict(st: Stage):
     time.sleep(2.0)
     try:
         card.get_by_text(re.compile("Starting|Running")).first.wait_for(
-            state="visible", timeout=60_000)
+            state="visible", timeout=8_000)
     except Exception:
         pass
-    time.sleep(2.0)
+    time.sleep(1.5)
 
 
 def reset_jobs(st: Stage):
@@ -205,14 +209,17 @@ def v_any(st: Stage):
 
 
 def act_backup(st: Stage):
-    # several "Manage" controls exist on Settings — take the one beside
-    # the backup row's Restore button
-    restore = st.page.get_by_role("button", name="Restore", exact=True).first
-    manage = restore.locator("xpath=following-sibling::button[1]")
+    # Settings has several "Manage" buttons; the backup row's carries an
+    # aria-label so the locator cannot land on Rules Manage again.
+    manage = st.page.get_by_role("button", name="Manage backups")
     st.glide_click(manage.first, dur=0.9)
     st.page.get_by_text("Manage Backups").first.wait_for(
         state="visible", timeout=20_000)
-    time.sleep(2.5)
+    time.sleep(1.5)
+    chip = st.page.locator("div[role='dialog'] .MuiChip-root").first
+    if chip.count():
+        st.hover_over(chip, dur=0.8)
+        time.sleep(2.0)
     st.glide_click(st.page.locator("div[role='dialog']").get_by_role(
         "button", name="Close").first, dur=0.7)
     time.sleep(0.8)
@@ -293,6 +300,20 @@ BEATS = [
         action=act_cli,
         verify=v_any,
         reset=reset_cli,
+    ),
+    Beat(
+        name="backup",
+        narration=[
+            "And the last gate is a backup.",
+            "Three shapes: code release, data, or the full system. Every "
+            "one is a plain zip you can open.",
+            "",
+            "Restore takes a safety dump of the live database before it "
+            "touches anything. Even a bad restore is reversible.",
+        ],
+        action=act_backup,
+        verify=v_settings,
+        reset=reset_settings,
     ),
     Beat(
         name="closer",

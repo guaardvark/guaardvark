@@ -3208,7 +3208,7 @@ const SettingsPage = () => {
                       <Button variant="contained" size="small" onClick={openRestoreBackup} disabled={isProcessingBackup || isLoading}>Restore</Button>
                     </span>
                   </Tooltip>
-                  <Button variant="outlined" size="small" onClick={openManageBackups}>Manage</Button>
+                  <Button variant="outlined" size="small" onClick={openManageBackups} aria-label="Manage backups">Manage</Button>
                 </Box>
               </SettingsRow>
               <SettingsRow label="Rules Backup / Restore">

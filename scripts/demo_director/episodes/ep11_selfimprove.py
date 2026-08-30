@@ -137,6 +137,11 @@ def v_settings(st: Stage):
 def reset_autoresearch(st: Stage):
     close_dialogs(st)
     goto(st, "/autoresearch", settle=2.5)
+    if st.page.get_by_text("No research runs yet.").count():
+        raise RuntimeError(
+            "autoresearch has no runs — seed one before shooting this beat "
+            "(POST /api/autoresearch/eval-pairs/regenerate, then "
+            "POST /api/autoresearch/runs)")
 
 
 def act_autoresearch(st: Stage):
@@ -148,7 +153,14 @@ def act_autoresearch(st: Stage):
     runs = st.page.get_by_text("Runs", exact=True)
     if runs.count():
         st.hover_over(runs.first, dur=0.8)
-        time.sleep(1.2)
+        time.sleep(1.0)
+    # A research run must exist before this beat is shot: the 2026-08-23
+    # take narrated "keeps the wins, reverts the regressions" over an
+    # empty table. The reset asserts it; here we land on the newest row.
+    row = st.page.locator("table tbody tr").first
+    if row.count():
+        st.hover_over(row, dur=0.9)
+        time.sleep(1.8)
     revert = st.page.get_by_role("button", name="Revert to previous")
     if revert.count():
         st.hover_over(revert.first, dur=0.9)
