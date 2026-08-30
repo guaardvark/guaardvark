@@ -216,13 +216,12 @@ def act_backup(st: Stage):
     st.page.get_by_text("Manage Backups").first.wait_for(
         state="visible", timeout=20_000)
     time.sleep(1.5)
-    chip = st.page.locator("div[role='dialog'] .MuiChip-root").first
-    if chip.count():
-        st.hover_over(chip, dur=0.8)
-        time.sleep(2.0)
-    st.glide_click(st.page.locator("div[role='dialog']").get_by_role(
-        "button", name="Close").first, dur=0.7)
-    time.sleep(0.8)
+    # Stay on the list for the whole beat — the narration is about what is
+    # in it. The next beat's reset closes the dialog.
+    rows = st.page.locator("div[role='dialog'] .MuiChip-root")
+    for i in range(min(3, rows.count())):
+        st.hover_over(rows.nth(i), dur=0.9)
+        time.sleep(2.2)
 
 
 def act_closer(st: Stage):
