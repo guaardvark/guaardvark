@@ -116,6 +116,9 @@ class RAGEvalHarness:
         self.single_model_judging = False
         self._llm_calls = 0
         self._deadline = None
+        # Running estimate of wall seconds per judged pair (EMA), fed into the
+        # per-experiment deadline so a slow local model is not a crash.
+        self.avg_pair_seconds = None
         self._call_budget = AUTORESEARCH_MAX_LLM_CALLS_PER_EXPERIMENT
 
     @staticmethod
@@ -191,6 +194,14 @@ class RAGEvalHarness:
             call_budget if call_budget is not None
             else AUTORESEARCH_MAX_LLM_CALLS_PER_EXPERIMENT
         )
+
+    def _note_pair_seconds(self, seconds: float) -> None:
+        if seconds < 0:
+            return
+        if self.avg_pair_seconds is None:
+            self.avg_pair_seconds = seconds
+        else:
+            self.avg_pair_seconds = 0.7 * self.avg_pair_seconds + 0.3 * seconds
 
     def _budget_ok(self) -> bool:
         if self._deadline is not None and time.monotonic() >= self._deadline:
@@ -662,6 +673,7 @@ class RAGEvalHarness:
             if not self._budget_ok() and details:
                 logger.info("Eval pair loop stopped — experiment budget exhausted")
                 break
+            t_pair = time.monotonic()
             try:
                 score = self._eval_single_pair(pair, config)
             except LLMUnavailableError as e:
@@ -671,6 +683,7 @@ class RAGEvalHarness:
                 raise
             score["eval_pair_id"] = pair.get("id")
             details.append(score)
+            self._note_pair_seconds(time.monotonic() - t_pair)
 
         usable = [d for d in details if not d.get("judge_parse_failed")
                   and d.get("composite") is not None]

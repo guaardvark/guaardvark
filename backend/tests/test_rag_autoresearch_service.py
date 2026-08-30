@@ -150,3 +150,37 @@ class TestPause:
         svc.pause()
         svc.resume()
         assert svc._paused is False
+
+
+class TestExperimentDeadline:
+    def test_deadline_scales_with_measured_pair_cost(self, app):
+        from backend.config import AUTORESEARCH_MAX_EXPERIMENT_DURATION, AUTORESEARCH_EXPERIMENT_DEADLINE_HEADROOM
+        with app.app_context():
+            svc = RAGAutoresearchService()
+            assert svc._experiment_deadline_seconds({}) == AUTORESEARCH_MAX_EXPERIMENT_DURATION
+            svc.eval_harness.avg_pair_seconds = 33.0  # gemma4 12B, 2026-08-30
+            with patch.object(svc.eval_harness, "_get_active_eval_pairs", return_value=[{}] * 18):
+                assert svc._experiment_deadline_seconds({}) == AUTORESEARCH_EXPERIMENT_DEADLINE_HEADROOM * 18 * 33.0
+            svc.eval_harness.avg_pair_seconds = 0.5  # fast model: floor wins
+            with patch.object(svc.eval_harness, "_get_active_eval_pairs", return_value=[{}] * 18):
+                assert svc._experiment_deadline_seconds({}) == AUTORESEARCH_MAX_EXPERIMENT_DURATION
+
+    def test_f2_is_skipped_not_crashed_when_budget_is_gone(self, app):
+        """A winning F1 subset with no budget left keeps its verdict instead of raising on F2."""
+        with app.app_context():
+            svc = RAGAutoresearchService()
+            with patch.object(svc.agent, "propose_experiment") as mock_propose, \
+                 patch.object(svc.eval_harness, "run_full_eval") as mock_eval, \
+                 patch.object(svc.eval_harness, "_select_judge_subset", return_value=[{}] * 5), \
+                 patch.object(svc.eval_harness, "_get_active_eval_pairs", return_value=[{}] * 18), \
+                 patch.object(svc.eval_harness, "_budget_ok", return_value=False), \
+                 patch.object(svc, "_load_config") as mock_load, \
+                 patch.object(svc, "_save_config"), \
+                 patch.object(svc, "_log_experiment"):
+                mock_load.return_value = {"params": {"top_k": 5}, "baseline_score": 3.0, "phase": 1}
+                mock_propose.return_value = {"parameter": "top_k", "new_value": 8, "hypothesis": "more"}
+                mock_eval.return_value = {"composite_score": 3.5, "num_pairs": 5, "details": []}
+                result = svc.run_single_experiment()
+        assert result["status"] != "crash"
+        assert mock_eval.call_count == 1  # F1 only
+        assert result["fidelity"] == 1

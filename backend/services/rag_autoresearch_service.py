@@ -15,6 +15,7 @@ from backend.config import (
     AUTORESEARCH_DEFAULT_PARAMS,
     AUTORESEARCH_KEEP_MIN_DELTA,
     AUTORESEARCH_MAX_EXPERIMENT_DURATION,
+    AUTORESEARCH_EXPERIMENT_DEADLINE_HEADROOM,
     AUTORESEARCH_MAX_EXPERIMENTS_PER_RUN,
     AUTORESEARCH_MIN_EXPERIMENT_INTERVAL,
     AUTORESEARCH_PHASE_PLATEAU_THRESHOLD,
@@ -99,6 +100,19 @@ class RAGAutoresearchService:
 
     # --- Experiment execution ---
 
+    def _experiment_deadline_seconds(self, config: dict) -> float:
+        """Per-experiment wall-clock cap: the configured floor, or the measured
+        cost of judging the whole active set with headroom for F1 + F2."""
+        per = getattr(self.eval_harness, "avg_pair_seconds", None) or config.get("avg_pair_seconds")
+        if not per:
+            return float(AUTORESEARCH_MAX_EXPERIMENT_DURATION)
+        try:
+            n_pairs = len(self.eval_harness._get_active_eval_pairs())
+        except Exception:
+            n_pairs = 0
+        scaled = AUTORESEARCH_EXPERIMENT_DEADLINE_HEADROOM * n_pairs * float(per)
+        return max(float(AUTORESEARCH_MAX_EXPERIMENT_DURATION), scaled)
+
     def run_single_experiment(self, run_tag: str = None,
                               promote_mode: str = "active") -> dict:
         """Execute one experiment cycle. Returns result dict.
@@ -162,7 +176,7 @@ class RAGAutoresearchService:
         test_retr = {}
         try:
             self.eval_harness.begin_experiment_budget(
-                duration_s=AUTORESEARCH_MAX_EXPERIMENT_DURATION,
+                duration_s=self._experiment_deadline_seconds(config),
             )
             try:
                 base_retr = self.eval_harness.run_retrieval_eval(dict(params)) or {}
@@ -205,7 +219,13 @@ class RAGAutoresearchService:
                         n_active = len(self.eval_harness._get_active_eval_pairs())
                     except Exception:
                         n_active = len(subset or [])
-                    if n_active > len(subset or []):
+                    if n_active > len(subset or []) and not self.eval_harness._budget_ok():
+                        # The subset already spent the deadline; a full-set
+                        # confirmation would raise on its first pair. Keep the
+                        # F1 verdict and say so rather than crash (2026-08-30).
+                        eval_result["f2_skipped"] = "budget_exhausted"
+                        logger.info("F2 confirmation skipped — experiment budget exhausted after F1")
+                    elif n_active > len(subset or []):
                         eval_result = self.eval_harness.run_full_eval(test_params)
                         fidelity = 2
                         if eval_result.get("parse_fail_crash"):

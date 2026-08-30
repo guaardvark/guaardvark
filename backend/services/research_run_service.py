@@ -243,11 +243,15 @@ class ResearchRunService:
         # (Karpathy: "your very first run should always be the baseline").
         cfg = svc._load_config()
         baseline = cfg.get("baseline_score") or 0.0
+        if cfg.get("avg_pair_seconds") and not getattr(svc.eval_harness, "avg_pair_seconds", None):
+            svc.eval_harness.avg_pair_seconds = float(cfg["avg_pair_seconds"])
         if not baseline:
             try:
                 base_eval = svc.eval_harness.run_full_eval(dict(cfg.get("params", {})))
                 baseline = base_eval.get("composite_score", 0.0)
                 cfg["baseline_score"] = baseline
+                if getattr(svc.eval_harness, "avg_pair_seconds", None):
+                    cfg["avg_pair_seconds"] = round(svc.eval_harness.avg_pair_seconds, 2)
                 svc._save_config(cfg)
             except Exception as e:
                 run.status = "failed_precondition"

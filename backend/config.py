@@ -177,7 +177,12 @@ def get_dedup_threshold(model_name: str) -> float:
 # RAG Autoresearch configuration
 AUTORESEARCH_ENABLED = os.environ.get("GUAARDVARK_AUTORESEARCH_ENABLED", "true").lower() == "true"
 AUTORESEARCH_IDLE_MINUTES = int(os.environ.get("GUAARDVARK_AUTORESEARCH_IDLE_MINUTES", "10"))
-AUTORESEARCH_MAX_EXPERIMENT_DURATION = 300  # soft pair-eval deadline (seconds)
+AUTORESEARCH_MAX_EXPERIMENT_DURATION = 300  # floor for the per-experiment deadline (seconds)
+# The real deadline is max(floor, HEADROOM x pairs x measured seconds per pair).
+# Measured 2026-08-30 on gemma4 12B via Ollama: the 18-pair baseline took ~600s,
+# so a fixed 300s crashed every experiment at exactly 300.7s. F1 judges a subset
+# and F2 may re-run the full set, hence 2x the full-set estimate.
+AUTORESEARCH_EXPERIMENT_DEADLINE_HEADROOM = 2.0
 AUTORESEARCH_MAX_LLM_CALLS_PER_EXPERIMENT = 200
 AUTORESEARCH_PHASE_PLATEAU_THRESHOLD = 10  # consecutive discards before phase advance
 # Keep bar matches run-end confirmation (research_run_service). Any smaller

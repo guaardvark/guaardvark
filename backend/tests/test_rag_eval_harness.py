@@ -186,3 +186,11 @@ class TestWorkerLLMResolution:
             llm = harness._get_llm("answer")
         assert llm is not None and llm.model == "gemma4:12b"
         assert calls == [None, "gemma4:12b"]
+
+
+def test_run_full_eval_measures_seconds_per_pair():
+    harness = RAGEvalHarness()
+    harness.begin_experiment_budget(duration_s=60)
+    with patch.object(harness, "_eval_single_pair", return_value={"composite": 4.0}):
+        harness.run_full_eval({}, pairs=[{"id": 1}, {"id": 2}])
+    assert harness.avg_pair_seconds is not None and harness.avg_pair_seconds >= 0
