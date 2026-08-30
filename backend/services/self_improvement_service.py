@@ -308,8 +308,8 @@ class SelfImprovementService:
             self._running = False
             self._current_run_id = None
 
-    def _attempt_fix(self, failure: Dict[str, str]) -> Optional[Dict[str, Any]]:
-        """Dispatch code_assistant agent to fix a test failure."""
+    def _attempt_fix(self, failure: Dict[str, str], message: str = None) -> Optional[Dict[str, Any]]:
+        """Dispatch code_assistant agent to fix a test failure (or run `message`)."""
         try:
             from backend.services.agent_executor import AgentExecutor
             from backend.services.agent_config import AgentConfigManager
@@ -328,7 +328,7 @@ class SelfImprovementService:
                 max_iterations=agent_config.max_iterations,
             )
 
-            message = (
+            message = message or (
                 f"Fix this failing test. "
                 f"Test file: {failure['file']}, test: {failure['test_name']}. "
                 f"Error: {failure['error']}. "
@@ -466,23 +466,56 @@ class SelfImprovementService:
             db.session.add(run_record)
             db.session.commit()
 
+            self._current_run_id = run_record.id
             failure = {
                 "file": ", ".join(target_files) if target_files else "unknown",
                 "test_name": "directed_improvement",
                 "error": description,
             }
-            change = self._attempt_fix(failure)
+            change = self._attempt_fix(failure, message=self._directed_message(
+                description, target_files))
 
-            run_record.status = "success" if change else "failed"
-            run_record.changes_made = json.dumps([change] if change else [])
+            # A directed run succeeded only if something was actually staged.
+            # The agent's closing prose is not a change: on 2026-08-29 two runs
+            # burned 15 iterations on execute_python, answered with a directory
+            # listing, and were recorded as "success" with nothing in the queue.
+            from backend.models import PendingFix
+            staged = PendingFix.query.filter_by(run_id=run_record.id).all()
+            if staged:
+                run_record.status = "success"
+                run_record.changes_made = json.dumps([
+                    {"file": f.file_path, "pending_fix_id": f.id,
+                     "fix_description": (f.fix_description or "")[:500]}
+                    for f in staged
+                ])
+            else:
+                run_record.status = "no_change"
+                run_record.changes_made = "[]"
+                run_record.error_message = (
+                    (change or {}).get("fix_description") or "agent produced no answer")
             db.session.commit()
 
-            return {"success": bool(change), "change": change}
+            return {"success": bool(staged), "change": change,
+                    "pending_fix_ids": [f.id for f in staged]}
         except Exception as e:
             logger.error(f"Directed improvement failed: {e}", exc_info=True)
             return {"success": False, "reason": str(e)}
         finally:
             self._running = False
+            self._current_run_id = None
+
+    @staticmethod
+    def _directed_message(description: str, target_files: List[str] = None) -> str:
+        """Prompt for a dispatched finding — a change proposal, not a test repair."""
+        files = ", ".join(target_files) if target_files else "(find them with search_code)"
+        return (
+            f"Directed improvement task. This is not a failing test.\n\n{description}\n\n"
+            f"Target file(s): {files}.\n"
+            "Steps: read the target file with read_code; decide the smallest correct "
+            "change; propose it with edit_code (in this context edit_code stages a "
+            "proposal for human review — it does not write to disk). "
+            "Do not use execute_python. If no change is warranted, say why and stop."
+        )
 
 
     def optimize_servo(self) -> Dict[str, Any]:
