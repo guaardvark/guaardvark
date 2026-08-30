@@ -62,3 +62,32 @@ class TestPhaseTransition:
         history = [{"status": "discard"} for _ in range(9)]
         history.append({"status": "keep"})
         assert agent.should_advance_phase(history) is False
+
+
+class TestTpeAndProgram:
+    def test_research_program_path_is_shared(self):
+        from backend.services.rag_experiment_agent import RESEARCH_PROGRAM_RELPATH
+        assert RESEARCH_PROGRAM_RELPATH.replace("\\", "/").endswith(
+            "data/rag_research_program.md"
+        )
+
+    def test_tpe_proposes_when_history_is_rich(self):
+        agent = RAGExperimentAgent()
+        history = [
+            {
+                "parameter_changed": "top_k",
+                "new_value": "8",
+                "composite_score": 4.0 + i * 0.01,
+                "status": "keep",
+            }
+            for i in range(10)
+        ]
+        with patch.object(agent, "_call_llm", return_value="not json"):
+            proposal = agent.propose_experiment(
+                history=history,
+                current_config={"top_k": 5, "dedup_threshold": 0.85},
+                phase=1,
+            )
+        assert proposal["source"] == "tpe"
+        assert proposal["parameter"] == "top_k"
+        assert proposal["new_value"] == 8

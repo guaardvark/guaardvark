@@ -3,6 +3,8 @@ from flask import Blueprint, jsonify, request
 from backend.services.rag_autoresearch_service import get_autoresearch_service
 from backend.models import ExperimentRun, EvalPair, ResearchConfig, Setting, db
 
+DEFAULT_START_BUDGET_HOURS = 6.0
+
 autoresearch_bp = Blueprint("autoresearch", __name__, url_prefix="/api/autoresearch")
 
 
@@ -14,26 +16,22 @@ def get_status():
 
 @autoresearch_bp.route("/start", methods=["POST"])
 def start_loop():
-    svc = get_autoresearch_service()
-    if svc.is_running():
-        return jsonify({"error": "Already running"}), 409
-    _set_kill_flag("false")
-    max_exp = request.json.get("max_experiments", 0) if request.is_json else 0
-    import threading
-    from flask import current_app
-
-    # run_loop touches the DB (corpus check, experiment logging) on every iteration,
-    # all of which needs a Flask app context. A bare thread has none, so capture the
-    # real app object here (inside the request context) and push it inside the thread.
-    app = current_app._get_current_object()
-
-    def _runner():
-        with app.app_context():
-            svc.run_loop(max_experiments=max_exp)
-
-    t = threading.Thread(target=_runner, daemon=True)
-    t.start()
-    return jsonify({"status": "started"})
+    """Alias for a bounded ResearchRun. The unbounded in-process loop is
+    how the 2026-08 runaway started; Play /start now shares kickoff()
+    with Research Tonight.
+    """
+    from backend.services.research_run_service import get_research_run_service
+    body = request.get_json(silent=True) or {}
+    hours = body.get("budget_hours")
+    if hours is None:
+        hours = DEFAULT_START_BUDGET_HOURS
+    result = get_research_run_service().kickoff(
+        mode=body.get("mode", "rag_tuning"),
+        budget_hours=hours,
+        trigger="manual",
+    )
+    status = 409 if "error" in result else 202
+    return jsonify(result), status
 
 
 def _set_kill_flag(value: str) -> None:
@@ -107,7 +105,19 @@ def regenerate_eval_pairs():
     svc = get_autoresearch_service()
     from backend.services.rag_eval_harness import LLMUnavailableError
     try:
-        pairs = svc.eval_harness.generate_eval_set()
+        body = request.get_json(silent=True) or {}
+        from backend.config import (
+            AUTORESEARCH_EVAL_PAIR_TARGET,
+            AUTORESEARCH_EVAL_PAIR_REGENERATE_MAX,
+        )
+        count = body.get("count") if isinstance(body, dict) else None
+        if count is not None:
+            try:
+                count = int(count)
+            except (TypeError, ValueError):
+                count = AUTORESEARCH_EVAL_PAIR_TARGET
+            count = max(1, min(count, AUTORESEARCH_EVAL_PAIR_REGENERATE_MAX))
+        pairs = svc.eval_harness.generate_eval_set(target_count=count)
     except LLMUnavailableError as e:
         return jsonify({"error": str(e)}), 503
     if not pairs:
@@ -282,6 +292,7 @@ def get_metrics():
                 "created_at": r.created_at.isoformat() if r.created_at else None,
                 "parameter": r.parameter_changed,
                 "new_value": r.new_value,
+                "hypothesis": r.hypothesis,
                 "status": r.status,
                 "composite_score": r.composite_score,
                 "delta": r.delta,

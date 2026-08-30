@@ -177,9 +177,18 @@ def get_dedup_threshold(model_name: str) -> float:
 # RAG Autoresearch configuration
 AUTORESEARCH_ENABLED = os.environ.get("GUAARDVARK_AUTORESEARCH_ENABLED", "true").lower() == "true"
 AUTORESEARCH_IDLE_MINUTES = int(os.environ.get("GUAARDVARK_AUTORESEARCH_IDLE_MINUTES", "10"))
-AUTORESEARCH_MAX_EXPERIMENT_DURATION = 300  # 5 minutes, matching Karpathy's time budget
+AUTORESEARCH_MAX_EXPERIMENT_DURATION = 300  # soft pair-eval deadline (seconds)
 AUTORESEARCH_MAX_LLM_CALLS_PER_EXPERIMENT = 200
 AUTORESEARCH_PHASE_PLATEAU_THRESHOLD = 10  # consecutive discards before phase advance
+# Keep bar matches run-end confirmation (research_run_service). Any smaller
+# positive delta is LLM-judge jitter, not a real improvement — measured
+# against the 2026-08 overnight ledgers where 0.001 keeps promoted noise.
+AUTORESEARCH_KEEP_MIN_DELTA = 0.05
+# TPE-lite needs a handful of scored trials before it beats LLM/random.
+AUTORESEARCH_TPE_MIN_HISTORY = 8
+# Drop parse-failed judge pairs from the mean; crash the experiment if more
+# than this fraction of the judged set failed to parse.
+AUTORESEARCH_PARSE_FAIL_CRASH_RATIO = 0.5
 # Bounds that keep the loop finite and paced. A single loop invocation may never
 # run unbounded (the 2026-08-07..10 runaway spun ~3,500 no-op experiments/second
 # for 3.4 days = 134M rows, because 0 eval pairs made each "experiment" a 1ms
@@ -189,7 +198,13 @@ AUTORESEARCH_MAX_EXPERIMENTS_PER_RUN = 25   # cap when caller passes 0/unbounded
 AUTORESEARCH_MIN_EXPERIMENT_INTERVAL = 5.0  # seconds between experiments, minimum
 AUTORESEARCH_MIN_CORPUS_SIZE = 10  # minimum indexed documents to enable
 AUTORESEARCH_SHADOW_CORPUS_SIZE = 100  # documents in shadow eval corpus
-AUTORESEARCH_EVAL_PAIR_TARGET = 100  # target eval pairs per generation
+# Overnight default. 100 pairs × (answer + judge) on local Ollama ate a 6h
+# window for ~10 noisy trials (2026-08). 30 pairs + a 20-pair F1 judge
+# subset leaves room for >20 trials in 6h. Explicit regenerate may still
+# request up to AUTORESEARCH_EVAL_PAIR_REGENERATE_MAX.
+AUTORESEARCH_EVAL_PAIR_TARGET = 30
+AUTORESEARCH_EVAL_PAIR_REGENERATE_MAX = 100
+AUTORESEARCH_JUDGE_SUBSET = 20  # F1 LLM-judge sample; F2 is the full active set
 AUTORESEARCH_STALENESS_SAMPLE_RATE = 0.1  # fraction of pairs to spot-check
 AUTORESEARCH_STALENESS_THRESHOLD = 0.2  # fraction of stale pairs triggering regen
 

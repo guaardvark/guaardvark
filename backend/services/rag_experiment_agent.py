@@ -1,8 +1,8 @@
 """RAG Experiment Agent — LLM-driven hypothesis engine.
 
-Reads experiment history and research_program.md, proposes the next
-parameter change to try. Falls back to random search if LLM output
-is unparseable.
+Reads experiment history and data/rag_research_program.md, proposes the next
+parameter change to try. Order: TPE-lite over scored history, then LLM, then
+random if both fail.
 """
 import json
 import os
@@ -13,6 +13,7 @@ from typing import Optional
 from backend.config import (
     AUTORESEARCH_DEFAULT_PARAMS,
     AUTORESEARCH_PHASE_PLATEAU_THRESHOLD,
+    AUTORESEARCH_TPE_MIN_HISTORY,
     PROTECTED_RAG_PARAMS,
 )
 
@@ -48,6 +49,21 @@ PARAM_RANGES = {
     "extract_entities": (False, True, "bool"),
     "preserve_structure": (False, True, "bool"),
 }
+
+# Same path the research-run engine snapshots. The old research_program.md
+# filename never received the human's directives.
+RESEARCH_PROGRAM_RELPATH = os.path.join("data", "rag_research_program.md")
+
+# Discretization for TPE-lite. Matches PARAM_RANGES for Phase 1.
+_TPE_GRID = {
+    "top_k": list(range(1, 21)),
+    "dedup_threshold": [round(0.50 + i * 0.02, 2) for i in range(25)],
+    "context_window_chunks": list(range(1, 11)),
+    "reranking_enabled": [False, True],
+    "query_expansion": [False, True],
+    "hybrid_search_alpha": [round(i * 0.1, 1) for i in range(11)],
+}
+
 
 def _extract_json(text: str) -> str:
     """Pull the first {...} block out of a possibly chatty LLM reply."""
@@ -121,7 +137,7 @@ class RAGExperimentAgent:
 
     def _load_research_program(self) -> str:
         program_path = os.path.join(
-            os.environ.get("GUAARDVARK_ROOT", ""), "data", "research_program.md"
+            os.environ.get("GUAARDVARK_ROOT", ""), RESEARCH_PROGRAM_RELPATH
         )
         try:
             with open(program_path, "r") as f:
@@ -154,6 +170,10 @@ class RAGExperimentAgent:
         ]
         if not available:
             return self._random_proposal(available or ["top_k"], current_config)
+
+        tpe = self._tpe_proposal(history, current_config, available)
+        if tpe is not None:
+            return tpe
 
         # Try LLM-driven proposal
         research_program = self._load_research_program()
@@ -235,6 +255,112 @@ class RAGExperimentAgent:
             "new_value": new_val,
             "hypothesis": f"Random exploration: try {param}={new_val}",
             "source": "random",
+        }
+
+    def _tpe_proposal(
+        self, history: list, current_config: dict, available: list
+    ) -> Optional[dict]:
+        """Component-wise TPE-lite over scored history. None = not enough data.
+
+        Splits observations into the top quartile (good) vs the rest (bad) by
+        composite_score, then for each Phase-1 param picks the discrete value
+        maximizing n_good / (n_bad + 1) that is not the current value and was
+        not the most recently discarded value for that param. With p=0.3 a
+        second param is also flipped (the caller still records one change as
+        the primary; the second is applied via new_value_extra — actually we
+        only return ONE change to stay compatible with the 1-param ledger).
+        """
+        scored = []
+        for h in history or []:
+            try:
+                score = float(h.get("composite_score"))
+            except (TypeError, ValueError):
+                continue
+            param = h.get("parameter_changed") or h.get("parameter")
+            if not param:
+                continue
+            scored.append({
+                "parameter": param,
+                "value": h.get("new_value"),
+                "score": score,
+                "status": h.get("status"),
+            })
+        if len(scored) < AUTORESEARCH_TPE_MIN_HISTORY:
+            return None
+
+        scores = sorted(s["score"] for s in scored)
+        cutoff = scores[max(0, len(scores) - max(1, len(scores) // 4))]
+        good = [s for s in scored if s["score"] >= cutoff]
+        bad = [s for s in scored if s["score"] < cutoff]
+        if not good:
+            return None
+
+        recent_discard = {}
+        for h in reversed(history or []):
+            if h.get("status") == "discard":
+                p = h.get("parameter_changed") or h.get("parameter")
+                if p and p not in recent_discard:
+                    recent_discard[p] = str(h.get("new_value"))
+
+        def _coerce(param, raw):
+            grid = _TPE_GRID.get(param)
+            if not grid:
+                return None
+            ptype = PARAM_RANGES.get(param, (None, None, None))[2]
+            try:
+                if ptype == "bool":
+                    if isinstance(raw, bool):
+                        val = raw
+                    else:
+                        val = str(raw).strip().lower() in ("1", "true", "yes")
+                elif ptype == "int":
+                    val = int(float(raw))
+                else:
+                    val = float(raw)
+            except (TypeError, ValueError):
+                return None
+            # Snap to nearest grid point.
+            return min(grid, key=lambda g: abs(float(g) - float(val))
+                       if not isinstance(g, bool) else (0 if g == val else 1))
+
+        best = None
+        best_ratio = -1.0
+        for param in available:
+            grid = _TPE_GRID.get(param)
+            if not grid:
+                continue
+            current = current_config.get(param)
+            for candidate in grid:
+                if str(candidate) == str(current):
+                    continue
+                if recent_discard.get(param) == str(candidate):
+                    continue
+                n_good = sum(
+                    1 for s in good
+                    if s["parameter"] == param and _coerce(param, s["value"]) == candidate
+                )
+                n_bad = sum(
+                    1 for s in bad
+                    if s["parameter"] == param and _coerce(param, s["value"]) == candidate
+                )
+                # Unobserved values get a small exploration prior so TPE
+                # still tries them instead of only repeating known keeps.
+                ratio = (n_good + 0.15) / (n_bad + 1.0)
+                if ratio > best_ratio:
+                    best_ratio = ratio
+                    best = (param, candidate, n_good, n_bad)
+
+        if best is None:
+            return None
+        param, new_val, n_good, n_bad = best
+        return {
+            "parameter": param,
+            "new_value": new_val,
+            "hypothesis": (
+                f"TPE-lite: {param}={new_val} "
+                f"(good={n_good} bad={n_bad} among {len(scored)} scored trials)"
+            ),
+            "source": "tpe",
         }
 
     def should_advance_phase(self, history: list) -> bool:

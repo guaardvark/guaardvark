@@ -80,6 +80,20 @@ export const ragAutoresearchService = {
     return handleResponse(res);
   },
 
+  async getEvalPairs() {
+    const res = await fetch(`${BASE_URL}/autoresearch/eval-pairs`);
+    return handleResponse(res);
+  },
+
+  async regenerateEvalPairs(count) {
+    const res = await fetch(`${BASE_URL}/autoresearch/eval-pairs/regenerate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(count ? { count } : {}),
+    });
+    return handleResponse(res);
+  },
+
   // Kicks off a research run now ("research tonight"). Backend responds 202
   // on success and 409 when a run is already in progress — handleResponse
   // throws on 409 with error.status set, so callers can branch on it.

@@ -20,9 +20,10 @@ import logging
 import os
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from backend.config import (
+    AUTORESEARCH_KEEP_MIN_DELTA,
     AUTORESEARCH_MIN_EXPERIMENT_INTERVAL,
     AUTORESEARCH_PHASE_PLATEAU_THRESHOLD,
 )
@@ -34,7 +35,11 @@ MAX_BUDGET_HOURS = 12.0
 HARD_ITERATION_CAP = 500          # belt-and-braces above the wall clock
 GPU_YIELD_SLEEP_S = 60            # sleep while the GPU is busy
 CONSECUTIVE_CRASH_HALT = 3
-CONFIRMATION_MIN_DELTA = 0.05     # candidate must beat active by this much
+CONFIRMATION_MIN_DELTA = AUTORESEARCH_KEEP_MIN_DELTA
+# Celery time_limit sits above MAX_BUDGET_HOURS so the wall-clock cap in
+# execute_run fires first; the task limit is the last-resort kill.
+EXECUTE_RUN_TIME_LIMIT_S = int(MAX_BUDGET_HOURS * 3600) + 3600
+EXECUTE_RUN_SOFT_LIMIT_S = int(MAX_BUDGET_HOURS * 3600) + 1800
 
 PROGRAM_PATH = os.path.join("data", "rag_research_program.md")
 
@@ -70,12 +75,15 @@ class ResearchRunService:
         Returns the run dict (status may already be failed_precondition).
         Caller must be inside an app context; the worker thread gets its own.
         """
-        from flask import current_app
         from backend.models import ResearchRun, db
 
         budget_hours = min(float(budget_hours or DEFAULT_BUDGET_HOURS), MAX_BUDGET_HOURS)
 
-        active = ResearchRun.query.filter_by(status="running").first()
+        self._recover_stale_runs()
+
+        active = ResearchRun.query.filter(
+            ResearchRun.status.in_(("running", "pending"))
+        ).first()
         if active is not None:
             return {"error": "A research run is already in progress", "run": active.to_dict()}
 
@@ -99,23 +107,21 @@ class ResearchRunService:
         # Clear any stale kill flag from a previous stop.
         self._set_kill(False)
 
-        app = current_app._get_current_object()
-        run_id = run.id
+        try:
+            self._enqueue_execute_run(run.id)
+        except Exception as e:
+            run.status = "failed_precondition"
+            run.halt_reason = f"celery_unreachable ({e.__class__.__name__})"
+            run.ended_at = datetime.utcnow()
+            run.report_md = self._write_report(
+                run, [], precondition_failure=run.halt_reason,
+            )
+            db.session.commit()
+            logger.error(f"Research run {run_tag}: {run.halt_reason}")
+            return {"error": run.halt_reason, "run": run.to_dict()}
 
-        import threading
-
-        def _worker():
-            with app.app_context():
-                try:
-                    self.execute_run(run_id)
-                except Exception:
-                    logger.exception("Research run crashed at top level")
-                    self._finalize_crashed(run_id)
-
-        threading.Thread(target=_worker, daemon=True,
-                         name=f"research-run-{run_tag}").start()
         logger.info(f"Research run {run_tag} kicked off ({trigger}, "
-                    f"budget {budget_hours:.1f}h)")
+                    f"budget {budget_hours:.1f}h) via celery")
         return {"status": "started", "run": run.to_dict()}
 
     # ---- code-tuning mode (swarm engine) --------------------------------
@@ -228,6 +234,7 @@ class ResearchRunService:
         budget = run.wall_clock_budget_s if run.wall_clock_budget_s is not None \
             else int(DEFAULT_BUDGET_HOURS * 3600)
         ledger = []
+        candidate_ids = []
         crash_streak = 0
         halt_reason = "budget_exhausted"
         status_at_end = "completed"
@@ -280,7 +287,10 @@ class ResearchRunService:
             result = svc.run_single_experiment(run_tag=run.run_tag,
                                                promote_mode="candidate")
             ledger.append(result)
+            if result.get("config_id"):
+                candidate_ids.append(result["config_id"])
             run.experiments_completed = len(ledger)
+            run.promotions = list(candidate_ids)
             best = max((float(r.get("composite_score") or 0.0) for r in ledger), default=0.0)
             run.best_score = max(best, baseline)
             db.session.commit()
@@ -309,7 +319,9 @@ class ResearchRunService:
         promotion_note = None
         if status_at_end == "completed" or halt_reason == "budget_exhausted":
             try:
-                promotion_note = self._confirm_and_activate(svc, run)
+                promotion_note = self._confirm_and_activate(
+                    svc, run, candidate_ids=candidate_ids,
+                )
             except Exception as e:
                 promotion_note = f"confirmation failed: {e}"
                 logger.warning(f"Run {run.run_tag} confirmation failed: {e}")
@@ -326,16 +338,31 @@ class ResearchRunService:
 
     # ---- confirmation (B5) --------------------------------------------
 
-    def _confirm_and_activate(self, svc, run) -> str:
+    def _confirm_and_activate(self, svc, run, candidate_ids=None) -> str:
         """A/B-confirm the best candidate from this run against the currently
-        active config on a fresh eval; activate only a clear winner."""
+        active config on a fresh eval; activate only a clear winner.
+
+        Scoped to this run: candidate_ids collected from keep rows, else
+        local candidates created after run.started_at. Family-broadcast
+        leftovers are not considered.
+        """
         from backend.models import ResearchConfig, db
 
-        candidates = (
-            ResearchConfig.query.filter_by(status="candidate")
-            .order_by(ResearchConfig.composite_score.desc())
-            .all()
-        )
+        ids = list(candidate_ids or [])
+        if not ids and isinstance(run.promotions, list):
+            ids = [x for x in run.promotions if isinstance(x, str)]
+        q = ResearchConfig.query.filter_by(status="candidate")
+        if ids:
+            q = q.filter(ResearchConfig.id.in_(ids))
+        else:
+            from sqlalchemy import or_
+            q = q.filter(or_(
+                ResearchConfig.source == "local",
+                ResearchConfig.source.is_(None),
+            ))
+            if run.started_at is not None:
+                q = q.filter(ResearchConfig.created_at >= run.started_at)
+        candidates = q.order_by(ResearchConfig.composite_score.desc()).all()
         if not candidates:
             return "no candidate configs produced"
         best = candidates[0]
@@ -407,6 +434,68 @@ class ResearchRunService:
             return False, f"prerequisite_check_failed ({e})"
         return True, ""
 
+    def _enqueue_execute_run(self, run_id: str) -> None:
+        from backend.celery_app import celery
+        celery.send_task(
+            "autoresearch.execute_run",
+            args=[run_id],
+            time_limit=EXECUTE_RUN_TIME_LIMIT_S,
+            soft_time_limit=EXECUTE_RUN_SOFT_LIMIT_S,
+        )
+
+    def _celery_has_live_execute_run(self):
+        """True if a worker reports autoresearch.execute_run active.
+
+        False if inspect succeeded and none are active. None if inspect failed
+        (do not clobber a maybe-live 6h run).
+        """
+        try:
+            from backend.celery_app import celery
+            insp = celery.control.inspect(timeout=1.0)
+            if insp is None:
+                return None
+            active = insp.active()
+            if active is None:
+                return None
+            for _worker, tasks in (active or {}).items():
+                for t in tasks or []:
+                    if (t.get("name") or "") == "autoresearch.execute_run":
+                        return True
+            return False
+        except Exception:
+            return None
+
+    def _recover_stale_runs(self) -> int:
+        """Halt ResearchRun rows left `running`/`pending` after a dead worker.
+
+        A live execute_run task (celery inspect) is left alone. If inspect is
+        unavailable, only pending rows that never started and are older than
+        2 minutes are reaped — a running 6h eval is not assumed dead.
+        """
+        from backend.models import ResearchRun, db
+        live = self._celery_has_live_execute_run()
+        q = ResearchRun.query.filter(ResearchRun.status.in_(("running", "pending")))
+        if live is True:
+            return 0
+        if live is None:
+            cutoff = datetime.utcnow() - timedelta(minutes=2)
+            rows = q.filter(
+                ResearchRun.started_at.is_(None),
+                ResearchRun.created_at < cutoff,
+            ).all()
+        else:
+            rows = q.all()
+        n = 0
+        for row in rows:
+            row.status = "halted"
+            row.halt_reason = "worker_crashed"
+            row.ended_at = datetime.utcnow()
+            n += 1
+        if n:
+            db.session.commit()
+            logger.warning("Recovered %d stale research run(s)", n)
+        return n
+
     def _kill_requested(self) -> bool:
         try:
             from backend.models import Setting
@@ -476,6 +565,8 @@ class ResearchRunService:
         discards = [r for r in ledger if r.get("status") == "discard"]
         crashes = [r for r in ledger if r.get("status") == "crash"]
         llm_props = [r for r in ledger if r.get("proposal_source") == "llm"]
+        tpe_props = [r for r in ledger if r.get("proposal_source") == "tpe"]
+        f0 = [r for r in ledger if r.get("fidelity") == 0]
 
         best = run.best_score or 0.0
         base = run.baseline_score or 0.0
@@ -490,9 +581,19 @@ class ResearchRunService:
         ]
 
         if ledger:
-            ratio = len(llm_props) / len(ledger) * 100.0
-            lines.append(f"**Proposal quality**: {ratio:.0f}% LLM-proposed, "
-                         f"{100 - ratio:.0f}% random fallback.")
+            n = len(ledger)
+            tpe_pct = len(tpe_props) / n * 100.0
+            llm_pct = len(llm_props) / n * 100.0
+            rand_pct = 100.0 - tpe_pct - llm_pct
+            lines.append(
+                f"**Proposal quality**: {tpe_pct:.0f}% TPE, {llm_pct:.0f}% LLM, "
+                f"{rand_pct:.0f}% random fallback."
+            )
+            if f0:
+                lines.append(
+                    f"**Fidelity**: {len(f0)}/{n} discarded at F0 (retrieval screen, "
+                    "no LLM judge)."
+                )
             judge_models = {r.get("judge_model") for r in ledger if r.get("judge_model")}
             prop_models = {r.get("proposer_model") for r in ledger if r.get("proposer_model")}
             if judge_models and judge_models == prop_models:

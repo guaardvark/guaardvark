@@ -78,6 +78,31 @@ def create_autoresearch_tasks(celery_app):
         except Exception as e:
             logger.error(f"Post-index eval check failed: {e}")
 
+    @celery_app.task(
+        name="autoresearch.execute_run",
+        bind=True,
+        acks_late=True,
+        reject_on_worker_lost=True,
+        # Per-task limits override the worker's 40-minute default so a 6–12h
+        # overnight run is owned by this task for its full wall-clock budget.
+        time_limit=13 * 3600,
+        soft_time_limit=12 * 3600 + 1800,
+    )
+    def execute_run_task(self, run_id):
+        """Long-lived owner of one ResearchRun. Replaces the daemon thread
+        that died on worker_max_tasks_per_child=50."""
+        from backend.services.research_run_service import get_research_run_service
+        svc = get_research_run_service()
+        try:
+            svc.execute_run(run_id)
+        except Exception:
+            logger.exception("autoresearch.execute_run crashed for %s", run_id)
+            try:
+                svc._finalize_crashed(run_id)
+            except Exception:
+                logger.exception("Failed to finalize crashed run %s", run_id)
+            raise
+
 
 def schedule_autoresearch_tasks(celery_app):
     """Register autoresearch Beat schedule."""

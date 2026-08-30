@@ -92,7 +92,13 @@ const RAGAutoresearchCard = React.forwardRef(
   const handleStart = async () => {
     setLoading(true);
     try {
-      await ragAutoresearchService.start();
+      await ragAutoresearchService.createRun({ budget_hours: 6 });
+      await fetchStatus();
+      await fetchLastRun();
+    } catch (e) {
+      if (e.status !== 409) {
+        /* page / snackbar lives on Autoresearch; card stays quiet */
+      }
       await fetchStatus();
     } finally { setLoading(false); }
   };
@@ -133,6 +139,7 @@ const RAGAutoresearchCard = React.forwardRef(
               />
               <Typography variant="caption" color="text.secondary">
                 Phase {status.phase}
+                {status.current_parameter ? ` · ${status.current_parameter}` : ""}
               </Typography>
             </Box>
             {status.running ? (
@@ -140,7 +147,7 @@ const RAGAutoresearchCard = React.forwardRef(
                 <IconButton size="small" onClick={handleStop}><PauseIcon sx={{ fontSize: 16 }} /></IconButton>
               </Tooltip>
             ) : (
-              <Tooltip title="Start optimization">
+              <Tooltip title="Start bounded research run">
                 <IconButton size="small" onClick={handleStart} disabled={loading}>
                   <PlayIcon sx={{ fontSize: 16 }} />
                 </IconButton>
@@ -212,7 +219,7 @@ const RAGAutoresearchCard = React.forwardRef(
           {history.length === 0 && !status.running && (
             <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Typography variant="caption" color="text.secondary">
-                No experiments yet. Click play to start.
+                No experiments yet. Click play to start a bounded run.
               </Typography>
             </Box>
           )}

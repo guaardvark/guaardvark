@@ -70,11 +70,22 @@ class TestLLMJudge:
             assert 1.0 <= score["composite"] <= 5.0
 
     def test_score_response_handles_malformed_judgment(self):
-        """Returns default low scores on parse failure."""
+        """Parse failure is labeled and excluded from the mean, not floored to 1.0."""
         harness = RAGEvalHarness()
         with patch.object(harness, "_call_llm", return_value="garbage"):
             score = harness.score_response("q", "a", "r", [])
-            assert score["composite"] == 1.0  # worst score
+            assert score.get("judge_parse_failed") is True
+            assert score["composite"] is None
+
+    def test_score_response_extracts_json_from_prose(self):
+        harness = RAGEvalHarness()
+        with patch.object(
+            harness, "_call_llm",
+            return_value='Sure.\n{"relevance": 4, "grounding": 5, "completeness": 3}\nThanks.',
+        ):
+            score = harness.score_response("q", "a", "r", [])
+            assert score["composite"] == 4.0
+            assert not score.get("judge_parse_failed")
 
     def test_run_full_eval(self, app):
         """Full eval runs all eval pairs and returns average composite score."""
@@ -93,3 +104,36 @@ class TestLLMJudge:
                 result = harness.run_full_eval(config={"top_k": 5})
                 assert result["composite_score"] == 3.5
                 assert result["num_pairs"] == 2
+                assert result["parse_fail_ratio"] == 0.0
+
+    def test_run_full_eval_drops_parse_failures_from_mean(self, app):
+        with app.app_context():
+            harness = RAGEvalHarness()
+            with patch.object(harness, "_get_active_eval_pairs") as mock_pairs, \
+                 patch.object(harness, "_eval_single_pair") as mock_eval:
+                mock_pairs.return_value = [
+                    {"id": "1", "question": "q1", "expected_answer": "a1"},
+                    {"id": "2", "question": "q2", "expected_answer": "a2"},
+                ]
+                mock_eval.side_effect = [
+                    {"composite": 4.0, "relevance": 4, "grounding": 4, "completeness": 4},
+                    {"composite": None, "judge_parse_failed": True},
+                ]
+                result = harness.run_full_eval(config={"top_k": 5})
+                assert result["composite_score"] == 4.0
+                assert result["parse_fail_ratio"] == 0.5
+
+    def test_multi_hop_pair_records_two_hashes(self):
+        harness = RAGEvalHarness()
+        mock_response = (
+            '{"question": "How do A and B relate?", '
+            '"expected_answer": "They share a mechanism.", "question_type": "multi_hop"}'
+        )
+        with patch.object(harness, "_call_llm", return_value=mock_response):
+            result = harness.generate_eval_pair(
+                "chunk A text", "knowledge",
+                question_kind="multi_hop", chunk_b="chunk B text",
+            )
+            assert result is not None
+            assert len(result["source_chunk_hashes"]) == 2
+            assert result["source_chunk_hashes"][0] != result["source_chunk_hashes"][1]

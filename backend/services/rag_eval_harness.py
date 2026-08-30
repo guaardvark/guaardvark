@@ -7,15 +7,21 @@ is the single metric for the autoresearch keep/revert loop.
 import json
 import hashlib
 import logging
+import time
 from datetime import datetime
 from typing import Optional
 
 from backend.config import (
     AUTORESEARCH_EVAL_PAIR_TARGET,
+    AUTORESEARCH_JUDGE_SUBSET,
+    AUTORESEARCH_MAX_EXPERIMENT_DURATION,
+    AUTORESEARCH_MAX_LLM_CALLS_PER_EXPERIMENT,
     AUTORESEARCH_MIN_CORPUS_SIZE,
+    AUTORESEARCH_PARSE_FAIL_CRASH_RATIO,
     AUTORESEARCH_STALENESS_SAMPLE_RATE,
     AUTORESEARCH_STALENESS_THRESHOLD,
 )
+from backend.services.rag_experiment_agent import _extract_json
 
 logger = logging.getLogger(__name__)
 
@@ -35,13 +41,30 @@ class LLMUnavailableError(RuntimeError):
 
 EVAL_PAIR_GENERATION_PROMPT = """You are generating evaluation questions for a RAG (Retrieval-Augmented Generation) system.
 
-Given the following text chunk, generate ONE factual question that a user would ask, and the correct answer based ONLY on this text.
+Given the following text chunk, generate ONE {question_kind} question a user would ask, and the correct answer based ONLY on this text.
+
+Question kind:
+- specific: a factual question whose answer is a span of this chunk
+- reasoning: a question that requires combining two facts in this chunk, not copying a single sentence
 
 Text chunk:
 {chunk_text}
 
 Return ONLY valid JSON:
-{{"question": "your question here", "expected_answer": "the answer from the text"}}"""
+{{"question": "your question here", "expected_answer": "the answer from the text", "question_type": "{question_kind}"}}"""
+
+MULTI_HOP_GENERATION_PROMPT = """You are generating evaluation questions for a RAG (Retrieval-Augmented Generation) system.
+
+Given TWO text chunks, generate ONE question that requires information from BOTH chunks to answer correctly, and the correct answer grounded in those chunks.
+
+Chunk A:
+{chunk_a}
+
+Chunk B:
+{chunk_b}
+
+Return ONLY valid JSON:
+{{"question": "your question here", "expected_answer": "the answer from both chunks", "question_type": "multi_hop"}}"""
 
 JUDGE_PROMPT = """You are evaluating the quality of a RAG system's response.
 
@@ -67,6 +90,9 @@ class RAGEvalHarness:
         self._llms = {}  # role -> LLM instance
         self.judge_model_name = None  # resolved lazily; recorded in the ledger
         self.single_model_judging = False
+        self._llm_calls = 0
+        self._deadline = None
+        self._call_budget = AUTORESEARCH_MAX_LLM_CALLS_PER_EXPERIMENT
 
     @staticmethod
     def _model_setting(key: str) -> Optional[str]:
@@ -120,8 +146,36 @@ class RAGEvalHarness:
             self._llms[role] = llm
         return llm
 
+    def begin_experiment_budget(self, duration_s: float = None, call_budget: int = None):
+        """Start the per-experiment wall-clock and LLM-call budgets."""
+        self._llm_calls = 0
+        cap = duration_s if duration_s is not None else AUTORESEARCH_MAX_EXPERIMENT_DURATION
+        self._deadline = time.monotonic() + max(1.0, float(cap))
+        self._call_budget = (
+            call_budget if call_budget is not None
+            else AUTORESEARCH_MAX_LLM_CALLS_PER_EXPERIMENT
+        )
+
+    def _budget_ok(self) -> bool:
+        if self._deadline is not None and time.monotonic() >= self._deadline:
+            return False
+        if self._llm_calls >= self._call_budget:
+            return False
+        return True
+
+    def _parse_json_object(self, text: str) -> Optional[dict]:
+        try:
+            parsed = json.loads(_extract_json(text or ""))
+        except (json.JSONDecodeError, TypeError, ValueError):
+            return None
+        return parsed if isinstance(parsed, dict) else None
+
     def _call_llm(self, prompt: str, temperature: float = 0.0, role: str = "answer") -> str:
         """Call the role's LLM. Raises LLMUnavailableError instead of faking."""
+        if not self._budget_ok():
+            raise LLMUnavailableError(
+                f"Eval budget exhausted (calls={self._llm_calls}, role='{role}')"
+            )
         llm = self._get_llm(role)
         if llm is None:
             raise LLMUnavailableError(
@@ -129,7 +183,10 @@ class RAGEvalHarness:
             )
         try:
             response = llm.complete(prompt, temperature=temperature)
+            self._llm_calls += 1
             return str(response).strip()
+        except LLMUnavailableError:
+            raise
         except Exception as e:
             raise LLMUnavailableError(f"LLM call failed for role '{role}': {e}") from e
 
@@ -164,21 +221,46 @@ class RAGEvalHarness:
             logger.debug(f"Eval chunking fell back to doc head: {e}")
         return [text[:2000]]
 
-    def generate_eval_pair(self, chunk_text: str, corpus_type: str) -> Optional[dict]:
-        """Generate a Q&A eval pair from one REAL index chunk."""
-        prompt = EVAL_PAIR_GENERATION_PROMPT.format(chunk_text=chunk_text[:2000])
-        response = self._call_llm(prompt, temperature=0.3, role="judge")
-        try:
-            parsed = json.loads(response)
-            if "question" in parsed and "expected_answer" in parsed:
-                chunk_hash = hashlib.sha256(chunk_text.encode()).hexdigest()
-                parsed["corpus_type"] = corpus_type
-                parsed["source_chunk_hash"] = chunk_hash  # legacy column
-                parsed["source_chunk_hashes"] = [chunk_hash]
-                return parsed
-        except (json.JSONDecodeError, KeyError):
-            pass
-        return None
+    def generate_eval_pair(
+        self, chunk_text: str, corpus_type: str, question_kind: str = "specific",
+        chunk_b: str = None,
+    ) -> Optional[dict]:
+        """Generate a Q&A eval pair from one (or two, for multi_hop) REAL index chunks."""
+        if question_kind == "multi_hop" and chunk_b:
+            prompt = MULTI_HOP_GENERATION_PROMPT.format(
+                chunk_a=chunk_text[:1500], chunk_b=chunk_b[:1500],
+            )
+        else:
+            kind = question_kind if question_kind in ("specific", "reasoning") else "specific"
+            prompt = EVAL_PAIR_GENERATION_PROMPT.format(
+                chunk_text=chunk_text[:2000], question_kind=kind,
+            )
+        response = ""
+        parsed = None
+        for _attempt in range(3):
+            response = self._call_llm(prompt, temperature=0.3, role="judge")
+            parsed = self._parse_json_object(response)
+            if parsed and parsed.get("question") and parsed.get("expected_answer"):
+                break
+            parsed = None
+            prompt = (
+                prompt
+                + '\n\nYour previous reply was not valid JSON. '
+                  'Return ONLY: {"question": "...", "expected_answer": "..."}'
+            )
+        if not parsed:
+            return None
+        hashes = [hashlib.sha256(chunk_text.encode()).hexdigest()]
+        if question_kind == "multi_hop" and chunk_b:
+            hashes.append(hashlib.sha256(chunk_b.encode()).hexdigest())
+        parsed["corpus_type"] = corpus_type
+        parsed["source_chunk_hash"] = hashes[0]
+        parsed["source_chunk_hashes"] = hashes
+        parsed["question_type"] = (
+            "multi_hop" if len(hashes) > 1
+            else parsed.get("question_type") or question_kind
+        )
+        return parsed
 
     def generate_eval_set(self, target_count: int = None):
         """Generate a full eval set from indexed documents.
@@ -201,19 +283,52 @@ class RAGEvalHarness:
             )
             return []
 
-        sampled = random.sample(documents, min(len(documents), target_count * 2))
+        sampled = random.sample(documents, min(len(documents), target_count * 3))
         generation_id = f"gen-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
 
+        # Mix: ~50% specific, 30% reasoning, 20% multi_hop (RAGAS-style).
+        n_specific = max(1, int(round(target_count * 0.5)))
+        n_reason = max(0, int(round(target_count * 0.3)))
+        n_multi = max(0, target_count - n_specific - n_reason)
+        wanted = (
+            ["specific"] * n_specific
+            + ["reasoning"] * n_reason
+            + ["multi_hop"] * n_multi
+        )
+        random.shuffle(wanted)
+
         pairs = []
-        for doc in sampled:
+        for doc, kind in zip(sampled, wanted + ["specific"] * len(sampled)):
             if len(pairs) >= target_count:
                 break
             chunks = self._chunk_document(doc)
             if not chunks:
                 continue
-            chunk_text = random.choice(chunks)
             corpus_type = self._detect_corpus_type(doc)
-            pair = self.generate_eval_pair(chunk_text, corpus_type)
+            chunk_b = None
+            if kind == "multi_hop":
+                if len(chunks) >= 2:
+                    chunk_text, chunk_b = random.sample(chunks, 2)
+                else:
+                    # Fall back to another document's chunk when this doc is
+                    # a single chunk — still records two hashes.
+                    others = [d for d in sampled if d.id != doc.id]
+                    if others:
+                        alt_chunks = self._chunk_document(random.choice(others))
+                        if alt_chunks:
+                            chunk_text = chunks[0]
+                            chunk_b = random.choice(alt_chunks)
+                        else:
+                            kind = "specific"
+                            chunk_text = chunks[0]
+                    else:
+                        kind = "specific"
+                        chunk_text = chunks[0]
+            else:
+                chunk_text = random.choice(chunks)
+            pair = self.generate_eval_pair(
+                chunk_text, corpus_type, question_kind=kind, chunk_b=chunk_b,
+            )
             if pair:
                 pair["eval_generation_id"] = generation_id
                 pair["source_doc_id"] = doc.id
@@ -249,26 +364,40 @@ class RAGEvalHarness:
             actual_response=actual_response,
             chunks_text=chunks_text or "(no chunks retrieved)",
         )
-        response = self._call_llm(prompt, temperature=0.0, role="judge")
-        try:
-            parsed = json.loads(response)
-            relevance = max(1, min(5, int(parsed.get("relevance", 1))))
-            grounding = max(1, min(5, int(parsed.get("grounding", 1))))
-            completeness = max(1, min(5, int(parsed.get("completeness", 1))))
-            composite = (relevance + grounding + completeness) / 3.0
-            return {
-                "relevance": relevance,
-                "grounding": grounding,
-                "completeness": completeness,
-                "composite": round(composite, 3),
-            }
-        except (json.JSONDecodeError, KeyError, ValueError):
-            # Judge answered but not in the schema — floor score, LABELED so
-            # parse noise is distinguishable from genuine low quality.
-            return {
-                "relevance": 1, "grounding": 1, "completeness": 1,
-                "composite": 1.0, "judge_parse_failed": True,
-            }
+        parsed = None
+        judge_prompt = prompt
+        for _attempt in range(3):
+            parsed = self._parse_json_object(
+                self._call_llm(judge_prompt, temperature=0.0, role="judge")
+            )
+            if parsed and all(k in parsed for k in ("relevance", "grounding", "completeness")):
+                break
+            parsed = None
+            judge_prompt = (
+                prompt
+                + '\n\nYour previous reply was not valid JSON in the required shape. '
+                  'Return ONLY: {"relevance": N, "grounding": N, "completeness": N}'
+            )
+        if parsed:
+            try:
+                relevance = max(1, min(5, int(parsed.get("relevance", 1))))
+                grounding = max(1, min(5, int(parsed.get("grounding", 1))))
+                completeness = max(1, min(5, int(parsed.get("completeness", 1))))
+                composite = (relevance + grounding + completeness) / 3.0
+                return {
+                    "relevance": relevance,
+                    "grounding": grounding,
+                    "completeness": completeness,
+                    "composite": round(composite, 3),
+                }
+            except (TypeError, ValueError):
+                pass
+        # Judge answered but not in the schema. Do NOT floor to 1.0 — that
+        # poisons keep/discard. Callers drop parse-failed pairs from the mean.
+        return {
+            "relevance": None, "grounding": None, "completeness": None,
+            "composite": None, "judge_parse_failed": True,
+        }
 
     def _get_active_eval_pairs(self) -> list:
         """Load ACTIVE eval pairs only.
@@ -394,43 +523,123 @@ class RAGEvalHarness:
             "ndcg_at_10": round(metrics.ndcg, 4),
         }
 
-    def run_full_eval(self, config: dict) -> dict:
-        """Run all eval pairs through the RAG pipeline with given config.
+    def _select_judge_subset(self, pairs: list = None, n: int = None) -> list:
+        """Stratified sample: prefer multi-hash (multi-hop) pairs, then fill."""
+        import random
+        pairs = list(pairs if pairs is not None else self._get_active_eval_pairs())
+        n = n if n is not None else AUTORESEARCH_JUDGE_SUBSET
+        if len(pairs) <= n:
+            return pairs
+        multi = [p for p in pairs if len(p.get("source_chunk_hashes") or []) >= 2]
+        rest = [p for p in pairs if p not in multi]
+        random.shuffle(multi)
+        random.shuffle(rest)
+        chosen = (multi + rest)[:n]
+        return chosen
 
-        Returns {composite_score, num_pairs, details: [...]}
-        """
-        pairs = self._get_active_eval_pairs()
-        if not pairs:
-            return {"composite_score": 0.0, "num_pairs": 0, "details": []}
-
-        details = []
-        total_composite = 0.0
-        # Accumulate retrieval metrics over pairs that had a known-relevant id.
+    def _retrieval_summary(self, details: list) -> Optional[dict]:
         retr_sums = {"hit_rate_at_k": 0.0, "mrr": 0.0, "ndcg_at_10": 0.0}
         retr_count = 0
-        for pair in pairs:
-            score = self._eval_single_pair(pair, config)
-            score["eval_pair_id"] = pair["id"]
-            details.append(score)
-            total_composite += score["composite"]
+        for score in details:
             if "hit_rate_at_k" in score:
                 retr_count += 1
                 for key in retr_sums:
-                    retr_sums[key] += score.get(key, 0.0)
+                    retr_sums[key] += score.get(key, 0.0) or 0.0
+        if not retr_count:
+            return None
+        return {
+            "num_scored": retr_count,
+            "hit_rate_at_k": round(retr_sums["hit_rate_at_k"] / retr_count, 4),
+            "mrr": round(retr_sums["mrr"] / retr_count, 4),
+            "ndcg_at_10": round(retr_sums["ndcg_at_10"] / retr_count, 4),
+        }
 
-        avg_composite = total_composite / len(pairs) if pairs else 0.0
+    def _eval_retrieval_only(self, pair: dict, config: dict) -> dict:
+        """Fidelity 0: retrieval metrics only — no answer or judge LLM."""
+        from backend.utils.experiment_context import (
+            set_experiment_config,
+            clear_experiment_config,
+        )
+        from backend.services.indexing_service import search_with_llamaindex
+        try:
+            set_experiment_config(config)
+            results = search_with_llamaindex(pair["question"]) or []
+            retrieval = self._score_retrieval(pair, results) or {}
+            return retrieval
+        finally:
+            clear_experiment_config()
+
+    def run_retrieval_eval(self, config: dict, pairs: list = None) -> dict:
+        """Fidelity 0 over the given (or all active) pairs."""
+        pairs = list(pairs if pairs is not None else self._get_active_eval_pairs())
+        if not pairs:
+            return {"num_pairs": 0, "num_scored": 0,
+                    "hit_rate_at_k": 0.0, "mrr": 0.0, "ndcg_at_10": 0.0}
+        details = []
+        for pair in pairs:
+            try:
+                score = self._eval_retrieval_only(pair, config)
+            except Exception as e:
+                logger.debug(f"Retrieval-only eval skipped: {e}")
+                continue
+            score["eval_pair_id"] = pair.get("id")
+            details.append(score)
+        summary = self._retrieval_summary(details) or {
+            "num_scored": 0, "hit_rate_at_k": 0.0, "mrr": 0.0, "ndcg_at_10": 0.0,
+        }
+        summary["num_pairs"] = len(pairs)
+        summary["details"] = details
+        return summary
+
+    def run_full_eval(self, config: dict, pairs: list = None) -> dict:
+        """Run eval pairs through the RAG pipeline with given config.
+
+        Parse-failed judge scores are dropped from the composite mean (they
+        used to floor at 1.0 and poison keep/discard). Soft-stops when the
+        per-experiment duration or LLM-call budget is exhausted.
+
+        Returns {composite_score, num_pairs, details, parse_fail_ratio, ...}
+        """
+        pairs = list(pairs if pairs is not None else self._get_active_eval_pairs())
+        if not pairs:
+            return {
+                "composite_score": 0.0, "num_pairs": 0, "details": [],
+                "parse_fail_ratio": 0.0, "parse_fail_crash": False,
+            }
+
+        details = []
+        for pair in pairs:
+            if not self._budget_ok() and details:
+                logger.info("Eval pair loop stopped — experiment budget exhausted")
+                break
+            try:
+                score = self._eval_single_pair(pair, config)
+            except LLMUnavailableError as e:
+                if "budget exhausted" in str(e).lower() and details:
+                    logger.info(f"Eval stopped on budget: {e}")
+                    break
+                raise
+            score["eval_pair_id"] = pair.get("id")
+            details.append(score)
+
+        usable = [d for d in details if not d.get("judge_parse_failed")
+                  and d.get("composite") is not None]
+        parse_fail_ratio = (
+            1.0 - (len(usable) / len(details)) if details else 0.0
+        )
+        avg_composite = (
+            sum(d["composite"] for d in usable) / len(usable) if usable else 0.0
+        )
         result = {
             "composite_score": round(avg_composite, 4),
-            "num_pairs": len(pairs),
+            "num_pairs": len(details),
             "details": details,
+            "parse_fail_ratio": round(parse_fail_ratio, 4),
+            "parse_fail_crash": parse_fail_ratio > AUTORESEARCH_PARSE_FAIL_CRASH_RATIO,
         }
-        if retr_count:
-            result["retrieval"] = {
-                "num_scored": retr_count,
-                "hit_rate_at_k": round(retr_sums["hit_rate_at_k"] / retr_count, 4),
-                "mrr": round(retr_sums["mrr"] / retr_count, 4),
-                "ndcg_at_10": round(retr_sums["ndcg_at_10"] / retr_count, 4),
-            }
+        retrieval = self._retrieval_summary(details)
+        if retrieval:
+            result["retrieval"] = retrieval
         return result
 
     def run_quality_assessment(self, config: dict) -> dict:

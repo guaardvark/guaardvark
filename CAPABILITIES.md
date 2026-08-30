@@ -131,16 +131,17 @@ Retrieval-Augmented Generation grounds chat responses in your actual documents.
 An autonomous optimization loop that continuously improves RAG retrieval quality.
 
 ### How It Works
-1. **Eval harness** — generates evaluation pairs (query + expected answer) and scores retrieval with LLM-as-judge (relevance, grounding, completeness)
-2. **Experiment agent** — proposes parameter changes (chunk size, overlap, top-k, similarity threshold)
-3. **Orchestrator** — runs experiments, compares scores, keeps improvements, reverts regressions
-4. **Phase system** — Phase 1 (query-time params), Phase 2 (index-time params), Phase 3 (model-level)
+1. **Eval harness** — generates a mixed eval set (specific / reasoning / multi-hop) and scores with two-fidelity eval: retrieval-only screen, then LLM-as-judge on a subset, then a full-set confirmation
+2. **Experiment agent** — proposes query-time parameter changes via TPE-lite over history, then LLM, then random
+3. **Bounded research run** — Celery task with a wall-clock budget, kill flag, and a morning report; winners stay candidates until a run-end A/B confirmation
+4. **Phase system** — Phase 1 (query-time params). Index-time and embedding phases return when per-experiment re-indexing lands
 
 ### Features
-- **Celery Beat scheduling** — idle detection triggers experiments when system isn't busy
+- **Celery Beat scheduling** — at most one run per night inside `autoresearch_nightly_window` (opt-in)
+- **Keep bar** — composite delta must meet the confirmation minimum, or retrieval must improve without a composite drop; judge parse failures are dropped from the mean
 - **Crash protection** — 3 consecutive failures automatically stops the loop
-- **Dashboard card** — shows experiment status, history, and current optimization parameters
-- **Settings integration** — configure experiment limits, scoring thresholds, and scheduling
+- **Dashboard card + Autoresearch page** — run status, stop, eval-pair regenerate, promotions, ledger download
+- **Settings integration** — proposer/judge models, nightly window, auto-start toggle
 
 ---
 

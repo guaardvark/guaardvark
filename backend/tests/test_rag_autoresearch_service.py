@@ -73,6 +73,56 @@ class TestExperimentCycle:
                 assert result["delta"] == -0.5
                 mock_promote.assert_not_called()
 
+    def test_tiny_positive_delta_is_discard(self, app):
+        """Keep bar matches confirmation — 0.01 of judge jitter is not a keep."""
+        with app.app_context():
+            svc = RAGAutoresearchService()
+            with patch.object(svc.agent, "propose_experiment") as mock_propose, \
+                 patch.object(svc.eval_harness, "run_full_eval") as mock_eval, \
+                 patch.object(svc.eval_harness, "run_retrieval_eval",
+                              return_value={"num_scored": 0}), \
+                 patch.object(svc, "_load_config") as mock_load, \
+                 patch.object(svc, "_save_config"), \
+                 patch.object(svc, "_log_experiment"), \
+                 patch.object(svc, "_promote_config") as mock_promote:
+                mock_load.return_value = {
+                    "params": {"top_k": 5}, "baseline_score": 3.0, "phase": 1,
+                    "phase_plateau_count": 0,
+                }
+                mock_propose.return_value = {
+                    "parameter": "top_k", "new_value": 6, "hypothesis": "nudge",
+                }
+                mock_eval.return_value = {
+                    "composite_score": 3.01, "num_pairs": 10, "details": [],
+                    "parse_fail_crash": False,
+                }
+                result = svc.run_single_experiment()
+                assert result["status"] == "discard"
+                mock_promote.assert_not_called()
+
+    def test_f0_discard_skips_judge(self, app):
+        with app.app_context():
+            svc = RAGAutoresearchService()
+            with patch.object(svc.agent, "propose_experiment",
+                              return_value={"parameter": "top_k", "new_value": 2,
+                                            "hypothesis": "t", "source": "tpe"}), \
+                 patch.object(svc.eval_harness, "run_retrieval_eval") as mock_retr, \
+                 patch.object(svc.eval_harness, "run_full_eval") as mock_eval, \
+                 patch.object(svc, "_load_config", return_value={
+                     "params": {"top_k": 5}, "baseline_score": 3.0, "phase": 1,
+                     "phase_plateau_count": 0,
+                 }), \
+                 patch.object(svc, "_save_config"), \
+                 patch.object(svc, "_log_experiment"):
+                mock_retr.side_effect = [
+                    {"num_scored": 5, "mrr": 0.8, "hit_rate_at_k": 0.9, "num_pairs": 5},
+                    {"num_scored": 5, "mrr": 0.2, "hit_rate_at_k": 0.3, "num_pairs": 5},
+                ]
+                result = svc.run_single_experiment()
+                assert result["status"] == "discard"
+                assert result.get("fidelity") == 0
+                mock_eval.assert_not_called()
+
 
 class TestIdleDetection:
     def test_is_idle_returns_true_after_threshold(self):

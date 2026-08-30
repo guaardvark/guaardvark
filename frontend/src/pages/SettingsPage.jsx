@@ -21,7 +21,6 @@ import {
   DialogActions,
   TextField,
   Avatar,
-  Slider,
 } from "@mui/material";
 import MuiAlert from "@mui/material/Alert";
 
@@ -2947,30 +2946,15 @@ const SettingsPage = () => {
 
           <SettingsCardWrapper title="RAG Autoresearch">
                 <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: "block" }}>
-                  Autonomous RAG optimization — experiments run while the system is idle
+                  Autonomous RAG optimization — Beat starts at most one bounded research run per night inside the nightly window. Idle threshold is unused.
                 </Typography>
 
                 <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
-                  <Typography variant="body2">Auto-optimize when idle</Typography>
+                  <Typography variant="body2">Auto-start in nightly window</Typography>
                   <Switch
                     size="small"
                     checked={autoresearchSettings.rag_autoresearch_auto_enabled === "true"}
                     onChange={(e) => handleAutoresearchSettingChange("rag_autoresearch_auto_enabled", e.target.checked)}
-                  />
-                </Box>
-
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" gutterBottom>
-                    Idle threshold: {autoresearchSettings.rag_autoresearch_idle_minutes || 10} minutes
-                  </Typography>
-                  <Slider
-                    value={parseInt(autoresearchSettings.rag_autoresearch_idle_minutes || "10")}
-                    min={5}
-                    max={120}
-                    step={5}
-                    marks={[{ value: 5, label: "5m" }, { value: 60, label: "60m" }, { value: 120, label: "120m" }]}
-                    onChange={(e, val) => handleAutoresearchSettingChange("rag_autoresearch_idle_minutes", val)}
-                    sx={{ width: "100%" }}
                   />
                 </Box>
 

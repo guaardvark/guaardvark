@@ -25,6 +25,7 @@ import {
   DialogContentText,
   DialogActions,
   Tooltip,
+  Switch,
 } from "@mui/material";
 import {
   Science as ScienceIcon,
@@ -33,6 +34,7 @@ import {
   RestartAlt as RevertIcon,
   CheckCircle as ActivateIcon,
   NightsStay as NightIcon,
+  Stop as StopIcon,
 } from "@mui/icons-material";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -62,6 +64,28 @@ const formatDate = (iso) => {
 const formatScore = (v) =>
   typeof v === "number" ? v.toFixed(3) : "—";
 
+const ScoreSparkline = ({ points }) => {
+  const vals = (points || []).filter((v) => typeof v === "number");
+  if (vals.length < 2) return null;
+  const w = 160;
+  const h = 28;
+  const min = Math.min(...vals);
+  const max = Math.max(...vals);
+  const span = max - min || 1;
+  const d = vals
+    .map((v, i) => {
+      const x = (i / (vals.length - 1)) * w;
+      const y = h - 2 - ((v - min) / span) * (h - 4);
+      return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+  return (
+    <svg width={w} height={h} aria-label="score sparkline">
+      <path d={d} fill="none" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+};
+
 const AutoresearchPage = () => {
   const [runs, setRuns] = useState([]);
   const [promotions, setPromotions] = useState([]);
@@ -69,6 +93,11 @@ const AutoresearchPage = () => {
   const [loading, setLoading] = useState(true);
   const [budgetHours, setBudgetHours] = useState(6);
   const [starting, setStarting] = useState(false);
+  const [stopping, setStopping] = useState(false);
+  const [status, setStatus] = useState(null);
+  const [settings, setSettings] = useState({});
+  const [evalCount, setEvalCount] = useState(null);
+  const [regenerating, setRegenerating] = useState(false);
   const [selectedRun, setSelectedRun] = useState(null);
   const [runDetailLoading, setRunDetailLoading] = useState(false);
   const [revertConfirmOpen, setRevertConfirmOpen] = useState(false);
@@ -111,10 +140,54 @@ const AutoresearchPage = () => {
     }
   }, []);
 
+  const fetchStatus = useCallback(async () => {
+    try {
+      const data = await ragAutoresearchService.getStatus();
+      setStatus(data);
+      if (typeof data.eval_pair_count === "number") {
+        setEvalCount(data.eval_pair_count);
+      }
+    } catch (e) {
+      /* ignore */
+    }
+  }, []);
+
+  const fetchSettings = useCallback(async () => {
+    try {
+      const data = await ragAutoresearchService.getSettings();
+      setSettings(data || {});
+    } catch (e) {
+      /* ignore */
+    }
+  }, []);
+
+  const fetchEvalPairs = useCallback(async () => {
+    try {
+      const data = await ragAutoresearchService.getEvalPairs();
+      setEvalCount(data.count ?? (data.pairs || []).length);
+    } catch (e) {
+      /* ignore */
+    }
+  }, []);
+
   const fetchAll = useCallback(async () => {
-    await Promise.all([fetchRuns(), fetchPromotions(), fetchMetrics()]);
+    await Promise.all([
+      fetchRuns(),
+      fetchPromotions(),
+      fetchMetrics(),
+      fetchStatus(),
+      fetchSettings(),
+      fetchEvalPairs(),
+    ]);
     setLoading(false);
-  }, [fetchRuns, fetchPromotions, fetchMetrics]);
+  }, [
+    fetchRuns,
+    fetchPromotions,
+    fetchMetrics,
+    fetchStatus,
+    fetchSettings,
+    fetchEvalPairs,
+  ]);
 
   // Initial load + 30s poll (same cadence as the dashboard card) +
   // Socket.IO push updates, following the GpuStatusCard pattern.
@@ -132,18 +205,23 @@ const AutoresearchPage = () => {
       socket.on("autoresearch:experiment_complete", () => {
         fetchMetrics();
         fetchRuns();
+        fetchStatus();
       });
 
       socket.on("autoresearch:run_complete", () => {
         fetchRuns();
         fetchPromotions();
         fetchMetrics();
+        fetchStatus();
       });
     } catch {
       // Socket not available — polling covers it
     }
 
-    pollRef.current = setInterval(fetchRuns, 30000);
+    pollRef.current = setInterval(() => {
+      fetchRuns();
+      fetchStatus();
+    }, 30000);
 
     return () => {
       if (socketRef.current) {
@@ -152,11 +230,50 @@ const AutoresearchPage = () => {
       }
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [fetchAll, fetchRuns, fetchPromotions, fetchMetrics]);
+  }, [fetchAll, fetchRuns, fetchPromotions, fetchMetrics, fetchStatus]);
 
-  const activeRun = runs.find(
-    (r) => r.status === "running" || r.status === "pending",
-  );
+  const activeRun =
+    runs.find((r) => r.status === "running" || r.status === "pending") ||
+    status?.active_run ||
+    null;
+
+  const handleStop = async () => {
+    setStopping(true);
+    try {
+      await ragAutoresearchService.stop();
+      showMessage("Stop requested — the run will halt at the next check", "info");
+      fetchStatus();
+      fetchRuns();
+    } catch (e) {
+      showMessage(`Failed to stop: ${e.message}`, "error");
+    } finally {
+      setStopping(false);
+    }
+  };
+
+  const handleSettingChange = async (key, value) => {
+    const next = { ...settings, [key]: String(value) };
+    setSettings(next);
+    try {
+      await ragAutoresearchService.updateSettings({ [key]: String(value) });
+    } catch (e) {
+      showMessage(`Failed to update ${key}: ${e.message}`, "error");
+    }
+  };
+
+  const handleRegeneratePairs = async () => {
+    setRegenerating(true);
+    try {
+      const data = await ragAutoresearchService.regenerateEvalPairs();
+      showMessage(`Regenerated ${data.count ?? 0} eval pairs`, "success");
+      fetchEvalPairs();
+      fetchStatus();
+    } catch (e) {
+      showMessage(`Failed to regenerate eval pairs: ${e.message}`, "error");
+    } finally {
+      setRegenerating(false);
+    }
+  };
 
   const handleResearchTonight = async () => {
     setStarting(true);
@@ -269,6 +386,99 @@ const AutoresearchPage = () => {
           >
             Research Tonight
           </Button>
+          <Button
+            variant="outlined"
+            color="warning"
+            startIcon={
+              stopping ? <CircularProgress size={16} /> : <StopIcon />
+            }
+            onClick={handleStop}
+            disabled={stopping || !activeRun}
+          >
+            Stop
+          </Button>
+        </Box>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
+            flexWrap: "wrap",
+            mt: 2,
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Typography variant="body2">Auto nightly</Typography>
+            <Switch
+              size="small"
+              checked={settings.rag_autoresearch_auto_enabled === "true"}
+              onChange={(e) =>
+                handleSettingChange(
+                  "rag_autoresearch_auto_enabled",
+                  e.target.checked,
+                )
+              }
+            />
+          </Box>
+          <TextField
+            label="Nightly window"
+            size="small"
+            placeholder="20:00-02:00"
+            value={settings.autoresearch_nightly_window || ""}
+            onChange={(e) =>
+              setSettings({
+                ...settings,
+                autoresearch_nightly_window: e.target.value,
+              })
+            }
+            onBlur={(e) =>
+              handleSettingChange("autoresearch_nightly_window", e.target.value)
+            }
+            sx={{ width: 160 }}
+          />
+          <TextField
+            label="Proposer model"
+            size="small"
+            placeholder="(active model)"
+            value={settings.autoresearch_proposer_model || ""}
+            onChange={(e) =>
+              setSettings({
+                ...settings,
+                autoresearch_proposer_model: e.target.value,
+              })
+            }
+            onBlur={(e) =>
+              handleSettingChange("autoresearch_proposer_model", e.target.value)
+            }
+            sx={{ minWidth: 180 }}
+          />
+          <TextField
+            label="Judge model"
+            size="small"
+            placeholder="(active model)"
+            value={settings.autoresearch_judge_model || ""}
+            onChange={(e) =>
+              setSettings({
+                ...settings,
+                autoresearch_judge_model: e.target.value,
+              })
+            }
+            onBlur={(e) =>
+              handleSettingChange("autoresearch_judge_model", e.target.value)
+            }
+            sx={{ minWidth: 180 }}
+          />
+          <Typography variant="body2" color="text.secondary">
+            Eval pairs: {evalCount ?? "—"}
+          </Typography>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={handleRegeneratePairs}
+            disabled={regenerating || Boolean(activeRun)}
+          >
+            {regenerating ? "Regenerating…" : "Regenerate eval pairs"}
+          </Button>
         </Box>
         {activeRun && (
           <Box sx={{ mt: 2 }}>
@@ -281,9 +491,51 @@ const AutoresearchPage = () => {
               <Typography variant="body2">
                 {activeRun.run_tag} — {activeRun.experiments_completed ?? 0}{" "}
                 experiments completed
+                {status?.current_parameter
+                  ? ` · ${status.current_parameter}`
+                  : ""}
               </Typography>
+              <Box sx={{ ml: "auto", color: "primary.main" }}>
+                <ScoreSparkline
+                  points={metrics
+                    .filter(
+                      (m) =>
+                        !activeRun.run_tag || m.run_tag === activeRun.run_tag,
+                    )
+                    .map((m) => m.composite_score)
+                    .reverse()}
+                />
+              </Box>
             </Box>
-            <LinearProgress sx={{ borderRadius: 1 }} />
+            <LinearProgress
+              variant={
+                typeof (status?.active_run?.budget_remaining_s) === "number" &&
+                activeRun.wall_clock_budget_s
+                  ? "determinate"
+                  : "indeterminate"
+              }
+              value={
+                typeof (status?.active_run?.budget_remaining_s) === "number" &&
+                activeRun.wall_clock_budget_s
+                  ? Math.max(
+                      0,
+                      Math.min(
+                        100,
+                        (1 -
+                          status.active_run.budget_remaining_s /
+                            activeRun.wall_clock_budget_s) *
+                          100,
+                      ),
+                    )
+                  : undefined
+              }
+              sx={{ borderRadius: 1 }}
+            />
+            {typeof status?.active_run?.budget_remaining_s === "number" && (
+              <Typography variant="caption" color="text.secondary">
+                {Math.ceil(status.active_run.budget_remaining_s / 60)} min remaining
+              </Typography>
+            )}
           </Box>
         )}
       </Paper>
@@ -548,7 +800,11 @@ const AutoresearchPage = () => {
                 {metrics.map((exp) => (
                   <TableRow key={exp.id} hover>
                     <TableCell>{formatDate(exp.created_at)}</TableCell>
-                    <TableCell>{exp.parameter}</TableCell>
+                    <TableCell>
+                      <Tooltip title={exp.hypothesis || ""}>
+                        <span>{exp.parameter}</span>
+                      </Tooltip>
+                    </TableCell>
                     <TableCell>{exp.new_value}</TableCell>
                     <TableCell>
                       <Chip

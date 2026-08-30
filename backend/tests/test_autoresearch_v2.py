@@ -2,6 +2,7 @@
 and the research-run engine (Phases A+B of the 2026-08-10 rebuild)."""
 import hashlib
 import pytest
+from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock
 
 try:
@@ -141,7 +142,7 @@ class TestHonestEval:
             harness = RAGEvalHarness()
             with patch.object(harness, "_call_llm", return_value="not json"):
                 score = harness.score_response("q", "a", "r", [])
-            assert score["composite"] == 1.0
+            assert score["composite"] is None
             assert score.get("judge_parse_failed") is True
 
 
@@ -272,4 +273,72 @@ class TestResearchRunEngine:
             ]
             report = svc_run._write_report(run, ledger)
             assert "single-model judging" in report
-            assert "100% LLM-proposed" in report
+            assert "100% LLM" in report
+
+    def test_confirmation_ignores_foreign_candidates(self, app):
+        with app.app_context():
+            svc_run = self._mk_service()
+            run = ResearchRun(run_tag="t-scope", mode="rag_tuning")
+            db.session.add(run)
+            ours = ResearchConfig(
+                params={"top_k": 9}, is_active=False,
+                status="candidate", composite_score=3.8, source="local",
+            )
+            foreign = ResearchConfig(
+                params={"top_k": 12}, is_active=False,
+                status="candidate", composite_score=4.9,
+                source="family_broadcast",
+            )
+            db.session.add_all([ours, foreign])
+            db.session.commit()
+            auto_svc = MagicMock()
+            auto_svc.eval_harness.run_full_eval.side_effect = [
+                {"composite_score": 3.8}, {"composite_score": 3.0},
+            ]
+            active = ResearchConfig(
+                params={"top_k": 5}, is_active=True,
+                status="promoted", composite_score=3.0,
+            )
+            db.session.add(active)
+            db.session.commit()
+            note = svc_run._confirm_and_activate(
+                auto_svc, run, candidate_ids=[ours.id],
+            )
+            assert "CONFIRMED" in note
+            db.session.refresh(ours)
+            db.session.refresh(foreign)
+            assert ours.is_active is True
+            assert foreign.is_active is False
+            assert foreign.status == "candidate"
+
+    def test_stale_running_row_recovered_on_kickoff(self, app):
+        with app.app_context():
+            stale = ResearchRun(
+                run_tag="old-dead", mode="rag_tuning", status="running",
+                started_at=datetime.utcnow() - timedelta(hours=3),
+            )
+            db.session.add(stale)
+            db.session.commit()
+            svc_run = self._mk_service()
+            with patch.object(svc_run, "_celery_has_live_execute_run",
+                              return_value=False), \
+                 patch.object(svc_run, "_enqueue_execute_run"):
+                result = svc_run.kickoff(budget_hours=1, trigger="manual")
+            db.session.refresh(stale)
+            assert stale.status == "halted"
+            assert stale.halt_reason == "worker_crashed"
+            assert result["status"] == "started"
+            assert result["run"]["run_tag"] != "old-dead"
+
+    def test_status_running_when_research_run_active(self, app):
+        with app.app_context():
+            db.session.add(ResearchRun(
+                run_tag="t-status", mode="rag_tuning", status="running",
+                started_at=datetime.utcnow(), wall_clock_budget_s=3600,
+            ))
+            db.session.commit()
+            svc = RAGAutoresearchService()
+            st = svc.get_status()
+            assert st["running"] is True
+            assert st["active_run"]["run_tag"] == "t-status"
+            assert st["active_run"]["budget_remaining_s"] is not None
