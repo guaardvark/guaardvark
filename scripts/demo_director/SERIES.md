@@ -446,7 +446,16 @@ Beats:
 - [ ] Ep 7 shoot doubles as audio asset session (music bed, stingers, FX)
 - [ ] Ep 8 full music-video run from Ep 7's song (2–3h GPU session)
 - [ ] Ep 9 LoRA training + production render (longest asset session)
-- [ ] Ep 11 overnight autoresearch run + staged test failure
+- [ ] Ep 11 overnight autoresearch run + staged test failure. Seeding a fresh
+  box (2026-08-29): the corpus gate counts TEXT documents (images/audio and
+  raw .pdf/.docx bytes don't count, minimum 10) — bulk-import the Ep 3
+  AcmeCorp tree plus the repo's own docs with `force_copy: true` (the
+  default MOVES the source files), then `POST /api/autoresearch/eval-pairs/regenerate`,
+  then `POST /api/autoresearch/runs {"budget_hours": 0.25}`. The beat file
+  refuses to shoot over "No research runs yet." The fix queue needs a real
+  PendingFix: dispatch an `unwired-tool` finding from the System Map (the
+  agent must actually call the edit tool — a directed run can report
+  "success" on a bare final answer with nothing staged).
 - [ ] Ep 12 interconnector: merge identity branch or scope segment down
 - [ ] Thumbnails: Image Gen/Infographic, episode keyword in title text
 - [ ] Descriptions: primary-keyword opener + chapters (= on-screen labels)
