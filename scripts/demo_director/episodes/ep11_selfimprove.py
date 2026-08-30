@@ -251,11 +251,13 @@ BEATS = [
     Beat(
         name="fixes",
         narration=[
-            "Here's the fix queue. These are real: file, cause, and a "
-            "proposed diff for each.",
+            "Here's the fix queue. Anything that wants to change this "
+            "codebase lands here first: the file, the cause, and the exact "
+            "diff.",
             "",
-            "It never fabricates a change. Every fix waits as a diff you "
-            "can read, approve, or reject.",
+            "Whether the nightly agent proposed it or a person did, nothing "
+            "is applied from here without a human. Read it, approve it, or "
+            "reject it.",
             "An outside guardian model reviews the risky ones. And you "
             "are the last gate.",
         ],
