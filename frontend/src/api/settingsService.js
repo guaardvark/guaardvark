@@ -28,6 +28,22 @@ export const clearPycache = async () => {
   }
 };
 
+export const getProfile = async () => {
+  const response = await fetch(`${BASE_URL}/settings/profile`);
+  return await handleResponse(response);
+};
+
+export const setProfile = async (name) => {
+  const response = await fetch(`${BASE_URL}/settings/profile`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  const data = await handleResponse(response);
+  if (typeof data === "object" && data !== null && data.error) throw new Error(data.error);
+  return data;
+};
+
 export const getGenerationHistoryCounts = async () => {
   const endpoint = `${BASE_URL}/meta/generation-history`;
   try {

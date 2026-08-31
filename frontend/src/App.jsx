@@ -1,6 +1,6 @@
 
 import React, { Suspense, lazy } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import useNavigationCancel from "./hooks/useNavigationCancel";
 import useGpuIntent from "./hooks/useGpuIntent";
 import useKeyboardForwarding from "./hooks/useKeyboardForwarding";
@@ -15,6 +15,7 @@ import { spacing } from "./theme/tokens";
 import { useAppStore } from "./stores/useAppStore";
 import { BrandLogo } from "./components/branding";
 import brand from "./config/brand";
+import { landingRouteFor } from "./config/profile";
 
 import TrainingFloater from "./components/agent/TrainingFloater";
 
@@ -141,6 +142,10 @@ const AppContainer = () => {
     themes[themeName]?.theme ||
     themes[brand.defaultThemeKey]?.theme ||
     themes["guaardvark"].theme;
+  // A profile may land somewhere other than the dashboard (creator: /images).
+  // The dashboard stays reachable at /dashboard — unlisted, not removed.
+  const profile = useAppStore((state) => state.profile);
+  const landingRoute = landingRouteFor(profile);
   const fetchSystemInfo = useAppStore((state) => state.fetchSystemInfo);
   const systemName = useAppStore((state) => state.systemName);
 
@@ -214,11 +219,15 @@ const AppContainer = () => {
                       <Route
                         path="/"
                         element={
-                          <AppLayout>
-                            <ErrorBoundary>
-                              <DashboardPage />
-                            </ErrorBoundary>
-                          </AppLayout>
+                          landingRoute ? (
+                            <Navigate to={landingRoute} replace />
+                          ) : (
+                            <AppLayout>
+                              <ErrorBoundary>
+                                <DashboardPage />
+                              </ErrorBoundary>
+                            </AppLayout>
+                          )
                         }
                       />
                       <Route

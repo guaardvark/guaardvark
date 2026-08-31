@@ -458,6 +458,42 @@ def get_branding():
     return success_response({"system_name": name, "logo_path": logo, "profile": profile.public_dict()})
 
 
+@settings_bp.route("/profile", methods=["GET"])
+def get_profile():
+    """The running profile, the one .env names for the next start, and the choices."""
+    from backend import profiles as P
+    active = P.active_profile()
+    available = []
+    for name, (source, path) in P.available_profiles().items():
+        try:
+            loaded = P.load_profile(name)
+            available.append({"name": name, "label": loaded.label, "description": loaded.description, "source": source})
+        except Exception:  # pragma: no cover - load_profile never raises
+            available.append({"name": name, "label": name, "description": "", "source": source})
+    return success_response({
+        "active": active.public_dict(),
+        "configured": P.configured_name() or P.DEFAULT_PROFILE,
+        "available": available,
+        "env_writable": P.env_file_writable(),
+    })
+
+
+@settings_bp.route("/profile", methods=["POST"])
+def set_profile():
+    """Persist a profile choice to .env. Applies on the next start: feature
+    flags are read once at boot, so a live switch would half-apply."""
+    from backend import profiles as P
+    payload = request.get_json(silent=True) or {}
+    name = str(payload.get("name") or "").strip()
+    try:
+        P.set_configured_name(name)
+    except ValueError as e:
+        return error_response(str(e), 400)
+    except OSError as e:
+        return error_response(f"could not write .env: {e}", 500)
+    return success_response({"name": name, "restart_required": True})
+
+
 @settings_bp.route("/branding", methods=["POST"])
 def set_branding():
     """Update system name and/or logo."""

@@ -8,7 +8,8 @@
   agent, knowledge-index, outreach and automation subsystems left installed but unlisted and
   off by default; an extension can ship its own. An explicit `.env` value, flag, plugin toggle
   or DB setting always wins over a profile, and hidden means unlisted, never removed. See
-  `backend/profiles/README.md`. (The sidebar and landing route follow in the next change.)
+  `backend/profiles/README.md`. The sidebar lists what the profile lists, `/` lands where it
+  says, and Settings → Product Profile switches profiles (applies on restart).
 - Settings → Maintenance gains **Delete History**, next to Clear Cache: removes every
   batch-image, batch-video and audio generation — the media directories and files, their
   `documents`/`folders` rows and `job_history` entries — and logs each purge to

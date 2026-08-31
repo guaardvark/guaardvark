@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   Badge,
@@ -24,6 +24,7 @@ import { spacing } from "../../theme/tokens";
 
 import { BrandLogo } from "../branding";
 import brand from "../../config/brand";
+import { filterNavGroups, landingRouteFor } from "../../config/profile";
 import { usePendingApprovals } from "../../hooks/usePendingApprovals";
 import BarChartIcon from "@mui/icons-material/BarChart";
 import DesktopWindowsIcon from "@mui/icons-material/DesktopWindows";
@@ -36,12 +37,18 @@ import AgentScreenViewer from "../agent/AgentScreenViewer";
 const COLLAPSED_WIDTH = spacing.sidebarCollapsed;
 const EXPANDED_WIDTH = spacing.sidebarExpanded;
 
-// Navigation layout is brand-owned: see config/brand.jsx (navGroups).
-const navGroups = brand.navGroups;
-
 const Sidebar = () => {
   const location = useLocation();
   const theme = useTheme();
+  // Navigation layout is brand-owned (config/brand.jsx navGroups); the active
+  // profile decides which of those items are listed. Read here, not at module
+  // scope, so the sidebar follows the profile once it arrives from the backend.
+  const profile = useAppStore((state) => state.profile);
+  const navGroups = useMemo(
+    () => filterNavGroups(brand.navGroups, profile?.hidden_routes),
+    [profile],
+  );
+  const homeRoute = landingRouteFor(profile) || "/dashboard";
   const systemName = useAppStore((state) => state.systemName);
   const systemLogo = useAppStore((state) => state.systemLogo);
   const isExpanded = useAppStore((state) => state.sidebarExpanded);
@@ -145,8 +152,8 @@ const Sidebar = () => {
           >
             <Avatar
               component={NavLink}
-              // Static for now; later this can be SettingsPage-configurable or route to Agent Chat.
-              to="/dashboard"
+              // Brand home: the profile's landing route, else the dashboard.
+              to={homeRoute}
               src={systemLogo ? `/api/uploads/${systemLogo}` : undefined}
               sx={{
                 width: 36,

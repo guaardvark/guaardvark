@@ -52,7 +52,19 @@ def app():
     def audio_jobs():
         return {"ok": True}
 
+    @test_app.route("/api/settings/profile", methods=["GET", "POST"])
+    def settings_profile():
+        return {"ok": True}
+
     return test_app
+
+
+def test_profile_write_blocked_from_remote_host_but_readable(app, monkeypatch):
+    monkeypatch.delenv("GUAARDVARK_API_KEY", raising=False)
+    client = app.test_client()
+    assert client.post("/api/settings/profile", json={"name": "creator"}, environ_base={"REMOTE_ADDR": "192.168.1.20"}).status_code == 403
+    assert client.get("/api/settings/profile", environ_base={"REMOTE_ADDR": "192.168.1.20"}).status_code == 200
+    assert client.post("/api/settings/profile", json={"name": "creator"}, environ_base={"REMOTE_ADDR": "127.0.0.1"}).status_code == 200
 
 
 def test_delete_generation_history_blocked_from_remote_host(app, monkeypatch):

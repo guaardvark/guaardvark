@@ -312,3 +312,60 @@ def shell_exports(profile: Profile, environ: Optional[MutableMapping[str, str]] 
         if key not in env:
             lines.append(f"export {key}={_shell_quote(value)}")
     return lines
+
+
+# ─── persisting the choice ────────────────────────────────────────────────────
+
+def env_file(root: Optional[Path] = None) -> Path:
+    return (root or repo_root()) / ".env"
+
+
+def configured_name(root: Optional[Path] = None) -> Optional[str]:
+    """The GUAARDVARK_PROFILE line in .env, or None. This is what the *next*
+    start will use; ``active_profile()`` is what this process loaded."""
+    path = env_file(root)
+    if not path.is_file():
+        return None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.startswith(f"{PROFILE_ENV}="):
+            value = line.split("=", 1)[1].strip().strip("'\"")
+            return value or None
+    return None
+
+
+def set_configured_name(name: str, root: Optional[Path] = None) -> Path:
+    """Write GUAARDVARK_PROFILE=<name> into .env, replacing an existing line
+    and keeping everything else byte-for-byte. Validates the name against the
+    profiles that exist, so a typo cannot be persisted."""
+    if not _NAME_RE.match(name or ""):
+        raise ValueError(f"profile name {name!r} is not valid")
+    if name not in available_profiles(root):
+        raise ValueError(f"profile {name!r} not found")
+    path = env_file(root)
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True) if path.is_file() else []
+    new_line = f"{PROFILE_ENV}={name}\n"
+    replaced = False
+    for i, line in enumerate(lines):
+        if line.startswith(f"{PROFILE_ENV}="):
+            lines[i] = new_line
+            replaced = True
+            break
+    if not replaced:
+        if lines and not lines[-1].endswith("\n"):
+            lines[-1] += "\n"
+        lines.append(new_line)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text("".join(lines), encoding="utf-8")
+    try:
+        os.chmod(tmp, path.stat().st_mode & 0o777 if path.exists() else 0o600)
+    except OSError:
+        pass
+    os.replace(tmp, path)
+    return path
+
+
+def env_file_writable(root: Optional[Path] = None) -> bool:
+    path = env_file(root)
+    if path.exists():
+        return os.access(path, os.W_OK)
+    return os.access(path.parent, os.W_OK)

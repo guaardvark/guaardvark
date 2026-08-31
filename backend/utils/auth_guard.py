@@ -62,6 +62,8 @@ SAFE_EXEMPT_PREFIXES = (
 # non-GET (create/cancel/delete/run) requires auth/localhost — same model as the
 # /api/memory hardening. Stops a random LAN host from wiping jobs/tasks/schedules.
 MUTATION_PROTECTED_PREFIXES = (
+    # Persists the product profile into .env.
+    '/api/settings/profile',
     '/api/memory',
     '/api/tasks',
     '/api/scheduler',

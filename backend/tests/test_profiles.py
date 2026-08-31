@@ -151,3 +151,38 @@ def test_importing_config_with_no_profile_leaves_environ_alone(monkeypatch):
     P.apply_env(P.active_profile(refresh=True))
     after = dict(os.environ)
     assert {k: v for k, v in after.items() if before.get(k) != v} == {}
+
+
+def test_set_configured_name_replaces_line_and_keeps_the_rest(tmp_path):
+    env = tmp_path / ".env"
+    env.write_text("FLASK_PORT=5000\nGUAARDVARK_PROFILE=workstation\nSECRET_KEY=abc\n")
+    P.set_configured_name("creator", root=tmp_path)
+    assert env.read_text() == "FLASK_PORT=5000\nGUAARDVARK_PROFILE=creator\nSECRET_KEY=abc\n"
+    assert P.configured_name(root=tmp_path) == "creator"
+    assert not env.with_name(".env.tmp").exists()
+
+
+def test_set_configured_name_appends_when_absent_even_without_trailing_newline(tmp_path):
+    env = tmp_path / ".env"
+    env.write_text("FLASK_PORT=5000")
+    P.set_configured_name("creator", root=tmp_path)
+    assert env.read_text() == "FLASK_PORT=5000\nGUAARDVARK_PROFILE=creator\n"
+
+
+def test_set_configured_name_creates_env_when_missing(tmp_path):
+    P.set_configured_name("workstation", root=tmp_path)
+    assert (tmp_path / ".env").read_text() == "GUAARDVARK_PROFILE=workstation\n"
+
+
+def test_set_configured_name_rejects_unknown_and_invalid(tmp_path):
+    with pytest.raises(ValueError):
+        P.set_configured_name("nope", root=tmp_path)
+    with pytest.raises(ValueError):
+        P.set_configured_name("../x", root=tmp_path)
+    assert not (tmp_path / ".env").exists()
+
+
+def test_configured_name_reads_quoted_values(tmp_path):
+    (tmp_path / ".env").write_text('GUAARDVARK_PROFILE="creator"\n')
+    assert P.configured_name(root=tmp_path) == "creator"
+    assert P.configured_name(root=tmp_path / "missing") is None

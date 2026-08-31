@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage, subscribeWithSelector, devtools } from "zustand/middleware";
 import brand from "../config/brand";
+import { DEFAULT_PROFILE } from "../config/profile";
 
 const createUISlice = (set, get) => ({
   themeName: brand.defaultThemeKey,
@@ -91,6 +92,9 @@ const createDataSlice = (set, get) => ({
   activeProjectId: null,
   systemName: null,
   systemLogo: null,
+  // The active profile from /api/settings/branding. Deliberately not
+  // persisted: a stale copy must not outlive a change to .env.
+  profile: DEFAULT_PROFILE,
   isFetchingSystemInfo: false,
 
   setProjects: (projects) => set({ projects }),
@@ -101,6 +105,7 @@ const createDataSlice = (set, get) => ({
     systemName: name,
     systemLogo: logo
   }),
+  setProfile: (profile) => set({ profile: profile ? { ...DEFAULT_PROFILE, ...profile } : DEFAULT_PROFILE }),
 
   // eslint-disable-next-line no-unused-vars
   fetchSystemInfo: async (force = false) => {
@@ -129,6 +134,7 @@ const createDataSlice = (set, get) => ({
       set({
         systemName: data.system_name || null,
         systemLogo: data.logo_path || null,
+        profile: data.profile ? { ...DEFAULT_PROFILE, ...data.profile } : DEFAULT_PROFILE,
       });
       clearError();
     } catch (err) {
@@ -182,6 +188,7 @@ export const useAppStore = create(
 
 export const useAppSelectors = {
   themeName: (state) => state.themeName,
+  profile: (state) => state.profile,
   
   projects: (state) => state.projects,
   clients: (state) => state.clients,

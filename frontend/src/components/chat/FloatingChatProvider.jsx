@@ -5,6 +5,8 @@ import FloatingChatFAB from "./FloatingChatFAB";
 import { useFloatingChatStore } from "../../stores/useFloatingChatStore";
 import { usePageContext } from "../../hooks/usePageContext";
 import { isFloatingChatHiddenRoute } from "../../config/floatingChat";
+import { useAppStore } from "../../stores/useAppStore";
+import { chatSurfacesFor } from "../../config/profile";
 
 const FloatingChatProvider = () => {
   const location = useLocation();
@@ -33,7 +35,8 @@ const FloatingChatProvider = () => {
 
   // A chat surface of its own does not get a second chat floating over it.
   // Close the card too, so it does not pop back open on the next page.
-  const hidden = isFloatingChatHiddenRoute(location.pathname);
+  const profile = useAppStore((s) => s.profile);
+  const hidden = isFloatingChatHiddenRoute(location.pathname, chatSurfacesFor(profile));
   useEffect(() => {
     if (hidden && isOpen) {
       setIsOpen(false);
