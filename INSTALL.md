@@ -120,6 +120,7 @@ The file is gitignored and merged over the manifest at load, so the override sur
 - Check logs in `logs/`
 - **`extension "vector" is not available`** when indexing: PostgreSQL is installed but pgvector is not. `./start.sh` installs it and enables the extension (needs sudo once); to do it by hand, `sudo apt-get install -y postgresql-<major>-pgvector` then `sudo -u postgres psql -d guaardvark -c "CREATE EXTENSION IF NOT EXISTS vector;"`. If apt cannot find the package on your release, add the [PostgreSQL apt repository](https://www.postgresql.org/download/linux/ubuntu/) first.
 - **Ollama says a model is missing that `ollama list` shows** (WSL2 especially): a hand-started `ollama serve` runs as your user and reads `~/.ollama/models`, while the systemd service runs as `ollama` and reads `/usr/share/ollama/.ollama/models`. Stop the hand-started one and use the service: `sudo systemctl restart ollama`.
+- **`start.sh` says it is "not re-provisioning" PostgreSQL**: your `DATABASE_URL` names a role or database other than the stock `guaardvark`, and the connection failed. The script never resets a role it did not create. Fix the password in `.env`, create the role and database yourself, or run `./start.sh --skip-postgres` for an externally managed database.
 - **Film Crew fails with `model 'gemma4:e4b' not found`**: fixed in 2.8.0 — agents now use whichever Gemma4 tag the installer pulled. On older versions, `ollama pull gemma4:e4b`.
 
 ## Data

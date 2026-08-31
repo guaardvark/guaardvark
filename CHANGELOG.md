@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- `start_postgres.sh` takes the role, database, host and port from `DATABASE_URL` and never
+  re-provisions a role it did not create; before this a fork with its own role on the same
+  machine had its password reset and its URL rewritten to the stock database. `start.sh` and
+  the agent display kill only a port's listener, not a process holding a client socket to it.
+  The DSN is logged with its password masked. ComfyUI's liveness probe tolerates ~2 minutes of
+  silence while a 20 GB+ model loads on a 16 GB card (measured downstream), instead of 20 s.
 - **Profiles.** One switch sets the product shape: `GUAARDVARK_PROFILE=<name>` in `.env` or
   `./start.sh --profile <name>`. `workstation` is today's product and sets nothing;
   `creator` is the media workflow (image, video, audio, Film Crew, LoRA, upscaling) with the

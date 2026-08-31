@@ -894,7 +894,7 @@ stop() {
     pkill -f "x11vnc.*-rfbport $VNC_PORT" 2>/dev/null && echo "  Stopped x11vnc" || echo "  x11vnc not running"
 
     # 5. Last resort: free the VNC port if anything still holds it.
-    local port_holder=$(lsof -ti :$VNC_PORT 2>/dev/null)
+    local port_holder=$(lsof -ti TCP:$VNC_PORT -sTCP:LISTEN 2>/dev/null)
     if [ -n "$port_holder" ]; then
         kill $port_holder 2>/dev/null && echo "  Killed process holding port $VNC_PORT (PID $port_holder)"
     fi

@@ -289,12 +289,19 @@ DEFAULT_INDEX_PROJECT_ID = None
 # or can be overridden manually for advanced setups.
 _DEFAULT_DATABASE_URL = "postgresql://guaardvark:guaardvark@localhost:5432/guaardvark"
 
+def mask_dsn(url: str) -> str:
+    """The URL with its password replaced, for logs. A truncated DSN still
+    leaked the first characters of the password."""
+    import re as _re
+    return _re.sub(r"://([^:/@]+):[^@]*@", r"://\1:***@", url or "")
+
+
 _env_db_url = os.environ.get("DATABASE_URL")
 if _env_db_url:
     allowed_schemes = ["postgresql", "postgres"]
     if any(_env_db_url.startswith(f"{scheme}://") for scheme in allowed_schemes):
         DATABASE_URL = _env_db_url
-        _config_logger.info(f"Using DATABASE_URL from environment: {_env_db_url[:50]}...")
+        _config_logger.info(f"Using DATABASE_URL from environment: {mask_dsn(_env_db_url)}")
     else:
         _config_logger.warning(
             f"DATABASE_URL has unsupported scheme: {_env_db_url[:20]}... "

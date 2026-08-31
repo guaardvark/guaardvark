@@ -2037,7 +2037,10 @@ if [ "$OLLAMA_AVAILABLE" -eq 1 ] && [ "$OLLAMA_ENABLED" != "False" ]; then
         vader_success "Ollama service is already active"
     else
         # Step 2: Kill any zombie process holding the port but not responding
-        OLLAMA_ZOMBIE_PID=$(lsof -ti :11434 2>/dev/null | head -1)
+        # Listeners only: a backend with an open client connection to Ollama
+        # also shows up on this port — the other install's, when two share a
+        # box — and that is not the process to kill.
+        OLLAMA_ZOMBIE_PID=$(lsof -ti TCP:11434 -sTCP:LISTEN 2>/dev/null | head -1)
         if [ -n "$OLLAMA_ZOMBIE_PID" ]; then
             vader_info "Killing unresponsive process on port 11434 (PID: $OLLAMA_ZOMBIE_PID)..."
             kill -9 "$OLLAMA_ZOMBIE_PID" 2>/dev/null

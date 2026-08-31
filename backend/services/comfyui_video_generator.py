@@ -971,7 +971,11 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         idle_kill_s = 90
         idle_since: Optional[float] = None
         consecutive_dead = 0
-        dead_probe_limit = 5
+        # ~4s per missed probe (HTTP timeout + 2s sleep). Loading a 20GB+
+        # transformer on a 16GB card stalls Comfy's HTTP server well past 20s
+        # (observed 247s renders with ~30s silent loads on an RTX 5080 / 30GB
+        # RAM box), so tolerate ~2 minutes before declaring the prompt orphaned.
+        dead_probe_limit = 30
 
         while True:
             now = time.time()

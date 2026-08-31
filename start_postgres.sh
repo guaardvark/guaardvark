@@ -88,10 +88,45 @@ diagnose_postgres_error() {
   return 1
 }
 
+# Stock first-run values. When DATABASE_URL is set — in the environment (start.sh
+# sources .env) or in .env itself — its role, database, host and port replace
+# them: the URL is the source of truth. A fork with its own role on the same
+# box (a client vertical next to the engine) must never be "repaired" into the
+# stock role: doing so rotated a shared role's password and pointed one install
+# at the other's database (2026-08-29). Such a role is verified, never created
+# or reset here — provision it yourself or run with --skip-postgres.
 PG_USER="guaardvark"
 PG_DB="guaardvark"
 PG_HOST="localhost"
 PG_PORT="5432"
+STOCK_ROLE=1
+# shellcheck source=scripts/lib/pg_url.sh
+. "$SCRIPT_DIR/scripts/lib/pg_url.sh"
+_configured_url="${DATABASE_URL:-}"
+if [ -z "$_configured_url" ] && [ -f "$ENV_FILE" ]; then
+  _configured_url=$(grep -E '^DATABASE_URL=' "$ENV_FILE" | tail -1 | sed 's/^DATABASE_URL=//; s/^"//; s/"$//')
+fi
+if [ -n "$_configured_url" ] && pg_url_parse "$_configured_url"; then
+  PG_USER="$PG_URL_USER"
+  PG_DB="$PG_URL_DB"
+  [ -n "$PG_URL_HOST" ] && PG_HOST="$PG_URL_HOST"
+  [ -n "$PG_URL_PORT" ] && PG_PORT="$PG_URL_PORT"
+  if [ "$PG_USER" != "guaardvark" ] || [ "$PG_DB" != "guaardvark" ]; then
+    STOCK_ROLE=0
+  fi
+fi
+
+refuse_reprovision() {
+  if pg_isready -h "$PG_HOST" -p "$PG_PORT" >/dev/null 2>&1; then
+    vader_error "DATABASE_URL names role '${PG_USER}' and database '${PG_DB}', and the connection failed."
+    vader_error "Not re-provisioning: that would reset that role's password and rewrite DATABASE_URL to the stock role."
+    vader_info "Fix the password in .env, create the role and database yourself, or start with --skip-postgres."
+  else
+    vader_error "DATABASE_URL names role '${PG_USER}' and database '${PG_DB}', and PostgreSQL is not answering on ${PG_HOST}:${PG_PORT}."
+    vader_info "Start it (for example: sudo systemctl start postgresql) and re-run, or start with --skip-postgres."
+  fi
+  exit 1
+}
 
 # ─── pgvector ─────────────────────────────────────────────────────────────────
 # The knowledge index keeps its vectors in PostgreSQL through the `vector`
@@ -245,6 +280,7 @@ if [ "$(uname -s)" = "Darwin" ]; then
   vader_success "PostgreSQL is running."
 
   # On Homebrew the current login user is the bootstrap superuser (socket/trust auth).
+  [ "$STOCK_ROLE" = 1 ] || refuse_reprovision
   PG_PASS=$(openssl rand -base64 24 | tr -d '/+=' | head -c 32)
   vader_info "Creating/updating PostgreSQL role '${PG_USER}'..."
   if ! psql -d postgres -v ON_ERROR_STOP=1 -c "DO \$\$
@@ -315,6 +351,10 @@ else
   NEEDS_SUDO=true
   REASON="create the database user and database"
 fi
+
+# A role this script did not create is only ever verified (fast path above).
+# Refuse here, before any sudo prompt, rather than provisioning around it.
+[ "$STOCK_ROLE" = 1 ] || refuse_reprovision
 
 if [ "$NEEDS_SUDO" = true ]; then
   echo -e "  ${VADER_WHITE_DIM}Guaardvark needs your password (one time only) to ${REASON}.${VADER_RESET}"
@@ -415,10 +455,12 @@ if [ -f "$ENV_FILE" ]; then
       vector_extension_ready_as_app "$EXISTING_PASS" || ensure_vector_extension || true
       exit 0
     else
+      [ "$STOCK_ROLE" = 1 ] || refuse_reprovision
       vader_warn "Existing DATABASE_URL does not connect. Re-provisioning..."
     fi
   fi
 fi
+[ "$STOCK_ROLE" = 1 ] || refuse_reprovision
 
 # ─── Step 4: Generate a random password ───────────────────────────────────────
 
