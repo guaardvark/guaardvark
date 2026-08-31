@@ -69,6 +69,8 @@ jobs:
           # Without this copy the wheel is built from the sdist with no VERSION
           # in scope and setup.py raises rather than guessing.
           cp VERSION cli/VERSION
+          # README travels the same way: it is the PyPI project page.
+          cp README.md cli/README.md
           python -m build --outdir dist cli/
 
       - name: Verify both artefacts carry the expected version

@@ -24,10 +24,16 @@ if not _version:
         "or VERSION at the repo root. Refusing to guess a version number."
     )
 
-_readme_path = _repo_root / "README.md"
+# Same arrangement as VERSION: the wheel is built from the sdist, which cannot
+# see the repo root, so the release build copies README.md to cli/README.md
+# (see MANIFEST.in). Without that copy the 2.8.0 wheel shipped with an empty
+# project page.
 _long_description = ""
-if _readme_path.exists():
-    _long_description = _readme_path.read_text(encoding="utf-8")
+for _readme_path in (Path(__file__).resolve().parent / "README.md", _repo_root / "README.md"):
+    if _readme_path.exists():
+        _long_description = _readme_path.read_text(encoding="utf-8")
+        break
+if _long_description:
     _raw_base = "https://raw.githubusercontent.com/guaardvark/guaardvark/main/"
     _long_description = re.sub(
         r'\(docs/screenshots/', f'({_raw_base}docs/screenshots/', _long_description

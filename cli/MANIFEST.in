@@ -2,4 +2,6 @@
 # build copies it to cli/VERSION; include it so a wheel built from the sdist
 # reads the real number instead of failing.
 include VERSION
+# Likewise the README, copied in by the release build for long_description.
+include README.md
 include requirements.txt

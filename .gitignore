@@ -303,3 +303,4 @@ data/demo_assets/*/README.md
 # Build-time copy of the repo-root VERSION, so an sdist can carry it. Generated
 # by the release workflow; the root VERSION file stays the source of truth.
 cli/VERSION
+cli/README.md
