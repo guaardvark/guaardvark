@@ -59,6 +59,7 @@ docling>=2.123.0
 diffusers>=0.38.0
 transformers>=5.2.0,<6.0  # Krea2/Qwen3-VL needs 5.2+ (rope_parameters); was <5.0 for legacy ComfyUI pin
 accelerate==1.2.1
+peft>=0.16.0  # Z-Image LoRA training runs in this venv (plugins/lora_trainer/scripts/run_zimage_trainer.py); without it training stops at "train deps missing: No module named 'peft'"
 safetensors>=0.8.0
 Pillow>=12.3.0  # aligned with requirements.txt. >=12.3.0: 12.2.0 carries 10 HIGH CVEs
                 # (heap OOB writes in Image.paste/crop/RankFilter/ImageCmsTransform,
