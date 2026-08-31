@@ -449,7 +449,13 @@ def get_branding():
     # Default to profile-default.png if no logo set
     if not logo:
         logo = "system/profile-default.png"
-    return success_response({"system_name": name, "logo_path": logo})
+    # The active profile rides on this response: it is the only config fetch
+    # the frontend makes at startup. DB branding wins over the profile's brand.
+    from backend.profiles import active_profile
+    profile = active_profile()
+    if not name and profile.brand.get("app_name"):
+        name = profile.brand["app_name"]
+    return success_response({"system_name": name, "logo_path": logo, "profile": profile.public_dict()})
 
 
 @settings_bp.route("/branding", methods=["POST"])

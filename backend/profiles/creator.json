@@ -1,0 +1,34 @@
+{
+  "name": "creator",
+  "label": "Creator",
+  "description": "Image, video, audio and Film Crew production. Agents, the knowledge index, outreach and automation stay installed and one setting away.",
+  "env": {
+    "GUAARDVARK_AGENT_BRAIN": "false",
+    "GUAARDVARK_MCP_ENABLED": "false",
+    "GUAARDVARK_BROWSER_AUTOMATION": "false",
+    "GUAARDVARK_SELF_IMPROVEMENT": "false",
+    "GUAARDVARK_INDEX_AUTO_RESUME": "false",
+    "GUAARDVARK_ADVANCED_RAG": "false"
+  },
+  "plugins": {
+    "comfyui": true,
+    "audio_foundry": true,
+    "lora_trainer": true,
+    "upscaling": true,
+    "video_editor": true,
+    "swarm": true
+  },
+  "startup": {
+    "voice_check": false
+  },
+  "nav": {
+    "hidden": [
+      "/code-editor", "/notes",
+      "/clients", "/projects", "/websites", "/activity", "/outreach",
+      "/rules", "/tools", "/agents", "/file-generation", "/content-library",
+      "/autoresearch", "/connections", "/approvals", "/system-map"
+    ]
+  },
+  "landing_route": "/images",
+  "chat_surfaces": ["/chat"]
+}

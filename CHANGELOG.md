@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Profiles.** One switch sets the product shape: `GUAARDVARK_PROFILE=<name>` in `.env` or
+  `./start.sh --profile <name>`. `workstation` is today's product and sets nothing;
+  `creator` is the media workflow (image, video, audio, Film Crew, LoRA, upscaling) with the
+  agent, knowledge-index, outreach and automation subsystems left installed but unlisted and
+  off by default; an extension can ship its own. An explicit `.env` value, flag, plugin toggle
+  or DB setting always wins over a profile, and hidden means unlisted, never removed. See
+  `backend/profiles/README.md`. (The sidebar and landing route follow in the next change.)
 - Settings → Maintenance gains **Delete History**, next to Clear Cache: removes every
   batch-image, batch-video and audio generation — the media directories and files, their
   `documents`/`folders` rows and `job_history` entries — and logs each purge to

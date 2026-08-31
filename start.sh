@@ -35,7 +35,13 @@ LAUNCH_BROWSER=0
 if [ "${GUAARDVARK_APP_MODE}" = "true" ] || [ "${GUAARDVARK_APP_MODE}" = "1" ]; then
   LAUNCH_BROWSER=1
 fi
+REQUESTED_PROFILE=""
+EXPECT_PROFILE=0
+VOICE_FLAG_GIVEN=0
 for arg in "$@"; do
+  if [ "$EXPECT_PROFILE" = 1 ]; then
+    REQUESTED_PROFILE="$arg"; EXPECT_PROFILE=0; continue
+  fi
   case "$arg" in
     --help|-h)
       echo "Guaardvark Start Script"
@@ -58,12 +64,16 @@ for arg in "$@"; do
       echo "  --no-browser       Do not launch browser"
       echo "  --discord          Also start the Discord bot plugin"
       echo "  --plugins          Start all enabled plugins after backend is up"
+      echo "  --profile NAME     Select a profile (workstation, creator, or an extension's);"
+      echo "                     written to .env so it persists. See backend/profiles/README.md"
       echo "  --help, -h         Show this help"
       exit 0
       ;;
     --fast) FAST_START=1 ;;
     --test) TEST_MODE=1 ;;
-    --no-voice) VOICE_CHECK=0 ;;
+    --no-voice) VOICE_CHECK=0; VOICE_FLAG_GIVEN=1 ;;
+    --profile) EXPECT_PROFILE=1 ;;
+    --profile=*) REQUESTED_PROFILE="${arg#--profile=}" ;;
     --parallel) PARALLEL_CHECKS=1 ;;
     --force-ports) FORCE_PORTS=1 ;;
     --no-force-ports) FORCE_PORTS=0 ;;
@@ -212,6 +222,35 @@ if [ -f "$SCRIPT_DIR/.env" ]; then
   export GUAARDVARK_ROOT="$SCRIPT_DIR"
 fi
 
+# ─── Profile ──────────────────────────────────────────────────────────────────
+# `--profile NAME` is persisted to .env so the backend (which reads .env itself)
+# and every later start agree. The profile then fills in defaults for env keys
+# .env did not set — an explicit value always wins, and `workstation` sets nothing.
+if [ -n "$REQUESTED_PROFILE" ]; then
+  if ! printf '%s' "$REQUESTED_PROFILE" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$'; then
+    echo "Invalid profile name: $REQUESTED_PROFILE" >&2
+    exit 1
+  fi
+  touch "$SCRIPT_DIR/.env"
+  if grep -q '^GUAARDVARK_PROFILE=' "$SCRIPT_DIR/.env"; then
+    sed -i.bak "s/^GUAARDVARK_PROFILE=.*/GUAARDVARK_PROFILE=$REQUESTED_PROFILE/" "$SCRIPT_DIR/.env" && rm -f "$SCRIPT_DIR/.env.bak"
+  else
+    echo "GUAARDVARK_PROFILE=$REQUESTED_PROFILE" >> "$SCRIPT_DIR/.env"
+  fi
+  export GUAARDVARK_PROFILE="$REQUESTED_PROFILE"
+fi
+_PROFILE_EXPORTS="$("$PYTHON_CMD" "$SCRIPT_DIR/backend/profiles/__main__.py" export --shell 2>"$SCRIPT_DIR/.start_cache/profile.err" || true)"
+if [ -n "$_PROFILE_EXPORTS" ]; then
+  eval "$_PROFILE_EXPORTS"
+fi
+if [ -s "$SCRIPT_DIR/.start_cache/profile.err" ]; then
+  while IFS= read -r _line; do echo "  ⚠ profile: ${_line#\# WARNING: }"; done < "$SCRIPT_DIR/.start_cache/profile.err"
+fi
+# startup skips the profile asks for, unless the flag was passed explicitly
+if [ "$VOICE_FLAG_GIVEN" = 0 ] && [ "${GUAARDVARK_PROFILE_VOICE_CHECK:-1}" = "0" ]; then
+  VOICE_CHECK=0
+fi
+
 # Generate SECRET_KEY if not set — prevents "Using default SECRET_KEY" warning.
 # Handles three cases: line missing, line present-but-empty, line present-with-value.
 # The first two need regeneration; only the third is a no-op.
@@ -340,6 +379,11 @@ try:
         sys.exit(0)
 except (OSError, ValueError):
     pass
+# The active profile's plugin defaults (same string PluginMetadata.from_json_file reads).
+for item in os.environ.get("GUAARDVARK_PROFILE_PLUGIN_DEFAULTS", "").split(","):
+    if "=" in item and item.split("=", 1)[0].strip() == plugin_id:
+        print("True" if item.split("=", 1)[1].strip().lower() in ("1", "true", "yes", "on") else "False")
+        sys.exit(0)
 try:
     with open(plugin_json) as f:
         cfg = (json.load(f) or {}).get("config", {})
@@ -2141,6 +2185,9 @@ except Exception:
         fi
         BOOT_EMBED_MODEL="${GUAARDVARK_EMBEDDING_MODEL:-nomic-embed-text}"
     fi
+    # An explicit choice (.env or the active profile) beats the hardware tier.
+    [ -n "${GUAARDVARK_DEFAULT_LLM:-}" ] && BOOT_CHAT_MODEL="$GUAARDVARK_DEFAULT_LLM"
+    [ -n "${GUAARDVARK_EMBEDDING_MODEL:-}" ] && BOOT_EMBED_MODEL="$GUAARDVARK_EMBEDDING_MODEL"
 
     BOOT_LIST="$(timeout 10 ollama list 2>/dev/null || true)"
     # A "chat model" is any non-embed tag. Detect absence of either class.

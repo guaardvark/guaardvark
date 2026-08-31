@@ -1,5 +1,6 @@
 
 import json
+import os
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, asdict
@@ -118,6 +119,18 @@ class PluginMetadata:
                         data.setdefault('config', {}).update(local_config)
                 except (OSError, ValueError) as e:
                     logger.warning(f"Ignoring invalid {local_path}: {e}")
+
+            # The active profile may override the fresh-install default
+            # (creator ships ComfyUI on). Carried as one env string so
+            # start.sh's shell reader sees exactly the same answer; the
+            # user's own toggle in plugin_state.json still wins over both.
+            profile_defaults = os.environ.get('GUAARDVARK_PROFILE_PLUGIN_DEFAULTS')
+            if profile_defaults:
+                from backend.profiles import parse_plugin_defaults
+                plugin_id = data.get('id', json_path.parent.name)
+                override = parse_plugin_defaults(profile_defaults).get(plugin_id)
+                if override is not None:
+                    data.setdefault('config', {})['default_enabled'] = override
 
             config_data = data.pop('config', {})
             config = PluginConfig.from_dict(config_data)

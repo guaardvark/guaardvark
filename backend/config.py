@@ -10,6 +10,12 @@ try:
 except ImportError:
     pass
 
+# The active profile fills in env defaults for anything .env left unset. It
+# runs here, before the first flag below is read, because several services
+# re-parse os.environ themselves at import. workstation sets nothing.
+from backend.profiles import active_profile as _active_profile, apply_env as _apply_profile_env
+_apply_profile_env(_active_profile())
+
 _default_root = Path(__file__).resolve().parents[1]
 _env_root = os.environ.get("GUAARDVARK_ROOT")
 if _env_root:
