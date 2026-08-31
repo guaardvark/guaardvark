@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Settings → Maintenance gains **Delete History**, next to Clear Cache: removes every
+  batch-image, batch-video and audio generation — the media directories and files, their
+  `documents`/`folders` rows and `job_history` entries — and logs each purge to
+  `retention_audit`. Batches still generating are skipped. Film Crew productions, video
+  editor projects, the cast library and LoRAs, and chat history are not touched. The audio
+  sidecar gains `DELETE /jobs` so its in-memory job list and its `.jobs` files stay in step.
+
 ## 2.8.0 — MiniMax H3, a rebuilt knowledge index, and a cleaner clean install
 
 367 commits since 2.7.0. The largest single change is the knowledge index, which was

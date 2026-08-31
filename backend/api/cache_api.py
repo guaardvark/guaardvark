@@ -236,3 +236,31 @@ def clear_pycache_endpoint():
             ),
             500,
         )
+
+
+# ─── Generation history ──────────────────────────────────────────────────────
+# Lives on this blueprint so the /api/meta mutation guard applies: the DELETE
+# needs localhost or the API key, the GET stays readable for the LAN UI.
+
+@cache_bp.route("/generation-history", methods=["GET"])
+def generation_history_counts():
+    """What "Delete History" would remove — for the confirmation dialog."""
+    try:
+        from backend.services.generation_history_service import count_generation_history
+        return jsonify(count_generation_history()), 200
+    except Exception as e:
+        logger.exception("generation history count failed")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@cache_bp.route("/generation-history", methods=["DELETE"])
+def delete_generation_history_endpoint():
+    """Delete all batch-image, batch-video and audio generation history."""
+    try:
+        from backend.services.generation_history_service import delete_generation_history
+        result = delete_generation_history(triggered_by=request.remote_addr or "settings_ui")
+        # Same convention as clear-pycache: partial failure is 207, never 500.
+        return jsonify(result), (200 if result.get("success") else 207)
+    except Exception as e:
+        logger.exception("generation history delete failed")
+        return jsonify({"success": False, "error": str(e)}), 500

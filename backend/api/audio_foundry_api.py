@@ -84,6 +84,17 @@ def _proxy_post(path: str, json_data: dict, timeout: int):
         return {"error": str(e)}, 500
 
 
+def _proxy_delete(path: str, timeout: int = QUICK_TIMEOUT):
+    try:
+        resp = requests.delete(f"{AUDIO_FOUNDRY_URL}{path}", timeout=timeout)
+        return resp.json(), resp.status_code
+    except requests.ConnectionError:
+        return {"error": "Audio Foundry service not running"}, 503
+    except Exception as e:
+        logger.exception("Audio Foundry DELETE %s failed", path)
+        return {"error": str(e)}, 500
+
+
 @audio_foundry_bp.route("/health", methods=["GET"])
 def health():
     body, status = _proxy_get("/health")
@@ -229,6 +240,13 @@ def jobs_list():
 @audio_foundry_bp.route("/jobs/<job_id>/cancel", methods=["POST"])
 def job_cancel(job_id):
     body, status_code = _proxy_post(f"/jobs/{job_id}/cancel", {}, QUICK_TIMEOUT)
+    return body, status_code
+
+
+@audio_foundry_bp.route("/jobs", methods=["DELETE"])
+def jobs_clear():
+    """Clear finished jobs from the sidecar's history. Active jobs untouched."""
+    body, status_code = _proxy_delete("/jobs")
     return body, status_code
 
 

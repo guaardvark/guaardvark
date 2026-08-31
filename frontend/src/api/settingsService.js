@@ -28,6 +28,31 @@ export const clearPycache = async () => {
   }
 };
 
+export const getGenerationHistoryCounts = async () => {
+  const endpoint = `${BASE_URL}/meta/generation-history`;
+  try {
+    const response = await fetch(endpoint);
+    return await handleResponse(response);
+  } catch (err) {
+    console.error("settingsService: Error fetching generation history counts:", err.message);
+    return null;
+  }
+};
+
+export const deleteGenerationHistory = async () => {
+  const endpoint = `${BASE_URL}/meta/generation-history`;
+  try {
+    const response = await fetch(endpoint, { method: "DELETE" });
+    const data = await handleResponse(response);
+    if (typeof data === "object" && data !== null && data.error)
+      throw new Error(data.error);
+    return data;
+  } catch (err) {
+    console.error("settingsService: Error deleting generation history:", err.message);
+    throw err;
+  }
+};
+
 export const getChatHistoryCounts = async () => {
   const endpoint = `${BASE_URL}/enhanced-chat/history/all`;
   try {

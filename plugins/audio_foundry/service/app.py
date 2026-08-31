@@ -393,6 +393,12 @@ def cancel_job(job_id: str) -> dict[str, Any]:
     return {"job_id": job_id, "status": "cancelling"}
 
 
+@app.delete("/jobs")
+def clear_jobs() -> dict[str, Any]:
+    """Forget finished jobs (records on disk included). Active jobs untouched."""
+    return _jobs.clear_finished()
+
+
 # ---------- helpers ----------------------------------------------------------
 
 def _run(intent: Intent, params: dict[str, Any]) -> dict[str, Any]:

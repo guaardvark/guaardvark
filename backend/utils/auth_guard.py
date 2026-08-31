@@ -44,6 +44,8 @@ PROTECTED_DELETE_PREFIXES = (
     '/api/backups/',
     # Cast subjects, reference images and samples; generate/train stay LAN-usable.
     '/api/cast-library/',
+    # Clearing the audio job history; generation and cancel stay LAN-usable.
+    '/api/audio-foundry/jobs',
 )
 
 # Explicitly safe operations that are exempt from the host check even though they

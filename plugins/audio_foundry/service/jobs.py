@@ -124,6 +124,29 @@ class JobManager:
                 self._persist(job)
             return True
 
+    def clear_finished(self) -> dict:
+        """Drop every finished job record from memory and disk.
+
+        Active (queued/running) jobs are untouched and their ids returned so a
+        caller sweeping the .jobs directory knows which files still matter.
+        """
+        with self._lock:
+            finished = [j for j in self._jobs.values()
+                        if j.status in ("done", "error", "cancelled")]
+            for job in finished:
+                self._jobs.pop(job.id, None)
+                self._cancels.pop(job.id, None)
+                try:
+                    self._job_path(job.id).unlink(missing_ok=True)
+                except OSError as e:
+                    logger.warning("Could not remove job record %s: %s", job.id, e)
+            active_ids = [j.id for j in self._jobs.values()]
+        return {
+            "removed": len(finished),
+            "removed_ids": [j.id for j in finished],
+            "active_ids": active_ids,
+        }
+
     # ---- worker -----------------------------------------------------------
 
     def _loop(self) -> None:

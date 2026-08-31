@@ -44,7 +44,41 @@ def app():
     def meta_mutation():
         return {"ok": True}
 
+    @test_app.route("/api/meta/generation-history", methods=["GET", "DELETE"])
+    def generation_history():
+        return {"ok": True}
+
+    @test_app.route("/api/audio-foundry/jobs", methods=["GET", "DELETE"])
+    def audio_jobs():
+        return {"ok": True}
+
     return test_app
+
+
+def test_delete_generation_history_blocked_from_remote_host(app, monkeypatch):
+    # Deleting every generated image, video and audio file is not a "safe"
+    # maintenance op like clear-pycache; it stays behind the /api/meta guard.
+    monkeypatch.delenv("GUAARDVARK_API_KEY", raising=False)
+    client = app.test_client()
+
+    response = client.delete("/api/meta/generation-history", environ_base={"REMOTE_ADDR": "192.168.1.20"})
+    assert response.status_code == 403
+
+    # The counts stay readable so the LAN UI can show what would be deleted.
+    response = client.get("/api/meta/generation-history", environ_base={"REMOTE_ADDR": "192.168.1.20"})
+    assert response.status_code == 200
+
+    response = client.delete("/api/meta/generation-history", environ_base={"REMOTE_ADDR": "127.0.0.1"})
+    assert response.status_code == 200
+
+
+def test_clear_audio_jobs_blocked_from_remote_host_but_listing_open(app, monkeypatch):
+    monkeypatch.delenv("GUAARDVARK_API_KEY", raising=False)
+    client = app.test_client()
+
+    assert client.delete("/api/audio-foundry/jobs", environ_base={"REMOTE_ADDR": "192.168.1.20"}).status_code == 403
+    assert client.get("/api/audio-foundry/jobs", environ_base={"REMOTE_ADDR": "192.168.1.20"}).status_code == 200
+    assert client.delete("/api/audio-foundry/jobs", environ_base={"REMOTE_ADDR": "127.0.0.1"}).status_code == 200
 
 
 def test_clear_pycache_allowed_from_remote_host(app, monkeypatch):

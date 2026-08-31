@@ -2873,7 +2873,9 @@ class RetentionAudit(db.Model):
     """
     __tablename__ = "retention_audit"
 
-    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    # BigInteger on Postgres; SQLite only autoincrements INTEGER primary keys,
+    # and the in-memory test databases would otherwise insert a NULL id.
+    id = db.Column(db.BigInteger().with_variant(db.Integer, "sqlite"), primary_key=True, autoincrement=True)
     occurred_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now())
     actor = db.Column(db.String(32), nullable=False)  # 'user' | 'system'
     kind = db.Column(db.String(64), nullable=False)

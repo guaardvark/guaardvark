@@ -304,6 +304,9 @@ const SettingsPage = () => {
   });
   const [killSwitchOpen, setKillSwitchOpen] = useState(false);
   const [rebootDialogOpen, setRebootDialogOpen] = useState(false);
+  const [deleteHistoryDialogOpen, setDeleteHistoryDialogOpen] = useState(false);
+  const [deleteHistoryCounts, setDeleteHistoryCounts] = useState(null);
+  const [deleteHistoryInProgress, setDeleteHistoryInProgress] = useState(false);
   const [rebootInProgress, setRebootInProgress] = useState(false);
   const [rebootProgressModalOpen, setRebootProgressModalOpen] = useState(false);
   const [imageModelsModalOpen, setImageModelsModalOpen] = useState(false);
@@ -1360,6 +1363,67 @@ const SettingsPage = () => {
     }
     return !currentValue;
   };
+  const formatByteSize = (bytes) => {
+    const n = Number(bytes) || 0;
+    if (n >= 1024 ** 3) return `${(n / 1024 ** 3).toFixed(2)} GB`;
+    if (n >= 1024 ** 2) return `${(n / 1024 ** 2).toFixed(1)} MB`;
+    if (n >= 1024) return `${Math.round(n / 1024)} KB`;
+    return `${n} B`;
+  };
+
+  // Delete History: batch image, batch video and audio generation history —
+  // records and media, plus the DB rows that mirror them. The dialog shows
+  // real counts first because this frees disk space that cannot come back.
+  const handleDeleteGenerationHistoryClick = async () => {
+    setIsLoading(true);
+    try {
+      const counts = await apiService.getGenerationHistoryCounts();
+      setDeleteHistoryCounts(counts && !counts.error ? counts : null);
+      setDeleteHistoryDialogOpen(true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCancelDeleteHistory = () => {
+    if (deleteHistoryInProgress) return;
+    setDeleteHistoryDialogOpen(false);
+  };
+
+  const handleConfirmDeleteHistory = async () => {
+    setDeleteHistoryInProgress(true);
+    setIsLoading(true);
+    showMessage("Deleting generation history...", "info");
+    try {
+      const result = await apiService.deleteGenerationHistory();
+      const d = result?.deleted || {};
+      const parts = [];
+      if (d.images?.batches) parts.push(`${d.images.batches} image batch(es)`);
+      if (d.videos?.batches) parts.push(`${d.videos.batches} video batch(es)`);
+      if (d.audio?.files || d.audio?.jobs)
+        parts.push(`${d.audio.files || 0} audio file(s), ${d.audio.jobs || 0} audio job(s)`);
+      const dbRows = (d.documents || 0) + (d.folders || 0) + (d.job_history || 0);
+      if (dbRows) parts.push(`${dbRows} database row(s)`);
+      let message = parts.length
+        ? `Deleted ${parts.join(", ")} (${formatByteSize(result?.bytes_freed)} freed).`
+        : "No generation history to delete.";
+      const skipped = result?.skipped || {};
+      const skippedCount =
+        (skipped.images?.length || 0) + (skipped.videos?.length || 0) + (skipped.audio?.length || 0);
+      if (skippedCount) message += ` Skipped ${skippedCount} running job(s).`;
+      if (result?.sidecar_available === false)
+        message += " Audio service was not running; its job records were removed directly.";
+      if (result?.errors?.length) message += ` ${result.errors.length} error(s): ${result.errors[0]}`;
+      showMessage(message, skippedCount || result?.errors?.length ? "warning" : "success");
+      setDeleteHistoryDialogOpen(false);
+    } catch (err) {
+      showMessage(`Failed to delete generation history: ${err.message}`, "error");
+    } finally {
+      setDeleteHistoryInProgress(false);
+      setIsLoading(false);
+    }
+  };
+
   const handleClearPycacheFoldersClick = async () => {
     if (
       !window.confirm(
@@ -3345,7 +3409,10 @@ const SettingsPage = () => {
 
           <SettingsCardWrapper title="Maintenance" sx={{ overflow: "visible" }}>
               <SettingsRow label="Clear Cache">
-                <Button variant="outlined" size="small" onClick={handleClearPycacheFoldersClick} disabled={isLoading}>Clear Cache</Button>
+                <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+                  <Button variant="outlined" size="small" onClick={handleClearPycacheFoldersClick} disabled={isLoading}>Clear Cache</Button>
+                  <Button variant="outlined" size="small" color="error" onClick={handleDeleteGenerationHistoryClick} disabled={isLoading}>Delete History</Button>
+                </Box>
               </SettingsRow>
               <SettingsRow label="Diagnostics" stacked>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 1, width: "100%", minWidth: 0 }}>
@@ -3767,6 +3834,77 @@ const SettingsPage = () => {
             disabled={rebootInProgress}
           >
             {rebootInProgress ? "Rebooting..." : "Reboot Now"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog
+        open={deleteHistoryDialogOpen}
+        onClose={handleCancelDeleteHistory}
+        aria-labelledby="delete-history-dialog-title"
+      >
+        <DialogTitle id="delete-history-dialog-title">Delete Generation History</DialogTitle>
+        <DialogContent dividers>
+          <DialogContentText component="div">
+            <Typography variant="body2" gutterBottom>
+              This permanently deletes every batch image, batch video and audio generation —
+              the files themselves and their entries in Documents and Job History.
+            </Typography>
+            {deleteHistoryCounts ? (
+              <Box component="ul" sx={{ pl: 2.5, my: 1 }}>
+                <li>
+                  <Typography variant="body2">
+                    Images: {deleteHistoryCounts.images?.batches || 0} batch(es),{" "}
+                    {deleteHistoryCounts.images?.files || 0} file(s), {formatByteSize(deleteHistoryCounts.images?.bytes)}
+                  </Typography>
+                </li>
+                <li>
+                  <Typography variant="body2">
+                    Videos: {deleteHistoryCounts.videos?.batches || 0} batch(es),{" "}
+                    {deleteHistoryCounts.videos?.files || 0} file(s), {formatByteSize(deleteHistoryCounts.videos?.bytes)}
+                  </Typography>
+                </li>
+                <li>
+                  <Typography variant="body2">
+                    Audio: {deleteHistoryCounts.audio?.files || 0} file(s),{" "}
+                    {deleteHistoryCounts.audio?.jobs || 0} job record(s), {formatByteSize(deleteHistoryCounts.audio?.bytes)}
+                  </Typography>
+                </li>
+                <li>
+                  <Typography variant="body2">
+                    Database: {deleteHistoryCounts.db?.documents || 0} document(s),{" "}
+                    {deleteHistoryCounts.db?.folders || 0} folder(s), {deleteHistoryCounts.db?.job_history || 0} job history row(s)
+                  </Typography>
+                </li>
+              </Box>
+            ) : (
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Could not read the current counts; deletion still works.
+              </Typography>
+            )}
+            {(deleteHistoryCounts?.images?.running?.length ||
+              deleteHistoryCounts?.videos?.running?.length ||
+              deleteHistoryCounts?.audio?.running?.length) ? (
+              <Typography variant="body2" gutterBottom>
+                Batches still generating are skipped and left in place.
+              </Typography>
+            ) : null}
+            <Typography variant="body2" color="text.secondary">
+              Film Crew productions, video editor projects, the cast library and trained LoRAs,
+              and chat history are not affected. This cannot be undone.
+            </Typography>
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelDeleteHistory} disabled={deleteHistoryInProgress}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmDeleteHistory}
+            color="error"
+            variant="contained"
+            disabled={deleteHistoryInProgress}
+          >
+            {deleteHistoryInProgress ? "Deleting..." : "Delete History"}
           </Button>
         </DialogActions>
       </Dialog>
