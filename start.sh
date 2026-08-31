@@ -2675,8 +2675,14 @@ vader_separator
 vader_step 10 "Starting enhanced Celery workers..."
 if [ -f "$SCRIPT_DIR/start_celery.sh" ]; then
     bash "$SCRIPT_DIR/start_celery.sh"
-    if pgrep -f "celery.*worker" >/dev/null 2>&1; then
-        CELERY_PID=$(pgrep -f "celery.*worker" | head -1)
+    # Only workers whose cwd is this checkout count — another install on the
+    # same machine must neither satisfy this check nor lend its PID.
+    CELERY_PID=""
+    for _pid in $(pgrep -f "celery -A backend.celery_app.celery worker" 2>/dev/null); do
+        _cwd=$(_proc_cwd "$_pid")
+        case "$_cwd" in "$SCRIPT_DIR"|"$SCRIPT_DIR"/*) CELERY_PID="$_pid"; break ;; esac
+    done
+    if [ -n "$CELERY_PID" ]; then
         echo "$CELERY_PID" > "$SCRIPT_DIR/pids/celery.pid"
         vader_success "Enhanced Celery workers started"
     else

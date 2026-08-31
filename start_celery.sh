@@ -23,16 +23,31 @@ BACKEND_DIR="$SCRIPT_DIR/backend"
 VENV_DIR="$BACKEND_DIR/venv"
 LOGS_DIR="$SCRIPT_DIR/logs"
 
+# Celery processes that belong to THIS checkout: matched on the real worker/beat
+# CLI (never a parent shell that embeds the pattern in its argv) and then kept
+# only when the process's working directory is under this repo. Two installs on
+# one machine — the engine and a client vertical — otherwise see each other's
+# workers as their own: this script reported "already running" and started
+# nothing, and start.sh recorded the other install's PID.
+own_celery_pids() {  # $1 = worker | beat
+  local pid cwd
+  for pid in $(pgrep -f "celery -A backend.celery_app.celery $1" 2>/dev/null); do
+    cwd=""
+    if [ -e "/proc/$pid/cwd" ]; then
+      cwd=$(readlink -f "/proc/$pid/cwd" 2>/dev/null)
+    elif command -v lsof >/dev/null 2>&1; then
+      cwd=$(lsof -a -d cwd -p "$pid" -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)
+    fi
+    case "$cwd" in "$SCRIPT_DIR"|"$SCRIPT_DIR"/*) echo "$pid" ;; esac
+  done
+}
+
 check_workers() {
-  # Match real worker CLIs only — avoid matching parent shells that embed this
-  # pattern in their argv (tooling wrappers, pgrep itself).
-  local count
-  count=$(pgrep -f "celery -A backend.celery_app.celery worker" 2>/dev/null | wc -l)
-  echo "$count"
+  own_celery_pids worker | wc -l
 }
 
 check_beat() {
-  pgrep -f "celery -A backend.celery_app.celery beat" 2>/dev/null | wc -l
+  own_celery_pids beat | wc -l
 }
 
 start_worker() {
@@ -169,7 +184,7 @@ worker_count=$(check_workers)
 if [ $worker_count -gt 0 ]; then
   vader_info "Celery workers already running ($worker_count processes)."
   vader_detail "Use ./stop.sh first to stop them, or kill them manually:"
-  pgrep -f "celery -A backend.celery_app.celery worker" 2>/dev/null | while read pid; do
+  own_celery_pids worker | while read pid; do
     vader_detail "PID $pid: $(ps -p $pid -o command= | cut -c1-80)"
   done
   exit 0
@@ -242,7 +257,7 @@ else
   vader_success "$worker_count Celery workers running (concurrency=1 for race condition test)"
   
   vader_info "Worker processes:"
-  pgrep -f "celery -A backend.celery_app.celery worker" 2>/dev/null | while read pid; do
+  own_celery_pids worker | while read pid; do
     vader_detail "PID $pid: $(ps -p $pid -o command= | cut -c1-100)"
   done
   
