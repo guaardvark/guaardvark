@@ -1,0 +1,7 @@
+{
+  "label": "Template",
+  "description": "A distribution profile: what this extension's users see first.",
+  "nav": { "hidden": ["/outreach", "/autoresearch", "/system-map"] },
+  "landing_route": "/",
+  "brand": { "app_name": null }
+}

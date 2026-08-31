@@ -509,6 +509,15 @@ def execute_unified_task(self, task_id: int):
         output = None
         handler_used = None
 
+        # Handlers an extension registered for its own task types run first,
+        # so a vertical never edits this chain (backend/services/task_handler_registry.py).
+        from backend.services.task_handler_registry import get_task_handler
+        ext_handler = get_task_handler(task_type)
+        if ext_handler is not None:
+            update_progress(10, f"Running {task_type}")
+            output = ext_handler(task, update_progress)
+            handler_used = task_type
+
         # Check for CSV generation handler
         if task_type in ['file_generation', 'csv_generation'] and task.get('workflow_config'):
             try:

@@ -470,11 +470,13 @@ def get_profile():
             available.append({"name": name, "label": loaded.label, "description": loaded.description, "source": source})
         except Exception:  # pragma: no cover - load_profile never raises
             available.append({"name": name, "label": name, "description": "", "source": source})
+    from backend import extensions as X
     return success_response({
         "active": active.public_dict(),
         "configured": P.configured_name() or P.DEFAULT_PROFILE,
         "available": available,
         "env_writable": P.env_file_writable(),
+        "extensions": X.load_report(),
     })
 
 

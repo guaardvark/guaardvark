@@ -10,6 +10,13 @@
   or DB setting always wins over a profile, and hidden means unlisted, never removed. See
   `backend/profiles/README.md`. The sidebar lists what the profile lists, `/` lands where it
   says, and Settings → Product Profile switches profiles (applies on restart).
+- **Extensions.** A client vertical lives in `extensions/<id>/` — blueprints, models, Celery
+  tasks, column migrations, seeds, a profile, an optional sidecar plugin — and core loads it
+  through fixed hook points without any core file naming it. A broken extension is reported
+  by id while the others still load, and a declared URL prefix with no mounted route is an
+  error rather than a silent 404. Extensions register handlers for their own task types
+  instead of editing the unified task executor. `extensions/_template/` is the starting point;
+  see `extensions/README.md`. (Frontend routes, nav and themes follow in the next change.)
 - Settings → Maintenance gains **Delete History**, next to Clear Cache: removes every
   batch-image, batch-video and audio generation — the media directories and files, their
   `documents`/`folders` rows and `job_history` entries — and logs each purge to

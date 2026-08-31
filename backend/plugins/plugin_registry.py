@@ -93,6 +93,22 @@ class PluginRegistry:
             else:
                 logger.debug(f"No plugin.json found in {item.name}")
         
+        # Sidecars shipped by extensions (extensions/<id>/plugin/plugin.json).
+        try:
+            from backend import extensions as _ext
+            for plugin_dir in _ext.plugin_dirs(_ext.discover()):
+                try:
+                    metadata = PluginMetadata.from_json_file(plugin_dir / 'plugin.json')
+                    self._apply_overrides(metadata)
+                    self._plugins[metadata.id] = metadata
+                    self._plugin_dirs[metadata.id] = plugin_dir
+                    discovered.append(metadata.id)
+                    logger.info(f"Discovered extension plugin: {metadata.id} ({metadata.name}) v{metadata.version}")
+                except Exception as e:
+                    logger.error(f"Failed to load extension plugin from {plugin_dir}: {e}", exc_info=True)
+        except Exception as e:
+            logger.warning(f"Extension plugin discovery skipped: {e}")
+
         logger.info(f"Plugin discovery complete: {len(discovered)} plugin(s) discovered")
         if discovered:
             logger.info(f"Discovered plugins: {', '.join(discovered)}")

@@ -1,0 +1,3 @@
+# pip requirements for this extension. Not installed automatically yet: run
+#   backend/venv/bin/pip install -r extensions/<id>/requirements.txt
+# System packages go in extension.json system_deps (declared, reported, not installed).

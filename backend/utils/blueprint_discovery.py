@@ -26,15 +26,25 @@ class BlueprintDiscovery:
             'conftest', 'setup', 'config'
         }
         
-    def should_exclude_module(self, module_name: str) -> bool:
-        """Check if a module should be excluded from blueprint discovery"""
+    def should_exclude_module(self, module_name: str, substring_exclusions: bool = True) -> bool:
+        """Check if a module should be excluded from blueprint discovery.
+
+        Core directories keep the historical substring rule (a module whose
+        name merely *contains* "config" or "setup" is skipped). Extension
+        directories get an exact rule instead, so ``acme_config_api.py`` is
+        not silently dropped.
+        """
         # `.`-prefixed names are dotfiles / macOS AppleDouble sidecars (`._uploads_route.py`),
         # which appear when the repo lives on an exFAT/SMB volume. Their stem (`._uploads_route`)
         # does NOT start with `_`, so the underscore guard below misses them and they import as
         # `backend.routes.._uploads_route` → ModuleNotFoundError. Exclude leading-dot names too.
         if not module_name or module_name.startswith('_') or module_name.startswith('.'):
             return True
-            
+
+        if not substring_exclusions:
+            lowered = module_name.lower()
+            return lowered in ('__init__', 'conftest', 'setup', 'tests') or lowered.startswith('test_')
+
         for excluded in self.excluded_modules:
             if excluded in module_name.lower():
                 return True
@@ -44,7 +54,8 @@ class BlueprintDiscovery:
     def discover_blueprints_in_directory(
         self, 
         directory_path: str, 
-        package_prefix: str = ""
+        package_prefix: str = "",
+        substring_exclusions: bool = True,
     ) -> List[Dict[str, Any]]:
         """
         Discover all blueprints in a given directory.
@@ -69,7 +80,7 @@ class BlueprintDiscovery:
         for py_file in directory.glob("*.py"):
             module_name = py_file.stem
 
-            if self.should_exclude_module(module_name):
+            if self.should_exclude_module(module_name, substring_exclusions):
                 logger.debug(f"Excluding module: {module_name}")
                 continue
 
@@ -221,7 +232,8 @@ class BlueprintDiscovery:
     def auto_discover_and_register(
         self, 
         app: Flask, 
-        directories: List[Tuple[str, str]] = None
+        directories: List[Tuple[str, str]] = None,
+        extension_directories: List[Tuple[str, str]] = None,
     ) -> Dict[str, Any]:
         """
         Automatically discover and register blueprints from specified directories.
@@ -269,6 +281,16 @@ class BlueprintDiscovery:
                 "blueprints": [bp["name"] for bp in dir_blueprints]
             }
         
+        # Extensions (extensions/<id>/api) — exact exclusions, see should_exclude_module.
+        for directory_path, package_prefix in (extension_directories or []):
+            logger.info(f"Discovering extension blueprints in: {directory_path}")
+            dir_blueprints = self.discover_blueprints_in_directory(directory_path, package_prefix, substring_exclusions=False)
+            all_blueprints.extend(dir_blueprints)
+            discovery_summary[directory_path] = {
+                "discovered_count": len(dir_blueprints),
+                "blueprints": [bp["name"] for bp in dir_blueprints],
+            }
+
         # Store discovered blueprints
         self.discovered_blueprints = all_blueprints
         

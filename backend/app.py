@@ -1111,6 +1111,13 @@ def _initialize_app_components(app):
 
     db.init_app(app)
 
+    # Extensions (extensions/<id>/): models must exist before create_all(),
+    # so this is the first of their hook points. See backend/extensions.
+    from backend import extensions as _ext
+    _extensions = _ext.discover()
+    for _ext_id, _err in _ext.import_models(_extensions).items():
+        _ext.record(_ext_id, "models", _err is None, _err)
+
     try:
         from backend.tools import initialize_all_tools, get_registered_tools
         tool_registry = initialize_all_tools()
@@ -1163,7 +1170,14 @@ def _initialize_app_components(app):
         app.plugin_manager = None
 
     from backend.utils.blueprint_discovery import auto_register_blueprints
-    auto_register_blueprints(app)
+    auto_register_blueprints(app, extension_directories=_ext.blueprint_directories(_extensions))
+    for _e in _extensions:
+        _missing = _ext.missing_url_prefixes(app, _e)
+        _ext.record(_e.id, "blueprints", not _missing, _missing or None)
+        if _missing:
+            # A blueprint import error becomes a warning in discovery; without
+            # this, a vertical's every route 404s behind a clean startup.
+            app.logger.error("extension %s: no routes mounted under %s — check its api/ imports", _e.id, ", ".join(_missing))
 
     # Resume any in-flight video projects (productions + music videos, + future kinds)
     # after a crash. DB-driven — no in-memory state to lose. One registry-driven pass,
@@ -1389,6 +1403,13 @@ try:
                     except Exception:
                         pass
 
+            # Extension schema additions (create_all never alters), then seeds.
+            try:
+                for _ext_id, _cols in _ext.run_migrations(_extensions, db, app.logger).items():
+                    _ext.record(_ext_id, "migrations", True, _cols)
+            except Exception as ext_err:
+                app.logger.error(f"Extension migrations failed: {ext_err}")
+
             # Create default OS-style folders (Images/, Videos/, Code/) so
             # generated outputs land somewhere DocumentsPage can see them
             try:
@@ -1397,6 +1418,15 @@ try:
                 app.logger.info("Default folders verified (Images, Videos, Code)")
             except Exception as folder_err:
                 app.logger.warning(f"Default folder setup skipped: {folder_err}")
+
+            try:
+                for _ext_id, _outcome in _ext.run_seeds(_extensions, app).items():
+                    _ext.record(_ext_id, "seed", not _outcome.startswith("error"), _outcome)
+            except Exception as ext_err:
+                app.logger.error(f"Extension seeds failed: {ext_err}")
+            if _extensions:
+                _summary = ", ".join(f"{e.id} v{e.version}" + ("" if _ext.load_report().get(e.id, {}).get("ok", True) else " (ERRORS)") for e in _extensions)
+                app.logger.info(f"Extensions loaded: {_summary}")
 
             # Stamp Alembic to head (so health checks pass)
             if not os.environ.get("GUAARDVARK_SKIP_MIGRATIONS") and not migrations_already_verified:

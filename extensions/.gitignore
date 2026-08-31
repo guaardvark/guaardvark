@@ -1,0 +1,11 @@
+# Every client folder is private to that client and never enters this repository;
+# only the template and this scaffold are tracked. Names no client.
+*
+!.gitignore
+!README.md
+!__init__.py
+!_template/
+!_template/**
+# never bytecode, even inside the template
+__pycache__/
+*.pyc

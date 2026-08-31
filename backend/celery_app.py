@@ -520,6 +520,15 @@ def create_celery_app():
     except Exception as e:  # noqa: BLE001
         logger.warning("RAPTOR build task not available: %s", e)
 
+    # Extensions: tasks/*.py register at import; beat entries come from
+    # extension.json. See backend/extensions.
+    try:
+        from backend import extensions as _ext
+        for _ext_id, _mods in _ext.register_tasks(_ext.discover(), celery_app).items():
+            logger.info("extension %s: %d task module(s) registered", _ext_id, len(_mods))
+    except Exception as e:  # noqa: BLE001
+        logger.error("Extension task registration failed: %s", e, exc_info=True)
+
     logger.info("Celery app configured with enhanced performance settings and Beat schedule")
     return celery_app
 

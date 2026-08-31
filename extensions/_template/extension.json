@@ -1,0 +1,10 @@
+{
+  "name": "Template Extension",
+  "version": "0.1.0",
+  "description": "Copy this folder to extensions/<id>/ and rename. Every file is optional except this one.",
+  "url_prefixes": ["/api/template"],
+  "beat": {
+    "template-heartbeat": { "task": "template.heartbeat", "schedule": 3600 }
+  },
+  "system_deps": { "apt": [] }
+}
