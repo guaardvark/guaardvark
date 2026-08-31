@@ -53,6 +53,8 @@ class BaseSwarmAgent(Generic[T]):
     name: str = "base"
     output_model: type[T] = None  # type: ignore[assignment]
     system_prompt: str = ""
+    # A preference, not a requirement: the llm callable resolves it against the
+    # tags Ollama actually has (see backend.services.ollama_chat_model).
     model: str = "gemma4:e4b"
 
     def __init__(self, llm: Callable[..., str]):

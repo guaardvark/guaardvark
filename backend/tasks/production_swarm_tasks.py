@@ -78,9 +78,14 @@ def _agent_run(prod_id: int, *, agent_name: str, expected_stage: str, next_agent
 
 def _default_ollama_llm(*, system: str, user: str, model: str = "gemma4:e4b") -> str:
     from backend.services.plugin_bridge import ensure_plugins_for_stage
+    from backend.services.ollama_chat_model import resolve_chat_model
     ensure_plugins_for_stage("film-crew", "screenwriting")  # or cinematography etc.; uses phased non-persist
     ensure_plugins_for_stage("film-crew", "cinematography")
     import ollama
+    # `model` is the agent's preference; the installer may have pulled a
+    # different tag of the family (gemma4:e2b on most machines), so resolve
+    # against what is actually installed rather than 404 on a clean box.
+    model = resolve_chat_model(model)
     response = ollama.chat(
         model=model,
         messages=[
