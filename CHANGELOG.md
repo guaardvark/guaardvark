@@ -16,7 +16,10 @@
   by id while the others still load, and a declared URL prefix with no mounted route is an
   error rather than a silent 404. Extensions register handlers for their own task types
   instead of editing the unified task executor. `extensions/_template/` is the starting point;
-  see `extensions/README.md`. (Frontend routes, nav and themes follow in the next change.)
+  see `extensions/README.md`. On the frontend, `extensions/<id>/frontend/index.jsx` contributes
+  routes, nav groups, themes, page context, chat surfaces, store state, a header bar and a
+  logo; core merges them at build time and imports for the extension resolve through core's
+  dependencies and the `@` alias.
 - Settings → Maintenance gains **Delete History**, next to Clear Cache: removes every
   batch-image, batch-video and audio generation — the media directories and files, their
   `documents`/`folders` rows and `job_history` entries — and logs each purge to

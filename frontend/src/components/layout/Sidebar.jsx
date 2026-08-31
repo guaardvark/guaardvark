@@ -25,6 +25,7 @@ import { spacing } from "../../theme/tokens";
 import { BrandLogo } from "../branding";
 import brand from "../../config/brand";
 import { filterNavGroups, landingRouteFor } from "../../config/profile";
+import { extensionNavGroups } from "../../extensions";
 import { usePendingApprovals } from "../../hooks/usePendingApprovals";
 import BarChartIcon from "@mui/icons-material/BarChart";
 import DesktopWindowsIcon from "@mui/icons-material/DesktopWindows";
@@ -45,7 +46,7 @@ const Sidebar = () => {
   // scope, so the sidebar follows the profile once it arrives from the backend.
   const profile = useAppStore((state) => state.profile);
   const navGroups = useMemo(
-    () => filterNavGroups(brand.navGroups, profile?.hidden_routes),
+    () => filterNavGroups([...extensionNavGroups(), ...brand.navGroups], profile?.hidden_routes),
     [profile],
   );
   const homeRoute = landingRouteFor(profile) || "/dashboard";

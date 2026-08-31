@@ -16,6 +16,7 @@ import { useAppStore } from "./stores/useAppStore";
 import { BrandLogo } from "./components/branding";
 import brand from "./config/brand";
 import { landingRouteFor } from "./config/profile";
+import { extensionRoutes, extensionHeaders, extensionLandingRoute } from "./extensions";
 
 import TrainingFloater from "./components/agent/TrainingFloater";
 
@@ -92,6 +93,8 @@ const AppLayout = ({ children }) => {
 
   const sidebarExpanded = useAppStore((state) => state.sidebarExpanded);
   const drawerWidth = sidebarExpanded ? spacing.sidebarExpanded : spacing.sidebarCollapsed;
+  // Layout slot: an extension may add a header bar above every page.
+  const headers = extensionHeaders();
 
   return (
     <Box sx={{ display: "flex", height: "100vh", overflow: "hidden" }}>
@@ -122,6 +125,9 @@ const AppLayout = ({ children }) => {
             pb: `${spacing.footerHeight}px`,
           }}
         >
+          {headers.map((Header, i) => (
+            <Header key={i} />
+          ))}
           {children}
         </Box>
         <ProgressFooterBar />
@@ -145,7 +151,7 @@ const AppContainer = () => {
   // A profile may land somewhere other than the dashboard (creator: /images).
   // The dashboard stays reachable at /dashboard — unlisted, not removed.
   const profile = useAppStore((state) => state.profile);
-  const landingRoute = landingRouteFor(profile);
+  const landingRoute = landingRouteFor(profile) || extensionLandingRoute();
   const fetchSystemInfo = useAppStore((state) => state.fetchSystemInfo);
   const systemName = useAppStore((state) => state.systemName);
 
@@ -662,6 +668,18 @@ const AppContainer = () => {
                           </AppLayout>
                         }
                       />
+                      {/* Extension routes (extensions/<id>/frontend/index.jsx), ahead of the catch-all. */}
+                      {extensionRoutes().map((r) => (
+                        <Route
+                          key={r.path}
+                          path={r.path}
+                          element={
+                            <AppLayout>
+                              {r.errorBoundary ? <ErrorBoundary>{r.element}</ErrorBoundary> : r.element}
+                            </AppLayout>
+                          }
+                        />
+                      ))}
                       <Route
                         path="*"
                         element={

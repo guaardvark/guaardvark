@@ -2,6 +2,14 @@ import { create } from "zustand";
 import { persist, createJSONStorage, subscribeWithSelector, devtools } from "zustand/middleware";
 import brand from "../config/brand";
 import { DEFAULT_PROFILE } from "../config/profile";
+import { extensionStoreSlices } from "../extensions";
+
+// Extensions may add state (extensions/<id>/frontend/index.jsx storeSlice);
+// their persisted keys join partialize below.
+const extensionSlices = extensionStoreSlices();
+const createExtensionSlices = (set, get) =>
+  Object.assign({}, ...extensionSlices.map((slice) => (slice.state ? slice.state(set, get) : {})));
+const extensionPersistedKeys = extensionSlices.flatMap((slice) => slice.partialize || []);
 
 const createUISlice = (set, get) => ({
   themeName: brand.defaultThemeKey,
@@ -159,6 +167,7 @@ export const useAppStore = create(
         (set, get) => ({
           ...createUISlice(set, get),
           ...createDataSlice(set, get),
+          ...createExtensionSlices(set, get),
         }),
         {
           name: "guaardvark-app-storage",
@@ -172,6 +181,7 @@ export const useAppStore = create(
             activeProjectId: state.activeProjectId,
             systemName: state.systemName,
             systemLogo: state.systemLogo,
+            ...Object.fromEntries(extensionPersistedKeys.map((k) => [k, state[k]])),
           }),
           merge: (persistedState, currentState) => ({
             ...currentState,

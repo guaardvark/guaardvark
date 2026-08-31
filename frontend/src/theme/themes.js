@@ -1,3 +1,4 @@
+import { extensionThemes } from "../extensions";
 import { createFullTheme } from "./createTheme";
 
 // ─── Default: Clean dark with teal accent ────────────────────────────────────
@@ -613,7 +614,7 @@ guaardvarkTheme.typography.subtitle2 = {
 // Shape: { [key]: { label, description, previewGradient, theme } }
 // Used by App.jsx, ThemeSelectorModal, SettingsPage.
 
-export const themes = {
+const coreThemes = {
   guaardvark: {
     label: "Guaardvark",
     description: "Ultra-minimal monochrome theme inspired by guaardvark.com",
@@ -654,3 +655,6 @@ export const themes = {
     theme: lightTheme,
   },
 };
+
+// Extension themes first, so a distribution's own theme lists ahead of the engine's.
+export const themes = { ...extensionThemes(), ...coreThemes };

@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { useLocation, useParams } from "react-router-dom";
+import { extensionPageContext } from "../extensions";
 
-const ROUTE_MAP = {
+const CORE_ROUTE_MAP = {
   "/":                    { page: "Dashboard", entityType: null },
   "/dashboard":           { page: "Dashboard", entityType: null },
   "/chat":                { page: "Chat", entityType: null },
@@ -31,10 +32,14 @@ const ROUTE_MAP = {
 };
 
 // Parameterized routes that need regex matching
-const PARAM_ROUTES = [
+const CORE_PARAM_ROUTES = [
   { pattern: /^\/projects\/([^/]+)$/, page: "Project Detail", entityType: "project", paramName: "projectId" },
   { pattern: /^\/code-editor\/([^/]+)$/, page: "Code Editor", entityType: "code", paramName: "projectId" },
 ];
+
+// Extensions add their own pages (extensions/<id>/frontend/index.jsx pageContext).
+const ROUTE_MAP = { ...CORE_ROUTE_MAP, ...extensionPageContext().routeMap };
+const PARAM_ROUTES = [...CORE_PARAM_ROUTES, ...extensionPageContext().paramRoutes];
 
 export const usePageContext = () => {
   const location = useLocation();

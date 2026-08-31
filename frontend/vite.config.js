@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,6 +10,33 @@ import rollupNodePolyFill from "rollup-plugin-polyfill-node";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..");
+const EXTENSIONS_ROOT = path.join(REPO_ROOT, "extensions");
+// Real paths of extension folders (they may be symlinks into private checkouts),
+// so the dev server is allowed to read them.
+const extensionRealPaths = () => {
+  try {
+    return fs.readdirSync(EXTENSIONS_ROOT)
+      .filter((name) => !name.startsWith("_") && !name.startsWith("."))
+      .map((name) => fs.realpathSync(path.join(EXTENSIONS_ROOT, name)));
+  } catch { return []; }
+};
+
+// Extension frontends live in ../extensions/<id>/frontend, outside this
+// package, so a bare import like "@mui/material" from one of them has no
+// node_modules above it. Re-resolve such imports as if they came from src/,
+// so an extension uses core's dependencies without a copy of node_modules.
+const extensionsNodeModules = () => ({
+  name: "extensions-node-modules",
+  enforce: "pre",
+  async resolveId(source, importer, options) {
+    // Extension folders may be symlinks; Vite hands us the real path, so key
+    // on "outside this package and not a dependency" rather than the folder.
+    if (!importer || importer.startsWith(__dirname) || importer.includes("/node_modules/")) return null;
+    if (source.startsWith(".") || source.startsWith("/") || source.startsWith("@/") || source.startsWith("\0")) return null;
+    const asIfFromCore = path.join(__dirname, "src", "__extension_import__.js");
+    return this.resolve(source, asIfFromCore, { ...options, skipSelf: true });
+  },
+});
 
 // Socket.IO disconnects (page refresh, backend restart, transport retry) reset the
 // proxied TCP socket; Vite logs that as "ws proxy error: ECONNRESET" even though
@@ -117,12 +145,20 @@ export default defineConfig(({ mode }) => {
 
   return {
   customLogger: viteLogger,
-  plugins: [react()],
+  plugins: [react(), extensionsNodeModules()],
+  resolve: {
+    // `@` is core: extensions import it as `@/api/apiClient` instead of
+    // counting `../` up to wherever core sits.
+    alias: { "@": path.resolve(__dirname, "src") },
+  },
   test: {
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/test/setup.js',
-    include: ['src/**/*.{test,spec}.{js,jsx,ts,tsx}'],
+    include: [
+      'src/**/*.{test,spec}.{js,jsx,ts,tsx}',
+      '../extensions/*/frontend/**/*.{test,spec}.{js,jsx,ts,tsx}',
+    ],
     coverage: {
       reporter: ['text', 'json', 'html'],
       exclude: ['node_modules/', 'src/test/'],
@@ -185,6 +221,8 @@ export default defineConfig(({ mode }) => {
     strictPort: true,
     allowedHosts,
     proxy,
+    // Extension frontends live outside frontend/ (extensions/<id>/frontend).
+    fs: { allow: [REPO_ROOT, ...extensionRealPaths()] },
   },
   // `start.sh` serves the production build via `vite preview`, which does NOT
   // share the `server:` block above — so host allowlist + API/WS proxy must be

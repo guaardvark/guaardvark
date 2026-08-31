@@ -4,9 +4,10 @@
 // exactly one place.
 import React from "react";
 import brand from "../../config/brand";
+import { extensionLogo } from "../../extensions";
 
 const BrandLogo = (props) => {
-  const Logo = brand.logo;
+  const Logo = extensionLogo() || brand.logo;
   return <Logo {...props} />;
 };
 
