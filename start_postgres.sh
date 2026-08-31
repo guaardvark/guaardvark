@@ -93,6 +93,77 @@ PG_DB="guaardvark"
 PG_HOST="localhost"
 PG_PORT="5432"
 
+# ─── pgvector ─────────────────────────────────────────────────────────────────
+# The knowledge index keeps its vectors in PostgreSQL through the `vector`
+# extension. A stock `postgresql` install does not carry it (Debian/Ubuntu ship
+# it as postgresql-<major>-pgvector) and CREATE EXTENSION needs a superuser,
+# which the app role deliberately is not. So both steps live here, next to the
+# role and database they serve, rather than surfacing as "extension vector is
+# not available" the first time a document is indexed.
+
+pg_superuser_psql() {  # psql as the bootstrap superuser; args pass through
+  if [ "$(uname -s)" = "Darwin" ]; then
+    psql "$@"
+  else
+    sudo -u postgres psql "$@"
+  fi
+}
+
+# Readable by any role, so the no-sudo fast path can check without prompting.
+vector_extension_ready_as_app() {  # $1 = app password
+  [ "$(PGPASSWORD="$1" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$PG_DB" -tAc \
+      "SELECT 1 FROM pg_extension WHERE extname='vector';" 2>/dev/null)" = "1" ]
+}
+
+install_pgvector_package() {
+  if [ "$(uname -s)" = "Darwin" ]; then
+    if command_exists brew && brew install pgvector >/dev/null 2>&1; then
+      vader_success "pgvector installed via Homebrew."
+      return 0
+    fi
+    vader_warn "Could not install pgvector via Homebrew — run: brew install pgvector"
+    return 1
+  fi
+  local major
+  major=$(ls /usr/lib/postgresql/ 2>/dev/null | sort -n | tail -1)
+  if [ -z "$major" ]; then
+    vader_warn "Could not determine the PostgreSQL major version under /usr/lib/postgresql/."
+    return 1
+  fi
+  vader_info "Installing pgvector (postgresql-${major}-pgvector)..."
+  if sudo apt-get install -y "postgresql-${major}-pgvector" >/dev/null 2>&1; then
+    vader_success "pgvector installed."
+    return 0
+  fi
+  vader_warn "postgresql-${major}-pgvector is not in your apt sources."
+  vader_info "If your release does not ship it, add the PostgreSQL apt repository first:"
+  vader_info "  https://www.postgresql.org/download/linux/ubuntu/"
+  vader_info "then: sudo apt-get install -y postgresql-${major}-pgvector"
+  return 1
+}
+
+# Enable the extension on $PG_DB, installing the package first if it is missing.
+# Never fatal: the app starts either way and the knowledge index reports the
+# missing extension itself, but the warning here says exactly what to run.
+ensure_vector_extension() {
+  if pg_superuser_psql -d "$PG_DB" -c "CREATE EXTENSION IF NOT EXISTS vector;" >/dev/null 2>&1; then
+    vader_success "pgvector extension ready on '${PG_DB}'."
+    return 0
+  fi
+  install_pgvector_package || return 1
+  if pg_superuser_psql -d "$PG_DB" -c "CREATE EXTENSION IF NOT EXISTS vector;" >/dev/null 2>&1; then
+    vader_success "pgvector extension ready on '${PG_DB}'."
+    return 0
+  fi
+  vader_warn "Could not enable the vector extension; the knowledge index will not work until it is. Run:"
+  if [ "$(uname -s)" = "Darwin" ]; then
+    vader_info "  psql -d ${PG_DB} -c \"CREATE EXTENSION IF NOT EXISTS vector;\""
+  else
+    vader_info "  sudo -u postgres psql -d ${PG_DB} -c \"CREATE EXTENSION IF NOT EXISTS vector;\""
+  fi
+  return 1
+}
+
 # ─── Fast path: If PG is running and connection works, exit immediately ───────
 # This is the common case after first-time setup — no sudo needed.
 
@@ -119,7 +190,13 @@ if pg_is_running && [ -f "$ENV_FILE" ]; then
   if [ -n "$EXISTING_URL" ]; then
     EXISTING_PASS=$(echo "$EXISTING_URL" | sed -n 's|.*://[^:]*:\([^@]*\)@.*|\1|p')
     if [ -n "$EXISTING_PASS" ] && PGPASSWORD="$EXISTING_PASS" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$PG_DB" -c "SELECT 1;" >/dev/null 2>&1; then
-      vader_success "PostgreSQL ready (connection verified)."
+      if vector_extension_ready_as_app "$EXISTING_PASS"; then
+        vader_success "PostgreSQL ready (connection verified)."
+      else
+        # Installs that predate pgvector provisioning land here once.
+        vader_info "PostgreSQL connection verified; pgvector extension missing — enabling it (needs sudo once)."
+        ensure_vector_extension || true
+      fi
       exit 0
     fi
   fi
@@ -197,6 +274,8 @@ END
       exit 1
     fi
   fi
+
+  ensure_vector_extension || true
 
   # Write DATABASE_URL and verify a TCP connection as the app role.
   DATABASE_URL="postgresql://${PG_USER}:${PG_PASS}@${PG_HOST}:${PG_PORT}/${PG_DB}"
@@ -333,6 +412,7 @@ if [ -f "$ENV_FILE" ]; then
     EXISTING_PASS=$(echo "$EXISTING_URL" | sed -n 's|.*://[^:]*:\([^@]*\)@.*|\1|p')
     if [ -n "$EXISTING_PASS" ] && PGPASSWORD="$EXISTING_PASS" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$PG_DB" -c "SELECT 1;" >/dev/null 2>&1; then
       vader_success "PostgreSQL connection verified (existing DATABASE_URL works)."
+      vector_extension_ready_as_app "$EXISTING_PASS" || ensure_vector_extension || true
       exit 0
     else
       vader_warn "Existing DATABASE_URL does not connect. Re-provisioning..."
@@ -381,6 +461,8 @@ else
     exit 1
   fi
 fi
+
+ensure_vector_extension || true
 
 # ─── Step 7: Write DATABASE_URL to .env ───────────────────────────────────────
 
