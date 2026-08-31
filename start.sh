@@ -2229,7 +2229,7 @@ vader_separator
 
 vader_step 7 "Checking Whisper.cpp voice processing..."
 if [ "$VOICE_CHECK" -eq 0 ]; then
-    vader_info "Voice check disabled (--no-voice). Skipping Whisper.cpp build."
+    vader_info "Voice check disabled (--no-voice, or the active profile). Skipping Whisper.cpp build."
 else
     WHISPER_DIR="$BACKEND_DIR/tools/voice/whisper.cpp"
     WHISPER_BUILD_DIR="$WHISPER_DIR/build"

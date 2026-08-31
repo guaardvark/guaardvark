@@ -1404,6 +1404,11 @@ try:
                         pass
 
             # Extension schema additions (create_all never alters), then seeds.
+            # This block runs at module level after create_app() has returned,
+            # so the loader is bound again here; discovery is a directory scan
+            # and the load report it records into is module-level.
+            from backend import extensions as _ext
+            _extensions = _ext.discover()
             try:
                 for _ext_id, _cols in _ext.run_migrations(_extensions, db, app.logger).items():
                     _ext.record(_ext_id, "migrations", True, _cols)
