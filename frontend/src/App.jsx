@@ -19,6 +19,7 @@ import { landingRouteFor } from "./config/profile";
 import { extensionRoutes, extensionHeaders, extensionLandingRoute } from "./extensions";
 
 import TrainingFloater from "./components/agent/TrainingFloater";
+import FirstRunProfileDialog from "./components/modals/FirstRunProfileDialog";
 
 // Eagerly loaded — core navigation targets
 import DashboardPage from "./pages/DashboardPage";
@@ -220,6 +221,7 @@ const AppContainer = () => {
                 <SnackbarProvider>
                   <UncleNotificationListener />
                   <ErrorProvider>
+                    <FirstRunProfileDialog />
                     <Suspense fallback={<Box sx={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", height: "100vh", gap: 2 }}><BrandLogo size={64} animate /><CircularProgress size={24} /></Box>}>
                     <Routes>
                       <Route

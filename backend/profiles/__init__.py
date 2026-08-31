@@ -369,3 +369,33 @@ def env_file_writable(root: Optional[Path] = None) -> bool:
     if path.exists():
         return os.access(path, os.W_OK)
     return os.access(path.parent, os.W_OK)
+
+
+# ─── first run ────────────────────────────────────────────────────────────────
+
+def _marker_path(storage_dir: Optional[Path] = None) -> Path:
+    if storage_dir is None:
+        try:
+            from backend.config import STORAGE_DIR
+            storage_dir = Path(STORAGE_DIR)
+        except Exception:
+            storage_dir = repo_root() / "data"
+    return storage_dir / "profile_chosen"
+
+
+def profile_chosen(storage_dir: Optional[Path] = None, root: Optional[Path] = None) -> bool:
+    """True once the operator has answered the first-run question, named a
+    profile in .env, or installed an extension that ships one (an extension
+    installer sets GUAARDVARK_PROFILE itself; it is never asked)."""
+    if _marker_path(storage_dir).is_file():
+        return True
+    if configured_name(root):
+        return True
+    return any(source == "extension" for source, _ in available_profiles(root).values())
+
+
+def mark_profile_chosen(storage_dir: Optional[Path] = None) -> Path:
+    path = _marker_path(storage_dir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("chosen\n", encoding="utf-8")
+    return path

@@ -451,11 +451,16 @@ def get_branding():
         logo = "system/profile-default.png"
     # The active profile rides on this response: it is the only config fetch
     # the frontend makes at startup. DB branding wins over the profile's brand.
-    from backend.profiles import active_profile
-    profile = active_profile()
+    from backend import profiles as P
+    profile = P.active_profile()
     if not name and profile.brand.get("app_name"):
         name = profile.brand["app_name"]
-    return success_response({"system_name": name, "logo_path": logo, "profile": profile.public_dict()})
+    return success_response({
+        "system_name": name,
+        "logo_path": logo,
+        "profile": profile.public_dict(),
+        "profile_first_run": not P.profile_chosen(),
+    })
 
 
 @settings_bp.route("/profile", methods=["GET"])
@@ -489,11 +494,13 @@ def set_profile():
     name = str(payload.get("name") or "").strip()
     try:
         P.set_configured_name(name)
+        P.mark_profile_chosen()
     except ValueError as e:
         return error_response(str(e), 400)
     except OSError as e:
         return error_response(f"could not write .env: {e}", 500)
-    return success_response({"name": name, "restart_required": True})
+    # Applying the running profile again changes nothing; only a different one needs a restart.
+    return success_response({"name": name, "restart_required": name != P.active_profile().name})
 
 
 @settings_bp.route("/branding", methods=["POST"])

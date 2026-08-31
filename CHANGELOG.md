@@ -9,7 +9,8 @@
   off by default; an extension can ship its own. An explicit `.env` value, flag, plugin toggle
   or DB setting always wins over a profile, and hidden means unlisted, never removed. See
   `backend/profiles/README.md`. The sidebar lists what the profile lists, `/` lands where it
-  says, and Settings → Product Profile switches profiles (applies on restart).
+  says, Settings → Product Profile switches profiles (applies on restart), and a fresh
+  install asks once — Creator or Workstation — before anything else.
 - **Extensions.** A client vertical lives in `extensions/<id>/` — blueprints, models, Celery
   tasks, column migrations, seeds, a profile, an optional sidecar plugin — and core loads it
   through fixed hook points without any core file naming it. A broken extension is reported

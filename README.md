@@ -408,6 +408,15 @@ First run handles everything: Python 3.12, venv, Node dependencies, PostgreSQL, 
 ./stop.sh                     # Stop all services
 ```
 
+### Pick a profile
+
+The first start asks what Guaardvark is for here. **Creator** lists the media workflow — image,
+video, audio, Film Crew, LoRA, upscaling — and leaves agents, the knowledge index, outreach and
+automation installed but out of the way; **Workstation** is everything. Either is a starting
+point, not a ceiling: switch in Settings → Product Profile, or `./start.sh --profile creator`.
+Details in [`backend/profiles/README.md`](backend/profiles/README.md); building a distribution of
+your own is [`docs/EXTENSIONS.md`](docs/EXTENSIONS.md).
+
 ### Install via PyPI
 
 ```bash

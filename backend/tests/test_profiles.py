@@ -186,3 +186,21 @@ def test_configured_name_reads_quoted_values(tmp_path):
     (tmp_path / ".env").write_text('GUAARDVARK_PROFILE="creator"\n')
     assert P.configured_name(root=tmp_path) == "creator"
     assert P.configured_name(root=tmp_path / "missing") is None
+
+
+def test_first_run_is_pending_until_answered_or_configured(tmp_path):
+    storage = tmp_path / "data"
+    assert P.profile_chosen(storage_dir=storage, root=tmp_path) is False
+    P.mark_profile_chosen(storage_dir=storage)
+    assert P.profile_chosen(storage_dir=storage, root=tmp_path) is True
+
+
+def test_first_run_not_asked_when_env_names_a_profile_or_an_extension_ships_one(tmp_path):
+    storage = tmp_path / "data"
+    (tmp_path / ".env").write_text("GUAARDVARK_PROFILE=creator\n")
+    assert P.profile_chosen(storage_dir=storage, root=tmp_path) is True
+    (tmp_path / ".env").unlink()
+    ext = tmp_path / "extensions" / "acme"
+    ext.mkdir(parents=True)
+    (ext / "profile.json").write_text("{}")
+    assert P.profile_chosen(storage_dir=storage, root=tmp_path) is True

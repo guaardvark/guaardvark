@@ -103,6 +103,8 @@ const createDataSlice = (set, get) => ({
   // The active profile from /api/settings/branding. Deliberately not
   // persisted: a stale copy must not outlive a change to .env.
   profile: DEFAULT_PROFILE,
+  // First run: no profile chosen yet (no .env key, no marker, no extension). Not persisted.
+  profileFirstRun: false,
   isFetchingSystemInfo: false,
 
   setProjects: (projects) => set({ projects }),
@@ -114,6 +116,7 @@ const createDataSlice = (set, get) => ({
     systemLogo: logo
   }),
   setProfile: (profile) => set({ profile: profile ? { ...DEFAULT_PROFILE, ...profile } : DEFAULT_PROFILE }),
+  setProfileFirstRun: (pending) => set({ profileFirstRun: Boolean(pending) }),
 
   // eslint-disable-next-line no-unused-vars
   fetchSystemInfo: async (force = false) => {
@@ -143,6 +146,7 @@ const createDataSlice = (set, get) => ({
         systemName: data.system_name || null,
         systemLogo: data.logo_path || null,
         profile: data.profile ? { ...DEFAULT_PROFILE, ...data.profile } : DEFAULT_PROFILE,
+        profileFirstRun: Boolean(data.profile_first_run),
       });
       clearError();
     } catch (err) {
