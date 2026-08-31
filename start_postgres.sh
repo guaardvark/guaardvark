@@ -150,6 +150,19 @@ vector_extension_ready_as_app() {  # $1 = app password
       "SELECT 1 FROM pg_extension WHERE extname='vector';" 2>/dev/null)" = "1" ]
 }
 
+# Also readable by any role: whether the package is installed for the RUNNING
+# server, and which major it is. Separates "install the package" from "only a
+# superuser can enable it", which are different instructions.
+vector_extension_available_as_app() {  # $1 = app password
+  [ "$(PGPASSWORD="$1" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$PG_DB" -tAc \
+      "SELECT 1 FROM pg_available_extensions WHERE name='vector';" 2>/dev/null)" = "1" ]
+}
+
+running_pg_major() {  # $1 = app password; empty when unreachable
+  PGPASSWORD="$1" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$PG_DB" -tAc \
+    "SHOW server_version;" 2>/dev/null | sed -E 's/^([0-9]+).*/\1/'
+}
+
 install_pgvector_package() {
   if [ "$(uname -s)" = "Darwin" ]; then
     if command_exists brew && brew install pgvector >/dev/null 2>&1; then
@@ -159,10 +172,13 @@ install_pgvector_package() {
     vader_warn "Could not install pgvector via Homebrew — run: brew install pgvector"
     return 1
   fi
+  # The running server's major, not the newest one installed on the box: a
+  # host with 16 serving and 18 merely installed needs postgresql-16-pgvector.
   local major
-  major=$(ls /usr/lib/postgresql/ 2>/dev/null | sort -n | tail -1)
+  major=$(running_pg_major "${APP_PASS:-}")
+  [ -n "$major" ] || major=$(ls /usr/lib/postgresql/ 2>/dev/null | sort -n | tail -1)
   if [ -z "$major" ]; then
-    vader_warn "Could not determine the PostgreSQL major version under /usr/lib/postgresql/."
+    vader_warn "Could not determine the PostgreSQL major version."
     return 1
   fi
   vader_info "Installing pgvector (postgresql-${major}-pgvector)..."
@@ -180,10 +196,24 @@ install_pgvector_package() {
 # Enable the extension on $PG_DB, installing the package first if it is missing.
 # Never fatal: the app starts either way and the knowledge index reports the
 # missing extension itself, but the warning here says exactly what to run.
-ensure_vector_extension() {
+ensure_vector_extension() {  # $1 = app password (optional; enables the no-sudo checks)
+  APP_PASS="${1:-}"
+  local enable_cmd
+  if [ "$(uname -s)" = "Darwin" ]; then
+    enable_cmd="psql -d ${PG_DB} -c \"CREATE EXTENSION IF NOT EXISTS vector;\""
+  else
+    enable_cmd="sudo -u postgres psql -d ${PG_DB} -c \"CREATE EXTENSION IF NOT EXISTS vector;\""
+  fi
   if pg_superuser_psql -d "$PG_DB" -c "CREATE EXTENSION IF NOT EXISTS vector;" >/dev/null 2>&1; then
     vader_success "pgvector extension ready on '${PG_DB}'."
     return 0
+  fi
+  # Enabling failed. If the package is already there, the only thing missing
+  # is a superuser — say that, rather than sending someone to apt.
+  if [ -n "$APP_PASS" ] && vector_extension_available_as_app "$APP_PASS"; then
+    vader_warn "pgvector is installed but not enabled on '${PG_DB}', and that needs a superuser (no terminal for sudo here). Run once:"
+    vader_info "  $enable_cmd"
+    return 1
   fi
   install_pgvector_package || return 1
   if pg_superuser_psql -d "$PG_DB" -c "CREATE EXTENSION IF NOT EXISTS vector;" >/dev/null 2>&1; then
@@ -191,11 +221,7 @@ ensure_vector_extension() {
     return 0
   fi
   vader_warn "Could not enable the vector extension; the knowledge index will not work until it is. Run:"
-  if [ "$(uname -s)" = "Darwin" ]; then
-    vader_info "  psql -d ${PG_DB} -c \"CREATE EXTENSION IF NOT EXISTS vector;\""
-  else
-    vader_info "  sudo -u postgres psql -d ${PG_DB} -c \"CREATE EXTENSION IF NOT EXISTS vector;\""
-  fi
+  vader_info "  $enable_cmd"
   return 1
 }
 
@@ -220,8 +246,9 @@ pg_is_running() {
   fi
 }
 
-if pg_is_running && [ -f "$ENV_FILE" ]; then
-  EXISTING_URL=$(grep -E '^DATABASE_URL=' "$ENV_FILE" | tail -1 | sed 's/^DATABASE_URL=//')
+if pg_is_running && { [ -n "$_configured_url" ] || [ -f "$ENV_FILE" ]; }; then
+  # The same URL the role/db above came from (environment first, then .env).
+  EXISTING_URL="${_configured_url:-$(grep -E '^DATABASE_URL=' "$ENV_FILE" | tail -1 | sed 's/^DATABASE_URL=//')}"
   if [ -n "$EXISTING_URL" ]; then
     EXISTING_PASS=$(echo "$EXISTING_URL" | sed -n 's|.*://[^:]*:\([^@]*\)@.*|\1|p')
     if [ -n "$EXISTING_PASS" ] && PGPASSWORD="$EXISTING_PASS" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$PG_DB" -c "SELECT 1;" >/dev/null 2>&1; then
@@ -230,7 +257,7 @@ if pg_is_running && [ -f "$ENV_FILE" ]; then
       else
         # Installs that predate pgvector provisioning land here once.
         vader_info "PostgreSQL connection verified; pgvector extension missing — enabling it (needs sudo once)."
-        ensure_vector_extension || true
+        ensure_vector_extension "$EXISTING_PASS" || true
       fi
       exit 0
     fi
@@ -311,7 +338,7 @@ END
     fi
   fi
 
-  ensure_vector_extension || true
+  ensure_vector_extension "$PG_PASS" || true
 
   # Write DATABASE_URL and verify a TCP connection as the app role.
   DATABASE_URL="postgresql://${PG_USER}:${PG_PASS}@${PG_HOST}:${PG_PORT}/${PG_DB}"
@@ -447,12 +474,13 @@ fi
 # ─── Step 3: Check if existing connection works (may have been fixed by starting PG)
 
 if [ -f "$ENV_FILE" ]; then
-  EXISTING_URL=$(grep -E '^DATABASE_URL=' "$ENV_FILE" | tail -1 | sed 's/^DATABASE_URL=//')
+  # The same URL the role/db above came from (environment first, then .env).
+  EXISTING_URL="${_configured_url:-$(grep -E '^DATABASE_URL=' "$ENV_FILE" | tail -1 | sed 's/^DATABASE_URL=//')}"
   if [ -n "$EXISTING_URL" ]; then
     EXISTING_PASS=$(echo "$EXISTING_URL" | sed -n 's|.*://[^:]*:\([^@]*\)@.*|\1|p')
     if [ -n "$EXISTING_PASS" ] && PGPASSWORD="$EXISTING_PASS" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$PG_DB" -c "SELECT 1;" >/dev/null 2>&1; then
       vader_success "PostgreSQL connection verified (existing DATABASE_URL works)."
-      vector_extension_ready_as_app "$EXISTING_PASS" || ensure_vector_extension || true
+      vector_extension_ready_as_app "$EXISTING_PASS" || ensure_vector_extension "$EXISTING_PASS" || true
       exit 0
     else
       [ "$STOCK_ROLE" = 1 ] || refuse_reprovision
@@ -504,7 +532,7 @@ else
   fi
 fi
 
-ensure_vector_extension || true
+ensure_vector_extension "$PG_PASS" || true
 
 # ─── Step 7: Write DATABASE_URL to .env ───────────────────────────────────────
 
