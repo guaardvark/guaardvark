@@ -11,7 +11,7 @@ For v1 the cuts are intentional:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
@@ -47,6 +47,16 @@ class FFmpegRunner(Protocol) :
         ...
 
 
+class SceneGenerator(Protocol):
+    """Renders a run of consecutive shots as one clip with its own soundtrack
+    (MiniMax H3): dialogue is spoken by the model, so no voiceover is laid over
+    the window. Returns the clip path."""
+    def render_scene(
+        self, *, shots: list, first_frame: str, last_frame: str | None,
+        output_path: str, duration_seconds: float, scene_mood: str | None = None,
+    ) -> str: ...
+
+
 class VideoEditorClient(Protocol):
     def compose_arrangement(
         self, *, clips: list[dict], audio_path: str | None,
@@ -69,6 +79,11 @@ class ShotInput:
     voice_id: str | None = None
     scene_number: int | None = None
     scene_mood: str | None = None
+    # Who speaks and what the cast looks like, for a scene renderer that keeps
+    # identity from reference images rather than a LoRA-locked still.
+    character_name: str | None = None
+    ref_image_paths: list[str] = field(default_factory=list)
+    character_description: str | None = None
 
 
 @dataclass
@@ -93,12 +108,19 @@ class Editor:
         ffmpeg: FFmpegRunner,
         video_editor: VideoEditorClient | None = None,
         lipsync: LipsyncGenerator | None = None,
+        scene_renderer: SceneGenerator | None = None,
+        max_scene_seconds: float = 15.0,
     ):
         self.i2v = i2v
         self.audio_foundry = audio_foundry
         self.ffmpeg = ffmpeg
         self.video_editor = video_editor
         self.lipsync = lipsync
+        # When set, consecutive shots of a scene are rendered as one window of
+        # at most max_scene_seconds by a model that generates picture and sound
+        # together; the per-shot I2V + TTS path is not used for them.
+        self.scene_renderer = scene_renderer
+        self.max_scene_seconds = max_scene_seconds
 
     def render(
         self,
@@ -131,11 +153,28 @@ class Editor:
 
         clip_paths: list[str] = []
         voiceover_paths: list[str | None] = []
+        # Shots rendered as scene windows, laid out per window (clip, shots).
+        windows: list[tuple[str, list[ShotInput]]] = []
 
         from backend.config import FILM_CREW_PARALLEL_RENDER
         from concurrent.futures import ThreadPoolExecutor
 
-        if FILM_CREW_PARALLEL_RENDER:
+        if self.scene_renderer is not None:
+            plan = self.plan_windows(shots)
+            for window_index, window in enumerate(plan):
+                # The next window's first storyboard still ends this one, so
+                # consecutive windows join on a frame the keyframe stage drew.
+                next_first = plan[window_index + 1][0].storyboard_image_path if window_index + 1 < len(plan) else None
+                clip = self._render_window(window, window_index, clips_dir, last_frame=next_first)
+                windows.append((clip, window))
+                for shot in window:
+                    self._emit_progress(production_id, shot.shot_number, clip)
+            clip_paths = [clip for clip, _ in windows]
+            # The window's own soundtrack rides the voiceover bed: ffmpeg reads
+            # the clip's audio stream at the window's offset and mixes the score
+            # under it, so nothing here needs a second concat path.
+            voiceover_paths = [clip for clip, _ in windows]
+        elif FILM_CREW_PARALLEL_RENDER:
             logger.info(f"Starting parallel render for production {production_id}")
             with ThreadPoolExecutor(max_workers=3) as executor:
                 def render_one_shot(shot: ShotInput) -> tuple[str, str | None]:
@@ -205,7 +244,12 @@ class Editor:
         # additive: final_mp4 above is the deliverable, this is the project file.
         mlt_path: str | None = None
         if self.video_editor is not None:
-            arrangement_clips, total = self._build_arrangement(clip_paths, shots)
+            if windows:
+                # One arrangement entry per window, labelled by its shots.
+                arrangement_shots = [self._window_shot(window) for _, window in windows]
+            else:
+                arrangement_shots = shots
+            arrangement_clips, total = self._build_arrangement(clip_paths, arrangement_shots)
             resp = self.video_editor.compose_arrangement(
                 clips=arrangement_clips,
                 audio_path=music_path,
@@ -249,6 +293,58 @@ class Editor:
             })
             acc += dur
         return clips, round(acc, 3)
+
+    # --- scene windows --------------------------------------------------------
+
+    def plan_windows(self, shots: list[ShotInput]) -> list[list[ShotInput]]:
+        """Group consecutive shots of the same scene into windows no longer
+        than max_scene_seconds. A shot longer than the limit gets its own
+        window (the renderer clamps it). Order is preserved."""
+        windows: list[list[ShotInput]] = []
+        current: list[ShotInput] = []
+        current_len = 0.0
+        current_scene = None
+        for shot in shots:
+            dur = float(shot.duration_seconds or 0)
+            same_scene = current and shot.scene_number == current_scene
+            if current and (not same_scene or current_len + dur > self.max_scene_seconds):
+                windows.append(current)
+                current, current_len = [], 0.0
+            current.append(shot)
+            current_len += dur
+            current_scene = shot.scene_number
+        if current:
+            windows.append(current)
+        return windows
+
+    def _render_window(self, window: list[ShotInput], index: int, clips_dir: Path,
+                       last_frame: str | None = None) -> str:
+        first = window[0]
+        clip_path = str(clips_dir / f"scene_{first.scene_number or 1}_window_{index + 1}.mp4")
+        duration = min(self.max_scene_seconds, sum(float(s.duration_seconds or 0) for s in window)) or 3.0
+        return self.scene_renderer.render_scene(
+            shots=window,
+            first_frame=first.storyboard_image_path,
+            last_frame=last_frame if last_frame and last_frame != first.storyboard_image_path else None,
+            output_path=clip_path,
+            duration_seconds=duration,
+            scene_mood=first.scene_mood,
+        )
+
+    @staticmethod
+    def _window_shot(window: list[ShotInput]) -> ShotInput:
+        """A stand-in ShotInput describing a whole window for the arrangement."""
+        first = window[0]
+        return ShotInput(
+            shot_number=first.shot_number,
+            storyboard_image_path=first.storyboard_image_path,
+            image_prompt=first.image_prompt,
+            duration_seconds=sum(float(s.duration_seconds or 0) for s in window),
+            dialogue_text=None,
+            lora_paths=list(first.lora_paths),
+            scene_number=first.scene_number,
+            scene_mood=first.scene_mood,
+        )
 
     # --- internals ----------------------------------------------------------
 

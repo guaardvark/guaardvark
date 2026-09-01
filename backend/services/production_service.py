@@ -60,14 +60,17 @@ class ProductionService(PipelineService):
     # ensure_plugins_for_stage(self.task_namespace, row.current_stage)
     # for auto-sequencing of plugins per Film Crew stages (see STAGE_PLUGIN_REQUIREMENTS).
 
-    def create(self, *, name: str, script_text: str, project_id: int | None) -> Production:
+    def create(self, *, name: str, script_text: str, project_id: int | None,
+               settings: dict | None = None) -> Production:
+        # settings_json carries per-production choices the agents read later,
+        # such as video_model (which family renders the shots).
         p = Production(
             name=name,
             script_text=script_text,
             project_id=project_id,
             status="draft",
             current_stage="draft",
-            settings_json={},
+            settings_json=dict(settings or {}),
         )
         self.s.add(p)
         self.s.commit()

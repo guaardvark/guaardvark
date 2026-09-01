@@ -76,8 +76,15 @@ def create():
     if project_id is not None and db.session.get(Project, project_id) is None:
         return jsonify({"error": f"project_id {project_id} not found"}), 400
 
+    settings = body.get("settings") if isinstance(body.get("settings"), dict) else {}
+    video_model = settings.get("video_model")
+    if video_model:
+        from backend.services.video_model_registry import VIDEO_MODEL_REGISTRY, model_capabilities
+        if video_model not in VIDEO_MODEL_REGISTRY or not model_capabilities(video_model):
+            return jsonify({"error": f"video_model '{video_model}' is not a video model"}), 400
+
     svc = ProductionService(db.session)
-    p = svc.create(name=name, script_text=script_text, project_id=project_id)
+    p = svc.create(name=name, script_text=script_text, project_id=project_id, settings=settings)
 
     # C1: advance to screenwriting and dispatch the agent so the pipeline
     # actually starts. A dispatch failure is non-fatal — state still moved

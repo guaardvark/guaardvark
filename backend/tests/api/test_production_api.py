@@ -472,3 +472,18 @@ def test_get_production_subjects_empty_when_screenwriter_never_succeeded(client,
 def test_get_production_subjects_404_for_unknown(client):
     resp = client.get("/api/production/9999/subjects")
     assert resp.status_code == 404
+
+
+def test_create_stores_a_video_model_and_rejects_a_companion(client, monkeypatch):
+    from backend.services.production_service import ProductionService
+    monkeypatch.setattr(ProductionService, "dispatch_agent", lambda self, prod_id, agent_name: None)
+    resp = client.post("/api/production", json={
+        "name": "Talkie", "script_text": "INT. ROOM - DAY", "settings": {"video_model": "minimax-h3-int8"},
+    })
+    assert resp.status_code == 201, resp.get_json()
+    prod = Production.query.filter_by(name="Talkie").one()
+    assert prod.settings_json == {"video_model": "minimax-h3-int8"}
+    bad = client.post("/api/production", json={
+        "name": "Nope", "script_text": "INT. ROOM - DAY", "settings": {"video_model": "minimax-h3-vae"},
+    })
+    assert bad.status_code == 400 and "not a video model" in bad.get_json()["error"]

@@ -8,9 +8,16 @@ import {
   TextField,
   Autocomplete,
   Box,
-  Alert
+  Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Typography
 } from '@mui/material';
 import { getProjects } from '../../api/projectService';
+
+const API_BASE = '/api';
 
 const CreateProductionDialog = ({ open, onClose, onCreated }) => {
   const [name, setName] = useState('');
@@ -19,12 +26,31 @@ const CreateProductionDialog = ({ open, onClose, onCreated }) => {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  // Installed video models that can animate a storyboard still, from the
+  // registry; a model that renders its own soundtrack is flagged so the
+  // choice says what it changes (scene windows with spoken lines).
+  const [videoModels, setVideoModels] = useState([]);
+  const [videoModel, setVideoModel] = useState('');
 
   useEffect(() => {
     if (open) {
       loadProjects();
+      loadVideoModels();
     }
   }, [open]);
+
+  const loadVideoModels = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/batch-video/models`);
+      const data = res.ok ? await res.json() : null;
+      const rows = (data?.data?.models || []).filter(
+        (m) => m.capabilities && (m.capabilities.supports_i2v || (m.capabilities.modes || []).includes('ref2v'))
+      );
+      setVideoModels(rows);
+    } catch (e) {
+      setVideoModels([]);
+    }
+  };
 
   const loadProjects = async () => {
     const data = await getProjects();
@@ -45,7 +71,8 @@ const CreateProductionDialog = ({ open, onClose, onCreated }) => {
       const payload = {
         name,
         script_text: scriptText,
-        project_id: projectId?.id || null
+        project_id: projectId?.id || null,
+        ...(videoModel ? { settings: { video_model: videoModel } } : {})
       };
       await onCreated(payload);
       onClose();
@@ -53,6 +80,7 @@ const CreateProductionDialog = ({ open, onClose, onCreated }) => {
       setName('');
       setScriptText('');
       setProjectId(null);
+      setVideoModel('');
     } catch (err) {
       setError(err.message || 'Failed to create production');
     } finally {
@@ -80,6 +108,33 @@ const CreateProductionDialog = ({ open, onClose, onCreated }) => {
             value={projectId}
             onChange={(_, newValue) => setProjectId(newValue)}
           />
+          {videoModels.length > 0 && (
+            <FormControl fullWidth size="small">
+              <InputLabel>Video model</InputLabel>
+              <Select
+                value={videoModel}
+                onChange={(e) => setVideoModel(e.target.value)}
+                label="Video model"
+              >
+                <MenuItem value="">Default (Wan 2.2 image-to-video, silent clips + narration)</MenuItem>
+                {videoModels.map((m) => (
+                  <MenuItem key={m.id} value={m.id} disabled={!m.is_ready}>
+                    <Box>
+                      <Typography variant="body2">
+                        {m.name}{m.is_ready ? '' : ' (not installed)'}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {m.capabilities.audio_out
+                          ? 'Renders each scene as one clip with spoken lines and sound'
+                          : 'Silent clips per shot, narration added by the editor'}
+                        {m.license?.attribution ? ` · ${m.license.attribution}` : ''}
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
           <TextField
             label="Script Text"
             fullWidth

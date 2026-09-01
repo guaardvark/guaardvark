@@ -172,3 +172,63 @@ def test_render_raises_on_empty_shots(tmp_path):
     assert audio.generate_music.call_count == 0
     assert ffmpeg.concat_with_audio.call_count == 0
     assert i2v.i2v_from_image.call_count == 0
+
+
+# ── scene windows (a model that renders picture and sound together) ──────────
+
+def _scene_shot(num, scene, duration=4.0, dialogue=None):
+    s = _make_shot(num, duration=duration, dialogue=dialogue)
+    s.scene_number = scene
+    s.scene_mood = "tense"
+    s.character_name = "Mara" if dialogue else None
+    return s
+
+
+def test_plan_windows_groups_consecutive_shots_per_scene_under_the_cap(tmp_path):
+    i2v, audio, ffmpeg = _make_editor(tmp_path)
+    editor = Editor(i2v=i2v, audio_foundry=audio, ffmpeg=ffmpeg, scene_renderer=MagicMock(), max_scene_seconds=15.0)
+    shots = [
+        _scene_shot(1, 1, 5), _scene_shot(2, 1, 5), _scene_shot(3, 1, 6),   # 16 s: splits after two
+        _scene_shot(4, 2, 4), _scene_shot(5, 2, 20),                        # scene change; 20 s alone
+    ]
+    windows = editor.plan_windows(shots)
+    assert [[s.shot_number for s in w] for w in windows] == [[1, 2], [3], [4], [5]]
+
+
+def test_scene_windows_replace_per_shot_i2v_and_voiceover(tmp_path):
+    i2v, audio, ffmpeg = _make_editor(tmp_path)
+    renderer = MagicMock()
+    renderer.render_scene.side_effect = lambda **kw: kw["output_path"]
+    editor = Editor(i2v=i2v, audio_foundry=audio, ffmpeg=ffmpeg, scene_renderer=renderer)
+    shots = [
+        _scene_shot(1, 1, 5, dialogue="Watch your dog!"),
+        _scene_shot(2, 1, 5, dialogue="He likes cookies."),
+        _scene_shot(3, 2, 4),
+    ]
+    result = editor.render(production_id=7, production_name="p", shots=shots, output_dir=str(tmp_path))
+
+    assert renderer.render_scene.call_count == 2
+    first_call = renderer.render_scene.call_args_list[0].kwargs
+    assert [s.shot_number for s in first_call["shots"]] == [1, 2]
+    assert first_call["first_frame"] == "/tmp/storyboard/shot_1.png"
+    # The next window's first still ends this window.
+    assert first_call["last_frame"] == "/tmp/storyboard/shot_3.png"
+    assert first_call["duration_seconds"] == 10.0
+    second_call = renderer.render_scene.call_args_list[1].kwargs
+    assert second_call["last_frame"] is None
+    # No per-shot I2V, no TTS: the model spoke the lines.
+    i2v.i2v_from_image.assert_not_called()
+    audio.tts.assert_not_called()
+    # The window clips carry their own audio and ride the voiceover bed.
+    concat = ffmpeg.concat_with_audio.call_args.kwargs
+    assert concat["video_clips"] == result.clip_paths and len(result.clip_paths) == 2
+    assert concat["voiceovers"] == result.clip_paths
+    assert result.clip_paths[0].endswith("scene_1_window_1.mp4")
+
+
+def test_without_a_scene_renderer_the_per_shot_path_is_unchanged(tmp_path):
+    i2v, audio, ffmpeg = _make_editor(tmp_path)
+    editor = Editor(i2v=i2v, audio_foundry=audio, ffmpeg=ffmpeg)
+    shots = [_scene_shot(1, 1, 3, dialogue="Hi")]
+    editor.render(production_id=7, production_name="p", shots=shots, output_dir=str(tmp_path))
+    assert i2v.i2v_from_image.call_count == 1 and audio.tts.call_count == 1

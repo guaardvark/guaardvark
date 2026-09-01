@@ -2368,6 +2368,109 @@ class SvdI2VGenerator:
         return output_path
 
 
+class MiniMaxH3SceneGenerator:
+    """MiniMax H3 adapter for the Editor's SceneGenerator protocol: a run of
+    shots becomes one clip with its own soundtrack. The shot list is compiled
+    into the model's prompt (numbered shots, cut times, the cast's lines as
+    tagged dialogue); the storyboard still of the window's first shot is the
+    first frame and the next window's still the last frame, so windows join
+    on frames the keyframe stage drew. With cast reference images and the
+    reference build installed, identity comes from the references instead;
+    otherwise the LoRA-locked still carries it, as on the Wan path.
+    """
+
+    def __init__(self, model: str = "minimax-h3-int8", fps: int = 24, style: str = "cinematic",
+                 language: str = "English", prefer_references: bool = True):
+        self.model = model
+        self.fps = fps
+        self.style = style
+        self.language = language
+        self.prefer_references = prefer_references
+
+    def _reference_model(self) -> Optional[str]:
+        """The installed reference build sharing this model's family, or None."""
+        from backend.services.video_model_registry import (
+            VIDEO_MODEL_REGISTRY, is_model_installed, model_capabilities,
+        )
+        for mid, entry in VIDEO_MODEL_REGISTRY.items():
+            if entry.get("type") != "minimax":
+                continue
+            caps = model_capabilities(mid)
+            if "ref2v" in caps.get("modes", []) and is_model_installed(mid):
+                return mid
+        return None
+
+    def render_scene(self, *, shots, first_frame: str, last_frame: Optional[str], output_path: str,
+                     duration_seconds: float, scene_mood: Optional[str] = None) -> str:
+        from backend.services import h3_prompt_compiler as h3
+        from backend.services.video_model_registry import tier_defaults_for
+
+        refs: list[str] = []
+        subjects: list[tuple] = []
+        seen = set()
+        for shot in shots:
+            name = getattr(shot, "character_name", None)
+            paths = [p for p in (getattr(shot, "ref_image_paths", None) or []) if p and Path(p).exists()]
+            if name and paths and name not in seen:
+                seen.add(name)
+                start = len(refs) + 1
+                refs.extend(paths[:3])
+                subjects.append((name, getattr(shot, "character_description", None) or "", list(range(start, len(refs) + 1))))
+        refs = refs[:9]
+        ref_model = self._reference_model() if (self.prefer_references and refs) else None
+
+        shot_rows = [
+            {
+                "description": getattr(shot, "image_prompt", "") or "",
+                "duration_seconds": float(getattr(shot, "duration_seconds", 0) or 0),
+                "character_name": getattr(shot, "character_name", None),
+                "dialogue_text": getattr(shot, "dialogue_text", None),
+            }
+            for shot in shots
+        ]
+        if ref_model:
+            intent = h3.intent_from_shots(shot_rows, duration_seconds, subjects=subjects, style=self.style,
+                                          language=self.language)
+            model = ref_model
+        else:
+            mode = "fl2va" if last_frame else "i2va"
+            intent = h3.intent_from_shots(shot_rows, duration_seconds, mode=mode, style=self.style,
+                                          language=self.language)
+            model = self.model
+        prompt, diag = h3.compile(intent)
+        if diag.get("warnings"):
+            logger.info("H3 scene prompt warnings: %s", "; ".join(diag["warnings"]))
+
+        tier = tier_defaults_for(model)
+        width, height = int(tier.get("width") or 864), int(tier.get("height") or 480)
+        out_dir = Path(output_path).parent
+        out_dir.mkdir(parents=True, exist_ok=True)
+        req = VideoGenerationRequest(
+            model=model,
+            prompt=prompt,
+            duration_frames=diag["frames"],
+            fps=self.fps,
+            width=width,
+            height=height,
+            num_inference_steps=0,
+            enhance_prompt=False,
+            output_dir=out_dir,
+            speed_profile=tier.get("speed_profile") or None,
+            first_frame_path=None if ref_model else first_frame,
+            last_frame_path=None if ref_model else last_frame,
+            ref_images=refs if ref_model else [],
+            h3_intent=h3.intent_to_dict(intent),
+            language=self.language,
+            metadata={"source": "film_crew", "scene_mood": scene_mood or ""},
+        )
+        gen = get_video_generator()
+        result = gen.generate_video(req)
+        if not result.success or not result.video_path:
+            raise RuntimeError(f"MiniMax H3 scene failed: {result.error or 'no video produced'}")
+        shutil.copyfile(resolve_generated_video_path(result, out_dir), output_path)
+        return output_path
+
+
 class Wan22I2VGenerator:
     """Wan 2.2 image-to-video adapter for the Editor's I2VGenerator protocol.
 

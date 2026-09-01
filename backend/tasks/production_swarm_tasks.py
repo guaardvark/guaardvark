@@ -521,6 +521,22 @@ def run_editor(prod_id: int, i2v=None, audio_foundry=None, ffmpeg=None):
         if ctx is None:
             return
 
+        # A production may name the video model that renders its shots
+        # (settings_json.video_model, chosen in the create dialog). A model that
+        # declares audio_out renders each scene as one window with its own
+        # soundtrack instead of per-shot silent clips plus TTS.
+        settings = dict(getattr(ctx.production, "settings_json", None) or {})
+        video_model = str(settings.get("video_model") or "").strip()
+        scene_renderer = None
+        vram_estimate_mb = 14000
+        if video_model:
+            from backend.services.video_model_registry import model_capabilities, vram_mb_for_model
+            caps = model_capabilities(video_model)
+            vram_estimate_mb = vram_mb_for_model(video_model, default=14000)
+            if caps.get("audio_out") and (caps.get("supports_i2v") or "ref2v" in caps.get("modes", [])):
+                from backend.services.comfyui_video_generator import MiniMaxH3SceneGenerator
+                scene_renderer = MiniMaxH3SceneGenerator(model=video_model)
+
         if i2v is None:
             # Animate each LoRA-consistent storyboard frame into a clip. Identity
             # rides in the frame either way. Default = Wan 2.2 (chosen over the
@@ -561,6 +577,7 @@ def run_editor(prod_id: int, i2v=None, audio_foundry=None, ffmpeg=None):
             audio_foundry=audio_foundry,
             ffmpeg=ffmpeg,
             video_editor=ve_client,
+            scene_renderer=scene_renderer,
         )
 
         from backend.services.swarm.agents.editor import ShotInput
@@ -598,7 +615,10 @@ def run_editor(prod_id: int, i2v=None, audio_foundry=None, ffmpeg=None):
                 lora_paths=lora_paths,
                 voice_id=voice_id,
                 scene_number=s.scene_number,
-                scene_mood=s.scene_mood
+                scene_mood=s.scene_mood,
+                character_name=(speaker.name if speaker else s.character_name),
+                ref_image_paths=list((speaker.ref_image_paths if speaker else None) or []),
+                character_description=(speaker.description if speaker else None),
             ))
             
         import tempfile
@@ -636,7 +656,7 @@ def run_editor(prod_id: int, i2v=None, audio_foundry=None, ffmpeg=None):
                 render_id,
                 evict_ollama=True,
                 free_comfyui=True,
-                vram_estimate_mb=14000,
+                vram_estimate_mb=vram_estimate_mb,
                 require_fit=True,
                 cross_process=True,
             ):
