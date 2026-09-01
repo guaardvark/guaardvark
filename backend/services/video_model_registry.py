@@ -159,10 +159,18 @@ WAN14B_SPEED_PROFILES = {
     },
 }
 
-# Duration tiers: only the 175-frame tier ships until the 10 s / 15 s runs
-# record a pixel-area cap for each (Phase 0 of the H3 plan). The UI offers a
-# duration only when its tier exists here.
-H3_DURATION_TIERS = [{"frames": 175, "seconds": 7.3, "max_pixel_area": 768 * 1344}]
+# Duration tiers, each measured 2026-09-01 on a 16 GB RTX 40-series card at
+# 864x480 on the turbo-8 profile with a 3 GB reserve: 243 frames (10.1 s)
+# rendered in 237 s at 24.5 s/step, 15.4 GB peak; 362 frames (15.1 s) in
+# 372 s at 38 s/step with the transformer fully offloaded, 13.4 GB peak;
+# both clips stayed coherent to the last frame. The 480p pixel area is the
+# cap for the longer tiers on this card class; 1344x768 ran out of memory
+# even at 124 frames. The UI offers a duration only when its tier exists here.
+H3_DURATION_TIERS = [
+    {"frames": 175, "seconds": 7.3, "max_pixel_area": 768 * 1344},
+    {"frames": 243, "seconds": 10.1, "max_pixel_area": 864 * 480},
+    {"frames": 362, "seconds": 15.1, "max_pixel_area": 864 * 480},
+]
 # Keys shared by every H3 generation entry. `tier_defaults` (per VRAM class)
 # and `speed_profiles` are per variant.
 _H3_COMMON = {
@@ -176,7 +184,7 @@ _H3_COMMON = {
     "cfg": False,
     "native_fps": H3_NATIVE_FPS,
     "frame_rule": H3_FRAME_RULE,
-    "max_frames": 175,
+    "max_frames": 362,
     "min_clip_s": 3.0,
     "max_clip_s": 15.0,
     "duration_tiers": H3_DURATION_TIERS,

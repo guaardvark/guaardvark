@@ -45,7 +45,10 @@ Everything the H3 release can do, wired through the product, on a branch until i
   finished. Same seed and canvas: the 8-step turbo profile 186 s with the subject,
   motion and background intact and slightly softer fur (now the 16 GB starting
   profile); Comfy Kitchen int8 attention 339 s at 15 s per step with frames
-  indistinguishable from PyTorch (opt-in until the other families are compared).
+  indistinguishable from PyTorch (opt-in until the other families are compared). On the
+  turbo profile the 10 s clip took 237 s and the 15 s clip 372 s, both coherent to the
+  end at 480p; those tiers now appear as duration presets. The 1344x768 canvas ran out
+  of memory on 16 GB and is not offered on that class.
 
 ## 2.8.1 — Profiles, extensions, and a bootstrap that converges offline
 

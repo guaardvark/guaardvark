@@ -534,13 +534,22 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         return new_w, new_h
 
     @classmethod
-    def _clamp_pixel_area(cls, width: int, height: int, model: str) -> tuple[int, int]:
-        """Scale (width, height) down to the family's pixel-area budget,
-        preserving aspect ratio. No-op when unbudgeted or already within it."""
+    def _clamp_pixel_area(cls, width: int, height: int, model: str, num_frames: int = 0) -> tuple[int, int]:
+        """Scale (width, height) down to the pixel-area budget, preserving
+        aspect ratio. A registry entry's cap wins over the family table, and
+        an entry that declares duration_tiers caps a longer clip at its tier's
+        measured area (MiniMax H3: 480p beyond ~7 s on 16 GB). No-op when
+        unbudgeted or already within it."""
         cap = None
         try:
             from backend.services.video_model_registry import VIDEO_MODEL_REGISTRY
-            cap = (VIDEO_MODEL_REGISTRY.get(model) or {}).get("max_pixel_area")
+            entry = VIDEO_MODEL_REGISTRY.get(model) or {}
+            cap = entry.get("max_pixel_area")
+            tiers = sorted((t for t in entry.get("duration_tiers") or [] if t.get("frames")), key=lambda t: t["frames"])
+            if tiers and num_frames:
+                tier = next((t for t in tiers if int(num_frames) <= int(t["frames"])), tiers[-1])
+                if tier.get("max_pixel_area"):
+                    cap = min(cap or tier["max_pixel_area"], tier["max_pixel_area"])
         except Exception:  # noqa: BLE001 — never block a render on a registry read
             cap = None
         cap = cap or cls._MAX_PIXEL_AREA_BY_FAMILY.get(cls._model_family(model))
@@ -1675,7 +1684,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                 request.width, request.height, model
             )
             request.width, request.height = self._clamp_pixel_area(
-                request.width, request.height, model
+                request.width, request.height, model, request.duration_frames
             )
             request.width, request.height = self._align_dimensions(
                 request.width, request.height, model

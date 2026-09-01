@@ -58,8 +58,9 @@ export const LTX_DURATION_PRESETS = {
 
 /** HunyuanVideo frame counts must be 4n+1; native 24fps. 73 @ 24fps ≈ 3s (official template). */
 // MiniMax H3 samples on a 17k+5 frame grid at 24 fps; 124 (~5 s) is the
-// official template's default and the low end of the trained range. Longer
-// clips are unmeasured on 16GB, so "long" stops at ~7 s until one is timed.
+// official template's default and the low end of the trained range. The 10 s
+// and 15 s presets come from the registry's duration tiers (measured on a
+// 16 GB card at 480p), appended by durationPresetsFor().
 export const MINIMAX_DURATION_PRESETS = {
   short: { label: "Short", description: "~3 seconds", duration_frames: 73, fps: 24 },
   medium: { label: "Medium", description: "~5 seconds", duration_frames: 124, fps: 24 },
@@ -261,7 +262,7 @@ export const MODEL_OPTIONS = {
     description: "MiniMax H3 — video with native stereo audio in one pass. 24fps, ~5s. T2V, first-frame and first+last-frame I2V. ComfyUI ≥ 0.30.",
     type: "minimax",
     nativeFps: 24,
-    maxFrames: 175,
+    maxFrames: 362,
     // 0.4 MPx is the official template's default (864×480 at 16:9); the native
     // 768×1344 canvas is the cap, not the starting point, on a 16GB card.
     resolution: [864, 480],
@@ -283,7 +284,7 @@ export const MODEL_OPTIONS = {
     description: "MiniMax H3 with the full modulation weights and the int8 encoder. 24GB-class cards; unmeasured.",
     type: "minimax",
     nativeFps: 24,
-    maxFrames: 175,
+    maxFrames: 362,
     resolution: [1344, 768],
     aspectRatios: ["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"],
     defaultSteps: 20,
@@ -299,7 +300,7 @@ export const MODEL_OPTIONS = {
     description: "MiniMax H3 at full precision with the bf16 encoder (~110GB of weights). Workstation cards; unmeasured.",
     type: "minimax",
     nativeFps: 24,
-    maxFrames: 175,
+    maxFrames: 362,
     resolution: [1344, 768],
     aspectRatios: ["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"],
     defaultSteps: 20,
