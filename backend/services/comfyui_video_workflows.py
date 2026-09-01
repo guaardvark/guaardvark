@@ -2122,8 +2122,10 @@ class ComfyUIVideoWorkflowMixin:
         (minimax) + video VAE + audio VAE → MiniMaxH3ImageToVideo (prompt, optional
         first and last frame → conditioning and an empty joint video+audio latent)
         → zero or more MiniMaxH3AddGuide nodes (an image or an audio clip anchored
-        at a frame index; the audio anchor is a condition the model samples the
-        soundtrack against, not a copied track) → BasicGuider (the template runs
+        at a frame index; the audio anchor is a condition, not a copied track,
+        but the model reproduces it almost verbatim: a 4 s narration anchored at
+        frame 0 came back with a 0.91 waveform correlation and a 0.99 envelope
+        correlation, measured 2026-09-01) → BasicGuider (the template runs
         no CFG, so there is no negative prompt and guidance_scale is not a knob)
         → SamplerCustomAdvanced (res_multistep / simple) → VAEDecode +
         VAEDecodeAudio → VHS_VideoCombine with the audio track muxed in.

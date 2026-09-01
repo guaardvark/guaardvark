@@ -48,7 +48,10 @@ Everything the H3 release can do, wired through the product, on a branch until i
   indistinguishable from PyTorch (opt-in until the other families are compared). On the
   turbo profile the 10 s clip took 237 s and the 15 s clip 372 s, both coherent to the
   end at 480p; those tiers now appear as duration presets. The 1344x768 canvas ran out
-  of memory on 16 GB and is not offered on that class.
+  of memory on 16 GB and is not offered on that class. An audio anchor works as a
+  performance track: a 4 s narration anchored at frame 0 came back in the clip's
+  soundtrack with a 0.91 waveform correlation (0.99 on the envelope), rendered in 138 s
+  on the turbo profile.
 
 ## 2.8.1 — Profiles, extensions, and a bootstrap that converges offline
 
