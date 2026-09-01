@@ -54,6 +54,7 @@ except Exception:  # pragma: no cover - defensive
         return {}
 
 from backend.services.comfyui_video_workflows import ComfyUIVideoWorkflowMixin
+from backend.services.video_model_registry import FAMILY_SPECS as _FAMILY_SPECS
 
 
 def _looks_like_blank_video(video_path) -> Optional[str]:
@@ -344,7 +345,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         "minimax-h3-int8": 16,
     }
     # Family floors when an exact id isn't in the table (aliases like "wan22").
-    _FAMILY_MIN_VRAM_GB = {"wan": 16, "cogvideox": 16, "ltx": 16, "hunyuan": 16, "minimax": 16}
+    _FAMILY_MIN_VRAM_GB = {fam: spec["min_vram_gb"] for fam, spec in _FAMILY_SPECS.items()}
 
     # ── Wan 2.2 model mapping ────────────────────────────────────────────────
     # DERIVED from the shared registry (backend/services/video_model_registry.py)
@@ -364,13 +365,8 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
     # the frontend should already snap, this is the defense-in-depth seam for
     # API/MCP/agent callers that go straight to the workflow builders.
     _DIMENSION_ALIGNMENT_BY_FAMILY = {
-        "cogvideox": 16,
-        "wan": 16,
         "svd": 8,
-        "ltx": 32,
-        "hunyuan": 16,
-        # MiniMax H3 node inputs step by 32 (EmptyMiniMaxH3LatentAV).
-        "minimax": 32,
+        **{fam: spec["dimension_alignment"] for fam, spec in _FAMILY_SPECS.items()},
     }
 
     @classmethod
@@ -473,12 +469,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
     # Timeout guard per family: ~1.0 MPx (1280×736) is proven on 16GB cards;
     # 3.7 MPx (1920×1920) never finished on either Wan. Aspect is preserved.
     _MAX_PIXEL_AREA_BY_FAMILY = {
-        "wan": 1_050_000,
-        "ltx": 1_050_000,
-        "hunyuan": 1_050_000,
-        # H3's native canvas caps at 768×1344 (template note); mirrors the
-        # registry's max_pixel_area.
-        "minimax": 768 * 1344,
+        fam: spec["max_pixel_area"] for fam, spec in _FAMILY_SPECS.items() if spec.get("max_pixel_area")
     }
 
     # Ratio presets the UI offers, as width/height. Kept here so a clamp can name

@@ -943,11 +943,14 @@ VIDEO_MODEL_REGISTRY = {
         "modes": _H3_FL2VA_MODES,
         "speed_profiles": H3_FL2VA_SPEED_PROFILES,
         # Per-VRAM-class starting points the Video Generator seeds its controls
-        # from. 16 GB starts at the template's 480p canvas and standard steps;
-        # whether turbo-8 becomes the 16 GB default is decided by the
-        # benchmark's 1-vs-5 comparison, not assumed.
+        # from. 16 GB starts at the template's 480p canvas on the 8-step turbo
+        # profile: measured 2026-09-01 on the same card as vram_mb, 864x480,
+        # 124 frames, the turbo-8 clip finished in 186 s against 390 s at 20
+        # steps with the subject, motion and background intact and fur detail
+        # slightly softer; standard stays one click away. Larger cards start on
+        # the native canvas at standard steps (unmeasured).
         "tier_defaults": {
-            "16": {"width": 864, "height": 480, "speed_profile": "standard", "frames": 124},
+            "16": {"width": 864, "height": 480, "speed_profile": "turbo-8", "frames": 124},
             "24": {"width": 1344, "height": 768, "speed_profile": "standard", "frames": 124},
         },
     },
@@ -1427,6 +1430,57 @@ def i2v_model_for(model_id: str, default: str = "wan22-14b-i2v") -> str:
         if siblings:
             return max(siblings)[1]
     return default
+
+
+# ── Family specs and extension hooks ─────────────────────────────────────────
+# What a family of ComfyUI graphs has in common: alignment, the pixel budget a
+# 16 GB card sustains, the VRAM floor, the latent frame rule, the LoRA slot its
+# loader offers, whether it decodes audio and how it takes guidance. The
+# generator's per-family tables read these; an extension registering a family
+# adds a row here instead of editing those tables.
+FAMILY_SPECS = {
+    "wan": {"dimension_alignment": 16, "max_pixel_area": 1_050_000, "min_vram_gb": 16, "frame_rule": "4n+1",
+            "lora_slot": "model_only", "audio_out": False, "guidance": 3.5},
+    "cogvideox": {"dimension_alignment": 16, "max_pixel_area": None, "min_vram_gb": 16, "frame_rule": "8n+1",
+                  "lora_slot": None, "audio_out": False, "guidance": 6.0},
+    "ltx": {"dimension_alignment": 32, "max_pixel_area": 1_050_000, "min_vram_gb": 16, "frame_rule": "8n+1",
+            "lora_slot": "model_only", "audio_out": False, "guidance": 1.0},
+    "hunyuan": {"dimension_alignment": 16, "max_pixel_area": 1_050_000, "min_vram_gb": 16, "frame_rule": "4n+1",
+                "lora_slot": "model_only", "audio_out": False, "guidance": 6.0},
+    "minimax": {"dimension_alignment": 32, "max_pixel_area": 768 * 1344, "min_vram_gb": 16, "frame_rule": "17k+5",
+                "lora_slot": "model_only", "audio_out": True, "guidance": None},
+}
+
+
+def family_spec(family: str) -> dict:
+    return dict(FAMILY_SPECS.get(family or "") or {})
+
+
+def register_family_spec(family: str, spec: dict, *, replace: bool = False) -> None:
+    """Declare a family an extension brings its own builder for."""
+    if not family or not isinstance(spec, dict):
+        raise ValueError("register_family_spec needs a family name and a spec dict")
+    if family in FAMILY_SPECS and not replace:
+        raise ValueError(f"family '{family}' is already declared; pass replace=True to override")
+    FAMILY_SPECS[family] = dict(spec)
+
+
+def register_video_model(model_id: str, entry: dict, *, replace: bool = False) -> list:
+    """Add a registry entry at runtime (an extension's media_models.py).
+
+    The entry takes the same shape as the ones above; check_files is derived
+    the way _normalize_registry does it, and the registry is re-verified so a
+    broken entry is logged at once. Returns the verification problems."""
+    if not model_id or not isinstance(entry, dict):
+        raise ValueError("register_video_model needs an id and an entry dict")
+    if model_id in VIDEO_MODEL_REGISTRY and not replace:
+        raise ValueError(f"video model '{model_id}' is already registered; pass replace=True to override")
+    VIDEO_MODEL_REGISTRY[model_id] = dict(entry)
+    _normalize_registry()
+    problems = [p for p in verify_registry() if p.startswith(f"{model_id}:")]
+    if problems:
+        logger.error("register_video_model(%s): %s", model_id, "; ".join(problems))
+    return problems
 
 
 # ── Capability contract ──────────────────────────────────────────────────────

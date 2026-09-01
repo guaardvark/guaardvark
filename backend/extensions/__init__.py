@@ -215,6 +215,28 @@ def import_models(exts: Iterable[Extension]) -> dict[str, Optional[str]]:
     return result
 
 
+def register_models(exts: Iterable[Extension]) -> dict[str, Optional[str]]:
+    """Import each extension's optional ``media_models.py`` and call its
+    ``register()``, which adds video model entries and families through
+    ``video_model_registry.register_video_model`` / ``register_family_spec``.
+    Runs after import_models. Returns id -> error."""
+    result: dict[str, Optional[str]] = {}
+    for ext in exts:
+        if not (ext.root / "media_models.py").is_file():
+            continue
+        try:
+            _bind_package(ext)
+            module = importlib.import_module(f"{ext.package}.media_models")
+            register = getattr(module, "register", None)
+            if callable(register):
+                register()
+            result[ext.id] = None
+        except Exception as e:
+            logger.error("extension %s: media models failed to register: %s", ext.id, e, exc_info=True)
+            result[ext.id] = str(e)
+    return result
+
+
 def blueprint_directories(exts: Iterable[Extension]) -> list[tuple[str, str]]:
     """(path, package) pairs for blueprint discovery."""
     dirs: list[tuple[str, str]] = []

@@ -1118,6 +1118,8 @@ def _initialize_app_components(app):
     for _ext_id, _err in _ext.import_models(_extensions).items():
         _ext.record(_ext_id, "models", _err is None, _err)
 
+    for _ext_id, _err in _ext.register_models(_extensions).items():
+        _ext.record(_ext_id, "media_models", _err is None, _err)
     try:
         from backend.tools import initialize_all_tools, get_registered_tools
         tool_registry = initialize_all_tools()

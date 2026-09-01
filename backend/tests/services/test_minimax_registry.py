@@ -1,4 +1,6 @@
 """MiniMax H3 registry contract: download plan, loader map, preflight gate."""
+import pytest
+
 from backend.services import video_model_registry as vmr
 
 MODEL = "minimax-h3-int8"
@@ -174,3 +176,41 @@ def test_verify_registry_catches_a_profile_with_a_bad_floor(monkeypatch):
 
 def test_reference_build_hands_keyframes_to_its_fl2va_sibling():
     assert vmr.i2v_model_for(REF) == MODEL
+
+
+# ── family specs and extension hooks ─────────────────────────────────────────
+
+def test_family_specs_cover_every_generation_family():
+    for fam in vmr.GENERATION_TYPES:
+        spec = vmr.family_spec(fam)
+        assert {"dimension_alignment", "max_pixel_area", "min_vram_gb", "frame_rule", "lora_slot", "audio_out", "guidance"} <= set(spec)
+    assert vmr.family_spec("minimax")["audio_out"] is True and vmr.family_spec("minimax")["guidance"] is None
+    assert vmr.family_spec("nope") == {}
+
+
+def test_register_video_model_verifies_and_can_be_replaced(monkeypatch):
+    entry = {
+        "name": "Example T2V", "description": "test", "hf_repo": "x/y", "local_subdir": "diffusion_models",
+        "files": [{"src": "a.safetensors", "dst": "a.safetensors"}], "size_gb": 1.0, "vram_mb": 8000,
+        "type": "wan", "modes": ["t2v", "warp"],
+    }
+    problems = vmr.register_video_model("example-t2v", entry)
+    try:
+        assert any("unknown mode 'warp'" in p for p in problems)
+        assert vmr.VIDEO_MODEL_REGISTRY["example-t2v"]["check_files"] == ["a.safetensors"]
+        with pytest.raises(ValueError, match="already registered"):
+            vmr.register_video_model("example-t2v", entry)
+        fixed = {**entry, "modes": ["t2v"]}
+        assert vmr.register_video_model("example-t2v", fixed, replace=True) == [
+            "example-t2v: ComfyUI map missing 'clip' (companion/file not resolvable)",
+            "example-t2v: ComfyUI map missing 'vae' (companion/file not resolvable)",
+        ]
+    finally:
+        vmr.VIDEO_MODEL_REGISTRY.pop("example-t2v", None)
+    with pytest.raises(ValueError):
+        vmr.register_family_spec("wan", {})
+    vmr.register_family_spec("example", {"dimension_alignment": 16}, replace=True)
+    try:
+        assert vmr.family_spec("example") == {"dimension_alignment": 16}
+    finally:
+        vmr.FAMILY_SPECS.pop("example", None)

@@ -67,7 +67,12 @@ only when the column is missing, so plain `ALTER TABLE t ADD COLUMN c TYPE` is e
 database. Task types of the vertical's own are registered with
 `backend.services.task_handler_registry.register_task_handler(type, fn)` at import time
 instead of editing the unified task executor. Chat-time awareness uses the existing
-`context_providers` and `knowledge_sources` registries.
+`context_providers` and `knowledge_sources` registries. Video models an extension brings
+are declared in `media_models.py`: its `register()` calls
+`video_model_registry.register_video_model(id, entry)` (the same entry shape core uses, with
+the capability keys the Video Generator, `generate_video` and Film Crew read) and
+`register_family_spec(family, spec)` when the extension also ships a workflow builder for a
+new family. Entries are verified on registration and a broken one is logged by id.
 
 Failures are loud and contained: a broken extension is reported by id in the log and on
 `GET /api/settings/profile`, every other extension still loads, and a declared `url_prefixes`
