@@ -1883,6 +1883,13 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                 logger.info(f"Using CogVideoX image-to-video via ComfyUI")
 
             elif model in self.LTX_MODELS or str(model).startswith("ltx"):
+                # Decode the soundtrack the model sampled only when the entry
+                # says so (registry audio_out); the graph is the same otherwise.
+                from backend.services.video_model_registry import VIDEO_MODEL_REGISTRY as _reg
+                ltx_audio = bool((_reg.get(model) or {}).get("audio_out"))
+                if ltx_audio:
+                    result.has_audio = True
+                    result.metadata["has_audio"] = "1"
                 model_key = model if model in self.LTX_MODELS else (
                     "ltx25-distilled-int8" if str(model).startswith("ltx25")
                     else "ltx23-distilled-fp8"
@@ -1931,6 +1938,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                             seed=seed,
                             fps=request.fps or 16,
                             interpolation_multiplier=interpolation,
+                            audio_out=ltx_audio,
                         )
                         logger.info("Using LTX-2.5 distilled I2V (%s) via ComfyUI", model_key)
                     else:
@@ -1947,6 +1955,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                             seed=seed,
                             fps=request.fps or 16,
                             interpolation_multiplier=interpolation,
+                            audio_out=ltx_audio,
                         )
                         logger.info("Using LTX-2.3 distilled I2V (%s) via ComfyUI", model_key)
                 elif use_ltx25:
@@ -1962,6 +1971,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                         seed=seed,
                         fps=request.fps or 16,
                         interpolation_multiplier=interpolation,
+                            audio_out=ltx_audio,
                     )
                     logger.info("Using LTX-2.5 distilled T2V (%s) via ComfyUI", model_key)
                 else:
@@ -1977,6 +1987,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                         seed=seed,
                         fps=request.fps or 16,
                         interpolation_multiplier=interpolation,
+                            audio_out=ltx_audio,
                     )
                     logger.info("Using LTX-2.3 distilled T2V (%s) via ComfyUI", model_key)
 

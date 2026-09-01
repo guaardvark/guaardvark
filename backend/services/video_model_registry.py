@@ -516,6 +516,10 @@ VIDEO_MODEL_REGISTRY = {
         # gpu_session fit check adds +1024MB margin, and 16000+1024 > ~16376 total
         # falsely blocked VideoGen batches that already rendered via the direct path.
         "vram_mb": 14000,
+        # The model samples an audio latent alongside the video. Decoding it is
+        # wired (audio_out=True mixes it into the clip) but stays off until one
+        # render has been listened to: distilled LTX audio quality is unmeasured.
+        "audio_out": False,
         "type": "ltx",
         "dimension_alignment": 32,
     },
@@ -628,6 +632,10 @@ VIDEO_MODEL_REGISTRY = {
         ],
         "size_gb": 20.03,
         "vram_mb": 14000,
+        # The model samples an audio latent alongside the video. Decoding it is
+        # wired (audio_out=True mixes it into the clip) but stays off until one
+        # render has been listened to: distilled LTX audio quality is unmeasured.
+        "audio_out": False,
         "type": "ltx",
         "dimension_alignment": 32,
     },

@@ -945,6 +945,7 @@ class ComfyUIVideoWorkflowMixin:
         seed: Optional[int] = None,
         fps: float = 16.0,
         interpolation_multiplier: int = 1,
+        audio_out: bool = False,
     ) -> dict:
         """LTX-2.3 distilled T2V — AV-aware core ComfyUI graph.
 
@@ -1072,6 +1073,9 @@ class ComfyUIVideoWorkflowMixin:
             },
         }
 
+        if audio_out:
+            self._add_av_audio_decode(workflow, "13", "4", "15")
+
         if interpolation_multiplier > 1:
             self._add_rife_interpolation(
                 workflow,
@@ -1098,6 +1102,7 @@ class ComfyUIVideoWorkflowMixin:
         fps: float = 16.0,
         interpolation_multiplier: int = 1,
         strength: float = 1.0,
+        audio_out: bool = False,
     ) -> dict:
         """LTX-2.3 distilled I2V — AV concat path with LTXVImgToVideo start frame."""
         if seed is None:
@@ -1224,6 +1229,9 @@ class ComfyUIVideoWorkflowMixin:
             },
         }
 
+        if audio_out:
+            self._add_av_audio_decode(workflow, "15", "4", "17")
+
         if interpolation_multiplier > 1:
             self._add_rife_interpolation(
                 workflow,
@@ -1279,6 +1287,7 @@ class ComfyUIVideoWorkflowMixin:
         seed: Optional[int] = None,
         fps: float = 16.0,
         interpolation_multiplier: int = 1,
+        audio_out: bool = False,
     ) -> dict:
         """LTX-2.5 distilled T2V — official two-stage ComfyUI graph, video-only decode.
 
@@ -1441,6 +1450,9 @@ class ComfyUIVideoWorkflowMixin:
             },
         }
 
+        if audio_out:
+            self._add_av_audio_decode(workflow, "22", "4", "24")
+
         if interpolation_multiplier > 1:
             self._add_rife_interpolation(
                 workflow,
@@ -1466,6 +1478,7 @@ class ComfyUIVideoWorkflowMixin:
         fps: float = 16.0,
         interpolation_multiplier: int = 1,
         strength: float = 1.0,
+        audio_out: bool = False,
     ) -> dict:
         """LTX-2.5 distilled I2V — two-stage stack with LTXVImgToVideo start frame."""
         if seed is None:
@@ -1638,6 +1651,9 @@ class ComfyUIVideoWorkflowMixin:
                 },
             },
         }
+
+        if audio_out:
+            self._add_av_audio_decode(workflow, "24", "4", "26")
 
         if interpolation_multiplier > 1:
             self._add_rife_interpolation(
@@ -2261,6 +2277,26 @@ class ComfyUIVideoWorkflowMixin:
             }
         }
 
+
+    def _add_av_audio_decode(self, workflow: dict, separate_node_id: str, audio_vae_node_id: str,
+                             video_combine_node_id: str) -> str:
+        """Decode the audio half of an LTX AV latent and mux it into the clip.
+
+        LTX-2.3/2.5 sample a joint video+audio latent; the builders separated it
+        and decoded only the video, discarding a soundtrack that was already
+        computed. This inserts LTXVAudioVAEDecode on the separate node's audio
+        output (index 1) and points VHS_VideoCombine's ``audio`` at it, the way
+        the official templates feed CreateVideo. RIFE and the upscaler only
+        rewire ``images``, so the audio survives them. Returns the new node id.
+        """
+        existing = [int(k) for k in workflow if str(k).isdigit()]
+        node_id = str(max(existing) + 1)
+        workflow[node_id] = {
+            "class_type": "LTXVAudioVAEDecode",
+            "inputs": {"samples": [separate_node_id, 1], "audio_vae": [audio_vae_node_id, 0]},
+        }
+        workflow[video_combine_node_id]["inputs"]["audio"] = [node_id, 0]
+        return node_id
 
     def _add_rife_interpolation(
         self,
